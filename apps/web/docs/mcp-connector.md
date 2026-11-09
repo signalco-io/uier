@@ -298,6 +298,10 @@ status or assignment changes as messages. It does not acknowledge read state.
 
 `link_feedback_pull_request` attaches a canonical supported PR URL through the shared thread mutation service. It requires `feedback:assign`: attaching work belongs with assignment metadata and needs no reply/status authority. Current project triage and thread visibility are rechecked on each write. URL identity makes retries naturally idempotent without a receipt key; ownership and activity remain unchanged on duplicate calls. Its result exposes URLs, never linker ids.
 
+A thread posted from the toolbar's Accessibility or SEO panel has `check: { type, id }` (`accessibility`,
+`seo` or `web-vitals`, and the rule or check id) in `list_feedback`, in the packets of `get_feedback` and
+`get_feedback_batch` and in event payloads ([page checks](../../../docs/feedback-context.md#page-checks)).
+
 Custom feedback kinds are stable `custom_<id>` values. `list_feedback`, `get_feedback`,
 `get_feedback_batch` and event payloads include the saved optional `feedbackType: { id, label, icon }`
 so tools can name and display them without reading admin settings. The display snapshot remains

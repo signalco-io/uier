@@ -301,6 +301,7 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
         number: await store.nextCommentNumber(context.domain),
         kind: input.kind,
         ...(feedbackType ? { feedbackType } : {}),
+        ...(input.check ? { check: input.check } : {}),
         thread: { items: [firstItem] },
         device: compactDevice(input.device),
         resolved: false,

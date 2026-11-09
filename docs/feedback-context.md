@@ -103,3 +103,13 @@ thread snapshot. The label and curated icon key describe the type when the threa
 even when it is later renamed, disabled or no longer in the project's effective settings.
 Markdown prints the name, ID and icon as literal inline values. Placeholders and enabled/disabled
 settings are not exported. Existing built-in kinds and their packet formatting are unchanged.
+
+## Page checks
+
+A thread posted from the toolbar's Accessibility or SEO panel carries `check: { type, id }`: `type`
+is `accessibility`, `seo` or `web-vitals`, `id` the axe-core rule or the check (`image-alt`,
+`canonical`, `lcp`). The browser sends it with the comment and the API keeps only those two fields
+(`commentCheck` in `@uier/toolbar/feedback-types`). Markdown adds one line after the priority,
+`Page check: Accessibility (image-alt)`, with the id as a literal inline value. Other threads and
+older packets have no `check`, and their Markdown is unchanged. The thread's text holds what was
+found; `check` is for grouping and matching, such as finding the same rule again.

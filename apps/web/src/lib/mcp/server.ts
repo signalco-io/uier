@@ -1,4 +1,4 @@
-import { feedbackTypeSnapshot } from '@uier/toolbar/feedback-types';
+import { commentCheck, feedbackTypeSnapshot } from '@uier/toolbar/feedback-types';
 import { setProjectCommentPullRequest } from '../review/pullRequests';
 import { changeFixVerification, verificationDetails } from '../review/fixVerification';
 import { feedbackStage, feedbackStatusTargets } from '@uier/toolbar/verification';
@@ -137,7 +137,8 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
             .map(comment => {
                 const first = comment.thread.items[0];
                 const { path, source, assignee, assignees, activity } = projectCommentRouting(comment, project, participants, authorId, reads.get(comment.id));
-                return { verification: verificationDetails(comment, project, actor, participants), id: comment.id, number: comment.number, kind: comment.kind ?? 'comment', ...(feedbackTypeSnapshot(comment.feedbackType, comment.kind) ? { feedbackType: feedbackTypeSnapshot(comment.feedbackType, comment.kind) } : {}), priority: commentPriority(comment.priority), resolved: Boolean(comment.resolved), stage: feedbackStage(comment), private: Boolean(comment.private),
+                return { verification: verificationDetails(comment, project, actor, participants), id: comment.id, number: comment.number, kind: comment.kind ?? 'comment', ...(feedbackTypeSnapshot(comment.feedbackType, comment.kind) ? { feedbackType: feedbackTypeSnapshot(comment.feedbackType, comment.kind) } : {}),
+                    ...(commentCheck(comment.check) ? { check: commentCheck(comment.check) } : {}), priority: commentPriority(comment.priority), resolved: Boolean(comment.resolved), stage: feedbackStage(comment), private: Boolean(comment.private),
                     title: threadTitle(comment, titles)?.text, summary: first?.deletedAt ? 'Comment deleted' : first?.text.slice(0, 240), updatedAt: comment.updatedAt,
                     path, environment: { id: source.environment, label: source.label }, anchorType: comment.position.type, assignee: assignee ?? null, assignees,
                     authorKind: first && !first.deletedAt ? first.authorId?.startsWith('user:') ? 'member' : 'guest' : undefined,

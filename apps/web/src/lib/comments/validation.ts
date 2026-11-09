@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { feedbackTypeIdSchema } from '../app/feedbackTypeSchema';
 import { maxPageKeyLength } from '@uier/toolbar/page-state';
+import { commentCheckIdPattern, commentCheckTypes } from '@uier/toolbar/feedback-types';
 import { feedbackStatusTargets } from '@uier/toolbar/verification';
 import { pageLanguagePattern } from '@uier/toolbar/devices';
 import { MAX_SCREENSHOT_DATA_URL_LENGTH, parseScreenshot, sanitizeScreenshot } from './screenshot';
@@ -168,6 +169,9 @@ export type ReattachAnchorInput = z.infer<typeof reattachAnchorSchema>;
  */
 export const kindSchema = z.union([z.enum(['comment', 'rewrite']), feedbackTypeIdSchema]);
 
+/** The page check a comment was posted from: a known kind of check and its rule or check id, nothing else */
+export const checkSchema = z.object({ type: z.enum(commentCheckTypes), id: z.string().regex(commentCheckIdPattern) }).strict();
+
 const windowDimensionSchema = z.int().min(0).max(MAX_WINDOW_DIMENSION);
 // Control and format characters (zero-width, bidirectional) never belong in a browser or model name
 const deviceLabelSchema = z.string().transform(label => label.replace(/[\p{Cc}\p{Cf}]/gu, ' ').replace(/\s+/g, ' ').trim())
@@ -224,6 +228,7 @@ export const createCommentSchema = z.object({
     kind: kindSchema.default('comment'),
     text: textSchema,
     quotedText: quotedTextSchema.optional(),
+    check: checkSchema.optional(),
     device: deviceSchema.optional(),
     screenshot: screenshotSchema.optional()
 }).refine(

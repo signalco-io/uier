@@ -67,6 +67,8 @@ test('the Accessibility panel loads axe-core only when opened, audits the page w
     await expect(panel.locator('[data-uier-summary="serious"] dd')).toHaveText(String(await elementCount('serious')));
     // A line every element of a rule shares is said once, under its title, not on the element
     await expect(imageRule).toContainText('Element does not have an alt attribute');
+    // The rule's row names the success criterion it tests
+    await expect(imageRule).toContainText('WCAG 1.1.1 (A)');
     await expect(imageRule.getByRole('listitem').filter({ hasText: 'img#plan-chart' })).not.toContainText('alt attribute');
 
     // Highlight outlines the element on the page
@@ -82,7 +84,10 @@ test('the Accessibility panel loads axe-core only when opened, audits the page w
     const created = nextCreate(page, project);
     await item.getByRole('button', { name: 'Comment' }).click();
     const body = (await created).postDataJSON();
-    expect(body.text).toMatch(/^Accessibility \(critical\): Images must have alternative text\.\nRule image-alt: https:\/\/dequeuniversity\.com\/rules\/axe\/[\d.]+\/image-alt$/);
+    // The comment says what was found on the element, the standard and the rule; the request names the check
+    expect(body.text).toMatch(/^Accessibility \(critical\): Images must have alternative text\.\nElement: `#plan-chart`\nFix any of the following:\n- Element does not have an alt attribute\n(?:- .+\n)*\nWCAG 1\.1\.1 \(A\)\. Rule image-alt: https:\/\/dequeuniversity\.com\/rules\/axe\/[\d.]+\/image-alt$/);
+    expect(body.text.length).toBeLessThanOrEqual(1000);
+    expect(body.check).toEqual({ type: 'accessibility', id: 'image-alt' });
     expect(body.position).toMatchObject({ type: 'point', xNormal: 0.5, yNormal: 0.5 });
     expect(body.position.selector).toContain('plan-chart');
     expect(body.kind).toBeUndefined();
@@ -161,6 +166,7 @@ test('the SEO panel reports the head, headings, links, images and Core Web Vital
     let body = (await created).postDataJSON();
     expect(body).toMatchObject({ kind: 'bug', position: { type: 'page' }, authorName: 'Search reviewer' });
     expect(body.text).toBe('SEO: The page has no meta description. Search results may show any text from the page.');
+    expect(body.check).toEqual({ type: 'seo', id: 'description' });
     expect(body.screenshot).toMatch(/^data:image\//);
     await expect(check('description')).toContainText(/Bug report sent as #1/);
     await expect(panel.getByRole('textbox', { name: 'Your name' })).toBeHidden();
@@ -170,7 +176,9 @@ test('the SEO panel reports the head, headings, links, images and Core Web Vital
     await check('levels').getByRole('button', { name: 'Comment' }).focus();
     await page.keyboard.press('Enter');
     body = (await created).postDataJSON();
-    expect(body.text).toBe('SEO: This h3 comes after an h1, skipping a level.');
+    // What was found is in the comment, as code
+    expect(body.text).toBe('SEO: This h3 comes after an h1, skipping a level.\nHeading: `Plans in detail`');
+    expect(body.check).toEqual({ type: 'seo', id: 'levels' });
     expect(body.position.selector).toContain('h3');
     await expect(check('levels')).toContainText(/Comment posted as #2/);
     await expect(check('levels').getByRole('button', { name: 'Show' })).toBeFocused();

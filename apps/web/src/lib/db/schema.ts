@@ -215,6 +215,8 @@ export type DbComment = {
     kind?: DbCommentKind;
     /** Server-captured custom type display, retained even after settings change. */
     feedbackType?: import('@uier/toolbar/feedback-types').FeedbackTypeSnapshot;
+    /** The page check it was posted from (the toolbar's Accessibility and SEO panels), as the browser sent it; read through `commentCheck` */
+    check?: import('@uier/toolbar/feedback-types').CommentCheck;
     thread: { items: DbThreadItem[] };
     /**
      * Project comments: the thread's title, written by AI from its first message after it was saved

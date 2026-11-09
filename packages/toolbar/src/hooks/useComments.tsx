@@ -50,6 +50,8 @@ export type CreateCommentInput = {
     text: string;
     mentions?: Mention[];
     quotedText?: string;
+    /** The page check it was posted from (the Accessibility and SEO panels' quick action) */
+    check?: import('../feedbackTypes').CommentCheck;
     device?: CommentDeviceInfo;
     /** A screenshot of the commented part of the page, a data URL (see src/screenshot.ts); awaited while sending */
     screenshot?: string | Promise<string | undefined>;
@@ -114,7 +116,7 @@ function optimisticComment(path: string, input: CreateCommentInput, authorName: 
     const createdAt = new Date().toISOString();
     const id = input.localId ?? newLocalId();
     return {
-        id, path, position: input.position, kind: input.kind ?? 'comment', feedbackType: input.feedbackType, pending: true,
+        id, path, position: input.position, kind: input.kind ?? 'comment', feedbackType: input.feedbackType, check: input.check, pending: true,
         thread: { items: [{ id: `${id}-0`, text: input.text, mentions: input.mentions, quotedText: input.quotedText, author: { name: authorName, isMe: true }, createdAt, canDelete: false, canEdit: false, pending: true }] },
         device: input.device && { size: input.device.size, windowSize: input.device.windowSize },
         resolved: false, isMine: true, createdAt,
@@ -165,10 +167,10 @@ function sourcePath(path: string, policy: PageStatePolicy) {
     return source !== path ? source : undefined;
 }
 
-async function createComment(path: string, policy: PageStatePolicy, { idempotencyKey, position, kind, text, mentions, quotedText, device, screenshot }: CreateCommentInput) {
+async function createComment(path: string, policy: PageStatePolicy, { idempotencyKey, position, kind, text, mentions, quotedText, check, device, screenshot }: CreateCommentInput) {
     return required(await apiRequest<CommentItem>(commentsApiUrl, {
         method: 'POST',
-        body: { idempotencyKey, path, sourcePath: sourcePath(path, policy), position, kind, text, mentions, quotedText, device: device && await completeDeviceInfo(device), screenshot: await screenshot, authorName: guestAuthorName(), queryKeys: queryKeys(path) }
+        body: { idempotencyKey, path, sourcePath: sourcePath(path, policy), position, kind, text, mentions, quotedText, check, device: device && await completeDeviceInfo(device), screenshot: await screenshot, authorName: guestAuthorName(), queryKeys: queryKeys(path) }
     }));
 }
 
