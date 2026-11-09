@@ -162,3 +162,18 @@ team/access queries (the shared snapshot plus the integration-link service's ind
 These are service-operation counts from equivalent fixtures, not measured Cosmos RU, network
 latency, or production savings. The browser regression independently verifies that four unchanged
 minute checks make no shell RSC request and the fifth minute makes exactly one.
+
+### Client navigation continuity
+
+Account sections, sidebar projects, project settings, workspace tabs and breadcrumbs use Next.js
+links. The Open review menu's Review setup item does too. Query-only tabs intentionally disable
+prefetch because their content is already rendered; this does not force a document navigation.
+Workspace selection/creation and other server-action redirects stay within the App Router.
+`e2e/app-navigation.spec.ts` checks a window marker, the original toolbar host and the original
+pill across these routes and Back/Forward, including Review setup.
+
+Full navigation remains intentional for OAuth provider connect/link routes (HTTP handlers mint
+state and redirect to the provider), coding-tool return URLs, review links (single-use codes and a
+new tab on the reviewed site), external sites and downloads. Sign-out keeps its session-ending
+server action and redirect. Crossing between marketing and `/app` keeps the document-policy
+boundary: CSP and COOP belong to a document and must change together.

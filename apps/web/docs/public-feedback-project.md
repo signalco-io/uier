@@ -34,3 +34,7 @@ on every showcase request; the cached provisioning result is not current access 
 activity and both read routes share `comments/visibility.ts`, including legacy `/app` threads
 without a private flag. Migration marks copied `/app` threads private. Guest comments are not
 automatically reassigned on sign-in.
+
+The app's on-demand feedback toolbar keeps its host and pill across client navigation, including
+Account sections. Its page-specific composers reset while saved drafts remain scoped to their
+original page. See [client navigation continuity](app-shell.md#client-navigation-continuity).

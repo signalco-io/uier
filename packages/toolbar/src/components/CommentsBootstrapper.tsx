@@ -40,7 +40,7 @@ function ReviewLayer({
     return (
         <CommentsBootstrapperContext.Provider value={context}>
             <DraftsProvider key={draftScope}>
-                <CommentsGlobal key={path} mode={mode} review={publicReview} rootElement={rootElement} onExitReview={onExitReview} />
+                <CommentsGlobal mode={mode} review={publicReview} rootElement={rootElement} onExitReview={onExitReview} />
             </DraftsProvider>
         </CommentsBootstrapperContext.Provider>
     );

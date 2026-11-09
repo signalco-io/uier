@@ -53,3 +53,7 @@ immediate updates, rollback, persistence and background feedback submission on d
 and that the open thread and the filters follow clicks and Back while a write is held; it also holds a
 settings section's page to check where that link's spinner sits, and refuses the projects list's round
 trips to check that Active and Done switch at once, with no spinner, through Back, Forward and reload.
+
+Client navigation keeps the embedded toolbar pill mounted; only its page-specific review state
+resets. See [client navigation continuity](app-shell.md#client-navigation-continuity) for the
+navigation audit, deliberate document boundaries and regression coverage.

@@ -1,5 +1,5 @@
 import { runtimeAdapters } from '../adapters';
-import { UseMutationResult, UseQueryResult, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { UseMutationResult, UseQueryResult, useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { toolbarConfig } from '../config';
 import { apiRequest, clearReviewerCache, commentsQueryKeyPrefix, projectViewerQueryKey, visitorQueryKey, pageVisitorQueryKey } from './api';
 import { activityQueryKey } from './useComments';
@@ -53,7 +53,10 @@ export function useVisitor({ onSignedOut }: { onSignedOut?: () => void } = {}): 
     const path = usePagePath();
     const query = useQuery({
         queryKey: pageVisitorQueryKey(path),
-        queryFn: () => getVisitor(path)
+        queryFn: () => getVisitor(path),
+        // A new page still belongs to this document's reviewer. Keep the layer mounted
+        // during its path-specific lookup; server requests always recheck authorization.
+        placeholderData: keepPreviousData
     });
 
     const signOutMutation = useMutation({
