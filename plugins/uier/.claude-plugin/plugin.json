@@ -1,0 +1,26 @@
+{
+  "name": "uier",
+  "version": "0.1.0",
+  "description": "Connect website feedback to your coding agent, with skills to monitor a uier project and carry fixes through review and deployment.",
+  "author": {
+    "name": "signalco",
+    "email": "contact@signalco.io",
+    "url": "https://signalco.io"
+  },
+  "homepage": "https://uier.io",
+  "repository": "https://github.com/signalco-io/uier",
+  "license": "AGPL-3.0-only",
+  "keywords": [
+    "website",
+    "feedback",
+    "review",
+    "coding-agents",
+    "mcp"
+  ],
+  "displayName": "uier",
+  "icon": "./assets/icon.png",
+  "documentationUrl": "https://github.com/signalco-io/uier/blob/main/docs/agent-plugins.md",
+  "supportUrl": "https://github.com/signalco-io/uier/issues",
+  "privacyPolicyUrl": "https://uier.io/legal/privacy-policy",
+  "termsOfServiceUrl": "https://uier.io/legal/terms-of-service"
+}

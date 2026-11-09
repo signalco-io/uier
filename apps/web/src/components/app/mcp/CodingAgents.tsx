@@ -19,7 +19,7 @@ const link = 'underline underline-offset-4 hover:text-foreground';
 
 /**
  * Account → Coding agents: the connected apps, connecting a coding tool (browser sign-in where it is
- * verified), access tokens for environments without a browser, and the prompts and skill. One card each.
+ * verified), optional repository plugins, access tokens, and the prompts and skill. One card each.
  */
 export function CodingAgents({ endpoint, apps, projects, credentials }: {
     endpoint: string;
@@ -30,10 +30,42 @@ export function CodingAgents({ endpoint, apps, projects, credentials }: {
     return (
         <section aria-label="Coding agents" className="flex flex-col gap-6">
             <ConnectedApps apps={apps} />
+            <PluginSetup />
             <ClientSetup endpoint={endpoint} />
             <AccessTokens projects={projects} credentials={credentials} />
             <PromptsAndSkill />
         </section>
+    );
+}
+
+/** Both repository marketplaces install the same skills and the public uier MCP connector. */
+function PluginSetup() {
+    return (
+        <Section id="plugins" title="Install the uier plugin"
+            description="Get the MCP connector and the uier-monitor skills together for Claude Code or Codex.">
+            <div className="flex flex-col gap-4 text-sm">
+                <Tabs defaultValue="claude-plugin" className="gap-4">
+                    <TabsList aria-label="Plugin client" variant="line" className="h-auto! max-w-full flex-wrap">
+                        <TabsTrigger value="claude-plugin" className="min-h-11"><AgentMark kind="claude" />Claude Code plugin</TabsTrigger>
+                        <TabsTrigger value="codex-plugin" className="min-h-11"><AgentMark kind="codex" />Codex plugin</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="claude-plugin" className="flex flex-col gap-3">
+                        <p className="m-0">Run these commands in a Claude Code session:</p>
+                        <CopyBlock value={'/plugin marketplace add signalco-io/uier\n/plugin install uier@uier'} label="Copy Claude Code plugin commands" />
+                        <p className="m-0 text-muted-foreground">Run <code>/mcp</code> and authenticate the plugin’s uier connection. Then use <code>/uier:uier-monitor &lt;project&gt;</code> when you want it to monitor a project.</p>
+                        <a className={cn(link, 'self-start')} href="https://code.claude.com/docs/en/plugins/publish#publish-through-your-own-marketplace" target="_blank" rel="noreferrer">Claude Code plugin documentation</a>
+                    </TabsContent>
+                    <TabsContent value="codex-plugin" className="flex flex-col gap-3">
+                        <p className="m-0">Run these commands in your terminal:</p>
+                        <CopyBlock value={'codex plugin marketplace add signalco-io/uier\ncodex plugin add uier@uier'} label="Copy Codex plugin commands" />
+                        <p className="m-0 text-muted-foreground">Start a new session and follow the plugin’s sign-in flow. Ask Codex to use uier-monitor for your project. If your client cannot complete plugin sign-in, use the access-token setup under Connect a coding tool below.</p>
+                        <a className={cn(link, 'self-start')} href="https://learn.chatgpt.com/docs/developer-commands#codex-plugin" target="_blank" rel="noreferrer">Codex plugin documentation</a>
+                    </TabsContent>
+                </Tabs>
+                <p className="m-0 text-muted-foreground">The plugin connects to <code>https://uier.io/api/mcp</code>. Installing it starts no monitor. Invoking uier-monitor approves its workflow for comments in scope, including fixes, merges and replies. Keep one uier connection enabled if you already added it manually.</p>
+                <a className={cn(link, 'self-start')} href="https://github.com/signalco-io/uier/blob/main/docs/agent-plugins.md" target="_blank" rel="noreferrer">Plugin setup and permissions</a>
+            </div>
+        </Section>
     );
 }
 

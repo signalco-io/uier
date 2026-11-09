@@ -1,0 +1,20 @@
+{
+  "name": "uier",
+  "interface": {
+    "displayName": "uier"
+  },
+  "plugins": [
+    {
+      "name": "uier",
+      "source": {
+        "source": "local",
+        "path": "./plugins/uier"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

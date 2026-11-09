@@ -17,6 +17,9 @@ was left from, with a screenshot when capture succeeds.
 | Check a fix | Request verification: the thread is Ready to verify until an eligible reviewer confirms the fix |
 | Bring context to a coding tool | Copy issue and an authenticated [MCP connection](docs/mcp.md) ([overview](https://uier.io/features/ai)) |
 
+For Claude Code or Codex, [install the uier plugin](docs/agent-plugins.md) from this repository's
+marketplace. It includes the MCP connector and skills to monitor a project's feedback through fixes.
+
 ## Pricing
 
 Every feature available today is free and will stay free forever. If we introduce pricing, it will

@@ -72,8 +72,16 @@ jobs:
               - ".github/workflows/ci.yml"
               - ".github/workflows/pulumi_reusable.yml"
             skills:
+              - "plugins/**"
+              - ".claude-plugin/**"
+              - ".agents/plugins/**"
+              - ".agents/skills/uier-monitor*"
               - ".claude/skills/uier-monitor/**"
               - ".claude/skills/uier-monitor-script/**"
+              - ".claude/skills/uier-monitor*"
+              - ".github/scripts/agent-plugins*"
+              - "LICENSE"
+              - "apps/web/public/android-chrome-192x192.png"
               - ".github/workflows/ci.yml"
 
   web:
@@ -283,11 +291,13 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      # The uier-monitor-script skill carries a copy of monitor.mjs; it must match the source.
-      - name: Check the uier monitor skill
+      # Skills are single-sourced in the plugin; adapters and the fallback script are generated.
+      - name: Check the uier agent plugin
         run: |
-          node --check .claude/skills/uier-monitor/scripts/monitor.mjs
-          node .claude/skills/uier-monitor/scripts/build-script-skill.mjs --check
+          node .github/scripts/agent-plugins.mjs --check
+          node --check plugins/uier/skills/uier-monitor/scripts/monitor.mjs
+          node plugins/uier/skills/uier-monitor/scripts/build-script-skill.mjs --check
+          node --test .github/scripts/agent-plugins.test.mjs plugins/uier/skills/uier-monitor/scripts/monitor.test.mjs
 
   ci-ok:
     # Single required status check: fails if any job failed or was cancelled; skipped jobs are fine.

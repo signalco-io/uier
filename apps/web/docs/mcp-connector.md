@@ -70,10 +70,11 @@ OAuth rules (`src/lib/mcp/oauth/`, `app/api/oauth/`):
   tool sign-in" control describe these records, lifetimes and limits. Change them, and `docs/mcp.md`,
   with any change to what `src/lib/mcp/oauth/` stores or how long.
 
-Account → Coding agents (`src/components/app/mcp/CodingAgents.tsx`, one region named Coding agents) is four
+Account → Coding agents (`src/components/app/mcp/CodingAgents.tsx`, one region named Coding agents) is five
 `Section` cards: **Connected apps** (one row per OAuth grant, an allowlisted `connectedAppView`, Revoke through an
 `AlertDialog`; with none, an `Empty` state links to the setup card at `#connect`), **Connect a coding tool** (the
-endpoint, then numbered steps in a tab per client, each tab with its agent's mark, and Other clients), collapsed
+endpoint, then numbered steps in a tab per client, each tab with its agent's mark, and Other clients),
+**Install the uier plugin** (separate Claude Code/Codex plugin tabs with marketplace and install commands), collapsed
 **Access tokens** (the shadcn `Field` form; its state lives above the collapsible, so a secret shown once stays on
 screen when the card is closed and opened again) and **Prompts and agent skill**. Connected apps and access tokens
 share one row, `ConnectionItem` in `ConnectionSummary.tsx`: the agent's `AgentAvatar`, the name and where it comes
@@ -233,6 +234,15 @@ that expands a bearer header into saved settings. Clients must inherit the envir
 current docs and a reachable
 deployed endpoint; record exact checks in the PR and omit clients whose connections cannot be verified.
 Do not relax the Origin check or deployment protection to make a client connect.
+The optional plugin card installs the shared package from this repository, using
+`/plugin marketplace add signalco-io/uier` and `/plugin install uier@uier` in Claude Code,
+or `codex plugin marketplace add signalco-io/uier` and `codex plugin add uier@uier` in a terminal.
+It includes `uier-monitor` and `uier-monitor-script` and points to the public
+endpoint, with no credentials; OAuth/DCR use server discovery. It starts no monitor on installation, explains the monitor's
+standing approval, duplicate-connection handling and the existing token fallback for Codex.
+This package declaration does not promote Codex or hosted clients to verified OAuth acceptance;
+the manual setup tabs retain their acceptance rules. See [plugin packaging](../../../docs/agent-plugins.md)
+and [directory submission material](../../../docs/agent-plugin-submissions.md).
 Offer OAuth for a client only after live acceptance against a deployed endpoint (discovery, consent,
 the return to the client, a refresh after an hour, revoke and reconnect), recorded in the PR with the
 deployment, client version and date. Claude (web, desktop and mobile), Codex, Cursor and VS Code are

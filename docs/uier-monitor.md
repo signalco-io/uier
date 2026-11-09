@@ -16,9 +16,12 @@ Add `status` to see where things stand, or `stop` to stop watching. Running it a
 the saved state. In Codex, ask it to use the uier-monitor skill for the project. Other options
 (`max=`, `scope=`, `also=`, provider instances) are listed in the skill.
 
-The skill is in `.claude/skills/uier-monitor/`, and Codex finds it through `.agents/skills/`. To use it
-with another repository, link `uier-monitor` and `uier-monitor-script` into `~/.claude/skills/` and
-`~/.codex/skills/`.
+The skills live in `plugins/uier/skills/`, with repository discovery aliases in `.claude/skills/`
+and `.agents/skills/`. For another repository, [install the uier plugin](agent-plugins.md) from
+this repository's Claude Code or Codex marketplace. It includes both skills and the MCP connector.
+The installed Claude Code command is `/uier:uier-monitor <project>`; in Codex ask it to use
+uier-monitor for the project. Installing the plugin starts no monitoring; invoking the monitor
+grants the scope described in the skill. Manual skill links remain an option.
 
 ### The watcher's access token
 
@@ -131,14 +134,16 @@ The skill reads this section at start. It takes precedence over what the skill d
 
 ## Changing the skill
 
-Edit `.claude/skills/uier-monitor/SKILL.md` and `scripts/monitor.mjs`. After a change to the script,
+Edit `plugins/uier/skills/uier-monitor/SKILL.md` and its `scripts/monitor.mjs`. After a change to the script,
 bump `VERSION` in it and `MONITOR_VERSION` in `SKILL.md`, then run:
 
 ```bash
-node .claude/skills/uier-monitor/scripts/build-script-skill.mjs
+node plugins/uier/skills/uier-monitor/scripts/build-script-skill.mjs
 ```
 
 It rewrites the `uier-monitor-script` skill, which carries a copy of the script for installs without
-the scripts folder. CI fails when that copy is out of date.
+the scripts folder. CI fails when that copy is out of date. The historical `.claude/skills/`
+paths still resolve to these files. For plugin adapters, catalogs and releases, see
+[maintain and validate](agent-plugins.md#maintain-and-validate).
 
 When a fix session opens a PR, Session results step 3 immediately calls uier `link_feedback_pull_request` for every fixed item before review or CI. The orchestrator needs `feedback:assign`; retries use the same canonical URL. T3 PR linking alone does not attach a PR in uier. Failed attachments remain recorded for retry.

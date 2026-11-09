@@ -24,6 +24,15 @@ project codes, guest ids, review links and app cookies cannot authorize MCP.
 The design record, the decisions behind it and where the code differs from the plan are in the
 [MCP OAuth plan](mcp-oauth-plan.md).
 
+## Agent plugins
+
+For Claude Code or Codex, [install the uier plugin](agent-plugins.md) from this repository's
+marketplace to get the connector with the `uier-monitor` and `uier-monitor-script` skills.
+Account → Coding agents includes both install commands and the standalone connection options
+below. Installing the plugin starts no monitor; invoking uier-monitor approves its documented
+workflow for comments in scope. Public directory listings are separate from repository installation;
+see the [prepared submission material](agent-plugin-submissions.md).
+
 ## Connect Claude Code
 
 ```bash
