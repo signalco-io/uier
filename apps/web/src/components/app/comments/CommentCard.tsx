@@ -443,7 +443,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                         )}
                         {comment.private && (
                             <Tooltip>
-                                <TooltipTrigger render={<Badge variant="secondary" tabIndex={0} className="cursor-default outline-none" />}>
+                                {/* No background, so it sits quietly beside the number; the lock and the tooltip carry it */}
+                                <TooltipTrigger render={<Badge variant="ghost" tabIndex={0} className="cursor-default text-muted-foreground outline-none hover:bg-transparent dark:hover:bg-transparent" />}>
                                     <LockIcon aria-hidden="true" data-icon="inline-start" />
                                     Private
                                     <span className="sr-only">. {privateHint}</span>
