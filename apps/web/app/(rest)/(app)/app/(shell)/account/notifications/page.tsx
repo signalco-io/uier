@@ -28,7 +28,7 @@ export default async function AccountNotificationsPage() {
                     <ul className="m-0 flex list-none flex-col divide-y p-0" aria-label="Projects">
                         {projects.map((project, index) => (
                             <li key={project.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-                                <ProjectMark name={project.name} url={project.urls[0]} />
+                                <ProjectMark name={project.name} projectId={project.id} url={project.urls[0]} />
                                 <Link href={KnownPageLinks.projectSettings(project.id, 'notifications')} className="min-w-0 flex-1 truncate text-sm font-medium hover:underline hover:underline-offset-4">
                                     {project.name}
                                 </Link>

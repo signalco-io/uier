@@ -229,15 +229,26 @@ function linkParts(link: Locator) {
 
 // uier #44: favicons are drawn for 16 px, so the sidebar shows them at that size, in the column of the page icons
 test('the sidebar shows project favicons at 16 px with names in line with the pages above', async ({ page, isMobile }) => {
-    // The browser loads a favicon from the project's own site over HTTPS: one site has one, the other none.
-    // Any path: the server render preloads `/favicon.ico` through a Link header, which routing does not see
-    await page.route('https://icon.example.com/**', route => route.fulfill({ contentType: 'image/svg+xml',
-        body: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect width="16" height="16" rx="3"/></svg>' }));
-    await page.route('https://letter.example.com/**', route => route.fulfill({ status: 404 }));
+    // uier #47: uier's server finds the icon (e2e/support/siteIconsStub.ts): icon.example.com redirects to a
+    // sign-in page that declares an SVG at its own path and has no /favicon.ico; letter.example.com has no icon.
+    // The browser never contacts the sites.
+    const siteRequests: string[] = [];
+    page.on('request', request => { if (/(^|\.)example\.com$/.test(new URL(request.url()).hostname)) siteRequests.push(request.url()); });
     await signIn(page, uniqueEmail('project-icons'));
     await createProject(page, { urls: ['icon.example.com'], name: 'Icon' });
     await createProject(page, { urls: ['letter.example.com'], name: 'Letter' });
     await page.goto('/app/projects');
+
+    // The project's card on the projects list, where uier #47 was reported
+    const card = page.getByRole('list', { name: 'Active projects' }).getByRole('listitem')
+        .filter({ has: page.getByRole('link', { name: 'Icon', exact: true }) });
+    await expect(card.locator('img')).toBeVisible();
+    await expect(card.locator('img')).toHaveAttribute('src', /^\/api\/projects\/[a-z0-9]{12}\/icon\?site=https%3A%2F%2Ficon\.example\.com$/);
+    // The site's SVG never runs as a uier.io page, also behind the app's own page policy
+    const served = await page.request.get((await card.locator('img').getAttribute('src'))!);
+    expect(served.headers()).toMatchObject({ 'content-type': 'image/svg+xml', 'content-disposition': 'attachment; filename="icon"',
+        'cache-control': 'private, max-age=86400',
+        'content-security-policy': 'default-src \'none\'; style-src \'unsafe-inline\'; sandbox' });
     const navigation = await appNavigation(page);
     const projects = navigation.getByRole('link', { name: 'Projects', exact: true });
     const withFavicon = navigation.getByRole('link', { name: 'Icon', exact: true });
@@ -280,4 +291,5 @@ test('the sidebar shows project favicons at 16 px with names in line with the pa
         expect(icon.centerY).toBeCloseTo(button.centerY, 1);
         expect(icon.centerX).toBeCloseTo(collapsedPage.icon.centerX, 1);
     }
+    expect(siteRequests).toEqual([]);
 });

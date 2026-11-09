@@ -56,7 +56,7 @@ export default async function PersonPage({ params }: PageProps<'/app/workspace/u
                             {projects.map(({ project, sources }) => (
                                 <Item key={project.id} role="listitem" className="rounded-none">
                                     <ItemMedia>
-                                        <ProjectMark name={project.name} url={project.urls[0]} className="size-8 rounded-lg text-sm [&>img]:p-1.5" />
+                                        <ProjectMark name={project.name} projectId={project.id} url={project.urls[0]} className="size-8 rounded-lg text-sm [&>img]:p-1.5" />
                                     </ItemMedia>
                                     <ItemContent className="min-w-0">
                                         <ItemTitle>

@@ -12,7 +12,7 @@ http://localhost:4004 with `pnpm dev` from the repository root.
 | `app/global.css` | Tailwind + UI kit theme + **`@uier/brand/tokens.css`** + shadcn's state variants (`src/styles/shadcn.css`) + `@theme` font and sidebar colour mapping |
 | `app/(rest)/(marketing)/` | public pages: `page.tsx` (landing), `brand/page.tsx` (living brand page), `legal/*` (legal documents), `security/page.tsx`, `open-source/page.tsx`, `status/page.tsx`, `features/<feature>/` (one shipped workflow per page, each with its own social card: `ai`, `feedback-triage`, `fix-verification`), `browser-extension/` (the published desktop extension; its setup guide is `guides/browser-extension/`), `layout.tsx` (nav with the section links and Sign in to `/app`, container, footer, clearance for the toolbar) |
 | `app/(rest)/(app)/app/` | the app (`/app`): `(auth)/` sign-in, invitation, first-run (`welcome/`) and browser extension sign-in pages (one card), `(shell)/` signed-in pages in the sidebar layout (projects, a project's comments, its settings and install guide, My work, the workspace area `workspace/` with users, teams, clients and settings, account), `connect/` a coding tool's OAuth consent and its public error page (one centred card), `review/[projectId]` review links |
-| `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `google/` and `microsoft/` (OIDC sign-in), `passkeys.ts` (passkey sign-in), `avatars.ts` (profile pictures; `avatarLimits.ts` is safe for the browser), `context.ts` (user, workspace, role), `projects.ts`, `projectDeletion.ts` (deleting a project and its records), `projectTransfer.ts` (moving a project to another workspace), `projectRecords.ts` (the grants, services and workspace records both remove), `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources) |
+| `src/lib/app/` | app logic: `store.ts` (Cosmos `app` container / in-memory), `model.ts` (documents), `session.ts`, `signIn.ts`, `google/` and `microsoft/` (OIDC sign-in), `passkeys.ts` (passkey sign-in), `avatars.ts` (profile pictures; `avatarLimits.ts` is safe for the browser), `context.ts` (user, workspace, role), `projects.ts`, `projectDeletion.ts` (deleting a project and its records), `projectTransfer.ts` (moving a project to another workspace), `projectRecords.ts` (the grants, services and workspace records both remove), `invitations.ts` (invitations, removing members), `integration.ts` (embed snippets, CSP sources), `siteIcons.ts` (a project site's icon for `ProjectMark`, found and fetched by the server) |
 | `src/lib/integrations/` | shared synchronization: source signals/tombstones, bounded discovery, independent leased delivery, provider registry, encrypted credentials/OAuth/grants and member-only link projection; distinct from embed `integration.ts` |
 | `src/components/ui/` | the app's [shadcn/ui](https://ui.shadcn.com) components (Base UI, `base-vega` style, `components.json`), source we own |
 | `src/components/app/` | app UI: `PageHeader` (`media` sits left of the title and description together: a project's favicon, a person's avatar)/`Section` (titled cards), `PersonAvatar` (a person's picture with their initial as fallback), `LinkTabs`, `SettingsLayout` (sectioned settings: a project's, the account), forms and server actions per area (`projects/`, `clients/`, `comments/`, `users/`, `teams/`, `workspace/`: the workspace area's tabs, `shell/`: sidebar, workspace switcher, account menu, breadcrumbs) |
@@ -527,10 +527,23 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   account and thread. Closing/filtering keeps text; explicit discard, successful send and both
   app sign-out controls clear relevant drafts. Storage failure stays in memory with a notice.
   Never import the toolbar runtime/providers/styles into the app. See `docs/review-workflow.md`.
-- `ProjectMark` (project cards, the sidebar, the project header) shows the site's favicon, loaded by the
-  browser from the project's main address over HTTPS (`/favicon.ico`, `/favicon.svg`,
-  `/apple-touch-icon.png`, no favicon service or server fetch; `proxy.ts` adds `img-src https:` on app
-  pages), on a light tile in both themes, with the project's first letter until one loads. The icon keeps
+- `ProjectMark` (project cards, the sidebar, the project header) shows the site's favicon, on a light tile
+  in both themes, with the project's first letter until one loads or when the site has none. It takes the
+  project's id and address and loads `/api/projects/<id>/icon?site=<address>` (`projectIconUrl`), so the
+  browser never contacts the site and app pages need no `img-src https:`. The route answers members only,
+  for one of the project's stored addresses. `src/lib/app/siteIcons.ts` finds the icon the way a browser tab
+  does (uier #47: sites built with Next.js declare it at paths like `/icon?<hash>` or a hashed
+  `/_next/static/…/favicon.svg`): the page's `<link rel="icon">` (SVG and larger sizes first, dark-theme
+  ones last), then `apple-touch-icon`, then `/favicon.ico`, `/favicon.svg` and `/apple-touch-icon.png`.
+  Requests reach public addresses only (`publicLookup` from `src/lib/mcp/publicNetwork.ts` on each
+  connection, public IP literals only, no `localhost` or single-label names), on ports 80, 443 or the
+  address's own, follow at most 5 redirects (each checked again), take 5 s each and 10 s in all, read at
+  most 512 KiB of the page and 256 KiB of an icon, and accept an icon only when its bytes are an image
+  (the declared type is ignored). Found icons stay in server memory for a day, a missing one for 30 minutes;
+  the browser keeps the answers as long. Icons are served as sniffed with `Content-Disposition: attachment`
+  and a sandboxing CSP that `proxy.ts` sets for the route in place of the page policy, so a site's SVG never
+  runs as a uier.io page. Tests set `UIER_SITE_ICONS_TEST_UPSTREAM` (local runtime only) to send every icon
+  request to `e2e/support/siteIconsStub.ts`; `e2e/site-icons.api.spec.ts` covers the resolver. The icon keeps
   2 px of padding inside the 16 px tile (larger tiles set their own with `[&>img]:p-*`), so icons drawn
   edge to edge stay clear of the border and the rounded corners. The image fills the tile inside its 1 px
   border, so the 16 px tile draws a favicon at 10 px. The sidebar's active projects use a 20 px tile with

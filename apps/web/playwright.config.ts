@@ -19,6 +19,8 @@ const slackStubUrl = `http://127.0.0.1:${PORT + 5000}`;
 const azureDevOpsStubUrl = `http://127.0.0.1:${PORT + 6000}`;
 const microsoftStubUrl = `http://127.0.0.1:${PORT + 8000}`;
 const googleStubUrl = `http://127.0.0.1:${PORT + 7000}`;
+// Project sites the server fetches icons from (`ProjectMark`); never the internet
+const siteIconsStubUrl = `http://127.0.0.1:${PORT + 9000}`;
 const testTokenKey = Buffer.alloc(32, 93).toString('base64');
 // Generated only for this local test process; never a registered GitHub App private key.
 const githubPrivateKey = generateKeyPairSync('rsa', { modulusLength: 2048,
@@ -51,6 +53,8 @@ export default defineConfig({
             env: { PORT: String(PORT + 8000) } },
         { command: 'node e2e/support/googleStub.ts', url: googleStubUrl, timeout: 30_000, reuseExistingServer: false,
             env: { PORT: String(PORT + 7000) } },
+        { command: 'node e2e/support/siteIconsStub.ts', url: siteIconsStubUrl, timeout: 30_000, reuseExistingServer: false,
+            env: { PORT: String(PORT + 9000) } },
         {
             command: 'node e2e/support/anthropicStub.ts',
             url: anthropicStubUrl,
@@ -90,6 +94,8 @@ export default defineConfig({
                 UIER_OAUTH_TEST_HTTP_CLIENT_METADATA: '1',
                 // MCP event callbacks served by the e2e webhook receiver on http://127.0.0.1 (local runtime only)
                 UIER_MCP_EVENTS_TEST_HTTP_CALLBACKS: '1',
+                // Project site icons come from e2e/support/siteIconsStub.ts (local runtime only)
+                UIER_SITE_ICONS_TEST_UPSTREAM: siteIconsStubUrl,
                 // Rewrite suggestions go to the stub above, never to the real API
                 ANTHROPIC_API_KEY: anthropicStubApiKey,
                 ANTHROPIC_BASE_URL: anthropicStubUrl,

@@ -3,31 +3,25 @@
 import { useState } from 'react';
 import { cn } from '@/src/lib/utils';
 
-/** Where sites usually keep their icon, tried in order (the page's `<link rel="icon">` would need a fetch of the page) */
-const faviconPaths = ['/favicon.ico', '/favicon.svg', '/apple-touch-icon.png'];
-
-function faviconUrls(url?: string) {
-    try {
-        const { origin, protocol } = new URL(url ?? '');
-        // The app's CSP allows images over HTTPS only
-        return protocol === 'https:' ? faviconPaths.map(path => `${origin}${path}`) : [];
-    } catch {
-        return [];
-    }
+/** The icon of one of a project's addresses, served by uier (`/api/projects/<id>/icon`, `getSiteIcon`) */
+export function projectIconUrl(projectId: string, siteUrl: string) {
+    return `/api/projects/${encodeURIComponent(projectId)}/icon?site=${encodeURIComponent(siteUrl)}`;
 }
 
 /**
- * A project's tile: the site's favicon, loaded by the browser from the project's own site (no favicon
- * service), with the first letter of the project's name until it loads or when the site has none
+ * A project's tile: its site's favicon, which uier's server finds (the page's `<link rel="icon">`, then
+ * the usual paths) and serves, so the browser never contacts the site; the first letter of the
+ * project's name until it loads or when the site has none
  */
-export function ProjectMark({ name, url, className }: { name: string; url?: string; className?: string }) {
-    const candidates = faviconUrls(url);
-    const [attempt, setAttempt] = useState(0);
-    const [loaded, setLoaded] = useState(false);
-    const src = candidates[attempt];
-    const next = () => {
-        setLoaded(false);
-        setAttempt(current => current + 1);
+export function ProjectMark({ name, projectId, url, className }: { name: string; projectId?: string; url?: string; className?: string }) {
+    const src = projectId && url ? projectIconUrl(projectId, url) : undefined;
+    // Which icon settled and how: a changed address starts again without an effect
+    const [settled, setSettled] = useState<{ src: string; loaded: boolean }>();
+    const current = src && settled?.src === src ? settled : undefined;
+    const loaded = current?.loaded === true;
+    const failed = current?.loaded === false;
+    const settle = (value: boolean) => {
+        if (src && (settled?.src !== src || settled.loaded !== value)) setSettled({ src, loaded: value });
     };
 
     return (
@@ -37,21 +31,19 @@ export function ProjectMark({ name, url, className }: { name: string; url?: stri
                 // Favicons are mostly drawn for light browser tabs: a light tile in the dark theme too
                 loaded && 'dark:bg-foreground', className)}>
             {!loaded && (name.trim()[0] ?? '?')}
-            {src && (
-                // eslint-disable-next-line @next/next/no-img-element -- a cross-origin icon, not an optimizable asset
+            {src && !failed && (
+                // eslint-disable-next-line @next/next/no-img-element -- a site's own icon in any format (ICO, SVG), not an optimizable asset
                 <img
                     key={src}
                     src={src}
                     alt=""
-                    referrerPolicy="no-referrer"
                     // An image that settled before hydration fires no events
                     ref={image => {
                         if (image?.complete)
-                            if (image.naturalWidth) setLoaded(true);
-                            else next();
+                            settle(Boolean(image.naturalWidth));
                     }}
-                    onLoad={() => setLoaded(true)}
-                    onError={next}
+                    onLoad={() => settle(true)}
+                    onError={() => settle(false)}
                     // An SVG favicon that follows the colour scheme draws its light-tab version on the light tile.
                     // Padding keeps edge-to-edge icons off the border and out of the rounded corners, so
                     // they read as an icon on the tile; larger tiles set their own (`[&>img]:p-1.5`).

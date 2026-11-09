@@ -2,7 +2,7 @@ import { extensionClientIds } from './src/lib/extension/config';
 import { NextResponse, type NextRequest } from 'next/server';
 import { randomBytes } from 'node:crypto';
 import { createSecureHeaders } from 'next-secure-headers';
-import { combineSecureHeaders, siteExternalUrls, permissionsPolicy } from './src/lib/secureHeaders';
+import { combineSecureHeaders, siteExternalUrls, permissionsPolicy, siteIconContentSecurityPolicy, siteIconPath } from './src/lib/secureHeaders';
 import { sessionContentSecurityPolicy } from './src/lib/review/sessionDocument';
 import { botIdPath, proxyBotId } from './src/lib/botIdProxy';
 import { cookieNames, readMigratingCookie } from './src/lib/cookieNames';
@@ -32,9 +32,7 @@ export async function proxy(request: NextRequest) {
     const policy = createSecureHeaders({
         ...combineSecureHeaders(['uier.io'], false, development, [
             { connectSrc: [request.nextUrl.origin.replace(/^http/, 'ws')] },
-            ...siteExternalUrls(development, preview), ...(bridge ? [{ frameAncestors: pathname === '/extension-verification' ? extensionClientIds().map(id => `chrome-extension://${id}`) : ['*'] }] : []),
-            // Project tiles show favicons from the projects' own sites (`ProjectMark`)
-            ...(appPage ? [{ imgSrc: ['https:'] }] : [])
+            ...siteExternalUrls(development, preview), ...(bridge ? [{ frameAncestors: pathname === '/extension-verification' ? extensionClientIds().map(id => `chrome-extension://${id}`) : ['*'] }] : [])
         ], nonce),
         ...(bridge ? { frameGuard: false } : {})
     });
@@ -43,6 +41,8 @@ export async function proxy(request: NextRequest) {
         ? "default-src 'none'; script-src 'none'; connect-src 'none'; frame-src 'none'; img-src 'none'; font-src 'none'; style-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
         : pathname === '/review-session'
         ? sessionContentSecurityPolicy
+        : siteIconPath.test(pathname)
+        ? siteIconContentSecurityPolicy
         : policy.find(header => header.key === 'Content-Security-Policy')!.value;
     const requestHeaders = new Headers(request.headers);
     // Never trust a client-supplied nonce or policy. Next extracts the nonce from the forwarded CSP.

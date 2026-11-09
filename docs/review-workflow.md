@@ -56,7 +56,9 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   (`?status=done`) across Back, Forward and reloads. A card
   lays out its name like the project header: the favicon beside the name and the row under it, with the
   client, then who can comment; the open comments and Open review sit at the bottom. Projects is the first
-  link in the sidebar.
+  link in the sidebar. The favicon is the one the site's main page declares (`<link rel="icon">`) or keeps
+  at `/favicon.ico`; uier's server fetches and serves it, so a viewer's browser never contacts the site.
+  A site without one shows the project's first letter.
   An optional client name (up to 80 characters, with whitespace normalized) can be set at creation or
   in settings; the field suggests the existing clients as you type, and any other name adds a new one. It
   appears with the client's tile in project details and cards. The client filter sits beside Active/Done,
