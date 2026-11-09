@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { checkAccessibility } from '../../checks/accessibility';
 import { checkSeo, type SeoReport } from '../../checks/seo';
 import { startWebVitals } from '../../checks/webVitals';
+import { pageSettled } from '../../checks/pageSettled';
+import { RestoredPanelContext } from '../../openPanel';
 import { isRendered, pageAnchorElement } from '../../checks/pageElements';
 import type { PageIssue } from '../../checks/types';
 import { usePagePath } from '../../hooks/usePagePath';
@@ -24,6 +26,7 @@ function prefersReducedMotion() {
  * The Accessibility and SEO panels, one open at a time (`panel`), and what they keep while closed:
  * the last reports, the comments their quick actions posted and the highlighted element. The
  * accessibility audit runs when its panel opens without a report of this page, or on Check again.
+ * A panel that stays open from the previous page checks this page once it has rendered.
  */
 export function PageChecks(props: {
     panel?: ChecksPanelId;
@@ -47,6 +50,10 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment }: Paramete
     const [seo, setSeo] = useState<SeoReport>();
     const [posted, setPosted] = useState<ReadonlyMap<string, PostedComment>>(() => new Map());
     const [highlighted, setHighlighted] = useState<{ key: string; element: Element }>();
+    // Open on the previous page: this page can still be rendering, so its check waits for it to settle
+    const restored = useContext(RestoredPanelContext);
+    const [settling, setSettling] = useState(() => !!panel && restored === panel);
+    const stopSettling = useRef<() => void>(undefined);
     const postIssue = useIssueComment();
     const nameGate = useGuestNameGate();
 
@@ -67,10 +74,33 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment }: Paramete
 
     // Opening a panel checks the page unless it has this page's report
     useEffect(() => {
-        if (panel === 'accessibility' && !accessibility.checking && accessibility.report?.path !== pathRef.current) runAccessibility();
-        if (panel === 'seo' && seo?.path !== pathRef.current) runSeo();
-        if (!panel) setHighlighted(undefined);
+        if (!panel) {
+            setHighlighted(undefined);
+            setSettling(false);
+            return;
+        }
+        const check = () => {
+            if (panel === 'accessibility' && !accessibility.checking && accessibility.report?.path !== pathRef.current) runAccessibility();
+            if (panel === 'seo' && seo?.path !== pathRef.current) runSeo();
+        };
+        if (!settling) {
+            check();
+            return;
+        }
+        const settled = pageSettled();
+        stopSettling.current = settled.cancel;
+        settled.promise.then(() => {
+            setSettling(false);
+            check();
+        });
+        return settled.cancel;
     }, [panel]);
+    // Check again before the page settled checks it now, once
+    const checkNow = (run: () => void) => () => {
+        stopSettling.current?.();
+        setSettling(false);
+        run();
+    };
 
     const actions = {
         posted,
@@ -110,8 +140,8 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment }: Paramete
 
     return (
         <ChecksContext value={actions}>
-            {panel === 'accessibility' && <AccessibilityPanel state={accessibility} path={path} onCheck={runAccessibility} onClose={onClose} />}
-            {panel === 'seo' && <SeoPanel report={seo} path={path} onCheck={runSeo} onClose={onClose} />}
+            {panel === 'accessibility' && <AccessibilityPanel state={settling ? { ...accessibility, checking: true } : accessibility} path={path} onCheck={checkNow(runAccessibility)} onClose={onClose} />}
+            {panel === 'seo' && <SeoPanel report={seo} path={path} onCheck={checkNow(runSeo)} onClose={onClose} />}
             {panel && !collapsed && highlighted && <ElementHighlight element={highlighted.element} />}
         </ChecksContext>
     );

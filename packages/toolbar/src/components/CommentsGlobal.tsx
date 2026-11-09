@@ -28,6 +28,7 @@ import { isShowcaseHintDismissed, rememberShowcaseHintDismissed, ShowcaseHint } 
 import { toolbarConfig } from '../config';
 import { usePagePath } from '../hooks/usePagePath';
 import { takeLinkedCommentId } from '../review';
+import { readInboxFilter, readOpenPanel, rememberInboxFilter, rememberOpenPanel, RestoredPanelContext, type DockPanelId } from '../openPanel';
 import { openFeedbackEvent, startCommentEvent, takeToolbarRequest } from '../openFeedback';
 import { captureCommentScreenshot } from '../screenshot';
 import { activeModalDialog, isInActiveModal, listenToWindowKeydown } from '../modalLayer';
@@ -159,15 +160,20 @@ export function CommentsGlobal({
             return next;
         });
     }, []);
-    const [sidebarOpen, setSidebarOpen] = useState(false);
-    // The Accessibility or SEO panel: docked like the inbox, so one of them is open at a time
-    const [checksPanel, setChecksPanel] = useState<ChecksPanelId>();
     // What `feedback` mode mounted for: the feedback form, or a new comment (`startCommentEvent`)
     const [mountRequest] = useState(takeToolbarRequest);
+    // The panel open on the previous page stays open on this one (client-side navigation or a full load)
+    const [restoredPanel, setRestoredPanel] = useState<DockPanelId | undefined>(() => {
+        const panel = mountRequest ? undefined : readOpenPanel();
+        return panel === 'accessibility' && !auditAvailable() ? undefined : panel;
+    });
+    const [sidebarOpen, setSidebarOpen] = useState(restoredPanel === 'inbox');
+    // The Accessibility or SEO panel: docked like the inbox, so one of them is open at a time
+    const [checksPanel, setChecksPanel] = useState<ChecksPanelId | undefined>(restoredPanel === 'inbox' ? undefined : restoredPanel);
     // The page asked to give feedback (`openFeedbackEvent`, or `feedback` mode mounting for it)
     const [feedbackRequested, setFeedbackRequested] = useState(mountRequest === 'feedback');
     const [collapsed, setCollapsed] = useState(() => !mountRequest && readCollapsed());
-    const [hintOpen, setHintOpen] = useState(() => !mountRequest && mode !== 'feedback' && !isShowcaseHintDismissed());
+    const [hintOpen, setHintOpen] = useState(() => !mountRequest && !restoredPanel && mode !== 'feedback' && !isShowcaseHintDismissed());
     // "About uier" and its hint introduce uier on uier.io's landing page (the showcase without a
     // project); its other pages, its app, reviews and embeds do without them
     const pagePath = usePagePath();
@@ -179,8 +185,9 @@ export function CommentsGlobal({
     const openCommentId = openComment?.id;
     const [linkedCommentId] = useState(takeLinkedCommentId);
     const linkHandledRef = useRef(false);
-    // The inbox's status and search, kept while it is closed
-    const [sidebarFilter, setSidebarFilter] = useState<CommentsFilter>({ status: 'unresolved' });
+    // The inbox's status and search, kept while it is closed and on the next page
+    const [sidebarFilter, setSidebarFilter] = useState<CommentsFilter>(() => readInboxFilter() ?? { status: 'unresolved' });
+    useEffect(() => rememberInboxFilter(sidebarFilter), [sidebarFilter]);
     const announce = useAnnounce();
     const hintId = useId();
     const addButtonRef = useRef<HTMLButtonElement>(null);
@@ -682,6 +689,12 @@ export function CommentsGlobal({
     useEffect(() => {
         if (sidebarOpen || reattaching) setChecksPanel(undefined);
     }, [sidebarOpen, reattaching]);
+    // Remembered for the next page; a panel opened (or closed) here is no longer the restored one
+    const openPanel: DockPanelId | undefined = sidebarOpen ? 'inbox' : checksPanel;
+    useEffect(() => {
+        rememberOpenPanel(openPanel);
+        if (openPanel !== restoredPanel) setRestoredPanel(undefined);
+    }, [openPanel]);
     const changeChecksPanel = (panel: ChecksPanelId | undefined) => {
         if (reattaching) return;
         if (!panel) {
@@ -839,19 +852,21 @@ export function CommentsGlobal({
             {!collapsed && creatingCommentPoint && (
                 <CommentPointOverlay onPoint={handleCreateCommentPoint} />
             )}
-            {sidebarOpen && (
-                <CommentsSidebar
-                    filter={sidebarFilter}
-                    onFilterChange={setSidebarFilter}
-                    onClose={handleCloseSidebar}
-                    onShowOnPage={handleShowOnPage}
-                    focusRequest={inboxFocus} />
-            )}
-            <PageChecks
-                panel={checksPanel}
-                collapsed={collapsed}
-                onClose={closeChecks}
-                onShowComment={handleShowCheckComment} />
+            <RestoredPanelContext value={restoredPanel}>
+                {sidebarOpen && (
+                    <CommentsSidebar
+                        filter={sidebarFilter}
+                        onFilterChange={setSidebarFilter}
+                        onClose={handleCloseSidebar}
+                        onShowOnPage={handleShowOnPage}
+                        focusRequest={inboxFocus} />
+                )}
+                <PageChecks
+                    panel={checksPanel}
+                    collapsed={collapsed}
+                    onClose={closeChecks}
+                    onShowComment={handleShowCheckComment} />
+            </RestoredPanelContext>
             <CommentToolbar
                 mode={mode}
                 creatingPointComment={creatingCommentPoint}

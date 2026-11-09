@@ -129,7 +129,8 @@ test('true unread activity is per reviewer and survives reading, resolution, rel
         releaseActivity!();
         await Promise.all([refreshedActivity, expect(inbox(first.page)).toHaveAccessibleName('Inbox, 1 unread thread')]);
         await first.page.unroute('**/api/comments/activity');
-        await inbox(first.page).click();
+        // Open before the reload: it stays open
+        await expect(first.page.getByRole('complementary', { name: 'Comments' })).toBeVisible();
         await first.page.getByRole('button', { name: 'Unread 1', exact: true }).click();
         // Unread lists every page, like the pill's count
         await expect(inboxPages(first.page)).toContainText('All pages');

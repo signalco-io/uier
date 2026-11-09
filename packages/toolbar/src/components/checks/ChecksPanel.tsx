@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useContext, useState, type ReactNode } from 'react';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
 import { Button } from '@signalco/ui-primitives/Button';
@@ -9,11 +9,12 @@ import { PanelRightClose, Reset } from '@signalco/ui-icons';
 import { DockablePanel, PanelHandle } from '../DockablePanel';
 import { IconTooltip } from '../IconTooltip';
 import { InkScope } from '../InkScope';
+import { RestoredPanelContext } from '../../openPanel';
 
 /**
  * The Accessibility and SEO panels' shell: docked like the inbox (`DockablePanel`, its own side),
  * ink, sliding in from its side; the title row with the handle, Check again and Close, which has
- * the focus when it opens. Escape closes it.
+ * the focus when it opens. Escape closes it. One that stays open from the previous page does neither.
  */
 export function ChecksPanel({ id, title, checking, onCheckAgain, onClose, children }: {
     id: 'accessibility' | 'seo';
@@ -25,6 +26,7 @@ export function ChecksPanel({ id, title, checking, onCheckAgain, onClose, childr
     children: ReactNode;
 }) {
     const [hiding, setHiding] = useState(false);
+    const restored = useContext(RestoredPanelContext) === id;
     const close = () => {
         setHiding(true);
         window.setTimeout(onClose, 150);
@@ -40,7 +42,7 @@ export function ChecksPanel({ id, title, checking, onCheckAgain, onClose, childr
                 }}
                 className={cx(hiding
                     ? 'animate-out fade-out fill-mode-forwards duration-150 ease-in motion-safe:data-[side=left]:slide-out-to-left motion-safe:data-[side=right]:slide-out-to-right'
-                    : 'animate-in fade-in duration-200 ease-out motion-safe:data-[side=left]:slide-in-from-left motion-safe:data-[side=right]:slide-in-from-right')}>
+                    : !restored && 'animate-in fade-in duration-200 ease-out motion-safe:data-[side=left]:slide-in-from-left motion-safe:data-[side=right]:slide-in-from-right')}>
                 {/* Focusable so a long report scrolls with the keyboard */}
                 <Stack tabIndex={0} className="h-full overflow-y-auto rounded-b-2xl outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
                     <Row justifyContent="space-between" className="shrink-0 px-4 pt-3">
@@ -54,7 +56,7 @@ export function ChecksPanel({ id, title, checking, onCheckAgain, onClose, childr
                                 Check again
                             </Button>
                             <IconTooltip label="Close panel">
-                                <IconButton variant="plain" aria-label={`Close ${title} panel`} autoFocus onClick={close}>
+                                <IconButton variant="plain" aria-label={`Close ${title} panel`} autoFocus={!restored} onClick={close}>
                                     <PanelRightClose />
                                 </IconButton>
                             </IconTooltip>

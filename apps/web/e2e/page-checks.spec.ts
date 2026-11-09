@@ -218,6 +218,59 @@ test('the SEO panel reports the head, headings, links, images and Core Web Vital
     await expect(check('link-address').getByRole('listitem').filter({ hasText: 'It runs a script' })).toHaveCount(0);
 });
 
+test('an open panel stays open on the next page and shows that page', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.use.isMobile === true, 'Desktop layout');
+    test.setTimeout(60_000);
+    await signIn(page, uniqueEmail('panel-navigation'));
+    const project = await createProject(page, { urls: [site.origin()] });
+    await setProjectAccess(page, project, 'Anyone with the link');
+    await page.context().clearCookies();
+    await page.goto(`${site.origin()}/${project}/pricing?review=true&page-checks`);
+    await toolbar(page).getByRole('button', { name: 'SEO', exact: true }).click();
+    const panel = page.getByRole('complementary', { name: 'SEO' });
+    // Folded, but in the panel: its text says which page was checked
+    const outline = panel.locator('ol[aria-label="Headings outline"]');
+    await expect(outline).toContainText('Pricing for pricing');
+
+    // A client-side navigation that renders the new page after the address changes: checked once it settled
+    await page.getByRole('heading', { level: 1 }).click();
+    await page.evaluate(() => {
+        history.pushState({}, '', `${location.pathname}/annual${location.search}`);
+        window.setTimeout(() => { document.querySelector('h1')!.textContent = 'Annual plans'; }, 100);
+    });
+    await expect(outline).toContainText('Annual plans');
+    await expect(outline).not.toContainText('Pricing for');
+    // It stayed: the focus is where it was
+    await expect(panel.getByRole('button', { name: 'Close SEO panel' })).not.toBeFocused();
+
+    // A full page load from the site (a link, here) opens it again for the new page, and so does a reload
+    await page.evaluate(url => location.assign(url), `${site.origin()}/${project}/features?page-checks`);
+    await expect(outline).toContainText('Pricing for features');
+    await page.reload();
+    await expect(outline).toContainText('Pricing for features');
+
+    // The inbox too, and a closed panel stays closed
+    await toolbar(page).getByRole('button', { name: 'Inbox', exact: true }).click();
+    const inbox = page.getByRole('complementary', { name: 'Comments' });
+    await expect(inbox).toBeVisible();
+    await expect(panel).toBeHidden();
+    await page.evaluate(() => history.pushState({}, '', `${location.pathname}/team${location.search}`));
+    await expect(inbox).toBeVisible();
+    await inbox.getByRole('button', { name: 'Close sidebar' }).click();
+    await expect(inbox).toBeHidden();
+    await page.reload();
+    await expect(toolbar(page)).toBeVisible();
+    await expect(inbox).toBeHidden();
+    await expect(panel).toBeHidden();
+
+    // A page opened anew (not from the site) starts without a panel
+    await toolbar(page).getByRole('button', { name: 'SEO', exact: true }).click();
+    await expect(panel).toBeVisible();
+    await page.goto(`${site.origin()}/${project}/pricing?page-checks`);
+    await expect(toolbar(page)).toBeVisible();
+    await expect(panel).toBeHidden();
+});
+
 test('on a phone the panels open from Options, keep the pill as wide as before, fit the screen and post with a tap', async ({ page }, testInfo) => {
     test.skip(!testInfo.project.use.isMobile, 'Phone layout');
     test.setTimeout(90_000);
