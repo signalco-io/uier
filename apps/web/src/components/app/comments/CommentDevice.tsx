@@ -29,6 +29,16 @@ const settingIcons: Record<string, (value: string) => LucideIcon> = {
 };
 
 /**
+ * Shorter words for the tiles, which are too narrow for the full ones; the copied details and the
+ * feedback packet keep `deviceSettings`' wording ("Mouse or trackpad", "Reduced motion: On")
+ */
+const tileLabels: Record<string, string> = { 'Colour scheme': 'Theme', 'Reduced motion': 'Motion', 'Page language': 'Language' };
+const tileValues: Record<string, Record<string, string>> = {
+    Input: { 'Mouse or trackpad': 'Mouse' },
+    'Reduced motion': { On: 'Reduced', Off: 'Standard' }
+};
+
+/**
  * The screen and the browser a comment was left from, as two icons next to its time (the browser's own
  * mark, `DeviceMark`, or a globe when unknown). Hovering or clicking them shows the original capture
  * (size, viewport, the browser and OS with their marks, then the model, input, colour scheme, reduced
@@ -92,9 +102,9 @@ export function CommentDevice({ device, context }: { device?: DbDeviceSize; cont
                                 <div key={name} className="relative flex min-w-0 flex-col rounded-md bg-muted/50 py-2 pr-2.5 pl-8.5">
                                     <dt className="order-2 truncate text-xs text-muted-foreground">
                                         <Icon aria-hidden="true" className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-foreground" />
-                                        {name}
+                                        {tileLabels[name] ?? name}
                                     </dt>
-                                    <dd className="order-1 m-0 truncate text-sm leading-snug font-medium" title={value}>{value}</dd>
+                                    <dd className="order-1 m-0 truncate text-sm leading-snug font-medium" title={value}>{tileValues[name]?.[value] ?? value}</dd>
                                 </div>
                             );
                         })}

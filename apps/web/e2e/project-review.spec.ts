@@ -509,8 +509,9 @@ test('guest edits and original reproduction details persist; only members see an
     await expect(details.locator('[data-browser-mark="edge"]')).toBeVisible();
     await expect(details.locator('[data-os-mark="macos"]')).toBeVisible();
     // The settings the page was seen with
-    await expect(details.getByRole('definition')).toHaveText([input, 'Dark', 'On', 'en']);
-    await expect(details.getByRole('term')).toHaveText(['Input', 'Colour scheme', 'Reduced motion', 'Page language']);
+    // Shorter words in the tiles ("Mouse", "Motion: Reduced"); the copied details keep the full ones
+    await expect(details.getByRole('definition')).toHaveText([input === 'Touch' ? 'Touch' : 'Mouse', 'Dark', 'Reduced', 'en']);
+    await expect(details.getByRole('term')).toHaveText(['Input', 'Theme', 'Motion', 'Language']);
     await expect(details).toContainText('Captured');
     await expect(details.getByRole('link', { name: 'Reviewed page' })).toHaveAttribute('href', `${siteOrigin()}${path}`);
     await copyDetails.click();
