@@ -6,7 +6,9 @@ allowlist contains only the stable store client. Version 0.1.3 is prepared on ma
 popup's development-preview label, redesigns the popup, verification helper and icons, and needs
 its own protected tag, submission and review. Repeat the hosted helper check before submitting it.
 Read [the runtime design and hosted gate](browser-extension.md) first. This runbook covers the
-Chrome Web Store; native Edge Add-ons is a separate follow-up.
+Chrome Web Store. [Firefox and Safari release automation](browser-extension-firefox-safari-release.md)
+covers their protected environments, source/native builds, signing, submission and recovery.
+Native Edge Add-ons is a separate follow-up.
 
 ## One-time owner setup
 

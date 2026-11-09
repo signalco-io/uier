@@ -54,6 +54,8 @@ jobs:
               - ".github/scripts/**"
             extension:
               - "apps/extension/**"
+              - "apps/extension-firefox/**"
+              - "apps/extension-safari/**"
               - "apps/web/**"
               - "packages/**"
               - "package.json"
@@ -242,7 +244,16 @@ jobs:
           restore-keys: |
             next-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}-
       - run: pnpm typecheck && pnpm build
-      - run: pnpm -C apps/extension validate && pnpm -C apps/extension package && pnpm -C apps/extension test
+      - run: pnpm -C packages/extension test && pnpm -C apps/extension validate && pnpm -C apps/extension package && pnpm -C apps/extension test
+      - name: Validate and package Firefox and Safari resources
+        run: |
+          pnpm -C apps/extension-firefox validate
+          pnpm -C apps/extension-firefox package
+          pnpm -C apps/extension-firefox lint:store
+          pnpm -C apps/extension-firefox test
+          pnpm -C apps/extension-safari validate
+          pnpm -C apps/extension-safari package
+          pnpm -C apps/extension-safari test
       # Persistent extension contexts require full Chromium, not the web job's headless shell.
       - run: pnpm -C apps/extension exec playwright install chromium
       - run: pnpm -C apps/extension test:package
@@ -253,8 +264,39 @@ jobs:
           name: extension-runtime-evidence
           path: |
             apps/extension/release/
+            apps/extension-firefox/release/
+            apps/extension-safari/release/
             apps/extension/playwright-report/
             apps/extension/test-results/
+
+  safari-native:
+    name: "Safari (native archive)"
+    needs: changes
+    if: needs.changes.outputs.extension == 'true'
+    runs-on: macos-15
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @uier/extension-safari... build
+      - run: pnpm -C apps/extension-safari native:build
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: always()
+        with:
+          name: extension-safari-native-evidence
+          path: apps/extension-safari/release/native/
+          if-no-files-found: ignore
+          retention-days: 14
+
 
   skills:
     name: "Agent skills"
@@ -284,7 +326,7 @@ jobs:
   ci-ok:
     # Single required status check: fails if any job failed or was cancelled; skipped jobs are fine.
     name: "CI OK"
-    needs: [changes, web, infra, preview-build, preview, extension, skills]
+    needs: [changes, web, infra, preview-build, preview, extension, safari-native, skills]
     if: always()
     runs-on: ubuntu-slim
     timeout-minutes: 5

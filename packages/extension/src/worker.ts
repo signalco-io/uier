@@ -1,16 +1,16 @@
+import { browser, browserKind, clientId, extensionOrigin } from './browser';
 import { parseWorkerMessage, type CaptureRegion } from './protocol';
 import { apiOrigin, type Binding, type Session, type Credentials, type RefreshSession, type Result, sessionKey, refreshKey, random, reviewable } from './environment';
+import { credentialStorage, secureStorage } from './storage';
+import { redirectURL, launchAuth } from './auth';
 import { extensionOperation } from '@uier/toolbar/extension-contract';
 
 // Never expose worker-owned credentials or private drafts to content-script storage APIs.
-const ready = Promise.all([
-    chrome.storage.session.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' }),
-    chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' })
-]);
+const ready = secureStorage();
 let authEpoch = 0;
 let signingOut = false;
 let activationRevision = 0;
-chrome.tabs.onActivated.addListener(() => { activationRevision++; });
+browser.tabs.onActivated.addListener(() => { activationRevision++; });
 const bindingKey = (tabId: number) => `binding:${tabId}`;
 // Serialize credential writes with sign-out. Network calls never hold this queue.
 let authWrites = Promise.resolve();
@@ -26,19 +26,19 @@ async function saveCredentials(credentials: Credentials, id: string, epoch: numb
     await writeAuth(async () => {
         assertAuthEpoch(epoch);
         if (credentials.refreshToken && credentials.refreshExpiresAt) {
-            await chrome.storage.local.set({ [refreshKey]: { id, refreshToken: credentials.refreshToken, refreshExpiresAt: credentials.refreshExpiresAt } satisfies RefreshSession });
+            await credentialStorage.set({ [refreshKey]: { id, refreshToken: credentials.refreshToken, refreshExpiresAt: credentials.refreshExpiresAt } satisfies RefreshSession });
         }
-        await chrome.storage.session.set({ [sessionKey]: { id, token: credentials.token, expiresAt: credentials.expiresAt } satisfies Session });
+        await browser.storage.session.set({ [sessionKey]: { id, token: credentials.token, expiresAt: credentials.expiresAt } satisfies Session });
     });
 }
 let refreshing: Promise<Session> | undefined;
 async function currentSession(): Promise<Session> {
     if (signingOut) throw new Error('Sign-out is in progress.');
     const epoch = authEpoch;
-    const value = (await chrome.storage.session.get(sessionKey))[sessionKey] as Session | undefined;
+    const value = (await browser.storage.session.get(sessionKey))[sessionKey] as Session | undefined;
     assertAuthEpoch(epoch);
     if (value && value.expiresAt > Date.now() + 60_000) return value;
-    const retained = (await chrome.storage.local.get(refreshKey))[refreshKey] as RefreshSession | undefined;
+    const retained = (await credentialStorage.get(refreshKey))[refreshKey] as RefreshSession | undefined;
     assertAuthEpoch(epoch);
     if (!retained || retained.refreshExpiresAt <= Date.now()) {
         if (value && value.expiresAt > Date.now()) return value;
@@ -48,9 +48,9 @@ async function currentSession(): Promise<Session> {
     // Persist before sending, so worker suspension or a lost response retries the same rotation.
     await writeAuth(async () => {
         assertAuthEpoch(epoch);
-        await chrome.storage.local.set({ [refreshKey]: { ...retained, attempt } });
+        await credentialStorage.set({ [refreshKey]: { ...retained, attempt } });
     });
-    const response = await api('refresh', undefined, 'POST', { clientId: chrome.runtime.id, refreshToken: retained.refreshToken, attempt });
+    const response = await api('refresh', undefined, 'POST', { clientId, refreshToken: retained.refreshToken, attempt, ...(browserKind === 'chrome' ? {} : { extensionOrigin: extensionOrigin() }) });
     assertAuthEpoch(epoch);
     if (response.status === 401) {
         await signOut().catch(() => {});
@@ -82,22 +82,22 @@ async function json<T>(response: Response): Promise<T> {
     return result as T;
 }
 async function getBinding(tabId: number) {
-    return (await chrome.storage.session.get(bindingKey(tabId)))[bindingKey(tabId)] as Binding | undefined;
+    return (await browser.storage.session.get(bindingKey(tabId)))[bindingKey(tabId)] as Binding | undefined;
 }
-async function clearBinding(tabId: number) { await chrome.storage.session.remove(bindingKey(tabId)); }
+async function clearBinding(tabId: number) { await browser.storage.session.remove(bindingKey(tabId)); }
 async function actualDocument(binding: Binding, sender?: chrome.runtime.MessageSender, allowNewDocument = false) {
     const credentials = await session();
     const currentBinding = await getBinding(binding.tabId);
     if (credentials.id !== binding.sessionId || currentBinding?.activation !== binding.activation) throw new Error('This review has ended.');
-    const tab = await chrome.tabs.get(binding.tabId);
+    const tab = await browser.tabs.get(binding.tabId);
     if (!reviewable(tab.url) || new URL(tab.url!).origin !== binding.origin || (tab.pendingUrl && (!reviewable(tab.pendingUrl) || new URL(tab.pendingUrl).origin !== binding.origin))) {
         await clearBinding(binding.tabId); throw new Error('This site changed. Choose Start review again.');
     }
     if (binding.documentId && !allowNewDocument) {
-        const current = await chrome.scripting.executeScript({ target: { tabId: binding.tabId, frameIds: [0] }, world: 'ISOLATED', func: () => location.href });
+        const current = await browser.scripting.executeScript({ target: { tabId: binding.tabId, frameIds: [0] }, world: 'ISOLATED', func: () => location.href });
         if (current[0]?.documentId !== binding.documentId) throw new Error('This review document is no longer active.');
     }
-    if (sender && (sender.id !== chrome.runtime.id || sender.tab?.id !== binding.tabId || sender.frameId !== 0
+    if (sender && (sender.id !== browser.runtime.id || sender.tab?.id !== binding.tabId || sender.frameId !== 0
         || !sender.documentId || !reviewable(sender.url) || new URL(sender.url!).origin !== binding.origin
         || sender.documentId !== binding.documentId)) throw new Error('This review document is no longer active.');
     return tab;
@@ -108,7 +108,7 @@ async function scope(binding: Binding) {
         binding.scope = await json(await api('scope', (await session()).token, 'POST', { projectId: binding.projectId, origin: binding.origin }));
         await actualDocument(binding);
         if (epoch !== authEpoch) throw new Error('This review has ended.');
-        await chrome.storage.session.set({ [bindingKey(binding.tabId)]: binding });
+        await browser.storage.session.set({ [bindingKey(binding.tabId)]: binding });
     }
     return binding.scope!;
 }
@@ -117,13 +117,13 @@ async function signIn() {
     const verifier = random(), state = random();
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
     const challenge = btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    const redirectUri = chrome.identity.getRedirectURL('uier');
-    const query = new URLSearchParams({ clientId: chrome.runtime.id, redirectUri, state, challenge, renewable: 'true' });
-    const result = await chrome.identity.launchWebAuthFlow({ url: `${apiOrigin}/app/extension?${query}`, interactive: true });
+    const redirectUri = redirectURL(apiOrigin);
+    const query = new URLSearchParams({ clientId, redirectUri, state, challenge, renewable: 'true', ...(browserKind === 'chrome' ? {} : { extensionOrigin: extensionOrigin() }) });
+    const result = await launchAuth(`${apiOrigin}/app/extension?${query}`, redirectUri);
     if (!result) throw new Error('Sign-in was cancelled.');
     const url = new URL(result);
     if (url.origin + url.pathname !== redirectUri || url.hash || url.searchParams.get('state') !== state) throw new Error('Invalid sign-in callback.');
-    const credentials = await json<Credentials>(await api('token', undefined, 'POST', { clientId: chrome.runtime.id, redirectUri, code: url.searchParams.get('code'), verifier, renewable: true }));
+    const credentials = await json<Credentials>(await api('token', undefined, 'POST', { clientId, redirectUri, code: url.searchParams.get('code'), verifier, renewable: true }));
     assertAuthEpoch(epoch);
     // Switching accounts retires all old proofs, private data and active tabs first.
     await signOut().catch(() => {});
@@ -143,20 +143,20 @@ async function clearSession() {
     refreshing = undefined;
     try {
         await authWrites;
-        const retained = (await chrome.storage.local.get(refreshKey))[refreshKey] as RefreshSession | undefined;
-        const previous = (await chrome.storage.session.get(sessionKey))[sessionKey] as Session | undefined;
+        const retained = (await credentialStorage.get(refreshKey))[refreshKey] as RefreshSession | undefined;
+        const previous = (await browser.storage.session.get(sessionKey))[sessionKey] as Session | undefined;
         if (retained || previous) {
             const response = await api('session', retained?.refreshToken ?? previous!.token, 'DELETE');
             if (!response.ok && response.status !== 401) throw new Error('Browser data was cleared, but server sign-out was not confirmed.');
         }
     } finally {
-        const values = await chrome.storage.session.get(null);
+        const values = await browser.storage.session.get(null);
         await writeAuth(async () => {
-            await chrome.storage.local.remove(refreshKey);
-            await chrome.storage.session.clear();
+            await credentialStorage.remove(refreshKey);
+            await browser.storage.session.clear();
         });
         await Promise.all(Object.keys(values).filter(key => key.startsWith('binding:')).map(key =>
-            chrome.tabs.sendMessage(Number(key.slice(8)), { type: 'dispose' }).catch(() => {})));
+            browser.tabs.sendMessage(Number(key.slice(8)), { type: 'dispose' }).catch(() => {})));
         signingOut = false;
     }
 }
@@ -167,37 +167,37 @@ async function verification(binding: Binding) {
     const epoch = authEpoch;
     // Proofs only live in trusted session storage and are bound to this project/site/reviewer.
     const key = `proof:${binding.tabId}`;
-    const cached = (await chrome.storage.session.get(key))[key] as { token: string; expiresAt: number; projectId: string; origin: string } | undefined;
+    const cached = (await browser.storage.session.get(key))[key] as { token: string; expiresAt: number; projectId: string; origin: string } | undefined;
     if (cached && cached.projectId === binding.projectId && cached.origin === binding.origin && cached.expiresAt > Date.now() + 30_000) return cached.token;
     if (verifying.has(binding.activation)) return verifying.get(binding.activation)!;
     const pending = (async () => {
         const nonce = random();
         const credentials = await scope(binding);
         const jobKey = `verification:${nonce}`;
-        await chrome.storage.session.set({ [jobKey]: { token: credentials.token, tabId: binding.tabId } });
-        const helper = await chrome.windows.create({ url: chrome.runtime.getURL(`helper.html#${nonce}`), type: 'popup', width: 420, height: 220, focused: false });
+        await browser.storage.session.set({ [jobKey]: { token: credentials.token, tabId: binding.tabId } });
+        const helper = await browser.windows.create({ url: browser.runtime.getURL(`helper.html#${nonce}`), type: 'popup', width: 420, height: 220, focused: false });
         try {
             // The helper reports through trusted extension messaging; no reviewed-page listener.
             const proof = await new Promise<{ token: string; expiresAt: number }>((resolve, reject) => {
                 const timeout = setTimeout(() => finish(undefined), 25_000);
                 const receive = (msg: any, sender: chrome.runtime.MessageSender) => {
-                    if (sender.id !== chrome.runtime.id || sender.url !== chrome.runtime.getURL(`helper.html#${nonce}`) || msg?.type !== 'verified' || msg.nonce !== nonce) return;
+                    if (sender.id !== browser.runtime.id || sender.url !== browser.runtime.getURL(`helper.html#${nonce}`) || msg?.type !== 'verified' || msg.nonce !== nonce) return;
                     finish(msg.proof);
                 };
                 const finish = (proof: any) => {
-                    clearTimeout(timeout); chrome.runtime.onMessage.removeListener(receive);
+                    clearTimeout(timeout); browser.runtime.onMessage.removeListener(receive);
                     if (typeof proof?.token === 'string' && proof.token.length < 2048 && typeof proof.expiresAt === 'number') resolve(proof);
                     else reject(new Error('Browser verification failed. Try Start review again.'));
                 };
-                chrome.runtime.onMessage.addListener(receive);
+                browser.runtime.onMessage.addListener(receive);
             });
             await actualDocument(binding);
             if (epoch !== authEpoch) throw new Error('This review has ended.');
-            await chrome.storage.session.set({ [key]: { ...proof, projectId: binding.projectId, origin: binding.origin } });
+            await browser.storage.session.set({ [key]: { ...proof, projectId: binding.projectId, origin: binding.origin } });
             return proof.token;
         } finally {
-            await chrome.storage.session.remove(jobKey);
-            if (helper?.id) await chrome.windows.remove(helper.id).catch(() => {});
+            await browser.storage.session.remove(jobKey);
+            if (helper?.id) await browser.windows.remove(helper.id).catch(() => {});
         }
     })();
     verifying.set(binding.activation, pending);
@@ -207,28 +207,28 @@ async function inject(binding: Binding) {
     const epoch = authEpoch;
     await actualDocument(binding, undefined, true);
     // executeScript returns the actual browser document ID; never take it from a page payload.
-    const result = await chrome.scripting.executeScript({ target: { tabId: binding.tabId, frameIds: [0] }, world: 'ISOLATED', files: ['content.js'] });
+    const result = await browser.scripting.executeScript({ target: { tabId: binding.tabId, frameIds: [0] }, world: 'ISOLATED', files: ['content.js'] });
     if (!result[0]?.documentId) throw new Error('This browser page cannot be reviewed.');
     binding.documentId = result[0].documentId;
     await actualDocument(binding);
     if (epoch !== authEpoch) throw new Error('This review has ended.');
-    await chrome.storage.session.set({ [bindingKey(binding.tabId)]: binding });
-    const mounted = await chrome.tabs.sendMessage(binding.tabId, { type: 'mount', config: { apiUrl: apiOrigin, project: binding.publicId, mode: 'review' } }, { documentId: binding.documentId });
+    await browser.storage.session.set({ [bindingKey(binding.tabId)]: binding });
+    const mounted = await browser.tabs.sendMessage(binding.tabId, { type: 'mount', config: { apiUrl: apiOrigin, project: binding.publicId, mode: 'review' } }, { documentId: binding.documentId });
     if (!mounted?.ok) throw new Error(mounted?.error || 'The review could not start.');
 }
 async function start(tabId: number, projectId: string, publicId: string) {
-    const tab = await chrome.tabs.get(tabId);
+    const tab = await browser.tabs.get(tabId);
     if (!tab.active || !reviewable(tab.url)) throw new Error('Open a website to start a review. Browser pages and extension stores cannot be reviewed.');
     const previous = await getBinding(tabId);
     if (previous) {
         if (previous.projectId === projectId && previous.publicId === publicId && previous.origin === new URL(tab.url!).origin) {
             await actualDocument(previous); await scope(previous); await verification(previous); await inject(previous); return;
         }
-        await chrome.tabs.sendMessage(tabId, { type: 'dispose' }, previous.documentId ? { documentId: previous.documentId } : {}).catch(() => {});
+        await browser.tabs.sendMessage(tabId, { type: 'dispose' }, previous.documentId ? { documentId: previous.documentId } : {}).catch(() => {});
         await clearBinding(tabId);
     }
     const binding: Binding = { activation: random(), sessionId: (await session()).id, tabId, origin: new URL(tab.url!).origin, projectId, publicId };
-    await chrome.storage.session.set({ [bindingKey(tabId)]: binding });
+    await browser.storage.session.set({ [bindingKey(tabId)]: binding });
     try {
     await scope(binding); // Server validates current membership and exact origin before injection.
     await verification(binding);
@@ -247,8 +247,8 @@ async function serialize(response: Response): Promise<Result> {
 async function handle(input: unknown, sender: chrome.runtime.MessageSender) {
     const msg = parseWorkerMessage(input);
     await ready;
-    if (sender.id !== chrome.runtime.id) throw new Error('Unknown extension sender.');
-    const popup = sender.url === chrome.runtime.getURL('popup.html');
+    if (sender.id !== browser.runtime.id) throw new Error('Unknown extension sender.');
+    const popup = sender.url === browser.runtime.getURL('popup.html');
     if (popup) {
         if (msg.type === 'sign-in') return signIn();
         if (msg.type === 'sign-out') return signOut();
@@ -256,10 +256,10 @@ async function handle(input: unknown, sender: chrome.runtime.MessageSender) {
             let signedIn = false;
             try { await session(); signedIn = true; } catch (error) {
                 // A temporary refresh failure must offer retry rather than another interactive login.
-                const retained = (await chrome.storage.local.get(refreshKey))[refreshKey] as RefreshSession | undefined;
+                const retained = (await credentialStorage.get(refreshKey))[refreshKey] as RefreshSession | undefined;
                 if (retained && retained.refreshExpiresAt > Date.now()) throw error;
             }
-            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
             if (!signedIn || !tab?.id || !reviewable(tab.url)) return { signedIn, restricted: !reviewable(tab?.url) };
             const origin = new URL(tab.url!).origin;
             const result = await json<any>(await api(`projects?${new URLSearchParams({ origin })}`, (await session()).token));
@@ -267,12 +267,12 @@ async function handle(input: unknown, sender: chrome.runtime.MessageSender) {
             return { ...result, signedIn, tabId: tab.id, origin, binding: Boolean(binding), reviewing: binding?.projectId };
         }
         if (msg.type === 'start' && Number.isInteger(msg.tabId) && typeof msg.projectId === 'string' && typeof msg.publicId === 'string') return start(msg.tabId, msg.projectId, msg.publicId);
-        if (msg.type === 'exit' && msg.tabId !== undefined) { await clearBinding(msg.tabId); await chrome.tabs.sendMessage(msg.tabId, { type: 'dispose' }).catch(() => {}); return; }
+        if (msg.type === 'exit' && msg.tabId !== undefined) { await clearBinding(msg.tabId); await browser.tabs.sendMessage(msg.tabId, { type: 'dispose' }).catch(() => {}); return; }
         throw new Error('Unsupported popup operation.');
     }
-    if (sender.url?.startsWith(chrome.runtime.getURL('helper.html#')) && !sender.tab?.url?.startsWith('http')) {
-        if (msg.type === 'helper-job' && /^[A-Za-z0-9_-]{43}$/.test(msg.nonce) && sender.url === chrome.runtime.getURL(`helper.html#${msg.nonce}`))
-            return (await chrome.storage.session.get(`verification:${msg.nonce}`))[`verification:${msg.nonce}`];
+    if (sender.url?.startsWith(browser.runtime.getURL('helper.html#')) && !sender.tab?.url?.startsWith('http')) {
+        if (msg.type === 'helper-job' && /^[A-Za-z0-9_-]{43}$/.test(msg.nonce) && sender.url === browser.runtime.getURL(`helper.html#${msg.nonce}`))
+            return (await browser.storage.session.get(`verification:${msg.nonce}`))[`verification:${msg.nonce}`];
         if (msg.type === 'verified') return;
     }
     let binding: Binding;
@@ -284,20 +284,20 @@ async function handle(input: unknown, sender: chrome.runtime.MessageSender) {
     if (msg.type === 'sign-out') return signOut();
     if (msg.type === 'drafts') {
         const key = `drafts:${binding.projectId}:${binding.origin}`;
-        const records = ((await chrome.storage.session.get(key))[key] ?? {}) as Record<string, string>;
+        const records = ((await browser.storage.session.get(key))[key] ?? {}) as Record<string, string>;
         return records;
     }
     if (msg.type === 'draft' && typeof msg.key === 'string' && msg.key.length < 2048 && msg.key.startsWith('uier:draft:v1:')) {
         const write = draftWrites.then(async () => {
             await actualDocument(binding, sender);
             const key = `drafts:${binding.projectId}:${binding.origin}`;
-            const records = ((await chrome.storage.session.get(key))[key] ?? {}) as Record<string, string>;
+            const records = ((await browser.storage.session.get(key))[key] ?? {}) as Record<string, string>;
             if (msg.value === null) delete records[msg.key];
             else if (typeof msg.value === 'string' && msg.value.length <= 64_000 && !msg.value.includes('data:image/')) records[msg.key] = msg.value;
             else throw new Error('Invalid draft.');
             // Bound session growth; the shared store prunes expiry on every mount.
             if (JSON.stringify(records).length > 1_000_000) throw new Error('Draft storage is full.');
-            await chrome.storage.session.set({ [key]: records });
+            await browser.storage.session.set({ [key]: records });
         });
         draftWrites = write.catch(() => {});
         return write;
@@ -322,12 +322,12 @@ async function handle(input: unknown, sender: chrome.runtime.MessageSender) {
     }
     throw new Error('Unsupported review operation.');
 }
-chrome.runtime.onMessage.addListener((msg, sender, respond) => {
+browser.runtime.onMessage.addListener((msg, sender, respond) => {
     void handle(msg, sender).then(value => respond({ ok: true, value }), error => respond({ ok: false, error: error instanceof Error ? error.message : 'The extension could not connect.' }));
     return true;
 });
-chrome.tabs.onRemoved.addListener(tabId => { void clearBinding(tabId); });
-chrome.tabs.onUpdated.addListener((tabId, change) => {
+browser.tabs.onRemoved.addListener(tabId => { void clearBinding(tabId); });
+browser.tabs.onUpdated.addListener((tabId, change) => {
     void (async () => {
         const binding = await getBinding(tabId);
         if (!binding) return;
@@ -340,10 +340,10 @@ async function capture(binding: Binding, region: CaptureRegion) {
     if (!region || Object.values(region).some(n => typeof n !== 'number' || !Number.isFinite(n)) || region.left < 0 || region.top < 0 || region.width <= 0 || region.height <= 0 || region.viewportWidth <= 0 || region.viewportHeight <= 0 || region.left + region.width > region.viewportWidth + 1 || region.top + region.height > region.viewportHeight + 1) throw new Error('Invalid screenshot region.');
     const revision = activationRevision;
     const tab = await actualDocument(binding);
-    const active = await chrome.tabs.query({ active: true, windowId: tab.windowId });
+    const active = await browser.tabs.query({ active: true, windowId: tab.windowId });
     if (active[0]?.id !== binding.tabId) throw new Error('Return to the reviewed tab to capture it.');
-    const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
-    const after = await chrome.tabs.query({ active: true, windowId: tab.windowId });
+    const dataUrl = await browser.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
+    const after = await browser.tabs.query({ active: true, windowId: tab.windowId });
     if (after[0]?.id !== binding.tabId || activationRevision !== revision) throw new Error('The active tab changed during capture.');
     await actualDocument(binding);
     const bytes = Uint8Array.from(atob(dataUrl.split(',')[1]!), c => c.charCodeAt(0));
@@ -360,7 +360,7 @@ async function capture(binding: Binding, region: CaptureRegion) {
                 if (blob.size <= 480 * 1024) {
                     const data = new Uint8Array(await blob.arrayBuffer());
                     let raw = ''; for (const byte of data) raw += String.fromCharCode(byte);
-                    return { dataUrl: `data:image/webp;base64,${btoa(raw)}`, width, height };
+                    return { dataUrl: `data:${blob.type};base64,${btoa(raw)}`, width, height };
                 }
             }
             width = Math.max(1, Math.round(width * 0.75)); height = Math.max(1, Math.round(height * 0.75));

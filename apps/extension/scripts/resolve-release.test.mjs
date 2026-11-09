@@ -11,8 +11,10 @@ test('release resolver requires an exact versioned tag on main and rejects moved
     const check = (tag, commit) => spawnSync(process.execPath, [resolve(import.meta.dirname, 'resolve-release.mjs')], { cwd: root, encoding: 'utf8', env: { ...process.env, RELEASE_TAG: tag, RELEASE_COMMIT: commit ?? '', GITHUB_OUTPUT: '' } });
     try {
         git('init', '-b', 'main'); git('config', 'user.name', 'Local release test'); git('config', 'user.email', 'release@example.test');
-        mkdirSync(resolve(root, 'apps/extension'), { recursive: true });
-        writeFileSync(resolve(root, 'apps/extension/package.json'), '{"version":"0.1.0"}');
+        for (const app of ['extension', 'extension-firefox', 'extension-safari']) {
+            mkdirSync(resolve(root, `apps/${app}`), { recursive: true });
+            writeFileSync(resolve(root, `apps/${app}/package.json`), '{"version":"0.1.0"}');
+        }
         git('add', '.'); git('commit', '-m', 'Initial');
         const main = git('rev-parse', 'HEAD'); git('update-ref', 'refs/remotes/origin/main', main); git('tag', 'extension-v0.1.0');
         assert.equal(check('extension-v0.1.0', main).status, 0);

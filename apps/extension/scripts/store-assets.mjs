@@ -3,8 +3,7 @@
 // paper, the lockup, the tagline, uier.io in mono, and the pin and toolbar as the motif.
 import { chromium } from '@playwright/test';
 import { readFile, mkdir, copyFile } from 'node:fs/promises';
-import { createRequire } from 'node:module';
-import { dirname, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import { brand, PIN_PATH, PIN_VIEWBOX } from '../../../packages/brand/src/brand.ts';
 const root = resolve(import.meta.dirname, '..');
 const out = resolve(root, 'release/listing');
@@ -12,9 +11,9 @@ await mkdir(out, { recursive: true });
 await copyFile(resolve(root, 'dist/icons/128.png'), resolve(out, 'store-icon-128.png'));
 const logo = await readFile(resolve(root, '../../packages/brand/assets/logo.svg'), 'utf8');
 const tokens = await readFile(resolve(root, '../../packages/brand/tokens.css'), 'utf8');
-const geist = dirname(createRequire(import.meta.url).resolve('geist/font'));
-const font = async file => (await readFile(resolve(geist, file))).toString('base64');
-const [sans, mono] = await Promise.all([font('fonts/geist-sans/Geist-Variable.woff2'), font('fonts/geist-mono/GeistMono-Variable.woff2')]);
+// Use the fonts already packaged by the shared build, keeping asset dependencies in one place.
+const font = async file => (await readFile(resolve(root, 'dist/fonts', file))).toString('base64');
+const [sans, mono] = await Promise.all([font('geist.woff2'), font('geist-mono.woff2')]);
 const { paper, ink, black, darkBorder } = brand.colors;
 // The product pin (ink, 2 px paper ring, the number inside) and the toolbar pill: add a comment, then the inbox
 const pin = `<div class="pin"><svg viewBox="${PIN_VIEWBOX}"><path d="${PIN_PATH}" fill="${ink}" stroke="${paper}" stroke-width="2"/></svg><span>1</span></div>`;

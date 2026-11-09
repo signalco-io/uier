@@ -13,23 +13,24 @@ import { signToken } from '../src/lib/app/tokens';
 import { memberId, workspacePk } from '../src/lib/app/model';
 import { actorAuthorId, assertCanUseComments } from '../src/lib/review/actor';
 import { refreshExtensionSession, revokeExtensionSession, extensionAccessSeconds, extensionIdleSeconds, extensionAbsoluteSeconds } from '../src/lib/extension/sessions';
+import { extensionClients, extensionFrameAncestors } from '../src/lib/extension/config';
 
 const clientId = 'abcdefghijklmnopabcdefghijklmnop';
 const redirectUri = `https://${clientId}.chromiumapp.org/uier`;
-const original = { UIER_LOCAL: process.env.UIER_LOCAL, UIER_EXTENSION_CLIENT_IDS: process.env.UIER_EXTENSION_CLIENT_IDS };
-test.beforeAll(() => { process.env.UIER_LOCAL = '1'; process.env.UIER_EXTENSION_CLIENT_IDS = clientId; });
+const original = { UIER_LOCAL: process.env.UIER_LOCAL, UIER_EXTENSION_CLIENT_IDS: process.env.UIER_EXTENSION_CLIENT_IDS, UIER_EXTENSION_CLIENTS: process.env.UIER_EXTENSION_CLIENTS };
+test.beforeAll(() => { process.env.UIER_LOCAL = '1'; process.env.UIER_EXTENSION_CLIENT_IDS = clientId; process.env.UIER_EXTENSION_CLIENTS = ''; });
 test.afterAll(() => { for (const [key, value] of Object.entries(original)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } });
 const random = () => randomBytes(32).toString('base64url');
-async function fixture(renewable = false) {
+async function fixture(renewable = false, registration: { clientId: string; redirectUri: string; extensionOrigin?: string } = { clientId, redirectUri }) {
     const user = await findOrCreateUser(`${randomUUID()}@example.test`);
     const member = await ensureOwnWorkspace(user);
     const context = { user, member, workspace: { id: member.workspaceId }, isAdmin: true } as AppContext;
     const project = await createProject(context, { name: 'Extension project', urls: ['https://reviewed.example'] });
     const verifier = random(), state = random();
     const challenge = createHash('sha256').update(verifier).digest('base64url');
-    const authorization = { clientId, redirectUri, state, challenge, ...(renewable ? { renewable: 'true' as const } : {}) };
+    const authorization = { ...registration, state, challenge, ...(renewable ? { renewable: 'true' as const } : {}) };
     const callback = new URL(await issueExtensionCode(user.id, authorization));
-    const exchange = { clientId, redirectUri, code: callback.searchParams.get('code'), verifier };
+    const exchange = { clientId: registration.clientId, redirectUri: registration.redirectUri, code: callback.searchParams.get('code'), verifier };
     return { user, project, authorization, callback, exchange };
 }
 const request = (path: string, token?: string, body?: unknown) => new Request(`https://uier.io/api/extension/${path}`, {
@@ -199,6 +200,65 @@ test('extension CORS cannot grant identity and leaves embed policy separate', as
         expect(response.ok).toBe(false);
         expect(response.headers.get('Access-Control-Allow-Origin')).toBe(origin?.startsWith('chrome-extension:') ? origin : null);
     }
+});
+
+for (const browser of ['firefox', 'safari'] as const) {
+    test(`${browser} uses exact registered callbacks and binds renewable scopes to its current extension origin`, async () => {
+        const id = browser === 'firefox' ? 'uier@signalco.io' : 'io.uier.safari.Extension';
+        const callback = browser === 'firefox' ? 'https://1234567890abcdef.extensions.allizom.org/' : 'https://uier.io/extension-callback';
+        const scheme = browser === 'firefox' ? 'moz-extension' : 'safari-web-extension';
+        const extensionOrigin = `${scheme}://12345678-1234-1234-1234-123456789abc`;
+        const nextOrigin = `${scheme}://abcdefab-1234-1234-1234-123456789abc`;
+        process.env.UIER_EXTENSION_CLIENTS = JSON.stringify([{ id, browser, redirectUri: callback }]);
+        try {
+            const f = await fixture(true, { clientId: id, redirectUri: callback, extensionOrigin });
+            expect(f.callback.href.startsWith(callback)).toBe(true);
+            for (const override of [
+                { extensionOrigin: undefined }, { extensionOrigin: 'https://evil.test' },
+                { extensionOrigin: `${extensionOrigin}/` }, { extensionOrigin: `chrome-extension://${clientId}` },
+                { redirectUri: `${callback}?redirect=https://evil.test` }, { clientId: `${id}.unknown` }
+            ]) expect(() => validateAuthorization({ ...f.authorization, ...override })).toThrow();
+            const credentials = await exchangeExtensionCode({ ...f.exchange, renewable: true });
+            if (!('refreshToken' in credentials)) throw new Error('Expected renewable session');
+            expect((await extensionSession(request('projects', credentials.token))).extensionOrigin).toBe(extensionOrigin);
+            const scope = await (await createScope(request('scope', credentials.token, { projectId: f.project.id, origin: 'https://reviewed.example' }))).json() as { token: string };
+            expect(readScope(request('review/info', scope.token)).extensionOrigin).toBe(extensionOrigin);
+            const refresh = { clientId: id, refreshToken: credentials.refreshToken, attempt: random() };
+            await expect(refreshExtensionSession(refresh)).rejects.toMatchObject({ status: 401 });
+            await expect(refreshExtensionSession({ ...refresh, extensionOrigin: 'https://evil.test' })).rejects.toMatchObject({ status: 401 });
+            const renewed = await refreshExtensionSession({ ...refresh, extensionOrigin: nextOrigin });
+            expect((await extensionSession(request('projects', renewed.token))).extensionOrigin).toBe(nextOrigin);
+            await expect(extensionSession(request('projects', credentials.token))).rejects.toMatchObject({ status: 401 });
+            await expect(extensionReviewContext(request('review/info', scope.token))).rejects.toMatchObject({ status: 401 });
+            // A lost refresh response is recoverable even after Safari restarts with another UUID.
+            const recovered = await refreshExtensionSession({ ...refresh, extensionOrigin });
+            expect(recovered.refreshToken).toBe(renewed.refreshToken);
+            expect(recovered.refreshExpiresAt).toBe(renewed.refreshExpiresAt);
+            expect((await extensionSession(request('projects', recovered.token))).extensionOrigin).toBe(extensionOrigin);
+            const handler = extensionHandler(async request => { await extensionSession(request); return Response.json({ ok: true }); });
+            const unauthenticated = await handler(new Request('https://uier.io/api/extension/projects', { headers: { Origin: extensionOrigin } }));
+            expect(unauthenticated.status).toBe(401);
+            expect(unauthenticated.headers.get('Access-Control-Allow-Origin')).toBe(extensionOrigin);
+            const helper = new URL('https://uier.io/extension-verification');
+            helper.searchParams.set('clientId', id); helper.searchParams.set('extensionOrigin', extensionOrigin);
+            expect(extensionFrameAncestors(helper)).toEqual([extensionOrigin]);
+            helper.searchParams.set('extensionOrigin', 'https://evil.test');
+            expect(extensionFrameAncestors(helper)).toEqual([]);
+            expect(extensionFrameAncestors(new URL('https://uier.io/extension-verification'))).toEqual([`chrome-extension://${clientId}`]);
+            process.env.UIER_EXTENSION_CLIENTS = '[]';
+            await expect(extensionSession(request('projects', recovered.token))).rejects.toMatchObject({ status: 401 });
+        } finally { process.env.UIER_EXTENSION_CLIENTS = ''; }
+    });
+}
+
+test('additional browser registrations fail closed on malformed or duplicate configuration', async () => {
+    for (const value of ['{', '{}', JSON.stringify([{ id: 'uier@signalco.io', browser: 'firefox', redirectUri: 'https://evil.test/' }]),
+        JSON.stringify([{ id: clientId, browser: 'safari', redirectUri: 'https://uier.io/extension-callback' }]),
+        JSON.stringify([{ id: 'io.uier.safari.Extension', browser: 'safari', redirectUri: 'https://uier.io/extension-callback?next=evil' }])]) {
+        process.env.UIER_EXTENSION_CLIENTS = value;
+        expect(extensionClients().map(client => client.id)).toEqual([clientId]);
+    }
+    process.env.UIER_EXTENSION_CLIENTS = '';
 });
 
 test('live membership and comments-off checks apply to extension review contexts', async () => {

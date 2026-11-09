@@ -1,9 +1,10 @@
-import { clearDraftMemory } from '../../../packages/toolbar/src/hooks/draftStorage';
+import { browser } from './browser';
+import { clearDraftMemory } from '../../toolbar/src/hooks/draftStorage';
 import { configureToolbarRuntime, mountExtensionToolbar } from '@uier/toolbar/extension';
 import { message, type Result } from './environment';
-import type { CapturedScreenshot } from '../../../packages/toolbar/src/screenshot';
-import type { ToolbarConfig } from '../../../packages/toolbar/src/config';
-import { getToolbarHost } from '../../../packages/toolbar/src/mount';
+import type { CapturedScreenshot } from '../../toolbar/src/screenshot';
+import type { ToolbarConfig } from '../../toolbar/src/config';
+import { getToolbarHost } from '../../toolbar/src/mount';
 
 // Repeated executeScript does not register another listener or create another review layer.
 const key = Symbol.for('uier.extension.content.v1');
@@ -31,12 +32,12 @@ if (!global[key]) {
         // BFCache preserves the DOM and freezes timers. Remove the host synchronously so Back
         // cannot revive private UI after the worker has ended activation on another origin.
         getToolbarHost()?.remove(); unmount?.(); records.clear(); clearDraftMemory();
-        chrome.runtime.onMessage.removeListener(receive);
+        browser.runtime.onMessage.removeListener(receive);
         window.removeEventListener('pagehide', dispose);
         delete global[key];
     };
     const receive = (msg: any, sender: chrome.runtime.MessageSender, respond: (value: unknown) => void) => {
-        if (sender.id !== chrome.runtime.id) return;
+        if (sender.id !== browser.runtime.id) return;
         if (msg.type === 'dispose') {
             dispose();
             window.setTimeout(() => respond({ ok: true }), 0);
@@ -90,7 +91,7 @@ if (!global[key]) {
         void pending.then(() => respond({ ok: true }), error => respond({ ok: false, error: String(error) }));
         return true;
     };
-    chrome.runtime.onMessage.addListener(receive);
+    browser.runtime.onMessage.addListener(receive);
     // Same-origin continuation is re-injected only by the worker after it checks the live binding.
     window.addEventListener('pagehide', dispose, { once: true });
 }

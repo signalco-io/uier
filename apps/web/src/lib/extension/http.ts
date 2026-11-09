@@ -1,4 +1,4 @@
-import { extensionClientIds } from './auth';
+import { isExtensionTransportOrigin } from './config';
 import { apiErrors, errorResponse } from '../comments/http';
 
 export function extensionApiOrigin(request: Request) {
@@ -12,7 +12,7 @@ export function extensionHandler(handler: (request: Request) => Promise<Response
     return async (request: Request) => {
         let response: Response;
         const origin = request.headers.get('origin');
-        const allowed = extensionClientIds().some(id => origin === `chrome-extension://${id}`);
+        const allowed = isExtensionTransportOrigin(origin);
         try {
             if (origin && origin !== extensionApiOrigin(request) && !allowed) throw apiErrors.forbidden();
             response = request.method === 'OPTIONS' ? new Response(null, { status: 204 }) : await handler(request);

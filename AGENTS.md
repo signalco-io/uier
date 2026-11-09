@@ -12,7 +12,9 @@ comments are pinned to elements or selected text and stored per domain.
 | Path | Package | What | Guide |
 | --- | --- | --- | --- |
 | `apps/web` | `@uier/web` | uier.io website, `/brand` page, the signed-in app (`/app`) and the `/api/comments` API (Next.js, Cosmos DB) | [apps/web/AGENTS.md](apps/web/AGENTS.md), [area notes](apps/web/docs/README.md) |
-| `apps/extension` | `@uier/extension` | desktop Manifest V3 browser extension | [apps/extension/AGENTS.md](apps/extension/AGENTS.md) |
+| `apps/extension` | `@uier/extension` | Chrome/Edge packaging, release and acceptance shell | [apps/extension/AGENTS.md](apps/extension/AGENTS.md) |
+| `apps/extension-firefox`, `apps/extension-safari` | browser targets | Firefox packaging and Safari Xcode flow | [Firefox](apps/extension-firefox/AGENTS.md), [Safari](apps/extension-safari/AGENTS.md) |
+| `packages/extension` | `@uier/extension-core` | shared extension runtime, UI and build tools | [packages/extension/AGENTS.md](packages/extension/AGENTS.md) |
 | `packages/toolbar` | `@uier/toolbar` | the review toolbar bundle (tsup, React, shadow DOM) | [packages/toolbar/AGENTS.md](packages/toolbar/AGENTS.md), [area notes](packages/toolbar/docs/README.md) |
 | `packages/brand` | `@uier/brand` | **the brand: tokens, logo, constants, assets, `BRAND.md`** | [packages/brand/AGENTS.md](packages/brand/AGENTS.md) |
 | `infra` | `@uier/infra` | Pulumi (Vercel project, Cloudflare DNS, Cosmos DB); not in the pnpm workspace | [infra/AGENTS.md](infra/AGENTS.md) |

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseWorkerMessage } from '../src/protocol.ts';
+import { parseWorkerMessage } from '@uier/extension-core/protocol';
 
 test('broker envelopes reject unknown operations, credentials, headers and malformed payloads', () => {
     for (const value of [null, [], 'state', { type: 'fetch', url: 'https://example.test' },
