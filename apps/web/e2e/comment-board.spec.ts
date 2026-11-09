@@ -227,6 +227,17 @@ test('only the board widens on a wide window; the header and filters stay where 
     await expect(column('Done')).toBeInViewport({ ratio: 1 });
 });
 
+test('board cards are darker than their column on dark', async ({ page, request }) => {
+    const { column, card } = await board(page, request);
+    // On dark the card is the page's black, a step darker than its column
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await expect(page.locator('html')).toHaveClass(/\bdark\b/);
+    const surface = (target: Locator) => target.evaluate(element => getComputedStyle(element).backgroundColor);
+    const row = card('Open', 'First board thread').locator('[data-comment-row]');
+    await expect.poll(() => surface(row)).toBe('rgb(0, 0, 0)');
+    expect(await surface(column('Open'))).not.toBe('rgb(0, 0, 0)');
+});
+
 test('on a phone the board stacks its columns without scrolling sideways', async ({ page, request }, testInfo) => {
     test.skip(!testInfo.project.name.startsWith('Mobile'), 'The phone layout');
     const { column } = await board(page, request);
