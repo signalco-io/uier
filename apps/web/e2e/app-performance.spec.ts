@@ -240,6 +240,26 @@ test('mark all as read clears the rendered unread snapshot before confirmation',
     } finally { pending.release(); }
 });
 
+test('the unread count toggles Only unread and stays while it is on (uier #193)', async ({ page, request }) => {
+    const { project } = await fixture(page, request);
+    await page.goto(`/app/projects/${project}`);
+    const count = page.getByRole('button', { name: '1 unread, show only unread', exact: true });
+    await expect(count).toHaveAttribute('aria-pressed', 'false');
+    await count.click();
+    await expect(count).toHaveAttribute('aria-pressed', 'true');
+    await expect(page).toHaveURL(/[?&]unread=true/);
+    await expect(page.getByRole('button', { name: 'Clear filter: Only unread', exact: true })).toBeVisible();
+    // With nothing unread left it stays, pressed, so the filter can be turned off where it was turned on
+    await page.getByRole('button', { name: 'Mark all as read', exact: true }).click();
+    const none = page.getByRole('button', { name: '0 unread, show only unread', exact: true });
+    await expect(none).toHaveAttribute('aria-pressed', 'true');
+    await none.focus();
+    await page.keyboard.press('Enter');
+    await expect(page).not.toHaveURL(/[?&]unread=/);
+    await expect(page.getByRole('button', { name: /unread, show only unread$/ })).toHaveCount(0);
+    await expect(commentRows(page)).toHaveCount(1);
+});
+
 test('new feedback appears and the composer closes while submission waits for the server', async ({ page, request }) => {
     const { project } = await fixture(page, request);
     await page.goto(`/app/review/${project}?url=${encodeURIComponent(`${site.origin()}/${project}/pricing`)}`);
