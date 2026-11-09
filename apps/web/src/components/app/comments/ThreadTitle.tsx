@@ -28,6 +28,7 @@ function AiMark() {
  * the one AI wrote with the AI mark. Those who can rename (`permissions.title`) click or focus it to edit
  * it in place: Enter or leaving the field saves, Escape cancels, and an empty title shows the AI title
  * again. Without a title, they get Add a title; others get no heading, as the first message shows below.
+ * It pulls itself 8px up into the card's 16px gap, so it sits close under the status row.
  */
 export function ThreadTitle({ projectId, commentId, title, byAi = false, canRename = false }: {
     projectId: string;
@@ -55,7 +56,7 @@ export function ThreadTitle({ projectId, commentId, title, byAi = false, canRena
     if (!canRename) {
         if (!title) return null;
         return (
-            <div className="flex min-w-0 items-start gap-1.5">
+            <div className="-mt-2 flex min-w-0 items-start gap-1.5">
                 <h2 className="m-0 min-w-0 text-base font-semibold break-words">{title}</h2>
                 {byAi && <AiMark />}
             </div>
@@ -93,7 +94,7 @@ export function ThreadTitle({ projectId, commentId, title, byAi = false, canRena
     if (editing) {
         return (
             <Input ref={input} value={draft} maxLength={MAX_LENGTH} aria-label="Thread title" placeholder="Add a title"
-                className="-mx-1.5 h-auto w-[calc(100%+0.75rem)] px-1.5 py-0.5 text-base font-semibold md:text-base pointer-coarse:min-h-11"
+                className="-mx-1.5 -mt-2 h-auto w-[calc(100%+0.75rem)] px-1.5 py-0.5 text-base font-semibold md:text-base pointer-coarse:min-h-11"
                 onChange={event => setDraft(event.target.value)}
                 onBlur={() => save(false)}
                 onKeyDown={event => {
@@ -112,7 +113,7 @@ export function ThreadTitle({ projectId, commentId, title, byAi = false, canRena
         </button>
     );
     return (
-        <div className="flex min-w-0 items-start gap-1.5">
+        <div className="-mt-2 flex min-w-0 items-start gap-1.5">
             {title ? <h2 className="m-0 min-w-0 text-base font-semibold">{button}</h2> : button}
             {title && byAi && <AiMark />}
             <span id={hintId} hidden>{title ? 'Rename the thread' : 'Give the thread a title'}</span>

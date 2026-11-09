@@ -15,7 +15,7 @@
   Done without verification. Copy is one menu with Copy
   issue (Markdown for an issue or a coding tool; a toast says "Issue copied.", its errors and manual clipboard
   fallback stay in the thread) and Copy link (opens the reviewed page at this comment). Follow thread / Unfollow
-  thread and, once read, Mark as unread are in More actions. Under that line, `ThreadTitle` shows the thread's
+  thread and, once read, Mark as unread are in More actions. Under that line, close beneath it (8px), `ThreadTitle` shows the thread's
   title as an `h2`: one a member gave it, or its [AI title](ai-titles.md) with a sparkles mark ("Title written by
   AI"). For those who can triage (`permissions.title`) the title is a button: a click or focus turns it into the
   Thread title field in place (Enter or leaving it saves, Escape cancels and gives focus back; an empty title
