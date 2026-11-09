@@ -88,7 +88,7 @@ transition into Done (`completedAt`), newest first, regardless of priority or nu
 threads fall back to `updatedAt`, then `createdAt`; ties use the usual list order. Ordinary Done
 writes and verification confirmations record completion; same-status writes and later replies
 preserve it. Reopening and completing again records a new time. Optimistic moves place the card
-first in Done, including the drag placeholder; realtime snapshots use the persisted time and the
+first in Done (in its default sort, [below](#board-column-sorts)), including the drag placeholder; realtime snapshots use the persisted time and the
 existing layout motion.
 
 Rows and board cards show one small outlined pull request mark, named "Linked pull request", when a
@@ -97,6 +97,40 @@ fetch provider state; the [open thread's details](comment-thread.md) list the li
 `CommentRow` uses the browser-safe `lib/comments/pullRequestLinks.ts` recognizer for both layouts,
 including My work and the board's drag preview. Deleted messages lose their links; an edited or newly
 saved reply updates the mark through the existing comment refresh.
+
+## Board column sorts
+
+The orders above are the board's defaults. Each column can have its own sort instead, saved on the project
+(`DbProject.boardSorts`), so everyone who opens that project's board sees the same order: not per
+browser or person, and not one setting for every project. `lib/app/boardSort.ts` (browser-safe) has
+the choices: active columns offer Priority (default, `compareCommentOrder`), Newest first and Oldest
+first (`createdAt`, then number) and Recently updated (`updatedAt`, then the usual order); Done offers
+Recently completed (default, `compareDoneOrder`) and the same four. Only choices other than a column's
+default are stored, and a stored value a column does not offer reads as its default (`boardSort`).
+The list view keeps its order.
+
+- `BoardSortMenu` ends each column's header: a ghost icon button (`ArrowUpDownIcon`, named
+  "Sort Open: Priority") with the UI kit's radio menu, which closes on a choice. A column in another
+  order than its default shows the sort's short name beside the icon ("Newest"), so the shared order is
+  visible. It takes no more height than the column's name, and 44 px to tap on a touch screen.
+- Who: the people who triage the project (`canSortProjectBoard` = `canTriageProject`), who also move
+  its cards: every member, but on uier's own feedback projects only their staff (accounts there see
+  only their own threads). Others get no menu. `setBoardSortAction` parses the column and the choice
+  (`boardSortActionSchema`), loads the project with the visible-project check, and
+  `saveProjectBoardSort` checks the column's choices and the person again before it writes the project
+  document (`updateDoc`, one point read and replace). Unlike `updateProject` it takes uier's feedback
+  projects too: it is how their board reads, not a setting uier manages. The page revalidates; a choice
+  shows at once (`useOptimistic`) and goes back with an error toast if saving fails, with no success
+  toast. Open boards elsewhere pick it up on their next load.
+- `ProjectComments` sorts each column (`sortBoardColumn`, ties in the list's order), so everything that
+  reads the columns follows the chosen order: the arrow keys, J and K and the selection's ranges. A move shows the card as it will be (`movedPatch`: the new status, Done's completion time and
+  the update time the server gives every change), so Move and a drop land it in its place in the new
+  column's sort, and the drag placeholder sits where it will land (the column's cards with the moved one,
+  in the list's order, then sorted).
+- `e2e/board-sort.api.spec.ts` covers each sort, the column choices, validation, saving and resetting,
+  commenters, guests and uier's user feedback project (staff only, kept by provisioning).
+  `e2e/comment-order.spec.ts` (full suite) chooses sorts from the header, checks the keys, Move and a
+  drop's placeholder against them, a reload and a teammate's board.
 
 ## Motion
 

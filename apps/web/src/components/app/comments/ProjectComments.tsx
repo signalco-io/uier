@@ -1,7 +1,8 @@
 'use client';
 
 import { commentAssignees } from '@uier/toolbar/agents';
-import { useEffect, useOptimistic, useRef, useState } from 'react';
+import { useEffect, useOptimistic, useRef, useState, useTransition } from 'react';
+import { toast } from 'sonner';
 import Link from 'next/link';
 import { setUrlSearchParams, useUrlSearchParams } from '@/src/hooks/use-url-search-params';
 import { CircleCheckIcon, CircleDashedIcon, MessageSquareDashedIcon, SearchXIcon } from 'lucide-react';
@@ -21,7 +22,9 @@ import { CommentBoard } from './CommentBoard';
 import { statusFilterLabels, statusMatches, type AuthorFilter, type StatusFilter } from './commentLabels';
 import { commentStatus, commentStatuses, type CommentStatus } from './CommentStatus';
 import { parseCommentsQuery, type CommentsQuery } from './commentsQuery';
-import { compareDoneOrder, orderComments } from './commentOrder';
+import { orderComments, sortBoardColumn } from './commentOrder';
+import type { BoardSort } from '../../../lib/app/boardSort';
+import { setBoardSortAction } from './actions';
 import { CommentUpdatesProvider, type CommentUpdate } from './CommentUpdates';
 import { TriageSelection } from './TriageSelection';
 import { matchesFeedbackSearch } from '@uier/toolbar/triage';
@@ -59,8 +62,12 @@ function applyFilters(comments: ProjectCommentView[], query: CommentsQuery, user
 }
 
 /** The project's comments in a list (a status tab) or on a board (a column per status), filtered by people and page */
-export function ProjectComments({ projectId, access, isAdmin, comments: savedComments, query: serverQuery, userId, assignees, installHref, environments, authorFilter, searchWindowCapped = false }: {
+export function ProjectComments({ projectId, access, isAdmin, comments: savedComments, query: serverQuery, userId, assignees, installHref, environments, authorFilter, searchWindowCapped = false, boardSorts: savedSorts, canSortBoard }: {
     searchWindowCapped?: boolean;
+    /** Each board column's sort, saved on the project for everyone (`lib/app/boardSort.ts`) */
+    boardSorts: Record<CommentStatus, BoardSort>;
+    /** Whether this person may change them (`canSortProjectBoard`) */
+    canSortBoard: boolean;
     authorFilter?: AuthorFilter;
     environments: import('../../../lib/app/environments').EnvironmentOption[];
     projectId: string;
@@ -108,9 +115,19 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
         const readSequence = Math.max(comment.activity.readSequence, update.readSequence);
         return { ...comment, activity: { ...comment.activity, readSequence, unread: comment.activity.lastOtherSequence > readSequence } };
     }));
-    // Priority first (Urgent to Low), then number, highest first: the list, active columns,
-    // selection and keyboard follow this order. Done has its own completion history on the board.
+    // Priority first (Urgent to Low), then number, highest first: the list, selection and keyboard follow this
+    // order. The board's columns each follow the project's sort for them, by default this one in active columns
+    // and the completion history in Done.
     const comments = orderComments(optimisticComments);
+    // A column's new sort shows at once, and goes back with an error if saving it fails
+    const [boardSorts, showSort] = useOptimistic(savedSorts, (current, change: { status: CommentStatus; sort: BoardSort }) => ({ ...current, [change.status]: change.sort }));
+    const [, startSorting] = useTransition();
+    const changeSort = (status: CommentStatus, sort: BoardSort) => startSorting(async () => {
+        showSort({ status, sort });
+        const result = await setBoardSortAction(projectId, status, sort)
+            .catch(() => ({ ok: false as const, error: 'Could not save the sort. Try again.' }));
+        if (result && !result.ok) toast.error(result.error);
+    });
     // An open thread that is not loaded (deleted, or outside a new author or environment scope) is
     // closed, so it cannot reopen later when the scope changes back
     const openId = openComment.openId;
@@ -178,9 +195,9 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
     // Where the open thread takes the whole width, it takes the filters' place too
     const threadOnly = Boolean(openComment.openId) && !board && comments.some(comment => comment.id === openComment.openId);
     const shown = board ? filtered : filtered.filter(comment => statusMatches(query.status, commentStatus(comment)));
-    // The board's columns, one per status in order (each thread in exactly one)
-    const columns = Object.fromEntries(commentStatuses.map(status => [status, shown.filter(comment => commentStatus(comment) === status)])) as Record<CommentStatus, ProjectCommentView[]>;
-    columns.done.sort(compareDoneOrder);
+    // The board's columns, one per status in order (each thread in exactly one), each in the project's sort for it
+    const columns = Object.fromEntries(commentStatuses.map(status => [status,
+        sortBoardColumn(shown.filter(comment => commentStatus(comment) === status), boardSorts[status])])) as Record<CommentStatus, ProjectCommentView[]>;
     const unreadShown = shown.filter(comment => comment.activity?.unread).length;
     // Keep matching cards mounted, including their independent reply drafts. Selection resets per scope.
     const selectionScope = JSON.stringify([projectId, query.environment, query.author, query.unread, query.people, query.page, query.status, query.q, query.priority, query.view]);
@@ -222,7 +239,8 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
                     </EmptyHeader>
                 </Empty>
             ) : board ? (
-                <CommentBoard projectId={projectId} columns={columns} allComments={comments} assignees={assignees} userId={userId} openComment={openComment} />
+                <CommentBoard projectId={projectId} columns={columns} sorts={boardSorts} onSort={canSortBoard ? changeSort : undefined}
+                    allComments={comments} assignees={assignees} userId={userId} openComment={openComment} />
             ) : (
                 <CommentInbox projectId={projectId} comments={shown} allComments={comments} assignees={assignees} userId={userId} label="Comments"
                     keeps={status => statusMatches(query.status, status)} readLeaves={Boolean(query.unread)} openComment={openComment} />

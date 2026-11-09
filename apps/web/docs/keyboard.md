@@ -18,7 +18,8 @@ list themselves on `?`. The review toolbar does the same with its own keys
 
 The tab stop is the item last focused, else the current one (the open thread, the current page or tab), else
 the first; the keys stop at the ends. A list's other controls (a row's selection box, a card's Move and
-avatars) are in the Tab order only in the current row or card. `useRovingTabStop` (`keyboard/keys.ts`) is the
+avatars) are in the Tab order only in the current row or card. A board column's sort, where the person may
+change it, is its own stop in the column's header, before the column's cards ([column sorts](comments-inbox.md#board-column-sorts)). `useRovingTabStop` (`keyboard/keys.ts`) is the
 hook for lists of links: `itemProps(key)` on each item, `containerProps` on the composite.
 
 ## Shortcuts

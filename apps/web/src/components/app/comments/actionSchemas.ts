@@ -7,6 +7,7 @@ import { mentionsSchema } from '../../../lib/review/participants';
 import { bulkReadSchema } from '../../../lib/comments/bulkRead';
 import { assigneeIdsSchema, assignmentModeSchema, agentIdSchema } from '../../../lib/review/assignments';
 import { assigneeAgentInputSchema } from '../../../lib/review/assigneeAgentModel';
+import { boardSortInputSchema } from '../../../lib/app/boardSort';
 
 export const commentIdSchema = z.string().refine(isValidId);
 export const commentActionSchema = z.object({ projectId: projectIdSchema, commentId: commentIdSchema });
@@ -25,3 +26,5 @@ export const notificationActionSchema = z.object({ projectId: projectIdSchema, t
 
 export const priorityCommentActionSchema = commentActionSchema.extend({ priority: z.enum(priorities), idempotencyKey: idempotencyKeySchema });
 export const agentCommentActionSchema = commentActionSchema.extend({ agent: assigneeAgentInputSchema.nullable(), idempotencyKey: idempotencyKeySchema, agentId: agentIdSchema.optional(), add: z.boolean().optional() });
+/** A board column's sort: the column and one of the choices it offers (`boardSortOptions`) */
+export const boardSortActionSchema = z.object({ projectId: projectIdSchema }).and(boardSortInputSchema);

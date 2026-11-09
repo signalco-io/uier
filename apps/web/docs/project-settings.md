@@ -23,6 +23,8 @@
   something changed; `useSettingsDraft` compares the draft with the saved values and starts over from the server's
   values after a save. Long cards pass `stickyFooter` to `Section`, so Save stays in reach. Switches save at once
   (project emails, comment excerpts); radios and text wait for Save. Account's Profile uses the same footer.
+- The board's column sorts are the project's too, but they are chosen on the board, from each column's header, by
+  everyone who triages the project, and saved at once ([column sorts](comments-inbox.md#board-column-sorts)).
 
 - **Notifications** (project settings) has two cards: Email notifications (everyone: their own project emails, a switch;
   commenters also read whether emails carry excerpts) and Email content (admins only: Include comment excerpts, the
