@@ -39,7 +39,7 @@ export function feedbackExport(dto: Omit<CommentDto, 'thread'> & { thread: { ite
         schemaVersion: 1, contentTrust: 'untrusted',
         identity: { projectId: options.projectId, commentId: dto.id, number: dto.number, itemId: first?.id },
         title: `${dto.kind === 'rewrite' ? 'Suggested rewrite: ' : ''}${(available && options.title) || summary || 'Website feedback'}`,
-        verification: dto.verification, priority: dto.priority, kind: dto.kind, ...(dto.feedbackType ? { feedbackType: dto.feedbackType } : {}), status: dto.resolved ? 'done' : 'open', stage: feedbackStage(dto), feedback: first,
+        verification: dto.verification, priority: dto.priority, kind: dto.kind, ...(dto.feedbackType ? { feedbackType: dto.feedbackType } : {}), ...(dto.check ? { check: dto.check } : {}), status: dto.resolved ? 'done' : 'open', stage: feedbackStage(dto), feedback: first,
         ...(options.assignees ? { assignees: options.assignees.map(person => {
             const agents = (person.agents ?? []).map(({ kind, label, model, reasoning, sessionId, sessionUrl }) => ({ kind, label,
                 ...(model ? { model } : {}), ...(reasoning ? { reasoning } : {}), ...(sessionId ? { sessionId } : {}), ...(sessionUrl ? { sessionUrl } : {}) }));

@@ -4,7 +4,7 @@ import { expect, test, type Page, type Request } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, chooseInboxPages, commentBubble, inboxPages, openThread, toolbar } from './support/toolbar';
+import { animationsFinished, chooseInboxPages, commentBubble, inboxPages, openThread, setThreadStatus, toolbar } from './support/toolbar';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 
 // The toolbar's Accessibility and SEO panels (packages/toolbar/docs/page-checks.md) on a project's
@@ -67,6 +67,8 @@ test('the Accessibility panel loads axe-core only when opened, audits the page w
     await expect(panel.locator('[data-uier-summary="serious"] dd')).toHaveText(String(await elementCount('serious')));
     // A line every element of a rule shares is said once, under its title, not on the element
     await expect(imageRule).toContainText('Element does not have an alt attribute');
+    // The rule's row names the success criterion it tests
+    await expect(imageRule).toContainText('WCAG 1.1.1 (A)');
     await expect(imageRule.getByRole('listitem').filter({ hasText: 'img#plan-chart' })).not.toContainText('alt attribute');
 
     // Highlight outlines the element on the page
@@ -82,7 +84,10 @@ test('the Accessibility panel loads axe-core only when opened, audits the page w
     const created = nextCreate(page, project);
     await item.getByRole('button', { name: 'Comment' }).click();
     const body = (await created).postDataJSON();
-    expect(body.text).toMatch(/^Accessibility \(critical\): Images must have alternative text\.\nRule image-alt: https:\/\/dequeuniversity\.com\/rules\/axe\/[\d.]+\/image-alt$/);
+    // The comment says what was found on the element, the standard and the rule; the request names the check
+    expect(body.text).toMatch(/^Accessibility \(critical\): Images must have alternative text\.\nElement: `#plan-chart`\nFix any of the following:\n- Element does not have an alt attribute\n(?:- .+\n)*\nWCAG 1\.1\.1 \(A\)\. Rule image-alt: https:\/\/dequeuniversity\.com\/rules\/axe\/[\d.]+\/image-alt$/);
+    expect(body.text.length).toBeLessThanOrEqual(1000);
+    expect(body.check).toEqual({ type: 'accessibility', id: 'image-alt' });
     expect(body.position).toMatchObject({ type: 'point', xNormal: 0.5, yNormal: 0.5 });
     expect(body.position.selector).toContain('plan-chart');
     expect(body.kind).toBeUndefined();
@@ -161,6 +166,7 @@ test('the SEO panel reports the head, headings, links, images and Core Web Vital
     let body = (await created).postDataJSON();
     expect(body).toMatchObject({ kind: 'bug', position: { type: 'page' }, authorName: 'Search reviewer' });
     expect(body.text).toBe('SEO: The page has no meta description. Search results may show any text from the page.');
+    expect(body.check).toEqual({ type: 'seo', id: 'description' });
     expect(body.screenshot).toMatch(/^data:image\//);
     await expect(check('description')).toContainText(/Bug report sent as #1/);
     await expect(panel.getByRole('textbox', { name: 'Your name' })).toBeHidden();
@@ -170,7 +176,9 @@ test('the SEO panel reports the head, headings, links, images and Core Web Vital
     await check('levels').getByRole('button', { name: 'Comment' }).focus();
     await page.keyboard.press('Enter');
     body = (await created).postDataJSON();
-    expect(body.text).toBe('SEO: This h3 comes after an h1, skipping a level.');
+    // What was found is in the comment, as code
+    expect(body.text).toBe('SEO: This h3 comes after an h1, skipping a level.\nHeading: `Plans in detail`');
+    expect(body.check).toEqual({ type: 'seo', id: 'levels' });
     expect(body.position.selector).toContain('h3');
     await expect(check('levels')).toContainText(/Comment posted as #2/);
     await expect(check('levels').getByRole('button', { name: 'Show' })).toBeFocused();
@@ -217,6 +225,52 @@ test('the SEO panel reports the head, headings, links, images and Core Web Vital
     await expect(check('link-address')).toContainText('2 links look broken. It runs a script instead of opening a page.');
     await expect(check('link-address').getByRole('listitem')).toHaveCount(2);
     await expect(check('link-address').getByRole('listitem').filter({ hasText: 'It runs a script' })).toHaveCount(0);
+});
+
+test('a finding that is already reported stays marked after a reload, until its thread is done', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.use.isMobile === true, 'Desktop layout');
+    test.setTimeout(60_000);
+    const project = await memberReview(page, 'reported-findings');
+    const button = toolbar(page).getByRole('button', { name: 'SEO', exact: true });
+    await button.click();
+    const panel = page.getByRole('complementary', { name: 'SEO' });
+    const check = (id: string) => panel.locator(`[data-uier-check="${id}"]`);
+
+    // An element's issue and one about the page, each posted with its check
+    let created = nextCreate(page, project);
+    await check('description').getByRole('button', { name: 'Comment' }).click();
+    expect((await created).postDataJSON().check).toEqual({ type: 'seo', id: 'description' });
+    await expect(check('description')).toContainText(/Bug report sent as #1/);
+    created = nextCreate(page, project);
+    await check('levels').getByRole('button', { name: 'Comment' }).click();
+    await created;
+    await expect(check('levels')).toContainText(/Comment posted as #2/);
+
+    // After a reload the panel knows them from the page's threads: no second comment for the same finding
+    await page.reload();
+    await expect(check('levels')).toContainText('Reported as #2');
+    await expect(check('levels').getByRole('button', { name: 'Comment' })).toHaveCount(0);
+    await expect(check('description')).toContainText('Reported as #1');
+    await expect(check('description').getByRole('button', { name: 'Comment' })).toHaveCount(0);
+    // A finding nobody reported still offers its comment
+    await expect(check('canonical').getByRole('button', { name: 'Comment' })).toBeVisible();
+    await expect(check('link-text').getByRole('button', { name: 'Comment' })).toBeVisible();
+    await animationsFinished(panel);
+    await expectNoAxeViolations(page, { include: ['#uier-toolbar'] });
+
+    // Show opens the thread that reported it
+    await check('levels').getByRole('button', { name: 'Show' }).click();
+    await expect(panel).toBeHidden();
+    const thread = openThread(page);
+    await expect(thread).toContainText('This h3 comes after an h1');
+
+    // Once the thread is done, the finding (still on the page) can be reported again
+    await setThreadStatus(page, thread, 'Done');
+    await page.keyboard.press('Escape');
+    await button.click();
+    await expect(check('levels').getByRole('button', { name: 'Comment' })).toBeVisible();
+    await expect(check('levels')).not.toContainText('Reported');
+    await expect(check('description')).toContainText('Reported as #1');
 });
 
 test('an open panel stays open on the next page and shows that page', async ({ page }, testInfo) => {

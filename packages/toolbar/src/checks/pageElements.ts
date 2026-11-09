@@ -59,3 +59,22 @@ export function oneLine(text: string | null | undefined, max = 120): string {
     const line = (text ?? '').replace(/\s+/g, ' ').trim();
     return line.length > max ? `${line.slice(0, max - 1)}…` : line;
 }
+
+/**
+ * A line of an issue's comment naming what was found ("Title: `Plans`"), or nothing without a value.
+ * A code span, so the page's own text is never read as Markdown.
+ */
+export function foundLine(label: string, value: string | null | undefined, max = 200) {
+    const text = oneLine(value, max).replaceAll('`', '\'');
+    return text ? `\n${label}: \`${text}\`` : '';
+}
+
+/**
+ * An address as the page wrote it, for a comment: without its query (a signed image or a link can
+ * carry a token there), and a `data:` address as its type alone
+ */
+export function writtenAddress(address: string | null | undefined) {
+    const value = (address ?? '').trim();
+    if (/^data:/i.test(value)) return value.slice(0, Math.max(value.search(/[;,]/), 5));
+    return value.replace(/\?[^#]*/, '');
+}

@@ -1,6 +1,6 @@
-import { kindSchema } from '../../comments/validation';
+import { checkSchema, kindSchema } from '../../comments/validation';
 import { feedbackTypeIdSchema } from '../../app/feedbackTypeSchema';
-import { feedbackTypeIcons, feedbackTypeSnapshot, MAX_FEEDBACK_TYPE_LABEL } from '@uier/toolbar/feedback-types';
+import { commentCheck, feedbackTypeIcons, feedbackTypeSnapshot, MAX_FEEDBACK_TYPE_LABEL } from '@uier/toolbar/feedback-types';
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { commentPriority, priorities } from '@uier/toolbar/triage';
@@ -55,6 +55,7 @@ const common = {
     number: z.number().int().optional().describe('The thread number in the project (#12).'),
     kind: kindSchema,
     feedbackType: z.object({ id: feedbackTypeIdSchema, label: z.string().max(MAX_FEEDBACK_TYPE_LABEL), icon: z.enum(feedbackTypeIcons) }).strict().optional(),
+    check: checkSchema.optional().describe('The page check the thread was posted from (the toolbar\'s Accessibility and SEO panels): the kind of check and its rule or check id.'),
     path: z.string().describe('Canonical page path.'),
     url: z.string().optional().describe('The thread in uier.'),
     actor,
@@ -161,7 +162,8 @@ export function mcpEventData(name: McpEventName, project: DbProject, comment: Db
     const writtenBy = message ? messageAgentView(message, true) : undefined;
     const base = {
         projectId: project.id, commentId: comment.id, ...(comment.number !== undefined ? { number: comment.number } : {}),
-        kind: comment.kind ?? 'comment', ...(feedbackTypeSnapshot(comment.feedbackType, comment.kind) ? { feedbackType: feedbackTypeSnapshot(comment.feedbackType, comment.kind) } : {}), path: comment.path, ...(url ? { url } : {}),
+        kind: comment.kind ?? 'comment', ...(feedbackTypeSnapshot(comment.feedbackType, comment.kind) ? { feedbackType: feedbackTypeSnapshot(comment.feedbackType, comment.kind) } : {}),
+        ...(commentCheck(comment.check) ? { check: commentCheck(comment.check) } : {}), path: comment.path, ...(url ? { url } : {}),
         actor: { kind: member ? 'member' as const : 'guest' as const, ...(actorName ? { name: actorName } : {}),
             ...(event.agent ? { connector: event.agent.name } : {}), ...(writtenBy ? { agent: writtenBy } : {}) },
         contentTrust: 'untrusted' as const

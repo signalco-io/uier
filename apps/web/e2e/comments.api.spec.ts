@@ -753,6 +753,25 @@ test('a comment in a menu keeps the button that opens it', async ({ newVisitor }
     expect((await listComments(visitor, path)).map(saved => saved.position)).toEqual(expect.arrayContaining([inMenu, inText]));
 });
 
+test('a comment posted from a page check keeps its check', async ({ newVisitor }) => {
+    const path = uniquePagePath();
+    const visitor = await newVisitor();
+    const check = { type: 'accessibility', id: 'image-alt' };
+    const comment = await created(await createComment(visitor, path, { check })) as CommentDto & { check?: unknown };
+    expect(comment.check).toEqual(check);
+    expect(((await listComments(visitor, path))[0] as { check?: unknown }).check).toEqual(check);
+    // Every other comment has none
+    expect(await created(await createComment(visitor, path))).not.toHaveProperty('check');
+    // The packet names the check for whoever fixes it
+    const packet = await (await visitor.get(`/api/comments/${comment.id}/context`)).json();
+    expect(packet.context.check).toEqual(check);
+    expect(packet.markdown).toContain('Page check: Accessibility (` image-alt `)');
+    // Only the known kinds of check with a short id, and nothing beside them
+    for (const invalid of [{ type: 'security', id: 'headers' }, { type: 'seo', id: 'Not an id' }, { type: 'seo', id: 'a'.repeat(65) }, { type: 'seo' },
+        { type: 'seo', id: 'title', label: 'Title' }, 'seo'])
+        await expectError(await createComment(visitor, path, { check: invalid }), 400, 'invalid_request');
+});
+
 test('requests are validated', async ({ newVisitor }) => {
     const path = uniquePagePath();
     const visitor = await newVisitor();

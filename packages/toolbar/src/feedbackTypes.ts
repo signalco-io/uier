@@ -38,3 +38,21 @@ export function commentKindLabel(kind: CommentKind, snapshot?: FeedbackTypeSnaps
 export function commentKindIcon(kind: CommentKind, snapshot?: FeedbackTypeSnapshot): FeedbackTypeIcon {
     return feedbackTypeSnapshot(snapshot, kind)?.icon ?? defaultFeedbackTypes.find(type => type.id === kind)?.icon ?? 'message';
 }
+
+/**
+ * The page check a comment was posted from (the toolbar's Accessibility and SEO panels): which
+ * kind of check, and the id of its rule or check (`image-alt`, `canonical`, `lcp`). Sent by the
+ * browser, so only this closed vocabulary and a short id are ever kept.
+ */
+export const commentCheckTypes = ['accessibility', 'seo', 'web-vitals'] as const;
+export type CommentCheckType = typeof commentCheckTypes[number];
+export type CommentCheck = { type: CommentCheckType; id: string };
+export const commentCheckIdPattern = /^[a-z0-9][a-z0-9-]{0,63}$/;
+export const commentCheckLabels: Record<CommentCheckType, string> = { accessibility: 'Accessibility', seo: 'SEO', 'web-vitals': 'Core Web Vitals' };
+
+/** Only the two known fields of a stored or received check, or nothing */
+export function commentCheck(value: unknown): CommentCheck | undefined {
+    if (!value || typeof value !== 'object') return undefined;
+    const { type, id } = value as Partial<CommentCheck>;
+    return commentCheckTypes.includes(type!) && typeof id === 'string' && commentCheckIdPattern.test(id) ? { type: type!, id } : undefined;
+}

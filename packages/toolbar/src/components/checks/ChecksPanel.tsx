@@ -1,7 +1,6 @@
 import { useContext, useState, type ReactNode } from 'react';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
-import { Button } from '@signalco/ui-primitives/Button';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Typography } from '@signalco/ui-primitives/Typography';
 import { cx } from '@signalco/ui-primitives/cx';
@@ -13,7 +12,7 @@ import { RestoredPanelContext } from '../../openPanel';
 
 /**
  * The Accessibility and SEO panels' shell: docked like the inbox (`DockablePanel`, its own side),
- * ink, sliding in from its side; the title row with the handle, Check again and Close, which has
+ * ink, sliding in from its side; the title row with the handle and the icon buttons Check again and Close, which has
  * the focus when it opens. Escape closes it. One that stays open from the previous page does neither.
  */
 export function ChecksPanel({ id, title, checking, onCheckAgain, onClose, children }: {
@@ -52,9 +51,11 @@ export function ChecksPanel({ id, title, checking, onCheckAgain, onClose, childr
                         </Row>
                         <Row>
                             {/* Never disabled, so it keeps the focus: a check already running is the one it gets */}
-                            <Button size="sm" variant="plain" aria-busy={checking || undefined} startDecorator={<Reset size={16} aria-hidden="true" />} onClick={onCheckAgain}>
-                                Check again
-                            </Button>
+                            <IconTooltip label="Check again">
+                                <IconButton variant="plain" aria-label="Check again" aria-busy={checking || undefined} onClick={onCheckAgain}>
+                                    <Reset aria-hidden="true" />
+                                </IconButton>
+                            </IconTooltip>
                             <IconTooltip label="Close panel">
                                 <IconButton variant="plain" aria-label={`Close ${title} panel`} autoFocus={!restored} onClick={close}>
                                     <PanelRightClose />
