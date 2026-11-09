@@ -22,6 +22,7 @@ import { LocationFilter, type PageCount } from './LocationFilter';
 import { pageFilterBase } from './pageFilter';
 import { PriorityFlag } from './PriorityFlag';
 import { StateDot } from './CommentStatus';
+import { useKeyShortcutLabel } from '../keyboard/keys';
 
 /** Tab-like toggles, as `LinkTabs`' segmented filter (the projects list's Active and Done) */
 const segmentedGroup = 'gap-0.5 rounded-lg bg-muted p-[3px]';
@@ -61,6 +62,7 @@ export function CommentFilters({ unread, unreadCount, view, status, statusCounts
     pages: PageCount[];
 }) {
     const searchRef = useRef<HTMLInputElement>(null);
+    const searchShortcut = useKeyShortcutLabel('/');
     const [filtersOpen, setFiltersOpen] = useState(false);
     const router = useRouter();
     const pathname = usePathname();
@@ -95,6 +97,8 @@ export function CommentFilters({ unread, unreadCount, view, status, statusCounts
                 <InputGroup className="min-w-0 flex-1 sm:max-w-80 pointer-coarse:min-h-11">
                     <InputGroupAddon><SearchIcon /></InputGroupAddon>
                     <InputGroupInput ref={searchRef} id="feedback-search" type="search" aria-label="Search feedback" maxLength={MAX_FEEDBACK_SEARCH} className="pointer-coarse:min-h-11"
+                        // `/` goes here from the page (`AppShortcuts`)
+                        data-shortcut-search="" aria-keyshortcuts={searchShortcut}
                         placeholder="Search feedback" value={search} onChange={event => onSearch(event.target.value)} />
                     {search && (
                         <InputGroupAddon align="inline-end">

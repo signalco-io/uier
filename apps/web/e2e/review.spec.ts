@@ -225,7 +225,7 @@ test('the profile shows the guest name; signing out forgets it', async ({ browse
     await page.getByRole('button', { name: 'Options', exact: true }).click();
     await expect(options(page).getByRole('link', { name: 'Powered by uier' })).toHaveAttribute('href', 'https://uier.io');
     if (testInfo.project.use.hasTouch) await expect(options(page).getByRole('button')).toHaveCount(0);
-    else await expect(options(page).getByRole('button')).toHaveText(['Turn off shortcut C']);
+    else await expect(options(page).getByRole('button')).toHaveText([/^Keyboard shortcuts/, 'Turn off shortcuts']);
     await page.keyboard.press('Escape');
     await expect(options(page)).toBeHidden();
 

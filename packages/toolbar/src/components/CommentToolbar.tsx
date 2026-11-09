@@ -18,6 +18,7 @@ import { ToolbarFeedback } from './ToolbarFeedback';
 import { useToolbarMovement } from '../hooks/useReviewMovement';
 import { canReviewToolbar, holdsLayersAttribute } from '../toolbarReview';
 import { addCommentShortcut, useShortcutsEnabled } from '../shortcuts';
+import { useRovingFocus } from '../focusKeys';
 
 type CommentToolbarProps = {
     mode: ToolbarMode;
@@ -56,6 +57,9 @@ type CommentToolbarProps = {
     onCollapsedChange: (collapsed: boolean) => void;
     /** Ends the review (`review` mode) */
     onExitReview?: () => void;
+    /** `?` was pressed: Options opens on its keyboard shortcuts */
+    shortcutsRequested?: boolean;
+    onShortcutsRequestHandled?: () => void;
 };
 
 function isCoarsePointer() {
@@ -69,9 +73,13 @@ function countText(count: number, capped: boolean) {
 export function CommentToolbar({
     mode, creatingPointComment, collapsed, commentsCount = 0, commentsCountCapped = false, hintOpen, showAbout = true, hintId, projectUrl,
     addButtonRef, inboxButtonRef, hintButtonRef, sidebarOpen = false, onAddPointComment, onCancelPointComment, onResumeDraft, onToggleSidebar, onFeedbackOpen,
-    feedbackRequested = false, onFeedbackRequestHandled, onMoveStart, onToggleHint, onCollapsedChange, onExitReview
+    feedbackRequested = false, onFeedbackRequestHandled, onMoveStart, onToggleHint, onCollapsedChange, onExitReview,
+    shortcutsRequested = false, onShortcutsRequestHandled
 }: CommentToolbarProps) {
     const navRef = useRef<HTMLElement>(null);
+    // The pill's buttons are one tab stop (a toolbar): ← and → move between them, Home and End to the first and the last
+    const toolsRef = useRef<HTMLDivElement>(null);
+    const tools = useRovingFocus(toolsRef, { orientation: 'horizontal' });
     const moveRef = useRef<HTMLButtonElement>(null);
     const movement = useToolbarMovement(navRef, onMoveStart);
     const resetPosition = () => { movement.reset(); requestAnimationFrame(() => moveRef.current?.focus()); };
@@ -180,7 +188,8 @@ export function CommentToolbar({
                         </IconButton>
                         </IconTooltip>
                     ) : (
-                        <Row>
+                        // Beside the move handle, whose arrow keys move the pill
+                        <Row ref={toolsRef} role="toolbar" aria-label="Tools" onFocus={tools.onFocus} onKeyDown={tools.onKeyDown}>
                             <IconTooltip label="Add comment" shortcut={shortcut}>
                             <IconButton
                                 ref={addButtonRef}
@@ -227,7 +236,8 @@ export function CommentToolbar({
                             )}
                             <Divider orientation="vertical" className="mx-1 h-6" />
                             <ToolbarProfile />
-                            <ToolbarOptions projectUrl={projectUrl} onExitReview={onExitReview} onResetPosition={movement.custom ? resetPosition : undefined} />
+                            <ToolbarOptions projectUrl={projectUrl} onExitReview={onExitReview} onResetPosition={movement.custom ? resetPosition : undefined}
+                                shortcutsRequested={shortcutsRequested} onShortcutsRequestHandled={onShortcutsRequestHandled} />
                             <IconTooltip label="Collapse toolbar">
                             <IconButton
                                 ref={collapseButtonRef}

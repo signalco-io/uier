@@ -11,8 +11,9 @@ import { AppBreadcrumbs } from '@/src/components/app/shell/AppBreadcrumbs';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import { loadWorkspaceAccessForRender } from '@/src/lib/app/access';
 import { InviteProvider } from '@/src/components/app/users/InviteDialog';
+import { AppShortcuts } from '@/src/components/app/keyboard/AppShortcuts';
 
-/** The signed-in app: the sidebar, a top bar with the breadcrumbs, and the page in an inset panel */
+/** The signed-in app: the sidebar, a top bar with the breadcrumbs, and the page in an inset panel, with the keyboard shortcuts */
 export default async function AppShellLayout({ children }: PropsWithChildren) {
     const context = await requireAppContext();
     const projectOrder = await getProjectOrder();
@@ -27,6 +28,8 @@ export default async function AppShellLayout({ children }: PropsWithChildren) {
 
     return (
         <SidebarProvider>
+            {/* The keyboard shortcuts of every page, and `?` to list them */}
+            <AppShortcuts>
             <InviteProvider teams={teams} enabled={context.isAdmin && context.workspace.id !== PUBLIC_WORKSPACE_ID} projects={projects.map(({ id, name, status }) => ({ id, name, status }))}>
                 <AppSidebar
                     isAdmin={context.isAdmin && context.workspace.id !== PUBLIC_WORKSPACE_ID}
@@ -64,6 +67,7 @@ export default async function AppShellLayout({ children }: PropsWithChildren) {
                     </div>
                 </SidebarInset>
             </InviteProvider>
+            </AppShortcuts>
         </SidebarProvider>
     );
 }

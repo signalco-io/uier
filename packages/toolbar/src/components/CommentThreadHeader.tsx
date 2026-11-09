@@ -1,7 +1,7 @@
 'use client';
 
 import { feedbackStage, feedbackStageLabels, readyForReview, type FeedbackStage } from '../verification';
-import { useContext, useRef, useState, type RefObject } from 'react';
+import { useContext, useEffect, useRef, useState, type RefObject } from 'react';
 import { Row } from '@signalco/ui-primitives/Row';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
@@ -19,6 +19,8 @@ import { assignedText, CommentAssignee, CommentAssigneeOptions } from './Comment
 import { CommentThreadMenu } from './CommentThreadMenu';
 import { IconTooltip, useIconTooltip } from './IconTooltip';
 import { useThreadNotificationActions } from './ThreadNotifications';
+import { useShortcutsEnabled } from '../shortcuts';
+import { assignShortcutEvent } from '../threadShortcuts';
 
 /** Each status's dot colour (BRAND.md, "Status"): Open ink, In progress sky, Ready to verify violet, Done green. The app's `StateDot`. */
 const stageDotColors: Record<FeedbackStage, string> = {
@@ -111,7 +113,21 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
     // Only someone else's activity can be unread
     const canMarkUnread = !unread && !comment.pending && Boolean(comment.activity?.lastOtherSequence);
     const issue = useCopyIssue(comment.id);
-    const [assigning, setAssigning] = useState(false);
+    // The people to assign: from Thread options, or with A (`assignShortcutEvent`), which also focuses the first
+    const [assigning, setAssigning] = useState<false | 'menu' | 'key'>(false);
+    const headerRef = useRef<HTMLDivElement>(null);
+    const canAssign = Boolean(comment.permissions?.assign) && !comment.pending;
+    useEffect(() => {
+        const header = headerRef.current;
+        if (!header || !canAssign) return;
+        const onAssign = (event: Event) => {
+            event.preventDefault();
+            setAssigning('key');
+        };
+        header.addEventListener(assignShortcutEvent, onAssign);
+        return () => header.removeEventListener(assignShortcutEvent, onAssign);
+    }, [canAssign]);
+    const shortcuts = useShortcutsEnabled();
     const notifications = useThreadNotificationActions(comment);
     const statusTooltip = useIconTooltip(done ? 'Reopen' : doneLabel);
     // A failed priority change keeps its identity until the intended value changes
@@ -172,7 +188,8 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
     };
 
     return (
-        <Stack spacing={1}>
+        // S and A find the thread's status button and its people here (`threadShortcuts.ts`)
+        <Stack ref={headerRef} spacing={1} data-uier-thread-header="">
             <Row spacing={1} justifyContent="space-between" className="flex-nowrap">
                 <Row spacing={1} className="min-w-0 flex-wrap gap-y-1">
                     <CommentStatusBadge stage={stage} />
@@ -195,6 +212,9 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
                             variant="plain"
                             className={threadActionClassName}
                             aria-label={done ? 'Reopen' : doneLabel}
+                            // S moves the focus here; Enter or Space then changes the status
+                            aria-keyshortcuts={shortcuts ? 'S' : undefined}
+                            data-uier-status=""
                             disabled={resolve.isPending}
                             onClick={handleStatus}
                             {...statusTooltip.triggerProps}>
@@ -206,7 +226,7 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
                     {!comment.pending && <>
                         <CopyMenu state={issue} className={threadActionClassName} linkAvailable={comment.source?.available !== false} onCopyLink={handleCopyLink} />
                         <CommentThreadMenu className={threadActionClassName} triggerRef={optionsRef} actions={{
-                            assign: comment.permissions?.assign ? { label: assignedText(comment), onAssign: () => setAssigning(true) } : undefined,
+                            assign: comment.permissions?.assign ? { label: assignedText(comment), onAssign: () => setAssigning('menu') } : undefined,
                             priority: comment.permissions?.priority ? { value: comment.priority, pending: prioritize.isPending, onChange: handlePriority } : undefined,
                             // Open and In progress, for those who mark it done; Ready to verify has its own controls
                             progress: canResolve && (stage === 'open' || stage === 'in-progress')
@@ -223,7 +243,7 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
                 </Row>
             </Row>
             {assigning && comment.permissions?.assign && (
-                <CommentAssigneeOptions comment={comment} onAssigned={() => { setAssigning(false); optionsRef?.current?.focus(); }} />
+                <CommentAssigneeOptions comment={comment} autoFocus={assigning === 'key'} onAssigned={() => { setAssigning(false); optionsRef?.current?.focus(); }} />
             )}
             <CopyIssueResult state={issue} />
             <CommentsErrorMessage error={resolve.error ?? progress.error ?? read.error ?? unreadMutation.error ?? prioritize.error ?? notifications.error} />

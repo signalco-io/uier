@@ -296,9 +296,9 @@ error boundary, so one bad comment never breaks the toolbar.
   failed writes retain their rendered cursors for Retry. A newer reply stays unread. The public and
   project APIs accept `POST comments/read` with `{ threads: [{ id, sequence }] }`, at most 200 entries
   and 48 KiB, returning `{ reads: [{ id, activity }] }` for successful acknowledgements only.
-- **Profile** shows the visitor's guest name (`GET /api/visitor`). **Options** starts with **Turn off shortcut C**
-  (Turn on shortcut C while it is off; shown where a keyboard is likely, `any-pointer: fine`, and always while
-  it is off), then lists what applies: View project
+- **Profile** shows the visitor's guest name (`GET /api/visitor`). **Options** starts with **Keyboard shortcuts**
+  (the list, also on **?**) and **Turn off shortcuts** (Turn on shortcuts while they are off; both shown where a
+  keyboard is likely, `any-pointer: fine`, and always while they are off), then lists what applies: View project
   (a review of a project's site, or a review link with a project code), Exit review (`review` mode) and Sign out (`DELETE /api/visitor`, asks
   first: the comments stay, but this browser can no longer resolve or delete them). It always ends with
   **Powered by uier**, a link to uier.io in a new tab (the toolbar shows on other people's sites).
@@ -319,12 +319,21 @@ error boundary, so one bad comment never breaks the toolbar.
   (or **C**; for a menu shown on hover, **C**, since the pointer stays on it) and point into it. See
   [Modal dialogs, popovers and menus](#modal-dialogs-popovers-and-menus). Frames, such as maps and
   videos, get a transparent shield while pointing: a click pins the frame and does not reach it.
-- Keyboard shortcut: **C** starts point mode and ends it again, like the + button with a pointer; with page text
+- Keyboard shortcuts: **C** starts point mode and ends it again, like the + button with a pointer; with page text
   selected, it opens a comment on the selection. The + button shows it in its tooltip and `aria-keyshortcuts`.
-  It does nothing with a modifier, while typing in a text field, in a widget whose letters choose an item (menus,
-  lists, grids, comboboxes), in the toolbar's own dialogs, while the toolbar is collapsed, or when the page handled
-  the key itself (`preventDefault`). A single-letter shortcut can be turned off (WCAG 2.1.4): Options turns it off
-  in this browser (`uier:shortcuts-off` in `localStorage`, for the page only when storage is blocked).
+  **G** then **I** opens the inbox, **/** its search, **J** and **K** go to the next and the previous thread (the
+  inbox's cards while it is open, else the pins' threads in page order, with the focus on the messages), and in
+  the thread with the focus (or the one open) **R** goes to the reply box, **S** to Mark as done (or Reopen) and
+  **A** opens the people to assign. **?** lists them in Options. They do nothing with a modifier, while typing in
+  a text field, in a widget whose letters choose an item (menus, lists, grids, comboboxes), in the toolbar's own
+  dialogs (a thread's popover keeps the thread keys), while the toolbar is collapsed, or when the page handled the
+  key itself (`preventDefault`). Single-letter shortcuts can be turned off (WCAG 2.1.4): Options turns them off in
+  this browser (`uier:shortcuts-off` in `localStorage`, for the page only when storage is blocked; on uier.io the
+  app's switch is the same one).
+- The pill's buttons are one tab stop (`role="toolbar"`, beside the move handle): ← and → move between them, Home
+  and End to the first and the last. The inbox's status tabs are one tab stop too, and the toolbar's popovers of
+  buttons (Options, Thread options, a message's options, Copy) and the people to assign move with ↑ and ↓ like a
+  menu. See [keyboard](docs/keyboard.md).
 - Area comments: in point mode, drag with a mouse or pen to draw a rectangle over the part of the page
   the comment is about (a finger keeps scrolling the page; tap to pin instead). The area is saved on the
   innermost element that holds all of it, as a point (its top-left corner) with `widthNormal` and

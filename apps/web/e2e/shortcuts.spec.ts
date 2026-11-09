@@ -3,8 +3,9 @@ import { brand } from '@uier/brand';
 import { animationsFinished, isolatedOrigin, newVisitor, openLanding, selectText, selectionToolbar, toolbar } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
-// C, the toolbar's keyboard shortcut (packages/toolbar/src/shortcuts.ts): point mode, a comment on
-// selected text, never while typing or when the page handles the key, and the switch in Options.
+// The toolbar's keyboard shortcuts (packages/toolbar/src/shortcuts.ts): C for point mode or a comment on
+// selected text, never while typing or when the page handles the key; ? lists them all in Options, with
+// the switch; G then I, /, J, K, R and S in the inbox; the pill, its status tabs and menus move with arrows.
 
 const instruction = (page: Page) => page.getByRole('status').filter({ hasText: 'anywhere to pin a comment' });
 const addComment = (page: Page) => toolbar(page).getByRole('button', { name: 'Add comment', exact: true });
@@ -87,7 +88,7 @@ test('C comments on selected text', async ({ browser }, info) => {
     await context.close();
 });
 
-test('the shortcut can be turned off in Options, and stays off in this browser', async ({ browser }, info) => {
+test('the shortcuts can be turned off in Options, and stay off in this browser', async ({ browser }, info) => {
     const { context, page } = await newVisitor(browser, info);
     await openLanding(page, isolatedOrigin(info), { dismissHint: true });
     const add = addComment(page);
@@ -95,13 +96,18 @@ test('the shortcut can be turned off in Options, and stays off in this browser',
     const options = page.getByRole('dialog', { name: 'Options' });
 
     await optionsButton.click();
-    await expect(options.getByRole('button', { name: 'Turn off shortcut C', exact: true })).toBeVisible();
+    await expect(options.getByRole('button', { name: 'Turn off shortcuts', exact: true })).toBeVisible();
     // Faded in: measured colours are only final after that
     await animationsFinished(options);
     await expectNoAxeViolations(page);
-    await options.getByRole('button', { name: 'Turn off shortcut C', exact: true }).click();
+    // Like a menu: ↓ goes to the first item, Keyboard shortcuts, then to the switch
+    await page.keyboard.press('ArrowDown');
+    await expect(options.getByRole('button', { name: 'Keyboard shortcuts', exact: true })).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(options.getByRole('button', { name: 'Turn off shortcuts', exact: true })).toBeFocused();
+    await page.keyboard.press('Enter');
     await expect(options).toBeHidden();
-    await expect(page.getByText('Shortcut C turned off')).toBeAttached();
+    await expect(page.getByText('Shortcuts turned off')).toBeAttached();
     await expect(add).not.toHaveAttribute('aria-keyshortcuts');
     await page.keyboard.press('c');
     await expect(instruction(page)).toHaveCount(0);
@@ -112,12 +118,96 @@ test('the shortcut can be turned off in Options, and stays off in this browser',
     await page.keyboard.press('c');
     await expect(instruction(page)).toHaveCount(0);
 
+    // ? is off too
+    await page.keyboard.press('?');
+    await expect(page.getByRole('dialog', { name: 'Keyboard shortcuts' })).toHaveCount(0);
     await optionsButton.click();
-    await options.getByRole('button', { name: 'Turn on shortcut C', exact: true }).click();
+    await options.getByRole('button', { name: 'Turn on shortcuts', exact: true }).click();
     // Closed: the toolbar's dialogs keep their keys
     await expect(options).toBeHidden();
     await expect(add).toHaveAttribute('aria-keyshortcuts', 'C');
     await page.keyboard.press('c');
     await expect(instruction(page)).toBeVisible();
+    await context.close();
+});
+
+test('the pill is one tab stop, ? lists the shortcuts, and G then I, /, J, K, R and S work in the inbox', async ({ browser }, info) => {
+    const { context, page } = await newVisitor(browser, info);
+    const origin = isolatedOrigin(info);
+    for (const text of ['First keyboard thread', 'Second keyboard thread']) {
+        const response = await context.request.post(`${origin}/api/comments`, { data: { path: '/', kind: 'feedback', position: { type: 'page' }, text } });
+        expect(response.status()).toBe(201);
+    }
+    await openLanding(page, origin, { dismissHint: true });
+
+    // The pill's buttons: one tab stop, ← and → between them, Home and End to the ends
+    const tools = toolbar(page).getByRole('toolbar', { name: 'Tools' });
+    const stops = tools.locator('button:not([tabindex="-1"])');
+    await expect(stops).toHaveCount(1);
+    const add = addComment(page);
+    await add.focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(add).not.toBeFocused();
+    await expect(stops).toHaveCount(1);
+    await expect(stops).toBeFocused();
+    await page.keyboard.press('End');
+    await expect(tools.getByRole('button', { name: 'Collapse toolbar', exact: true })).toBeFocused();
+    await page.keyboard.press('Home');
+    await expect(add).toBeFocused();
+
+    // ? opens Options on the shortcuts, with the focus on their heading
+    await page.keyboard.press('?');
+    const help = page.getByRole('dialog', { name: 'Keyboard shortcuts' });
+    await expect(help).toBeVisible();
+    await expect(help.getByRole('heading', { name: 'Keyboard shortcuts' })).toBeFocused();
+    await expect(help.getByText('Next thread', { exact: true })).toBeVisible();
+    await animationsFinished(help);
+    await expectNoAxeViolations(page);
+    await page.keyboard.press('Escape');
+    await expect(help).toBeHidden();
+
+    // G then I opens the inbox (Close has the focus, as when it opens), / goes to its search
+    await add.focus();
+    await page.keyboard.press('g');
+    await page.keyboard.press('i');
+    const inbox = page.getByRole('complementary', { name: 'Comments' });
+    await expect(inbox).toBeVisible();
+    await expect(inbox.getByRole('button', { name: 'Close sidebar', exact: true })).toBeFocused();
+    await page.keyboard.press('/');
+    await expect(inbox.getByRole('searchbox', { name: 'Search comments' })).toBeFocused();
+    await expect(inbox.getByRole('searchbox', { name: 'Search comments' })).toHaveValue('');
+
+    // The status tabs: one tab stop, ← and → move, Enter chooses
+    const tabs = inbox.getByRole('group', { name: 'Show comments' });
+    await expect(tabs.locator('button:not([tabindex="-1"])')).toHaveCount(1);
+    const open = tabs.getByRole('button', { name: /^Open/ });
+    await open.focus();
+    await page.keyboard.press('ArrowRight');
+    const inProgress = tabs.getByRole('button', { name: /^In progress/ });
+    await expect(inProgress).toBeFocused();
+    await expect(open).toHaveAttribute('aria-pressed', 'true');
+
+    // J and K go from card to card; R opens the reply box of the one with the focus, S goes to Mark as done
+    const cards = inbox.getByRole('article');
+    await expect(cards.filter({ hasText: 'keyboard thread' })).toHaveCount(2);
+    await inbox.getByRole('button', { name: 'Close sidebar', exact: true }).focus();
+    await page.keyboard.press('j');
+    await expect(cards.first()).toBeFocused();
+    await page.keyboard.press('j');
+    await expect(cards.nth(1)).toBeFocused();
+    await page.keyboard.press('k');
+    await expect(cards.first()).toBeFocused();
+    const mine = cards.filter({ hasText: 'Second keyboard thread' });
+    await mine.focus();
+    await page.keyboard.press('s');
+    const done = mine.getByRole('button', { name: 'Mark as done', exact: true });
+    await expect(done).toBeFocused();
+    await expect(done).toHaveAttribute('aria-keyshortcuts', 'S');
+    await mine.focus();
+    await page.keyboard.press('r');
+    const reply = mine.getByRole('textbox', { name: 'Reply', exact: true });
+    await expect(reply).toBeFocused();
+    await page.keyboard.type('jk');
+    await expect(reply).toHaveValue('jk');
     await context.close();
 });

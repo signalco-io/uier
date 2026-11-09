@@ -1,6 +1,6 @@
 'use client';
 
-import { useContext, useRef, useState } from 'react';
+import { Fragment, useContext, useEffect, useRef, useState } from 'react';
 import { useIconTooltip } from './IconTooltip';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
@@ -19,7 +19,8 @@ import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
 import { floatingShadowClassName } from './@types/Comments';
 import { toolbarConfig } from '../config';
-import { addCommentShortcut, setShortcutsEnabled, useShortcutsEnabled } from '../shortcuts';
+import { setShortcutsEnabled, toolbarShortcuts, useShortcutsEnabled } from '../shortcuts';
+import { moveFocusInMenu } from '../focusKeys';
 import { useKeyboardHint } from './ComposerFooter';
 import { toolbarSurface } from '../toolbarReview';
 
@@ -29,14 +30,44 @@ type ToolbarOptionsProps = {
     onResetPosition?: () => void;
     /** Ends the review (`review` mode) or closes the toolbar (`feedback` mode) */
     onExitReview?: () => void;
+    /** `?` was pressed: the options open on the keyboard shortcuts */
+    shortcutsRequested?: boolean;
+    onShortcutsRequestHandled?: () => void;
 };
 
+/** The keyboard shortcuts, by what they do (`toolbarShortcuts`); the single keys are marked off while they are */
+function ShortcutList({ enabled }: { enabled: boolean }) {
+    return (
+        <dl className="m-0 flex flex-col gap-1 px-2 text-sm text-foreground">
+            {toolbarShortcuts.map(shortcut => (
+                <div key={shortcut.label} className="flex min-h-6 items-center justify-between gap-4">
+                    <dt className={cx(shortcut.letter && !enabled && 'text-muted-foreground')}>
+                        {shortcut.label}
+                        {shortcut.letter && !enabled && <span className="sr-only"> (off)</span>}
+                    </dt>
+                    <dd className="m-0 flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                        {shortcut.keys.map((key, index) => (
+                            <Fragment key={index}>
+                                {index > 0 && shortcut.join && <span>{shortcut.join}</span>}
+                                {/* Mono means machine (BRAND.md) */}
+                                <kbd className="min-w-5 rounded-sm border px-1 text-center font-mono text-foreground">
+                                    {typeof key === 'string' ? key : <><span aria-hidden="true">{key.print}</span><span className="sr-only">{key.name}</span></>}
+                                </kbd>
+                            </Fragment>
+                        ))}
+                    </dd>
+                </div>
+            ))}
+        </dl>
+    );
+}
+
 /**
- * The toolbar's options: turn the keyboard shortcut off or on, then view the project, exit the review,
- * sign out (only the ones that apply), and always a link to uier.io, since the toolbar shows on other
- * people's sites.
+ * The toolbar's options: the keyboard shortcuts (their list, also on `?`) and turning them off or on, then
+ * view the project, exit the review, sign out (only the ones that apply), and always a link to uier.io,
+ * since the toolbar shows on other people's sites. ↑ and ↓ move between its buttons.
  */
-export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: ToolbarOptionsProps) {
+export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shortcutsRequested = false, onShortcutsRequestHandled }: ToolbarOptionsProps) {
     const { rootElement, mode } = useContext(CommentsBootstrapperContext);
     // Dark like the pill it opens from
     const container = useInkContainer() ?? rootElement;
@@ -45,7 +76,23 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: To
     const announce = useAnnounce();
     const [open, setOpen] = useState(false);
     const [confirmingSignOut, setConfirmingSignOut] = useState(false);
+    // The keyboard shortcuts in place of the options (Keyboard shortcuts, or `?`)
+    const [showingShortcuts, setShowingShortcuts] = useState(false);
     const confirmRef = useRef<HTMLButtonElement>(null);
+    const shortcutsHeadingRef = useRef<HTMLHeadingElement>(null);
+    const shortcutsButtonRef = useRef<HTMLButtonElement>(null);
+    // The button that showed them is gone: the list's heading takes the focus, and Keyboard shortcuts again after
+    // it (opened on them, `onOpenAutoFocus` does it once the popover is there)
+    const shownRef = useRef(false);
+    useEffect(() => {
+        if (!open) {
+            shownRef.current = false;
+            return;
+        }
+        if (showingShortcuts) shortcutsHeadingRef.current?.focus();
+        else if (shownRef.current) shortcutsButtonRef.current?.focus();
+        shownRef.current = showingShortcuts;
+    }, [open, showingShortcuts]);
     const name = visitor.data?.name;
     // Account sessions on uier's own pages are managed by the app's account menu. Clearing a
     // guest cookie here would leave that account signed in while claiming to have signed it out.
@@ -55,9 +102,18 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: To
         setOpen(next);
         if (!next) {
             setConfirmingSignOut(false);
+            setShowingShortcuts(false);
             signOut.reset();
         }
     };
+
+    useEffect(() => {
+        if (!shortcutsRequested) return;
+        setConfirmingSignOut(false);
+        setShowingShortcuts(true);
+        setOpen(true);
+        onShortcutsRequestHandled?.();
+    }, [shortcutsRequested, onShortcutsRequestHandled]);
 
     const handleAskSignOut = () => {
         setConfirmingSignOut(true);
@@ -82,15 +138,20 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: To
 
     const hasActions = Boolean(projectUrl || onExitReview || canSignOut || onResetPosition);
 
-    // A one-letter shortcut can be turned off (WCAG 2.1.4): speech input or the page's own keys may need the letter
+    // One-letter shortcuts can be turned off (WCAG 2.1.4): speech input or the page's own keys may need the letters
     const shortcutsEnabled = useShortcutsEnabled();
-    // Where a keyboard is likely (the composer's hint uses the same check); always while it is off
+    // Where a keyboard is likely (the composer's hint uses the same check); always while they are off
     const showShortcutSwitch = useKeyboardHint() || !shortcutsEnabled;
     const handleToggleShortcuts = () => {
         handleOpenChange(false);
         setShortcutsEnabled(!shortcutsEnabled);
-        announce(shortcutsEnabled ? `Shortcut ${addCommentShortcut} turned off` : `Shortcut ${addCommentShortcut} turned on. Press ${addCommentShortcut} to add a comment.`);
+        announce(shortcutsEnabled ? 'Shortcuts turned off' : 'Shortcuts turned on. Press ? to see them.');
     };
+    const shortcutSwitch = (
+        <Button variant="plain" size="sm" fullWidth className="justify-start" onClick={handleToggleShortcuts}>
+            {shortcutsEnabled ? 'Turn off shortcuts' : 'Turn on shortcuts'}
+        </Button>
+    );
 
     const tip = useIconTooltip('Options');
     return (
@@ -101,8 +162,16 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: To
             side="top"
             sideOffset={12}
             align="end"
-            aria-label="Options"
-            {...toolbarSurface('uier-options', cx('w-auto min-w-48 max-w-72 rounded-xl p-1', floatingShadowClassName))}
+            aria-label={showingShortcuts ? 'Keyboard shortcuts' : 'Options'}
+            onKeyDown={moveFocusInMenu}
+            // Opened on the shortcuts (`?`): their heading has the focus, not the switch that turns them off.
+            // Radix props passed through the Popper to the popover content.
+            {...{ onOpenAutoFocus: (event: Event) => {
+                if (!showingShortcuts) return;
+                event.preventDefault();
+                shortcutsHeadingRef.current?.focus();
+            } }}
+            {...toolbarSurface('uier-options', cx('w-auto min-w-48 max-w-80 rounded-xl p-1', floatingShadowClassName))}
             trigger={(
                 <IconButton
                     variant="plain"
@@ -112,7 +181,19 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: To
                     <MoreHorizontal />
                 </IconButton>
             )}>
-            {confirmingSignOut ? (
+            {showingShortcuts ? (
+                <Stack spacing={1} className="pt-2">
+                    <h2 ref={shortcutsHeadingRef} tabIndex={-1} className="m-0 rounded-md px-2 text-sm font-semibold text-foreground outline-none">Keyboard shortcuts</h2>
+                    <ShortcutList enabled={shortcutsEnabled} />
+                    <Divider className="my-1" />
+                    <Stack>
+                        {shortcutSwitch}
+                        <Button variant="plain" size="sm" fullWidth className="justify-start" onClick={() => setShowingShortcuts(false)}>
+                            All options
+                        </Button>
+                    </Stack>
+                </Stack>
+            ) : confirmingSignOut ? (
                 <Stack spacing={1} className="p-2">
                     <p className="m-0 text-sm text-foreground">
                         Sign out of uier in this browser? You get a new guest name and can no longer
@@ -135,15 +216,13 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: To
                 </Stack>
             ) : (
                 <Stack>
-                    {showShortcutSwitch && <Button
-                        variant="plain"
-                        size="sm"
-                        fullWidth
-                        className="justify-start"
-                        onClick={handleToggleShortcuts}>
-                        {shortcutsEnabled ? 'Turn off shortcut' : 'Turn on shortcut'}{' '}
-                        <kbd className="ml-auto pl-3 font-mono font-normal text-muted-foreground">{addCommentShortcut}</kbd>
-                    </Button>}
+                    {showShortcutSwitch && <>
+                        <Button ref={shortcutsButtonRef} variant="plain" size="sm" fullWidth className="justify-start" onClick={() => setShowingShortcuts(true)}>
+                            Keyboard shortcuts
+                            {shortcutsEnabled && <kbd aria-hidden="true" className="ml-auto pl-3 font-mono font-normal text-muted-foreground">?</kbd>}
+                        </Button>
+                        {shortcutSwitch}
+                    </>}
                     {onResetPosition && (
                         <Button variant="plain" size="sm" className="justify-start" onClick={() => { handleOpenChange(false); onResetPosition(); }}>
                             Reset toolbar position

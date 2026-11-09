@@ -95,6 +95,11 @@
             "types": "./src/devices.ts",
             "development": "./dist-dev/devices.js",
             "default": "./dist/devices.js"
+        },
+        "./keyboard": {
+            "types": "./src/keyboard.ts",
+            "development": "./dist-dev/keyboard.js",
+            "default": "./dist/keyboard.js"
         }
     },
     "scripts": {

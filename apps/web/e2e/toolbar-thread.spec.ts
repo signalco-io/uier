@@ -61,13 +61,14 @@ test('the toolbar\'s icon buttons show their names on hover and keyboard focus',
     await expect(tooltip(page, 'Thread options')).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(openThread(page)).toBeHidden();
-    // Keyboard focus shows it at once, above the pill
+    // Keyboard focus shows it at once, above the pill (the pill's buttons are one tab stop: the arrows move between them)
     const add = toolbar(page).getByRole('button', { name: 'Add comment', exact: true });
     await add.focus();
-    await page.keyboard.press('Tab');
-    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowLeft');
     await expect(add).toBeFocused();
-    const name = tooltip(page, 'Add comment');
+    // The name, then its shortcut (C)
+    const name = page.locator('[data-uier-tooltip]').filter({ hasText: /^Add comment/ });
     await expect(name).toBeVisible();
     const box = (await name.boundingBox())!;
     expect(box.y + box.height).toBeLessThanOrEqual((await add.boundingBox())!.y);

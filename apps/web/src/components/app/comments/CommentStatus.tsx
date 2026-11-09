@@ -49,7 +49,7 @@ export function StateBadge({ status }: { status: CommentStatus }) {
  * verify, Open and In progress cancel the check), Ready to verify with the request permission (it
  * opens the Request verification form).
  */
-export function StateMenu({ status, allowed, disabled, onChange, triggerRef, trigger }: {
+export function StateMenu({ status, allowed, disabled, onChange, triggerRef, trigger, keyShortcut }: {
     status: CommentStatus;
     allowed: Record<CommentStatus, boolean>;
     disabled: boolean;
@@ -57,12 +57,14 @@ export function StateMenu({ status, allowed, disabled, onChange, triggerRef, tri
     triggerRef?: Ref<HTMLButtonElement>;
     /** Another trigger than the status badge (the board card's Move to) */
     trigger?: ReactElement;
+    /** The key that opens the status badge's menu (the open thread's S) */
+    keyShortcut?: string;
 }) {
     const label = commentStatusLabels[status];
     return (
         <DropdownMenu>
             {trigger ? <DropdownMenuTrigger render={trigger} disabled={disabled} /> : (
-                <DropdownMenuTrigger render={<Button ref={triggerRef} variant="outline" size="xs" disabled={disabled} aria-label={`Status: ${label}. Change status`}
+                <DropdownMenuTrigger render={<Button ref={triggerRef} variant="outline" size="xs" disabled={disabled} aria-label={`Status: ${label}. Change status`} aria-keyshortcuts={keyShortcut}
                         className="h-5 gap-1.5 rounded-4xl pl-2 pointer-coarse:min-h-11" />}>
                     <StateDot status={status} />
                     {label}

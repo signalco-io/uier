@@ -1,19 +1,61 @@
 'use client';
 
+import { useRef, useState, type ReactNode } from 'react';
+import { rovingIndex } from '@uier/toolbar/keyboard';
 import { KnownPageLinks } from '../../../knownPages';
 import type { MyWorkItem } from '../../../lib/app/myWork';
+import { useKeyShortcuts } from '../keyboard/keys';
 import { CommentRow } from './CommentRow';
 
-/** Rows of several projects; each opens its thread on its project's comments page */
+/** The rows' links in a list or on the page, in order */
+const rowLinks = (container: Element) => [...container.querySelectorAll<HTMLElement>('[data-comment-row] a[href]')];
+
+/**
+ * Rows of several projects; each opens its thread on its project's comments page. Like the comments list, one
+ * row is in the Tab order (the one last focused): ↓ and ↑ move to the next and the previous row and stop at the
+ * ends, Home and End to the first and the last, Enter opens it.
+ */
 export function MyWorkList({ label, items }: { label: string; items: MyWorkItem[] }) {
+    const [focusId, setFocusId] = useState<string>();
+    const tabStop = items.some(item => item.comment.id === focusId) ? focusId : items[0]?.comment.id;
     return (
-        <ul aria-label={label} className="m-0 flex min-w-0 list-none flex-col gap-0.5 rounded-xl border bg-card p-1">
+        <ul aria-label={label} className="m-0 flex min-w-0 list-none flex-col gap-0.5 rounded-xl border bg-card p-1"
+            onFocus={event => {
+                const id = event.target.closest<HTMLElement>('[data-my-work-row]')?.dataset.myWorkRow;
+                if (id && id !== focusId) setFocusId(id);
+            }}
+            onKeyDown={event => {
+                if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+                const row = (event.target as Element).closest('[data-my-work-row]');
+                if (!row) return;
+                const links = rowLinks(event.currentTarget);
+                const next = rovingIndex(event.key, links.findIndex(link => row.contains(link)), links.length, { orientation: 'vertical' });
+                if (next === undefined) return;
+                event.preventDefault();
+                links[next]!.focus({ preventScroll: true });
+                links[next]!.closest('li')?.scrollIntoView({ block: 'nearest' });
+            }}>
             {items.map(({ projectId, projectName, comment }) => (
-                <li key={comment.id} className="min-w-0">
-                    <CommentRow comment={comment} project={projectName}
+                <li key={comment.id} className="min-w-0" data-my-work-row={comment.id}>
+                    <CommentRow comment={comment} project={projectName} tabbable={comment.id === tabStop}
                         href={`${KnownPageLinks.project(projectId)}?comment=${encodeURIComponent(comment.id)}#comments`} />
                 </li>
             ))}
         </ul>
     );
+}
+
+/** J and K on My work: the next and the previous row, across its lists */
+export function MyWorkKeys({ children }: { children: ReactNode }) {
+    const ref = useRef<HTMLDivElement>(null);
+    const move = (step: number) => {
+        const links = ref.current ? rowLinks(ref.current) : [];
+        if (!links.length) return false;
+        const from = links.findIndex(link => link.closest('li')?.contains(document.activeElement));
+        const next = from < 0 ? links.at(step > 0 ? 0 : -1) : links[from + step];
+        next?.focus({ preventScroll: true });
+        next?.closest('li')?.scrollIntoView({ block: 'nearest' });
+    };
+    useKeyShortcuts({ j: () => move(1), k: () => move(-1) });
+    return <div ref={ref} className="flex flex-col gap-6">{children}</div>;
 }

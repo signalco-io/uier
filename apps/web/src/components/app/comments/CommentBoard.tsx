@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, useSyncExternalStore, type KeyboardEvent, type MouseEvent, type ReactNode, type SyntheticEvent } from 'react';
+import { useEffect, useEffectEvent, useId, useRef, useState, useSyncExternalStore, type KeyboardEvent, type MouseEvent, type ReactNode, type SyntheticEvent } from 'react';
 import { createPortal } from 'react-dom';
 import {
     DndContext, DragOverlay, MouseSensor, TouchSensor, defaultDropAnimationSideEffects, pointerWithin, useDraggable, useDroppable, useSensor, useSensors,
@@ -19,6 +19,8 @@ import { commentStatus, commentStatuses, commentStatusLabels, StateDot, StateMen
 import { allowedStatuses, useStatusChanger } from './useStatusChange';
 import type { useOpenComment } from './CommentInbox';
 import { LayoutMotion, motionSettled } from './LayoutMotion';
+import { shortcutLetter } from '@uier/toolbar/keyboard';
+import { isShortcutTarget, useShortcutsEnabled } from '../keyboard/keys';
 
 /** The board's columns: every status, in order (`commentStatuses`); drag and drop and Move follow this list */
 const statuses = commentStatuses;
@@ -140,11 +142,13 @@ function openMoveFromKeyboard(event: KeyboardEvent<HTMLElement>) {
  * screen readers: Tab to it, or press M on the card. A pointer that does not drag opens the thread and
  * its status menu.
  */
-function BoardCard({ comment, href, opened, moving, onOpen, onMove }: {
+function BoardCard({ comment, href, opened, moving, tabbable, onOpen, onMove }: {
     comment: ProjectCommentView;
     href: string;
     opened: boolean;
     moving: boolean;
+    /** The board's one tab stop: its link, Move, avatars and selection box are in the Tab order */
+    tabbable: boolean;
     onOpen: (event: MouseEvent<HTMLAnchorElement>) => void;
     onMove: (status: CommentStatus) => void;
 }) {
@@ -160,13 +164,15 @@ function BoardCard({ comment, href, opened, moving, onOpen, onMove }: {
                 canMove && 'touch-manipulation select-none [-webkit-touch-callout:none] [&_a]:cursor-grab',
                 isDragging && 'opacity-40')}>
             {canMove && <span id={shortcutId} hidden>Press M to move it to another column.</span>}
-            <CommentRow card comment={comment} href={href} selected={opened ? 'opened' : undefined} onOpen={onOpen}
+            <CommentRow card comment={comment} href={href} selected={opened ? 'opened' : undefined} onOpen={onOpen} tabbable={tabbable}
                 describedBy={canMove ? shortcutId : undefined} keyShortcuts={canMove ? 'M' : undefined}
                 actions={canMove && (
                     // While the move saves, Move keeps the focus it was given but offers no other column
                     <StateMenu status={status} allowed={moving ? noMoves(allowed) : allowed} disabled={false} onChange={onMove}
                         trigger={(
-                            <Button variant="ghost" size="icon-xs" aria-label={`Move ${commentName(comment)}`} data-move={comment.id} className={moveButtonClassName}>
+                            // Only set to take it out: an explicit `undefined` would replace Base UI's own tab index
+                            <Button variant="ghost" size="icon-xs" aria-label={`Move ${commentName(comment)}`} data-move={comment.id} className={moveButtonClassName}
+                                {...!tabbable && { tabIndex: -1 }}>
                                 {moveIcon(moving)}
                             </Button>
                         )} />
@@ -200,7 +206,9 @@ function BoardColumn({ status, count, state, children }: { status: CommentStatus
 }
 
 /**
- * Open, In progress, Ready to verify and Done side by side, as compact cards. A card opens its thread in a sheet
+ * Open, In progress, Ready to verify and Done side by side, as compact cards, with one tab stop: the arrow keys move
+ * between the cards and the columns, Enter opens a card's thread and J and K go to the next and the previous one.
+ * A card opens its thread in a sheet
  * (the URL's `?comment=`), so the board stays where it was. Cards move between columns by dragging
  * (dnd-kit: the mouse, or a long press on a touch screen) or with Move; a column a card cannot move to
  * does not take it. Ready to verify opens the thread with the Request verification form, which asks for
@@ -219,6 +227,14 @@ export function CommentBoard({ projectId, columns, allComments, assignees, userI
     const { openId, hrefFor, open, close } = openComment;
     const opened = openId ? allComments.find(comment => comment.id === openId) : undefined;
     const { change, pending } = useStatusChanger(projectId);
+    // The board's one tab stop (a roving tab index, like the list's): the card last focused, else the open one,
+    // else the first. The arrow keys move between the cards and the columns.
+    const [focusId, setFocusId] = useState<string>();
+    const cards = statuses.flatMap(status => columns[status]);
+    const listed = (id: string | undefined) => cards.find(comment => comment.id === id);
+    const current = listed(focusId) ?? listed(openId);
+    const tabStop = current ?? cards[0];
+    const sheetRef = useRef<HTMLDivElement>(null);
     const [movingId, setMovingId] = useState<string>();
     // The thread to open with its Request verification form
     const [verifyId, setVerifyId] = useState<string>();
@@ -271,6 +287,69 @@ export function CommentBoard({ projectId, columns, allComments, assignees, userI
             void motionSettled(card).then(() => card?.scrollIntoView({ block: 'nearest', behavior: reducedMotion ? 'auto' : 'smooth' }));
         });
     });
+    // ↑ and ↓ move to the previous and the next card in the column, ← and → to the card in the same place in the
+    // column beside it (or its last), past empty columns, Home and End to the column's first and last; the keys stop at
+    // the ends. From a card only (its link, Move, avatars or selection box), never from a menu or a field.
+    // J and K go to the next and the previous card in reading order (column by column) from anywhere but a text
+    // field, a menu or a dialog; with a thread open in the sheet, they open that card's thread in it.
+    const shortcuts = useShortcutsEnabled();
+    const moveWithKeys = useEffectEvent((event: globalThis.KeyboardEvent) => {
+        const board = grid.current;
+        const { target, key } = event;
+        if (!board || !(target instanceof Element) || event.defaultPrevented || event.isComposing
+            || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+        const letter = shortcuts ? shortcutLetter(event) : undefined;
+        const thread = letter === 'j' ? 1 : letter === 'k' ? -1 : 0;
+        let next: ProjectCommentView | undefined;
+        if (thread) {
+            if (!isShortcutTarget(event)) return;
+            event.preventDefault();
+            const from = cards.findIndex(comment => comment.id === (opened ?? current)?.id);
+            next = from < 0 ? cards.at(thread > 0 ? 0 : -1) : cards[from + thread];
+            if (!next) return;
+            if (opened) {
+                setFocusId(next.id);
+                open(next.id, undefined, { replace: true });
+                // The thread's card is a new one: the sheet keeps the focus
+                requestAnimationFrame(() => {
+                    if (!sheetRef.current?.contains(document.activeElement)) sheetRef.current?.focus();
+                });
+                return;
+            }
+        } else {
+            const id = target.closest<HTMLElement>('[data-board-card]')?.dataset.boardCard;
+            const column = statuses.findIndex(status => columns[status].some(comment => comment.id === id));
+            if (!id || column < 0 || !board.contains(target)) return;
+            const list = columns[statuses[column]!];
+            const index = list.findIndex(comment => comment.id === id);
+            if (key === 'ArrowDown' || key === 'ArrowUp') next = list[index + (key === 'ArrowDown' ? 1 : -1)];
+            else if (key === 'Home' || key === 'End') next = list.at(key === 'Home' ? 0 : -1);
+            else if (key === 'ArrowLeft' || key === 'ArrowRight') {
+                const step = key === 'ArrowRight' ? 1 : -1;
+                for (let other = column + step; other >= 0 && other < statuses.length && !next; other += step) {
+                    const beside = columns[statuses[other]!];
+                    next = beside[Math.min(index, beside.length - 1)];
+                }
+            } else return;
+            // At the ends the keys do nothing, rather than scroll the page
+            event.preventDefault();
+            if (!next || next.id === id) return;
+        }
+        const card = board.querySelector<HTMLElement>(`[data-board-card="${CSS.escape(next.id)}"]`);
+        // The same control in that card: its selection box from a selection box, otherwise its link
+        const fromBox = target.closest('[role="checkbox"]');
+        const control = (fromBox && card?.querySelector<HTMLElement>('[role="checkbox"]')) || document.getElementById(commentRowId(next.id));
+        setFocusId(next.id);
+        control?.focus({ preventScroll: true });
+        card?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    });
+    useEffect(() => {
+        // Bubble phase on the window, after the page's own handlers, so a key they used (`preventDefault`) stays theirs
+        const listener = (event: globalThis.KeyboardEvent) => moveWithKeys(event);
+        window.addEventListener('keydown', listener);
+        return () => window.removeEventListener('keydown', listener);
+    }, []);
+
     const closeThread = () => {
         setVerifyId(undefined);
         close();
@@ -329,6 +408,10 @@ export function CommentBoard({ projectId, columns, allComments, assignees, userI
                     While a card is dragged every column is as tall as the longest, so any part of it takes the card. */}
                 <LayoutMotion container={grid} item="data-board-card" skip={settling}>
                 <div ref={grid} data-page-width="wide" data-board-scroll=""
+                    onFocus={event => {
+                        const id = event.target.closest<HTMLElement>('[data-board-card]')?.dataset.boardCard;
+                        if (id && id !== focusId) setFocusId(id);
+                    }}
                     className={cn('relative grid grid-cols-1 items-start gap-4 md:page-wide md:grid-flow-col md:grid-cols-none md:auto-cols-[minmax(18rem,20rem)] md:justify-center-safe md:overflow-x-auto md:overflow-y-clip md:overscroll-x-contain md:p-1', drag && 'md:items-stretch')}>
                     {statuses.map(status => {
                         const state = columnState(status);
@@ -338,7 +421,7 @@ export function CommentBoard({ projectId, columns, allComments, assignees, userI
                             className="rounded-lg border border-dashed border-foreground/30 bg-background/60" />;
                         const items = cards.map(comment => (
                             <BoardCard key={comment.id} comment={comment} href={hrefFor(comment.id)} opened={comment.id === openId}
-                                moving={pending && movingId === comment.id}
+                                moving={pending && movingId === comment.id} tabbable={comment.id === tabStop?.id}
                                 onOpen={event => open(comment.id, event, { replace: false })}
                                 onMove={next => move(comment, next, 'menu')} />
                         ));
@@ -372,7 +455,8 @@ export function CommentBoard({ projectId, columns, allComments, assignees, userI
             </DndContext>
             <p role="status" className="sr-only">{announcement}</p>
             <Sheet open={Boolean(opened)} onOpenChange={next => { if (!next) closeThread(); }}>
-                <SheetContent side="right" showCloseButton={false} className="gap-0 overflow-x-hidden overflow-y-auto p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-xl"
+                {/* `data-shortcuts`: the thread's keys (R, S, A, J, K) work in the sheet, which is a dialog */}
+                <SheetContent ref={sheetRef} data-shortcuts="" side="right" showCloseButton={false} className="gap-0 overflow-x-hidden overflow-y-auto p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-xl"
                     finalFocus={() => (opened ? document.getElementById(commentRowId(opened.id)) : null) ?? true}>
                     <SheetTitle className="sr-only">{opened?.number !== undefined ? `Comment #${opened.number}` : 'Comment'}</SheetTitle>
                     {opened && (

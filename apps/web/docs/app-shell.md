@@ -5,7 +5,9 @@
   settings), Projects (the projects index; the person's own work goes beside it), active projects (every project when grouped by status) with a
   Create project icon link and a Sort and Group menu (`ProjectOrderMenu`) in their header, then at the bottom Workspace (admins; for everyone else only when a
   visible project has a client), Give feedback and the account menu: rows like the navigation's, the person's avatar centred in their 16px icon column so
-  its name starts with the labels above; the email is in the account menu), the inset panel with the breadcrumbs
+  its name starts with the labels above; the email is in the account menu, with Keyboard shortcuts). The navigation's
+  links are one tab stop (the current page's): ↓ and ↑, Home and End move between them; `LinkTabs` move with ← and →
+  ([keyboard](keyboard.md)). The layout also holds `AppShortcuts`, the inset panel with the breadcrumbs
   (`AppBreadcrumbs`, from the path: one line, a long name cut short) and the one invite dialog (`InviteProvider`; `InviteButton` and
   `useInvite()` open it). The sidebar is docked from `lg` (1024 px: landscape tablets and wider), where the panel keeps
   its frame and scrolls inside it; narrower (phones, tablets in portrait) it is a sheet behind the top bar's toggle
