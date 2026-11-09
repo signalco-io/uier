@@ -5,6 +5,8 @@ import { rewriteLimitSubject } from '../../../src/lib/comments/service';
 import { rewriteRequestSchema } from '../../../src/lib/comments/validation';
 import { getCommentsStore } from '../../../src/lib/repo/commentsStore';
 import { isRewriteConfigured, suggestRewrites } from '../../../src/lib/rewrite/suggest';
+import { effectiveRewriteInstructions } from '../../../src/lib/rewrite/settings';
+import { getWorkspace } from '../../../src/lib/app/workspaces';
 
 // The model call ends within 45 s (suggest.ts); BotID and the rate limits run before it
 export const maxDuration = 60;
@@ -18,6 +20,7 @@ export const POST = commentsApiHandler(async (context) => {
     if (!isRewriteConfigured())
         throw apiErrors.unavailable('Rewrite suggestions are not available here.');
 
+    const guidance = context.project ? effectiveRewriteInstructions(await getWorkspace(context.project.workspaceId), context.project) : '';
     await enforceRewriteLimits(getCommentsStore(), rewriteLimitSubject(context));
-    return Response.json({ suggestions: await suggestRewrites(input.text, input.instruction) });
+    return Response.json({ suggestions: await suggestRewrites(input.text, input.instruction, guidance) });
 }, { createVisitor: false });

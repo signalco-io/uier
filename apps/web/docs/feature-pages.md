@@ -31,3 +31,6 @@ MCP never confirms a fix. Its rewrite section follows the toolbar's labels and t
 "Rewrite suggestions". The landing links it from the "Let your coding agent fix it" tile (`AgentSpecimen`),
 the rewrite line of the details and the coding-agent question. `e2e/ai-page.spec.ts` covers its copy,
 links and accessibility; `e2e/feature-pages.api.spec.ts` its metadata and social card.
+Its rewrite list and privacy answer also describe admin-saved workspace style guidance and project
+additions/replacements ([settings pattern](project-settings.md#workspace-defaults-and-project-settings)).
+The settings remain private to admins; the reviewer still supplies their own optional instruction.

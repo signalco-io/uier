@@ -62,6 +62,7 @@ const prompts = [
 const rewrite = [
     'Select text on the page and choose Rewrite.',
     'Add an instruction if you like, such as shorter or friendlier, and choose Suggest.',
+    'Admins can set the workspace’s tone, terms and style. Each project can add to or replace those instructions.',
     'Pick one of up to three suggestions. It goes into the text box, where you can edit it before you post the suggestion.'
 ];
 
@@ -78,7 +79,7 @@ const questions: Question[] = [
     },
     {
         question: `Does ${brand.name} send my feedback to an AI model?`,
-        answer: <>Not through the MCP connector: your coding tool reads the feedback and handles it under its own terms, including what it sends to its model. Rewrite suggestions send the selected text and your instruction to Anthropic. Thread titles send each thread&rsquo;s first message to Anthropic, whose Claude Haiku writes a short title for lists, unless an admin turns them off. The <InlineLink href={KnownPages.LegalPrivacyPolicy}>privacy policy</InlineLink> has the details.</>
+        answer: <>Not through the MCP connector: your coding tool reads the feedback and handles it under its own terms, including what it sends to its model. Rewrite suggestions send the selected text, your instruction and any workspace or project style guidance to Anthropic. Thread titles send each thread&rsquo;s first message to Anthropic, whose Claude Haiku writes a short title for lists, unless an admin turns them off. The <InlineLink href={KnownPages.LegalPrivacyPolicy}>privacy policy</InlineLink> has the details.</>
     },
     {
         question: 'Can an agent change things without asking?',

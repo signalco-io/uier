@@ -12,6 +12,7 @@ import { assertMutableWorkspace, assertMutableProject } from '../comments/public
 import { ensureProjectPublicId, isLiveProject, isProjectPublicId, projectByPublicId } from './projectPublicIds';
 import { createProjectWithClient, ensureProjectClient } from './clients';
 import { normalizeSiteUrl } from './siteUrl';
+import { projectRewriteInstructionsSchema } from '../rewrite/settings';
 
 export { projectClientNameSchema } from './clients';
 export { defaultProjectName, normalizeSiteUrl } from './siteUrl';
@@ -167,6 +168,7 @@ export async function createProject(context: AppContext, { name, urls, clientNam
 }
 
 export type ProjectUpdate = Partial<{
+    rewriteInstructions: import('./inheritedSettings').ProjectSetting<string> | undefined;
     emailCommentExcerpts: boolean;
     /** `undefined` follows the workspace's setting again */
     aiTitles: 'on' | 'off' | undefined;
@@ -181,6 +183,8 @@ export type ProjectUpdate = Partial<{
 
 export async function updateProject(workspaceId: string, projectId: string, update: ProjectUpdate) {
     assertMutableProject(workspaceId, projectId);
+    if (update.rewriteInstructions !== undefined)
+        update = { ...update, rewriteInstructions: projectRewriteInstructionsSchema.parse(update.rewriteInstructions) };
     return await updateDoc<DbProject>(workspacePk(workspaceId), projectId, project => ({
         ...project,
         ...update,

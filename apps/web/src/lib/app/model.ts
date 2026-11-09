@@ -109,6 +109,8 @@ export type DbWorkspace = AppDoc & {
     accessRevision?: number;
     /** AI thread titles (`lib/titles`). Missing means on: no migration for existing workspaces. */
     aiTitles?: boolean;
+    /** Admin-only style guidance for rewrite suggestions. Never project/reviewer DTO data. */
+    rewriteInstructions?: string;
 };
 
 export type MemberRole = 'admin' | 'commenter';
@@ -188,6 +190,8 @@ export type DbProject = AppDoc & {
     emailCommentExcerpts?: boolean;
     /** Overrides the workspace's AI thread titles. Missing means the workspace setting (`lib/titles/settings.ts`). */
     aiTitles?: 'on' | 'off';
+    /** Missing inherits the workspace. Empty replace intentionally uses no style guidance. */
+    rewriteInstructions?: import('./inheritedSettings').ProjectSetting<string>;
     /** Server-owned provider bindings. Secrets and provider settings live in separate records. */
     integrations?: Partial<Record<import('../integrations/model').IntegrationProviderId, import('../integrations/model').IntegrationBinding>>;
     /** Optional labels and explicit alias groups, keyed by configured origin. */

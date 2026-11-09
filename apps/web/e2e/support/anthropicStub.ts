@@ -238,7 +238,14 @@ const server = createServer((request, response) => {
         }
 
         const content = String(body.messages?.[0]?.content);
-        const { status, body: result } = reply(tagged(content, 'selected_text') ?? '', tagged(content, 'reviewer_instruction'));
+        const selected = tagged(content, 'selected_text') ?? '';
+        // A browser test can assert the exact server-resolved guidance without returning it to a guest.
+        const expectedStyle = selected.match(/\[stub:style:([A-Za-z0-9+/=]*)\]/)?.[1];
+        if (expectedStyle !== undefined && (tagged(content, 'style_guidance') ?? '') !== Buffer.from(expectedStyle, 'base64').toString('utf8')) {
+            send(400, { type: 'error', error: { type: 'invalid_request_error', message: 'Stub: unexpected style guidance.' } });
+            return;
+        }
+        const { status, body: result } = reply(selected, tagged(content, 'reviewer_instruction'));
         send(status, result);
     });
 });

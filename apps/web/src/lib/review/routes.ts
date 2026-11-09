@@ -15,6 +15,8 @@ import { apiErrors, parseJsonBody } from '../comments/http';
 import { createCommentSchema, editThreadItemSchema, isValidId, reviewPathSchema, replySchema, rewriteRequestSchema, replaceScreenshotSchema } from '../comments/validation';
 import { assertNotToolbarAnchor } from './toolbarAnchors';
 import { isRewriteConfigured, suggestRewrites } from '../rewrite/suggest';
+import { effectiveRewriteInstructions } from '../rewrite/settings';
+import { getWorkspace } from '../app/workspaces';
 import { MAX_COMMENT_BODY_BYTES } from '../comments/limits';
 import { screenshotResponse } from '../comments/screenshot';
 import { newSourcePath } from '../comments/dto';
@@ -144,8 +146,9 @@ export async function suggestReviewRewrites({ request, project, actor }: ReviewA
     if (!isRewriteConfigured())
         throw apiErrors.unavailable('Rewrite suggestions are not available here.');
 
+    const guidance = effectiveRewriteInstructions(await getWorkspace(project.workspaceId), project);
     await enforceProjectRewriteLimits(request, project, actor);
-    return Response.json({ suggestions: await suggestRewrites(input.text, input.instruction) });
+    return Response.json({ suggestions: await suggestRewrites(input.text, input.instruction, guidance) });
 }
 
 /** DELETE of the comment (its first item) or of one reply */

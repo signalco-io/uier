@@ -48,7 +48,7 @@ for (const kind of ['success', 'refusal', 'truncation', 'invalid_output', 'empty
     test(`shared service accounts for ${kind} without logging content`, async () => {
         const events: RewriteEvent[] = [];
         const suggest = createRewriteService({ model: 'claude-opus-5-5', emit: event => events.push(event), fetch: async () => Response.json(rewriteFixture(kind)) });
-        const result = await suggest('PRIVATE_SELECTED_TEXT', 'PRIVATE_INSTRUCTION').catch(() => 'unavailable');
+        const result = await suggest('PRIVATE_SELECTED_TEXT', 'PRIVATE_INSTRUCTION', 'PRIVATE_STYLE_GUIDANCE').catch(() => 'unavailable');
         expect(events).toHaveLength(1);
         const event = events[0]!;
         expect(rewriteEventSchema.safeParse(event).success).toBe(true);

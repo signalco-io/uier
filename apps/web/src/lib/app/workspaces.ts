@@ -5,6 +5,7 @@ import { memberId, workspacePk, type DbMember, type DbUser, type DbWorkspace } f
 import { UserFacingError } from './actionErrors';
 import { MAX_CREATED_WORKSPACES, MAX_WORKSPACE_NAME_LENGTH } from './limits';
 import { assertMutableWorkspace } from '../comments/publicProjectPolicy';
+import { rewriteInstructionsSchema } from '../rewrite/settings';
 
 /** One line in the workspace menu: repeated whitespace and line breaks are not part of the name */
 export const workspaceNameSchema = z.string()
@@ -49,6 +50,18 @@ export async function setWorkspaceAiTitles(workspaceId: string, userId: string, 
 
 export async function getMember(workspaceId: string, userId: string) {
     return (await getAppStore().get<DbMember>(workspacePk(workspaceId), memberId(userId)))?.doc ?? null;
+}
+
+/** Admin-only style guidance; an empty value clears the workspace default. */
+export async function setWorkspaceRewriteInstructions(workspaceId: string, userId: string, instructions: unknown) {
+    assertMutableWorkspace(workspaceId);
+    const parsed = rewriteInstructionsSchema.parse(instructions);
+    if ((await getMember(workspaceId, userId))?.role !== 'admin')
+        throw new UserFacingError('Only admins can do this.');
+    const updated = await updateDoc<DbWorkspace>(workspacePk(workspaceId), workspaceId, workspace => ({ ...workspace, rewriteInstructions: parsed || undefined }));
+    if (!updated)
+        throw new UserFacingError('This workspace is unavailable or your access changed.');
+    return updated;
 }
 
 /** Every workspace membership of the user (a query across workspaces) */
