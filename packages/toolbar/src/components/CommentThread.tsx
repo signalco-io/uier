@@ -1,4 +1,5 @@
 import { CommentVerification } from './CommentVerification';
+import { CommentActivity } from './CommentActivity';
 import { CommentAnchorDetails } from './CommentAnchorDetails';
 import { DraftsProvider } from '../hooks/useDrafts';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -118,6 +119,7 @@ function ThreadContents({ commentItem, reading, onPage }: { commentItem: Comment
             </Stack>
             <CommentVerification comment={commentItem} open={verifying} onOpenChange={setVerifying} returnFocus={optionsRef} />
             <CommentAnchorDetails comment={commentItem} />
+            <CommentActivity entries={commentItem.history} />
             {toolbarConfig.project && commentItem.notifications?.eligible && <ThreadNotifications comment={commentItem} />}
             {commentItem.integrationLinks && commentItem.integrationLinks.length > 0 && <nav aria-label="Connected services" className="flex flex-wrap gap-3 text-xs">
                 {commentItem.integrationLinks.map(link => <a key={link.provider} href={link.url} target="_blank" rel="noopener noreferrer"

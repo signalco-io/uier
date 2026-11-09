@@ -6,6 +6,10 @@ promise. The scheduled `Review notifications` workflow runs the awaited Cosmos-b
 the existing production configuration. Dispatch rechecks access, private visibility, subscription,
 mute and `getReadSequence`; keep the optional verified guest flow separate from posting. See
 `docs/review-notifications.md` for the event/delivery contract and failure evidence.
+`notificationEvents` remains delivery metadata, independent of the bounded, member-visible
+[`history` log](read-state-and-activity.md#thread-history). History retention never trims or rewrites
+notification events. Priority, privacy, movement and AI title history do not introduce email events;
+existing assignment, status, verification and MCP agent event delivery keeps its current contract.
 `/api/email/reports` checks its secret header and expected Event Grid subscription before validation
 or writes. Compare the subscription name case-insensitively, as Azure resource identity requires.
 The per-subscription credential and expected name bind the handshake to the subscriber; do not

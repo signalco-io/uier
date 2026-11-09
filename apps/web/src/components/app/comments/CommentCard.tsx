@@ -81,6 +81,7 @@ import { VerificationControl } from './VerificationControl';
 import { StateBadge, StateMenu, type CommentStatus } from './CommentStatus';
 import { useStatusChange, type ResolveExit } from './useStatusChange';
 import { ReplyComposer } from './ReplyComposer';
+import { ThreadActivity } from './ThreadActivity';
 import { AssigneesControl } from './AssigneesControl';
 import { MessageAgent } from './MessageAgent';
 import { useKeyShortcutLabel, useKeyShortcuts } from '../keyboard/keys';
@@ -526,6 +527,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                     : <Button variant="ghost" size="sm" className="-ml-2 self-start text-muted-foreground hover:text-foreground pointer-coarse:min-h-11" aria-keyshortcuts={replyShortcut} onClick={() => setReplying(true)}>
                         <ReplyIcon data-icon="inline-start" />Reply
                     </Button>)}
+
+                <ThreadActivity entries={comment.history} />
 
                 {/* The issues it is linked to, quiet as in the toolbar */}
                 {comment.integrationLinks?.length ? (

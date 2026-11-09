@@ -154,6 +154,8 @@ export type DbVerification = {
 };
 
 export type DbComment = {
+    /** Bounded audit history, independent of notification delivery and unread cursors. */
+    history?: import('../comments/history').DbThreadHistoryEntry[];
     verification?: DbVerification;
     /** Missing means Normal; no migration required. */
     priority?: import('@uier/toolbar/triage').CommentPriority;

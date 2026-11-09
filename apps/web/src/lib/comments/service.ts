@@ -1,4 +1,5 @@
 import { ordinaryVerificationStatus, withOrdinaryStage } from './verificationState';
+import { withThreadHistory } from './history';
 import { feedbackStage } from '@uier/toolbar/verification';
 import { verificationDetails, verificationPermissions } from '../review/fixVerificationDto';
 import { cleanupThread, queueThreadCleanup } from './cleanup';
@@ -111,16 +112,18 @@ export function assertCommentAuthor(comment: DbComment, context: CommentsApiCont
  */
 async function updateComment<T extends DbComment | null>(
     store: CommentsStore,
-    domain: string,
+    context: CommentsApiContext,
     id: string,
     update: (comment: DbComment) => T
 ): Promise<T> {
+    const domain = context.domain;
     for (let attempt = 0; attempt < MAX_UPDATE_ATTEMPTS; attempt++) {
         const stored = await store.get(domain, id);
         if (!stored)
             throw apiErrors.notFound();
 
-        const updated = update({ ...stored.comment, activity: threadActivity(stored.comment) });
+        const changed = update({ ...stored.comment, activity: threadActivity(stored.comment) });
+        const updated = (changed ? withThreadHistory(stored.comment, changed, writerId(context)) : changed) as T;
         if (!updated) await queueThreadCleanup(domain, id, true);
         const result = updated
             ? await store.replace(updated, stored.etag)
@@ -351,7 +354,7 @@ export async function replyToComment(context: CommentsApiContext, id: string, in
 }
 
 export async function updateCommentResolved(context: CommentsApiContext, id: string, input: UpdateCommentInput) {
-    const updated = await updateComment(getCommentsStore(), context.domain, id, comment => {
+    const updated = await updateComment(getCommentsStore(), context, id, comment => {
         assertCommentAuthor(comment, context);
         const status = input.status;
         if (status !== undefined)
@@ -364,9 +367,11 @@ export async function updateCommentResolved(context: CommentsApiContext, id: str
 }
 
 export async function editCommentThreadItem(context: CommentsApiContext, id: string, itemId: string, input: EditThreadItemInput) {
-    const updated = await updateComment(getCommentsStore(), context.domain, id, comment => {
+    const updated = await updateComment(getCommentsStore(), context, id, comment => {
         assertVisible(comment, context);
-        return withEditedThreadItem(comment, itemId, input, item => Boolean(item.authorId) && item.authorId === context.visitor.authorId);
+        const edited = withEditedThreadItem(comment, itemId, input, item => Boolean(item.authorId) && item.authorId === context.visitor.authorId);
+        if (comment.thread.items[0]?.id === itemId && comment.thread.items[0].text !== input.text) delete edited.aiTitle;
+        return edited;
     });
     return toDto(updated, context);
 }
@@ -444,7 +449,7 @@ function withoutReply(comment: DbComment, itemId: string, context: CommentsApiCo
 export async function deleteComment(context: CommentsApiContext, id: string): Promise<CommentDto | null> {
     const store = getCommentsStore();
     let hadScreenshot = false;
-    const updated = await updateComment(store, context.domain, id, comment => {
+    const updated = await updateComment(store, context, id, comment => {
         hadScreenshot = Boolean(comment.screenshot);
         return withoutFirstItem(comment, context);
     });
@@ -460,7 +465,7 @@ export async function deleteComment(context: CommentsApiContext, id: string): Pr
 export async function deleteThreadItem(context: CommentsApiContext, id: string, itemId: string): Promise<CommentDto | null> {
     const store = getCommentsStore();
     let hadScreenshot = false;
-    const updated = await updateComment(store, context.domain, id, comment => {
+    const updated = await updateComment(store, context, id, comment => {
         hadScreenshot = Boolean(comment.screenshot);
         const itemIndex = threadItems(comment).findIndex(item => item.id === itemId);
         if (itemIndex < 0)

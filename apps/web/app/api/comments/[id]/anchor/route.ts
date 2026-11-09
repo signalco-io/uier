@@ -4,6 +4,7 @@ import { reattachAnchorSchema, isValidId, normalizePath } from '../../../../../s
 import { reattachAnchor } from '../../../../../src/lib/comments/reattachAnchor';
 import { getCommentsStore } from '../../../../../src/lib/repo/commentsStore';
 import { assertNotBot } from '../../../../../src/lib/comments/botProtection';
+import { withThreadHistory } from '../../../../../src/lib/comments/history';
 
 export const PATCH = commentsApiHandler<{ id: string }>(async (request, { id }) => {
     await assertNotBot();
@@ -12,6 +13,7 @@ export const PATCH = commentsApiHandler<{ id: string }>(async (request, { id }) 
     const input = await parseJsonBody(context.request, reattachAnchorSchema);
     if (normalizePath(input.path) !== input.path) throw apiErrors.invalidRequest('Use this comment’s saved page path.');
     const comment = await reattachAnchor(getCommentsStore(), context.domain, id, input,
-        comment => assertCommentAuthor(comment, context));
+        comment => assertCommentAuthor(comment, context),
+        (previous, updated) => withThreadHistory(previous, updated, context.visitor.authorId!));
     return Response.json(await toPublicCommentDto(comment, context));
 });

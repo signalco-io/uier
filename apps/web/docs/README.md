@@ -44,7 +44,7 @@ Product contracts, API references and runbooks stay in the repository's [`docs/`
 - [Fix verification](fix-verification.md): request, confirm, reject and cancel.
 - [AI agents under the assignee](assignee-agents.md): `assigneeAgent`, its UI and MCP tools.
 - [AI thread titles](ai-titles.md): `aiTitle`, the Haiku call, when titles are made and who sees them.
-- [Read state and activity](read-state-and-activity.md): read cursors, bulk read, adaptive refresh.
+- [Read state and activity](read-state-and-activity.md): bounded thread history, read cursors, bulk read, adaptive refresh.
 - [Review API and comment records](review-api.md): anchors on uier's pages, review SSO, edits, image replacement, page state.
 - [Anchor updates](anchor-updates.md): reattaching a comment's anchor.
 - [Project review briefs](project-review-briefs.md): the project brief.
