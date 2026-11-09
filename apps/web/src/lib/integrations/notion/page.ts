@@ -113,7 +113,8 @@ export function validateNotionMapping(value: unknown, schema: NotionSchema): Not
 export function notionProperties(context: FeedbackContext, mapping: NotionMapping, screenshotId?: string): JsonObject {
     const values: JsonObject = { [mapping.title]: { title: rich(context.title.slice(0, 150)) }, [mapping.uierId]: { rich_text: rich(context.identity.commentId) } };
     if (mapping.status) values[mapping.status.property] = { [mapping.status.type]: { name: context.status === 'done' ? mapping.status.done : mapping.status.open } };
-    if (mapping.kind) values[mapping.kind] = { select: { name: context.kind } };
+    // Notion refuses commas in select option names, and a custom type's name may have one
+    if (mapping.kind) values[mapping.kind] = { select: { name: context.kind.startsWith('custom_') ? notionSelectName(context.feedbackType?.label ?? 'Feedback') : context.kind } };
     const environment = context.source.environment?.replaceAll(',', ' ').trim().slice(0, 100);
     if (mapping.environment) values[mapping.environment] = { select: environment && !['Removed address', 'Source not recorded'].includes(environment)
         ? { name: environment } : null };
@@ -149,4 +150,9 @@ export function canonicalProperties(properties: JsonObject) {
         if (type === 'files') return [id, { files: array(property.files).map(file => ({ name: object(file).name, id: object(object(file).file_upload).id ?? null })) }];
         return [id, { [String(type)]: property[String(type)] ?? null }];
     }));
+}
+
+/** A select option name Notion accepts: no commas (they separate options), single spaces */
+function notionSelectName(value: string) {
+    return value.replaceAll(',', ' ').replace(/\s+/g, ' ').trim() || 'Feedback';
 }

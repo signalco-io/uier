@@ -101,3 +101,9 @@ and reconciles a lost create through WIQL and the copy's marker; see
 Provider tests and live acceptance are additional gates, not substitutes for shared isolation.
 
 Manual thread pull requests use the same canonical parser and state read path as message links. The server validates URLs, limits manual links to twenty, checks current triage and thread access on every conditional write, and retains server-derived ownership for removal. Linking does not fetch the pasted URL.
+
+Notion Kind select values use the saved feedback type label for custom kinds (commas become spaces,
+as Notion refuses them in option names); built-in values retain their original lowercase names so
+existing database options remain stable.
+Slack notification titles also use the saved custom label, retaining the existing Feedback, Bug and
+Suggested rewrite titles for built-in kinds. Labels remain literal, bounded text.

@@ -1,3 +1,5 @@
+import { notionProperties } from '../src/lib/integrations/notion/page';
+import type { FeedbackContext } from '@uier/toolbar/feedback-context';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { memberId, projectRefPk, workspacePk, type AppDoc, type DbMember, type DbProject, type DbProjectRef } from '../src/lib/app/model';
@@ -657,4 +659,19 @@ test('reply sync uses native Notion comments, follows original edits/deletions, 
     await updateDoc<IntegrationSync>(current.pk, current.id, value => ({ ...value, nextAttemptAt: new Date(0).toISOString() }));
     current = await sync(f, comment);
     expect(cleanupCopy.deleted).toBe(true);
+});
+
+ test('custom feedback types use their saved label and built-in names stay stable', () => {
+    const context: FeedbackContext = {
+        schemaVersion: 1, contentTrust: 'untrusted', identity: { commentId: 'comment_type' },
+        title: 'Saved thread', kind: 'custom_design', feedbackType: { id: 'custom_design', label: 'Design review', icon: 'message' },
+        status: 'open', feedback: null, anchor: { type: 'page' }, source: { path: '/' }, links: {},
+        reproduction: {}, screenshot: { state: 'unavailable' }, discussion: [], notes: []
+    };
+    const mapping = { title: 'title', uierId: 'id', kind: 'kind' };
+    expect(notionProperties(context, mapping).kind).toEqual({ select: { name: 'Design review' } });
+    // Notion refuses commas in select option names
+    expect(notionProperties({ ...context, feedbackType: { id: 'custom_design', label: 'Copy, wording', icon: 'message' } }, mapping).kind).toEqual({ select: { name: 'Copy wording' } });
+    for (const kind of ['feedback', 'bug', 'rewrite', 'comment'] as const)
+        expect(notionProperties({ ...context, kind }, mapping).kind).toEqual({ select: { name: kind } });
 });
