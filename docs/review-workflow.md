@@ -44,7 +44,7 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   members belong to a workspace; with more than one workspace the menu at the top of the sidebar switches
   between them. Every account also joins uier's own workspace, which keeps the feedback sent with Give
   feedback; the menu lists it apart from the person's workspaces as "Feedback on uier". A first workspace is
-  named after its creator's email until the first-run step or an admin renames it (in the workspace settings).
+  named **Personal** until the first-run step or an admin renames it (in the workspace settings).
   Create workspace in the same menu adds another one with the name typed there, makes its
   creator the admin and opens it to add its first project; one person can create up to 20 workspaces, the first
   one included. The workspace and its admin are created together, so a creator whom an admin removed is

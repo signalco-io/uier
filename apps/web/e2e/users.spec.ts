@@ -401,7 +401,7 @@ test('public staff cannot open Users, invite, create projects or edit public set
     await expect(page.getByRole('list', { name: 'Active projects' })).toContainText('uier.io public feedback');
     await appNavigation(page);
     await page.getByRole('button', { name: /^Workspace:/ }).click();
-    await page.getByRole('menuitem', { name: new RegExp(`e2e-users-staff-${device}@example.test.*Admin`) }).click();
+    await page.getByRole('menuitem', { name: /Personal.*Admin/ }).click();
     await expect(page.getByRole('list', { name: 'Active projects' })).toContainText('Personal project renamed');
     await page.goto(`/app/projects/${ownProject}/settings`);
     await expect(page.getByRole('region', { name: 'General', exact: true })).toBeVisible();

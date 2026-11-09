@@ -220,7 +220,7 @@ test('skipping the first-run step keeps both names', async ({ page }) => {
     await page.getByRole('button', { name: 'Skip', exact: true }).click();
     await expect(page).toHaveURL(/\/app\/projects\/new$/);
     await appNavigation(page);
-    await expect(page.getByRole('button', { name: /^Workspace:/ })).toContainText(email);
+    await expect(page.getByRole('button', { name: /^Workspace:/ })).toContainText('Personal');
     await closeAppNavigation(page);
     await page.goto('/app');
     await expect(page).toHaveURL(/\/app\/projects\/new$/);
@@ -627,7 +627,7 @@ test('anyone creates a workspace from its menu and lands on its first project', 
     await expect(page.getByRole('button', { name: /^Workspace:/ })).toContainText('Admin');
     await page.getByRole('button', { name: /^Workspace:/ }).click();
     await expect(page.getByRole('menuitem', { name: /Client work.*Admin/ })).toBeVisible();
-    await page.getByRole('menuitem', { name: /@example\.com.*Admin/ }).click();
+    await page.getByRole('menuitem', { name: /Personal.*Admin/ }).click();
     await expect(page).toHaveURL(/\/app\/projects$/);
     await expect(page.getByRole('link', { name: 'First site' }).first()).toBeVisible();
 });

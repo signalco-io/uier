@@ -162,7 +162,7 @@ test('a coding tool signs in with OAuth, reaches the chosen workspaces, and lose
             await expect(row).toContainText('2 workspaces, all projects in one, 1 project');
             await expect(row).toContainText('Read feedback, Reply to feedback');
             await row.getByRole('button', { name: 'Details for Laptop agent' }).click();
-            await expect(row).toContainText(`${email}: All projects, including new ones`);
+            await expect(row).toContainText('Personal: All projects, including new ones');
             await expect(row).toContainText('uier: uier.io user feedback');
             await expectNoAxeViolations(page);
             await apps.screenshot({ path: testInfo.outputPath('connected-apps.png') });

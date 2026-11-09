@@ -81,3 +81,6 @@ container width; narrower cards keep the wrapping item row. Keep new row content
 
 Automatically created own workspaces start with the name **Personal**. Existing stored names are
 kept, and workspaces created from the menu use the name the person enters.
+
+Browser coverage checks the Personal name when skipping first-run setup and in OAuth consent,
+project listings and connected-app access details.
