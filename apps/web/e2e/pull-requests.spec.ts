@@ -20,10 +20,22 @@ test('thread details collect PRs from messages and replies, with one quiet mark 
     expect(response.status()).toBe(201);
     await page.goto(`/app/projects/${project}`);
     let thread = await openComment(page, 'Check the checkout button');
-    await expect(thread.getByText('Pull requests', { exact: true })).toHaveCount(0);
+    await expect(thread.getByText('Pull requests', { exact: true })).toBeVisible();
     await expect(commentRows(page).getByLabel('Linked pull request')).toHaveCount(0);
+    const manualUrl = 'https://github.com/acme/site/pull/2';
+    await thread.getByRole('textbox', { name: 'Pull request URL', exact: true }).fill(manualUrl);
+    await thread.getByRole('button', { name: 'Link', exact: true }).click();
+    await expect(thread.locator('[data-pull-request-links]').getByRole('link')).toHaveCount(1);
+    await page.reload();
+    thread = page.getByRole('article');
+    await expect(thread.locator('[data-pull-request-links]').getByRole('link')).toHaveCount(1);
+    await thread.getByRole('button', { name: `Remove pull request link ${manualUrl}`, exact: true }).click();
+    await expect(thread.locator('[data-pull-request-links]').getByRole('link')).toHaveCount(0);
+    await thread.getByRole('textbox', { name: 'Pull request URL', exact: true }).fill(manualUrl);
+    await thread.getByRole('button', { name: 'Link', exact: true }).click();
+    await expect(thread.locator('[data-pull-request-links]').getByRole('link')).toHaveCount(1);
     await thread.getByRole('button', { name: 'Reply', exact: true }).click();
-    await thread.getByRole('textbox', { name: 'Reply', exact: true }).fill('Fixed in [PR #2](https://github.com/acme/site/pull/2). Also https://github.com/acme/site/pull/1 https://github.com/acme/site/pull/3 https://gitlab.com/acme/site/-/merge_requests/4 https://dev.azure.com/acme/Website/_git/site/pullrequest/9');
+    await thread.getByRole('textbox', { name: 'Reply', exact: true }).fill('Also https://github.com/acme/site/pull/1 https://github.com/acme/site/pull/3 https://gitlab.com/acme/site/-/merge_requests/4 https://dev.azure.com/acme/Website/_git/site/pullrequest/9');
     await thread.getByRole('button', { name: 'Post reply', exact: true }).click();
     await expect(thread.getByRole('status').filter({ hasText: 'Reply posted' })).toBeVisible();
     const values = thread.locator('[data-pull-request-links]');
@@ -53,6 +65,8 @@ test('thread details collect PRs from messages and replies, with one quiet mark 
     // The list may still settle after the reply, moving the row from under the pointer: hover again until it shows
     else await expect(async () => { await mark.hover(); await expect(card).toBeVisible({ timeout: 1000 }); }).toPass();
     await expect(card.getByRole('link')).toHaveCount(5);
+    // PR #2 is only manually linked; it shares the detected links' card and state badge.
+    await expect(card.getByRole('link', { name: /^GitHub acme\/site #2/ })).toHaveAttribute('href', manualUrl);
     await expect(card.locator('[data-provider-mark="gitlab"]')).toHaveCount(1);
     await expect(card.getByRole('link', { name: /^GitLab acme\/site !4/ })).toHaveAttribute('href', 'https://gitlab.com/acme/site/-/merge_requests/4');
     await expect(card.locator('[data-pull-request-state="merged"]')).toHaveText('Merged');

@@ -45,7 +45,7 @@ export function parsePullRequestLink(value: string): PullRequestLink | undefined
 }
 
 /** Scan current messages, including Markdown destinations, autolinks and bare URLs. Deleted text contributes nothing. */
-export function threadPullRequestLinks(messages: readonly { text: string; deleted?: boolean; deletedAt?: string }[]) {
+export function threadPullRequestLinks(messages: readonly { text: string; deleted?: boolean; deletedAt?: string }[], attached: readonly { url: string }[] = []) {
     const links = new Map<string, PullRequestLink>();
     for (const message of messages) {
         if (message.deleted || message.deletedAt) continue;
@@ -53,6 +53,10 @@ export function threadPullRequestLinks(messages: readonly { text: string; delete
             const link = parsePullRequestLink(match[0].replace(/[.,;:!?]+$/, ''));
             if (link) links.set(link.url.toLowerCase(), link);
         }
+    }
+    for (const saved of attached) {
+        const link = parsePullRequestLink(saved.url);
+        if (link) links.set(link.url.toLowerCase(), link);
     }
     return [...links.values()];
 }

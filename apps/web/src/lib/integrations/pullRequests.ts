@@ -173,7 +173,7 @@ async function visibleThread(workspaceId: string, projectId: string, userId: str
     if (!actor) throw apiErrors.notFound();
     const comment = await getProjectComment(project, actor, commentId);
     if (!comment) throw apiErrors.notFound();
-    return { project, refs: threadPullRequestLinks(comment.thread?.items ?? []) };
+    return { project, refs: threadPullRequestLinks(comment.thread?.items ?? [], comment.pullRequests) };
 }
 
 /** Only saved, currently visible messages can initiate reads. No URL is accepted from a client. */

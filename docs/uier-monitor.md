@@ -118,3 +118,5 @@ node .claude/skills/uier-monitor/scripts/build-script-skill.mjs
 
 It rewrites the `uier-monitor-script` skill, which carries a copy of the script for installs without
 the scripts folder. CI fails when that copy is out of date.
+
+When a fix session opens a PR, Session results step 3 immediately calls uier `link_feedback_pull_request` for every fixed item before review or CI. The orchestrator needs `feedback:assign`; retries use the same canonical URL. T3 PR linking alone does not attach a PR in uier. Failed attachments remain recorded for retry.

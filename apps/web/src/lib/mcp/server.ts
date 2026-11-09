@@ -1,3 +1,4 @@
+import { setProjectCommentPullRequest } from '../review/pullRequests';
 import { changeFixVerification, verificationDetails } from '../review/fixVerification';
 import { feedbackStage, feedbackStatusTargets } from '@uier/toolbar/verification';
 import { commentPriority, priorities } from '@uier/toolbar/triage';
@@ -236,6 +237,13 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         const saved = await changeFixVerification(project, actor, input.commentId, { action: 'cancel', expectedRevision: input.expectedRevision, idempotencyKey: key(identity, input.idempotencyKey),
             ...(input.status ? { status: input.status } : {}) });
         return result({ actingAs, commentId: saved.id, saved: true, revision: saved.verification?.revision, stage: feedbackStage(saved) });
+    }));
+    server.registerTool('link_feedback_pull_request', { description: `Attach a GitHub, GitLab or Azure DevOps pull request URL to a visible thread. Requires feedback:assign and current project triage permission. Repeating a canonical URL is a no-op and preserves the original linker. Link the PR as soon as you open it for authorized feedback work. ${untrusted}`, inputSchema: {
+        ...thread, url: z.string().trim().min(1).max(2048)
+    }, annotations: { ...writeAnnotations, idempotentHint: true } }, input => safely(async () => {
+        const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:assign');
+        const saved = await setProjectCommentPullRequest(project, actor, input.commentId, input.url);
+        return result({ actingAs, commentId: saved.id, saved: true, pullRequests: saved.pullRequests?.map(link => ({ url: link.url })) ?? [] });
     }));
     server.registerTool('assign_feedback', { description: `Set human-approved participants. Existing assigneeId replaces everyone with one person (null clears all). For several people send assigneeIds, with mode replace (default), add or remove. Add/remove changes only those people and preserves the others and their agents. Never send both id forms. Private visibility and current membership are enforced. ${untrusted}`, inputSchema: {
         ...write, assigneeId: userIdSchema.nullable().optional(), assigneeIds: assigneeIdsSchema.optional(), mode: assignmentModeSchema.optional()

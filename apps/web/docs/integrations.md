@@ -99,3 +99,5 @@ and reconciles a lost create through WIQL and the copy's marker; see
 [the Azure DevOps design](../../../docs/azure-devops-integration-plan.md). `azure-devops.api.spec.ts` and
 `azure-devops.spec.ts` run against `e2e/support/azureDevOpsStub.ts`.
 Provider tests and live acceptance are additional gates, not substitutes for shared isolation.
+
+Manual thread pull requests use the same canonical parser and state read path as message links. The server validates URLs, limits manual links to twenty, checks current triage and thread access on every conditional write, and retains server-derived ownership for removal. Linking does not fetch the pasted URL.

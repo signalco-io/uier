@@ -71,7 +71,7 @@ out. Only that random request id passes through sign-in. The page shows:
   and projects", where each workspace gets all its projects, including new ones, or the projects you
   pick. Only workspaces and projects you can access are listed.
 - **Operations.** Read feedback (always included), Read screenshots, Reply to feedback, Change status and
-  Assign feedback (which also lets the tool show itself as the [agent working on feedback assigned to
+  Assign feedback (which also lets the tool link pull requests to threads and show itself as the [agent working on feedback assigned to
   you](#agents-working-on-feedback)). The operations the tool asked for are preselected; Claude Code asks for Read feedback.
   **Select all operations** picks all five. Operations apply to the whole connection, not per workspace.
 - **Connection name.** Prefilled from the tool's name, 1–60 characters. Replies, status changes and
@@ -354,6 +354,7 @@ tokens already issued stop working on their next request. Access tokens from Acc
 | `list_assignees` | `feedback:assign` | Existing participants eligible to see the thread |
 | `reply_to_feedback` | `feedback:reply` | Validated reply as the human account, attributed to the connection and marked as written by the agent; its text shows as Markdown ([replies written by an agent](#replies-written-by-an-agent)) |
 | `set_feedback_status` | `feedback:status` | Open, In progress or Done (`status`), or the earlier Done/Open switch (`resolved`), using the app's permission checks ([In progress](#in-progress)) |
+| `link_feedback_pull_request` | `feedback:assign` | Attach a PR URL to a visible thread, idempotently |
 | `assign_feedback` | `feedback:assign` | Assign an existing authorized participant, or `null` to unassign |
 | `set_feedback_agent` | `feedback:assign` | Attach the connection as the AI agent working under its owner on feedback assigned to them ([agents](#agents-working-on-feedback)) |
 | `set_feedback_agent_working` | `feedback:assign` | Start, renew or clear a five-minute active-work indicator without changing thread status |
@@ -957,3 +958,5 @@ via Claude" with the agent's logo and, for members, its model and reasoning leve
   HTML is shown as typed, an image is a link to it, and a link that is not http, https or mailto (a
   relative path too) stays the text it was written as. Tables are not supported. Emails, list rows and
   connected services get the text as it was written ([Markdown in messages](review-workflow.md#markdown-in-messages)).
+
+`link_feedback_pull_request` (`feedback:assign`) accepts `projectId`, `commentId` and `url` (GitHub, GitLab or Azure DevOps). Call it immediately after opening a PR for authorized feedback work, once per addressed thread. It shares manual-link storage, server URL validation, current triage/access checks and activity history. Canonical URL identity is naturally idempotent; no `idempotencyKey` is needed. The assignment scope fits attaching work metadata without granting reply/status writes. A duplicate never replaces the original linker.
