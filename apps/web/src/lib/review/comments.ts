@@ -20,6 +20,7 @@ import { commitChangeSubmission, commitNewSubmission, commitReplySubmission, rec
 import { withEditedThreadItem } from '../comments/editing';
 import type { EditThreadItemInput } from '../comments/validation';
 import type { DbComment, DbCommentDevice, DbThreadItem, DbMention } from '../db/schema';
+import { messageAgentClaimSchema, messageAgentFor, type MessageAgentClaim } from './messageAgent';
 import { getCommentsStore, type CommentsStore, type ConditionalWriteResult } from '../repo/commentsStore';
 import { apiErrors } from '../comments/http';
 import { MAX_THREAD_ITEMS } from '../comments/limits';
@@ -301,18 +302,36 @@ export async function enforceProjectRewriteLimits(request: Request, project: DbP
     await enforceRewriteLimits(getCommentsStore(), { domain: projectPartition(project.id), authorId: actorAuthorId(actor), ipBucket: rateLimitIpBucket(request) });
 }
 
-export async function replyToProjectComment(request: Request, project: DbProject, actor: ProjectActor, id: string, input: { text: string; authorName?: string; mentions?: DbMention[]; idempotencyKey?: string }) {
+function parseClaim(claim: MessageAgentClaim) {
+    const parsed = messageAgentClaimSchema.safeParse(claim);
+    if (!parsed.success) {
+        const issue = parsed.error.issues[0];
+        throw apiErrors.invalidRequest(issue && ['model', 'reasoning'].includes(String(issue.path[0])) ? issue.message : 'Choose a valid agent.');
+    }
+    return parsed.data;
+}
+
+/**
+ * `writtenBy`: what an MCP connection says about the agent writing the reply. It marks the message only
+ * for an MCP actor (one with a connector), and only as `messageAgentFor` decides from the stored thread.
+ */
+export type ReplyInput = { text: string; authorName?: string; mentions?: DbMention[]; idempotencyKey?: string; writtenBy?: MessageAgentClaim };
+
+export async function replyToProjectComment(request: Request, project: DbProject, actor: ProjectActor, id: string, input: ReplyInput) {
     const saved = await appendProjectReply(request, project, actor, id, input);
     queueMcpEventDelivery(project.id);
     queueAiTitles(project, [saved], 'change');
     return saved;
 }
 
-async function appendProjectReply(request: Request, project: DbProject, actor: ProjectActor, id: string, input: { text: string; authorName?: string; mentions?: DbMention[]; idempotencyKey?: string }) {
+async function appendProjectReply(request: Request, project: DbProject, actor: ProjectActor, id: string, input: ReplyInput) {
     await refreshMutationActor(project, actor, true);
     const authorId = actorAuthorId(actor);
     if (!authorId)
         throw apiErrors.invalidRequest('Comments need a visitor id.');
+    // Only a coding tool connection writes for its owner; the app and the toolbar never mark a message
+    const claim = actor.kind === 'member' && actor.agent && input.writtenBy ? parseClaim(input.writtenBy) : undefined;
+    const writtenBy = (comment: DbComment) => claim && actor.kind === 'member' ? { writtenBy: messageAgentFor(comment, actor.userId, claim) } : {};
 
     const store = getCommentsStore();
     const partition = projectPartition(project.id);
@@ -330,12 +349,13 @@ async function appendProjectReply(request: Request, project: DbProject, actor: P
 
     const now = nowIso();
     const itemId = `item_${nanoid()}`;
-    if (attempt) return await commitReplySubmission(store, attempt, id, {
+    if (attempt) return await commitReplySubmission(store, attempt, id, comment => ({
         id: itemId, text: input.text, authorId,
         ...(actor.kind === 'member' && actor.agent ? { agent: actor.agent } : {}),
+        ...writtenBy(comment),
         authorName: actor.kind === 'guest' ? input.authorName : undefined,
         mentions: input.mentions, createdAt: now
-    }, async comment => { await refreshMutationActor(project, actor, true); return visibleOrThrow(comment, actor); }, async (previous, updated) => {
+    }), async comment => { await refreshMutationActor(project, actor, true); return visibleOrThrow(comment, actor); }, async (previous, updated) => {
         const mentions = await validateMentions(project, actor, previous, input.text, input.mentions);
         return withSyncMark(project, previous, withNotificationEvent(updated, authorId, 'reply', now, mentionRecipients(mentions), actor.kind === 'member' ? actor.agent : undefined, { itemId }));
     });
@@ -348,6 +368,8 @@ async function appendProjectReply(request: Request, project: DbProject, actor: P
         const mentions = await validateMentions(project, actor, comment, input.text, input.mentions);
         const updated = { ...withThreadActivity(comment, authorId), updatedAt: now, thread: { ...comment.thread, items: [...items, {
             id: itemId, text: input.text, authorId,
+            ...(actor.kind === 'member' && actor.agent ? { agent: actor.agent } : {}),
+            ...writtenBy(comment),
             authorName: actor.kind === 'guest' ? input.authorName : undefined,
             mentions, createdAt: now
         }] } };

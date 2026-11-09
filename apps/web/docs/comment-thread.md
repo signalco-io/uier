@@ -19,7 +19,10 @@
   source is unavailable), Priority (`PriorityControl`: the flag and the name; for those who can triage a menu of the
   four, each with its flag, the current one checked) and Assignee (a 20px avatar, empty and dashed while unassigned,
   and the name; a menu for those who can assign; then the AI agent working with the assignee, `AgentControl`: "with",
-  the agent's logo, Claude, its model and reasoning level, or Add agent for the assignee), the verification, every message, Reply and the quiet Open in .... The first message's time is followed by
+  the agent's logo, Claude, its model and reasoning level, or Add agent for the assignee), the verification, every message, Reply and the quiet Open in ....
+  A message an AI agent wrote for its author through MCP reads "You via", the agent's logo and "Claude" after the
+  author (`MessageAgent`, a ghost button whose hover or click popover says "Claude wrote this for you.", the model,
+  reasoning level and connection; [AI agents](assignee-agents.md)). The first message's time is followed by
   `CommentDevice`: screen size and browser icons whose popover (hover or click, `hoverPopoverTrigger` for Base
   UI's `openOnHover`, like the project header's access info) lists the reproduction context and copies its
   text; the toolbar still shows one device icon with details under the message. Pending actions show `Spinner`.

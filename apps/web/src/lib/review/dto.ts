@@ -9,14 +9,27 @@ import { listProjectMembers } from '../app/members';
 import type { DbProject } from '../app/model';
 import { actorAuthorId, type ProjectActor } from './actor';
 import { assigneeAgentView } from './assigneeAgentModel';
+import { messageAgentView } from './messageAgent';
 import { canTriageProject, canDeleteComment, canDeleteItem, canEditComment, canEditItem, canResolveComment } from './comments';
 
 const memberPrefix = 'user:';
 
-/** An item's author name: the member's name, the guest's name, or "Guest" */
-export function itemAuthorName(item: Pick<DbThreadItem, 'authorId' | 'authorName' | 'agent'>, names: Map<string, string>) {
+/**
+ * An item's author name: the member's name, the guest's name, or "Guest". A member's message from a coding
+ * tool says how: "Ana via Claude" (the agent that wrote it), or "Ana via <connection name>" on older messages.
+ */
+export function itemAuthorName(item: Pick<DbThreadItem, 'authorId' | 'authorName' | 'agent' | 'writtenBy'>, names: Map<string, string>) {
+    if (item.authorId?.startsWith(memberPrefix)) {
+        const agent = messageAgentView(item, false);
+        return `${itemPersonName(item, names)}${agent ? ` via ${agent.label}` : item.agent ? ` via ${item.agent.name}` : ''}`;
+    }
+    return item.authorName || 'Guest';
+}
+
+/** The person alone: a member's name without the agent or connection they wrote through */
+export function itemPersonName(item: Pick<DbThreadItem, 'authorId' | 'authorName'>, names: Map<string, string>) {
     if (item.authorId?.startsWith(memberPrefix))
-        return `${names.get(item.authorId.slice(memberPrefix.length)) ?? 'Former member'}${item.agent ? ` via ${item.agent.name}` : ''}`;
+        return names.get(item.authorId.slice(memberPrefix.length)) ?? 'Former member';
     return item.authorName || 'Guest';
 }
 
@@ -37,7 +50,8 @@ export type ReviewCommentDto = CommentDto & {
     /** What the current reviewer may do (the toolbar shows only these actions) */
     verificationPermissions?: import('@uier/toolbar/verification').VerificationPermissions;
     permissions: { resolve: boolean; delete: boolean; edit: boolean; assign: boolean; priority: boolean };
-    thread: { items: (CommentDto['thread']['items'][number] & { canDelete?: boolean; canEdit?: boolean; mentions?: ReturnType<typeof messageMentions> })[] };
+    /** `agent`: the AI agent that wrote the message for its author (its model and reasoning level for members only) */
+    thread: { items: (CommentDto['thread']['items'][number] & { canDelete?: boolean; canEdit?: boolean; mentions?: ReturnType<typeof messageMentions>; agent?: import('@uier/toolbar/agents').MessageAgentView })[] };
 };
 
 /**
@@ -78,10 +92,12 @@ export function toReviewCommentDto(comment: DbComment, actor: ProjectActor, name
                 const item = items.find(i => String(i.id) === itemDto.id);
                 if (!item || 'deleted' in itemDto)
                     return itemDto;
+                const writtenBy = messageAgentView(item, actor.kind === 'member');
                 return {
                     ...itemDto,
                     ...(actor.kind === 'member' ? { mentions: messageMentions(item, participants) } : {}),
                     author: { ...itemDto.author, name: itemAuthorName(item, names) },
+                    ...(writtenBy ? { agent: writtenBy } : {}),
                     canDelete: canDeleteItem(item, actor),
                     canEdit: canEditItem(item, actor)
                 };

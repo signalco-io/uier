@@ -1,6 +1,7 @@
 import type { DbProject } from '../app/model';
 import type { DbComment } from '../db/schema';
 import { itemAuthorName } from '../review/dto';
+import { messageAgentView } from '../review/messageAgent';
 import type { NotificationEvent } from './delivery';
 
 // Each untrusted subject component is below MAX_NAME_LENGTH (80). See the delivery guide.
@@ -27,7 +28,10 @@ export function digestContent(project: DbProject, comment: DbComment, recipient:
             : [...comment.thread.items].reverse().find(item => item.authorId === event.actorId);
         const authorName = item?.authorId === event.actorId && !item.deletedAt ? item.authorName : undefined;
         const name = plainLabel(itemAuthorName({ authorId: event.actorId, authorName }, names)) || (member ? 'Former member' : 'Guest');
-        const actor = `${name}${member || event.actorId.startsWith('integration:') ? '' : ' (guest)'}${event.agent ? ` via ${plainLabel(event.agent.name) || 'Connector'}` : ''}`;
+        // The agent that wrote this event's message ("via Claude"), else the connection that made the change
+        const agent = event.itemId && item?.authorId === event.actorId ? messageAgentView(item, false) : undefined;
+        const via = agent ? ` via ${agent.label}` : event.agent ? ` via ${plainLabel(event.agent.name) || 'Connector'}` : '';
+        const actor = `${name}${member || event.actorId.startsWith('integration:') ? '' : ' (guest)'}${via}`;
         const mentioned = event.kind === 'mention' || ((event.kind === 'comment' || event.kind === 'reply') && event.recipients?.includes(recipient));
         let action: string;
         if (mentioned) action = `mentioned you on ${place}`;

@@ -33,6 +33,7 @@ import { userIdSchema } from '../app/validation';
 import { agentKinds, inferAgentKind, MAX_AGENT_MODEL_LENGTH, MAX_AGENT_REASONING_LENGTH, MAX_AGENT_SESSION_LENGTH } from '@uier/toolbar/agents';
 import { setProjectCommentAgent } from '../review/assigneeAgent';
 import { assigneeAgentView } from '../review/assigneeAgentModel';
+import { messageAgentView } from '../review/messageAgent';
 
 const page = {
     limit: z.number().int().min(1).max(25).default(20).describe('Results per page: 1–25, default 20. Use nextCursor for more results.'),
@@ -189,11 +190,21 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         if (!comment) throw apiErrors.notFound();
         return result({ actingAs, contentTrust: 'untrusted', ...slice(await eligibleParticipants(project, actor, comment), input.cursor, input.limit) });
     }));
-    server.registerTool('reply_to_feedback', { description: `Post a human-approved reply as the connection owner, attributed to this connector. Reuse key and input on retries. ${untrusted}`, inputSchema: { ...write, text: textSchema }, annotations: writeAnnotations }, input => safely(async () => {
+    // What this connection calls itself chooses the agent when the call does not say
+    const connectionAgent = () => inferAgentKind(identity.connection.name, identity.connection.clientId, request.headers.get('user-agent'));
+    server.registerTool('reply_to_feedback', { description: `Post a human-approved reply as the connection owner, attributed to this connector and marked as written by you, the AI agent ("Ana via Claude"). When you attached yourself to the thread with set_feedback_agent, the reply is marked with that agent and its model and reasoning level; otherwise pass agent, model and reasoning when you know them. Reuse key and input on retries. ${untrusted}`, inputSchema: { ...write, text: textSchema,
+        agent: z.enum(agentKinds).optional().describe('Which agent you are: claude, codex, chatgpt, cursor, or agent for any other. Omit it to use the one this connection identifies as.'),
+        model: z.string().max(MAX_AGENT_MODEL_LENGTH).optional().describe(`The model you run on, when you know it (up to ${MAX_AGENT_MODEL_LENGTH} characters). Omit it to use the attached agent's.`),
+        reasoning: z.string().max(MAX_AGENT_REASONING_LENGTH).optional().describe(`The reasoning level (effort) you run at, when you know it (up to ${MAX_AGENT_REASONING_LENGTH} characters, one line). Omit it to use the attached agent's.`)
+    }, annotations: writeAnnotations }, input => safely(async () => {
         const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:reply');
         assertCanUseComments(project, actor);
-        const saved = await replyToProjectComment(request, project, actor, input.commentId, { text: input.text, idempotencyKey: key(identity, input.idempotencyKey) });
-        return result({ actingAs, commentId: saved.id, saved: true });
+        const saved = await replyToProjectComment(request, project, actor, input.commentId, { text: input.text, idempotencyKey: key(identity, input.idempotencyKey),
+            writtenBy: { kind: input.agent ?? connectionAgent(), model: input.model, reasoning: input.reasoning } });
+        // The newest message with this text from the owner: the reply just saved, or the one a retry recovered
+        const item = [...saved.thread.items].reverse().find(entry => entry.authorId === actorAuthorId(actor) && entry.text === input.text);
+        const writtenBy = item && messageAgentView(item, true);
+        return result({ actingAs, commentId: saved.id, saved: true, ...(item ? { itemId: item.id } : {}), ...(writtenBy ? { writtenBy } : {}) });
     }));
     server.registerTool('set_feedback_status', { description: `Set an ordinary human-approved status without reviewer confirmation. Send exactly one of status (open, in-progress or done) or resolved (true: Done; false: reopens a Done thread to Open and leaves an In progress thread as it is). Leaving Ready to verify ends the pending check without confirmation. Replaying a key does not overwrite subsequent status changes. ${untrusted}`, inputSchema: {
         ...write,
@@ -241,7 +252,7 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         assignToMe: z.boolean().default(false).describe('Assign unassigned feedback to the connection owner first, in the same write. Only when the person explicitly asked for it.')
     }, annotations: writeAnnotations }, input => safely(async () => {
         const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:assign');
-        const kind = input.agent ?? inferAgentKind(identity.connection.name, identity.connection.clientId, request.headers.get('user-agent'));
+        const kind = input.agent ?? connectionAgent();
         return agentResult(await setProjectCommentAgent(project, actor, input.commentId, { kind, sessionId: input.sessionId, model: input.model, reasoning: input.reasoning },
             { idempotencyKey: key(identity, input.idempotencyKey), assignToMe: input.assignToMe, startWork: identity.scopes.includes('feedback:status') }));
     }));

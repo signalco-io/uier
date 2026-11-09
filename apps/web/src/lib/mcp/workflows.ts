@@ -77,7 +77,7 @@ For an approved assignment, first use list_assignees for the thread. Assignment 
 
 ## Show that you are working on it
 
-When the person asks you to work on feedback that is assigned to them, call set_feedback_agent for that thread before you start, with your session id, model and reasoning level when you know them; uier shows you beside them as the agent working on it. Asking you to work on it approves this one write. Call clear_feedback_agent when you stop without finishing. Only the assignee's own connection can attach an agent: feedback assigned to someone else is refused, so do not reassign it to make room. For unassigned feedback, pass assignToMe: true only after the person explicitly approves taking it. A new assignment removes the agent.
+When the person asks you to work on feedback that is assigned to them, call set_feedback_agent for that thread before you start, with your session id, model and reasoning level when you know them; uier shows you beside them as the agent working on it. Asking you to work on it approves this one write. Call clear_feedback_agent when you stop without finishing. Only the assignee's own connection can attach an agent: feedback assigned to someone else is refused, so do not reassign it to make room. For unassigned feedback, pass assignToMe: true only after the person explicitly approves taking it. A new assignment removes the agent. Replies you post show as written by you for the person ("Ana via Claude"), with the attached agent's model and reasoning level; when you have not attached yourself, pass agent, model and reasoning to reply_to_feedback when you know them.
 
 ## Watch for new activity
 

@@ -10,7 +10,9 @@ function opener(layer: DbCommentLayer | undefined): Pick<FeedbackContext['anchor
 }
 
 /** Input must already have passed visibility checks and DTO projection. Never accept a DbComment here. */
-export function feedbackExport(dto: CommentDto & { reproduction?: ReproductionContext }, options: {
+type ExportItem = CommentDto['thread']['items'][number] & { agent?: import('@uier/toolbar/agents').MessageAgentView };
+
+export function feedbackExport(dto: Omit<CommentDto, 'thread'> & { thread: { items: ExportItem[] }; reproduction?: ReproductionContext }, options: {
     projectId?: string;
     environment?: string;
     pageUrl?: string;
@@ -24,7 +26,9 @@ export function feedbackExport(dto: CommentDto & { reproduction?: ReproductionCo
 }): FeedbackExport {
     const items: FeedbackMessage[] = dto.thread.items.map(item => 'deleted' in item
         ? { id: item.id, deleted: true, createdAt: item.createdAt }
-        : { id: item.id, deleted: false, text: item.text, quotedText: item.quotedText, authorName: item.author.name, createdAt: item.createdAt, editedAt: item.editedAt });
+        : { id: item.id, deleted: false, text: item.text, quotedText: item.quotedText, authorName: item.author.name, createdAt: item.createdAt, editedAt: item.editedAt,
+            ...('agent' in item && item.agent ? { agent: { kind: item.agent.kind, label: item.agent.label,
+                ...(item.agent.model ? { model: item.agent.model } : {}), ...(item.agent.reasoning ? { reasoning: item.agent.reasoning } : {}) } } : {}) });
     const first = items[0] ?? null;
     const available = first && !first.deleted;
     const position = dto.position;

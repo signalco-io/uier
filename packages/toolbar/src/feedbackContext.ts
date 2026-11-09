@@ -9,9 +9,12 @@ export type FeedbackMessage = {
     deleted: boolean;
     text?: string;
     quotedText?: string;
+    /** "Ana via Claude" when an AI agent wrote it for its author */
     authorName?: string;
     createdAt?: string;
     editedAt?: string;
+    /** The AI agent that wrote it for its author through a coding tool connection; its model and reasoning level are what it gave, untrusted. */
+    agent?: { kind: import('./agents').AgentKind; label: string; model?: string; reasoning?: string };
 };
 
 export type FeedbackContext = {
@@ -85,8 +88,11 @@ export function areaText(area: NonNullable<FeedbackContext['anchor']['area']>) {
 function message(value: FeedbackMessage | null, label: string) {
     if (!value) return `### ${label}\n\nUnavailable.`;
     const metadata = [value.authorName, value.createdAt, value.editedAt ? `Edited: ${value.editedAt}` : undefined].filter(Boolean).map(value => plain(value!)).join(' · ');
+    const agent = !value.deleted && value.agent ? [`Written by agent: ${plain(value.agent.label)}`,
+        value.agent.model ? ` · Model: ${plain(value.agent.model)}` : '',
+        value.agent.reasoning ? ` · Reasoning: ${plain(value.agent.reasoning)}` : ''].join('') : '';
     return [
-        `### ${label}`, `Message: ${plain(value.id)}`, metadata,
+        `### ${label}`, `Message: ${plain(value.id)}`, metadata, agent,
         value.deleted ? 'This message was deleted. Its text and author are unavailable.' : literal(value.text ?? ''),
         !value.deleted && value.quotedText !== undefined ? `Quoted original text:\n\n${literal(value.quotedText)}` : ''
     ].filter(Boolean).join('\n\n');

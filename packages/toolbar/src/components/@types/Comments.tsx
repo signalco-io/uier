@@ -108,6 +108,11 @@ export type CommentItemThreadItem = {
     deleted?: undefined;
     /** Shown before the API saved it (an optimistic reply, see hooks/useComments.tsx) */
     pending?: boolean;
+    /**
+     * Project comments: the AI agent that wrote it for its author through a coding tool connection; the
+     * author's name already ends with "via <label>". Its model and reasoning level reach members only.
+     */
+    agent?: import('../../agents').MessageAgentView;
 } | CommentItemDeletedThreadItem;
 
 /**

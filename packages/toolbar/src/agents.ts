@@ -18,6 +18,13 @@ export const MAX_AGENT_REASONING_LENGTH = 32;
 /** What views show about the agent; `sessionId`, `model` and `reasoning` are what the agent or its assignee said, untrusted. */
 export type AssigneeAgentView = { kind: AgentKind; label: string; model?: string; reasoning?: string; sessionId?: string; setAt?: string };
 
+/**
+ * The AI agent that wrote a message for its author through a coding tool connection (MCP): "Ana via
+ * Claude". The server stores it with the message; the author is still the person. `model` and
+ * `reasoning` are what the agent or the person said, untrusted, and only members get them.
+ */
+export type MessageAgentView = { kind: AgentKind; label: string; model?: string; reasoning?: string };
+
 export function isAgentKind(value: unknown): value is AgentKind {
     return typeof value === 'string' && agentKinds.includes(value as AgentKind);
 }

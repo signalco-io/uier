@@ -8,7 +8,8 @@ import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { avatarText } from './CommentThreadItem';
 import type { CommentItem } from './@types/Comments';
 import { useIconTooltip } from './IconTooltip';
-import { agentMarks, agentText, type AgentKind } from '../agents';
+import { agentText, type AgentKind } from '../agents';
+import { AgentMark } from './AgentMark';
 
 /** "Unassigned" or "Assigned to Ana": the assignee's tooltip and name, the same words as the app's comment card */
 export function assignedText(comment: CommentItem) {
@@ -24,12 +25,8 @@ export function workingText(comment: CommentItem) {
 
 /** The agent's one-colour mark on a bordered circle, as in the app (`@uier/toolbar/agents`) */
 function AgentAvatar({ kind }: { kind: AgentKind }) {
-    const mark = agentMarks[kind];
     return <span aria-hidden="true" data-agent={kind} className="-ml-2 flex size-6 shrink-0 items-center justify-center rounded-full border bg-background text-foreground ring-2 ring-background">
-        <svg viewBox="0 0 24 24" width={14} height={14} focusable="false" fill={mark.stroke ? 'none' : 'currentColor'}
-            {...(mark.stroke ? { stroke: 'currentColor', strokeWidth: 1.75, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const } : {})}>
-            {mark.paths.map(d => <path key={d} d={d} {...(mark.evenOdd ? { fillRule: 'evenodd' as const, clipRule: 'evenodd' as const } : {})} />)}
-        </svg>
+        <AgentMark kind={kind} />
     </span>;
 }
 

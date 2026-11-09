@@ -1052,3 +1052,21 @@ test('two-way polls preserve pending readiness on Open and close/reopen without 
     expect(source).toMatchObject({ resolved: false, verification: { outcome: 'reopened' } });
     expect(source.verification!.decision).toBeUndefined();
 });
+
+test('connected services get "via Claude" as the author of a message an agent wrote, never its model or reasoning level', async () => {
+    const f = await fixture();
+    const reply = { id: `item_agent_${f.project.id}`, text: 'Fixed and deployed.', authorId: `user:${f.owner.id}`, createdAt: old,
+        agent: { credentialId: 'cred_agent', name: 'Claude Code', kind: 'credential' as const }, writtenBy: { kind: 'claude' as const, model: 'claude-opus-5-5', reasoning: 'xhigh' } };
+    await replaceSource(f, { thread: { items: [...f.source.thread.items, reply] } });
+    let delivered: Awaited<ReturnType<typeof projectFeedbackExport>> | null = null;
+    await processIntegrationDelivery(await queue(f), baseUrl, adapter('notion', async context => {
+        delivered = context.feedback;
+        await context.checkpoint({ remoteId: 'page' }, { clearAttempt: true });
+        return { status: 'accepted' };
+    }));
+    const message = delivered!.context.discussion.find(item => item.id === reply.id)!;
+    expect(message.authorName).toMatch(/ via Claude$/);
+    expect(message).not.toHaveProperty('agent');
+    expect(delivered!.markdown).not.toContain('claude-opus-5-5');
+    expect(delivered!.markdown).not.toContain('Written by agent');
+});

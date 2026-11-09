@@ -279,6 +279,28 @@ reasoning level ("high reasoning").
   MCP tools call it. `e2e/assignee-agent.api.spec.ts` covers the rules and `e2e/assignee-agent.spec.ts`
   picking an agent, its logo in the thread and the menu, its details (reasoning level included) and its avatar on rows, the board and the toolbar.
 
+#### Messages an AI agent writes
+
+A reply a coding tool posts through MCP for its owner is marked as written by the agent. The app's
+thread reads "You via", the agent's logo and "Claude" after the author; hovering or clicking it shows the
+model, the reasoning level and the connection it came through. The toolbar's thread reads the same with
+the details in its tooltip, and emails, packets and events say "Ana via Claude".
+
+- **Which agent.** When the agent attached under the author is the same one (the same kind, and the same
+  model and reasoning level when the reply names them), the reply takes that agent's model and reasoning
+  level. Otherwise it records the agent, model and reasoning level the connection gives or identifies as
+  ([MCP](mcp.md#replies-written-by-an-agent)). Someone else's connection never takes the assignee's agent.
+- **Stored by the server** with the message as `writtenBy` (kind, optional model and reasoning level), for
+  MCP replies only. The app's and the toolbar's replies never carry it, whatever their request says, and
+  the message text never sets it. Guests see "via Claude" without the model.
+- **Still the person's message.** Who may edit or delete it does not change: its author edits and deletes
+  it, admins delete it. Editing keeps the mark and shows "(edited)"; deleting removes both.
+- Replies from before the mark keep "via" and the connection's name. Fix check requests a tool makes keep
+  only the connection's name: their summary is part of the request, not a message.
+- `messageAgentFor` / `messageAgentView` (`review/messageAgent.ts`) decide and show it.
+  `e2e/agent-replies.api.spec.ts` covers the rules and every view; `e2e/agent-replies.spec.ts` the app's and
+  the toolbar's thread.
+
 ### AI thread titles
 
 A thread's title is a short line AI writes from its first message, so a list reads like a list of
