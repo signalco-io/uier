@@ -43,7 +43,7 @@ const toolScopes = [
     ['request_feedback_verification', 'feedback:status', 'Request a fix check after approval, using the current revision.'],
     ['cancel_feedback_verification', 'feedback:status', 'Cancel the current fix check after approval.'],
     ['assign_feedback', 'feedback:assign', 'Assign an eligible participant, or unassign, after approval.'],
-    ['set_feedback_agent', 'feedback:assign', 'Attach yourself as the agent working under the person on feedback assigned to them.'],
+    ['set_feedback_agent', 'feedback:assign', 'Attach yourself as the agent working under the person on feedback assigned to them; Open feedback moves to In progress when the connection also has feedback:status.'],
     ['clear_feedback_agent', 'feedback:assign', 'Remove the agent working under the person, for example when you stop.'],
 ] as const;
 

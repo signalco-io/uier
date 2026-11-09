@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { inferAgentKind } from '@uier/toolbar/agents';
+import { feedbackStage } from '@uier/toolbar/verification';
 import { feedbackMarkdown } from '@uier/toolbar/feedback-context';
 import { getAppStore } from '../src/lib/app/store';
 import { findOrCreateUser } from '../src/lib/app/users';
@@ -10,7 +11,8 @@ import { memberId, projectRefPk, workspacePk, type DbMember, type DbProject, typ
 import type { AppContext } from '../src/lib/app/context';
 import { projectCommentRouting } from '../src/lib/app/projectCommentRouting';
 import { getCommentsStore } from '../src/lib/repo/commentsStore';
-import { createProjectComment, setProjectCommentAssignee, setProjectCommentPrivate } from '../src/lib/review/comments';
+import { createProjectComment, setProjectCommentAssignee, setProjectCommentPrivate, setProjectCommentStatus } from '../src/lib/review/comments';
+import { changeFixVerification } from '../src/lib/review/fixVerification';
 import { setProjectCommentAgent } from '../src/lib/review/assigneeAgent';
 import { currentAssigneeAgent } from '../src/lib/review/assigneeAgentModel';
 import { memberActor, type ProjectActor } from '../src/lib/review/actor';
@@ -20,6 +22,7 @@ import { threadActivity } from '../src/lib/comments/activity';
 import { discoverThreadNotifications, processNotificationDelivery, type NotificationDelivery } from '../src/lib/notifications/delivery';
 import { notificationPk } from '../src/lib/notifications/preferences';
 import { createMcpCredential } from '../src/lib/mcp/credentials';
+import type { McpScope } from '../src/lib/mcp/scopes';
 import { handleMcp } from '../src/lib/mcp/http';
 import type { EmailMessage } from '../src/lib/email/send';
 import type { DbComment } from '../src/lib/db/schema';
@@ -55,6 +58,30 @@ async function fixture() {
 }
 
 async function stored(comment: DbComment) { return (await getCommentsStore().get(comment.domain, comment.id))!.comment; }
+
+/** Runs notification discovery and delivery for the thread now, collecting the emails */
+function mailer(f: Awaited<ReturnType<typeof fixture>>) {
+    const sent: EmailMessage[] = [];
+    const dispatch = async () => {
+        await discoverThreadNotifications(f.project, await stored(f.comment));
+        const deliveries = await getAppStore().query<NotificationDelivery>({ type: 'notification-delivery', pk: notificationPk(f.project.id) });
+        for (const delivery of deliveries) await processNotificationDelivery(delivery, 'https://uier.io', async message => {
+            sent.push(message); return { status: 'sent' };
+        }, Date.now() + 30 * 60 * 1000);
+    };
+    return { sent, dispatch };
+}
+
+/** An MCP client of the assignee (`a`) with the given scopes */
+async function mcpClient(f: Awaited<ReturnType<typeof fixture>>, name: string, scopes: McpScope[]) {
+    const member = (await getAppStore().get<DbMember>(f.project.pk, memberId(f.a.id)))!.doc;
+    const ownerContext = { user: f.a, member, workspace: { id: f.project.workspaceId }, isAdmin: false } as AppContext;
+    const { token } = await createMcpCredential(ownerContext, { name, projectIds: [f.project.id], scopes, days: 7 });
+    const client = new Client({ name: 'agent-test', version: '1.0.0' });
+    await client.connect(new StreamableHTTPClientTransport(new URL(`${base}/api/mcp`), { requestInit: { headers: { Authorization: `Bearer ${token}` } },
+        fetch: async (input, init) => handleMcp(new Request(input, init), base, { emit: () => {} }) }));
+    return client;
+}
 
 test('only the assignee chooses the agent working under them; a new assignee starts without one', async () => {
     const f = await fixture();
@@ -133,14 +160,7 @@ test('only the assignee chooses the agent working under them; a new assignee sta
 
 test('an agent starting or stopping work is never emailed, while its assignment still is', async () => {
     const f = await fixture();
-    const sent: EmailMessage[] = [];
-    const dispatch = async () => {
-        await discoverThreadNotifications(f.project, await stored(f.comment));
-        const deliveries = await getAppStore().query<NotificationDelivery>({ type: 'notification-delivery', pk: notificationPk(f.project.id) });
-        for (const delivery of deliveries) await processNotificationDelivery(delivery, 'https://uier.io', async message => {
-            sent.push(message); return { status: 'sent' };
-        }, Date.now() + 30 * 60 * 1000);
-    };
+    const { sent, dispatch } = mailer(f);
     await dispatch();
     sent.length = 0;
     await setProjectCommentAssignee(f.project, f.admin, f.comment.id, f.a.id);
@@ -190,6 +210,9 @@ test('an MCP connection attaches itself only under its owner, and assigns them f
             agent: expect.objectContaining({ kind: 'claude', label: 'Claude', sessionId: 'session-1', model: 'claude-opus-5-5' }) }) });
         const saved = await stored(f.comment);
         expect(saved.assigneeAgent).toMatchObject({ connector: { name: 'Claude Code on my laptop', kind: 'credential' } });
+        // Without feedback:status, attaching never changes the status
+        expect(attached.data.stage).toBe('open');
+        expect(feedbackStage(saved)).toBe('open');
         // A retry with the same key and input replays; another input under that key is refused
         expect((await call('set_feedback_agent', { assignToMe: true, sessionId: 'session-1', model: 'claude-opus-5-5', idempotencyKey: key })).data.agent.sessionId).toBe('session-1');
         expect((await call('set_feedback_agent', { assignToMe: true, sessionId: 'session-2', idempotencyKey: key })).error).toBe(true);
@@ -227,6 +250,79 @@ test('an MCP connection attaches itself only under its owner, and assigns them f
     } finally {
         await Promise.all([client.close(), readClient.close(), watcher.close()]);
     }
+});
+
+test('an agent attaching itself through MCP moves Open feedback to In progress, as a status change followers hear about', async () => {
+    const f = await fixture();
+    await setProjectCommentAssignee(f.project, f.admin, f.comment.id, f.a.id);
+    const { sent, dispatch } = mailer(f);
+    await dispatch();
+    sent.length = 0;
+    const client = await mcpClient(f, 'Claude Code', ['feedback:read', 'feedback:assign', 'feedback:status']);
+    // Another connection of the owner: a connection never sees its own changes as events
+    const watcher = await mcpClient(f, 'Watcher', ['feedback:read']);
+    const call = async (name: string, args: Record<string, unknown> = {}) => {
+        const response = await client.callTool({ name, arguments: { projectId: f.project.id, commentId: f.comment.id, idempotencyKey: randomUUID(), ...args } });
+        expect(response.isError).toBeFalsy();
+        return response.structuredContent as Record<string, any>;
+    };
+    try {
+        expect((await client.listTools()).tools.find(tool => tool.name === 'set_feedback_agent')?.description).toContain('moves Open feedback to In progress');
+        const start = (await watcher.callTool({ name: 'list_feedback_events', arguments: { projectId: f.project.id, events: ['feedback.status_changed'] } })).structuredContent as Record<string, any>;
+        const before = threadActivity(await stored(f.comment)).sequence;
+
+        // Attaching starts the work: the agent's step, then the status change's own step and event
+        expect(await call('set_feedback_agent', { sessionId: 'session-1', model: 'claude-opus-5-5' })).toMatchObject({ agent: { kind: 'claude' }, stage: 'in-progress' });
+        let saved = await stored(f.comment);
+        expect(saved.inProgress).toBe(true);
+        expect(threadActivity(saved).sequence).toBe(before + 2);
+        expect(saved.notificationEvents?.slice(-2).map(event => [event.kind, event.sequence, event.agent?.name])).toEqual([
+            ['agent', before + 1, 'Claude Code'], ['progress-started', before + 2, 'Claude Code']]);
+
+        // Followers (the author) are emailed the move, attributed to the connection; never the agent itself
+        await dispatch();
+        expect(sent.map(message => [message.to, message.subject])).toEqual([[f.owner.email, expect.stringContaining('via Claude Code moved')]]);
+        expect(sent[0]!.subject).toContain('to In progress');
+        sent.length = 0;
+
+        // Updating the agent never moves the thread, even after someone moved it back to Open
+        await setProjectCommentStatus(f.project, f.admin, f.comment.id, 'open');
+        expect(await call('set_feedback_agent', { sessionId: 'session-2' })).toMatchObject({ agent: { sessionId: 'session-2' }, stage: 'open' });
+        // Neither does clearing it
+        expect(await call('clear_feedback_agent')).toMatchObject({ agent: null, stage: 'open' });
+
+        // Ready to verify and Done keep their status when an agent attaches
+        saved = await stored(f.comment);
+        await changeFixVerification(f.project, f.assignee, f.comment.id, { action: 'request', reviewerId: f.owner.id, expectedRevision: saved.verification?.revision ?? null, idempotencyKey: randomUUID() });
+        expect(await call('set_feedback_agent')).toMatchObject({ stage: 'ready' });
+        await call('clear_feedback_agent');
+        await setProjectCommentStatus(f.project, f.admin, f.comment.id, 'done');
+        expect(await call('set_feedback_agent')).toMatchObject({ stage: 'done' });
+        await call('clear_feedback_agent');
+
+        // Already In progress: no second status event
+        await setProjectCommentStatus(f.project, f.admin, f.comment.id, 'in-progress');
+        const progressing = (await stored(f.comment)).notificationEvents?.length;
+        expect(await call('set_feedback_agent')).toMatchObject({ stage: 'in-progress' });
+        expect((await stored(f.comment)).notificationEvents?.length).toBe(progressing! + 1);
+
+        // list_feedback_events: the status changes, oldest first, the first one by the connection
+        const page = (await watcher.callTool({ name: 'list_feedback_events', arguments: { projectId: f.project.id, cursor: start.cursor,
+            events: ['feedback.status_changed'] } })).structuredContent as Record<string, any>;
+        expect(page.items.map((item: Record<string, any>) => item.data.change)).toEqual(['progress_started', 'progress_stopped', 'verification_requested', 'resolved', 'progress_started']);
+        expect(page.items[0]).toMatchObject({ data: { actor: { kind: 'member', connector: 'Claude Code' } } });
+    } finally {
+        await Promise.all([client.close(), watcher.close()]);
+    }
+});
+
+test('choosing an agent in the app keeps the status', async () => {
+    const f = await fixture();
+    await setProjectCommentAssignee(f.project, f.admin, f.comment.id, f.a.id);
+    const saved = await setProjectCommentAgent(f.project, f.assignee, f.comment.id, { kind: 'claude' });
+    expect(saved.assigneeAgent).toMatchObject({ kind: 'claude' });
+    expect(feedbackStage(saved)).toBe('open');
+    expect(saved.notificationEvents?.at(-1)?.kind).toBe('agent');
 });
 
 test('the agent kind follows what a coding tool calls itself', () => {

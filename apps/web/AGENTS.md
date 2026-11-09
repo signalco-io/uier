@@ -1430,7 +1430,10 @@ assignee is never shown. `setProjectCommentAgent` (`review/assigneeAgent.ts`) is
 and atomic receipts: only the current assignee sets or clears it for themselves (the app's `setCommentAgentAction`, or
 their own MCP connection); other members and admins get `forbidden`, guests too. `assignToMe` (MCP only, on the
 person's explicit request) assigns an unassigned thread to the actor in the same write; never reassign someone else's
-thread. `setProjectCommentAssignee` removes the agent with every assignee change (with an `agent` event naming the
+thread. `startWork` (MCP only, when the connection also has `feedback:status`) moves an Open thread to In progress
+in the same write when an agent is attached (none was current): its own activity step and a `progress-started` event
+after the `agent` one, emailed to followers like any status change. Updates, clears and other stages never move; the
+app's `AgentControl` does not pass it (the assignee sets the status in the same panel). `setProjectCommentAssignee` removes the agent with every assignee change (with an `agent` event naming the
 previous assignee) and `setProjectCommentPrivate` with an assignee who loses the thread. Each change advances activity
 and records an `agent` notification event (MCP `feedback.agent_changed`), which `eligibleEvents` never emails. Members
 get the agent in views, the review DTO (toolbar), `list_feedback` and packets; guests never. Integration delivery
