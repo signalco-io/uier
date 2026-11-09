@@ -204,8 +204,9 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
                         </SidebarGroupContent>
                     </SidebarGroup>
                     {workspaceHref && (
-                        // At the bottom, right above feedback and the account
-                        <SidebarGroup className="mt-auto">
+                        // At the bottom, right above feedback and the account: no padding below, so it sits as
+                        // close to Give feedback as the footer's rows sit to each other
+                        <SidebarGroup className="mt-auto pb-0">
                             <SidebarGroupContent>
                                 <SidebarMenu>
                                     <NavItem href={workspaceHref} label="Workspace" icon={Building2Icon} current={isCurrent(pathname, KnownPages.AppWorkspace)} roving={roving.itemProps(workspaceHref)} />
@@ -215,7 +216,9 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
                     )}
                 </nav>
             </SidebarContent>
-            <SidebarFooter>
+            {/* Workspace, Give feedback and the account are one column of rows: the same 4px apart as the
+                navigation's (the menu's gap-1), not the footer's default 8px plus the group's padding */}
+            <SidebarFooter className="gap-1 pt-1">
                 <FeedbackButton />
                 <AccountMenu name={user.name} email={user.email} avatarUrl={user.avatarUrl} />
             </SidebarFooter>
