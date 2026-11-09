@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { agentIsWorking, agentKinds, agentLabels, MAX_AGENT_MODEL_LENGTH, MAX_AGENT_REASONING_LENGTH, MAX_AGENT_SESSION_LENGTH, type AssigneeAgentView } from '@uier/toolbar/agents';
+import { agentIsWorking, agentSessionLink, MAX_AGENT_SESSION_URL_LENGTH, agentKinds, agentLabels, MAX_AGENT_MODEL_LENGTH, MAX_AGENT_REASONING_LENGTH, MAX_AGENT_SESSION_LENGTH, type AssigneeAgentView } from '@uier/toolbar/agents';
 import type { DbAssigneeAgent } from '../db/schema';
 import { assignedAgents, assignedUserIds, type AssignmentFields } from './assignments';
 
@@ -8,10 +8,15 @@ const plainText = (max: number, label: string) => z.string().trim().max(max, `${
     .refine(value => !/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(value), `${label} must be plain text on one line.`)
     .transform(value => value || undefined);
 
+/** An optional link to an existing session, never an arbitrary app command. */
+export const agentSessionUrlSchema = z.string().max(MAX_AGENT_SESSION_URL_LENGTH)
+    .refine(value => value === '' || Boolean(agentSessionLink(value)), 'Use a supported desktop session link.')
+    .transform(value => value || undefined);
 /** The agent someone chooses, or an MCP connection reports for itself */
 export const assigneeAgentInputSchema = z.object({
     kind: z.enum(agentKinds),
     sessionId: plainText(MAX_AGENT_SESSION_LENGTH, 'A session id').optional(),
+    sessionUrl: agentSessionUrlSchema.optional(),
     model: plainText(MAX_AGENT_MODEL_LENGTH, 'A model').optional(),
     reasoning: plainText(MAX_AGENT_REASONING_LENGTH, 'A reasoning level').optional()
 }).strict();
@@ -24,7 +29,8 @@ export function currentAssigneeAgent(comment: AssignmentFields, assigneeId = ass
 
 /** Public member projection. Never exposes a connector's credential id. */
 export function agentView(agent: DbAssigneeAgent): AssigneeAgentView {
-    return { ...(agent.id ? { id: agent.id } : {}), kind: agent.kind, label: agentLabels[agent.kind], ...(agent.model ? { model: agent.model } : {}),
+    const sessionLink = agentSessionLink(agent.sessionUrl);
+    return { ...(sessionLink ? { sessionUrl: sessionLink.url } : {}), ...(agent.id ? { id: agent.id } : {}), kind: agent.kind, label: agentLabels[agent.kind], ...(agent.model ? { model: agent.model } : {}),
         ...(agent.reasoning ? { reasoning: agent.reasoning } : {}),
         ...(agent.sessionId ? { sessionId: agent.sessionId } : {}), setAt: agent.setAt, ...(agentIsWorking(agent.workingUntil) ? { workingUntil: agent.workingUntil } : {}) };
 }

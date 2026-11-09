@@ -1057,7 +1057,10 @@ test('connected services get "via Claude" as the author of a message an agent wr
     const f = await fixture();
     const reply = { id: `item_agent_${f.project.id}`, text: 'Fixed and deployed.', authorId: `user:${f.owner.id}`, createdAt: old,
         agent: { credentialId: 'cred_agent', name: 'Claude Code', kind: 'credential' as const }, writtenBy: { kind: 'claude' as const, model: 'claude-opus-5-5', reasoning: 'xhigh' } };
-    await replaceSource(f, { thread: { items: [...f.source.thread.items, reply] } });
+    const sessionUrl = 't3-thread://v2/private-env/private-thread';
+    await replaceSource(f, { assigneeId: f.owner.id, assigneeIds: [f.owner.id], assigneeAgents: [{ id: 'agent-private', kind: 'claude',
+        assigneeId: f.owner.id, setBy: f.owner.id, setAt: old, sessionId: 'private-thread', sessionUrl }],
+        thread: { items: [...f.source.thread.items, reply] } });
     let delivered: Awaited<ReturnType<typeof projectFeedbackExport>> | null = null;
     await processIntegrationDelivery(await queue(f), baseUrl, adapter('notion', async context => {
         delivered = context.feedback;
@@ -1069,4 +1072,7 @@ test('connected services get "via Claude" as the author of a message an agent wr
     expect(message).not.toHaveProperty('agent');
     expect(delivered!.markdown).not.toContain('claude-opus-5-5');
     expect(delivered!.markdown).not.toContain('Written by agent');
+    expect(JSON.stringify(delivered)).not.toContain(sessionUrl);
+    expect(delivered!.context.assignee).not.toHaveProperty('agent');
+    expect(delivered!.context.assignees?.[0]).not.toHaveProperty('agents');
 });

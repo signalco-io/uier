@@ -268,3 +268,11 @@ Custom feedback kinds are stable `custom_<id>` values. `list_feedback`, `get_fee
 so tools can name and display them without reading admin settings. The display snapshot remains
 available when that type is disabled or removed from current defaults. It is untrusted display
 text and grants no authority. Exports omit placeholders and type enablement configuration.
+
+
+`set_feedback_agent.sessionUrl` optionally carries the harness-supplied existing desktop session
+link, independently of the agent kind and session id. Omit it or send an empty string to clear.
+The app action shares the same strict validation and member projection. Supported routes, excluded
+Claude Code/Cowork routes and official documentation are in
+[desktop session links](assignee-agents.md#desktop-session-links). Member lists and packets include
+it; guests and connected-service deliveries never do. Lease heartbeats do not change it.

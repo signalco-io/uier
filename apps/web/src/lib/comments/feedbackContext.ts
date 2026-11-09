@@ -41,15 +41,16 @@ export function feedbackExport(dto: Omit<CommentDto, 'thread'> & { thread: { ite
         title: `${dto.kind === 'rewrite' ? 'Suggested rewrite: ' : ''}${(available && options.title) || summary || 'Website feedback'}`,
         verification: dto.verification, priority: dto.priority, kind: dto.kind, ...(dto.feedbackType ? { feedbackType: dto.feedbackType } : {}), status: dto.resolved ? 'done' : 'open', stage: feedbackStage(dto), feedback: first,
         ...(options.assignees ? { assignees: options.assignees.map(person => {
-            const agents = (person.agents ?? []).map(({ kind, label, model, reasoning, sessionId }) => ({ kind, label,
-                ...(model ? { model } : {}), ...(reasoning ? { reasoning } : {}), ...(sessionId ? { sessionId } : {}) }));
+            const agents = (person.agents ?? []).map(({ kind, label, model, reasoning, sessionId, sessionUrl }) => ({ kind, label,
+                ...(model ? { model } : {}), ...(reasoning ? { reasoning } : {}), ...(sessionId ? { sessionId } : {}), ...(sessionUrl ? { sessionUrl } : {}) }));
             return { name: person.name, agents, ...(agents[0] ? { agent: agents[0] } : {}) };
         }) } : {}),
         ...(options.assigneeName ? { assignee: { name: options.assigneeName, ...(options.assigneeAgent ? { agent: {
             kind: options.assigneeAgent.kind, label: options.assigneeAgent.label,
             ...(options.assigneeAgent.model ? { model: options.assigneeAgent.model } : {}),
             ...(options.assigneeAgent.reasoning ? { reasoning: options.assigneeAgent.reasoning } : {}),
-            ...(options.assigneeAgent.sessionId ? { sessionId: options.assigneeAgent.sessionId } : {})
+            ...(options.assigneeAgent.sessionId ? { sessionId: options.assigneeAgent.sessionId } : {}),
+            ...(options.assigneeAgent.sessionUrl ? { sessionUrl: options.assigneeAgent.sessionUrl } : {})
         } } : {}) } } : {}),
         anchor: !available || position.type === 'page' ? { type: position.type }
             : position.type === 'point' ? {

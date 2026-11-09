@@ -78,3 +78,34 @@ timer (also for a group of expiry times) and no extra reads, even offline. `Agen
 the toolbar's `CommentAssignment` show the small spinner and accessible working text; reduced motion
 keeps the indicator still. Coverage includes lease expiry/retry/ownership, realtime updates and draft preservation, and indicators
 on list, board, My work, thread, hover card and toolbar.
+
+## Desktop session links
+
+Attachments accept an optional `sessionUrl` in the app action and MCP `set_feedback_agent`.
+The harness supplies the full link: never derive it from `kind` and `sessionId`, because a Claude
+or Codex agent can run in T3 Code and T3 needs an environment id. Omission or an empty string
+clears the link. Editing it in the same kind/session/connection preserves `setAt` and the working
+lease; the idempotent write still records a metadata change.
+
+The shared browser-safe `agentSessionLink` allowlist accepts only these exact existing-session routes:
+
+- T3 Code: `t3-thread://v2/<environmentId>/<threadId>`, with each id 1–200 ASCII letters, digits,
+  underscores or hyphens, starting with a letter or digit. The supplied environment is required.
+- Codex: `codex://threads/<UUID>`, the existing local thread format in
+  [OpenAI's official desktop commands](https://learn.chatgpt.com/docs/reference/commands#deep-links).
+- Claude: `claude://claude.ai/chat/<UUID>`, the existing conversation format in
+  [Claude's official desktop link guide](https://support.claude.com/en/articles/14729294-open-claude-desktop-with-a-link).
+
+No queries, fragments, credentials, ports, whitespace, encoded characters, alternate hosts or
+extra paths are accepted. New-session, settings, project, file and command routes are excluded.
+Claude Code and Cowork existing-session routes are left out: the desktop guide documents creating
+new sessions, but no existing-session deep link for either. CLI session ids alone do not establish
+a supported desktop link. Unknown apps remain without a link.
+
+The member projection validates the stored URL again and omits invalid legacy values. Agent details
+on rows/boards/My work, the thread's agent control and Session dialog, and the toolbar avatar's
+Assignee details popover show `Open in <app>`, where the URL selects the app independently of agent
+kind. Links are native anchors and only open on a person's click. There is no URL fetch or automatic
+app launch. Members also get the link in MCP lists and feedback packets. Guest DTOs omit agents
+entirely; integration delivery strips both singular and array assignment agents before formatting.
+Coverage: `assignee-agent{,.api}.spec.ts`, `integrations.api.spec.ts` and the monitor script's lease tests.

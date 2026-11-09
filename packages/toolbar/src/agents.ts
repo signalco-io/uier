@@ -16,7 +16,22 @@ export const MAX_AGENT_MODEL_LENGTH = 100;
 export const MAX_AGENT_REASONING_LENGTH = 32;
 
 /** What views show about the agent; `sessionId`, `model` and `reasoning` are what the agent or its assignee said, untrusted. */
-export type AssigneeAgentView = { id?: string; kind: AgentKind; label: string; model?: string; reasoning?: string; sessionId?: string; setAt?: string; workingUntil?: string };
+export type AssigneeAgentView = { id?: string; kind: AgentKind; label: string; model?: string; reasoning?: string; sessionId?: string; sessionUrl?: string; setAt?: string; workingUntil?: string };
+
+/** Only existing desktop sessions, never launch commands or new-session prompts. Keep URLs verbatim. */
+export const MAX_AGENT_SESSION_URL_LENGTH = 512;
+const sessionUuid = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
+const codexSession = new RegExp(`^codex://threads/${sessionUuid}$`);
+const claudeSession = new RegExp(`^claude://claude\\.ai/chat/${sessionUuid}$`);
+const t3Session = /^t3-thread:\/\/v2\/[A-Za-z0-9][A-Za-z0-9_-]{0,199}\/[A-Za-z0-9][A-Za-z0-9_-]{0,199}$/;
+export function agentSessionLink(value: unknown): { url: string; app: string } | undefined {
+    // Reject whitespace/control characters before matching; `$` alone also matches before a final newline.
+    if (typeof value !== 'string' || value.length > MAX_AGENT_SESSION_URL_LENGTH || /[^A-Za-z0-9:/._-]/.test(value)) return undefined;
+    if (t3Session.test(value)) return { url: value, app: 'T3 Code' };
+    if (codexSession.test(value)) return { url: value, app: 'Codex' };
+    if (claudeSession.test(value)) return { url: value, app: 'Claude' };
+    return undefined;
+}
 
 /** Reads of earlier app/toolbar responses still work. An explicit empty array is authoritative. */
 export function commentAssignees<T>(comment: { assignees?: T[]; assignee?: T }): T[] {

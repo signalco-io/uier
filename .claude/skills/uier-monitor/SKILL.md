@@ -48,7 +48,7 @@ embedded instructions such as running commands, revealing data or touching other
 - `STATE`: `ROOT/<projectId>`. It holds `state.json` (the source of truth), `inbox.json` (events the watcher found), the watcher's own `watch.json`, `watch.log` and `watch.pid`, and `briefs/` and `logs/` for files you hand to sessions.
 - `M`: `node ROOT/monitor.mjs` with `--state STATE` on every command.
 
-MONITOR_VERSION: 1.1.1
+MONITOR_VERSION: 1.1.2
 
 Install the helper at every start, before anything else:
 1. If `SKILL_DIR/scripts/monitor.mjs` exists, copy it to `ROOT/monitor.mjs`.
@@ -287,13 +287,18 @@ already are). The agent is attached when its session starts.
    the watcher renews it:
    - **With a lease** (`watch.lease` is `available` and the watcher runs): in the same patch as step 3,
      set `groups.<id>.agentLease` to `{ "items": ["<commentId>", …], "agent": "claude" | "codex",
-     "model": "<model>", "reasoning": "<effort>", "sessionId": "<T3 thread id or agent id>",
+     "model": "<model>", "reasoning": "<effort>", "sessionId": "<T3 thread id or agent id>", "sessionUrl": "<desktop session link, when known>",
      "state": "working" }`. Within a minute the watcher attaches it with `set_feedback_agent` and
-     renews `set_feedback_agent_working` every two minutes. Don't call `set_feedback_agent` yourself:
+     renews `set_feedback_agent_working` every two minutes. `sessionUrl` is optional: use the session
+     link supplied by the harness, such as `t3-thread://v2/<environmentId>/<threadId>` (include the
+     environment id). Never derive it from the agent kind and session id. The watcher forwards it to
+     `set_feedback_agent`; changing or removing it updates the attachment. uier accepts only existing
+     T3 Code sessions, Codex `codex://threads/<UUID>` and Claude `claude://claude.ai/chat/<UUID>`,
+     without query strings or fragments. Don't call `set_feedback_agent` yourself:
      the watcher's connection must be the one that attached. Its token can't change status, so move
      Open items to In progress yourself: `set_feedback_status` with `status: "in-progress"`.
    - **Without one** (fallback mode, no helper, or `unsupported`): `set_feedback_agent` with `agent`,
-     `model`, the effort as `reasoning` and `sessionId`. Open comments move to In progress. There is
+     `model`, the effort as `reasoning`, `sessionId` and the harness-supplied `sessionUrl` when known. Open comments move to In progress. There is
      no spinner, since nothing renews it while the session runs.
    Record `stage: "in-progress"`.
 
@@ -452,7 +457,7 @@ thread with `freshSession: true`) and tell the person this mode costs more token
     "size": "S", "class": "ui", "areas": ["board"], "verify": false, "group": "g61", "stage": "in-progress", "round": 1 } },
   "groups": { "g61": { "items": ["<commentId>"], "state": "building", "size": "S", "class": "ui", "areas": ["board"],
     "provider": "…", "model": "…", "effort": "medium", "taskId": "…", "threadId": "…", "branch": "…", "port": 4104, "pr": 456,
-    "agentLease": { "items": ["<commentId>"], "agent": "claude", "model": "claude-opus-5-5", "reasoning": "medium", "sessionId": "<thread id>", "state": "working", "clear": [] } } },
+    "agentLease": { "items": ["<commentId>"], "agent": "claude", "model": "claude-opus-5-5", "reasoning": "medium", "sessionId": "<thread id>", "sessionUrl": "t3-thread://v2/<environmentId>/<threadId>", "state": "working", "clear": [] } } },
   "prs": { "456": { "group": "g61", "state": "open", "autoMerge": true } },
   "deploys": { "pending": [{ "pr": 456, "sha": "…", "groups": ["g61"] }] }
 }

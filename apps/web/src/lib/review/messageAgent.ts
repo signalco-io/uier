@@ -9,7 +9,7 @@ import { assignedAgents, type AssignmentFields } from './assignments';
  * What an MCP connection says about the agent writing a reply through it: the kind it gives or identifies
  * as, and the model and reasoning level it names. The same plain one-line rules as the assignee's agent.
  */
-export const messageAgentClaimSchema = assigneeAgentInputSchema.omit({ sessionId: true });
+export const messageAgentClaimSchema = assigneeAgentInputSchema.omit({ sessionId: true, sessionUrl: true });
 export type MessageAgentClaim = z.input<typeof messageAgentClaimSchema>;
 
 function stored(agent: { kind: DbMessageAgent['kind']; model?: string; reasoning?: string }): DbMessageAgent {

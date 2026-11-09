@@ -64,6 +64,12 @@ test('the assignee picks the agent working with them, edits its session, model a
     const details = page.getByRole('dialog', { name: 'Claude details' });
     await animationsFinished(details);
     await details.getByRole('textbox', { name: 'Session id' }).fill('session-42');
+    const sessionUrl = 't3-thread://v2/local-env/thread-42';
+    await details.getByRole('textbox', { name: 'Session link' }).fill('javascript:alert(1)');
+    await details.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(details).toContainText('Use a supported desktop session link.');
+    await details.getByRole('textbox', { name: 'Session link' }).fill(sessionUrl);
+    await expect(details.getByRole('link', { name: 'Open in T3 Code' })).toHaveAttribute('href', sessionUrl);
     await details.getByRole('textbox', { name: 'Model' }).fill('claude-opus-5-5');
     await details.getByRole('textbox', { name: 'Reasoning level' }).fill('xhigh');
     await expectNoAxeViolations(page);
@@ -83,6 +89,7 @@ test('the assignee picks the agent working with them, edits its session, model a
     thread = await openComment(page, 'Checkout button fails');
     const saved = thread.getByRole('button', { name: 'Agent: Claude. Change agent', exact: true });
     await expect(saved).toContainText('Opus 5.5');
+    await expect(thread.getByRole('link', { name: 'Open in T3 Code' })).toHaveAttribute('href', sessionUrl);
     await expect(saved.locator('[data-agent-reasoning]')).toHaveText('xhigh');
     // The model and reasoning level truncate inside the Assignee field instead of running past it on a phone
     const [button, field] = await Promise.all([saved.boundingBox(), saved.locator('xpath=..').boundingBox()]);
@@ -98,6 +105,9 @@ test('the assignee picks the agent working with them, edits its session, model a
     const review = await page.context().newPage();
     await review.goto(`/app/review/${project}?url=${encodeURIComponent(`${site.origin()}/${project}/pricing`)}&comment=${commentId}`);
     await expect(review.getByRole('img', { name: 'Assigned to you, with Claude Opus 5.5 (xhigh reasoning)', exact: true })).toBeVisible();
+    await review.getByRole('button', { name: 'Assignee details', exact: true }).click();
+    await expect(review.getByRole('link', { name: 'Open in T3 Code' })).toHaveAttribute('href', sessionUrl);
+    await expectNoAxeViolations(review);
     await review.screenshot({ path: testInfo.outputPath('agent-toolbar.png') });
     await review.close();
 
@@ -106,6 +116,7 @@ test('the assignee picks the agent working with them, edits its session, model a
     await thread.getByRole('button', { name: 'Agent: Claude. Change agent', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Session and model', exact: true }).click();
     await animationsFinished(details);
+    await expect(details.getByRole('textbox', { name: 'Session link' })).toHaveValue(sessionUrl);
     await expect(details.getByRole('textbox', { name: 'Reasoning level' })).toHaveValue('xhigh');
     await details.getByRole('textbox', { name: 'Reasoning level' }).fill('');
     await details.getByRole('button', { name: 'Save', exact: true }).click();
@@ -152,6 +163,8 @@ test('the avatars on a row show the assignee and their agent on hover, focus or 
     // Longer than the card is wide: cut off with an ellipsis, in full in a tooltip
     const sessionId = `session-74-${'a1b2c3d4'.repeat(8)}`;
     await details.getByRole('textbox', { name: 'Session id' }).fill(sessionId);
+    const sessionUrl = 'codex://threads/019a0000-1234-5678-9abc-0123456789ab';
+    await details.getByRole('textbox', { name: 'Session link' }).fill(sessionUrl);
     await details.getByRole('textbox', { name: 'Model' }).fill('claude-opus-5-5');
     await details.getByRole('textbox', { name: 'Reasoning level' }).fill('high');
     await details.getByRole('button', { name: 'Save', exact: true }).click();
@@ -176,6 +189,7 @@ test('the avatars on a row show the assignee and their agent on hover, focus or 
         await expect(card).toContainText('high reasoning');
         await expect(card.locator('[data-agent-since]')).toHaveText(/^Started (just now|\d+ min ago)$/);
         await expect(session).toHaveText(`Session ${sessionId}`);
+        await expect(card.getByRole('link', { name: 'Open in Codex' })).toHaveAttribute('href', sessionUrl);
     };
 
     if (testInfo.project.name.startsWith('Mobile')) {
