@@ -46,6 +46,26 @@
   --radius-lg: var(--radius);
 }
 
+/*
+ * The app panel's width less the page gutters, set by the app shell's page column ((shell)/layout.tsx).
+ * Registered as a length, so 100cqw resolves there, against the panel, and descendants inherit pixels
+ * (a nearer container, like the comments', does not change it). `auto` outside the shell.
+ */
+@property --page-wide {
+  syntax: '<length> | auto';
+  inherits: true;
+  initial-value: auto;
+}
+
+/*
+ * Breaks out of the app's centred reading column to the panel's width less the gutters, centred on the
+ * column. For an element marked data-page-width="wide" whose parent spans the column (the comments board).
+ */
+@utility page-wide {
+  width: var(--page-wide);
+  margin-inline: calc((100% - var(--page-wide)) / 2);
+}
+
 html, body, #__next {
   height: 100%;
   width: 100%;
