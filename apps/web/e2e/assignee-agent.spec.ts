@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { backToComments, commentRows, createProject, openComment, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { backToComments, commentRowLink, commentRows, createProject, openComment, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { animationsFinished } from './support/toolbar';
@@ -27,7 +27,7 @@ test('the assignee picks the agent working with them, edits its session, model a
     const mobile = testInfo.project.name.startsWith('Mobile');
     const expectRowAvatar = async (label: string) => {
         if (mobile) await backToComments(page);
-        await expect(commentRows(page).getByRole('img', { name: label, exact: true })).toBeVisible();
+        await expect(commentRows(page).getByRole('button', { name: label, exact: true })).toBeVisible();
         if (mobile) thread = await openComment(page, 'Checkout button fails');
     };
 
@@ -55,7 +55,7 @@ test('the assignee picks the agent working with them, edits its session, model a
     // The thread shows Claude's logo beside its name, once; the row stacks its mark on the assignee's avatar
     await expect(agent.locator('[data-agent-mark="claude"]')).toBeVisible();
     await expect(thread.locator('[data-agent-mark]')).toHaveCount(1);
-    await expectRowAvatar(`Assigned to ${name}, with Claude`);
+    await expectRowAvatar('Assigned to you, with Claude');
 
     // Session id, model and reasoning level are the less common, manual path
     await agent.click();
@@ -74,7 +74,7 @@ test('the assignee picks the agent working with them, edits its session, model a
     await expect(agent.locator('[data-agent-model]')).toHaveAttribute('title', 'claude-opus-5-5');
     await expect(agent.locator('[data-agent-reasoning]')).toHaveText('xhigh');
     await expect(agent.locator('[data-agent-reasoning]')).toHaveAttribute('title', 'xhigh reasoning');
-    await expectRowAvatar(`Assigned to ${name}, with Claude Opus 5.5 (xhigh reasoning)`);
+    await expectRowAvatar('Assigned to you, with Claude Opus 5.5 (xhigh reasoning)');
 
     // Saved: after a reload, and on the board's cards
     await page.reload();
@@ -89,7 +89,7 @@ test('the assignee picks the agent working with them, edits its session, model a
     await page.screenshot({ path: testInfo.outputPath('agent-thread.png') });
     if (mobile) await backToComments(page);
     await page.getByRole('button', { name: 'Board', exact: true }).click();
-    await expect(page.getByRole('img', { name: `Assigned to ${name}, with Claude Opus 5.5 (xhigh reasoning)`, exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Assigned to you, with Claude Opus 5.5 (xhigh reasoning)', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'List', exact: true }).click();
     if (mobile) await backToComments(page);
 
@@ -110,11 +110,109 @@ test('the assignee picks the agent working with them, edits its session, model a
     await details.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(details).toBeHidden();
     await expect(thread.locator('[data-agent-reasoning]')).toHaveCount(0);
-    await expectRowAvatar(`Assigned to ${name}, with Claude Opus 5.5`);
+    await expectRowAvatar('Assigned to you, with Claude Opus 5.5');
 
     // The assignee removes the agent
     await thread.getByRole('button', { name: 'Agent: Claude. Change agent', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Remove agent', exact: true }).click();
     await expect(thread.getByRole('button', { name: 'Add agent', exact: true })).toBeVisible();
-    await expectRowAvatar(`Assigned to ${name}`);
+    await expectRowAvatar('Assigned to you');
+});
+
+test('the avatars on a row show the assignee and their agent on hover, focus or tap, and a click still opens the thread', async ({ page, request }, testInfo) => {
+    const email = uniqueEmail('agent-card');
+    const name = email.split('@')[0]!;
+    await signIn(page, email);
+    const project = await createProject(page, { urls: [site.origin()] });
+    await setProjectAccess(page, project, 'Anyone with the link');
+    const headers = await verifiedReviewHeaders(request, project, site.origin());
+    const response = await request.post(`/api/review/${project}/comments`, { headers, data: {
+        path: `/${project}/pricing`, text: 'Price table wraps', authorName: 'Reviewer', position: { type: 'page' }, kind: 'feedback'
+    } });
+    expect(response.status()).toBe(201);
+    await page.goto(`/app/projects/${project}`);
+    const thread = await openComment(page, 'Price table wraps');
+    await thread.getByRole('button', { name: 'Unassigned. Change assignee', exact: true }).click();
+    await page.getByRole('menuitem', { name, exact: true }).click();
+    await expect(thread.getByRole('button', { name: 'Assigned to you. Change assignee', exact: true })).toBeEnabled();
+    await thread.getByRole('button', { name: 'Add agent', exact: true }).click();
+    const menu = page.getByRole('menu').filter({ has: page.getByRole('menuitemradio', { name: 'Claude', exact: true }) });
+    await animationsFinished(menu);
+    await menu.getByRole('menuitemradio', { name: 'Claude', exact: true }).click();
+    const agent = thread.getByRole('button', { name: 'Agent: Claude. Change agent', exact: true });
+    await expect(agent).toBeEnabled();
+    // Off the comment's Device button, which the menu item's place may have put the pointer on (it opens on hover)
+    await page.mouse.move(0, 0);
+    await agent.click();
+    await page.getByRole('menuitem', { name: 'Session and model', exact: true }).click();
+    const details = page.getByRole('dialog', { name: 'Claude details' });
+    await animationsFinished(details);
+    await details.getByRole('textbox', { name: 'Session id' }).fill('session-74');
+    await details.getByRole('textbox', { name: 'Model' }).fill('claude-opus-5-5');
+    await details.getByRole('textbox', { name: 'Reasoning level' }).fill('high');
+    await details.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(details).toBeHidden();
+
+    // A fresh list: no thread chosen yet
+    await page.goto(`/app/projects/${project}`);
+    const row = commentRows(page).filter({ hasText: 'Price table wraps' });
+    const avatars = row.getByRole('button', { name: 'Assigned to you, with Claude Opus 5.5 (high reasoning)', exact: true });
+    const card = page.getByRole('dialog', { name: 'Assignee details', exact: true });
+    const expectCard = async () => {
+        await expect(card).toBeVisible();
+        await expect(card).toContainText('Assigned to');
+        await expect(card).toContainText('You');
+        await expect(card.locator('[data-agent="claude"]')).toBeVisible();
+        await expect(card).toContainText('Claude');
+        // The model by name, the reported id on hover
+        await expect(card.locator('[data-agent-model]')).toHaveText('Opus 5.5');
+        await expect(card.locator('[data-agent-model]')).toHaveAttribute('title', 'claude-opus-5-5');
+        await expect(card).toContainText('high reasoning');
+        await expect(card.locator('[data-agent-since]')).toHaveText(/^Started (just now|\d+ minutes? ago)$/);
+        await expect(card).toContainText('Session session-74');
+    };
+
+    if (testInfo.project.name.startsWith('Mobile')) {
+        // A tap shows the card instead of opening the thread; the rest of the row still opens it
+        await avatars.tap();
+        await expectCard();
+        await expect(page.getByRole('article')).toHaveCount(0);
+        await animationsFinished(card);
+        await expectNoAxeViolations(page, { include: ['[aria-label="Comments"]', '[aria-label="Assignee details"]'] });
+        await page.screenshot({ path: testInfo.outputPath('assignee-card-mobile.png') });
+        await page.keyboard.press('Escape');
+        await expect(card).toBeHidden();
+        await commentRowLink(page, 'Price table wraps').tap();
+        await expect(page.getByRole('article')).toBeVisible();
+        return;
+    }
+
+    // Hovering shows the card; leaving hides it
+    await avatars.hover();
+    await expectCard();
+    await animationsFinished(card);
+    // The list and the card: the thread beside the list has its own checks
+    await expectNoAxeViolations(page, { include: ['[aria-label="Comments"]', '[aria-label="Assignee details"]'] });
+    await page.screenshot({ path: testInfo.outputPath('assignee-card.png') });
+    await page.mouse.move(0, 0);
+    await expect(card).toBeHidden();
+
+    // From the row's link, Tab reaches the avatars and Enter opens the card; Escape gives the focus back
+    const link = commentRowLink(page, 'Price table wraps');
+    await link.focus();
+    await page.keyboard.press('Tab');
+    await expect(avatars).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expectCard();
+    await page.keyboard.press('Escape');
+    await expect(card).toBeHidden();
+    await expect(avatars).toBeFocused();
+
+    // A click on the avatars opens the thread like the rest of the row
+    await page.mouse.move(0, 0);
+    await avatars.click();
+    await expect(page).toHaveURL(/[?&]comment=/);
+    await expect(link).toHaveAttribute('aria-current', 'true');
+    await expect(page.getByRole('article')).toContainText('Price table wraps');
+    await expect(card).toBeHidden();
 });

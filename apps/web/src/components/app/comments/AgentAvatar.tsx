@@ -32,7 +32,7 @@ export function AgentAvatar({ kind, className }: { kind: AgentKind; className?: 
     );
 }
 
-type Assignee = { id: string; name: string; avatarUrl?: string; agent?: AssigneeAgentView };
+export type Assignee = { id: string; name: string; avatarUrl?: string; agent?: AssigneeAgentView };
 
 /** "Assigned to Ana" or "Assigned to you, with Claude Opus 5.5 (high reasoning)": the words of the avatars below */
 export function assignedLabel(assignee: Assignee | undefined, userId?: string) {
@@ -42,23 +42,24 @@ export function assignedLabel(assignee: Assignee | undefined, userId?: string) {
 
 /**
  * Who works on a thread: the assignee's 20px avatar, with the AI agent working under them stacked on its
- * right edge. One image named by `assignedLabel`, for rows and board cards.
+ * right edge. One image named by `assignedLabel` (`decorative` inside a control that carries the name), for rows
+ * and board cards.
  */
-export function AssigneeAvatars({ assignee, userId, className }: { assignee: Assignee; userId?: string; className?: string }) {
+export function AssigneeAvatars({ assignee, userId, decorative, className }: { assignee: Assignee; userId?: string; decorative?: boolean; className?: string }) {
     return (
-        <span role="img" aria-label={assignedLabel(assignee, userId)} className={cn('flex shrink-0 items-center', className)}>
+        <span {...decorative ? { 'aria-hidden': true } : { role: 'img', 'aria-label': assignedLabel(assignee, userId) }} className={cn('flex shrink-0 items-center', className)}>
             <PersonAvatar assignee={assignee} />
             {assignee.agent && <AgentAvatar kind={assignee.agent.kind} className="-ml-1.5 ring-2 ring-background" />}
         </span>
     );
 }
 
-/** Not `size="sm"`: its `data-[size=sm]:size-6` would win over `size-5` */
-function PersonAvatar({ assignee }: { assignee: Assignee }) {
+/** The assignee's 20px avatar (`size-*` on `className` scales it). Not `size="sm"`: its `data-[size=sm]:size-6` would win over `size-5` */
+export function PersonAvatar({ assignee, className, initialsClassName }: { assignee: Pick<Assignee, 'name' | 'avatarUrl'>; className?: string; initialsClassName?: string }) {
     return (
-        <Avatar aria-hidden="true" className="size-5">
+        <Avatar aria-hidden="true" className={cn('size-5', className)}>
             {assignee.avatarUrl && <AvatarImage src={assignee.avatarUrl} alt="" />}
-            <AvatarFallback className="text-[10px] font-semibold text-foreground">{initials(assignee.name)}</AvatarFallback>
+            <AvatarFallback className={cn('text-[10px] font-semibold text-foreground', initialsClassName)}>{initials(assignee.name)}</AvatarFallback>
         </Avatar>
     );
 }

@@ -3,7 +3,7 @@
 - The comments page is an inbox. `comments/CommentInbox.tsx` lists compact rows (`CommentRow.tsx`: number,
   title (`commentTitle`: the [AI title](ai-titles.md), else the first line without its Markdown, `markdownPlainText`), author, page path (what it was left on is only in the thread's On row), then priority other than Normal (`PriorityLabel`: its
   flag alone, named "High priority"), status (`StateDot` and its name, Open too; a board card leaves the status to its column, whose region name screen readers announce), the assignee's avatar with their agent's mark stacked on it
-  (`AssigneeAvatars`), age and the unread dot) beside the open thread
+  (`AssigneeCard`: hovering shows who it is assigned to and their [agent](assignee-agents.md); see below), age and the unread dot) beside the open thread
   (`CommentCard.tsx`). The open thread is in the URL (`?comment=<id>`, `useOpenComment`): side by side (`@container/comments` from `@4xl`) it replaces
   the history entry and the first shown thread is open until another is chosen; narrower (a phone) a row opens
   the thread in the list's and the filters' place with Back to comments, and adds a history entry so Back closes
@@ -14,8 +14,13 @@
   Enter opens it. The keys act from the list, or from the page while nothing has the focus and the caret is not in the
   open thread (it keeps scrolling with them); never from text fields, menus or dialogs, and they leave a key the page
   already handled (`defaultPrevented`). Only the current row's link and selection box (where it shows) are in the Tab order (a roving
-  tab stop: the row last focused or opened), so Tab goes on to the thread. `e2e/comment-keyboard.spec.ts` covers it;
-  the board keeps plain Tab order. `CommentBoard.tsx` shows
+  tab stop: the row last focused or opened), so Tab goes on to the thread. The assignee's avatars are a button above
+  the row's link that follows the same tab stop (one more stop in the current row only, after the link): Enter
+  opens their card, Escape gives the focus back, ↓/↑ still move between rows. A mouse click on the avatars opens the
+  thread like the rest of the row (the click goes to the row's link, modifier keys too); a tap on a touch screen
+  opens the card instead (44 px target), and the rest of the row opens the thread. On the board and My work, where
+  Tab order is plain, assigned cards get the one extra stop; a card is not dragged from its avatars, like its other
+  buttons. `e2e/comment-keyboard.spec.ts` covers the keys; the board keeps plain Tab order. `CommentBoard.tsx` shows
   Open, In progress, Ready to verify and Done as compact cards, one column per `commentStatuses` entry (keep the
   column set data-driven: that list and `commentStatusLabels`), from `lg` in one row of equal columns however many
   there are, each up to 20rem and centred beyond that. Only the board's grid is wider than the reading width (`lg:page-wide`,
