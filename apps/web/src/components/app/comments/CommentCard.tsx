@@ -348,7 +348,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                 <div className="flex items-center gap-2">
                     {onBack && (
                         <Button variant="ghost" size="icon-sm" aria-label="Back to comments" onClick={onBack}
-                            className="-ml-2 shrink-0 @4xl/comments:hidden pointer-coarse:min-h-11 pointer-coarse:min-w-11">
+                            className="-ml-2 shrink-0 @3xl/comments:hidden pointer-coarse:min-h-11 pointer-coarse:min-w-11">
                             <ArrowLeftIcon />
                         </Button>
                     )}

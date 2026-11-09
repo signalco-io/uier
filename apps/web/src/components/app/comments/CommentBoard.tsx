@@ -319,15 +319,16 @@ export function CommentBoard({ projectId, columns, allComments, assignees, userI
                     if (comment && status && takes(comment, status)) move(comment, status, 'drag');
                 }}
                 onDragCancel={endDrag}>
-                {/* From lg the board takes the panel's width (`page-wide`) while the page around it keeps the reading
-                    width, with one row of equal columns, one per status however many there are. A column is 18rem to
+                {/* From md (tablets too) the board takes the panel's width (`page-wide`) while the page around it keeps the
+                    reading width, with one row of equal columns, one per status however many there are. A column is 18rem to
                     20rem (four fill a 1674 px window with the sidebar open) and the row is centred beyond that; when
-                    the columns don't fit, the board scrolls sideways (`data-board-scroll`) instead of squeezing them, with room for a column's
-                    drop ring (`p-1`); not up and down (`overflow-y-clip`), the page does that.
+                    the columns don't fit, the board scrolls sideways (`data-board-scroll`, a swipe on a touch screen) instead
+                    of squeezing them, with room for a column's drop ring (`p-1`); not up and down (`overflow-y-clip`), the
+                    page does that. A phone stacks the columns.
                     While a card is dragged every column is as tall as the longest, so any part of it takes the card. */}
                 <LayoutMotion container={grid} item="data-board-card" skip={settling}>
                 <div ref={grid} data-page-width="wide" data-board-scroll=""
-                    className={cn('relative grid grid-cols-1 items-start gap-4 lg:page-wide lg:grid-flow-col lg:grid-cols-none lg:auto-cols-[minmax(18rem,20rem)] lg:justify-center-safe lg:overflow-x-auto lg:overflow-y-clip lg:overscroll-x-contain lg:p-1', drag && 'lg:items-stretch')}>
+                    className={cn('relative grid grid-cols-1 items-start gap-4 md:page-wide md:grid-flow-col md:grid-cols-none md:auto-cols-[minmax(18rem,20rem)] md:justify-center-safe md:overflow-x-auto md:overflow-y-clip md:overscroll-x-contain md:p-1', drag && 'md:items-stretch')}>
                     {statuses.map(status => {
                         const state = columnState(status);
                         const cards = columns[status];

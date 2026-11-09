@@ -189,12 +189,12 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
         {/* The filter rows, the count line and the comments share one spacing: the gap between search and the status tabs.
             They keep the page's reading width in both views; only the board itself is wider (CommentBoard). */}
         <div ref={containerRef} className="@container/comments flex flex-col gap-2">
-            <div className={cn('contents', threadOnly && '@max-4xl/comments:hidden')}>
+            <div className={cn('contents', threadOnly && '@max-3xl/comments:hidden')}>
             <CommentFilters search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} unread={Boolean(query.unread)} unreadCount={comments.filter(comment => comment.activity?.unread).length} view={query.view} status={query.status} statusCounts={statusCounts} people={query.people} page={query.page} pages={pages} />
             {searchWindowCapped && <p className="m-0 text-sm text-muted-foreground">Search covers up to 1,000 recent threads in this environment and author scope. Narrow the environment or author to find older feedback.</p>}
             </div>
             <TriageSelection projectId={projectId} scope={selectionScope} shown={board ? commentStatuses.flatMap(status => columns[status]) : shown} assignees={assignees}
-                barClassName={cn(threadOnly && '@max-4xl/comments:hidden', !comments.length && 'hidden')}
+                barClassName={cn(threadOnly && '@max-3xl/comments:hidden', !comments.length && 'hidden')}
                 summary={<>
                     {shown.length === comments.length
                         ? `${comments.length} ${comments.length === 1 ? 'comment' : 'comments'}`

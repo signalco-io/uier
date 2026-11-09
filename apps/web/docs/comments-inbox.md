@@ -7,10 +7,11 @@
   path has the card's width), page path (what it was left on is only in the thread's On row), then priority other than Normal (`PriorityLabel`: its
   flag alone, named "High priority"), status (`StateDot` and its name, Open too; a board card leaves the status to its column, whose region name screen readers announce), the assignee's avatar with their agent's mark stacked on it
   (`AssigneeCard`: hovering shows who it is assigned to and their [agent](assignee-agents.md); see below), age and the unread dot) beside the open thread
-  (`CommentCard.tsx`). The open thread is in the URL (`?comment=<id>`, `useOpenComment`): side by side (`@container/comments` from `@4xl`) it replaces
-  the history entry and the first shown thread is open until another is chosen; narrower (a phone) a row opens
+  (`CommentCard.tsx`). The open thread is in the URL (`?comment=<id>`, `useOpenComment`): side by side (`@container/comments` from `@3xl`, 48rem: the list's 18rem and
+  at least 29rem for the thread; from about 1100 px with the sidebar docked, which takes in most landscape tablets) it replaces
+  the history entry and the first shown thread is open until another is chosen; narrower (a phone, a tablet in portrait) a row opens
   the thread in the list's and the filters' place with Back to comments, and adds a history entry so Back closes
-  it. Each row is a link (it opens in a new tab too); its selection box ends the meta line (a card's bottom right
+  it. Where the page scrolls (below `lg`) the thread opens and stays (beside the list) under the sticky top bar. Each row is a link (it opens in a new tab too); its selection box ends the meta line (a card's bottom right
   corner) and takes no room until it is used ([App triage](triage.md#selection)), so the title and the path keep
   the row's width. The list moves with the
   keyboard like an inbox: ↓/↑ go to the next/previous row and stop at the ends, Home/End (from a row) to the first and
@@ -26,10 +27,10 @@
   Tab order is plain, assigned cards get the one extra stop; a card is not dragged from its avatars, like its other
   buttons. `e2e/comment-keyboard.spec.ts` covers the keys; the board keeps plain Tab order. `CommentBoard.tsx` shows
   Open, In progress, Ready to verify and Done as compact cards, one column per `commentStatuses` entry (keep the
-  column set data-driven: that list and `commentStatusLabels`), from `lg` in one row of equal columns however many
+  column set data-driven: that list and `commentStatusLabels`), from `md` (tablets too) in one row of equal columns however many
   there are, each 18rem to 20rem and centred beyond that; when they don't fit, the board scrolls sideways
-  (`data-board-scroll`, `justify-center-safe`) rather than squeezing them. On dark a card is the page's black, a step
-  darker than its column, so it stands apart (light keeps paper cards on the muted column). Only the board's grid is wider than the reading width (`lg:page-wide`,
+  (`data-board-scroll`, `justify-center-safe`; a swipe on a touch screen) rather than squeezing them. A phone stacks them. On dark a card is the page's black, a step
+  darker than its column, so it stands apart (light keeps paper cards on the muted column). Only the board's grid is wider than the reading width (`md:page-wide`,
   `data-page-width="wide"`); the project header, the filters, the count line, the selection bar and the empty states
   stay in the reading column, as in the list. An empty column's line ("Nothing open.", "Drop here." while
   dragging, `data-empty-column`) fills the room below the column's name and sits in its middle. A card opens its thread in a sheet over the board. Switching List/Board
@@ -87,7 +88,7 @@
   in another column is the same card. One that crosses others (another column, more than a place away) is lifted above
   them (`z-index` 11, over the cards' `z-10` controls). List rows take the card background while they move and the
   copy of a leaving row fades out beneath the rows that take its place (`data-motion:*` classes on the row, the list
-  `isolate`d so neither passes over the phone's sticky header); board cards are opaque and their copies fade on top.
+  `isolate`d so neither passes over the sticky top bar where the page scrolls); board cards are opaque and their copies fade on top.
 - No motion on the first render or a switch of List/Board (both mount), for a hidden view or tab, with
   `prefers-reduced-motion: reduce`, or when more than `motionLimit` (8) items arrive, leave or change column in one
   update: a bulk change or a filter that swaps the list snaps into place. A row folding out of the list (Done or Reopen

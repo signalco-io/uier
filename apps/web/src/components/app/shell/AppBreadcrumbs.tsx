@@ -92,10 +92,11 @@ export function AppBreadcrumbs({ projectNames }: { projectNames: Record<string, 
                         <Fragment key={item.href}>
                             {/* Small screens show the current page only */}
                             {index > 0 && <BreadcrumbSeparator className="hidden md:block" />}
-                            <BreadcrumbItem className={last ? 'min-w-0' : 'hidden md:inline-flex'}>
+                            {/* One line in the 48 px bar: a long name (a project's) is cut short rather than wrapped */}
+                            <BreadcrumbItem className={last ? 'min-w-0' : 'hidden min-w-0 md:inline-flex'}>
                                 {last
                                     ? <BreadcrumbPage className="truncate">{item.label}</BreadcrumbPage>
-                                    : <BreadcrumbLink render={<Link href={item.href} />}>{item.label}</BreadcrumbLink>}
+                                    : <BreadcrumbLink render={<Link href={item.href} />} className="max-w-56 truncate">{item.label}</BreadcrumbLink>}
                             </BreadcrumbItem>
                         </Fragment>
                     );

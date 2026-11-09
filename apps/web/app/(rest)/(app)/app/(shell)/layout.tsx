@@ -45,16 +45,17 @@ export default async function AppShellLayout({ children }: PropsWithChildren) {
                     projects={sidebarProjects}
                     projectOrder={projectOrder}
                     hasClients={projects.some(project => project.clientId)} />
-                {/* On wide screens the panel keeps its frame and scrolls inside it, like a desktop app */}
-                <SidebarInset className="min-w-0 md:h-[calc(100svh-1rem)] md:overflow-hidden">
-                    <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b bg-background px-3 md:static">
+                {/* Where the sidebar is docked (lg) the panel keeps its frame and scrolls inside it, like a desktop app.
+                    Narrower (phones, tablets in portrait) the sidebar is a sheet and the page scrolls under a sticky top bar. */}
+                <SidebarInset className="min-w-0 lg:h-[calc(100svh-1rem)] lg:overflow-hidden">
+                    <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b bg-background px-3 lg:static">
                         <SidebarTrigger />
                         <Separator orientation="vertical" className="mr-1 data-vertical:h-4 data-vertical:self-center" />
                         <AppBreadcrumbs projectNames={Object.fromEntries(projects.map(project => [project.id, project.name]))} />
                     </header>
                     {/* While an element marked data-page-width="wide" is in it, the panel is a container, so the
                         column can measure it for `page-wide` (global.css) */}
-                    <div className="flex-1 md:overflow-y-auto has-data-[page-width=wide]:[container-type:inline-size]">
+                    <div className="flex-1 lg:overflow-y-auto has-data-[page-width=wide]:[container-type:inline-size]">
                         {/* A reading width, on every page. An element that lays things side by side (the comments
                             board) breaks out of it to the panel's width with `page-wide`; the rest of its page stays */}
                         <div className="mx-auto flex w-full max-w-5xl flex-col px-4 py-6 [--page-wide:calc(100cqw-2rem)] md:px-8 md:py-10 md:[--page-wide:calc(100cqw-4rem)]">

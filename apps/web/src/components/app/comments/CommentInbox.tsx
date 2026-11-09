@@ -13,8 +13,12 @@ import { LayoutMotion } from './LayoutMotion';
 /** The brand's exit (BRAND.md, "Motion"): 150 ms ease-out, fade plus 8 px slide */
 const exitMs = 150;
 
-/** The comments' container width from which the list and the open thread sit side by side (`@4xl`, 56rem) */
-const sideBySidePx = 56 * 16;
+/**
+ * The comments' container width from which the list and the open thread sit side by side (`@3xl`, 48rem): the
+ * list's 18rem and at least 29rem for the thread: from about 1100 px with the sidebar docked (most landscape tablets).
+ * Narrower, the thread takes the list's place.
+ */
+const sideBySidePx = 48 * 16;
 
 /**
  * The open thread, in the URL (`?comment=<id>`) like the filters, so it can be linked, reloaded and
@@ -184,10 +188,10 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
     }, [openId]);
 
     return (
-        <div className="grid grid-cols-1 items-start gap-4 @4xl/comments:grid-cols-[minmax(17rem,22rem)_minmax(0,1fr)] @6xl/comments:grid-cols-[minmax(20rem,26rem)_minmax(0,1fr)]">
+        <div className="grid grid-cols-1 items-start gap-4 @3xl/comments:grid-cols-[minmax(16rem,18rem)_minmax(0,1fr)] @4xl/comments:grid-cols-[minmax(17rem,22rem)_minmax(0,1fr)] @6xl/comments:grid-cols-[minmax(20rem,26rem)_minmax(0,1fr)]">
             <LayoutMotion container={listRef} item="data-comment-id">
             {/* `isolate`: rows that move stay under the page's sticky header, and leaving copies above the list's background */}
-            <ul ref={listRef} aria-label={label} className={cn('relative isolate m-0 flex min-w-0 list-none flex-col gap-0.5 rounded-xl border bg-card p-1', opened && '@max-4xl/comments:hidden')}
+            <ul ref={listRef} aria-label={label} className={cn('relative isolate m-0 flex min-w-0 list-none flex-col gap-0.5 rounded-xl border bg-card p-1', opened && '@max-3xl/comments:hidden')}
                 onFocus={event => {
                     const id = event.target.closest<HTMLElement>('[data-comment-id]')?.dataset.commentId;
                     if (id) setKeyboard(state => state.id === id ? state : { ...state, id });
@@ -195,11 +199,11 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
                 {comments.map(comment => {
                     const leaves = isLeaving(comment);
                     return (
-                        // Scroll margin: clear of the phone layout's sticky header when the keys bring a row into view
+                        // Scroll margin: clear of the sticky top bar (below lg, where the page scrolls) when the keys bring a row into view
                         <li key={comment.id} inert={leaves} data-comment-id={comment.id}
                             // While it moves (`LayoutMotion`), a row covers the rows it passes, and the copy of one that
                             // leaves fades out beneath the rows that take its place
-                            className={cn('grid min-w-0 scroll-mt-14 scroll-mb-1 grid-cols-1 grid-rows-[1fr] transition-[grid-template-rows,opacity,translate] duration-150 ease-out motion-reduce:transition-none data-motion:rounded-lg data-motion:bg-card data-[motion=exit]:-z-1 md:scroll-mt-1',
+                            className={cn('grid min-w-0 scroll-mt-14 scroll-mb-1 grid-cols-1 grid-rows-[1fr] transition-[grid-template-rows,opacity,translate] duration-150 ease-out motion-reduce:transition-none data-motion:rounded-lg data-motion:bg-card data-[motion=exit]:-z-1 lg:scroll-mt-1',
                                 leaves && 'grid-rows-[0fr] -translate-y-2 opacity-0')}>
                             <div className={cn('min-h-0', leaves && 'overflow-hidden')}>
                                 <CommentRow comment={comment} href={hrefFor(comment.id)} tabbable={comment.id === tabStop?.id}
@@ -213,8 +217,9 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
             </LayoutMotion>
             {selected && (
                 <div ref={detailRef}
-                    className={cn('min-w-0 scroll-mt-4 @4xl/comments:sticky @4xl/comments:top-0 @4xl/comments:max-h-[calc(100svh-5rem-var(--selection-bar,0px))] @4xl/comments:overflow-y-auto @4xl/comments:rounded-xl',
-                        !opened && '@max-4xl/comments:hidden')}>
+                    // Where the page scrolls (below lg) it opens and stays in view under the sticky top bar; from lg at the top of the panel
+                    className={cn('min-w-0 scroll-mt-16 lg:scroll-mt-4 @3xl/comments:sticky @3xl/comments:top-14 @3xl/comments:max-h-[calc(100svh-5rem-var(--selection-bar,0px))] @3xl/comments:overflow-y-auto @3xl/comments:rounded-xl lg:@3xl/comments:top-0',
+                        !opened && '@max-3xl/comments:hidden')}>
                     <CommentCard key={selected.id}
                         projectId={projectId}
                         comment={selected}

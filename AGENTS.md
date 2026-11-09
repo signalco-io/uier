@@ -80,7 +80,8 @@ validation belong in the API suite, which always runs in the default check.
 
 - Run `pnpm typecheck` and the tests for the feature you changed. Select a spec file and the
   `API` or `Desktop Chrome` project; add `Mobile Chrome` for touch, responsive layout or mobile
-  behavior changes. Narrow further with `-g` when checking one scenario.
+  behavior changes, and `Tablet Chrome` (`e2e/tablet.spec.ts`) for tablet layouts. Narrow further
+  with `-g` when checking one scenario.
 - Direct Playwright commands need an up-to-date production build: run `pnpm build` after app or
   toolbar changes. Use `PLAYWRIGHT_FULL=1` to enable untagged browser tests in the selected file,
   with `--retries=0` for immediate feedback. File and project filters still apply.

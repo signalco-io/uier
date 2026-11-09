@@ -68,7 +68,8 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
     const statusPanel = (listStatus: ProjectStatus, shown = lists[listStatus]) => (
         <ProjectStatusPanel status={listStatus}>
             {shown.length ? (
-                <ul aria-label={`${listStatus === 'done' ? 'Done' : 'Active'} projects`} className="m-0 grid list-none grid-cols-1 gap-4 p-0 sm:grid-cols-2 lg:grid-cols-3">
+                // As many 18rem columns as the page's width holds (the sidebar takes part of a window), up to three
+                <ul aria-label={`${listStatus === 'done' ? 'Done' : 'Active'} projects`} className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(min(18rem,100%),1fr))] gap-4 p-0">
                     {shown.map(project => {
                         const open = openCounts.get(project.id) ?? 0;
                         const access = projectAccessLabels[project.access];

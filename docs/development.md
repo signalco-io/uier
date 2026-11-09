@@ -213,6 +213,7 @@ An existing server on that port is never reused, inside or outside CI.
 | API and service tests | `*.api.spec.ts`, project `API` | Focused logic, authorization, persistence and HTTP checks; these share one project rather than separate unit/integration runners |
 | Desktop browser tests | Feature spec, project `Desktop Chrome` | UI and browser integration for the changed feature |
 | Mobile browser tests | Feature spec, project `Mobile Chrome` | Touch, responsive layout and mobile behavior |
+| Tablet browser tests | `tablet.spec.ts`, project `Tablet Chrome` | The app's layouts on a touch tablet in portrait and landscape; full suite only |
 | Required suite | `pnpm test` | All API/service tests and tagged browser essentials, before a PR and in CI |
 | Full regression suite | `pnpm test:full` | Exceptional broad verification across every API and desktop/mobile case |
 
@@ -344,6 +345,10 @@ The Playwright projects ([`apps/web/playwright.config.ts`](../apps/web/playwrigh
   ([`users.spec.ts`](../apps/web/e2e/users.spec.ts)): a commenter invited to one project and an invited admin,
   single-use links, replaced and revoked invitations, the users list and its project filter, and deleting a
   member (their toolbar asks them to sign in again).
+- **Tablet Chrome** (an iPad mini's 768 × 1024 with touch, in Chromium) runs only
+  [`tablet.spec.ts`](../apps/web/e2e/tablet.spec.ts), in the full suite: the sidebar as a sheet in portrait and docked
+  in landscape, the project header, settings, a thread in the list's place or beside it, the board's columns with a
+  long-press move and the projects grid.
 - **Desktop Chrome** and **Mobile Chrome** also run the app ([`app.spec.ts`](../apps/web/e2e/app.spec.ts)):
   sign-in (single-use links, redirects back), onboarding and the install guide, review links, done and
   reopened projects, project settings, the sidebar and the account page, with axe checks on every page.
