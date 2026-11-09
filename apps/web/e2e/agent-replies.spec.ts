@@ -59,7 +59,9 @@ test('a reply Claude writes through MCP shows "via Claude" with its logo and mod
     const details = page.getByRole('dialog', { name: 'Claude details' });
     await animationsFinished(details);
     await expect(details).toContainText('Claude wrote this for you.');
-    await expect(details).toContainText('claude-opus-5-5');
+    // The model by name, its reported id kept as the title (uier #67)
+    await expect(details.locator('[data-agent-model]')).toHaveText('Opus 5.5');
+    await expect(details.locator('[data-agent-model]')).toHaveAttribute('title', 'claude-opus-5-5');
     await expect(details).toContainText('xhigh reasoning');
     await expect(details).toContainText('Connection: Claude Code');
     await expectNoAxeViolations(page);
@@ -71,7 +73,7 @@ test('a reply Claude writes through MCP shows "via Claude" with its logo and mod
     // The toolbar's thread names the agent and its model the same way
     const review = await page.context().newPage();
     await review.goto(`/app/review/${project}?url=${encodeURIComponent(`${site.origin()}/${project}/pricing`)}&comment=${commentId}`);
-    const mark = review.getByRole('img', { name: 'via Claude (claude-opus-5-5, xhigh reasoning)', exact: true });
+    const mark = review.getByRole('img', { name: 'via Claude Opus 5.5 (xhigh reasoning)', exact: true });
     await expect(mark).toBeVisible();
     await expect(mark.locator('[data-agent-mark="claude"]')).toBeVisible();
     await review.screenshot({ path: testInfo.outputPath('agent-reply-toolbar.png') });

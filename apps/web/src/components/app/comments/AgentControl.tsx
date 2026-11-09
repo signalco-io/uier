@@ -4,7 +4,7 @@ import { useId, useRef, useState, useTransition, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import { ChevronDownIcon, PlusIcon } from 'lucide-react';
 import {
-    agentKinds, agentLabels, MAX_AGENT_MODEL_LENGTH, MAX_AGENT_REASONING_LENGTH, MAX_AGENT_SESSION_LENGTH, reasoningText, type AgentKind, type AssigneeAgentView
+    agentKinds, agentLabels, MAX_AGENT_MODEL_LENGTH, MAX_AGENT_REASONING_LENGTH, MAX_AGENT_SESSION_LENGTH, agentModelText, modelName, reasoningText, type AgentKind, type AssigneeAgentView
 } from '@uier/toolbar/agents';
 import { Button } from '@/src/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/src/components/ui/dialog';
@@ -22,6 +22,7 @@ import {
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field';
 import { Input } from '@/src/components/ui/input';
 import { Spinner } from '@/src/components/ui/spinner';
+import { cn } from '@/src/lib/utils';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
 import type { AssigneeAgentInput } from '../../../lib/review/assigneeAgentModel';
 import { setCommentAgentAction } from './actions';
@@ -35,11 +36,24 @@ function agentView(input: AssigneeAgentInput): AssigneeAgentView {
     return { kind: input.kind, label: agentLabels[input.kind], ...(model ? { model } : {}), ...(reasoning ? { reasoning } : {}), ...(sessionId ? { sessionId } : {}) };
 }
 
-/** The model in mono and the reasoning level after it ("claude-opus-5-5 high reasoning"), each truncated on narrow screens */
+/**
+ * The model by name after the agent's ("Opus 5.5" after Claude; the reported id on hover) and its reasoning
+ * level after a dot ("· xhigh", named "xhigh reasoning"), each truncated on narrow screens. A model id the
+ * names do not know shows as it is, in mono (BRAND.md: mono means machine).
+ */
 function AgentDetails({ agent }: { agent: AssigneeAgentView }) {
+    const known = agent.model ? modelName(agent.model) !== undefined : false;
     return <>
-        {agent.model && <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">{agent.model}</span>}
-        {agent.reasoning && <span data-agent-reasoning="" className="min-w-0 truncate text-xs text-muted-foreground">{reasoningText(agent.reasoning)}</span>}
+        {agent.model && (
+            <span data-agent-model="" title={agent.model} className={cn('min-w-0 truncate', !known && 'font-mono text-xs text-muted-foreground')}>
+                {agentModelText({ label: agent.label, model: agent.model })}
+            </span>
+        )}
+        {agent.reasoning && <>
+            <span aria-hidden="true" className="shrink-0 text-xs text-muted-foreground">·</span>
+            <span data-agent-reasoning="" title={reasoningText(agent.reasoning)} className="min-w-0 truncate text-xs text-muted-foreground">{agent.reasoning}</span>
+            <span className="sr-only">reasoning</span>
+        </>}
     </>;
 }
 

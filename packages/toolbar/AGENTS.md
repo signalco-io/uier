@@ -220,8 +220,8 @@ toolbar comment matching the app (pin number, avatar, follow state, no-reviewer 
 
 Assignment uses `CommentAssignment` and the shared review service. The agent under the assignee
 (`assignee.agent`, members only) is display-only here: only the assignee changes it, in the app or through MCP.
-`src/agents.ts` (`@uier/toolbar/agents`) is the pure vocabulary both share: kinds, labels, `inferAgentKind`
-and the one-colour marks. `useParticipants` fetches
+`src/agents.ts` (`@uier/toolbar/agents`) is the pure vocabulary both share: kinds, labels, `inferAgentKind`,
+model names (`modelName`, `agentText`) and the one-colour marks. `useParticipants` fetches
 a member-only, thread-filtered directory; composer mention ranges are maintained by `mentions.ts`.
 Never infer recipients from display names or reveal account ids in guest DTOs.
 

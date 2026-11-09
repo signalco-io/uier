@@ -254,9 +254,11 @@ Unassignment targets the previous assignee, subject to the same rules.
 A thread's assignee can have one AI agent working under them: Claude, Codex, ChatGPT, Cursor or a
 generic AI agent. Its one-colour logo (`@uier/toolbar/agents`, drawn by `AgentMark` and `AgentAvatar`) sits
 on the right edge of the assignee's avatar in list rows, board cards and My work, and in the toolbar
-thread's header; the avatar's name says both ("Assigned to Ana, with Claude (claude-opus-5-5, high reasoning)").
-Under Assignee the app's thread reads "You with", the agent's logo, "Claude", the model in mono and the
-reasoning level ("high reasoning").
+thread's header; the avatar's name says both ("Assigned to Ana, with Claude Opus 5.5 (high reasoning)").
+Under Assignee the app's thread reads "You with", the agent's logo, "Claude", the model by name without the
+agent's own name ("Opus 5.5"; the reported id on hover) and the reasoning level after a dot ("· high"). Known
+Claude, OpenAI, Gemini and other common model ids read as their makers write them; any other id shows as
+reported, in mono. MCP packets and Markdown keep the reported id.
 
 - **Who sets it.** Only the assignee, for themselves: **Add agent** after their name (Claude, Codex,
   ChatGPT, Cursor, AI agent), then the agent's menu changes it, opens **Session and model** (session id,

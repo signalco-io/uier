@@ -43,18 +43,89 @@ export function inferAgentKind(...hints: (string | null | undefined)[]): AgentKi
     return 'agent';
 }
 
-/** "high reasoning": the reasoning level as the thread shows it, beside the model */
+/** "high reasoning": the reasoning level in words, for names and tooltips (the thread shows the level alone) */
 export function reasoningText(reasoning: string) {
     return `${reasoning} reasoning`;
 }
 
+const capitalize = (word: string) => word.charAt(0).toUpperCase() + word.slice(1);
+/** "5-5", "4.5" or "3": a version written with dots */
+const version = (major: string, minor?: string) => minor ? `${major}.${minor}` : major;
+
+/** Other families agents commonly run on, by the first word of their ids, as their makers write them */
+const otherFamilies: Record<string, string> = {
+    grok: 'Grok', deepseek: 'DeepSeek', mistral: 'Mistral', codestral: 'Codestral', devstral: 'Devstral', magistral: 'Magistral',
+    ministral: 'Ministral', pixtral: 'Pixtral', qwen: 'Qwen', kimi: 'Kimi', llama: 'Llama', composer: 'Composer', glm: 'GLM'
+};
+
+/** One word of a model id after its family: "70b" → "70B", "r1" → "R1", "v3.1" → "V3.1", "coder" → "Coder" */
+function modelWord(word: string) {
+    if (/^\d+(\.\d+)*$/.test(word)) return word;
+    if (/^\d+(\.\d+)?[bkm]$/.test(word) || /^[a-z]\d+(\.\d+)*[a-z]?$/.test(word)) return word.toUpperCase();
+    return capitalize(word);
+}
+
 /**
- * "Claude", "Claude (claude-opus-5-5)" or "Claude (claude-opus-5-5, high reasoning)": a one-line
- * description, the same words in the app and toolbar
+ * A model's name as its maker writes it, from the id an agent reported ("claude-opus-5-5" → "Claude Opus 5.5",
+ * "gpt-5.1-codex" → "GPT-5.1-Codex", "gemini-2.5-flash-lite" → "Gemini 2.5 Flash-Lite"), or undefined for an
+ * id it does not know, which views show as it is. Dates, "latest", revision suffixes and routing prefixes
+ * (OpenRouter's "anthropic/", Bedrock's "us.anthropic." and "-v1:0", Vertex's "@20251101") drop, since the
+ * name stays the same; Claude Code's "[1m]" becomes "(1M context)". Pure: the same words in the app and toolbar.
+ */
+export function modelName(model: string): string | undefined {
+    let id = model.trim().toLowerCase();
+    const longContext = /\[1m\]$/.test(id);
+    id = id.replace(/\[1m\]$/, '').replace(/^.*\//, '').replace(/@[\w.-]+$/, '')
+        .replace(/^(?:[a-z]{2,4}\.)?anthropic\./, '').replace(/-v\d+:\d+$/, '')
+        .replace(/-(?:latest|\d{4}-\d{2}-\d{2}|\d{8})$/, '');
+    const context = longContext ? ' (1M context)' : '';
+    let match: RegExpMatchArray | null;
+
+    // Claude: claude-opus-5-5, claude-sonnet-4-5-20250929, claude-3-5-sonnet-20241022, claude-2.1; Claude Code's opus, sonnet, haiku
+    if ((match = id.match(/^claude-([a-z]+)-(\d+)(?:[-.](\d{1,2}))?$/))) return `Claude ${capitalize(match[1]!)} ${version(match[2]!, match[3])}${context}`;
+    if ((match = id.match(/^claude-(\d+)(?:[-.](\d{1,2}))?-([a-z]+)$/))) return `Claude ${version(match[1]!, match[2])} ${capitalize(match[3]!)}${context}`;
+    if ((match = id.match(/^claude-(\d+)(?:\.(\d+))?$/))) return `Claude ${version(match[1]!, match[2])}`;
+    if ((match = id.match(/^(opus|sonnet|haiku|fable)$/))) return `Claude ${capitalize(match[1]!)}${context}`;
+
+    // OpenAI: gpt-5, gpt-5.1-codex-max (Codex models joined by hyphens), gpt-5-mini, gpt-4o; o3, o4-mini as they are
+    if ((match = id.match(/^gpt-(\d+(?:\.\d+)?o?)((?:-[a-z0-9]+)*)$/))) {
+        const words = match[2]!.split('-').filter(Boolean);
+        if (words.includes('codex')) return [`GPT-${match[1]}`, ...words.map(capitalize)].join('-');
+        return [`GPT-${match[1]}`, ...words.map(word => ['mini', 'nano', 'pro'].includes(word) ? word : capitalize(word))].join(' ');
+    }
+    if (/^o\d(?:-[a-z]+)*$/.test(id)) return id;
+
+    // Google: gemini-2.5-pro, gemini-2.5-flash-lite, gemini-3-pro-preview, gemini-2.0-flash-001 (revisions and dates drop)
+    if ((match = id.match(/^gemini-(\d+(?:\.\d+)?)((?:-[a-z0-9]+)*)$/))) {
+        const words = match[2]!.replace(/flash-lite/, 'flash_lite').split('-').filter(word => word && !/^\d+$/.test(word));
+        return ['Gemini', match[1], ...words.map(word => word === 'flash_lite' ? 'Flash-Lite' : capitalize(word))].join(' ');
+    }
+
+    // Others: grok-code-fast-1, deepseek-r1, qwen3-coder:30b, kimi-k2-0905-preview, llama-3.3-70b-instruct, composer-1
+    const [first, ...rest] = id.replace(/:/g, '-').split('-');
+    const family = first?.match(/^([a-z]+)(\d[\d.]*)?$/);
+    const familyName = family && otherFamilies[family[1]!];
+    if (!familyName) return undefined;
+    return [familyName + (family[2] ?? ''), ...rest.filter(word => word && !/^\d{4,}$/.test(word) && word !== 'latest').map(modelWord)].join(' ');
+}
+
+/**
+ * The model as the thread shows it after the agent's name: its name without the agent's own name in front
+ * ("Opus 5.5" after "Claude"; "Claude Sonnet 4.5" after "Cursor"), or the id as reported when unknown
+ */
+export function agentModelText(agent: Pick<AssigneeAgentView, 'label'> & { model: string }) {
+    const name = modelName(agent.model);
+    if (!name) return agent.model;
+    return name.startsWith(`${agent.label} `) ? name.slice(agent.label.length + 1) : name;
+}
+
+/**
+ * "Claude", "Claude Opus 5.5" or "Claude Opus 5.5 (high reasoning)": a one-line description, the same
+ * words in the app and toolbar (avatars' names, the toolbar header's tooltip)
  */
 export function agentText(agent: Pick<AssigneeAgentView, 'label' | 'model' | 'reasoning'>) {
-    const details = [agent.model, agent.reasoning && reasoningText(agent.reasoning)].filter(Boolean);
-    return details.length ? `${agent.label} (${details.join(', ')})` : agent.label;
+    const name = agent.model ? `${agent.label} ${agentModelText({ label: agent.label, model: agent.model })}` : agent.label;
+    return agent.reasoning ? `${name} (${reasoningText(agent.reasoning)})` : name;
 }
 
 /**

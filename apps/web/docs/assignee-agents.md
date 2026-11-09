@@ -18,8 +18,16 @@ get the agent in views, the review DTO (toolbar), `list_feedback` and packets; g
 strips `context.assignee.agent` before formatting. The UI is `AgentMark` (each agent's one-colour product logo from `agentMarks`:
 Claude, Codex, ChatGPT, Cursor, a generic bot for AI agent), `AgentAvatar` / `AssigneeAvatars` (the mark on a bordered
 circle, stacked on the assignee's avatar: rows, board cards, the agent menu) and `AgentControl` (the logo beside the
-agent's name in the thread's Assignee field with the model and reasoning level, the assignee's menu, Session and model dialog). The MCP tools are `set_feedback_agent` / `clear_feedback_agent` under
-`feedback:assign`. Tests: `assignee-agent{,.api}.spec.ts`.
+agent's name in the thread's Assignee field with the model and reasoning level, the assignee's menu, Session and model dialog).
+Views show the model by name: `modelName` (`@uier/toolbar/agents`, pure) turns known ids into their makers' names
+(Claude current, dated, older and routed ids; OpenAI GPT, Codex and o-series; Gemini; Grok, DeepSeek, Mistral, Qwen,
+Kimi, Llama, GLM, Cursor's Composer) and returns undefined for any other id, which shows as reported in mono.
+`agentModelText` drops the agent's own name ("Opus 5.5" after Claude; Cursor keeps "Claude Sonnet 4.5"), and
+`agentText` is the one-line name of avatars and the toolbar header ("Claude Opus 5.5 (xhigh reasoning)"). The thread
+shows the level alone after a dot ("· xhigh", titled and read as "xhigh reasoning") and the reported id as the model's
+title; the Session and model dialog, packets and Markdown keep the raw values. Add a family to `modelName` and a case to
+`agent-models.api.spec.ts` together. The MCP tools are `set_feedback_agent` / `clear_feedback_agent` under
+`feedback:assign`. Tests: `assignee-agent{,.api}.spec.ts`, `agent-models.api.spec.ts`.
 
 **Messages an agent writes.** `DbThreadItem.writtenBy` marks a reply an MCP connection posted for its owner:
 kind, optional model and reasoning level. `replyToProjectComment` sets it only for an MCP actor (one with a
@@ -32,5 +40,5 @@ through `messageAgentView` (kind and label for everyone, model and reasoning lev
 the connection's name), as "via" with the mark and an `IconTooltip` in the toolbar's `CommentThreadItem`
 (`AgentMark`), in `itemAuthorName` ("Ana via Claude"; older replies keep "via <connection>"), packets (`agent` on the
 message, stripped before integration delivery), email digests and MCP event `actor.agent`. Permissions follow the
-author as before. Tests: `agent-replies{,.api}.spec.ts`. See [review workflow](../../../docs/review-workflow.md#ai-agents-under-the-assignee)
+author as before. Tests: `agent-replies{,.api}.spec.ts`; the "via" mark's model uses `agentModelText` too. See [review workflow](../../../docs/review-workflow.md#ai-agents-under-the-assignee)
 and [MCP](../../../docs/mcp.md#agents-working-on-feedback).
