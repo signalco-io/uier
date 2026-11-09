@@ -205,6 +205,9 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
         sortBoardColumn(shown.filter(comment => commentStatus(comment) === status), boardSorts[status])])) as Record<CommentStatus, ProjectCommentView[]>;
     // What the header takes the width of: the list with its thread beside it, or the board (see below)
     const headerWide = !filtered.length || !shown.length ? undefined : board ? 'board' : 'list';
+    // The header's width, which the count line under it takes too (uier #187)
+    const wideClassName = cn(headerWide === 'list' && '@3xl/comments:w-[min(var(--page-wide),96rem)] @3xl/comments:mx-[calc((100%-min(var(--page-wide),96rem))/2)]',
+        headerWide === 'board' && 'md:w-[min(var(--page-wide),max(100%,var(--board-width)))] md:mx-[calc((100%-min(var(--page-wide),max(100%,var(--board-width))))/2)]');
     const unreadShown = shown.filter(comment => comment.activity?.unread).length;
     // Keep matching cards mounted, including their independent reply drafts. Selection resets per scope.
     const selectionScope = JSON.stringify([projectId, query.environment, query.author, query.unread, query.people, query.page, query.status, query.q, query.priority, query.view]);
@@ -216,16 +219,16 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
             The header (search, Filter, the view toggle, the status tabs) is as wide as what is under it: the list with its
             thread beside it (CommentInbox) or the board's columns (CommentBoard). It never scrolls with the board: when
             the columns don't fit, it stays at the panel's width less the gutters (`page-wide`), the board's visible part.
-            The project header above takes the same width from `data-header-wide` (the project layout, which sets `--board-width`). */}
+            The project header above takes the same width from `data-header-wide` (the project layout, which sets `--board-width`),
+            and so does the count line under it. */}
         <div ref={containerRef} className="@container/comments flex flex-col gap-2">
-            <div data-header-wide={headerWide} className={cn('flex min-w-0 flex-col gap-2', threadOnly && '@max-3xl/comments:hidden',
-                headerWide === 'list' && '@3xl/comments:w-[min(var(--page-wide),96rem)] @3xl/comments:mx-[calc((100%-min(var(--page-wide),96rem))/2)]',
-                headerWide === 'board' && 'md:w-[min(var(--page-wide),max(100%,var(--board-width)))] md:mx-[calc((100%-min(var(--page-wide),max(100%,var(--board-width))))/2)]')}>
+            <div data-header-wide={headerWide} className={cn('flex min-w-0 flex-col gap-2', threadOnly && '@max-3xl/comments:hidden', wideClassName)}>
             <CommentFilters search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} historySources={historySources} unread={Boolean(query.unread)} unreadCount={comments.filter(comment => comment.activity?.unread).length} view={query.view} status={query.status} statusCounts={statusCounts} people={query.people} page={query.page} pages={pages} />
             {searchWindowCapped && <p className="m-0 text-sm text-muted-foreground">Search covers up to 1,000 recent threads in this environment and author scope. Narrow the environment or author to find older feedback.</p>}
             </div>
             <TriageSelection projectId={projectId} scope={selectionScope} shown={board ? commentStatuses.flatMap(status => columns[status]) : shown} assignees={assignees}
                 barClassName={cn(threadOnly && '@max-3xl/comments:hidden', !comments.length && 'hidden')}
+                lineClassName={wideClassName}
                 // Only the unread count: the list's status tabs and the board's columns already count what is shown
                 summary={unreadShown > 0 && <span className="text-[hsl(var(--brand-accent-text))]">{`${unreadShown} unread`}</span>}
                 actions={unreadShown > 0 && <MarkAllRead projectId={projectId} threads={shown.flatMap(comment => comment.activity?.unread ? [{ id: comment.id, sequence: comment.activity.sequence }] : [])} />}>

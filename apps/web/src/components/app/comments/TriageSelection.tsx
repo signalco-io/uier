@@ -84,10 +84,12 @@ function snapshot(operation: TriageOperation, comments: ProjectCommentView[]): B
  *
  * Only the explicit, visible selection enters a batch. Polls and later filter changes never extend it.
  */
-export function TriageSelection({ projectId, scope, shown, assignees, barClassName, summary, actions, children }: {
+export function TriageSelection({ projectId, scope, shown, assignees, barClassName, lineClassName, summary, actions, children }: {
     projectId: string; scope: string; shown: ProjectCommentView[]; assignees: AssigneeOption[];
     /** Hides the count line and the selection bar while one thread takes the whole width */
     barClassName?: string;
+    /** The count line only: its width, as wide as the filters' header above it */
+    lineClassName?: string;
     /** At the start of the count line: the unread count; leave it empty when there is none */
     summary?: ReactNode;
     /** Right after the summary, beside the unread count it acts on (Mark all as read); empty when there is nothing to act on */
@@ -270,7 +272,7 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
             {/* No side padding: it lines up with the search and Filter row above, in both views */}
             {/* With nothing to show (no unread count, Select out of sight) it takes no room, not even the column's gap:
                 `sr-only` takes it out of the flow and keeps Select focusable, and it shows again while Select has the focus */}
-            <div className={cn('flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1', barClassName,
+            <div className={cn('flex min-w-0 min-h-8 flex-wrap items-center gap-x-3 gap-y-1', barClassName, lineClassName,
                 quiet && (eligible.length ? 'pointer-fine:[&:not(:has(:focus-visible))]:sr-only pointer-fine:[&:not(:has(:focus-visible))]:min-h-0' : 'sr-only min-h-0'))}>
                 <span role="status" className="text-sm text-muted-foreground tabular-nums">{summary}</span>
                 {actions}
