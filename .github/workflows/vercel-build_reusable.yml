@@ -1,0 +1,106 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: "Vercel build (reusable)"
+
+on:
+  workflow_call:
+    inputs:
+      production:
+        description: "Build for production instead of preview."
+        required: false
+        type: boolean
+        default: false
+    outputs:
+      public-pages-changed:
+        description: "Whether the production build changes public search content."
+        value: ${{ jobs.build.outputs.public-pages-changed }}
+
+permissions: {}
+env:
+  VERCEL_ORG_ID: team_Ade0MlfC3211ml3wYJZ4c9hn
+  VERCEL_PROJECT_ID: prj_0uRTXTGHFdN9SlHnFfNiahIgX3mc
+  VERCEL_TELEMETRY_DISABLED: "1"
+  # renovate: datasource=npm depName=vercel
+  VERCEL_CLI_VERSION: "65.12.1"
+
+jobs:
+  build:
+    name: "Build without deployment credentials"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      public-pages-changed: ${{ steps.search-changes.outputs.changed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      # Executable caching is confined to this credential-free build job. The deploy job
+      # installs its CLI from npm and never restores a cache produced by repository code.
+      - name: Cache build CLI
+        id: build-cli
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.vercel-cli
+          key: vercel-build-cli-${{ runner.os }}-${{ runner.arch }}-${{ env.VERCEL_CLI_VERSION }}
+      - name: Install Vercel CLI
+        if: steps.build-cli.outputs.cache-hit != 'true'
+        run: npm install --global --ignore-scripts --no-audit --no-fund --prefix "$HOME/.vercel-cli" "vercel@${VERCEL_CLI_VERSION}"
+      # Also saved by main's production build, so a new PR can start with a warm compiler.
+      # Cache compiler state only; toolbar retention and deployment packaging always run afresh.
+      - name: Cache Next.js compiler
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: apps/web/.next/cache
+          key: next-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}-${{ github.sha }}
+          restore-keys: |
+            next-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}-
+      - name: Build with public project settings
+        env:
+          PRODUCTION: ${{ inputs.production }}
+          UIER_DEPLOYMENT_ENV: ${{ inputs.production && 'production' || 'preview' }}
+          UIER_TOOLBAR_RETAIN_FROM: https://uier.io
+          TURBO_FORCE: "true"
+        run: |
+          if [ "$PRODUCTION" = "true" ]; then
+            node .github/scripts/search-index.mjs capture indexnow-before.json
+          fi
+          mkdir -p .vercel
+          cp .github/vercel-project.json .vercel/project.json
+          if [ "$PRODUCTION" = "true" ]; then
+            "$HOME/.vercel-cli/bin/vercel" build --prod
+          else
+            "$HOME/.vercel-cli/bin/vercel" build
+          fi
+          node .github/scripts/package_prebuilt.mjs
+          tar -cf - .vercel/output | gzip -1 > prebuilt.tar.gz
+      - name: Compare public search content
+        id: search-changes
+        if: inputs.production
+        run: node .github/scripts/search-index.mjs compare indexnow-before.json apps/web/public/search-index.json >> "$GITHUB_OUTPUT"
+      - name: Save public search baseline
+        if: inputs.production && steps.search-changes.outputs.changed == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: indexnow-before-${{ github.run_id }}
+          path: indexnow-before.json
+          overwrite: true
+          retention-days: 1
+          if-no-files-found: error
+      - name: Upload prebuilt output only
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: vercel-output-${{ github.run_id }}-${{ github.run_attempt }}
+          path: prebuilt.tar.gz
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error
+

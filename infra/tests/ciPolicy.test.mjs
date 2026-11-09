@@ -55,11 +55,13 @@ test('dotenv values are masked without executing them or allowing workflow comma
 });
 
 test('builds have no deployment secrets and deployment jobs never execute checkout code', () => {
-    const workflow = readFileSync(join(root, '.github/workflows/vercel-deploy_reusable.yml'), 'utf8');
-    const build = workflow.split('\n  build:\n')[1].split('\n  deploy:\n')[0];
-    const deploy = workflow.split('\n  deploy:\n')[1];
+    const build = readFileSync(join(root, '.github/workflows/vercel-build_reusable.yml'), 'utf8');
+    const deploy = readFileSync(join(root, '.github/workflows/vercel-deploy_reusable.yml'), 'utf8');
     assert.doesNotMatch(build, /secrets\.|VERCEL_TOKEN|vercel pull|environment:/);
     assert.match(build, /path: prebuilt\.tar\.gz/);
+    const artifact = 'name: vercel-output-${{ github.run_id }}-${{ github.run_attempt }}';
+    assert.ok(build.includes(artifact));
+    assert.ok(deploy.includes(artifact));
     assert.doesNotMatch(deploy, /uses: actions\/checkout|pnpm (?:install|build)|vercel pull/);
     assert.match(deploy, /environment:.*production.*preview/);
     assert.match(deploy, /--ignore-scripts/);
@@ -71,6 +73,27 @@ test('builds have no deployment secrets and deployment jobs never execute checko
     assert.match(pulumi, /environment:.*inputs\.command == 'up'.*'production'.*'preview'/);
     assert.match(pulumi, /ANTHROPIC_API_KEY:.*inputs\.command == 'up'/);
     assert.match(pulumi, /UIER_INTEGRATION_ENV:.*inputs\.command == 'up'/);
+});
+
+test('production builds overlap infrastructure but publishing waits for both', () => {
+    const workflow = readFileSync(join(root, '.github/workflows/deploy.yml'), 'utf8');
+    const job = name => workflow.split(`\n  ${name}:\n`)[1]?.split(/\n  [\w-]+:\n/)[0];
+    assert.match(job('build'), /uses: \.\/\.github\/workflows\/vercel-build_reusable\.yml/);
+    assert.doesNotMatch(job('build'), /needs:|secrets:/);
+    assert.doesNotMatch(job('infra'), /needs:/);
+    assert.match(job('web'), /needs: \[infra, build\]/);
+    assert.doesNotMatch(job('web'), /^    if:/m);
+    assert.match(job('web'), /uses: \.\/\.github\/workflows\/vercel-deploy_reusable\.yml/);
+    assert.match(job('indexnow'), /needs: \[web, build\]/);
+    assert.match(job('indexnow'), /needs\.build\.outputs\.public-pages-changed/);
+    assert.match(workflow, /group: deploy-\$\{\{ github\.ref \}\}\n  cancel-in-progress: false/);
+    const ci = readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8');
+    assert.match(ci, /name: "Web \(Vercel preview\)"\n    needs: preview-build/);
+    assert.match(ci, /needs: \[changes, web, infra, preview-build, preview,/);
+    assert.ok(ci.includes('".github/workflows/vercel-*_reusable.yml"'));
+    const build = readFileSync(join(root, '.github/workflows/vercel-build_reusable.yml'), 'utf8');
+    assert.match(build, /UIER_TOOLBAR_RETAIN_FROM: https:\/\/uier\.io/);
+    assert.match(build, /TURBO_FORCE: "true"/);
 });
 
 // GitHub requires callers to reference each allowed secret for environment resolution.
