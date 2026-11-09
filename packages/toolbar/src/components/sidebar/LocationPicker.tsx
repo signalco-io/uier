@@ -8,6 +8,7 @@ import { CommentsBootstrapperContext } from '../CommentsBootstrapperContext';
 import { useInkContainer } from '../InkScope';
 import { inSection, type CommentsPageFilter } from './CommentsFilter';
 import { pageKeyPath, type InboxPage } from './useInboxComments';
+import { toolbarSurface } from '../../toolbarReview';
 
 const historyEnvironments = [
     { id: 'removed', label: 'Removed addresses' },
@@ -148,8 +149,8 @@ export function LocationPicker({ value, pages, currentPath, currentCount, otherC
             aria-label={name}
             onKeyDown={handleKeyDown}
             {...focusSearch}
-            className={cx('z-[55] grid gap-0 rounded-xl p-0',
-                environment ? 'w-[min(36rem,calc(100vw-2rem))] sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)]' : 'w-[min(22rem,calc(100vw-2rem))]')}
+            {...toolbarSurface('uier-locations', cx('z-[55] grid gap-0 rounded-xl p-0',
+                environment ? 'w-[min(36rem,calc(100vw-2rem))] sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)]' : 'w-[min(22rem,calc(100vw-2rem))]'))}
             trigger={(
                 <Button variant="outlined" aria-label={`${name}: ${summary}`} className="min-w-36 max-w-full flex-1 justify-between rounded-md font-normal"
                     startDecorator={value === 'current' || value.startsWith('page:') ? <File size={14} aria-hidden="true" className="shrink-0 text-muted-foreground" />

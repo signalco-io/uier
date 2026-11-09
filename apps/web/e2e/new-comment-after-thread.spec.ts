@@ -1,11 +1,22 @@
 import { expect, test, type Page } from '@playwright/test';
 import { commentBubble, commentBubbles, isolatedOrigin, newVisitor, openLanding, openThread } from './support/toolbar';
 
-/** Add comment, then a click on `selector`'s element: the new comment's composer */
+type Box = { x: number; y: number; width: number; height: number };
+const inside = (box: Box, x: number, y: number) => x >= box.x && x <= box.x + box.width && y >= box.y && y <= box.y + box.height;
+
+/**
+ * Add comment, then a click on `selector`'s element: the new comment's composer. On uier's own
+ * pages an open thread stays open while pointing (it can be commented on too), so the click is on a
+ * part of the element the thread does not cover.
+ */
 async function pointAt(page: Page, selector: string) {
     await page.getByRole('button', { name: 'Add comment', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Add comment', exact: true })).toHaveAttribute('aria-pressed', 'true');
     const box = (await page.locator(selector).first().boundingBox())!;
-    await page.mouse.click(box.x + 20, box.y + box.height / 2);
+    const threads = await Promise.all((await page.getByRole('dialog', { name: 'Comment thread', exact: true }).all()).map(thread => thread.boundingBox()));
+    const points = [0.5, 0.15, 0.85].flatMap(y => [20, box.width / 2, box.width - 20].map(x => [box.x + x, box.y + box.height * y] as const));
+    const [x, y] = points.find(([x, y]) => !threads.some(thread => thread && inside(thread, x, y))) ?? points[0]!;
+    await page.mouse.click(x, y);
     return page.getByRole('dialog', { name: 'New comment', exact: true });
 }
 
@@ -46,7 +57,8 @@ test('Add comment while a thread is open starts a new comment', async ({ browser
     const thread = page.getByRole('dialog', { name: 'Comment thread', exact: true });
     await expect(thread.getByRole('textbox', { name: 'Reply', exact: true })).toBeFocused();
 
-    // The thread is still open: Add comment closes it
+    // The thread is still open: on uier's own pages it stays open while pointing, and closes once a
+    // new comment is started on the page
     const second = await pointAt(page, 'main p');
     await expect(thread).toBeHidden();
     await expect(second.getByRole('textbox', { name: 'Comment', exact: true })).toBeFocused();

@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { CommentAnchor, CommentItemPosition, CommentPoint, CommentSelection, isCommentArea } from '../components/@types/Comments';
 import { getDomVersion, useLayoutVersion } from './useLayoutVersion';
-import { queryAnchorElements } from '../toolbarReview';
+import { nestedToolbarOpener, queryAnchorElements } from '../toolbarReview';
 import { getToolbarHost } from '../mount';
 import { isInActiveModal } from '../modalLayer';
 
@@ -24,6 +24,11 @@ function selectorMatches(selector: string | undefined): Element[] {
     return queryAnchorElements(selector);
 }
 
+/** The point's element: a toolbar part only in the popover, menu or panel its saved opener opens */
+function pointMatches(position: CommentPoint): Element[] {
+    return queryAnchorElements(position.selector, position.layer?.opener);
+}
+
 /** The element a comment is anchored to (the start of a text selection), if it is on the page */
 export function resolveAnchorElement(position: CommentItemPosition | null | undefined): Element | null {
     if (!position) {
@@ -32,7 +37,7 @@ export function resolveAnchorElement(position: CommentItemPosition | null | unde
 
     switch (position.type) {
         case 'text': return safeQuerySelector(position.startSelector);
-        case 'point': return safeQuerySelector(position.selector);
+        case 'point': return pointMatches(position)[0] ?? null;
         default: return null;
     }
 }
@@ -245,7 +250,7 @@ function fraction(value: number | undefined, fallback: number) {
 }
 
 function pointRects(position: CommentPoint): DOMRect[] {
-    const element = safeQuerySelector(position.selector);
+    const element = pointMatches(position)[0];
     if (!element || !isShown(element)) {
         return [];
     }
@@ -298,7 +303,7 @@ export function getCommentItemRects(position: CommentItemPosition | null | undef
                 const range = resolveTextRange(position);
                 return range ? shownRangeRects(range) : [];
             }
-            case 'point': return selectorMatches(position.selector).length === 1 ? pointRects(position) : [];
+            case 'point': return pointMatches(position).length === 1 ? pointRects(position) : [];
             default: return [];
         }
     } catch (error) {
@@ -307,18 +312,31 @@ export function getCommentItemRects(position: CommentItemPosition | null | undef
     }
 }
 
-export type CommentPlacement = { rects: DOMRect[]; state: AnchorState };
+/**
+ * `opener`: of a `closed` placement, the element it is on; `depth`, which of the saved openers that
+ * is (0 the outermost, then the `nested` toolbar openers in the layers they open)
+ */
+export type CommentPlacement = { rects: DOMRect[]; state: AnchorState; opener?: Element; depth?: number };
+
+const isExpanded = (element: Element) => element.getAttribute('aria-expanded') === 'true';
 
 /**
  * An anchor that is not shown (hidden or missing) in a menu, popover or dialog that is closed now:
  * placed on the element that opens it, while that element is shown and not expanded (when it is,
- * the layer is open and the anchor is really gone).
+ * the layer is open and the anchor is really gone). Of nested toolbar layers, the first closed one
+ * from the outside in: the thread's pin while the thread is closed, then Copy in the open thread.
  */
 function closedLayerPlacement(position: CommentAnchor): CommentPlacement | undefined {
     const matches = selectorMatches(position.layer?.opener);
-    const opener = matches.length === 1 ? matches[0] : undefined;
-    if (!opener || !isShown(opener) || opener.getAttribute('aria-expanded') === 'true') return undefined;
-    return { rects: [opener.getBoundingClientRect()], state: 'closed' };
+    let opener = matches.length === 1 ? matches[0] : undefined;
+    let depth = 0;
+    for (const selector of position.layer?.nested ?? []) {
+        if (!opener || !isExpanded(opener)) break;
+        opener = nestedToolbarOpener(selector, opener);
+        depth++;
+    }
+    if (!opener || !isShown(opener) || isExpanded(opener)) return undefined;
+    return { rects: [opener.getBoundingClientRect()], state: 'closed', opener, depth };
 }
 
 /**
@@ -329,7 +347,7 @@ export function getCommentPlacement(position: CommentItemPosition | null | undef
     try {
         if (!position || position.type === 'page') return { rects: [], state: 'page' };
         if (position.type === 'point') {
-            const matches = selectorMatches(position.selector);
+            const matches = pointMatches(position);
             if (matches.length > 1) return { rects: [], state: 'ambiguous' };
             const rects = matches.length ? pointRects(position) : [];
             return rects.length ? { rects, state: 'exact' }

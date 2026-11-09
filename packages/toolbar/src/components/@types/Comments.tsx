@@ -45,10 +45,13 @@ export type CommentPoint = {
 /**
  * The anchor is in a menu, popover or dialog that a page element opens (`layerAnchor.ts`): that
  * element's selector and its name ("Account"). While it is closed, the pin is on the opener.
+ * On uier's own pages, a toolbar layer inside another (Copy in a thread) adds `nested`: the
+ * toolbar buttons that open the inner layers, outside in, each in the layer the one before opens.
  */
 export type CommentLayer = {
     opener: string;
     label?: string;
+    nested?: string[];
 };
 
 /** Whether the point is a dragged area (both sizes set) */

@@ -94,7 +94,9 @@ function toLayerDto(layer: unknown): { layer: DbCommentLayer } | Record<string, 
     const opener = optionalString(value.opener);
     if (!opener) return {};
     const label = optionalString(value.label);
-    return { layer: { opener, ...(label ? { label } : {}) } };
+    const nested = Array.isArray(value.nested) && value.nested.length && value.nested.every(selector => typeof selector === 'string')
+        ? value.nested as string[] : undefined;
+    return { layer: { opener, ...(label ? { label } : {}), ...(nested ? { nested } : {}) } };
 }
 
 /** Copies only the known position fields (old documents may contain anything) */

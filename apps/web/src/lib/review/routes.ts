@@ -13,6 +13,7 @@ import { keyedHash } from '../comments/environment';
 import { pagePath, pageStatePolicy } from '@uier/toolbar/page-state';
 import { apiErrors, parseJsonBody } from '../comments/http';
 import { createCommentSchema, editThreadItemSchema, isValidId, reviewPathSchema, replySchema, rewriteRequestSchema, replaceScreenshotSchema } from '../comments/validation';
+import { assertNotToolbarAnchor } from './toolbarAnchors';
 import { isRewriteConfigured, suggestRewrites } from '../rewrite/suggest';
 import { MAX_COMMENT_BODY_BYTES } from '../comments/limits';
 import { screenshotResponse } from '../comments/screenshot';
@@ -98,6 +99,7 @@ export async function createReviewComment(context: ReviewApiContext) {
     const { request, project, actor, siteOrigin } = context;
     // A screenshot makes the body larger than other writes
     const input = await parseJsonBody(request, createSchema, MAX_COMMENT_BODY_BYTES);
+    assertNotToolbarAnchor(siteOrigin, input.position);
     const authorName = writerName(actor, input.authorName);
     const origin = projectReviewOrigin(project, request, siteOrigin)!;
     const approved = pageStatePolicy(project.pageState).queryParameters;
