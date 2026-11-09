@@ -27,8 +27,9 @@ export type LinkTab = {
  * Tabs that are links (a page or a filter kept in the URL), styled like shadcn's tabs:
  * `line` under a page header, `segmented` for a filter, `side` for the sections of a page (a column
  * beside them on wide screens, a row above them on small ones). The current tab has `aria-current`; a tab
- * whose page is loading shows a spinner at its end (the right edge of a `side` link on wide screens), and a
- * `query` tab switches at once, with neither. Opening a tab in a new tab or window loads its href.
+ * whose page is loading shows a spinner at its end (the right edge of a `side` link on wide screens; a `line` or
+ * `segmented` tab keeps the same space before its label, so the label stays centred), and a `query` tab
+ * switches at once, with neither. Opening a tab in a new tab or window loads its href.
  */
 export function LinkTabs({ tabs, label, variant = 'line', match = 'url', className }: {
     tabs: LinkTab[];
@@ -83,6 +84,8 @@ export function LinkTabs({ tabs, label, variant = 'line', match = 'url', classNa
                             variant === 'segmented' && 'h-7 rounded-md px-2.5 aria-[current=page]:bg-background aria-[current=page]:text-foreground aria-[current=page]:shadow-sm',
                             variant === 'side' && 'h-8 rounded-md px-3 hover:bg-muted aria-[current=page]:bg-muted aria-[current=page]:text-foreground'
                         )}>
+                        {/* The spinner's space on the other side too, so the label sits centred over its underline or pill */}
+                        {!query && variant !== 'side' && <span aria-hidden="true" className="size-4 shrink-0" />}
                         {tab.label}
                         {tab.count !== undefined && <span className="font-normal tabular-nums text-muted-foreground">{tab.count}</span>}
                         {/* Last, so the label and count stay together; at the right edge of a section link that fills its column */}
