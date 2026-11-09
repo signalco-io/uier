@@ -530,9 +530,10 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                     {comment.replies.map(item => <li key={item.id}>{reply(item)}</li>)}
                 </ol>
 
+                {/* Reply's icon lines up with the message text: past the 24px avatar and its 10px gap, less the button's 6px padding */}
                 {permissions.reply && (replying
                     ? <ReplyComposer projectId={projectId} userId={userId} userName={assignees.find(person => person.userId === userId)?.name} comment={comment} onClose={() => setReplying(false)} />
-                    : <Button variant="ghost" size="sm" className="-ml-2 self-start text-muted-foreground hover:text-foreground pointer-coarse:min-h-11" aria-keyshortcuts={replyShortcut} onClick={() => setReplying(true)}>
+                    : <Button variant="ghost" size="sm" className="ml-7 self-start text-muted-foreground hover:text-foreground pointer-coarse:min-h-11" aria-keyshortcuts={replyShortcut} onClick={() => setReplying(true)}>
                         <ReplyIcon data-icon="inline-start" />Reply
                     </Button>)}
 
