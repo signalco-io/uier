@@ -12,10 +12,11 @@ test('broker envelopes reject unknown operations, credentials, headers and malfo
         { type: 'capture', region: { left: 0 } },
         { type: 'helper-job', nonce: 'forged' },
         { type: 'verified', nonce: 'a'.repeat(43), proof: { token: 'proof', expiresAt: NaN } },
-        { type: 'sign-out', token: 'secret' }, { type: 'state', tabId: 1 }]) {
+        { type: 'sign-out', token: 'secret' }, { type: 'state', tabId: 1 },
+        { type: 'update', version: '9.9.9' }, { type: 'install-update', url: 'https://example.test/uier.crx' }]) {
         assert.throws(() => parseWorkerMessage(value), 'Unsupported extension message');
     }
-    for (const value of [{ type: 'state' }, { type: 'exit' }, { type: 'exit', tabId: 2 },
+    for (const value of [{ type: 'state' }, { type: 'update' }, { type: 'install-update' }, { type: 'exit' }, { type: 'exit', tabId: 2 },
         { type: 'start', tabId: 2, projectId: 'a', publicId: 'b' },
         { type: 'draft', key: 'uier:draft:v1:scoped', value: null },
         { type: 'request', url: 'https://uier.io/api/review/a/comments', method: 'POST', body: { text: 'feedback' } },

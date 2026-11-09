@@ -1,6 +1,6 @@
 {
   "name": "@uier/extension",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "type": "module",
   "license": "AGPL-3.0-only",
@@ -18,7 +18,8 @@
     "test:browser": "playwright test",
     "build:hosted-test": "node scripts/build.mjs --hosted-test",
     "test:package": "node scripts/prepare-package.mjs && UIER_EXTENSION_TEST_PACKAGE=1 playwright test",
-    "store:assets": "node scripts/store-assets.mjs"
+    "store:assets": "node scripts/store-assets.mjs",
+    "release:version": "node scripts/release-plan.mjs version"
   },
   "dependencies": {
     "@uier/extension-core": "workspace:*"

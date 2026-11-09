@@ -2,9 +2,10 @@
 
 Version 0.1.2 is published publicly. Native Chrome and Edge automatically upgraded from 0.1.1
 and passed post-update acceptance. The production installation link is live, and the deployed
-allowlist contains only the stable store client. Version 0.1.4 is prepared: it drops the
-popup's development-preview label, redesigns the popup, verification helper and icons, and needs
-its own protected tag, submission and review. Repeat the hosted helper check before submitting it.
+allowlist contains only the stable store client. Version 0.1.5 is prepared: it adds the popup's
+[update notice](browser-extension.md#updates) and carries the unsubmitted 0.1.3/0.1.4 changes (the
+popup, verification helper and icon redesign, and the shared Firefox build). Their tags exist, but
+their Chrome submissions were cancelled. Repeat the hosted helper check before submitting it.
 Read [the runtime design and hosted gate](browser-extension.md) first. This runbook covers the
 Chrome Web Store. [Firefox release automation](browser-extension-firefox-release.md)
 covers its protected environment, source builds, validation, submission and recovery.
@@ -215,6 +216,25 @@ package tests. Review activation was stopped afterwards; owner-approved persiste
 
 The desktop Chrome/Edge, store, release and public installation gates for #268 are complete.
 Native Edge Add-ons and other browser/mobile/guest-extension work remain separate follow-ups.
+
+## Regular releases
+
+The extension packages the toolbar, so releases follow the toolbar. Every Monday, **Extension release
+prepare** compares shipped source (`shippedPaths` in `apps/extension/scripts/release-plan.mjs`:
+the toolbar, the extension runtime and build, and the brand) with the newest `extension-v*` tag.
+When it changed, the job opens `chore(extension): release X.Y.Z` from `extension-release/vX.Y.Z`
+with the list of changes. The bump sets both browser packages and the web app's
+`latestExtensionVersion` (`pnpm -C apps/extension release:version X.Y.Z`); a test keeps them equal.
+Pull requests opened with `GITHUB_TOKEN` start no workflows, so the job dispatches **CI** on the
+branch, which reports the required **CI OK** check. Dispatch it again after pushing to that branch.
+Dependency-only updates wait for the next source change, or a manual run with **force**.
+
+The job cannot create the release tag; tag creation is limited to release owners. After merging, an
+owner creates `extension-vX.Y.Z` on main (the pull request has the command) and approves the
+`extension-production` review. While a merged version has no tag, the weekly run fails with that
+instruction instead of preparing another version. The bump also changes the web app, so its deploy
+makes `/api/extension/version` report the new version; installed packages offer the update once
+the store has published it ([Updates](browser-extension.md#updates)).
 
 ## Build, dry-run and submit
 

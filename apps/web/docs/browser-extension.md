@@ -26,6 +26,11 @@ transport from syntactically valid enabled extension origins, while all identity
 live token. No web origin gets that transport grant.
 No app cookie reaches the worker. Read [the design and remaining gates](../../../docs/browser-extension.md).
 
+`GET /api/extension/version` is public and secret-free: it returns `latestExtensionVersion` from
+`src/lib/extension/release.ts`, the newest version on main, which `release:version` keeps equal to the
+browser packages. Installed packages compare it before asking the browser for a store update
+([Updates](../../../docs/browser-extension.md#updates)).
+
 Installation uses the script/extension tabs in InstallGuide. Keep Check installation inside the
 script tab; comment activity does not prove embed installation. BrowserExtensionGuide reads the
 server-only distribution gate (UIER_EXTENSION_AVAILABLE=1, valid STORE_ID also in CLIENT_IDS).

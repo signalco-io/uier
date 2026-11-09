@@ -128,6 +128,24 @@ A Firefox build is not a store publication. Its release gates require native hos
 screenshot, navigation and installed-update receipts. Chrome/Edge receipts below apply to those
 published versions only.
 
+## Updates
+
+The extension packages the toolbar, so toolbar changes reach reviewers only through a store
+release ([regular releases](browser-extension-release.md#regular-releases)). It never loads the
+toolbar from uier.io: stores forbid remotely hosted code, the reviewed page's CSP would block a page
+script, and the worker's credentials must stay out of the page. Browsers check the store every few
+hours and install a download once the extension is idle, which can wait for a browser restart.
+
+`GET /api/extension/version` reports the newest version on main. When the popup opens, the worker
+reads it at most once an hour per browser session (`src/update.ts`). Only when it is newer than the
+installed package does the worker call `runtime.requestUpdateCheck()`, the one use Chrome documents
+for that API. The worker also records `runtime.onUpdateAvailable`. Once the browser has the
+download, the popup shows **Update ready** with **Restart and update**: the worker removes active
+toolbars, then reloads the extension so the browser installs it. A restart, like every update,
+clears session storage: active reviews, proofs and unsent drafts end, and sign-in remains. A version
+still in store review shows nothing. The check uses the existing API host permission and sends no
+credentials. Temporary and unpacked installations have no store and never offer an update.
+
 ## Local loading
 
 1. Run Node 26 and the pinned Corepack pnpm. Run pnpm install, then pnpm build.
