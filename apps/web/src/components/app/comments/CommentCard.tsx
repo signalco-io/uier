@@ -133,6 +133,10 @@ function AssigneeAvatar({ assignee }: { assignee?: ProjectCommentView['assignee'
     );
 }
 
+/** A thread detail's label and value: one row height for text and controls alike (`h-7` ghost controls fit) */
+const detailLabelClass = 'flex h-8 items-center text-muted-foreground pointer-coarse:h-11';
+const detailValueClass = 'm-0 flex min-h-8 min-w-0 flex-wrap items-center pointer-coarse:min-h-11';
+
 /** "Feedback", "Bug report" or "Suggested rewrite" above the first message, as in the toolbar */
 function KindLabel({ kind }: { kind: DbCommentKind }) {
     if (kind === 'comment')
@@ -434,11 +438,13 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                 </div>
                 <CopyIssueResult state={copyIssue} />
 
-                {/* What it is about and where: the element or text, the page (it opens the review there) and its environment */}
-                <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-1.5 text-sm">
-                    <dt className="text-muted-foreground">On</dt>
-                    {/* The selector beside the label while it fits, else on its own line */}
-                    <dd className="m-0 flex min-w-0 flex-wrap items-baseline gap-x-2">
+                {/* What it is about and where: the element or text, the page (it opens the review there) and its environment.
+                    A properties list: every row is one control tall (44px on touch screens), labels and values centred on it,
+                    and a ghost control pulled left by its padding so its text starts where plain text does. */}
+                <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 text-sm" data-thread-details>
+                    <dt className={detailLabelClass}>On</dt>
+                    {/* The selector beside the label while it fits, else on its own line; padded so its first line sits where a one-line row's does */}
+                    <dd className="m-0 flex min-h-8 min-w-0 flex-wrap items-baseline gap-x-2 py-1.5 pointer-coarse:min-h-11 pointer-coarse:py-3">
                         <span className="min-w-0 break-words">{anchor.label}</span>
                         {(anchor.type === 'element' || anchor.type === 'area') && (
                             <SelectorCode selector={anchor.selector} className="min-w-0" />
@@ -447,8 +453,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                             <blockquote className="m-0 mt-1 line-clamp-4 basis-full border-l-2 border-border pl-2.5 text-secondary-foreground">{anchor.text}</blockquote>
                         )}
                     </dd>
-                    <dt className="text-muted-foreground">Page</dt>
-                    <dd className="m-0 flex min-w-0 flex-wrap items-center gap-x-2">
+                    <dt className={detailLabelClass}>Page</dt>
+                    <dd className={`${detailValueClass} gap-x-2`}>
                         {source.available ? (
                             <a href={reviewLink} target="_blank" rel="noopener"
                                 className="-mx-1 inline-flex min-w-0 items-center gap-1 rounded-md px-1 text-sm underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none pointer-coarse:min-h-11">
@@ -459,11 +465,11 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                         ) : <span className="truncate font-mono text-xs">{comment.path}</span>}
                         {sourceText && <span className="min-w-0 truncate text-xs text-muted-foreground">{sourceText}</span>}
                     </dd>
-                    <dt className="text-muted-foreground">Priority</dt>
-                    <dd className="m-0"><PriorityControl projectId={projectId} commentId={comment.id} priority={comment.priority} canEdit={permissions.triage} /></dd>
-                    <dt className="text-muted-foreground">Assignee</dt>
+                    <dt className={detailLabelClass}>Priority</dt>
+                    <dd className={detailValueClass}><PriorityControl projectId={projectId} commentId={comment.id} priority={comment.priority} canEdit={permissions.triage} /></dd>
+                    <dt className={detailLabelClass}>Assignee</dt>
                     {/* The assignee, then the AI agent working with them (its logo and name, `AgentControl`) */}
-                    <dd className="m-0 flex min-w-0 flex-wrap items-center gap-x-1">
+                    <dd className={`${detailValueClass} gap-x-1`}>
                         {/* The list of people for those who can assign */}
                         {permissions.assign ? (
                             <DropdownMenu>
@@ -502,7 +508,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         ) : (
-                            <span role="img" aria-label={assigned} className="inline-flex items-center gap-2">
+                            <span role="img" aria-label={assigned} className="inline-flex min-w-0 items-center gap-2.5">
                                 <AssigneeAvatar assignee={comment.assignee} />
                                 <span aria-hidden="true">{comment.assignee?.name ?? 'Unassigned'}</span>
                             </span>

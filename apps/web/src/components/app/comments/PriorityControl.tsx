@@ -4,7 +4,6 @@ import { useRef, useTransition } from 'react';
 import { CheckIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { priorities, priorityLabels, type CommentPriority } from '@uier/toolbar/triage';
-import { Badge } from '@/src/components/ui/badge';
 import { Button } from '@/src/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from '@/src/components/ui/dropdown-menu';
 import { setCommentPriorityAction } from './actions';
@@ -16,9 +15,9 @@ export function PriorityControl({ projectId, commentId, priority, canEdit }: { p
     const [pending, start] = useTransition();
     const update = useCommentUpdate();
     const attempt = useRef<{ value: CommentPriority; key: string } | null>(null);
-    if (!canEdit) return <Badge variant="outline"><PriorityFlag priority={priority} /><span className="sr-only">Priority: </span>{priorityLabels[priority]}</Badge>;
+    if (!canEdit) return <span className="inline-flex items-center gap-1.5"><PriorityFlag priority={priority} className="size-3.5" /><span className="sr-only">Priority: </span>{priorityLabels[priority]}</span>;
     return <DropdownMenu>
-        <DropdownMenuTrigger render={<Button variant="ghost" size="xs" className="pointer-coarse:min-h-11 pointer-coarse:min-w-11" disabled={pending} aria-label={`Priority: ${priorityLabels[priority]}. Change priority`} />}>
+        <DropdownMenuTrigger render={<Button variant="ghost" size="sm" className="-ml-1.5 h-7 gap-1.5 px-1.5 font-normal pointer-coarse:min-h-11 pointer-coarse:min-w-11" disabled={pending} aria-label={`Priority: ${priorityLabels[priority]}. Change priority`} />}>
             <PriorityFlag priority={priority} data-icon="inline-start" className="size-3.5" />
             {priorityLabels[priority]}
         </DropdownMenuTrigger>
