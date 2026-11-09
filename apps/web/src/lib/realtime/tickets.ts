@@ -62,8 +62,24 @@ export function readRealtimeTicket(token: string, origin: string, apiOrigin: str
     return claims;
 }
 
+/** Share only overlapping work. A settled result, including a rejection, is never retained. */
+export function createRealtimeAuthorizer(read: (claims: RealtimeClaims) => Promise<ProjectActor>) {
+    const pending = new Map<string, Promise<ProjectActor>>();
+    return (claims: RealtimeClaims): Promise<ProjectActor> => {
+        const identity = claims.identity;
+        const key = JSON.stringify([claims.audience, claims.domain, claims.projectId, claims.workspaceId,
+            claims.origin, claims.apiOrigin, identity.kind,
+            identity.kind === 'member' ? identity.userId : identity.kind === 'guest' ? identity.visitorId : undefined]);
+        const existing = pending.get(key);
+        if (existing) return existing;
+        const current = Promise.resolve().then(() => read(claims)).finally(() => { pending.delete(key); });
+        pending.set(key, current);
+        return current;
+    };
+}
+
 /** Recheck membership, role, project access and the reviewed address throughout an open session. */
-export async function authorizeRealtime(claims: RealtimeClaims): Promise<ProjectActor> {
+async function readRealtimeActor(claims: RealtimeClaims): Promise<ProjectActor> {
     if (claims.audience === 'app' && claims.identity.kind !== 'member') throw apiErrors.forbidden();
     if (!claims.projectId) {
         if (claims.audience !== 'showcase' || claims.identity.kind === 'member') throw apiErrors.forbidden();
@@ -79,3 +95,5 @@ export async function authorizeRealtime(claims: RealtimeClaims): Promise<Project
     if (claims.audience !== 'app') assertCanUseComments(project, actor);
     return actor;
 }
+
+export const authorizeRealtime = createRealtimeAuthorizer(readRealtimeActor);

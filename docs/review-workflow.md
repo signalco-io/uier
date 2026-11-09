@@ -636,7 +636,11 @@ reads the new activity it shows, after the same 800 ms as on opening.
 
 While connected, the toolbar keeps one safety round every 60 seconds. If WebSockets are blocked
 or unavailable, the adaptive 15/30/60-second cadence above applies. The app has a 30-second fallback
-and a 60-second safety refresh while connected. Hidden/offline views close their socket; collapsed
+and a 60-second safety check while connected. The app compares an opaque revision of the current
+authorized comments snapshot before idle/foreground refreshes; unchanged checks skip the full shell
+render. Actual comment-change notifications still refresh immediately. A full shell safety refresh
+remains every five visible/online minutes for unrelated sidebar changes. Hidden/offline views close
+their socket; collapsed
 reviews and unmounted pages unsubscribe. Reconnection uses exponential backoff with jitter.
 The packaged extension retains its brokered adaptive HTTP refresh in this first implementation.
 

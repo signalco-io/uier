@@ -290,11 +290,11 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
 }
 
 /** Every comment of the project the app user can see (all pages), newest first */
-export async function loadProjectComments(context: AppContext, project: DbProject, environment?: string, authorId?: string, onWindow?: (capped: boolean) => void) {
+export async function loadProjectComments(context: AppContext, project: DbProject, environment?: string, authorId?: string, onWindow?: (capped: boolean) => void, membersForRequest?: ReturnType<typeof listProjectMembers>) {
     const actor = appActor(context);
     const [comments, members, reads, subscriptions] = await Promise.all([
         listProjectComments(project, actor, undefined, environment ? environmentFilter(project, environment) : undefined, authorId, onWindow),
-        listProjectMembers(project.workspaceId, project.id),
+        membersForRequest ?? listProjectMembers(project.workspaceId, project.id),
         loadReadSequences(`project:${project.id}`, `user:${context.user.id}`),
         getAppStore().query<NotificationSubscription>({ type: 'notification-subscription', pk: notificationPk(project.id), where: { actorId: `user:${context.user.id}` } })
     ]);

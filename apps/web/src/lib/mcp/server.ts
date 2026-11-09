@@ -14,7 +14,7 @@ import { MAX_SCREENSHOT_BYTES } from '../comments/limits';
 import { idempotencyKeySchema, reviewPathSchema, textSchema } from '../comments/validation';
 import { getProjectComment, getProjectScreenshot, listProjectComments, MAX_PROJECT_COMMENTS, replyToProjectComment, setProjectCommentAssignee, setProjectCommentAssignees, setProjectCommentResolved, setProjectCommentStatus } from '../review/comments';
 import { actorAuthorId, assertCanUseComments } from '../review/actor';
-import { projectFeedbackExport } from '../review/feedbackContext';
+import { createProjectFeedbackExportReader, projectFeedbackExport } from '../review/feedbackContext';
 import { manualThreadTitle, threadTitle } from '../titles/model';
 import { loadAiTitlesEnabled } from '../titles/threadTitles';
 import { sha256Hex } from '../app/tokens';
@@ -145,12 +145,13 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
     }));
     server.registerTool('get_feedback_batch', { description: `Read 1–10 distinct authorized threads in request order without marking them read. Missing, deleted and inaccessible threads return not_found. Only whole packets fit within 256 KiB; retry remainingIds separately. ${untrusted}`, inputSchema: batchInput, annotations: readAnnotations }, input => safely(async () => {
         const { project, actor } = await mcpProject(identity, input.projectId);
+        const exportFeedback = createProjectFeedbackExportReader(project, actor, undefined, baseUrl);
         const items: Record<string, unknown>[] = [];
         const response = (entries: Record<string, unknown>[], remainingIds: string[]) => ({ actingAs, contentTrust: 'untrusted', items: entries, remainingIds });
         for (const [index, id] of input.commentIds.entries()) {
             let item: Record<string, unknown>;
             try {
-                const packet = await projectFeedbackExport(project, actor, id, undefined, baseUrl);
+                const packet = await exportFeedback(id);
                 const screenshotResource = packet.context.screenshot.state === 'protected' && identity.scopes.includes('screenshots:read')
                     ? { uri: `uier://projects/${project.id}/feedback/${id}/screenshot`, access: 'Use resources/read with this connection. No public image URL is issued.' } : undefined;
                 item = { commentId: id, ...packet, screenshotResource };

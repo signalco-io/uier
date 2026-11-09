@@ -227,12 +227,21 @@ fallback selection for MCP input. Other filters apply only within that window. R
 owner's cursor after filtering visibility; never acknowledge it. Deleted first messages omit
 author kind and screenshot presence, and author ids never enter summaries.
 
-`get_feedback_batch` accepts 1–10 distinct ids and reuses `projectFeedbackExport` in request order.
+`get_feedback_batch` accepts 1–10 distinct ids and reuses the shared packet exporter in request order.
+`createProjectFeedbackExportReader` creates one lazy enrichment context for that call: participant
+names, each author account and the title setting are loaded once when needed. The context never
+survives the request; every packet still loads its own thread and checks visibility before any
+enrichment or screenshot lookup. Independent author/participant reads run together. Packets stay
+sequential so reaching the byte budget does not start reads for later retry ids.
 Missing, deleted and private ids share `not_found`; individually oversized packets return
 `too_large`. Its 256 KiB cap preserves whole packets and returns `remainingIds` for retry.
 Screenshot resources require both a protected exported image and `screenshots:read`. Every call
-rechecks scope, selected projects and current membership through `mcpProject`. Batching reduces
-transport requests, not per-thread export storage reads. Keep `get_feedback`'s contract stable.
+rechecks scope, selected projects and current membership through `mcpProject`. Thread and screenshot
+reads stay per packet; only display enrichment is shared, with no cross-request authorization cache.
+`e2e/mcp-batch-enrichment.api.spec.ts` compares identical unshared/shared packets and actual store
+read boundaries: ten titled threads by one current member use 20 → 2 user reads, 10 → 1 project
+reads, 10 → 1 workspace-setting reads and 20 → 2 workspace queries. These are in-memory operation
+counts, not measured Cosmos RU or hosted latency. Keep `get_feedback`'s contract stable.
 
 Project comment rate limits use only server-resolved actors: members get 100 new comments and 300
 replies per project per hour and skip the 30-write shared IP budget. Guests keep visitor limits

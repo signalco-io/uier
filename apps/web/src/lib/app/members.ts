@@ -5,7 +5,7 @@ import { avatarUrl } from './avatars';
 import { listWorkspaceMembers } from './workspaces';
 import { getAppStore } from './store';
 import { workspacePk, type DbProject } from './model';
-import { hasProjectAccess, loadWorkspaceAccessForRender } from './access';
+import { hasProjectAccess, loadWorkspaceAccessForRender, type AccessSnapshot } from './access';
 import { publicProjectMember } from '../comments/publicProjectPolicy';
 
 export type MemberWithUser = {
@@ -29,9 +29,14 @@ export async function listMembersWithUsers(workspaceId: string): Promise<MemberW
         .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** Select against the current request's live project/access, including public staff policy. */
+export function membersWithProjectAccess(members: MemberWithUser[], project: DbProject, access: AccessSnapshot) {
+    return members.filter(({ member, user }) => user && hasProjectAccess(access, member, project));
+}
+
 /** Members who can review the project (admins and commenters with access) */
 export const listProjectMembers = cache(async (workspaceId: string, projectId: string) => {
     const [members, access, stored] = await Promise.all([listMembersWithUsers(workspaceId), loadWorkspaceAccessForRender(workspaceId), getAppStore().get<DbProject>(workspacePk(workspaceId), projectId)]);
     const project = stored?.doc;
-    return project?.type === 'project' && project.workspaceId === workspaceId ? members.filter(({ member, user }) => user && hasProjectAccess(access, member, project)) : [];
+    return project?.type === 'project' && project.workspaceId === workspaceId ? membersWithProjectAccess(members, project, access) : [];
 });

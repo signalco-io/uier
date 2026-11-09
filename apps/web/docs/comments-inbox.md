@@ -200,3 +200,15 @@ matches any person in the assignment; Unassigned means the array is empty. My wo
 once even when several people are assigned. Realtime refreshes reuse the authorized snapshot and
 keep open composers and drafts. The same shared row renders in My work. `multiple-assignees.spec.ts`
 covers both themes on desktop/mobile, app/toolbar assignment, agents, filters, My work and realtime.
+
+
+### Idle snapshot checks
+
+`RealtimeComments` receives the revision of the server snapshot shown by `ProjectComments`.
+Ready/foreground and periodic safety signals compare it with the same authorized view on the server
+before a full refresh. Unchanged views preserve the existing shell, selected thread, composers,
+focus and optimistic updates. Actual socket changes still refresh immediately. The next baseline
+always comes from the completed page render, not the earlier check. Session/access loss and failed
+checks use the normal server page to reconcile. Hidden/offline views never refresh from late check
+responses. A full five-minute shell safety refresh keeps unrelated sidebar changes bounded;
+[app shell](app-shell.md#idle-comments-refreshes) describes the cost and freshness tradeoff.

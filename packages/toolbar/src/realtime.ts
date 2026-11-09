@@ -2,9 +2,11 @@
 export type RealtimeTicket = { url: string; token: string };
 export type RealtimeEvent = { type: 'ready' | 'comments.changed' };
 
+export type RealtimeChangeReason = 'ready' | 'change' | 'foreground' | 'ended';
+
 export type RealtimeSubscription = {
     ticket: () => Promise<RealtimeTicket | undefined>;
-    changed: () => void;
+    changed: (reason: RealtimeChangeReason) => void;
     connected?: (value: boolean) => void;
     /** The toolbar already owns foreground reconciliation in its HTTP scheduler. */
     refreshOnForeground?: boolean;
@@ -19,18 +21,25 @@ export function subscribeToComments({ ticket, changed, connected, refreshOnForeg
     let retry: ReturnType<typeof setTimeout> | undefined;
     let handshake: ReturnType<typeof setTimeout> | undefined;
     let notification: ReturnType<typeof setTimeout> | undefined;
+    let notificationReason: RealtimeChangeReason | undefined;
     let delay = 1_000;
     const active = () => !disposed && document.visibilityState === 'visible' && navigator.onLine;
-    const notify = () => {
+    const notify = (reason: RealtimeChangeReason) => {
+        // A content change wins over a foreground/readiness check in the same short burst.
+        if (notificationReason !== 'change') notificationReason = reason;
         if (notification) return;
-        notification = setTimeout(() => { notification = undefined; if (active()) changed(); }, 150);
+        notification = setTimeout(() => {
+            notification = undefined;
+            const next = notificationReason; notificationReason = undefined;
+            if (active() && next) changed(next);
+        }, 150);
     };
     const stop = () => {
         generation++;
         connecting = false;
         clearTimeout(retry); retry = undefined;
         clearTimeout(handshake); handshake = undefined;
-        clearTimeout(notification); notification = undefined;
+        clearTimeout(notification); notification = undefined; notificationReason = undefined;
         const previous = socket;
         socket = undefined;
         previous?.close();
@@ -72,8 +81,8 @@ export function subscribeToComments({ ticket, changed, connected, refreshOnForeg
                         connected?.(true);
                         // Subscribe, then read: covers edits between the initial HTTP snapshot and
                         // the subscription, and anything missed during a disconnect or deployment.
-                        notify();
-                    } else if (data?.type === 'comments.changed') notify();
+                        notify('ready');
+                    } else if (data?.type === 'comments.changed') notify('change');
                 } catch { /* Ignore unknown provider frames. */ }
             };
             current.onerror = () => current.close();
@@ -84,7 +93,7 @@ export function subscribeToComments({ ticket, changed, connected, refreshOnForeg
                 connected?.(false);
                 // An ended authorized session can mean revoked access. Reconcile it immediately;
                 // failed upgrades keep the normal polling cadence instead of causing read bursts.
-                if (ready) notify();
+                if (ready) notify('ended');
                 schedule();
             };
         } catch {
@@ -94,7 +103,7 @@ export function subscribeToComments({ ticket, changed, connected, refreshOnForeg
     const foreground = () => {
         if (!active()) { stop(); return; }
         // Focus can occur while a healthy connection is open. Reuse it and reconcile HTTP state.
-        if (refreshOnForeground) notify();
+        if (refreshOnForeground) notify('foreground');
         if (!socket && !connecting) { clearTimeout(retry); retry = undefined; void connect(); }
     };
     document.addEventListener('visibilitychange', foreground);
