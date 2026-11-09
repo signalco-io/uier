@@ -11,6 +11,7 @@ import { floatingShadowClassName } from '../@types/Comments';
 import { useHoverPopover } from '../../hooks/useHoverPopover';
 import { BrowserMark, OsMark } from './DeviceMark';
 import { deviceSettings } from '../../devices';
+import { toolbarSurface } from '../../toolbarReview';
 
 const sizeLabels: Record<CommentDeviceSize, string> = {
     desktop: 'Desktop',
@@ -96,7 +97,7 @@ export function CommentDevice({ device, reproduction }: DeviceProps) {
             {...popover.root}
             align="start"
             aria-label={reproduction ? 'Device and browser' : 'Device'}
-            className={cx('z-[70] flex w-72 flex-col gap-3 rounded-xl p-3', floatingShadowClassName)}
+            {...toolbarSurface('uier-device', cx('z-[70] flex w-72 flex-col gap-3 rounded-xl p-3', floatingShadowClassName))}
             trigger={(
                 <Button
                     variant="plain"

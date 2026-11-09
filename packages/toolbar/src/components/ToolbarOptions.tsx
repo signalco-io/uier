@@ -21,6 +21,7 @@ import { floatingShadowClassName } from './@types/Comments';
 import { toolbarConfig } from '../config';
 import { addCommentShortcut, setShortcutsEnabled, useShortcutsEnabled } from '../shortcuts';
 import { useKeyboardHint } from './ComposerFooter';
+import { toolbarSurface } from '../toolbarReview';
 
 type ToolbarOptionsProps = {
     /** The reviewed project in the uier app (a review of a project's site, or a link with a project code) */
@@ -101,7 +102,7 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition }: To
             sideOffset={12}
             align="end"
             aria-label="Options"
-            className={cx('w-auto min-w-48 max-w-72 rounded-xl p-1', floatingShadowClassName)}
+            {...toolbarSurface('uier-options', cx('w-auto min-w-48 max-w-72 rounded-xl p-1', floatingShadowClassName))}
             trigger={(
                 <IconButton
                     variant="plain"

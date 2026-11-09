@@ -16,7 +16,7 @@ import { CommentAreaHighlight } from './CommentAreaHighlight';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
-import { toolbarAnchorPrefix } from '../toolbarReview';
+import { holdsLayersAttribute, isToolbarAnchor, toolbarOpener, toolbarPinId, toolbarSurface } from '../toolbarReview';
 import { RewriteSuggestions } from './RewriteSuggestions';
 import { ScreenshotDisclosure } from './ScreenshotDisclosure';
 import { CommentDraft, CommentItem, CommentItemPosition, commentTextMaxLength, floatingShadowClassName, isCommentArea } from './@types/Comments';
@@ -195,11 +195,28 @@ export function CommentBubble(props: CommentBubbleProps) {
         onCanceled?.();
     };
 
+    // On uier's own pages: a comment on a part of the toolbar, whose pin, thread and composer keep
+    // that part's popover open, above the toolbar's popovers and menus (toolbarReview.ts)
+    const onToolbar = isToolbarAnchor(position);
+    const holdsLayers = onToolbar ? { [holdsLayersAttribute]: '' } : {};
+
     // The thread opens (and takes the focus, its reply box) once the pin is on the page; a pin
-    // outside the window (a comment link) is scrolled into view first
+    // outside the window (a comment link) is scrolled into view first. A comment in a closed
+    // popover or panel of the toolbar opens it first, with the button that opens it.
     const hasRect = Boolean(lastRect);
+    const openedLayerRef = useRef(false);
     useEffect(() => {
-        if (autoOpen && hasRect) {
+        if (!autoOpen) {
+            openedLayerRef.current = false;
+            return;
+        }
+        const opener = closedLayer && position.type !== 'page' ? toolbarOpener(position.layer?.opener) : undefined;
+        if (opener && hasRect && !openedLayerRef.current) {
+            openedLayerRef.current = true;
+            opener.click();
+            return;
+        }
+        if (hasRect) {
             const rect = triggerRef.current?.getBoundingClientRect();
             if (rect && (rect.top < 0 || rect.bottom > window.innerHeight)) {
                 scrollAnchorIntoView(position, lastRect, 'auto', closedLayer);
@@ -207,7 +224,7 @@ export function CommentBubble(props: CommentBubbleProps) {
             setOpen(true);
             onAutoOpened?.();
         }
-    }, [autoOpen, hasRect, onAutoOpened, position]);
+    }, [autoOpen, hasRect, closedLayer, onAutoOpened, position]);
 
     // Bubbles are fixed to their anchor; when one gets the focus off-screen, scroll it into view
     const handleFocus = () => {
@@ -222,6 +239,16 @@ export function CommentBubble(props: CommentBubbleProps) {
     if (!lastRect && !creating) {
         return null;
     }
+
+    // Bounded by the space the window has left, so the reply box always stays visible
+    const popoverClassName = cx(
+        onToolbar ? 'z-[78]' : 'z-[60]',
+        'flex max-h-[min(var(--radix-popover-content-available-height),36rem)] flex-col rounded-xl',
+        // A rewrite (text box and suggestions) scrolls as a whole: when it is clipped, the
+        // browser would scroll the page to show the caret, and the popover follows its pin
+        rewriting ? 'overflow-y-auto overscroll-contain' : 'overflow-hidden',
+        floatingShadowClassName
+    );
 
     return (
         <>
@@ -240,7 +267,10 @@ export function CommentBubble(props: CommentBubbleProps) {
                     <button
                         ref={triggerRef}
                         type="button"
+                        // Names the pin when it opens the thread a comment on the toolbar is in
+                        id={commentItem && !sending ? toolbarPinId(commentItem.id) : undefined}
                         data-uier-comment={commentItem?.id ?? newCommentDraftKey}
+                        {...holdsLayers}
                         // The same number as the thread header, the inbox and the app ("Comment #6, 3 messages")
                         aria-label={creating
                             ? newLabel
@@ -251,8 +281,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                         className={cx(
                             'group fixed cursor-pointer rounded-full pointer-coarse:p-1.5',
                             // A hovered or focused pin comes in front of the pins it overlaps
-                            position.type === 'point' && position.selector.startsWith(toolbarAnchorPrefix)
-                                ? 'z-[55] hover:z-[56] focus-visible:z-[56]' : 'z-[48] hover:z-[49] focus-visible:z-[49]',
+                            onToolbar ? 'z-[75] hover:z-[76] focus-visible:z-[76]' : 'z-[48] hover:z-[49] focus-visible:z-[49]',
                             sending && 'opacity-70',
                             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                             className
@@ -273,14 +302,10 @@ export function CommentBubble(props: CommentBubbleProps) {
                     </button>
                 )}
                 aria-label={creating ? newLabel : sending ? 'Sending comment' : 'Comment thread'}
-                // Bounded by the space the window has left, so the reply box always stays visible
-                className={cx(
-                    'z-[60] flex max-h-[min(var(--radix-popover-content-available-height),36rem)] flex-col rounded-xl',
-                    // A rewrite (text box and suggestions) scrolls as a whole: when it is clipped, the
-                    // browser would scroll the page to show the caret, and the popover follows its pin
-                    rewriting ? 'overflow-y-auto overscroll-contain' : 'overflow-hidden',
-                    floatingShadowClassName
-                )}
+                {...holdsLayers}
+                // A saved thread is a part of the toolbar that can be reviewed on uier's own pages; the
+                // comment being written is not
+                {...(commentItem ? toolbarSurface('uier-thread', popoverClassName) : { className: popoverClassName })}
                 sideOffset={-32}
                 align="start"
                 alignOffset={32}

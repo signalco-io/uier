@@ -16,7 +16,7 @@ import { ToolbarProfile } from './ToolbarProfile';
 import { ToolbarOptions } from './ToolbarOptions';
 import { ToolbarFeedback } from './ToolbarFeedback';
 import { useToolbarMovement } from '../hooks/useReviewMovement';
-import { canReviewToolbar } from '../toolbarReview';
+import { canReviewToolbar, holdsLayersAttribute } from '../toolbarReview';
 import { addCommentShortcut, useShortcutsEnabled } from '../shortcuts';
 
 type CommentToolbarProps = {
@@ -187,6 +187,8 @@ export function CommentToolbar({
                                 aria-label="Add comment"
                                 aria-keyshortcuts={shortcut}
                                 aria-pressed={creatingPointComment}
+                                // On uier's own pages the toolbar's open popovers stay open to be pointed at
+                                {...{ [holdsLayersAttribute]: '' }}
                                 // Pressed: white on the black pill (21:1), not a faint tint
                                 variant={creatingPointComment ? 'solid' : 'plain'}
                                 className="rounded-full"
@@ -201,6 +203,8 @@ export function CommentToolbar({
                                 variant="plain"
                                 className="relative rounded-full"
                                 aria-expanded={sidebarOpen}
+                                // The inbox is the `DockablePanel` "inbox"; a comment on it saves this button as its opener
+                                aria-controls={sidebarOpen ? 'uier-panel-inbox' : undefined}
                                 onClick={onToggleSidebar}
                                 aria-label={commentsLabel ? `Inbox, ${commentsLabel}` : 'Inbox'}>
                                 <Inbox />

@@ -11,3 +11,4 @@ Read the note for the area you change, and update it in the same pull request. A
 - [Priority and matching](priority-and-matching.md): priority vocabulary and literal word matching.
 - [Fix verification](fix-verification.md): the verification controls the toolbar shares with the app.
 - [Message Markdown](message-markdown.md): the Markdown subset thread messages show, its parser and renderers.
+- [Reviewing uier's own toolbar](toolbar-review.md): commenting on the toolbar's parts on uier's own pages, popovers held open, openers.

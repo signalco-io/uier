@@ -79,6 +79,7 @@ const identifier = `-{0,2}(?:[A-Za-z_]|${escapedCharacter})(?:[A-Za-z0-9_-]|${es
 const compound = `(?:#${identifier}|[A-Za-z][A-Za-z0-9-]*(?:\\.${identifier})?(?::nth-of-type\\([1-9][0-9]{0,5}\\))?)`;
 const complex = `${compound}(?:>${compound})*`;
 // A single explicit boundary for anchors on uier's own toolbar; the inner CSS stays restricted.
+const toolbarAnchorPrefix = '#uier-toolbar>>>';
 const selectorPattern = new RegExp(`^(?:#uier-toolbar>>>)?${complex}(?:,${complex})*$`, 'u');
 
 const selectorSchema = z.string()
@@ -133,6 +134,18 @@ export const pagePositionSchema = z.object({
 });
 
 export const positionSchema = z.discriminatedUnion('type', [pointPositionSchema, selectionPositionSchema, pagePositionSchema]);
+
+/**
+ * Whether a position points into uier's own toolbar (its anchor or the opener of its layer). Only
+ * uier's own pages review the toolbar: the review API refuses these from a project's sites.
+ */
+export function isToolbarPosition(position: z.infer<typeof positionSchema>) {
+    if (position.type === 'page') return false;
+    const selectors = position.type === 'point'
+        ? [position.selector]
+        : [position.startSelector, position.endSelector];
+    return [...selectors, position.layer?.opener].some(selector => selector?.startsWith(toolbarAnchorPrefix));
+}
 
 export const reattachAnchorSchema = z.object({
     path: reviewPathSchema,

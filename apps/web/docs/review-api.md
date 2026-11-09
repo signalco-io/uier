@@ -1,9 +1,13 @@
 # Review API and comment records
 
-- Toolbar point anchors can use the single `#uier-toolbar>>>` boundary on uier's own pages.
-  `comments/validation.ts` retains the restricted CSS grammar after it; the toolbar resolves
-  those anchors only when the page and configured API share an origin. `e2e/toolbar-review.spec.ts`
-  covers the review UI and `comments.api.spec.ts` rejects arbitrary shadow boundaries/selectors.
+- Toolbar point anchors can use the single `#uier-toolbar>>>` boundary on uier's own pages, in the
+  anchor and in `layer.opener` (a thread's pin or a button of the pill). `comments/validation.ts`
+  retains the restricted CSS grammar after it; the toolbar resolves those anchors only when the page
+  and configured API share an origin. The review API refuses them from a project's sites
+  (`review/toolbarAnchors.ts`, on create and reattach, whenever `siteOrigin` is set): only uier's own
+  pages review the toolbar. `e2e/toolbar-review.spec.ts` covers the review UI, `embed.spec.ts` and
+  `toolbar-anchors.api.spec.ts` the refusal, and `comments.api.spec.ts` rejects arbitrary shadow
+  boundaries/selectors. Toolbar side: `packages/toolbar/docs/toolbar-review.md`.
 
 - `reviewSsoCookie.ts` owns the HttpOnly/Secure/SameSite=None companion, restricted to `/api/review`.
   Sign-in and first-party app requests seed it with no longer lifetime than the SameSite=Lax app session;

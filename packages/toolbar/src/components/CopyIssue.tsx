@@ -13,6 +13,7 @@ import { apiRequest, required, currentReviewerRevision } from '../hooks/api';
 import { commentUrl } from '../hooks/useComments';
 import { useAnnounce } from './Announcer';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
+import { toolbarSurface } from '../toolbarReview';
 
 /** Fetch on every explicit copy, so removed/private items cannot be exported from a stale cache. */
 export function useCopyIssue(commentId: string) {
@@ -67,7 +68,7 @@ export function CopyMenu({ state, className, linkAvailable, onCopyLink }: {
             onOpenChange={setOpen}
             align="end"
             aria-label="Copy"
-            className={cx('z-[70] w-64 max-w-[calc(100vw-1rem)] rounded-xl p-1', floatingShadowClassName)}
+            {...toolbarSurface('uier-copy-menu', cx('z-[70] w-64 max-w-[calc(100vw-1rem)] rounded-xl p-1', floatingShadowClassName))}
             trigger={(
                 <IconButton size="xs" variant="plain" className={className} aria-label="Copy" aria-busy={state.pending}
                     disabled={state.pending} {...triggerProps}>

@@ -24,6 +24,11 @@ function selectorMatches(selector: string | undefined): Element[] {
     return queryAnchorElements(selector);
 }
 
+/** The point's element: a toolbar part only in the popover, menu or panel its saved opener opens */
+function pointMatches(position: CommentPoint): Element[] {
+    return queryAnchorElements(position.selector, position.layer?.opener);
+}
+
 /** The element a comment is anchored to (the start of a text selection), if it is on the page */
 export function resolveAnchorElement(position: CommentItemPosition | null | undefined): Element | null {
     if (!position) {
@@ -32,7 +37,7 @@ export function resolveAnchorElement(position: CommentItemPosition | null | unde
 
     switch (position.type) {
         case 'text': return safeQuerySelector(position.startSelector);
-        case 'point': return safeQuerySelector(position.selector);
+        case 'point': return pointMatches(position)[0] ?? null;
         default: return null;
     }
 }
@@ -245,7 +250,7 @@ function fraction(value: number | undefined, fallback: number) {
 }
 
 function pointRects(position: CommentPoint): DOMRect[] {
-    const element = safeQuerySelector(position.selector);
+    const element = pointMatches(position)[0];
     if (!element || !isShown(element)) {
         return [];
     }
@@ -298,7 +303,7 @@ export function getCommentItemRects(position: CommentItemPosition | null | undef
                 const range = resolveTextRange(position);
                 return range ? shownRangeRects(range) : [];
             }
-            case 'point': return selectorMatches(position.selector).length === 1 ? pointRects(position) : [];
+            case 'point': return pointMatches(position).length === 1 ? pointRects(position) : [];
             default: return [];
         }
     } catch (error) {
@@ -329,7 +334,7 @@ export function getCommentPlacement(position: CommentItemPosition | null | undef
     try {
         if (!position || position.type === 'page') return { rects: [], state: 'page' };
         if (position.type === 'point') {
-            const matches = selectorMatches(position.selector);
+            const matches = pointMatches(position);
             if (matches.length > 1) return { rects: [], state: 'ambiguous' };
             const rects = matches.length ? pointRects(position) : [];
             return rects.length ? { rects, state: 'exact' }

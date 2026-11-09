@@ -11,6 +11,7 @@ import { cx } from '@signalco/ui-primitives/cx';
 import { Delete, MoreHorizontal } from '@signalco/ui-icons';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { destructiveTextClassName, floatingShadowClassName } from './@types/Comments';
+import { toolbarSurface } from '../toolbarReview';
 
 type CommentThreadItemMenuProps = {
     /** The comment (its first item) or one reply */
@@ -75,7 +76,7 @@ export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled,
             onOpenChange={handleOpenChange}
             align="end"
             aria-label={kind === 'comment' ? 'Comment options' : 'Reply options'}
-            className={cx('z-[70] w-auto min-w-32 max-w-64 rounded-xl p-1', floatingShadowClassName)}
+            {...toolbarSurface('uier-message-menu', cx('z-[70] w-auto min-w-32 max-w-64 rounded-xl p-1', floatingShadowClassName))}
             trigger={(
                 <IconButton
                     ref={triggerRef}

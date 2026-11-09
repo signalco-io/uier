@@ -20,6 +20,7 @@ import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import { cancelCommentScreenshot, captureCommentScreenshot } from '../screenshot';
 import { floatingShadowClassName } from './@types/Comments';
+import { toolbarSurface } from '../toolbarReview';
 
 type FeedbackKind = 'feedback' | 'bug';
 
@@ -111,7 +112,7 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
             side="top"
             sideOffset={12}
             aria-label="Send feedback"
-            className={cx('flex max-h-[var(--radix-popover-content-available-height)] w-80 max-w-[calc(100vw-1rem)] flex-col overflow-y-auto rounded-xl p-0', floatingShadowClassName)}
+            {...toolbarSurface('uier-feedback', cx('flex max-h-[var(--radix-popover-content-available-height)] w-80 max-w-[calc(100vw-1rem)] flex-col overflow-y-auto rounded-xl p-0', floatingShadowClassName))}
             trigger={(
                 <IconButton
                     variant="plain"

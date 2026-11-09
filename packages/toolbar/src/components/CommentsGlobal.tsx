@@ -3,7 +3,7 @@ import { DockablePanel } from './DockablePanel';
 import { CommentsApiError } from '../hooks/api';
 import { useCallback, useEffect, useEffectEvent, useId, useMemo, useRef, useState } from 'react';
 import { anchorSelector } from '../anchorSelector';
-import { toolbarReviewTarget } from '../toolbarReview';
+import { closeToolbarLayers, toolbarReviewTarget, watchToolbarPresses } from '../toolbarReview';
 import { Button } from '@signalco/ui-primitives/Button';
 import { commentKey, useComments, useSiteComments, useCommentsRefresh, useActivitySummary } from '../hooks/useComments';
 import { newCommentDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
@@ -191,8 +191,8 @@ export function CommentsGlobal({
         setSidebarOpen(true);
     };
     // While the menu, popover or dialog it is in is open: its opener is saved with it (layerAnchor.ts)
-    const chooseAnchor = (anchor: CommentAnchor) => {
-        const candidate = withLayer(anchor);
+    const chooseAnchor = (anchor: CommentAnchor, element?: Element) => {
+        const candidate = withLayer(anchor, element);
         setReattaching(current => current ? { ...current, candidate, mode: undefined } : current);
     };
     const saveAnchor = async () => {
@@ -231,9 +231,11 @@ export function CommentsGlobal({
         setHintOpen(false);
     };
 
-    const startDraft = (anchor: CommentDraft['position'], kind: CommentDraft['kind'] = 'comment') => {
+    const startDraft = (anchor: CommentDraft['position'], kind: CommentDraft['kind'] = 'comment', element?: Element) => {
         // While the menu, popover or dialog it is in is open: its opener is saved with it (layerAnchor.ts)
-        const position = withLayer(anchor);
+        const position = withLayer(anchor, element);
+        // On uier's own pages the toolbar's popovers stayed open while pointing: those the comment is not on close
+        closeToolbarLayers(element ?? resolveAnchorElement(position));
         closeHintForUse();
         awaitingThreadRef.current = undefined;
         draftKeyRef.current += 1;
@@ -264,7 +266,7 @@ export function CommentsGlobal({
             ? element
             : modal ?? document.querySelector('main') ?? document.body;
         setCreatingCommentPoint(false);
-        startDraft(centerPoint(target));
+        startDraft(centerPoint(target), 'comment', target);
     };
 
     const handleDismissHint = (hadFocus: boolean) => {
@@ -288,6 +290,9 @@ export function CommentsGlobal({
         window.addEventListener(openFeedbackEvent, listener);
         return () => window.removeEventListener(openFeedbackEvent, listener);
     }, []);
+
+    // On uier's own pages: what a touch pressed, for the toolbar popovers that stay open (toolbarReview.ts)
+    useEffect(() => watchToolbarPresses(), []);
 
     useEffect(() => {
         const trackFocus = (event: Event) => {
@@ -360,7 +365,7 @@ export function CommentsGlobal({
             event.preventDefault();
             event.stopPropagation();
             if (reattaching?.mode === 'point') {
-                if (active && active !== document.body && active !== document.documentElement) chooseAnchor(centerPoint(active));
+                if (active && active !== document.body && active !== document.documentElement) chooseAnchor(centerPoint(active), active);
             } else startDraftOnFocusedElement(active);
         };
         window.addEventListener('keydown', handleKeyDown, true);
@@ -462,9 +467,9 @@ export function CommentsGlobal({
         startDraft(position, kind);
     };
 
-    const handleCreateCommentPoint = (commentPoint: CommentPoint) => {
+    const handleCreateCommentPoint = (commentPoint: CommentPoint, element: Element) => {
         setCreatingCommentPoint(false);
-        startDraft(commentPoint);
+        startDraft(commentPoint, 'comment', element);
     };
 
     const handleAddPointComment = (fromKeyboard: boolean) => {
