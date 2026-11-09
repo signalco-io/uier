@@ -30,10 +30,17 @@
   longest. A refused drop is `cancelDrop`, and the card settles back (150 ms ease-out, none with reduced motion).
   Moves are optimistic through `useStatusChanger` (Open or In progress from Ready to verify too, which cancels
   the check and lands the card there) and roll back on failure.
-  Move (⇄) is the keyboard, screen-reader and single-pointer alternative: after it the focus goes to Move on the
-  card in its new column and a status region says "Comment #12 moved to Done."; during a save Move stays
-  focusable and offers no other column. dnd-kit's live region announces pointer drags. Columns and both paths
+  Move (⇄) is the keyboard and screen-reader alternative. Pointers drag, so it is visually hidden at rest (`sr-only`,
+  no room taken, the drag preview has none) and shows while its card has keyboard focus (`:has(:focus-visible)`) or
+  its menu is open (`data-popup-open`); screen readers always find it. Tab reaches it after the card's link, and M on
+  a focused card opens it with the first column highlighted (it focuses Move and clicks it, which Base UI treats as
+  a keyboard open). The link says so: `aria-keyshortcuts="M"` and the description "Press M to move it to another
+  column.". After a move the focus goes to Move on the card in its new column and a status region says "Comment
+  #12 moved to Done."; during a save Move stays focusable and offers no other column. The single-pointer
+  alternative to dragging (and the touch path besides a long press) is the card's tap: it opens the thread, whose
+  status menu has the same statuses. dnd-kit's live region announces pointer drags. Columns and both paths
   follow the `statuses` list, never fixed ids. `e2e/comment-board.spec.ts` covers mouse, touch, refused drops,
-  Escape, the keyboard path, In progress (to and from it, and from Ready to verify) and rollback. What a thread was left on comes from `lib/app/commentAnchor.ts`: an element in words
+  Escape, the keyboard path (Move hidden at rest, M, Tab), In progress (to and from it, and from Ready to verify)
+  and rollback; `openBoardMove` in `e2e/support/app.ts` opens Move the way a keyboard user does. What a thread was left on comes from `lib/app/commentAnchor.ts`: an element in words
   from its saved selector's tag names ("Link in navigation"), an area of one, the selected text, or the whole
   page (no page title is stored).
