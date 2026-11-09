@@ -447,7 +447,7 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   none (`importProviderAvatar`). `avatars.api.spec.ts` and `account-avatar.spec.ts` cover it.
 - The comments page is an inbox. `comments/CommentInbox.tsx` lists compact rows (`CommentRow.tsx`: number,
   first line, author, what it was left on, page path, then priority other than Normal (`PriorityLabel`: its
-  flag and name), status other than Open, the assignee's avatar with their agent's mark stacked on it
+  flag alone, named "High priority"), status other than Open, the assignee's avatar with their agent's mark stacked on it
   (`AssigneeAvatars`), age and the unread dot) beside the open thread
   (`CommentCard.tsx`). The open thread is in the URL (`?comment=<id>`, `useOpenComment`): side by side (`@container/comments` from `@4xl`) it replaces
   the history entry and the first shown thread is open until another is chosen; narrower (a phone) a row opens
@@ -558,7 +558,8 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   row opens its thread on its project's page (`?comment=`). `e2e/my-work.spec.ts` covers it.
 - Priority shows as `PriorityFlag` (`comments/PriorityFlag.tsx`), Lucide's `Flag` in the priority's colour (Low
   `--muted-foreground`, Normal `--foreground`, High `--brand-warning`, Urgent `--destructive`; BRAND.md, "Colour"),
-  always beside the name, in the thread, rows and cards, the Priority filter and Set priority. It is coloured
+  beside the name in the thread, the Priority filter and Set priority; on rows and cards the flag stands alone
+  (`PriorityLabel`, `role="img"` named "High priority", no tooltip, like the row's Private lock). It is coloured
   through `stroke`, because highlighted menu and select items set the text colour of everything in them.
   `e2e/priority-flag.spec.ts` covers it.
 - The comments' filter bar (`CommentFilters.tsx`): search, one Filter button (a popover with Priority, Environment

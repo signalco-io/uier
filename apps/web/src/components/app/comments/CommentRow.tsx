@@ -30,7 +30,7 @@ export const commentRowId = (id: string) => `comment-row-${id}`;
 
 /**
  * One comment in the inbox list or on the board: number, first line, where it was left, who wrote it,
- * priority other than Normal (its flag and name), who it is assigned to, status, age and unread. The
+ * priority other than Normal (its flag, named for assistive tech), who it is assigned to, status, age and unread. The
  * whole row opens the thread (a link to `?comment=<id>`, so it can also open in a new tab); the
  * selection box sits beside the link.
  */

@@ -5,8 +5,9 @@ import { startReviewedSite } from './support/reviewedSite';
 import { animationsFinished } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
-// Priority shows as a flag in the priority's colour, always beside its name: in the open thread's
-// priority control and its menu, and on list rows and board cards for a priority other than Normal.
+// Priority shows as a flag in the priority's colour: beside its name in the open thread's priority
+// control and its menu, and alone (named "Urgent priority") on list rows and board cards for a
+// priority other than Normal.
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
 test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(new URL(baseURL!).origin); });
@@ -33,6 +34,12 @@ async function expectFlag(scope: Locator, priority: Priority) {
     await expect(flag).toBeVisible();
     await expect(flag).toHaveAttribute('aria-hidden', 'true');
     await expect(flag).toHaveCSS('stroke', await tokenColor(scope.page(), tokens[priority]));
+}
+
+/** A row's or card's priority: the flag alone, its name only for assistive tech */
+async function expectFlagOnly(scope: Locator, name: string) {
+    await expect(scope.getByRole('img', { name: `${name} priority`, exact: true })).toBeVisible();
+    await expect(scope).not.toContainText(name);
 }
 
 test('priority shows a flag in its colour in the thread, its menu, list rows and board cards', async ({ page, request }) => {
@@ -70,11 +77,11 @@ test('priority shows a flag in its colour in the thread, its menu, list rows and
     await expect(menu).toHaveCount(0);
     await expectFlag(thread.getByRole('button', { name: 'Priority: Urgent. Change priority', exact: true }), 'urgent');
 
-    // The list row: the flag beside the name, read as "Priority: Urgent"; the Normal row stays without one
+    // The list row: the flag without its name, read as "Urgent priority"; the Normal row stays without one
     await backToComments(page);
     const urgentRow = commentRows(page).filter({ hasText: 'Checkout button fails' });
     await expectFlag(urgentRow, 'urgent');
-    await expect(urgentRow).toContainText('Priority: Urgent');
+    await expectFlagOnly(urgentRow, 'Urgent');
     await expect(commentRows(page).filter({ hasText: 'Footer link is grey' }).locator('svg[data-priority]')).toHaveCount(0);
     // Scan once the toast has gone: mid-fade frames would fail the contrast check at random
     await expect(saved).toBeHidden({ timeout: 10_000 });
@@ -85,7 +92,7 @@ test('priority shows a flag in its colour in the thread, its menu, list rows and
     const cards = page.getByRole('region', { name: 'Open comments', exact: true }).getByRole('listitem');
     const urgentCard = cards.filter({ hasText: 'Checkout button fails' });
     await expectFlag(urgentCard, 'urgent');
-    await expect(urgentCard).toContainText('Priority: Urgent');
+    await expectFlagOnly(urgentCard, 'Urgent');
     await expect(cards.filter({ hasText: 'Footer link is grey' }).locator('svg[data-priority]')).toHaveCount(0);
 
     // Dark theme: the flags take the dark theme's colours (amber is lighter there)
