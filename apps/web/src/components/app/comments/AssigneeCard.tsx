@@ -56,7 +56,8 @@ export function AssigneeCard({ assignees, userId, tabbable = true, onPress, clas
                             <CutText full={assignee.id === userId ? 'You' : assignee.name} render={<ItemTitle className="block max-w-full truncate" />} />
                         </ItemContent>
                     </Item>
-                    {assigneeAgents(assignee).length > 0 && <div data-assignee-agents="" className="ml-4 flex min-w-0 flex-col gap-1 border-l pl-3">
+                    {/* The line runs down from the centre of the person's 32px avatar: the item's 10px inset plus half the avatar, less half the 1px line */}
+                    {assigneeAgents(assignee).length > 0 && <div data-assignee-agents="" className="ml-[25.5px] flex min-w-0 flex-col gap-1 border-l pl-1.5">
                         {assigneeAgents(assignee).map((agent, index) => <AgentDetails key={agent.id ?? index} agent={agent} />)}
                     </div>}
                 </div>)}

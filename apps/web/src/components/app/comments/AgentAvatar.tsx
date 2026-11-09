@@ -49,19 +49,23 @@ export function assignedLabel(assignee: Assignee | Assignee[] | undefined, userI
     return `Assigned to ${people.map(person => `${person.id === userId ? 'you' : person.name}${assigneeAgents(person).map(agent => `, with ${agentText(agent)}${agentIsWorking(agent.workingUntil) ? ', working now' : ''}`).join('')}`).join('; ')}`;
 }
 
-/** People are grouped separately; every agent belongs to one person's avatar. */
+/**
+ * Who works on a thread, for rows and board cards: each person's 20px avatar with their AI agents stacked beside it as
+ * 16px avatars (two at most, else one and a count). Up to three people, then a count. One image named by
+ * `assignedLabel` (`decorative` inside a control that carries the name).
+ */
 export function AssigneeAvatars({ assignee, assignees, userId, decorative, className }: { assignee?: Assignee; assignees?: Assignee[]; userId?: string; decorative?: boolean; className?: string }) {
     const people = assignees ?? (assignee ? [assignee] : []);
     useAgentWorking(people.flatMap(person => assigneeAgents(person).map(agent => agent.workingUntil)));
     return (
-        <span role="img" {...decorative ? { 'aria-hidden': true } : { 'aria-label': assignedLabel(people, userId) }} className={cn('flex shrink-0 items-center gap-3', className)}>
+        <span role="img" {...decorative ? { 'aria-hidden': true } : { 'aria-label': assignedLabel(people, userId) }} className={cn('flex shrink-0 items-center gap-2', className)}>
             {people.slice(0, 3).map(person => {
                 const agents = assigneeAgents(person);
-                return <span key={person.id} data-assignee-avatar={person.id} className="relative inline-flex size-5 shrink-0">
+                return <span key={person.id} data-assignee-avatar={person.id} className="flex shrink-0 items-center">
                     <PersonAvatar assignee={person} />
-                    {agents.length > 0 && <span data-assignee-agents="" className="absolute -right-1 -bottom-1 flex items-center">
+                    {agents.length > 0 && <span data-assignee-agents="" className="flex items-center">
                         {agents.slice(0, agents.length > 2 ? 1 : 2).map((agent, index) => <AgentAvatar key={agent.id ?? index} kind={agent.kind} workingUntil={agent.workingUntil} compact
-                            className="-ml-0.5 size-3 ring-1 ring-background first:ml-0" />)}
+                            className="-ml-1 size-4 ring-2 ring-background" />)}
                         {agents.length > 2 && <OverflowCount count={agents.length - 1} workingUntil={agents.slice(1).map(agent => agent.workingUntil)} compact />}
                     </span>}
                 </span>;
@@ -75,7 +79,7 @@ export function AssigneeAvatars({ assignee, assignees, userId, decorative, class
 function OverflowCount({ count, workingUntil, compact = false }: { count: number; workingUntil: (string | undefined)[]; compact?: boolean }) {
     const working = useAgentWorking(workingUntil);
     return <span data-assignee-overflow="" data-count={`+${count}`} className={cn('relative flex items-center justify-center rounded-full border bg-background font-medium text-foreground after:content-[attr(data-count)]',
-        compact ? '-ml-0.5 size-3 text-[8px] ring-1 ring-background' : 'size-5 text-[10px]')}>
+        compact ? '-ml-1 size-4 text-[9px] ring-2 ring-background' : 'size-5 text-[10px]')}>
         {working && <span data-agent-working="" className="absolute -right-1 -bottom-0.5 flex size-2 items-center justify-center rounded-full bg-background"><Spinner className="size-1.5 motion-reduce:animate-none" /></span>}
     </span>;
 }

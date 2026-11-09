@@ -82,8 +82,11 @@ for (const colorScheme of ['light', 'dark'] as const) {
             const ownGroup = avatars.locator('[data-assignee-avatar]').nth(1);
             const humanBox = (await ownGroup.locator('[data-slot="avatar"]').boundingBox())!;
             const agentBox = (await ownGroup.locator('[data-agent]').first().boundingBox())!;
+            // Agents stack beside their person's avatar, a step smaller, not as corner marks
             expect(agentBox.width).toBeLessThan(humanBox.width);
-            expect(agentBox.y).toBeGreaterThan(humanBox.y);
+            expect(agentBox.width).toBeGreaterThanOrEqual(16);
+            expect(agentBox.x).toBeGreaterThan(humanBox.x + humanBox.width / 2);
+            expect(Math.abs(agentBox.y + agentBox.height / 2 - (humanBox.y + humanBox.height / 2))).toBeLessThanOrEqual(1);
             if (mobile) await avatars.tap();
             else { await avatars.focus(); await page.keyboard.press('Enter'); }
             const card = page.getByRole('dialog', { name: 'Assignee details', exact: true });
@@ -97,6 +100,9 @@ for (const colorScheme of ['light', 'dark'] as const) {
             expect(agent.width).toBeLessThan(person.width);
             expect(agent.x).toBeGreaterThan(person.x);
             await animationsFinished(card);
+            // The agents' line runs down from the centre of the person's avatar (measured once the card has settled)
+            const [settled, line] = await Promise.all([people.nth(1).locator('[data-slot="avatar"]').boundingBox(), people.nth(1).locator('[data-assignee-agents]').boundingBox()]);
+            expect(Math.abs(line!.x + 0.5 - (settled!.x + settled!.width / 2))).toBeLessThanOrEqual(1);
             await expectNoAxeViolations(page);
             await page.screenshot({ path: testInfo.outputPath('multiple-assignees-card.png') });
             await page.keyboard.press('Escape');

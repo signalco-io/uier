@@ -8,7 +8,7 @@
   and age (`RelativeTime`: one shared clock ticks every 10 seconds while any age is shown and the tab is visible, and only the ages whose words change re-render).
   The meta line, one on rows and cards alike: the page path (what it was left on is only in the thread's On row), then private, a linked pull request, priority other than Normal (`PriorityLabel`: its
   flag alone, named "High priority"), status (`StateDot` and its name, Open too; a board card leaves the status to its column, whose region name screen readers announce), and at its right end
-  every assignee's avatar with their agents' marks on its edge (`AssigneeCard`: hovering shows who it is assigned to
+  every assignee's avatar with their agents' smaller avatars stacked beside it (`AssigneeCard`: hovering shows who it is assigned to
   and their [agents](assignee-agents.md); see [Multiple assignees](#multiple-assignees)) and the selection box, beside the open thread
   (`CommentCard.tsx`). The open thread is in the URL (`?comment=<id>`, `useOpenComment`): side by side (`@container/comments` from `@3xl`, 48rem: the list's 18rem and
   at least 29rem for the thread; from about 1100 px with the sidebar docked, which takes in most landscape tablets) it replaces
@@ -136,8 +136,8 @@ saved reply updates the mark through the existing comment refresh.
 ## Multiple assignees
 
 Rows, board cards and My work use `commentAssignees` (arrays with a singular fallback), and
-`AssigneeCard` groups every person's agents with that person: small marks on the edge of their avatar,
-and smaller, indented agent rows under their name in the hover card. Counts keep larger groups compact;
+`AssigneeCard` groups every person's agents with that person: smaller avatars stacked beside theirs,
+and smaller, indented agent rows under their name in the hover card, on a line centred under their avatar. Counts keep larger groups compact;
 the card scrolls to show everyone. The thread's `AssigneesControl`
 checkbox menu stays open to select several people; toggling uses atomic add/remove, while Unassign
 clears everyone. Only your own assignment exposes editable `AgentControl` instances. Assigned to me
