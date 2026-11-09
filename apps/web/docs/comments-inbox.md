@@ -74,7 +74,11 @@
   thread's status menu (`StateMenu`, `StateBadge`) and the Active statuses menu of the Status filter all use it (the status tabs have none); the
   toolbar's `CommentStatusBadge` uses the same tokens. The dot carries `data-status-dot="<status>"`.
   `e2e/status-colors.spec.ts` checks each status's colour in the list, the board, the menu and the filter, in
-  light and dark, with axe.
+  light and dark, with axe. It opens the board's Move through `openBoardMove`, as a keyboard user does,
+  rather than clicking its visually hidden pointer target.
+
+The touch drag test centres its source card in the viewport before the long press so edge auto-scroll
+does not invalidate the captured drop coordinates as card heights change.
 
 The list and active board columns sort by priority, then newest number. Done sorts by the last
 transition into Done (`completedAt`), newest first, regardless of priority or number. Legacy Done
