@@ -750,7 +750,8 @@ authorized server snapshot in a transition. `src/lib/realtime` owns origin/viewe
 current authorization and a shared, two-second compact Cosmos metadata source. Never broadcast
 comment bodies/ids or bypass private-thread visibility. Keep four-minute connection renewal,
 HTTP fallback, draft preservation and the provider boundaries. See [realtime](../../docs/api.md#realtime-comment-changes)
-and `e2e/realtime.api.spec.ts` / `e2e/realtime.spec.ts`. `vercel.json` enables Fluid compute.
+and `e2e/realtime.api.spec.ts` / `e2e/realtime.spec.ts`. Sockets need Fluid compute, enabled on the
+Vercel project by Pulumi (`infra/src/vercel.ts`), not `vercel.json`: prebuilt CI deploys never read it.
 
 `projects.ts` and `members.ts` share repeated render reads through React `cache` (metadata,
 layouts and pages). `loadWorkspaceAccessForRender` shares the render's team snapshot; mutation
