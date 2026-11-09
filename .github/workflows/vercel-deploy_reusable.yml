@@ -17,6 +17,9 @@ on:
       url:
         description: "Deployment URL"
         value: ${{ jobs.deploy.outputs.url }}
+      public-pages-changed:
+        description: "Whether the production build changes public search content."
+        value: ${{ jobs.build.outputs.public-pages-changed }}
 
 permissions: {}
 env:
@@ -33,6 +36,8 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
+    outputs:
+      public-pages-changed: ${{ steps.search-changes.outputs.changed }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -45,8 +50,26 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+      # Executable caching is confined to this credential-free build job. The deploy job
+      # installs its CLI from npm and never restores a cache produced by repository code.
+      - name: Cache build CLI
+        id: build-cli
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.vercel-cli
+          key: vercel-build-cli-${{ runner.os }}-${{ runner.arch }}-${{ env.VERCEL_CLI_VERSION }}
       - name: Install Vercel CLI
-        run: npm install --global --ignore-scripts --prefix "$HOME/.vercel-cli" "vercel@${VERCEL_CLI_VERSION}"
+        if: steps.build-cli.outputs.cache-hit != 'true'
+        run: npm install --global --ignore-scripts --no-audit --no-fund --prefix "$HOME/.vercel-cli" "vercel@${VERCEL_CLI_VERSION}"
+      # Also saved by main's production build, so a new PR can start with a warm compiler.
+      # Cache compiler state only; toolbar retention and deployment packaging always run afresh.
+      - name: Cache Next.js compiler
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: apps/web/.next/cache
+          key: next-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}-${{ github.sha }}
+          restore-keys: |
+            next-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}-
       - name: Build with public project settings
         env:
           PRODUCTION: ${{ inputs.production }}
@@ -65,9 +88,13 @@ jobs:
             "$HOME/.vercel-cli/bin/vercel" build
           fi
           node .github/scripts/package_prebuilt.mjs
-          tar -czf prebuilt.tar.gz .vercel/output
-      - name: Save public search baseline
+          tar -cf - .vercel/output | gzip -1 > prebuilt.tar.gz
+      - name: Compare public search content
+        id: search-changes
         if: inputs.production
+        run: node .github/scripts/search-index.mjs compare indexnow-before.json apps/web/public/search-index.json >> "$GITHUB_OUTPUT"
+      - name: Save public search baseline
+        if: inputs.production && steps.search-changes.outputs.changed == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: indexnow-before-${{ github.run_id }}
@@ -80,6 +107,7 @@ jobs:
         with:
           name: vercel-output-${{ github.run_id }}-${{ github.run_attempt }}
           path: prebuilt.tar.gz
+          compression-level: 0
           retention-days: 1
           if-no-files-found: error
 
@@ -159,7 +187,7 @@ jobs:
           # The destination is fixed by this workflow, never by the uploaded project metadata.
           node -e 'require("node:fs").writeFileSync(".vercel/project.json", JSON.stringify({orgId:process.env.VERCEL_ORG_ID,projectId:process.env.VERCEL_PROJECT_ID}))'
       - name: Install the pinned deployment CLI without lifecycle scripts
-        run: npm install --global --ignore-scripts --prefix "$HOME/.vercel-cli" "vercel@${VERCEL_CLI_VERSION}"
+        run: npm install --global --ignore-scripts --no-audit --no-fund --prefix "$HOME/.vercel-cli" "vercel@${VERCEL_CLI_VERSION}"
       - name: Deploy
         id: deploy
         env:

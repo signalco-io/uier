@@ -314,7 +314,9 @@ deletes is either kept (the thread stays) or rejected with `404`, never lost or 
 Errors are `{ "error": "<code>", "message": "..." }`: `400 invalid_request`, `403 forbidden` (not the
 author, or a cross-site request), `403 bot_detected`, `404 not_found`, `409 conflict` (retry), `413 too_large`,
 `415 unsupported_media_type` (writes must be `application/json`), `429 rate_limited` (with `Retry-After` in
-seconds and `reason`: `too_fast` or `page_full`), `500 server_error` and `503 unavailable` (rewrite suggestions only). Writes are accepted only from the API's
+seconds and `reason`: `too_fast` or `page_full`; for a signed-in project member also `usage`, the app path of the
+page that shows the limit: `/app/account/usage#project-<code>` for their own limits,
+`/app/workspace/usage?project=<code>#project-<code>` for what the project shares), `500 server_error` and `503 unavailable` (rewrite suggestions only). Writes are accepted only from the API's
 own origin (a cross-site `Origin` or `Sec-Fetch-Site: cross-site` gets `403`). Unknown fields are ignored; ids,
 authors and message timestamps are always set by the server (the capture-start time is explicitly from the reviewer's browser). Selectors must have the form the toolbar creates
 (`#id` or `tag.class:nth-of-type(n)` joined by `>`), so a stored comment can't break `querySelector` in

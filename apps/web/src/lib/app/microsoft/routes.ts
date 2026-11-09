@@ -4,6 +4,7 @@ import { ApiError } from '../../comments/http';
 import { appBaseUrl, requestIpBucket } from '../request';
 import { appCookieOptions, getSessionSignIn, getSessionUser, startSession } from '../session';
 import { safeNextPath } from '../signIn';
+import { signInDestination } from '../signInDestination';
 import { isMicrosoftSignInConfigured } from './config';
 import { MICROSOFT_SIGN_IN_COOKIE_NAME } from './cookie';
 import { MICROSOFT_LINK_TTL_SECONDS } from './link';
@@ -76,9 +77,11 @@ export async function finishMicrosoftSignInRoute(request: Request) {
     }
 
     switch (outcome.kind) {
-        case 'signed_in':
-            await startSession(outcome.userId, 'microsoft');
-            return redirect(new URL(outcome.next ?? KnownPages.App, baseUrl).href);
+        case 'signed_in': {
+            // Microsoft's addresses are never trusted (docs/microsoft-sign-in.md): this sign-in proves no email
+            const proof = await startSession(outcome.userId, 'microsoft');
+            return redirect(new URL(await signInDestination(outcome.userId, outcome.next ?? KnownPages.App, proof), baseUrl).href);
+        }
         case 'confirm_email':
             jar.set(MICROSOFT_SIGN_IN_COOKIE_NAME, outcome.binding, appCookieOptions(MICROSOFT_LINK_TTL_SECONDS));
             return redirect(new URL(KnownPages.AppSignInMicrosoftLink, baseUrl).href);

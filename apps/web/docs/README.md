@@ -27,6 +27,7 @@ Product contracts, API references and runbooks stay in the repository's [`docs/`
 - [Project settings](project-settings.md): settings sections, one save per page, notification settings.
 - [Environments](environments.md): the site addresses table and environment filters.
 - [Account](account.md): account sections and profile pictures.
+- [Usage](usage.md): the account's and the workspace's Usage pages, and the toolbar's links to them.
 - [First run, onboarding and installation](onboarding.md): welcome step, onboarding steps, installation check, snippets.
 - [Projects](projects.md): public ids, addresses, deletion and transfer.
 - [Clients](clients.md): client documents, names, appearance and visibility.
@@ -35,7 +36,7 @@ Product contracts, API references and runbooks stay in the repository's [`docs/`
 ## Comments and review
 
 - [Comments inbox and board](comments-inbox.md): rows, keyboard, the board and drag and drop.
-- [The open thread](comment-thread.md): `CommentCard`, reading when shown, the reply composer.
+- [The open thread](comment-thread.md): `CommentCard`, message Markdown, reading when shown, the reply composer.
 - [Comment filters and priority](comment-filters.md): the filter bar and `PriorityFlag`.
 - [App triage](triage.md): search, priority and bulk triage.
 - [In progress](in-progress.md): the In progress stage.
@@ -52,7 +53,7 @@ Product contracts, API references and runbooks stay in the repository's [`docs/`
 ## Accounts, access and sign-in
 
 - [Sign-in](sign-in.md): email codes, Google, Microsoft, passkeys and the sign-in card.
-- [Workspace access and membership](access-and-membership.md): teams, access writes and membership rules.
+- [Workspace access and membership](access-and-membership.md): teams, access writes, membership rules and email domains.
 
 ## Integrations, MCP and services
 

@@ -213,7 +213,7 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
             </LayoutMotion>
             {selected && (
                 <div ref={detailRef}
-                    className={cn('min-w-0 scroll-mt-4 @4xl/comments:sticky @4xl/comments:top-0 @4xl/comments:max-h-[calc(100svh-5rem)] @4xl/comments:overflow-y-auto @4xl/comments:rounded-xl',
+                    className={cn('min-w-0 scroll-mt-4 @4xl/comments:sticky @4xl/comments:top-0 @4xl/comments:max-h-[calc(100svh-5rem-var(--selection-bar,0px))] @4xl/comments:overflow-y-auto @4xl/comments:rounded-xl',
                         !opened && '@max-4xl/comments:hidden')}>
                     <CommentCard key={selected.id}
                         projectId={projectId}

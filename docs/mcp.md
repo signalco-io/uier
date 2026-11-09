@@ -351,7 +351,7 @@ tokens already issued stop working on their next request. Access tokens from Acc
 | `get_feedback_batch` | `feedback:read` | The same full packets for 1–10 distinct thread ids, in request order, within 256 KiB |
 | `list_feedback_events` | `feedback:read` | New feedback, replies, status, assignment, agents and mentions since a cursor ([polling](#polling)) |
 | `list_assignees` | `feedback:assign` | Existing participants eligible to see the thread |
-| `reply_to_feedback` | `feedback:reply` | Validated reply as the human account, attributed to the connection and marked as written by the agent ([replies written by an agent](#replies-written-by-an-agent)) |
+| `reply_to_feedback` | `feedback:reply` | Validated reply as the human account, attributed to the connection and marked as written by the agent; its text shows as Markdown ([replies written by an agent](#replies-written-by-an-agent)) |
 | `set_feedback_status` | `feedback:status` | Open, In progress or Done (`status`), or the earlier Done/Open switch (`resolved`), using the app's permission checks ([In progress](#in-progress)) |
 | `assign_feedback` | `feedback:assign` | Assign an existing authorized participant, or `null` to unassign |
 | `set_feedback_agent` | `feedback:assign` | Attach the connection as the AI agent working under its owner on feedback assigned to them ([agents](#agents-working-on-feedback)) |
@@ -919,3 +919,9 @@ via Claude" with the agent's logo and, for members, its model and reasoning leve
   as the author and never get the model.
 - Fix check requests (`request_feedback_verification`) are not marked: their summary is part of the
   request, which keeps the connection's name as before.
+- **Write Markdown.** The app's and the toolbar's threads show a message's text as Markdown: links,
+  `code`, fenced code blocks, lists, bold, italic, strikethrough, quotes and headings (as bold text). Use
+  absolute `https://` links, for example ``Fixed in [`abc1234`](https://github.com/org/repo/commit/abc1234)``.
+  HTML is shown as typed, an image is a link to it, and a link that is not http, https or mailto (a
+  relative path too) stays the text it was written as. Tables are not supported. Emails, list rows and
+  connected services get the text as it was written ([Markdown in messages](review-workflow.md#markdown-in-messages)).

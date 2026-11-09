@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
+import { KnownPageLinks } from '../src/knownPages';
 import { getAppStore } from '../src/lib/app/store';
 import { getMemoryCommentsStore } from '../src/lib/repo/memoryCommentsStore';
 import { HEADLINE_COMMENT_ID, STEP_COMMENT_ID, PUBLIC_PROJECT_ID, PUBLIC_PROJECT_PARTITION, PUBLIC_WORKSPACE_ID, provisionPublicProject, joinPublicProject } from '../src/lib/comments/publicProject';
@@ -227,7 +228,9 @@ test('enrolled public commenters retain visitor comment, reply and shared IP lim
             expect(actor).toMatchObject({ kind: 'member', isAdmin: false });
             const input = { origin: 'https://uier.io', path: `/public-rate-${user.id}`, kind: 'feedback' as const, position: { type: 'page' as const }, text: 'Public feedback' };
             if (index < 3) for (let i = 0; i < 10; i++) comment = await createProjectComment(req, project, actor, input);
-            await expect(createProjectComment(req, project, actor, input)).rejects.toMatchObject({ status: 429, code: 'rate_limited', reason: 'too_fast' });
+            // Their own limit (or their network's): the account's usage page shows it
+            await expect(createProjectComment(req, project, actor, input)).rejects.toMatchObject({ status: 429, code: 'rate_limited', reason: 'too_fast',
+                usage: KnownPageLinks.accountUsage(project.publicId ?? project.id) });
             if (index === 3) await expect(replyToProjectComment(req, project, actor, comment!.id, { text: 'IP full' })).rejects.toMatchObject({ status: 429, code: 'rate_limited' });
         }
         const user = await findOrCreateUser(`public-replies-${randomUUID()}@example.com`);

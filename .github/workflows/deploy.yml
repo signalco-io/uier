@@ -63,6 +63,7 @@ jobs:
   indexnow:
     name: "Notify search engines of changed public pages"
     needs: web
+    if: needs.web.outputs.public-pages-changed == 'true'
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:

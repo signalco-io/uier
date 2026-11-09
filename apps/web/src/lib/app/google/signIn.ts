@@ -157,7 +157,8 @@ export function googleIsAuthoritative(email: string, hd: string | undefined) {
 
 export type GoogleProblem = 'cancelled' | 'unverified' | 'failed' | 'expired' | 'taken' | 'other_account' | 'sign_in_again';
 export type GoogleSignInOutcome =
-    | { kind: 'signed_in'; userId: string; next?: string }
+    /** `provenEmail`: the account email when Google proved it in this sign-in (`emailProof.ts`) */
+    | { kind: 'signed_in'; userId: string; next?: string; provenEmail?: string }
     | { kind: 'confirm_email'; binding: string }
     | { kind: 'linked' }
     | { kind: 'problem'; problem: GoogleProblem; next?: string; linking: boolean };
@@ -220,12 +221,14 @@ export async function finishGoogleSignIn(input: {
         return result === 'linked' ? { kind: 'linked' } : problem(result);
     }
 
-    // 1. A linked Google account signs in as its user, whatever its address is now.
+    // 1. A linked Google account signs in as its user, whatever its address is now. It proves the account
+    // email only while Google still returns that address where it is authoritative for it (rule 3).
     const linked = await findUserByGoogleSubject(claims.sub);
     if (linked) {
         if (email)
             await refreshGoogleAccountEmail(linked.id, claims.sub, email);
-        return { kind: 'signed_in', userId: linked.id, next };
+        const provenEmail = email === linked.email && googleIsAuthoritative(email, claims.hd) ? email : undefined;
+        return { kind: 'signed_in', userId: linked.id, next, provenEmail };
     }
     // 2. Only an address Google verified can find or create an account.
     if (!email)
@@ -240,7 +243,7 @@ export async function finishGoogleSignIn(input: {
             await updateUserName(user.id, name.data);
         const result = await linkGoogleAccount(user.id, { sub: claims.sub, email });
         if (result === 'linked') await importPicture(user.id);
-        return result === 'linked' ? { kind: 'signed_in', userId: user.id, next } : problem(result);
+        return result === 'linked' ? { kind: 'signed_in', userId: user.id, next, provenEmail: user.email } : problem(result);
     }
     // 4. Any other address proves its inbox once with an email code, with or without an account:
     // Google's verification of it can be stale (a former employee, a re-registered domain), and an

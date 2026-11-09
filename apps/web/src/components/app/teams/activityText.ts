@@ -71,6 +71,19 @@ export function describeAccessEvent(event: DbAccessEvent, names: ActivityNames):
         }
         case 'member.removed':
             return done(`removed ${person(first)} from the workspace`);
+        // The person who joined is the actor; the domain comes with the event, since it may be removed later
+        case 'member.joined': {
+            const teams = teamNames(strings(after.teamIds));
+            return done(`joined through ${text(after.domain) ?? 'an email domain'} as a commenter`, [teams.length ? `Teams: ${list(teams)}` : '']);
+        }
+        case 'domain.added': {
+            const teams = teamNames(strings(after.teamIds));
+            return done(`added the email domain ${text(after.domain) ?? ''}`.trim(), [teams.length ? `Teams for people who join: ${list(teams)}` : '']);
+        }
+        case 'domain.updated':
+            return done(`changed the teams for ${text(after.domain) ?? 'an email domain'}`, [changed(strings(before.teamIds), strings(after.teamIds), team)]);
+        case 'domain.removed':
+            return done(`removed the email domain ${text(before.domain) ?? ''}`.trim());
         case 'member.access': {
             const projects = projectChange(before.projects as ProjectsAccess, after.projects as ProjectsAccess);
             const teams = changed(strings(before.teamIds), strings(after.teamIds), team);

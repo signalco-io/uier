@@ -405,6 +405,15 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
 
             throw new Error(`Sequence ${id} could not be updated`);
         },
+        async getCounter(domain, id) {
+            try {
+                const { resource } = await getContainer().item(id, domain).read<DbCounter>();
+                return resource?.type === 'counter' ? resource.count : 0;
+            } catch (error) {
+                if (errorCode(error) === 404) return 0;
+                throw error;
+            }
+        },
         async incrementCounter(domain, id, limit, ttlSeconds) {
             const container = getContainer();
             for (let attempt = 0; attempt < 3; attempt++) {

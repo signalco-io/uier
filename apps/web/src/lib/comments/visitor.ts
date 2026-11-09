@@ -109,7 +109,7 @@ export function resolveVisitor(request: Request, createIfMissing: boolean): Visi
 }
 
 /** Client IP: Vercel's `x-vercel-forwarded-for`, then the first `x-forwarded-for` entry, then `x-real-ip` */
-export function resolveClientIp(request: Request) {
+export function resolveClientIp(request: Pick<Request, 'headers'>) {
     for (const header of ['x-vercel-forwarded-for', 'x-forwarded-for']) {
         const ip = request.headers.get(header)?.split(',')[0]?.trim();
         if (ip)

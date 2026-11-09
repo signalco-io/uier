@@ -3,14 +3,14 @@ import { nanoid } from 'nanoid';
 import { screenshotDocumentId, type DbComment, type DbScreenshot } from '../db/schema';
 import type { CommentsStore } from '../repo/commentsStore';
 import { ApiError, apiErrors } from './http';
-import { enforceScreenshotLimits } from './rateLimits';
+import { enforceScreenshotLimits, type UsageLinks } from './rateLimits';
 import type { ParsedScreenshot } from './screenshot';
 import { screenshotInfo } from './service';
 
 /** Recheck visibility/ownership on every retry; keep original bytes until the transaction commits. */
 export async function replaceSavedScreenshot(
     store: CommentsStore, domain: string, id: string,
-    input: { screenshot: ParsedScreenshot; expectedRevision: string | null },
+    input: { screenshot: ParsedScreenshot; expectedRevision: string | null; usage?: UsageLinks },
     authorize: (comment: DbComment) => void | Promise<void>,
     finalize: (previous: DbComment, updated: DbComment) => DbComment = (_, updated) => updated
 ) {
@@ -24,7 +24,7 @@ export async function replaceSavedScreenshot(
         if ((comment.screenshot?.revision ?? null) !== input.expectedRevision)
             throw new ApiError(409, 'conflict', 'The screenshot changed. Reload it before replacing it.');
         if (!counted) {
-            await enforceScreenshotLimits(store, domain);
+            await enforceScreenshotLimits(store, domain, input.usage);
             counted = true;
         }
         const now = new Date().toISOString();

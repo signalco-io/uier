@@ -1,18 +1,19 @@
 # Comments inbox and board
 
 - The comments page is an inbox. `comments/CommentInbox.tsx` lists compact rows (`CommentRow.tsx`: number,
-  title (`commentTitle`: the [AI title](ai-titles.md), else the first line), author, page path (what it was left on is only in the thread's On row), then priority other than Normal (`PriorityLabel`: its
+  title (`commentTitle`: the [AI title](ai-titles.md), else the first line without its Markdown, `markdownPlainText`), author, page path (what it was left on is only in the thread's On row), then priority other than Normal (`PriorityLabel`: its
   flag alone, named "High priority"), status (`StateDot` and its name, Open too; a board card leaves the status to its column, whose region name screen readers announce), the assignee's avatar with their agent's mark stacked on it
   (`AssigneeAvatars`), age and the unread dot) beside the open thread
   (`CommentCard.tsx`). The open thread is in the URL (`?comment=<id>`, `useOpenComment`): side by side (`@container/comments` from `@4xl`) it replaces
   the history entry and the first shown thread is open until another is chosen; narrower (a phone) a row opens
   the thread in the list's and the filters' place with Back to comments, and adds a history entry so Back closes
-  it. Each row is a link (it opens in a new tab too) with the selection box beside it. The list moves with the
+  it. Each row is a link (it opens in a new tab too) with the selection box beside it, quiet until it is used
+  ([App triage](triage.md#selection)). The list moves with the
   keyboard like an inbox: ↓/↑ go to the next/previous row and stop at the ends, Home/End (from a row) to the first and
   last; side by side the row's thread opens through the same `open()` as a click, narrower only the focus moves and
   Enter opens it. The keys act from the list, or from the page while nothing has the focus and the caret is not in the
   open thread (it keeps scrolling with them); never from text fields, menus or dialogs, and they leave a key the page
-  already handled (`defaultPrevented`). Only the current row's link and selection box are in the Tab order (a roving
+  already handled (`defaultPrevented`). Only the current row's link and selection box (where it shows) are in the Tab order (a roving
   tab stop: the row last focused or opened), so Tab goes on to the thread. `e2e/comment-keyboard.spec.ts` covers it;
   the board keeps plain Tab order. `CommentBoard.tsx` shows
   Open, In progress, Ready to verify and Done as compact cards, one column per `commentStatuses` entry (keep the

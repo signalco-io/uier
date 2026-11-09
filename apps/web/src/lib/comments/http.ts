@@ -31,6 +31,11 @@ export type ApiErrorBody = {
     message: string;
     /** Only with `rate_limited` */
     reason?: RateLimitReason;
+    /**
+     * Only with `rate_limited`, for a signed-in member: the app path of the usage page that shows the
+     * limit (`/app/account/usage#...`, `/app/workspace/usage?project=...`), relative to the API's origin
+     */
+    usage?: string;
 };
 
 export class ApiError extends Error {
@@ -39,7 +44,9 @@ export class ApiError extends Error {
         readonly code: ApiErrorCode,
         message: string,
         readonly retryAfterSeconds?: number,
-        readonly reason?: RateLimitReason
+        readonly reason?: RateLimitReason,
+        /** See {@link ApiErrorBody.usage} */
+        readonly usage?: string
     ) {
         super(message);
         this.name = 'ApiError';
@@ -54,7 +61,7 @@ export const apiErrors = {
     conflict: () => new ApiError(409, 'conflict', 'The comment changed while saving. Please try again.', 1),
     tooLarge: (maxBytes = MAX_BODY_BYTES) => new ApiError(413, 'too_large', `Request body is too large (maximum ${maxBytes} bytes).`),
     unsupportedMediaType: () => new ApiError(415, 'unsupported_media_type', 'Request body must be sent as application/json.'),
-    rateLimited: (message: string, retryAfterSeconds: number, reason: RateLimitReason) => new ApiError(429, 'rate_limited', message, retryAfterSeconds, reason),
+    rateLimited: (message: string, retryAfterSeconds: number, reason: RateLimitReason, usage?: string) => new ApiError(429, 'rate_limited', message, retryAfterSeconds, reason, usage),
     commentsDisabled: () => new ApiError(403, 'comments_disabled', 'Comments are turned off for this project.'),
     signInRequired: () => new ApiError(401, 'sign_in_required', 'Sign in to see and leave comments on this project.'),
     unavailable: (message: string) => new ApiError(503, 'unavailable', message)
@@ -65,7 +72,7 @@ export function errorResponse(error: unknown) {
         const headers = new Headers();
         if (error.retryAfterSeconds !== undefined)
             headers.set('Retry-After', String(error.retryAfterSeconds));
-        return Response.json({ error: error.code, message: error.message, reason: error.reason } satisfies ApiErrorBody, { status: error.status, headers });
+        return Response.json({ error: error.code, message: error.message, reason: error.reason, usage: error.usage } satisfies ApiErrorBody, { status: error.status, headers });
     }
 
     console.error('[comments] Unhandled error', error);

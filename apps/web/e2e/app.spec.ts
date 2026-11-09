@@ -1010,6 +1010,9 @@ test('reply from list and board with mentions, keyboard input and local drafts',
         await expect(card.getByText('Reply on a done thread', { exact: true })).toBeVisible();
         await expect(card.getByRole('button', { name: 'Status: Done. Change status' })).toBeVisible();
         await expect(input).toHaveValue('');
+        // The optimistic message and cleared draft precede action revalidation. Wait for the
+        // saved reply before axe snapshots the document while streamed metadata is changing.
+        await expect(card.getByRole('status').filter({ hasText: /^Reply posted$/ })).toHaveText('Reply posted');
         for (const colorScheme of ['light', 'dark'] as const) {
             await page.emulateMedia({ colorScheme });
             await expect(page.locator('html')).toHaveClass(new RegExp(colorScheme));

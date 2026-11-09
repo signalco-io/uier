@@ -288,20 +288,23 @@ the sitemap status and representative URLs in Search Console.
 
 ### Required suite
 
-`pnpm test` and pull-request CI run every `.api.spec.ts` once, plus **12 browser tests**:
-nine desktop checks tagged `@smoke` and three mobile checks tagged `@mobile-smoke`.
+`pnpm test` and pull-request CI run every `.api.spec.ts` once, plus browser essentials:
+desktop checks tagged `@smoke` and mobile checks tagged `@mobile-smoke`.
 The desktop checks cover the landing page and axe, sign-in redirect/code and single-use links,
 CSP nonces and navigation policies, installation and the owner/guest comment lifecycle,
 screenshots, text/rewrite/page feedback, routes, recovery and keyboard movement. Mobile repeats
 the landing page, the owner/guest lifecycle and recovery/viewport controls.
 
-The default previously ran 402 desktop/mobile cases. The essential set removes **97% of those
-browser executions** while retaining all 382 API tests, including access, validation and persistence
-contracts. Detailed feature permutations, repeated page/theme scans and load measurements remain
-available in the full suite. Keep new browser regressions there unless they protect a critical journey.
+All API tests remain required, including access, validation and persistence contracts. Detailed
+feature permutations, repeated page/theme scans and load measurements remain available in the full
+suite. Keep new browser regressions there unless they protect a critical journey.
 
-The required run has no retries and a three-minute total timeout, with two workers in CI and four
-locally. Tagged browser tests can run in parallel within a file; API tests keep their file ordering.
+The required run has no retries and a three-minute total timeout, with four workers in CI and
+locally. CI runs the API project and desktop/mobile browser projects in separate jobs, alongside a
+third job for typecheck, deployment artifact validation and standalone worker packaging. Both test
+jobs build the current web app before testing; the extension job retains its own unit and packaged
+runtime checks. Tagged browser tests can run in parallel within a file; API tests keep their file
+ordering.
 Traces are retained on failure; `playwright-report/results.json` records per-test and total timings
 and is uploaded with the CI artifacts. `pnpm test:full` keeps the existing two retries and file ordering
 without the three-minute budget. Turbo caches the two modes separately.

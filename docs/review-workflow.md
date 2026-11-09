@@ -231,6 +231,33 @@ mentions. Current access, comments-off state, private visibility, eligible menti
 50-message thread limit are checked on the server. Replies use the existing notifications and
 integration synchronization, and capture no screenshot.
 
+### Markdown in messages
+
+Thread messages show their Markdown in the app (the open thread, the board's sheet) and in the toolbar
+(pin popovers and the inbox), since coding agents reply in it. Messages are stored as written; only
+the display changes.
+
+- Supported: paragraphs, with every line break kept as in plain text; bold, italic, `~~strikethrough~~`,
+  inline code and fenced code blocks; links, `<https://…>` and bare http(s) addresses; ordered and
+  unordered lists; block quotes (a quote ends at its last `>` line, so a reply typed under it stays
+  outside); headings, shown as bold text; thematic breaks. Not supported, shown as typed: tables,
+  reference links, indented code, footnotes, HTML entities.
+- Never HTML: tags show as text. Images are links to the image, so reading a thread never loads a
+  third-party address (which would reveal readers' IP addresses). Links open only http, https and mailto
+  addresses, in a new tab with `rel="noopener noreferrer nofollow ugc"`; any other link (`javascript:`,
+  `data:`, a relative path) stays the text it was written as. Each link names its full address on hover,
+  and link text that looks like an address on another site (`[https://uier.io](https://example.com)`)
+  shows the real address instead.
+- Mentions are ranges over the text: Markdown never changes or splits them, a name is never read as
+  Markdown, and in code a mention shows as `@` and the name.
+- Long code and addresses wrap inside the message on any screen.
+- List rows (the app's inbox, board cards and My work) show the first message's first line without
+  its Markdown markers. AI titles, emails, digests, feedback packets and connected services (which take
+  Markdown themselves) get the text as it was written.
+
+The parser is `@uier/toolbar/markdown`, small and written for this subset: no HTML pass-through and no
+dependency in the toolbar bundle ([toolbar note](../packages/toolbar/docs/message-markdown.md)).
+
 ### Assignment and mentions
 
 Signed-in project members can change a thread's assignee in its toolbar details or inbox.
@@ -746,9 +773,12 @@ Urgent red. The open thread, its priority menu, the Priority filter and Set prio
 list rows and board cards show it only for a priority other than Normal, so the threads that differ
 stand out. The toolbar keeps its text label.
 
-List and Board have explicit checkboxes, an indeterminate shown-results checkbox, and, once something is
-selected, the selected count, Clear selection, assignment/unassignment, priority, Mark selected as done and
-Reopen selected. Mark selected as done also ends In progress; Reopen selected reopens Done threads and leaves
+List and Board select threads with explicit checkboxes that stay quiet at rest: a row's box shows on hover
+or keyboard focus, and a touch screen starts with Select in the count line. While selecting, every row shows
+its box and a bar floats over the end of the comments with Clear selection, the indeterminate Select shown
+results, the selected count, assignment/unassignment, priority, Mark selected as done and Reopen selected.
+x selects the focused row, Shift-click a range, Ctrl or ⌘ + A the shown results, and Escape ends selecting;
+on a touch screen a tap on a row selects it while selecting. Mark selected as done also ends In progress; Reopen selected reopens Done threads and leaves
 In progress threads as they are ([In progress](#in-progress)).
 Selection is limited to 50 visible threads. More results use **Select first 50 shown**, in the current
 visible order (Open, In progress, Ready to verify, then Done on Board). Changing a project, environment, author, filter or view

@@ -1,12 +1,13 @@
-import { Check, ExpandDown, Search } from '@signalco/ui-icons';
+import { Check, Close, ExpandDown, Search } from '@signalco/ui-icons';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Pin } from '@uier/brand/Pin';
-import { Specimen } from './LandingSpecimens';
+import { floating, Specimen } from './LandingSpecimens';
 
 // A static picture of a project's feedback in the app, for /features/feedback-triage: the search
-// and priority filter, the selection and its actions, and three threads. The labels match
-// TriageSelection and CommentFilters; the example content is the landing's imaginary restaurant
-// site. It only illustrates the page's text, so it is hidden from assistive technologies.
+// and priority filter, three threads while selecting (Select on, every box shown) and the floating
+// bar with the selection's actions. The labels match TriageSelection and CommentFilters; the example
+// content is the landing's imaginary restaurant site. It only illustrates the page's text, so it is
+// hidden from assistive technologies.
 
 const threads = [
     { number: 14, count: 2, text: 'Pay now does nothing on mobile.', path: '/order', priority: 'Urgent', selected: true },
@@ -23,11 +24,11 @@ function Box({ checked, mixed }: { checked?: boolean; mixed?: boolean }) {
     );
 }
 
-function Control({ children, className }: { children: string; className?: string }) {
+function Control({ children, className, menu = true }: { children: string; className?: string; menu?: boolean }) {
     return (
         <span className={cx('inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border bg-background px-2.5 text-xs font-medium', className)}>
             {children}
-            <ExpandDown size={12} strokeWidth={1.75} className="text-muted-foreground" />
+            {menu && <ExpandDown size={12} strokeWidth={1.75} className="text-muted-foreground" />}
         </span>
     );
 }
@@ -44,15 +45,8 @@ export function TriageSpecimen() {
                     <Control>All priorities</Control>
                 </div>
                 <div className="flex items-center gap-3 text-xs">
-                    <Box mixed />
-                    <span className="font-medium">Select shown results</span>
-                    <span className="tabular-nums text-muted-foreground">2 selected</span>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 rounded-xl border p-2.5">
-                    <Control>Assign selected</Control>
-                    <Control>Set priority</Control>
-                    <span className="hidden h-8 items-center rounded-lg border px-2.5 text-xs font-medium sm:inline-flex">Mark selected as done</span>
-                    <span className="hidden h-8 items-center rounded-lg border px-2.5 text-xs font-medium md:inline-flex">Reopen selected</span>
+                    <span className="tabular-nums text-muted-foreground">3 comments</span>
+                    <span className="ml-auto inline-flex h-7 items-center rounded-lg bg-muted px-2.5 font-medium">Select</span>
                 </div>
                 <div className="flex flex-col">
                     {threads.map(thread => (
@@ -66,6 +60,15 @@ export function TriageSpecimen() {
                             <span className={cx('inline-flex h-6 shrink-0 items-center rounded-full border px-2.5 text-xs font-medium', thread.priority === 'Normal' && 'text-muted-foreground')}>{thread.priority}</span>
                         </div>
                     ))}
+                </div>
+                {/* The bar floats over the end of the list while threads are selected */}
+                <div className={cx('flex flex-wrap items-center gap-2 self-center rounded-xl border bg-background p-1.5 text-xs', floating)}>
+                    <span className="inline-flex size-8 items-center justify-center text-muted-foreground"><Close size={14} strokeWidth={1.75} /></span>
+                    <span className="flex items-center gap-2 pr-1"><Box mixed /><span className="tabular-nums">2 selected</span></span>
+                    <Control className="border-transparent">Assign</Control>
+                    <Control className="border-transparent">Priority</Control>
+                    <Control menu={false} className="hidden border-transparent sm:inline-flex">Done</Control>
+                    <Control menu={false} className="hidden border-transparent sm:inline-flex">Reopen</Control>
                 </div>
             </div>
         </Specimen>

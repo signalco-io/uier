@@ -7,6 +7,7 @@ import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import { workspaceAiTitles } from '@/src/lib/titles/settings';
 import { WorkspaceAiTitlesForm } from './WorkspaceAiTitlesForm';
 import { WorkspaceNameForm } from './WorkspaceNameForm';
+import { WorkspaceDomainsSection } from './WorkspaceDomainsSection';
 
 export const metadata: Metadata = {
     title: 'Workspace settings'
@@ -24,6 +25,7 @@ export default async function WorkspaceSettingsPage() {
             <div className="flex flex-col gap-6">
                 <WorkspaceNameForm name={context.workspace.name} />
                 <WorkspaceAiTitlesForm enabled={workspaceAiTitles(context.workspace)} />
+                <WorkspaceDomainsSection context={context} />
             </div>
         </div>
     );

@@ -59,6 +59,17 @@
   kept after sign-out); the page reads it with `getLastSignInMethod` and that option's button (`relative`)
   gets `LastUsedBadge` at its right edge and `aria-describedby` pointing at it. An email proof that linked Google or Microsoft
   counts as that provider; invitations count as email. `passkeys.spec.ts` covers it.
+- `startSession(userId, method, provenEmail)` records whether the sign-in proved the account email now
+  (`emailProof.ts`): the session token gets `ev`, a keyed hash of the address (never the address), and the call
+  returns the proof. Email code and link, and invitation links, pass the account email; Google passes the
+  outcome's `provenEmail`, set only when the ID token returns the account email where `googleIsAuthoritative`
+  (a linked `sub` whose address moved, or a non-Workspace address, proves nothing); passkeys and Microsoft pass
+  none. The proof counts for 10 minutes after the sign-in (`EMAIL_PROOF_SECONDS`) and only for its account and
+  email (`getSessionEmailProof`). Only email domains use it.
+- Every sign-in (email code and link, passkey, Google, Microsoft) continues through `signInDestination` with that
+  proof: when it proved the email and a workspace offers its domain, it goes to `/app/join` first with its
+  destination as `next` ([email domains](access-and-membership.md#email-domains)). Without a proof nothing is
+  looked up; the lookup never fails a sign-in.
 - Locally (`UIER_LOCAL=1` or `next dev`) and on previews no email is sent; pages show the link and code.
   The e2e helpers in `e2e/support/app.ts` sign in with the code. `e2e/sign-in.api.spec.ts` covers expiry,
   concurrency, binding validation, code-email safety and lifetime budgets; `app.spec.ts` and

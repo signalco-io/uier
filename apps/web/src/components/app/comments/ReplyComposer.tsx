@@ -104,7 +104,7 @@ export function ReplyComposer({ projectId, userId, userName, comment, onClose }:
             try {
                 await drafts.run(key, async () => {
                     update({ id: comment.id, reply: { id: `pending-${sendId}`, author: { name: userName ?? 'You', isMe: true }, text: input.text,
-                        createdAt: new Date().toISOString(), deleted: false, edited: false, canDelete: false, canFilterAuthor: false, pending: true }, previousReplyIds: comment.replies.map(item => item.id) });
+                        mentions: input.mentions.map(({ start, end }) => ({ start, end })), createdAt: new Date().toISOString(), deleted: false, edited: false, canDelete: false, canFilterAuthor: false, pending: true }, previousReplyIds: comment.replies.map(item => item.id) });
                     const result = await replyCommentAction({ ...input, idempotencyKey });
                     if (!result?.ok) throw new Error(result?.error ?? 'Could not post the reply. Try again.');
                 });

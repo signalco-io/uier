@@ -13,7 +13,6 @@ import { commentsContainerName, DEFAULT_COMMENTS_CONTAINER_NAME } from '../db/cl
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { newSourcePath, toCommentDto, withinListResponseSize, type CommentDto } from './dto';
 import { authorNames } from './authorNames';
-import { isLocalRuntime } from './environment';
 import { ApiError, apiErrors, writerId, type CommentsApiContext } from './http';
 import {
     COMMENT_TTL_SECONDS,
@@ -21,10 +20,9 @@ import {
     MAX_THREAD_ITEMS,
     PREVIEW_COMMENT_TTL_SECONDS
 } from './limits';
-import { enforceNewCommentLimits, enforceReplyLimits, enforceScreenshotLimits, type RateLimitSubject, type RewriteLimitSubject } from './rateLimits';
+import { enforceNewCommentLimits, enforceReplyLimits, enforceScreenshotLimits, rateLimitIpBucket, usageLinks, type RateLimitSubject, type RewriteLimitSubject } from './rateLimits';
 import type { ParsedScreenshot } from './screenshot';
 import type { CreateCommentInput, ReplyInput, UpdateCommentInput } from './validation';
-import { ipRateLimitBucket, isLoopbackIp, resolveClientIp } from './visitor';
 import { HEADLINE_COMMENT_ID, STEP_COMMENT_ID, PUBLIC_PROJECT_ID, PUBLIC_PROJECT_PARTITION, isPrivateAppFeedback } from './publicProject';
 import { isVisible } from './visibility';
 
@@ -43,23 +41,15 @@ export function commentTtlSeconds() {
 }
 
 /**
- * IP bucket used for rate limiting. Locally (development and e2e tests) loopback requests are not
- * IP limited, so all local test visitors don't share a single bucket.
+ * Every writer keeps the visitor and IP limits on this API, signed in or not. A signed-in member of the
+ * public project gets the links to their usage pages.
  */
-function rateLimitIpBucket(request: Request) {
-    const ip = resolveClientIp(request);
-    if (!ip)
-        return isLocalRuntime() ? undefined : 'unknown';
-    if (isLocalRuntime() && isLoopbackIp(ip))
-        return undefined;
-    return ipRateLimitBucket(ip);
-}
-
 function rateLimitSubject(context: CommentsApiContext): RateLimitSubject {
     return {
         domain: context.domain,
         authorId: writerId(context),
-        ipBucket: rateLimitIpBucket(context.request)
+        ipBucket: rateLimitIpBucket(context.request),
+        ...(context.project ? { usage: usageLinks(context.project, context.actor) } : {})
     };
 }
 
@@ -71,7 +61,8 @@ export function rewriteLimitSubject(context: CommentsApiContext): RewriteLimitSu
     return {
         domain: context.domain,
         authorId: context.visitor.authorId,
-        ipBucket: rateLimitIpBucket(context.request)
+        ipBucket: rateLimitIpBucket(context.request),
+        ...(context.project ? { usage: usageLinks(context.project, context.actor) } : {})
     };
 }
 
