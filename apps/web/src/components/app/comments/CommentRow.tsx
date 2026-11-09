@@ -13,7 +13,7 @@ import { AssigneeCard } from './AssigneeCard';
 import { AuthorAvatar } from './AuthorAvatar';
 import { commentStatus, commentStatusLabels, StateDot } from './CommentStatus';
 import { PriorityLabel } from './PriorityFlag';
-import { threadPullRequestLinks } from '@/src/lib/comments/pullRequestLinks';
+import { commentPullRequestLinks, PullRequestCard } from './ThreadPullRequests';
 
 const kindIcons = { feedback: HeartIcon, bug: BugIcon, rewrite: ReplaceIcon } as const;
 
@@ -31,14 +31,14 @@ export const commentRowId = (id: string) => `comment-row-${id}`;
 
 /**
  * One comment in the inbox list or on the board. The title line: unread, who wrote it (`AuthorAvatar`: its tooltip
- * names them), number, title (`commentTitle`) and age. The meta line: the page path, private, a linked pull request,
+ * names them), number, title (`commentTitle`) and age. The meta line: the page path, private, a linked pull request (`PullRequestCard`: hovering or tapping it lists the thread's pull requests),
  * priority other than Normal (its flag, named for assistive tech), status (Open too; a board card leaves it to its
  * column), then at its right end who it is assigned to (`AssigneeCard`: each assignee's avatar with its agents' marks on
  * its edge; hovering them shows the assignees and their agents) and the selection box (`SelectComment`). The box shows only while
  * the row is hovered, focused or selecting, but keeps its room, so the assignees never move when it appears. The whole row opens the thread (a link to `?comment=<id>`, so it can also
  * open in a new tab).
  */
-export function CommentRow({ comment, href, selected, onOpen, card = false, preview = false, actions, describedBy, keyShortcuts, project, tabbable = true }: {
+export function CommentRow({ comment, href, selected, onOpen, card = false, preview = false, actions, describedBy, keyShortcuts, project, projectId, tabbable = true }: {
     comment: ProjectCommentView;
     href: string;
     /** Its thread is open (`opened`), or shown beside the list until another is chosen (`beside`, wide layouts only) */
@@ -60,6 +60,8 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
     keyShortcuts?: string;
     /** The project's name, where rows of several projects are listed together (My work) */
     project?: string;
+    /** The thread's project: with it, the linked pull request mark shows the pull requests on hover or tap */
+    projectId?: string;
     /**
      * Its link and selection box are in the Tab order. The inbox list keeps only one row there (a roving
      * tab stop) and moves between rows with the arrow keys.
@@ -72,8 +74,9 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
     const unread = Boolean(comment.activity?.unread);
     const KindIcon = comment.kind === 'comment' ? undefined : kindIcons[comment.kind];
     const title = commentTitle(comment);
+    const pullRequests = commentPullRequestLinks(comment);
     const link = useRef<HTMLAnchorElement>(null);
-    // A click on the author's or a mouse click on the assignee's avatars opens the thread like the rest of the row, modifier keys and all
+    // A click on the author's or a mouse click on the assignee's avatars or the pull request mark opens the thread like the rest of the row, modifier keys and all
     const openFromAvatars = (event: MouseEvent) => link.current?.dispatchEvent(new window.MouseEvent('click', {
         bubbles: true, cancelable: true, view: window, button: event.button,
         ctrlKey: event.ctrlKey, metaKey: event.metaKey, shiftKey: event.shiftKey, altKey: event.altKey
@@ -122,8 +125,10 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                     </p>
                     <div className="flex min-h-5 shrink-0 items-center gap-2">
                         {comment.private && <LockIcon aria-label="Private" className="size-3.5" />}
-                        {threadPullRequestLinks([{ text: comment.text, deleted: comment.deleted }, ...comment.replies]).length > 0 &&
-                            <GitPullRequestIcon aria-label="Linked pull request" className="size-3.5" />}
+                        {/* Hovering or tapping the mark shows the pull requests; the dragged copy of a card and a row without its project keep the plain mark */}
+                        {pullRequests.length > 0 && (preview || !projectId
+                            ? <GitPullRequestIcon aria-label="Linked pull request" className="size-3.5" />
+                            : <PullRequestCard projectId={projectId} comment={comment} links={pullRequests} tabbable={tabbable} onPress={openFromAvatars} />)}
                         {/* Normal is the default: only a priority that differs gets its flag */}
                         {comment.priority !== 'normal' && <PriorityLabel priority={comment.priority} />}
                         {/* Every row says its status (Active mixes them); a board card's column (named for assistive tech) already does */}
