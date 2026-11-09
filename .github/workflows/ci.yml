@@ -46,7 +46,8 @@ jobs:
               - ".npmrc"
               - ".nvmrc"
               - ".github/workflows/ci.yml"
-              - ".github/workflows/vercel-deploy_reusable.yml"
+              - ".github/workflows/deploy.yml"
+              - ".github/workflows/vercel-*_reusable.yml"
               - ".github/workflows/notifications.yml"
               - ".github/vercel-project.json"
               - ".github/indexnow.json"
@@ -191,8 +192,8 @@ jobs:
     with:
       command: preview
 
-  preview:
-    name: "Web (Vercel preview)"
+  preview-build:
+    name: "Web (preview build)"
     needs: changes
     # Secrets are not available to PRs from forks.
     if: >-
@@ -201,12 +202,38 @@ jobs:
        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
     permissions:
       contents: read
+    uses: ./.github/workflows/vercel-build_reusable.yml
+
+  preview:
+    name: "Web (Vercel preview)"
+    needs: preview-build
+    permissions:
+      contents: read
     uses: ./.github/workflows/vercel-deploy_reusable.yml
     # Explicit names enable the target job environment to supply its secrets.
     secrets:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     with:
       production: false
+
+  # Temporary paired benchmark; remove after selecting the production upload runner.
+  upload-benchmark:
+    name: "Upload benchmark (slim=${{ matrix.slim }}, trial=${{ matrix.trial }})"
+    needs: preview-build
+    if: github.event_name == 'pull_request' && github.head_ref == 'perf/speed-up-deployment'
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        trial: [1, 2, 3]
+        slim: [false, true]
+    uses: ./.github/workflows/vercel-deploy_reusable.yml
+    secrets:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    with:
+      slim: ${{ matrix.slim }}
 
   extension:
     name: "Extension (packaged runtime)"
@@ -276,7 +303,7 @@ jobs:
   ci-ok:
     # Single required status check: fails if any job failed or was cancelled; skipped jobs are fine.
     name: "CI OK"
-    needs: [changes, web, infra, preview, extension, skills]
+    needs: [changes, web, infra, preview-build, preview, upload-benchmark, extension, skills]
     if: always()
     runs-on: ubuntu-slim
     timeout-minutes: 5

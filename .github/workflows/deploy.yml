@@ -2,8 +2,8 @@
 
 # main -> stack uier-production + Vercel production (uier.io)
 #
-# Infrastructure always goes first: the Vercel project (rootDirectory, env vars, domains)
-# is managed by Pulumi and has to be up to date before the production deployment.
+# Build and infrastructure run together. The final upload waits for both: the Vercel project
+# (rootDirectory, env vars, domains) must be up to date before the production deployment.
 
 name: "Deploy"
 
@@ -31,6 +31,15 @@ concurrency:
 permissions: {}
 
 jobs:
+  build:
+    name: "Web (production build)"
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/vercel-build_reusable.yml
+    with:
+      production: true
+
   infra:
     name: "Infra (pulumi up)"
     if: github.ref == 'refs/heads/main'
@@ -53,7 +62,7 @@ jobs:
 
   web:
     name: "Web (Vercel deploy)"
-    needs: infra
+    needs: [infra, build]
     permissions:
       contents: read
     uses: ./.github/workflows/vercel-deploy_reusable.yml
@@ -65,8 +74,8 @@ jobs:
 
   indexnow:
     name: "Notify search engines of changed public pages"
-    needs: web
-    if: needs.web.outputs.public-pages-changed == 'true'
+    needs: [web, build]
+    if: needs.build.outputs.public-pages-changed == 'true'
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
