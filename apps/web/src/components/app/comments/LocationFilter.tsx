@@ -51,9 +51,11 @@ function GroupLabel({ children }: { children: ReactNode }) {
  * on the right. Choosing an environment reloads the pages beside it. Pages can be searched; sections with
  * several pages (`/blog/*`) and a typed path match every page under it.
  */
-export function LocationFilter({ environment, environments, page, pages, onEnvironment, onPage, triggerClassName }: {
+export function LocationFilter({ environment, environments, historySources, page, pages, onEnvironment, onPage, triggerClassName }: {
     environment?: string;
     environments: EnvironmentOption[];
+    /** Which of "removed" and "unknown" have comments; the others are hidden unless chosen. Leave out when not known. */
+    historySources?: string[];
     page?: string;
     /** Pages (relative URLs) with their number of comments */
     pages: PageCount[];
@@ -135,7 +137,7 @@ export function LocationFilter({ environment, environments, page, pages, onEnvir
                     {environments.map(item => (
                         <Option key={item.id} selected={environment === item.id} label={item.label} onSelect={() => chooseEnvironment(item.id)} />
                     ))}
-                    {historyEnvironments.map(item => (
+                    {historyEnvironments.filter(item => !historySources || historySources.includes(item.id) || environment === item.id).map(item => (
                         <Option key={item.id} selected={environment === item.id} label={<span className="text-muted-foreground">{item.label}</span>}
                             onSelect={() => chooseEnvironment(item.id)} />
                     ))}

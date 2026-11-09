@@ -43,13 +43,15 @@ function FilterChip({ label, clearLabel = `Clear filter: ${label}`, icon, onClea
  * Search, the status tabs and one Filter button (priority, environment and page, people, unread);
  * the filters in effect show under the bar, each with its own clear button. All kept in the URL.
  */
-export function CommentFilters({ unread, unreadCount, view, status, statusCounts, people, page, pages, environment, environments, author, search, onSearch, priority }: {
+export function CommentFilters({ unread, unreadCount, view, status, statusCounts, people, page, pages, environment, environments, historySources, author, search, onSearch, priority }: {
     search: string;
     onSearch: (value: string) => void;
     priority?: CommentPriority;
     author?: AuthorFilter;
     environment?: string;
     environments: EnvironmentOption[];
+    /** Which of "removed" and "unknown" have comments, when known */
+    historySources?: string[];
     unread: boolean;
     unreadCount: number;
     view: CommentsView;
@@ -132,7 +134,7 @@ export function CommentFilters({ unread, unreadCount, view, status, statusCounts
                             </Field>
                             <Field>
                                 <FieldTitle>Environment and page</FieldTitle>
-                                <LocationFilter environment={environment} environments={environments} page={page} pages={pages} triggerClassName="w-full max-w-none"
+                                <LocationFilter environment={environment} environments={environments} historySources={historySources} page={page} pages={pages} triggerClassName="w-full max-w-none"
                                     onEnvironment={value => go({ environment: value })} onPage={value => go({ page: value })} />
                             </Field>
                             <Field>

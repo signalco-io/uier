@@ -188,6 +188,10 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
     // Each page with its number of comments, for the page search
     const pages = [...comments.reduce((counts, comment) => counts.set(comment.path, (counts.get(comment.path) ?? 0) + 1), new Map<string, number>())]
         .map(([path, count]) => ({ path, count }));
+    // "Removed addresses" and "Source not recorded" show only when they have comments; known only with every environment loaded
+    const historySources = query.environment === 'all' && !searchWindowCapped
+        ? [...new Set(comments.map(comment => comment.source.environment).filter(id => id === 'removed' || id === 'unknown'))]
+        : undefined;
     const filtered = applyFilters(comments, query, userId, openId);
     const statusCounts = Object.fromEntries((Object.keys(statusFilterLabels) as StatusFilter[])
         .map(filter => [filter, filtered.filter(comment => statusMatches(filter, commentStatus(comment))).length])) as Record<StatusFilter, number>;
@@ -209,7 +213,7 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
             They keep the page's reading width in both views; only the board itself is wider (CommentBoard). */}
         <div ref={containerRef} className="@container/comments flex flex-col gap-2">
             <div className={cn('contents', threadOnly && '@max-3xl/comments:hidden')}>
-            <CommentFilters search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} unread={Boolean(query.unread)} unreadCount={comments.filter(comment => comment.activity?.unread).length} view={query.view} status={query.status} statusCounts={statusCounts} people={query.people} page={query.page} pages={pages} />
+            <CommentFilters search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} historySources={historySources} unread={Boolean(query.unread)} unreadCount={comments.filter(comment => comment.activity?.unread).length} view={query.view} status={query.status} statusCounts={statusCounts} people={query.people} page={query.page} pages={pages} />
             {searchWindowCapped && <p className="m-0 text-sm text-muted-foreground">Search covers up to 1,000 recent threads in this environment and author scope. Narrow the environment or author to find older feedback.</p>}
             </div>
             <TriageSelection projectId={projectId} scope={selectionScope} shown={board ? commentStatuses.flatMap(status => columns[status]) : shown} assignees={assignees}
