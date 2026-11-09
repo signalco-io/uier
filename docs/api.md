@@ -6,8 +6,11 @@ website builds and serves the toolbar. See [MCP](mcp.md) for coding tool access.
 ## Realtime comment changes
 
 The embedded toolbar and the app's project comment list/board use Vercel Functions WebSockets
-at `/api/realtime`. Fluid compute is enabled in `apps/web/vercel.json`; the function has a
-300-second limit and closes sessions after four minutes so clients can renew on every plan.
+at `/api/realtime`. They need Fluid compute, which Pulumi enables on the Vercel project
+(`infra/src/vercel.ts`). It is not set in `apps/web/vercel.json`: CI deploys prebuilt output
+without a checkout, so the deploy step never reads that file. Without Fluid compute every upgrade
+fails with `502` and clients stay on HTTP refresh. The function has a 300-second limit and closes
+sessions after four minutes so clients can renew on every plan.
 
 `GET /api/review/<code>/realtime`, `GET /api/comments/realtime` and the member-only
 `GET /api/realtime/ticket?projectId=<internal id>` issue five-minute, purpose-separated signed

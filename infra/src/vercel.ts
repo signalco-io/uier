@@ -31,6 +31,10 @@ export function vercelApp(prefix: string, name: string, {
         // both as resourceConfig.functionDefaultRegions = ['dub1'] (in-place update).
         resourceConfig: {
             functionDefaultRegions: ['dub1'],
+            // Vercel Functions WebSockets (`/api/realtime`) require Fluid compute. It is set on the
+            // project, not in vercel.json: CI deploys prebuilt output without a checkout, so the
+            // deploy step never reads vercel.json and deployments would use the project default.
+            fluid: true,
         },
         rootDirectory,
         nodeVersion,
