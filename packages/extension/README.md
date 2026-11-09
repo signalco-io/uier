@@ -8,6 +8,7 @@ The toolbar and brand remain separate local packages, reused by the website and 
 | --- | --- |
 | `src/worker.ts`, `src/content.ts`, `src/protocol.ts` | Credential owner, document-bound activation, API broker, toolbar mounting and capture |
 | `src/popup.tsx`, `src/helper.ts`, `src/popup.css` | Shared popup and verification UI |
+| `src/update.ts` | Store update check against uier's version, and the popup's restart ([Updates](../../docs/browser-extension.md#updates)) |
 | `src/browser.ts`, `src/auth.ts`, `src/storage.ts` | Native Promise namespace, browser sign-in and private credential storage |
 | `scripts/manifest.mjs` | Permissions, background entry and Firefox registration/consent |
 | `scripts/build.mjs`, `validate.mjs`, `package.mjs` | Bundling, brand assets, production audit and deterministic ZIP receipts |

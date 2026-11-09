@@ -14,6 +14,9 @@ import { memberId, workspacePk } from '../src/lib/app/model';
 import { actorAuthorId, assertCanUseComments } from '../src/lib/review/actor';
 import { refreshExtensionSession, revokeExtensionSession, extensionAccessSeconds, extensionIdleSeconds, extensionAbsoluteSeconds } from '../src/lib/extension/sessions';
 import { extensionClients, extensionFrameAncestors } from '../src/lib/extension/config';
+import { latestExtensionVersion } from '../src/lib/extension/release';
+import { GET as extensionOperation } from '../app/api/extension/[operation]/route';
+import { readFileSync } from 'node:fs';
 
 const clientId = 'abcdefghijklmnopabcdefghijklmnop';
 const redirectUri = `https://${clientId}.chromiumapp.org/uier`;
@@ -193,6 +196,20 @@ test('scoped access derives the origin and rechecks address removal, comments of
     await expect(extensionSession(request('projects', credentials.token))).rejects.toThrow();
     await expect(extensionReviewContext(scopedRequest)).rejects.toThrow();
 });
+test('the public version matches every browser package and needs no credentials', async () => {
+    const versions = ['extension', 'extension-firefox'].map(app => (JSON.parse(readFileSync(new URL(`../../${app}/package.json`, import.meta.url), 'utf8')) as { version: string }).version);
+    expect(versions).toEqual([latestExtensionVersion, latestExtensionVersion]);
+    for (const origin of [undefined, `chrome-extension://${clientId}`]) {
+        const response = await extensionOperation(new Request('https://uier.io/api/extension/version', { headers: origin ? { Origin: origin } : {} }));
+        expect(response.status).toBe(200);
+        expect(await response.json()).toEqual({ version: latestExtensionVersion });
+        expect(response.headers.get('Cache-Control')).toBe('no-store');
+        expect(response.headers.get('Access-Control-Allow-Origin')).toBe(origin ?? null);
+    }
+    const foreign = await extensionOperation(new Request('https://uier.io/api/extension/version', { headers: { Origin: 'https://evil.test' } }));
+    expect(foreign.status).toBe(403);
+});
+
 test('extension CORS cannot grant identity and leaves embed policy separate', async () => {
     const handler = extensionHandler(async request => { await extensionSession(request); return Response.json({ ok: true }); });
     for (const origin of [undefined, `chrome-extension://${clientId}`, 'https://evil.test']) {

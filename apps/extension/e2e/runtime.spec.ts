@@ -114,6 +114,13 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     expect((await send({ type: 'request', url: `${apiBase}/api/review/${publicId}/comments` })).ok).toBe(false);
     expect((await send({ type: 'start', tabId, projectId, publicId })).ok).toBe(true);
     await expect(reviewed.locator('#uier-toolbar')).toHaveCount(1);
+    // The popup's update check read uier's version without cookies. Nothing is downloaded, so a
+    // restart is refused and the review keeps its toolbar.
+    const version = await actionPopup.evaluate(() => chrome.runtime.getManifest().version);
+    expect(await send({ type: 'update' })).toEqual({ ok: true, value: { version } });
+    expect((await send({ type: 'install-update' })).ok).toBe(false);
+    if (proxy) expect(proxy.requests.filter(r => r.path === '/api/extension/version').map(r => r.hasCookie)).toContain(false);
+    await expect(reviewed.locator('#uier-toolbar')).toHaveCount(1);
     // Sign-in cookies are no longer needed by the worker or the verification helper.
     await context.clearCookies();
     await reviewed.getByRole('button', { name: 'Add comment', exact: true }).click();
@@ -299,7 +306,9 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     const resumedPopup = await context.newPage();
     await resumedPopup.goto(`chrome-extension://${id}/popup.html`);
     await expect(resumedPopup.getByRole('button', { name: 'Sign out' })).toBeVisible();
-    expect(await resumedWorker.evaluate(async () => Object.keys(await chrome.storage.session.get(null)))).toEqual(['extension-session-v1']);
+    // Only renewed access and the popup's hourly update check; no binding, proof or draft returns.
+    await expect.poll(() => resumedWorker.evaluate(async () => Object.keys(await chrome.storage.session.get(null)).sort()))
+        .toEqual(['extension-session-v1', 'update-checked-v1']);
     if (proxy) {
         // A renewal committed on the server must not restore credentials after concurrent logout.
         const held = proxy.holdNextRefreshResponse();
@@ -318,6 +327,25 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
         await resumedPopup.reload();
     } else await resumedPopup.getByRole('button', { name: 'Sign out' }).click();
     await expect(resumedPopup.getByRole('button', { name: 'Sign in to uier' })).toBeVisible();
-    expect(await resumedWorker.evaluate(async () => Object.keys(await chrome.storage.session.get(null)))).toEqual([]);
+    // Sign-out clears every private record. The reopened popup's update check keeps only its time.
+    expect(await resumedWorker.evaluate(async () => Object.keys(await chrome.storage.session.get(null)).filter(key => key !== 'update-checked-v1'))).toEqual([]);
     expect(await resumedWorker.evaluate(async () => Object.keys(await chrome.storage.local.get(null)).filter(key => key.startsWith('extension-refresh-v1:')))).toEqual([]);
+
+    // A download the browser reported (onUpdateAvailable records it) is offered with a real restart.
+    await resumedWorker.evaluate(async () => chrome.storage.session.set({ 'update-ready-v1': '65535.0.0' }));
+    await resumedPopup.reload();
+    const notice = resumedPopup.getByRole('region', { name: 'Update ready' });
+    await expect(notice).toContainText('Version 65535.0.0 is downloaded.');
+    for (const colorScheme of ['light', 'dark'] as const) {
+        await resumedPopup.emulateMedia({ colorScheme });
+        await expect(resumedPopup.locator('html')).toHaveClass(colorScheme === 'dark' ? 'dark' : '');
+        await animationsFinished(resumedPopup.getByRole('main'));
+        await expectNoAxeViolations(resumedPopup);
+        await resumedPopup.screenshot({ path: info.outputPath(`popup-update-${colorScheme}.png`) });
+    }
+    // runtime.reload() closes every extension page. A command-line package does not load again
+    // in this harness, so the restart is the last step.
+    const closed = resumedPopup.waitForEvent('close');
+    await notice.getByRole('button', { name: 'Restart and update' }).click();
+    await closed;
 });

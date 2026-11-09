@@ -1,7 +1,7 @@
 /** Versioned, closed worker message envelope. Authorization also binds the browser sender. */
 export type CaptureRegion = { left: number; top: number; width: number; height: number; viewportWidth: number; viewportHeight: number };
 export type WorkerMessage =
-    | { type: 'state' | 'sign-in' | 'sign-out' | 'drafts' }
+    | { type: 'state' | 'sign-in' | 'sign-out' | 'drafts' | 'update' | 'install-update' }
     | { type: 'exit'; tabId?: number }
     | { type: 'start'; tabId: number; projectId: string; publicId: string }
     | { type: 'draft'; key: string; value: string | null }
@@ -20,7 +20,7 @@ export function parseWorkerMessage(input: unknown): WorkerMessage {
     const tab = (value: unknown) => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
     let valid = false;
     switch (msg.type) {
-        case 'state': case 'sign-in': case 'sign-out': case 'drafts': valid = keys(); break;
+        case 'state': case 'sign-in': case 'sign-out': case 'drafts': case 'update': case 'install-update': valid = keys(); break;
         case 'exit': valid = keys('tabId') && (msg.tabId === undefined || tab(msg.tabId)); break;
         case 'start': valid = keys('tabId', 'projectId', 'publicId') && tab(msg.tabId) && text(msg.projectId, 128) && text(msg.publicId, 128); break;
         case 'draft': valid = keys('key', 'value') && text(msg.key, 2047) && msg.key.startsWith('uier:draft:v1:') && (msg.value === null || (text(msg.value, 64_000) && !msg.value.includes('data:image/'))); break;

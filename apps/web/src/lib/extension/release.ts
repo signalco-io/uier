@@ -29,5 +29,14 @@ export const extensionRelease = {
     minimumBrowserVersion: 120
 } as const;
 
+/**
+ * The newest extension version on main, equal to both browser packages: `pnpm -C apps/extension
+ * release:version X.Y.Z` sets all three and the API test compares them. `GET /api/extension/version`
+ * reports it.
+ * The store can be behind while a submission is in review: the extension asks the browser for
+ * the update and offers a restart only once it is downloaded (packages/extension/src/update.ts).
+ */
+export const latestExtensionVersion = '0.1.5';
+
 /** The store listing, the same address as the app's store link */
 export const extensionStoreUrl = chromeWebStoreUrl(extensionRelease.storeId);

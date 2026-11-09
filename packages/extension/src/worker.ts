@@ -3,10 +3,12 @@ import { parseWorkerMessage, type CaptureRegion } from './protocol';
 import { apiOrigin, type Binding, type Session, type Credentials, type RefreshSession, type Result, sessionKey, refreshKey, random, reviewable } from './environment';
 import { credentialStorage, secureStorage } from './storage';
 import { redirectURL, launchAuth } from './auth';
+import { readyUpdate, updateState, watchUpdates } from './update';
 import { extensionOperation } from '@uier/toolbar/extension-contract';
 
 // Never expose worker-owned credentials or private drafts to content-script storage APIs.
 const ready = secureStorage();
+watchUpdates();
 let authEpoch = 0;
 let signingOut = false;
 let activationRevision = 0;
@@ -150,15 +152,29 @@ async function clearSession() {
             if (!response.ok && response.status !== 401) throw new Error('Browser data was cleared, but server sign-out was not confirmed.');
         }
     } finally {
-        const values = await browser.storage.session.get(null);
+        const bound = await boundTabs();
         await writeAuth(async () => {
             await credentialStorage.remove(refreshKey);
             await browser.storage.session.clear();
         });
-        await Promise.all(Object.keys(values).filter(key => key.startsWith('binding:')).map(key =>
-            browser.tabs.sendMessage(Number(key.slice(8)), { type: 'dispose' }).catch(() => {})));
+        await disposeTabs(bound);
         signingOut = false;
     }
+}
+
+async function boundTabs() {
+    const values = await browser.storage.session.get(null);
+    return Object.keys(values).filter(key => key.startsWith('binding:')).map(key => Number(key.slice(8)));
+}
+async function disposeTabs(tabIds: number[]) {
+    await Promise.all(tabIds.map(tabId => browser.tabs.sendMessage(tabId, { type: 'dispose' }).catch(() => {})));
+}
+/** A restart ends every review, as an automatic update does; remove the toolbars before it orphans them. */
+async function installUpdate() {
+    if (!await readyUpdate()) throw new Error('No update is ready to install.');
+    await disposeTabs(await boundTabs());
+    // Answer the popup first; the restart closes it.
+    setTimeout(() => browser.runtime.reload(), 100);
 }
 
 const verifying = new Map<string, Promise<string>>();
@@ -252,6 +268,8 @@ async function handle(input: unknown, sender: chrome.runtime.MessageSender) {
     if (popup) {
         if (msg.type === 'sign-in') return signIn();
         if (msg.type === 'sign-out') return signOut();
+        if (msg.type === 'update') return updateState();
+        if (msg.type === 'install-update') return installUpdate();
         if (msg.type === 'state') {
             let signedIn = false;
             try { await session(); signedIn = true; } catch (error) {

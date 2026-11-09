@@ -8,6 +8,7 @@ import { apiErrors, parseJsonBody } from '@/src/lib/comments/http';
 import { assertNotBot } from '@/src/lib/comments/botProtection';
 import { actorAuthorId } from '@/src/lib/review/actor';
 import { extensionClient, extensionClientOrigin } from '@/src/lib/extension/config';
+import { latestExtensionVersion } from '@/src/lib/extension/release';
 
 export const dynamic = 'force-dynamic';
 const handler = extensionHandler(async request => {
@@ -16,6 +17,8 @@ const handler = extensionHandler(async request => {
         return Response.json(await exchangeExtensionCode(await parseJsonBody(request, z.unknown())));
     if (operation === 'refresh' && request.method === 'POST')
         return Response.json(await refreshExtensionSession(await parseJsonBody(request, z.unknown())));
+    // Public and secret-free: installed packages compare it before asking the browser for an update.
+    if (operation === 'version' && request.method === 'GET') return Response.json({ version: latestExtensionVersion });
     if (operation === 'projects' && request.method === 'GET') return matchingProjects(request);
     if (operation === 'scope' && request.method === 'POST') return createScope(request);
     if (operation === 'session' && request.method === 'DELETE') {

@@ -8,6 +8,7 @@ import { brand } from '@uier/brand';
 import { Logo } from '@uier/brand/Logo';
 import { apiOrigin, message } from './environment';
 import { followSystemTheme } from './theme';
+import type { UpdateState } from './update';
 
 type Project = { id: string; projectId: string; name: string; access: string };
 type State = {
@@ -16,7 +17,7 @@ type State = {
     binding?: boolean; reviewing?: string;
     canSetUp?: boolean; projects?: Project[];
 };
-type Action = 'refresh' | 'sign-in' | 'sign-out' | 'start' | 'exit';
+type Action = 'refresh' | 'sign-in' | 'sign-out' | 'start' | 'exit' | 'install-update';
 
 /** The reviewed site's address, in mono because a machine wrote it (BRAND.md, "Typography") */
 function Site({ origin }: { origin: string }) {
@@ -42,6 +43,7 @@ function Popup() {
     const [selected, setSelected] = useState('');
     const [error, setError] = useState('');
     const [busy, setBusy] = useState<Action>();
+    const [update, setUpdate] = useState<UpdateState>();
     const refresh = async () => {
         const value = await message<State>({ type: 'state' });
         setState(value);
@@ -50,6 +52,8 @@ function Popup() {
             ?? (value.projects?.length === 1 ? value.projects[0]!.projectId : ''));
     };
     useEffect(() => { void refresh().catch(error => setError(error.message)); }, []);
+    // Separate from the review state: a failed update check never blocks the popup.
+    useEffect(() => { void message<UpdateState>({ type: 'update' }).then(setUpdate, () => {}); }, []);
     const run = async (action: Action, operation: () => Promise<unknown>) => {
         setBusy(action); setError('');
         try { await operation(); await refresh(); } catch (error) { setError(error instanceof Error ? error.message : 'The extension could not connect.'); }
@@ -62,6 +66,16 @@ function Popup() {
         <Warning size={16} strokeWidth={1.75} aria-hidden="true" className="mt-0.5 shrink-0 text-[hsl(var(--brand-warning))]" />
         <p className="m-0 min-w-0 flex-1">{error}</p>
     </div>;
+
+    // Only after the browser has the update: a newer version on uier can still be in store review.
+    const updateNotice = update?.ready && <section aria-labelledby="update-heading" className="flex flex-col items-start gap-3 rounded-lg border px-3 py-2.5">
+        <div className="flex flex-col gap-1">
+            <p id="update-heading" className="m-0 text-sm font-medium">Update ready</p>
+            <p className="m-0 text-xs text-muted-foreground">Version {update.ready} is downloaded. Restarting ends active reviews in open tabs.</p>
+        </div>
+        <Button variant="outlined" size="sm" loading={busy === 'install-update'} disabled={Boolean(busy)}
+            onClick={() => run('install-update', () => message({ type: 'install-update' }))}>Restart and update</Button>
+    </section>;
 
     let body: ReactNode;
     if (!state && error) {
@@ -172,7 +186,7 @@ function Popup() {
             <Logo size={20} />
             <span className="text-xs text-muted-foreground">Browser extension</span>
         </header>
-        <div className="flex flex-col gap-4 p-4">{body}</div>
+        <div className="flex flex-col gap-4 p-4">{updateNotice}{body}</div>
         {state?.signedIn && <footer className="flex items-center justify-between gap-2 border-t px-2 py-2">
             <Button variant="plain" size="sm" className="text-muted-foreground hover:text-foreground" href={`${apiOrigin}/app`} target="_blank" rel="noopener noreferrer"
                 startDecorator={<ExternalLink size={16} strokeWidth={1.75} aria-hidden="true" />}>Open uier</Button>

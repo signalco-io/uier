@@ -18,12 +18,14 @@ From the repository root, use Node 26 and the pinned Corepack pnpm:
 - `pnpm -C apps/extension test:package`: unchanged production ZIP in persistent Chromium, local API.
 - `pnpm -C apps/extension test:browser`: separately built localhost development package.
 - `pnpm -C apps/extension store:assets`: brand store icon and promotional tile.
+- `pnpm -C apps/extension release:version X.Y.Z`: set the version in both browser packages and the web app's update check.
 
 The [official Chrome Web Store item](https://chromewebstore.google.com/detail/uier/kplfcfnpeljpkbcjgpaefpmggipfpemj)
 is public. Production client registration and hosted BotID renewal are recorded in the release
-receipts, together with the actual automatic upgrade and native acceptance. Version 0.1.3 is
-prepared for the next protected release; it drops the popup's development-preview label and
-redesigns the popup, the verification helper window and the icons.
+receipts, together with the actual automatic upgrade and native acceptance. Version 0.1.5 is
+prepared for the next protected release; it adds the popup's update notice and redesigns the
+popup, the verification helper window and the icons. A weekly workflow prepares the next version
+when shipped source changes ([regular releases](../../docs/browser-extension-release.md#regular-releases)).
 
 The [release runbook](../../docs/browser-extension-release.md) covers the implemented tag/dry-run
 and bounded status workflows, owner bootstrap and recovery. [Listing drafts](../../docs/browser-extension-listing.md)
