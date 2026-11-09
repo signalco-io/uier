@@ -1,6 +1,7 @@
 # The open thread
 
-- `ThreadActivity` adds a compact, initially closed Activity section below Reply in the app.
+- `ThreadActivity` adds a compact, initially closed Activity section as the open thread's card footer in the app
+  (the kit's `CardFooter` under a divider: the muted band down to the card's edge, after Reply and the Open in ... links).
   The toolbar's `CommentActivity` fits the same section into pin popovers and inbox threads.
   Each shows authorized entries oldest first, with relative times and a bounded scrolling list.
   It adds no reads or acknowledgements. See [thread history](read-state-and-activity.md#thread-history)

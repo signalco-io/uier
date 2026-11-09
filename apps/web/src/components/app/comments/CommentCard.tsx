@@ -607,8 +607,6 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                         <ReplyIcon data-icon="inline-start" />Reply
                     </Button>)}
 
-                <ThreadActivity entries={comment.history} />
-
                 {/* The issues it is linked to, quiet as in the toolbar */}
                 {comment.integrationLinks?.length ? (
                     <div className="-ml-2 flex flex-wrap items-center gap-x-1 gap-y-1">
@@ -621,6 +619,9 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                     </div>
                 ) : null}
             </div>
+
+            {/* Activity is the card's footer, under its divider */}
+            <ThreadActivity entries={comment.history} />
 
             <AlertDialog open={confirmingDelete || Boolean(confirmingReply)} onOpenChange={open => {
                 if (!open) { setConfirmingDelete(false); setConfirmingReply(undefined); }
