@@ -70,6 +70,11 @@ only trusted presses, so these clicks (and a page script's) never pin a comment.
   opens the thread on the part. Each is pressed once; only collapsed toolbar buttons that open a
   layer (`aria-expanded="false"`, `pressableToolbarOpener`) are pressed, never any other control a
   saved selector names. Page openers are never clicked.
+- Reviewed page layers use the same saved outer opener and closed-pin behaviour, but page openers
+  are never pressed automatically. Their selectors skip framework-generated ids and keep bounded
+  semantic alternatives; native invokers and the trigger observed opening a script dialog count even
+  without aria-expanded/aria-controls. Page nested layers still save only the outermost opener:
+  `layer.nested` remains restricted to toolbar anchors. See [anchor recovery](anchor-recovery.md).
 - Automatic screenshots include the reviewed parts (everything matching `toolbarReviewSurfaces`) for
   these anchors, without pins, the outline or the comment being written.
 

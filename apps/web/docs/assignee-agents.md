@@ -90,13 +90,16 @@ lease; the idempotent write still records a metadata change.
 The shared browser-safe `agentSessionLink` allowlist accepts only these exact existing-session routes:
 
 - T3 Code: `t3-thread://v2/<environmentId>/<threadId>`, with each id 1–200 ASCII letters, digits,
-  underscores or hyphens, starting with a letter or digit. The supplied environment is required.
+  underscores or hyphens, starting with a letter or digit. The thread id also accepts colons and
+  literal uppercase `%3A` sequences (each counts as one character toward the 200-character id limit).
+  Lowercase `%3a` and all other percent encodings are rejected. The supplied environment is required
+  and accepts no percent encodings. The complete link is limited to 512 characters.
 - Codex: `codex://threads/<UUID>`, the existing local thread format in
   [OpenAI's official desktop commands](https://learn.chatgpt.com/docs/reference/commands#deep-links).
 - Claude: `claude://claude.ai/chat/<UUID>`, the existing conversation format in
   [Claude's official desktop link guide](https://support.claude.com/en/articles/14729294-open-claude-desktop-with-a-link).
 
-No queries, fragments, credentials, ports, whitespace, encoded characters, alternate hosts or
+No queries, fragments, credentials, ports, whitespace, encoded characters other than T3 thread `%3A`, alternate hosts or
 extra paths are accepted. New-session, settings, project, file and command routes are excluded.
 Claude Code and Cowork existing-session routes are left out: the desktop guide documents creating
 new sessions, but no existing-session deep link for either. CLI session ids alone do not establish

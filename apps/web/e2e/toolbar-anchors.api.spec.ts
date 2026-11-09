@@ -74,3 +74,21 @@ test('the app and feedback packets name the toolbar part a comment is on, and ho
     expect(markdown).toContain('This is a part of uier\'s own review toolbar, on uier\'s own pages: the selector after #uier-toolbar>>> is inside the toolbar\'s shadow root.');
     expect(markdown).toContain('open it first with ` Comment #5 `');
 });
+
+
+test('semantic anchor alternatives keep the restricted grammar and selector budget', () => {
+    const selector = String.raw`p[role="note"][aria-label="Assignment summary"],p[data-testid="assignment-summary"],div[role="dialog"]>p:nth-of-type(1)`;
+    expect(positionSchema.parse({ ...pagePoint, selector, layer: { opener: 'button[aria-label="Inspect assignment"]' } })).toMatchObject({ selector });
+    for (const selector of [
+        String.raw`button[aria-label="Open \"details\"\, please"]`,
+        '#base-ui-_r_2b_,body>#_r_20_>div>p',
+        '#uier-toolbar>>>div.uier-thread>button:nth-of-type(2)'
+    ]) expect(positionSchema.safeParse({ ...pagePoint, selector }).success).toBe(true);
+    for (const selector of [
+        'p[onclick="run()"]', 'a[href="javascript:run()"]', 'p[data-state="open"]',
+        'p[aria-label^="Assignment"]', 'p[role="note"]:has(button)',
+        'p[aria-label="unterminated]', 'p[aria-label="line\nbreak"]',
+        'p[role="note"][aria-label="one"][data-testid="third"]',
+        `p[aria-label="${'x'.repeat(1024)}"]`, 'main>>>p'
+    ]) expect(positionSchema.safeParse({ ...pagePoint, selector }).success, selector).toBe(false);
+});

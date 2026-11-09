@@ -10,6 +10,12 @@
   `toolbar-anchors.api.spec.ts` the refusal, and `comments.api.spec.ts` rejects arbitrary shadow
   boundaries/selectors. Toolbar side: `packages/toolbar/docs/toolbar-review.md`.
 
+- Page anchors and saved openers retain the existing comma-separated selector shape and 1,024-character
+  limit. `comments/validation.ts` also permits up to two exact, quoted attributes per tag: role,
+  aria-label, and identity data attributes (testid, test-id, test, cy, qa, anchor, id, key, slot,
+  component). Attribute names are allowlisted; arbitrary operators, attributes and pseudo-classes
+  remain rejected. Legacy id/class/child-chain selectors still work on create and reattach.
+
 - `reviewSsoCookie.ts` owns the HttpOnly/Secure/SameSite=None companion, restricted to `/api/review`.
   Sign-in and first-party app requests seed it with no longer lifetime than the SameSite=Lax app session;
   sign-out expires both. It cannot authenticate app routes. Browser-blocked handoffs silently retain the

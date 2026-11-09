@@ -17,6 +17,8 @@ import { getToolbarHost } from './mount';
 
 let activeModal: HTMLDialogElement | undefined;
 let activeLayer: Element | undefined;
+const recentLayerOpeners = new WeakMap<Element, Element>();
+const layersByOpener = new WeakMap<Element, Element>();
 /** Events of the review layer that the host kept from the page (and from the window) */
 const keptEvents = new WeakSet<Event>();
 const keptEventTypes = ['keydown', 'keyup', 'keypress', 'beforeinput', 'input', 'compositionstart', 'compositionupdate', 'compositionend', 'click', 'dblclick', 'auxclick', 'contextmenu'];
@@ -72,7 +74,7 @@ function isModal(dialog: Element): dialog is HTMLDialogElement {
 
 function isShown(element: Element) {
     try {
-        return element.isConnected && (typeof element.checkVisibility !== 'function' || element.checkVisibility());
+        return element.isConnected && (typeof element.checkVisibility !== 'function' || element.checkVisibility({ checkVisibilityCSS: true }));
     } catch {
         return false;
     }
@@ -126,15 +128,47 @@ function openLayers(host: HTMLElement, modal: HTMLDialogElement | undefined) {
     return [...layers].filter(layer => (!modal || modal.contains(layer)) && !host.contains(layer));
 }
 
+/** Native and framework layers, including non-modal dialogs and manual popovers, for anchoring. */
+function openAnchorLayers(host: HTMLElement) {
+    return [...document.querySelectorAll('dialog[open],[popover],[role="dialog"],[role="alertdialog"],[role="menu"],[role="listbox"],[role="tree"],[role="grid"]')]
+        .filter(layer => layer !== host && !host.contains(layer) && pageLayerIsOpen(layer));
+}
+
+function pageLayerIsOpen(layer: Element) {
+    if (!isShown(layer)) return false;
+    if (layer instanceof HTMLDialogElement) return layer.open;
+    if (layer.hasAttribute('popover')) {
+        try { return layer.matches(':popover-open'); } catch { return false; }
+    }
+    return true;
+}
+
+/** Open state for saved page openers, including invokers that have no aria-expanded attribute. */
+export function layerOpenerIsExpanded(opener: Element) {
+    if (opener.hasAttribute('aria-expanded')) return opener.getAttribute('aria-expanded') === 'true';
+    const remembered = layersByOpener.get(opener);
+    if (remembered && pageLayerIsOpen(remembered)) return true;
+    for (const id of [opener.getAttribute('popovertarget'), opener.getAttribute('commandfor'), ...(opener.getAttribute('aria-controls') ?? '').split(/\s+/)]) {
+        const layer = id ? document.getElementById(id) : null;
+        if (layer && (layer instanceof HTMLDialogElement || layer.hasAttribute('popover')) && pageLayerIsOpen(layer)) return true;
+    }
+    return false;
+}
+
 /** The page element outside the layer that opens it: its expanded trigger, else a popover or command invoker */
 function openerOf(layer: Element) {
-    if (!layer.id) return undefined;
+    const recorded = recentLayerOpeners.get(layer);
+    const validRecorded = recorded?.isConnected && !layer.contains(recorded) && !recorded.contains(layer) && isShown(recorded) ? recorded : undefined;
+    if (!layer.id) return validRecorded;
     const id = CSS.escape(layer.id);
-    const outside = (element: Element) => !layer.contains(element) && isShown(element);
+    const outside = (element: Element) => !layer.contains(element) && !element.contains(layer) && isShown(element);
     try {
         const triggers = [...document.querySelectorAll(`[aria-controls~="${id}"]`)].filter(outside);
+        const command = [...document.querySelectorAll(`[popovertarget="${id}"],[commandfor="${id}"]`)].filter(outside);
         return triggers.find(trigger => trigger.getAttribute('aria-expanded') === 'true')
-            ?? [...document.querySelectorAll(`[popovertarget="${id}"],[commandfor="${id}"]`)].find(outside)
+            ?? validRecorded
+            ?? command.find(trigger => trigger.matches(':focus'))
+            ?? command[0]
             ?? triggers.find(trigger => trigger.hasAttribute('aria-haspopup'));
     } catch {
         return undefined;
@@ -148,15 +182,15 @@ function openerOf(layer: Element) {
 export function layerOpener(element: Element) {
     const host = getToolbarHost();
     if (!host) return undefined;
-    const modals = [...document.querySelectorAll('dialog[open]')].filter(isModal);
-    const layers = [...modals, ...openLayers(host, activeModalDialog())];
+    const layers = openAnchorLayers(host);
     let opener: Element | undefined;
     for (let node: Element = element, depth = 0; depth < 8; depth++) {
-        const containing = layers.filter(layer => layer.contains(node));
-        const innermost = containing.find(layer => !containing.some(other => other !== layer && layer.contains(other)));
-        const next = innermost && openerOf(innermost);
-        if (!next) break;
-        opener = node = next;
+        // A static grid/listbox inside a dialog is content, not a layer with its own opener.
+        const containing = layers.filter(layer => layer.contains(node))
+            .map(layer => ({ layer, opener: openerOf(layer) })).filter(entry => entry.opener);
+        const innermost = containing.find(entry => !containing.some(other => other !== entry && entry.layer.contains(other.layer)));
+        if (!innermost?.opener) break;
+        opener = node = innermost.opener;
     }
     return opener;
 }
@@ -182,7 +216,41 @@ export function followPageLayers(host: HTMLElement) {
     // The review layer's focused element, given back when moving the host took it away
     let lastFocused: Element | undefined;
 
+    // Capture before page handlers (including pointerdown menus and keyboard-only triggers).
+    // Only layers that actually open during this activation are associated with the trigger.
+    let activation: { trigger: Element; before: Set<Element>; time: number } | undefined;
+    const remember = (layer: Element, trigger: Element) => {
+        if (layer === host || layer.contains(trigger) || trigger.contains(layer) || host.contains(trigger)) return;
+        // A click near newly rendered page content is not evidence that it opened an overlay.
+        const native = layer instanceof HTMLDialogElement || layer.hasAttribute('popover') || layer.getAttribute('aria-modal') === 'true';
+        const declared = trigger.matches('[aria-haspopup]:not([aria-haspopup="false"]),[aria-controls],[popovertarget],[commandfor]');
+        if (!native && !(declared && layer.matches('[role="dialog"],[role="alertdialog"],[role="menu"]'))) return;
+        recentLayerOpeners.set(layer, trigger);
+        layersByOpener.set(trigger, layer);
+    };
+    const rememberOpenedLayers = () => {
+        if (!activation || performance.now() - activation.time > 1000) return;
+        for (const layer of openAnchorLayers(host)) {
+            if (!activation.before.has(layer)) remember(layer, activation.trigger);
+        }
+    };
+    const rememberOpener = (event: Event) => {
+        if (event.composedPath().includes(host)) return;
+        if (event instanceof KeyboardEvent && !['Enter', ' ', 'ArrowDown', 'ArrowUp', 'F4'].includes(event.key)) return;
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        const trigger = target.closest('button,[role="button"],[role="combobox"],[role="menuitem"],[aria-haspopup],[aria-controls],[popovertarget],[commandfor]');
+        rememberOpenedLayers();
+        activation = undefined;
+        if (!trigger || trigger.matches(':disabled,[aria-disabled="true"]')) return;
+        activation = { trigger, before: new Set(openAnchorLayers(host)), time: performance.now() };
+        // Framework portals often mount in a microtask, or the frame after the event.
+        schedule();
+    };
+    for (const type of ['pointerdown', 'click', 'keydown']) window.addEventListener(type, rememberOpener, true);
+
     const sync = (raise: boolean) => {
+        rememberOpenedLayers();
         openedModals = openedModals.filter(isModal);
         for (const dialog of document.querySelectorAll('dialog[open]')) {
             if (isModal(dialog) && !openedModals.includes(dialog)) openedModals.push(dialog);
@@ -200,7 +268,7 @@ export function followPageLayers(host: HTMLElement) {
         activeLayer = layer;
         if (changed) watchLayer(layer);
         if (layer) {
-            host.setAttribute('popover', 'manual');
+            if (host.getAttribute('popover') !== 'manual') host.setAttribute('popover', 'manual');
             // Moving the host hides its popover; showing it again puts it above this layer.
             // The same layer opened again, or another one above it, is above the popover now.
             if (host.parentNode !== layer) {
@@ -252,15 +320,18 @@ export function followPageLayers(host: HTMLElement) {
     }
 
     const observer = new MutationObserver((records) => {
-        const layerChanged = records.some(record => record.type === 'attributes' && record.target !== host);
+        const layerChanged = records.some(record => record.type === 'attributes' && record.target !== host
+            && !['class', 'style', 'data-state'].includes(record.attributeName ?? ''));
         // The page removed the layer, or replaced its content, with the host inside
-        if (layerChanged || !host.isConnected || (activeLayer && !activeLayer.isConnected)) {
+        const awaitingLayer = activation && performance.now() - activation.time <= 1000
+            && records.some(record => record.target !== host);
+        if (layerChanged || awaitingLayer || !host.isConnected || (activeLayer && !activeLayer.isConnected)) {
             schedule(records.some(record => record.target instanceof HTMLDialogElement));
         }
     });
     observer.observe(document.documentElement, {
         subtree: true, childList: true, attributes: true,
-        attributeFilter: ['open', 'aria-expanded', 'aria-controls', 'aria-modal', 'hidden', 'popover']
+        attributeFilter: ['open', 'aria-expanded', 'aria-controls', 'aria-modal', 'hidden', 'popover', 'class', 'style', 'data-state']
     });
     // Taken off again whenever the page sets them on the host while it is in a layer
     const hostObserver = new MutationObserver(() => {
@@ -276,6 +347,13 @@ export function followPageLayers(host: HTMLElement) {
         const target = event.target;
         if (target === host || !(target instanceof Element)) return;
         const newState = (event as ToggleEvent).newState;
+        if (newState === 'open') {
+            const source = (event as ToggleEvent & { source?: Element | null }).source;
+            if (source) remember(target, source);
+            else if (activation && performance.now() - activation.time <= 1000 && !activation.before.has(target)) {
+                remember(target, activation.trigger);
+            }
+        }
         if (event.type === 'beforetoggle') {
             if (newState !== 'closed' || !target.contains(host)) return;
             closing.add(target);
@@ -320,6 +398,7 @@ export function followPageLayers(host: HTMLElement) {
     sync(false);
 
     return () => {
+        for (const type of ['pointerdown', 'click', 'keydown']) window.removeEventListener(type, rememberOpener, true);
         observer.disconnect();
         hostObserver.disconnect();
         layerObserver.disconnect();

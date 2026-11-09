@@ -23,10 +23,10 @@ export const MAX_AGENT_SESSION_URL_LENGTH = 512;
 const sessionUuid = '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}';
 const codexSession = new RegExp(`^codex://threads/${sessionUuid}$`);
 const claudeSession = new RegExp(`^claude://claude\\.ai/chat/${sessionUuid}$`);
-const t3Session = /^t3-thread:\/\/v2\/[A-Za-z0-9][A-Za-z0-9_-]{0,199}\/[A-Za-z0-9][A-Za-z0-9_-]{0,199}$/;
+const t3Session = /^t3-thread:\/\/v2\/[A-Za-z0-9][A-Za-z0-9_-]{0,199}\/[A-Za-z0-9](?:[A-Za-z0-9_:-]|%3A){0,199}$/;
 export function agentSessionLink(value: unknown): { url: string; app: string } | undefined {
     // Reject whitespace/control characters before matching; `$` alone also matches before a final newline.
-    if (typeof value !== 'string' || value.length > MAX_AGENT_SESSION_URL_LENGTH || /[^A-Za-z0-9:/._-]/.test(value)) return undefined;
+    if (typeof value !== 'string' || value.length > MAX_AGENT_SESSION_URL_LENGTH || /[^A-Za-z0-9:/._-]/.test(value.replace(/%3A/g, ''))) return undefined;
     if (t3Session.test(value)) return { url: value, app: 'T3 Code' };
     if (codexSession.test(value)) return { url: value, app: 'Codex' };
     if (claudeSession.test(value)) return { url: value, app: 'Claude' };
