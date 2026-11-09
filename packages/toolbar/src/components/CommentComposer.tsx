@@ -381,12 +381,12 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                             </Button>
                         )}
                         {onCancel ? (
-                            <Button type="submit" variant="solid" size="xs" disabled={!trimmedText.length || busy}>{submitLabel}</Button>
+                            <Button type="submit" variant="plain" size="xs" className="pointer-coarse:min-h-11" disabled={!trimmedText.length || busy}>{submitLabel}</Button>
                         ) : <IconTooltip label={submitLabel}><IconButton
-                            variant="solid"
+                            variant="plain"
                             size="xs"
                             type="submit"
-                            className="size-7 rounded-md"
+                            className="size-7 rounded-md pointer-coarse:size-11"
                             aria-label={submitLabel}
                             disabled={!trimmedText.length || busy || sharedPending}>
                             <Send size={14} />
