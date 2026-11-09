@@ -58,7 +58,7 @@ test('comment filters work without server requests and survive history and reloa
     expect(requests).toEqual([]);
     await page.unroute(`**/app/projects/${project}?*`);
     await page.reload();
-    await expect(page.getByRole('button', { name: 'Clear filter: Assigned to me', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Clear people filter: Assigned to me', exact: true })).toBeVisible();
     await expect((await openCommentFilters(page)).getByRole('combobox', { name: 'People', exact: true })).toContainText('Assigned to me');
     await expect(commentRows(page)).toHaveCount(0);
 });

@@ -158,7 +158,7 @@ function pageParts(page: Page) {
 
 const boardStatuses = ['Open', 'In progress', 'Ready to verify', 'Done'];
 
-test('only the board widens on a wide window; the header and filters stay where the list has them', async ({ page, request }, testInfo) => {
+test('the board widens on a wide window, the filters header with it; the page header stays in the reading column', async ({ page, request }, testInfo) => {
     test.skip(testInfo.project.name.startsWith('Mobile'), 'Desktop windows; a phone shows one column either way');
     // The window the feedback came from
     await page.setViewportSize({ width: 1674, height: 1366 });
@@ -166,6 +166,13 @@ test('only the board widens on a wide window; the header and filters stay where 
     const grid = page.locator('[data-page-width="wide"]');
     const columns = () => Promise.all(boardStatuses.map(name => placement(column(name))));
     const atBoard = await pageParts(page);
+    const view = page.getByRole('group', { name: 'View', exact: true });
+    const search = page.locator('[data-slot="input-group"]').filter({ has: page.locator('#feedback-search') });
+    // The filters header spans the board's columns: search starts with the first, the view toggle ends with the last
+    const headerSpans = async (first: Locator, last: Locator) => {
+        expect((await placement(search)).left).toBeCloseTo((await placement(first)).left, 0);
+        expect((await placement(view)).right).toBeCloseTo((await placement(last)).right, 0);
+    };
     // The page keeps the reading width, 64rem with the 32 px gutters, centred
     const comments = atBoard[1]!;
     expect(comments.width).toBe(1024 - 64);
@@ -182,11 +189,20 @@ test('only the board widens on a wide window; the header and filters stay where 
     }
     expect(boxes[0]!.width).toBeGreaterThan(300);
     expect(boxes[0]!.width).toBeLessThanOrEqual(320);
+    await headerSpans(column('Open'), column('Done'));
 
-    // The list: the header, the search and the count line are where the board had them
+    // The list: the page header and the count line are where the board had them; the filters header spans the list
+    // and the thread beside it
     await page.getByRole('button', { name: 'List', exact: true }).click();
-    await expect(grid).toHaveCount(0);
-    expect(await pageParts(page)).toEqual(atBoard);
+    const list = page.getByRole('list', { name: 'Comments', exact: true });
+    await expect(list).toBeVisible();
+    await expect(page.locator('[data-board-scroll]')).toHaveCount(0);
+    const atList = await pageParts(page);
+    expect([atList[0], atList[1], atList[3]]).toEqual([atBoard[0], atBoard[1], atBoard[3]]);
+    // The list with its thread beside it is the wide element now
+    const split = page.locator('[data-page-width="wide"]');
+    expect((await placement(search)).left).toBeCloseTo((await placement(list)).left, 0);
+    expect((await placement(view)).right).toBeCloseTo((await placement(split)).right, 0);
 
     // On a very wide window the columns stop at 20rem and the row is centred; the page keeps the reading width
     await page.getByRole('button', { name: 'Board', exact: true }).click();
@@ -197,6 +213,7 @@ test('only the board widens on a wide window; the header and filters stay where 
     const first = widest[0]!, last = widest.at(-1)!;
     expect(first.room - first.left - last.right).toBe(4 * 320 + 3 * 16);
     expect(first.left).toBeCloseTo(last.right, 0);
+    await headerSpans(column('Open'), column('Done'));
     const [, widestComments] = await pageParts(page);
     expect(widestComments!.width).toBe(1024 - 64);
     expect(widestComments!.left).toBeCloseTo(widestComments!.right, 0);
@@ -229,10 +246,15 @@ test('only the board widens on a wide window; the header and filters stay where 
     expect(scrolling.left).toBe(0);
     // At either end the first and the last column line up with the page's content
     expect((await placement(column('Open'))).left).toBeCloseTo(laptopComments!.left, 0);
+    // The filters header stays at the panel's width less the gutters and does not scroll with the board
+    const laptopHeader = { search: await placement(search), view: await placement(view) };
+    expect(laptopHeader.search.left).toBeCloseTo(laptopComments!.left, 0);
+    expect(laptopHeader.view.right).toBeCloseTo(laptopComments!.right, 0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1280);
     await grid.evaluate(element => { element.scrollLeft = element.scrollWidth; });
     await expect(column('Done')).toBeInViewport({ ratio: 1 });
     expect((await placement(column('Done'))).right).toBeCloseTo(laptopComments!.right, 0);
+    expect({ search: await placement(search), view: await placement(view) }).toEqual(laptopHeader);
 });
 
 test('board cards are darker than their column on dark', async ({ page, request }) => {

@@ -1023,7 +1023,7 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
     await expect(commentRows(page)).toHaveCount(1);
     await expect(commentRowLink(page, 'Pricing needs a table.')).toBeVisible();
     await expect(page.getByRole('group', { name: 'Status' }).getByRole('button', { name: 'Active 1' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Clear filter: Unassigned' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Clear people filter: Unassigned' })).toBeVisible();
     // It survives a reload and combines with search and page
     await page.goto(`/app/projects/${projectId}?people=unassigned&q=photo`);
     await expect(page.getByText('No comments match these filters.')).toBeVisible();
