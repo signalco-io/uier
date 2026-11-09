@@ -232,13 +232,17 @@ export async function startSelecting(page: Page) {
     await expect(selectionBar(page)).toBeVisible();
 }
 
+/** The row (or board card) that holds a control, as a mouse hovers it */
+export const rowOf = (control: Locator) => control.locator('xpath=ancestor::*[@data-comment-row][1]');
+
 /**
- * Checks a thread's selection box. At rest a box shows on hover (a mouse finds it); a touch screen leaves it out
- * until Select is on, so this turns Select on first there.
+ * Checks a thread's selection box. At rest a box takes no room and shows on hover, so a mouse hovers its row
+ * first; a touch screen leaves it out until Select is on, so this turns Select on first there.
  */
 export async function selectThread(page: Page, number: number) {
     const box = selectionBox(page, number);
     if (!await box.isVisible()) await startSelecting(page);
+    else await rowOf(box).hover();
     await box.check();
 }
 

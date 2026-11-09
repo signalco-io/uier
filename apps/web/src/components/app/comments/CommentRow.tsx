@@ -32,7 +32,8 @@ export const commentRowId = (id: string) => `comment-row-${id}`;
  * tooltip names them), the page path, priority other than Normal (its flag, named for assistive tech), who it is
  * assigned to (`AssigneeCard`: hovering the avatars shows the assignee and their agent), status (Open too; a board card
  * leaves it to its column), age and unread. The whole row opens the thread (a link to `?comment=<id>`, so it can also
- * open in a new tab); the selection box sits beside the link, quiet until hovered, focused or selecting (`SelectComment`).
+ * open in a new tab). The selection box ends the meta line (`SelectComment`), where a row is usually empty: it takes
+ * no room until the row is hovered, focused or selecting, so the title and the path keep the full width.
  */
 export function CommentRow({ comment, href, selected, onOpen, card = false, preview = false, actions, describedBy, keyShortcuts, project, tabbable = true }: {
     comment: ProjectCommentView;
@@ -80,8 +81,6 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
             card && 'border bg-card hover:bg-muted/40 dark:bg-background dark:hover:bg-muted/40',
             // Selected for a bulk action
             'has-[[data-slot=checkbox][data-checked]]:bg-muted/60')}>
-            {/* Its own slot, above the link that covers the row; shown on hover or focus until something is selected */}
-            <SelectComment comment={comment} tabbable={tabbable} />
             <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <div className="flex min-w-0 items-baseline gap-2">
                     {unread && <span aria-hidden="true" className="size-2 shrink-0 self-center rounded-full bg-[hsl(var(--brand-accent))]" />}
@@ -130,6 +129,8 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                         {comment.assignee && (preview
                             ? <AssigneeAvatars assignee={comment.assignee} />
                             : <AssigneeCard assignee={comment.assignee} me={comment.permissions.agent} tabbable={tabbable} onPress={openFromAvatars} />)}
+                        {/* Last, where the line is usually empty: a card's bottom right corner, the end of a list row */}
+                        <SelectComment comment={comment} tabbable={tabbable} className={card ? 'ml-auto' : undefined} />
                     </div>
                 </div>
             </div>

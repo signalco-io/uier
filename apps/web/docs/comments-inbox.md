@@ -10,15 +10,16 @@
   (`CommentCard.tsx`). The open thread is in the URL (`?comment=<id>`, `useOpenComment`): side by side (`@container/comments` from `@4xl`) it replaces
   the history entry and the first shown thread is open until another is chosen; narrower (a phone) a row opens
   the thread in the list's and the filters' place with Back to comments, and adds a history entry so Back closes
-  it. Each row is a link (it opens in a new tab too) with the selection box beside it, quiet until it is used
-  ([App triage](triage.md#selection)). The list moves with the
+  it. Each row is a link (it opens in a new tab too); its selection box ends the meta line (a card's bottom right
+  corner) and takes no room until it is used ([App triage](triage.md#selection)), so the title and the path keep
+  the row's width. The list moves with the
   keyboard like an inbox: ↓/↑ go to the next/previous row and stop at the ends, Home/End (from a row) to the first and
   last; side by side the row's thread opens through the same `open()` as a click, narrower only the focus moves and
   Enter opens it. The keys act from the list, or from the page while nothing has the focus and the caret is not in the
   open thread (it keeps scrolling with them); never from text fields, menus or dialogs, and they leave a key the page
   already handled (`defaultPrevented`). Only the current row's link and selection box (where it shows) are in the Tab order (a roving
   tab stop: the row last focused or opened), so Tab goes on to the thread. The assignee's avatars are a button above
-  the row's link that follows the same tab stop (one more stop in the current row only, after the link): Enter
+  the row's link that follows the same tab stop (one more stop in the current row only, after the link and before the selection box): Enter
   opens their card, Escape gives the focus back, ↓/↑ still move between rows. A mouse click on the avatars opens the
   thread like the rest of the row (the click goes to the row's link, modifier keys too); a tap on a touch screen
   opens the card instead (44 px target), and the rest of the row opens the thread. On the board and My work, where

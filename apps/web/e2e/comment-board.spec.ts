@@ -238,6 +238,41 @@ test('board cards are darker than their column on dark', async ({ page, request 
     expect(await surface(column('Open'))).not.toBe('rgb(0, 0, 0)');
 });
 
+test('a card names its author with an avatar, keeps its selection box out of the way at rest, and an empty column centres its line', async ({ page, request }, testInfo) => {
+    test.skip(testInfo.project.name.startsWith('Mobile'), 'Hover; a touch screen leaves the box out until Select');
+    const { column, card } = await board(page, request);
+    const first = card('Open', 'First board thread');
+    // The author is an avatar named for assistive tech, with the name in a tooltip, not a line of text
+    const author = first.getByRole('img', { name: 'By Reviewer', exact: true });
+    await expect(author).toBeVisible();
+    await expect(first).not.toContainText('Reviewer');
+    await author.hover();
+    await expect(page.locator('[data-slot="tooltip-content"]')).toHaveText('Reviewer');
+    // The box takes no room until the card is hovered, then sits in its bottom right corner
+    const box = first.getByRole('checkbox');
+    const boxShown = () => box.evaluate(element => getComputedStyle(element.parentElement!).position !== 'absolute');
+    await page.mouse.move(0, 0);
+    await expect.poll(boxShown).toBe(false);
+    await first.hover();
+    await expect.poll(boxShown).toBe(true);
+    const [cardBox, checkbox] = [(await first.boundingBox())!, (await box.boundingBox())!];
+    expect(cardBox.x + cardBox.width - (checkbox.x + checkbox.width)).toBeLessThan(24);
+    expect(cardBox.y + cardBox.height - (checkbox.y + checkbox.height)).toBeLessThan(24);
+    // An empty column's line is in the middle of the room below the column's name
+    const empty = await column('Done').locator('[data-empty-column]').evaluate(line => {
+        const range = document.createRange();
+        range.selectNodeContents(line);
+        const text = range.getBoundingClientRect(), room = line.getBoundingClientRect();
+        const section = line.closest('section')!, style = getComputedStyle(section);
+        const end = section.getBoundingClientRect().bottom - parseFloat(style.paddingBottom) - parseFloat(style.borderBottomWidth);
+        return { offCentre: Math.abs((text.top + text.bottom) / 2 - (room.top + room.bottom) / 2), below: end - room.bottom, room: room.height - text.height };
+    });
+    // The line fills the column to its end and its words sit in the middle
+    expect(empty.below).toBeLessThan(1);
+    expect(empty.room).toBeGreaterThan(20);
+    expect(empty.offCentre).toBeLessThan(1);
+});
+
 test('on a phone the board stacks its columns without scrolling sideways', async ({ page, request }, testInfo) => {
     test.skip(!testInfo.project.name.startsWith('Mobile'), 'The phone layout');
     const { column } = await board(page, request);

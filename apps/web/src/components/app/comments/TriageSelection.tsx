@@ -35,18 +35,21 @@ function rowId(element: Element | null) {
 /** Typing, or a popup that owns its keys (a menu, a list of options, a dialog such as the board's thread sheet) */
 const ownsKeys = (element: Element) => Boolean(element.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="menu"], [role="listbox"], [role="dialog"], [role="alertdialog"]'));
 
-export function SelectComment({ comment, tabbable = true }: {
+export function SelectComment({ comment, tabbable = true, className }: {
     comment: ProjectCommentView;
     /** In the Tab order; the inbox list keeps only its current row's controls there */
     tabbable?: boolean;
+    className?: string;
 }) {
     const selection = useContext(Selection);
     if (!selection || !comment.permissions.triage) return null;
     const checked = selection.ids.has(comment.id);
     return (
-        // Above the link that covers the row. At rest the box keeps its place but shows only on hover or keyboard focus;
-        // a touch screen has no hover, so there it is left out until Select (or a key) starts selecting
-        <div className={cn('relative z-10 flex h-5 shrink-0 items-center', !selection.active && 'pointer-coarse:hidden')}>
+        // Above the link that covers the row. At rest the box takes no room (`sr-only`, still focusable, named and
+        // clickable) and shows on hover or keyboard focus; a touch screen has no hover, so there it is left out until
+        // Select (or a key) starts selecting
+        <div className={cn('relative z-10 flex h-5 shrink-0 items-center', className,
+            !selection.active && 'pointer-coarse:hidden [[data-comment-row]:not(:hover):not(:has(:focus-visible))_&]:sr-only')}>
             {/* Only set to take it out: an explicit `undefined` would replace Base UI's own tab index */}
             <Checkbox aria-label={`Select comment ${comment.number === undefined ? comment.id : `#${comment.number}`}`} {...!tabbable && { tabIndex: -1 }}
                 checked={checked} disabled={selection.pending || (!checked && selection.ids.size >= limit)}
