@@ -170,11 +170,11 @@ test('only the board widens on a wide window; the header and filters stay where 
     const comments = atBoard[1]!;
     expect(comments.width).toBe(1024 - 64);
     expect(comments.left).toBeCloseTo(comments.right, 0);
-    // The board takes the panel but its gutters, centred, with an equal column per status in one row,
+    // The board takes the panel edge to edge (padded by its gutters), with an equal column per status in one row,
     // each up to 20rem
     const wide = await placement(grid);
-    expect(wide.width).toBeCloseTo(wide.room - 64, 0);
-    expect(wide.left).toBeCloseTo(wide.right, 0);
+    expect(wide.width).toBeCloseTo(wide.room, 0);
+    expect(wide.left).toBeCloseTo(0, 0);
     const boxes = await Promise.all(boardStatuses.map(async name => (await column(name).boundingBox())!));
     for (const box of boxes) {
         expect(box.y).toBeCloseTo(boxes[0]!.y, 0);
@@ -212,22 +212,27 @@ test('only the board widens on a wide window; the header and filters stay where 
     expect(await columnBoxes()).toEqual(beforeSheet);
 
     // A smaller laptop: the panel is narrower than the reading width, so the board and the page share it.
-    // The four columns keep a readable 18rem and the board scrolls sideways; the page does not
+    // The four columns keep a readable 18rem and the board scrolls sideways, edge to edge of the panel so the
+    // columns pass under its edges; the page does not
     await page.keyboard.press('Escape');
     await page.setViewportSize({ width: 1280, height: 800 });
-    await expect.poll(async () => (await placement(grid)).width).toBeLessThan(1024 - 64);
+    await expect.poll(async () => (await placement(grid)).width).toBeLessThan(1024);
     const [, laptopComments] = await pageParts(page);
-    expect((await placement(grid)).width).toBeCloseTo(laptopComments!.width, 0);
+    const laptopGrid = await placement(grid);
+    expect(laptopGrid.width).toBeCloseTo(laptopComments!.width + 64, 0);
+    expect(laptopGrid.left).toBeCloseTo(0, 0);
     for (const name of boardStatuses) expect((await column(name).boundingBox())!.width).toBeGreaterThanOrEqual(288);
     const scroll = () => grid.evaluate(element => ({ width: element.scrollWidth, room: element.clientWidth, left: element.scrollLeft }));
     const scrolling = await scroll();
     expect(scrolling.width).toBeGreaterThan(scrolling.room);
     // From its start: the first column is not cut off on the left
     expect(scrolling.left).toBe(0);
-    expect((await column('Open').boundingBox())!.x).toBeGreaterThanOrEqual((await grid.boundingBox())!.x);
+    // At either end the first and the last column line up with the page's content
+    expect((await placement(column('Open'))).left).toBeCloseTo(laptopComments!.left, 0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1280);
     await grid.evaluate(element => { element.scrollLeft = element.scrollWidth; });
     await expect(column('Done')).toBeInViewport({ ratio: 1 });
+    expect((await placement(column('Done'))).right).toBeCloseTo(laptopComments!.right, 0);
 });
 
 test('board cards are darker than their column on dark', async ({ page, request }) => {

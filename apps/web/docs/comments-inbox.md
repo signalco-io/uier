@@ -41,8 +41,10 @@
   Open, In progress, Ready to verify and Done as compact cards, one column per `commentStatuses` entry (keep the
   column set data-driven: that list and `commentStatusLabels`), from `md` (tablets too) in one row of equal columns however many
   there are, each 18rem to 20rem and centred beyond that; when they don't fit, the board scrolls sideways
-  (`data-board-scroll`, `justify-center-safe`; a swipe on a touch screen) rather than squeezing them. A phone stacks them. On dark a card is the page's black, a step
-  darker than its column, so it stands apart (light keeps paper cards on the muted column). Only the board's grid is wider than the reading width (`md:page-wide`,
+  (`data-board-scroll`, `justify-center-safe`; a swipe on a touch screen) rather than squeezing them. The scroller runs
+  edge to edge of the panel, padded by the page gutter (`page-bleed`, `--page-gutter`), so the first and last columns
+  line up with the page content at either end and the others scroll under the panel's edges, not short of them. A phone stacks them. On dark a card is the page's black, a step
+  darker than its column, so it stands apart (light keeps paper cards on the muted column). Only the board's grid is wider than the reading width (`md:page-bleed`,
   `data-page-width="wide"`); the project header, the filters, the count line, the selection bar and the empty states
   stay in the reading column, as in the list. An empty column's line ("Nothing open.", "Drop here." while
   dragging, `data-empty-column`) fills the room below the column's name and sits in its middle. A card opens its thread in a sheet over the board. Switching List/Board

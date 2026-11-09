@@ -60,8 +60,9 @@ export default async function AppShellLayout({ children }: PropsWithChildren) {
                         column can measure it for `page-wide` (global.css) */}
                     <div className="flex-1 lg:overflow-y-auto has-data-[page-width=wide]:[container-type:inline-size]">
                         {/* A reading width, on every page. An element that lays things side by side (the comments
-                            board) breaks out of it to the panel's width with `page-wide`; the rest of its page stays */}
-                        <div className="mx-auto flex w-full max-w-5xl flex-col px-4 py-6 [--page-wide:calc(100cqw-2rem)] md:px-8 md:py-10 md:[--page-wide:calc(100cqw-4rem)]">
+                            board) breaks out of it to the panel's width with `page-wide` (less the gutters, `--page-gutter`) or `page-bleed`
+                            (edge to edge, padded by them); the rest of its page stays */}
+                        <div className="mx-auto flex w-full max-w-5xl flex-col px-4 py-6 [--page-gutter:1rem] [--page-wide:calc(100cqw-2rem)] md:px-8 md:py-10 md:[--page-gutter:2rem] md:[--page-wide:calc(100cqw-4rem)]">
                             {children}
                         </div>
                     </div>
