@@ -4,9 +4,9 @@ import { expectNoAxeViolations } from './accessibility';
 
 test('a member who reached a limit opens its usage from the toast, then the project\'s workspace usage', async ({ page, context, baseURL }, testInfo) => {
     await signIn(page, uniqueEmail('usage'));
-    // An enrolled commenter (not uier's staff) has the visitor limit on uier's own feedback project: 10 an hour
+    // A signed-in account on uier's own feedback project has three times a visitor's new comments: 30 an hour
     const origin = new URL(baseURL!).origin;
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 30; i++) {
         const response = await page.request.post('/api/comments', {
             headers: { Origin: origin },
             data: { path: '/app/projects', position: { type: 'page' }, kind: 'feedback', text: `Usage ${i}` }
@@ -32,8 +32,8 @@ test('a member who reached a limit opens its usage from the toast, then the proj
     const code = new URL(usage.url()).hash.replace('#project-', '');
     const project = usage.locator(`[id="project-${code}"]`);
     await expect(project.getByRole('heading', { name: 'uier.io public feedback' })).toBeVisible();
-    await expect(project.getByRole('progressbar', { name: 'New comments' })).toHaveAttribute('aria-valuetext', '10 of 10, limit reached');
-    await expect(project).toContainText('Limit reached · 10 of 10');
+    await expect(project.getByRole('progressbar', { name: 'New comments' })).toHaveAttribute('aria-valuetext', '30 of 30, limit reached');
+    await expect(project).toContainText('Limit reached · 30 of 30');
     await expect(project.getByRole('progressbar', { name: 'Replies' })).toHaveAttribute('aria-valuetext', '0 of 30');
     await expect(usage.getByRole('navigation', { name: 'Account' }).getByRole('link', { name: 'Usage' })).toHaveAttribute('aria-current', 'page');
     await expectNoAxeViolations(usage);

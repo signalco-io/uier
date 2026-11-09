@@ -212,32 +212,41 @@ test('anonymous reads get real starter threads; visitors cannot remove or resolv
     expect((await request.patch(`/api/comments/${HEADLINE_COMMENT_ID}`, { data: { resolved: true } })).status()).toBe(403);
 });
 
-test('enrolled public commenters retain visitor comment, reply and shared IP limits', async () => {
+test('enrolled public commenters get three times the visitor comments, and keep visitor reply and shared IP limits', async () => {
     const previous = process.env.UIER_LOCAL;
     process.env.UIER_LOCAL = '1';
     try {
         const project = await provisionPublicProject(getAppStore(), getMemoryCommentsStore());
-        const users = await Promise.all(Array.from({ length: 4 }, () => findOrCreateUser(`public-limits-${randomUUID()}@example.com`)));
-        const ip = '198.51.100.131';
-        let comment;
-        for (const [index, user] of users.entries()) {
+        const enrolled = async (prefix: string, ip?: string) => {
+            const user = await findOrCreateUser(`${prefix}-${randomUUID()}@example.com`);
             expect((await joinPublicProject(user)).role).toBe('commenter');
-            const req = new Request('http://127.0.0.1/api/review', { headers: { 'x-forwarded-for': ip,
+            const req = new Request('http://127.0.0.1/api/review', { headers: { ...(ip ? { 'x-forwarded-for': ip } : {}),
                 Authorization: `Bearer ${signToken('review', { uid: user.id, pid: project.id }, 3600)}` } });
             const actor = await resolveActor(req, project);
             expect(actor).toMatchObject({ kind: 'member', isAdmin: false });
             const input = { origin: 'https://uier.io', path: `/public-rate-${user.id}`, kind: 'feedback' as const, position: { type: 'page' as const }, text: 'Public feedback' };
-            if (index < 3) for (let i = 0; i < 10; i++) comment = await createProjectComment(req, project, actor, input);
-            // Their own limit (or their network's): the account's usage page shows it
-            await expect(createProjectComment(req, project, actor, input)).rejects.toMatchObject({ status: 429, code: 'rate_limited', reason: 'too_fast',
-                usage: KnownPageLinks.accountUsage(project.publicId ?? project.id) });
-            if (index === 3) await expect(replyToProjectComment(req, project, actor, comment!.id, { text: 'IP full' })).rejects.toMatchObject({ status: 429, code: 'rate_limited' });
-        }
-        const user = await findOrCreateUser(`public-replies-${randomUUID()}@example.com`);
-        const req = new Request('http://127.0.0.1/api/review', { headers: { Authorization: `Bearer ${signToken('review', { uid: user.id, pid: project.id }, 3600)}` } });
-        const actor = await resolveActor(req, project);
-        for (let i = 0; i < 30; i++) await replyToProjectComment(req, project, actor, comment!.id, { text: `Reply ${i}` });
-        await expect(replyToProjectComment(req, project, actor, comment!.id, { text: 'One more' })).rejects.toMatchObject({ status: 429, code: 'rate_limited', reason: 'too_fast' });
+            return { req, actor, input };
+        };
+
+        // Their own limit: 30 new comments an hour, and the account's usage page shows it
+        const own = await enrolled('public-limits');
+        let comment;
+        for (let i = 0; i < 30; i++) comment = await createProjectComment(own.req, project, own.actor, own.input);
+        await expect(createProjectComment(own.req, project, own.actor, own.input)).rejects.toMatchObject({ status: 429, code: 'rate_limited', reason: 'too_fast',
+            usage: KnownPageLinks.accountUsage(project.publicId ?? project.id) });
+
+        // Accounts on one network still share the visitor IP budget (30 writes an hour)
+        const ip = '198.51.100.131';
+        const first = await enrolled('public-network', ip);
+        for (let i = 0; i < 30; i++) await createProjectComment(first.req, project, first.actor, first.input);
+        const second = await enrolled('public-network', ip);
+        await expect(createProjectComment(second.req, project, second.actor, second.input)).rejects.toMatchObject({ status: 429, code: 'rate_limited', reason: 'too_fast' });
+        await expect(replyToProjectComment(second.req, project, second.actor, comment!.id, { text: 'IP full' })).rejects.toMatchObject({ status: 429, code: 'rate_limited' });
+
+        // Replies keep the visitor limit
+        const replies = await enrolled('public-replies');
+        for (let i = 0; i < 30; i++) await replyToProjectComment(replies.req, project, replies.actor, comment!.id, { text: `Reply ${i}` });
+        await expect(replyToProjectComment(replies.req, project, replies.actor, comment!.id, { text: 'One more' })).rejects.toMatchObject({ status: 429, code: 'rate_limited', reason: 'too_fast' });
         // Guests on that address are still blocked after account writes consumed the shared budget.
         const guest = new Request('http://127.0.0.1/api/review', { headers: { 'x-forwarded-for': ip, 'X-Uier-Visitor': randomToken() } });
         await expect(replyToProjectComment(guest, project, await resolveActor(guest, project), comment!.id, { text: 'Guest' })).rejects.toMatchObject({ status: 429, code: 'rate_limited' });

@@ -82,8 +82,8 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
 - Comments live in the comments container under the partition `project:<code>`, with the site's origin,
   the author (`user:<id>` for members) and no TTL. Guests keep the comments API's visitor and IP limits.
   Current project members get 100 new comments and 300 replies per project per hour, without the
-  shared IP write limit. Public feedback project commenters keep the visitor and IP limits even
-  after signing up. Page, screenshot and rewrite limits apply to every reviewer. New comments through
+  shared IP write limit. Signed-in public feedback project commenters get 30 new comments per hour
+  (three times a visitor's) and keep the visitor reply and IP limits. Page, screenshot and rewrite limits apply to every reviewer. New comments through
   the same-origin showcase `/api/comments` (including the app's Give feedback) record the public
   project's address as their origin too.
 - **Bot protection**: writes on uier's origin use BotID directly. On reviewed sites, the toolbar opens an
@@ -402,7 +402,7 @@ carry no IP-derived data:
 | Thread | 50 messages (replies are appended atomically) |
 | New comments per visitor | 10 per hour |
 | Replies per visitor | 30 per hour |
-| New comments per project member | 100 per project per hour; public feedback commenters keep 10 |
+| New comments per project member | 100 per project per hour; signed-in public feedback commenters get 30 |
 | Replies per project member | 300 per project per hour; public feedback commenters keep 30 |
 | Replies per MCP connection (access token or connected app) | 30 per project per hour, also counted against the owner's member budget |
 | Writes per IP (an IPv4 address or an IPv6 /64) | 30 per domain or project per hour for guests and public feedback commenters; project members do not consume it. The anonymous `/api/comments` API keeps this limit for every writer |

@@ -18,6 +18,7 @@ import {
     RATE_LIMIT_MEMBER_COMMENTS,
     RATE_LIMIT_MEMBER_REPLIES,
     RATE_LIMIT_PAGE_COMMENTS,
+    RATE_LIMIT_PUBLIC_ACCOUNT_COMMENTS,
     RATE_LIMIT_VISITOR_COMMENTS,
     RATE_LIMIT_VISITOR_REPLIES,
     RATE_LIMIT_WINDOW_SECONDS
@@ -43,6 +44,8 @@ export type RateLimitSubject = {
     authorId: string;
     /** Set only by project review services from a server-resolved actor, never request input. */
     member?: boolean;
+    /** A signed-in account on uier's public feedback project, not a member: more new comments than a visitor. Server-resolved only. */
+    publicAccount?: boolean;
     /** MCP replies also count per credential, before consuming the human owner's budget. */
     credentialId?: string;
     /** IPv4 address or IPv6 /64; missing when the IP limit doesn't apply (local loopback requests) */
@@ -112,9 +115,10 @@ export async function usedOf(store: CommentsStore, domain: string, limit: Limit)
 const tooManyComments = 'You are leaving feedback too quickly. Please try again later.';
 const tooManyReplies = 'You are replying too quickly. Please try again later.';
 
-/** New comments of one author per hour in a site or project */
-export function authorCommentsLimit(authorId: string, member = false): Limit {
-    return { key: `${member ? 'member' : 'visitor'}-comments:${authorId}`, limit: member ? RATE_LIMIT_MEMBER_COMMENTS : RATE_LIMIT_VISITOR_COMMENTS,
+/** New comments of one author per hour in a site or project; a public feedback account counts under its visitor key */
+export function authorCommentsLimit(authorId: string, member = false, publicAccount = false): Limit {
+    return { key: `${member ? 'member' : 'visitor'}-comments:${authorId}`,
+        limit: member ? RATE_LIMIT_MEMBER_COMMENTS : publicAccount ? RATE_LIMIT_PUBLIC_ACCOUNT_COMMENTS : RATE_LIMIT_VISITOR_COMMENTS,
         windowSeconds: RATE_LIMIT_WINDOW_SECONDS, reason: 'too_fast', message: tooManyComments, usage: 'account' };
 }
 
@@ -155,7 +159,7 @@ async function consumeAll(store: CommentsStore, subject: RateLimitSubject, limit
 
 export async function enforceNewCommentLimits(store: CommentsStore, subject: RateLimitSubject, path: string) {
     await consumeAll(store, subject, [
-        authorCommentsLimit(subject.authorId, subject.member),
+        authorCommentsLimit(subject.authorId, subject.member, subject.publicAccount),
         ...ipLimit(subject, tooManyComments),
         pageCommentsLimit(path)
     ]);
