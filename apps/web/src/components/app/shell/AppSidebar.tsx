@@ -44,7 +44,7 @@ function isCurrent(pathname: string, href: string) {
 function GroupLinkAction({ href, label, children }: { href: string; label: string; children: ReactNode }) {
     return (
         <Tooltip>
-            <TooltipTrigger render={<SidebarGroupAction render={<Link href={href} />} />}>
+            <TooltipTrigger render={<SidebarGroupAction className="text-sidebar-foreground/70" render={<Link href={href} />} />}>
                 {children}
                 <span className="sr-only">{label}</span>
             </TooltipTrigger>

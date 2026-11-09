@@ -11,6 +11,7 @@ import {
     DropdownMenuTrigger
 } from '@/src/components/ui/dropdown-menu';
 import { SidebarGroupAction } from '@/src/components/ui/sidebar';
+import { cn } from '@/src/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import { projectGroupings, projectSorts, type ProjectGrouping, type ProjectOrder, type ProjectSort } from '@/src/lib/app/projectOrder';
 
@@ -29,7 +30,7 @@ const groupLabels: Record<ProjectGrouping, string> = {
 /**
  * The projects header's menu: Sort (recent activity, recently created or name) and Group (none, client once an
  * active project has one, or status, which lists the done projects too), each one choice. The menu stays open after
- * a choice, so both can be changed at once.
+ * a choice, so both can be changed at once. The icon takes the group label's colour (`text-sidebar-foreground/70`).
  */
 export function ProjectOrderMenu({ order, onChange, canGroupByClient, className }: {
     order: ProjectOrder;
@@ -44,7 +45,7 @@ export function ProjectOrderMenu({ order, onChange, canGroupByClient, className 
     return (
         <DropdownMenu>
             <Tooltip>
-                <TooltipTrigger render={<DropdownMenuTrigger render={<SidebarGroupAction className={className} />} />}>
+                <TooltipTrigger render={<DropdownMenuTrigger render={<SidebarGroupAction className={cn('text-sidebar-foreground/70', className)} />} />}>
                     <ArrowUpDownIcon />
                     <span className="sr-only">Sort and group projects</span>
                 </TooltipTrigger>
