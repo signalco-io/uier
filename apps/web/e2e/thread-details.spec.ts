@@ -44,16 +44,18 @@ const measure = (details: Locator) => details.evaluate(list => {
 });
 
 function expectEvenRows(rows: Row[], rowHeight: number) {
-    expect(rows.map(row => row.label)).toEqual(['Page', 'On', 'Assignees', 'Priority']);
+    expect(rows.map(row => row.label)).toEqual(['Page', 'On', 'Assignees', 'Priority', 'Pull requests']);
+    // Plain text (On) is where every value starts
+    const start = rows.find(row => row.label === 'On')!.valueStart;
     for (const row of rows) {
         expect.soft(row.labelHeight, `${row.label} label height`).toBeCloseTo(rowHeight, 0);
         if (row.label === 'Assignees') expect.soft(row.valueHeight, 'Assignees can grow for people and agents').toBeGreaterThanOrEqual(rowHeight);
         else expect.soft(row.valueHeight, `${row.label} value height`).toBeCloseTo(rowHeight, 0);
         expect.soft(row.valueTop, `${row.label} value top`).toBeCloseTo(row.labelTop, 0);
-        expect.soft(Math.abs(row.valueStart - rows[0]!.valueStart), `${row.label} value start`).toBeLessThanOrEqual(1);
+        expect.soft(Math.abs(row.valueStart - start), `${row.label} value start`).toBeLessThanOrEqual(1);
     }
-    // One rhythm: the same step from row to row
-    const steps = rows.slice(1).map((row, index) => row.labelTop - rows[index]!.labelTop);
+    // One rhythm: the same step from row to row (after Assignees, which grows, the step is longer)
+    const steps = rows.slice(1).flatMap((row, index) => rows[index]!.label === 'Assignees' ? [] : [row.labelTop - rows[index]!.labelTop]);
     for (const step of steps) expect.soft(step).toBeCloseTo(steps[0]!, 0);
 }
 
