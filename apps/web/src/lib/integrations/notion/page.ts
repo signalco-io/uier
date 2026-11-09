@@ -113,7 +113,7 @@ export function validateNotionMapping(value: unknown, schema: NotionSchema): Not
 export function notionProperties(context: FeedbackContext, mapping: NotionMapping, screenshotId?: string): JsonObject {
     const values: JsonObject = { [mapping.title]: { title: rich(context.title.slice(0, 150)) }, [mapping.uierId]: { rich_text: rich(context.identity.commentId) } };
     if (mapping.status) values[mapping.status.property] = { [mapping.status.type]: { name: context.status === 'done' ? mapping.status.done : mapping.status.open } };
-    if (mapping.kind) values[mapping.kind] = { select: { name: context.kind } };
+    if (mapping.kind) values[mapping.kind] = { select: { name: context.kind.startsWith('custom_') ? context.feedbackType?.label ?? 'Feedback' : context.kind } };
     const environment = context.source.environment?.replaceAll(',', ' ').trim().slice(0, 100);
     if (mapping.environment) values[mapping.environment] = { select: environment && !['Removed address', 'Source not recorded'].includes(environment)
         ? { name: environment } : null };
