@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { accountChangedKey } from './accountSessions';
 
 /** Reload other app tabs on selection/sign-out, and detect sign-ins made in another tab on focus. */
-export function AccountSessionBoundary({ userId }: { userId: string }) {
+export function AccountSessionBoundary({ userId, reloadOnChange = false }: { userId: string | null; reloadOnChange?: boolean }) {
     useEffect(() => {
         let cancelled = false;
         let checking = false;
@@ -14,7 +14,8 @@ export function AccountSessionBoundary({ userId }: { userId: string }) {
             try {
                 const response = await fetch('/api/account/sessions', { cache: 'no-store' });
                 if (response.ok && ((await response.json()) as { userId: string | null }).userId !== userId && !cancelled) {
-                    window.location.replace('/app');
+                    if (reloadOnChange) window.location.reload();
+                    else window.location.replace('/app');
                 }
             } catch { /* Offline tabs recheck when focus or connectivity returns. */ }
             finally { checking = false; }
@@ -34,6 +35,6 @@ export function AccountSessionBoundary({ userId }: { userId: string }) {
             window.removeEventListener('online', check);
             document.removeEventListener('visibilitychange', check);
         };
-    }, [userId]);
+    }, [userId, reloadOnChange]);
     return null;
 }

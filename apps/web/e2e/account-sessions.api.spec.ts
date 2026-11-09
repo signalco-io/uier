@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { NextRequest, NextResponse } from 'next/server.js';
 import { GET, POST } from '../app/api/account/sessions/route';
 import { GET as appTicket } from '../app/api/realtime/ticket/route';
+import { proxy } from '../proxy';
 import { addBrowserSession, browserSessions, switchBrowserAccount, removeBrowserAccount, writeBrowserSessions, MAX_BROWSER_ACCOUNTS,
     ACCOUNT_LIMIT_MESSAGE, type AccountCookieWriter } from '../src/lib/app/browserAccounts';
 import { cookieName, cookieNames } from '../src/lib/cookieNames';
@@ -156,6 +157,35 @@ test('expiry of a parked credential leaves the active session intact and frees i
         expect(jar.get(primary())?.value).toBe(b.token);
     } finally { Date.now = previousNow; }
 });
+
+for (const change of ['sign-out-all', 'switch'] as const) {
+    test(`a late app response cannot restore the former review identity after ${change}`, async () => {
+        const jar = new Jar();
+        const b = await account(jar, 'late-other');
+        const a = await account(jar, 'late-original');
+        // A browser does not send Path=/api/review cookies to /app, including on prefetches.
+        const appCookies = jar.header().split('; ').filter(cookie => !cookie.startsWith(`${REVIEW_SSO_COOKIE_NAME}=`));
+        const late = await proxy(new NextRequest(`${origin}/app/account`, {
+            headers: { cookie: appCookies.join('; '), purpose: 'prefetch' }
+        }));
+        expect(late.headers.get('set-cookie')).toBeNull();
+        const changed = await POST(request(jar, change === 'switch' ? { action: change, userId: b.user.id } : { action: change }));
+        expect(changed.status).toBe(200);
+        jar.apply(changed);
+        const companion = jar.get(REVIEW_SSO_COOKIE_NAME)?.value;
+        // Apply the old request's headers last, as a delayed response would arrive in the browser.
+        jar.apply(late);
+        expect(jar.get(REVIEW_SSO_COOKIE_NAME)?.value).toBe(companion);
+        if (change === 'switch') {
+            expect(readReviewSsoSession(companion)?.uid).toBe(b.user.id);
+            expect((await requestSessionUser(request(jar)))?.id).toBe(b.user.id);
+        } else {
+            expect(isReviewSignedOut(companion)).toBe(true);
+            expect(await requestSessionUser(request(jar))).toBeNull();
+        }
+        expect(readReviewSsoSession(jar.get(REVIEW_SSO_COOKIE_NAME)?.value)?.uid).not.toBe(a.user.id);
+    });
+}
 
 test('cross-site or malformed selections mutate no cookies and never return credentials', async () => {
     const jar = new Jar();

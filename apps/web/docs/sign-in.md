@@ -114,4 +114,16 @@ forgery, cross-site requests, cookie flags, proof age and API authorization. `ac
 covers desktop/mobile menus, provider confirmation, cancellation, tab reconciliation and toolbar
 handoffs; `passkeys.spec.ts` includes Add account with a real virtual-authenticator ceremony.
 
-App proxy upgrades seed or repair a missing/mismatched review companion only. Ordinary app prefetches do not rewrite an already matching companion after an account change.
+Only explicit browser-session changes (sign-in, selection and sign-out) write the review companion.
+The app proxy never seeds or repairs it: its Path=/api/review cookie is absent from /app requests,
+and a late app page or prefetch response therefore cannot restore the previous account's review
+identity after a switch or Sign out of all accounts. This does not order concurrent explicit
+session-changing requests or revoke independently issued toolbar/extension credentials. Older
+logins without a companion need to sign in again or select their account to enable background review sign-in.
+
+Coding-tool and extension consent bind approval to the user id shown on the page and compare it
+with the active session before issuing any code. A mismatch leaves the request unapproved. Both
+pages reload their current URL when the account boundary detects an identity change, retaining the
+pending connection and showing the new account before another approval.
+`account-consent.api.spec.ts` covers stale approvals through the built server actions;
+`account-sessions.api.spec.ts` covers late app responses after selection and final sign-out.

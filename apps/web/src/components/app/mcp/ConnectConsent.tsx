@@ -36,6 +36,7 @@ type Selection = Record<string, 'all' | string[]>;
 
 /** What the consent page needs from a pending request (docs/mcp-oauth-plan.md §8) */
 export type ConsentRequest = {
+    userId: string;
     email: string;
     client: ClientPresentation;
     requestedScopes: McpScope[];
@@ -78,7 +79,7 @@ export function ConnectConsent({ requestId, request }: { requestId: string; requ
     return <ConsentForm requestId={requestId} request={request} onOutcome={setOutcome} />;
 }
 
-function ConsentForm({ requestId, request: { email, client, requestedScopes, workspaces, truncated, replace }, onOutcome }: {
+function ConsentForm({ requestId, request: { userId, email, client, requestedScopes, workspaces, truncated, replace }, onOutcome }: {
     requestId: string;
     request: ConsentRequest;
     onOutcome: (outcome: Outcome) => void;
@@ -97,7 +98,7 @@ function ConsentForm({ requestId, request: { email, client, requestedScopes, wor
     const replaceGrantId = replace?.mode === 'optional' ? (replaceChecked ? replace.app.id : undefined) : (replaceId || undefined);
 
     const [approval, approve, approving] = useActionState(async () => {
-        const result = await approveConnectionAction(requestId, { access, scopes, name, ...(replaceGrantId ? { replaceGrantId } : {}) });
+        const result = await approveConnectionAction(requestId, userId, { access, scopes, name, ...(replaceGrantId ? { replaceGrantId } : {}) });
         if (result?.ok) onOutcome({ approved: true, url: result.data.url });
         return result;
     }, null);

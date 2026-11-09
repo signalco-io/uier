@@ -3,11 +3,15 @@ import Link from 'next/link';
 import { Logo } from '@uier/brand/Logo';
 import { Card } from '@/src/components/ui/card';
 import { KnownPages } from '@/src/knownPages';
+import { getSessionUser } from '@/src/lib/app/session';
+import { AccountSessionBoundary } from '@/src/components/app/shell/AccountSessionBoundary';
 
 /** A coding tool's sign-in (consent and its errors): one focused card, without the app sidebar */
-export default function ConnectLayout({ children }: PropsWithChildren) {
+export default async function ConnectLayout({ children }: PropsWithChildren) {
+    const user = await getSessionUser();
     return (
         <main className="flex min-h-svh flex-col items-center bg-muted/40 px-4 py-10 md:justify-center">
+            <AccountSessionBoundary userId={user?.id ?? null} reloadOnChange />
             <div className="flex w-full max-w-lg flex-col items-center gap-8">
                 <Link href={KnownPages.Landing} aria-label="uier home" className="rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
                     <Logo size={24} />

@@ -35,6 +35,7 @@ export default async function ConnectPage({ params }: PageProps<'/app/connect/[r
 
     return (
         <ConnectConsent requestId={requestId} request={{
+            userId: user.id,
             email: user.email,
             client: pending.client,
             requestedScopes: pending.scopes,

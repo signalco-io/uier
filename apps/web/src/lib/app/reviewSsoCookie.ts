@@ -21,7 +21,7 @@ export function readReviewSsoSession(token: string | undefined) {
     return session && typeof session.uid === 'string' ? session : null;
 }
 
-/** The companion expires with the app session, including when upgrading an existing login. */
+/** The companion expires with the active app credential; account selection never renews it. */
 export function reviewSsoCookie(sessionToken: string) {
     const session = verifyToken<{ uid: string }>('session', sessionToken);
     if (!session || typeof session.uid !== 'string') return undefined;

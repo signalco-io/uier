@@ -3,6 +3,7 @@ import { appNavigation, closeAppNavigation, createProject, requestSignInEmail, s
 import { animationsFinished, toolbar } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 import { startReviewedSite } from './support/reviewedSite';
+import { createHash, randomBytes } from 'node:crypto';
 
 async function accountMenu(page: Page) {
     await appNavigation(page);
@@ -111,6 +112,57 @@ test('Add account cancellation and a failed sign-in leave the original account s
     expect((await context.cookies()).find(cookie => cookie.name === 'uier_session')!.value).toBe(original);
     await page.goto('/app/account');
     await expect(page.getByRole('main')).toContainText(email);
+});
+
+test('coding-tool and extension consent reload their own URL when the active account changes', async ({ page, context, baseURL }) => {
+    const a = uniqueEmail('consent-page-a');
+    const b = uniqueEmail('consent-page-b');
+    await signIn(page, a);
+    const { userId: userA } = await (await context.request.get('/api/account/sessions')).json();
+    await signIn(page, b, { from: '/app/sign-in?add=1' });
+    const { userId: userB } = await (await context.request.get('/api/account/sessions')).json();
+    const select = async (userId: string) => {
+        expect((await context.request.post('/api/account/sessions', {
+            headers: { Origin: baseURL!, 'Sec-Fetch-Site': 'same-origin' }, data: { action: 'switch', userId }
+        })).status()).toBe(200);
+    };
+    await select(userA);
+    const clientId = 'abcdefghijklmnopabcdefghijklmnop';
+    const challenge = createHash('sha256').update(randomBytes(32)).digest('base64url');
+    const registration = await context.request.post('/api/oauth/register', { data: {
+        client_name: 'Account reload test', redirect_uris: ['http://127.0.0.1/callback']
+    } });
+    const oauthClient = await registration.json();
+    const authorization = await context.request.get(`/api/oauth/authorize?${new URLSearchParams({
+        response_type: 'code', client_id: oauthClient.client_id, redirect_uri: 'http://127.0.0.1/callback',
+        code_challenge: challenge, code_challenge_method: 'S256', resource: `${baseURL}/api/mcp`, scope: 'feedback:read'
+    })}`, { maxRedirects: 0 });
+    const consent = await context.newPage();
+    const extension = await context.newPage();
+    try {
+        await consent.goto(authorization.headers().location!);
+        await expect(consent.getByText(`Signed in as ${a}.`)).toBeVisible();
+        const consentUrl = consent.url();
+        await extension.goto(`/app/extension?${new URLSearchParams({ clientId,
+            redirectUri: `https://${clientId}.chromiumapp.org/uier`, challenge, state: randomBytes(32).toString('base64url') })}`);
+        await expect(extension.getByText(a.split('@')[0]!, { exact: true })).toBeVisible();
+        const extensionUrl = extension.url();
+        await select(userB);
+        for (const tab of [consent, extension]) {
+            await tab.bringToFront();
+            await tab.evaluate(() => window.dispatchEvent(new Event('focus')));
+        }
+        await expect(consent.getByText(`Signed in as ${b}.`)).toBeVisible();
+        await expect(extension.getByText(b.split('@')[0]!, { exact: true })).toBeVisible();
+        expect(consent.url()).toBe(consentUrl);
+        expect(extension.url()).toBe(extensionUrl);
+        await extension.route(`https://${clientId}.chromiumapp.org/uier**`, route => route.fulfill({ body: 'Extension signed in' }));
+        await extension.getByRole('button', { name: 'Sign in to uier', exact: true }).click();
+        await extension.waitForURL(url => url.hostname === `${clientId}.chromiumapp.org` && url.searchParams.has('code'));
+    } finally {
+        await consent.close();
+        await extension.close();
+    }
 });
 
 test('toolbar foreground sign-in follows the active account and clears a removed browser identity', async ({ page, context, baseURL }) => {

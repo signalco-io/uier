@@ -13,7 +13,10 @@ Firefox's stable client is `uier@signalco.io`; register the exact HTTPS URL retu
 `browser.identity.getRedirectURL()` (including its trailing slash).
 Registration grants transport only, never identity or BotID bypass. Recheck current
 membership, session and addresses before calling shared review services. Keep embed CORS unchanged.
-`/app/extension` is explicit consent after first-party sign-in. `/extension-verification` is a
+`/app/extension` is explicit consent after first-party sign-in. Approval binds the user id shown on
+the page to the active session and refuses a mismatch before issuing a handoff code. Its account
+boundary reloads the same consent URL after an account change; `account-consent.api.spec.ts` checks
+stale-page rejection and a fresh approval. `/extension-verification` is a
 nonce-protected frame for the packaged helper. Firefox sends their current extension
 origin during authorization; the one-use handoff, session, access token and project scope bind that
 origin. Only UUID origins in the registered browser's extension scheme are accepted. Refresh

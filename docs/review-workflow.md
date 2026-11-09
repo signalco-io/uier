@@ -156,7 +156,8 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   - Project embeds also try background sign-in through the hidden `/review-session` frame. A signed-in
     member can start reviewing a configured site without a link or top-level navigation. The separate
     `__Secure-uier_review_sso` HttpOnly, Secure, SameSite=None cookie only authorizes project review handoffs;
-    the app session stays SameSite=Lax. Existing logins receive it on their next app visit. Browsers that
+    the app session stays SameSite=Lax. Sign-in and explicit account selection write it; ordinary app
+    responses never do. Older logins without it need to sign in again or select their account. Browsers that
     block cross-site cookies or frames keep the explicit link flow. No storage-access prompts are opened.
     The sidebar account menu retains up to five accounts; selecting one updates both app and review
     companion cookies without renewing the credential. A toolbar's foreground identity check follows

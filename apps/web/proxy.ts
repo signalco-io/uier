@@ -1,12 +1,11 @@
 import { extensionFrameAncestors } from './src/lib/extension/config';
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server.js';
 import { randomBytes } from 'node:crypto';
 import { createSecureHeaders } from 'next-secure-headers';
 import { combineSecureHeaders, siteExternalUrls, permissionsPolicy, siteIconContentSecurityPolicy, siteIconPath } from './src/lib/secureHeaders';
 import { sessionContentSecurityPolicy } from './src/lib/review/sessionDocument';
 import { botIdPath, proxyBotId } from './src/lib/botIdProxy';
 import { cookieNames, readMigratingCookie } from './src/lib/cookieNames';
-import { readReviewSsoSession, reviewSsoCookie } from './src/lib/app/reviewSsoCookie';
 import { KnownPages } from './src/knownPages';
 
 /** App pages that work signed out */
@@ -66,16 +65,9 @@ export async function proxy(request: NextRequest) {
         return finish(next());
     const sessionToken = readMigratingCookie(request.cookies, cookieNames.session);
     if (sessionToken) {
-        const response = next();
-        const companion = reviewSsoCookie(sessionToken);
-        const current = readReviewSsoSession(readMigratingCookie(request.cookies, cookieNames.reviewSso, true));
-        // Seed old logins or repair a mismatched companion. Ordinary prefetched pages must not
-        // rewrite it later with the account that was active when their request started.
-        if (companion) {
-            const expected = readReviewSsoSession(companion.value)!;
-            if (current?.uid !== expected.uid || current.exp !== expected.exp) response.cookies.set(companion);
-        }
-        return finish(response);
+        // Only explicit session changes write the Path=/api/review companion. App requests
+        // cannot see it, and a late page/prefetch response must not undo a switch or sign-out.
+        return finish(next());
     }
 
     const signIn = new URL('/app/sign-in', request.url);

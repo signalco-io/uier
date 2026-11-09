@@ -6,7 +6,7 @@ import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 import { actionResult, UserFacingError } from '../../app/actionResult';
 import { appContextOrThrow } from '../../app/context';
 import { parseActionInput } from '../../app/validation';
-import { authorizationRequestActionSchema, connectedAppActionSchema } from './actionSchemas';
+import { authorizationApprovalActionSchema, authorizationRequestActionSchema, connectedAppActionSchema } from './actionSchemas';
 import { approveAuthorization, denyAuthorization } from './authorize';
 import { OAuthError } from './errors';
 import { revokeConnectedApp } from './grants';
@@ -17,10 +17,12 @@ import { oauthIssuer } from './http';
  * redirecting: `form-action 'self'` blocks redirects to another origin after a form post, so the
  * page navigates there itself.
  */
-export async function approveConnectionAction(requestId: string, approval: unknown) {
+export async function approveConnectionAction(requestId: string, expectedUserId: string, approval: unknown) {
     return actionResult(async () => {
-        const input = parseActionInput(authorizationRequestActionSchema, { requestId });
+        const input = parseActionInput(authorizationApprovalActionSchema, { requestId, expectedUserId });
         const context = await appContextOrThrow();
+        if (context.user.id !== input.expectedUserId)
+            throw new UserFacingError('Your active account changed. Reload this page and try again.');
         try {
             return { url: await approveAuthorization(context.user, input.requestId, approval, await oauthIssuer()) };
         } catch (error) {
