@@ -19,10 +19,10 @@
   the arrow keys move between the tabs only. Each filter in effect shows under the bar with its own clear button ("Clear filter: Unread",
   "Clear author filter: ..."). The count line under them (`TriageSelection`) has the unread
   count, then Mark all as read right beside it (a small filled `secondary` button whose icon takes the unread
-  accent, so it reads as that count's action), and Select at the end. The list has no "15 of 93 comments": the
-  status tabs already count what is shown, under every other filter. The board has no tabs, so it keeps that count
-  before the unread count. With a mouse Select is `sr-only` until something is selected (or it has keyboard focus),
-  since hovering a row's box starts selecting; a touch screen always shows it. The count line has no side padding of its own, so its
+  accent, so it reads as that count's action), and Select at the end. Neither view has "15 of 93 comments": the
+  list's status tabs and the board's columns already count what is shown. With a mouse Select is `sr-only` until something is selected (or it has keyboard focus),
+  since hovering a row's box starts selecting; a touch screen always shows it. When it shows nothing (no unread count and, with a mouse, nothing selected) the
+  count line is `sr-only` too: it takes no room and no gap in the column, and shows again while Select has the keyboard focus. The count line has no side padding of its own, so its
   edges line up with the search and Filter row in the list and the board; Select shown results and the bulk actions are in the selection bar that
   floats over the end of the comments once something is selected ([App triage](triage.md#selection)).
   `LocationFilter`: environments on the left, the chosen environment's pages on the right with a search,

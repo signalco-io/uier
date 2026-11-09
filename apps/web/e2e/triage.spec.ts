@@ -138,6 +138,21 @@ test('selection stays quiet until it is used, by pointer, keyboard or touch, and
     // Select shows at rest only on a touch screen; a mouse starts selecting from a row's box
     const selectShown = () => select.evaluate(element => getComputedStyle(element).position !== 'absolute');
     expect(await selectShown()).toBe(mobile);
+    // The count line shows the guests' unread threads; once they are read it shows nothing with a mouse, so it takes
+    // no room (and no gap) until Select has the focus
+    const countLine = select.locator('xpath=../..');
+    const countLineShown = () => countLine.evaluate(element => getComputedStyle(element).position !== 'absolute');
+    expect(await countLineShown()).toBe(true);
+    await page.getByRole('button', { name: 'Mark all as read', exact: true }).press('Enter');
+    await expect(page.getByRole('button', { name: 'Mark all as read', exact: true })).toHaveCount(0);
+    await expect.poll(countLineShown).toBe(mobile);
+    if (!mobile) {
+        await select.focus();
+        await expect.poll(countLineShown).toBe(true);
+        expect(await selectShown()).toBe(true);
+        await select.blur();
+        await expect.poll(countLineShown).toBe(false);
+    }
     if (mobile) await expect(anyBox).toHaveCount(0);
     else {
         for (const index of [0, 1, 2]) await expect(box(index)).toHaveCSS('opacity', '0');
