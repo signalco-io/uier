@@ -37,7 +37,7 @@ and the Tab order, which is how screen reader users on a touch screen start sele
 and double-tap it). Everyone else on a touch screen starts with a long press on a row or card (uier #179): held still
 for 600 ms (`longPressDelay`, within 10 px, `pressTolerance`) it selects the row while the finger is down. The press
 then opens nothing, drags nothing and shows no link menu (`contextmenu`, `dragstart` and `selectstart` are prevented while a
-press may become long, and the click after it is dropped); rows with a box are `select-none` and have no touch callout on
+press may become long, and the click after it is dropped until the next press anywhere; a cancelled press drops nothing); rows with a box are `select-none` and have no touch callout on
 a touch screen. On the board a card held 250 ms is armed (`data-hold`, a slight scale) and lifts only when the finger then
 moves (`HoldTouchSensor`); held still to the long press, the sensor lets go and the card is selected. The comments page
 has no Select button: the count line holds only the unread count and Mark all as read. Selecting is on while

@@ -269,7 +269,7 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
         const region = regionRef.current;
         if (!region) return;
         // The finger is down: `timer` until the press is long, then `held` until it is lifted. A click that follows a long press
-        // (`after`, until the next press) neither opens the row nor toggles it again.
+        // (`after`, until the next press anywhere) neither opens the row nor toggles it again. A cancelled press sends no click.
         let press: { x: number; y: number; timer: number } | undefined;
         let held = false;
         let after = false;
@@ -297,6 +297,13 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
             if (held) after = true;
             held = false;
         };
+        const abort = () => {
+            cancel();
+            held = false;
+            after = false;
+        };
+        // Any next press, in the list or not, ends the suppression, so a tap elsewhere is never swallowed
+        const next = () => { after = false; };
         // While a press may become long, and while it is held: no link menu, no text selection, no dragged link
         const prevent = (event: Event) => { if (press || held) event.preventDefault(); };
         const click = (event: globalThis.MouseEvent) => {
@@ -307,10 +314,11 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
             event.preventDefault();
             event.stopPropagation();
         };
+        window.addEventListener('pointerdown', next, { capture: true });
         region.addEventListener('pointerdown', down);
         window.addEventListener('pointermove', move);
         window.addEventListener('pointerup', up);
-        window.addEventListener('pointercancel', up);
+        window.addEventListener('pointercancel', abort);
         region.addEventListener('contextmenu', prevent);
         region.addEventListener('dragstart', prevent);
         region.addEventListener('selectstart', prevent);
@@ -318,10 +326,11 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
         window.addEventListener('click', click, { capture: true });
         return () => {
             cancel();
+            window.removeEventListener('pointerdown', next, { capture: true });
             region.removeEventListener('pointerdown', down);
             window.removeEventListener('pointermove', move);
             window.removeEventListener('pointerup', up);
-            window.removeEventListener('pointercancel', up);
+            window.removeEventListener('pointercancel', abort);
             region.removeEventListener('contextmenu', prevent);
             region.removeEventListener('dragstart', prevent);
             region.removeEventListener('selectstart', prevent);
