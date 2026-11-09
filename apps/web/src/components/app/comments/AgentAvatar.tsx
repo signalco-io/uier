@@ -18,7 +18,7 @@ export function AgentMark({ kind, className }: { kind: AgentKind; className?: st
         <svg aria-hidden="true" data-agent-mark={kind} viewBox="0 0 24 24" focusable="false" className={cn('size-4 shrink-0', className)}
             fill={mark.stroke ? 'none' : 'currentColor'}
             {...(mark.stroke ? { stroke: 'currentColor', strokeWidth: 1.75, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const } : {})}>
-            {mark.paths.map(d => <path key={d} d={d} {...(mark.evenOdd ? { fillRule: 'evenodd' as const, clipRule: 'evenodd' as const } : {})} />)}
+            {mark.paths.map(d => <path key={d} d={d} />)}
         </svg>
     );
 }
