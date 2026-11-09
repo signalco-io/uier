@@ -18,7 +18,7 @@ import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import { holdsLayersAttribute, isToolbarAnchor, pressableToolbarOpener, toolbarPinId, toolbarSurface } from '../toolbarReview';
 import { RewriteSuggestions } from './RewriteSuggestions';
-import { ComposerAttachmentsHeader, useAttachedImage, type AttachedImage } from './ComposerAttachments';
+import { ComposerAttachButton, ComposerAttachmentsHeader, useAttachedImage, type AttachedImage } from './ComposerAttachments';
 import { CommentDraft, CommentItem, CommentItemPosition, commentTextMaxLength, floatingShadowClassName, isCommentArea } from './@types/Comments';
 
 // Bubble (the pin) half size, how far its message count badge reaches past the right edge (Pin,
@@ -368,6 +368,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                         autoFocus={open && !reading}
                         error={mutation.error ?? props.draft?.sendError}
                         holdSubmit={creating && attachment.reading}
+                        attachments={creating ? <ComposerAttachButton attachment={attachment} /> : undefined}
                         onSubmit={handleSubmit}
                         onDiscard={creating ? handleDiscard : undefined} />
                 </div>}

@@ -101,13 +101,17 @@ export function useAttachedImage(initial?: AttachedImage) {
     };
 }
 
+/** A compact icon button of a composer's header or text box */
+export const composerIconButtonClassName = 'size-7 shrink-0 rounded-md text-muted-foreground hover:text-foreground pointer-coarse:size-11';
+
 /**
- * The header of a new comment or feedback: its title, then two compact controls. The screen
- * toggle (Omit screenshot, pressed shows a crossed-out screen) says in its tooltip and description
- * what will be attached; Attach image picks the reviewer's own image, sent instead of the screenshot.
- * Never a preview: composers stay without images (#81, #92). The status is read out, not shown.
+ * The header of a new comment or feedback: its title, then the screen toggle (Omit screenshot,
+ * pressed shows a crossed-out screen), which says in its tooltip and description what will be
+ * attached, and `actions` (Expand). Attach image is in the text box's bottom-left corner
+ * ({@link ComposerAttachButton}). Never a preview: composers stay without images (#81, #92). The
+ * status is read out, not shown.
  */
-export function ComposerAttachmentsHeader({ title, screenshot, page, omitted, onOmittedChange, attachment }: {
+export function ComposerAttachmentsHeader({ title, screenshot, page, omitted, onOmittedChange, attachment, actions }: {
     title: ReactNode;
     /** The capture started with the draft (src/screenshot.ts) */
     screenshot: Promise<string | undefined> | undefined;
@@ -116,11 +120,11 @@ export function ComposerAttachmentsHeader({ title, screenshot, page, omitted, on
     omitted: boolean;
     onOmittedChange: (omitted: boolean) => void;
     attachment: ReturnType<typeof useAttachedImage>;
+    /** More controls at the end of the line */
+    actions?: ReactNode;
 }) {
     const state = useCaptureState(screenshot);
     const statusId = useId();
-    const limitsId = useId();
-    const inputRef = useRef<HTMLInputElement>(null);
     const { image, error, reading } = attachment;
     const message = image
         ? `Your image ${image.name} will be attached instead of a screenshot.`
@@ -138,73 +142,89 @@ export function ComposerAttachmentsHeader({ title, screenshot, page, omitted, on
     const toggleTip = omitted
         ? 'No screenshot will be attached. Select to attach one.'
         : `${message} Select to send only the text.`;
-    const buttonClassName = 'size-7 shrink-0 rounded-md text-muted-foreground hover:text-foreground pointer-coarse:size-11';
     return (
         <div className="bg-card px-3 pt-3">
             <div className="flex min-h-7 items-center justify-between gap-2">
                 <div className="min-w-0">{title}</div>
                 <div className="flex shrink-0 items-center gap-0.5">
                     <p id={statusId} role="status" className="sr-only">{message}</p>
-                    <span id={limitsId} className="sr-only">Sent instead of the screenshot. {imageLimits}</span>
-                    {image ? (
-                        <IconTooltip label="Your image is attached instead of a screenshot. Select to remove it.">
-                            <Button
-                                variant="plain"
-                                size="xs"
-                                type="button"
-                                aria-label={`Remove attached image ${image.name}`}
-                                className="max-w-40 gap-1 rounded-md font-normal text-muted-foreground hover:text-foreground pointer-coarse:min-h-11"
-                                startDecorator={<Paperclip size={14} aria-hidden="true" />}
-                                endDecorator={<Close size={14} aria-hidden="true" />}
-                                onClick={attachment.remove}>
-                                <span className="truncate">{image.name}</span>
-                            </Button>
-                        </IconTooltip>
-                    ) : <>
-                        {(state !== 'failed' || omitted) && (
-                            <IconTooltip label={toggleTip}>
-                                <IconButton
-                                    variant="plain"
-                                    size="xs"
-                                    type="button"
-                                    aria-label="Omit screenshot"
-                                    aria-pressed={omitted}
-                                    aria-describedby={statusId}
-                                    className={cx(buttonClassName, omitted && 'text-foreground')}
-                                    onClick={() => onOmittedChange(!omitted)}>
-                                    <ScreenIcon off={omitted} />
-                                </IconButton>
-                            </IconTooltip>
-                        )}
-                        <IconTooltip label={`Attach your own image instead of the screenshot. ${imageLimits}`}>
+                    {/* An attached image replaces the screenshot: the choice to omit it is back once the image is removed */}
+                    {!image && (state !== 'failed' || omitted) && (
+                        <IconTooltip label={toggleTip}>
                             <IconButton
                                 variant="plain"
                                 size="xs"
                                 type="button"
-                                aria-label="Attach image"
-                                aria-describedby={limitsId}
-                                disabled={reading}
-                                className={buttonClassName}
-                                onClick={() => inputRef.current?.click()}>
-                                <Paperclip size={16} aria-hidden="true" />
+                                aria-label="Omit screenshot"
+                                aria-pressed={omitted}
+                                aria-describedby={statusId}
+                                className={cx(composerIconButtonClassName, omitted && 'text-foreground')}
+                                onClick={() => onOmittedChange(!omitted)}>
+                                <ScreenIcon off={omitted} />
                             </IconButton>
                         </IconTooltip>
-                    </>}
-                    <input
-                        ref={inputRef}
-                        type="file"
-                        accept={screenshotContentTypes.join(',')}
-                        tabIndex={-1}
-                        aria-hidden="true"
-                        className="hidden"
-                        onChange={event => {
-                            const file = event.target.files?.[0];
-                            event.target.value = '';
-                            if (file) void attachment.attach(file);
-                        }} />
+                    )}
+                    {actions}
                 </div>
             </div>
             {error && <p role="alert" className={cx('m-0 mt-1 text-xs', destructiveTextClassName)}>{error}</p>}
         </div>
+    );
+}
+
+/**
+ * Attach image, in the bottom-left corner of a new comment's or feedback's text box (`attachments`
+ * of `CommentComposer`), so it reads as a part of the comment: picks the reviewer's own image, sent
+ * instead of the screenshot. Once attached, its name with a remove button takes its place.
+ */
+export function ComposerAttachButton({ attachment }: { attachment: ReturnType<typeof useAttachedImage> }) {
+    const limitsId = useId();
+    const inputRef = useRef<HTMLInputElement>(null);
+    const { image, reading } = attachment;
+    return (
+        <>
+            <span id={limitsId} className="sr-only">Sent instead of the screenshot. {imageLimits}</span>
+            {image ? (
+                <IconTooltip label="Your image is attached instead of a screenshot. Select to remove it.">
+                    <Button
+                        variant="plain"
+                        size="xs"
+                        type="button"
+                        aria-label={`Remove attached image ${image.name}`}
+                        className="min-w-0 max-w-40 gap-1 rounded-md font-normal text-muted-foreground hover:text-foreground pointer-coarse:min-h-11"
+                        startDecorator={<Paperclip size={14} aria-hidden="true" />}
+                        endDecorator={<Close size={14} aria-hidden="true" />}
+                        onClick={attachment.remove}>
+                        <span className="truncate">{image.name}</span>
+                    </Button>
+                </IconTooltip>
+            ) : (
+                <IconTooltip label={`Attach your own image instead of the screenshot. ${imageLimits}`}>
+                    <IconButton
+                        variant="plain"
+                        size="xs"
+                        type="button"
+                        aria-label="Attach image"
+                        aria-describedby={limitsId}
+                        disabled={reading}
+                        className={composerIconButtonClassName}
+                        onClick={() => inputRef.current?.click()}>
+                        <Paperclip size={16} aria-hidden="true" />
+                    </IconButton>
+                </IconTooltip>
+            )}
+            <input
+                ref={inputRef}
+                type="file"
+                accept={screenshotContentTypes.join(',')}
+                tabIndex={-1}
+                aria-hidden="true"
+                className="hidden"
+                onChange={event => {
+                    const file = event.target.files?.[0];
+                    event.target.value = '';
+                    if (file) void attachment.attach(file);
+                }} />
+        </>
     );
 }

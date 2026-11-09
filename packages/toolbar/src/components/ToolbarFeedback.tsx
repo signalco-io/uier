@@ -15,7 +15,7 @@ import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { useInkContainer } from './InkScope';
 import { CommentComposer } from './CommentComposer';
 import { CommentKindIcon, commentKindLabels } from './CommentKindLabel';
-import { ComposerAttachmentsHeader, useAttachedImage } from './ComposerAttachments';
+import { ComposerAttachButton, ComposerAttachmentsHeader, useAttachedImage } from './ComposerAttachments';
 import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import { cancelCommentScreenshot, captureCommentScreenshot } from '../screenshot';
@@ -173,6 +173,7 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
                     draftKey={`${feedbackDraftKey}:${kind}`}
                     autoFocus
                     holdSubmit={attachment.reading}
+                    attachments={<ComposerAttachButton attachment={attachment} />}
                     error={create.error}
                     onSubmit={handleSubmit} />
             </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useId, useImperativeHandle, useLayoutEffect, useRef, useState, useSyncExternalStore, type Ref } from 'react';
+import React, { useEffect, useId, useImperativeHandle, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode, type Ref } from 'react';
 import { IconTooltip } from './IconTooltip';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
@@ -63,6 +63,13 @@ type CommentComposerProps = {
     pending?: boolean;
     /** Part of what it sends is not ready (an attached image is still being read): Enter and the send button wait */
     holdSubmit?: boolean;
+    /**
+     * Not ready for text yet (a reply to a comment that is still being saved): the text box keeps
+     * its place and can have the focus, but is read-only
+     */
+    waiting?: boolean;
+    /** In the bottom-left corner of the text box, before its hint (Attach image for new comments and feedback) */
+    attachments?: ReactNode;
     error?: unknown;
     /**
      * Resolves when saved; rejects to retain the text. Capture belongs to the draft, not this form.
@@ -79,7 +86,7 @@ type CommentComposerProps = {
  * textarea styled like the kit's `Input` (bordered, radius 8, blue focus ring).
  * Enter sends, Shift+Enter adds a new line.
  */
-export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, holdSubmit = false, error, onSubmit, onDiscard, initialText, initialMentions, commentId, onCancel }: CommentComposerProps) {
+export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, holdSubmit = false, waiting = false, attachments, error, onSubmit, onDiscard, initialText, initialMentions, commentId, onCancel }: CommentComposerProps) {
     const formRef = useRef<HTMLFormElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const inputId = useId();
@@ -227,7 +234,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
         const text = drafts.get(draftKey) ?? initialText ?? '';
         const mentions = drafts.details(draftKey)?.mentions ?? (text === initialText ? initialMentions ?? noMentions : noMentions);
         const trimmedText = text.trim();
-        if (!trimmedText.length || busy || holdSubmit || drafts.pending(draftKey) || submittingRef.current) {
+        if (!trimmedText.length || busy || holdSubmit || waiting || drafts.pending(draftKey) || submittingRef.current) {
             return;
         }
         if (askName) {
@@ -338,7 +345,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                     onKeyDown={handleKeyDown}
                     onFocus={handleFocus}
                     maxLength={commentTextMaxLength}
-                    readOnly={busy}
+                    readOnly={busy || waiting}
                     placeholder={placeholder}
                     aria-label={label}
                     aria-describedby={[showCounter || isMember ? counterId : '', hasFooter ? footerId : ''].filter(Boolean).join(' ') || undefined}
@@ -351,7 +358,9 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                         'disabled:cursor-not-allowed disabled:opacity-50'
                     )}
                     style={{ maxHeight: textareaMaxHeight }} />
-                <Row justifyContent="space-between" spacing={1} className="py-1.5 pl-3 pr-1.5">
+                <Row justifyContent="space-between" spacing={1} className={cx('py-1.5 pr-1.5', attachments ? 'pl-1.5' : 'pl-3')}>
+                    <Row spacing={1} className="min-w-0">
+                    {attachments}
                     <span
                         id={counterId}
                         className={cx(
@@ -370,6 +379,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                             </>
                         )}
                     </span>
+                    </Row>
                     <Row spacing={0.5} className="shrink-0">
                         {onCancel && <Button variant="plain" size="xs" type="button" disabled={busy} onClick={onCancel}>Cancel</Button>}
                         {!onCancel && text.length > 0 && (
@@ -390,7 +400,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                             type="submit"
                             className="size-7 rounded-md pointer-coarse:size-11"
                             aria-label={submitLabel}
-                            disabled={!trimmedText.length || busy || holdSubmit || sharedPending}>
+                            disabled={!trimmedText.length || busy || holdSubmit || waiting || sharedPending}>
                             <Send size={14} />
                         </IconButton></IconTooltip>}
                     </Row>
