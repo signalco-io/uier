@@ -157,11 +157,13 @@ function PullRequestValues({ projectId, commentId, links, revision, comment }: {
                         {state && <PullRequestStateBadge state={state} />}
                         {comment.pullRequests?.some(saved => saved.url.toLowerCase() === link.url.toLowerCase() && saved.canRemove) &&
                             <RemovePullRequest projectId={projectId} commentId={commentId} url={link.url} />}
-
                     </div>
                 );
             })}
-            {comment.permissions.triage && <LinkPullRequest projectId={projectId} commentId={commentId} />}
+            {/* One row tall like the links above, so the control is centred on the label */}
+            {comment.permissions.triage && <div className="flex min-h-8 w-full min-w-0 items-center pointer-coarse:min-h-11">
+                <LinkPullRequest projectId={projectId} commentId={commentId} />
+            </div>}
         </dd>
     );
 }
