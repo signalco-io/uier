@@ -99,7 +99,8 @@
   (`push`), so the other list shows at once with no server request, no spinner and no space kept for one;
   Back, Forward and reload keep the tab, and opening a tab in a new window loads its href. Open counts come
   from `loadProjectUsage` for every listed project. `ClientFilter` still navigates (server filter) and keeps
-  the status from the current address.
+  the status from the current address. Its menu and trigger show each client's `ClientMark` beside the name; All
+  clients and No client get an empty dashed tile of the same size so the names line up.
 - The project header's Open review is a menu with Review and Visit site for every address; the header does not
   repeat the addresses. The install guide
   opens from the empty comments list and from Settings → Installation. It shows "Connected" with the latest

@@ -121,6 +121,8 @@ test('admins rename a client and set its description, icon and colour; every pro
     await createProject(page, { urls: ['northwind-edit.example.com'], name: 'Northwind site', clientName: 'Northwind' });
     await page.goto('/app/projects');
     await page.getByRole('combobox', { name: 'Client', exact: true }).click();
+    // Each client shows its mark beside its name, like the sidebar and the cards
+    await expect(page.getByRole('option', { name: 'Acme', exact: true }).locator('[data-slot="client-mark"]')).toHaveText('A');
     await page.getByRole('option', { name: 'Acme', exact: true }).click();
     await expect(page).toHaveURL(url => /^client_[\w-]{21}$/.test(url.searchParams.get('client') ?? ''));
     const filtered = page.url();
@@ -345,12 +347,19 @@ test('a project card keeps its favicon and actions at the top when the client an
     const card = page.getByRole('list', { name: 'Active projects' }).getByRole('listitem').filter({ hasText: 'Wrap site' });
     const title = card.locator('[data-slot="card-title"]');
     const description = card.locator('[data-slot="card-description"]');
+    const favicon = card.locator('[data-slot="card-header"] > :first-child');
     const actions = card.getByRole('button', { name: 'More actions for Wrap site' });
+    const review = card.getByRole('button', { name: 'Open review for Wrap site' });
     await expect(actions).toBeVisible();
-    const [titleBox, descriptionBox, actionsBox] = await Promise.all([title.boundingBox(), description.boundingBox(), actions.boundingBox()]);
-    if (!titleBox || !descriptionBox || !actionsBox) throw new Error('The card header is not laid out');
-    // The client and the access label wrap onto two lines
+    const [titleBox, descriptionBox, faviconBox, actionsBox, reviewBox] = await Promise.all(
+        [title, description, favicon, actions, review].map((locator) => locator.boundingBox()));
+    if (!titleBox || !descriptionBox || !faviconBox || !actionsBox || !reviewBox) throw new Error('The card header is not laid out');
+    // The client, the access label and the open count wrap onto two lines
     expect(descriptionBox.height).toBeGreaterThan(titleBox.height * 1.5);
-    // The actions button lines up with the name, not with the middle of the header
-    expect(Math.abs(actionsBox.y - titleBox.y)).toBeLessThanOrEqual(2);
+    // The favicon starts level with the name, not with the middle of the header
+    expect(Math.abs(faviconBox.y - titleBox.y)).toBeLessThanOrEqual(2);
+    // The icon buttons are centred on the name's line (they overhang it a little), not on the header
+    const middle = (box: { y: number; height: number }) => box.y + box.height / 2;
+    expect(Math.abs(middle(actionsBox) - middle(titleBox))).toBeLessThanOrEqual(2);
+    expect(Math.abs(middle(reviewBox) - middle(titleBox))).toBeLessThanOrEqual(2);
 });

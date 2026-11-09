@@ -155,9 +155,10 @@ CI applies changes (`pulumi up`); do not run it locally. See [CI/CD](#cicd).
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
 | [`ci.yml`](../.github/workflows/ci.yml) | pull requests, manual | Web: parallel checks, API and browser jobs, plus a Vercel preview deployment (URL in the job summary). Extension: unit and packaged runtime checks. Infra: `pulumi preview` against `uier-production`, posted as a PR comment. `CI OK` aggregates all jobs. |
-| [`deploy.yml`](../.github/workflows/deploy.yml) | push to `main`, manual | `pulumi up` first, then build and deploy the website to Vercel production (`uier.io`). |
+| [`deploy.yml`](../.github/workflows/deploy.yml) | push to `main`, manual | Builds the website alongside `pulumi up`, then deploys to Vercel production (`uier.io`) only after both succeed. |
 | [`pulumi_reusable.yml`](../.github/workflows/pulumi_reusable.yml) | called | Installs and builds `infra/`, logs into Azure (OIDC) and runs `pulumi preview` / `up`. |
-| [`vercel-deploy_reusable.yml`](../.github/workflows/vercel-deploy_reusable.yml) | called | Builds with public settings and no deployment credentials, then deploys only prebuilt output in a separate environment-bound job. |
+| [`vercel-build_reusable.yml`](../.github/workflows/vercel-build_reusable.yml) | called | Builds with public settings and no deployment credentials; uploads only the prebuilt output for this workflow run and attempt. |
+| [`vercel-deploy_reusable.yml`](../.github/workflows/vercel-deploy_reusable.yml) | called | Validates and deploys this run's prebuilt output in an environment-bound job, without checking out the repository. |
 
 - **`main`** is the only long-lived branch and is production. Pushes run `pulumi up` and a Vercel
   production deployment served on `uier.io`, unless all changed paths are excluded by `deploy.yml`.
@@ -165,12 +166,15 @@ CI applies changes (`pulumi up`); do not run it locally. See [CI/CD](#cicd).
   app/workspace changes, and `pulumi preview` for infrastructure changes. PRs from forks only run
   the checks that need no secrets. `CI OK` aggregates the required results, including skipped jobs.
 
-Infrastructure always runs before the website deploy because the Vercel project settings (root directory,
-environment variables, domains) are managed by Pulumi. Deployments are made by the Vercel CLI from GitHub
-Actions; the Vercel project is not connected to Vercel's Git integration.
+The credential-free web build runs alongside infrastructure. The final upload requires both jobs to
+succeed because the Vercel project settings (root directory, environment variables, domains) are managed
+by Pulumi. Pull-request previews use the same build and upload workflows in sequence. Deployments are
+made by the Vercel CLI from GitHub Actions; the Vercel project is not connected to Vercel's Git integration.
 
 Concurrency: deploys run one at a time and are never cancelled; `pulumi up` runs are serialized; a new push
-to a pull request cancels its previous CI run.
+to a pull request cancels its previous CI run. The production workflow keeps its lock while building so
+toolbar retention and search comparisons read the preceding completed release. Do not move builds
+outside that lock without refreshing these production-dependent inputs before publishing.
 
 The web matrix separates typecheck/artifact/worker checks, all API tests, and all tagged desktop/mobile
 browser essentials. Test jobs use four workers each and retain separate `playwright-results-api` and
@@ -194,6 +198,22 @@ Runners: jobs that only gate, aggregate or call an API (`Detect changes`, `CI OK
 status and inspect jobs, and the extension `publish` job) run on `ubuntu-slim` (1 vCPU, 5 GB, 15-minute
 limit, minimal tools). Anything that installs the workspace, builds, tests, packages or runs longer than
 15 minutes stays on `ubuntu-latest`.
+
+For runner comparisons, upload the same run-and-attempt artifact to preview in paired trials on both
+runner types. Include Node setup, archive validation, fresh CLI installation and the upload in the job
+duration. Record runner scheduling separately from time blocked by the production concurrency group;
+changing runners does not remove that lock. Keep the credential boundary and fresh deployment CLI
+installation in every trial.
+
+The [9 November 2026 comparison](https://github.com/signalco-io/uier/actions/runs/42614490070)
+used one preview artifact for three trials per runner. In the completed third pair,
+`ubuntu-latest` took 46 seconds and `ubuntu-slim` took 81 seconds. The other slim uploads took
+139 and 79 seconds; the regular latest preview took 49 seconds. Two latest trials ended with
+Vercel CLI `fetch failed` transport errors after about five minutes and are excluded from the
+successful-upload timing comparison. Across all three trials, median time before the upload
+step was 21 seconds on latest and 49 seconds on slim. Keep the upload on `ubuntu-latest`:
+the setup measurements favor it; these samples do not establish relative transport reliability.
+The temporary benchmark matrix is not part of normal CI.
 
 ### Required GitHub configuration
 
