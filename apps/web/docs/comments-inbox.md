@@ -30,7 +30,8 @@
   (`data-board-scroll`, `justify-center-safe`) rather than squeezing them. On dark a card is the page's black, a step
   darker than its column, so it stands apart (light keeps paper cards on the muted column). Only the board's grid is wider than the reading width (`lg:page-wide`,
   `data-page-width="wide"`); the project header, the filters, the count line, the selection bar and the empty states
-  stay in the reading column, as in the list. A card opens its thread in a sheet over the board. Switching List/Board
+  stay in the reading column, as in the list. An empty column's line ("Nothing open.", "Drop here." while
+  dragging, `data-empty-column`) fills the room below the column's name and sits in its middle. A card opens its thread in a sheet over the board. Switching List/Board
   closes the open thread. Cards move between columns with `@dnd-kit/core`: the whole card drags (its link shows
   the grab cursor; its selection box and Move keep their presses, as Base UI opens a menu on press), with the
   mouse after 6 px or a 250 ms long press on a touch screen, so a swipe still scrolls the page (auto-scroll at

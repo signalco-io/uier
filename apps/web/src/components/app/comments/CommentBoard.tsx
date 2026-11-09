@@ -347,7 +347,10 @@ export function CommentBoard({ projectId, columns, allComments, assignees, userI
                                     <ul aria-label={`${commentStatusLabels[status]} comments list`} className="m-0 flex list-none flex-col gap-2 p-0">
                                         {items}
                                     </ul>
-                                ) : <p className="m-0 px-2 pb-1 text-sm text-muted-foreground">{state === 'target' ? 'Drop here.' : emptyColumn[status]}</p>}
+                                ) : (
+                                    // In the middle of the column's room below its name, a drag's longer column too
+                                    <p data-empty-column="" className="m-0 flex flex-1 items-center px-2 text-sm text-muted-foreground">{state === 'target' ? 'Drop here.' : emptyColumn[status]}</p>
+                                )}
                             </BoardColumn>
                         );
                     })}
