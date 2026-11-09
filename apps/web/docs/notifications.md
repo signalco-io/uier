@@ -50,3 +50,8 @@ keep their exact message, which can retain opt-in excerpts until reconciliation 
 uier’s own feedback projects retain every event for MCP, including web-app actions with no
 connector attribution, while keeping `notificationPending` false to avoid owner email jobs.
 Event recording does not depend on whether anyone is eligible for an email.
+
+Connector activity is distinct from its human owner for unread indicators and read suppression.
+Notification events retain the real account actor and existing self-recipient exclusions: this
+unread change does not introduce emails to the connector's owner. See
+[read state](read-state-and-activity.md#read-cursors-and-freshness).

@@ -237,7 +237,7 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
                     const current = withoutSystemProperties(stored.resource as unknown as Record<string, unknown>);
                     if (current.thread.items.length >= maxItems) return 'full';
                     const updated = {
-                        ...withNotificationEvent(withThreadActivity(current, item.authorId ?? 'legacy'), item.authorId ?? 'legacy', 'reply', updatedAt),
+                        ...withNotificationEvent(withThreadActivity(current, item.authorId ?? 'legacy', Boolean(item.agent)), item.authorId ?? 'legacy', 'reply', updatedAt),
                         thread: { ...current.thread, items: [...current.thread.items, item] }, updatedAt
                     };
                     await target.replace(updated, { accessCondition: { type: 'IfMatch', condition: stored.etag } });

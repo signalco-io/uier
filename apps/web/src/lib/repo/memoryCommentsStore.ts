@@ -229,7 +229,7 @@ export function getMemoryCommentsStore(): CommentsStore {
                 return 'full';
 
             const comment: DbComment = {
-                ...withNotificationEvent(withThreadActivity(current, item.authorId ?? 'legacy'), item.authorId ?? 'legacy', 'reply', updatedAt),
+                ...withNotificationEvent(withThreadActivity(current, item.authorId ?? 'legacy', Boolean(item.agent)), item.authorId ?? 'legacy', 'reply', updatedAt),
                 thread: { ...current.thread, items: [...current.thread.items, clone(item)] },
                 updatedAt
             };

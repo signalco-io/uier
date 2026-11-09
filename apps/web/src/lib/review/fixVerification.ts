@@ -48,7 +48,7 @@ export async function changeFixVerification(project: DbProject, actor: ProjectAc
             if (reviewer.startsWith('user:')) await assertEligibleParticipant(currentProject, comment, reviewer.slice(5));
             else if (reviewer !== comment.authorId || comment.thread.items[0]?.deletedAt || currentProject.access !== 'guests')
                 throw apiErrors.forbidden('Choose a member who still has access.');
-            const updated: DbComment = { ...withThreadActivity(comment, me), resolved: false, verification: {
+            const updated: DbComment = { ...withThreadActivity(comment, me, actor.kind === 'member' && Boolean(actor.agent)), resolved: false, verification: {
                 id: randomUUID(), revision: randomUUID(), requester: me, reviewer, requestedAt: now, outcome: 'pending',
                 ...(input.summary ? { summary: input.summary } : {}), ...(input.fixUrl ? { fixUrl: fixDestination(currentProject, input.fixUrl) } : {})
             } };
@@ -68,7 +68,7 @@ export async function changeFixVerification(project: DbProject, actor: ProjectAc
                 else if (me !== comment.authorId || comment.thread.items[0]?.deletedAt || currentProject.access !== 'guests') throw apiErrors.forbidden('This reviewer no longer has access.');
             }
         }
-        const updated: DbComment = { ...withThreadActivity(comment, me), resolved: input.action === 'confirm', ...(input.action === 'confirm' ? { completedAt: now } : {}), verification: {
+        const updated: DbComment = { ...withThreadActivity(comment, me, actor.kind === 'member' && Boolean(actor.agent)), resolved: input.action === 'confirm', ...(input.action === 'confirm' ? { completedAt: now } : {}), verification: {
             ...v, revision: randomUUID(), outcome: input.action === 'confirm' ? 'confirmed' : input.action === 'reject' ? 'needs-work' : 'canceled',
             decision: { kind: input.action, actorId: me, at: now, override: input.action !== 'cancel' && input.override === true }
         } };

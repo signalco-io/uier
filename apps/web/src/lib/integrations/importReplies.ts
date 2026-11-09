@@ -15,7 +15,7 @@ export function withImportedReplies(comment: DbComment, connection: IntegrationC
     let full = false;
     if (connection.twoWaySync === true && input.resolved !== undefined && Boolean(comment.resolved) !== input.resolved) {
         const actorId = `user:${connection.connectedBy}`;
-        changed = withNotificationEvent(ordinaryVerificationStatus(withThreadActivity(changed, actorId), input.resolved),
+        changed = withNotificationEvent(ordinaryVerificationStatus(withThreadActivity(changed, actorId, true), input.resolved),
             actorId, input.resolved ? 'resolved' : 'reopened', input.at);
     }
     const finish = () => ({ comment: withThreadHistory(comment, changed, `integration:${connection.provider}`, input.at), full });

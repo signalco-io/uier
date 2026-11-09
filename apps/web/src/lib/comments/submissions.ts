@@ -78,7 +78,7 @@ export async function commitReplySubmission(store: CommentsStore, attempt: Submi
             throw apiErrors.invalidRequest(`This thread is full (maximum ${MAX_THREAD_ITEMS} messages).`);
         const item = typeof reply === 'function' ? reply(stored.comment) : reply;
         if (imageFailed) delete item.screenshot;
-        const updated = { ...withThreadActivity(stored.comment, item.authorId ?? 'legacy'), thread: { ...stored.comment.thread, items: [...stored.comment.thread.items, item] }, updatedAt: item.createdAt };
+        const updated = { ...withThreadActivity(stored.comment, item.authorId ?? 'legacy', Boolean(item.agent)), thread: { ...stored.comment.thread, items: [...stored.comment.thread.items, item] }, updatedAt: item.createdAt };
         const comment = prepare ? await prepare(stored.comment, updated)
             : withNotificationEvent(updated, item.authorId ?? 'legacy', 'reply', item.createdAt);
         let saved;
