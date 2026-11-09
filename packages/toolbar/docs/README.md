@@ -15,4 +15,4 @@ Read the note for the area you change, and update it in the same pull request. A
 - [Keyboard](keyboard.md): the shortcuts, the switch that turns them off, and the composites with one tab stop.
 - [Realtime subscription](realtime.md): socket reconciliation reasons shared by the toolbar and app.
 - [New comment and feedback popovers](composer-popovers.md): where a pin and its popover go at the window's edges, the form (and a rewrite's), posting into the thread in one popover, expanding to a modal.
-- [Accessibility and SEO panels](page-checks.md): the page's checks from the pill, axe-core as a lazy pinned asset, Core Web Vitals, and one-click comments for issues.
+- [Accessibility and SEO panels](page-checks.md): the page's checks from the pill, their shared layout (summary, sections, compact rows), axe-core as a lazy pinned asset, Core Web Vitals, and one-click comments for issues.
