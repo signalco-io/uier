@@ -63,6 +63,7 @@ const payloadSchemas = {
         assignee: z.object({ id: z.string(), name: z.string() }).strict().nullable().describe('The assignee the agent works under.'),
         agent: z.object({ kind: z.enum(agentKinds), label: z.string(),
             model: z.string().optional().describe('The model the agent reported; untrusted.'),
+            reasoning: z.string().optional().describe('The reasoning level (effort) the agent reported, in its own words, such as high; untrusted.'),
             sessionId: z.string().optional().describe('The session id the agent reported; untrusted.') }).strict().nullable()
             .describe('The agent now working under the assignee, or null when it stopped (also after a new assignment).') }).strict(),
     'feedback.mentioned': z.object({ ...common, itemId: z.string().optional(), excerpt }).strict()
@@ -171,6 +172,7 @@ export function mcpEventData(name: McpEventName, project: DbProject, comment: Db
             const agent = event.assigneeAgent && agentKinds.includes(event.assigneeAgent.kind) ? event.assigneeAgent : null;
             return { ...base, assignee: event.assigneeId ? { id: event.assigneeId, name: participants.get(event.assigneeId) ?? 'Former member' } : null,
                 agent: agent ? { kind: agent.kind, label: agentLabels[agent.kind], ...(agent.model ? { model: agent.model } : {}),
+                    ...(agent.reasoning ? { reasoning: agent.reasoning } : {}),
                     ...(agent.sessionId ? { sessionId: agent.sessionId } : {}) } : null };
         }
     }

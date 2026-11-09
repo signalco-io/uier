@@ -28,7 +28,7 @@ export type FeedbackContext = {
     /** Display-only assignment from an authorized member projection; no account identifier. */
     priority?: CommentPriority;
     /** `agent`: the AI agent working under the assignee; its model and session id are what it reported, untrusted. */
-    assignee?: { name: string; agent?: { kind: import('./agents').AgentKind; label: string; model?: string; sessionId?: string } };
+    assignee?: { name: string; agent?: { kind: import('./agents').AgentKind; label: string; model?: string; reasoning?: string; sessionId?: string } };
     feedback: FeedbackMessage | null;
     anchor: {
         type: 'point' | 'text' | 'page'; selector?: string; text?: string; startOffset?: number; endSelector?: string; endOffset?: number;
@@ -114,6 +114,7 @@ export function feedbackMarkdown(context: FeedbackContext): string {
         context.assignee ? `Assignee: ${plain(context.assignee.name)}${context.assignee.agent ? [
             ` · Agent: ${plain(context.assignee.agent.label)}`,
             context.assignee.agent.model ? ` · Model: ${plain(context.assignee.agent.model)}` : '',
+            context.assignee.agent.reasoning ? ` · Reasoning: ${plain(context.assignee.agent.reasoning)}` : '',
             context.assignee.agent.sessionId ? ` · Session: ${plain(context.assignee.agent.sessionId)}` : ''
         ].join('') : ''}` : '',
         context.verification ? [

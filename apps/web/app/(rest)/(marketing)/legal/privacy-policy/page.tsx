@@ -264,7 +264,7 @@ export default function PrivacyPolicyPage() {
                 private is visible only to the project&rsquo;s admins and its author. Members can assign comments
                 to eligible members, set their priority and mark them done. We store the priority and the assignee&rsquo;s account id.
                 The assignee can add the AI agent working on it with them (Claude, Codex, ChatGPT, Cursor or another), or a coding tool
-                connected to their account adds itself: we store its kind, the session id and model it or the assignee entered, who
+                connected to their account adds itself: we store its kind, the session id, model and reasoning level it or the assignee entered, who
                 set it and when, and the connection that added it. It is removed when the comment is assigned to someone else, is
                 shown only to project members and is not sent to connected services. A selected
                 @mention stores the recipient&rsquo;s account id and its range in the message text, so names can

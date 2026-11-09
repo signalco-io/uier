@@ -9,7 +9,7 @@ let site: Awaited<ReturnType<typeof startReviewedSite>>;
 test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(new URL(baseURL!).origin); });
 test.afterAll(async () => { await site.close(); });
 
-test('the assignee picks the agent working with them, edits its session and model, and sees its avatar on rows and board cards', async ({ page, request }, testInfo) => {
+test('the assignee picks the agent working with them, edits its session, model and reasoning level, and sees its avatar on rows and board cards', async ({ page, request }, testInfo) => {
     const email = uniqueEmail('agent');
     const name = email.split('@')[0]!;
     await signIn(page, email);
@@ -57,41 +57,58 @@ test('the assignee picks the agent working with them, edits its session and mode
     await expect(thread.locator('[data-agent-mark]')).toHaveCount(1);
     await expectRowAvatar(`Assigned to ${name}, with Claude`);
 
-    // Session id and model are the less common, manual path
+    // Session id, model and reasoning level are the less common, manual path
     await agent.click();
     await page.getByRole('menuitem', { name: 'Session and model', exact: true }).click();
     const details = page.getByRole('dialog', { name: 'Claude details' });
     await animationsFinished(details);
     await details.getByRole('textbox', { name: 'Session id' }).fill('session-42');
     await details.getByRole('textbox', { name: 'Model' }).fill('claude-opus-5-5');
+    await details.getByRole('textbox', { name: 'Reasoning level' }).fill('xhigh');
     await expectNoAxeViolations(page);
     await page.screenshot({ path: testInfo.outputPath('agent-details.png') });
     await details.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(details).toBeHidden();
     await expect(agent).toContainText('claude-opus-5-5');
-    await expectRowAvatar(`Assigned to ${name}, with Claude (claude-opus-5-5)`);
+    await expect(agent.locator('[data-agent-reasoning]')).toHaveText('xhigh reasoning');
+    await expectRowAvatar(`Assigned to ${name}, with Claude (claude-opus-5-5, xhigh reasoning)`);
 
     // Saved: after a reload, and on the board's cards
     await page.reload();
     if (mobile) await backToComments(page);
     thread = await openComment(page, 'Checkout button fails');
-    await expect(thread.getByRole('button', { name: 'Agent: Claude. Change agent', exact: true })).toContainText('claude-opus-5-5');
+    const saved = thread.getByRole('button', { name: 'Agent: Claude. Change agent', exact: true });
+    await expect(saved).toContainText('xhigh reasoning');
+    // The model and reasoning level truncate inside the Assignee field instead of running past it on a phone
+    const [button, field] = await Promise.all([saved.boundingBox(), saved.locator('xpath=..').boundingBox()]);
+    expect(button!.x + button!.width).toBeLessThanOrEqual(field!.x + field!.width + 1);
     await page.screenshot({ path: testInfo.outputPath('agent-thread.png') });
     if (mobile) await backToComments(page);
     await page.getByRole('button', { name: 'Board', exact: true }).click();
-    await expect(page.getByRole('img', { name: `Assigned to ${name}, with Claude (claude-opus-5-5)`, exact: true })).toBeVisible();
+    await expect(page.getByRole('img', { name: `Assigned to ${name}, with Claude (claude-opus-5-5, xhigh reasoning)`, exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'List', exact: true }).click();
     if (mobile) await backToComments(page);
 
     // The toolbar's thread header names the agent with the assignee (page feedback opens in its inbox)
     const review = await page.context().newPage();
     await review.goto(`/app/review/${project}?url=${encodeURIComponent(`${site.origin()}/${project}/pricing`)}&comment=${commentId}`);
-    await expect(review.getByRole('img', { name: 'Assigned to you, with Claude (claude-opus-5-5)', exact: true })).toBeVisible();
+    await expect(review.getByRole('img', { name: 'Assigned to you, with Claude (claude-opus-5-5, xhigh reasoning)', exact: true })).toBeVisible();
     await review.screenshot({ path: testInfo.outputPath('agent-toolbar.png') });
     await review.close();
 
-    // The assignee removes the agent
+    // Clearing the reasoning level keeps the model, and the dialog opens with what is saved
     thread = await openComment(page, 'Checkout button fails');
+    await thread.getByRole('button', { name: 'Agent: Claude. Change agent', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Session and model', exact: true }).click();
+    await animationsFinished(details);
+    await expect(details.getByRole('textbox', { name: 'Reasoning level' })).toHaveValue('xhigh');
+    await details.getByRole('textbox', { name: 'Reasoning level' }).fill('');
+    await details.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(details).toBeHidden();
+    await expect(thread.locator('[data-agent-reasoning]')).toHaveCount(0);
+    await expectRowAvatar(`Assigned to ${name}, with Claude (claude-opus-5-5)`);
+
+    // The assignee removes the agent
     await thread.getByRole('button', { name: 'Agent: Claude. Change agent', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Remove agent', exact: true }).click();
     await expect(thread.getByRole('button', { name: 'Add agent', exact: true })).toBeVisible();

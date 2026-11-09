@@ -32,7 +32,7 @@ export async function setProjectCommentAgent(project: DbProject, actor: ProjectA
     const parsed = assigneeAgentInputSchema.nullable().safeParse(agent);
     if (!parsed.success) {
         const issue = parsed.error.issues[0];
-        throw apiErrors.invalidRequest(issue && (issue.path[0] === 'sessionId' || issue.path[0] === 'model') ? issue.message : 'Choose a valid agent.');
+        throw apiErrors.invalidRequest(issue && ['sessionId', 'model', 'reasoning'].includes(String(issue.path[0])) ? issue.message : 'Choose a valid agent.');
     }
     const desired = parsed.data;
     if (options.idempotencyKey !== undefined && !idempotencyKeySchema.safeParse(options.idempotencyKey).success)
@@ -60,16 +60,19 @@ export async function setProjectCommentAgent(project: DbProject, actor: ProjectA
             return withNotificationEvent(withThreadActivity(cleared, actorId), actorId, 'agent', at, undefined, actor.agent,
                 { assigneeId: actor.userId, assigneeAgent: null });
         }
-        if (current && current.kind === desired.kind && current.sessionId === desired.sessionId && current.model === desired.model) return updated;
+        if (current && current.kind === desired.kind && current.sessionId === desired.sessionId && current.model === desired.model
+            && current.reasoning === desired.reasoning) return updated;
         const next: DbAssigneeAgent = {
             kind: desired.kind, assigneeId: actor.userId,
             ...(desired.sessionId ? { sessionId: desired.sessionId } : {}), ...(desired.model ? { model: desired.model } : {}),
+            ...(desired.reasoning ? { reasoning: desired.reasoning } : {}),
             setBy: actor.userId, setAt: at, ...(actor.agent ? { connector: actor.agent } : {})
         };
         // One activity step per change: an assignment made here keeps its own, before the agent's, and the
         // move to In progress its own after it.
         const attached = withNotificationEvent({ ...withThreadActivity(updated, actorId), assigneeAgent: next }, actorId, 'agent', at, undefined, actor.agent,
-            { assigneeId: actor.userId, assigneeAgent: { kind: next.kind, ...(next.model ? { model: next.model } : {}), ...(next.sessionId ? { sessionId: next.sessionId } : {}) } });
+            { assigneeId: actor.userId, assigneeAgent: { kind: next.kind, ...(next.model ? { model: next.model } : {}),
+                ...(next.reasoning ? { reasoning: next.reasoning } : {}), ...(next.sessionId ? { sessionId: next.sessionId } : {}) } });
         if (!options.startWork || current || feedbackStage(attached) !== 'open') return attached;
         return withNotificationEvent(withOrdinaryStage(withThreadActivity(attached, actorId), 'in-progress'), actorId, 'progress-started', at, undefined, actor.agent);
     }, submission(projectPartition(project.id), actorId, options.idempotencyKey, { operation: 'agent', id, agent: desired, assignToMe }), undefined, options.store);
