@@ -18,8 +18,11 @@
   beside them; only below 20rem for the title (a phone) do they go under it. `e2e/tablet.spec.ts` (the Tablet Chrome
   project) covers portrait and landscape tablets. Pages sit in a centred reading column (`max-w-5xl`) on every page, in every view. An element that lays things
   side by side breaks out of it with the `page-wide` utility (`app/global.css`: the panel's width less the gutters, centred
-  on the column; its parent must span the column) and `data-page-width="wide"`, which makes the panel a container
+  on the column; its parent must span the column) and `data-page-width="wide"`, which makes the panel's content a container
   (CSS `:has()`, so it follows a client-side view switch at once) for the registered `--page-wide` length the column sets.
+  The container is a wrapper inside the scrolling panel, not the panel: a scroller's `cqw` takes in its own scrollbar where
+  scrollbars take room (shown always, as on macOS with a mouse), and the board would then be that much wider than the panel
+  and scroll it sideways when its columns fit.
   The rest of the page (header, filters) stays in the reading column. Only the comments board does it. uier's own workspace, which every account joins for Give feedback, is a
   `feedback` option in the switcher for people who are not its admins: its own entry after Create workspace,
   named "Feedback on uier", never in the list of their workspaces. A project's header is

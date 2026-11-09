@@ -56,14 +56,18 @@ export default async function AppShellLayout({ children }: PropsWithChildren) {
                         <Separator orientation="vertical" className="mr-1 data-vertical:h-4 data-vertical:self-center" />
                         <AppBreadcrumbs projectNames={Object.fromEntries(projects.map(project => [project.id, project.name]))} />
                     </header>
-                    {/* While an element marked data-page-width="wide" is in it, the panel is a container, so the
-                        column can measure it for `page-wide` (global.css) */}
-                    <div className="flex-1 lg:overflow-y-auto has-data-[page-width=wide]:[container-type:inline-size]">
-                        {/* A reading width, on every page. An element that lays things side by side (the comments
-                            board) breaks out of it to the panel's width with `page-wide` (less the gutters, `--page-gutter`) or `page-bleed`
-                            (edge to edge, padded by them); the rest of its page stays */}
-                        <div className="mx-auto flex w-full max-w-5xl flex-col px-4 py-6 [--page-gutter:1rem] [--page-wide:calc(100cqw-2rem)] md:px-8 md:py-10 md:[--page-gutter:2rem] md:[--page-wide:calc(100cqw-4rem)]">
-                            {children}
+                    <div className="flex-1 lg:overflow-y-auto">
+                        {/* While an element marked data-page-width="wide" is in it, this is a container, so the column can
+                            measure it for `page-wide` (global.css). Inside the scrolling panel, not the panel itself: a
+                            scroller's `cqw` takes in its scrollbar where scrollbars take room (always shown), and the
+                            board would then be that much wider than the panel and scroll it sideways */}
+                        <div className="has-data-[page-width=wide]:[container-type:inline-size]">
+                            {/* A reading width, on every page. An element that lays things side by side (the comments
+                                board) breaks out of it to the panel's width with `page-wide` (less the gutters, `--page-gutter`) or `page-bleed`
+                                (edge to edge, padded by them); the rest of its page stays */}
+                            <div className="mx-auto flex w-full max-w-5xl flex-col px-4 py-6 [--page-gutter:1rem] [--page-wide:calc(100cqw-2rem)] md:px-8 md:py-10 md:[--page-gutter:2rem] md:[--page-wide:calc(100cqw-4rem)]">
+                                {children}
+                            </div>
                         </div>
                     </div>
                 </SidebarInset>

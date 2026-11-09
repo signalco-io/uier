@@ -1,5 +1,5 @@
 import { expect, test, type Page, type WebSocketRoute } from '@playwright/test';
-import { createProject, setProjectAccess, signIn, uniqueEmail, openComment } from './support/app';
+import { commentRowLink, createProject, setProjectAccess, signIn, uniqueEmail, openComment } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { commentBubble, openThread } from './support/toolbar';
@@ -52,6 +52,35 @@ test('app board receives another reviewer\'s comment and status change without r
     await expect(draft).toHaveValue('Keep this unfinished reply');
     await page.keyboard.press('Escape');
     await expect(page.getByRole('region', { name: 'Done comments', exact: true }).getByRole('listitem')).toHaveCount(1);
+});
+
+test('a thread that arrives does not take the place of the one shown beside the list', async ({ page, request }, testInfo) => {
+    test.skip(testInfo.project.name.startsWith('Mobile'), 'A phone shows no thread until a row is opened');
+    const sockets = await transport(page);
+    await signIn(page, uniqueEmail('realtime-shown'));
+    const project = await createProject(page, { urls: [site.origin()] });
+    await setProjectAccess(page, project, 'Anyone with the link');
+    const headers = await verifiedReviewHeaders(request, project, site.origin());
+    const post = (text: string) => request.post(`/api/review/${project}/comments`, { headers, data: {
+        path: `/${project}/pricing`, position: { type: 'page' }, kind: 'feedback', text, authorName: 'Reviewer'
+    } });
+    expect((await post('The thread being read')).status()).toBe(201);
+    await page.goto(`/app/projects/${project}`);
+    await expect.poll(() => sockets.length).toBeGreaterThan(0);
+    // No thread chosen: the first one is shown beside the list
+    const thread = page.getByRole('article');
+    await expect(thread).toContainText('The thread being read');
+    expect((await post('A newer thread')).status()).toBe(201);
+    sockets.at(-1)!.send('{"type":"comments.changed"}');
+    // The newer thread is listed first, and the one being read stays on screen
+    await expect(commentRowLink(page, 2)).toBeVisible();
+    await expect(page.getByRole('link', { name: /^Comment #\d+/ }).first()).toHaveAccessibleName(/^Comment #2(?!\d)/);
+    await expect(thread).toContainText('The thread being read');
+    await expect(thread).not.toContainText('A newer thread');
+    // The keys go on from the thread shown, not from the first row: ↑ from the page opens the one above it
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press('ArrowUp');
+    await expect(thread).toContainText('A newer thread');
 });
 
 test('toolbar receives replies, reconciles after socket replacement and preserves its composer', async ({ page, request }) => {
