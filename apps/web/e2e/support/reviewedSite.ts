@@ -191,6 +191,16 @@ export async function startReviewedSite(apiBaseUrl: string) {
                 });`);
             return;
         }
+        if (url.pathname === '/anchor-layers.js') {
+            build({ entryPoints: [fileURLToPath(new URL('./anchorLayers.tsx', import.meta.url))], bundle: true,
+                platform: 'browser', format: 'iife', jsx: 'automatic', write: false,
+                define: { 'process.env.NODE_ENV': '"production"' }, logLevel: 'silent'
+            }).then(result => {
+                response.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' });
+                response.end(result.outputFiles[0]!.text);
+            }, () => { response.writeHead(500); response.end(); });
+            return;
+        }
         if (url.pathname === '/react-app.js') {
             buildReactApp().then((script) => {
                 response.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' });
@@ -242,6 +252,7 @@ export async function startReviewedSite(apiBaseUrl: string) {
         <h1>Pricing for ${pagePath.join('/') || 'home'}</h1>
         <p>A page on a site under review. Every plan includes the toolbar.</p>
         ${url.searchParams.has('host-probe') ? '<button id="host-probe" type="button">Host interaction</button><input aria-label="Host input"><script src="/host-probe.js" defer></script>' : ''}
+        ${url.searchParams.has('host-anchors') ? '<div id="anchor-layers"></div><script src="/anchor-layers.js" defer></script>' : ''}
         ${url.searchParams.has('host-menus') ? `<div class="host-menus">
             <div class="host-dropdown">
                 <button id="host-menu-open" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="host-menu">Account</button>

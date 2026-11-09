@@ -131,8 +131,11 @@ test('a native modal dialog can be reviewed while it is open and keeps its own E
     await expect(hostDialog(page)).toBeHidden();
     await expect(opener).toBeFocused();
     await expect(page.locator('body > #uier-toolbar')).toHaveCount(1);
-    // The modal's pins leave with it; the page's come back
-    await expect(commentBubbles(page)).toHaveCount(1);
+    // The page's pin comes back; the closed modal's pins stay beside its recorded opener.
+    await expect(commentBubbles(page)).toHaveCount(modalPins + 1);
+    await page.getByRole('button', { name: 'Comment #2, 1 message', exact: true }).click();
+    await expect(thread(page)).toContainText('Open “Read the project brief” to see the comment in place.');
+    await page.keyboard.press('Escape');
     await addComment(page).click();
     await expect(pointInstruction(page)).toBeVisible();
     await page.keyboard.press('Escape');

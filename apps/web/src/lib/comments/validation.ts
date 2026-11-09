@@ -71,14 +71,16 @@ const quotedTextSchema = z.string()
     .transform(text => text.length ? text : undefined);
 
 /*
- * Selectors as the toolbar creates them (`getElementSelector` from @signalco/js): a comma-separated
- * list of `>`-chains of `#id` or `tag[.class][:nth-of-type(n)]`, identifiers escaped with a
- * backslash. Anything else (which `querySelector` could choke on in every visitor's browser) is
- * rejected.
+ * Selectors as the toolbar creates them: comma-separated child chains of ids or tags with a
+ * class, exact semantic/identity attributes and nth-of-type. Keep legacy selectors valid and
+ * reject arbitrary attributes, operators, pseudo-classes and shadow boundaries.
  */
 const escapedCharacter = '\\\\[^\\u0000-\\u001f\\u007f]';
 const identifier = `-{0,2}(?:[A-Za-z_]|${escapedCharacter})(?:[A-Za-z0-9_-]|${escapedCharacter})*`;
-const compound = `(?:#${identifier}|[A-Za-z][A-Za-z0-9-]*(?:\\.${identifier})?(?::nth-of-type\\([1-9][0-9]{0,5}\\))?)`;
+const attributeName = '(?:role|aria-label|data-(?:testid|test-id|test|cy|qa|anchor|id|key|slot|component))';
+const attributeValue = `(?:[^"\\\\\\u0000-\\u001f\\u007f]|${escapedCharacter})*`;
+const attribute = `\\[${attributeName}="${attributeValue}"\\]`;
+const compound = `(?:#${identifier}|[A-Za-z][A-Za-z0-9-]*(?:\\.${identifier})?(?:${attribute}){0,2}(?::nth-of-type\\([1-9][0-9]{0,5}\\))?)`;
 const complex = `${compound}(?:>${compound})*`;
 // A single explicit boundary for anchors on uier's own toolbar; the inner CSS stays restricted.
 const toolbarAnchorPrefix = '#uier-toolbar>>>';
