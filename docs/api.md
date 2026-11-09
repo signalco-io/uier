@@ -475,8 +475,21 @@ suggestions are not available, while the reviewer's own rewrite still works. Set
 ([`e2e/support/anthropicStub.ts`](../apps/web/e2e/support/anthropicStub.ts), started by `playwright.config.ts` on
 `PORT + 1000`), which checks each request and answers with canned suggestions.
 
+Workspace settings → Rewrite suggestions stores admin-only style instructions (up to 2,000 characters).
+Project General can follow the current workspace default, append project instructions (up to 2,000
+more characters, after a blank line), or replace it. An empty replacement explicitly uses no extra
+style guidance. Both routes resolve the current owning workspace on the server when a project is
+present; isolated anonymous showcase domains have none. The request body stays `{ text, instruction? }`:
+client-supplied configuration is ignored, and responses never include saved or effective instructions.
+Saved settings persist, while individual rewrite requests and unused suggestions do not. Guidance is
+escaped user-message content for tone, terms and style, subordinate to the fixed system rules and
+JSON schema. It cannot change the model, response format, output limits or budgets. See the
+[shared inheritance pattern](../apps/web/docs/project-settings.md#workspace-defaults-and-project-settings).
+
 Both routes emit one bounded operational usage event per configured model call, including responses with no usable
-suggestions. No selected text, instructions, generated text or customer identifiers enter these events.
+suggestions. No selected text, reviewer instructions, saved style guidance, generated text or customer identifiers
+enter these events. Provider input usage includes the guidance in the same call; it is not charged or
+estimated separately.
 
 The same key writes [AI thread titles](review-workflow.md#ai-thread-titles) with `claude-haiku-5-5`, after the
 response of the request that created or changed a thread, never in its path. See

@@ -11,3 +11,11 @@ ordinary iteration with a null model may use the serving response model; preserv
 fallback gaps. Evaluation summaries must never turn an unknown charge into zero. Live
 comparison requires a separate explicit bounded command; never put it in automated tests. Preserve
 budgets, timeouts, output validation and route response shapes when changing instrumentation or models.
+
+Workspace/project rewrite instructions are resolved server-side (`rewrite/settings.ts`; inheritance
+is documented in [project settings](project-settings.md#workspace-defaults-and-project-settings)).
+They enter the same single configured model call as escaped style guidance, never the system prompt.
+Provider-reported input usage includes that guidance; do not estimate or subtract its tokens separately.
+No guidance, mode or setting value enters telemetry. `rewrite-instructions.api.spec.ts` checks the
+prompt boundary, full provider input usage and one event per route call; the accounting outcomes
+above also run with private style guidance to catch content leaks and preserve failure/fallback costs.

@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { actionResult, type ActionState } from '@/src/lib/app/actionResult';
 import { appContextOrThrow } from '@/src/lib/app/context';
-import { renameWorkspace, setWorkspaceAiTitles } from '@/src/lib/app/workspaces';
+import { renameWorkspace, setWorkspaceAiTitles, setWorkspaceRewriteInstructions } from '@/src/lib/app/workspaces';
 
 export async function renameWorkspaceAction(_: ActionState, formData: FormData): Promise<ActionState> {
     return await actionResult(async () => {
@@ -21,4 +21,12 @@ export async function setWorkspaceAiTitlesAction(_: ActionState, formData: FormD
         await setWorkspaceAiTitles(context.workspace.id, context.user.id, enabled === 'true' ? true : enabled === 'false' ? false : enabled);
         revalidatePath('/app', 'layout');
     }, 'The thread title setting is saved.');
+}
+
+export async function setWorkspaceRewriteInstructionsAction(_: ActionState, formData: FormData): Promise<ActionState> {
+    return await actionResult(async () => {
+        const context = await appContextOrThrow({ admin: true });
+        await setWorkspaceRewriteInstructions(context.workspace.id, context.user.id, formData.get('rewriteInstructions') ?? '');
+        revalidatePath('/app', 'layout');
+    }, 'The rewrite instructions are saved.');
 }

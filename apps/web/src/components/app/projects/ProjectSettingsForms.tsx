@@ -51,6 +51,8 @@ import { pageStatePolicy, type PageStatePolicy } from '@uier/toolbar/page-state'
 import type { QueryFieldSuggestion } from '../../../lib/app/pageStateSuggestions';
 import type { TransferPreview, TransferTarget } from '../../../lib/app/projectTransfer';
 import { projectAiTitleModes, type ProjectAiTitleMode } from '../../../lib/titles/settings';
+import type { ProjectSetting, ProjectSettingMode } from '../../../lib/app/inheritedSettings';
+import { ProjectRewriteInstructionsFields } from './ProjectRewriteInstructionsFields';
 
 /** React resets a form after its action; the fields here are controlled, so keep what they show */
 const keepValues = (event: FormEvent) => {
@@ -58,8 +60,8 @@ const keepValues = (event: FormEvent) => {
     event.stopPropagation();
 };
 
-/** General: the project's name, its client and its AI thread titles, one save */
-export function ProjectGeneralForm({ projectId, name, clientName, clients, aiTitles, workspaceAiTitles }: {
+/** General: the project's name, client, AI thread titles and rewrite guidance, one save */
+export function ProjectGeneralForm({ projectId, name, clientName, clients, aiTitles, workspaceAiTitles, rewriteInstructions, workspaceRewriteInstructions }: {
     projectId: string;
     name: string;
     clientName?: string;
@@ -68,10 +70,13 @@ export function ProjectGeneralForm({ projectId, name, clientName, clients, aiTit
     aiTitles: ProjectAiTitleMode;
     /** The workspace's setting, which `workspace` follows */
     workspaceAiTitles: boolean;
+    rewriteInstructions?: ProjectSetting<string>;
+    workspaceRewriteInstructions: string;
 }) {
     const formId = useId();
     const [state, formAction, pending] = useActionState(updateProjectGeneralAction, null);
-    const { draft, dirty, update, discard } = useSettingsDraft({ name, clientName: clientName ?? '', aiTitles }, state);
+    const { draft, dirty, update, discard } = useSettingsDraft({ name, clientName: clientName ?? '', aiTitles,
+        rewriteMode: (rewriteInstructions?.mode ?? 'workspace') as ProjectSettingMode, rewriteInstructions: rewriteInstructions?.value ?? '' }, state);
     const aiTitleOptions = [
         { value: 'workspace', label: `Workspace setting (${workspaceAiTitles ? 'on' : 'off'})` },
         { value: 'on', label: 'On' },
@@ -81,6 +86,7 @@ export function ProjectGeneralForm({ projectId, name, clientName, clients, aiTit
         <Section
             id="general"
             title="General"
+            stickyFooter
             footer={<SaveFooter formId={formId} state={state} pending={pending} dirty={dirty} onDiscard={discard} />}>
             <form id={formId} action={formAction} onResetCapture={keepValues}>
                 <input type="hidden" name="projectId" value={projectId} />
@@ -123,6 +129,10 @@ export function ProjectGeneralForm({ projectId, name, clientName, clients, aiTit
                             A short title for each thread, written by Claude Haiku from its first message and shown in place of the first line. Change the workspace setting in <Link href={KnownPages.AppSettings} className="underline underline-offset-4 hover:text-foreground">Workspace settings</Link>.
                         </FieldDescription>
                     </Field>
+                    <FieldSeparator />
+                    <ProjectRewriteInstructionsFields mode={draft.rewriteMode} value={draft.rewriteInstructions} workspace={workspaceRewriteInstructions} disabled={pending}
+                        onModeChange={rewriteMode => update(current => ({ ...current, rewriteMode }))}
+                        onValueChange={rewriteInstructions => update(current => ({ ...current, rewriteInstructions }))} />
                 </FieldGroup>
             </form>
         </Section>

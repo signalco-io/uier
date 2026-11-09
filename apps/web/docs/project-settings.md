@@ -14,7 +14,7 @@
   show. Connect/callback routes return to the provider's page (`?github=connected`); actions revalidate it and the
   overview (`revalidateIntegration`). The settings tabs keep Integrations current on those pages (`nested`). `install` without
   `?onboarding=1` redirects to Settings → Installation (the toolbar still links there).
-- **One save per settings page.** General (name, client and [thread titles](ai-titles.md)), Review (who can comment, `#who-can-comment`, where the project header's access label leads, with the project's `GuestReviewLinks` under it while the saved access is Anyone with the link and the project has an address, so touch and keyboard users reach them without the hover popover; the brief and, in a collapsed
+- **One save per settings page.** General (name, client, [thread titles](ai-titles.md) and rewrite instructions), Review (who can comment, `#who-can-comment`, where the project header's access label leads, with the project's `GuestReviewLinks` under it while the saved access is Anyone with the link and the project has an address, so touch and keyboard users reach them without the hover popover; the brief and, in a collapsed
   Advanced section, the page state) and Environments (the site addresses table) are each one form in one card
   (`ProjectSettingsForms.tsx`) with one server action (`updateProjectGeneralAction`, `updateProjectReviewAction`,
   `updateProjectSitesAction`) that parses every field with the existing schemas before writing, checks the admin role
@@ -30,3 +30,50 @@
   commenters also read whether emails carry excerpts) and Email content (admins only: Include comment excerpts, the
   unchanged `updateProjectEmailExcerptsAction`). `setProjectEmailsMutedAction` mutes through `setProjectMuted` and
   revalidates the app; Account → Notifications lists every visible project of the workspace with the same switch.
+
+## Workspace defaults and project settings
+
+`src/lib/app/inheritedSettings.ts` is the shared inheritance pattern for settings with additions:
+
+- The workspace document stores the setting's default value. The setting owns its empty default.
+- A missing project property means **Workspace default**, with no copy of the workspace value stored.
+- A project stores `ProjectSetting<T>`: `{ mode: 'append' | 'replace', value: T }`.
+  `replace` uses only the project value, including an intentionally empty string or list.
+  `append` combines the current workspace default and the project value in that order.
+- `resolveProjectSetting(workspace, project, append)` is pure and shared by previews and server reads.
+  Each feature supplies its own merge function: strings join with a blank line; a later list setting
+  can concatenate and deduplicate validated items. `projectSettingSchema(valueSchema)` validates the
+  persisted shape; the form's `projectSettingModeSchema` also accepts `workspace`, which removes the
+  project property. Validate the value and mode before any settings-page write.
+- Keep field-specific schemas, defaults, normalization and read projection beside the feature.
+  Missing/invalid legacy settings fall back safely. Resolve against the current owning workspace at
+  use time: workspace edits affect inheriting/appending projects immediately, including after transfer.
+  Do not store computed effective values or put private settings into reviewer DTOs.
+
+### Rewrite instructions
+
+Workspace settings → Rewrite suggestions (`WorkspaceRewriteInstructionsForm`) has an admin-only
+plain-text default. Project General (`ProjectRewriteInstructionsFields` within the page's single
+save) follows, adds to, or replaces it, and previews the effective instructions. Both use controlled
+drafts, Discard and Save; failed saves retain the draft. An empty workspace value clears its default;
+an empty project replacement deliberately sends no additional style guidance.
+
+`src/lib/rewrite/settings.ts` owns the 2,000-character limit **per field**, including server validation
+and safe reads of stored settings. Appending sends at most 4,002 characters, with the workspace first.
+Only admins write through the checked server actions; the workspace service also checks stored
+membership. General checks the project in the current workspace and rejects managed public projects.
+Older General forms that send no rewrite fields preserve the saved setting. Workspace updates modify
+only their setting, retaining access revisions and other defaults.
+
+Both rewrite routes resolve the current project/workspace guidance on the server; the isolated
+anonymous showcase has none. Client-supplied settings are ignored. No toolbar, guest page, comment
+DTO, MCP export or usage event includes the configuration. Guidance is sent to Anthropic as escaped
+user content for tone, terms and style, below the fixed system rules and JSON schema; it cannot
+configure models, tools, output shape, limits, retries or accounting. It is stored as a setting;
+individual rewrite requests and unused suggestions are not stored.
+
+`rewrite-instructions.api.spec.ts` covers inheritance (also with a validated list), empty/legacy data,
+limits, membership checks, stored defaults at the request boundary, prompt delimiter injection and
+one content-free accounting event per call. `rewrite-instructions.spec.ts` covers desktop/mobile
+save/discard/reload, workspace changes, exact provider guidance through the stub, server validation,
+accessibility, guest projection and actual server-action replay as a commenter and signed out.

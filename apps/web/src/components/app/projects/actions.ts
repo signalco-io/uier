@@ -35,6 +35,7 @@ import { deleteProject } from '../../../lib/app/projectDeletion';
 import { transferProject } from '../../../lib/app/projectTransfer';
 import { selectWorkspace } from '../../../lib/app/workspaceCookie';
 import { projectAiTitleMode, projectAiTitleModes } from '../../../lib/titles/settings';
+import { projectRewriteInstructions, projectRewriteInstructionsInput } from '../../../lib/rewrite/settings';
 
 /** One origin's environment: a label, and the group of addresses it shares feedback with */
 const environmentSchema = z.array(z.object({
@@ -87,16 +88,23 @@ export async function createProjectAction(_: ActionState, formData: FormData): P
     redirect(KnownPageLinks.projectInstall(result.data.id, { onboarding: true }));
 }
 
-/** General: the name, the client and AI thread titles, one save. All are checked before any is written. */
+/** General: the name, client, AI thread titles and rewrite guidance, one save. All are checked before any is written. */
 export async function updateProjectGeneralAction(_: ActionState, formData: FormData): Promise<ActionState> {
     return await actionResult(async () => {
         const name = projectNameSchema.parse(formData.get('name') ?? '');
         const clientName = projectClientNameSchema.parse(formData.get('clientName') ?? '');
         // Older forms send no choice: keep the project's
         const aiTitles = formData.has('aiTitles') ? aiTitlesSchema.parse(formData.get('aiTitles')) : undefined;
+        // Forms loaded before this setting existed leave it untouched.
+        const hasRewriteInstructions = formData.has('rewriteInstructionsMode');
+        const rewriteInstructions = hasRewriteInstructions ? projectRewriteInstructionsInput({
+            mode: formData.get('rewriteInstructionsMode'), value: formData.get('rewriteInstructions') ?? ''
+        }) : undefined;
         const { context, project } = await adminProject(formData.get('projectId'));
         assertMutableProject(context.workspace.id, project.id);
         const update: ProjectUpdate = {};
+        if (hasRewriteInstructions && JSON.stringify(rewriteInstructions) !== JSON.stringify(projectRewriteInstructions(project)))
+            update.rewriteInstructions = rewriteInstructions;
         if (name !== project.name)
             update.name = name;
         if (aiTitles !== undefined && aiTitles !== projectAiTitleMode(project))

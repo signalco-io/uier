@@ -514,8 +514,12 @@ export default function PrivacyPolicyPage() {
             <h3>Rewrite suggestions</h3>
             <p>
                 When you ask for rewrite suggestions for selected text, that text and your instruction (if you
-                give one) are sent to Anthropic, whose Claude model writes the suggestions. We do not store the
-                request; only a suggestion you post is saved, like any comment.
+                give one) are sent to Anthropic, whose Claude model writes the suggestions. For a project, this
+                also includes the effective style instructions its admins have saved: the workspace default,
+                with any project additions or replacement. These settings are stored until an admin changes
+                or clears them, or the workspace or project is deleted; they are not shown to guests.
+                We do not store the individual rewrite request or unused suggestions; only a suggestion
+                you post is saved, like any comment.
             </p>
             <p>
                 We record the model, token counts, time taken, outcome and estimated cost in our hosting logs.
@@ -617,7 +621,7 @@ export default function PrivacyPolicyPage() {
                     Hosting, analytics and bot protection: Vercel. The server code runs in Dublin, Ireland; pages
                     are delivered from Vercel&rsquo;s global network.
                 </li>
-                <li>Rewrite suggestions: Anthropic receives the selected text and your instruction to write them.</li>
+                <li>Rewrite suggestions: Anthropic receives the selected text, your instruction and any effective workspace or project style guidance to write them.</li>
                 <li>Thread titles: Anthropic receives a thread&rsquo;s first message, its kind, what it was left on and the start of the selected text to write the title, unless titles are turned off.</li>
                 <li>Google sign-in, only if you choose it: you sign in at Google, which handles that under its own privacy policy and learns that you use {brand.name}.</li>
                 <li>Microsoft sign-in, only if you choose it: you sign in at Microsoft, which handles that under its own privacy policy and learns that you use {brand.name}.</li>
