@@ -32,7 +32,7 @@ function Option({ selected, icon, label, detail, onSelect }: {
             data-option=""
             aria-pressed={selected}
             onClick={onSelect}
-            className="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm outline-none hover:bg-muted focus-visible:bg-muted [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground">
+            className="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm outline-none hover:bg-muted focus-visible:bg-muted aria-pressed:bg-accent aria-pressed:font-medium aria-pressed:text-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground">
             {icon}
             <span className="min-w-0 flex-1 truncate">{label}</span>
             {/* Read as "/about, 3 comments" */}

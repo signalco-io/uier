@@ -31,4 +31,5 @@
   "Source not recorded" show only when comments have that source (`historySources`, worked out in `ProjectComments`
   from the loaded comments when every environment is loaded and the search window is not capped); when that is not
   known they show, and a chosen one always shows. The pages column has no environment label of its own: the
-  environment column beside it shows the choice.
+  environment column beside it shows the choice. The chosen environment and page have the `accent` background
+  as well as the check mark.
