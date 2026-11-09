@@ -2,8 +2,8 @@
 
 - **Account** (`account/`) uses the same `SettingsLayout` and `Section` cards: General (the account page
   itself: profile (picture and name), appearance, workspace access, which lists only what is set: role, then relationship and teams when
-  there are any, then projects), Sign-in (Google, Microsoft, passkeys, sign out), Notifications (each project's emails)
-  and Coding agents, listed by `accountSections` and linked with `KnownPageLinks.account(section)`. Sign-in returns and
+  there are any, then projects), Sign-in (Google, Microsoft, passkeys, sign out), Notifications (each project's emails),
+  Usage (the person's own limits, see [Usage](usage.md)) and Coding agents, listed by `accountSections` and linked with `KnownPageLinks.account(section)`. Sign-in returns and
   linking outcomes land on Sign-in, and the breadcrumbs end with the section. A change to `SettingsLayout`
   applies to both settings.
 - **Profile pictures** (`lib/app/avatars.ts`, [API](../../../docs/api.md#profile-pictures)): Account's Profile uploads,

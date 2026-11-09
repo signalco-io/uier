@@ -6,7 +6,8 @@ import { randomToken, signToken } from '../src/lib/app/tokens';
 import { findOrCreateUser } from '../src/lib/app/users';
 import { errorResponse } from '../src/lib/comments/http';
 import { RATE_LIMIT_MEMBER_COMMENTS, RATE_LIMIT_MEMBER_REPLIES, RATE_LIMIT_DOMAIN_SCREENSHOTS } from '../src/lib/comments/limits';
-import { enforceNewCommentLimits, enforceReplyLimits, enforceScreenshotLimits } from '../src/lib/comments/rateLimits';
+import { authorCommentsLimit, authorRepliesLimit, enforceNewCommentLimits, enforceReplyLimits, enforceScreenshotLimits, pageCommentsLimit, usedOf } from '../src/lib/comments/rateLimits';
+import { KnownPageLinks } from '../src/knownPages';
 import { parseScreenshot, type ParsedScreenshot } from '../src/lib/comments/screenshot';
 import { getCommentsStore } from '../src/lib/repo/commentsStore';
 import { resolveActor } from '../src/lib/review/actor';
@@ -45,11 +46,14 @@ async function fixture() {
     return { project, users, tokens, requests, actors };
 }
 
-async function limited(write: Promise<unknown>, reason = 'too_fast') {
+/** A rejected write; `usage` is the usage page the response names (none for guests) */
+async function limited(write: Promise<unknown>, reason = 'too_fast', usage?: string) {
     const error = await write.then(() => { throw new Error('Write unexpectedly passed its limit'); }, error => error);
     const response = errorResponse(error);
     expect(response.status).toBe(429);
-    expect(await response.json()).toMatchObject({ error: 'rate_limited', reason });
+    const body = await response.json() as { usage?: string };
+    expect(body).toMatchObject({ error: 'rate_limited', reason });
+    expect(body.usage).toBe(usage);
     expect(Number(response.headers.get('Retry-After'))).toBeGreaterThan(0);
 }
 
@@ -59,12 +63,23 @@ test('members exceed visitor budgets and stop at finite per-project comment and 
     const actor = f.actors[1]!;
     const req = f.requests[1]!;
     const comments = [];
+    const partition = projectPartition(f.project.id);
+    const authorId = `user:${f.users[1]!.id}`;
+    // The account's Usage page reads the same counters, without counting
+    expect(await usedOf(getCommentsStore(), partition, authorCommentsLimit(authorId, true))).toMatchObject({ used: 0, limit: RATE_LIMIT_MEMBER_COMMENTS });
     for (let i = 0; i < RATE_LIMIT_MEMBER_COMMENTS; i++)
         comments.push(await createProjectComment(req, f.project, actor, input(f.project, `/page-${i}`)));
-    await limited(createProjectComment(req, f.project, actor, input(f.project, '/one-more')));
+    // A member's rejection names the account's usage, at this project
+    await limited(createProjectComment(req, f.project, actor, input(f.project, '/one-more')), 'too_fast', KnownPageLinks.accountUsage(f.project.id));
+    const used = await usedOf(getCommentsStore(), partition, authorCommentsLimit(authorId, true));
+    expect(used).toMatchObject({ used: RATE_LIMIT_MEMBER_COMMENTS, limit: RATE_LIMIT_MEMBER_COMMENTS });
+    expect(used.resetsInSeconds).toBeGreaterThan(0);
+    expect(used.resetsInSeconds).toBeLessThanOrEqual(3600);
+    expect(await usedOf(getCommentsStore(), partition, authorRepliesLimit(authorId, true))).toMatchObject({ used: 0 });
     for (let i = 0; i < RATE_LIMIT_MEMBER_REPLIES; i++)
         await replyToProjectComment(req, f.project, actor, comments[Math.floor(i / 40)]!.id, { text: `Reply ${i}` });
-    await limited(replyToProjectComment(req, f.project, actor, comments.at(-1)!.id, { text: 'One more' }));
+    await limited(replyToProjectComment(req, f.project, actor, comments.at(-1)!.id, { text: 'One more' }), 'too_fast', KnownPageLinks.accountUsage(f.project.id));
+    expect(await usedOf(getCommentsStore(), partition, authorRepliesLimit(authorId, true))).toMatchObject({ used: RATE_LIMIT_MEMBER_REPLIES });
     await createProjectComment(f.requests[0]!, f.project, f.actors[0]!, input(f.project));
     // The same user in another project has an independent budget.
     const other = { ...f.project, id: randomUUID().replaceAll('-', '').slice(0, 12) };
@@ -110,7 +125,9 @@ test('100 comments per page per day still stops members while other pages and re
     const f = await fixture();
     let comment;
     for (let i = 0; i < 100; i++) comment = await createProjectComment(f.requests[i % 2]!, f.project, f.actors[i % 2]!, input(f.project));
-    await limited(createProjectComment(f.requests[2]!, f.project, f.actors[2]!, input(f.project)), 'page_full');
+    // A whole project's limit names the workspace's usage, at this project
+    await limited(createProjectComment(f.requests[2]!, f.project, f.actors[2]!, input(f.project)), 'page_full', KnownPageLinks.workspaceUsage(f.project.id));
+    expect(await usedOf(getCommentsStore(), projectPartition(f.project.id), pageCommentsLimit('/pricing'))).toMatchObject({ used: 100, limit: 100 });
     await createProjectComment(f.requests[2]!, f.project, f.actors[2]!, input(f.project, '/other'));
     await replyToProjectComment(f.requests[2]!, f.project, f.actors[2]!, comment!.id, { text: 'Still reviewing' });
 });
@@ -126,7 +143,7 @@ test('member screenshots and paid rewrites keep their existing budgets', async (
     const without = await createProjectComment(f.requests[1]!, f.project, f.actors[1]!, { ...input(f.project), screenshot });
     expect(without.screenshot).toBeUndefined();
     for (let i = 0; i < 20; i++) await enforceProjectRewriteLimits(f.requests[0]!, f.project, f.actors[0]!);
-    await limited(enforceProjectRewriteLimits(f.requests[0]!, f.project, f.actors[0]!));
+    await limited(enforceProjectRewriteLimits(f.requests[0]!, f.project, f.actors[0]!), 'too_fast', KnownPageLinks.accountUsage(f.project.id));
 });
 
 test('invalid, expired, foreign and removed-member tokens fall back to guest limits or reject without a visitor', async () => {

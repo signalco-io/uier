@@ -7,6 +7,7 @@ import { MAX_COMMENT_BODY_BYTES } from '../../../../../src/lib/comments/limits';
 import { getCommentsStore } from '../../../../../src/lib/repo/commentsStore';
 import { replaceSavedScreenshot } from '../../../../../src/lib/comments/replaceScreenshot';
 import { assertNotBot } from '../../../../../src/lib/comments/botProtection';
+import { usageLinks } from '../../../../../src/lib/comments/rateLimits';
 
 type Params = { id: string };
 
@@ -21,7 +22,8 @@ export const POST = commentsApiHandler<Params>(async (context, { id }) => {
     await assertNotBot();
     if (!isValidId(id)) throw apiErrors.notFound();
     const input = await parseJsonBody(context.request, replaceScreenshotSchema, MAX_COMMENT_BODY_BYTES);
-    const comment = await replaceSavedScreenshot(getCommentsStore(), context.domain, id, input,
+    const usage = context.project ? usageLinks(context.project, context.actor) : undefined;
+    const comment = await replaceSavedScreenshot(getCommentsStore(), context.domain, id, { ...input, usage },
         comment => assertCommentAuthor(comment, context));
     return Response.json(await toPublicCommentDto(comment, context));
 });

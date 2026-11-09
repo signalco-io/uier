@@ -70,21 +70,22 @@ jobs:
               - ".github/workflows/pulumi_reusable.yml"
 
   web:
-    name: "Web (typecheck, build, e2e)"
+    name: "Web (${{ matrix.suite }})"
     needs: changes
     if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [checks, api, browser]
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-
-      # No .next/cache cache: Turbopack production builds don't use it, and CI never runs on main,
-      # so PRs had nothing to restore while saving it cost seconds at the end of every run.
 
       # Pinned to the exact release: the floating v6 tag (v6.0.10) predates pnpm v12 support.
       - name: Setup pnpm
@@ -99,18 +100,33 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Next 16.3+ persists Turbopack's compiler cache. Main's Vercel build seeds it for PRs;
+      # Next still invalidates changed sources/configuration and regenerates all build output.
+      - name: Cache Next.js compiler
+        if: matrix.suite != 'checks'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: apps/web/.next/cache
+          key: next-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}-${{ github.sha }}
+          restore-keys: |
+            next-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}-
+
       - name: Typecheck
+        if: matrix.suite == 'checks'
         run: pnpm typecheck
 
       - name: Build
-        run: pnpm build
+        if: matrix.suite != 'checks'
+        run: pnpm exec turbo run build --filter=@uier/web
 
       - name: Validate deployment artifact boundaries
+        if: matrix.suite == 'checks'
         run: |
           python3 .github/scripts/test_prebuilt.py
           node --test .github/scripts/package_prebuilt.test.mjs .github/scripts/search-index.test.mjs
 
       - name: Package the standalone worker
+        if: matrix.suite == 'checks'
         run: node apps/web/scripts/build-notifications.mjs
 
       # Tests run headless, so only the headless shell is needed (not full Chromium). No --with-deps:
@@ -118,19 +134,26 @@ jobs:
       # apt step took most of this step's time. If they ever go missing, Playwright fails at launch
       # with "Host system is missing dependencies"; add --with-deps back then.
       - name: Install Playwright browsers
+        if: matrix.suite == 'browser'
         working-directory: apps/web
         run: pnpm exec playwright install --only-shell chromium
 
-      - name: API and browser essentials
+      - name: API tests
+        if: matrix.suite == 'api'
         timeout-minutes: 5
-        run: pnpm test
+        run: pnpm -C apps/web exec playwright test --project=API
+
+      - name: Browser essentials
+        if: matrix.suite == 'browser'
+        timeout-minutes: 5
+        run: pnpm -C apps/web exec playwright test --project="Desktop Chrome" --project="Mobile Chrome"
 
       - name: Upload Playwright results
         # Successful launch measurements/screenshots are release evidence too.
-        if: always()
+        if: always() && matrix.suite != 'checks'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: playwright-results
+          name: playwright-results-${{ matrix.suite }}
           path: |
             apps/web/test-results/
             apps/web/playwright-report/
@@ -198,6 +221,13 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Cache Next.js compiler
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: apps/web/.next/cache
+          key: next-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}-${{ github.sha }}
+          restore-keys: |
+            next-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}-
       - run: pnpm typecheck && pnpm build
       - run: pnpm -C apps/extension validate && pnpm -C apps/extension package && pnpm -C apps/extension test
       # Persistent extension contexts require full Chromium, not the web job's headless shell.

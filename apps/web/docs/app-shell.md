@@ -37,8 +37,8 @@
   renders on every refresh (`RealtimeComments` too): keep its reads point reads or bounded aggregates, and list them in
   [Cosmos query costs](../../../docs/cosmos-query-costs.md#shell-layout-sidebar-project-order).
 - **Workspace area** (`workspace/`): the workspace's name above `LinkTabs` (`workspace/(tabs)/layout.tsx`,
-  `workspaceTabs`): Users, Teams, Clients, Activity and Settings for admins, Clients only for everyone else and in
-  the uier workspace. `/app/workspace` opens the first tab. A team's and a person's own pages (`workspace/teams/[teamId]`,
+  `workspaceTabs`): Users, Teams, Clients, Usage, Activity and Settings for admins, Clients and Usage for everyone
+  else and in the uier workspace ([Usage](usage.md)). `/app/workspace` opens the first tab. A team's and a person's own pages (`workspace/teams/[teamId]`,
   `workspace/users/[userId]`) are outside the `(tabs)` group, with their own header. The old addresses
   (`/app/users`, `/app/teams`, `/app/clients`, `/app/settings` and the team and person pages) redirect there
   (`next.config.ts`). Each page keeps its own authorization: Users, Teams, Activity and Settings are admin-only.

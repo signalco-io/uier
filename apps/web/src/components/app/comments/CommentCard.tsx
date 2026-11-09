@@ -63,7 +63,8 @@ import { Spinner } from '@/src/components/ui/spinner';
 import { Textarea } from '@/src/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import { ThreadTitle } from './ThreadTitle';
-import type { ProjectCommentMessage, ProjectCommentView } from '../../../lib/app/projectComments';
+import type { MessageMentionRange, ProjectCommentMessage, ProjectCommentView } from '../../../lib/app/projectComments';
+import { MessageMarkdown } from './MessageMarkdown';
 import type { ActionState } from '../../../lib/app/actionResult';
 import type { DbCommentKind } from '../../../lib/db/schema';
 import { initials } from '../initials';
@@ -190,9 +191,9 @@ function Message({ author, agent, avatarName, avatarUrl, createdAt, meta, action
     );
 }
 
-/** The text of a message, "(edited)" after it as in the toolbar */
-function MessageText({ text, edited }: { text: string; edited: boolean }) {
-    return <p className="m-0 text-sm leading-6 break-words whitespace-pre-wrap">{text}{edited && <span className="text-muted-foreground"> (edited)</span>}</p>;
+/** The text of a message with its Markdown, "(edited)" after it as in the toolbar */
+function MessageText({ text, mentions, edited }: { text: string; mentions?: MessageMentionRange[]; edited: boolean }) {
+    return <MessageMarkdown text={text} mentions={mentions} suffix={edited && <span className="font-normal text-muted-foreground"> (edited)</span>} />;
 }
 
 /**
@@ -334,7 +335,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                 )}>
                 {item.deleted
                     ? <p className="m-0 text-sm text-muted-foreground">Reply deleted</p>
-                    : <><MessageText text={item.text} edited={item.edited} />{item.pending && <span role="status" className="text-xs text-muted-foreground">Sending...</span>}</>}
+                    : <><MessageText text={item.text} mentions={item.mentions} edited={item.edited} />{item.pending && <span role="status" className="text-xs text-muted-foreground">Sending...</span>}</>}
             </Message>
         );
     };
@@ -534,7 +535,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                             <KindLabel kind={comment.kind} />
                             {comment.deleted
                                 ? <p className="m-0 text-sm text-muted-foreground">Comment deleted</p>
-                                : <MessageText text={comment.displayText} edited={comment.edited} />}
+                                : <MessageText text={comment.displayText} mentions={comment.displayMentions} edited={comment.edited} />}
                             {comment.screenshot && (
                                 <Dialog>
                                     <DialogTrigger render={<Button variant="ghost" className="mt-1 h-auto max-w-full self-start p-0" aria-label="Screenshot of the commented part of the page" />}>

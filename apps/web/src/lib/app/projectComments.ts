@@ -50,10 +50,16 @@ export function appActor(context: AppContext): ProjectActor {
  */
 export type ProjectCommentAuthor = { name: string; isMe: boolean; avatarUrl?: string; agent?: import('@uier/toolbar/agents').MessageAgentView & { connection?: string } };
 
+/** Where a message's text names someone it mentions (`@Ana`): UTF-16 offsets into the text as shown */
+export type MessageMentionRange = { start: number; end: number };
+
 export type ProjectCommentMessage = {
     id: string;
     author: ProjectCommentAuthor;
+    /** As shown: mentions are `@` and the person's current name */
     text: string;
+    /** The mentions in `text`, so its Markdown never changes them */
+    mentions?: MessageMentionRange[];
     createdAt?: string;
     deleted: boolean;
     edited: boolean;
@@ -105,7 +111,10 @@ export type ProjectCommentView = {
     author: ProjectCommentAuthor;
     /** Text of the first message; empty when its author deleted it (`deleted`) */
     text: string;
+    /** `text` as shown: mentions are `@` and the person's current name */
     displayText: string;
+    /** The mentions in `displayText`, so its Markdown never changes them */
+    displayMentions?: MessageMentionRange[];
     quotedText?: string;
     deleted: boolean;
     edited: boolean;
@@ -119,11 +128,21 @@ export type ProjectCommentView = {
 
 const deviceSizes: readonly DbDeviceSize[] = ['desktop', 'tablet', 'mobile'];
 
-function mentionText(item: import('../db/schema').DbThreadItem, participants: Map<string, string>) {
-    let text = item.text;
-    for (const mention of (messageMentions(item, participants) ?? []).slice().reverse())
-        text = text.slice(0, mention.start) + `@${mention.name}` + text.slice(mention.end);
-    return text;
+/** A message's text as shown, mentions as `@` and the current name, and where those names are in it */
+function mentionText(item: import('../db/schema').DbThreadItem, participants: Map<string, string>): { text: string; mentions?: MessageMentionRange[] } {
+    if (item.deletedAt) return { text: '' };
+    let text = '';
+    let at = 0;
+    const mentions: MessageMentionRange[] = [];
+    for (const mention of [...(messageMentions(item, participants) ?? [])].sort((a, b) => a.start - b.start)) {
+        if (mention.start < at || mention.end <= mention.start || mention.end > item.text.length) continue;
+        text += item.text.slice(at, mention.start);
+        const name = `@${mention.name}`;
+        mentions.push({ start: text.length, end: text.length + name.length });
+        text += name;
+        at = mention.end;
+    }
+    return { text: text + item.text.slice(at), ...(mentions.length ? { mentions } : {}) };
 }
 
 function anchorView(comment: DbComment, first: import('../db/schema').DbThreadItem): CommentAnchorView {
@@ -162,6 +181,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
     const { path, source, assignee, activity } = projectCommentRouting(comment, project, participants, myId, readSequence);
     const origin = source.origin ?? '';
     const size = comment.device?.size;
+    const firstText = mentionText(first, participants);
     return {
         verification: verificationDetails(comment, project, actor, participants),
         verificationPermissions: verificationPermissions(comment, project, actor, participants),
@@ -191,7 +211,8 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
             ? { name: 'Deleted', isMe: false }
             : messageAuthor(first, names, myId, avatars),
         text: first.deletedAt ? '' : first.text,
-        displayText: first.deletedAt ? '' : mentionText(first, participants),
+        displayText: firstText.text,
+        ...(firstText.mentions ? { displayMentions: firstText.mentions } : {}),
         quotedText: first.deletedAt ? undefined : first.quotedText,
         deleted: Boolean(first.deletedAt),
         edited: Boolean(first.editedAt),
@@ -200,7 +221,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         replies: replies.map(reply => ({
             id: String(reply.id),
             author: messageAuthor(reply, names, myId, avatars),
-            text: reply.deletedAt ? '' : mentionText(reply, participants),
+            ...mentionText(reply, participants),
             quotedText: reply.deletedAt ? undefined : reply.quotedText,
             createdAt: reply.createdAt,
             deleted: Boolean(reply.deletedAt),

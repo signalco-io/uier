@@ -40,12 +40,13 @@ export const KnownPages = {
     AppMyWork: '/app/my-work',
     AppReview: '/app/review',
     AppNewProject: '/app/projects/new',
-    /** The workspace area: Users, Teams, Clients, Activity and Settings, each a tab */
+    /** The workspace area: Users, Teams, Clients, Usage, Activity and Settings, each a tab */
     AppWorkspace: '/app/workspace',
     AppUsers: '/app/workspace/users',
     AppTeams: '/app/workspace/teams',
     AppClients: '/app/workspace/clients',
     AppActivity: '/app/workspace/activity',
+    AppWorkspaceUsage: '/app/workspace/usage',
     AppInvitation: '/app/invitation',
     AppAccount: '/app/account',
     AppSettings: '/app/workspace/settings',
@@ -78,7 +79,10 @@ export const onboardingSteps = ['script', 'check', 'invite'] as const;
 export type OnboardingStep = typeof onboardingSteps[number];
 
 /** The sections of the account, each its own page under it (General is the account page itself) */
-export type AccountSection = 'sign-in' | 'notifications' | 'coding-agents';
+export type AccountSection = 'sign-in' | 'notifications' | 'usage' | 'coding-agents';
+
+/** The id of a project's card on the usage pages (`code` is its public id), so a link can scroll to it */
+export const projectUsageAnchor = (code: string) => `project-${code}`;
 
 /** Pages with a parameter */
 export const KnownPageLinks = {
@@ -88,6 +92,15 @@ export const KnownPageLinks = {
     project: (projectId: string) => `/app/projects/${encodeURIComponent(projectId)}`,
     /** The account: General, or one of its other sections */
     account: (section?: AccountSection) => `${KnownPages.AppAccount}${section ? `/${section}` : ''}`,
+    /** The account's usage (a person's own limits in each project), at one project's card */
+    accountUsage: (project?: string) => `${KnownPages.AppAccount}/usage${project ? `#${encodeURIComponent(projectUsageAnchor(project))}` : ''}`,
+    /**
+     * The workspace's usage (what each project shares), at one project's card; `project` also lets the page
+     * offer the project's workspace when another one is open
+     */
+    workspaceUsage: (project?: string) => project
+        ? `${KnownPages.AppWorkspaceUsage}?project=${encodeURIComponent(project)}#${encodeURIComponent(projectUsageAnchor(project))}`
+        : KnownPages.AppWorkspaceUsage,
     /** A project's settings: General, or one of its other sections */
     projectSettings: (projectId: string, section?: ProjectSettingsSection) =>
         `/app/projects/${encodeURIComponent(projectId)}/settings${section ? `/${section}` : ''}`,
