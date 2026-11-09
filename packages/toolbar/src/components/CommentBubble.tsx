@@ -18,7 +18,7 @@ import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import { holdsLayersAttribute, isToolbarAnchor, pressableToolbarOpener, toolbarPinId, toolbarSurface } from '../toolbarReview';
 import { RewriteSuggestions } from './RewriteSuggestions';
-import { ScreenshotDisclosure } from './ScreenshotDisclosure';
+import { ComposerAttachmentsHeader } from './ComposerAttachments';
 import { CommentDraft, CommentItem, CommentItemPosition, commentTextMaxLength, floatingShadowClassName, isCommentArea } from './@types/Comments';
 
 // Bubble (the pin) half size, how far its message count badge reaches past the right edge (Pin,
@@ -344,6 +344,13 @@ export function CommentBubble(props: CommentBubbleProps) {
                 )}
                 {/* Replies wait until the comment is saved (they need its id) */}
                 {!commentItem?.pending && <div className="shrink-0">
+                    {creating && (
+                        <ComposerAttachmentsHeader
+                            title={<span className="text-sm font-semibold text-foreground">{newLabel}</span>}
+                            screenshot={capture?.screenshot}
+                            omitted={omitScreenshot}
+                            onOmittedChange={handleOmittedChange} />
+                    )}
                     <CommentComposer
                         commentId={commentItem?.id}
                         ref={composerRef}
@@ -358,7 +365,6 @@ export function CommentBubble(props: CommentBubbleProps) {
                         error={mutation.error ?? props.draft?.sendError}
                         onSubmit={handleSubmit}
                         onDiscard={creating ? handleDiscard : undefined} />
-                    {creating && <ScreenshotDisclosure screenshot={capture?.screenshot} omitted={omitScreenshot} onOmittedChange={handleOmittedChange} />}
                 </div>}
                 {rewriting && selectedText && (
                     <div className="shrink-0">

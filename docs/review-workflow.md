@@ -464,13 +464,14 @@ by signing in. Account sign-out remains in the app's account menu.
 
 Every new element/text comment, rewrite, feedback and bug report starts a screenshot automatically
 ([#81](https://github.com/signalco-io/uier/issues/81)). There is no capture button or image preview in the composer.
-Under the text box, `ScreenshotDisclosure` says what will happen: "Taking a screenshot...", then "A screenshot of this
+In the form's header, `ComposerAttachmentsHeader` has a compact screen icon. Its tooltip
+and read-out status (its description) say what will happen: "Taking a screenshot...", then "A screenshot of this
 part of the page will be attached." ("of the visible page" for feedback and bug reports), or "The screenshot could not
 be taken. Only the text will be sent." Its **Omit screenshot** toggle ([#323](https://github.com/signalco-io/uier/issues/323),
 a button with `aria-pressed`) sends that one comment without the `screenshot` field, so the API stores no image;
-the status then reads "No screenshot will be attached." The choice is per comment: it stays with an open or
-returned (failed send) draft in memory, and the next comment, a reload or sent feedback start with the automatic
-screenshot again. Upload, paste and redaction on saved feedback are unchanged. Submitting waits for the capture attempt, with a 15-second limit; failures keep the text and show an unavailable
+the icon shows a crossed-out screen and the status reads "No screenshot will be attached." The choice is per comment: it
+stays with an open or returned (failed send) draft in memory, and the next comment, a reload or sent feedback start with
+the automatic screenshot again. Upload, paste and redaction on saved feedback are unchanged. Submitting waits for the capture attempt, with a 15-second limit; failures keep the text and show an unavailable
 image state on saved feedback. Image-capacity or image-storage failures also preserve the text. Images are saved only with successfully posted feedback. Replies keep the original
 capture. Saved inbox entries and comment details show thumbnails that expand on click, tap or keyboard activation.
 

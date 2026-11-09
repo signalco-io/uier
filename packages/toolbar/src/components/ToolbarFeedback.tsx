@@ -15,7 +15,7 @@ import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { useInkContainer } from './InkScope';
 import { CommentComposer } from './CommentComposer';
 import { CommentKindIcon, commentKindLabels } from './CommentKindLabel';
-import { ScreenshotDisclosure } from './ScreenshotDisclosure';
+import { ComposerAttachmentsHeader } from './ComposerAttachments';
 import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import { cancelCommentScreenshot, captureCommentScreenshot } from '../screenshot';
@@ -122,10 +122,13 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
                     <Megaphone />
                 </IconButton>
             )}>
-            <div className="bg-card px-3 pt-3">
-                <Typography component="h2" level="body2" semiBold className="mb-2 text-foreground">
-                    Send feedback
-                </Typography>
+            <ComposerAttachmentsHeader
+                page
+                title={<Typography component="h2" level="body2" semiBold className="text-foreground">Send feedback</Typography>}
+                screenshot={screenshot}
+                omitted={omitScreenshot}
+                onOmittedChange={handleOmittedChange} />
+            <div className="bg-card px-3 pt-2">
                 {/* Like the inbox's status switch: two pressed/unpressed buttons */}
                 <Row role="group" aria-label="Type" className="rounded-md bg-muted p-0.5">
                     {kinds.map((k) => (
@@ -154,7 +157,6 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
                 autoFocus
                 error={create.error}
                 onSubmit={handleSubmit} />
-            <ScreenshotDisclosure page screenshot={screenshot} omitted={omitScreenshot} onOmittedChange={handleOmittedChange} />
         </Popper></>
     );
 }
