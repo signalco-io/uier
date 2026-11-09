@@ -256,7 +256,8 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
         <div ref={regionRef} className="contents"
             style={{ '--selection-bar': open ? `calc(${barHeight}px + 1rem)` : '0px' } as CSSProperties} onClickCapture={tapToSelect}>
             {/* The count line: how many are shown, Mark all as read and Select */}
-            <div className={cn('flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1 px-3', barClassName)}>
+            {/* No side padding: it lines up with the search and Filter row above, in both views */}
+            <div className={cn('flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1', barClassName)}>
                 <span role="status" className="text-sm text-muted-foreground tabular-nums">{summary}</span>
                 <div className="ml-auto flex items-center gap-1">
                     {actions}
