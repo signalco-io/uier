@@ -9,13 +9,12 @@ import { Spinner } from '@/src/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import { useMentionTextarea, type MessageMention } from './MentionTextarea';
 
-const newLineHint = 'Shift+Enter for a new line';
-
 /**
  * Where a person writes a message in the app: a reply, or a message edited in place. One layout everywhere, as
  * the toolbar's composer: a box with the text and, inside it under the text, the mention hint or the character
- * count and the buttons (cancel, Discard, then send or Save); under the box, the keyboard hint, the mention list,
- * the error and the notices. The field takes the focus with the caret at the end when it opens.
+ * count and the buttons (cancel, Discard, then send or Save); under the box, the mention list, the error and the
+ * notices. What Enter, Shift+Enter and Escape do is said to screen readers only (the keyboard shortcuts dialog lists
+ * them for everyone). The field takes the focus with the caret at the end when it opens.
  *
  * A surface switches features through its props: `mentionsIn` for `@` mentions, `onCancel` for its cancel button
  * (`escapeCancels` makes Escape press it), `onDiscard` for Discard. `submitVerb` "send" shows the send icon button
@@ -37,7 +36,7 @@ export function MessageComposer({ label, formLabel = label, name, placeholder, v
     maxLength?: number;
     textareaRef?: RefObject<HTMLTextAreaElement | null>;
     submitLabel: string;
-    /** What Enter does, for the hint: send new text (the send icon button) or save an edit (a text button) */
+    /** What Enter does, for the field's description: send new text (the send icon button) or save an edit (a text button) */
     submitVerb: 'send' | 'save';
     onSubmit: () => void;
     /** Sending or saving: the submit button shows a spinner and waits */
@@ -110,9 +109,9 @@ export function MessageComposer({ label, formLabel = label, name, placeholder, v
                     </div>
                 </InputGroupAddon>
             </InputGroup>
-            <FieldDescription id={keysId} className="m-0 px-0.5 text-xs">
-                <span aria-hidden="true">{newLineHint}{escape && ' · Esc to cancel'}</span>
-                <span className="sr-only">Enter to {submitVerb}. {newLineHint}.{escape && ' Escape to cancel.'}</span>
+            {/* For screen readers only, out of the layout: Enter in a text box usually adds a line */}
+            <FieldDescription id={keysId} className="sr-only">
+                Enter to {submitVerb}. Shift+Enter for a new line.{escape && ' Escape to cancel.'}
             </FieldDescription>
             {list}
             {error && <FieldError role="alert">{error}</FieldError>}

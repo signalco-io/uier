@@ -29,6 +29,8 @@ export const toolbarShortcuts: { label: string; keys: ShortcutKey[]; join?: 'or'
     { label: 'Go to Mark as done', keys: ['S'], letter: true },
     { label: 'Assign', keys: ['A'], letter: true },
     { label: 'Show shortcuts', keys: ['?'], letter: true },
+    { label: 'Send a comment', keys: ['Enter'] },
+    { label: 'New line in a comment', keys: ['Shift', 'Enter'] },
     { label: 'Move along the toolbar', keys: [{ print: '←', name: 'Left arrow' }, { print: '→', name: 'Right arrow' }], join: 'or' },
     { label: 'Move in a menu', keys: [{ print: '↑', name: 'Up arrow' }, { print: '↓', name: 'Down arrow' }], join: 'or' },
     { label: 'Close', keys: ['Esc'] }
@@ -66,4 +68,18 @@ export function isLetterKeyTarget(event: KeyboardEvent) {
 /** Whether the keyboard shortcuts are on (they are unless the reviewer turned them off in Options) */
 export function useShortcutsEnabled() {
     return useSyncExternalStore(subscribeShortcutsEnabled, shortcutsEnabled, () => true);
+}
+
+// A mouse or trackpad comes with a keyboard. A phone's on-screen keyboard has no Shift+Enter: its
+// Enter key sends (the text boxes label it with `enterKeyHint`).
+const keyboardQuery = '(any-pointer: fine)';
+const subscribeKeyboard = (listener: () => void) => {
+    const query = window.matchMedia(keyboardQuery);
+    query.addEventListener('change', listener);
+    return () => query.removeEventListener('change', listener);
+};
+
+/** Whether a keyboard is likely: Options offers the shortcuts' switch, composers describe Enter and Shift+Enter */
+export function useKeyboardLikely() {
+    return useSyncExternalStore(subscribeKeyboard, () => window.matchMedia(keyboardQuery).matches, () => true);
 }

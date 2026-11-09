@@ -51,6 +51,8 @@ a key keeps it), while the toolbar is expanded and the shortcuts are on. `toolba
 | A | Opens the people to assign in that thread, the first focused (`assignShortcutEvent` on the header) |
 | ? | Options on the keyboard shortcuts, the heading focused, with the switch |
 
+The list also has the keys of every text box: Enter sends (saves an edit), Shift+Enter adds a line.
+
 None act while typing or in a widget whose letters choose an item (`isLetterKeyTarget`), in the toolbar's
 dialogs (Options, feedback, an expanded form; a thread's popover keeps the thread keys), while choosing an anchor, or, except
 C, in point mode. `src/threadShortcuts.ts` finds the thread: the one with the focus
@@ -70,7 +72,10 @@ the action rows.
 Escape in a new comment or feedback expanded to a modal goes back to its popover; Escape there closes it
 ([popovers](composer-popovers.md)).
 
-Reply composers send on Enter and insert a line break on Shift+Enter. Their submit control stays
+Composers send on Enter and insert a line break on Shift+Enter. No hint under the text box says so
+([uier #175](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_B5Zp66h_oPH67ZI1HAbRV)):
+the shortcuts list has both keys, and where a keyboard is likely (`useKeyboardLikely`, `any-pointer: fine`) the text
+box is described to screen readers as "Enter to send. Shift+Enter for a new line." Their submit control stays
 labelled and uses the plain button variant; on touch input it has a 44px minimum target.
 
 ## Tests

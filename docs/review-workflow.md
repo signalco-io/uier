@@ -223,9 +223,10 @@ page or environment, page-level feedback, missing anchors and removed sources, w
 the original page. A removed source never redirects to another address. Replying keeps the thread's
 status and unread cursor; previews and composing do not mark messages read.
 
-Enter posts, Shift+Enter adds a newline, and IME composition does not post. Every composer says
-"Shift+Enter for a new line" (the toolbar's only where a mouse or trackpad is present; on a phone
-the on-screen Enter key is labelled Send instead). A selected mention
+Enter posts, Shift+Enter adds a newline, and IME composition does not post. The keyboard shortcuts
+lists (`?` in the app and in the toolbar's Options) show both keys; composers have no visible keyboard
+hint and describe the keys to screen readers (the toolbar's only where a mouse or trackpad is present;
+on a phone the on-screen Enter key is labelled Send instead). A selected mention
 consumes Enter or Tab. Replies appear while sending; errors keep recoverable text and selected
 mentions. Current access, comments-off state, private visibility, eligible mentions and the
 50-message thread limit are checked on the server. Replies use the existing notifications and

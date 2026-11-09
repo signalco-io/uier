@@ -179,6 +179,8 @@ test('the list: J and K from the open thread, R, S, A and /, and ? lists them wi
     const help = page.getByRole('dialog', { name: 'Keyboard shortcuts' });
     await expect(help).toBeVisible();
     await expect(help.getByText('Next thread', { exact: true })).toBeVisible();
+    // The message box's keys, which no hint under the box repeats (uier #175)
+    await expect(help.getByText('New line', { exact: true })).toBeVisible();
     await animationsFinished(help);
     await expectNoAxeViolations(page);
     const toggle = help.getByRole('switch', { name: 'Single-key shortcuts' });

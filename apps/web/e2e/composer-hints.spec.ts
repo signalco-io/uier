@@ -18,24 +18,22 @@ let site: Awaited<ReturnType<typeof startReviewedSite>>;
 test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(new URL(baseURL!).origin); });
 test.afterAll(async () => { await site.close(); });
 
-test('toolbar composers explain Enter and Shift+Enter where a keyboard has them', async ({ browser }, info) => {
+test('toolbar composers keep Enter and Shift+Enter without a hint under the text box', async ({ browser }, info) => {
     const touch = Boolean(info.project.use.hasTouch);
     const { context, page } = await newVisitor(browser, info);
-    // Phone width on both devices: the hint stays on one readable line
     await page.setViewportSize({ width: 390, height: 844 });
     await openLanding(page, isolatedOrigin(info), { dismissHint: true });
     const draft = await startPoint(page);
     const text = draft.getByRole('textbox', { name: 'Comment', exact: true });
     // A phone's Enter key sends, and says so
     await expect(text).toHaveAttribute('enterkeyhint', 'send');
+    // No line under the box (uier #175): the keys are in the keyboard shortcuts list
+    await expect(draft.getByText(newLineHint, { exact: true })).toHaveCount(0);
     if (touch) {
-        // No Shift+Enter on an on-screen keyboard: no hint that says there is
-        await expect(draft.getByText(newLineHint)).toHaveCount(0);
+        // No Shift+Enter on an on-screen keyboard: nothing says there is
         await expect(text).not.toHaveAccessibleDescription(/Shift\+Enter/);
     } else {
-        const hint = draft.getByText(newLineHint, { exact: true });
-        await expect(hint).toBeVisible();
-        expect(await hint.evaluate(element => element.scrollWidth <= element.clientWidth && element.getBoundingClientRect().height < 20)).toBe(true);
+        // Screen readers still hear what Enter does, since Enter in a text box usually adds a line
         await expect(text).toHaveAccessibleDescription('Enter to send. Shift+Enter for a new line.');
         await text.pressSequentially('First line');
         await page.keyboard.press('Shift+Enter');
@@ -50,7 +48,7 @@ test('toolbar composers explain Enter and Shift+Enter where a keyboard has them'
     await expect(thread).toContainText('Second line');
     const reply = thread.getByRole('textbox', { name: 'Reply', exact: true });
     await expect(reply).toHaveAttribute('enterkeyhint', 'send');
-    await expect(thread.getByText(newLineHint, { exact: true })).toHaveCount(touch ? 0 : 1);
+    await expect(thread.getByText(newLineHint, { exact: true })).toHaveCount(0);
     if (!touch) {
         // Editing: Enter saves; the original text is not a saved draft
         await thread.getByRole('button', { name: 'More options for your comment' }).click();
@@ -65,7 +63,16 @@ test('toolbar composers explain Enter and Shift+Enter where a keyboard has them'
     await toolbar(page).getByRole('button', { name: 'Send feedback', exact: true }).click();
     const feedback = page.getByRole('dialog', { name: 'Send feedback', exact: true });
     await expect(feedback.getByRole('textbox', { name: 'Feedback', exact: true })).toBeVisible();
-    await expect(feedback.getByText(newLineHint, { exact: true })).toHaveCount(touch ? 0 : 1);
+    await expect(feedback.getByText(newLineHint, { exact: true })).toHaveCount(0);
+    if (!touch) {
+        // The keyboard shortcuts list has the keys instead
+        await page.keyboard.press('Escape');
+        await expect(feedback).toBeHidden();
+        await page.keyboard.press('?');
+        const help = page.getByRole('dialog', { name: 'Keyboard shortcuts' });
+        await expect(help.getByText('Send a comment', { exact: true })).toBeVisible();
+        await expect(help.getByText('New line in a comment', { exact: true })).toBeVisible();
+    }
     await context.close();
 });
 
@@ -111,15 +118,15 @@ test('a closed draft is saved in this browser and Resume draft reopens it after 
     await context.close();
 });
 
-test('project members and guests see the same keyboard hint', async ({ page, browser }, info) => {
-    test.skip(Boolean(info.project.use.hasTouch), 'The hint is for keyboards; touch is covered above');
+test('project members and guests get the same keyboard description', async ({ page, browser }, info) => {
+    test.skip(Boolean(info.project.use.hasTouch), 'The description is for keyboards; touch is covered above');
     await signIn(page, uniqueEmail('composer-hints'));
     const project = await createProject(page, { urls: [site.origin()] });
     await setProjectAccess(page, project, 'Anyone with the link');
     await page.goto(`/app/review/${project}?url=${encodeURIComponent(`${site.origin()}/${project}/pricing`)}`);
     const member = await startPoint(page);
     await expect(member.getByText('@ to mention', { exact: true })).toBeVisible();
-    await expect(member.getByText(newLineHint, { exact: true })).toBeVisible();
+    await expect(member.getByText(newLineHint, { exact: true })).toHaveCount(0);
     await expect(member.getByRole('textbox', { name: 'Comment', exact: true }))
         .toHaveAccessibleDescription('Type @ to mention someone with access. Enter to send. Shift+Enter for a new line.');
 
@@ -128,7 +135,7 @@ test('project members and guests see the same keyboard hint', async ({ page, bro
     const guest = await startPoint(guestPage);
     await expect(guest.getByRole('textbox', { name: 'Your name' })).toBeVisible();
     await expect(guest.getByText('@ to mention')).toHaveCount(0);
-    await expect(guest.getByText(newLineHint, { exact: true })).toBeVisible();
+    await expect(guest.getByText(newLineHint, { exact: true })).toHaveCount(0);
     await expect(guest.getByRole('textbox', { name: 'Comment', exact: true }))
         .toHaveAccessibleDescription('Enter to send. Shift+Enter for a new line.');
     await context.close();

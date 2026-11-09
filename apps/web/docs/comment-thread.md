@@ -109,10 +109,11 @@
 - Every place the app takes a message uses one composer, `comments/MessageComposer.tsx`, laid out as the toolbar's
   `CommentComposer`: one box (shadcn `InputGroup`) with the text and, inside it under the text, the hint ("@ to mention",
   or the character count from 900 of 1000) on the left and the buttons on the right (the surface's cancel, Discard while
-  there is text, then the send icon button with its tooltip or a Save text button); under the box the keyboard hint
-  ("Shift+Enter for a new line", plus "Esc to cancel" where Escape cancels), the mention list, the error and notices.
-  The field is described as "Type @ to mention someone with access. Enter to send. Shift+Enter for a new line." (save
-  and Escape for editors) and takes the focus with the caret at the end. Surfaces switch features off through props
+  there is text, then the send icon button with its tooltip or a Save text button); under the box the mention list,
+  the error and notices. No visible keyboard hint ([uier #175](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_B5Zp66h_oPH67ZI1HAbRV)):
+  the keyboard shortcuts dialog lists Enter, Shift+Enter and Esc under "The open thread", and the field is
+  described to screen readers as "Type @ to mention someone with access. Enter to send. Shift+Enter for a new line."
+  (save and Escape for editors). It takes the focus with the caret at the end. Surfaces switch features off through props
   (`mentionsIn`, `onCancel`/`escapeCancels`, `onDiscard`); don't add another reply box or a variant layout. The
   Request verification form (`VerificationControl`) is a form of labelled fields, not a message, and stays one.
 - Under the messages, Reply is a quiet ghost button with the reply icon, aligned with the message text (R opens it).

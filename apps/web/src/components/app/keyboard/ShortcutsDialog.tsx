@@ -56,7 +56,11 @@ const groups: { title: string; shortcuts: Shortcut[] }[] = [
         shortcuts: [
             { label: 'Reply', keys: ['R'], letter: true },
             { label: 'Change status', keys: ['S'], letter: true },
-            { label: 'Change assignee', keys: ['A'], letter: true }
+            { label: 'Change assignee', keys: ['A'], letter: true },
+            // In the reply box and a message being edited (MessageComposer); no hint under the box repeats them
+            { label: 'Send or save a message', keys: ['Enter'] },
+            { label: 'New line', keys: ['Shift', 'Enter'] },
+            { label: 'Cancel an edit', keys: ['Esc'] }
         ]
     },
     {

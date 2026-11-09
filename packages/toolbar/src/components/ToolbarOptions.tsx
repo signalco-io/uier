@@ -19,9 +19,8 @@ import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
 import { floatingShadowClassName } from './@types/Comments';
 import { toolbarConfig } from '../config';
-import { setShortcutsEnabled, toolbarShortcuts, useShortcutsEnabled } from '../shortcuts';
+import { setShortcutsEnabled, toolbarShortcuts, useKeyboardLikely, useShortcutsEnabled } from '../shortcuts';
 import { moveFocusInMenu } from '../focusKeys';
-import { useKeyboardHint } from './ComposerFooter';
 import { toolbarSurface } from '../toolbarReview';
 
 type ToolbarOptionsProps = {
@@ -186,8 +185,8 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
 
     // One-letter shortcuts can be turned off (WCAG 2.1.4): speech input or the page's own keys may need the letters
     const shortcutsEnabled = useShortcutsEnabled();
-    // Where a keyboard is likely (the composer's hint uses the same check); always while they are off
-    const showShortcutSwitch = useKeyboardHint() || !shortcutsEnabled;
+    // Where a keyboard is likely (composers use the same check); always while they are off
+    const showShortcutSwitch = useKeyboardLikely() || !shortcutsEnabled;
     // The switch announces its new state; the menu stays open
     const shortcutSwitch = (
         <OptionSwitch
