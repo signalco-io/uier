@@ -64,6 +64,12 @@ const clockListeners = new Set<() => void>();
 let clockNow = Date.now();
 let clockTimer: number | undefined;
 
+/** The clock's time; with nothing subscribed it isn't ticking, so the first render after a pause catches it up */
+function currentNow() {
+    if (!clockListeners.size && Date.now() - clockNow >= tickMs) clockNow = Date.now();
+    return clockNow;
+}
+
 function tick() {
     clockNow = Date.now();
     for (const listener of clockListeners) listener();
@@ -97,7 +103,7 @@ export function RelativeTime({ value }: { value: string | undefined }) {
     const local = useLocal();
     const date = parse(value);
     const text = useSyncExternalStore(subscribeClock,
-        () => date && relativeText(date, clockNow),
+        () => date && relativeText(date, currentNow()),
         () => date && relativeText(date, Date.now()));
     if (!date || !text)
         return null;
