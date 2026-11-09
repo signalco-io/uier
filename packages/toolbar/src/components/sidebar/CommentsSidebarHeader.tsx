@@ -11,8 +11,8 @@ import { CommentsStatusFilter } from './CommentsFilter';
 import { PanelHandle } from '../DockablePanel';
 import { useRovingFocus } from '../../focusKeys';
 
-/** The inbox's title row: the handle that moves it, its name and Close */
-export function CommentsSidebarHeader({ onClose }: { onClose: () => void }) {
+/** The inbox's title row: the handle that moves it, its name and Close (with the focus when it opens, unless `autoFocus` is false) */
+export function CommentsSidebarHeader({ onClose, autoFocus = true }: { onClose: () => void; autoFocus?: boolean }) {
     const { brief } = useProjectViewer();
     const [briefOpen, setBriefOpen] = useState(false);
     return (
@@ -25,7 +25,7 @@ export function CommentsSidebarHeader({ onClose }: { onClose: () => void }) {
                 <Row>
                     {brief && <Button size="sm" variant="plain" aria-expanded={briefOpen} onClick={() => setBriefOpen(!briefOpen)}>Review brief</Button>}
                     <IconTooltip label="Close sidebar">
-                        <IconButton onClick={onClose} variant="plain" aria-label="Close sidebar" autoFocus>
+                        <IconButton onClick={onClose} variant="plain" aria-label="Close sidebar" autoFocus={autoFocus}>
                             <PanelRightClose />
                         </IconButton>
                     </IconTooltip>

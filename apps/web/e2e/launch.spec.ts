@@ -138,6 +138,9 @@ test('owner checks installation, shares a review, replies and resolves; the name
         expect(reopenResponse.status()).toBe(200);
         expect((await reopenResponse.json()).resolved).toBe(false);
         await expect(commentBubbles(guest.page)).toHaveCount(1);
+        // Closed, so the reload does not open it again (on a phone it would cover the pin)
+        await guest.page.getByRole('button', { name: 'Close sidebar' }).click();
+        await expect(guest.page.getByRole('complementary', { name: 'Comments' })).toBeHidden();
         await guest.page.reload();
         await guest.page.locator(`[data-uier-comment="${saved.id}"]`).click();
         await expect(thread(guest.page)).toContainText('Status: Open');
@@ -279,7 +282,7 @@ test('recovery and keyboard movement preserve host styles, focus and reachable c
     await page.reload();
     await expect(toolbar(page)).toBeVisible();
     expect(await page.evaluate(() => localStorage.getItem('uier:toolbar-position:v1'))).toBe(savedPosition);
-    await page.getByRole('button', { name: /^Inbox/ }).click();
+    // Open before the reload: it stays open, on its side
     await expect(inbox).toHaveAttribute('data-side', 'right');
     await animationsFinished(inbox);
     await expectNoAxeViolations(page);

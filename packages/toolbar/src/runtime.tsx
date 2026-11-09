@@ -4,6 +4,7 @@ import './index.css';
 import { CommentsBootstrapper, clearToolbarQueries } from './components/CommentsBootstrapper';
 import { toolbarConfig, ToolbarMode } from './config';
 import { endReviewSession, type ReviewSession } from './review';
+import { forgetOpenPanel } from './openPanel';
 import { requestOnMount } from './openFeedback';
 import { runtimeContext } from './runtimeContext';
 import { getToolbarHost, toolbarMountKey, toolbarMounts } from './mount';
@@ -92,7 +93,7 @@ export function mountToolbar(mode: ToolbarMode, review: ReviewSession | null, on
     // "Exit review": the review ends for this tab and the toolbar leaves the page.
     // "Close toolbar" (`feedback` mode): it leaves until feedback is asked for again.
     const handleExit = mode === 'review'
-        ? () => { if (!runtimeAdapters()) endReviewSession(); unmount(); onExit?.(); }
+        ? () => { if (!runtimeAdapters()) endReviewSession(); forgetOpenPanel(); unmount(); onExit?.(); }
         : mode === 'feedback' ? unmount : undefined;
 
     const release = claimReviewLayer(unmount);

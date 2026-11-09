@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { useActivitySummary } from '../../hooks/useComments';
 import { Input } from '@signalco/ui-primitives/Input';
@@ -13,6 +13,7 @@ import type { CommentsFilter } from './CommentsFilter';
 import { InkScope } from '../InkScope';
 import { DockablePanel } from '../DockablePanel';
 import { MarkAllRead } from './MarkAllRead';
+import { RestoredPanelContext } from '../../openPanel';
 
 // One element for every render: the kit's input wraps itself anew (and loses the focus) when its
 // decorator changes
@@ -43,6 +44,8 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
     const unread = activity?.unread ?? 0;
     const inbox = useInboxComments(filter);
     const [hidding, setHidding] = useState<boolean>(false);
+    // Open on the previous page: it stays without sliding in or taking the focus
+    const restored = useContext(RestoredPanelContext) === 'inbox';
     const contentRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
         if (!focusRequest) return;
@@ -86,10 +89,10 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
             <DockablePanel id="inbox" label="Comments" onKeyDown={handleKeyDown}
                 className={cx(hidding
                     ? 'animate-out fade-out fill-mode-forwards duration-150 ease-in motion-safe:data-[side=left]:slide-out-to-left motion-safe:data-[side=right]:slide-out-to-right'
-                    : 'animate-in fade-in duration-200 ease-out motion-safe:data-[side=left]:slide-in-from-left motion-safe:data-[side=right]:slide-in-from-right')}>
+                    : !restored && 'animate-in fade-in duration-200 ease-out motion-safe:data-[side=left]:slide-in-from-left motion-safe:data-[side=right]:slide-in-from-right')}>
                 <Stack ref={contentRef} tabIndex={0} className="h-full overflow-y-auto rounded-b-2xl outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
                     <Stack spacing={2} className="shrink-0 px-4 pt-3">
-                        <CommentsSidebarHeader onClose={handleClose} />
+                        <CommentsSidebarHeader onClose={handleClose} autoFocus={!restored} />
                         {/* The search and filters are one group, closer together than the title and the tabs */}
                         <Stack spacing={1}>
                         {/* With a decorator the kit's focus ring is on the box, which never has the focus itself */}

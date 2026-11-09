@@ -60,28 +60,26 @@ function ruleOf(result: Result, path: string): AccessibilityRule {
     return { id: result.id, impact, help, helpUrl, issues };
 }
 
-let running: Promise<AccessibilityReport> | undefined;
+let previous: Promise<unknown> = Promise.resolve();
 
 /**
  * Loads axe-core (the lazy audit asset) and checks the page. axe-core runs one audit at a time:
- * a check asked for while one runs gets that one's result.
+ * a check asked for while one runs waits for it and then checks the page as it is now, so a panel
+ * that stays open after a navigation never gets the previous page's report.
  */
 export function checkAccessibility(path: string): Promise<AccessibilityReport> {
-    running ??= (async () => {
-        try {
-            const axe = await loadAxe();
-            // The review layer is not the page: its host (wherever the page's layers moved it) and inline threads
-            const exclude = [getToolbarHost(), ...document.querySelectorAll('[data-uier-thread]')].filter(node => node instanceof Element);
-            const results = await axe.run(
-                exclude.length ? { exclude } : document,
-                // Frames are other documents (and maybe other sites): only this document is checked
-                { resultTypes: ['violations'], elementRef: true, iframes: false, performanceTimer: false });
-            const rules = results.violations.map(result => ruleOf(result, path))
-                .sort((a, b) => impacts.indexOf(a.impact) - impacts.indexOf(b.impact) || b.issues.length - a.issues.length);
-            return { path, checkedAt: Date.now(), rules, count: rules.reduce((total, rule) => total + rule.issues.length, 0) };
-        } finally {
-            running = undefined;
-        }
-    })();
-    return running;
+    const audit = previous.catch(() => undefined).then(async () => {
+        const axe = await loadAxe();
+        // The review layer is not the page: its host (wherever the page's layers moved it) and inline threads
+        const exclude = [getToolbarHost(), ...document.querySelectorAll('[data-uier-thread]')].filter(node => node instanceof Element);
+        const results = await axe.run(
+            exclude.length ? { exclude } : document,
+            // Frames are other documents (and maybe other sites): only this document is checked
+            { resultTypes: ['violations'], elementRef: true, iframes: false, performanceTimer: false });
+        const rules = results.violations.map(result => ruleOf(result, path))
+            .sort((a, b) => impacts.indexOf(a.impact) - impacts.indexOf(b.impact) || b.issues.length - a.issues.length);
+        return { path, checkedAt: Date.now(), rules, count: rules.reduce((total, rule) => total + rule.issues.length, 0) };
+    });
+    previous = audit;
+    return audit;
 }
