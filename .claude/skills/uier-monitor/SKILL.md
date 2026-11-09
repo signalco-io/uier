@@ -95,7 +95,7 @@ Then extract the rules for fix sessions to `ROOT/fix-session.md`:
      `days: 30` and a fresh `idempotencyKey`. Request only operations the connection has. If it lacks a
      required operation, use the fallback below; never broaden the token or reconnect on its behalf.
      The returned `token` is a secret: write it directly to a new file in the harness scratchpad with
-     mode `0600` from creation (no shell arguments, output or logs containing it), run
+     mode `0600` from creation (set `umask 077` in the writing shell before creating the file) (no shell arguments, output or logs containing it), run
      `M token --from-file <file>`, delete the file in a finally/cleanup step, then run `M check`.
      Never put it in chat, packets or state.json. A retry must use the same key and input; it returns
      metadata only. If the first response was lost, have the person revoke the listed token before

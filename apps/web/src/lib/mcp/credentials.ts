@@ -55,13 +55,18 @@ export async function persistMcpCredential(doc: McpCredential, receipt?: McpCred
         const previous = await previousReceipt();
         if (previous) return previous;
         const guard = await store.get<AppDoc & { version: number }>(doc.pk, guardId);
+        if (doc.createdBy?.kind === 'oauth') {
+            const grant = (await store.get<McpGrant>(doc.pk, doc.createdBy.id))?.doc;
+            if (!grant || grant.type !== 'mcp-grant' || !isGrantActive(grant))
+                throw apiErrors.forbidden('The creating connection is no longer active.');
+        }
         if ((await listMcpCredentials(doc.userId)).length >= 20) {
             // A concurrent retry may have taken the last slot since the receipt read above.
             const concurrent = await previousReceipt();
             if (concurrent) return concurrent;
             throw apiErrors.invalidRequest('Revoke an existing credential first (maximum 20).');
         }
-        const next = { type: 'mcp-credential-guard', id: guardId, pk: doc.pk, version: (guard?.doc.version ?? 0) + 1 };
+        const next = { type: 'mcp-credential-guard', id: guardId, pk: doc.pk, version: (guard?.doc.version ?? 0) + 1, ttl: 90 * 86400 };
         if (await store.transact([
             guard ? { kind: 'replace', doc: next, etag: guard.etag } : { kind: 'create', doc: next },
             { kind: 'create', doc },

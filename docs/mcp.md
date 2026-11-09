@@ -127,8 +127,10 @@ A connection granted **Create access tokens** (`tokens:create`) can call `create
 still accessible to its owner. Operations must be a subset of the authenticating connection's
 operations; `tokens:create` can never be included. There are no all/future-project selections.
 The token is listed here as **Created by <connection>** and can be revoked like a hand-made token.
-Revoking its creator leaves the token active until its own expiry or revocation; live membership
-and project permissions still apply.
+Its expiry is capped at the creating Account token’s expiry or the OAuth grant’s hard expiry.
+The connection revoke dialog counts active created tokens and offers to revoke them too, checked
+by default. Uncheck it to keep them until their own expiry or revocation. Live membership and
+project permissions still apply.
 
 The first successful response contains `token`, `credential` metadata and `alreadyCreated: false`.
 **The token is a secret: store it securely and never repeat it in chat, logs, feedback or source
@@ -137,8 +139,8 @@ connection, without the secret. A retry with the same key and input returns the 
 `alreadyCreated: true`, never the secret again. Changed input conflicts. If the first response was
 lost, revoke the listed token before requesting a replacement with a new key. Creation is limited
 to 5 per connection and 10 per account per hour, within the shared 20-active-token cap.
-For a watcher, write the secret directly to a new `0600` scratchpad file, import it into a secret
-store with `monitor.mjs token --from-file`, and delete the temporary file in cleanup.
+For a watcher, set `umask 077` in the writing shell before creating a file. Write the secret directly
+to a new `0600` scratchpad file, import it into a secret store with `monitor.mjs token --from-file`, and delete the temporary file in cleanup.
 
 Send it as `Authorization: Bearer <token>`. Keep it out of source-controlled files and URLs: set `UIER_MCP_TOKEN` in
 the environment of the process that starts the client, then restart it. Merge the entry into the

@@ -473,7 +473,8 @@ export default function PrivacyPolicyPage() {
                 If you grant Create access tokens, the connection can create named tokens for scripts and
                 watchers within its own projects and operations, for up to 30 days. It receives the secret
                 once. These tokens cannot create more tokens. We store which connection created each token
-                and keep a creation audit and retry receipt, without its secret, for 30 days. You can see
+                and keep a creation audit and retry receipt, without its secret, for 30 days. A counter
+                serializes token creation and revocation and expires 90 days after its last update. You can see
                 and revoke these tokens in Account, independently of the connection that created them.
             </p>
             <p>

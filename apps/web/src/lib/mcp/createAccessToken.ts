@@ -7,6 +7,7 @@ import { consume } from '../comments/rateLimits';
 import { getCommentsStore } from '../repo/commentsStore';
 import { mcpCredentialView, mcpProject, persistMcpCredential, requireMcpScope,
     type McpCredential, type McpCredentialCreation, type McpIdentity } from './credentials';
+import { getGrant } from './oauth/grants';
 import { tokenScopes } from './scopes';
 import { projectId } from './schemas';
 
@@ -43,12 +44,17 @@ export async function createAccessToken(identity: McpIdentity, value: unknown) {
         await consume(getCommentsStore(), '$mcp', { key: `create-access-token:${subject}`, limit, windowSeconds: 3600,
             reason: 'too_fast', message: 'Access token creation limit reached. Try again later.' });
     const now = Date.now();
+    const creator = identity.connection.kind === 'oauth'
+        ? (await getGrant(identity.user.id, identity.connection.id))?.doc.absoluteExpiresAt
+        : (await getAppStore().get<McpCredential>(pk, identity.connection.id))?.doc.expiresAt;
+    if (!creator || Date.parse(creator) <= now) throw apiErrors.forbidden('The creating connection has expired.');
+    const expiresAt = Math.min(now + input.days * 86400_000, Date.parse(creator));
     const token = `uier_mcp.${identity.user.id}.${randomToken()}`;
     const credential: McpCredential = {
         type: 'mcp-credential', id: sha256Hex(token), pk, userId: identity.user.id,
         workspaceId: input.workspaceId, name: input.name, projectIds: input.projectIds, scopes: input.scopes,
-        createdAt: new Date(now).toISOString(), expiresAt: new Date(now + input.days * 86400_000).toISOString(),
-        ttl: input.days * 86400, createdBy: { ...identity.connection }
+        createdAt: new Date(now).toISOString(), expiresAt: new Date(expiresAt).toISOString(),
+        ttl: Math.max(1, Math.ceil((expiresAt - now) / 1000)), createdBy: { ...identity.connection }
     };
     const view = mcpCredentialView(credential);
     const receipt: McpCredentialCreation = { type: 'mcp-credential-creation', id, pk, inputHash, credential: view, ttl: 30 * 86400 };

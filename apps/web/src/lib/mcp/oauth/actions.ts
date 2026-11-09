@@ -48,11 +48,11 @@ export async function switchConnectionAccountAction(requestId: string) {
 }
 
 /** Revokes a connected app from Account; the app loses access on its next request. */
-export async function revokeConnectedAppAction(grantId: string) {
+export async function revokeConnectedAppAction(grantId: string, revokeCreatedTokens = true) {
     return actionResult(async () => {
-        const input = parseActionInput(connectedAppActionSchema, { grantId });
+        const input = parseActionInput(connectedAppActionSchema, { grantId, revokeCreatedTokens });
         const context = await appContextOrThrow();
-        await revokeConnectedApp(context.user.id, input.grantId);
+        await revokeConnectedApp(context.user.id, input.grantId, input.revokeCreatedTokens);
         revalidatePath(KnownPageLinks.account('coding-agents'));
     });
 }

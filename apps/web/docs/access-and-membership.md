@@ -91,6 +91,8 @@ The MCP `create_access_token` tool requires the separately granted `tokens:creat
 It selects 1–20 explicit projects in one workspace, rechecks each through `mcpProject` against the
 connection's selection and the person's live membership/team access, and permits only operations on
 the authenticating connection. OAuth access-token narrowing applies. Issued tokens never include
-`tokens:create`, last 1–30 days, and retain live member/private-feedback checks on use. A token is
+`tokens:create`, request 1–30 days capped at the creator’s hard expiry, and retain live member/private-feedback checks on use. A token is
 independently revocable under Account → Coding agents → Access tokens, with its creator named there.
+Revoking an OAuth connection offers to revoke its created tokens too, checked by default; the
+grant and selected tokens are removed atomically against the shared creation guard.
 See [MCP connector](mcp-connector.md) for atomic audit/retry storage and creation limits.

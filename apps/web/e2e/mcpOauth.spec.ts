@@ -178,11 +178,6 @@ test('a coding tool signs in with OAuth, reaches the chosen workspaces, and lose
             await expect(tokenRow).toContainText('Created by Laptop agent');
             await expect(tokenRow).toContainText('Read feedback');
             await expect(page.locator('body')).not.toContainText(watcherToken);
-            await tokenRow.getByRole('button', { name: 'Revoke Project watcher' }).click();
-            await expect(tokenRow).toHaveCount(0);
-            const revokedWatcher = await fetch(flow.serverUrl, { method: 'POST', headers: { Authorization: `Bearer ${watcherToken}`, 'Content-Type': 'application/json',
-                Accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'tools/list' }) });
-            expect(revokedWatcher.status).toBe(401);
             await row.getByRole('button', { name: 'Details for Laptop agent' }).click();
             await expect(row).toContainText('Personal: All projects, including new ones');
             await expect(row).toContainText('uier: uier.io user feedback');
@@ -191,10 +186,16 @@ test('a coding tool signs in with OAuth, reaches the chosen workspaces, and lose
 
             await row.getByRole('button', { name: 'Revoke Laptop agent' }).click();
             const dialog = page.getByRole('alertdialog', { name: 'Revoke Laptop agent?' });
+            await expect(dialog.getByRole('checkbox', { name: 'Also revoke the 1 access token it created' })).toBeChecked();
+            await expect(dialog).toContainText('These are separate');
             await dialog.getByRole('button', { name: 'Revoke', exact: true }).click();
             await expect(dialog).toHaveCount(0);
             await expect(row).toHaveCount(0);
             await expect(apps).toContainText('No connected apps yet.');
+            await expect(tokenRow).toHaveCount(0);
+            const revokedWatcher = await fetch(flow.serverUrl, { method: 'POST', headers: { Authorization: `Bearer ${watcherToken}`, 'Content-Type': 'application/json',
+                Accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'tools/list' }) });
+            expect(revokedWatcher.status).toBe(401);
 
             const revoked = await fetch(flow.serverUrl, { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json',
                 Accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list' }) });

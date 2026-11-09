@@ -107,10 +107,12 @@ Select all operations includes it. Existing grants keep their stored scopes. `cr
 `mcpProject`, including current membership, and rejects scopes absent from the authenticating token
 (including a narrowed OAuth access token). The issued token can never contain `tokens:create` or
 future/all-project selections. It is an ordinary independently revocable credential; revoking its
-creator does not revoke it, and its own current project/membership checks still apply.
+creator can also revoke its created tokens (checked by default in the connection revoke dialog).
+Unchecking leaves them independently active. Expiry is capped at the creating Account token’s expiry
+or the OAuth grant’s hard expiry; current project/membership checks still apply.
 
 Creation is limited by durable counters to 5 per connection and 10 per account per hour. A per-account
-guard serializes hand-made and MCP creation at the shared 20-active-token limit. One app-container
+guard (counter only, 90-day TTL refreshed on writes) serializes hand-made and MCP creation at the shared 20-active-token limit. One app-container
 transaction writes the credential hash and a `mcp-credential-creation` receipt/audit in the owner's
 partition: input hash, credential metadata, creation/expiry and creating connection. The receipt
 expires after 30 days, also when the token was revoked sooner. No secret is stored. Concurrent calls

@@ -1168,3 +1168,37 @@ test('the official SDK client discovers, registers, signs in, refreshes and lose
         expect(provider.redirects).toHaveLength(2);
     } finally { await client.close(); }
 });
+
+
+test('OAuth-created tokens respect hard expiry and connection revocation can revoke them atomically', async () => {
+    const a = await person('oauth-expiry-revoke-tokens');
+    const reviewed = await project(a.context, 'Revocation target');
+    const app = await connectApp(a.user, { scopes: ['feedback:read', 'tokens:create'] });
+    const pk = connectionPk(a.user.id);
+    const absoluteExpiresAt = new Date(Date.now() + 3600_000).toISOString();
+    await patch<McpGrant>(pk, app.grantId, { absoluteExpiresAt });
+    const client = await connectMcp(app.tokens.access_token);
+    let created: any;
+    try {
+        created = await callTool(client, 'create_access_token', { name: 'Bounded watcher', workspaceId: a.workspaceId,
+            projectIds: [reviewed.id], scopes: ['feedback:read'], days: 30, idempotencyKey: randomUUID() });
+        expect(created.credential.expiresAt).toBe(absoluteExpiresAt);
+        expect((await listConnectedApps(a.user.id)).find(grant => grant.id === app.grantId)?.activeCreatedTokenCount).toBe(1);
+        // Another account cannot revoke the grant or its children.
+        expect(await revokeConnectedApp('another-account', app.grantId, true)).toBe(false);
+        expect((await authenticateMcp(bearer(created.token), base)).user.id).toBe(a.user.id);
+        expect(await revokeConnectedApp(a.user.id, app.grantId, true)).toBe(true);
+        await expect(authenticateMcp(bearer(created.token), base)).rejects.toMatchObject({ status: 401 });
+        await expect(authenticateMcp(bearer(app.tokens.access_token), base)).rejects.toMatchObject({ status: 401 });
+        // Repeating the action is harmless.
+        expect(await revokeConnectedApp(a.user.id, app.grantId, true)).toBe(false);
+    } finally { await client.close(); }
+    const keep = await connectApp(a.user, { scopes: ['feedback:read', 'tokens:create'] });
+    const keeper = await connectMcp(keep.tokens.access_token);
+    try {
+        const child = await callTool(keeper, 'create_access_token', { name: 'Separate watcher', workspaceId: a.workspaceId,
+            projectIds: [reviewed.id], scopes: ['feedback:read'], days: 1, idempotencyKey: randomUUID() });
+        await revokeConnectedApp(a.user.id, keep.grantId, false);
+        expect((await authenticateMcp(bearer(child.token), base)).user.id).toBe(a.user.id);
+    } finally { await keeper.close(); }
+});

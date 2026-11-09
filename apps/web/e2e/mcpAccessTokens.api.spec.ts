@@ -27,7 +27,7 @@ async function fixture(scopes: string[] = ['feedback:read', 'screenshots:read', 
     const context = { user, member, workspace: { id: member.workspaceId }, isAdmin: true } as AppContext;
     const project = await createProject(context, { name: 'Watcher project', urls: ['https://watch.example'] });
     const other = await createProject(context, { name: 'Excluded project', urls: ['https://other.example'] });
-    const parent = await createMcpCredential(context, { name: 'Connected coding tool', projectIds: [project.id], scopes, days: 30 });
+    const parent = await createMcpCredential(context, { name: 'Connected coding tool', projectIds: [project.id], scopes, days: 90 });
     const input = { name: 'Project watcher', workspaceId: project.workspaceId, projectIds: [project.id],
         scopes: ['feedback:read', 'screenshots:read', 'feedback:assign'], days: 30, idempotencyKey: randomUUID() };
     return { user, context, project, other, parent, input };
@@ -211,4 +211,20 @@ test('conflicting atomic saves leave neither a credential nor an audit receipt a
         Object.defineProperty(guard, 'version', { configurable: true, writable: true, value: version });
         await client.close();
     }
+});
+
+
+test('created token expiry is capped at the creating Account token expiry, including less than one day', async () => {
+    const f = await fixture();
+    const stored = (await getAppStore().get(f.parent.credential.pk, f.parent.credential.id))!;
+    const expiresAt = new Date(Date.now() + 3600_000).toISOString();
+    await getAppStore().replace({ ...stored.doc, expiresAt }, stored.etag);
+    const client = await connect(f.parent.token);
+    try {
+        const created = await mint(client, f.input);
+        expect(created.credential.expiresAt).toBe(expiresAt);
+        const token = (await getAppStore().get(f.parent.credential.pk, created.credential.id))!;
+        expect(token.doc.ttl).toBeLessThanOrEqual(3600);
+        expect(token.doc.ttl).toBeGreaterThan(0);
+    } finally { await client.close(); }
 });

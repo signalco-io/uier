@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import type { McpCredential } from '../credentials';
+import { apiErrors } from '../../comments/http';
 import type { AppDoc, DbMember, DbProject, DbWorkspace } from '../../app/model';
 import { getAppStore } from '../../app/store';
 import { hasProjectAccess, loadWorkspaceAccess } from '../../app/access';
@@ -71,14 +73,33 @@ export async function getGrant(userId: string, grantId: string) {
 
 /** Active connected apps of the user, newest first */
 export async function listConnectedApps(userId: string) {
+    const tokens = await getAppStore().query<McpCredential>({ type: 'mcp-credential', pk: userPk(userId) });
     return (await getAppStore().query<McpGrant>({ type: 'mcp-grant', pk: userPk(userId) }))
-        .filter(grant => isGrantActive(grant)).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+        .filter(grant => isGrantActive(grant)).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .map(grant => ({ ...grant, activeCreatedTokenCount: tokens.filter(token =>
+            token.createdBy?.kind === 'oauth' && token.createdBy.id === grant.id && Date.parse(token.expiresAt) > Date.now()).length }));
 }
 
 /** Deleting the grant revokes it: access tokens are checked against their grant on every request. */
-export async function revokeConnectedApp(userId: string, grantId: string) {
-    const grant = await getGrant(userId, grantId);
-    return grant ? await getAppStore().delete(userPk(userId), grantId) : false;
+export async function revokeConnectedApp(userId: string, grantId: string, revokeCreatedTokens = false) {
+    const store = getAppStore();
+    const pk = userPk(userId);
+    for (let attempt = 0; attempt < 8; attempt++) {
+        // The shared creation guard prevents a concurrent issuance escaping this action.
+        const guard = await store.get<AppDoc & { version: number }>(pk, 'mcp-credential-guard');
+        const grant = await getGrant(userId, grantId);
+        const tokens = revokeCreatedTokens ? (await store.query<McpCredential>({ type: 'mcp-credential', pk }))
+            .filter(token => token.createdBy?.kind === 'oauth' && token.createdBy.id === grantId && Date.parse(token.expiresAt) > Date.now()) : [];
+        const stored = await Promise.all(tokens.map(token => store.get<McpCredential>(pk, token.id)));
+        if (!grant && !stored.some(Boolean)) return false;
+        const next = { type: 'mcp-credential-guard', id: 'mcp-credential-guard', pk, version: (guard?.doc.version ?? 0) + 1, ttl: 90 * 86400 };
+        if (await store.transact([
+            guard ? { kind: 'replace', doc: next, etag: guard.etag } : { kind: 'create', doc: next },
+            ...(grant ? [{ kind: 'delete' as const, pk, id: grantId, etag: grant.etag }] : []),
+            ...stored.flatMap(token => token ? [{ kind: 'delete' as const, pk, id: token.doc.id, etag: token.etag }] : [])
+        ])) return true;
+    }
+    throw apiErrors.conflict();
 }
 
 export type AccessibleWorkspace = {

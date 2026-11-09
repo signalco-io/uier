@@ -24,11 +24,12 @@ with another repository, link `uier-monitor` and `uier-monitor-script` into `~/.
 
 The watcher checks uier with its own access token, so waiting costs no model tokens. When the MCP
 connection has **Create access tokens**, the skill calls `create_access_token` for this project with
-Read feedback, Read screenshots and Assign feedback, for 30 days. These operations must already
+Read feedback, Read screenshots and Assign feedback, requesting 30 days (capped at the creating
+connection’s hard expiry). These operations must already
 belong to the connection. The new token cannot reply, change status or create more tokens.
 
-The tool returns the secret once. The skill writes it directly to a new `0600` file in the harness
-scratchpad, runs `monitor.mjs token --project <id> --from-file <file>` to store it in the macOS
+The tool returns the secret once. Set `umask 077` in the writing shell before creating the file.
+The skill writes it directly to a new `0600` file in the harness scratchpad, runs `monitor.mjs token --project <id> --from-file <file>` to store it in the macOS
 keychain (service `uier-mcp`, account: the project id), and deletes the file in cleanup. The secret
 must never appear in chat, command arguments, logs, packets or state.json. Retries use the same key
 and return metadata only. If the first response was lost, revoke the listed token before replacing it.
