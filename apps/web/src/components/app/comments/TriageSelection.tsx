@@ -89,7 +89,7 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
     barClassName?: string;
     /** How many are shown, at the start of the count line */
     summary?: ReactNode;
-    /** At the end of the count line, before Select (Mark all as read) */
+    /** Right after the summary, beside the unread count it acts on (Mark all as read) */
     actions?: ReactNode;
     children: ReactNode;
 }) {
@@ -259,8 +259,8 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
             {/* No side padding: it lines up with the search and Filter row above, in both views */}
             <div className={cn('flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1', barClassName)}>
                 <span role="status" className="text-sm text-muted-foreground tabular-nums">{summary}</span>
+                {actions}
                 <div className="ml-auto flex items-center gap-1">
-                    {actions}
                     {eligible.length > 0 && (
                         <Toggle ref={selectRef} size="sm" aria-label="Select comments" pressed={active} disabled={pending}
                             onPressedChange={pressed => { if (pressed) setExplicit(true); else end(); }} className="pointer-coarse:min-h-11">

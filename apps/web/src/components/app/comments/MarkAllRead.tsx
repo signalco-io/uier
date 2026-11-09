@@ -1,5 +1,6 @@
 'use client';
 
+import { CheckCheckIcon } from 'lucide-react';
 import { useTransition } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/src/components/ui/button';
@@ -38,7 +39,9 @@ export function MarkAllRead({ projectId, threads }: { projectId: string; threads
     });
 
     if (!threads.length) return null;
-    return <Button size="sm" variant="ghost" disabled={pending} onClick={() => run(threads)}>
+    // Beside the unread count: a small filled button with the unread accent on its icon, so it reads as that count's action
+    return <Button size="xs" variant="secondary" className="pointer-coarse:min-h-11" disabled={pending} onClick={() => run(threads)}>
+        <CheckCheckIcon data-icon="inline-start" aria-hidden="true" className="text-[hsl(var(--brand-accent-text))]" />
         {pending ? 'Marking as read…' : 'Mark all as read'}
     </Button>;
 }
