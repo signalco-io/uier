@@ -2,7 +2,7 @@
 
 - The comments page is an inbox. `comments/CommentInbox.tsx` lists compact rows (`CommentRow.tsx`: number,
   title (`commentTitle`: the [AI title](ai-titles.md), else the first line), author, page path (what it was left on is only in the thread's On row), then priority other than Normal (`PriorityLabel`: its
-  flag alone, named "High priority"), status (`StateDot` and its name, Open too; a board card leaves Open to its column), the assignee's avatar with their agent's mark stacked on it
+  flag alone, named "High priority"), status (`StateDot` and its name, Open too; a board card leaves the status to its column, whose region name screen readers announce), the assignee's avatar with their agent's mark stacked on it
   (`AssigneeAvatars`), age and the unread dot) beside the open thread
   (`CommentCard.tsx`). The open thread is in the URL (`?comment=<id>`, `useOpenComment`): side by side (`@container/comments` from `@4xl`) it replaces
   the history entry and the first shown thread is open until another is chosen; narrower (a phone) a row opens
