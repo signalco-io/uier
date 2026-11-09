@@ -5,9 +5,9 @@ import { isUierFeedbackProject } from '../comments/publicProject';
 
 /** Call on the already advanced #83 activity, inside the same etag-protected comment write. */
 export function withNotificationEvent(comment: DbComment, actorId: string, kind: NotificationEvent['kind'], at = new Date().toISOString(), recipients?: string[], agent?: import('../db/schema').AgentSource, details: Pick<NotificationEvent, 'itemId' | 'assigneeId' | 'verificationOverride' | 'assigneeAgent' | 'assigneeIds' | 'previousAssigneeIds' | 'agentId'> = {}): DbComment {
-    // The public showcase never queues owner email. Explicit connector actions still retain
-    // attribution in the existing activity ledger, without creating a notification job.
-    if (!comment.projectId || (isUierFeedbackProject(comment.projectId) && !agent)) return comment;
+    // Every project action feeds MCP, including the owner’s web actions. uier feedback
+    // projects retain the ledger without queuing owner email.
+    if (!comment.projectId) return comment;
     const sequence = threadActivity(comment).sequence;
     return { ...comment, notificationPending: !isUierFeedbackProject(comment.projectId), notificationEvents: [...(comment.notificationEvents ?? []),
         { sequence, actorId, kind, at, ...details, ...(recipients?.length ? { recipients: [...new Set(recipients)] } : {}), ...(agent ? { agent } : {}) }] };

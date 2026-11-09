@@ -49,3 +49,6 @@ isolation; `thread-history.spec.ts` covers the app/toolbar controls, reloads, th
 - Activity summaries use `CommentsStore.listActivity`, a compact projection over all authorized
   threads, so badge counts do not inherit text-list limits. Unread content is selected before
   applying response limits. Preserve legacy author-only projections and private-thread filtering.
+
+MCP list summaries also expose `replyCount` (all reply items, including deleted placeholders) for
+missed-event reconciliation. This count is independent of unread activity and read acknowledgements.

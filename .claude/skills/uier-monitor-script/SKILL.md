@@ -5,7 +5,7 @@ description: Recreate monitor.mjs, the watcher and state helper of the uier-moni
 
 # Recreate the uier monitor helper
 
-This skill carries `monitor.mjs` version 1.1.0, sha256 `262bda1f4dfc6fad559f048f8f46a79eb43793cce3b973cfbfc54f506efab91d`. It needs Node 18 or later
+This skill carries `monitor.mjs` version 1.1.1, sha256 `eec809b5ef38a1b7ba316f39c52a54f348ac9de9ab4fa8f7f788074e89f7f2bc`. It needs Node 18 or later
 and has no dependencies. The uier-monitor skill runs it as `ROOT/monitor.mjs`, where `ROOT` is
 `$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor`.
 
@@ -19,8 +19,8 @@ and has no dependencies. The uier-monitor skill runs it as `ROOT/monitor.mjs`, w
    ```
 
 2. Only when this file isn't on disk, write the code below to `$ROOT/monitor.mjs` exactly as shown.
-3. Check it: `node "$ROOT/monitor.mjs" version` must print version 1.1.0 and sha256
-   `262bda1f4dfc6fad559f048f8f46a79eb43793cce3b973cfbfc54f506efab91d`. If the hash differs, write the file again; never patch it by hand.
+3. Check it: `node "$ROOT/monitor.mjs" version` must print version 1.1.1 and sha256
+   `eec809b5ef38a1b7ba316f39c52a54f348ac9de9ab4fa8f7f788074e89f7f2bc`. If the hash differs, write the file again; never patch it by hand.
 
 Don't edit the code here. Its source is `.claude/skills/uier-monitor/scripts/monitor.mjs` in the uier
 repository, and `build-script-skill.mjs` next to it writes this file.
@@ -44,7 +44,7 @@ import { dirname, join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.1.0';
+const VERSION = '1.1.1';
 const DEFAULT_ENDPOINT = 'https://uier.io/api/mcp';
 const KEYCHAIN_SERVICE = 'uier-mcp';
 const BOOLEAN_FLAGS = new Set(['replace', 'screenshots', 'help']);
@@ -557,19 +557,31 @@ function classify(event, state, seen) {
     }
 }
 
-// The event feed has missed comments before, so compare the open list with the state too.
+// Compare current state too, including closed threads that may have a missed reply.
 async function reconcile(ctx, state, seen, found) {
     const now = Date.now();
-    const open = await allPages(ctx, 'list_feedback', { projectId: state.project.id, status: 'open' });
+    const open = await allPages(ctx, 'list_feedback', { projectId: state.project.id, status: 'all' });
     const listed = new Set();
     const reportedNow = new Set(found.map(hit => hit.commentId));
     seen.reported ??= {};
     seen.drift ??= {};
+    seen.replyCounts ??= {};
     for (const entry of open.items) {
         listed.add(entry.id);
-        if (reportedNow.has(entry.id)) continue;
         const item = state.items?.[entry.id];
+        const previousReplies = seen.replyCounts[entry.id];
+        // Seed old watcher state without inventing a reply. Keep the baseline current even
+        // when a feed event already woke us or the item is not waiting for the person.
+        if (Number.isInteger(entry.replyCount)) seen.replyCounts[entry.id] = entry.replyCount;
+        const waiting = item && item.decision !== 'skipped'
+            && (['asked', 'rejected'].includes(item.decision) || item.stage === 'ready');
+        if (waiting && Number.isInteger(previousReplies) && entry.replyCount > previousReplies
+            && !found.some(hit => hit.commentId === entry.id && hit.type === 'reply')) {
+            found.push({ type: 'reply', commentId: entry.id, number: entry.number, source: 'reconcile', replyCount: entry.replyCount });
+        }
+        if (reportedNow.has(entry.id)) continue;
         if (!item) {
+            if (entry.resolved || entry.stage === 'done') continue;
             const assignedToMe = state.scope === 'assigned' && isMyId(entry.assignee?.id, state);
             if (entry.authorKind !== 'member' && !assignedToMe) continue;
             if (seen.others?.[entry.id] && !assignedToMe) continue;

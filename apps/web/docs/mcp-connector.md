@@ -243,3 +243,9 @@ per-connection/project budget (access token or connected app), then the owner's 
 connections must not exhaust the owner. Page, screenshot, paid rewrite and MCP transport limits stay independent. Coverage is in
 `review-rate-limits.api.spec.ts`, `public-project.api.spec.ts`, `mcp.api.spec.ts` and the unchanged
 `comments.api.spec.ts` rate cases.
+
+The event ledger includes the owner’s web-app actions and own private feedback, including in
+uier’s feedback projects. Only actions attributed to the calling connection are excluded;
+other connections of the same account remain visible. `list_feedback.replyCount` counts reply
+items (including deleted placeholders), so watchers can detect missed replies without treating
+status or assignment changes as messages. It does not acknowledge read state.

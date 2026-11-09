@@ -12,7 +12,8 @@ import { callbackUrl, webhookSecretBytes } from '../src/lib/mcp/events/webhook';
 import { getAppStore } from '../src/lib/app/store';
 import { findOrCreateUser } from '../src/lib/app/users';
 import { ensureOwnWorkspace } from '../src/lib/app/workspaces';
-import { createProject } from '../src/lib/app/projects';
+import { getProject, createProject } from '../src/lib/app/projects';
+import { joinPublicProject, PUBLIC_WORKSPACE_ID, USER_FEEDBACK_PROJECT_ID } from '../src/lib/comments/publicProject';
 import { memberId, workspacePk, type DbMember } from '../src/lib/app/model';
 import type { AppContext } from '../src/lib/app/context';
 import { createProjectComment, replyToProjectComment, setProjectCommentAssignee, setProjectCommentAssignees, setProjectCommentPrivate, setProjectCommentResolved } from '../src/lib/review/comments';
@@ -483,6 +484,40 @@ test('list_feedback_events polls several events with one cursor for clients that
         expect(data(invalid).error).toBe('invalid_request');
         expect(data(await call({ cursor: `v1:${(Date.now() - 8 * 86_400_000).toString(36)}::` })).truncated).toBe(true);
     } finally { await client.close(); }
+});
+
+test('own web actions on private uier feedback are recorded without email and only the calling connection is excluded', async () => {
+    const user = await findOrCreateUser(`mcp-own-feedback-${randomUUID()}@example.com`);
+    const member = await joinPublicProject(user);
+    const project = (await getProject(PUBLIC_WORKSPACE_ID, USER_FEEDBACK_PROJECT_ID))!;
+    const actor = (await memberActor(project, user.id))!;
+    expect(actor.kind === 'member' && actor.isAdmin).toBe(false);
+    const context = { user, member, workspace: { id: PUBLIC_WORKSPACE_ID }, isAdmin: false } as AppContext;
+    const grant = { projectIds: [project.id], scopes: ['feedback:read', 'feedback:reply'], days: 7 };
+    const { token } = await createMcpCredential(context, { ...grant, name: 'Owner monitor' });
+    const second = await createMcpCredential(context, { ...grant, name: 'Other connection' });
+    const client = await connect(token);
+    const other = await connect(second.token);
+    const call = async (cursor: string | null) => data(await client.callTool({ name: 'list_feedback_events', arguments: { projectId: project.id, cursor } }));
+    try {
+        const start = await call(null);
+        const thread = await createProjectComment(new Request(base), project, actor, { origin: 'https://uier.io', path: '/app/account', kind: 'feedback', position: { type: 'page' }, text: 'My private comment' });
+        await replyToProjectComment(new Request(base), project, actor, thread.id, { text: 'My web reply' });
+        for (const [connection, text] of [[client, 'Do not echo'], [other, 'Other connection reply']] as const) {
+            expect((await connection.callTool({ name: 'reply_to_feedback', arguments: { projectId: project.id, commentId: thread.id, text, idempotencyKey: randomUUID() } })).isError).toBeFalsy();
+        }
+        const page = await call(start.cursor);
+        expect(page.items.map((event: Record<string, any>) => [event.name, event.data.excerpt])).toEqual([
+            ['feedback.created', 'My private comment'], ['feedback.replied', 'My web reply'], ['feedback.replied', 'Other connection reply']
+        ]);
+        const stored = (await getCommentsStore().get(`project:${project.id}`, thread.id))!.comment;
+        expect(stored.private).toBe(true);
+        expect(stored.notificationPending).toBe(false);
+        expect(stored.notificationEvents).toHaveLength(4);
+        const listed = data(await client.callTool({ name: 'list_feedback', arguments: { projectId: project.id } }));
+        expect(listed.items.find((entry: Record<string, any>) => entry.id === thread.id).replyCount).toBe(3);
+        expect((await call(page.cursor)).items).toEqual([]);
+    } finally { await client.close(); await other.close(); }
 });
 
 test('events/poll rejects invalid requests with the MCP Events error codes and logs only counts', async () => {

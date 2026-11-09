@@ -15,7 +15,7 @@ import { dirname, join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.1.0';
+const VERSION = '1.1.1';
 const DEFAULT_ENDPOINT = 'https://uier.io/api/mcp';
 const KEYCHAIN_SERVICE = 'uier-mcp';
 const BOOLEAN_FLAGS = new Set(['replace', 'screenshots', 'help']);
@@ -528,19 +528,31 @@ function classify(event, state, seen) {
     }
 }
 
-// The event feed has missed comments before, so compare the open list with the state too.
+// Compare current state too, including closed threads that may have a missed reply.
 async function reconcile(ctx, state, seen, found) {
     const now = Date.now();
-    const open = await allPages(ctx, 'list_feedback', { projectId: state.project.id, status: 'open' });
+    const open = await allPages(ctx, 'list_feedback', { projectId: state.project.id, status: 'all' });
     const listed = new Set();
     const reportedNow = new Set(found.map(hit => hit.commentId));
     seen.reported ??= {};
     seen.drift ??= {};
+    seen.replyCounts ??= {};
     for (const entry of open.items) {
         listed.add(entry.id);
-        if (reportedNow.has(entry.id)) continue;
         const item = state.items?.[entry.id];
+        const previousReplies = seen.replyCounts[entry.id];
+        // Seed old watcher state without inventing a reply. Keep the baseline current even
+        // when a feed event already woke us or the item is not waiting for the person.
+        if (Number.isInteger(entry.replyCount)) seen.replyCounts[entry.id] = entry.replyCount;
+        const waiting = item && item.decision !== 'skipped'
+            && (['asked', 'rejected'].includes(item.decision) || item.stage === 'ready');
+        if (waiting && Number.isInteger(previousReplies) && entry.replyCount > previousReplies
+            && !found.some(hit => hit.commentId === entry.id && hit.type === 'reply')) {
+            found.push({ type: 'reply', commentId: entry.id, number: entry.number, source: 'reconcile', replyCount: entry.replyCount });
+        }
+        if (reportedNow.has(entry.id)) continue;
         if (!item) {
+            if (entry.resolved || entry.stage === 'done') continue;
             const assignedToMe = state.scope === 'assigned' && isMyId(entry.assignee?.id, state);
             if (entry.authorKind !== 'member' && !assignedToMe) continue;
             if (seen.others?.[entry.id] && !assignedToMe) continue;
