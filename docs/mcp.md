@@ -834,16 +834,16 @@ human connection owner and connection identity, including across token refresh.
 ### Agents working on feedback
 
 The person a thread is assigned to can have one AI agent working under them: Claude, Codex, ChatGPT,
-Cursor or a generic AI agent, with the session id and model it reported. The app shows its logo with
+Cursor or a generic AI agent, with the session id, model and reasoning level it reported. The app shows its logo with
 the assignee ([review workflow](review-workflow.md#ai-agents-under-the-assignee)). A coding tool
 attaches itself when it starts working on feedback assigned to its owner:
 
 | Tool | Scope | Input and meaning |
 | --- | --- | --- |
-| `set_feedback_agent` | `feedback:assign` | Thread ids, stable retry key, optional `agent` (`claude`, `codex`, `chatgpt`, `cursor` or `agent`), optional `sessionId` (up to 200 characters) and `model` (up to 100), optional `assignToMe`. Attaching moves Open feedback to In progress when the connection also has `feedback:status`. Calling it again updates the details. |
+| `set_feedback_agent` | `feedback:assign` | Thread ids, stable retry key, optional `agent` (`claude`, `codex`, `chatgpt`, `cursor` or `agent`), optional `sessionId` (up to 200 characters), `model` (up to 100) and `reasoning` (the reasoning level or effort, up to 32), optional `assignToMe`. Attaching moves Open feedback to In progress when the connection also has `feedback:status`. Calling it again updates the details; a detail it leaves out is cleared. |
 | `clear_feedback_agent` | `feedback:assign` | Thread ids and stable retry key. Removes the agent, for example when the tool stops without finishing. |
 
-Both return `{ actingAs, commentId, assigneeId, agent, stage }`, `agent` being `{ kind, label, model?, sessionId?, setAt }`
+Both return `{ actingAs, commentId, assigneeId, agent, stage }`, `agent` being `{ kind, label, model?, reasoning?, sessionId?, setAt }`
 or `null` and `stage` the thread's status after the write (`open`, `in-progress`, `ready` or `done`).
 
 - **Only under its owner.** The thread must be assigned to the connection's owner. Feedback assigned to
@@ -870,10 +870,13 @@ or `null` and `stage` the thread's status after the write (`open`, `in-progress`
   see it, with their agent.
 - The details are untrusted text from the tool or the person: one line, no control characters.
   `feedback.agent_changed` payloads add `assignee: { id, name }` (the person it works under, or `null`)
-  and `agent: { kind, label, model?, sessionId? }` or `null` to the common fields.
+  and `agent: { kind, label, model?, reasoning?, sessionId? }` or `null` to the common fields.
+- **The reasoning level** is short free text in the tool's own words (Claude's `low` to `max`, OpenAI's
+  `minimal` to `high`), not a fixed list: providers name their levels differently and add new ones.
+  Agents attached before it existed simply have none.
 - Activity and attribution follow assignments: each change advances the thread's unread activity and
   records the connection as the connector. Agent changes are never emailed; the move to In progress
   that attaching can make is, like any status change.
 - `get_feedback` packets name the agent beside the assignee (`context.assignee.agent`, and
-  `Agent:`, `Model:` and `Session:` in the Markdown). Connected services (GitHub, Linear, Notion, Slack,
+  `Agent:`, `Model:`, `Reasoning:` and `Session:` in the Markdown). Connected services (GitHub, Linear, Notion, Slack,
   Azure DevOps) get the assignee's name only, never the agent.

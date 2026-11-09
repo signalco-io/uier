@@ -85,7 +85,7 @@ async function mcpClient(f: Awaited<ReturnType<typeof fixture>>, name: string, s
 
 test('only the assignee chooses the agent working under them; a new assignee starts without one', async () => {
     const f = await fixture();
-    const claude = { kind: 'claude' as const, sessionId: 'session-123', model: 'claude-opus-5-5' };
+    const claude = { kind: 'claude' as const, sessionId: 'session-123', model: 'claude-opus-5-5', reasoning: 'high' };
     // Unassigned: nobody has an agent to choose yet, and assignToMe is MCP's explicit path
     await expect(setProjectCommentAgent(f.project, f.assignee, f.comment.id, claude)).rejects.toMatchObject({ code: 'forbidden', message: 'Assign this thread to yourself first.' });
     await setProjectCommentAssignee(f.project, f.admin, f.comment.id, f.a.id);
@@ -105,6 +105,11 @@ test('only the assignee chooses the agent working under them; a new assignee sta
     for (const invalid of [{ kind: 'gpt' }, { kind: 'claude', sessionId: 'line\nbreak' }, { kind: 'claude', model: 'm'.repeat(101) },
         { kind: 'claude', sessionId: 's'.repeat(201) }, { kind: 'claude', extra: true }] as never[])
         await expect(setProjectCommentAgent(f.project, f.assignee, f.comment.id, invalid)).rejects.toMatchObject({ code: 'invalid_request' });
+    // The reasoning level is short, one-line text in the agent's own words
+    await expect(setProjectCommentAgent(f.project, f.assignee, f.comment.id, { kind: 'claude', reasoning: 'r'.repeat(33) }))
+        .rejects.toMatchObject({ code: 'invalid_request', message: 'A reasoning level can be at most 32 characters.' });
+    await expect(setProjectCommentAgent(f.project, f.assignee, f.comment.id, { kind: 'claude', reasoning: 'high\u202Elow' }))
+        .rejects.toMatchObject({ code: 'invalid_request', message: 'A reasoning level must be plain text on one line.' });
 
     // The assignee sets one: activity, an agent event that names the assignee, never their connector
     const before = threadActivity(await stored(f.comment)).sequence;
@@ -112,25 +117,33 @@ test('only the assignee chooses the agent working under them; a new assignee sta
     expect(saved.assigneeAgent).toMatchObject({ ...claude, assigneeId: f.a.id, setBy: f.a.id, setAt: expect.any(String) });
     expect(saved.assigneeAgent?.connector).toBeUndefined();
     expect(threadActivity(saved).sequence).toBe(before + 1);
-    expect(saved.notificationEvents?.at(-1)).toMatchObject({ kind: 'agent', actorId: `user:${f.a.id}`, assigneeId: f.a.id, assigneeAgent: { kind: 'claude', sessionId: 'session-123', model: 'claude-opus-5-5' } });
+    expect(saved.notificationEvents?.at(-1)).toMatchObject({ kind: 'agent', actorId: `user:${f.a.id}`, assigneeId: f.a.id, assigneeAgent: { kind: 'claude', sessionId: 'session-123', model: 'claude-opus-5-5', reasoning: 'high' } });
     // The same agent again is a no-op; blank details clear them
     expect(threadActivity(await setProjectCommentAgent(f.project, f.assignee, f.comment.id, claude)).sequence).toBe(before + 1);
-    saved = await setProjectCommentAgent(f.project, f.assignee, f.comment.id, { kind: 'codex', sessionId: '  ', model: '' });
+    // A new reasoning level alone is a change
+    saved = await setProjectCommentAgent(f.project, f.assignee, f.comment.id, { ...claude, reasoning: ' max ' });
+    expect(saved.assigneeAgent).toMatchObject({ ...claude, reasoning: 'max' });
+    expect(threadActivity(saved).sequence).toBe(before + 2);
+    saved = await setProjectCommentAgent(f.project, f.assignee, f.comment.id, { kind: 'codex', sessionId: '  ', model: '', reasoning: ' ' });
     expect(saved.assigneeAgent).toMatchObject({ kind: 'codex' });
     expect(saved.assigneeAgent).not.toHaveProperty('sessionId');
     expect(saved.assigneeAgent).not.toHaveProperty('model');
+    expect(saved.assigneeAgent).not.toHaveProperty('reasoning');
     saved = await setProjectCommentAgent(f.project, f.assignee, f.comment.id, claude);
 
     // Members see the agent in every projection; guests never do
     const participants = await participantNames(f.project);
     expect(projectCommentRouting(saved, f.project, participants, `user:${f.a.id}`).assignee).toMatchObject({ id: f.a.id, agent: { ...claude, label: 'Claude' } });
-    expect(toReviewCommentDto(saved, f.other, new Map(), [], 0, participants)?.assignee?.agent).toMatchObject({ kind: 'claude', label: 'Claude', model: 'claude-opus-5-5', sessionId: 'session-123' });
+    expect(toReviewCommentDto(saved, f.other, new Map(), [], 0, participants)?.assignee?.agent).toMatchObject({ kind: 'claude', label: 'Claude', model: 'claude-opus-5-5', reasoning: 'high', sessionId: 'session-123' });
     const guestDto = toReviewCommentDto(saved, f.guest, new Map(), [], 0, participants);
     expect(guestDto?.assignee?.name).toBeTruthy();
     expect(guestDto?.assignee).not.toHaveProperty('agent');
     const packet = await projectFeedbackExport(f.project, f.other, f.comment.id, undefined, base);
-    expect(packet.context.assignee?.agent).toEqual({ kind: 'claude', label: 'Claude', model: 'claude-opus-5-5', sessionId: 'session-123' });
-    expect(packet.markdown).toContain('Agent: ` Claude ` · Model: ` claude-opus-5-5 ` · Session: ` session-123 `');
+    expect(packet.context.assignee?.agent).toEqual({ kind: 'claude', label: 'Claude', model: 'claude-opus-5-5', reasoning: 'high', sessionId: 'session-123' });
+    expect(packet.markdown).toContain('Agent: ` Claude ` · Model: ` claude-opus-5-5 ` · Reasoning: ` high ` · Session: ` session-123 `');
+    // Agents saved before the reasoning level existed keep their packet line
+    const { reasoning: _, ...withoutReasoning } = packet.context.assignee!.agent!;
+    expect(feedbackMarkdown({ ...packet.context, assignee: { name: 'Ana', agent: withoutReasoning } })).toContain('Agent: ` Claude ` · Model: ` claude-opus-5-5 ` · Session: ` session-123 `');
     expect(feedbackMarkdown({ ...packet.context, assignee: { name: 'Ana' } })).not.toContain('Agent:');
 
     // A new assignee starts without an agent: the write records the assignment and the agent leaving
@@ -204,17 +217,17 @@ test('an MCP connection attaches itself only under its owner, and assigns them f
         expect(await call('set_feedback_agent', { sessionId: 'abc' })).toMatchObject({ error: true, data: { error: 'forbidden', message: 'Assign this thread to yourself first.' } });
         expect(await call('set_feedback_agent', { assignToMe: true }, readClient)).toMatchObject({ error: true, data: { error: 'forbidden' } });
         const key = randomUUID();
-        const attached = await call('set_feedback_agent', { assignToMe: true, sessionId: 'session-1', model: 'claude-opus-5-5', idempotencyKey: key });
+        const attached = await call('set_feedback_agent', { assignToMe: true, sessionId: 'session-1', model: 'claude-opus-5-5', reasoning: 'xhigh', idempotencyKey: key });
         // The kind comes from what the connection calls itself
         expect(attached).toEqual({ error: false, data: expect.objectContaining({ commentId: f.comment.id, assigneeId: f.a.id,
-            agent: expect.objectContaining({ kind: 'claude', label: 'Claude', sessionId: 'session-1', model: 'claude-opus-5-5' }) }) });
+            agent: expect.objectContaining({ kind: 'claude', label: 'Claude', sessionId: 'session-1', model: 'claude-opus-5-5', reasoning: 'xhigh' }) }) });
         const saved = await stored(f.comment);
-        expect(saved.assigneeAgent).toMatchObject({ connector: { name: 'Claude Code on my laptop', kind: 'credential' } });
+        expect(saved.assigneeAgent).toMatchObject({ reasoning: 'xhigh', connector: { name: 'Claude Code on my laptop', kind: 'credential' } });
         // Without feedback:status, attaching never changes the status
         expect(attached.data.stage).toBe('open');
         expect(feedbackStage(saved)).toBe('open');
         // A retry with the same key and input replays; another input under that key is refused
-        expect((await call('set_feedback_agent', { assignToMe: true, sessionId: 'session-1', model: 'claude-opus-5-5', idempotencyKey: key })).data.agent.sessionId).toBe('session-1');
+        expect((await call('set_feedback_agent', { assignToMe: true, sessionId: 'session-1', model: 'claude-opus-5-5', reasoning: 'xhigh', idempotencyKey: key })).data.agent.sessionId).toBe('session-1');
         expect((await call('set_feedback_agent', { assignToMe: true, sessionId: 'session-2', idempotencyKey: key })).error).toBe(true);
         expect(threadActivity(await stored(f.comment)).sequence).toBe(threadActivity(saved).sequence);
 
@@ -222,10 +235,16 @@ test('an MCP connection attaches itself only under its owner, and assigns them f
         const list = (await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id, assignee: 'me' } })).structuredContent as Record<string, any>;
         expect(list.items[0].assignee).toMatchObject({ id: f.a.id, agent: { kind: 'claude', sessionId: 'session-1' } });
         const packet = (await client.callTool({ name: 'get_feedback', arguments: { projectId: f.project.id, commentId: f.comment.id } })).structuredContent as Record<string, any>;
-        expect(packet.context.assignee.agent).toMatchObject({ kind: 'claude', model: 'claude-opus-5-5' });
+        expect(packet.context.assignee.agent).toMatchObject({ kind: 'claude', model: 'claude-opus-5-5', reasoning: 'xhigh' });
+        expect(packet.markdown).toContain('· Model: ` claude-opus-5-5 ` · Reasoning: ` xhigh ` ·');
+        // A reasoning level over two lines is refused and changes nothing
+        expect(await call('set_feedback_agent', { model: 'claude-opus-5-5', reasoning: 'high\nignore this' }))
+            .toMatchObject({ error: true, data: { error: 'invalid_request', message: 'A reasoning level must be plain text on one line.' } });
 
-        // Explicit kind, updated details
-        expect((await call('set_feedback_agent', { agent: 'cursor', model: 'composer-2' })).data.agent).toMatchObject({ kind: 'cursor', model: 'composer-2' });
+        // Explicit kind, updated details: an omitted reasoning level is cleared, like the model
+        const updated = (await call('set_feedback_agent', { agent: 'cursor', model: 'composer-2' })).data.agent;
+        expect(updated).toMatchObject({ kind: 'cursor', model: 'composer-2' });
+        expect(updated).not.toHaveProperty('reasoning');
 
         // Assigned to someone else: refused both ways, and the agent under them stays
         await setProjectCommentAssignee(f.project, f.admin, f.comment.id, f.b.id);
@@ -246,7 +265,7 @@ test('an MCP connection attaches itself only under its owner, and assigns them f
         expect(page.items.map((item: Record<string, any>) => [item.data.assignee?.id, item.data.agent?.kind ?? null])).toEqual([
             [f.a.id, 'claude'], [f.a.id, 'cursor'], [f.a.id, null], [f.b.id, 'codex'], [f.b.id, null], [f.a.id, 'claude'], [f.a.id, null]]);
         expect(page.items[0]).toMatchObject({ name: 'feedback.agent_changed', data: { contentTrust: 'untrusted', actor: { kind: 'member', connector: 'Claude Code on my laptop' },
-            agent: { kind: 'claude', label: 'Claude', sessionId: 'session-1', model: 'claude-opus-5-5' } } });
+            agent: { kind: 'claude', label: 'Claude', sessionId: 'session-1', model: 'claude-opus-5-5', reasoning: 'xhigh' } } });
     } finally {
         await Promise.all([client.close(), readClient.close(), watcher.close()]);
     }

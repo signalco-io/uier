@@ -28,7 +28,7 @@ import { environmentFilter, environmentOptions } from '../app/environments';
 import { projectCommentRouting } from '../app/projectCommentRouting';
 import { loadReadSequences } from '../comments/readState';
 import { userIdSchema } from '../app/validation';
-import { agentKinds, inferAgentKind, MAX_AGENT_MODEL_LENGTH, MAX_AGENT_SESSION_LENGTH } from '@uier/toolbar/agents';
+import { agentKinds, inferAgentKind, MAX_AGENT_MODEL_LENGTH, MAX_AGENT_REASONING_LENGTH, MAX_AGENT_SESSION_LENGTH } from '@uier/toolbar/agents';
 import { setProjectCommentAgent } from '../review/assigneeAgent';
 import { assigneeAgentView } from '../review/assigneeAgentModel';
 
@@ -229,16 +229,17 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
     }));
     const agentResult = (saved: Awaited<ReturnType<typeof setProjectCommentAgent>>) =>
         result({ actingAs, commentId: saved.id, assigneeId: saved.assigneeId ?? null, agent: assigneeAgentView(saved) ?? null, stage: feedbackStage(saved) });
-    server.registerTool('set_feedback_agent', { description: `When you start working on feedback assigned to the connection owner, attach yourself as the AI agent working under them, with your session id and model when you know them; call again to update them. Attaching yourself moves Open feedback to In progress when this connection can also change status (feedback:status); feedback that is In progress, Ready to verify or Done keeps its status, and updating or clearing the agent never changes it. Only the assignee's own connection can: feedback assigned to someone else is refused. For unassigned feedback, pass assignToMe only when the person explicitly asked to take it. ${untrusted}`, inputSchema: {
+    server.registerTool('set_feedback_agent', { description: `When you start working on feedback assigned to the connection owner, attach yourself as the AI agent working under them, with your session id, model and reasoning level when you know them; call again to update them (an omitted detail is cleared). Attaching yourself moves Open feedback to In progress when this connection can also change status (feedback:status); feedback that is In progress, Ready to verify or Done keeps its status, and updating or clearing the agent never changes it. Only the assignee's own connection can: feedback assigned to someone else is refused. For unassigned feedback, pass assignToMe only when the person explicitly asked to take it. ${untrusted}`, inputSchema: {
         ...write,
         agent: z.enum(agentKinds).optional().describe('Which agent you are: claude, codex, chatgpt, cursor, or agent for any other. Omit it to use the one this connection identifies as.'),
         sessionId: z.string().max(MAX_AGENT_SESSION_LENGTH).optional().describe(`Your session or conversation id, when you have one (up to ${MAX_AGENT_SESSION_LENGTH} characters).`),
         model: z.string().max(MAX_AGENT_MODEL_LENGTH).optional().describe(`The model you run on, when you know it (up to ${MAX_AGENT_MODEL_LENGTH} characters).`),
+        reasoning: z.string().max(MAX_AGENT_REASONING_LENGTH).optional().describe(`The reasoning level (effort) you run at, when you know it, as your tool names it: for example low, medium, high, xhigh or max for Claude, minimal to high for OpenAI models (up to ${MAX_AGENT_REASONING_LENGTH} characters, one line).`),
         assignToMe: z.boolean().default(false).describe('Assign unassigned feedback to the connection owner first, in the same write. Only when the person explicitly asked for it.')
     }, annotations: writeAnnotations }, input => safely(async () => {
         const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:assign');
         const kind = input.agent ?? inferAgentKind(identity.connection.name, identity.connection.clientId, request.headers.get('user-agent'));
-        return agentResult(await setProjectCommentAgent(project, actor, input.commentId, { kind, sessionId: input.sessionId, model: input.model },
+        return agentResult(await setProjectCommentAgent(project, actor, input.commentId, { kind, sessionId: input.sessionId, model: input.model, reasoning: input.reasoning },
             { idempotencyKey: key(identity, input.idempotencyKey), assignToMe: input.assignToMe, startWork: identity.scopes.includes('feedback:status') }));
     }));
     server.registerTool('clear_feedback_agent', { description: `Remove the AI agent working under the connection owner on feedback assigned to them, for example when you stop working on it. Feedback assigned to someone else is refused. ${untrusted}`, inputSchema: write, annotations: writeAnnotations }, input => safely(async () => {

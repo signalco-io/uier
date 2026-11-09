@@ -36,6 +36,7 @@ export function feedbackExport(dto: CommentDto & { reproduction?: ReproductionCo
         ...(options.assigneeName ? { assignee: { name: options.assigneeName, ...(options.assigneeAgent ? { agent: {
             kind: options.assigneeAgent.kind, label: options.assigneeAgent.label,
             ...(options.assigneeAgent.model ? { model: options.assigneeAgent.model } : {}),
+            ...(options.assigneeAgent.reasoning ? { reasoning: options.assigneeAgent.reasoning } : {}),
             ...(options.assigneeAgent.sessionId ? { sessionId: options.assigneeAgent.sessionId } : {})
         } } : {}) } } : {}),
         anchor: !available || position.type === 'page' ? { type: position.type }

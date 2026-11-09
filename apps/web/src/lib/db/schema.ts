@@ -96,8 +96,8 @@ export type DbThreadItem = {
 /**
  * The AI agent working on a thread under its assignee (one at most). Only the assignee sets or clears it,
  * in the app or through their own MCP connection; it belongs to `assigneeId` and is shown only while that
- * person is still the thread's assignee (a new assignment removes it). `sessionId` and `model` are what
- * the agent or its assignee said: untrusted display text.
+ * person is still the thread's assignee (a new assignment removes it). `sessionId`, `model` and `reasoning`
+ * (the reasoning level, or effort, it runs at) are what the agent or its assignee said: untrusted display text.
  */
 export type DbAssigneeAgent = {
     kind: import('@uier/toolbar/agents').AgentKind;
@@ -105,6 +105,7 @@ export type DbAssigneeAgent = {
     assigneeId: string;
     sessionId?: string;
     model?: string;
+    reasoning?: string;
     /** The user id of who set it (the assignee) and when it last changed (ISO 8601, server time) */
     setBy: string;
     setAt: string;

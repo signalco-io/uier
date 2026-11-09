@@ -253,15 +253,16 @@ Unassignment targets the previous assignee, subject to the same rules.
 A thread's assignee can have one AI agent working under them: Claude, Codex, ChatGPT, Cursor or a
 generic AI agent. Its one-colour logo (`@uier/toolbar/agents`, drawn by `AgentMark` and `AgentAvatar`) sits
 on the right edge of the assignee's avatar in list rows, board cards and My work, and in the toolbar
-thread's header; the avatar's name says both ("Assigned to Ana, with Claude (claude-opus-5-5)").
-Under Assignee the app's thread reads "You with", the agent's logo, "Claude" and the model in mono.
+thread's header; the avatar's name says both ("Assigned to Ana, with Claude (claude-opus-5-5, high reasoning)").
+Under Assignee the app's thread reads "You with", the agent's logo, "Claude", the model in mono and the
+reasoning level ("high reasoning").
 
 - **Who sets it.** Only the assignee, for themselves: **Add agent** after their name (Claude, Codex,
-  ChatGPT, Cursor, AI agent), then the agent's menu changes it, opens **Session and model** (the less
-  common, manual path) or removes it. Other members, admins included, see it but cannot change it;
+  ChatGPT, Cursor, AI agent), then the agent's menu changes it, opens **Session and model** (session id,
+  model and reasoning level: the less common, manual path) or removes it. Other members, admins included, see it but cannot change it;
   guests never see it. The toolbar shows it and has no control for it.
 - **Coding tools set it themselves.** Through MCP, a tool attaches itself under its owner when it starts
-  on feedback assigned to them, with its session id and model ([MCP](mcp.md#agents-working-on-feedback)).
+  on feedback assigned to them, with its session id, model and reasoning level ([MCP](mcp.md#agents-working-on-feedback)).
   It never attaches under someone else; for unassigned feedback it assigns its owner first, only when
   the person asked. Attaching moves an Open thread to In progress ([In progress](#in-progress)); the
   app's **Add agent** does not.
@@ -269,13 +270,13 @@ Under Assignee the app's thread reads "You with", the agent's logo, "Claude" and
   assignee who cannot see it removes the agent in the same write. An agent saved under an earlier
   assignee is never shown (`currentAssigneeAgent`).
 - **Stored on the thread** as `assigneeAgent`: kind, the assignee it works under, optional session id
-  (200 characters) and model (100), who set it and when, and the MCP connection that attached it.
+  (200 characters), model (100) and reasoning level (32, free text in the agent's own words), who set it and when, and the MCP connection that attached it.
   Each change advances the shared unread activity and records an `agent` event in `notificationEvents`
   (MCP `feedback.agent_changed`); agent events are never emailed. Copy issue and MCP packets include it
   for members; connected services get the assignee's name only.
 - `setProjectCommentAgent` (`review/assigneeAgent.ts`) is the one service; `setCommentAgentAction` and the
   MCP tools call it. `e2e/assignee-agent.api.spec.ts` covers the rules and `e2e/assignee-agent.spec.ts`
-  picking an agent, its logo in the thread and the menu, its details and its avatar on rows, the board and the toolbar.
+  picking an agent, its logo in the thread and the menu, its details (reasoning level included) and its avatar on rows, the board and the toolbar.
 
 ### Review email notifications
 

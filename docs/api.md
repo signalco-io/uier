@@ -74,7 +74,7 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
   comments are listed only to admins and their author. Comments carry `permissions` and `canDelete`.
   Assignee ids and mention ids use `^u_[A-Za-z0-9_-]{1,64}$`; malformed assignment ids return
   `400 invalid_request` before any participant lookup. Members also get `assignee.agent`, the AI agent
-  working under the assignee (`{ kind, label, model?, sessionId?, setAt }`); guests never do, and the
+  working under the assignee (`{ kind, label, model?, reasoning?, sessionId?, setAt }`); guests never do, and the
   review API has no write for it ([AI agents](review-workflow.md#ai-agents-under-the-assignee)).
 - Comments live in the comments container under the partition `project:<code>`, with the site's origin,
   the author (`user:<id>` for members) and no TTL. Guests keep the comments API's visitor and IP limits.

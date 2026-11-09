@@ -8,9 +8,15 @@ export const agentLabels: Record<AgentKind, string> = { claude: 'Claude', codex:
 
 export const MAX_AGENT_SESSION_LENGTH = 200;
 export const MAX_AGENT_MODEL_LENGTH = 100;
+/**
+ * The reasoning level (effort) an agent runs at, as its tool names it: Claude's low, medium, high, xhigh
+ * and max, OpenAI's minimal, low, medium and high. Short free text rather than a fixed list, because each
+ * provider names its levels differently and adds new ones.
+ */
+export const MAX_AGENT_REASONING_LENGTH = 32;
 
-/** What views show about the agent; `sessionId` and `model` are what the agent or its assignee said, untrusted. */
-export type AssigneeAgentView = { kind: AgentKind; label: string; model?: string; sessionId?: string; setAt?: string };
+/** What views show about the agent; `sessionId`, `model` and `reasoning` are what the agent or its assignee said, untrusted. */
+export type AssigneeAgentView = { kind: AgentKind; label: string; model?: string; reasoning?: string; sessionId?: string; setAt?: string };
 
 export function isAgentKind(value: unknown): value is AgentKind {
     return typeof value === 'string' && agentKinds.includes(value as AgentKind);
@@ -30,9 +36,18 @@ export function inferAgentKind(...hints: (string | null | undefined)[]): AgentKi
     return 'agent';
 }
 
-/** "Claude" or "Claude (claude-opus-5-5)": a one-line description, the same words in the app and toolbar */
-export function agentText(agent: Pick<AssigneeAgentView, 'label' | 'model'>) {
-    return agent.model ? `${agent.label} (${agent.model})` : agent.label;
+/** "high reasoning": the reasoning level as the thread shows it, beside the model */
+export function reasoningText(reasoning: string) {
+    return `${reasoning} reasoning`;
+}
+
+/**
+ * "Claude", "Claude (claude-opus-5-5)" or "Claude (claude-opus-5-5, high reasoning)": a one-line
+ * description, the same words in the app and toolbar
+ */
+export function agentText(agent: Pick<AssigneeAgentView, 'label' | 'model' | 'reasoning'>) {
+    const details = [agent.model, agent.reasoning && reasoningText(agent.reasoning)].filter(Boolean);
+    return details.length ? `${agent.label} (${details.join(', ')})` : agent.label;
 }
 
 /**

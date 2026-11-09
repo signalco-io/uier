@@ -3,7 +3,9 @@
 import { useId, useRef, useState, useTransition, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import { ChevronDownIcon, PlusIcon } from 'lucide-react';
-import { agentKinds, agentLabels, MAX_AGENT_MODEL_LENGTH, MAX_AGENT_SESSION_LENGTH, type AgentKind, type AssigneeAgentView } from '@uier/toolbar/agents';
+import {
+    agentKinds, agentLabels, MAX_AGENT_MODEL_LENGTH, MAX_AGENT_REASONING_LENGTH, MAX_AGENT_SESSION_LENGTH, reasoningText, type AgentKind, type AssigneeAgentView
+} from '@uier/toolbar/agents';
 import { Button } from '@/src/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/src/components/ui/dialog';
 import {
@@ -17,7 +19,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger
 } from '@/src/components/ui/dropdown-menu';
-import { Field, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field';
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/src/components/ui/field';
 import { Input } from '@/src/components/ui/input';
 import { Spinner } from '@/src/components/ui/spinner';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
@@ -28,13 +30,22 @@ import { useCommentUpdate } from './CommentUpdates';
 
 function agentView(input: AssigneeAgentInput): AssigneeAgentView {
     const model = input.model?.trim();
+    const reasoning = input.reasoning?.trim();
     const sessionId = input.sessionId?.trim();
-    return { kind: input.kind, label: agentLabels[input.kind], ...(model ? { model } : {}), ...(sessionId ? { sessionId } : {}) };
+    return { kind: input.kind, label: agentLabels[input.kind], ...(model ? { model } : {}), ...(reasoning ? { reasoning } : {}), ...(sessionId ? { sessionId } : {}) };
+}
+
+/** The model in mono and the reasoning level after it ("claude-opus-5-5 high reasoning"), each truncated on narrow screens */
+function AgentDetails({ agent }: { agent: AssigneeAgentView }) {
+    return <>
+        {agent.model && <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">{agent.model}</span>}
+        {agent.reasoning && <span data-agent-reasoning="" className="min-w-0 truncate text-xs text-muted-foreground">{reasoningText(agent.reasoning)}</span>}
+    </>;
 }
 
 /**
  * The AI agent working under the assignee, after their name in the thread's Assignee field. The assignee
- * picks it (Claude, Codex, ChatGPT, Cursor or AI agent), shown by its logo and name, edits its session id and model (agents usually
+ * picks it (Claude, Codex, ChatGPT, Cursor or AI agent), shown by its logo and name, edits its session id, model and reasoning level (agents usually
  * report these themselves through MCP) or removes it; everyone else reads "with Claude".
  */
 export function AgentControl({ projectId, comment }: { projectId: string; comment: ProjectCommentView }) {
@@ -42,7 +53,7 @@ export function AgentControl({ projectId, comment }: { projectId: string; commen
     const update = useCommentUpdate();
     const attempt = useRef<{ value: string; key: string } | null>(null);
     const [editing, setEditing] = useState(false);
-    const [details, setDetails] = useState({ sessionId: '', model: '' });
+    const [details, setDetails] = useState({ sessionId: '', model: '', reasoning: '' });
     const [error, setError] = useState<string>();
     const trigger = useRef<HTMLButtonElement>(null);
     const ids = useId();
@@ -53,11 +64,11 @@ export function AgentControl({ projectId, comment }: { projectId: string; commen
     if (!comment.permissions.agent) {
         if (!agent) return null;
         return (
-            <span className="inline-flex min-w-0 items-center gap-1.5">
+            <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
                 <span className="text-muted-foreground">with</span>
                 <AgentMark kind={agent.kind} />
-                <span className="truncate">{agent.label}</span>
-                {agent.model && <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">{agent.model}</span>}
+                <span className="shrink-0">{agent.label}</span>
+                <AgentDetails agent={agent} />
             </span>
         );
     }
@@ -84,7 +95,7 @@ export function AgentControl({ projectId, comment }: { projectId: string; commen
         if (failed) toast.error(failed);
     });
     const openDetails = () => {
-        setDetails({ sessionId: agent?.sessionId ?? '', model: agent?.model ?? '' });
+        setDetails({ sessionId: agent?.sessionId ?? '', model: agent?.model ?? '', reasoning: agent?.reasoning ?? '' });
         setError(undefined);
         setEditing(true);
     };
@@ -92,7 +103,7 @@ export function AgentControl({ projectId, comment }: { projectId: string; commen
         event.preventDefault();
         if (!agent) return;
         start(async () => {
-            const failed = await save({ kind: agent.kind, sessionId: details.sessionId, model: details.model });
+            const failed = await save({ kind: agent.kind, sessionId: details.sessionId, model: details.model, reasoning: details.reasoning });
             if (failed) { setError(failed); return; }
             setEditing(false);
         });
@@ -104,11 +115,11 @@ export function AgentControl({ projectId, comment }: { projectId: string; commen
             <DropdownMenu>
                 <DropdownMenuTrigger ref={trigger} render={<Button variant="ghost" size="sm" disabled={pending}
                     aria-label={agent ? `Agent: ${agent.label}. Change agent` : undefined}
-                    className={agent ? 'h-7 min-w-0 gap-1.5 px-1.5 font-normal pointer-coarse:min-h-11' : 'h-7 gap-1 px-1.5 font-normal text-muted-foreground hover:text-foreground pointer-coarse:min-h-11'} />}>
+                    className={agent ? 'h-7 min-w-0 max-w-full gap-1.5 px-1.5 font-normal pointer-coarse:min-h-11' : 'h-7 gap-1 px-1.5 font-normal text-muted-foreground hover:text-foreground pointer-coarse:min-h-11'} />}>
                     {agent ? <>
                         <AgentMark kind={agent.kind} />
-                        <span className="truncate">{agent.label}</span>
-                        {agent.model && <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">{agent.model}</span>}
+                        <span className="shrink-0">{agent.label}</span>
+                        <AgentDetails agent={agent} />
                         {pending ? <Spinner data-icon="inline-end" /> : <ChevronDownIcon aria-hidden="true" data-icon="inline-end" className="text-muted-foreground" />}
                     </> : <>
                         {pending ? <Spinner data-icon="inline-start" /> : <PlusIcon aria-hidden="true" data-icon="inline-start" />}
@@ -153,6 +164,13 @@ export function AgentControl({ projectId, comment }: { projectId: string; commen
                                 <FieldLabel htmlFor={`${ids}-model`}>Model</FieldLabel>
                                 <Input id={`${ids}-model`} value={details.model} maxLength={MAX_AGENT_MODEL_LENGTH} autoComplete="off" spellCheck={false}
                                     className="font-mono" onChange={event => setDetails(current => ({ ...current, model: event.target.value }))} />
+                            </Field>
+                            <Field>
+                                <FieldLabel htmlFor={`${ids}-reasoning`}>Reasoning level</FieldLabel>
+                                <Input id={`${ids}-reasoning`} value={details.reasoning} maxLength={MAX_AGENT_REASONING_LENGTH} autoComplete="off" spellCheck={false}
+                                    aria-describedby={`${ids}-reasoning-description`} className="font-mono"
+                                    onChange={event => setDetails(current => ({ ...current, reasoning: event.target.value }))} />
+                                <FieldDescription id={`${ids}-reasoning-description`}>As the agent names it, for example high or xhigh.</FieldDescription>
                             </Field>
                             {error && <FieldError>{error}</FieldError>}
                         </FieldGroup>
