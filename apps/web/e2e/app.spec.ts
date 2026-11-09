@@ -185,12 +185,12 @@ test('a new account confirms its name and its workspace name once', async ({ pag
     await expect(page).toHaveURL(/\/app\/welcome$/);
     await expect(page.getByRole('heading', { level: 1, name: 'Welcome to uier' })).toBeVisible();
     await expect(page).toHaveTitle('Welcome · uier');
-    // Suggestions: the name from the email, the workspace from its domain
+    // Suggestions: the name from the email, the stored workspace name
     const suffix = email.split('@')[0]!.split('-')[1]!;
     const name = page.getByLabel('Your name', { exact: true });
     await expect(name).toHaveValue(`Maya Tester ${suffix.charAt(0).toUpperCase()}${suffix.slice(1)}`);
     await expect(name).toBeFocused();
-    await expect(page.getByLabel('Workspace name', { exact: true })).toHaveValue('Example');
+    await expect(page.getByLabel('Workspace name', { exact: true })).toHaveValue('Personal');
     await expectNoAxeViolations(page);
 
     // Both names are checked on the server before either is saved
@@ -220,7 +220,7 @@ test('skipping the first-run step keeps both names', async ({ page }) => {
     await page.getByRole('button', { name: 'Skip', exact: true }).click();
     await expect(page).toHaveURL(/\/app\/projects\/new$/);
     await appNavigation(page);
-    await expect(page.getByRole('button', { name: /^Workspace:/ })).toContainText(email);
+    await expect(page.getByRole('button', { name: /^Workspace:/ })).toContainText('Personal');
     await closeAppNavigation(page);
     await page.goto('/app');
     await expect(page).toHaveURL(/\/app\/projects\/new$/);
@@ -564,15 +564,15 @@ test('admins rename the workspace from its menu; commenters have no workspace se
     await page.getByRole('button', { name: /^Workspace:/ }).click();
     await page.getByRole('menuitem', { name: 'Workspace settings' }).click();
     await expect(page).toHaveURL(/\/app\/workspace\/settings$/);
-    await expect(page.getByRole('heading', { level: 1, name: email })).toBeVisible();
-    await expect(page.getByRole('navigation', { name: 'Workspace' }).getByRole('link')).toHaveText(['Users', 'Teams', 'Clients', 'Activity', 'Settings']);
+    await expect(page.getByRole('heading', { level: 1, name: 'Personal' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Workspace' }).getByRole('link')).toHaveText(['Users', 'Teams', 'Clients', 'Usage', 'Activity', 'Settings']);
     await expect(page.getByRole('navigation', { name: 'Workspace' }).getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page');
     await expect(page).toHaveTitle('Workspace settings · uier');
     await expect(page.getByRole('navigation', { name: 'Breadcrumb' })).toContainText('Settings');
 
-    // A new workspace is named after its creator's email until an admin renames it
+    // A new workspace starts as Personal until an admin renames it
     const name = page.getByLabel('Workspace name');
-    await expect(name).toHaveValue(email);
+    await expect(name).toHaveValue('Personal');
     await name.fill('  Acme   studio ');
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('status').filter({ hasText: 'The workspace name is saved.' })).toBeVisible();
@@ -627,7 +627,7 @@ test('anyone creates a workspace from its menu and lands on its first project', 
     await expect(page.getByRole('button', { name: /^Workspace:/ })).toContainText('Admin');
     await page.getByRole('button', { name: /^Workspace:/ }).click();
     await expect(page.getByRole('menuitem', { name: /Client work.*Admin/ })).toBeVisible();
-    await page.getByRole('menuitem', { name: /@example\.com.*Admin/ }).click();
+    await page.getByRole('menuitem', { name: /Personal.*Admin/ }).click();
     await expect(page).toHaveURL(/\/app\/projects$/);
     await expect(page.getByRole('link', { name: 'First site' }).first()).toBeVisible();
 });

@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { finishWelcome, findOrCreateUser, getUser } from '../src/lib/app/users';
-import { ensureOwnWorkspace, getWorkspace } from '../src/lib/app/workspaces';
-import { nameFromEmail, personalWorkspaceName, workspaceNameFromEmail } from '../src/lib/app/welcome';
+import { ensureOwnWorkspace, getWorkspace, renameWorkspace } from '../src/lib/app/workspaces';
+import { nameFromEmail } from '../src/lib/app/welcome';
 import type { AppContext } from '../src/lib/app/context';
 import { welcomeWorkspace } from '../app/(rest)/(app)/app/(auth)/welcome/welcomeWorkspace';
 
@@ -17,21 +17,13 @@ test.afterAll(() => {
         process.env.UIER_LOCAL = originalLocal;
 });
 
-test('suggests a name from the email and a workspace name from its domain, unless it is webmail', () => {
+test('suggests a person name from the email', () => {
     expect(nameFromEmail('maya.tester@example.test')).toBe('Maya Tester');
     expect(nameFromEmail('maya.tester+uier@example.com')).toBe('Maya Tester');
     expect(nameFromEmail('j_doe-smith@example.com')).toBe('J Doe Smith');
     expect(nameFromEmail('ana@example.com')).toBe('Ana');
 
-    expect(workspaceNameFromEmail('maya.tester@example.test')).toBe('Example');
-    expect(workspaceNameFromEmail('maya@acme-studio.co.uk')).toBe('Acme Studio');
-    expect(workspaceNameFromEmail('maya@eu.mail.acme.com')).toBe('Acme');
-    expect(workspaceNameFromEmail('maya@ACME.IO')).toBe('Acme');
-    for (const webmail of ['gmail.com', 'googlemail.com', 'outlook.com', 'outlook.de', 'hotmail.co.uk', 'yahoo.co.uk', 'icloud.com', 'proton.me', 'gmx.de', 'net.hr'])
-        expect(workspaceNameFromEmail(`maya@${webmail}`), webmail).toBeUndefined();
 
-    expect(personalWorkspaceName('Maya Tester')).toBe('Maya’s workspace');
-    expect(personalWorkspaceName('  ')).toBe('My workspace');
 });
 
 test('a new account is welcomed once; finishing keeps or sets its name', async () => {
@@ -63,4 +55,15 @@ test('only the workspace made for the account is named by the first-run step', a
     const invited = { member: { ...inviterMember, userId: user.id, role: 'commenter' as const }, workspace: (await getWorkspace(inviterMember.workspaceId))! };
     expect(welcomeWorkspace({ user, memberships: [invited] } as AppContext)).toBeUndefined();
     expect(welcomeWorkspace({ user, memberships: [{ member: { ...member, role: 'commenter' as const }, workspace }] } as AppContext)).toBeUndefined();
+});
+
+test('automatic workspaces start as Personal and returning accounts keep their stored names', async () => {
+    for (const domain of ['gmail.com', 'acme.test']) {
+        const user = await findOrCreateUser(`personal-${randomUUID()}@${domain}`);
+        const member = await ensureOwnWorkspace(user);
+        expect((await getWorkspace(member.workspaceId))?.name).toBe('Personal');
+        await renameWorkspace(member.workspaceId, user.id, 'Existing studio');
+        expect((await ensureOwnWorkspace(user)).workspaceId).toBe(member.workspaceId);
+        expect((await getWorkspace(member.workspaceId))?.name).toBe('Existing studio');
+    }
 });

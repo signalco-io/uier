@@ -34,8 +34,8 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   The first sign-in creates the account. Opening the link shows a "Continue" button, because email scanners
   open links before people do. A new account then sees one first-run step, `/app/welcome`: **Your name**
   (suggested from the email: `maya.tester@example.test` becomes "Maya Tester") and, when the account got a
-  workspace of its own, **Workspace name** (the email's domain, "Example", or "Maya’s workspace" for webmail
-  such as Gmail or Outlook). **Continue** saves both, **Skip** keeps the defaults; either way the step does not
+  workspace of its own, **Workspace name** (the stored name, "Personal" for newly created workspaces).
+  **Continue** saves both, **Skip** keeps the defaults; either way the step does not
   come back (`welcomePending` on the user). Sign-ins with `?next=` go straight there; `/app` shows the step on
   the next visit. The session is an HttpOnly `__Host-uier_session` cookie with a signed token (30 days;
   the key is derived from the server secret, like guest names). Signed-out visits to an app page return there
@@ -44,7 +44,7 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   members belong to a workspace; with more than one workspace the menu at the top of the sidebar switches
   between them. Every account also joins uier's own workspace, which keeps the feedback sent with Give
   feedback; the menu lists it apart from the person's workspaces as "Feedback on uier". A first workspace is
-  named after its creator's email until the first-run step or an admin renames it (in the workspace settings).
+  named **Personal** until the first-run step or an admin renames it (in the workspace settings).
   Create workspace in the same menu adds another one with the name typed there, makes its
   creator the admin and opens it to add its first project; one person can create up to 20 workspaces, the first
   one included. The workspace and its admin are created together, so a creator whom an admin removed is
