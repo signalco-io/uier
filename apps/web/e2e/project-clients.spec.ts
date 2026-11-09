@@ -345,12 +345,19 @@ test('a project card keeps its favicon and actions at the top when the client an
     const card = page.getByRole('list', { name: 'Active projects' }).getByRole('listitem').filter({ hasText: 'Wrap site' });
     const title = card.locator('[data-slot="card-title"]');
     const description = card.locator('[data-slot="card-description"]');
+    const favicon = card.locator('[data-slot="card-header"] > :first-child');
     const actions = card.getByRole('button', { name: 'More actions for Wrap site' });
+    const review = card.getByRole('button', { name: 'Open review for Wrap site' });
     await expect(actions).toBeVisible();
-    const [titleBox, descriptionBox, actionsBox] = await Promise.all([title.boundingBox(), description.boundingBox(), actions.boundingBox()]);
-    if (!titleBox || !descriptionBox || !actionsBox) throw new Error('The card header is not laid out');
-    // The client and the access label wrap onto two lines
+    const [titleBox, descriptionBox, faviconBox, actionsBox, reviewBox] = await Promise.all(
+        [title, description, favicon, actions, review].map((locator) => locator.boundingBox()));
+    if (!titleBox || !descriptionBox || !faviconBox || !actionsBox || !reviewBox) throw new Error('The card header is not laid out');
+    // The client, the access label and the open count wrap onto two lines
     expect(descriptionBox.height).toBeGreaterThan(titleBox.height * 1.5);
-    // The actions button lines up with the name, not with the middle of the header
-    expect(Math.abs(actionsBox.y - titleBox.y)).toBeLessThanOrEqual(2);
+    // The favicon starts level with the name, not with the middle of the header
+    expect(Math.abs(faviconBox.y - titleBox.y)).toBeLessThanOrEqual(2);
+    // The icon buttons are centred on the name's line (they overhang it a little), not on the header
+    const middle = (box: { y: number; height: number }) => box.y + box.height / 2;
+    expect(Math.abs(middle(actionsBox) - middle(titleBox))).toBeLessThanOrEqual(2);
+    expect(Math.abs(middle(reviewBox) - middle(titleBox))).toBeLessThanOrEqual(2);
 });
