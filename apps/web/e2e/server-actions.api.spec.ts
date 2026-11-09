@@ -125,3 +125,17 @@ test('app reply and participant actions validate requests and reject an expired 
     expect(await call('commentParticipantsAction', [input.projectId, input.commentId])).toContain('Your session has ended. Sign in again.');
     expect(await call('commentParticipantsAction', [input.projectId, {}])).toContain('Check the request and try again.');
 });
+
+test('Review action checks authority before parsing malformed feedback types', async ({ request, baseURL }) => {
+    const manifest = JSON.parse(readFileSync(new URL('../.next/server/server-reference-manifest.json', import.meta.url), 'utf8')) as { node: Record<string, { exportedName?: string }> };
+    const action = Object.entries(manifest.node).find(([, entry]) => (entry as { exportedName?: string }).exportedName === 'updateProjectReviewAction')?.[0];
+    expect(action).toBeTruthy();
+    for (const feedbackTypes of ['{invalid', JSON.stringify({ mode: 'replace', value: [] })]) {
+        const response = await request.post('/app/projects/abc123def456/settings/review', {
+            headers: { 'Next-Action': action!, Origin: baseURL!, Cookie: 'uier_session=invalid' },
+            multipart: { '0': '[null,"$K1"]', '1_projectId': 'abc123def456', '1_feedbackTypes': feedbackTypes },
+            maxRedirects: 0
+        });
+        expect(await response.text()).toContain('Your session has ended. Sign in again.');
+    }
+});

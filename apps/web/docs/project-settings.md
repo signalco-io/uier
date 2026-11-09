@@ -100,3 +100,6 @@ accessibility, guest projection and actual server-action replay as a commenter a
   relabel existing threads. Old built-in threads keep their original kind without a migration.
   `feedback-types.api.spec.ts`, `feedback-types.spec.ts` (desktop/mobile, settings authority, drafts,
   modal writing, accessibility and historical display) and `mcp.api.spec.ts` cover these contracts.
+
+The Review save action checks admin and project authority before parsing feedback types or other
+settings, so unauthorized submissions receive the access refusal even when their settings are malformed.

@@ -125,6 +125,8 @@ const aiTitlesSchema = z.enum(projectAiTitleModes, 'Choose whether threads get t
 /** Review: who can comment, the brief and the page state, one save; only what changed is written */
 export async function updateProjectReviewAction(_: ActionState, formData: FormData): Promise<ActionState> {
     return await actionResult(async () => {
+        const { context, project } = await adminProject(formData.get('projectId'));
+        assertMutableProject(context.workspace.id, project.id);
         const feedbackTypes = formData.has('feedbackTypes')
             ? formData.get('feedbackTypes') === 'workspace' ? undefined : projectFeedbackTypesSchema.parse(JSON.parse(String(formData.get('feedbackTypes'))))
             : undefined;
@@ -134,8 +136,6 @@ export async function updateProjectReviewAction(_: ActionState, formData: FormDa
             queryParameters: String(formData.get('queryParameters') ?? '').split(/[,\s]+/).filter(Boolean),
             hashRouting: formData.get('hashRouting') === 'true'
         });
-        const { context, project } = await adminProject(formData.get('projectId'));
-        assertMutableProject(context.workspace.id, project.id);
         const update: ProjectUpdate = {};
         if (formData.has('feedbackTypes') && JSON.stringify(feedbackTypes) !== JSON.stringify(project.feedbackTypes))
             update.feedbackTypes = feedbackTypes;
