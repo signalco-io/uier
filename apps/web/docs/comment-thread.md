@@ -74,8 +74,10 @@
   (`deviceSettings`), older comments show what they have. `e2e/user-agent.api.spec.ts` covers the parser with real
   strings, `e2e/device-details.api.spec.ts` validation, storage and who sees what, `e2e/device-marks.api.spec.ts` the
   mapping and `e2e/project-review.spec.ts` (the reproduction details tests) the toolbar and app popovers.
-- `comments/ReplyComposer.tsx` is a lazy inline reply form in List and Board, using shadcn controls
-  and pure `@uier/toolbar/drafts` / `mentions` logic only. `replyCommentAction` validates the payload,
+- Under the messages, Reply is a quiet ghost button with the reply icon, aligned with the message text (R opens it).
+  `comments/ReplyComposer.tsx` is the lazy inline reply form it opens in List and Board, using shadcn controls;
+  Post reply is a ghost button too, as Enter sends (Shift+Enter for a new line), like the toolbar's plain send button.
+  It uses pure `@uier/toolbar/drafts` / `mentions` logic only. `replyCommentAction` validates the payload,
   resolves current app authority and forwards trusted request headers to `replyToProjectComment`;
   `commentParticipantsAction` rechecks the thread before returning names/opaque ids without email.
   Replies preserve status and unread state; `CommentUpdates` appends pending messages and action

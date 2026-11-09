@@ -58,6 +58,9 @@ C, in point mode. `src/threadShortcuts.ts` finds the thread: the one with the fo
 controls are marked `data-uier-thread-header`, `data-uier-status` and `data-uier-reply`. On uier's own app
 pages the app takes a key first (its listeners run before the toolbar's) unless the focus is in the toolbar.
 
+Reply composers send on Enter and insert a line break on Shift+Enter. Their submit control stays
+labelled and uses the plain button variant; on touch input it has a 44px minimum target.
+
 ## Tests
 
 `apps/web/e2e/shortcuts.spec.ts` (desktop): C, the switch in Options (↓ in the menu), the pill's tab stop

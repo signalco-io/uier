@@ -155,7 +155,7 @@ export function ReplyComposer({ projectId, userId, userName, comment, onClose }:
                     <div className="ml-auto flex items-center gap-1">
                         <Button variant="ghost" size="sm" className="pointer-coarse:min-h-11" onClick={onClose}>Close reply</Button>
                         {text.length > 0 && <Button variant="ghost" size="sm" className="pointer-coarse:min-h-11" onClick={() => { drafts.delete(key); setError(undefined); setAnnouncement('Draft discarded'); }}>Discard</Button>}
-                        <Button type="submit" size="sm" className="pointer-coarse:min-h-11" disabled={!text.trim() || pending}>
+                        <Button type="submit" variant="ghost" size="sm" className="pointer-coarse:min-h-11" disabled={!text.trim() || pending}>
                             {pending ? <Spinner data-icon="inline-start" /> : <SendIcon data-icon="inline-start" />}Post reply
                         </Button>
                     </div>

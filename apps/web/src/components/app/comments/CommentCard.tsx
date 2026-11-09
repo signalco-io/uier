@@ -20,6 +20,7 @@ import {
     MoreHorizontalIcon,
     PencilIcon,
     ReplaceIcon,
+    ReplyIcon,
     Trash2Icon,
     UserIcon
 } from 'lucide-react';
@@ -579,7 +580,9 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
 
                 {permissions.reply && (replying
                     ? <ReplyComposer projectId={projectId} userId={userId} userName={assignees.find(person => person.userId === userId)?.name} comment={comment} onClose={() => setReplying(false)} />
-                    : <Button variant="outline" size="sm" className="self-start pointer-coarse:min-h-11" aria-keyshortcuts={replyShortcut} onClick={() => setReplying(true)}>Reply</Button>)}
+                    : <Button variant="ghost" size="sm" className="-ml-2 self-start text-muted-foreground hover:text-foreground pointer-coarse:min-h-11" aria-keyshortcuts={replyShortcut} onClick={() => setReplying(true)}>
+                        <ReplyIcon data-icon="inline-start" />Reply
+                    </Button>)}
 
                 {/* The issues it is linked to, quiet as in the toolbar */}
                 {comment.integrationLinks?.length ? (
