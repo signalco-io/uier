@@ -99,7 +99,7 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     under Active, in the menu beside it, and the tab then reads "Active: In progress"; `?status=` keeps any other choice). Filters in effect show under the bar, each with a clear button. Each
     comment is a compact row: number, first line, author, page path (what it was left on, such as "Link in
     navigation", is in the thread's On row), then priority other than Normal (its flag, named for screen readers),
-    status (a dot and its name, Open too, so an Active list shows where each thread is), the assignee's avatar, age and an unread dot. A row opens its thread (`?comment=<id>`): beside the list on
+    status (a dot and its name, Open too, so an Active list shows where each thread is; board cards leave it to their column), the assignee's avatar, age and an unread dot. A row opens its thread (`?comment=<id>`): beside the list on
     wide screens (the first shown thread until another is chosen), in the list's place on a phone (Back to comments,
     or the browser's Back), and in a sheet on the board. On the board, drag a card to another column with the mouse,
     or press and hold it on a touch screen (the page scrolls at the edges), or tap it and change the thread's status.
