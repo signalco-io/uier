@@ -27,4 +27,10 @@
   floats over the end of the comments once something is selected ([App triage](triage.md#selection)).
   `LocationFilter`: environments on the left, the chosen environment's pages on the right with a search,
   sections such as `/blog/*` and "Pages under" a typed path, matched by `pageFilter.ts`. Choosing an environment
-  keeps the panel open and reloads its pages.
+  keeps the panel open and reloads its pages. "Removed addresses" and
+  "Source not recorded" show only when comments have that source (`historySources`, worked out in `ProjectComments`
+  from the loaded comments when every environment is loaded and the search window is not capped); when that is not
+  known they show, and a chosen one always shows. The pages column has no environment label of its own: the
+  environment column beside it shows the choice. The chosen environment and page have the `accent` background
+  as well as the check mark. Each option has a `title` with its full label, since long paths are
+  truncated.

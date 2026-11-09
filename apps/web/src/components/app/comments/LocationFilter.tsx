@@ -19,11 +19,13 @@ const historyEnvironments = [
 /** Shown pages before searching; typing finds the rest */
 const maxPages = 50;
 
-function Option({ selected, icon, label, detail, onSelect }: {
+function Option({ selected, icon, label, detail, title, onSelect }: {
     selected: boolean;
     icon?: ReactNode;
     label: ReactNode;
     detail?: ReactNode;
+    /** The full text on hover, since long labels (paths) are truncated */
+    title?: string;
     onSelect: () => void;
 }) {
     return (
@@ -31,8 +33,9 @@ function Option({ selected, icon, label, detail, onSelect }: {
             type="button"
             data-option=""
             aria-pressed={selected}
+            title={title}
             onClick={onSelect}
-            className="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm outline-none hover:bg-muted focus-visible:bg-muted [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground">
+            className="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm outline-none hover:bg-muted focus-visible:bg-muted aria-pressed:bg-accent aria-pressed:font-medium aria-pressed:text-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground">
             {icon}
             <span className="min-w-0 flex-1 truncate">{label}</span>
             {/* Read as "/about, 3 comments" */}
@@ -51,9 +54,11 @@ function GroupLabel({ children }: { children: ReactNode }) {
  * on the right. Choosing an environment reloads the pages beside it. Pages can be searched; sections with
  * several pages (`/blog/*`) and a typed path match every page under it.
  */
-export function LocationFilter({ environment, environments, page, pages, onEnvironment, onPage, triggerClassName }: {
+export function LocationFilter({ environment, environments, historySources, page, pages, onEnvironment, onPage, triggerClassName }: {
     environment?: string;
     environments: EnvironmentOption[];
+    /** Which of "removed" and "unknown" have comments; the others are hidden unless chosen. Leave out when not known. */
+    historySources?: string[];
     page?: string;
     /** Pages (relative URLs) with their number of comments */
     pages: PageCount[];
@@ -133,19 +138,16 @@ export function LocationFilter({ environment, environments, page, pages, onEnvir
                     <Option selected={!environment || environment === 'all'} icon={<GlobeIcon aria-hidden="true" />} label="All environments"
                         onSelect={() => chooseEnvironment(undefined)} />
                     {environments.map(item => (
-                        <Option key={item.id} selected={environment === item.id} label={item.label} onSelect={() => chooseEnvironment(item.id)} />
+                        <Option key={item.id} selected={environment === item.id} label={item.label} title={item.label} onSelect={() => chooseEnvironment(item.id)} />
                     ))}
-                    {historyEnvironments.map(item => (
-                        <Option key={item.id} selected={environment === item.id} label={<span className="text-muted-foreground">{item.label}</span>}
+                    {historyEnvironments.filter(item => !historySources || historySources.includes(item.id) || environment === item.id).map(item => (
+                        <Option key={item.id} selected={environment === item.id} label={<span className="text-muted-foreground">{item.label}</span>} title={item.label}
                             onSelect={() => chooseEnvironment(item.id)} />
                     ))}
                 </div>
                 <div aria-busy={loading} className={cn('flex min-w-0 flex-col gap-1 p-1 transition-opacity', loading && 'opacity-60')}>
-                    {/* Which environment the pages are from */}
-                    <div className="flex min-w-0 items-baseline justify-between gap-2 pr-2">
-                        <GroupLabel>Pages</GroupLabel>
-                        <span className="min-w-0 truncate text-xs text-muted-foreground">{environmentLabel ?? 'All environments'}</span>
-                    </div>
+                    {/* The environment column beside it shows which environment the pages are from */}
+                    <GroupLabel>Pages</GroupLabel>
                     <div className="px-1">
                         <InputGroup className="h-8">
                             <InputGroupAddon><SearchIcon aria-hidden="true" /></InputGroupAddon>
@@ -159,19 +161,19 @@ export function LocationFilter({ environment, environments, page, pages, onEnvir
                         )}
                         {typedPrefix && (
                             <Option selected={page === typedPrefix.filter} icon={<FolderIcon aria-hidden="true" />}
-                                label={<>Pages under <span className="font-mono text-[13px]">{typedPrefix.base}</span></>}
+                                label={<>Pages under <span className="font-mono text-[13px]">{typedPrefix.base}</span></>} title={`Pages under ${typedPrefix.base}`}
                                 detail={total(typedPrefix.matches)} onSelect={() => choosePage(typedPrefix.filter)} />
                         )}
                         {sections.length > 0 && <GroupLabel>Sections</GroupLabel>}
                         {sections.map(section => (
                             <Option key={section.filter} selected={page === section.filter} icon={<FolderIcon aria-hidden="true" />}
-                                label={<span className="font-mono text-[13px]">{section.base}/…</span>}
+                                label={<span className="font-mono text-[13px]">{section.base}/…</span>} title={`${section.base}/…`}
                                 detail={`${section.matches.length} pages · ${total(section.matches)} comments`} onSelect={() => choosePage(section.filter)} />
                         ))}
                         {shown.length > 0 && sections.length > 0 && <GroupLabel>Single pages</GroupLabel>}
                         {shown.slice(0, maxPages).map(item => (
                             <Option key={item.path} selected={page === item.path} icon={<FileIcon aria-hidden="true" />}
-                                label={<span className="font-mono text-[13px]">{item.path}</span>} detail={item.count} onSelect={() => choosePage(item.path)} />
+                                label={<span className="font-mono text-[13px]">{item.path}</span>} title={item.path} detail={item.count} onSelect={() => choosePage(item.path)} />
                         ))}
                         {shown.length > maxPages && <p className="m-0 px-2 py-1.5 text-xs text-muted-foreground">Type to find the other {shown.length - maxPages} pages.</p>}
                         {search && !shown.length && !sections.length && !typedPrefix && (

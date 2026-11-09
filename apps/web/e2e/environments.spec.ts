@@ -47,7 +47,13 @@ test('environment labels, isolation, alias sharing, history, direct links and pe
     await expect(where).toContainText('All environments and pages');
     await expect(commentRows(page)).toHaveCount(3);
     await where.click();
-    await page.getByRole('group', { name: 'Environment' }).getByRole('button', { name: 'Production', exact: true }).click();
+    // Options that match no comments are hidden; long paths show in full on hover
+    const environmentGroup = page.getByRole('group', { name: 'Environment' });
+    await expect(environmentGroup.getByRole('button', { name: 'All environments', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(environmentGroup.getByRole('button', { name: 'Removed addresses', exact: true })).toHaveCount(0);
+    await expect(environmentGroup.getByRole('button', { name: 'Source not recorded', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('group', { name: 'Pages' }).getByRole('button', { name: new RegExp(`^${path}`) })).toHaveAttribute('title', path);
+    await environmentGroup.getByRole('button', { name: 'Production', exact: true }).click();
     await page.keyboard.press('Escape');
     await expect(commentRows(page)).toHaveCount(1);
     await expect(page.getByRole('button', { name: 'Clear filter: Production', exact: true })).toBeVisible();
@@ -122,6 +128,10 @@ test('environment labels, isolation, alias sharing, history, direct links and pe
     await settings.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(settings.getByRole('status')).toContainText('Saved.');
     await expect(settings.getByRole('combobox', { name: `${host(alias)} shares feedback with`, exact: true })).toContainText(host(production));
+    await page.goto(`/app/projects/${projectId}`);
+    await (await openCommentFilters(page)).getByRole('button', { name: /^Environment and page:/ }).click();
+    await expect(page.getByRole('group', { name: 'Environment' }).getByRole('button', { name: 'Removed addresses', exact: true })).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Environment' }).getByRole('button', { name: 'Source not recorded', exact: true })).toHaveCount(0);
     await page.goto(`/app/projects/${projectId}?environment=removed`);
     await expect(commentRows(page)).toHaveCount(1);
     const history = await openComment(page, 'Staging feedback');
