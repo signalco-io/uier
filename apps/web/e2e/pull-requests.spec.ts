@@ -23,6 +23,14 @@ test('thread details collect PRs from messages and replies, with one quiet mark 
     await expect(thread.getByText('Pull requests', { exact: true })).toBeVisible();
     await expect(commentRows(page).getByLabel('Linked pull request')).toHaveCount(0);
     const manualUrl = 'https://github.com/acme/site/pull/2';
+    // A quiet control until chosen; it opens the field with focus in it, and Escape closes it again
+    const linkTrigger = thread.getByRole('button', { name: 'Link a pull request', exact: true });
+    await expect(thread.getByRole('textbox', { name: 'Pull request URL', exact: true })).toHaveCount(0);
+    await linkTrigger.click();
+    await expect(thread.getByRole('textbox', { name: 'Pull request URL', exact: true })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(linkTrigger).toBeFocused();
+    await page.keyboard.press('Enter');
     await thread.getByRole('textbox', { name: 'Pull request URL', exact: true }).fill(manualUrl);
     await thread.getByRole('button', { name: 'Link', exact: true }).click();
     await expect(thread.locator('[data-pull-request-links]').getByRole('link')).toHaveCount(1);
@@ -31,6 +39,7 @@ test('thread details collect PRs from messages and replies, with one quiet mark 
     await expect(thread.locator('[data-pull-request-links]').getByRole('link')).toHaveCount(1);
     await thread.getByRole('button', { name: `Remove pull request link ${manualUrl}`, exact: true }).click();
     await expect(thread.locator('[data-pull-request-links]').getByRole('link')).toHaveCount(0);
+    await thread.getByRole('button', { name: 'Link a pull request', exact: true }).click();
     await thread.getByRole('textbox', { name: 'Pull request URL', exact: true }).fill(manualUrl);
     await thread.getByRole('button', { name: 'Link', exact: true }).click();
     await expect(thread.locator('[data-pull-request-links]').getByRole('link')).toHaveCount(1);
