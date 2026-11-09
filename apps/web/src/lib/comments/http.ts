@@ -2,7 +2,8 @@ import type { z } from 'zod';
 import { MAX_BODY_BYTES } from './limits';
 import { describeValidationError } from './validation';
 import { resolveVisitor, type Visitor } from './visitor';
-import { ensurePublicProject, PUBLIC_PROJECT_PARTITION, usesPublicProject } from './publicProject';
+import { ensurePublicProject, PUBLIC_PROJECT_PARTITION, USER_FEEDBACK_PARTITION, USER_FEEDBACK_PROJECT_ID, usesPublicProject } from './publicProject';
+import { getCommentsStore } from '../repo/commentsStore';
 import { getProject, projectReviewOrigin } from '../app/projects';
 import { assertCanUseComments, memberActor, type ProjectActor } from '../review/actor';
 import { requestSessionUser } from '../app/sessionIdentity';
@@ -161,7 +162,18 @@ export type CommentsApiContext = {
     actor?: ProjectActor;
     /** Public project: the address of uier's site the request came from, the source of new comments */
     origin?: string;
+    /**
+     * A signed-in account on uier's pages works in the user feedback project (this context) and still
+     * reads and replies to the guests' threads of the public project, through this second context.
+     */
+    publicFeedback?: CommentsApiContext;
 };
+
+/** The context whose project holds the thread: the account's own project first, then the public one */
+export async function commentContext(context: CommentsApiContext, id: string): Promise<CommentsApiContext> {
+    if (!context.publicFeedback || await getCommentsStore().get(context.domain, id)) return context;
+    return context.publicFeedback;
+}
 
 function isWrite(request: Request) {
     return request.method !== 'GET' && request.method !== 'HEAD';
@@ -220,15 +232,24 @@ export function commentsApiHandler<TParams extends Record<string, string> = Reco
             const project = provisioned ? await getProject(provisioned.workspaceId, provisioned.id) : null;
             if (publicProject && !project) throw apiErrors.notFound('Project not found.');
             const user = publicProject ? await requestSessionUser(request) : null;
-            const member = user && project ? await memberActor(project, user.id) : null;
-            visitor = user && member
+            const userProject = user && provisioned ? await getProject(provisioned.workspaceId, USER_FEEDBACK_PROJECT_ID) : null;
+            const account = user && userProject ? await memberActor(userProject, user.id) : null;
+            visitor = user && account
                 ? { authorId: `user:${user.id}`, name: user.name, member: true }
                 : resolveVisitor(request, write && createVisitor);
+            // Staff are members of the public project too; other accounts use it as guests, under their account id.
+            const member = user && account && project ? await memberActor(project, user.id) : null;
             const actor: ProjectActor = member ?? (visitor.authorId ? { kind: 'guest', visitorId: visitor.authorId } : { kind: 'anonymous' });
             if (project) assertCanUseComments(project, actor);
             // Writes are same-origin, so the request's host is the reviewed page's (as in the review API)
             const origin = project ? projectReviewOrigin(project, request) : undefined;
-            response = await handler({ request, domain: publicProject ? PUBLIC_PROJECT_PARTITION : domain, visitor, origin, ...(project ? { project, actor } : {}) }, await routeContext.params);
+            const shared: CommentsApiContext = { request, domain: publicProject ? PUBLIC_PROJECT_PARTITION : domain, visitor, origin, ...(project ? { project, actor } : {}) };
+            let context = shared;
+            if (account && userProject) {
+                assertCanUseComments(userProject, account);
+                context = { request, domain: USER_FEEDBACK_PARTITION, visitor, origin, project: userProject, actor: account, publicFeedback: shared };
+            }
+            response = await handler(context, await routeContext.params);
         } catch (error) {
             response = errorResponse(error);
         }

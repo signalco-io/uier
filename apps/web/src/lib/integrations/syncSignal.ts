@@ -1,5 +1,5 @@
 import type { DbProject } from '../app/model';
-import { isPrivateAppFeedback, PUBLIC_PROJECT_ID } from '../comments/publicProject';
+import { isPrivateAppFeedback, isUierFeedbackProject } from '../comments/publicProject';
 import { syncTombstoneId, type DbComment, type DbSyncTombstone } from '../db/schema';
 import type { IntegrationProviderId } from './model';
 
@@ -10,7 +10,7 @@ export const syncPendingKey = (domain: string, id: string) => `${domain}:${id}`;
 
 /** A bounded snapshot of destinations; external input never selects an arbitrary provider. */
 export function integrationTargets(project: Pick<DbProject, 'id' | 'integrations'>): DbSyncTombstone['targets'] {
-    if (project.id === PUBLIC_PROJECT_ID) return [];
+    if (isUierFeedbackProject(project.id)) return [];
     return providers.flatMap(provider => {
         const binding = project.integrations?.[provider];
         return binding && typeof binding.connectionId === 'string' && binding.connectionId.length > 0 && binding.connectionId.length <= 200
@@ -36,7 +36,7 @@ function version(comment: DbComment | null | undefined) {
  * gating here would lose a mutation that races connection setup in the other container.
  */
 export function withSyncMark(project: DbProject, before: DbComment | null | undefined, after: DbComment): DbComment {
-    if (after === before || project.id === PUBLIC_PROJECT_ID || after.domain !== `project:${project.id}`
+    if (after === before || isUierFeedbackProject(project.id) || after.domain !== `project:${project.id}`
         || (after.projectId !== undefined && after.projectId !== project.id)
         || ((!before || isPrivate(before)) && isPrivate(after))) return after;
     return { ...after, projectId: project.id, syncKey: syncPendingKey(after.domain, after.id), syncVersion: Math.max(version(before), version(after)) + 1, syncPending: true };
@@ -44,7 +44,7 @@ export function withSyncMark(project: DbProject, before: DbComment | null | unde
 
 /** Only identifiers and a version survive deletion; never copy feedback, image or author data. */
 export function syncTombstone(project: Pick<DbProject, 'id' | 'integrations'>, comment: DbComment): DbSyncTombstone {
-    if (project.id === PUBLIC_PROJECT_ID || comment.domain !== `project:${project.id}`
+    if (isUierFeedbackProject(project.id) || comment.domain !== `project:${project.id}`
         || (comment.projectId !== undefined && comment.projectId !== project.id))
         throw new Error('Deletion intent requires a matching project.');
     return {

@@ -183,8 +183,9 @@ Start a fresh audit for subsequent product actions; retain the strict policy and
 runs a stale `public/toolbar.js` from an earlier `pnpm build`. Open any page with a
 review link, `?review=true` or `?toolbar-code=<project code>` (for example `/brand?review=true`), to
 see the real toolbar on top of it. uier.io's public marketing layout embeds showcase mode on every page, using the same-origin cookie API
-backed by the static project `uier00000001`; feedback on `/app` pages (the sidebar's "Give feedback",
-`FeedbackButton`) is private to its author and the team (`isPrivateAppFeedback`).
+backed by the static projects `uier00000001` (guests) and `uier00000002` (signed-in accounts, private to the
+author and the team, the sidebar's "Give feedback" `FeedbackButton` included); see
+[uier's feedback projects](docs/public-feedback-project.md).
 `src/lib/comments/publicProject.ts` provisions its workspace,
 project and permanent starter threads on first use, and copies legacy production feedback once. New
 visitor threads expire after 90 days; starter threads and their replies do not expire. Local subdomains

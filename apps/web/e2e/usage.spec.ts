@@ -4,7 +4,7 @@ import { expectNoAxeViolations } from './accessibility';
 
 test('a member who reached a limit opens its usage from the toast, then the project\'s workspace usage', async ({ page, context, baseURL }, testInfo) => {
     await signIn(page, uniqueEmail('usage'));
-    // A signed-in account on uier's own feedback project has three times a visitor's new comments: 30 an hour
+    // A signed-in account in uier's user feedback project has three times a visitor's new comments: 30 an hour
     const origin = new URL(baseURL!).origin;
     for (let i = 0; i < 30; i++) {
         const response = await page.request.post('/api/comments', {
@@ -31,7 +31,7 @@ test('a member who reached a limit opens its usage from the toast, then the proj
     await expect(usage).toHaveURL(/\/app\/account\/usage#project-/);
     const code = new URL(usage.url()).hash.replace('#project-', '');
     const project = usage.locator(`[id="project-${code}"]`);
-    await expect(project.getByRole('heading', { name: 'uier.io public feedback' })).toBeVisible();
+    await expect(project.getByRole('heading', { name: 'uier.io user feedback' })).toBeVisible();
     await expect(project.getByRole('progressbar', { name: 'New comments' })).toHaveAttribute('aria-valuetext', '30 of 30, limit reached');
     await expect(project).toContainText('Limit reached · 30 of 30');
     await expect(project.getByRole('progressbar', { name: 'Replies' })).toHaveAttribute('aria-valuetext', '0 of 30');
@@ -41,7 +41,7 @@ test('a member who reached a limit opens its usage from the toast, then the proj
 
     // The project is in uier's workspace, not the person's own (the open one): the page offers to open it
     await usage.goto(`/app/workspace/usage?project=${code}`);
-    const elsewhere = usage.getByRole('alert').filter({ hasText: 'uier.io public feedback is in uier' });
+    const elsewhere = usage.getByRole('alert').filter({ hasText: 'uier.io user feedback is in uier' });
     await expect(elsewhere).toBeVisible();
     await expectNoAxeViolations(usage);
     await usage.screenshot({ path: testInfo.outputPath('workspace-usage-elsewhere.png') });

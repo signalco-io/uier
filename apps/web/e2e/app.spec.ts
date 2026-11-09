@@ -654,7 +654,12 @@ test('feedback on the app opens uier\'s toolbar and stays private', async ({ pag
     // The app has no "About uier": only the landing page introduces uier
     await expect(page.getByRole('button', { name: 'About uier' })).toHaveCount(0);
     expect(await (await page.request.get('/api/visitor?path=%2Fapp%2Fprojects')).json()).toMatchObject({ privateAppFeedback: true });
-    expect(await (await page.request.get('/api/visitor?path=%2Fapplication')).json()).toMatchObject({ privateAppFeedback: false });
+    // An account's feedback is private anywhere on uier (the user feedback project); a guest's only on the app's pages
+    expect(await (await page.request.get('/api/visitor?path=%2Fapplication')).json()).toMatchObject({ privateAppFeedback: true });
+    const guestContext = await browser.newContext();
+    try {
+        expect(await (await guestContext.request.get(new URL('/api/visitor?path=%2Fapplication', page.url()).href)).json()).toMatchObject({ privateAppFeedback: false });
+    } finally { await guestContext.close(); }
     await expect(showcaseHint(page)).toHaveCount(0);
     await toolbar(page).getByRole('button', { name: 'Profile', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Profile', exact: true })).toContainText(name);
@@ -683,15 +688,15 @@ test('feedback on the app opens uier\'s toolbar and stays private', async ({ pag
     await giveFeedback.click();
     await expect(dialog).toBeVisible();
 
-    // All app users can switch to the shared feedback project as commenters, and see their
+    // All app users can switch to uier's user feedback project as commenters, and see their
     // own feedback under the same identity used by the toolbar. A second account cannot see it.
     await page.goto('/app/projects');
     await appNavigation(page);
     await page.getByRole('button', { name: /^Workspace:/ }).click();
     await page.getByRole('menuitem', { name: /^Feedback on uier/ }).click();
-    await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io public feedback' }))
-        .toHaveAttribute('href', '/app/projects/uier00000001');
-    await page.goto('/app/projects/uier00000001');
+    await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io user feedback' }))
+        .toHaveAttribute('href', '/app/projects/uier00000002');
+    await page.goto('/app/projects/uier00000002');
     // This local feedback has a loopback origin, outside the public project's production environment.
     await expect((await openCommentFilters(page)).getByRole('button', { name: /^Environment and page:/ })).toContainText('All environments and pages');
     await page.keyboard.press('Escape');
@@ -714,8 +719,8 @@ test('feedback on the app opens uier\'s toolbar and stays private', async ({ pag
     await appNavigation(staff.page);
     await staff.page.getByRole('button', { name: /^Workspace:/ }).click();
     await staff.page.getByRole('menuitem', { name: /uier.*Admin/ }).click();
-    await expect(staff.page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io public feedback', exact: true })).toBeVisible();
-    await staff.page.goto(new URL('/app/projects/uier00000001?environment=all', page.url()).href);
+    await expect(staff.page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io user feedback', exact: true })).toBeVisible();
+    await staff.page.goto(new URL('/app/projects/uier00000002?environment=all', page.url()).href);
     await expect(commentRowLink(staff.page, text)).toBeVisible();
     await staff.context.close();
 
@@ -918,10 +923,17 @@ test('staff moderate public feedback with opaque author filters, single-reply de
         await appNavigation(commenter.page);
         await commenter.page.getByRole('button', { name: /^Workspace:/ }).click();
         await commenter.page.getByRole('menuitem', { name: /^Feedback on uier/ }).click();
-        await expect(commenter.page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io public feedback', exact: true })).toBeVisible();
-        await commenter.page.goto(new URL('/app/projects/uier00000001?environment=all', page.url()).href);
-        const otherCard = await openComment(commenter.page, `Unrelated author ${key}`);
-        await otherCard.getByRole('button', { name: /^More actions/ }).click();
+        // Accounts see their own feedback in the user feedback project; the guests' public project is staff only
+        const projects = commenter.page.getByRole('list', { name: 'Active projects' });
+        await expect(projects.getByRole('link', { name: 'uier.io user feedback', exact: true })).toBeVisible();
+        await expect(projects.getByRole('link', { name: 'uier.io public feedback', exact: true })).toHaveCount(0);
+        expect((await commenter.context.request.get(new URL('/app/projects/uier00000001?environment=all', page.url()).href)).status()).toBe(404);
+        const ownFeedback = await commenter.context.request.post(new URL('/api/comments', page.url()).href, { data: {
+            path: `/moderation-${key}`, kind: 'feedback', position: { type: 'page' }, text: `Own feedback ${key}` } });
+        expect(ownFeedback.status()).toBe(201);
+        await commenter.page.goto(new URL('/app/projects/uier00000002?environment=all', page.url()).href);
+        const ownCard = await openComment(commenter.page, `Own feedback ${key}`);
+        await ownCard.getByRole('button', { name: /^More actions/ }).click();
         await expect(commenter.page.getByRole('menuitem', { name: 'More from this author', exact: true })).toHaveCount(0);
         await commenter.page.keyboard.press('Escape');
         await expect(commenter.page.getByRole('button', { name: /^Clear author filter:/ })).toHaveCount(0);

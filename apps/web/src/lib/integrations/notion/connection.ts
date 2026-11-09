@@ -1,7 +1,7 @@
 import { workspacePk, type DbProject } from '../../app/model';
 import { getAppStore, updateDoc, type AppStore } from '../../app/store';
 import { isLocalRuntime } from '../../comments/environment';
-import { PUBLIC_PROJECT_ID } from '../../comments/publicProject';
+import { isUierFeedbackProject } from '../../comments/publicProject';
 import { disconnectIntegration, IntegrationAccessError, setIntegrationBinding } from '../connection';
 import { acquireGrantLease, GrantLeaseError, releaseGrantLease, saveGrantLease } from '../grants';
 import { consumeOauthState, createOauthState } from '../oauthState';
@@ -19,7 +19,7 @@ const context = (grant: Pick<NotionGrant, 'workspaceId' | 'projectId' | 'id'>, f
 export async function notionAdmin(project: DbProject, userId: string, store: AppStore = getAppStore()) {
     const current = (await store.get<DbProject>(workspacePk(project.workspaceId), project.id))?.doc;
     const member = (await store.get<import('../../app/model').DbMember>(workspacePk(project.workspaceId), `member_${userId}`))?.doc;
-    if (project.id === PUBLIC_PROJECT_ID || !current || current.type !== 'project' || current.workspaceId !== project.workspaceId
+    if (isUierFeedbackProject(project.id) || !current || current.type !== 'project' || current.workspaceId !== project.workspaceId
         || member?.type !== 'member' || member.role !== 'admin' || member.workspaceId !== project.workspaceId) throw new IntegrationAccessError();
     return current;
 }
@@ -148,7 +148,7 @@ export class NotionSession {
             throw new NotionApiError(401, 'member_left');
         }
         const project = (await this.store.get<DbProject>(workspacePk(current.workspaceId), current.projectId))?.doc;
-        if (!project || project.type !== 'project' || project.workspaceId !== current.workspaceId || project.id === PUBLIC_PROJECT_ID)
+        if (!project || project.type !== 'project' || project.workspaceId !== current.workspaceId || isUierFeedbackProject(project.id))
             throw new NotionApiError(401, 'binding_changed');
         if (this.requireEnabled) {
             if (!current.enabled || current.destinationRevision !== this.connection.destinationRevision

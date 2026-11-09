@@ -10,6 +10,6 @@ work should reuse it. Coverage lives in `e2e/feedback-context{,.api}.spec.ts`.
 The formatter renders inline values (including titles and names) as literal code spans, suppressing
 tracker autolinks/mentions without changing the structured context. Only approved explicit links
 remain clickable.
-Public-project exports include `identity.projectId: uier00000001`, derived from the resolved
+Exports of uier's own feedback include `identity.projectId` (`uier00000001` or `uier00000002`), derived from the resolved
 partition even for legacy records. Isolated local host partitions have no project id. Never infer
 the owning project from the reviewed page path: `/app/projects/<id>` feedback belongs to uier.

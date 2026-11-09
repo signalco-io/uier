@@ -3,7 +3,7 @@
 - `app/projectPublicIds.ts` assigns stable 21-character public Nano IDs lazily with claimed references
   and optimistic concurrency. Generated review URLs, embeds and guest email links use `publicId`;
   internal project ids retain storage/membership/MCP meaning. Review routes use `findReviewProject`,
-  retaining legacy random codes but rejecting the fixed `uier00000001` code. Do not expose abandoned
+  retaining legacy random codes but rejecting the fixed `uier00000001` and `uier00000002` codes. Do not expose abandoned
   references or overwrite a saved public id. See `docs/api.md#public-project-identifiers`.
 - Project deletion (`app/projectDeletion.ts`, the settings Danger zone, `deleteProjectAction`) is admin-only,
   requires the typed name and refuses the public workspace/project in the service too. Disconnect services

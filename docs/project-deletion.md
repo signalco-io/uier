@@ -2,7 +2,7 @@
 
 A workspace admin deletes a project in **Settings → Danger zone → Delete project**. The dialog asks
 for the project's name; the server checks the name and the admin role again. After the deletion the
-app opens the projects list. uier's public feedback project (`uier00000001`) and anything in the
+app opens the projects list. uier's feedback projects (`uier00000001`, `uier00000002`) and anything in the
 public workspace cannot be deleted.
 
 The service is [`apps/web/src/lib/app/projectDeletion.ts`](../apps/web/src/lib/app/projectDeletion.ts);

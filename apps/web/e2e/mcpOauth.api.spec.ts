@@ -30,7 +30,7 @@ import type { AppContext } from '../src/lib/app/context';
 import { memberActor } from '../src/lib/review/actor';
 import { createProjectComment, setProjectCommentPrivate } from '../src/lib/review/comments';
 import { getCommentsStore } from '../src/lib/repo/commentsStore';
-import { PUBLIC_PROJECT_ID, PUBLIC_WORKSPACE_ID } from '../src/lib/comments/publicProject';
+import { PUBLIC_PROJECT_ID, PUBLIC_WORKSPACE_ID, USER_FEEDBACK_PROJECT_ID } from '../src/lib/comments/publicProject';
 import { consume } from '../src/lib/comments/rateLimits';
 
 // In-process tests call the route handlers and the MCP handler with this issuer, like mcp.api.spec.ts.
@@ -849,7 +849,7 @@ test('"all" reaches every workspace the person can access now and later, ordered
         expect(listed.actingAs).toMatchObject({ userId: a.user.id, credential: 'Claude Code', connection: { kind: 'oauth' } });
         const ownWorkspace = { id: a.workspaceId, name: a.user.email };
         const bWorkspace = { id: b.workspaceId, name: b.user.email };
-        expect(listed.items.map((item: { id: string }) => item.id)).toEqual([PUBLIC_PROJECT_ID, alpha.id, zeta.id, beta.id]);
+        expect(listed.items.map((item: { id: string }) => item.id)).toEqual([USER_FEEDBACK_PROJECT_ID, alpha.id, zeta.id, beta.id]);
         expect(listed.items[0].workspace.id).toBe(PUBLIC_WORKSPACE_ID);
         expect(listed.items.slice(1)).toEqual([
             { id: alpha.id, name: 'Alpha site', status: 'active', workspace: ownWorkspace },
@@ -872,7 +872,7 @@ test('"all" reaches every workspace the person can access now and later, ordered
         expect((await callTool(client, 'list_feedback', { projectId: gamma.id })).error).toBeUndefined();
         // Losing a membership takes effect on the next request.
         await getAppStore().delete(workspacePk(b.workspaceId), memberId(a.user.id));
-        expect((await callTool(client, 'list_projects', { limit: 25 })).items.map((item: { id: string }) => item.id)).toEqual([PUBLIC_PROJECT_ID, alpha.id, zeta.id, gamma.id]);
+        expect((await callTool(client, 'list_projects', { limit: 25 })).items.map((item: { id: string }) => item.id)).toEqual([USER_FEEDBACK_PROJECT_ID, alpha.id, zeta.id, gamma.id]);
         expect((await callTool(client, 'list_feedback', { projectId: beta.id })).error).toBe('not_found');
     } finally { await client.close(); }
 });
@@ -897,7 +897,7 @@ test('selected workspaces cover all projects including new ones, or exactly the 
         expect(await ids()).toEqual([p1.id, q1.id]);
         expect((await callTool(client, 'list_projects')).access).toEqual({ workspaces: 2 });
         expect(await ids({ workspaceId: c.workspaceId })).toEqual([]);
-        for (const projectId of [q2.id, r1.id, PUBLIC_PROJECT_ID]) {
+        for (const projectId of [q2.id, r1.id, PUBLIC_PROJECT_ID, USER_FEEDBACK_PROJECT_ID]) {
             expect((await callTool(client, 'list_feedback', { projectId })).error, projectId).toBe('not_found');
             await expect(mcpProject(identity, projectId)).rejects.toMatchObject({ status: 404 });
         }
@@ -956,7 +956,7 @@ test('list_projects scans at most 50 workspaces and asks for a workspace filter 
         // The uier workspace, the person's own and 50 more: the 52nd is not scanned.
         const listed = await callTool(client, 'list_projects', { limit: 25 });
         expect(listed).toMatchObject({ truncated: true, message: expect.stringContaining('Filter by workspaceId') });
-        expect(listed.items.map((item: { id: string }) => item.id)).toEqual([PUBLIC_PROJECT_ID]);
+        expect(listed.items.map((item: { id: string }) => item.id)).toEqual([USER_FEEDBACK_PROJECT_ID]);
         const filtered = await callTool(client, 'list_projects', { workspaceId: workspaceIds.at(-1) });
         expect(filtered.truncated).toBeUndefined();
         expect(filtered.items).toEqual([{ id: last.id, name: 'Last workspace project', status: 'active', workspace: { id: workspaceIds.at(-1), name: 'Bound 49' } }]);
@@ -1112,7 +1112,7 @@ test('the official SDK client discovers, registers, signs in, refreshes and lose
     await client.connect(transport());
     try {
         const listed = await callTool(client, 'list_projects', { limit: 25 });
-        expect(listed.items.map((item: { id: string }) => item.id)).toEqual([PUBLIC_PROJECT_ID, own.id, shared.id]);
+        expect(listed.items.map((item: { id: string }) => item.id)).toEqual([USER_FEEDBACK_PROJECT_ID, own.id, shared.id]);
         expect(listed.actingAs).toMatchObject({ credential: 'SDK agent', connection: { kind: 'oauth' } });
 
         // The access token expires; the transport refreshes on the 401 and retries.

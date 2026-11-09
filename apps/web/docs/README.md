@@ -48,7 +48,7 @@ Product contracts, API references and runbooks stay in the repository's [`docs/`
 - [Anchor updates](anchor-updates.md): reattaching a comment's anchor.
 - [Project review briefs](project-review-briefs.md): the project brief.
 - [Feedback export](feedback-export.md): the shared feedback context packet.
-- [uier's public feedback project](public-feedback-project.md): the showcase, staff allowlist and public workspace.
+- [uier's feedback projects](public-feedback-project.md): the showcase, guests' and accounts' feedback, staff allowlist and public workspace.
 
 ## Accounts, access and sign-in
 

@@ -2,7 +2,7 @@ import type { ExternalFeedbackLink } from '@uier/toolbar/feedback-context';
 import { memberId, workspacePk, type DbMember, type DbProject } from '../app/model';
 import { hasProjectAccess, loadWorkspaceAccess } from '../app/access';
 import { getAppStore } from '../app/store';
-import { isPrivateAppFeedback, PUBLIC_PROJECT_ID } from '../comments/publicProject';
+import { isPrivateAppFeedback, isUierFeedbackProject } from '../comments/publicProject';
 import type { DbComment } from '../db/schema';
 import { getCommentsStore } from '../repo/commentsStore';
 import type { ProjectActor } from '../review/actor';
@@ -14,7 +14,7 @@ import type { IntegrationSync } from './model';
 /** Browser-safe projection only. Provider records, attempts, grants and ids never cross this boundary. */
 export async function loadIntegrationLinks(project: DbProject, actor: ProjectActor, sources: readonly DbComment[], options: DiscoveryOptions = {}) {
     const links = new Map<string, ExternalFeedbackLink[]>();
-    if (actor.kind !== 'member' || project.id === PUBLIC_PROJECT_ID) return links;
+    if (actor.kind !== 'member' || isUierFeedbackProject(project.id)) return links;
     const store = options.store ?? getAppStore();
     const comments = options.comments ?? getCommentsStore();
     const current = (await store.get<DbProject>(workspacePk(project.workspaceId), project.id))?.doc;

@@ -82,7 +82,7 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
 - Comments live in the comments container under the partition `project:<code>`, with the site's origin,
   the author (`user:<id>` for members) and no TTL. Guests keep the comments API's visitor and IP limits.
   Current project members get 100 new comments and 300 replies per project per hour, without the
-  shared IP write limit. Signed-in public feedback project commenters get 30 new comments per hour
+  shared IP write limit. Signed-in commenters in uier's user feedback project get 30 new comments per hour
   (three times a visitor's) and keep the visitor reply and IP limits. Page, screenshot and rewrite limits apply to every reviewer. New comments through
   the same-origin showcase `/api/comments` (including the app's Give feedback) record the public
   project's address as their origin too.
@@ -167,7 +167,7 @@ New projects receive a public id at creation. Existing projects receive one on t
 internal service read, including uier's feedback project. An optimistic update keeps concurrent
 requests on one durable id; failed claims never resolve. No bulk data migration is required.
 Previously shared random 12-character project codes and installed embeds remain supported. The
-fixed `uier00000001` value is internal-only at the review API; copy its new link or script from the
+fixed `uier00000001` and `uier00000002` values are internal-only at the review API; copy its new link or script from the
 app. The same-origin public showcase continues through `/api/comments`.
 
 Deleting a project replaces its code and public id claims with retired claims that name no project.
@@ -274,7 +274,9 @@ anchor or opener (`layer.opener` or `layer.nested`) from a project's site (a cro
 [`apps/web/app/api/comments`](../apps/web/app/api/comments), implemented in
 [`apps/web/src/lib/comments`](../apps/web/src/lib/comments). JSON in and out; comments are partitioned by the
 public project (`project:uier00000001`, the Cosmos DB partition key `domain`) and stored per page path (without query string and
-trailing slash). `sourcePath` is the same page as it was addressed, for links (see **Source paths** below).
+trailing slash). A signed-in account's requests use the user feedback project (`project:uier00000002`): new comments go
+there (private), lists and activity include the account's own threads and the public ones, and `/api/comments/{id}` routes
+find the thread in either. `sourcePath` is the same page as it was addressed, for links (see **Source paths** below).
 
 | Request | Body | Response |
 | --- | --- | --- |
@@ -402,10 +404,10 @@ carry no IP-derived data:
 | Thread | 50 messages (replies are appended atomically) |
 | New comments per visitor | 10 per hour |
 | Replies per visitor | 30 per hour |
-| New comments per project member | 100 per project per hour; signed-in public feedback commenters get 30 |
-| Replies per project member | 300 per project per hour; public feedback commenters keep 30 |
+| New comments per project member | 100 per project per hour; signed-in commenters in uier's user feedback project get 30 |
+| Replies per project member | 300 per project per hour; uier's feedback commenters keep 30 |
 | Replies per MCP connection (access token or connected app) | 30 per project per hour, also counted against the owner's member budget |
-| Writes per IP (an IPv4 address or an IPv6 /64) | 30 per domain or project per hour for guests and public feedback commenters; project members do not consume it. The anonymous `/api/comments` API keeps this limit for every writer |
+| Writes per IP (an IPv4 address or an IPv6 /64) | 30 per domain or project per hour for guests and uier's feedback commenters; project members do not consume it. The anonymous `/api/comments` API keeps this limit for every writer |
 | New comments per page | 100 per day (`reason: page_full`) |
 | Rewrite suggestions | 20 per visitor (with the cookie) or project reviewer per hour, 300 per domain or project per day; app-wide, whatever the site: 40 per IP per hour and 1000 per day; selected text and each suggestion up to 1000 characters (what a rewrite comment holds), instruction up to 300 |
 

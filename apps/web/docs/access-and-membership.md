@@ -12,7 +12,7 @@ are `/app/workspace/teams`, `/app/workspace/teams/[teamId]`, `/app/workspace/use
 revisions. See [teams and access](../../../docs/teams-and-access.md) for limits, history, erasure,
 Session-consistency limits, real preview Cosmos checks and rollback.
 
-- Apart from uier's own public feedback project, which every account joins (`joinPublicProject`), a
+- Apart from uier's own feedback workspace, which every account joins as a commenter of the user feedback project (`joinPublicProject`), a
   membership is only ever created by an invitation, by the person's own click on a workspace that offers
   their email domain ([email domains](#email-domains)), or together with a new workspace (`ensureOwnWorkspace`
   or `createWorkspace` from the workspace menu, one `createAll` transaction each; at most

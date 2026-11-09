@@ -293,7 +293,8 @@ test('unbound hard deletes retain intent while public-project deletions create n
     const publicComment = source(publicProject, { domain: PUBLIC_PROJECT_PARTITION, authorId: `user:${f.owner.id}`,
         thread: { items: [{ id: 'first', text: 'Public showcase feedback', authorId: `user:${f.owner.id}` }] } });
     await f.store.create(publicComment);
-    await removeProjectComment(publicProject, (await memberActor(publicProject, f.owner.id))!, publicComment.id);
+    // Accounts use the public project as guests, under their account id
+    await removeProjectComment(publicProject, { kind: 'guest', visitorId: `user:${f.owner.id}` }, publicComment.id);
     expect((await pendingFor(publicComment.domain)).some(doc => doc.id === syncTombstoneId(publicComment.id))).toBe(false);
 });
 

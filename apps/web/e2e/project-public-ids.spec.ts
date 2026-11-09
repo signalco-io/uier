@@ -51,19 +51,21 @@ test('the predictable showcase id cannot be used as a public review code', async
     await appNavigation(page);
     await page.getByRole('button', { name: /^Workspace:/ }).click();
     await page.getByRole('menuitem', { name: /^Feedback on uier/ }).click();
-    await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io public feedback' })).toBeVisible();
-    await page.goto('/app/projects/uier00000001/install');
-    // The showcase's site already sends comments: the guide is behind its connected status
-    await page.getByRole('button', { name: 'Show install guide' }).click();
-    const script = await page.getByText('/toolbar.js" data-uier-project=').first().textContent();
-    const publicId = /data-uier-project="([A-Za-z0-9_-]{21})"/.exec(script ?? '')?.[1];
+    // An account's feedback project; the guests' public one (uier00000001) is staff only
+    await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io user feedback' })).toBeVisible();
+    await page.goto('/app/projects/uier00000002/install');
+    // Once the project has comments, the guide is behind its connected status
+    const showGuide = page.getByRole('button', { name: 'Show install guide' });
+    const snippet = page.getByText('/toolbar.js" data-uier-project=').first();
+    await expect(snippet.or(showGuide)).toBeVisible();
+    if (await showGuide.isVisible()) await showGuide.click();
+    const publicId = /data-uier-project="([A-Za-z0-9_-]{21})"/.exec(await snippet.textContent() ?? '')?.[1];
     expect(publicId).toBeTruthy();
-    expect((await page.request.get('/api/review/uier00000001')).status()).toBe(404);
-    expect((await page.request.get('/api/review/uier00000001/comments?path=/')).status()).toBe(404);
+    for (const predictable of ['uier00000001', 'uier00000002']) {
+        expect((await page.request.get(`/api/review/${predictable}`)).status()).toBe(404);
+        expect((await page.request.get(`/api/review/${predictable}/comments?path=/`)).status()).toBe(404);
+    }
     const info = await page.request.get(`/api/review/${publicId}`);
     expect(info.status()).toBe(200);
     expect((await info.json()).project.id).toBe(publicId);
-    await page.reload();
-    await page.getByRole('button', { name: 'Show install guide' }).click();
-    await expect(page.getByText(`data-uier-project="${publicId}"`).first()).toBeVisible();
 });

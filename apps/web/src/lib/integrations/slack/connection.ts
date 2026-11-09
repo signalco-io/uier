@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { memberId, workspacePk, type DbMember, type DbProject } from '../../app/model';
 import { getAppStore, updateDoc, type AppStore } from '../../app/store';
 import { sha256Hex } from '../../app/tokens';
-import { PUBLIC_PROJECT_ID } from '../../comments/publicProject';
+import { isUierFeedbackProject } from '../../comments/publicProject';
 import { isLocalRuntime } from '../../comments/environment';
 import { KnownPageLinks } from '../../../knownPages';
 import { setIntegrationBinding, disconnectIntegration } from '../connection';
@@ -29,7 +29,7 @@ const secretContext = (grant: SlackGrant, field: string) => ({ provider: 'slack'
 export async function requireSlackProject(workspaceId: string, projectId: string, userId: string, store = getAppStore()) {
     const project = (await store.get<DbProject>(workspacePk(workspaceId), projectId))?.doc;
     const member = (await store.get<DbMember>(workspacePk(workspaceId), memberId(userId)))?.doc;
-    if (!project || project.type !== 'project' || project.workspaceId !== workspaceId || project.id === PUBLIC_PROJECT_ID
+    if (!project || project.type !== 'project' || project.workspaceId !== workspaceId || isUierFeedbackProject(project.id)
         || member?.type !== 'member' || member.workspaceId !== workspaceId || member.userId !== userId || member.role !== 'admin') throw new SlackConnectionError('access_denied');
     return project;
 }

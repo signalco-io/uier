@@ -5,7 +5,7 @@ project**. The person must be an admin of both workspaces. The dialog offers eve
 they administer (the first one is chosen when there is only one), lists what stays behind and asks
 for the project's name. The server checks both admin roles from the stored memberships, the name and
 the target again. After the transfer the app opens the target workspace at the project, at the same
-address. uier's public feedback project (`uier00000001`) and the public workspace never move, in
+address. uier's feedback projects (`uier00000001`, `uier00000002`) and the public workspace never move, in
 either direction.
 
 The service is [`apps/web/src/lib/app/projectTransfer.ts`](../apps/web/src/lib/app/projectTransfer.ts);

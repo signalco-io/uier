@@ -6,8 +6,9 @@ import { displayName, expiredVisitorCookies } from '../../../src/lib/comments/vi
 import { isPrivateAppFeedback } from '../../../src/lib/comments/publicProject';
 
 // GET /api/visitor - who the toolbar's profile shows
-export const GET = commentsApiHandler(async ({ visitor, request, domain }) => Response.json({
-    privateAppFeedback: isPrivateAppFeedback({ domain, path: new URL(request.url).searchParams.get('path') ?? '/' }),
+export const GET = commentsApiHandler(async ({ visitor, request, domain, publicFeedback }) => Response.json({
+    // An account's feedback on uier is always private; a guest's only on the app's pages
+    privateAppFeedback: Boolean(publicFeedback) || isPrivateAppFeedback({ domain, path: new URL(request.url).searchParams.get('path') ?? '/' }),
     name: visitor.name ?? (visitor.hasCookie ? displayName(visitor.authorId) : null),
     ...(visitor.member ? { member: true } : {}),
     draftScope: visitor.authorId ? keyedHash('draft-scope', visitor.authorId) : undefined

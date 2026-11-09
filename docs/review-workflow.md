@@ -404,8 +404,13 @@ text-selection comments and replies. **Feedback is public**: every visitor sees 
 the page and can reply to it. Embedding options and the toolbar's modes are described in
 [`packages/toolbar/README.md`](../packages/toolbar/README.md).
 
-The static project `uier00000001` and workspace `w_uier_public` are created in the deployment's
-`app` container on the first public API request. The two starter threads are created in `comments`
+The static projects `uier00000001` (uier.io public feedback, guests) and `uier00000002` (uier.io user
+feedback, signed-in accounts) and workspace `w_uier_public` are created in the deployment's
+`app` container on the first public API request. On uier's pages a signed-in account's new feedback goes
+to the user feedback project and is private to them and uier's staff; their toolbar lists their own
+threads and the guests' public ones, and they reply to public threads under their account. Threads that
+accounts started in the public project before the split moved once (receipt `user-feedback-split-v1`),
+keeping their ids and numbers. The two starter threads are created in `comments`
 with stable ids and `ttl: -1` (no expiry). Project and thread provisioning is create-only and safe across concurrent
 cold starts: it preserves replies, status and numbers. Production feedback previously stored under
 `uier.io` is copied once, with a persistent migration receipt; source records remain untouched.
@@ -755,7 +760,7 @@ the environment or staff-author scope to look for older feedback. This is not da
 
 Priority is Low, Normal, High or Urgent; missing priority on older records means Normal. A current
 project member can change visible threads in app cards and toolbar thread/inbox views. Guests can
-read the label. Ordinary accounts automatically enrolled in uier's public feedback project cannot
+read the label. Ordinary accounts automatically enrolled in uier's user feedback project cannot
 change priority or use bulk triage; those actions require staff there. A real priority change adds
 one activity step and integration source intent, without a priority-only email. Setting the current
 priority, including Normal on a legacy thread, adds neither.

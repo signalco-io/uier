@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 import { KnownPageLinks } from '../src/knownPages';
 import { getAppStore } from '../src/lib/app/store';
 import { getMemoryCommentsStore } from '../src/lib/repo/memoryCommentsStore';
-import { HEADLINE_COMMENT_ID, STEP_COMMENT_ID, PUBLIC_PROJECT_ID, PUBLIC_PROJECT_PARTITION, PUBLIC_WORKSPACE_ID, provisionPublicProject, joinPublicProject } from '../src/lib/comments/publicProject';
+import { HEADLINE_COMMENT_ID, STEP_COMMENT_ID, PUBLIC_PROJECT_ID, PUBLIC_PROJECT_PARTITION, PUBLIC_WORKSPACE_ID, USER_FEEDBACK_PARTITION, USER_FEEDBACK_PROJECT_ID, provisionPublicProject, joinPublicProject } from '../src/lib/comments/publicProject';
 import { memberId, userPk, workspacePk, type DbMember, type DbProject, type DbUser } from '../src/lib/app/model';
 import type { DbComment } from '../src/lib/db/schema';
 import { findOrCreateUser } from '../src/lib/app/users';
@@ -37,7 +37,7 @@ test('public project provisioning is concurrent, permanent and preserves existin
         const store = getMemoryCommentsStore();
         // Model an existing installation before this migration, even if another spec in this
         // worker already provisioned the project through account creation.
-        await app.delete(workspacePk(PUBLIC_WORKSPACE_ID), 'public-feedback-members-v1');
+        await app.delete(workspacePk(PUBLIC_WORKSPACE_ID), 'public-feedback-members-v2');
         const existingUser: DbUser = {
             id: `u_${randomUUID()}`, pk: userPk(''), type: 'user', email: 'existing@example.com',
             name: 'Existing user', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
@@ -55,7 +55,7 @@ test('public project provisioning is concurrent, permanent and preserves existin
         expect(projects.every(project => project.id === PUBLIC_PROJECT_ID && project.access === 'guests')).toBe(true);
         expect((await app.get(projects[0]!.pk, PUBLIC_PROJECT_ID))?.doc).toMatchObject({ type: 'project', ttl: -1 });
         expect((await app.get(workspacePk(PUBLIC_WORKSPACE_ID), memberId(existingUser.id)))?.doc)
-            .toMatchObject({ role: 'commenter', projects: [PUBLIC_PROJECT_ID], userId: existingUser.id, ttl: -1 });
+            .toMatchObject({ role: 'commenter', projects: [USER_FEEDBACK_PROJECT_ID], userId: existingUser.id, ttl: -1 });
         // Other service specs can share this worker's public-project store. Check this fixture's threads.
         const fixtureIds = new Set([HEADLINE_COMMENT_ID, STEP_COMMENT_ID, legacy.id]);
         expect((await store.listAll(PUBLIC_PROJECT_PARTITION, 100)).filter(comment => fixtureIds.has(comment.id))).toHaveLength(3);
@@ -85,6 +85,93 @@ test('public project provisioning is concurrent, permanent and preserves existin
         else process.env.UIER_LOCAL = previous;
     }
 });
+
+test('threads accounts left in the public project move to the user feedback project once, with their ids, numbers, replies and screenshots', async () => {
+    const previous = process.env.UIER_LOCAL;
+    process.env.UIER_LOCAL = '1';
+    try {
+        const app = getAppStore();
+        const store = getMemoryCommentsStore();
+        const project = await provisionPublicProject(app, store);
+        // Model an installation from before the split
+        await app.delete(project.pk, 'user-feedback-split-v1');
+        const image = parseScreenshot(pngImage) as ParsedScreenshot;
+        const accountId = `user:u_${randomUUID()}`;
+        const thread = async (authorId: string, path: string, extra: Partial<DbComment> = {}) => {
+            const comment: DbComment = { id: `comment_${randomUUID()}`, domain: PUBLIC_PROJECT_PARTITION, projectId: PUBLIC_PROJECT_ID, origin: brand.url,
+                path, position: { type: 'page' }, authorId, number: await store.nextCommentNumber(PUBLIC_PROJECT_PARTITION), resolved: false,
+                thread: { items: [{ id: 'first', text: 'Feedback', authorId }, { id: 'reply', text: 'Thanks', authorId: 'user:u_staff' }] }, ...extra };
+            return comment;
+        };
+        const site = await thread(accountId, '/pricing', { screenshot: { contentType: image.contentType, bytes: image.data.length, width: image.width, height: image.height } });
+        await createWithScreenshot(store, site, image);
+        const appFeedback = await thread(accountId, '/app/projects', { private: true });
+        await store.create(appFeedback);
+        const guest = await thread(sha256Hex(randomToken()), '/pricing');
+        await store.create(guest);
+
+        await Promise.all(Array.from({ length: 3 }, () => provisionPublicProject(app, store)));
+
+        for (const original of [site, appFeedback]) {
+            const moved = (await store.get(USER_FEEDBACK_PARTITION, original.id))!.comment;
+            expect(moved).toMatchObject({ number: original.number, projectId: USER_FEEDBACK_PROJECT_ID, private: true, authorId: accountId, path: original.path });
+            expect(moved.thread.items).toHaveLength(2);
+            expect(await store.get(PUBLIC_PROJECT_PARTITION, original.id)).toBeNull();
+        }
+        expect(await store.getScreenshot(USER_FEEDBACK_PARTITION, site.id)).not.toBeNull();
+        expect(await store.getScreenshot(PUBLIC_PROJECT_PARTITION, site.id)).toBeNull();
+        // Guests' threads and the starter threads stay public
+        expect((await store.get(PUBLIC_PROJECT_PARTITION, guest.id))?.comment).toMatchObject({ number: guest.number });
+        expect(await store.get(USER_FEEDBACK_PARTITION, guest.id)).toBeNull();
+        expect(await store.get(PUBLIC_PROJECT_PARTITION, HEADLINE_COMMENT_ID)).not.toBeNull();
+        expect(await app.get(project.pk, 'user-feedback-split-v1')).not.toBeNull();
+
+        // The receipt stops later cold starts from moving anything again
+        const late = await thread(accountId, '/late');
+        await store.create(late);
+        await provisionPublicProject(app, store);
+        expect(await store.get(PUBLIC_PROJECT_PARTITION, late.id)).not.toBeNull();
+    } finally {
+        if (previous === undefined) delete process.env.UIER_LOCAL;
+        else process.env.UIER_LOCAL = previous;
+    }
+});
+
+test('a signed-in account sees its own threads and the public ones on uier, and works on both by id', async () => staffRuntime(async () => {
+    await provisionPublicProject(getAppStore(), getMemoryCommentsStore());
+    const user = await findOrCreateUser(`showcase-split-${randomUUID()}@example.com`);
+    const other = await findOrCreateUser(`showcase-split-other-${randomUUID()}@example.com`);
+    const cookie = (id?: string) => id ? `uier_session=${signToken('session', { uid: id }, 3600)}` : `uier_visitor=${randomToken()}`;
+    const send = (handler: typeof showcasePost, url: string, who: string, body?: unknown) => handler(new Request(`http://localhost${url}`, {
+        method: body === undefined ? 'GET' : 'POST', headers: { host: 'localhost', cookie: who, 'Content-Type': 'application/json' },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }) }), { params: Promise.resolve({}) });
+    const path = `/split-${randomUUID()}`;
+    const create = async (who: string) => (await (await send(showcasePost, '/api/comments', who, { path, position: { type: 'page' }, kind: 'feedback', text: 'Hello' })).json()) as { id: string };
+    const guest = await create(cookie());
+    const own = await create(cookie(user.id));
+    const theirs = await create(cookie(other.id));
+    expect((await getMemoryCommentsStore().get(PUBLIC_PROJECT_PARTITION, guest.id))).not.toBeNull();
+    expect((await getMemoryCommentsStore().get(USER_FEEDBACK_PARTITION, own.id))).not.toBeNull();
+
+    const list = async (who: string) => ((await (await send(showcaseGet, `/api/comments?path=${path}`, who)).json()) as { id: string }[]).map(comment => comment.id).sort();
+    expect(await list(cookie(user.id))).toEqual([guest.id, own.id].sort());
+    expect(await list(cookie())).toEqual([guest.id]);
+
+    // Replies reach a public thread and the account's own thread by id; another account's thread stays hidden
+    const { POST: reply } = await import('../app/api/comments/[id]/replies/route');
+    const replyTo = (id: string, who: string) => reply(new Request(`http://localhost/api/comments/${id}/replies`, { method: 'POST',
+        headers: { host: 'localhost', cookie: who, 'Content-Type': 'application/json' }, body: JSON.stringify({ text: 'Reply' }) }), { params: Promise.resolve({ id }) });
+    expect((await replyTo(guest.id, cookie(user.id))).status).toBe(201);
+    expect((await replyTo(own.id, cookie(user.id))).status).toBe(201);
+    expect((await replyTo(theirs.id, cookie(user.id))).status).toBe(404);
+    expect((await getMemoryCommentsStore().get(PUBLIC_PROJECT_PARTITION, guest.id))!.comment.thread.items.at(-1)).toMatchObject({ authorId: `user:${user.id}` });
+}));
+
+async function userFeedbackProject() {
+    const app = getAppStore();
+    await provisionPublicProject(app, getMemoryCommentsStore());
+    return (await app.get<DbProject>(workspacePk(PUBLIC_WORKSPACE_ID), USER_FEEDBACK_PROJECT_ID))!.doc;
+}
 
 async function staffRuntime(run: () => Promise<void>) {
     const old = { UIER_LOCAL: process.env.UIER_LOCAL, UIER_STAFF_EMAILS: process.env.UIER_STAFF_EMAILS };
@@ -117,7 +204,8 @@ test('showcase reads and writes enforce current project access for anonymous, gu
             const current = (await app.get<DbProject>(project.pk, project.id))!;
             await app.replace({ ...current.doc, access }, current.etag);
             for (const [index, caller] of callers.entries()) {
-                const status = access === 'disabled' ? 403 : access === 'invited' && index < 2 ? 401 : 200;
+                // Accounts use the public project as guests: only uier's staff are its members
+                const status = access === 'disabled' ? 403 : access === 'invited' ? 401 : 200;
                 const listed = await call('GET', caller.cookie);
                 const compared = await review(new Request(`http://localhost/api/review/${project.publicId}/comments?path=/`, { headers: caller.headers }),
                     { params: Promise.resolve({ projectId: project.publicId }) });
@@ -126,6 +214,13 @@ test('showcase reads and writes enforce current project access for anonymous, gu
                 const before = await getMemoryCommentsStore().listAll(PUBLIC_PROJECT_PARTITION, 1000);
                 const written = await call('POST', caller.cookie);
                 expect(written.status).toBe(status === 200 ? 201 : status);
+                if (status === 200 && index === 2) {
+                    // An account's feedback goes to the user feedback project, private to them and uier's staff
+                    const { id } = await written.json() as { id: string };
+                    expect((await getMemoryCommentsStore().get(USER_FEEDBACK_PARTITION, id))?.comment)
+                        .toMatchObject({ projectId: USER_FEEDBACK_PROJECT_ID, private: true, authorId: `user:${user.id}` });
+                    expect(await getMemoryCommentsStore().get(PUBLIC_PROJECT_PARTITION, id)).toBeNull();
+                }
                 if (status !== 200) {
                     expect(await listed.json()).toMatchObject({ error: access === 'disabled' ? 'comments_disabled' : 'sign_in_required' });
                     expect(await written.json()).toMatchObject({ error: access === 'disabled' ? 'comments_disabled' : 'sign_in_required' });
@@ -166,9 +261,9 @@ test('staff normalization, concurrent joins and allowlist removal replace hand-s
     const originalOwn = (await app.get<DbMember>(own.pk, own.id))!;
     await app.delete(workspacePk(PUBLIC_WORKSPACE_ID), memberId(user.id));
     const joined = await Promise.all(Array.from({ length: 8 }, () => joinPublicProject(user, app)));
-    expect(joined.every(member => member.role === 'commenter' && JSON.stringify(member.projects) === JSON.stringify([PUBLIC_PROJECT_ID]))).toBe(true);
+    expect(joined.every(member => member.role === 'commenter' && JSON.stringify(member.projects) === JSON.stringify([USER_FEEDBACK_PROJECT_ID]))).toBe(true);
     const first = joined[0]!;
-    expect(first).toMatchObject({ role: 'commenter', projects: [PUBLIC_PROJECT_ID] });
+    expect(first).toMatchObject({ role: 'commenter', projects: [USER_FEEDBACK_PROJECT_ID] });
     process.env.UIER_STAFF_EMAILS = ` malformed, ${user.email.toUpperCase()} ; bad@@example.com\n`;
     expect(isPublicProjectStaff(user.email)).toBe(true);
     expect(isPublicProjectStaff('bad@@example.com')).toBe(false);
@@ -181,22 +276,24 @@ test('staff normalization, concurrent joins and allowlist removal replace hand-s
     process.env.UIER_STAFF_EMAILS = '';
     // Existing review tokens lose staff access even before the stored role is rewritten.
     expect((await app.get<DbMember>(first.pk, first.id))!.doc.role).toBe('admin');
-    expect(await resolveActor(request, project)).toMatchObject({ kind: 'member', isAdmin: false });
+    // Accounts are not members of the public project; they leave feedback in the user feedback project.
+    expect(await resolveActor(request, project)).toMatchObject({ kind: 'anonymous' });
+    expect(await memberActor({ ...project, id: USER_FEEDBACK_PROJECT_ID }, user.id)).toMatchObject({ kind: 'member', isAdmin: false });
     // Read-time demotion also constrains the old stored all-projects grant.
     expect(await memberActor({ ...project, id: 'other0000001' }, user.id)).toBeNull();
     const demoted = await Promise.all(Array.from({ length: 8 }, () => joinPublicProject(user)));
-    expect(demoted.every(member => member.role === 'commenter' && JSON.stringify(member.projects) === JSON.stringify([PUBLIC_PROJECT_ID]))).toBe(true);
+    expect(demoted.every(member => member.role === 'commenter' && JSON.stringify(member.projects) === JSON.stringify([USER_FEEDBACK_PROJECT_ID]))).toBe(true);
     const stored = (await app.get<DbMember>(first.pk, first.id))!;
     await app.replace({ ...stored.doc, role: 'admin', projects: 'all' }, stored.etag);
     // A new server instance resets manually assigned admins, even with the durable backfill receipt.
     await provisionPublicProject(app, getMemoryCommentsStore());
-    expect((await app.get<DbMember>(first.pk, first.id))!.doc).toMatchObject({ role: 'commenter', projects: [PUBLIC_PROJECT_ID] });
+    expect((await app.get<DbMember>(first.pk, first.id))!.doc).toMatchObject({ role: 'commenter', projects: [USER_FEEDBACK_PROJECT_ID] });
     expect(await app.get<DbMember>(own.pk, own.id)).toEqual(originalOwn);
     delete process.env.UIER_STAFF_EMAILS;
     expect(isPublicProjectStaff(user.email)).toBe(false);
     process.env.UIER_STAFF_EMAILS = 'invalid address;@@;';
     expect((await findOrCreateUser(user.email)).id).toBe(user.id);
-    expect(await joinPublicProject(user)).toMatchObject({ role: 'commenter', projects: [PUBLIC_PROJECT_ID] });
+    expect(await joinPublicProject(user)).toMatchObject({ role: 'commenter', projects: [USER_FEEDBACK_PROJECT_ID] });
 }));
 
 test('anonymous reads get real starter threads; visitors cannot remove or resolve them', async ({ request }) => {
@@ -212,11 +309,11 @@ test('anonymous reads get real starter threads; visitors cannot remove or resolv
     expect((await request.patch(`/api/comments/${HEADLINE_COMMENT_ID}`, { data: { resolved: true } })).status()).toBe(403);
 });
 
-test('enrolled public commenters get three times the visitor comments, and keep visitor reply and shared IP limits', async () => {
+test('accounts get three times the visitor comments in the user feedback project, and keep visitor reply and shared IP limits', async () => {
     const previous = process.env.UIER_LOCAL;
     process.env.UIER_LOCAL = '1';
     try {
-        const project = await provisionPublicProject(getAppStore(), getMemoryCommentsStore());
+        const project = await userFeedbackProject();
         const enrolled = async (prefix: string, ip?: string) => {
             const user = await findOrCreateUser(`${prefix}-${randomUUID()}@example.com`);
             expect((await joinPublicProject(user)).role).toBe('commenter');
@@ -224,14 +321,13 @@ test('enrolled public commenters get three times the visitor comments, and keep 
                 Authorization: `Bearer ${signToken('review', { uid: user.id, pid: project.id }, 3600)}` } });
             const actor = await resolveActor(req, project);
             expect(actor).toMatchObject({ kind: 'member', isAdmin: false });
-            const input = { origin: 'https://uier.io', path: `/public-rate-${user.id}`, kind: 'feedback' as const, position: { type: 'page' as const }, text: 'Public feedback' };
+            const input = { origin: 'https://uier.io', path: `/public-rate-${user.id}`, kind: 'feedback' as const, position: { type: 'page' as const }, text: 'Account feedback' };
             return { req, actor, input };
         };
 
         // Their own limit: 30 new comments an hour, and the account's usage page shows it
         const own = await enrolled('public-limits');
-        let comment;
-        for (let i = 0; i < 30; i++) comment = await createProjectComment(own.req, project, own.actor, own.input);
+        for (let i = 0; i < 30; i++) await createProjectComment(own.req, project, own.actor, own.input);
         await expect(createProjectComment(own.req, project, own.actor, own.input)).rejects.toMatchObject({ status: 429, code: 'rate_limited', reason: 'too_fast',
             usage: KnownPageLinks.accountUsage(project.publicId ?? project.id) });
 
@@ -241,15 +337,13 @@ test('enrolled public commenters get three times the visitor comments, and keep 
         for (let i = 0; i < 30; i++) await createProjectComment(first.req, project, first.actor, first.input);
         const second = await enrolled('public-network', ip);
         await expect(createProjectComment(second.req, project, second.actor, second.input)).rejects.toMatchObject({ status: 429, code: 'rate_limited', reason: 'too_fast' });
-        await expect(replyToProjectComment(second.req, project, second.actor, comment!.id, { text: 'IP full' })).rejects.toMatchObject({ status: 429, code: 'rate_limited' });
 
         // Replies keep the visitor limit
         const replies = await enrolled('public-replies');
-        for (let i = 0; i < 30; i++) await replyToProjectComment(replies.req, project, replies.actor, comment!.id, { text: `Reply ${i}` });
-        await expect(replyToProjectComment(replies.req, project, replies.actor, comment!.id, { text: 'One more' })).rejects.toMatchObject({ status: 429, code: 'rate_limited', reason: 'too_fast' });
-        // Guests on that address are still blocked after account writes consumed the shared budget.
-        const guest = new Request('http://127.0.0.1/api/review', { headers: { 'x-forwarded-for': ip, 'X-Uier-Visitor': randomToken() } });
-        await expect(replyToProjectComment(guest, project, await resolveActor(guest, project), comment!.id, { text: 'Guest' })).rejects.toMatchObject({ status: 429, code: 'rate_limited' });
+        const thread = await createProjectComment(replies.req, project, replies.actor, replies.input);
+        expect(thread).toMatchObject({ private: true });
+        for (let i = 0; i < 30; i++) await replyToProjectComment(replies.req, project, replies.actor, thread.id, { text: `Reply ${i}` });
+        await expect(replyToProjectComment(replies.req, project, replies.actor, thread.id, { text: 'One more' })).rejects.toMatchObject({ status: 429, code: 'rate_limited', reason: 'too_fast' });
     } finally {
         if (previous === undefined) delete process.env.UIER_LOCAL;
         else process.env.UIER_LOCAL = previous;
@@ -268,7 +362,7 @@ test('public workspace rejects invitations, member removal, project creation and
     await expect(removeMember(context, target.id)).rejects.toThrow('Everyone joins the uier workspace automatically.');
     await expect(createProject(context, { name: 'Unexpected', urls: ['https://example.com'] })).rejects.toThrow('Everyone joins the uier workspace automatically.');
     for (const update of [{ name: 'Renamed' }, { access: 'invited' as const }, { urls: ['https://attacker.example'] }, { status: 'done' as const }, { emailCommentExcerpts: true }])
-        await expect(updateProject(PUBLIC_WORKSPACE_ID, project.id, update)).rejects.toThrow('The public feedback project settings are managed by uier.');
+        await expect(updateProject(PUBLIC_WORKSPACE_ID, project.id, update)).rejects.toThrow('The settings of uier’s feedback projects are managed by uier.');
     const token = randomToken();
     const tokenHash = sha256Hex(token);
     const app = getAppStore();
@@ -277,16 +371,16 @@ test('public workspace rejects invitations, member removal, project creation and
         role: 'admin', projects: 'all', invitedBy: user.id, createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 60000).toISOString(), tokenHash });
     await app.create({ type: 'invitation-token', id: tokenHash, pk: `invitation:${tokenHash}`, workspaceId: PUBLIC_WORKSPACE_ID, invitationId: id });
     expect(await acceptInvitation(token)).toMatchObject({ user: { id: target.id } });
-    expect(await getMember(PUBLIC_WORKSPACE_ID, target.id)).toMatchObject({ role: 'commenter', projects: [PUBLIC_PROJECT_ID] });
+    expect(await getMember(PUBLIC_WORKSPACE_ID, target.id)).toMatchObject({ role: 'commenter', projects: [USER_FEEDBACK_PROJECT_ID] });
     expect(await acceptInvitation(token)).toBeNull();
     expect((await app.get(project.pk, project.id))!.doc).toMatchObject({ name: project.name, access: 'guests', urls: ['https://uier.io'] });
 }));
 
-test('private app feedback is visible to staff and its author; deleting replies and screenshot threads preserves counters and numbering', async () => staffRuntime(async () => {
+test('account feedback is visible to staff and its author; deleting replies and screenshot threads preserves counters and numbering', async () => staffRuntime(async () => {
     const staff = await findOrCreateUser(`moderate-${randomUUID()}@example.com`);
     process.env.UIER_STAFF_EMAILS = staff.email;
     await joinPublicProject(staff);
-    const project = await provisionPublicProject(getAppStore(), getMemoryCommentsStore());
+    const project = await userFeedbackProject();
     const owner = await findOrCreateUser(`owner-${randomUUID()}@example.com`);
     const stranger = await findOrCreateUser(`stranger-${randomUUID()}@example.com`);
     const admin = (await memberActor(project, staff.id))!;

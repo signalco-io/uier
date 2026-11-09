@@ -1,14 +1,26 @@
-# uier's public feedback project
+# uier's feedback projects
+
+uier's workspace has two projects for feedback on uier itself. `uier00000001` (uier.io public feedback,
+`access: guests`) holds guests' feedback and the starter threads. `uier00000002` (uier.io user feedback,
+`access: invited`) holds feedback from signed-in accounts, the app's Give feedback included; every thread
+there is private to its author and the staff. `isUierFeedbackProject` applies the shared rules to both
+(no integrations, owner email or MCP push, visitor limits with three times the new comments for
+accounts). On uier's pages `commentsApiHandler` gives a signed-in account the user feedback project as its
+context and the public project as `publicFeedback`: lists, activity, read state and realtime combine both,
+`commentContext` finds a thread by id in either, and the account uses the public project as a guest under
+`user:<id>` (only staff are its members). Provisioning moves threads accounts started in the public
+project once (`user-feedback-split-v1`), keeping ids and numbers; it runs before an instance serves comments
+so new threads in the user project number after the moved ones.
 
 Every account joins `w_uier_public`. Only normalized, valid addresses from the server-side
 `UIER_STAFF_EMAILS` allowlist become admins with all projects; everyone else is a commenter scoped
-to `uier00000001`, including hand-set admins. Provisioning backfills accounts with a durable receipt,
+to `uier00000002`, including hand-set admins. Provisioning backfills accounts with a durable receipt,
 but resets stored admins on every instance's first `ensurePublicProject` call. Sign-in and app
 requests reconcile memberships without invitations. `getAppContext` and `memberActor` enforce the
 current allowlist at read time too, including old review tokens and MCP connections. Missing/empty
 configuration means no staff; malformed entries are skipped using `emailSchema`. Preserve the
 selected workspace and personal onboarding. The public workspace has no Users page, invitations,
-member removal or project creation; public project settings are fixed, with personal email preferences
+member removal or project creation; both projects' settings are fixed, with personal email preferences
 still available. Enforce this in services as well as the UI; earlier invitations cannot assign roles.
 Keep all ordinary workspace behavior unchanged. Admin author filtering uses `app/commentAuthors.ts`:
 random, account/project-bound references expire after 24 hours, and stored author ids never cross

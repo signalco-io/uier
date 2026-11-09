@@ -23,7 +23,7 @@ import {
 import { enforceNewCommentLimits, enforceReplyLimits, enforceScreenshotLimits, rateLimitIpBucket, usageLinks, type RateLimitSubject, type RewriteLimitSubject } from './rateLimits';
 import type { ParsedScreenshot } from './screenshot';
 import type { CreateCommentInput, ReplyInput, UpdateCommentInput } from './validation';
-import { HEADLINE_COMMENT_ID, STEP_COMMENT_ID, PUBLIC_PROJECT_ID, PUBLIC_PROJECT_PARTITION, isPrivateAppFeedback } from './publicProject';
+import { HEADLINE_COMMENT_ID, STEP_COMMENT_ID, PUBLIC_PROJECT_PARTITION, USER_FEEDBACK_PROJECT_ID, isPrivateAppFeedback } from './publicProject';
 import { isVisible } from './visibility';
 
 const MAX_UPDATE_ATTEMPTS = 8;
@@ -49,8 +49,8 @@ function rateLimitSubject(context: CommentsApiContext): RateLimitSubject {
         domain: context.domain,
         authorId: writerId(context),
         ipBucket: rateLimitIpBucket(context.request),
-        // Only uier's public feedback project resolves a member here: a signed-in account on uier's pages
-        publicAccount: context.actor?.kind === 'member',
+        // A signed-in account on uier's pages (only uier's own feedback projects resolve one here)
+        publicAccount: Boolean(context.visitor.member),
         ...(context.project ? { usage: usageLinks(context.project, context.actor) } : {})
     };
 }
@@ -141,7 +141,18 @@ async function updateComment<T extends DbComment | null>(
  * The page's newest comments (or, without a path, those of every page of the domain), as many as
  * fit into {@link MAX_LIST_RESPONSE_BYTES}
  */
-export async function listComments(context: CommentsApiContext, path: string | null, unreadOnly = false) {
+export async function listComments(context: CommentsApiContext, path: string | null, unreadOnly = false): Promise<CommentDto[]> {
+    // An account sees its own threads and the guests' public ones, newest first
+    if (context.publicFeedback) {
+        const lists = await Promise.all([listProjectComments(context, path, unreadOnly), listProjectComments(context.publicFeedback, path, unreadOnly)]);
+        const starters = new Set([HEADLINE_COMMENT_ID, STEP_COMMENT_ID]);
+        const newest = (a: CommentDto, b: CommentDto) => Number(starters.has(b.id)) - Number(starters.has(a.id)) || (b.createdAt ?? '').localeCompare(a.createdAt ?? '');
+        return withinListResponseSize(lists.flat().sort(newest).slice(0, MAX_LIST_COMMENTS));
+    }
+    return await listProjectComments(context, path, unreadOnly);
+}
+
+async function listProjectComments(context: CommentsApiContext, path: string | null, unreadOnly: boolean) {
     const store = getCommentsStore();
     let comments = unreadOnly
         ? await unreadComments(context.domain, context.visitor.authorId)
@@ -270,8 +281,9 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
     const comment: DbComment = {
         id: `comment_${nanoid()}`,
         domain: context.domain,
-        ...(context.domain === PUBLIC_PROJECT_PARTITION ? { projectId: PUBLIC_PROJECT_ID } : {}),
-        ...(isPrivateAppFeedback({ domain: context.domain, path: input.path }) ? { private: true } : {}),
+        ...(context.project ? { projectId: context.project.id } : {}),
+        // An account's feedback is between them and uier's staff
+        ...(isPrivateAppFeedback({ domain: context.domain, path: input.path }) || context.project?.id === USER_FEEDBACK_PROJECT_ID ? { private: true } : {}),
         ...(context.origin ? { origin: context.origin } : {}),
         path: input.path,
         ...(sourcePath ? { sourcePath } : {}),

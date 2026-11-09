@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { KnownPageLinks } from '@/src/knownPages';
 import type { DbProject } from '@/src/lib/app/model';
-import { PUBLIC_PROJECT_ID } from '@/src/lib/comments/publicProject';
+import { isUierFeedbackProject } from '@/src/lib/comments/publicProject';
 import { getAzureDevOpsSettings } from '@/src/lib/integrations/azure-devops';
 import { getGitHubSettings } from '@/src/lib/integrations/github';
 import { getLinearSettings } from '@/src/lib/integrations/linear';
@@ -43,7 +43,7 @@ export default async function ProjectIntegrationSettingsPage({ params, searchPar
     if (!isIntegrationProvider(provider))
         notFound();
     const { context, project } = await configurableProject(projectId);
-    if (project.id === PUBLIC_PROJECT_ID)
+    if (isUierFeedbackProject(project.id))
         notFound();
     const query = await searchParams;
     const adapter = configuredIntegrationAdapters.find(value => value.provider === provider);

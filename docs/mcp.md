@@ -166,10 +166,11 @@ Claude Code's OAuth off for the entry; use one or the other.
 ## The owning project
 
 Use the owning `projectId` in the copied feedback packet, not an id found in the reviewed page URL.
-Feedback about uier itself belongs to **uier.io public feedback** (`uier00000001`) in the **uier**
-workspace, including feedback left while viewing another project's page. An OAuth connection reaches it
+Feedback about uier itself belongs to the **uier** workspace, including feedback left while viewing
+another project's page: **uier.io user feedback** (`uier00000002`) holds what signed-in accounts left
+(the app's Give feedback too), and **uier.io public feedback** (`uier00000001`) what guests left. An OAuth connection reaches them
 with "All my workspaces and projects", or when the uier workspace is among the chosen ones. An access
-token reaches it only when it was created in the uier workspace with that project selected (and the
+token reaches one only when it was created in the uier workspace with that project selected (and the
 operations you intend to use, including Change status to close feedback). `list_projects` shows what a
 connection can reach. An absent project or a `not_found` response does not prove that feedback was
 deleted.

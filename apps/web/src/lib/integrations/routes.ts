@@ -5,7 +5,7 @@ import { getProject, isProjectId } from '../app/projects';
 import { getMember } from '../app/workspaces';
 import { KnownPageLinks, KnownPages } from '../../knownPages';
 import { isLocalRuntime } from '../comments/environment';
-import { PUBLIC_PROJECT_ID } from '../comments/publicProject';
+import { isUierFeedbackProject } from '../comments/publicProject';
 import type { IntegrationProviderId } from './model';
 
 type BeginInput = { userId: string; workspaceId: string; projectId: string; baseUrl: string; requestReplies?: boolean };
@@ -29,7 +29,7 @@ export function integrationConnectRoute(provider: IntegrationProviderId, begin: 
         const context = await getAppContext();
         if (!context) return redirect(new URL('/app/sign-in?next=/app', baseUrl).href);
         const projectId = new URL(request.url).searchParams.get('project');
-        if (!isProjectId(projectId) || projectId === PUBLIC_PROJECT_ID || !context.isAdmin
+        if (!isProjectId(projectId) || isUierFeedbackProject(projectId) || !context.isAdmin
             || !await getProject(context.workspace.id, projectId)) return new Response(null, { status: 404 });
         const settings = new URL(KnownPageLinks.projectIntegration(projectId, provider), baseUrl);
         const site = request.headers.get('sec-fetch-site');
@@ -55,7 +55,7 @@ export function integrationCallbackRoute(provider: IntegrationProviderId, finish
         try {
             const result = await finish({ userId: context.user.id, state: params.get('state'), code: params.get('code') ?? undefined,
                 error: params.get('error') ?? undefined, baseUrl });
-            if (!isProjectId(result.projectId) || result.projectId === PUBLIC_PROJECT_ID
+            if (!isProjectId(result.projectId) || isUierFeedbackProject(result.projectId)
                 || (await getMember(result.workspaceId, context.user.id))?.role !== 'admin'
                 || !await getProject(result.workspaceId, result.projectId)) return invalidIntegrationConnection(provider, baseUrl);
             (await cookies()).set(WORKSPACE_COOKIE_NAME, result.workspaceId, {

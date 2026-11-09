@@ -1,12 +1,13 @@
 import { assertNotBot } from '@/src/lib/comments/botProtection';
-import { apiErrors, commentsApiHandler, parseJsonBody } from '@/src/lib/comments/http';
+import { apiErrors, commentContext, commentsApiHandler, parseJsonBody } from '@/src/lib/comments/http';
 import { changeFixVerification } from '@/src/lib/review/fixVerification';
 import { fixVerificationSchema } from '@/src/lib/review/fixVerificationSchema';
 import { commentResponse } from '@/src/lib/review/response';
 import { isValidId } from '@/src/lib/comments/validation';
 
-export const POST = commentsApiHandler<{ id: string }>(async (context, { id }) => {
+export const POST = commentsApiHandler<{ id: string }>(async (request, { id }) => {
     await assertNotBot();
+    const context = isValidId(id) ? await commentContext(request, id) : request;
     if (!context.project || !context.actor || !isValidId(id)) throw apiErrors.notFound();
     const input = await parseJsonBody(context.request, fixVerificationSchema);
     return commentResponse({ request: context.request, project: context.project, actor: context.actor, siteOrigin: context.origin },

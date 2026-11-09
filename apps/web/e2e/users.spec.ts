@@ -389,7 +389,7 @@ test('public staff cannot open Users, invite, create projects or edit public set
         headers: { 'Next-Action': saved.headers()['next-action']!, 'Content-Type': saved.headers()['content-type']!, Origin: new URL(saved.url()).origin },
         data: Buffer.from(saved.postDataBuffer()!.toString().replaceAll(ownProject, 'uier00000001'))
     });
-    expect(await denied.text()).toContain('The public feedback project settings are managed by uier.');
+    expect(await denied.text()).toContain('The settings of uier’s feedback projects are managed by uier.');
     await page.reload();
     await expect(page.getByRole('heading', { name: 'uier.io public feedback', exact: true })).toBeVisible();
     // A fresh sign-in keeps the chosen workspace. The personal project's admin remains intact.

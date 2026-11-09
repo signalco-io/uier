@@ -5,15 +5,18 @@ import { memberId, projectRefPk, userPk, workspacePk, type AppDoc, type DbMember
 import type { DbComment } from '../db/schema';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { isLocalRuntime } from './environment';
-import { PUBLIC_PROJECT_ID, PUBLIC_WORKSPACE_ID, publicProjectMember } from './publicProjectPolicy';
+import { PUBLIC_PROJECT_ID, PUBLIC_WORKSPACE_ID, USER_FEEDBACK_PROJECT_ID, publicProjectMember } from './publicProjectPolicy';
 import { ensureProjectPublicId, type PublicProject } from '../app/projectPublicIds';
+import { cleanupThread } from './cleanup';
 
-export { PUBLIC_PROJECT_ID, PUBLIC_WORKSPACE_ID } from './publicProjectPolicy';
+export { PUBLIC_PROJECT_ID, PUBLIC_WORKSPACE_ID, USER_FEEDBACK_PROJECT_ID, isUierFeedbackProject } from './publicProjectPolicy';
 export const PUBLIC_PROJECT_PARTITION = `project:${PUBLIC_PROJECT_ID}`;
+export const USER_FEEDBACK_PARTITION = `project:${USER_FEEDBACK_PROJECT_ID}`;
 export const HEADLINE_COMMENT_ID = 'comment_uier_headline';
 export const STEP_COMMENT_ID = 'comment_uier_first_step';
 const workspaceId = PUBLIC_WORKSPACE_ID;
 const createdAt = '2026-10-25T00:00:00.000Z';
+const splitAt = '2026-11-09T00:00:00.000Z';
 
 // The page key may carry query or hash state after the pathname
 const appPagePattern = new RegExp(`^${KnownPages.App}(?:[/?#]|$)`);
@@ -99,6 +102,64 @@ export async function joinPublicProject(user: DbUser, app = getAppStore()): Prom
     throw new Error('Could not join the uier feedback project');
 }
 
+/**
+ * Moves a thread an account started from the public project to the user feedback project, keeping its id
+ * (so links still open it) and number (so `#12` still names it). Idempotent: a crash or a concurrent server
+ * instance repeats it safely, and a reply that lands during the move is copied again before the source goes.
+ */
+async function moveToUserFeedback(app: AppStore, comments: CommentsStore, id: string) {
+    for (let attempt = 0; attempt < 8; attempt++) {
+        const source = await comments.get(PUBLIC_PROJECT_PARTITION, id);
+        if (!source) return;
+        const moved: DbComment = { ...source.comment, domain: USER_FEEDBACK_PARTITION, projectId: USER_FEEDBACK_PROJECT_ID, private: true };
+        if (moved.screenshot && !await comments.getScreenshot(USER_FEEDBACK_PARTITION, id)) {
+            const image = await comments.getScreenshot(PUBLIC_PROJECT_PARTITION, id);
+            if (image) {
+                try {
+                    await comments.createScreenshot({ ...image, domain: USER_FEEDBACK_PARTITION });
+                } catch (error) {
+                    if (!await comments.getScreenshot(USER_FEEDBACK_PARTITION, id)) throw error;
+                }
+            } else delete moved.screenshot;
+        }
+        const copy = await comments.get(USER_FEEDBACK_PARTITION, id);
+        if (!copy) await createIfMissing(comments, moved);
+        else if (await comments.replace(moved, copy.etag) !== 'ok') continue;
+        // Only the version that was copied goes; a newer one is copied again first.
+        const removed = await comments.delete(PUBLIC_PROJECT_PARTITION, id, source.etag);
+        if (removed === 'conflict') continue;
+        await comments.deleteScreenshot(PUBLIC_PROJECT_PARTITION, id);
+        // Read state, notification records and the pre-project legacy copy of the source
+        await cleanupThread(PUBLIC_PROJECT_PARTITION, id, true, comments, app);
+        return;
+    }
+    throw new Error('Feedback kept changing while it moved to the user feedback project');
+}
+
+/** The user feedback project; threads accounts left in the public project before it existed move there once. */
+async function provisionUserFeedbackProject(app: AppStore, comments: CommentsStore) {
+    const project: DbProject = {
+        id: USER_FEEDBACK_PROJECT_ID, pk: workspacePk(workspaceId), type: 'project', workspaceId,
+        name: `${brand.domain} user feedback`, urls: [brand.url], status: 'active', access: 'invited',
+        createdBy: 'system', createdAt: splitAt, updatedAt: splitAt, ttl: -1
+    };
+    await app.create(project);
+    await app.create<DbProjectRef>({ id: USER_FEEDBACK_PROJECT_ID, pk: projectRefPk(USER_FEEDBACK_PROJECT_ID), type: 'project-ref', workspaceId, ttl: -1 });
+
+    // Copies keep their numbers, so they go before any new thread takes a number in the new project: provisioning
+    // finishes before an instance serves comments, and the sequence starts after the highest stored number.
+    const splitMigrationId = 'user-feedback-split-v1';
+    if (!await app.get(project.pk, splitMigrationId)) {
+        const starters = new Set([HEADLINE_COMMENT_ID, STEP_COMMENT_ID]);
+        for (const thread of await comments.listActivity(PUBLIC_PROJECT_PARTITION)) {
+            if (thread.authorId?.startsWith('user:') && !starters.has(thread.id))
+                await moveToUserFeedback(app, comments, thread.id);
+        }
+        await app.create<AppDoc>({ id: splitMigrationId, pk: project.pk, type: 'migration', ttl: -1 });
+    }
+    await ensureProjectPublicId(project, app);
+}
+
 /** The public project and initial threads, provisioned in the deployment's own containers. */
 export async function provisionPublicProject(app: AppStore, comments: CommentsStore, legacyDomain?: string) {
     const project: DbProject = {
@@ -117,8 +178,9 @@ export async function provisionPublicProject(app: AppStore, comments: CommentsSt
         await updateDoc<DbMember>(member.pk, member.id, current => publicProjectMember(current, user?.email ?? ''), app);
     }
 
-    // Backfill existing accounts once, with a receipt only after every membership was saved.
-    const membersMigrationId = 'public-feedback-members-v1';
+    // Backfill existing accounts once, with a receipt only after every membership was saved. v2 moved
+    // commenters from the public project to the user feedback project.
+    const membersMigrationId = 'public-feedback-members-v2';
     if (!await app.get(project.pk, membersMigrationId)) {
         for (const user of await app.query<DbUser>({ type: 'user' }))
             await joinPublicProject(user, app);
@@ -154,6 +216,7 @@ export async function provisionPublicProject(app: AppStore, comments: CommentsSt
             await createIfMissing(comments, comment);
         }
     }
+    await provisionUserFeedbackProject(app, comments);
     return await ensureProjectPublicId(project, app);
 }
 

@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { memberId, userPk, workspacePk, type DbMember, type DbProject, type DbUser } from '../app/model';
 import { getAppStore, updateDoc, type AppStore } from '../app/store';
 import { sha256Hex } from '../app/tokens';
-import { isPrivateAppFeedback, PUBLIC_PROJECT_ID } from '../comments/publicProject';
+import { isPrivateAppFeedback, isUierFeedbackProject } from '../comments/publicProject';
 import { withSyncMark } from './syncSignal';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import type { ProjectActor } from '../review/actor';
@@ -35,7 +35,7 @@ export type DeliveryOptions = {
 };
 
 async function authority(ledger: IntegrationSync, store: AppStore, comments: CommentsStore) {
-    if (ledger.projectId === PUBLIC_PROJECT_ID) return null;
+    if (isUierFeedbackProject(ledger.projectId)) return null;
     const project = (await store.get<DbProject>(workspacePk(ledger.workspaceId), ledger.projectId))?.doc;
     if (!project || project.type !== 'project' || project.workspaceId !== ledger.workspaceId) return null;
     const connection = await getIntegrationConnection(project, ledger.provider, store);

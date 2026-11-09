@@ -3,7 +3,7 @@ import { getCommentsStore } from '../repo/commentsStore';
 import { canSeeComment } from '../review/comments';
 import { isVisible } from '../comments/visibility';
 import { actorAuthorId } from '../review/actor';
-import { authorizeRealtime, readRealtimeTicket, type RealtimeClaims } from './tickets';
+import { authorizeRealtime, readRealtimeTicket, realtimeScopes, type RealtimeClaims } from './tickets';
 import { createRealtimeSources, REALTIME_INTERVAL_MS, visibleRevision, type RealtimeSource } from './source';
 
 const sourceFor = createRealtimeSources(domain => getCommentsStore().listRealtime(domain));
@@ -12,14 +12,14 @@ const sourceFor = createRealtimeSources(domain => getCommentsStore().listRealtim
 export function acceptRealtimeSocket(socket: WebSocket, origin: string, apiOrigin: string) {
     let ended = false;
     let started = false;
-    let source: RealtimeSource | undefined;
+    let sources: RealtimeSource[] = [];
     let timer: ReturnType<typeof setTimeout>;
     const finish = (code = 1000) => {
         if (ended) return;
         ended = true;
         clearTimeout(timer);
         clearTimeout(lifetime);
-        source?.release();
+        for (const source of sources) source.release();
         socket.close(code);
     };
     const lifetime = setTimeout(() => finish(1012), 240_000);
@@ -39,18 +39,22 @@ export function acceptRealtimeSocket(socket: WebSocket, origin: string, apiOrigi
                 ? readRealtimeTicket(frame.token, origin, apiOrigin) : null;
         } catch { claims = null; }
         if (!claims) { finish(1008); return; }
-        source = sourceFor(claims.domain);
+        const scopes = realtimeScopes(claims);
+        sources = scopes.map(scope => sourceFor(scope.domain));
         let revision: string | undefined;
         const poll = async () => {
             try {
                 if (ended) return;
                 if (claims.exp * 1000 <= Date.now()) { finish(1008); return; }
                 // Authorization is current before every notification, even if the rows are shared.
-                const actor = await authorizeRealtime(claims);
-                const comments = await source!.read();
+                const revisions = await Promise.all(scopes.map(async (scope, index) => {
+                    const actor = await authorizeRealtime(scope);
+                    const comments = await sources[index]!.read();
+                    return visibleRevision(comments, comment => scope.audience === 'showcase'
+                        ? isVisible(comment, { visitor: { authorId: actorAuthorId(actor) } }) : canSeeComment(comment, actor));
+                }));
                 if (ended) return;
-                const next = visibleRevision(comments, comment => claims.audience === 'showcase'
-                    ? isVisible(comment, { visitor: { authorId: actorAuthorId(actor) } }) : canSeeComment(comment, actor));
+                const next = revisions.join('|');
                 if (revision === undefined || revision !== next) {
                     if (socket.bufferedAmount > 16_384) { finish(1013); return; }
                     socket.send(JSON.stringify({ type: revision === undefined ? 'ready' : 'comments.changed' }));

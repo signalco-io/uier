@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowUpRight, ChevronRight } from 'lucide-react';
 import { KnownPageLinks } from '@/src/knownPages';
-import { PUBLIC_PROJECT_ID } from '@/src/lib/comments/publicProject';
+import { isUierFeedbackProject } from '@/src/lib/comments/publicProject';
 import { getAzureDevOpsSettings } from '@/src/lib/integrations/azure-devops';
 import { getGitHubSettings } from '@/src/lib/integrations/github';
 import { getLinearSettings } from '@/src/lib/integrations/linear';
@@ -33,7 +33,7 @@ type IntegrationState = { configured: boolean; connected: boolean; status: strin
 export default async function ProjectIntegrationsSettingsPage({ params }: PageProps<'/app/projects/[projectId]/settings/integrations'>) {
     const { projectId } = await params;
     const { context, project } = await configurableProject(projectId);
-    if (project.id === PUBLIC_PROJECT_ID)
+    if (isUierFeedbackProject(project.id))
         notFound();
     const [notion, github, linear, azureDevOps, slack] = await Promise.all([getNotionSettings(project, context.user.id),
         getGitHubSettings(project, context.user.id), getLinearSettings(project, context.user.id),

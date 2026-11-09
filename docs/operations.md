@@ -395,7 +395,8 @@ an explicit empty secret value and leaves moderation unavailable until a staff l
      AND c.id = '<comment id>'
    ```
 
-   Current public feedback is in `project:uier00000001`. Threads posted before the public-project
+   Guests' feedback is in `project:uier00000001`, signed-in accounts' in `project:uier00000002` (threads
+   accounts started before the split moved there with the same id). Threads posted before the public-project
    migration may also have an original copy under `uier.io`. Confirm the partition and document id
    before any write.
 3. Delete only that comment and its `$screenshot_<comment id>` document in the same partition.

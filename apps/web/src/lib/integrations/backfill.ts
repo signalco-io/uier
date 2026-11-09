@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { memberId, workspacePk, type DbMember, type DbProject } from '../app/model';
 import { getAppStore, updateDoc, type AppStore } from '../app/store';
-import { isPrivateAppFeedback, PUBLIC_PROJECT_ID } from '../comments/publicProject';
+import { isPrivateAppFeedback, isUierFeedbackProject } from '../comments/publicProject';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { getIntegrationConnection, IntegrationAccessError } from './connection';
 import { enqueueIntegrationSync, integrationProject } from './discovery';
@@ -13,7 +13,7 @@ export async function startIntegrationBackfill(project: DbProject, provider: Int
     const current = (await store.get<DbProject>(workspacePk(project.workspaceId), project.id))?.doc;
     const member = (await store.get<DbMember>(workspacePk(project.workspaceId), memberId(userId)))?.doc;
     if (!current || current.type !== 'project' || current.workspaceId !== project.workspaceId || member?.role !== 'admin'
-        || member.userId !== userId || current.id === PUBLIC_PROJECT_ID) throw new IntegrationAccessError();
+        || member.userId !== userId || isUierFeedbackProject(current.id)) throw new IntegrationAccessError();
     const connection = await getIntegrationConnection(current, provider, store);
     if (!connection || !connection.enabled || connection.status !== 'connected') throw new Error('Turn on the integration before requesting a backfill');
     const cap = provider === 'slack' ? 100 : 1000;
