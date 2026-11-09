@@ -9,7 +9,7 @@ import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
 import { Divider } from '@signalco/ui-primitives/Divider';
 import { cx } from '@signalco/ui-primitives/cx';
-import { ArrowLeft, Close, ExternalLink, LayoutList, LogOut, MoreHorizontal, Reset, ToggleLeft, ToggleRight } from '@signalco/ui-icons';
+import { ArrowLeft, Close, ExternalLink, LayoutList, LogOut, MoreHorizontal, Reset } from '@signalco/ui-icons';
 import { BRAND_URL, Mark } from '@uier/brand';
 import { useDrafts } from '../hooks/useDrafts';
 import { useVisitor } from '../hooks/useVisitor';
@@ -79,9 +79,39 @@ function OptionButton({ icon, className, ...props }: ComponentProps<typeof Butto
 }
 
 /**
- * The toolbar's options: the keyboard shortcuts (their list, also on `?`) and turning them off or on, then
- * view the project, exit the review, sign out (only the ones that apply), and always a link to uier.io,
- * since the toolbar shows on other people's sites. ↑ and ↓ move between its buttons.
+ * A row that turns something on or off: one fixed label and a switch at its end with the current state
+ * (`role="switch"`, so it is announced as on or off; Enter and Space toggle it). The menu stays open, so
+ * the new state shows in place.
+ */
+function OptionSwitch({ checked, onClick, children }: { checked: boolean; onClick: () => void; children: ReactNode }) {
+    return (
+        <OptionButton
+            // No icon of its own: the switch shows the state, the label stays in the icons' column
+            icon={null}
+            onClick={onClick}
+            role="switch"
+            aria-checked={checked}
+            endDecorator={(
+                <span
+                    aria-hidden="true"
+                    className={cx(
+                        'ml-auto flex h-4 w-7 shrink-0 items-center rounded-full border p-px',
+                        checked ? 'border-primary bg-primary' : 'border-muted-foreground bg-transparent')}>
+                    <span className={cx(
+                        'size-3 rounded-full motion-safe:transition-transform',
+                        checked ? 'translate-x-3 bg-primary-foreground' : 'bg-muted-foreground')} />
+                </span>
+            )}>
+            <span className="mr-3">{children}</span>
+        </OptionButton>
+    );
+}
+
+/**
+ * The toolbar's options: the switches (single-key shortcuts on or off) in their own group, then the actions
+ * (the keyboard shortcuts' list, also on `?`, view the project, exit the review, sign out; only the ones that
+ * apply), and always a link to uier.io, since the toolbar shows on other people's sites. ↑ and ↓ move
+ * between its buttons.
  */
 export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shortcutsRequested = false, onShortcutsRequestHandled }: ToolbarOptionsProps) {
     const { rootElement, mode } = useContext(CommentsBootstrapperContext);
@@ -158,17 +188,13 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
     const shortcutsEnabled = useShortcutsEnabled();
     // Where a keyboard is likely (the composer's hint uses the same check); always while they are off
     const showShortcutSwitch = useKeyboardHint() || !shortcutsEnabled;
-    const handleToggleShortcuts = () => {
-        handleOpenChange(false);
-        setShortcutsEnabled(!shortcutsEnabled);
-        announce(shortcutsEnabled ? 'Shortcuts turned off' : 'Shortcuts turned on. Press ? to see them.');
-    };
+    // The switch announces its new state; the menu stays open
     const shortcutSwitch = (
-        <OptionButton
-            icon={shortcutsEnabled ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-            onClick={handleToggleShortcuts}>
-            {shortcutsEnabled ? 'Turn off shortcuts' : 'Turn on shortcuts'}
-        </OptionButton>
+        <OptionSwitch
+            checked={shortcutsEnabled}
+            onClick={() => setShortcutsEnabled(!shortcutsEnabled)}>
+            Shortcuts
+        </OptionSwitch>
     );
 
     const tip = useIconTooltip('Options');
@@ -203,9 +229,10 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
                 <Stack spacing={1} className="pt-2">
                     <h2 ref={shortcutsHeadingRef} tabIndex={-1} className="m-0 rounded-md px-2 text-sm font-semibold text-foreground outline-none">Keyboard shortcuts</h2>
                     <ShortcutList enabled={shortcutsEnabled} />
-                    <Divider className="my-1" />
+                    <Divider role="separator" className="my-1" />
                     <Stack>
                         {shortcutSwitch}
+                        <Divider role="separator" className="my-1" />
                         <OptionButton icon={<ArrowLeft size={16} />} onClick={() => setShowingShortcuts(false)}>
                             All options
                         </OptionButton>
@@ -234,12 +261,14 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
                 </Stack>
             ) : (
                 <Stack>
+                    {/* Switches first, in their own group */}
                     {showShortcutSwitch && <>
+                        {shortcutSwitch}
+                        <Divider role="separator" className="my-1" />
                         <OptionButton ref={shortcutsButtonRef} icon={<LayoutList size={16} />} onClick={() => setShowingShortcuts(true)}>
                             Keyboard shortcuts
                             {shortcutsEnabled && <kbd aria-hidden="true" className="ml-auto pl-3 font-mono font-normal text-muted-foreground">?</kbd>}
                         </OptionButton>
-                        {shortcutSwitch}
                     </>}
                     {onResetPosition && (
                         <OptionButton icon={<Reset size={16} />} onClick={() => { handleOpenChange(false); onResetPosition(); }}>
@@ -266,7 +295,7 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
                             Sign out...
                         </OptionButton>
                     )}
-                    {(hasActions || showShortcutSwitch) && <Divider className="my-1" />}
+                    {(hasActions || showShortcutSwitch) && <Divider role="separator" className="my-1" />}
                     {/* The referrer (the reviewed site's origin) tells uier.io where people came from */}
                     <OptionButton
                         icon={<Mark size={16} />}
