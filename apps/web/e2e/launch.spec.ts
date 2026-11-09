@@ -2,7 +2,7 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { pageStateSettings, projectPublicId, createProject, setProjectAccess, signIn, uniqueEmail, openComment } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, commentBubbles, newVisitor, selectText, selectionToolbar, toolbar, copyFromThread } from './support/toolbar';
+import { animationsFinished, commentBubbles, newVisitor, selectText, selectionToolbar, setThreadStatus, toolbar, copyFromThread } from './support/toolbar';
 
 // Integration evidence, not a substitute for the hosted/physical-device checklist in
 // docs/mvp-launch-verification.md. Local identity/email/BotID use the repository's test mode.
@@ -119,7 +119,7 @@ test('owner checks installation, shares a review, replies and resolves; the name
         // writes settle; a faster bootstrap can otherwise read the previous open thread.
         const resolved = page.waitForResponse(response => new URL(response.url()).pathname === `/api/review/${publicId}/comments/${saved.id}`
             && response.request().method() === 'PATCH');
-        await thread(page).getByRole('button', { name: 'Mark as done' }).click();
+        await setThreadStatus(page, thread(page), 'Done');
         const resolveResponse = await resolved;
         expect(resolveResponse.status()).toBe(200);
         expect((await resolveResponse.json()).resolved).toBe(true);
@@ -133,7 +133,7 @@ test('owner checks installation, shares a review, replies and resolves; the name
         // status write rather than using the pin count as evidence that Reopen finished.
         const reopened = guest.page.waitForResponse(response => new URL(response.url()).pathname === `/api/review/${publicId}/comments/${saved.id}`
             && response.request().method() === 'PATCH');
-        await doneCard.getByRole('button', { name: 'Reopen' }).click();
+        await setThreadStatus(guest.page, doneCard, 'Open');
         const reopenResponse = await reopened;
         expect(reopenResponse.status()).toBe(200);
         expect((await reopenResponse.json()).resolved).toBe(false);

@@ -326,7 +326,7 @@ error boundary, so one bad comment never breaks the toolbar.
   selected, it opens a comment on the selection. The + button shows it in its tooltip and `aria-keyshortcuts`.
   **G** then **I** opens the inbox, **/** its search, **J** and **K** go to the next and the previous thread (the
   inbox's cards while it is open, else the pins' threads in page order, with the focus on the messages), and in
-  the thread with the focus (or the one open) **R** goes to the reply box, **S** to Mark as done (or Reopen) and
+  the thread with the focus (or the one open) **R** goes to the reply box, **S** to its status menu and
   **A** opens the people to assign. **?** lists them in Options. They do nothing with a modifier, while typing in
   a text field, in a widget whose letters choose an item (menus, lists, grids, comboboxes), in the toolbar's own
   dialogs (a thread's popover keeps the thread keys), while the toolbar is collapsed, or when the page handled the
@@ -411,9 +411,10 @@ error boundary, so one bad comment never breaks the toolbar.
   Seven-day browser-local text/anchor drafts are scoped to the API, project, authorized reviewer, canonical page and item. Reload/navigation restores the draft; Discard, successful posting and toolbar sign-out clear it. Images are never stored with drafts. Blocked/full storage falls back to memory with a notice. See [Draft recovery and submission retries](../../docs/review-workflow.md#draft-recovery-and-submission-retries) for expiry and idempotent create/reply behavior.
 - After posting, the new comment's thread opens with the focus in its reply box, and "Comment posted" /
   "Reply posted" is announced. Escape closes the thread and the focus goes to its pin.
-- A thread starts with its status (**Open** or **Done**), public id (`#12`, numbered per site) and a blue dot
-  while it is unread (clicking it marks the thread read), then icon actions (named by their tooltips): **Mark as
-  done** / **Reopen** for the comment's author, **Copy issue** and **Copy link** for everyone, and **Thread options**
+- A thread starts with its status, public id (`#12`, numbered per site) and a blue dot while it is unread
+  (clicking it marks the thread read), then icon actions (named by their tooltips). The status is a menu, as in
+  the app (**Open**, **In progress**, **Ready to verify**, **Done**), for the comment's author (in a project, its
+  members); everyone else sees it as a badge. Then **Copy issue** and **Copy link** for everyone, and **Thread options**
   with **Mark as unread** once a thread with someone else's activity is read. The link is the comment's page with `?uier-comment=<id>` (plus the review
   link in a review, so the toolbar opens for whoever follows it); opening it opens the thread on its pin, or
   the inbox for a done thread or feedback. The parameter is then removed from the address. Done threads have

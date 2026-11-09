@@ -30,7 +30,7 @@ app share:
   `role="toolbar"` named "Tools" (← →; the move handle stays its own stop, since its arrows move the pill),
   and the inbox's status tabs (← →, the chosen tab is the stop; Enter or Space chooses).
 - `moveFocusInMenu`: ↑ and ↓, Home and End between the buttons and links of a popover that reads like a menu,
-  as its content's `onKeyDown`: Options, Thread options, a message's options, Copy, and the people to assign.
+  as its content's `onKeyDown`: Options, a thread's status menu, Thread options, a message's options, Copy, and the people to assign.
   From the popover itself (where Radix leaves the focus in the shadow root) ↓ goes to the first. Text fields
   keep their keys.
 
@@ -47,7 +47,7 @@ a key keeps it), while the toolbar is expanded and the shortcuts are on. `toolba
 | / | Opens the inbox and goes to its search |
 | J, K | The next or the previous thread: the inbox's cards while it is open (focusable, `tabIndex=-1`), else the pins' threads in page order. A pin's thread opened this way focuses its messages (`autoOpenReading`), not the reply box, so the keys go on |
 | R | The reply box of the thread with the focus (an inbox card's Reply opens it first) |
-| S | Moves the focus to Mark as done (or Reopen) in that thread; Enter then changes the status |
+| S | Moves the focus to that thread's status menu; Enter opens it with the current status focused, ↑ ↓ choose |
 | A | Opens the people to assign in that thread, the first focused (`assignShortcutEvent` on the header) |
 | ? | Options on the keyboard shortcuts, the heading focused, with the switch |
 
@@ -55,7 +55,7 @@ None act while typing or in a widget whose letters choose an item (`isLetterKeyT
 dialogs (Options, feedback; a thread's popover keeps the thread keys), while choosing an anchor, or, except
 C, in point mode. `src/threadShortcuts.ts` finds the thread: the one with the focus
 (`data-uier-thread-scope`: a pin's popover or an inbox card), else the only open thread popover; its
-controls are marked `data-uier-thread-header`, `data-uier-status` and `data-uier-reply`. On uier's own app
+controls are marked `data-uier-thread-header`, `data-uier-status` (the status menu's badge) and `data-uier-reply`. On uier's own app
 pages the app takes a key first (its listeners run before the toolbar's) unless the focus is in the toolbar.
 
 Reply composers send on Enter and insert a line break on Shift+Enter. Their submit control stays
@@ -64,4 +64,4 @@ labelled and uses the plain button variant; on touch input it has a 44px minimum
 ## Tests
 
 `apps/web/e2e/shortcuts.spec.ts` (desktop): C, the switch in Options (↓ in the menu), the pill's tab stop
-and arrows, `?`, G then I, `/`, the status tabs, J and K between inbox cards, R and S.
+and arrows, `?`, G then I, `/`, the status tabs, J and K between inbox cards, R and S (the status menu).

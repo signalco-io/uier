@@ -2,7 +2,7 @@ import { expect, test, type APIRequestContext, type Locator, type Page } from '@
 import { backToComments, createProject, openComment, selectThread, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, toolbar, threadOptions } from './support/toolbar';
+import { animationsFinished, setThreadStatus, toolbar, threadOptions } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
@@ -141,7 +141,7 @@ test('members request and cancel from the toolbar using the existing participant
     await expect(inbox.getByRole('textbox', { name: 'Fix summary', exact: true })).toBeFocused();
     await inbox.getByRole('textbox', { name: 'Fix summary', exact: true }).fill('Ready to check on the reviewed site');
     await inbox.getByRole('form', { name: 'Request verification' }).getByRole('button', { name: 'Request verification', exact: true }).click();
-    await expect(inbox.getByRole('button', { name: 'Done without verification', exact: true })).toBeVisible();
+    await expect(inbox.getByRole('button', { name: 'Status: Ready to verify. Change status', exact: true })).toBeVisible();
     await expect(inbox.getByRole('button', { name: 'Confirm fix', exact: true })).toHaveCount(0);
     await expect(inbox.getByRole('button', { name: 'Thread options', exact: true })).toBeFocused();
     const bounds = (await inbox.getByRole('article').boundingBox())!;
@@ -151,7 +151,22 @@ test('members request and cancel from the toolbar using the existing participant
     }
     await inbox.getByRole('button', { name: 'Cancel request', exact: true }).click();
     await expect(inbox.getByRole('article')).toContainText('Request canceled.');
-    await expect(inbox.getByRole('button', { name: 'Mark as done', exact: true })).toBeVisible();
+    await expect(inbox.getByRole('button', { name: 'Status: Open. Change status', exact: true })).toBeVisible();
+
+    // The status menu, as in the app: Ready to verify opens the form; from there, Done says Done without
+    // verification and In progress cancels the check
+    await setThreadStatus(page, inbox.getByRole('article'), 'Ready to verify');
+    await expect(inbox.getByRole('textbox', { name: 'Fix summary', exact: true })).toBeFocused();
+    await inbox.getByRole('form', { name: 'Request verification' }).getByRole('button', { name: 'Request verification', exact: true }).click();
+    const ready = inbox.getByRole('button', { name: 'Status: Ready to verify. Change status', exact: true });
+    await ready.click();
+    const statusMenu = page.getByRole('dialog', { name: 'Status', exact: true });
+    await expect(statusMenu.getByRole('button')).toHaveText(['Open', 'In progress', 'Ready to verify', 'Done without verification']);
+    await page.keyboard.press('Escape');
+    await expect(ready).toBeFocused();
+    await setThreadStatus(page, inbox.getByRole('article'), 'In progress');
+    await expect(inbox.getByRole('button', { name: 'Status: In progress. Change status', exact: true })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'Marked as in progress' })).toBeAttached();
 });
 
 test('the status menu lists every status; Open and In progress from Ready to verify cancel the check', async ({ page, request }) => {

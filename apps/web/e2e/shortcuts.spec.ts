@@ -187,7 +187,7 @@ test('the pill is one tab stop, ? lists the shortcuts, and G then I, /, J, K, R 
     await expect(inProgress).toBeFocused();
     await expect(open).toHaveAttribute('aria-pressed', 'true');
 
-    // J and K go from card to card; R opens the reply box of the one with the focus, S goes to Mark as done
+    // J and K go from card to card; R opens the reply box of the one with the focus, S goes to its status menu
     const cards = inbox.getByRole('article');
     await expect(cards.filter({ hasText: 'keyboard thread' })).toHaveCount(2);
     await inbox.getByRole('button', { name: 'Close sidebar', exact: true }).focus();
@@ -200,9 +200,18 @@ test('the pill is one tab stop, ? lists the shortcuts, and G then I, /, J, K, R 
     const mine = cards.filter({ hasText: 'Second keyboard thread' });
     await mine.focus();
     await page.keyboard.press('s');
-    const done = mine.getByRole('button', { name: 'Mark as done', exact: true });
-    await expect(done).toBeFocused();
-    await expect(done).toHaveAttribute('aria-keyshortcuts', 'S');
+    const status = mine.getByRole('button', { name: 'Status: Open. Change status', exact: true });
+    await expect(status).toBeFocused();
+    await expect(status).toHaveAttribute('aria-keyshortcuts', 'S');
+    // Enter opens the status menu, the current status focused; ↓ moves on, Esc goes back
+    await page.keyboard.press('Enter');
+    const statusMenu = page.getByRole('dialog', { name: 'Status', exact: true });
+    await expect(statusMenu.getByRole('button', { name: 'Open', exact: true })).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(statusMenu.getByRole('button', { name: 'In progress', exact: true })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(statusMenu).toBeHidden();
+    await expect(status).toBeFocused();
     await mine.focus();
     await page.keyboard.press('r');
     const reply = mine.getByRole('textbox', { name: 'Reply', exact: true });

@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { expectNoAxeViolations } from '../../web/e2e/accessibility';
-import { animationsFinished, commentBubble, openThread, selectText, threadOptions } from '../../web/e2e/support/toolbar';
+import { animationsFinished, commentBubble, openThread, selectText, setThreadStatus, threadOptions } from '../../web/e2e/support/toolbar';
 import { signIn, createProject, uniqueEmail } from '../../web/e2e/support/app';
 
 import { packageApiProxy } from './packageApi';
@@ -156,11 +156,11 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     const reply = thread.getByRole('textbox', { name: 'Reply', exact: true });
     await reply.fill('A reply after proof renewal.'); await reply.press('Enter');
     await expect(commentBubble(reviewed, 2)).toBeVisible({ timeout: 30_000 });
-    await thread.getByRole('button', { name: 'Mark as done' }).click();
+    await setThreadStatus(reviewed, thread, 'Done');
     await reviewed.getByRole('button', { name: /^Inbox/ }).click();
     const inbox = reviewed.getByRole('complementary', { name: 'Comments' });
     await inbox.getByRole('button', { name: /^Done/ }).click();
-    await inbox.getByRole('button', { name: 'Reopen', exact: true }).click();
+    await setThreadStatus(reviewed, inbox.getByRole('article'), 'Open');
     await expect(commentBubble(reviewed, 2)).toBeVisible();
     await inbox.getByRole('button', { name: /^Open/ }).click();
     // Priority is in Thread options; a priority other than Normal shows beside the status

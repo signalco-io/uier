@@ -1,7 +1,7 @@
 /**
  * The keys that act on a thread (R, S, A) find it and its controls in the toolbar's shadow root: a
  * thread is a pin's popover or an inbox card (`data-uier-thread-scope`), with its header
- * (`data-uier-thread-header`), its status button (`data-uier-status`) and its reply box or Reply button
+ * (`data-uier-thread-header`), its status menu's badge (`data-uier-status`) and its reply box or Reply button
  * (`data-uier-reply`).
  */
 
@@ -17,8 +17,8 @@ export function shortcutThread(root: ShadowRoot) {
 }
 
 /**
- * R: the reply box gets the focus (an inbox card's Reply opens it first); S: the focus goes to Mark as
- * done or Reopen; A: the people to assign open, the first focused. Whether the thread had the control.
+ * R: the reply box gets the focus (an inbox card's Reply opens it first); S: the focus goes to the status
+ * menu (Enter opens it); A: the people to assign open, the first focused. Whether the thread had the control.
  */
 export function actOnThread(thread: HTMLElement, letter: 'r' | 's' | 'a') {
     if (letter === 'r') {
