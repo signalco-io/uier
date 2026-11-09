@@ -118,7 +118,9 @@ Contrast ratios are against the mode's background.
 | Colour | Hex | Use |
 | --- | --- | --- |
 | Blue | `#2E5BFF` | the one accent (white text on it: 5.2). As text on dark use `#7A9BFF` (8.0). |
-| Green | `#15803D` | resolved, success (`#22C55E` as a dot on dark) |
+| Green | `#15803D` | resolved, success, the Done status (`#22C55E` as a dot on dark) |
+| Sky | `#0284C5` | the In progress status (`#3ABFF8` on dark) |
+| Violet | `#7C3BED` | the Ready to verify status (`#A689FA` on dark) |
 | Amber | `#B45309` | warning, High priority |
 | Red | `#DC2626` | destructive, Urgent priority |
 
@@ -131,11 +133,18 @@ colour is never the only signal: Low muted grey (`--muted-foreground`), Normal i
 High amber (`--brand-warning`), Urgent red (`--destructive`). Lists and boards show it only for a
 priority other than Normal, so the threads that differ stand out. Priority has no tokens of its own.
 
+**Status** is a 6 px dot in the status's colour, always beside its name: Open ink (`--foreground`),
+In progress sky (`--brand-in-progress`), Ready to verify violet (`--brand-ready`), Done green
+(`--brand-success`). The same dot shows on list rows, board column headers, the status menu, the
+Status filter and the toolbar's thread. Sky and violet are status colours only: they are not the
+accent, so a status never reads as unread or a link, and they stay clear of the priority flags'
+amber and red. Each dot is at least 3:1 against its surface in both modes.
+
 ### Theme tokens
 
 `tokens.css` overrides the signalco minimal theme (`--foreground`, `--border`, `--muted`,
 `--ring`, `--radius`, ...) and adds `--brand-accent`, `--brand-accent-text`,
-`--brand-selection`, `--brand-success` and `--brand-warning`, plus the app's sidebar
+`--brand-selection`, `--brand-success`, `--brand-warning`, `--brand-in-progress` and `--brand-ready`, plus the app's sidebar
 (`--sidebar`: Ink 100 on light, Surface on dark; `--sidebar-accent`: Ink 200 / Border for hover
 and the current item). Components use the semantic classes (`text-muted-foreground`,
 `border-border`, `bg-primary`, `bg-sidebar`) or these variables.
@@ -243,7 +252,7 @@ shadcn/ui components in `apps/web/src/components/ui`. Both run on these tokens; 
 parallel components. The app is a sidebar (one step off the page colour) beside an inset panel
 with a 1 px border. Solid buttons are ink (white on dark), outlined buttons are the border, plain
 buttons are nothing until hovered. Inputs are bordered, 36 px, radius 8, blue focus ring.
-Badges are full-radius with a 6 px status dot (ink = open, green = resolved). Menus and
+Badges are full-radius with a 6 px status dot in the status's colour (see Status above). Menus and
 popovers are radius 12 and float; dialogs and the sidebar are radius 16.
 
 ## Marketing and metadata
