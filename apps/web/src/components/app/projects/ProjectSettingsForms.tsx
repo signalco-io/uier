@@ -1,6 +1,6 @@
 'use client';
 
-import { startTransition, useActionState, useId, useOptimistic, useRef, useState, useTransition, type FormEvent } from 'react';
+import { startTransition, useActionState, useId, useOptimistic, useRef, useState, useTransition, type FormEvent, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -130,9 +130,11 @@ export function ProjectGeneralForm({ projectId, name, clientName, clients, aiTit
 }
 
 /** Review: who can comment, the brief and, under Advanced, the page state; one save */
-export function ProjectReviewForm({ projectId, access, brief, policy, suggestions }: {
+export function ProjectReviewForm({ projectId, access, brief, policy, suggestions, guestLinks }: {
     projectId: string;
     access: ProjectAccess;
+    /** The saved access's guest links, shown under Who can comment while it stays chosen */
+    guestLinks?: ReactNode;
     brief?: string;
     policy?: PageStatePolicy;
     suggestions: QueryFieldSuggestion[];
@@ -178,6 +180,7 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
                                     icon={<AccessIcon access={option} aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />} />
                             ))}
                         </RadioGroup>
+                        {guestLinks && draft.access === 'guests' && guestLinks}
                     </FieldSet>
                     <FieldSeparator />
                     <Field>

@@ -14,7 +14,7 @@
   show. Connect/callback routes return to the provider's page (`?github=connected`); actions revalidate it and the
   overview (`revalidateIntegration`). The settings tabs keep Integrations current on those pages (`nested`). `install` without
   `?onboarding=1` redirects to Settings → Installation (the toolbar still links there).
-- **One save per settings page.** General (name, client and [thread titles](ai-titles.md)), Review (who can comment, `#who-can-comment`, where the project header's access label leads, the brief and, in a collapsed
+- **One save per settings page.** General (name, client and [thread titles](ai-titles.md)), Review (who can comment, `#who-can-comment`, where the project header's access label leads, with the project's `GuestReviewLinks` under it while the saved access is Anyone with the link and the project has an address, so touch and keyboard users reach them without the hover popover; the brief and, in a collapsed
   Advanced section, the page state) and Environments (the site addresses table) are each one form in one card
   (`ProjectSettingsForms.tsx`) with one server action (`updateProjectGeneralAction`, `updateProjectReviewAction`,
   `updateProjectSitesAction`) that parses every field with the existing schemas before writing, checks the admin role

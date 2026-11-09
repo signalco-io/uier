@@ -151,7 +151,7 @@ test('invited sign-in shares only approved page state and loads Geist solely fro
     const settings = await pageStateSettings(page);
     await settings.getByLabel('Meaningful query fields').fill('plan');
     await settings.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(settings.getByRole('status')).toContainText('Saved.');
+    await expect(settings.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
     await page.reload();
     await expect(settings.getByLabel('Meaningful query fields')).toHaveValue('plan');
     const guest = await anonymousVisitor(browser, testInfo);
@@ -217,7 +217,7 @@ test('guest mode: anyone with the link comments under their name', async ({ page
     const projectId = await createProject(page, { urls, name: 'Reviewed site' });
     await setProjectAccess(page, projectId, 'Anyone with the link');
 
-    // Both onboarding and the comments region share plain links for every address, main site first.
+    // Onboarding, the comments region and Review settings (where the header's access label leads) share plain links for every address, main site first.
     // Keep copy assertions local to this page while other browser suites run concurrently.
     await page.addInitScript(() => {
         let copied = '';
@@ -226,13 +226,16 @@ test('guest mode: anyone with the link comments under their name', async ({ page
             readText: async () => copied,
         } });
     });
-    for (const path of [`/app/projects/${projectId}/install?onboarding=1&step=invite`, `/app/projects/${projectId}`]) {
+    for (const path of [`/app/projects/${projectId}/install?onboarding=1&step=invite`, `/app/projects/${projectId}`, `/app/projects/${projectId}/settings/review`]) {
         await page.goto(path);
         if (path.endsWith(projectId))
             // The comments page keeps the guest links behind the access label in the header, shown on hover
             // (for admins the label links to Who can comment in the settings)
             await page.getByRole('link', { name: /^Anyone with the link/ }).hover();
-        const links = page.getByRole('list', { name: 'Guest links' });
+        const links = path.endsWith('/settings/review')
+            // Under Who can comment, so touch and keyboard users who follow the label reach them
+            ? page.getByRole('group', { name: 'Who can comment' }).getByRole('list', { name: 'Guest links' })
+            : page.getByRole('list', { name: 'Guest links' });
         await expect(links.getByRole('listitem')).toHaveCount(2);
         for (const [index, url] of urls.entries()) {
             const item = links.getByRole('listitem').nth(index);
@@ -645,7 +648,7 @@ test('comments off: the toolbar says so and the API refuses', async ({ page, req
     const projectId = await ownerWithProject(page);
     await setProjectAccess(page, projectId, 'Comments off');
 
-    for (const path of [`/app/projects/${projectId}/install?onboarding=1&step=invite`, `/app/projects/${projectId}`]) {
+    for (const path of [`/app/projects/${projectId}/install?onboarding=1&step=invite`, `/app/projects/${projectId}`, `/app/projects/${projectId}/settings/review`]) {
         await page.goto(path);
         const content = path.endsWith(projectId)
             ? page.locator('[data-slot="empty"]')
@@ -1126,7 +1129,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await hydrated(settings.locator('form'));
         await settings.getByLabel('Review brief').fill(brief);
         await settings.getByRole('button', { name: 'Save' }).click();
-        await expect(settings.getByRole('status')).toContainText('Saved.');
+        await expect(settings.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
         const signedOutInfo = await request.get(`/api/review/${first}`, { headers: { Origin: siteOrigin() } });
         expect((await signedOutInfo.json()).project).not.toHaveProperty('brief');
 
