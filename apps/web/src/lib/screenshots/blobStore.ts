@@ -5,7 +5,7 @@ import type { DbScreenshot } from '../db/schema';
 
 export const screenshotUrlMediaType = 'application/vnd.uier.screenshot-url+json';
 export const screenshotUrlLifetimeMs = 60_000;
-export type ScreenshotBlob = { name: string; domain: string; commentId: string; etag: string };
+export type ScreenshotBlob = { name: string; domain: string; commentId: string; itemId?: string; etag: string };
 export type ScreenshotBlobStore = {
     put(image: DbScreenshot): Promise<string>;
     read(name: string): Promise<Buffer>;
@@ -27,7 +27,7 @@ export function createScreenshotBlobStore(service: BlobServiceClient, containerN
             await container.getBlockBlobClient(name).uploadData(bytes, {
                 conditions: { ifNoneMatch: '*' },
                 blobHTTPHeaders: { blobContentType: image.contentType, blobCacheControl: 'private, no-store', blobContentDisposition: 'inline' },
-                metadata: { domain: Buffer.from(image.domain).toString('base64url'), commentid: image.commentId }
+                metadata: { domain: Buffer.from(image.domain).toString('base64url'), commentid: image.commentId, ...(image.itemId ? { itemid: image.itemId } : {}) }
             });
             return name;
         },
@@ -60,7 +60,7 @@ export function createScreenshotBlobStore(service: BlobServiceClient, containerN
             const page = await container.listBlobsFlat({ includeMetadata: true }).byPage({ continuationToken: continuation, maxPageSize: 100 }).next();
             const items = (page.value?.segment.blobItems as BlobItem[] ?? []).flatMap(item => {
                 if (!item.properties.createdOn || item.properties.createdOn >= before || !item.properties.etag || !item.metadata?.domain || !item.metadata.commentid) return [];
-                return [{ name: item.name, domain: Buffer.from(item.metadata.domain, 'base64url').toString(), commentId: item.metadata.commentid, etag: item.properties.etag }];
+                return [{ name: item.name, domain: Buffer.from(item.metadata.domain, 'base64url').toString(), commentId: item.metadata.commentid, ...(item.metadata.itemid ? { itemId: item.metadata.itemid } : {}), etag: item.properties.etag }];
             });
             return { items, continuation: page.value?.continuationToken || undefined };
         }

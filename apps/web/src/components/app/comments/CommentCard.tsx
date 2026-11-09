@@ -41,13 +41,6 @@ import { Button } from '@/src/components/ui/button';
 import { Card } from '@/src/components/ui/card';
 import { cn } from '@/src/lib/utils';
 import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger
-} from '@/src/components/ui/dialog';
-import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuGroup,
@@ -76,6 +69,7 @@ import { useReadWhenShown } from './useReadWhenShown';
 import { VerificationControl } from './VerificationControl';
 import { StateBadge, StateMenu, type CommentStatus } from './CommentStatus';
 import { useStatusChange, type ResolveExit } from './useStatusChange';
+import { MessageImage } from './MessageImage';
 import { ReplyComposer } from './ReplyComposer';
 import { ThreadActivity } from './ThreadActivity';
 import { AssigneesControl } from './AssigneesControl';
@@ -411,6 +405,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                             text={edit.text} mentions={edit.mentions} error={edit.error}
                             onCancel={() => closeReplyEdit(item.id)} onSave={(text, mentions) => saveReply(item, edit.expectedText, text, mentions)} />
                         : <><MessageText text={item.text} mentions={item.mentions} edited={item.edited} />{item.pending && <span role="status" className="text-xs text-muted-foreground">Sending...</span>}</>}
+                {!item.deleted && item.screenshot && <MessageImage image={item.screenshot} reply />}
             </Message>
         );
     };
@@ -581,20 +576,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                     ? <MessageEditor label="Edit comment" text={comment.text} error={editError} pending={pending}
                                         onCancel={closeEdit} onSave={text => saveEdit(text)} />
                                     : <MessageText text={comment.displayText} mentions={comment.displayMentions} edited={comment.edited} />}
-                            {comment.screenshot && (
-                                <Dialog>
-                                    <DialogTrigger render={<Button variant="ghost" className="mt-1 h-auto max-w-full self-start p-0" aria-label="Screenshot of the commented part of the page" />}>
-                                        <img src={comment.screenshot.url} width={comment.screenshot.width} height={comment.screenshot.height}
-                                            alt="Screenshot of the commented part of the page" loading="lazy"
-                                            className="block h-auto max-h-56 w-auto max-w-full rounded-lg border object-contain" />
-                                    </DialogTrigger>
-                                    <DialogContent className="sm:max-w-4xl" aria-describedby={undefined}>
-                                        <DialogHeader><DialogTitle>Screenshot</DialogTitle></DialogHeader>
-                                        <img src={comment.screenshot.url} width={comment.screenshot.width} height={comment.screenshot.height}
-                                            alt="Expanded screenshot" className="max-h-[70dvh] w-full object-contain" />
-                                    </DialogContent>
-                                </Dialog>
-                            )}
+                            {comment.screenshot && <MessageImage image={comment.screenshot} />}
                         </Message>
                     </li>
                     {comment.replies.map(item => <li key={item.id}>{reply(item)}</li>)}

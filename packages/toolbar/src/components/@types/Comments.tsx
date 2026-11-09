@@ -97,6 +97,7 @@ export type CommentAuthor = {
 export type Mention = { userId: string; start: number; end: number; name?: string };
 
 export type CommentItemThreadItem = {
+    screenshot?: { width: number; height: number };
     mentions?: Mention[];
     id: string;
     text: string;

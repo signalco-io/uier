@@ -88,6 +88,8 @@ export type AgentSource = { credentialId: string; name: string; kind?: 'credenti
 export type DbMessageAgent = { kind: import('@uier/toolbar/agents').AgentKind; model?: string; reasoning?: string };
 
 export type DbThreadItem = {
+    /** Optional image, stored separately under the parent thread and this item id. */
+    screenshot?: DbCommentScreenshot;
     /** Server-only deduplication/echo identity. Never grants project access. */
     integrationSource?: { provider: import('../integrations/model').IntegrationProviderId; connectionId: string; destinationRevision: number; externalId: string; target?: string };
     /** Explicitly authorized connector; the author remains the human account. */
@@ -314,14 +316,15 @@ export type DbScreenshot = DbCommentScreenshot & {
     domain: string;
     type: 'screenshot';
     commentId: string;
+    itemId?: string;
     createdAt: string;
     /** Like the comment's, when it has one */
     ttl?: number;
 } & ({ data: string; blob?: never } | { blob: string; data?: never });
 
 /** Id of a comment's screenshot document: not an id the API accepts (`isValidId`: no `$`) */
-export function screenshotDocumentId(commentId: string) {
-    return `$screenshot_${commentId}`;
+export function screenshotDocumentId(commentId: string, itemId?: string) {
+    return `$screenshot_${commentId}${itemId ? `_${itemId}` : ''}`;
 }
 
 /**

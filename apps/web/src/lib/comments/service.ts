@@ -224,10 +224,11 @@ export async function createWithScreenshot(store: CommentsStore, comment: DbComm
     }
 }
 
-export function screenshotDocument(comment: DbComment, screenshot: ParsedScreenshot): DbScreenshot {
+export function screenshotDocument(comment: DbComment, screenshot: ParsedScreenshot, itemId?: string): DbScreenshot {
     const document: DbScreenshot = {
         ...screenshotInfo(screenshot),
-        id: screenshotDocumentId(comment.id),
+        id: screenshotDocumentId(comment.id, itemId),
+        ...(itemId ? { itemId } : {}),
         domain: comment.domain,
         type: 'screenshot',
         commentId: comment.id,
@@ -244,7 +245,11 @@ export function screenshotDocument(comment: DbComment, screenshot: ParsedScreens
  * author's content: the screenshot goes with the text). The comment is already written, so a
  * failure here is retried once and logged, never turned into an error for a delete that happened.
  */
-export async function forgetScreenshot(store: CommentsStore, domain: string, id: string, hadScreenshot: boolean, updated: DbComment | null) {
+export async function forgetScreenshot(store: CommentsStore, domain: string, id: string, hadScreenshot: boolean, updated: DbComment | null, previousImageItems: string[] = []) {
+    for (const itemId of previousImageItems) {
+        if (updated?.thread.items.some(item => item.id === itemId && !item.deletedAt && item.screenshot)) continue;
+        await store.deleteScreenshot(domain, id, undefined, itemId).catch(() => console.error('[comments] Reply image cleanup needs scheduled retry'));
+    }
     if (!updated || (hadScreenshot && !updated.screenshot)) {
         try { await cleanupThread(domain, id, !updated, store); }
         catch { console.error('[comments] Related thread cleanup needs scheduled retry'); }
@@ -314,11 +319,12 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
 }
 
 /** The comment's screenshot; public like the comment */
-export async function getCommentScreenshot(context: CommentsApiContext, id: string) {
+export async function getCommentScreenshot(context: CommentsApiContext, id: string, itemId?: string) {
     const store = getCommentsStore();
     const stored = await store.get(context.domain, id);
     if (stored) assertVisible(stored.comment, context);
-    const screenshot = stored?.comment.screenshot ? await store.getScreenshot(context.domain, id) : null;
+    const hasImage = itemId ? stored?.comment.thread.items.some(item => item.id === itemId && !item.deletedAt && item.screenshot) : stored?.comment.screenshot;
+    const screenshot = hasImage ? await store.getScreenshot(context.domain, id, itemId) : null;
     if (!screenshot)
         throw apiErrors.notFound('Screenshot not found.');
     return screenshot;
@@ -327,7 +333,7 @@ export async function getCommentScreenshot(context: CommentsApiContext, id: stri
 export async function replyToComment(context: CommentsApiContext, id: string, input: ReplyInput) {
     const store = getCommentsStore();
     const subject = rateLimitSubject(context);
-    const attempt = submission(context.domain, subject.authorId, input.idempotencyKey, { operation: 'reply', id, text: input.text });
+    const attempt = submission(context.domain, subject.authorId, input.idempotencyKey, { operation: 'reply', id, text: input.text, ...(input.screenshot ? { image: input.screenshot.data.toString('base64') } : {}) });
     const recovered = await recoverSubmission(store, attempt);
     if (recovered) { assertVisible(recovered, context); return toDto(recovered, context); }
     const target = await store.get(context.domain, id);
@@ -335,6 +341,7 @@ export async function replyToComment(context: CommentsApiContext, id: string, in
     assertVisible(target.comment, context);
 
     await enforceReplyLimits(store, subject);
+    const screenshot = await availableScreenshot(store, context.domain, input.screenshot);
 
     const now = nowIso();
     const item: DbThreadItem = {
@@ -343,7 +350,10 @@ export async function replyToComment(context: CommentsApiContext, id: string, in
         authorId: subject.authorId,
         createdAt: now
     };
-    if (attempt) return toDto(await commitReplySubmission(store, attempt, id, item, comment => assertVisible(comment, context)), context);
+    if (screenshot) item.screenshot = screenshotInfo(screenshot);
+    const receipt = attempt ?? (screenshot ? submission(context.domain, subject.authorId, nanoid(), { operation: 'reply', id, text: input.text }) : undefined);
+    if (receipt) return toDto(await commitReplySubmission(store, receipt, id, item, comment => assertVisible(comment, context), undefined,
+        screenshot ? comment => screenshotDocument(comment, screenshot, item.id) : undefined), context);
     const result = await store.appendThreadItem(context.domain, id, item, MAX_THREAD_ITEMS, now);
     if (result === 'not_found')
         throw apiErrors.notFound();
@@ -453,11 +463,13 @@ function withoutReply(comment: DbComment, itemId: string, context: CommentsApiCo
 export async function deleteComment(context: CommentsApiContext, id: string): Promise<CommentDto | null> {
     const store = getCommentsStore();
     let hadScreenshot = false;
+    let previousImageItems: string[] = [];
     const updated = await updateComment(store, context, id, comment => {
         hadScreenshot = Boolean(comment.screenshot);
+        previousImageItems = comment.thread.items.filter(item => item.screenshot).map(item => item.id);
         return withoutFirstItem(comment, context);
     });
-    await forgetScreenshot(store, context.domain, id, hadScreenshot, updated);
+    await forgetScreenshot(store, context.domain, id, hadScreenshot, updated, previousImageItems);
     return updated ? toDto(updated, context) : null;
 }
 
@@ -469,8 +481,10 @@ export async function deleteComment(context: CommentsApiContext, id: string): Pr
 export async function deleteThreadItem(context: CommentsApiContext, id: string, itemId: string): Promise<CommentDto | null> {
     const store = getCommentsStore();
     let hadScreenshot = false;
+    let previousImageItems: string[] = [];
     const updated = await updateComment(store, context, id, comment => {
         hadScreenshot = Boolean(comment.screenshot);
+        previousImageItems = comment.thread.items.filter(item => item.screenshot).map(item => item.id);
         const itemIndex = threadItems(comment).findIndex(item => item.id === itemId);
         if (itemIndex < 0)
             throw apiErrors.notFound('Reply not found.');
@@ -480,7 +494,7 @@ export async function deleteThreadItem(context: CommentsApiContext, id: string, 
             : withoutReply(comment, itemId, context);
     });
 
-    await forgetScreenshot(store, context.domain, id, hadScreenshot, updated);
+    await forgetScreenshot(store, context.domain, id, hadScreenshot, updated, previousImageItems);
     return updated ? toDto(updated, context) : null;
 }
 

@@ -204,7 +204,14 @@ export function CommentBubble(props: CommentBubbleProps) {
 
     const handleSubmit = async (text: string, mentions?: import('./@types/Comments').Mention[]) => {
         if (props.commentItem) {
-            await reply.mutateAsync({ commentId: props.commentItem.id, text, mentions });
+            const sentImage = attachment.image;
+            attachment.remove();
+            try {
+                await reply.mutateAsync({ commentId: props.commentItem.id, text, mentions, screenshot: sentImage?.dataUrl, imageKey: sentImage?.key });
+            } catch (error) {
+                if (sentImage) attachment.restore(sentImage);
+                throw error;
+            }
             announce('Reply posted');
             return;
         }
@@ -352,7 +359,7 @@ export function CommentBubble(props: CommentBubbleProps) {
 
     // A pasted image file is attached to a new comment, instead of its screenshot
     const composer = (
-        <div className="shrink-0" onPaste={creating ? attachment.handlePaste : undefined}>
+        <div className="shrink-0" onPaste={attachment.handlePaste}>
             {creating && (
                 <ComposerAttachmentsHeader
                     title={<span className="text-sm font-semibold text-foreground">{newLabel}</span>}
@@ -375,11 +382,11 @@ export function CommentBubble(props: CommentBubbleProps) {
                 autoFocus={open && !reading}
                 tall={expanded}
                 error={mutation.error ?? props.draft?.sendError}
-                holdSubmit={creating && attachment.reading}
+                holdSubmit={attachment.reading}
                 // Replies wait until the comment is saved (they need its id); the reply box
                 // is there already, so the thread keeps its size and the focus stays in it
                 waiting={sending}
-                attachments={creating ? <ComposerAttachButton attachment={attachment} /> : undefined}
+                attachments={<ComposerAttachButton attachment={attachment} reply={!creating} />}
                 // A rewrite's form: the quoted text, the suggestions, then the suggested text in its box
                 beforeText={rewriting && selectedText ? (
                     <RewriteSuggestions
@@ -388,7 +395,8 @@ export function CommentBubble(props: CommentBubbleProps) {
                         onPick={(suggestion) => composerRef.current?.replaceText(suggestion)} />
                 ) : undefined}
                 onSubmit={handleSubmit}
-                onDiscard={creating ? handleDiscard : undefined} />
+                onDiscard={creating ? handleDiscard : attachment.remove} />
+            {!creating && attachment.error && <p role="alert" className="m-0 px-3 pb-2 text-xs text-destructive">{attachment.error}</p>}
         </div>
     );
 

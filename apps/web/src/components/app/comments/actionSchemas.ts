@@ -1,3 +1,4 @@
+import { MAX_SCREENSHOT_BYTES } from '../../../lib/comments/limits';
 import { priorities } from '@uier/toolbar/triage';
 import { feedbackStatusTargets } from '@uier/toolbar/verification';
 import { z } from 'zod';
@@ -21,7 +22,7 @@ export const assignCommentsPeopleActionSchema = commentActionSchema.extend({ ass
 export const editCommentActionSchema = commentActionSchema.extend({ text: textSchema });
 /** Cleaned and limited by `setProjectCommentTitle`; this only bounds the input */
 export const titleCommentActionSchema = commentActionSchema.extend({ title: z.string().max(1000) });
-export const replyCommentActionSchema = commentActionSchema.extend({ text: textSchema, mentions: mentionsSchema.optional(), idempotencyKey: idempotencyKeySchema });
+export const replyCommentActionSchema = commentActionSchema.extend({ screenshot: z.string().max(Math.ceil(MAX_SCREENSHOT_BYTES / 3) * 4 + 64).optional(), text: textSchema, mentions: mentionsSchema.optional(), idempotencyKey: idempotencyKeySchema });
 export const deleteReplyActionSchema = commentActionSchema.extend({ itemId: commentIdSchema });
 /** One message's new text, the saved text it was edited from and its mentions (the review API's edit) */
 export const editReplyActionSchema = deleteReplyActionSchema.extend({ ...editThreadItemSchema.shape, mentions: mentionsSchema.optional() });

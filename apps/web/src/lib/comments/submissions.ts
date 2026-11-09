@@ -65,7 +65,9 @@ export async function commitNewSubmission(store: CommentsStore, attempt: Submiss
 /** `item` may be built from the thread as stored for each attempt (a reply marked from the thread's agent). */
 export async function commitReplySubmission(store: CommentsStore, attempt: Submission, id: string, reply: DbThreadItem | ((comment: DbComment) => DbThreadItem),
     visible: (comment: DbComment) => unknown = () => undefined,
-    prepare?: (previous: DbComment, updated: DbComment) => DbComment | Promise<DbComment>) {
+    prepare?: (previous: DbComment, updated: DbComment) => DbComment | Promise<DbComment>,
+    image?: (comment: DbComment) => DbScreenshot) {
+    let imageFailed = false;
     for (let retry = 0; retry < 8; retry++) {
         const recovered = await recoverSubmission(store, attempt);
         if (recovered) { await visible(recovered); return recovered; }
@@ -75,10 +77,19 @@ export async function commitReplySubmission(store: CommentsStore, attempt: Submi
         if (stored.comment.thread.items.length >= MAX_THREAD_ITEMS)
             throw apiErrors.invalidRequest(`This thread is full (maximum ${MAX_THREAD_ITEMS} messages).`);
         const item = typeof reply === 'function' ? reply(stored.comment) : reply;
+        if (imageFailed) delete item.screenshot;
         const updated = { ...withThreadActivity(stored.comment, item.authorId ?? 'legacy'), thread: { ...stored.comment.thread, items: [...stored.comment.thread.items, item] }, updatedAt: item.createdAt };
         const comment = prepare ? await prepare(stored.comment, updated)
             : withNotificationEvent(updated, item.authorId ?? 'legacy', 'reply', item.createdAt);
-        const saved = await commit(store, attempt, comment, stored.etag);
+        let saved;
+        try { saved = await commit(store, attempt, comment, stored.etag, imageFailed ? undefined : image?.(comment)); }
+        catch (error) {
+            if (!image) throw error;
+            // As with new comments, failed image storage must not lose the reply text.
+            delete item.screenshot;
+            saved = await commit(store, attempt, comment, stored.etag);
+            imageFailed = true;
+        }
         if (saved) { await visible(saved); return saved; }
     }
     throw apiErrors.conflict();

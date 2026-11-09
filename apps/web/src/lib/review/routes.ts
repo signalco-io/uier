@@ -125,9 +125,9 @@ const replyInputSchema = replySchema.extend({ authorName: guestNameSchema.option
 
 export async function replyToReviewComment(context: ReviewApiContext, { id }: { id: string }) {
     const { request, project, actor } = context;
-    const input = await parseJsonBody(request, replyInputSchema);
+    const input = await parseJsonBody(request, replyInputSchema, MAX_COMMENT_BODY_BYTES);
     const authorName = writerName(actor, input.authorName);
-    const comment = await replyToProjectComment(request, project, actor, commentId(id), { text: input.text, authorName, mentions: input.mentions, idempotencyKey: input.idempotencyKey });
+    const comment = await replyToProjectComment(request, project, actor, commentId(id), { text: input.text, authorName, mentions: input.mentions, screenshot: input.screenshot, idempotencyKey: input.idempotencyKey });
     return await commentResponse(context, comment, 201);
 }
 
@@ -181,8 +181,9 @@ export async function editReviewCommentItem(context: ReviewApiContext, { id, ite
 }
 
 /** GET /api/review/<code>/comments/<id>/screenshot: the screenshot of a comment the reviewer can see */
-export async function getReviewScreenshot({ project, actor, request }: ReviewApiContext, { id }: { id: string }) {
-    return screenshotResponse(await getProjectScreenshot(project, actor, commentId(id)), request.headers.get('accept') === screenshotUrlMediaType ? 'url' : 'bytes');
+export async function getReviewScreenshot({ project, actor, request }: ReviewApiContext, { id, itemId }: { id: string; itemId?: string }) {
+    if (itemId !== undefined && !isValidId(itemId)) throw apiErrors.notFound();
+    return screenshotResponse(await getProjectScreenshot(project, actor, commentId(id), itemId), request.headers.get('accept') === screenshotUrlMediaType ? 'url' : 'bytes');
 }
 
 /** Participant lookup is member-only and uses the same visibility rule as a thread read. */

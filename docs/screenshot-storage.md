@@ -1,9 +1,15 @@
 # Screenshot storage
 
-New screenshots and replacement images keep their sanitized binary bytes in private Azure Blob
+New screenshots, reply attachments and replacement images keep their sanitized binary bytes in private Azure Blob
 Storage (Standard LRS, Hot, West Europe). Cosmos DB keeps the comment metadata and a small
 `type: 'screenshot'` reference document in its existing partition. No CDN is configured.
 Local development and browser tests retain the in-memory store unless Cosmos is configured.
+
+Reply references also carry their parent `commentId` and `itemId`; metadata on the thread item contains
+only dimensions/type/size, never pixels or a Blob URL. Receipt, reply and reference are one Cosmos
+transaction. Reads authorize the parent and require the live reply to retain its image metadata. Cleanup
+and Blob sweeps check that specific item, so a reply image survives even without an original screenshot
+and is removed when the reply or thread disappears. The original screenshot's id and reads stay compatible.
 
 ## Access and deployment configuration
 

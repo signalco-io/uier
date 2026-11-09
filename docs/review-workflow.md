@@ -478,7 +478,10 @@ capture. It is checked in the browser with the saved-evidence formats and limits
 server like every screenshot (`parseScreenshot`, `sanitizeScreenshot`). The file's name takes its place, with a button that
 removes it; the image is never previewed, stays in memory with a returned draft and is never stored in browser storage. While a chosen or pasted image is still being read and checked, Enter and the send button wait, so the automatic screenshot is never sent in its place. The image belongs to the send it goes with: feedback opened again while one is on its way starts without it, and a failed send brings its image (and Omit screenshot) back only when no newer image was attached meanwhile; a new comment started meanwhile keeps its own image. Upload, paste and redaction on saved feedback are unchanged. Submitting waits for the capture attempt, with a 15-second limit; failures keep the text and show an unavailable
 image state on saved feedback. Image-capacity or image-storage failures also preserve the text. Images are saved only with successfully posted feedback. Replies keep the original
-capture. Saved inbox entries and comment details show thumbnails that expand on click, tap or keyboard activation.
+capture and can attach one separate image through Attach image or image paste in the toolbar and app.
+The same formats, limits, sanitizer, daily budget and private storage apply. Each reply shows its own
+expandable image; it is read only by people who can read the thread, and removed when the reply is deleted.
+Reply composers never capture the page or preview images, and image bytes stay out of local drafts. Saved inbox entries and comment details show thumbnails that expand on click, tap or keyboard activation.
 
 The toolbar draws the capture in the reviewer's browser
 ([`packages/toolbar/src/screenshot.ts`](../packages/toolbar/src/screenshot.ts), with

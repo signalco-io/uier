@@ -87,7 +87,7 @@ export type CommentsStore = {
 
     /** A bounded cross-partition metadata page for the scheduled orphan sweep; never loads pixels. */
     listScreenshotsBefore(before: string, continuation?: string): Promise<{
-        items: { domain: string; commentId: string; etag: string }[]; continuation?: string;
+        items: { domain: string; commentId: string; itemId?: string; etag: string }[]; continuation?: string;
     }>;
 
     /** Bounded legacy backfill and Blob orphan sweep; absent on the local memory store. */
@@ -98,9 +98,9 @@ export type CommentsStore = {
     createScreenshot(screenshot: DbScreenshot): Promise<void>;
     /** Atomically swaps image reference and comment metadata, conditional on the authorized comment version. */
     replaceScreenshot(comment: DbComment, etag: string, screenshot: DbScreenshot): Promise<ConditionalWriteResult>;
-    getScreenshot(domain: string, commentId: string): Promise<DbScreenshot | null>;
+    getScreenshot(domain: string, commentId: string, itemId?: string): Promise<DbScreenshot | null>;
     /** Deletes a comment's screenshot; nothing when there is none */
-    deleteScreenshot(domain: string, commentId: string, etag?: string): Promise<void>;
+    deleteScreenshot(domain: string, commentId: string, etag?: string, itemId?: string): Promise<void>;
 };
 
 let warnedAboutMemoryStore = false;

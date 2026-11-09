@@ -1,6 +1,8 @@
 'use client';
 
 import { type RefObject, useMemo, useState, useSyncExternalStore, useTransition } from 'react';
+import { useAttachedImage } from '@uier/toolbar/attachments';
+import { ReplyAttachment } from './ReplyAttachment';
 import { toast } from 'sonner';
 import { createDraftStore } from '@uier/toolbar/drafts';
 import { Button } from '@/src/components/ui/button';
@@ -35,6 +37,7 @@ export function ReplyComposer({ projectId, userId, userName, comment, textareaRe
     const [announcement, setAnnouncement] = useState('');
     const [, startTransition] = useTransition();
     const update = useCommentUpdate();
+    const attachment = useAttachedImage();
 
     const setText = (value: string, nextMentions: MessageMention[]) => {
         drafts.set(key, value);
@@ -43,28 +46,31 @@ export function ReplyComposer({ projectId, userId, userName, comment, textareaRe
     };
     const submit = () => {
         const sentText = drafts.get(key) ?? '';
-        if (!sentText.trim() || drafts.pending(key)) return;
+        if (!sentText.trim() || drafts.pending(key) || attachment.reading) return;
+        const sentImage = attachment.image;
         const sentMentions = drafts.details(key)?.mentions ?? [];
         const leading = sentText.length - sentText.trimStart().length;
         const selectedMentions = sentMentions.filter(mention => mention.end <= sentText.trimEnd().length)
             .map(mention => ({ ...mention, start: mention.start - leading, end: mention.end - leading }));
         const input = { projectId, commentId: comment.id, text: sentText.trim(), mentions: selectedMentions };
-        const idempotencyKey = drafts.attempt(key, JSON.stringify(input));
+        const idempotencyKey = drafts.attempt(key, JSON.stringify({ ...input, image: sentImage?.key }));
         const sendId = drafts.startSend(key, sentText, sentMentions);
         setError(undefined);
         setAnnouncement('Sending reply...');
+        attachment.remove();
         startTransition(async () => {
             let saved = false;
             try {
                 await drafts.run(key, async () => {
                     update({ id: comment.id, reply: { id: `pending-${sendId}`, author: { name: userName ?? 'You', isMe: true }, text: input.text,
                         mentions: input.mentions.map(({ start, end }) => ({ start, end })), createdAt: new Date().toISOString(), deleted: false, edited: false, canDelete: false, canFilterAuthor: false, pending: true }, previousReplyIds: comment.replies.map(item => item.id) });
-                    const result = await replyCommentAction({ ...input, idempotencyKey });
+                    const result = await replyCommentAction({ ...input, idempotencyKey, screenshot: sentImage?.dataUrl });
                     if (!result?.ok) throw new Error(result?.error ?? 'Could not post the reply. Try again.');
                 });
                 saved = true;
                 setAnnouncement('Reply posted');
             } catch (failure) {
+                if (sentImage) attachment.restore(sentImage);
                 const message = failure instanceof Error ? failure.message : 'Could not post the reply. Try again.';
                 setError(message);
                 toast.error('Your reply was not posted.', { description: `${message} Your draft is kept.` });
@@ -78,10 +84,11 @@ export function ReplyComposer({ projectId, userId, userName, comment, textareaRe
 
     return <MessageComposer label="Reply" formLabel="Reply to thread" name="reply" placeholder="Reply..."
         value={text} mentions={mentions} onValueChange={setText} mentionsIn={{ projectId, commentId: comment.id }} maxLength={maxLength} textareaRef={textareaRef}
+        attachments={<ReplyAttachment attachment={attachment} />} onPaste={attachment.handlePaste} holdSubmit={attachment.reading}
         submitLabel="Post reply" submitVerb="send" onSubmit={submit} pending={pending}
         cancelLabel="Close reply" onCancel={onClose}
-        onDiscard={() => { drafts.delete(key); setError(undefined); setAnnouncement('Draft discarded'); }}
-        error={error && `${error} Your draft is kept. Try sending again.`} announcement={announcement}
+        onDiscard={() => { attachment.remove(); drafts.delete(key); setError(undefined); setAnnouncement('Draft discarded'); }}
+        error={attachment.error || (error && `${error} Your draft is kept. Try sending again.`)} announcement={announcement}
         notices={<>
             {!storageAvailable && <FieldDescription role="status">Browser storage is unavailable. Keep this page open to keep your draft.</FieldDescription>}
             {recoveries > 0 && <FieldDescription role="status">Earlier unsent text is kept separately because both drafts exceed the character limit.

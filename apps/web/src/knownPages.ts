@@ -127,6 +127,8 @@ export const KnownPageLinks = {
     /** A person's profile picture (an image, for the signed-in app); a new version is a new address */
     avatar: (userId: string, version: string) => `/api/avatars/${encodeURIComponent(userId)}/${encodeURIComponent(version)}`,
     /** The screenshot of a project comment (an image, for the signed-in app) */
+    projectReplyScreenshot: (projectId: string, commentId: string, itemId: string) =>
+        `/app/projects/${encodeURIComponent(projectId)}/comments/${encodeURIComponent(commentId)}/replies/${encodeURIComponent(itemId)}/screenshot`,
     projectCommentScreenshot: (projectId: string, commentId: string) =>
         `/app/projects/${encodeURIComponent(projectId)}/comments/${encodeURIComponent(commentId)}/screenshot`,
     /** Consent for a coding tool's OAuth sign-in to the MCP endpoint (a stored authorization request) */

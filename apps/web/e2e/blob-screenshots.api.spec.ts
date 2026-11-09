@@ -24,7 +24,7 @@ function fixture(defaultTtl = -1) {
         async read(name) { return Buffer.from(blobs.get(name)!.data!, 'base64'); },
         async delete(name) { if (controls.failDelete) throw new Error('Delete failed'); blobs.delete(name); },
         async url(name) { return { url: `https://fixture.blob.core.windows.net/screenshots/${name}?sp=r`, expiresAt: new Date(Date.now() + 60_000).toISOString() }; },
-        async listBefore() { return { items: [...blobs].map(([name, doc]) => ({ name, domain: doc.domain, commentId: doc.commentId, etag: name })) }; }
+        async listBefore() { return { items: [...blobs].map(([name, doc]) => ({ name, domain: doc.domain, commentId: doc.commentId, itemId: doc.itemId, etag: name })) }; }
     };
     const container = {
         async read() { return { resource: { defaultTtl } }; },
@@ -190,5 +190,26 @@ test('failed and conflicting backfills retain inline data; abandoned uploads are
     expect((await f.store.getScreenshot(image.domain, image.commentId))?.data).toBe(image.data);
     expect(f.blobs.size).toBe(1);
     await f.store.sweepScreenshotBlobs!(Date.now() + 2 * 60 * 60_000);
+    expect(f.blobs.size).toBe(0);
+});
+
+
+test('reply Blob references retain their parent and item ownership through sweeps and deletion', async () => {
+    const f = fixture();
+    const itemId = 'item_reply_image';
+    const replyImage = { ...image, id: screenshotDocumentId(comment.id, itemId), itemId };
+    const thread = { ...comment, screenshot: undefined, thread: { items: [...comment.thread.items, {
+        id: itemId, text: 'Reply evidence', screenshot: { width: 1, height: 1, bytes: 16, contentType: 'image/png' as const }
+    }] } };
+    await f.store.create(thread);
+    await f.store.createScreenshot(replyImage);
+    expect((await f.store.getScreenshot(comment.domain, comment.id, itemId))?.blob).toBe('blob-1');
+    expect(await f.store.getScreenshot(comment.domain, comment.id)).toBeNull();
+    expect(await f.store.sweepScreenshotBlobs!(Date.now())).toMatchObject({ removed: 0, failed: 0 });
+    expect(f.blobs.size).toBe(1);
+    const stored = (await f.store.get(comment.domain, comment.id))!;
+    await f.store.replace({ ...thread, thread: { items: comment.thread.items } }, stored.etag);
+    expect(await f.store.sweepScreenshotBlobs!(Date.now() + 2 * 60 * 60_000)).toMatchObject({ removed: 1, failed: 0 });
+    expect(await f.store.getScreenshot(comment.domain, comment.id, itemId)).toBeNull();
     expect(f.blobs.size).toBe(0);
 });

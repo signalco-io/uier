@@ -251,6 +251,7 @@ export const rewriteRequestSchema = z.object({
 
 export const replySchema = z.object({
     idempotencyKey: idempotencyKeySchema.optional(),
+    screenshot: screenshotSchema.optional(),
     text: textSchema
 });
 
