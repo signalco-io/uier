@@ -33,7 +33,8 @@ hovers the row before it reaches the box (`selectThread` in `e2e/support/app.ts`
 the row's link (and a card's Move). A touch screen has no hover, so there it is left out (`pointer-coarse:hidden`).
 The count line ends with Select (`Toggle`, "Select comments", pressed while selecting). With a fine pointer it
 stays `sr-only` at rest (still focusable and named, shown on `:focus-visible`) and shows once selecting is on; a
-touch screen, which has no hover to reach a box, always shows it. Selecting is on while
+touch screen, which has no hover to reach a box, always shows it. With no unread count beside it, the whole count line is out of
+sight with Select (no room, no gap) and comes back with Select's keyboard focus. Selecting is on while
 anything is selected, after Select or after a batch (`explicit`), and then every row shows its box and a
 checked row is tinted. The selection bar (`role="group"`, "Selected feedback actions") floats instead of
 pushing a row into the layout: `sticky` at the bottom of the scrolling panel, after the comments on screen

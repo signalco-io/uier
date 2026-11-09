@@ -197,14 +197,9 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
             </div>
             <TriageSelection projectId={projectId} scope={selectionScope} shown={board ? commentStatuses.flatMap(status => columns[status]) : shown} assignees={assignees}
                 barClassName={cn(threadOnly && '@max-3xl/comments:hidden', !comments.length && 'hidden')}
-                // The list's status tabs already count what is shown; the board has none, so it keeps the count
-                summary={<>
-                    {board && (shown.length === comments.length
-                        ? `${comments.length} ${comments.length === 1 ? 'comment' : 'comments'}`
-                        : `${shown.length} of ${comments.length} comments`)}
-                    {unreadShown > 0 && <span className="text-[hsl(var(--brand-accent-text))]">{`${board ? ' · ' : ''}${unreadShown} unread`}</span>}
-                </>}
-                actions={<MarkAllRead projectId={projectId} threads={shown.flatMap(comment => comment.activity?.unread ? [{ id: comment.id, sequence: comment.activity.sequence }] : [])} />}>
+                // Only the unread count: the list's status tabs and the board's columns already count what is shown
+                summary={unreadShown > 0 && <span className="text-[hsl(var(--brand-accent-text))]">{`${unreadShown} unread`}</span>}
+                actions={unreadShown > 0 && <MarkAllRead projectId={projectId} threads={shown.flatMap(comment => comment.activity?.unread ? [{ id: comment.id, sequence: comment.activity.sequence }] : [])} />}>
             {!comments.length ? emptyState : !filtered.length ? (
                 <Empty className="border">
                     <EmptyHeader>

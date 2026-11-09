@@ -87,9 +87,9 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
     projectId: string; scope: string; shown: ProjectCommentView[]; assignees: AssigneeOption[];
     /** Hides the count line and the selection bar while one thread takes the whole width */
     barClassName?: string;
-    /** At the start of the count line: the unread count (and on the board, how many are shown) */
+    /** At the start of the count line: the unread count; leave it empty when there is none */
     summary?: ReactNode;
-    /** Right after the summary, beside the unread count it acts on (Mark all as read) */
+    /** Right after the summary, beside the unread count it acts on (Mark all as read); empty when there is nothing to act on */
     actions?: ReactNode;
     children: ReactNode;
 }) {
@@ -259,13 +259,18 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
     };
 
     // On a narrow screen the actions keep their words and drop their icons
+    // The count line shows nothing: no summary or actions, and Select (when there is anything to select) only on a touch screen
+    const quiet = !summary && !actions && !active;
     const actionClassName = 'pointer-coarse:min-h-11 @max-xl/comments:[&_[data-icon]]:hidden';
     return <Selection.Provider value={{ ids, pending, active, toggle }}>
         <div ref={regionRef} className="contents"
             style={{ '--selection-bar': open ? `calc(${barHeight}px + 1rem)` : '0px' } as CSSProperties} onClickCapture={tapToSelect}>
             {/* The count line: the unread count, Mark all as read and Select */}
             {/* No side padding: it lines up with the search and Filter row above, in both views */}
-            <div className={cn('flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1', barClassName)}>
+            {/* With nothing to show (no unread count, Select out of sight) it takes no room, not even the column's gap:
+                `sr-only` takes it out of the flow and keeps Select focusable, and it shows again while Select has the focus */}
+            <div className={cn('flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1', barClassName,
+                quiet && (eligible.length ? 'pointer-fine:[&:not(:has(:focus-visible))]:sr-only pointer-fine:[&:not(:has(:focus-visible))]:min-h-0' : 'sr-only min-h-0'))}>
                 <span role="status" className="text-sm text-muted-foreground tabular-nums">{summary}</span>
                 {actions}
                 <div className="ml-auto flex items-center gap-1">
