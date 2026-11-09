@@ -35,7 +35,9 @@ test('the assignee picks the agent working with them, edits its session and mode
     await expect(thread.getByRole('button', { name: 'Add agent', exact: true })).toHaveCount(0);
     await thread.getByRole('button', { name: 'Unassigned. Change assignee', exact: true }).click();
     await page.getByRole('menuitem', { name, exact: true }).click();
-    await expect(thread.getByRole('button', { name: 'Assigned to you. Change assignee', exact: true })).toBeVisible();
+    // The new assignee shows in place once saved; no success toast repeats it
+    await expect(thread.getByRole('button', { name: 'Assigned to you. Change assignee', exact: true })).toBeEnabled();
+    await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);
 
     await thread.getByRole('button', { name: 'Add agent', exact: true }).click();
     // The assignee menu may still be fading out
@@ -48,8 +50,8 @@ test('the assignee picks the agent working with them, edits its session and mode
     await expectNoAxeViolations(page);
     await menu.getByRole('menuitemradio', { name: 'Claude', exact: true }).click();
     const agent = thread.getByRole('button', { name: 'Agent: Claude. Change agent', exact: true });
-    await expect(agent).toBeVisible();
-    await expect(page.getByText('Agent set to Claude.', { exact: true })).toBeVisible();
+    await expect(agent).toBeEnabled();
+    await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);
     // The thread shows Claude's logo beside its name, once; the row stacks its mark on the assignee's avatar
     await expect(agent.locator('[data-agent-mark="claude"]')).toBeVisible();
     await expect(thread.locator('[data-agent-mark]')).toHaveCount(1);

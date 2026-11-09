@@ -78,12 +78,10 @@ export function AgentControl({ projectId, comment }: { projectId: string; commen
         if (kind === agent?.kind) return;
         const failed = await save({ kind });
         if (failed) toast.error(failed);
-        else toast(`Agent set to ${agentLabels[kind]}.`);
     });
     const remove = () => start(async () => {
         const failed = await save(null);
         if (failed) toast.error(failed);
-        else toast('Agent removed.');
     });
     const openDetails = () => {
         setDetails({ sessionId: agent?.sessionId ?? '', model: agent?.model ?? '' });
@@ -97,7 +95,6 @@ export function AgentControl({ projectId, comment }: { projectId: string; commen
             const failed = await save({ kind: agent.kind, sessionId: details.sessionId, model: details.model });
             if (failed) { setError(failed); return; }
             setEditing(false);
-            toast('Agent details saved.');
         });
     };
 

@@ -488,7 +488,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                         {assignees.filter(option => comment.eligibleAssigneeIds.includes(option.userId)).map(option => (
                                             <DropdownMenuItem
                                                 key={option.userId}
-                                                onClick={() => run(() => setCommentAssigneeAction(projectId, comment.id, option.userId), `Assigned to ${option.name}.`,
+                                                onClick={() => run(() => setCommentAssigneeAction(projectId, comment.id, option.userId), undefined,
                                                     // A new assignee starts without an agent; the same one keeps theirs
                                                     { assignee: { id: option.userId, name: option.name, avatarUrl: option.avatarUrl,
                                                         ...(option.userId === comment.assignee?.id && comment.assignee.agent ? { agent: comment.assignee.agent } : {}) } })}>

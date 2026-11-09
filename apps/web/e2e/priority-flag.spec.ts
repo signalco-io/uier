@@ -72,10 +72,12 @@ test('priority shows a flag in its colour in the thread, its menu, list rows and
     await expect(menu.getByRole('menuitem', { name: 'Normal', exact: true }).locator('svg')).toHaveCount(2);
     await expect(menu.getByRole('menuitem', { name: 'Urgent', exact: true }).locator('svg')).toHaveCount(1);
     await menu.getByRole('menuitem', { name: 'Urgent', exact: true }).click();
-    const saved = page.getByText('Priority set to Urgent.', { exact: true });
-    await expect(saved).toBeVisible();
     await expect(menu).toHaveCount(0);
-    await expectFlag(thread.getByRole('button', { name: 'Priority: Urgent. Change priority', exact: true }), 'urgent');
+    // The control shows the new priority once saved; no success toast repeats it
+    const urgent = thread.getByRole('button', { name: 'Priority: Urgent. Change priority', exact: true });
+    await expect(urgent).toBeEnabled();
+    await expectFlag(urgent, 'urgent');
+    await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);
 
     // The list row: the flag without its name, read as "Urgent priority"; the Normal row stays without one
     await backToComments(page);
@@ -83,8 +85,6 @@ test('priority shows a flag in its colour in the thread, its menu, list rows and
     await expectFlag(urgentRow, 'urgent');
     await expectFlagOnly(urgentRow, 'Urgent');
     await expect(commentRows(page).filter({ hasText: 'Footer link is grey' }).locator('svg[data-priority]')).toHaveCount(0);
-    // Scan once the toast has gone: mid-fade frames would fail the contrast check at random
-    await expect(saved).toBeHidden({ timeout: 10_000 });
     await expectNoAxeViolations(page);
 
     // The board card, the same way
