@@ -419,7 +419,8 @@ anchors, names and images as untrusted content. Clients must treat them as data 
 user-initiated. The connector cannot edit code, run commands or deploy. A supported workflow is:
 ask the client to read selected feedback, approve a code fix in the coding tool, then explicitly
 approve its reply and status update. Attaching itself with `set_feedback_agent` when the person asks it
-to work on feedback assigned to them is the one write that request approves. Tool annotations identify
+to work on feedback assigned to them is the one write that request approves; it also moves Open
+feedback to In progress ([agents](#agents-working-on-feedback)). Tool annotations identify
 reads and mutations, but annotations are hints, not an approval system. Reading does not acknowledge inbox unread activity.
 
 Server instructions, prompts and the skill also tell clients to cite feedback by its uier link:
@@ -839,11 +840,11 @@ attaches itself when it starts working on feedback assigned to its owner:
 
 | Tool | Scope | Input and meaning |
 | --- | --- | --- |
-| `set_feedback_agent` | `feedback:assign` | Thread ids, stable retry key, optional `agent` (`claude`, `codex`, `chatgpt`, `cursor` or `agent`), optional `sessionId` (up to 200 characters) and `model` (up to 100), optional `assignToMe`. Calling it again updates the details. |
+| `set_feedback_agent` | `feedback:assign` | Thread ids, stable retry key, optional `agent` (`claude`, `codex`, `chatgpt`, `cursor` or `agent`), optional `sessionId` (up to 200 characters) and `model` (up to 100), optional `assignToMe`. Attaching moves Open feedback to In progress when the connection also has `feedback:status`. Calling it again updates the details. |
 | `clear_feedback_agent` | `feedback:assign` | Thread ids and stable retry key. Removes the agent, for example when the tool stops without finishing. |
 
-Both return `{ actingAs, commentId, assigneeId, agent }`, `agent` being `{ kind, label, model?, sessionId?, setAt }`
-or `null`.
+Both return `{ actingAs, commentId, assigneeId, agent, stage }`, `agent` being `{ kind, label, model?, sessionId?, setAt }`
+or `null` and `stage` the thread's status after the write (`open`, `in-progress`, `ready` or `done`).
 
 - **Only under its owner.** The thread must be assigned to the connection's owner. Feedback assigned to
   someone else is `forbidden` for both tools, whoever the owner is (admins included): nobody puts an
@@ -852,6 +853,14 @@ or `null`.
   `assignToMe: true`, which assigns the owner and attaches the agent in one write. Pass it only when the
   person explicitly asked to take the feedback; the skill and tool description say so. It records the
   same assignment event as `assign_feedback`.
+- **Attaching starts the work.** When `set_feedback_agent` attaches an agent to Open feedback (no agent
+  was working under the owner before), the thread moves to In progress in the same write, when the
+  connection also has `feedback:status`. It is an ordinary status change, recorded after the agent's:
+  its own activity step, a `feedback.status_changed` event (`progress_started`), realtime refresh,
+  integration sync, and the followers' email ("moved #12 to In progress", attributed to the
+  connection). Feedback that is already In progress, Ready to verify or Done keeps its status, and
+  updating the details, attaching again or `clear_feedback_agent` never change it. Without
+  `feedback:status` the tool only attaches the agent, so a token without that scope never changes status.
 - **The kind** is `agent` when given, otherwise inferred from what the connection calls itself (the
   connected app's or access token's name, its client id, the request's user agent): Claude, Codex, ChatGPT
   (or OpenAI) and Cursor, else AI agent. It only chooses a label and an avatar.
@@ -863,7 +872,8 @@ or `null`.
   `feedback.agent_changed` payloads add `assignee: { id, name }` (the person it works under, or `null`)
   and `agent: { kind, label, model?, sessionId? }` or `null` to the common fields.
 - Activity and attribution follow assignments: each change advances the thread's unread activity and
-  records the connection as the connector. Agent changes are never emailed.
+  records the connection as the connector. Agent changes are never emailed; the move to In progress
+  that attaching can make is, like any status change.
 - `get_feedback` packets name the agent beside the assignee (`context.assignee.agent`, and
   `Agent:`, `Model:` and `Session:` in the Markdown). Connected services (GitHub, Linear, Notion, Slack,
   Azure DevOps) get the assignee's name only, never the agent.

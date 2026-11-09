@@ -263,7 +263,8 @@ Under Assignee the app's thread reads "You with", the agent's logo, "Claude" and
 - **Coding tools set it themselves.** Through MCP, a tool attaches itself under its owner when it starts
   on feedback assigned to them, with its session id and model ([MCP](mcp.md#agents-working-on-feedback)).
   It never attaches under someone else; for unassigned feedback it assigns its owner first, only when
-  the person asked.
+  the person asked. Attaching moves an Open thread to In progress ([In progress](#in-progress)); the
+  app's **Add agent** does not.
 - **It belongs to its assignee.** A new assignment, unassigning, or making the thread private for an
   assignee who cannot see it removes the agent in the same write. An agent saved under an earlier
   assignee is never shown (`currentAssigneeAgent`).
@@ -709,6 +710,12 @@ toolbar inbox, and, like Ready to verify, counts as open: the Open tab, Open cou
   guest on their own thread. In the app it is in the status menu and the board card's Move (or a
   drag to its column); in the toolbar, Thread options has Mark as in progress and, for a thread in
   progress, Mark as open. MCP sets it with `set_feedback_status` `status: "in-progress"`.
+- **An agent starting.** A coding tool that attaches itself through MCP (`set_feedback_agent`) moves
+  an Open thread to In progress in the same write, when its connection may change status
+  ([agents](mcp.md#agents-working-on-feedback)). Threads already In progress, Ready to verify or Done
+  keep their status, and updating or removing the agent never moves a thread. Choosing an agent in
+  the app (**Add agent**) does not change the status: the assignee is right there and sets it
+  themselves with the status menu, and may only be noting which tool they use.
 - **Done** ends it: Done, bulk Done, a confirmed fix and a closure in a connected service clear it.
   Reopen brings a Done thread back to Open; choose In progress from Done to reopen straight into it.
 - **Fix checks.** Requesting a check from In progress makes the thread Ready to verify; In progress

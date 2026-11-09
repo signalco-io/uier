@@ -1,8 +1,10 @@
 import type { DbProject } from '../app/model';
 import type { DbAssigneeAgent } from '../db/schema';
+import { feedbackStage } from '@uier/toolbar/verification';
 import { withThreadActivity } from '../comments/activity';
 import { apiErrors } from '../comments/http';
 import { submission } from '../comments/submissions';
+import { withOrdinaryStage } from '../comments/verificationState';
 import { idempotencyKeySchema } from '../comments/validation';
 import { withNotificationEvent } from '../notifications/events';
 import type { CommentsStore } from '../repo/commentsStore';
@@ -19,9 +21,14 @@ import { assertEligibleParticipant, assertParticipantEditor } from './participan
  * `assignToMe` (MCP, when the person asked for it) assigns an unassigned thread to the actor first, in the
  * same write; a thread assigned to someone else is always refused. Records thread activity and an `agent`
  * event (MCP `feedback.agent_changed`), which is never emailed.
+ *
+ * `startWork` (MCP, when the connection may also change status) treats attaching an agent as the start of
+ * the work: an Open thread moves to In progress in the same write, recorded like any status change (its own
+ * activity step and a `progress-started` event, which followers are emailed). Only attaching does: updating
+ * or clearing the agent, or a thread that is In progress, Ready to verify or Done, keeps its status.
  */
 export async function setProjectCommentAgent(project: DbProject, actor: ProjectActor, id: string, agent: AssigneeAgentInput | null,
-    options: { idempotencyKey?: string; assignToMe?: boolean; store?: CommentsStore } = {}) {
+    options: { idempotencyKey?: string; assignToMe?: boolean; startWork?: boolean; store?: CommentsStore } = {}) {
     const parsed = assigneeAgentInputSchema.nullable().safeParse(agent);
     if (!parsed.success) {
         const issue = parsed.error.issues[0];
@@ -59,8 +66,11 @@ export async function setProjectCommentAgent(project: DbProject, actor: ProjectA
             ...(desired.sessionId ? { sessionId: desired.sessionId } : {}), ...(desired.model ? { model: desired.model } : {}),
             setBy: actor.userId, setAt: at, ...(actor.agent ? { connector: actor.agent } : {})
         };
-        // One activity step per change: an assignment made here keeps its own, before the agent's.
-        return withNotificationEvent({ ...withThreadActivity(updated, actorId), assigneeAgent: next }, actorId, 'agent', at, undefined, actor.agent,
+        // One activity step per change: an assignment made here keeps its own, before the agent's, and the
+        // move to In progress its own after it.
+        const attached = withNotificationEvent({ ...withThreadActivity(updated, actorId), assigneeAgent: next }, actorId, 'agent', at, undefined, actor.agent,
             { assigneeId: actor.userId, assigneeAgent: { kind: next.kind, ...(next.model ? { model: next.model } : {}), ...(next.sessionId ? { sessionId: next.sessionId } : {}) } });
+        if (!options.startWork || current || feedbackStage(attached) !== 'open') return attached;
+        return withNotificationEvent(withOrdinaryStage(withThreadActivity(attached, actorId), 'in-progress'), actorId, 'progress-started', at, undefined, actor.agent);
     }, submission(projectPartition(project.id), actorId, options.idempotencyKey, { operation: 'agent', id, agent: desired, assignToMe }), undefined, options.store);
 }
