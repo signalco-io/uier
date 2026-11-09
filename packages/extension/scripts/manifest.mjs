@@ -7,7 +7,7 @@ export function createManifest({ browser, api, version }) {
         permissions: ['activeTab', 'scripting', 'storage', 'identity'],
         host_permissions: [`${api}/*`],
         background: browser === 'chrome' ? { service_worker: 'worker.js', type: 'module' }
-            : { scripts: ['worker.js'], persistent: false },
+            : { scripts: ['worker.js'] },
         action: { default_popup: 'popup.html', default_title: 'uier' },
         commands: { _execute_action: { suggested_key: { default: 'Alt+Shift+U' }, description: 'Open uier' } },
         icons: { 16: 'icons/16.png', 32: 'icons/32.png', 48: 'icons/48.png', 128: 'icons/128.png' },

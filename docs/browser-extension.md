@@ -112,7 +112,8 @@ in the extension context. Firefox UUID origins are supplied during authorization
 The verification helper uses one validated exact frame ancestor. A successful refresh can rebind
 a changed extension UUID; previous access/scope tokens then fail. See [server registration](../apps/web/docs/browser-extension.md).
 
-Chrome uses a module service worker; Firefox uses nonpersistent packaged background scripts.
+Chrome uses a module service worker; Firefox uses packaged background scripts, which are
+nonpersistent in MV3. Do not set `background.persistent`; Firefox does not support that MV3 property.
 The common runtime selects the browser's native Promise APIs. All targets retain browser-issued
 document IDs, top-frame targeting and the same closed worker protocol. Firefox's minimum version
 keeps document-ID support; older browsers fail closed.
