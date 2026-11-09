@@ -37,14 +37,14 @@ export function PageSection({ id, title, lead, wide, children }: PropsWithChildr
     const heading = <SectionHeading id={`${id}-title`} title={title} lead={lead} />;
     if (wide || !children) {
         return (
-            <section id={id} aria-labelledby={`${id}-title`} className="flex scroll-mt-24 flex-col gap-8 pt-16 md:pt-24">
+            <section id={id} aria-labelledby={`${id}-title`} className="flex flex-col gap-8 pt-16 md:pt-24">
                 {heading}
                 {children}
             </section>
         );
     }
     return (
-        <section id={id} aria-labelledby={`${id}-title`} className="grid scroll-mt-24 grid-cols-1 items-start gap-8 pt-16 md:pt-24 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:gap-16">
+        <section id={id} aria-labelledby={`${id}-title`} className="grid grid-cols-1 items-start gap-8 pt-16 md:pt-24 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:gap-16">
             <div className="lg:sticky lg:top-24">{heading}</div>
             <div className="flex min-w-0 flex-col gap-6">{children}</div>
         </section>

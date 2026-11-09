@@ -27,8 +27,10 @@ export default function RootMarketingLayout({ children, }: {
             {/* While the review toolbar is mounted (showcase on public pages, review mode through review links),
                 its pill sits at the bottom of the window (bottom 16px, 48px tall): the padding lets the
                 end of the page scroll clear of it, and the scroll padding keeps focused links from
-                scrolling underneath it */}
-            <div className="[:root:has(#uier-toolbar)_&]:pb-24 [:root:has(#uier-toolbar):has(&)]:scroll-pb-24">
+                scrolling underneath it. The top scroll padding does the same for the fixed site header (64px tall):
+                in-page links (/#pricing, a guide's sections) land with their heading 16px below it. It replaces the
+                global `:target` margin here, which client-side navigation does not apply */}
+            <div className="[:root:has(&)]:scroll-pt-20 [&_:target]:scroll-mt-0 [:root:has(#uier-toolbar)_&]:pb-24 [:root:has(#uier-toolbar):has(&)]:scroll-pb-24">
                 <Container className="pt-20">
                     {children}
                 </Container>

@@ -130,6 +130,32 @@ test('landing page sections are reachable from the navigation', async ({ page })
     expect(sectionLinks).toEqual(['/#how-it-works', '/#features', '/#pricing', '/#faq']);
 });
 
+test('section links land below the fixed site header', async ({ page, isMobile }) => {
+    const headingBelowHeader = async (id: string) => {
+        const header = await page.getByRole('banner').boundingBox();
+        const heading = await page.locator(`#${id}`).boundingBox();
+        expect(header, 'site header').not.toBeNull();
+        expect(heading, id).not.toBeNull();
+        expect(heading!.y, id).toBeGreaterThanOrEqual(header!.y + header!.height);
+    };
+
+    // Opening /#pricing directly
+    await page.goto('/#pricing');
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+    await headingBelowHeader('pricing');
+
+    // Following the header's links on the page (client-side navigation); on phones they are in the menu
+    if (isMobile)
+        return;
+    for (const [name, id] of [['FAQ', 'faq'], ['Features', 'features'], ['Pricing', 'pricing']] as const) {
+        const before = await page.evaluate(() => window.scrollY);
+        await page.getByRole('banner').getByRole('link', { name, exact: true }).click();
+        await expect(page).toHaveURL(new RegExp(`#${id}$`));
+        await expect.poll(() => page.evaluate(() => window.scrollY)).not.toBe(before);
+        await headingBelowHeader(id);
+    }
+});
+
 test('pricing states the free offering and nothing else', async ({ page }) => {
     await page.goto('/');
     const pricing = page.getByRole('region', { name: 'Free, and it stays free' });
