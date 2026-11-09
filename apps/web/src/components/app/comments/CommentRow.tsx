@@ -29,7 +29,7 @@ export const commentRowId = (id: string) => `comment-row-${id}`;
  * One comment in the inbox list or on the board: number, title (`commentTitle`), who wrote it, the page path,
  * priority other than Normal (its flag, named for assistive tech), who it is assigned to, status (Open too; a board
  * card leaves it to its column), age and unread. The whole row opens the thread (a link to `?comment=<id>`, so it can also open
- * in a new tab); the selection box sits beside the link.
+ * in a new tab); the selection box sits beside the link, quiet until hovered, focused or selecting (`SelectComment`).
  */
 export function CommentRow({ comment, href, selected, onOpen, card = false, preview = false, actions, describedBy, keyShortcuts, project, tabbable = true }: {
     comment: ProjectCommentView;
@@ -68,11 +68,11 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
         <div className={cn('group/row relative flex min-w-0 gap-2.5 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/60 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring',
             selected === 'opened' && 'bg-muted hover:bg-muted',
             selected === 'beside' && '@4xl/comments:bg-muted @4xl/comments:hover:bg-muted',
-            card && 'border bg-card hover:bg-muted/40')}>
-            {/* Above the link that covers the row */}
-            <div className="relative z-10 flex h-5 shrink-0 items-center empty:hidden">
-                <SelectComment comment={comment} tabbable={tabbable} />
-            </div>
+            card && 'border bg-card hover:bg-muted/40',
+            // Selected for a bulk action
+            'has-[[data-slot=checkbox][data-checked]]:bg-muted/60')}>
+            {/* Its own slot, above the link that covers the row; shown on hover or focus until something is selected */}
+            <SelectComment comment={comment} tabbable={tabbable} />
             <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <div className="flex min-w-0 items-baseline gap-2">
                     {unread && <span aria-hidden="true" className="size-2 shrink-0 self-center rounded-full bg-[hsl(var(--brand-accent))]" />}

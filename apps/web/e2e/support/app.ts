@@ -218,6 +218,36 @@ export async function inBackground(page: Page) {
     await page.addInitScript(() => { Document.prototype.hasFocus = () => false; });
 }
 
+/** The floating bar of a project's selected comments: the actions, Select shown results and the outcome */
+export const selectionBar = (page: Page) => page.getByRole('group', { name: 'Selected feedback actions', exact: true });
+
+/** A thread's selection box in the list or on the board, by its number */
+export const selectionBox = (page: Page, number: number) => page.getByRole('checkbox', { name: `Select comment #${number}`, exact: true });
+
+/** Turns Select on in the count line: every row shows its box, as a touch screen needs before it can select */
+export async function startSelecting(page: Page) {
+    const select = page.getByRole('button', { name: 'Select comments', exact: true });
+    if (await select.getAttribute('aria-pressed') !== 'true') await select.click();
+    await expect(select).toHaveAttribute('aria-pressed', 'true');
+    await expect(selectionBar(page)).toBeVisible();
+}
+
+/**
+ * Checks a thread's selection box. At rest a box shows on hover (a mouse finds it); a touch screen leaves it out
+ * until Select is on, so this turns Select on first there.
+ */
+export async function selectThread(page: Page, number: number) {
+    const box = selectionBox(page, number);
+    if (!await box.isVisible()) await startSelecting(page);
+    await box.check();
+}
+
+/** Checks Select shown results (or Select first 50 shown) in the selection bar, opening it with Select first */
+export async function selectShownResults(page: Page, name: 'Select shown results' | 'Select first 50 shown' = 'Select shown results') {
+    await startSelecting(page);
+    await selectionBar(page).getByRole('checkbox', { name, exact: true }).check();
+}
+
 /** Opens the comments' Filter popover (priority, environment and page, people, unread) */
 export async function openCommentFilters(page: Page) {
     await page.getByRole('button', { name: /^Filter ?\d*$/ }).click();

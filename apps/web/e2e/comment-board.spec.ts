@@ -143,13 +143,13 @@ function placement(target: Locator) {
     });
 }
 
-/** The parts of the page around the comments: the header, the comments section, the search and the count line */
+/** The parts of the page around the comments: the header, the comments section, the search and the count line (its Select) */
 function pageParts(page: Page) {
     return Promise.all([
         page.getByRole('heading', { level: 1 }),
         page.locator('#comments'),
         page.locator('#feedback-search'),
-        page.getByRole('checkbox', { name: 'Select shown results', exact: true })
+        page.getByRole('button', { name: 'Select comments', exact: true })
     ].map(placement));
 }
 
