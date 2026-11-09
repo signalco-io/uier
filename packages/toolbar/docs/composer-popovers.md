@@ -33,7 +33,7 @@ text box starts at 8 lines (`CommentComposer`'s `tall`).
 
 - The form goes on: the text and mentions are in the drafts, and the attached image, the screenshot (and the
   choice to omit it), the feedback type and the capture belong to the form's owner, so the composer can mount
-  again in the modal and back in the popover. A guest's name typed but not sent is kept too.
+  again in the modal and back in the popover. A guest's name typed but not sent is kept too, for that form only (by its draft key), so another form never starts with it.
 - Collapse, Escape (the dialog's `cancel`, prevented) and a press on the backdrop go back to the popover, never
   close the form; a browser that closes the dialog anyway (a repeated Escape) goes back too. Sending from the
   modal closes it like the popover: feedback closes, a comment's thread opens on its pin.

@@ -34,8 +34,9 @@ const textareaMaxHeight = 176;
 const tallTextareaRows = 8;
 const tallTextareaMaxHeight = 480;
 
-// A guest's name typed but not sent yet: the same form expanded or collapsed again starts with it
-let unsentGuestName = '';
+// A guest's name typed but not sent yet, per form (its draft key): the same form expanded or
+// collapsed again starts with it, and another form never gets it
+const unsentGuestNames = new Map<string, string>();
 
 function thresholdIndex(length: number) {
     return announceThresholds.filter(t => length >= t).length;
@@ -131,7 +132,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
     const { needsName, isMember } = useProjectViewer();
     const [savedName, setSavedName] = useState(() => needsName ? getGuestName() : undefined);
     const askName = needsName && !savedName;
-    const [name, setName] = useState(() => unsentGuestName);
+    const [name, setName] = useState(() => unsentGuestNames.get(draftKey) ?? '');
     const [nameMissing, setNameMissing] = useState(false);
     const showCounter = text.length >= counterThreshold;
     const submittingRef = useRef(false);
@@ -252,7 +253,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
             }
             setGuestName(name);
             setSavedName(name.trim());
-            unsentGuestName = '';
+            unsentGuestNames.delete(draftKey);
         }
 
         const leading = text.length - text.trimStart().length;
@@ -326,7 +327,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                             value={name}
                             onChange={(e) => {
                                 setName(e.target.value);
-                                unsentGuestName = e.target.value;
+                                unsentGuestNames.set(draftKey, e.target.value);
                                 setNameMissing(false);
                             }}
                             maxLength={guestNameMaxLength}
