@@ -16,6 +16,9 @@ on:
       - "LICENSE"
       - "renovate.json"
       - ".github/ISSUE_TEMPLATE/**"
+      # Agent skills and settings; nothing deployed reads them.
+      - ".claude/**"
+      - ".agents/**"
   workflow_dispatch:
 
 # One deploy at a time; never cancel a running deploy.

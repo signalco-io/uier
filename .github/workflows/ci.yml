@@ -26,6 +26,7 @@ jobs:
       web: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.filter.outputs.web }}
       extension: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.filter.outputs.extension }}
       infra: ${{ github.event_name == 'workflow_dispatch' && github.ref_name == 'main' && 'true' || steps.filter.outputs.infra }}
+      skills: ${{ github.event_name == 'workflow_dispatch' && 'true' || steps.filter.outputs.skills }}
     steps:
       - name: Filter changed paths
         id: filter
@@ -68,6 +69,10 @@ jobs:
               - ".nvmrc"
               - ".github/workflows/ci.yml"
               - ".github/workflows/pulumi_reusable.yml"
+            skills:
+              - ".claude/skills/uier-monitor/**"
+              - ".claude/skills/uier-monitor-script/**"
+              - ".github/workflows/ci.yml"
 
   web:
     name: "Web (typecheck, build, e2e)"
@@ -213,10 +218,35 @@ jobs:
             apps/extension/playwright-report/
             apps/extension/test-results/
 
+  skills:
+    name: "Agent skills"
+    needs: changes
+    if: needs.changes.outputs.skills == 'true'
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+
+      # The uier-monitor-script skill carries a copy of monitor.mjs; it must match the source.
+      - name: Check the uier monitor skill
+        run: |
+          node --check .claude/skills/uier-monitor/scripts/monitor.mjs
+          node .claude/skills/uier-monitor/scripts/build-script-skill.mjs --check
+
   ci-ok:
     # Single required status check: fails if any job failed or was cancelled; skipped jobs are fine.
     name: "CI OK"
-    needs: [changes, web, infra, preview, extension]
+    needs: [changes, web, infra, preview, extension, skills]
     if: always()
     runs-on: ubuntu-slim
     timeout-minutes: 5
