@@ -19,6 +19,7 @@ export function feedbackExport(dto: Omit<CommentDto, 'thread'> & { thread: { ite
     commentUrl?: string;
     screenshotUrl?: string;
     assigneeName?: string;
+    assignees?: { name: string; agents?: import('@uier/toolbar/agents').AssigneeAgentView[] }[];
     /** The AI agent working under the assignee (members only) */
     assigneeAgent?: import('@uier/toolbar/agents').AssigneeAgentView;
     /** The thread's AI title (`lib/titles`), used in place of the summary while the first message is there */
@@ -39,6 +40,11 @@ export function feedbackExport(dto: Omit<CommentDto, 'thread'> & { thread: { ite
         identity: { projectId: options.projectId, commentId: dto.id, number: dto.number, itemId: first?.id },
         title: `${dto.kind === 'rewrite' ? 'Suggested rewrite: ' : ''}${(available && options.title) || summary || 'Website feedback'}`,
         verification: dto.verification, priority: dto.priority, kind: dto.kind, status: dto.resolved ? 'done' : 'open', stage: feedbackStage(dto), feedback: first,
+        ...(options.assignees ? { assignees: options.assignees.map(person => {
+            const agents = (person.agents ?? []).map(({ kind, label, model, reasoning, sessionId }) => ({ kind, label,
+                ...(model ? { model } : {}), ...(reasoning ? { reasoning } : {}), ...(sessionId ? { sessionId } : {}) }));
+            return { name: person.name, agents, ...(agents[0] ? { agent: agents[0] } : {}) };
+        }) } : {}),
         ...(options.assigneeName ? { assignee: { name: options.assigneeName, ...(options.assigneeAgent ? { agent: {
             kind: options.assigneeAgent.kind, label: options.assigneeAgent.label,
             ...(options.assigneeAgent.model ? { model: options.assigneeAgent.model } : {}),

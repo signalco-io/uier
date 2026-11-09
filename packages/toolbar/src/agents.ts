@@ -1,6 +1,6 @@
 /**
  * Shared, browser-safe vocabulary of the AI agents that can work on a thread under its assignee
- * (the app's Assignee field, the toolbar's thread header, MCP). One agent per assignee at most.
+ * (the app's Assignee field, the toolbar's thread header, MCP).
  */
 export const agentKinds = ['claude', 'codex', 'chatgpt', 'cursor', 'agent'] as const;
 export type AgentKind = typeof agentKinds[number];
@@ -16,7 +16,15 @@ export const MAX_AGENT_MODEL_LENGTH = 100;
 export const MAX_AGENT_REASONING_LENGTH = 32;
 
 /** What views show about the agent; `sessionId`, `model` and `reasoning` are what the agent or its assignee said, untrusted. */
-export type AssigneeAgentView = { kind: AgentKind; label: string; model?: string; reasoning?: string; sessionId?: string; setAt?: string; workingUntil?: string };
+export type AssigneeAgentView = { id?: string; kind: AgentKind; label: string; model?: string; reasoning?: string; sessionId?: string; setAt?: string; workingUntil?: string };
+
+/** Reads of earlier app/toolbar responses still work. An explicit empty array is authoritative. */
+export function commentAssignees<T>(comment: { assignees?: T[]; assignee?: T }): T[] {
+    return comment.assignees ?? (comment.assignee ? [comment.assignee] : []);
+}
+export function assigneeAgents(assignee: { agents?: AssigneeAgentView[]; agent?: AssigneeAgentView }): AssigneeAgentView[] {
+    return assignee.agents ?? (assignee.agent ? [assignee.agent] : []);
+}
 
 /** A working claim is a five-minute lease, renewed with a new action key while the agent is active. */
 export const AGENT_WORKING_LEASE_MS = 5 * 60 * 1000;

@@ -5,6 +5,7 @@ import { projectIdSchema, userIdSchema } from '../../../lib/app/validation';
 import { idempotencyKeySchema, isValidId, textSchema } from '../../../lib/comments/validation';
 import { mentionsSchema } from '../../../lib/review/participants';
 import { bulkReadSchema } from '../../../lib/comments/bulkRead';
+import { assigneeIdsSchema, assignmentModeSchema, agentIdSchema } from '../../../lib/review/assignments';
 import { assigneeAgentInputSchema } from '../../../lib/review/assigneeAgentModel';
 
 export const commentIdSchema = z.string().refine(isValidId);
@@ -13,6 +14,7 @@ export const commentActionSchema = z.object({ projectId: projectIdSchema, commen
 export const statusCommentActionSchema = commentActionSchema.extend({ status: z.enum(feedbackStatusTargets) });
 export const privateCommentActionSchema = commentActionSchema.extend({ isPrivate: z.boolean() });
 export const assignCommentActionSchema = commentActionSchema.extend({ assigneeId: userIdSchema.nullable() });
+export const assignCommentsPeopleActionSchema = commentActionSchema.extend({ assigneeIds: assigneeIdsSchema, mode: assignmentModeSchema });
 export const editCommentActionSchema = commentActionSchema.extend({ text: textSchema });
 export const replyCommentActionSchema = commentActionSchema.extend({ text: textSchema, mentions: mentionsSchema.optional(), idempotencyKey: idempotencyKeySchema });
 export const deleteReplyActionSchema = commentActionSchema.extend({ itemId: commentIdSchema });
@@ -22,4 +24,4 @@ export const readCommentsActionSchema = bulkReadSchema.extend({ projectId: proje
 export const notificationActionSchema = z.object({ projectId: projectIdSchema, threadId: commentIdSchema.optional(), enabled: z.boolean() });
 
 export const priorityCommentActionSchema = commentActionSchema.extend({ priority: z.enum(priorities), idempotencyKey: idempotencyKeySchema });
-export const agentCommentActionSchema = commentActionSchema.extend({ agent: assigneeAgentInputSchema.nullable(), idempotencyKey: idempotencyKeySchema });
+export const agentCommentActionSchema = commentActionSchema.extend({ agent: assigneeAgentInputSchema.nullable(), idempotencyKey: idempotencyKeySchema, agentId: agentIdSchema.optional(), add: z.boolean().optional() });

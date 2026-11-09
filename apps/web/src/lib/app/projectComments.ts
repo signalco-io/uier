@@ -36,6 +36,7 @@ import { loadIntegrationLinks } from '../integrations/links';
 import type { ExternalFeedbackLink } from '@uier/toolbar/feedback-context';
 import { visibleAiTitle } from '../titles/model';
 import { aiTitlesEnabled } from '../titles/settings';
+import { assignedUserIds } from '../review/assignments';
 import { queueAiTitles } from '../titles/threadTitles';
 
 /** The signed-in app user as the actor on a project of the current workspace */
@@ -72,6 +73,8 @@ export type ProjectCommentMessage = {
     pending?: boolean;
 };
 
+export type ProjectAssignee = { id: string; name: string; avatarUrl?: string; agent?: import('@uier/toolbar/agents').AssigneeAgentView; agents?: import('@uier/toolbar/agents').AssigneeAgentView[] };
+
 /** A comment as the app shows it */
 export type ProjectCommentView = {
     priority: CommentPriority;
@@ -104,7 +107,10 @@ export type ProjectCommentView = {
     inProgress: boolean;
     private: boolean;
     /** `agent`: the AI agent working under the assignee */
-    assignee?: { id: string; name: string; avatarUrl?: string; agent?: import('@uier/toolbar/agents').AssigneeAgentView };
+    assignee?: ProjectAssignee;
+    assignees?: ProjectAssignee[];
+    /** Signed-in assignee, used to name their avatar "you" even when they are not first. */
+    assignedUserId?: string;
     eligibleAssigneeIds: string[];
     /**
      * The thread's title, written by AI from its first message (`lib/titles`): missing until one is made,
@@ -195,7 +201,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         return null;
 
     const myId = actor.kind === 'member' ? `user:${actor.userId}` : undefined;
-    const { path, source, assignee, activity } = projectCommentRouting(comment, project, participants, myId, readSequence);
+    const { path, source, assignees, activity } = projectCommentRouting(comment, project, participants, myId, readSequence);
     const origin = source.origin ?? '';
     const size = comment.device?.size;
     const firstText = mentionText(first, participants);
@@ -223,8 +229,10 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         resolved: comment.resolved === true,
         inProgress: comment.inProgress === true && comment.resolved !== true,
         private: comment.private === true,
+        assignedUserId: actor.kind === 'member' && assignedUserIds(comment).includes(actor.userId) ? actor.userId : undefined,
         eligibleAssigneeIds: members.filter(({ member, user }) => user && canSeeComment(comment, { kind: 'member', userId: member.userId, name: '', isAdmin: member.role === 'admin' })).map(({ member }) => member.userId),
-        assignee: assignee && { ...assignee, avatarUrl: avatars.get(assignee.id) },
+        assignees: assignees.map(person => ({ ...person, avatarUrl: avatars.get(person.id) })),
+        assignee: assignees[0] && { ...assignees[0], avatarUrl: avatars.get(assignees[0].id) },
         title: visibleAiTitle(comment, titles),
         author: first.deletedAt
             ? { name: 'Deleted', isMe: false, kind: 'deleted' }
@@ -255,7 +263,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
             makePrivate: canMakeCommentPrivate(actor),
             triage: canTriageProject(project, actor),
             assign: actor.kind === 'member',
-            agent: actor.kind === 'member' && comment.assigneeId === actor.userId,
+            agent: actor.kind === 'member' && assignedUserIds(comment).includes(actor.userId),
             reply: project.access !== 'disabled' && items.length < MAX_THREAD_ITEMS
         }
     };

@@ -120,7 +120,7 @@ export function notionProperties(context: FeedbackContext, mapping: NotionMappin
     if (mapping.link) values[mapping.link] = { url: approvedUrl(context.links.comment) ?? null };
     if (mapping.page) values[mapping.page] = { url: approvedUrl(context.links.page) ?? null };
     if (mapping.created) values[mapping.created] = { date: context.feedback?.createdAt ? { start: context.feedback.createdAt } : null };
-    const assignee = object((context as FeedbackContext & { assignee?: { name: string } }).assignee).name;
+    const assignee = context.assignees?.map(person => person.name).join(', ') || object(context.assignee).name;
     if (mapping.assignee) values[mapping.assignee] = { rich_text: typeof assignee === 'string' ? rich(assignee) : [] };
     if (mapping.screenshot) values[mapping.screenshot] = { files: screenshotId ? [{ name: 'Screenshot', type: 'file_upload', file_upload: { id: screenshotId } }] : [] };
     return values;

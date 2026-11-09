@@ -104,6 +104,16 @@ project existence; direct users to `list_projects` and to reconnecting or explic
 rather than expanding access. List-tool descriptions and field schemas must both
 state the 1–25 limit and `nextCursor` pagination, since clients may flatten schema constraints.
 
+Assignment reads add `assignees[]` and per-person `agents[]`, with the first entry mirrored into
+`assignee` / `agent`. `assign_feedback` accepts exactly one of legacy `assigneeId` (replace with one,
+null clears all) or `assigneeIds` with optional `mode: replace | add | remove`. Add/remove are atomic.
+`set_feedback_agent` adds optional `add: true` for another attachment and `agentId` for an existing
+one; clear and working tools accept `agentId` too. Every agent operation is scoped to the caller's
+own assignment, never another person's. Default set/clear target the first agent under the caller;
+default working selects the unique attached connection/session. Agent results add `assigneeIds`
+and the caller's `agents`, each with a stable `id`. Assignment events add current/previous assignees;
+agent events add `agentId`, including removals. See [AI agents](assignee-agents.md).
+
 `set_feedback_agent_working` (`feedback:assign`) reports transient active work after attachment:
 `working: true` starts/renews a server-issued five-minute lease, `false` clears it. Supply the attached
 session id when present; only that connection/session under its owner can change it. Renew every two

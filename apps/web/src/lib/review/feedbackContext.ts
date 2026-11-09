@@ -44,6 +44,7 @@ export async function projectFeedbackExport(project: DbProject, actor: ProjectAc
     }
     return feedbackExport(dto, {
         projectId: project.id, pageUrl,
+        assignees: actor.kind === 'member' ? dto.assignees : undefined,
         assigneeName: actor.kind === 'member' ? dto.assignee?.name : undefined,
         assigneeAgent: actor.kind === 'member' ? dto.assignee?.agent : undefined,
         environment: actor.kind === 'member' || pageUrl ? feedbackSource(project, comment.origin).label : undefined,

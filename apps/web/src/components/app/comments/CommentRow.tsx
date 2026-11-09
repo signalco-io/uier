@@ -2,6 +2,7 @@
 
 import { useRef, type MouseEvent, type ReactNode } from 'react';
 import { BugIcon, GitPullRequestIcon, HeartIcon, LockIcon, ReplaceIcon } from 'lucide-react';
+import { commentAssignees } from '@uier/toolbar/agents';
 import { markdownPlainText } from '@uier/toolbar/markdown';
 import { cn } from '@/src/lib/utils';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
@@ -64,6 +65,8 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
      */
     tabbable?: boolean;
 }) {
+    const people = commentAssignees(comment);
+    const userId = comment.assignedUserId;
     const status = commentStatus(comment);
     const unread = Boolean(comment.activity?.unread);
     const KindIcon = comment.kind === 'comment' ? undefined : kindIcons[comment.kind];
@@ -129,9 +132,9 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                             </span>
                         )}
                         {/* The dragged copy of a card is inert: its avatars need no card */}
-                        {comment.assignee && (preview
-                            ? <AssigneeAvatars assignee={comment.assignee} />
-                            : <AssigneeCard assignee={comment.assignee} me={comment.permissions.agent} tabbable={tabbable} onPress={openFromAvatars} />)}
+                        {people.length > 0 && (preview
+                            ? <AssigneeAvatars assignees={people} userId={userId} />
+                            : <AssigneeCard assignees={people} userId={userId} tabbable={tabbable} onPress={openFromAvatars} />)}
                         {/* Last, where the line is usually empty: a card's bottom right corner, the end of a list row */}
                         <SelectComment comment={comment} tabbable={tabbable} className={card ? 'ml-auto' : undefined} />
                     </div>

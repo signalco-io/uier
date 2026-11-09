@@ -211,7 +211,8 @@ export type CommentItem = {
     /** Project comments: only workspace admins and the author see it */
     private?: boolean;
     /** `agent`: the AI agent working under the assignee (members only) */
-    assignee?: { id?: string; name: string; isMe: boolean; unavailable: boolean; agent?: import('../../agents').AssigneeAgentView };
+    assignee?: CommentAssignee;
+    assignees?: CommentAssignee[];
     /** Shown before the API saved it (an optimistic comment with a temporary id, see hooks/useComments.tsx) */
     pending?: boolean;
 }
@@ -238,3 +239,5 @@ export type CommentsGlobalProps = {
     /** Ends the review and removes the toolbar from the page (`review` mode only) */
     onExitReview?: () => void;
 }
+
+export type CommentAssignee = { id?: string; name: string; isMe: boolean; unavailable: boolean; agent?: import('../../agents').AssigneeAgentView; agents?: import('../../agents').AssigneeAgentView[] };

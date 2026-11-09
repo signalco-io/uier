@@ -843,7 +843,7 @@ human connection owner and connection identity, including across token refresh.
 
 ### Agents working on feedback
 
-The person a thread is assigned to can have one AI agent working under them: Claude, Codex, ChatGPT,
+A thread can be assigned to several people, each with several AI agents working under them: Claude, Codex, ChatGPT,
 Cursor or a generic AI agent, with the session id, model and reasoning level it reported. The app shows its logo with
 the assignee ([review workflow](review-workflow.md#ai-agents-under-the-assignee)). A coding tool
 attaches itself when it starts working on feedback assigned to its owner:
@@ -854,8 +854,23 @@ attaches itself when it starts working on feedback assigned to its owner:
 | `set_feedback_agent_working` | `feedback:assign` | Thread ids, stable retry key, `working` boolean, and the attached `sessionId` when present. `true` starts/renews a five-minute working lease; `false` clears only the indicator. Renew every two minutes with a fresh action key. |
 | `clear_feedback_agent` | `feedback:assign` | Thread ids and stable retry key. Removes the agent, for example when the tool stops without finishing. |
 
-All three return `{ actingAs, commentId, assigneeId, agent, stage }`, `agent` being `{ kind, label, model?, reasoning?, sessionId?, setAt, workingUntil? }`
+All three return `{ actingAs, commentId, assigneeId, assigneeIds, agent, agents, stage }`, `agent` being `{ id, kind, label, model?, reasoning?, sessionId?, setAt, workingUntil? }`
 or `null` and `stage` the thread's status after the write (`open`, `in-progress`, `ready` or `done`).
+
+`assign_feedback` accepts exactly one form: `assigneeId` (one person, or null to clear everyone),
+or `assigneeIds` (up to 50 distinct people) with optional `mode: "replace"` (default), `"add"` or
+`"remove"`. Add/remove are atomic and preserve the other people and their agents. Existing single-id
+calls keep their replacement behavior. `list_feedback` adds `assignees[]`, with each person's
+`agents[]`; the old `assignee` and `agent` mirror the first entries. Assignee filters match any person,
+and unassigned means no people. Saved single-assignee threads read without a migration.
+
+`set_feedback_agent` without a selector updates the first agent under the caller, as before.
+Pass `add: true` to attach another (up to 10 per person), and use the returned agent `id` as
+`agentId` to update, clear or renew that attachment. Add and agentId are mutually exclusive.
+An append retry with the same action key returns the same attachment. `clear_feedback_agent`
+without agentId removes the caller's first agent only. A working call without agentId selects the
+unique matching connection/session; an ambiguous call is a conflict. Agent results include the
+caller's agents and all assignee ids. No selector ever changes whose assignment the call acts on.
 
 - **Only under its owner.** The thread must be assigned to the connection's owner. Feedback assigned to
   someone else is `forbidden` for all three tools, whoever the owner is (admins included): nobody puts an
@@ -888,12 +903,13 @@ or `null` and `stage` the thread's status after the write (`open`, `in-progress`
 - **The kind** is `agent` when given, otherwise inferred from what the connection calls itself (the
   connected app's or access token's name, its client id, the request's user agent): Claude, Codex, ChatGPT
   (or OpenAI) and Cursor, else AI agent. It only chooses a label and an avatar.
-- **A new assignment removes the agent**: it belongs to the person it works under. The assignment and
-  the agent leaving are one write, with a `feedback.agent_changed` event whose `agent` is `null` and
-  whose `assignee` is the previous assignee. Making a thread private also removes an assignee who cannot
+- **Removing a person removes their agents**: each belongs to the person it works under. Adding
+  or retaining a person preserves their agents and leases. The assignment and
+  the agent leaving are one write, with a `feedback.agent_changed` event for each removed attachment, whose `agent` is `null`, whose `agentId` identifies it and
+  whose `assignee` is the removed person. Making a thread private also removes an assignee who cannot
   see it, with their agent.
 - The details are untrusted text from the tool or the person: one line, no control characters.
-  `feedback.agent_changed` payloads add `assignee: { id, name }` (the person it works under, or `null`)
+  `feedback.agent_changed` payloads add `agentId` and `assignee: { id, name }` (the person it works under, or `null`)
   and `agent: { kind, label, model?, reasoning?, sessionId? }` or `null` to the common fields.
 - **The reasoning level** is short free text in the tool's own words (Claude's `low` to `max`, OpenAI's
   `minimal` to `high`), not a fixed list: providers name their levels differently and add new ones.
@@ -901,7 +917,7 @@ or `null` and `stage` the thread's status after the write (`open`, `in-progress`
 - Activity and attribution follow assignments: each change advances the thread's unread activity and
   records the connection as the connector. Agent changes are never emailed; the move to In progress
   that attaching can make is, like any status change.
-- `get_feedback` packets name the agent beside the assignee (`context.assignee.agent`, and
+- `get_feedback` packets name the agent beside the assignee (`context.assignees[].agents[]`, with the first in `context.assignee.agent`, and
   `Agent:`, `Model:`, `Reasoning:` and `Session:` in the Markdown). Connected services (GitHub, Linear, Notion, Slack,
   Azure DevOps) get the assignee's name only, never the agent.
 

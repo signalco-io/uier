@@ -4,8 +4,9 @@ import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { animationsFinished } from './support/toolbar';
 
-// The open thread's details (On, Page, Priority, Assignee) read as a properties list: every row is the
-// same height whether it holds text or a ghost control, and every value starts at the same left edge
+// The open thread's details (On, Page, Priority, Assignees) read as a properties list: every row is the
+// same minimum height whether it holds text or a ghost control; assignees can wrap to hold several
+// people and agents. Every value starts at the same left edge
 // (a control's flag, avatar or text lines up with plain text). In the side panel, the sheet over the
 // board and on phones; in both themes.
 
@@ -43,10 +44,11 @@ const measure = (details: Locator) => details.evaluate(list => {
 });
 
 function expectEvenRows(rows: Row[], rowHeight: number) {
-    expect(rows.map(row => row.label)).toEqual(['On', 'Page', 'Priority', 'Assignee']);
+    expect(rows.map(row => row.label)).toEqual(['On', 'Page', 'Priority', 'Assignees']);
     for (const row of rows) {
         expect.soft(row.labelHeight, `${row.label} label height`).toBeCloseTo(rowHeight, 0);
-        expect.soft(row.valueHeight, `${row.label} value height`).toBeCloseTo(rowHeight, 0);
+        if (row.label === 'Assignees') expect.soft(row.valueHeight, 'Assignees can grow for people and agents').toBeGreaterThanOrEqual(rowHeight);
+        else expect.soft(row.valueHeight, `${row.label} value height`).toBeCloseTo(rowHeight, 0);
         expect.soft(row.valueTop, `${row.label} value top`).toBeCloseTo(row.labelTop, 0);
         expect.soft(Math.abs(row.valueStart - rows[0]!.valueStart), `${row.label} value start`).toBeLessThanOrEqual(1);
     }
@@ -75,7 +77,8 @@ test('the thread details are a properties list: even rows, values on one left ed
     // Text rows and control rows: the assignee with their agent is the busiest one
     let thread = await openComment(page, 'Checkout button fails');
     await thread.getByRole('button', { name: 'Unassigned. Change assignee', exact: true }).click();
-    await page.getByRole('menuitem', { name, exact: true }).click();
+    await page.getByRole('menuitemcheckbox', { name, exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Done', exact: true }).click();
     await thread.getByRole('button', { name: 'Add agent', exact: true }).click();
     const menu = page.getByRole('menu').filter({ has: page.getByRole('menuitemradio', { name: 'Claude', exact: true }) });
     await animationsFinished(menu);

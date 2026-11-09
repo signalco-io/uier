@@ -1,4 +1,5 @@
 import { feedbackStage } from '../../verification';
+import { commentAssignees } from '../../agents';
 import { matchesFeedbackSearch } from '../../triage';
 import type { CommentItem } from '../@types/Comments';
 
@@ -45,9 +46,9 @@ export function matchesStatus(comment: CommentItem, status: CommentsStatusFilter
 
 /** Everything but the status: assigned to me, unread and the words of the search */
 export function matchesSearch(comment: CommentItem, filter: CommentsFilter) {
-    if (filter.assignedToMe && !comment.assignee?.isMe) return false;
+    if (filter.assignedToMe && !commentAssignees(comment).some(person => person.isMe)) return false;
     if (filter.unread && !comment.activity?.unread) return false;
 
     return matchesFeedbackSearch({ number: comment.number, path: comment.path, messages: comment.thread.items,
-        context: [comment.assignee?.name ?? '', ...comment.thread.items.flatMap(item => item.deleted ? [] : [item.author?.name ?? '', ...(item.mentions ?? []).map(mention => mention.name ?? '')])] }, filter.keywords ?? '');
+        context: [...commentAssignees(comment).map(person => person.name), ...comment.thread.items.flatMap(item => item.deleted ? [] : [item.author?.name ?? '', ...(item.mentions ?? []).map(mention => mention.name ?? '')])] }, filter.keywords ?? '');
 }

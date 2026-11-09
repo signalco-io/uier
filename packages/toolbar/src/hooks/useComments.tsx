@@ -1,4 +1,5 @@
 import type { CommentPriority } from '../triage';
+
 import { useProjectViewer } from '../project/ProjectGate';
 import { useContext, useEffect } from 'react';
 import { QueryClient, UseMutationResult, UseQueryResult, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -24,6 +25,8 @@ export { CommentsApiError, type CommentsApiErrorCode, type CommentsRateLimitReas
 const commentsApiUrl = toolbarConfig.project
     ? `${toolbarConfig.apiUrl}/api/review/${toolbarConfig.project}/comments`
     : `${toolbarConfig.apiUrl}/api/comments`;
+
+type AssignInput = { commentId: string } & ({ assigneeId: string | null } | { assigneeIds: string[]; mode?: 'replace' | 'add' | 'remove' });
 
 /** Guests of a project tag their comments with their name (see project/ProjectGate.tsx) */
 function guestAuthorName() {
@@ -260,7 +263,7 @@ export function useComments(refreshOnMount = false): {
     deleteReply: UseMutationResult<CommentItem | undefined, Error, { commentId: string; itemId: string }, unknown>;
     prioritize: UseMutationResult<CommentItem, Error, { commentId: string; priority: CommentPriority; idempotencyKey: string }, unknown>;
     verification: UseMutationResult<CommentItem, Error, { commentId: string; input: unknown }, unknown>;
-    assign: UseMutationResult<CommentItem, Error, { commentId: string; assigneeId: string | null }, unknown>;
+    assign: UseMutationResult<CommentItem, Error, AssignInput, number>;
     edit: UseMutationResult<CommentItem, Error, EditMessageInput, unknown>;
     reattach: UseMutationResult<CommentItem, Error, ReattachInput, unknown>;
 } {
@@ -424,8 +427,9 @@ export function useComments(refreshOnMount = false): {
         onSettled: handleSettled
     });
     const assign = useMutation({
-        mutationFn: async ({ commentId, assigneeId }: { commentId: string; assigneeId: string | null }) => required(await apiRequest<CommentItem>(`${commentUrl(commentId)}/assignee`, { method: 'PATCH', body: { assigneeId } })),
-        onSuccess: handleCommentChanged, onSettled: handleSettled
+        mutationFn: async ({ commentId, ...input }: AssignInput) => required(await apiRequest<CommentItem>(`${commentUrl(commentId)}/assignee`, { method: 'PATCH', body: input })),
+        onMutate: () => currentReviewerRevision(),
+        onSuccess: (comment, _input, revision) => { if (revision === currentReviewerRevision()) handleCommentChanged(comment); }, onSettled: handleSettled
     });
     const edit = useMutation({ mutationFn: editMessage, onSuccess: handleCommentChanged, onSettled: handleSettled });
 

@@ -11,7 +11,6 @@ import {
     BellIcon,
     BellOffIcon,
     BugIcon,
-    CheckIcon,
     ChevronDownIcon,
     HeartIcon,
     LockIcon,
@@ -82,8 +81,7 @@ import { VerificationControl } from './VerificationControl';
 import { StateBadge, StateMenu, type CommentStatus } from './CommentStatus';
 import { useStatusChange, type ResolveExit } from './useStatusChange';
 import { ReplyComposer } from './ReplyComposer';
-import { assignedLabel } from './AgentAvatar';
-import { AgentControl } from './AgentControl';
+import { AssigneesControl } from './AssigneesControl';
 import { MessageAgent } from './MessageAgent';
 import { useKeyShortcutLabel, useKeyShortcuts } from '../keyboard/keys';
 import {
@@ -93,7 +91,6 @@ import {
     deleteCommentReplyAction,
     filterCommentAuthorAction,
     editCommentAction,
-    setCommentAssigneeAction,
     setCommentPrivateAction,
 } from './actions';
 
@@ -126,18 +123,7 @@ function UnreadDot({ disabled, onRead }: { disabled: boolean; onRead: () => void
  * line beside the name, or the same avatar empty with a dashed outline while unassigned (as a pending
  * invitation's). Not `size="sm"`: its `data-[size=sm]:size-6` would win over `size-5`.
  */
-function AssigneeAvatar({ assignee }: { assignee?: ProjectCommentView['assignee'] }) {
-    if (!assignee)
-        return <Avatar aria-hidden="true" className="size-5 after:border-dashed after:border-foreground/30" />;
-    return (
-        <span aria-hidden="true" className="flex shrink-0 items-center">
-            <Avatar className="size-5">
-                {assignee.avatarUrl && <AvatarImage src={assignee.avatarUrl} alt="" />}
-                <AvatarFallback className="text-[10px] font-semibold text-foreground">{initials(assignee.name)}</AvatarFallback>
-            </Avatar>
-        </span>
-    );
-}
+
 
 /** A thread detail's label and value: one row height for text and controls alike (`h-7` ghost controls fit) */
 const detailLabelClass = 'flex h-8 items-center text-muted-foreground pointer-coarse:h-11';
@@ -276,7 +262,6 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const replyShortcut = useKeyShortcutLabel('R');
     const statusShortcut = useKeyShortcutLabel('S');
     const assigneeShortcut = useKeyShortcutLabel('A');
-    const assigned = assignedLabel(comment.assignee && { ...comment.assignee, agent: undefined }, userId);
     // After the page link: the environment's name; the address itself is in the link
     const sourceText = source.available
         ? source.label !== source.origin ? source.label : undefined
@@ -498,53 +483,9 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                     </dd>
                     <dt className={detailLabelClass}>Priority</dt>
                     <dd className={detailValueClass}><PriorityControl projectId={projectId} commentId={comment.id} priority={comment.priority} canEdit={permissions.triage} /></dd>
-                    <dt className={detailLabelClass}>Assignee</dt>
-                    {/* The assignee, then the AI agent working with them (its logo and name, `AgentControl`) */}
-                    <dd className={`${detailValueClass} gap-x-1`}>
-                        {/* The list of people for those who can assign */}
-                        {permissions.assign ? (
-                            <DropdownMenu>
-                                <span className="flex min-w-0 items-center gap-1">
-                                    <AssigneeAvatar assignee={comment.assignee} />
-                                    {/* The visible name is part of the accessible name ("Assigned to you. Change assignee") */}
-                                    <DropdownMenuTrigger render={<Button ref={assigneeTrigger} variant="ghost" size="sm" disabled={pending} aria-label={`${assigned}. Change assignee`} aria-keyshortcuts={assigneeShortcut}
-                                        className="h-7 min-w-0 gap-2 px-1.5 font-normal pointer-coarse:min-h-11" />}>
-                                        <span className="truncate">{comment.assignee ? comment.assignee.id === userId ? 'You' : comment.assignee.name : 'Unassigned'}</span>
-                                        <ChevronDownIcon aria-hidden="true" data-icon="inline-end" className="text-muted-foreground" />
-                                    </DropdownMenuTrigger>
-                                </span>
-                                <DropdownMenuContent align="start" className="max-h-72 min-w-48 overflow-y-auto">
-                                    <DropdownMenuGroup>
-                                        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Assign to</DropdownMenuLabel>
-                                        {assignees.filter(option => comment.eligibleAssigneeIds.includes(option.userId)).map(option => (
-                                            <DropdownMenuItem
-                                                key={option.userId}
-                                                onClick={() => run(() => setCommentAssigneeAction(projectId, comment.id, option.userId), undefined,
-                                                    // A new assignee starts without an agent; the same one keeps theirs
-                                                    { assignee: { id: option.userId, name: option.name, avatarUrl: option.avatarUrl,
-                                                        ...(option.userId === comment.assignee?.id && comment.assignee.agent ? { agent: comment.assignee.agent } : {}) } })}>
-                                                {option.name}
-                                                {option.userId === comment.assignee?.id && <CheckIcon className="ml-auto" />}
-                                            </DropdownMenuItem>
-                                        ))}
-                                    </DropdownMenuGroup>
-                                    {comment.assignee && (
-                                        <>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem onClick={() => run(() => setCommentAssigneeAction(projectId, comment.id, null), undefined, { assignee: undefined })}>
-                                                Unassign
-                                            </DropdownMenuItem>
-                                        </>
-                                    )}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        ) : (
-                            <span role="img" aria-label={assigned} className="inline-flex min-w-0 items-center gap-2.5">
-                                <AssigneeAvatar assignee={comment.assignee} />
-                                <span aria-hidden="true">{comment.assignee?.name ?? 'Unassigned'}</span>
-                            </span>
-                        )}
-                        <AgentControl projectId={projectId} comment={comment} />
+                    <dt className={detailLabelClass}>Assignees</dt>
+                    <dd className={detailValueClass}>
+                        <AssigneesControl projectId={projectId} comment={comment} userId={userId} options={assignees} trigger={assigneeTrigger} shortcut={assigneeShortcut} />
                     </dd>
                     <ThreadPullRequests projectId={projectId} comment={comment} />
                 </dl>

@@ -18,5 +18,6 @@ export function commentRevision(comment: DbComment) {
         const { workingUntil: _, ...agent } = comment.assigneeAgent;
         content.assigneeAgent = agent;
     }
+    if (comment.assigneeAgents) content.assigneeAgents = comment.assigneeAgents.map(({ workingUntil: _, ...agent }) => agent);
     return createHash('sha256').update(stable(content)).digest('hex');
 }

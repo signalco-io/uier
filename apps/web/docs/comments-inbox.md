@@ -128,3 +128,15 @@ saved reply updates the mark through the existing comment refresh.
 - An item carries `data-motion="enter"` or `"move"` while it moves; a leaving copy has `data-motion="exit"` and
   `data-motion-for`. `e2e/comment-motion.spec.ts` watches for them (never for timing): a status change through the
   thread, a realtime arrival, search, a drop, a priority change, the bulk limit, reduced motion and focus.
+
+
+## Multiple assignees
+
+Rows, board cards and My work use `commentAssignees` (arrays with a singular fallback), and
+`AssigneeCard` groups every person's agents with that person. The thread's `AssigneesControl`
+checkbox menu stays open to select several people; toggling uses atomic add/remove, while Unassign
+clears everyone. Only your own assignment exposes editable `AgentControl` instances. Assigned to me
+matches any person in the assignment; Unassigned means the array is empty. My work includes a thread
+once even when several people are assigned. Realtime refreshes reuse the authorized snapshot and
+keep open composers and drafts. The same shared row renders in My work. `multiple-assignees.spec.ts`
+covers both themes on desktop/mobile, app/toolbar assignment, agents, filters, My work and realtime.

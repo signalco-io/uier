@@ -122,12 +122,14 @@ export type DbThreadItem = {
 };
 
 /**
- * The AI agent working on a thread under its assignee (one at most). Only the assignee sets or clears it,
+ * An AI agent working on a thread under one of its assignees. Only the assignee sets or clears it,
  * in the app or through their own MCP connection; it belongs to `assigneeId` and is shown only while that
- * person is still the thread's assignee (a new assignment removes it). `sessionId`, `model` and `reasoning`
+ * person is still assigned (removing that person removes their agents). `sessionId`, `model` and `reasoning`
  * (the reasoning level, or effort, it runs at) are what the agent or its assignee said: untrusted display text.
  */
 export type DbAssigneeAgent = {
+    /** Stable attachment id, scoped to its assignee. Missing on single-agent records. */
+    id?: string;
     /** Server-issued working lease; expiry leaves the agent attached and the thread status unchanged. */
     workingUntil?: string;
     kind: import('@uier/toolbar/agents').AgentKind;
@@ -178,8 +180,12 @@ export type DbComment = {
     private?: boolean;
     /** Project comments: the user id of the member it is assigned to */
     assigneeId?: string;
+    /** Current assignees. Absent on older single-assignee records; an empty array means unassigned. */
+    assigneeIds?: string[];
     /** Project comments: the AI agent working on it under the assignee (see `currentAssigneeAgent`) */
     assigneeAgent?: DbAssigneeAgent;
+    /** Agents grouped by their assigneeId. Absent on older single-agent records. */
+    assigneeAgents?: DbAssigneeAgent[];
     /** Canonical page key; v1 may include approved query/hash state. Older comments use pathname. */
     path: string;
     pageStateVersion?: 1;

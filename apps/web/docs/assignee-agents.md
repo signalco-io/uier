@@ -1,40 +1,43 @@
 # AI agents under the assignee
 
-`DbComment.assigneeAgent` is the one AI agent working on a thread under its assignee: kind (`@uier/toolbar/agents`:
-Claude, Codex, ChatGPT, Cursor, AI agent), the `assigneeId` it belongs to, optional session id, model and reasoning level (untrusted
-one-line text; the reasoning level is free text up to 32 characters, `MAX_AGENT_REASONING_LENGTH`, because providers name levels differently), who set it and when, and the MCP connector that attached it. Read it only through
-`currentAssigneeAgent` / `assigneeAgentView` (`review/assigneeAgentModel.ts`, pure): an agent saved under an earlier
-assignee is never shown. `setAt` is when the agent started: new details for the same kind and session id keep it,
-another kind or session restarts it. `setProjectCommentAgent` (`review/assigneeAgent.ts`) is the one write, through `changeComment`
-and atomic receipts: only the current assignee sets or clears it for themselves (the app's `setCommentAgentAction`, or
-their own MCP connection); other members and admins get `forbidden`, guests too. `assignToMe` (MCP only, on the
-person's explicit request) assigns an unassigned thread to the actor in the same write; never reassign someone else's
-thread. `startWork` (MCP only, when the connection also has `feedback:status`) moves an Open thread to In progress
-in the same write when an agent is attached (none was current): its own activity step and a `progress-started` event
-after the `agent` one, emailed to followers like any status change. Updates, clears and other stages never move; the
-app's `AgentControl` does not pass it (the assignee sets the status in the same panel). `setProjectCommentAssignee` removes the agent with every assignee change (with an `agent` event naming the
-previous assignee) and `setProjectCommentPrivate` with an assignee who loses the thread. Each change advances activity
-and records an `agent` notification event (MCP `feedback.agent_changed`), which `eligibleEvents` never emails. Members
-get the agent in views, the review DTO (toolbar), `list_feedback` and packets; guests never. Integration delivery
-strips `context.assignee.agent` before formatting. The UI is `AgentMark` (each agent's one-colour product logo from `agentMarks`:
-Claude, the OpenAI logo for Codex and ChatGPT, Cursor, a generic bot for AI agent), `AgentAvatar` / `AssigneeAvatars` (the mark on a bordered
-circle, stacked on the assignee's avatar: rows, board cards, the agent menu), `AssigneeCard` (those avatars on rows,
-board cards and My work as a hover popover, `hoverPopoverTrigger` with a 200 ms delay: the assignee, "You" for the
-signed-in assignee, and the agent with its model by name, reasoning level, when it started and its session; a mouse
-click still opens the thread, the keyboard and a tap open the card; the trigger is named by `assignedLabel`; a value cut
-off with an ellipsis, such as a long session id, shows in full in a tooltip on hover and on keyboard focus: `CutText`
-measures it, and only a cut-off line joins the Tab order; opened by the keyboard, focus starts on the card itself) and `AgentControl` (the logo beside the
-agent's name in the thread's Assignee field with the model and reasoning level, the assignee's menu, Session and model dialog).
-Views show the model by name: `modelName` (`@uier/toolbar/agents`, pure) turns known ids into their makers' names
-(Claude current, dated, older and routed ids; OpenAI GPT, Codex and o-series; Gemini; Grok, DeepSeek, Mistral, Qwen,
-Kimi, Llama, GLM, Cursor's Composer) and returns undefined for any other id, which shows as reported in mono.
-`agentModelText` drops the agent's own name ("Opus 5.5" after Claude; Cursor keeps "Claude Sonnet 4.5"), and
-`agentText` is the one-line name of avatars and the toolbar header ("Claude Opus 5.5 (xhigh reasoning)"). The thread
-shows the level alone after a dot ("· xhigh", titled and read as "xhigh reasoning") and the reported id as the model's
-title; the Session and model dialog, packets and Markdown keep the raw values. Add a family to `modelName` and a case to
-`agent-models.api.spec.ts` together. The MCP tools are `set_feedback_agent` / `clear_feedback_agent` under
-`feedback:assign`. Tests: `assignee-agent{,.api}.spec.ts` (the card: hover, keyboard, a cut-off session id's tooltip, a click opening
-the thread, a tap on a phone), `agent-models.api.spec.ts`.
+`DbComment.assigneeIds` lists up to 50 people. `assigneeAgents` holds up to 10 agents per person,
+linked by `assigneeId`, each with a stable attachment `id`. `review/assignments.ts` is the read/write
+boundary: absent arrays read the old `assigneeId` / `assigneeAgent` without a migration; explicit empty
+arrays stay empty. Writes mirror the first person and their first agent into the old fields for older
+readers. `assignedUserIds` / `assignedAgents` ignore agents whose person is no longer assigned.
+The app, review DTO, MCP list and packets add `assignees`, each with `agents`, retaining the singular
+first-person/first-agent fields. Guest DTOs omit account ids and every agent field.
+
+`setProjectCommentAssignees` is the conditional-write service for replace, add and remove. Add/remove
+apply against the latest stored assignment on every retry, preserving other people, their agents and
+leases. It validates current project access and private visibility. Legacy `setProjectCommentAssignee`
+replaces everyone with one person, or clears everyone with null. Only removed people lose their agents;
+making a thread private removes only people who lose visibility. Assignment events store the current
+and previous ids; email targets only the people added or removed. Removed agents each get an `agent`
+event with `agentId`, making their MCP event ids distinct even in one write. Agent events are never emailed.
+
+`setProjectCommentAgent` is the app/MCP write, with atomic submission receipts. Only an assignee can
+set or clear an agent under their own assignment. Admins cannot manage another person's agents.
+Existing calls update/clear that person's first agent; `add: true` appends, and `agentId` selects one
+attachment to update/remove. Add and agentId are mutually exclusive. An append's id derives from its
+submission key, so a retry never creates another attachment. The optional session, model and reasoning
+are untrusted one-line text (200/100/32 characters). `setAt` and a live lease survive metadata edits in
+the same kind/session/connection; a replacement ends the lease. `assignToMe` remains MCP-only and
+only assigns a wholly unassigned thread when explicitly requested. `startWork`, with `feedback:status`,
+moves Open to In progress on the first attachment under the caller, with its own activity/status event.
+Adding more agents, updating and clearing keep the stage.
+
+`AssigneesControl` uses a checkbox menu that stays open between people, with atomic add/remove and
+optimistic shared-list patches. It groups each person's `AgentControl` beneath the selection; only
+the signed-in person's controls edit agents, including Add agent while they already have agents.
+`AssigneeCard` shows every person and their agents in rows, board cards and My work, with the existing
+hover/keyboard/touch behavior and cut-off-value tooltips (`CutText`). `AgentMark` uses the shared
+one-colour product marks. `assigneeAgentViews` projects only display fields, never credential ids.
+`modelName`, `agentModelText`, `agentText` and `reasoningText` keep the app and toolbar's model names
+and labels aligned; unknown ids stay as reported in mono. The Session and model dialog and packets
+retain raw values. Add model families with cases in `agent-models.api.spec.ts`.
+Integration delivery strips agents from both singular and array packet fields; trackers get names only.
+Coverage: `assignee-agent{,.api}.spec.ts`, `multiple-assignees.spec.ts`, `agent-working.spec.ts`.
 
 **Messages an agent writes.** `DbThreadItem.writtenBy` marks a reply an MCP connection posted for its owner:
 kind, optional model and reasoning level. `replyToProjectComment` sets it only for an MCP actor (one with a
@@ -52,19 +55,21 @@ and [MCP](../../../docs/mcp.md#agents-working-on-feedback).
 
 **Working now (MCP presence).** Attachment and thread status are separate from active execution.
 `set_feedback_agent_working` (`feedback:assign`) calls `setProjectCommentAgentWorking` with a boolean
-`working` and the attached `sessionId` when present. Only the current assignee's attached MCP connection
-and exact session can start, renew or clear it; another connection or stale session gets `conflict`.
-The server sets `assigneeAgent.workingUntil` five minutes ahead; renew every two minutes with a fresh
+`working` and the attached `sessionId` when present. Only an assignee's attached MCP connection
+and exact session can start, renew or clear its own attachment; another connection or stale session gets `conflict`.
+The optional `agentId` selects an attachment; without it the matching connection/session must be unique.
+The server sets that agent's `workingUntil` five minutes ahead; renew every two minutes with a fresh
 idempotency key. Atomic receipt retries do not extend it or overwrite a later clear. `working: false`
 removes only the lease. Detaching, changing kind/session/connection or changing assignee ends it;
-metadata edits in the same session keep it. Older attachments have no lease.
+metadata edits in the same session keep it. Legacy lease writes retain the legacy representation, so
+they do not migrate content or change its revision. Older attachments have no lease.
 
-`assigneeAgentView` includes `workingUntil` only while live, for members in app/toolbar/MCP lists.
+`assigneeAgentViews` includes `workingUntil` only while live, for members in app/toolbar/MCP lists.
 These ephemeral writes use the usual conditional write and etag realtime detection, without changing
 status, unread activity, notification events, content timestamps/revisions, integration signals or AI titles.
 Heartbeats are not durable agent events: no activity history, email or `feedback.agent_changed` spam.
 `useAgentWorking` (`@uier/toolbar/agent-working`) expires mounted indicators locally with one cleanup-safe
-timer and no extra reads, even offline. `AgentAvatar`, `AssigneeCard`, the thread's `AgentControl` and
+timer (also for a group of expiry times) and no extra reads, even offline. `AgentAvatar`, `AssigneeCard`, the thread's `AgentControl` and
 the toolbar's `CommentAssignment` show the small spinner and accessible working text; reduced motion
 keeps the indicator still. Coverage includes lease expiry/retry/ownership, realtime updates and draft preservation, and indicators
 on list, board, My work, thread, hover card and toolbar.

@@ -7,7 +7,7 @@ import { fixVerificationSchema } from '../../../lib/review/fixVerificationSchema
 import { triageProjectComments } from '../../../lib/review/bulkTriage';
 import { bulkTriageSchema } from '../../../lib/review/bulkTriageSchema';
 import { projectIdSchema } from '../../../lib/app/validation';
-import { agentCommentActionSchema, priorityCommentActionSchema } from './actionSchemas';
+import { agentCommentActionSchema, assignCommentsPeopleActionSchema, priorityCommentActionSchema } from './actionSchemas';
 import { setProjectCommentAgent } from '../../../lib/review/assigneeAgent';
 import type { AssigneeAgentInput } from '../../../lib/review/assigneeAgentModel';
 import { revalidatePath } from 'next/cache';
@@ -26,6 +26,7 @@ import {
     removeProjectComment,
     replyToProjectComment,
     setProjectCommentAssignee,
+    setProjectCommentAssignees,
     setProjectCommentPrivate,
     setProjectCommentStatus,
     setProjectCommentPriority
@@ -113,6 +114,11 @@ export async function setCommentAssigneeAction(projectId: string, commentId: str
         ({ project, actor }, input) => setProjectCommentAssignee(project, actor, input.commentId, input.assigneeId));
 }
 
+export async function updateCommentAssigneesAction(projectId: string, commentId: string, assigneeIds: string[], mode: import('../../../lib/review/assignments').AssignmentMode) {
+    return commentAction(assignCommentsPeopleActionSchema, { projectId, commentId, assigneeIds, mode },
+        ({ project, actor }, input) => setProjectCommentAssignees(project, actor, input.commentId, input.assigneeIds, input.mode));
+}
+
 export async function editCommentAction(projectId: string, commentId: string, text: string) {
     return await commentAction(editCommentActionSchema, { projectId, commentId, text },
         ({ project, actor }, input) => editProjectCommentText(project, actor, input.commentId, input.text));
@@ -183,9 +189,9 @@ export async function setCommentPriorityAction(projectId: string, commentId: str
         ({ project, actor }, input) => setProjectCommentPriority(project, actor, input.commentId, input.priority, input.idempotencyKey));
 }
 /** The agent working under the signed-in member on a thread assigned to them, or `null` to remove it */
-export async function setCommentAgentAction(projectId: string, commentId: string, agent: AssigneeAgentInput | null, idempotencyKey: string) {
-    return commentAction(agentCommentActionSchema, { projectId, commentId, agent, idempotencyKey },
-        ({ project, actor }, input) => setProjectCommentAgent(project, actor, input.commentId, input.agent, { idempotencyKey: input.idempotencyKey }));
+export async function setCommentAgentAction(projectId: string, commentId: string, agent: AssigneeAgentInput | null, idempotencyKey: string, agentId?: string, add?: boolean) {
+    return commentAction(agentCommentActionSchema, { projectId, commentId, agent, idempotencyKey, agentId, add },
+        ({ project, actor }, input) => setProjectCommentAgent(project, actor, input.commentId, input.agent, { idempotencyKey: input.idempotencyKey, agentId: input.agentId, add: input.add }));
 }
 export async function triageCommentsAction(projectId: string, batch: unknown) {
     return actionResult(async () => {

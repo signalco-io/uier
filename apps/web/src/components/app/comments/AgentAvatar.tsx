@@ -1,6 +1,6 @@
 'use client';
 
-import { agentIsWorking, agentLabels, agentMarks, agentText, type AgentKind, type AssigneeAgentView } from '@uier/toolbar/agents';
+import { assigneeAgents, agentIsWorking, agentLabels, agentMarks, agentText, type AgentKind, type AssigneeAgentView } from '@uier/toolbar/agents';
 import { useAgentWorking } from '@uier/toolbar/agent-working';
 import { Spinner } from '@/src/components/ui/spinner';
 import { cn } from '@/src/lib/utils';
@@ -40,25 +40,25 @@ export function AgentAvatar({ kind, workingUntil, className }: { kind: AgentKind
     );
 }
 
-export type Assignee = { id: string; name: string; avatarUrl?: string; agent?: AssigneeAgentView };
+export type Assignee = { id: string; name: string; avatarUrl?: string; agent?: AssigneeAgentView; agents?: AssigneeAgentView[] };
 
 /** "Assigned to Ana" or "Assigned to you, with Claude Opus 5.5 (high reasoning)": the words of the avatars below */
-export function assignedLabel(assignee: Assignee | undefined, userId?: string, working = agentIsWorking(assignee?.agent?.workingUntil)) {
-    if (!assignee) return 'Unassigned';
-    return `Assigned to ${assignee.id === userId ? 'you' : assignee.name}${assignee.agent ? `, with ${agentText(assignee.agent)}${working ? ', working now' : ''}` : ''}`;
+export function assignedLabel(assignee: Assignee | Assignee[] | undefined, userId?: string) {
+    const people = Array.isArray(assignee) ? assignee : assignee ? [assignee] : [];
+    if (!people.length) return 'Unassigned';
+    return `Assigned to ${people.map(person => `${person.id === userId ? 'you' : person.name}${assigneeAgents(person).map(agent => `, with ${agentText(agent)}${agentIsWorking(agent.workingUntil) ? ', working now' : ''}`).join('')}`).join('; ')}`;
 }
 
-/**
- * Who works on a thread: the assignee's 20px avatar, with the AI agent working under them stacked on its
- * right edge. One image named by `assignedLabel` (`decorative` inside a control that carries the name), for rows
- * and board cards.
- */
-export function AssigneeAvatars({ assignee, userId, decorative, className }: { assignee: Assignee; userId?: string; decorative?: boolean; className?: string }) {
-    const working = useAgentWorking(assignee.agent?.workingUntil);
+/** People are grouped separately; every agent belongs to one person's avatar. */
+export function AssigneeAvatars({ assignee, assignees, userId, decorative, className }: { assignee?: Assignee; assignees?: Assignee[]; userId?: string; decorative?: boolean; className?: string }) {
+    const people = assignees ?? (assignee ? [assignee] : []);
+    useAgentWorking(people.flatMap(person => assigneeAgents(person).map(agent => agent.workingUntil)));
     return (
-        <span {...decorative ? { 'aria-hidden': true } : { role: 'img', 'aria-label': assignedLabel(assignee, userId, working) }} className={cn('flex shrink-0 items-center', className)}>
-            <PersonAvatar assignee={assignee} />
-            {assignee.agent && <AgentAvatar kind={assignee.agent.kind} workingUntil={assignee.agent.workingUntil} className="-ml-1.5 ring-2 ring-background" />}
+        <span role="img" {...decorative ? { 'aria-hidden': true } : { 'aria-label': assignedLabel(people, userId) }} className={cn('flex shrink-0 items-center gap-2', className)}>
+            {people.map(person => <span key={person.id} data-assignee-avatar={person.id} className="flex shrink-0 items-center">
+                <PersonAvatar assignee={person} />
+                {assigneeAgents(person).map((agent, index) => <AgentAvatar key={agent.id ?? index} kind={agent.kind} workingUntil={agent.workingUntil} className="-ml-1.5 ring-2 ring-background" />)}
+            </span>)}
         </span>
     );
 }
@@ -66,9 +66,10 @@ export function AssigneeAvatars({ assignee, userId, decorative, className }: { a
 /** The assignee's 20px avatar (`size-*` on `className` scales it). Not `size="sm"`: its `data-[size=sm]:size-6` would win over `size-5` */
 export function PersonAvatar({ assignee, className, initialsClassName }: { assignee: Pick<Assignee, 'name' | 'avatarUrl'>; className?: string; initialsClassName?: string }) {
     return (
-        <Avatar aria-hidden="true" className={cn('size-5', className)}>
+        <Avatar role="img" aria-hidden="true" className={cn('size-5', className)}>
             {assignee.avatarUrl && <AvatarImage src={assignee.avatarUrl} alt="" />}
-            <AvatarFallback className={cn('text-[10px] font-semibold text-foreground', initialsClassName)}>{initials(assignee.name)}</AvatarFallback>
+            {/* Initials are a decorative glyph; the enclosing control names the person. */}
+            <AvatarFallback data-initials={initials(assignee.name)} className={cn('text-[10px] font-semibold text-foreground after:content-[attr(data-initials)]', initialsClassName)} />
         </Avatar>
     );
 }

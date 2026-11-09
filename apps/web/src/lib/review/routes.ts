@@ -32,11 +32,14 @@ import {
     setProjectCommentResolved,
     setProjectCommentStatus,
     setProjectCommentAssignee,
+    setProjectCommentAssignees,
     setProjectCommentPriority,
     replaceProjectScreenshot
 } from './comments';
 import { eligibleParticipants, mentionsSchema } from './participants';
 import type { ReviewApiContext } from './http';
+
+import { assigneeIdsSchema, assignmentModeSchema } from './assignments';
 
 // The review API (app/api/review/[projectId]/...): the toolbar of a project. Mirrors the public
 // comments API (/api/comments) so the toolbar uses the same requests on another base URL.
@@ -182,8 +185,11 @@ export async function listReviewParticipants(context: ReviewApiContext) {
 }
 
 export async function assignReviewComment(context: ReviewApiContext, { id }: { id: string }) {
-    const { assigneeId } = await parseJsonBody(context.request, z.object({ assigneeId: userIdSchema.nullable() }));
-    return await commentResponse(context, await setProjectCommentAssignee(context.project, context.actor, commentId(id), assigneeId));
+    const input = await parseJsonBody(context.request, z.object({ assigneeId: userIdSchema.nullable().optional(), assigneeIds: assigneeIdsSchema.optional(), mode: assignmentModeSchema.optional() }).strict()
+        .refine(input => (input.assigneeId !== undefined) !== (input.assigneeIds !== undefined) && !(input.assigneeId !== undefined && input.mode !== undefined)));
+    return await commentResponse(context, input.assigneeIds !== undefined
+        ? await setProjectCommentAssignees(context.project, context.actor, commentId(id), input.assigneeIds, input.mode)
+        : await setProjectCommentAssignee(context.project, context.actor, commentId(id), input.assigneeId!));
 }
 
 export async function replaceReviewScreenshot(context: ReviewApiContext, { id }: { id: string }) {

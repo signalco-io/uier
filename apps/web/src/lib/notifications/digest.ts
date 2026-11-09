@@ -37,7 +37,7 @@ export function digestContent(project: DbProject, comment: DbComment, recipient:
         if (mentioned) action = `mentioned you on ${place}`;
         else if (event.kind === 'assignment') {
             const location = comment.number ? ` (${path})` : '';
-            action = event.assigneeId === recipient.slice('user:'.length) ? `assigned ${thread} to you${location}`
+            action = (event.assigneeIds ? event.assigneeIds.includes(recipient.slice('user:'.length)) : event.assigneeId === recipient.slice('user:'.length)) ? `assigned ${thread} to you${location}`
                 : event.assigneeId !== undefined ? `unassigned you from ${thread}${location}` : `updated your assignment on ${place}`;
         } else if (event.kind.startsWith('verification-')) action = `${event.kind === 'verification-requested' ? 'requested a fix check on' : event.kind === 'verification-confirmed' ? event.verificationOverride ? 'confirmed the fix as an admin override on' : 'confirmed the fix on' : event.kind === 'verification-rejected' ? 'said the fix still needs work on' : 'canceled the fix check on'} ${place}`;
         else if (event.kind === 'progress-started' || event.kind === 'progress-stopped')

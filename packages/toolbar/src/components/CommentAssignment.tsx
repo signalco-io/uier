@@ -1,28 +1,30 @@
 import { Button } from '@signalco/ui-primitives/Button';
 import { Avatar } from '@signalco/ui-primitives/Avatar';
 import { cx } from '@signalco/ui-primitives/cx';
-import { LoaderSpinner, User } from '@signalco/ui-icons';
+import { Check, LoaderSpinner, User } from '@signalco/ui-icons';
 import { useParticipants } from '../hooks/useParticipants';
 import { useComments } from '../hooks/useComments';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { avatarText } from './CommentThreadItem';
-import type { CommentItem } from './@types/Comments';
+import type { CommentAssignee as Assignee, CommentItem } from './@types/Comments';
 import { useIconTooltip } from './IconTooltip';
-import { agentIsWorking, agentText, type AgentKind } from '../agents';
+import { assigneeAgents, commentAssignees, agentIsWorking, agentText, type AgentKind } from '../agents';
 import { useAgentWorking } from '../useAgentWorking';
 import { AgentMark } from './AgentMark';
 import { moveFocusInMenu } from '../focusKeys';
 
 /** "Unassigned" or "Assigned to Ana": the assignee's tooltip and name, the same words as the app's comment card */
 export function assignedText(comment: CommentItem) {
-    if (!comment.assignee) return 'Unassigned';
-    return `Assigned to ${comment.assignee.isMe ? 'you' : comment.assignee.name}${comment.assignee.unavailable ? ' (no access)' : ''}`;
+    const people = commentAssignees(comment);
+    if (!people.length) return 'Unassigned';
+    return `Assigned to ${people.map(person => `${person.isMe ? 'you' : person.name}${person.unavailable ? ' (no access)' : ''}`).join(', ')}`;
 }
 
 /** "Assigned to Ana, with Claude": the header avatar's tooltip, with the AI agent working under the assignee */
-export function workingText(comment: CommentItem, working = agentIsWorking(comment.assignee?.agent?.workingUntil)) {
-    const agent = comment.assignee?.agent;
-    return agent ? `${assignedText(comment)}, with ${agentText(agent)}${working ? ', working now' : ''}` : assignedText(comment);
+export function workingText(comment: CommentItem) {
+    const people = commentAssignees(comment);
+    if (!people.length) return 'Unassigned';
+    return `Assigned to ${people.map(person => `${person.isMe ? 'you' : person.name}${assigneeAgents(person).map(agent => `, with ${agentText(agent)}${agentIsWorking(agent.workingUntil) ? ', working now' : ''}`).join('')}`).join('; ')}`;
 }
 
 /** The agent's one-colour mark on a bordered circle, as in the app (`@uier/toolbar/agents`) */
@@ -37,11 +39,10 @@ function AgentAvatar({ kind, workingUntil }: { kind: AgentKind; workingUntil?: s
 }
 
 /** The assignee's avatar, as in the messages, with the agent's stacked on it, or the user icon while unassigned */
-function AssigneeAvatar({ comment }: { comment: CommentItem }) {
-    if (!comment.assignee) return <User size={16} aria-hidden="true" />;
-    return <span className="flex items-center">
-        <Avatar size="sm" aria-hidden="true" className="border bg-accent text-[11px] font-semibold text-foreground">{avatarText(comment.assignee.name)}</Avatar>
-        {comment.assignee.agent && <AgentAvatar kind={comment.assignee.agent.kind} workingUntil={comment.assignee.agent.workingUntil} />}
+function AssigneeAvatar({ person }: { person: Assignee }) {
+    return <span data-assignee-avatar={person.id ?? person.name} className="flex items-center">
+        <Avatar size="sm" aria-hidden="true" className="border bg-accent text-[11px] font-semibold text-foreground">{avatarText(person.name)}</Avatar>
+        {assigneeAgents(person).map((agent, index) => <AgentAvatar key={agent.id ?? index} kind={agent.kind} workingUntil={agent.workingUntil} />)}
     </span>;
 }
 
@@ -51,13 +52,14 @@ function AssigneeAvatar({ comment }: { comment: CommentItem }) {
  * `CommentAssigneeOptions` under the header.
  */
 export function CommentAssignee({ comment, className }: { comment: CommentItem; className?: string }) {
-    const working = useAgentWorking(comment.assignee?.agent?.workingUntil);
-    const assigned = workingText(comment, working);
+    const people = commentAssignees(comment);
+    useAgentWorking(people.flatMap(person => assigneeAgents(person).map(agent => agent.workingUntil)));
+    const assigned = workingText(comment);
     const { triggerProps, tooltip } = useIconTooltip(assigned);
-    if (!comment.assignee) return null;
+    if (!people.length) return null;
     return <>
-        <span role="img" tabIndex={-1} aria-label={assigned} className={cx('inline-flex shrink-0 items-center justify-center', className)} {...triggerProps}>
-            <AssigneeAvatar comment={comment} />
+        <span role="img" tabIndex={-1} aria-label={assigned} className={cx('inline-flex shrink-0 items-center justify-center gap-2', className)} {...triggerProps}>
+            {people.map((person, index) => <AssigneeAvatar key={person.id ?? index} person={person} />)}
         </span>
         {tooltip}
     </>;
@@ -72,11 +74,21 @@ export function CommentAssigneeOptions({ comment, autoFocus = false, onAssigned 
     return <div className="flex flex-col rounded-lg border p-1 text-xs text-muted-foreground" role="group" aria-label="Assign thread" onKeyDown={moveFocusInMenu}>
         {participants.isPending && <span role="status" className="px-2 py-1.5">Loading people...</span>}
         <CommentsErrorMessage error={participants.error ?? assign.error} />
-        {[{ id: '', name: 'Unassign' }, ...(participants.data ?? [])].map(person => <Button key={person.id} variant="plain" size="sm" className="justify-start" disabled={assign.isPending}
-            autoFocus={autoFocus && !person.id}
+        <Button variant="plain" size="sm" className="justify-start" disabled={assign.isPending} autoFocus={autoFocus}
             onClick={async () => {
-                try { await assign.mutateAsync({ commentId: comment.id, assigneeId: person.id || null }); onAssigned(); }
-                catch { /* Keep the options and show the server error. */ }
-            }}>{person.name}</Button>)}
+                try { await assign.mutateAsync({ commentId: comment.id, assigneeId: null }); onAssigned(); }
+                catch { /* Keep the error available. */ }
+            }}>Unassign</Button>
+        {(participants.data ?? []).map(person => {
+            const checked = commentAssignees(comment).some(assignee => assignee.id === person.id);
+            return <Button key={person.id} variant="plain" size="sm" className="justify-start gap-2" aria-pressed={checked} disabled={assign.isPending}
+                onClick={async () => {
+                    try { await assign.mutateAsync({ commentId: comment.id, assigneeIds: [person.id], mode: checked ? 'remove' : 'add' }); }
+                    catch { /* Keep the options and show the server error. */ }
+                }}>
+                {checked && <Check size={16} aria-hidden="true" />}{person.name}
+            </Button>;
+        })}
+        <Button variant="plain" size="sm" className="justify-start" onClick={onAssigned}>Done</Button>
     </div>;
 }

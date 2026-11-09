@@ -11,7 +11,7 @@ import { accessCovers, listAccessibleWorkspaces } from './oauth/grants';
 import { ApiError, apiErrors } from '../comments/http';
 import { MAX_SCREENSHOT_BYTES } from '../comments/limits';
 import { idempotencyKeySchema, reviewPathSchema, textSchema } from '../comments/validation';
-import { getProjectComment, getProjectScreenshot, listProjectComments, MAX_PROJECT_COMMENTS, replyToProjectComment, setProjectCommentAssignee, setProjectCommentResolved, setProjectCommentStatus } from '../review/comments';
+import { getProjectComment, getProjectScreenshot, listProjectComments, MAX_PROJECT_COMMENTS, replyToProjectComment, setProjectCommentAssignee, setProjectCommentAssignees, setProjectCommentResolved, setProjectCommentStatus } from '../review/comments';
 import { actorAuthorId, assertCanUseComments } from '../review/actor';
 import { projectFeedbackExport } from '../review/feedbackContext';
 import { visibleAiTitle } from '../titles/model';
@@ -31,8 +31,9 @@ import { projectCommentRouting } from '../app/projectCommentRouting';
 import { loadReadSequences } from '../comments/readState';
 import { userIdSchema } from '../app/validation';
 import { agentKinds, inferAgentKind, MAX_AGENT_MODEL_LENGTH, MAX_AGENT_REASONING_LENGTH, MAX_AGENT_SESSION_LENGTH } from '@uier/toolbar/agents';
-import { setProjectCommentAgent, setProjectCommentAgentWorking } from '../review/assigneeAgent';
-import { assigneeAgentView } from '../review/assigneeAgentModel';
+import { attachmentId, setProjectCommentAgent, setProjectCommentAgentWorking } from '../review/assigneeAgent';
+import { assignedAgents, assignedUserIds, agentIdSchema, assigneeIdsSchema, assignmentModeSchema } from '../review/assignments';
+import { assigneeAgentViews } from '../review/assigneeAgentModel';
 import { messageAgentView } from '../review/messageAgent';
 
 const page = {
@@ -128,14 +129,14 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
             && comment.thread.items.some(item => !item.deletedAt && item.text.toLocaleLowerCase().includes(search)))
             .map(comment => {
                 const first = comment.thread.items[0];
-                const { path, source, assignee, activity } = projectCommentRouting(comment, project, participants, authorId, reads.get(comment.id));
+                const { path, source, assignee, assignees, activity } = projectCommentRouting(comment, project, participants, authorId, reads.get(comment.id));
                 return { verification: verificationDetails(comment, project, actor, participants), id: comment.id, number: comment.number, kind: comment.kind ?? 'comment', priority: commentPriority(comment.priority), resolved: Boolean(comment.resolved), stage: feedbackStage(comment), private: Boolean(comment.private),
                     title: visibleAiTitle(comment, titles), summary: first?.deletedAt ? 'Comment deleted' : first?.text.slice(0, 240), updatedAt: comment.updatedAt,
-                    path, environment: { id: source.environment, label: source.label }, anchorType: comment.position.type, assignee: assignee ?? null,
+                    path, environment: { id: source.environment, label: source.label }, anchorType: comment.position.type, assignee: assignee ?? null, assignees,
                     authorKind: first && !first.deletedAt ? first.authorId?.startsWith('user:') ? 'member' : 'guest' : undefined,
                     unread: activity.unread, hasScreenshot: Boolean(first && !first.deletedAt && comment.screenshot) };
             }).filter(item => (input.anchorType === undefined || item.anchorType === input.anchorType)
-                && (input.assignee === undefined || (input.assignee === 'unassigned' ? item.assignee === null : item.assignee?.id === (input.assignee === 'me' ? identity.user.id : input.assignee)))
+                && (input.assignee === undefined || (input.assignee === 'unassigned' ? !item.assignees.length : item.assignees.some(person => person.id === (input.assignee === 'me' ? identity.user.id : input.assignee))))
                 && (input.authorKind === undefined || item.authorKind === input.authorKind)
                 && (input.unread === undefined || item.unread === input.unread)
                 && (input.hasScreenshot === undefined || item.hasScreenshot === input.hasScreenshot));
@@ -236,15 +237,26 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
             ...(input.status ? { status: input.status } : {}) });
         return result({ actingAs, commentId: saved.id, saved: true, revision: saved.verification?.revision, stage: feedbackStage(saved) });
     }));
-    server.registerTool('assign_feedback', { description: `Set a human-approved existing participant, or null to unassign. Private visibility and current membership are enforced. ${untrusted}`, inputSchema: { ...write, assigneeId: userIdSchema.nullable() }, annotations: writeAnnotations }, input => safely(async () => {
+    server.registerTool('assign_feedback', { description: `Set human-approved participants. Existing assigneeId replaces everyone with one person (null clears all). For several people send assigneeIds, with mode replace (default), add or remove. Add/remove changes only those people and preserves the others and their agents. Never send both id forms. Private visibility and current membership are enforced. ${untrusted}`, inputSchema: {
+        ...write, assigneeId: userIdSchema.nullable().optional(), assigneeIds: assigneeIdsSchema.optional(), mode: assignmentModeSchema.optional()
+    }, annotations: writeAnnotations }, input => safely(async () => {
+        if ((input.assigneeId !== undefined) === (input.assigneeIds !== undefined) || (input.assigneeId !== undefined && input.mode !== undefined))
+            throw apiErrors.invalidRequest('Send assigneeId, or assigneeIds with an optional mode.');
         const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:assign');
-        const saved = await setProjectCommentAssignee(project, actor, input.commentId, input.assigneeId, key(identity, input.idempotencyKey));
-        return result({ actingAs, commentId: saved.id, assigneeId: saved.assigneeId ?? null });
+        const saved = input.assigneeIds !== undefined
+            ? await setProjectCommentAssignees(project, actor, input.commentId, input.assigneeIds, input.mode, key(identity, input.idempotencyKey))
+            : await setProjectCommentAssignee(project, actor, input.commentId, input.assigneeId!, key(identity, input.idempotencyKey));
+        return result({ actingAs, commentId: saved.id, assigneeId: saved.assigneeId ?? null, assigneeIds: assignedUserIds(saved) });
     }));
-    const agentResult = (saved: Awaited<ReturnType<typeof setProjectCommentAgent>>) =>
-        result({ actingAs, commentId: saved.id, assigneeId: saved.assigneeId ?? null, agent: assigneeAgentView(saved) ?? null, stage: feedbackStage(saved) });
-    server.registerTool('set_feedback_agent', { description: `When you start working on feedback assigned to the connection owner, attach yourself as the AI agent working under them, with your session id, model and reasoning level when you know them; call again to update them (an omitted detail is cleared). Then call set_feedback_agent_working with working: true to report that you are actively working now. Attaching yourself moves Open feedback to In progress when this connection can also change status (feedback:status); feedback that is In progress, Ready to verify or Done keeps its status, and updating or clearing the agent never changes it. Only the assignee's own connection can: feedback assigned to someone else is refused. For unassigned feedback, pass assignToMe only when the person explicitly asked to take it. ${untrusted}`, inputSchema: {
+    const agentResult = (saved: Awaited<ReturnType<typeof setProjectCommentAgent>>, agentId?: string) => {
+        const agents = assigneeAgentViews(saved, identity.user.id);
+        const selected = agentId ? agents.find(agent => agent.id === agentId) : agents[0];
+        return result({ actingAs, commentId: saved.id, assigneeId: identity.user.id, assigneeIds: assignedUserIds(saved), agent: selected ?? null, agents, stage: feedbackStage(saved) });
+    };
+    server.registerTool('set_feedback_agent', { description: `When you start working on feedback assigned to the connection owner, attach yourself as the AI agent working under them, with your session id, model and reasoning level when you know them; call again to update them (an omitted detail is cleared). Pass add: true to attach another agent under your own assignment, then use its returned id as agentId to update, clear or report its working lease. Without add or agentId, existing calls act on the first agent under you. Then call set_feedback_agent_working with working: true to report that you are actively working now. Attaching yourself moves Open feedback to In progress when this connection can also change status (feedback:status); feedback that is In progress, Ready to verify or Done keeps its status, and updating or clearing the agent never changes it. Only the assignee's own connection can: feedback assigned to someone else is refused. For unassigned feedback, pass assignToMe only when the person explicitly asked to take it. ${untrusted}`, inputSchema: {
         ...write,
+        agentId: agentIdSchema.optional().describe('An attachment id under your own assignment, returned in agents. Omit to update your first agent.'),
+        add: z.boolean().optional().describe('true: attach an additional agent under you; do not also send agentId.'),
         agent: z.enum(agentKinds).optional().describe('Which agent you are: claude, codex, chatgpt, cursor, or agent for any other. Omit it to use the one this connection identifies as.'),
         sessionId: z.string().max(MAX_AGENT_SESSION_LENGTH).optional().describe(`Your session or conversation id, when you have one (up to ${MAX_AGENT_SESSION_LENGTH} characters).`),
         model: z.string().max(MAX_AGENT_MODEL_LENGTH).optional().describe(`The model you run on, when you know it (up to ${MAX_AGENT_MODEL_LENGTH} characters).`),
@@ -254,19 +266,25 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:assign');
         const kind = input.agent ?? connectionAgent();
         return agentResult(await setProjectCommentAgent(project, actor, input.commentId, { kind, sessionId: input.sessionId, model: input.model, reasoning: input.reasoning },
-            { idempotencyKey: key(identity, input.idempotencyKey), assignToMe: input.assignToMe, startWork: identity.scopes.includes('feedback:status') }));
+            { idempotencyKey: key(identity, input.idempotencyKey), assignToMe: input.assignToMe, startWork: identity.scopes.includes('feedback:status'), agentId: input.agentId, add: input.add }),
+            input.add ? attachmentId(key(identity, input.idempotencyKey)) : input.agentId);
     }));
     server.registerTool('set_feedback_agent_working', { description: `Report whether you are actively working now, separately from the thread's In progress status, which never changes here. First attach this connection and session with set_feedback_agent. working: true starts or renews a five-minute lease; renew every two minutes with a fresh idempotency key while working. Retry the same action with its original key; a retry never extends the lease. working: false clears the indicator but keeps you attached. Detaching, changing agent/session or changing assignee ends it too. No unread activity, email or agent event is recorded for these transient heartbeats. ${untrusted}`, inputSchema: {
         ...write,
+        agentId: agentIdSchema.optional().describe('The attachment id when several agents use this connection/session. It must be under your own assignment.'),
         working: z.boolean().describe('true: actively working now, for five minutes unless renewed. false: stop showing the indicator, keeping the attached agent and thread status.'),
         sessionId: z.string().max(MAX_AGENT_SESSION_LENGTH).optional().describe('The exact session id attached with set_feedback_agent. Required when the attached agent has a session id; omit when it has none.')
     }, annotations: writeAnnotations }, input => safely(async () => {
         const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:assign');
-        return agentResult(await setProjectCommentAgentWorking(project, actor, input.commentId, { working: input.working, sessionId: input.sessionId }, key(identity, input.idempotencyKey)));
+        const saved = await setProjectCommentAgentWorking(project, actor, input.commentId, { working: input.working, sessionId: input.sessionId, agentId: input.agentId }, key(identity, input.idempotencyKey));
+        const target = assignedAgents(saved).find(agent => agent.assigneeId === identity.user.id
+            && agent.connector?.credentialId === identity.connection.id && agent.sessionId === (input.sessionId?.trim() || undefined)
+            && (!input.agentId || agent.id === input.agentId));
+        return agentResult(saved, target?.id ?? 'missing');
     }));
-    server.registerTool('clear_feedback_agent', { description: `Remove the AI agent and any active working indicator under the connection owner on feedback assigned to them, for example when you stop working on it. Feedback assigned to someone else is refused. ${untrusted}`, inputSchema: write, annotations: writeAnnotations }, input => safely(async () => {
+    server.registerTool('clear_feedback_agent', { description: `Remove the AI agent and any active working indicator under the connection owner on feedback assigned to them, for example when you stop working on it. Feedback assigned to someone else is refused. ${untrusted}`, inputSchema: { ...write, agentId: agentIdSchema.optional().describe('The attachment under you to remove; omitted means the first agent under your own assignment.') }, annotations: writeAnnotations }, input => safely(async () => {
         const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:assign');
-        return agentResult(await setProjectCommentAgent(project, actor, input.commentId, null, { idempotencyKey: key(identity, input.idempotencyKey) }));
+        return agentResult(await setProjectCommentAgent(project, actor, input.commentId, null, { idempotencyKey: key(identity, input.idempotencyKey), agentId: input.agentId }), input.agentId ?? 'removed');
     }));
     server.registerResource('feedback_screenshot', new ResourceTemplate('uier://projects/{projectId}/feedback/{commentId}/screenshot', { list: undefined }), { description: 'Untrusted saved screenshot. Requires screenshots:read and current access to this feedback.', mimeType: 'application/octet-stream' }, async (uri, variables) => {
         try {
