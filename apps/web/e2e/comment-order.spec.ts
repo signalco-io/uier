@@ -3,7 +3,7 @@ import { commentRows, createProject, setProjectAccess, signIn, uniqueEmail } fro
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 
-// A project's comments show by priority (Urgent, High, Normal, Low), then by number, lowest first:
+// A project's comments show by priority (Urgent, High, Normal, Low), then by number, highest first:
 // in the list and in each board column, and a thread moves as soon as its priority changes.
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
@@ -36,12 +36,12 @@ test('the list and board columns show threads by priority, then by number', asyn
         numbers.push((await response.json() as { number: number }).number);
     }
     await page.goto(`/app/projects/${project}`);
-    // All Normal: by number, lowest first
-    await expect(commentRows(page)).toHaveText([/Order thread 1/, /Order thread 2/, /Order thread 3/, /Order thread 4/]);
+    // All Normal: by number, highest first
+    await expect(commentRows(page)).toHaveText([/Order thread 4/, /Order thread 3/, /Order thread 2/, /Order thread 1/]);
 
     // A new priority moves the thread at once
     await prioritize(page, numbers[2]!, 'Urgent');
-    await expect(commentRows(page)).toHaveText([/Order thread 3/, /Order thread 1/, /Order thread 2/, /Order thread 4/]);
+    await expect(commentRows(page)).toHaveText([/Order thread 3/, /Order thread 4/, /Order thread 2/, /Order thread 1/]);
     await prioritize(page, numbers[0]!, 'Low');
     await prioritize(page, numbers[3]!, 'High');
     const order = [/Order thread 3/, /Order thread 4/, /Order thread 2/, /Order thread 1/];

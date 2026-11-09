@@ -107,7 +107,7 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
         const readSequence = Math.max(comment.activity.readSequence, update.readSequence);
         return { ...comment, activity: { ...comment.activity, readSequence, unread: comment.activity.lastOtherSequence > readSequence } };
     }));
-    // Priority first (Urgent to Low), then number, lowest first: the list, every board column, where a
+    // Priority first (Urgent to Low), then number, highest first: the list, every board column, where a
     // dragged card lands, selection and the keyboard all follow this order, and so do changes as they arrive
     const comments = orderComments(optimisticComments);
     // An open thread that is not loaded (deleted, or outside a new author or environment scope) is

@@ -703,8 +703,8 @@ one activity step and integration source intent, without a priority-only email. 
 priority, including Normal on a legacy thread, adds neither.
 
 A project's comments list and each board column show threads by priority (Urgent, High, Normal,
-then Low), then by number, lowest first: within a priority the oldest request comes first, like a
-queue. Threads without a number (older records) follow the numbered ones of their priority, newest
+then Low), then by number, highest first: within a priority the newest request comes first.
+Threads without a number (older records) follow the numbered ones of their priority, newest
 first. A thread moves as soon as its priority changes, here or from realtime updates. The list's
 ↓/↑ keys, the thread shown first beside the list, where a dragged card lands and Select first 50 shown
 follow this order. There is no other sort to choose. My work, the toolbar's

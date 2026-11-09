@@ -232,9 +232,9 @@ test('board cards drag with the mouse between the columns they can move to', asy
     await expect(column('Done').getByRole('listitem')).toHaveCount(1);
     await expect(page.getByRole('status').filter({ hasText: /stays in Done/ })).toBeAttached();
 
-    // Back to Open: Reopen. The card lands in the list's order (priority, then number), below the first thread.
+    // Back to Open: Reopen. The card lands in the list's order (priority, then number, highest first), below the newer thread.
     await dragWithMouse(page, card('Done', 'Second board thread'), column('Open'));
-    await expect(column('Open').getByRole('listitem')).toHaveText([/First board thread/, /Second board thread/]);
+    await expect(column('Open').getByRole('listitem')).toHaveText([/Second board thread/, /First board thread/]);
     await page.reload();
     await expect(column('Open').getByRole('listitem')).toHaveCount(2);
 

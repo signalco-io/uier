@@ -26,7 +26,7 @@ the click, `popstate` or Next navigation that changes it. Environment and author
 through server authorization. Selects that navigate to a server filter (clients, projects, users) show
 the choice at once with `useOptimistic` inside the navigation's transition.
 The list and every board column show the threads by priority (Urgent to Low), then by number,
-lowest first: `orderComments` (`commentOrder.ts`, pure, `e2e/comment-order.api.spec.ts`) sorts the
+highest first: `orderComments` (`commentOrder.ts`, pure, `e2e/comment-order.api.spec.ts`) sorts the
 optimistic snapshot once in `ProjectComments`, so filters, columns, drag landing, selection, the
 keyboard and realtime changes share it; the server keeps loading newest first for My work.
 `commentsQuery.ts` is the shared pure parser. `CommentUpdates` owns optimistic status, assignment,

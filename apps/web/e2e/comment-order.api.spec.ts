@@ -2,9 +2,9 @@ import { expect, test } from '@playwright/test';
 import { compareCommentOrder, orderComments } from '../src/components/app/comments/commentOrder';
 
 // A project's list and board columns show threads by priority (Urgent, High, Normal, Low), then by
-// number, lowest first.
+// number, highest first.
 
-test('threads order by priority, then by number, lowest first', () => {
+test('threads order by priority, then by number, highest first', () => {
     const threads = [
         { id: 'a', priority: 'normal', number: 7 },
         { id: 'b', priority: 'low', number: 1 },
@@ -14,7 +14,7 @@ test('threads order by priority, then by number, lowest first', () => {
         { id: 'f', priority: 'urgent', number: 3 },
         { id: 'g', priority: 'high', number: 4 }
     ] as const;
-    expect(orderComments(threads).map(thread => thread.id)).toEqual(['f', 'c', 'g', 'e', 'd', 'a', 'b']);
+    expect(orderComments(threads).map(thread => thread.id)).toEqual(['c', 'f', 'e', 'g', 'a', 'd', 'b']);
     // A copy: the given list keeps its order
     expect(threads.map(thread => thread.id)).toEqual(['a', 'b', 'c', 'd', 'e', 'f', 'g']);
 });
@@ -27,8 +27,8 @@ test('a missing or unknown priority is Normal; threads without a number follow t
         { id: 'low', priority: 'low' as const, number: 1 },
         { id: 'unknown', priority: 'critical' as never, number: 3 }
     ];
-    expect(orderComments(threads).map(thread => thread.id)).toEqual(['unknown', 'numbered', 'old-newer', 'old-older', 'low']);
+    expect(orderComments(threads).map(thread => thread.id)).toEqual(['numbered', 'unknown', 'old-newer', 'old-older', 'low']);
     expect(compareCommentOrder({ priority: 'high', number: 2 }, { priority: 'high', number: 2 })).toBe(0);
     expect(compareCommentOrder({ priority: 'urgent', number: 40 }, { priority: 'high', number: 1 })).toBeLessThan(0);
-    expect(compareCommentOrder({ number: 3 }, { number: 10 })).toBeLessThan(0);
+    expect(compareCommentOrder({ number: 10 }, { number: 3 })).toBeLessThan(0);
 });
