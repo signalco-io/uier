@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Locator, type Page, type WebSocketRoute } from '@playwright/test';
-import { commentRows, createProject, openBoardMove, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { commentRows, createProject, openBoardMove, selectThread, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 
@@ -208,7 +208,7 @@ test('list rows arrive, leave and slide to a new priority; many changes at once 
     // A new priority slides the row to its place
     await watch.forget();
     const apricot = comments[0]!;
-    await page.getByRole('checkbox', { name: `Select comment #${apricot.number}`, exact: true }).check();
+    await selectThread(page, apricot.number);
     await page.getByRole('combobox', { name: 'Prioritize selected' }).click();
     await page.getByRole('option', { name: 'Urgent', exact: true }).click();
     await expect(commentRows(page).first()).toContainText('stone-apricot');
