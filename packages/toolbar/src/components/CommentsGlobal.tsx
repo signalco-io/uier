@@ -99,6 +99,11 @@ type CommentDraftState = CommentDraft & {
     /** New for every draft, so a new draft opens its popover again */
     key: number;
     initiallyClosed?: boolean;
+    /**
+     * Sent as this comment (its temporary id): the draft stays on the page until the comment's pin
+     * is there, in the same render, so a popover is always open (`handleCreated`)
+     */
+    sentAs?: string;
 };
 
 export function CommentsGlobal({
@@ -138,11 +143,13 @@ export function CommentsGlobal({
     const [resumingDraft, setResumingDraft] = useState<number>();
     const handleDraftResumed = useCallback(() => setResumingDraft(undefined), []);
     const [activeThreads, setActiveThreads] = useState<ReadonlySet<string>>(() => new Set());
-    // A comment being sent (its temporary id), whose thread opens once it is saved (see `handleSaved`)
-    const awaitingThreadRef = useRef<string>(undefined);
+    // A comment just sent (its temporary id): its thread opens in place of the draft's popover (see `handleCreated`)
+    const [continuedThread, setContinuedThread] = useState<string>();
     const handleThreadOpenState = useCallback((id: string, open: boolean) => {
-        // A thread opened meanwhile (the one being sent, too) stays the only one
-        if (open) awaitingThreadRef.current = undefined;
+        // Its pin is on the page: the draft it was sent from goes. Opened: later mounts of its pin
+        // (after collapsing the toolbar) start closed as usual.
+        setCreatingComments(current => current.some(draft => draft.sentAs === id) ? current.filter(draft => draft.sentAs !== id) : current);
+        if (open) setContinuedThread(current => current === id ? undefined : current);
         setActiveThreads(current => {
             if (current.has(id) === open) return current;
             const next = new Set(current);
@@ -243,7 +250,6 @@ export function CommentsGlobal({
         // On uier's own pages the toolbar's popovers stayed open while pointing: those the comment is not on close
         closeToolbarLayers(element ?? resolveAnchorElement(position));
         closeHintForUse();
-        awaitingThreadRef.current = undefined;
         draftKeyRef.current += 1;
         const draftKey = kind === 'rewrite' ? newRewriteDraftKey : newCommentDraftKey;
         const existing = drafts.details(draftKey);
@@ -588,27 +594,25 @@ export function CommentsGlobal({
         closeHintForUse();
         setCreatingCommentPoint(false);
         setCreatingCommentSelection(undefined);
-        awaitingThreadRef.current = undefined;
         draftKeyRef.current += 1;
         // Like reopening its pin: a new capture, then the composer with the text
         setCreatingComment({ kind: resumableDraft.kind, position: resumableDraft.position, key: draftKeyRef.current, initiallyClosed: true });
         setResumingDraft(draftKeyRef.current);
     };
 
-    // A posted comment's pin is there at once; its thread opens when it is saved (at its full size,
-    // so the popover takes the side with room), unless something else was started meanwhile
+    // A posted comment's pin is there at once, and its thread is open in place of the draft's popover
+    // (one popover, never closing and opening again): its reply box waits until it is saved. The
+    // comment comes into the list a moment later (the query cache notifies in a later task), so the
+    // draft stays until then (`sentAs`, see `shownCreatingComments`).
     const handleCreated = (localId: string, draftKey: number) => {
-        removeCreatingComment(draftKey);
-        awaitingThreadRef.current = localId;
-    };
-    const handleSaved = (localId: string, commentId: string) => {
-        if (awaitingThreadRef.current !== localId) return;
-        awaitingThreadRef.current = undefined;
-        setOpenComment({ id: commentId });
+        setCreatingComments(current => current.map(draft => draft.key === draftKey ? { ...draft, sentAs: localId } : draft));
+        setContinuedThread(localId);
     };
     // It was not posted: the draft, with its text back, is on the page again. One started meanwhile
     // stays as it is, with its own image and screenshot choice; the text is back in it.
     const restoreCreatingComment = (kind: CommentDraft['kind'], sendError: unknown, choice: Pick<CommentDraft, 'omitScreenshot' | 'image'>) => {
+        // The draft it was sent from has nothing to show any more
+        setCreatingComments(current => current.filter(other => !other.sentAs));
         const saved = drafts.details(kind === 'rewrite' ? newRewriteDraftKey : newCommentDraftKey);
         if (!saved?.text.trim() || !saved.anchor) return;
         draftKeyRef.current += 1;
@@ -670,7 +674,6 @@ export function CommentsGlobal({
     // "Show on page" in the inbox (only while the pin can be placed): the thread opens on its pin
     // (and takes the focus)
     const handleShowOnPage = (commentId: string) => {
-        awaitingThreadRef.current = undefined;
         handleCollapsedChange(false);
         const comment = allComments?.find(comment => comment.id === commentId);
         // An inbox control is only on the page while its panel is open.
@@ -688,7 +691,7 @@ export function CommentsGlobal({
             setCreatingCommentPoint(false);
             setCreatingCommentSelection(undefined);
             setOpenComment(undefined);
-            awaitingThreadRef.current = undefined;
+            setContinuedThread(undefined);
             setReattaching(undefined);
             closeHintForUse();
         }
@@ -700,6 +703,9 @@ export function CommentsGlobal({
     const projectUrl = projectCode
         ? `${toolbarConfig.apiUrl}/app/projects/${encodeURIComponent(projectCode)}`
         : undefined;
+
+    // A sent draft until its comment's pin is in the list (`handleCreated`)
+    const shownCreatingComments = creatingComments.filter(draft => !draft.sentAs || !pinnedComments.some(comment => commentKey(comment) === draft.sentAs));
 
     const candidatePlacement = reattaching?.candidate ? getCommentPlacement(reattaching.candidate) : undefined;
     return (
@@ -717,13 +723,14 @@ export function CommentsGlobal({
                                 commentItem={commentItem}
                                 onOpenStateChange={handleThreadOpenState}
                                 autoOpen={openCommentId === commentItem.id}
+                                continuesDraft={continuedThread === commentKey(commentItem)}
                                 autoOpenReading={openComment?.reading}
                                 onAutoOpened={handleAutoOpened} />
                         </CommentErrorBoundary>
                     ))}
                 </section>
             )}
-            {!collapsed && creatingComments.map(creatingComment => (
+            {!collapsed && shownCreatingComments.map(creatingComment => (
                 <CommentErrorBoundary key={`new-${creatingComment.key}`}>
                     <CommentBubble
                         draft={creatingComment}
@@ -733,7 +740,6 @@ export function CommentsGlobal({
                         onOpenStateChange={handleDraftOpenState}
                         draftPinOffset={pinnedComments.some(comment => resolveAnchorElement(comment.position) === resolveAnchorElement(creatingComment.position)) ? 36 : 0}
                         onCreated={localId => handleCreated(localId, creatingComment.key)}
-                        onSaved={handleSaved}
                         onSendFailed={(error, choice) => restoreCreatingComment(creatingComment.kind, error, choice)}
                         onCanceled={() => removeCreatingComment(creatingComment.key)} />
                 </CommentErrorBoundary>

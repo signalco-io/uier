@@ -73,8 +73,11 @@ type CommentBubbleProps = {
     onOpenStateChange?: (commentId: string, open: boolean) => void;
     /** The comment was sent: its temporary id, its pin shown at once (see hooks/useComments.tsx) */
     onCreated?: (localId: string) => void;
-    /** The API saved it */
-    onSaved?: (localId: string, commentId: string) => void;
+    /**
+     * A comment just sent from a draft: its thread is open from the start, in place of the draft's
+     * popover, without the opening animation (one popover that goes on, not one closing and another opening)
+     */
+    continuesDraft?: boolean;
     /** Sending failed: the draft (its text is back, the choice to omit its screenshot and its attached image) should be on the page again */
     onSendFailed?: (error: unknown, choice: { omitScreenshot: boolean; image?: AttachedImage }) => void;
     onCanceled?: () => void;
@@ -87,7 +90,7 @@ type CommentBubbleProps = {
 );
 
 export function CommentBubble(props: CommentBubbleProps) {
-    const { autoOpen, autoOpenReading = false, onAutoOpened, onCreated, onSaved, onSendFailed, onCanceled, onOpenStateChange, className } = props;
+    const { autoOpen, autoOpenReading = false, continuesDraft = false, onAutoOpened, onCreated, onSendFailed, onCanceled, onOpenStateChange, className } = props;
     const commentItem = props.commentItem;
     const creating = !commentItem;
     const position = props.commentItem ? props.commentItem.position : props.draft.position;
@@ -156,21 +159,21 @@ export function CommentBubble(props: CommentBubbleProps) {
             device: capture?.device ?? getDeviceInfo(),
             screenshot: attachment.screenshotFor(omitScreenshot, capture?.screenshot)
         });
-        // The draft pin makes way for the comment's, shown at once
+        // The draft pin makes way for the comment's, shown at once with its thread open
         onCreated?.(localId);
-        let saved: CommentItem;
         try {
-            saved = await posting;
+            await posting;
         } catch (error) {
             // After the composer has put the text back
             window.setTimeout(() => onSendFailed?.(error, { omitScreenshot, image: attachment.image }), 0);
             throw error;
         }
         announce(rewriting ? 'Suggestion posted' : 'Comment posted');
-        onSaved?.(localId, saved.id);
     };
 
-    const [open, setOpen] = useState(creating && !props.initiallyClosed);
+    const [open, setOpen] = useState(creating ? !props.initiallyClosed : continuesDraft);
+    // Until it is closed: opening it again animates as usual
+    const [continuing, setContinuing] = useState(continuesDraft);
     // Opened with J or K: the messages have the focus, so the keys go on to the next thread instead of typing
     const [reading, setReading] = useState(false);
     const messagesRef = useRef<HTMLDivElement>(null);
@@ -185,6 +188,7 @@ export function CommentBubble(props: CommentBubbleProps) {
         return () => onOpenStateChange(openStateId, false);
     }, [openStateId, open, onOpenStateChange]);
     const handleOpenChange = (open: boolean) => {
+        setContinuing(false);
         if (open && creating) setCapture({ device: getDeviceInfo(), screenshot: captureCommentScreenshot(position, rootElement) });
         if (!open) {
             mutation.reset();
@@ -261,7 +265,49 @@ export function CommentBubble(props: CommentBubbleProps) {
         // A rewrite (text box and suggestions) scrolls as a whole: when it is clipped, the
         // browser would scroll the page to show the caret, and the popover follows its pin
         rewriting ? 'overflow-y-auto overscroll-contain' : 'overflow-hidden',
+        // In place of the draft's popover, already on the page
+        continuing && 'data-[state=open]:animate-none!',
         floatingShadowClassName
+    );
+
+    // A pasted image file is attached to a new comment, instead of its screenshot
+    const composer = (
+        <div className="shrink-0" onPaste={creating ? attachment.handlePaste : undefined}>
+            {creating && (
+                <ComposerAttachmentsHeader
+                    title={<span className="text-sm font-semibold text-foreground">{newLabel}</span>}
+                    screenshot={capture?.screenshot}
+                    omitted={omitScreenshot}
+                    onOmittedChange={handleOmittedChange}
+                    attachment={attachment} />
+            )}
+            <CommentComposer
+                commentId={commentItem?.id}
+                ref={composerRef}
+                label={rewriting ? 'Suggested text' : (creating ? 'Comment' : 'Reply')}
+                placeholder={rewriting ? 'Your version of the text...' : (creating ? 'Leave feedback...' : 'Reply...')}
+                submitLabel={rewriting ? 'Post suggestion' : (creating ? 'Post comment' : 'Post reply')}
+                draftKey={draftKey}
+                quote={selectedText}
+                // Not when it appears in a thread that is closing (its comment was saved after
+                // Escape): the focus, and a page selection made meanwhile, stay where they are
+                autoFocus={open && !reading}
+                error={mutation.error ?? props.draft?.sendError}
+                holdSubmit={creating && attachment.reading}
+                // Replies wait until the comment is saved (they need its id); the reply box
+                // is there already, so the thread keeps its size and the focus stays in it
+                waiting={sending}
+                attachments={creating ? <ComposerAttachButton attachment={attachment} /> : undefined}
+                onSubmit={handleSubmit}
+                onDiscard={creating ? handleDiscard : undefined} />
+        </div>
+    );
+    const suggestions = rewriting && selectedText && (
+        <div className="shrink-0">
+            <RewriteSuggestions
+                text={selectedText}
+                onPick={(suggestion) => composerRef.current?.replaceText(suggestion)} />
+        </div>
     );
 
     return (
@@ -341,44 +387,11 @@ export function CommentBubble(props: CommentBubbleProps) {
                             className="min-h-0 flex-1 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
                             <CommentThread commentItem={commentItem} reading={open} onPage />
                         </div>
-                        {!commentItem.pending && <Divider className="shrink-0" />}
+                        <Divider className="shrink-0" />
                     </>
                 )}
-                {/* Replies wait until the comment is saved (they need its id) */}
-                {/* A pasted image file is attached to a new comment, instead of its screenshot */}
-                {!commentItem?.pending && <div className="shrink-0" onPaste={creating ? attachment.handlePaste : undefined}>
-                    {creating && (
-                        <ComposerAttachmentsHeader
-                            title={<span className="text-sm font-semibold text-foreground">{newLabel}</span>}
-                            screenshot={capture?.screenshot}
-                            omitted={omitScreenshot}
-                            onOmittedChange={handleOmittedChange}
-                            attachment={attachment} />
-                    )}
-                    <CommentComposer
-                        commentId={commentItem?.id}
-                        ref={composerRef}
-                        label={rewriting ? 'Suggested text' : (creating ? 'Comment' : 'Reply')}
-                        placeholder={rewriting ? 'Your version of the text...' : (creating ? 'Leave feedback...' : 'Reply...')}
-                        submitLabel={rewriting ? 'Post suggestion' : (creating ? 'Post comment' : 'Post reply')}
-                        draftKey={draftKey}
-                        quote={selectedText}
-                        // Not when it appears in a thread that is closing (its comment was saved after
-                        // Escape): the focus, and a page selection made meanwhile, stay where they are
-                        autoFocus={open && !reading}
-                        error={mutation.error ?? props.draft?.sendError}
-                        holdSubmit={creating && attachment.reading}
-                        attachments={creating ? <ComposerAttachButton attachment={attachment} /> : undefined}
-                        onSubmit={handleSubmit}
-                        onDiscard={creating ? handleDiscard : undefined} />
-                </div>}
-                {rewriting && selectedText && (
-                    <div className="shrink-0">
-                        <RewriteSuggestions
-                            text={selectedText}
-                            onPick={(suggestion) => composerRef.current?.replaceText(suggestion)} />
-                    </div>
-                )}
+                {composer}
+                {suggestions}
             </Popper>
         </>
     );
