@@ -331,6 +331,40 @@ export type DbPasskeyChallenge = AppDoc & {
     ttl: number;
 };
 
+/**
+ * An email domain whose people can join the workspace (`workspaceDomains.ts`), in the workspace's
+ * partition. Only an admin whose own account email is at the domain can add it; every write goes
+ * through `mutateAccess` with an access event.
+ */
+export type DbWorkspaceDomain = AppDoc & {
+    type: 'workspace-domain';
+    /** `domain_<domain>` */
+    id: string;
+    pk: `workspace:${string}`;
+    workspaceId: string;
+    /** Lowercase ASCII (`example.com`), without a trailing dot */
+    domain: string;
+    /** Teams people who join get, with each team's invitation generation when it was chosen */
+    teamIds: string[];
+    teamGenerations: Record<string, number>;
+    /** How the domain was verified: the adding admin's account email is at it */
+    verification: 'admin-email';
+    addedBy: string;
+    addedAt: string;
+    updatedAt: string;
+};
+
+/**
+ * Domain -> a workspace people at it can join, for the lookup at sign-in (`domain:<domain>`, id: the
+ * workspace id). It counts only while that workspace's {@link DbWorkspaceDomain} exists.
+ */
+export type DbDomainWorkspace = AppDoc & {
+    type: 'domain-workspace';
+    pk: `domain:${string}`;
+    workspaceId: string;
+    createdAt: string;
+};
+
 export const workspacePk =(workspaceId: string) => `workspace:${workspaceId}` as const;
 export const userPk = (userId: string) => `user:${userId}` as const;
 export const emailPk = (email: string) => `email:${email}` as const;

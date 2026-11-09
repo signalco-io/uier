@@ -98,11 +98,50 @@ Revoking managed member access does not revoke a public guest link. A removed pe
 a guest identity where the project allows it, under the existing guest policy. Data already
 delivered to a browser or email cannot be retracted.
 
+## Email domains
+
+For company workspaces, an admin can let colleagues join without an invitation each. In
+**Workspace → Settings → Email domains**, an admin adds the domain of their own email (the section
+suggests it: `example.com` for `ada@example.com`) and, optionally, teams that people who join get.
+After that, anyone who signs in to uier (or registers) with an email at that domain sees a **Join
+your team** page listing the workspace, and joins with one click. **Not now** continues where they
+were going; the page comes back at their next sign-in.
+
+- **Verified domains only.** The adding admin's own account email must be at the domain. uier only
+  creates accounts for proven addresses (an email code or link, an invitation link, or Google's
+  verified address for Gmail or the account's own Google Workspace domain), so an unverified address
+  never matches. A DNS record check is not offered: it would let admins with a personal email add a
+  company domain, at the cost of a pending state, DNS lookups and a re-check policy. An admin with an
+  email at the domain can add it instead.
+- **Public email providers are refused** (gmail.com, outlook.com, yahoo.co.uk, proton.me, shared
+  inboxes and the like): anyone can have an address there.
+- **Exact matching.** `example.com` matches `maya@example.com` only: never `maya@eu.example.com`,
+  `maya@example.com.evil.test` or `maya@myexample.com`. Add subdomains separately, by an admin with an
+  email there.
+- **Several workspaces may offer one domain.** Each is listed on the join page and joining stays the
+  person's choice, so nobody can claim a company's domain away from its other workspaces, and nobody
+  is added to a workspace they did not pick. The join page shows only the workspace name, the domain and
+  the name of the admin who added it; nothing about people, teams or projects reaches anyone before
+  they join.
+- **What they get:** the Commenter role, the domain's teams that are still active (an archived team is
+  skipped; a restored one has to be chosen again), no direct projects and the Internal label. Admins
+  can then change their access like anyone else's. Admin access is never granted through a domain.
+- **An admin's decision wins.** People already in the workspace see nothing. Someone who was invited to
+  it (pending, expired or revoked) or removed from it gets no offer: they need a new invitation, so a
+  removal is never undone by a domain and a pending invitation is accepted from its link.
+- **Removing a domain** (any admin) stops new joins at once. People who joined stay. Changing a
+  domain's teams applies to people who join afterwards.
+- **Activity** records `added the email domain example.com`, `changed the teams for example.com`,
+  `removed the email domain example.com` and, with the person as actor, `joined through example.com as
+  a commenter`, with the teams.
+
 ## Persistence, limits and history
 
 All access data stays in the existing app container and `workspace:<id>` partition:
 `team`, normalized `team-name` reservations, optional member/invitation fields,
-`access-generation` revocation markers and `access-event` history. Member-held `teamIds` are
+`access-generation` revocation markers, `workspace-domain` email domains and `access-event` history.
+Each email domain also has a `domain-workspace` lookup in the `domain:<domain>` partition (id: the
+workspace id), which sign-in reads; it matches only while the workspace's `workspace-domain` exists. Member-held `teamIds` are
 the only authoritative membership list; no team-held member roster or asynchronous fan-out
 grants exist. Optional fields keep existing memberships and invitations backward compatible.
 
@@ -118,6 +157,8 @@ Technical abuse/storage bounds in `limits.ts`, independent of pricing:
 | Bound | Limit |
 | --- | --- |
 | Active teams per workspace | 100 |
+| Email domains per workspace | 10 |
+| Workspaces one sign-in looks at for its email domain | 20 |
 | Teams per member or invitation | 50 |
 | Explicit projects per team | 200 |
 | People per bulk operation | 50 |
@@ -142,7 +183,8 @@ without grants (`project.transferred-in`); both events carry the project's name,
 one of them ([project transfer](project-transfer.md)). There is no self-service account/workspace deletion flow today. For a verified erasure request, include team/name records,
 member/invitation relationships, email-hashed generation records and affected access events in
 the existing scoped operator process. For workspace erasure, enumerate all these types in that
-workspace partition. For account erasure, remove membership relationships and events where the
+workspace partition, and delete the `domain-workspace` lookup of each of its `workspace-domain`
+records. For account erasure, `workspace-domain.addedBy` holds the adding admin's user id. For account erasure, remove membership relationships and events where the
 account is actor/target, considering other people's retained records, the account's `passkey`
 documents in `user:<id>` with the `passkey-credential` lookup of each (`passkey:<SHA-256 of the
 credential id>`), and its profile picture: the `user-avatar` document (`avatar_<version>`) in

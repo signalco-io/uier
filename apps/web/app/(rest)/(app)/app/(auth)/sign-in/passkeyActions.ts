@@ -8,6 +8,7 @@ import { passkeySignInOptions, verifyPasskeySignIn } from '@/src/lib/app/passkey
 import { bindPasskeyChallenge, passkeyCeremonyContext, passkeyFailureMessage, takePasskeyChallenge } from '@/src/lib/app/passkeyRequest';
 import { startSession } from '@/src/lib/app/session';
 import { safeNextPath } from '@/src/lib/app/signIn';
+import { signInDestination } from '@/src/lib/app/signInDestination';
 
 export type PasskeySignInState = {
     ok: false;
@@ -41,5 +42,5 @@ export async function passkeySignInAction(response: unknown, next: unknown): Pro
         };
 
     await startSession(outcome.value.id, 'passkey');
-    redirect(safeNextPath(next) ?? KnownPages.App);
+    redirect(await signInDestination(outcome.value, safeNextPath(next) ?? KnownPages.App));
 }

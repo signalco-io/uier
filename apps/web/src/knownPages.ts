@@ -34,6 +34,8 @@ export const KnownPages = {
     AppSignInGoogleCallback: '/app/sign-in/google/callback',
     AppSignInGoogleLink: '/app/sign-in/google/link',
     AppWelcome: '/app/welcome',
+    /** After sign-in: join a workspace that people with the account's email domain can join */
+    AppJoin: '/app/join',
     AppProjects: '/app/projects',
     AppMyWork: '/app/my-work',
     AppReview: '/app/review',

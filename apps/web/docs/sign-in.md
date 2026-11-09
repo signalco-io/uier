@@ -59,6 +59,9 @@
   kept after sign-out); the page reads it with `getLastSignInMethod` and that option's button (`relative`)
   gets `LastUsedBadge` at its right edge and `aria-describedby` pointing at it. An email proof that linked Google or Microsoft
   counts as that provider; invitations count as email. `passkeys.spec.ts` covers it.
+- Every sign-in (email code and link, passkey, Google, Microsoft) continues through `signInDestination`: when a
+  workspace offers the account's email domain, it goes to `/app/join` first with its destination as `next`
+  ([email domains](access-and-membership.md#email-domains)). The lookup never fails a sign-in.
 - Locally (`UIER_LOCAL=1` or `next dev`) and on previews no email is sent; pages show the link and code.
   The e2e helpers in `e2e/support/app.ts` sign in with the code. `e2e/sign-in.api.spec.ts` covers expiry,
   concurrency, binding validation, code-email safety and lifetime budgets; `app.spec.ts` and
