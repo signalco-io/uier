@@ -96,7 +96,7 @@
   "Open review for <project>", a menu when the project has several addresses) and More actions for admins; under the
   name one meta line with the client, who can comment and, at the line's right end, the open count inside a comment
   bubble (`CommentCountBubble`: drawn like `MessageSquareIcon` in the text colour, widening for two and three digits,
-  named "11 open comments" for screen readers; uier #167). No footer and no text button. The page renders both the active and the done list (and
+  named "11 open comments" for screen readers; uier #167), shown only while something is open (uier #169). No footer and no text button. The page renders both the active and the done list (and
   each one's empty state), and `ProjectStatusTabs` (`projects/ProjectStatusTabs.tsx`) shows the one `?status=`
   names. Active and Done are `LinkTabs` with `query`: a click writes the address with `setUrlSearchParams`
   (`push`), so the other list shows at once with no server request, no spinner and no space kept for one;

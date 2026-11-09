@@ -108,8 +108,8 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
                                                 <AccessIcon access={project.access} className="size-4 shrink-0" aria-hidden="true" />
                                                 <span className="truncate">{access.label}</span>
                                             </span>
-                                            {/* The number inside a comment bubble at the line's right end, so it never wraps on its own */}
-                                            <CommentCountBubble count={open} className="ml-auto" />
+                                            {/* The number inside a comment bubble at the line's right end, so it never wraps on its own; none open shows no bubble */}
+                                            {open > 0 && <CommentCountBubble count={open} className="ml-auto" />}
                                         </CardDescription>
                                     </CardHeader>
                                 </Card>

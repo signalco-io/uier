@@ -414,9 +414,9 @@ test('projects can be marked as done and reopened', async ({ page }) => {
     await page.goto('/app/projects');
     const active = page.getByRole('list', { name: 'Active projects' });
     await expect(active.getByRole('link', { name: 'Launch site' })).toBeVisible();
-    // Like the project header: who can comment under the name, then the open count, and no address line
+    // Like the project header: who can comment under the name, then the open count (none open: no count), and no address line
     const card = active.getByRole('listitem').filter({ hasText: 'Launch site' });
-    await expect(card.locator('[data-slot="card-description"]')).toHaveText('Invited people0 open comments');
+    await expect(card.locator('[data-slot="card-description"]')).toHaveText('Invited people');
     // Open review is a small icon button on the name's line, named for the project
     const openReview = card.getByRole('button', { name: 'Open review for Launch site', exact: true });
     await expect(openReview).toBeVisible();

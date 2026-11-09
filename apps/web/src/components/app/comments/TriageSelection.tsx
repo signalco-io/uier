@@ -55,7 +55,8 @@ export function SelectComment({ comment, tabbable = true, className }: {
                 // Shift extends a range: keep the click from selecting the page's text between the two boxes, but take the focus
                 onMouseDown={event => { if (event.shiftKey) { event.preventDefault(); event.currentTarget.focus(); } }}
                 onCheckedChange={(_, details) => selection.toggle(comment.id, details.event)}
-                className={cn('pointer-coarse:after:-inset-3.5', !selection.active && 'opacity-0 transition-opacity duration-150 ease-out focus-visible:opacity-100 group-hover/row:opacity-100 group-has-[:focus-visible]/row:opacity-100 motion-reduce:transition-none')} />
+                // Its edge in the muted text colour, not the input border: that one fades into a hovered or selected row
+                className={cn('pointer-coarse:after:-inset-3.5 not-data-checked:border-muted-foreground', !selection.active && 'opacity-0 transition-opacity duration-150 ease-out focus-visible:opacity-100 group-hover/row:opacity-100 group-has-[:focus-visible]/row:opacity-100 motion-reduce:transition-none')} />
         </div>
     );
 }
