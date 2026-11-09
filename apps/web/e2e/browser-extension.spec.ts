@@ -25,8 +25,13 @@ test('the extension page explains the review path, its limits and permissions', 
     await expect(page.getByRole('heading', { level: 1, name: 'Browser extension' })).toBeVisible();
     await expectStoreLink(page);
     await expect(page.getByRole('main').getByRole('link', { name: 'Read the setup guide' })).toHaveAttribute('href', guides.browserExtension.path);
+    // Only the browsers the manifest supports, near the top
+    await expect(page.getByRole('list', { name: 'Supported browsers, on desktop:' }).getByRole('listitem'))
+        .toHaveText([`Chrome ${extensionRelease.minimumBrowserVersion} or later`, `Microsoft Edge ${extensionRelease.minimumBrowserVersion} or later`]);
+    // The popup and the toolbar are pictures with visible captions
+    await expect(page.getByRole('figure')).toHaveCount(2);
     const steps = page.getByRole('region', { name: 'How it works' });
-    await expect(steps.getByRole('listitem')).toHaveCount(5);
+    await expect(steps.getByRole('listitem')).toHaveCount(4);
     for (const label of [extensionRelease.labels.signIn, extensionRelease.labels.start, extensionRelease.labels.exit])
         await expect(steps.getByText(label, { exact: true }).first()).toBeVisible();
     // The names of the app's setup tabs (InstallGuide)
@@ -34,8 +39,8 @@ test('the extension page explains the review path, its limits and permissions', 
     await expect(page.getByRole('region', { name: 'Where it works' })).toContainText('Not supported: Firefox, Safari and mobile browsers');
     const privacy = page.getByRole('region', { name: 'Permissions and privacy' });
     await expect(privacy).toContainText('It cannot read your cookies or history');
-    await expect(privacy).toContainText('it sends the site’s address to find projects you can access');
-    await expect(privacy).toContainText('It stays signed in across browser restarts.');
+    await expect(privacy).toContainText('The site’s address, to find projects you can access.');
+    await expect(privacy).toContainText('It stays signed in across browser restarts');
     await expect(page.getByText(brand.pricing, { exact: true })).toBeVisible();
     await expectSocialMetadata(page, KnownPages.BrowserExtension, 'Browser extension');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

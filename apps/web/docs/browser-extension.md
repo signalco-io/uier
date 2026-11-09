@@ -32,6 +32,13 @@ link. Recheck both pages, and the legal pages' extension sections, when a releas
 permissions, sign-in or capture. `browser-extension.api.spec.ts` checks the store link and
 `browser-extension.spec.ts` their content.
 
+`/browser-extension` lists the supported browsers under the hero: desktop Chrome and Microsoft Edge
+from `minimumBrowserVersion`, nothing else until the manifest supports it; the "Where it works"
+section keeps the unsupported browsers and pages. Its pictures (`ExtensionSpecimens`) are the popup
+in its "Review this site" state and the expanded review toolbar on the landing page's example site,
+built from the tokens and hidden from assistive technologies, never screenshots or generated
+images. Change them with `apps/extension/src/popup.tsx` and the toolbar's `CommentToolbar`.
+
 The shared broker contract also permits `GET comments/<id>/replies/<itemId>/screenshot`. This read uses
 the scoped project's current membership and parent-thread visibility through `getReviewScreenshot`;
 it never dispatches to reply deletion. Image uploads use the existing verified reply POST and sanitizer.
