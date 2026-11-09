@@ -49,7 +49,8 @@ handler): it listens on the document in the bubble phase, after React's handlers
   other follows on the same page (the `uier:shortcuts-change` window event) and in the site's other tabs. The arrows, Enter, Esc and the keys with
   Ctrl or ⌘ keep working; the account menu still opens the dialog.
 - The dialog lists every shortcut by where it works (`groups` in `ShortcutsDialog.tsx`); keep it in step with the
-  handlers. Keys print in Geist Mono (`Kbd`, BRAND.md: mono means machine); symbols have their names for screen
+  handlers. "The open thread" also has the shared composer's keys (Enter sends or saves, Shift+Enter adds a line, Esc
+  cancels an edit), which no hint under the text box repeats ([thread](comment-thread.md)). Keys print in Geist Mono (`Kbd`, BRAND.md: mono means machine); symbols have their names for screen
   readers.
 
 ## Tests

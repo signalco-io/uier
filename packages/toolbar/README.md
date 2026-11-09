@@ -396,10 +396,11 @@ error boundary, so one bad comment never breaks the toolbar.
   details** for the same fields as text. Guests and public viewers never get the browser, OS, capture time or
   copy. Unsupported/older fields stay Unknown or Unavailable. Links include only stored, approved page state;
   tracking, credential and review-token fields are excluded. Resizing, replying and editing do not replace the original context.
-- The text box grows with the text; Enter posts, Shift+Enter adds a new line. Under every composer (new comment,
-  rewrite, reply, edit, feedback; members and guests) the line "Shift+Enter for a new line" says so, in the app's
-  words. It shows only where a mouse or trackpad is present (`any-pointer: fine`): a phone's on-screen Enter key
-  sends and has no Shift, so there the textarea's `enterkeyhint` labels that key Send (Done for edits) instead.
+- The text box grows with the text; Enter posts, Shift+Enter adds a new line. No line under the text box says so:
+  the keyboard shortcuts list in Options (`?`) has both keys, as the app's has. Where a mouse or trackpad is present
+  (`any-pointer: fine`) the text box is described to screen readers as "Enter to send. Shift+Enter for a new line."
+  (save for edits); a phone's on-screen Enter key sends and has no Shift, so there the textarea's `enterkeyhint`
+  labels that key Send (Done for edits) instead.
   Unsent text is kept when the popover closes (a new comment stays as a draft pin until it is posted or discarded).
   A composer that opens with such kept text says "Draft saved in this browser" under its box (only from the start,
   so nothing appears or moves while typing; not while sending, after an error, or when storage is unavailable).
