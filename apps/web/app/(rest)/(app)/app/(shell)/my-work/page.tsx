@@ -4,7 +4,7 @@ import { requireAppContext } from '@/src/lib/app/context';
 import { loadMyWork, type MyWorkItem } from '@/src/lib/app/myWork';
 import { PageHeader } from '@/src/components/app/PageHeader';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
-import { MyWorkList } from '@/src/components/app/comments/MyWorkList';
+import { MyWorkKeys, MyWorkList } from '@/src/components/app/comments/MyWorkList';
 
 export const metadata: Metadata = {
     title: 'My work'
@@ -42,11 +42,12 @@ export default async function MyWorkPage() {
                     </EmptyHeader>
                 </Empty>
             ) : (
-                <div className="flex flex-col gap-6">
+                // J and K go to the next and the previous row across the groups
+                <MyWorkKeys>
                     <Group id="my-work-assigned" title="Assigned to you" description="Open threads you are the assignee of" icon={<UserIcon />} items={assigned} />
                     <Group id="my-work-mentions" title="Mentions you" description="Open threads whose messages mention you" icon={<AtSignIcon />} items={mentions} />
                     <Group id="my-work-unread" title="Unread" description="Other threads with activity you have not read" icon={<MailIcon />} items={unread} />
-                </div>
+                </MyWorkKeys>
             )}
             {capped && <p className="mt-4 text-sm text-muted-foreground">Each project lists up to its 1,000 most recent threads here.</p>}
         </>

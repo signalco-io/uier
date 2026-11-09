@@ -11,6 +11,7 @@ import { useIconTooltip } from './IconTooltip';
 import { agentIsWorking, agentText, type AgentKind } from '../agents';
 import { useAgentWorking } from '../useAgentWorking';
 import { AgentMark } from './AgentMark';
+import { moveFocusInMenu } from '../focusKeys';
 
 /** "Unassigned" or "Assigned to Ana": the assignee's tooltip and name, the same words as the app's comment card */
 export function assignedText(comment: CommentItem) {
@@ -63,14 +64,16 @@ export function CommentAssignee({ comment, className }: { comment: CommentItem; 
 }
 
 /** The people to assign the thread to, under its header while `CommentAssignee` is open; refreshed each time it opens */
-export function CommentAssigneeOptions({ comment, onAssigned }: { comment: CommentItem; onAssigned: () => void }) {
+export function CommentAssigneeOptions({ comment, autoFocus = false, onAssigned }: { comment: CommentItem; autoFocus?: boolean; onAssigned: () => void }) {
     const participants = useParticipants(comment.id);
     const { assign } = useComments();
 
-    return <div className="flex flex-col rounded-lg border p-1 text-xs text-muted-foreground" role="group" aria-label="Assign thread">
+    // Like a menu: ↑ and ↓ move between the people; opened with A, the first has the focus
+    return <div className="flex flex-col rounded-lg border p-1 text-xs text-muted-foreground" role="group" aria-label="Assign thread" onKeyDown={moveFocusInMenu}>
         {participants.isPending && <span role="status" className="px-2 py-1.5">Loading people...</span>}
         <CommentsErrorMessage error={participants.error ?? assign.error} />
         {[{ id: '', name: 'Unassign' }, ...(participants.data ?? [])].map(person => <Button key={person.id} variant="plain" size="sm" className="justify-start" disabled={assign.isPending}
+            autoFocus={autoFocus && !person.id}
             onClick={async () => {
                 try { await assign.mutateAsync({ commentId: comment.id, assigneeId: person.id || null }); onAssigned(); }
                 catch { /* Keep the options and show the server error. */ }

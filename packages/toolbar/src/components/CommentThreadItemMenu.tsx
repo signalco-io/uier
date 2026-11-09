@@ -12,6 +12,7 @@ import { Delete, MoreHorizontal } from '@signalco/ui-icons';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { destructiveTextClassName, floatingShadowClassName } from './@types/Comments';
 import { toolbarSurface } from '../toolbarReview';
+import { moveFocusInMenu } from '../focusKeys';
 
 type CommentThreadItemMenuProps = {
     /** The comment (its first item) or one reply */
@@ -76,6 +77,8 @@ export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled,
             onOpenChange={handleOpenChange}
             align="end"
             aria-label={kind === 'comment' ? 'Comment options' : 'Reply options'}
+            // Like a menu: ↑ and ↓ move between its buttons
+            onKeyDown={moveFocusInMenu}
             {...toolbarSurface('uier-message-menu', cx('z-[70] w-auto min-w-32 max-w-64 rounded-xl p-1', floatingShadowClassName))}
             trigger={(
                 <IconButton

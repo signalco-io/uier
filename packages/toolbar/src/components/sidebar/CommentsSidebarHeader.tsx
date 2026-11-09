@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { IconTooltip } from '../IconTooltip';
 import { useProjectViewer } from '../../project/ProjectGate';
 import { Row } from '@signalco/ui-primitives/Row';
@@ -9,6 +9,7 @@ import { cx } from '@signalco/ui-primitives/cx';
 import { PanelRightClose } from '@signalco/ui-icons';
 import { CommentsStatusFilter } from './CommentsFilter';
 import { PanelHandle } from '../DockablePanel';
+import { useRovingFocus } from '../../focusKeys';
 
 /** The inbox's title row: the handle that moves it, its name and Close */
 export function CommentsSidebarHeader({ onClose }: { onClose: () => void }) {
@@ -43,14 +44,17 @@ const statuses = [
     { value: 'all', label: 'All' }
 ] as const;
 
-/** Open, In progress, Ready to verify, Done and All, with their counts for the chosen pages: underlined tabs right above the list */
+/** Open, In progress, Ready to verify, Done and All, with their counts for the chosen pages: underlined tabs right above the list, one tab stop */
 export function CommentsStatusTabs({ status, counts, onStatusChange }: {
     status: CommentsStatusFilter;
     counts: Record<CommentsStatusFilter, number>;
     onStatusChange: (status: CommentsStatusFilter) => void;
 }) {
+    // One tab stop, like tabs: the chosen one; ← and → move between them, Enter or Space chooses
+    const ref = useRef<HTMLDivElement>(null);
+    const roving = useRovingFocus(ref, { orientation: 'horizontal', preferred: () => ref.current?.querySelector<HTMLElement>('[aria-pressed="true"]') });
     return (
-        <Row role="group" aria-label="Show comments" spacing={2} className="flex-wrap border-b">
+        <Row ref={ref} role="group" aria-label="Show comments" spacing={2} className="flex-wrap border-b" onFocus={roving.onFocus} onKeyDown={roving.onKeyDown}>
             {statuses.map((s) => (
                 <Button key={s.value} size="sm" variant="plain" aria-pressed={status === s.value}
                     className={cx('-mb-px gap-1.5 rounded-none border-b-2 px-0.5 hover:bg-transparent active:bg-transparent pointer-coarse:h-11 pointer-coarse:min-w-11',

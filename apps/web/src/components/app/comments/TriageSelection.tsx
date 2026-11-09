@@ -16,6 +16,7 @@ import { triageCommentsAction } from './actions';
 import { useCommentUpdate } from './CommentUpdates';
 import type { AssigneeOption } from './CommentCard';
 import { PriorityFlag } from './PriorityFlag';
+import { ownsKeys } from '../keyboard/keys';
 
 const limit = 50;
 const Selection = createContext<{
@@ -32,8 +33,6 @@ function rowId(element: Element | null) {
     const row = element?.closest<HTMLElement>('[data-comment-id], [data-board-card]');
     return row?.dataset.commentId ?? row?.dataset.boardCard;
 }
-/** Typing, or a popup that owns its keys (a menu, a list of options, a dialog such as the board's thread sheet) */
-const ownsKeys = (element: Element) => Boolean(element.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="menu"], [role="listbox"], [role="dialog"], [role="alertdialog"]'));
 
 export function SelectComment({ comment, tabbable = true, className }: {
     comment: ProjectCommentView;

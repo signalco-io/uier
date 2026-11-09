@@ -1,15 +1,38 @@
 import { useSyncExternalStore } from 'react';
 import { getToolbarHost } from './mount';
+import { shortcutLetter, shortcutsEnabled, subscribeShortcutsEnabled } from './keyboard';
+
+export { setShortcutsEnabled } from './keyboard';
 
 /**
- * The toolbar's keyboard shortcut: C starts point mode (or ends it), like the comment tool of design
- * tools; with page text selected, it comments on the selection. One letter without a modifier, so it can
- * be turned off in Options (WCAG 2.1.4) and never fires while the reviewer types or uses a widget whose
- * letters choose an item.
+ * The toolbar's main keyboard shortcut: C starts point mode (or ends it), like the comment tool of design
+ * tools; with page text selected, it comments on the selection. One letter without a modifier, like the
+ * others (`toolbarShortcuts`), so they can be turned off in Options (WCAG 2.1.4) and never fire while the
+ * reviewer types or uses a widget whose letters choose an item.
  */
 export const addCommentShortcut = 'C';
 
-const disabledStorageKey = 'uier:shortcuts-off';
+/** A key as it is printed, and its name where the print is a symbol (screen readers read "Left arrow") */
+type ShortcutKey = string | { print: string; name: string };
+
+/**
+ * Every keyboard shortcut of the toolbar, as Options lists them (`?`). `letter`: a single-key shortcut,
+ * which the switch turns off. Keep it in step with the handlers (`CommentsGlobal`, the pill, the menus).
+ */
+export const toolbarShortcuts: { label: string; keys: ShortcutKey[]; join?: 'or' | 'then'; letter?: boolean }[] = [
+    { label: 'Add comment', keys: [addCommentShortcut], letter: true },
+    { label: 'Open the inbox', keys: ['G', 'I'], join: 'then', letter: true },
+    { label: 'Search the inbox', keys: ['/'], letter: true },
+    { label: 'Next thread', keys: ['J'], letter: true },
+    { label: 'Previous thread', keys: ['K'], letter: true },
+    { label: 'Reply', keys: ['R'], letter: true },
+    { label: 'Go to Mark as done', keys: ['S'], letter: true },
+    { label: 'Assign', keys: ['A'], letter: true },
+    { label: 'Show shortcuts', keys: ['?'], letter: true },
+    { label: 'Move along the toolbar', keys: [{ print: '←', name: 'Left arrow' }, { print: '→', name: 'Right arrow' }], join: 'or' },
+    { label: 'Move in a menu', keys: [{ print: '↑', name: 'Up arrow' }, { print: '↓', name: 'Down arrow' }], join: 'or' },
+    { label: 'Close', keys: ['Esc'] }
+];
 
 /** Inputs that take no text: a letter on them does nothing */
 const nonTextInputTypes = new Set(['button', 'checkbox', 'color', 'file', 'image', 'radio', 'range', 'reset', 'submit']);
@@ -19,14 +42,7 @@ const letterKeyRoles = new Set(['application', 'combobox', 'grid', 'listbox', 'm
 
 /** Whether the key is the Add comment shortcut, pressed alone and not already handled by the page */
 export function isAddCommentShortcut(event: KeyboardEvent) {
-    if (event.defaultPrevented || event.repeat || event.isComposing
-        || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
-        return false;
-    }
-    // The letter where the layout has Latin letters (QWERTZ, AZERTY, Dvorak), else the key in its place.
-    // Autofill sends key events without a key.
-    const key = event.key ?? '';
-    return key.toLowerCase() === 'c' || (!/^[a-z]$/i.test(key) && event.code === 'KeyC');
+    return shortcutLetter(event) === 'c';
 }
 
 /** Whether the key went to a text field or a widget that uses letters, on the page or in the toolbar */
@@ -47,53 +63,7 @@ export function isLetterKeyTarget(event: KeyboardEvent) {
     return false;
 }
 
-const listeners = new Set<() => void>();
-let enabled: boolean | undefined;
-
-function readEnabled() {
-    try {
-        return window.localStorage.getItem(disabledStorageKey) !== 'true';
-    } catch {
-        return true;
-    }
-}
-
-function getEnabled() {
-    enabled ??= readEnabled();
-    return enabled;
-}
-
-function subscribe(listener: () => void) {
-    listeners.add(listener);
-    // Turned on or off in another tab of the site
-    const onStorage = (event: StorageEvent) => {
-        if (event.key !== disabledStorageKey && event.key !== null) return;
-        enabled = readEnabled();
-        listener();
-    };
-    window.addEventListener('storage', onStorage);
-    return () => {
-        listeners.delete(listener);
-        window.removeEventListener('storage', onStorage);
-    };
-}
-
-/** Turns the shortcut on or off in this browser (for this page only when storage is unavailable) */
-export function setShortcutsEnabled(next: boolean) {
-    enabled = next;
-    try {
-        if (next) {
-            window.localStorage.removeItem(disabledStorageKey);
-        } else {
-            window.localStorage.setItem(disabledStorageKey, 'true');
-        }
-    } catch {
-        // Not remembered: the shortcut is on again on the next page
-    }
-    listeners.forEach(listener => listener());
-}
-
-/** Whether the keyboard shortcut is on (it is unless the reviewer turned it off in Options) */
+/** Whether the keyboard shortcuts are on (they are unless the reviewer turned them off in Options) */
 export function useShortcutsEnabled() {
-    return useSyncExternalStore(subscribe, getEnabled, () => true);
+    return useSyncExternalStore(subscribeShortcutsEnabled, shortcutsEnabled, () => true);
 }

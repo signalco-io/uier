@@ -18,14 +18,21 @@
   last; side by side the row's thread opens through the same `open()` as a click, narrower only the focus moves and
   Enter opens it. The keys act from the list, or from the page while nothing has the focus and the caret is not in the
   open thread (it keeps scrolling with them); never from text fields, menus or dialogs, and they leave a key the page
-  already handled (`defaultPrevented`). Only the current row's link and selection box (where it shows) are in the Tab order (a roving
+  already handled (`defaultPrevented`). J and K do what ↓ and ↑ do from anywhere else too, the open thread included,
+  and where the thread has taken the list's place (a phone) they open the next or the previous thread there (the
+  history entry is replaced, so Back still closes it). R, S and A reply, open the status menu and the assignee menu
+  of the thread on screen ([keyboard](keyboard.md)). Only the current row's link and selection box (where it shows) are in the Tab order (a roving
   tab stop: the row last focused or opened), so Tab goes on to the thread. The assignee's avatars are a button above
   the row's link that follows the same tab stop (one more stop in the current row only, after the link and before the selection box): Enter
   opens their card, Escape gives the focus back, ↓/↑ still move between rows. A mouse click on the avatars opens the
   thread like the rest of the row (the click goes to the row's link, modifier keys too); a tap on a touch screen
-  opens the card instead (44 px target), and the rest of the row opens the thread. On the board and My work, where
-  Tab order is plain, assigned cards get the one extra stop; a card is not dragged from its avatars, like its other
-  buttons. `e2e/comment-keyboard.spec.ts` covers the keys; the board keeps plain Tab order. `CommentBoard.tsx` shows
+  opens the card instead (44 px target), and the rest of the row opens the thread. The board and My work have the same
+  roving tab stop (the card or row last focused, else the open one, else the first), so their avatars are the one
+  extra stop of the current card or row; a card is not dragged from its avatars, like its other buttons. On the board
+  ↓ and ↑ move in a column, ← and → to the card in the same place in the next column with cards (or its last), Home
+  and End to the column's first and last; J and K go through the cards column by column, and with a thread open in
+  the sheet they open the next one there. `e2e/comment-keyboard.spec.ts` covers the list's keys,
+  `e2e/app-keyboard.spec.ts` the board's and My work's. `CommentBoard.tsx` shows
   Open, In progress, Ready to verify and Done as compact cards, one column per `commentStatuses` entry (keep the
   column set data-driven: that list and `commentStatusLabels`), from `md` (tablets too) in one row of equal columns however many
   there are, each 18rem to 20rem and centred beyond that; when they don't fit, the board scrolls sideways
@@ -46,7 +53,7 @@
   the check and lands the card there) and roll back on failure.
   Move (⇄) is the keyboard and screen-reader alternative. Pointers drag, so it is visually hidden at rest (`sr-only`,
   no room taken, the drag preview has none) and shows while its card has keyboard focus (`:has(:focus-visible)`) or
-  its menu is open (`data-popup-open`); screen readers always find it. Tab reaches it after the card's link, and M on
+  its menu is open (`data-popup-open`); screen readers always find it. Tab reaches it after the current card's link, and M on
   a focused card opens it with the first column highlighted (it focuses Move and clicks it, which Base UI treats as
   a keyboard open). The link says so: `aria-keyshortcuts="M"` and the description "Press M to move it to another
   column.". After a move the card travels to its new column, the focus goes to Move on it there (scrolled into view

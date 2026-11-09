@@ -31,6 +31,8 @@ import { activeModalDialog, isInActiveModal, listenToWindowKeydown } from '../mo
 import { withLayer } from '../layerAnchor';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import { isAddCommentShortcut, isLetterKeyTarget, useShortcutsEnabled } from '../shortcuts';
+import { isSearchKey, isShortcutsHelpKey, sequenceTimeoutMs, shortcutLetter } from '../keyboard';
+import { actOnThread, shortcutThread } from '../threadShortcuts';
 import type { CommentsFilter, CommentsStatusFilter } from './sidebar/CommentsFilter';
 import { CommentAnchor, CommentsGlobalProps, CommentSelection, CommentPoint, CommentDraft, CommentItem, commentTextMaxLength, isCommentArea } from './@types/Comments';
 
@@ -158,7 +160,8 @@ export function CommentsGlobal({
     const showAbout = mode === 'showcase' && !toolbarConfig.project && pagePath.split(/[?#]/)[0] === '/';
     // The thread to open once its pin is on the page: a comment that was just posted, the one a
     // comment link (`?uier-comment=`) points at, or "Show on page" in the inbox (`fromInbox`)
-    const [openComment, setOpenComment] = useState<{ id: string; fromInbox?: boolean }>();
+    // `reading`: J or K went to it, so its messages take the focus instead of its reply box
+    const [openComment, setOpenComment] = useState<{ id: string; fromInbox?: boolean; reading?: boolean }>();
     const openCommentId = openComment?.id;
     const [linkedCommentId] = useState(takeLinkedCommentId);
     const linkHandledRef = useRef(false);
@@ -372,24 +375,86 @@ export function CommentsGlobal({
         return () => window.removeEventListener('keydown', handleKeyDown, true);
     });
 
+    // `?` and the keys that open the inbox or its search
+    const [shortcutsRequested, setShortcutsRequested] = useState(false);
+    const [inboxFocus, setInboxFocus] = useState<{ target: 'inbox' | 'search'; key: number }>();
+    // When G was pressed: I soon after opens the inbox
+    const goPressedRef = useRef(0);
+    const openInbox = (target: 'inbox' | 'search') => {
+        setHintOpen(false);
+        setSidebarOpen(true);
+        setInboxFocus({ target, key: Date.now() });
+    };
+    /** J and K: the next or the previous card in the open inbox, else the next or the previous pin's thread, in page order */
+    const moveThread = (step: 1 | -1) => {
+        const root = rootElement?.getRootNode();
+        if (!(root instanceof ShadowRoot)) return false;
+        if (sidebarOpen) {
+            const cards = [...root.querySelectorAll<HTMLElement>('#uier-panel-inbox [data-uier-thread-scope]')];
+            const from = cards.findIndex(card => card.contains(root.activeElement));
+            const next = from < 0 ? cards.at(step > 0 ? 0 : -1) : cards[from + step];
+            next?.focus({ preventScroll: true });
+            next?.scrollIntoView({ block: 'nearest' });
+            return cards.length > 0;
+        }
+        const from = pinnedComments.findIndex(comment => activeThreads.has(comment.id));
+        const next = from < 0 ? pinnedComments.at(step > 0 ? 0 : -1) : pinnedComments[from + step];
+        if (next) setOpenComment({ id: next.id, reading: true });
+        return pinnedComments.length > 0;
+    };
+
     // C (`shortcuts.ts`): point mode starts or ends, like the + button with a pointer; with page text
-    // selected, the selection gets the comment. Bubble phase, so the page's own handling of the key
-    // (`preventDefault`) wins. The toolbar's dialogs (options, feedback, a thread) keep their keys.
+    // selected, the selection gets the comment. `?` lists the shortcuts (Options), G then I opens the
+    // inbox and `/` its search, J and K go from thread to thread, and R, S and A reply, go to Mark as
+    // done and assign in the thread with the focus (or the one open). Bubble phase, so the page's own
+    // handling of the key (`preventDefault`) wins. The toolbar's dialogs (options, feedback) keep their
+    // keys; a thread's popover keeps C, but the thread keys work in it.
     const handleShortcut = useEffectEvent((event: KeyboardEvent) => {
-        if (!isAddCommentShortcut(event) || isLetterKeyTarget(event) || reattaching) {
+        if (reattaching || isLetterKeyTarget(event)) {
             return;
         }
         const target = event.composedPath()[0];
-        if (target instanceof Element && isToolbarNode(target, rootElement) && target.closest('[role="dialog"], [role="alertdialog"]')) {
+        const element = target instanceof Element ? target : undefined;
+        const inDialog = Boolean(element && isToolbarNode(element, rootElement) && element.closest('[role="dialog"], [role="alertdialog"]'));
+        if (isAddCommentShortcut(event)) {
+            if (inDialog) return;
+            event.preventDefault();
+            if (creatingCommentSelection) {
+                handleCreateComment('comment');
+                return;
+            }
+            closeHintForUse();
+            setCreatingCommentPoint(current => !current);
             return;
         }
-        event.preventDefault();
-        if (creatingCommentSelection) {
-            handleCreateComment('comment');
+        if (creatingCommentPoint || (inDialog && !element?.closest('[data-uier-thread-scope]'))) return;
+        if (isShortcutsHelpKey(event)) {
+            event.preventDefault();
+            setShortcutsRequested(true);
             return;
         }
-        closeHintForUse();
-        setCreatingCommentPoint(current => !current);
+        if (isSearchKey(event)) {
+            event.preventDefault();
+            openInbox('search');
+            return;
+        }
+        const letter = shortcutLetter(event);
+        if (!letter) return;
+        const goPressed = goPressedRef.current;
+        goPressedRef.current = 0;
+        if (letter === 'i' && goPressed && Date.now() - goPressed <= sequenceTimeoutMs) {
+            event.preventDefault();
+            openInbox('inbox');
+        } else if (letter === 'g') {
+            event.preventDefault();
+            goPressedRef.current = Date.now();
+        } else if (letter === 'j' || letter === 'k') {
+            if (moveThread(letter === 'j' ? 1 : -1)) event.preventDefault();
+        } else if (letter === 'r' || letter === 's' || letter === 'a') {
+            const root = rootElement?.getRootNode();
+            const thread = root instanceof ShadowRoot ? shortcutThread(root) : undefined;
+            if (thread && actOnThread(thread, letter)) event.preventDefault();
+        }
     });
     useEffect(() => {
         if (collapsed || !shortcutsEnabled) {
@@ -527,6 +592,7 @@ export function CommentsGlobal({
         setCreatingComment({ ...saved.anchor, key: draftKeyRef.current, sendError, omitScreenshot });
     };
     const handleAutoOpened = useCallback(() => setOpenComment(undefined), []);
+    const handleShortcutsRequestHandled = useCallback(() => setShortcutsRequested(false), []);
 
     // A comment link opens the thread on its pin; done threads and feedback have no pin, the
     // inbox shows them
@@ -635,6 +701,7 @@ export function CommentsGlobal({
                                 commentItem={commentItem}
                                 onOpenStateChange={handleThreadOpenState}
                                 autoOpen={openCommentId === commentItem.id}
+                                autoOpenReading={openComment?.reading}
                                 onAutoOpened={handleAutoOpened} />
                         </CommentErrorBoundary>
                     ))}
@@ -717,7 +784,8 @@ export function CommentsGlobal({
                     filter={sidebarFilter}
                     onFilterChange={setSidebarFilter}
                     onClose={handleCloseSidebar}
-                    onShowOnPage={handleShowOnPage} />
+                    onShowOnPage={handleShowOnPage}
+                    focusRequest={inboxFocus} />
             )}
             <CommentToolbar
                 mode={mode}
@@ -754,7 +822,9 @@ export function CommentsGlobal({
                 onFeedbackRequestHandled={() => setFeedbackRequested(false)}
                 onToggleHint={() => hintOpen ? handleDismissHint(false) : setHintOpen(true)}
                 onCollapsedChange={handleCollapsedChange}
-                onExitReview={onExitReview} />
+                onExitReview={onExitReview}
+                shortcutsRequested={shortcutsRequested}
+                onShortcutsRequestHandled={handleShortcutsRequestHandled} />
             {/* After the pill, so forward Tab from "About uier" reaches it */}
             {hintOpen && showAbout && !collapsed && (
                 <ShowcaseHint id={hintId} pointAtRef={hintButtonRef} onDismiss={handleDismissHint} />

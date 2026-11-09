@@ -9,6 +9,8 @@ import { CommentCard, type AssigneeOption, type ResolveExit } from './CommentCar
 import { CommentRow, commentRowId } from './CommentRow';
 import { commentStatus, type CommentStatus } from './CommentStatus';
 import { LayoutMotion } from './LayoutMotion';
+import { shortcutLetter } from '@uier/toolbar/keyboard';
+import { isShortcutTarget, useShortcutsEnabled } from '../keyboard/keys';
 
 /** The brand's exit (BRAND.md, "Motion"): 150 ms ease-out, fade plus 8 px slide */
 const exitMs = 150;
@@ -41,8 +43,10 @@ export function useOpenComment(container: RefObject<HTMLElement | null>) {
         // A new tab or window keeps the browser's own handling of the link
         if (event && (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0)) return;
         event?.preventDefault();
+        // Another thread in the place of one this hook added (J or K on a phone, the board's sheet): Back still closes it
+        const replacesPushed = pushed.current === window.location.href;
         const url = setUrlSearchParams({ comment: id }, { history: replace ? 'replace' : 'push' });
-        if (url && !replace) pushed.current = url.href;
+        if (url && (!replace || replacesPushed)) pushed.current = url.href;
     };
     const close = () => {
         // Only while that entry is still the current one: another navigation (a filter) stays
@@ -67,8 +71,10 @@ export function useOpenComment(container: RefObject<HTMLElement | null>) {
  * the first and the last. Beside the list the row's thread opens, like a click; where the thread
  * would take the list's place, the focus moves and Enter opens it. The keys work from the list, or
  * from the page while nothing has the focus and the reader is not in the open thread (there they keep
- * scrolling it), so never in a text field, a menu or a dialog. Only the current row's link and
- * selection box are in the Tab order (a roving tab stop), so Tab goes on to the open thread.
+ * scrolling it), so never in a text field, a menu or a dialog. J and K do what ↓ and ↑ do from anywhere
+ * else too, the open thread included, and where the thread has taken the list's place they open the
+ * next or the previous one there. Only the current row's link and selection box are in the Tab order
+ * (a roving tab stop), so Tab goes on to the open thread.
  *
  * The thread beside the list is marked read once it has been on screen for a moment (`CommentCard`),
  * the first shown one too: it is displayed in full, so it has been seen. Where it is not displayed (a
@@ -113,17 +119,24 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
         if (index >= 0) lastIndex.current = index;
     });
 
+    const shortcuts = useShortcutsEnabled();
     const moveWithKeys = useEffectEvent((event: KeyboardEvent) => {
         const list = listRef.current;
         const { target, key } = event;
-        const step = key === 'ArrowDown' || key === 'Home' ? 1 : key === 'ArrowUp' || key === 'End' ? -1 : 0;
+        // J and K: the next and the previous thread from anywhere but a text field, a menu or a dialog, the open thread too
+        const letter = shortcuts ? shortcutLetter(event) : undefined;
+        const thread = letter === 'j' ? 1 : letter === 'k' ? -1 : 0;
+        const step = thread || (key === 'ArrowDown' || key === 'Home' ? 1 : key === 'ArrowUp' || key === 'End' ? -1 : 0);
         if (!step || !list || !(target instanceof Node) || event.defaultPrevented || event.isComposing
-            || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || !list.checkVisibility()) return;
+            || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
         const inList = list.contains(target);
+        // Where the open thread takes the list's place, J and K open the next one there
+        const listShown = list.checkVisibility();
+        if (thread ? !isShortcutTarget(event) || (!listShown && !opened) : !listShown) return;
         const onPage = (target === document.body || target === document.documentElement)
             && !detailRef.current?.contains(document.getSelection()?.anchorNode ?? null);
         const edge = key === 'Home' || key === 'End';
-        if (edge ? !inList : !inList && !onPage) return;
+        if (!thread && (edge ? !inList : !inList && !onPage)) return;
         // The first row from `from` on, in the direction of `step`, that is not folding away
         const walk = (from: number, step: number) => {
             for (let index = from; index >= 0 && index < comments.length; index += step)
@@ -148,6 +161,10 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
         const fromBox = target instanceof Element && target.closest('[role="checkbox"]');
         const control = (fromBox && row?.querySelector<HTMLElement>('[role="checkbox"]')) || document.getElementById(commentRowId(next.id));
         setKeyboard(state => ({ ...state, id: next.id }));
+        if (!listShown) {
+            open(next.id, undefined, { replace: true });
+            return;
+        }
         control?.focus({ preventScroll: true });
         row?.scrollIntoView({ block: 'nearest' });
         if (sideBySide()) open(next.id);

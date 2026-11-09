@@ -31,6 +31,10 @@ import { FeedbackButton } from './FeedbackButton';
 import { ProjectOrderMenu } from './ProjectOrderMenu';
 import { WorkspaceSwitcher, type WorkspaceOption } from './WorkspaceSwitcher';
 import { saveProjectOrderAction } from './actions';
+import { useRovingTabStop } from '../keyboard/keys';
+
+/** The navigation's one tab stop and its place among the links (`useRovingTabStop`) */
+type RovingProps = { 'data-roving-item': string; tabIndex: number };
 
 function isCurrent(pathname: string, href: string) {
     return pathname === href || pathname.startsWith(`${href}/`);
@@ -50,10 +54,10 @@ function GroupLinkAction({ href, label, children }: { href: string; label: strin
 }
 
 /** A top-level page of the app: its icon and name, current on it and the pages below it */
-function NavItem({ href, label, icon: Icon, current }: { href: string; label: string; icon: LucideIcon; current: boolean }) {
+function NavItem({ href, label, icon: Icon, current, roving }: { href: string; label: string; icon: LucideIcon; current: boolean; roving: RovingProps }) {
     return (
         <SidebarMenuItem>
-            <SidebarMenuButton isActive={current} tooltip={label} render={<Link href={href} aria-current={current ? 'page' : undefined} />}>
+            <SidebarMenuButton {...roving} isActive={current} tooltip={label} render={<Link href={href} aria-current={current ? 'page' : undefined} />}>
                 <Icon />
                 <span>{label}</span>
             </SidebarMenuButton>
@@ -62,10 +66,10 @@ function NavItem({ href, label, icon: Icon, current }: { href: string; label: st
 }
 
 /** An active project's entry: its favicon and name, current on its pages */
-function ProjectItem({ project, current }: { project: SidebarProject; current: boolean }) {
+function ProjectItem({ project, current, roving }: { project: SidebarProject; current: boolean; roving: RovingProps }) {
     return (
         <SidebarMenuItem>
-            <SidebarMenuButton isActive={current} tooltip={project.name} render={<Link href={KnownPageLinks.project(project.id)} aria-current={current ? 'page' : undefined} />}>
+            <SidebarMenuButton {...roving} isActive={current} tooltip={project.name} render={<Link href={KnownPageLinks.project(project.id)} aria-current={current ? 'page' : undefined} />}>
                 {/* A 20 px tile with the mark's own 2 px padding inside its border (uier #87), so the favicon sits on the tile
                     as in the project header and the projects list. The negative margin keeps it in the 16 px icon slot:
                     names line up with the pages above, also collapsed and in the sheet */}
@@ -120,6 +124,15 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
     const projectsCurrent = isCurrent(pathname, KnownPages.AppProjects) && !inListedProject;
     // Admins manage the workspace's people and settings; everyone else sees the clients of their projects
     const workspaceHref = isAdmin ? KnownPages.AppUsers : hasClients ? KnownPages.AppClients : undefined;
+    // The navigation is one tab stop, like a list (the current page's link, or the one last focused): ↓ and ↑ move
+    // between its links, Home and End to the first and the last. The group's buttons (order, Create project) keep theirs.
+    const links = [KnownPages.AppProjects, KnownPages.AppMyWork, ...(!active.length && isAdmin ? [KnownPages.AppNewProject] : []),
+        ...listed.map(project => KnownPageLinks.project(project.id)), ...(workspaceHref ? [workspaceHref] : [])];
+    const currentLink = projectsCurrent ? KnownPages.AppProjects
+        : isCurrent(pathname, KnownPages.AppMyWork) ? KnownPages.AppMyWork
+            : workspaceHref && isCurrent(pathname, KnownPages.AppWorkspace) ? workspaceHref
+                : listed.map(project => KnownPageLinks.project(project.id)).find(href => isCurrent(pathname, href));
+    const roving = useRovingTabStop(links, { preferred: currentLink, orientation: 'vertical' });
 
     return (
         <Sidebar variant="inset" collapsible="icon">
@@ -127,13 +140,13 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
                 <WorkspaceSwitcher workspaces={workspaces} currentWorkspaceId={currentWorkspaceId} canManage={isAdmin} />
             </SidebarHeader>
             <SidebarContent>
-                <nav aria-label="App" className="contents">
+                <nav aria-label="App" className="contents" {...roving.containerProps}>
                     {/* The app's own pages: Projects and the person's own work */}
                     <SidebarGroup>
                         <SidebarGroupContent>
                             <SidebarMenu>
-                                <NavItem href={KnownPages.AppProjects} label="Projects" icon={LayoutGridIcon} current={projectsCurrent} />
-                                <NavItem href={KnownPages.AppMyWork} label="My work" icon={InboxIcon} current={isCurrent(pathname, KnownPages.AppMyWork)} />
+                                <NavItem href={KnownPages.AppProjects} label="Projects" icon={LayoutGridIcon} current={projectsCurrent} roving={roving.itemProps(KnownPages.AppProjects)} />
+                                <NavItem href={KnownPages.AppMyWork} label="My work" icon={InboxIcon} current={isCurrent(pathname, KnownPages.AppMyWork)} roving={roving.itemProps(KnownPages.AppMyWork)} />
                             </SidebarMenu>
                         </SidebarGroupContent>
                     </SidebarGroup>
@@ -156,7 +169,7 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
                             {!active.length && (isAdmin ? (
                                 <SidebarMenu>
                                     <SidebarMenuItem>
-                                        <SidebarMenuButton className="text-sidebar-foreground/70" render={<Link href={KnownPages.AppNewProject} />}>
+                                        <SidebarMenuButton {...roving.itemProps(KnownPages.AppNewProject)} className="text-sidebar-foreground/70" render={<Link href={KnownPages.AppNewProject} />}>
                                             <PlusIcon />
                                             <span>Create a project</span>
                                         </SidebarMenuButton>
@@ -176,7 +189,7 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
                                         </SidebarGroupLabel>
                                         <SidebarMenu aria-labelledby={labelId}>
                                             {group.projects.map(project => (
-                                                <ProjectItem key={project.id} project={project} current={isCurrent(pathname, KnownPageLinks.project(project.id))} />
+                                                <ProjectItem key={project.id} project={project} current={isCurrent(pathname, KnownPageLinks.project(project.id))} roving={roving.itemProps(KnownPageLinks.project(project.id))} />
                                             ))}
                                         </SidebarMenu>
                                     </div>
@@ -184,7 +197,7 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
                             }) : listed.length > 0 && (
                                 <SidebarMenu>
                                     {listed.map(project => (
-                                        <ProjectItem key={project.id} project={project} current={isCurrent(pathname, KnownPageLinks.project(project.id))} />
+                                        <ProjectItem key={project.id} project={project} current={isCurrent(pathname, KnownPageLinks.project(project.id))} roving={roving.itemProps(KnownPageLinks.project(project.id))} />
                                     ))}
                                 </SidebarMenu>
                             )}
@@ -195,7 +208,7 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
                         <SidebarGroup className="mt-auto">
                             <SidebarGroupContent>
                                 <SidebarMenu>
-                                    <NavItem href={workspaceHref} label="Workspace" icon={Building2Icon} current={isCurrent(pathname, KnownPages.AppWorkspace)} />
+                                    <NavItem href={workspaceHref} label="Workspace" icon={Building2Icon} current={isCurrent(pathname, KnownPages.AppWorkspace)} roving={roving.itemProps(workspaceHref)} />
                                 </SidebarMenu>
                             </SidebarGroupContent>
                         </SidebarGroup>

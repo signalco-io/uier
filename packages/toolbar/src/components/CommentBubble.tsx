@@ -63,6 +63,8 @@ function scrollAnchorIntoView(position: CommentItemPosition, rect: DOMRect | und
 type CommentBubbleProps = {
     /** Opens the thread once the pin is on the page (a comment that was just posted, or a comment link) */
     autoOpen?: boolean;
+    /** Opened with J or K, going from thread to thread: the messages take the focus, not the reply box */
+    autoOpenReading?: boolean;
     initiallyClosed?: boolean;
     /** Keep a recovered draft reachable beside saved pins on the same element. */
     draftPinOffset?: number;
@@ -85,7 +87,7 @@ type CommentBubbleProps = {
 );
 
 export function CommentBubble(props: CommentBubbleProps) {
-    const { autoOpen, onAutoOpened, onCreated, onSaved, onSendFailed, onCanceled, onOpenStateChange, className } = props;
+    const { autoOpen, autoOpenReading = false, onAutoOpened, onCreated, onSaved, onSendFailed, onCanceled, onOpenStateChange, className } = props;
     const commentItem = props.commentItem;
     const creating = !commentItem;
     const position = props.commentItem ? props.commentItem.position : props.draft.position;
@@ -167,6 +169,12 @@ export function CommentBubble(props: CommentBubbleProps) {
     };
 
     const [open, setOpen] = useState(creating && !props.initiallyClosed);
+    // Opened with J or K: the messages have the focus, so the keys go on to the next thread instead of typing
+    const [reading, setReading] = useState(false);
+    const messagesRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (open && reading) messagesRef.current?.focus();
+    }, [open, reading]);
     // A saved comment's id, or a draft's key
     const openStateId = commentItem?.id ?? draftKey;
     useEffect(() => {
@@ -178,6 +186,7 @@ export function CommentBubble(props: CommentBubbleProps) {
         if (open && creating) setCapture({ device: getDeviceInfo(), screenshot: captureCommentScreenshot(position, rootElement) });
         if (!open) {
             mutation.reset();
+            setReading(false);
             // A new comment with text stays on the page as a draft pin; reopening it brings the text
             // back. A rewrite whose text is still the selected text has nothing to keep.
             const text = drafts.get(draftKey)?.trim();
@@ -223,10 +232,11 @@ export function CommentBubble(props: CommentBubbleProps) {
             if (rect && (rect.top < 0 || rect.bottom > window.innerHeight)) {
                 scrollAnchorIntoView(position, lastRect, 'auto', closedLayer);
             }
+            setReading(autoOpenReading);
             setOpen(true);
             onAutoOpened?.();
         }
-    }, [autoOpen, hasRect, closedLayer, closedOpener, onToolbar, onAutoOpened, position]);
+    }, [autoOpen, autoOpenReading, hasRect, closedLayer, closedOpener, onToolbar, onAutoOpened, position]);
 
     // Bubbles are fixed to their anchor; when one gets the focus off-screen, scroll it into view
     const handleFocus = () => {
@@ -308,6 +318,8 @@ export function CommentBubble(props: CommentBubbleProps) {
                 // A saved thread is a part of the toolbar that can be reviewed on uier's own pages; the
                 // comment being written is not
                 {...(commentItem ? toolbarSurface('uier-thread', popoverClassName) : { className: popoverClassName })}
+                // A saved thread: R, S and A act on it (`threadShortcuts.ts`)
+                {...(commentItem && { 'data-uier-thread-scope': '' })}
                 sideOffset={-32}
                 align="start"
                 alignOffset={32}
@@ -320,6 +332,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                     <>
                         {/* Focusable so the thread can be scrolled with the keyboard */}
                         <div
+                            ref={messagesRef}
                             tabIndex={0}
                             aria-label="Messages"
                             role="group"
@@ -341,7 +354,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                         quote={selectedText}
                         // Not when it appears in a thread that is closing (its comment was saved after
                         // Escape): the focus, and a page selection made meanwhile, stay where they are
-                        autoFocus={open}
+                        autoFocus={open && !reading}
                         error={mutation.error ?? props.draft?.sendError}
                         onSubmit={handleSubmit}
                         onDiscard={creating ? handleDiscard : undefined} />

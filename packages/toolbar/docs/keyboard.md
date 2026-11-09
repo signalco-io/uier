@@ -1,0 +1,64 @@
+# Keyboard
+
+Everything in the toolbar works with the keyboard: its controls are composites with one tab stop where
+they are a set (a toolbar, tabs, a menu), and single-key shortcuts reach the frequent actions. The app
+(`apps/web/docs/keyboard.md`) uses the same keys where it has the same actions.
+
+## Shared vocabulary
+
+`src/keyboard.ts` (`@uier/toolbar/keyboard`, pure: no React, no DOM at import) is what the toolbar and the
+app share:
+
+- The switch for single-key shortcuts (`shortcutsEnabled`, `setShortcutsEnabled`,
+  `subscribeShortcutsEnabled`), kept per browser under `uier:shortcuts-off`. On uier.io the app and the
+  toolbar read the same switch. Each bundles its own copy of this module, and a browser sends no `storage`
+  event to the window that wrote the value, so `setShortcutsEnabled` also dispatches `uier:shortcuts-change`
+  (`shortcutsChangeEvent`, `detail`: on or off) on the window: every copy on the page updates its cached
+  value and tells its subscribers; the `storage` event does that for the site's other tabs. WCAG 2.1.4:
+  letters can be turned off, the arrows, Enter and Esc always work.
+- Which key a press is: `isShortcutPress` (not handled already, not held, not composing, no Ctrl, ⌘ or Alt),
+  `shortcutLetter` (the letter on Latin layouts, else the key in its place; no Shift), `isShortcutsHelpKey`
+  (`?`), `isSearchKey` (`/`) and `sequenceTimeoutMs` (G, then the next key).
+- `rovingIndex`: where ↑ ↓ ← →, Home and End move the focus among a composite's items. It stops at the ends.
+
+## Composites
+
+`src/focusKeys.ts`:
+
+- `useRovingFocus(ref, { orientation, preferred })`: one tab stop for a group of buttons (the last focused,
+  else the preferred, else the first; tab indexes set after every render). The pill's buttons are a
+  `role="toolbar"` named "Tools" (← →; the move handle stays its own stop, since its arrows move the pill),
+  and the inbox's status tabs (← →, the chosen tab is the stop; Enter or Space chooses).
+- `moveFocusInMenu`: ↑ and ↓, Home and End between the buttons and links of a popover that reads like a menu,
+  as its content's `onKeyDown`: Options, Thread options, a message's options, Copy, and the people to assign.
+  From the popover itself (where Radix leaves the focus in the shadow root) ↓ goes to the first. Text fields
+  keep their keys.
+
+## Shortcuts
+
+`CommentsGlobal` handles them on the window (`listenToWindowKeydown`, bubble phase, so a page that handles
+a key keeps it), while the toolbar is expanded and the shortcuts are on. `toolbarShortcuts` in
+`src/shortcuts.ts` lists them for Options; keep it in step with the handlers.
+
+| Key | What |
+| --- | --- |
+| C | Point mode, or a comment on the selected text |
+| G then I | Opens the inbox (the focus on Close, as when it opens) |
+| / | Opens the inbox and goes to its search |
+| J, K | The next or the previous thread: the inbox's cards while it is open (focusable, `tabIndex=-1`), else the pins' threads in page order. A pin's thread opened this way focuses its messages (`autoOpenReading`), not the reply box, so the keys go on |
+| R | The reply box of the thread with the focus (an inbox card's Reply opens it first) |
+| S | Moves the focus to Mark as done (or Reopen) in that thread; Enter then changes the status |
+| A | Opens the people to assign in that thread, the first focused (`assignShortcutEvent` on the header) |
+| ? | Options on the keyboard shortcuts, the heading focused, with the switch |
+
+None act while typing or in a widget whose letters choose an item (`isLetterKeyTarget`), in the toolbar's
+dialogs (Options, feedback; a thread's popover keeps the thread keys), while choosing an anchor, or, except
+C, in point mode. `src/threadShortcuts.ts` finds the thread: the one with the focus
+(`data-uier-thread-scope`: a pin's popover or an inbox card), else the only open thread popover; its
+controls are marked `data-uier-thread-header`, `data-uier-status` and `data-uier-reply`. On uier's own app
+pages the app takes a key first (its listeners run before the toolbar's) unless the focus is in the toolbar.
+
+## Tests
+
+`apps/web/e2e/shortcuts.spec.ts` (desktop): C, the switch in Options (↓ in the menu), the pill's tab stop
+and arrows, `?`, G then I, `/`, the status tabs, J and K between inbox cards, R and S.

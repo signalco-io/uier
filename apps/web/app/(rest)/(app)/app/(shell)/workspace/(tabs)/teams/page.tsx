@@ -81,8 +81,9 @@ export default async function TeamsPage({ searchParams }: PageProps<'/app/worksp
                         {state === 'archived' && <input type="hidden" name="state" value={state} />}
                         <InputGroup className="h-8">
                             <InputGroupAddon><SearchIcon aria-hidden="true" /></InputGroupAddon>
+                            {/* `/` goes here from the page (`AppShortcuts`) */}
                             <InputGroupInput type="search" name="q" defaultValue={search} maxLength={80}
-                                aria-label="Search teams" placeholder="Search teams" />
+                                aria-label="Search teams" placeholder="Search teams" data-shortcut-search="" />
                         </InputGroup>
                     </form>
                 </div>

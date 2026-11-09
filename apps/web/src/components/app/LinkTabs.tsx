@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { setUrlSearchParams } from '@/src/hooks/use-url-search-params';
 import { cn } from '@/src/lib/utils';
 import { NavigationPending } from './NavigationPending';
+import { useRovingTabStop } from './keyboard/keys';
 
 export type LinkTab = {
     href: string;
@@ -30,6 +31,9 @@ export type LinkTab = {
  * whose page is loading shows a spinner at its end (the right edge of a `side` link on wide screens; a `line` or
  * `segmented` tab keeps the same space before its label, so the label stays centred), and a `query` tab
  * switches at once, with neither. Opening a tab in a new tab or window loads its href.
+ *
+ * Like tabs, they are one tab stop (the current tab, or the one last focused): ← and → (and ↑ and ↓ for `side`)
+ * move between them, Home and End to the first and the last, Enter opens one.
  */
 export function LinkTabs({ tabs, label, variant = 'line', match = 'url', className }: {
     tabs: LinkTab[];
@@ -43,6 +47,11 @@ export function LinkTabs({ tabs, label, variant = 'line', match = 'url', classNa
     const search = useSearchParams().toString();
     const here = match === 'path' ? pathname : `${pathname}${search ? `?${search}` : ''}`;
     const navRef = useRef<HTMLElement>(null);
+    const isCurrent = (tab: LinkTab) => tab.current ?? (tab.href === here || (tab.nested === true && pathname.startsWith(`${tab.href}/`)));
+    const roving = useRovingTabStop(tabs.map(tab => tab.href), {
+        preferred: tabs.find(isCurrent)?.href,
+        orientation: variant === 'side' ? 'both' : 'horizontal'
+    });
 
     // A row wider than the screen scrolls the current tab into the middle (only sideways: the page stays put)
     useEffect(() => {
@@ -57,6 +66,7 @@ export function LinkTabs({ tabs, label, variant = 'line', match = 'url', classNa
         <nav
             ref={navRef}
             aria-label={label}
+            {...roving.containerProps}
             className={cn(
                 'flex items-center',
                 variant === 'line' && 'no-scrollbar gap-5 overflow-x-auto shadow-[inset_0_-1px_0_0_hsl(var(--border))]',
@@ -65,12 +75,13 @@ export function LinkTabs({ tabs, label, variant = 'line', match = 'url', classNa
                 className
             )}>
             {tabs.map(tab => {
-                const current = tab.current ?? (tab.href === here || (tab.nested === true && pathname.startsWith(`${tab.href}/`)));
+                const current = isCurrent(tab);
                 const { query } = tab;
                 return (
                     <Link
                         key={tab.href}
                         href={tab.href}
+                        {...roving.itemProps(tab.href)}
                         aria-current={current ? 'page' : undefined}
                         // Nothing to load: the address changes during the click (Back and Forward follow it)
                         prefetch={query ? false : undefined}

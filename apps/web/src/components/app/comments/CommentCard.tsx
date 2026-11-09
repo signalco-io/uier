@@ -83,6 +83,7 @@ import { ReplyComposer } from './ReplyComposer';
 import { assignedLabel } from './AgentAvatar';
 import { AgentControl } from './AgentControl';
 import { MessageAgent } from './MessageAgent';
+import { useKeyShortcutLabel, useKeyShortcuts } from '../keyboard/keys';
 import {
     markCommentReadAction,
     markCommentUnreadAction,
@@ -252,6 +253,27 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const [keptUnread, setKeptUnread] = useState(false);
     const cardRef = useRef<HTMLDivElement>(null);
     useReadWhenShown(cardRef, projectId, comment, { enabled: !keptUnread, onRead: onReadWhenShown });
+    // R, S and A: reply, the status menu and the assignee menu of the thread on screen (not of one a phone keeps
+    // hidden until its row is chosen). The menus open as Enter opens them, with their first item highlighted.
+    const assigneeTrigger = useRef<HTMLButtonElement>(null);
+    const shown = () => Boolean(cardRef.current?.checkVisibility());
+    const openMenu = (trigger: HTMLButtonElement | null) => {
+        if (!trigger || trigger.disabled || !shown()) return false;
+        trigger.focus();
+        trigger.click();
+    };
+    useKeyShortcuts({
+        r: () => {
+            if (!permissions.reply || !shown()) return false;
+            if (replying) cardRef.current?.querySelector('textarea')?.focus();
+            else setReplying(true);
+        },
+        s: () => openMenu(statusTrigger.current),
+        a: () => openMenu(assigneeTrigger.current)
+    });
+    const replyShortcut = useKeyShortcutLabel('R');
+    const statusShortcut = useKeyShortcutLabel('S');
+    const assigneeShortcut = useKeyShortcutLabel('A');
     const assigned = assignedLabel(comment.assignee && { ...comment.assignee, agent: undefined }, userId);
     // After the page link: the environment's name; the address itself is in the link
     const sourceText = source.available
@@ -354,7 +376,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                     )}
                     <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                         {Object.values(statusChange.allowed).some(Boolean)
-                            ? <StateMenu status={statusChange.status} allowed={statusChange.allowed} disabled={pending || statusChange.pending} onChange={changeStatus} triggerRef={statusTrigger} />
+                            ? <StateMenu status={statusChange.status} allowed={statusChange.allowed} disabled={pending || statusChange.pending} onChange={changeStatus} triggerRef={statusTrigger} keyShortcut={statusShortcut} />
                             : <StateBadge status={statusChange.status} />}
                         {comment.number !== undefined && (
                             <span className="font-mono text-xs text-muted-foreground tabular-nums">
@@ -483,7 +505,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                 <span className="flex min-w-0 items-center gap-1">
                                     <AssigneeAvatar assignee={comment.assignee} />
                                     {/* The visible name is part of the accessible name ("Assigned to you. Change assignee") */}
-                                    <DropdownMenuTrigger render={<Button variant="ghost" size="sm" disabled={pending} aria-label={`${assigned}. Change assignee`}
+                                    <DropdownMenuTrigger render={<Button ref={assigneeTrigger} variant="ghost" size="sm" disabled={pending} aria-label={`${assigned}. Change assignee`} aria-keyshortcuts={assigneeShortcut}
                                         className="h-7 min-w-0 gap-2 px-1.5 font-normal pointer-coarse:min-h-11" />}>
                                         <span className="truncate">{comment.assignee ? comment.assignee.id === userId ? 'You' : comment.assignee.name : 'Unassigned'}</span>
                                         <ChevronDownIcon aria-hidden="true" data-icon="inline-end" className="text-muted-foreground" />
@@ -557,7 +579,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
 
                 {permissions.reply && (replying
                     ? <ReplyComposer projectId={projectId} userId={userId} userName={assignees.find(person => person.userId === userId)?.name} comment={comment} onClose={() => setReplying(false)} />
-                    : <Button variant="outline" size="sm" className="self-start pointer-coarse:min-h-11" onClick={() => setReplying(true)}>Reply</Button>)}
+                    : <Button variant="outline" size="sm" className="self-start pointer-coarse:min-h-11" aria-keyshortcuts={replyShortcut} onClick={() => setReplying(true)}>Reply</Button>)}
 
                 {/* The issues it is linked to, quiet as in the toolbar */}
                 {comment.integrationLinks?.length ? (

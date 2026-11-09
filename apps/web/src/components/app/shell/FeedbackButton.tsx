@@ -3,6 +3,7 @@
 import { MegaphoneIcon } from 'lucide-react';
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@/src/components/ui/sidebar';
 import { openToolbarFeedback } from '../../toolbar/ToolbarScript';
+import { useKeyShortcutLabel } from '../keyboard/keys';
 
 /**
  * Feedback on the app itself: uier's own toolbar opens on the page with its feedback form. On app
@@ -10,6 +11,8 @@ import { openToolbarFeedback } from '../../toolbar/ToolbarScript';
  */
 export function FeedbackButton() {
     const { isMobile, setOpenMobile } = useSidebar();
+    // C opens it from anywhere in the app (`AppShortcuts`)
+    const shortcut = useKeyShortcutLabel('C');
 
     const handleClick = () => {
         if (!isMobile) {
@@ -28,7 +31,7 @@ export function FeedbackButton() {
     return (
         <SidebarMenu>
             <SidebarMenuItem>
-                <SidebarMenuButton tooltip="Give feedback" onClick={handleClick}>
+                <SidebarMenuButton tooltip="Give feedback" aria-keyshortcuts={shortcut} onClick={handleClick}>
                     <MegaphoneIcon />
                     <span>Give feedback</span>
                 </SidebarMenuButton>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { useActivitySummary } from '../../hooks/useComments';
 import { Input } from '@signalco/ui-primitives/Input';
@@ -28,6 +28,8 @@ export type CommentsSidebarProps = {
     onClose: () => void;
     /** Closes the inbox and opens the thread on its pin */
     onShowOnPage: (commentId: string) => void;
+    /** A shortcut asked for the inbox (G then I) or its search (`/`): the focus goes there, each time `key` changes */
+    focusRequest?: { target: 'inbox' | 'search'; key: number };
 };
 
 /**
@@ -35,12 +37,25 @@ export type CommentsSidebarProps = {
  * (the environment, then this page by default, all pages, a section or another page) with the
  * unread and assigned filters, then the status tabs right above the comments.
  */
-export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, onShowOnPage }: CommentsSidebarProps) {
+export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, onShowOnPage, focusRequest }: CommentsSidebarProps) {
     const { isMember, environment, environmentOptions, setEnvironment, environmentLabel } = useProjectViewer();
     const { data: activity } = useActivitySummary();
     const unread = activity?.unread ?? 0;
     const inbox = useInboxComments(filter);
     const [hidding, setHidding] = useState<boolean>(false);
+    const contentRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (!focusRequest) return;
+        const content = contentRef.current;
+        const active = (content?.getRootNode() as ShadowRoot | Document | undefined)?.activeElement;
+        // The inbox: Close, as when it opens, unless the focus is in it already
+        if (focusRequest.target === 'inbox' && active && content?.contains(active)) return;
+        const field = focusRequest.target === 'search'
+            ? content?.querySelector<HTMLInputElement>('input[type="search"]')
+            : content?.querySelector<HTMLElement>('button[aria-label="Close sidebar"]');
+        field?.focus();
+        if (field instanceof HTMLInputElement) field.select();
+    }, [focusRequest?.key]);
 
     const handleClose = () => {
         setHidding(true);
@@ -72,7 +87,7 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
                 className={cx(hidding
                     ? 'animate-out fade-out fill-mode-forwards duration-150 ease-in motion-safe:data-[side=left]:slide-out-to-left motion-safe:data-[side=right]:slide-out-to-right'
                     : 'animate-in fade-in duration-200 ease-out motion-safe:data-[side=left]:slide-in-from-left motion-safe:data-[side=right]:slide-in-from-right')}>
-                <Stack tabIndex={0} className="h-full overflow-y-auto rounded-b-2xl outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+                <Stack ref={contentRef} tabIndex={0} className="h-full overflow-y-auto rounded-b-2xl outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
                     <Stack spacing={2} className="shrink-0 px-4 pt-3">
                         <CommentsSidebarHeader onClose={handleClose} />
                         {/* The search and filters are one group, closer together than the title and the tabs */}

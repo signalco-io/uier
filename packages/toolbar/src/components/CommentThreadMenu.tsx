@@ -12,6 +12,7 @@ import { floatingShadowClassName } from './@types/Comments';
 import { useIconTooltip } from './IconTooltip';
 import { commentPriority, priorities, priorityLabels, type CommentPriority } from '../triage';
 import { toolbarSurface } from '../toolbarReview';
+import { moveFocusInMenu } from '../focusKeys';
 
 export type ThreadMenuActions = {
     /** "Unassigned" / "Assigned to Ana": opens the people under the header */
@@ -69,6 +70,8 @@ export function CommentThreadMenu({ className, actions, triggerRef }: { classNam
             onOpenChange={next => { setOpen(next); if (!next) setChoosingPriority(false); }}
             align="end"
             aria-label="Thread options"
+            // Like a menu: ↑ and ↓ move between its buttons
+            onKeyDown={moveFocusInMenu}
             {...toolbarSurface('uier-thread-menu', cx('z-[70] w-60 max-w-[calc(100vw-1rem)] rounded-xl p-1', floatingShadowClassName))}
             trigger={(
                 <IconButton

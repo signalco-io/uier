@@ -3,7 +3,7 @@
 import { useTransition } from 'react';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
-import { ChevronsUpDownIcon, CircleUserIcon, LogOutIcon, MonitorIcon, MoonIcon, SunIcon } from 'lucide-react';
+import { ChevronsUpDownIcon, CircleUserIcon, KeyboardIcon, LogOutIcon, MonitorIcon, MoonIcon, SunIcon } from 'lucide-react';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -13,6 +13,7 @@ import {
     DropdownMenuRadioGroup,
     DropdownMenuRadioItem,
     DropdownMenuSeparator,
+    DropdownMenuShortcut,
     DropdownMenuSub,
     DropdownMenuSubContent,
     DropdownMenuSubTrigger,
@@ -23,6 +24,8 @@ import { KnownPages } from '@/src/knownPages';
 import { PersonAvatar } from '../PersonAvatar';
 import { signOutAction } from './actions';
 import { clearAppReplyDrafts } from '../comments/replyDrafts';
+import { useOpenShortcutsHelp } from '../keyboard/AppShortcuts';
+import { useKeyShortcutLabel } from '../keyboard/keys';
 
 export const themeOptions = [
     { value: 'light', label: 'Light', icon: SunIcon },
@@ -30,11 +33,13 @@ export const themeOptions = [
     { value: 'system', label: 'System', icon: MonitorIcon }
 ] as const;
 
-/** The signed-in person at the bottom of the sidebar: account, theme and sign out */
+/** The signed-in person at the bottom of the sidebar: account, theme, keyboard shortcuts and sign out */
 export function AccountMenu({ name, email, avatarUrl }: { name: string; email: string; avatarUrl?: string }) {
     const { isMobile } = useSidebar();
     const { theme, setTheme } = useTheme();
     const [pending, startTransition] = useTransition();
+    const openShortcuts = useOpenShortcutsHelp();
+    const shortcutKey = useKeyShortcutLabel('?');
 
     // The menu's header: the person with their email
     const person = (
@@ -94,6 +99,12 @@ export function AccountMenu({ name, email, avatarUrl }: { name: string; email: s
                                     </DropdownMenuRadioGroup>
                                 </DropdownMenuSubContent>
                             </DropdownMenuSub>
+                            {/* Also for those who don't know `?`, or have the single-key shortcuts off */}
+                            <DropdownMenuItem onClick={openShortcuts}>
+                                <KeyboardIcon />
+                                Keyboard shortcuts
+                                {shortcutKey && <DropdownMenuShortcut aria-hidden="true" className="font-mono tracking-normal">{shortcutKey}</DropdownMenuShortcut>}
+                            </DropdownMenuItem>
                         </DropdownMenuGroup>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => { clearAppReplyDrafts(); startTransition(() => signOutAction()); }}>

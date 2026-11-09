@@ -92,7 +92,8 @@ function InboxThread({ comment }: { comment: CommentItem }) {
     const [replying, setReplying] = useState(false);
     return <CommentThread commentItem={comment}>
         {replying ? <InboxReply comment={comment} onClose={() => setReplying(false)} /> : <div className="px-3 pb-2">
-            <Button variant="plain" size="sm" disabled={comment.pending} onClick={() => setReplying(true)}>Reply</Button>
+            <Button variant="plain" size="sm" disabled={comment.pending} onClick={() => setReplying(true)}
+                {...{ 'data-uier-reply': '' }}>Reply</Button>
         </div>}
     </CommentThread>;
 }
@@ -175,7 +176,9 @@ export function CommentsSidebarCommentsList({ inbox, filter, onShowOnPage, onSho
             <Stack spacing={2}>
                 {comments.slice(0, shownCount).map((comment) => (
                     <CommentErrorBoundary key={commentKey(comment)} commentId={comment.id}>
-                        <article aria-label={comment.number !== undefined ? `Comment #${comment.number}` : 'Comment'} className="overflow-hidden rounded-xl border bg-card">
+                        {/* J and K move between the cards (focusable for that), R, S and A act on the one with the focus */}
+                        <article aria-label={comment.number !== undefined ? `Comment #${comment.number}` : 'Comment'} tabIndex={-1} data-uier-thread-scope=""
+                            className="scroll-my-3 overflow-hidden rounded-xl border bg-card outline-none focus-visible:ring-2 focus-visible:ring-ring">
                             <InboxThread comment={comment} />
                             {isCurrentPage(comment)
                                 ? !comment.resolved && comment.position.type !== 'page' && <ShowOnPage comment={comment} onShowOnPage={onShowOnPage} />
