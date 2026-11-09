@@ -90,8 +90,8 @@ rows with the status filter it waits for their entrance motion to settle before 
   (`toolbarPartLabel` from `@uier/toolbar/feedback-context`: "Button in uier comment thread"), an area of one,
   the selected text, or the whole page (no page title is stored), with ", after opening “Comment #6”" for an
   anchor saved with an opener.
-- Status colours: `StateDot` (`comments/CommentStatus.tsx`) gives each status its own dot, Open ink
-  (`--foreground`), In progress sky (`--brand-in-progress`), Ready to verify violet (`--brand-ready`) and Done
+- Status colours: `StateDot` (`comments/CommentStatus.tsx`) gives each status its own dot, Open an outlined ink
+  ring (`--foreground`, not filled), In progress sky (`--brand-in-progress`), Ready to verify violet (`--brand-ready`) and Done
   green (`--brand-success`; BRAND.md, "Status"), always beside the name. List rows, board column headers, the
   thread's status menu (`StateMenu`, `StateBadge`) and the Active statuses menu of the Status filter all use it (the status tabs have none); the
   toolbar's `CommentStatusBadge` uses the same tokens. The dot carries `data-status-dot="<status>"`.

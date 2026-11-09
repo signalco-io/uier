@@ -280,7 +280,7 @@ export default function BrandPage() {
                     </div>
                     <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 text-xs">
                         {feedbackStages.map(status => <StateBadge key={status} status={status} />)}
-                        <span className="text-muted-foreground">Status: a dot in its colour, always beside its name. Open is ink, Done is green.</span>
+                        <span className="text-muted-foreground">Status: a dot in its colour, always beside its name. Open is an ink ring, Done is green.</span>
                     </div>
                     <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 text-xs">
                         {(['open', 'merged', 'closed', 'draft'] as const).map(state => <PullRequestStateBadge key={state} state={state} />)}

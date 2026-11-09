@@ -15,7 +15,7 @@ function AgentThread() {
         <div className={cx('flex w-full max-w-[230px] flex-col rounded-xl border bg-popover text-popover-foreground', floating)}>
             <div className="flex items-center gap-2 px-3.5 pt-3">
                 <span className="inline-flex h-6 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium">
-                    <span className="size-1.5 rounded-full bg-foreground" />
+                    <span className="size-1.5 rounded-full border border-foreground" />
                     Open
                 </span>
                 <span className="font-mono text-xs text-muted-foreground">#12</span>

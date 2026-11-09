@@ -352,7 +352,7 @@ function Thread({ cardRef, resolveRef, visible, replied, done, style }: {
         <div ref={cardRef} style={{ ...style, width: cardWidth }} className={cx(popover, fade(visible))}>
             <div className="flex items-center gap-2 px-3 pt-2.5">
                 <span className="inline-flex h-6 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium">
-                    <span className={cx('size-1.5 rounded-full transition-colors duration-[120ms] ease-out', done ? 'bg-[hsl(var(--brand-success))]' : 'bg-foreground')} />
+                    <span className={cx('size-1.5 rounded-full border transition-colors duration-[120ms] ease-out', done ? 'border-[hsl(var(--brand-success))] bg-[hsl(var(--brand-success))]' : 'border-foreground')} />
                     {done ? 'Done' : 'Open'}
                 </span>
                 <span className="font-mono text-xs text-muted-foreground">#15</span>

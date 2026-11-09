@@ -23,11 +23,11 @@ export function Avatar({ initials }: { initials: string }) {
     return <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold">{initials}</span>;
 }
 
-/** "Open" with the status dot, as threads show it (ink = open) */
+/** "Open" with the status dot, as threads show it (an ink ring = open) */
 function OpenStatus() {
     return (
         <span className="inline-flex h-6 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium">
-            <span className="size-1.5 rounded-full bg-foreground" />
+            <span className="size-1.5 rounded-full border border-foreground" />
             Open
         </span>
     );

@@ -26,9 +26,9 @@ import { assignShortcutEvent } from '../threadShortcuts';
 import { keepMovedFocus, toolbarSurface } from '../toolbarReview';
 import { moveFocusInMenu } from '../focusKeys';
 
-/** Each status's dot colour (BRAND.md, "Status"): Open ink, In progress sky, Ready to verify violet, Done green. The app's `StateDot`. */
+/** Each status's dot (BRAND.md, "Status"): Open an ink ring (outlined), In progress sky, Ready to verify violet, Done green. The app's `StateDot`. */
 const stageDotColors: Record<FeedbackStage, string> = {
-    open: 'bg-foreground',
+    open: 'border border-foreground',
     'in-progress': 'bg-[hsl(var(--brand-in-progress))]',
     ready: 'bg-[hsl(var(--brand-ready))]',
     done: 'bg-[hsl(var(--brand-success))]'
