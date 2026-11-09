@@ -16,7 +16,7 @@ import { CommentAreaHighlight } from './CommentAreaHighlight';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
-import { holdsLayersAttribute, isToolbarAnchor, toolbarOpener, toolbarPinId, toolbarSurface } from '../toolbarReview';
+import { holdsLayersAttribute, isToolbarAnchor, pressableToolbarOpener, toolbarPinId, toolbarSurface } from '../toolbarReview';
 import { RewriteSuggestions } from './RewriteSuggestions';
 import { ScreenshotDisclosure } from './ScreenshotDisclosure';
 import { CommentDraft, CommentItem, CommentItemPosition, commentTextMaxLength, floatingShadowClassName, isCommentArea } from './@types/Comments';
@@ -103,7 +103,7 @@ export function CommentBubble(props: CommentBubbleProps) {
     const triggerRef = useRef<HTMLButtonElement>(null);
     // Missing, ambiguous and hidden anchors have no pin; their threads stay in the inbox. An anchor in
     // a closed menu, popover or dialog has its pin on the element that opens it.
-    const { rects: placementRects, state: placementState } = useCommentPlacement(position);
+    const { rects: placementRects, state: placementState, opener: closedOpener } = useCommentPlacement(position);
     const closedLayer = placementState === 'closed';
     const lastRect = lowestRect(placementRects);
     const { create, reply } = useComments();
@@ -202,17 +202,19 @@ export function CommentBubble(props: CommentBubbleProps) {
 
     // The thread opens (and takes the focus, its reply box) once the pin is on the page; a pin
     // outside the window (a comment link) is scrolled into view first. A comment in a closed
-    // popover or panel of the toolbar opens it first, with the button that opens it.
+    // popover or panel of the toolbar opens it first, with the button that opens it, and nested
+    // ones layer by layer from the outside in: each press waits for its layer to render, where the
+    // pin moves on to the next closed opener (useCommentItemRects.tsx).
     const hasRect = Boolean(lastRect);
-    const openedLayerRef = useRef(false);
+    const pressedOpenersRef = useRef<Element[]>([]);
     useEffect(() => {
         if (!autoOpen) {
-            openedLayerRef.current = false;
+            pressedOpenersRef.current = [];
             return;
         }
-        const opener = closedLayer && position.type !== 'page' ? toolbarOpener(position.layer?.opener) : undefined;
-        if (opener && hasRect && !openedLayerRef.current) {
-            openedLayerRef.current = true;
+        const opener = closedLayer && onToolbar ? pressableToolbarOpener(closedOpener) : undefined;
+        if (opener && hasRect && !pressedOpenersRef.current.includes(opener)) {
+            pressedOpenersRef.current.push(opener);
             opener.click();
             return;
         }
@@ -224,7 +226,7 @@ export function CommentBubble(props: CommentBubbleProps) {
             setOpen(true);
             onAutoOpened?.();
         }
-    }, [autoOpen, hasRect, closedLayer, onAutoOpened, position]);
+    }, [autoOpen, hasRect, closedLayer, closedOpener, onToolbar, onAutoOpened, position]);
 
     // Bubbles are fixed to their anchor; when one gets the focus off-screen, scroll it into view
     const handleFocus = () => {

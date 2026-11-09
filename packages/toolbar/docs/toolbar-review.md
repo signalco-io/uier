@@ -50,17 +50,25 @@ only trusted presses, so these clicks (and a page script's) never pin a comment.
 
 ## Openers and showing a comment again
 
-- `withLayer(anchor, element)` saves the opener of the popover, menu or panel a part is in
-  (`toolbarLayerOpener`): the expanded button whose `aria-controls` names it, outermost for nested ones.
-  That is a thread's pin, a button of the pill (Options, Profile, Send feedback) or Inbox, which names
-  the inbox panel in its `aria-controls` while it is open. The label is the button's name without its
-  count or state ("Comment #6", "Inbox").
+- `withLayer(anchor, element)` saves the openers of the popover, menu or panel a part is in
+  (`toolbarLayerOpeners`, outside in): each the expanded button whose `aria-controls` names a layer.
+  The outermost is `layer.opener`: a thread's pin, a button of the pill (Options, Profile, Send
+  feedback) or Inbox, which names the inbox panel in its `aria-controls` while it is open. The label is
+  its name without its count or state ("Comment #6", "Inbox"). For nested layers (Copy issue in an
+  open thread's Copy menu) the buttons that open the inner ones follow in `layer.nested` (toolbar
+  anchors only, up to 7; the API refuses them with a page opener or from a project's sites).
 - A toolbar anchor with a toolbar opener is looked for only in what that opener opens
   (`queryAnchorElements(selector, opener)`): two threads can be open at once and share their structure.
   Without the opener on the page, any match counts.
-- While the layer is closed, the pin is beside the opener (`closed`, as for page menus). Showing the
-  comment (a comment link, Show on page, a new comment's thread) clicks the toolbar opener first
-  (`CommentBubble`'s auto-open), then opens the thread on the part. Page openers are never clicked.
+- While the layer is closed, the pin is beside the opener (`closed`, as for page menus). With nested
+  layers it is beside the first closed opener from the outside in, each nested one looked for in what
+  the one before opens (`closedLayerPlacement`): the thread's pin while the thread is closed, then Copy
+  in the open thread. Only the outermost names its opener in the thread ("Open “Comment #6”…").
+- Showing the comment (a comment link, Show on page, a new comment's thread) presses that opener
+  (`CommentBubble`'s auto-open), waits for its layer to render and presses the next closed one, then
+  opens the thread on the part. Each is pressed once; only collapsed toolbar buttons that open a
+  layer (`aria-expanded="false"`, `pressableToolbarOpener`) are pressed, never any other control a
+  saved selector names. Page openers are never clicked.
 - Automatic screenshots include the reviewed parts (everything matching `toolbarReviewSurfaces`) for
   these anchors, without pins, the outline or the comment being written.
 
@@ -73,8 +81,9 @@ selector after `#uier-toolbar>>>` is inside the toolbar's shadow root (`anchorLa
 ## Tests
 
 `apps/web/e2e/toolbar-review.spec.ts` (desktop and mobile): the pill and the inbox, a part of an open
-thread (kept open, the pin as opener, a comment link opening it again) and the options popover (Show on
-page opening it again). `new-comment-after-thread.spec.ts`: a comment on the page closes the open
+thread (kept open, the pin as opener, a comment link opening it again), Copy issue in an open thread's
+Copy menu (the nested opener, the pin moving layer by layer, a comment link opening both again;
+Desktop Chrome) and the options popover (Show on page opening it again). `new-comment-after-thread.spec.ts`: a comment on the page closes the open
 thread. `embed.spec.ts`: on a third-party site the toolbar and its threads stay out of point mode and
-the review API refuses toolbar anchors. `toolbar-anchors.api.spec.ts`: the refusal for reattaching, and
-the app's and the packet's words.
+the review API refuses toolbar anchors. `toolbar-anchors.api.spec.ts`: `layer.nested` validation, the refusal
+for reattaching, and the app's and the packet's words.

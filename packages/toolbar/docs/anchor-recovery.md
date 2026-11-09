@@ -8,7 +8,9 @@ dialog (`closed`) is not broken: its line says which element opens it, without R
 reattaching) while the layer is open: `modalLayer.ts`'s `layerOpener` finds the expanded
 `aria-controls` trigger, else the `popovertarget`/`commandfor` invoker, outermost for nested layers;
 its name is limited to the API's 120 visible characters. `getCommentPlacement` places a hidden or missing anchor
-with a `layer` on that opener while it is shown and not expanded; areas are not outlined there.
+with a `layer` on that opener while it is shown and not expanded; areas are not outlined there. Toolbar
+layers nested on uier's own pages save every opener and place it on the first closed one
+([toolbar-review.md](toolbar-review.md#openers-and-showing-a-comment-again)).
 `CommentsGlobal` reuses the point overlay and selection offsets, with a dockable confirm/cancel panel
 and compact instructions while choosing. The saved thread is changed only after confirmation; collapse
 cancels choosing. Anchor updates use `PATCH .../anchor`, the saved page key and expected revision.

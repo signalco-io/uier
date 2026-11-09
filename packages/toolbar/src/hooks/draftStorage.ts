@@ -90,9 +90,10 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
             const selector = (s: unknown) => typeof s === 'string' && s.length > 0 && s.length <= 1024;
             const offset = (n: unknown) => typeof n === 'number' && Number.isInteger(n) && n >= 0 && n <= 100_000;
             const fraction = (n: unknown) => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 1;
-            const layer = (l: { opener?: unknown; label?: unknown } | undefined) => l === undefined
+            const layer = (l: { opener?: unknown; label?: unknown; nested?: unknown } | undefined) => l === undefined
                 || (typeof l === 'object' && l !== null && selector(l.opener)
-                    && (l.label === undefined || (typeof l.label === 'string' && l.label.length <= 120)));
+                    && (l.label === undefined || (typeof l.label === 'string' && l.label.length <= 120))
+                    && (l.nested === undefined || (Array.isArray(l.nested) && l.nested.length > 0 && l.nested.length <= 7 && l.nested.every(selector))));
             if (!p || !['comment', 'rewrite'].includes(a.kind) || !layer(p.layer)
                 || !(p.type === 'point' ? selector(p.selector) && fraction(p.xNormal) && fraction(p.yNormal)
                     && ((p.widthNormal === undefined && p.heightNormal === undefined) || (fraction(p.widthNormal) && fraction(p.heightNormal)))

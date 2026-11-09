@@ -32,7 +32,7 @@ async function expectBeside(pin: Locator, opener: Locator) {
     await expect.poll(async () => contains((await opener.boundingBox())!, (await pin.boundingBox())!, 40)).toBe(true);
 }
 
-type SavedComment = { id: string; number: number; position: { selector: string; layer?: { opener: string; label?: string } }; screenshot?: { width: number; height: number } };
+type SavedComment = { id: string; number: number; position: { selector: string; layer?: { opener: string; label?: string; nested?: string[] } }; screenshot?: { width: number; height: number } };
 
 /** Writes the open new comment and sends it: the saved comment, whose thread opens */
 async function send(page: Page, text: string) {
@@ -212,6 +212,59 @@ test('uier pages can comment on an open thread: it stays open, and the comment o
     await expect(reply.getByRole('textbox', { name: 'Reply' })).toBeFocused();
     await expect(reply.getByText('to see the comment in place')).toHaveCount(0);
     await expect.poll(async () => contains((await copy.boundingBox())!, (await pin.boundingBox())!, 40)).toBe(true);
+    await context.close();
+});
+
+test('uier pages can comment on a menu inside an open thread, and the comment opens both again', async ({ browser }, testInfo) => {
+    const { context, page } = await newVisitor(browser, testInfo);
+    const origin = isolatedOrigin(testInfo);
+    await openLanding(page, origin, { dismissHint: true });
+    await toolbar(page).getByRole('button', { name: 'Add comment' }).click();
+    await page.mouse.click(...await middleOf(page.getByRole('heading', { level: 1 })));
+    const first = await send(page, 'The heading could be shorter.');
+    const thread = threadWith(page, 'The heading could be shorter.');
+    const copy = thread.getByRole('button', { name: 'Copy', exact: true });
+    await copy.click();
+    const copyMenu = page.getByRole('dialog', { name: 'Copy', exact: true });
+    const copyIssue = copyMenu.getByRole('button', { name: /^Copy issue/ });
+    await expect(copyIssue).toBeVisible();
+    await animationsFinished(copyMenu);
+
+    // Both the thread and its Copy menu stay open while Copy issue is pointed at and commented on
+    await toolbar(page).getByRole('button', { name: 'Add comment' }).click();
+    await pointAt(page, copyIssue);
+    const comment = await send(page, 'Say where the issue is copied to.');
+    expect(comment.position.selector).toMatch(/^#uier-toolbar>>>div\.uier-copy-menu>/);
+    expect(comment.position.layer).toEqual({
+        opener: `#uier-toolbar>>>#uier-pin-${first.id}`,
+        label: `Comment #${first.number}`,
+        nested: [expect.stringMatching(/^#uier-toolbar>>>div\.uier-thread>/)]
+    });
+    const reply = threadWith(page, 'Say where the issue is copied to.');
+    await expect(reply.getByRole('textbox', { name: 'Reply' })).toBeFocused();
+    await expect(copyMenu).toBeVisible();
+    await expect(thread).toBeVisible();
+    const pin = page.locator(`[data-uier-comment="${comment.id}"]`);
+    await expect.poll(async () => contains((await copyIssue.boundingBox())!, (await pin.boundingBox())!, 40)).toBe(true);
+
+    // Closed layer by layer, the pin moves to the opener of the closed one
+    await page.keyboard.press('Escape');
+    await expect(reply).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(copyMenu).toHaveCount(0);
+    await expect(thread).toBeVisible();
+    await expectBeside(pin, copy);
+    await page.keyboard.press('Escape');
+    await expect(thread).toHaveCount(0);
+    await expectBeside(pin, page.locator(`[data-uier-comment="${first.id}"]`));
+
+    // A link to the comment opens the thread, then its Copy menu, then the comment on Copy issue
+    await page.goto(`${origin}/?uier-comment=${comment.id}`);
+    await expect(thread).toBeVisible();
+    await expect(copyMenu).toBeVisible();
+    await expect(reply.getByRole('textbox', { name: 'Reply' })).toBeFocused();
+    await expect(reply.locator('[data-uier-anchor-state]')).toHaveAttribute('data-uier-anchor-state', 'exact');
+    await expect.poll(async () => contains((await copyIssue.boundingBox())!, (await pin.boundingBox())!, 40)).toBe(true);
     await context.close();
 });
 

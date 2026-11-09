@@ -24,6 +24,8 @@ export const MAX_PATH_LENGTH = 512;
 export const MAX_SELECTOR_LENGTH = 1024;
 /** The name of the button that opens a commented menu, popover or dialog ("Account") */
 export const MAX_LAYER_LABEL_LENGTH = 120;
+/** Toolbar layers inside the opener's (Copy in a thread), on uier's own pages */
+export const MAX_NESTED_OPENERS = 7;
 export const MAX_SELECTION_TEXT_LENGTH = 2000;
 export const MAX_SELECTION_OFFSET = 100_000;
 export const MAX_WINDOW_DIMENSION = 20_000;

@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { CommentAnchor, CommentItemPosition, CommentPoint, CommentSelection, isCommentArea } from '../components/@types/Comments';
 import { getDomVersion, useLayoutVersion } from './useLayoutVersion';
-import { queryAnchorElements } from '../toolbarReview';
+import { nestedToolbarOpener, queryAnchorElements } from '../toolbarReview';
 import { getToolbarHost } from '../mount';
 import { isInActiveModal } from '../modalLayer';
 
@@ -312,18 +312,31 @@ export function getCommentItemRects(position: CommentItemPosition | null | undef
     }
 }
 
-export type CommentPlacement = { rects: DOMRect[]; state: AnchorState };
+/**
+ * `opener`: of a `closed` placement, the element it is on; `depth`, which of the saved openers that
+ * is (0 the outermost, then the `nested` toolbar openers in the layers they open)
+ */
+export type CommentPlacement = { rects: DOMRect[]; state: AnchorState; opener?: Element; depth?: number };
+
+const isExpanded = (element: Element) => element.getAttribute('aria-expanded') === 'true';
 
 /**
  * An anchor that is not shown (hidden or missing) in a menu, popover or dialog that is closed now:
  * placed on the element that opens it, while that element is shown and not expanded (when it is,
- * the layer is open and the anchor is really gone).
+ * the layer is open and the anchor is really gone). Of nested toolbar layers, the first closed one
+ * from the outside in: the thread's pin while the thread is closed, then Copy in the open thread.
  */
 function closedLayerPlacement(position: CommentAnchor): CommentPlacement | undefined {
     const matches = selectorMatches(position.layer?.opener);
-    const opener = matches.length === 1 ? matches[0] : undefined;
-    if (!opener || !isShown(opener) || opener.getAttribute('aria-expanded') === 'true') return undefined;
-    return { rects: [opener.getBoundingClientRect()], state: 'closed' };
+    let opener = matches.length === 1 ? matches[0] : undefined;
+    let depth = 0;
+    for (const selector of position.layer?.nested ?? []) {
+        if (!opener || !isExpanded(opener)) break;
+        opener = nestedToolbarOpener(selector, opener);
+        depth++;
+    }
+    if (!opener || !isShown(opener) || isExpanded(opener)) return undefined;
+    return { rects: [opener.getBoundingClientRect()], state: 'closed', opener, depth };
 }
 
 /**

@@ -20,6 +20,14 @@ test('toolbar anchors are told apart from page anchors, in every selector of a p
         expect(positionSchema.parse(position)).toBeTruthy();
         expect(isToolbarPosition(positionSchema.parse(position))).toBe(true);
     }
+    // A toolbar layer inside another (Copy in a thread) saves the toolbar buttons that open the inner ones
+    const inCopyMenu = { ...toolbarPoint, selector: '#uier-toolbar>>>div.uier-copy-menu>div:nth-of-type(1)>button:nth-of-type(1)', layer: { ...pinOpener, nested: [inThread] } };
+    expect(positionSchema.parse(inCopyMenu)).toMatchObject({ layer: { nested: [inThread] } });
+    expect(isToolbarPosition({ ...pagePoint, layer: { opener: 'header>button', nested: [inThread] } })).toBe(true);
+    expect(positionSchema.safeParse({ ...inCopyMenu, layer: { ...pinOpener, nested: ['main>button'] } }).success).toBe(false);
+    expect(positionSchema.safeParse({ ...pagePoint, layer: { opener: 'header>button', nested: [inThread] } }).success).toBe(false);
+    expect(positionSchema.safeParse({ ...inCopyMenu, layer: { ...pinOpener, nested: [] } }).success).toBe(false);
+    expect(positionSchema.safeParse({ ...inCopyMenu, layer: { ...pinOpener, nested: Array(8).fill(inThread) } }).success).toBe(false);
     expect(isToolbarPosition(pagePoint)).toBe(false);
     expect(isToolbarPosition({ ...pagePoint, layer: { opener: 'header>button', label: 'Account' } })).toBe(false);
     expect(isToolbarPosition({ type: 'page' })).toBe(false);

@@ -16,9 +16,12 @@ export const anchorStateText: Record<AnchorState, string> = {
     closed: 'Target is in a menu or dialog that is closed. Open it to see the comment in place.'
 };
 
-/** The closed state with the opener's name: "Open “Account” to see the comment in place." */
-function closedText(position: CommentItemPosition) {
-    const name = position.type !== 'page' ? position.layer?.label : undefined;
+/**
+ * The closed state with the opener's name: "Open “Account” to see the comment in place". The name is
+ * the outermost opener's: once that is open, a nested toolbar layer's opener has the pin (`depth`).
+ */
+function closedText(position: CommentItemPosition, depth = 0) {
+    const name = position.type !== 'page' && depth === 0 ? position.layer?.label : undefined;
     return name ? `Target is in a menu or dialog that is closed. Open “${name}” to see the comment in place.` : anchorStateText.closed;
 }
 
@@ -62,12 +65,12 @@ export function useReattach(comment: CommentItem) {
  */
 export function CommentAnchorDetails({ comment }: { comment: CommentItem }) {
     const reattach = useReattach(comment);
-    const { state } = useCommentPlacement(reattach.samePage ? comment.position : undefined);
+    const { state, depth } = useCommentPlacement(reattach.samePage ? comment.position : undefined);
     if (comment.position.type === 'page') return null;
     // Only states that need attention are shown, and a closed menu's (where to find the anchor); a
     // matching anchor stays quiet
     const notice = state !== 'exact' && state !== 'page';
-    const text = state === 'closed' ? closedText(comment.position) : anchorStateText[state];
+    const text = state === 'closed' ? closedText(comment.position, depth) : anchorStateText[state];
     const offSource = reattach.canEdit && reattach.samePage && !reattach.originalSource;
     if (!reattach.samePage && !comment.anchorContext) return null;
 

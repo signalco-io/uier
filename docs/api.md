@@ -264,9 +264,10 @@ open thread, popovers and menus) when the page and API share an origin. Point mo
 without activating it, and open popovers stay open; Cancel or Escape ends placement. Keyboard
 reviewers can focus a control before using Add comment. These comments keep their shadow-root
 anchors (`#uier-toolbar>>>`), with the toolbar button that opens a popover or the inbox as their
-`layer.opener`, and capture the reviewed UI in screenshots. Third-party embeds keep uier's own
+`layer.opener` (and, for a menu inside an open thread or popover, the toolbar buttons that open the
+inner layers in `layer.nested`, outside in), and capture the reviewed UI in screenshots. Third-party embeds keep uier's own
 controls outside comment targeting, and the review API answers `400 invalid_request` to a toolbar
-anchor or opener from a project's site (a cross-origin `Origin`), when creating or reattaching.
+anchor or opener (`layer.opener` or `layer.nested`) from a project's site (a cross-origin `Origin`), when creating or reattaching.
 
 ## Comments API
 

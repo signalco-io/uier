@@ -1,7 +1,8 @@
 # Review API and comment records
 
 - Toolbar point anchors can use the single `#uier-toolbar>>>` boundary on uier's own pages, in the
-  anchor and in `layer.opener` (a thread's pin or a button of the pill). `comments/validation.ts`
+  anchor, in `layer.opener` (a thread's pin or a button of the pill) and in `layer.nested` (the
+  toolbar buttons that open nested toolbar layers, outside in; only with a toolbar opener, up to 7). `comments/validation.ts`
   retains the restricted CSS grammar after it; the toolbar resolves those anchors only when the page
   and configured API share an origin. The review API refuses them from a project's sites
   (`review/toolbarAnchors.ts`, on create and reattach, whenever `siteOrigin` is set): only uier's own

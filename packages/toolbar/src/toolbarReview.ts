@@ -82,22 +82,25 @@ function triggerOf(root: ShadowRoot, layer: Element) {
 }
 
 /**
- * The toolbar button that opens the popover, menu or panel a reviewed part is in, of nested ones
- * (a thread's menu) the outermost, which is on the page while they are all closed: a thread's pin,
- * a button of the pill. Saved as the anchor's opener (`layerAnchor.ts`).
+ * The toolbar buttons that open the popover, menu or panel a reviewed part is in, outside in: for
+ * nested ones (Copy in an open thread) the outermost first, which is on the page while they are all
+ * closed (a thread's pin, a button of the pill), then each button in the layer the one before opens.
+ * Saved as the anchor's opener and its `nested` openers (`layerAnchor.ts`).
  */
-export function toolbarLayerOpener(element: Element) {
+export function toolbarLayerOpeners(element: Element) {
     const root = reviewedRoot();
-    if (!root || element.getRootNode() !== root) return undefined;
-    let opener: Element | undefined;
-    for (let node: Element | null = element, layers = 0; node && layers < 8; node = node.parentElement) {
+    if (!root || element.getRootNode() !== root) return [];
+    const openers: Element[] = [];
+    for (let node: Element | null = element; node && openers.length < 8; node = node.parentElement) {
         const trigger = triggerOf(root, node);
-        if (trigger) {
-            opener = node = trigger;
-            layers++;
-        }
+        if (trigger) openers.unshift(node = trigger);
     }
-    return opener;
+    return openers;
+}
+
+/** The outermost of {@link toolbarLayerOpeners} */
+export function toolbarLayerOpener(element: Element): Element | undefined {
+    return toolbarLayerOpeners(element)[0];
 }
 
 /** The open popovers, menus and panels a toolbar button opens, and those their own buttons open */
@@ -214,10 +217,26 @@ export function toolbarSurface(part: ToolbarPart, className?: string) {
     } as const;
 }
 
-/** The toolbar button saved as an anchor's opener (a pin, a button of the pill), when it is on the page */
-export function toolbarOpener(opener: string | undefined) {
-    const matches = opener?.startsWith(toolbarAnchorPrefix) ? queryAnchorElements(opener) : [];
-    return matches.length === 1 && matches[0] instanceof HTMLElement ? matches[0] : undefined;
+/**
+ * A nested opener (`layer.nested`): the one toolbar element `selector` matches in what the open
+ * `outer` opener opens, else `undefined`
+ */
+export function nestedToolbarOpener(selector: string, outer: Element) {
+    const root = reviewedRoot();
+    if (!root || !selector.startsWith(toolbarAnchorPrefix)) return undefined;
+    const layers = layersOpenedBy(root, outer);
+    const matches = queryAnchorElements(selector).filter(element => layers.some(layer => layer.contains(element)));
+    return matches.length === 1 ? matches[0] : undefined;
+}
+
+/**
+ * A toolbar opener that can be pressed to show a comment: a collapsed toolbar button that opens a
+ * popover, menu or panel (`aria-expanded="false"`). Saved selectors come from reviewers' browsers:
+ * any other control (a menu's Delete) is never pressed for them.
+ */
+export function pressableToolbarOpener(element: Element | undefined) {
+    return element instanceof HTMLElement && element.getRootNode() === reviewedRoot()
+        && element.getAttribute('aria-expanded') === 'false' ? element : undefined;
 }
 
 /** Whether a comment is on a part of the toolbar, or in a popover a toolbar button opens */
