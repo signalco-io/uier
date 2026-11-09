@@ -482,6 +482,12 @@ test('project settings sections save the name, comment access and addresses', as
     // The page state is developer-level, under Advanced
     await expect(access.getByLabel('Meaningful query fields')).toBeHidden();
     await setProjectAccess(page, projectId, 'Anyone with the link');
+    // The header's access label leads to Who can comment
+    await page.goto(`/app/projects/${projectId}`);
+    await page.getByRole('link', { name: 'Anyone with the link', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}/settings/review#who-can-comment$`));
+    await expect(page.locator('[data-slot="popover-content"]')).toHaveCount(0);
+    await expect(page.locator('#who-can-comment')).toBeInViewport();
 
     // Addresses with their labels, under Environments
     await sections.getByRole('link', { name: 'Environments' }).click();

@@ -13,6 +13,8 @@ import { ProjectAccessInfo } from '@/src/components/app/projects/ProjectAccessIn
 import { GuestReviewLinks } from '@/src/components/app/projects/GuestReviewLinks';
 import { ProjectSettingsButton } from '@/src/components/app/projects/ProjectSettingsButton';
 import { hasProjectFeedback } from '@/src/lib/app/projectComments';
+import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
+import { KnownPageLinks } from '@/src/knownPages';
 
 /**
  * A project: its name, Open review (it lists every address) and the settings cog, then the tabs while the
@@ -28,6 +30,8 @@ export default async function ProjectLayout({ children, params }: LayoutProps<'/
         project.clientId ? getClient(context.workspace.id, project.clientId).then(found => found?.doc) : undefined,
         hasProjectFeedback(context, project)
     ]);
+    // Those who configure the project (settingsContext's rule) change who can comment from the label
+    const canConfigure = context.isAdmin && project.workspaceId !== PUBLIC_WORKSPACE_ID;
 
     return (
         <>
@@ -42,8 +46,8 @@ export default async function ProjectLayout({ children, params }: LayoutProps<'/
                                 <span className="min-w-0 break-words">Client: {client.name}</span>
                             </span>
                         )}
-                        {/* Who can comment, with the guest links and (for admins) Invite in its popover */}
-                        <ProjectAccessInfo access={project.access}>
+                        {/* Who can comment, with the guest links and (for admins) Invite in its popover; admins follow it to the setting */}
+                        <ProjectAccessInfo access={project.access} settingsHref={canConfigure ? KnownPageLinks.projectAccessSettings(project.id) : undefined}>
                             {project.access === 'guests' && project.urls[0] && <GuestReviewLinks publicId={project.publicId} urls={project.urls} />}
                             {context.isAdmin && project.access !== 'disabled' && <InviteButton projectId={project.id} variant="outline" className="w-full" />}
                         </ProjectAccessInfo>

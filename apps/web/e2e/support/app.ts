@@ -118,7 +118,8 @@ export async function setProjectAccess(page: Page, projectId: string, label: Pro
     await hydrated(review.locator('form'));
     await option.click();
     await review.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(review.getByRole('status')).toContainText('Saved.');
+    // The guest links' Copy buttons announce in status regions of their own
+    await expect(review.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
 }
 
 /** The Review settings with Advanced open, where the page state is */

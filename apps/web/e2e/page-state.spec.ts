@@ -32,7 +32,7 @@ test('query/hash views, links, legacy feedback and SPA drafts stay with their or
     await settings.getByLabel('Meaningful query fields').fill('category, tab');
     await settings.getByRole('checkbox', { name: 'Use hash routes (#/page or #!/page)' }).check();
     await settings.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(settings.getByRole('status')).toContainText('Saved.');
+    await expect(settings.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
     await expect(settings.getByRole('checkbox')).toBeChecked();
     await expect(page).toHaveTitle(/uier/);
     await expectNoAxeViolations(page);
@@ -110,7 +110,7 @@ test('query/hash views, links, legacy feedback and SPA drafts stay with their or
     await settings.getByLabel('Meaningful query fields').fill('');
     await settings.getByRole('checkbox', { name: 'Use hash routes (#/page or #!/page)' }).uncheck();
     await settings.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(settings.getByRole('status')).toContainText('Saved.');
+    await expect(settings.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
     await expect(settings.getByRole('checkbox')).not.toBeChecked();
     await page.goto(href!);
     await expect(page.getByRole('complementary', { name: 'Comments' })).toContainText('Feedback for view A');
@@ -195,7 +195,7 @@ test('settings suggest query fields seen in recent comments', async ({ page }) =
     await expect(settings.getByLabel('Meaningful query fields')).toHaveValue('sort');
     await expect(suggestions).toHaveCount(0);
     await settings.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(settings.getByRole('status')).toContainText('Saved.');
+    await expect(settings.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();
     await page.reload();
     await expect(settings.getByLabel('Meaningful query fields')).toHaveValue('sort');
     await expect(suggestions).toHaveCount(0);

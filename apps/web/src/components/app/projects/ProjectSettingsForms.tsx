@@ -1,6 +1,6 @@
 'use client';
 
-import { startTransition, useActionState, useId, useOptimistic, useRef, useState, useTransition, type FormEvent } from 'react';
+import { startTransition, useActionState, useId, useOptimistic, useRef, useState, useTransition, type FormEvent, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -26,7 +26,7 @@ import { RadioGroup } from '@/src/components/ui/radio-group';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { Spinner } from '@/src/components/ui/spinner';
 import { Switch } from '@/src/components/ui/switch';
-import { KnownPageLinks, KnownPages } from '../../../knownPages';
+import { KnownPageLinks, KnownPages, projectAccessAnchor } from '../../../knownPages';
 import { ChoiceCard } from '../ChoiceCard';
 import { FormMessage } from '../FormMessage';
 import { destructiveTextClassName, Section } from '../PageHeader';
@@ -130,9 +130,11 @@ export function ProjectGeneralForm({ projectId, name, clientName, clients, aiTit
 }
 
 /** Review: who can comment, the brief and, under Advanced, the page state; one save */
-export function ProjectReviewForm({ projectId, access, brief, policy, suggestions }: {
+export function ProjectReviewForm({ projectId, access, brief, policy, suggestions, guestLinks }: {
     projectId: string;
     access: ProjectAccess;
+    /** The saved access's guest links, shown under Who can comment while it stays chosen */
+    guestLinks?: ReactNode;
     brief?: string;
     policy?: PageStatePolicy;
     suggestions: QueryFieldSuggestion[];
@@ -163,7 +165,8 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
                 <input type="hidden" name="queryParameters" value={draft.queryParameters} />
                 <input type="hidden" name="hashRouting" value={String(draft.hashRouting)} />
                 <FieldGroup>
-                    <FieldSet>
+                    {/* The header's access label links here */}
+                    <FieldSet id={projectAccessAnchor} className="scroll-mt-6">
                         <FieldLegend variant="label">Who can comment</FieldLegend>
                         <FieldDescription>Who can see and leave comments with the toolbar on your site.</FieldDescription>
                         <RadioGroup value={draft.access} onValueChange={(next) => update(current => ({ ...current, access: next as ProjectAccess }))} aria-label="Who can comment">
@@ -177,6 +180,7 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
                                     icon={<AccessIcon access={option} aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />} />
                             ))}
                         </RadioGroup>
+                        {guestLinks && draft.access === 'guests' && guestLinks}
                     </FieldSet>
                     <FieldSeparator />
                     <Field>
