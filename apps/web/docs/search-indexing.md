@@ -5,7 +5,8 @@ The public `/guides` index links the client review, Next.js and browser extensio
 to SEO, card and footer checks. `SiteStructuredData` connects the homepage `WebSite` to its actual
 signalco publisher. Preserve the homepage Bing verification meta tag after setup.
 `search-index.mjs` generates the public static-page manifest after the sitemap; the production
-workflow submits only its changed public URLs through IndexNow. See
+workflow skips the IndexNow job when those content hashes have not changed; otherwise it submits
+only added, changed and removed public URLs. See
 [search discovery](../../../docs/search-discovery.md) for safeguards and recovery.
 
 Public pages use `publicPageMetadata` (`src/lib/metadata.ts`) with their own pathname, title and
