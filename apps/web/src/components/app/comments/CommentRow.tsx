@@ -9,6 +9,7 @@ import { RelativeTime } from './DateTime';
 import { SelectComment } from './TriageSelection';
 import { AssigneeAvatars } from './AgentAvatar';
 import { AssigneeCard } from './AssigneeCard';
+import { AuthorAvatar } from './AuthorAvatar';
 import { commentStatus, commentStatusLabels, StateDot } from './CommentStatus';
 import { PriorityLabel } from './PriorityFlag';
 
@@ -27,11 +28,11 @@ export function commentTitle(comment: ProjectCommentView) {
 export const commentRowId = (id: string) => `comment-row-${id}`;
 
 /**
- * One comment in the inbox list or on the board: number, title (`commentTitle`), who wrote it, the page path,
- * priority other than Normal (its flag, named for assistive tech), who it is assigned to (`AssigneeCard`: hovering the
- * avatars shows the assignee and their agent), status (Open too; a board card leaves it to its column), age and unread.
- * The whole row opens the thread (a link to `?comment=<id>`, so it can also open in a new tab); the selection box sits
- * beside the link, quiet until hovered, focused or selecting (`SelectComment`).
+ * One comment in the inbox list or on the board: number, title (`commentTitle`), who wrote it (`AuthorAvatar`: its
+ * tooltip names them), the page path, priority other than Normal (its flag, named for assistive tech), who it is
+ * assigned to (`AssigneeCard`: hovering the avatars shows the assignee and their agent), status (Open too; a board card
+ * leaves it to its column), age and unread. The whole row opens the thread (a link to `?comment=<id>`, so it can also
+ * open in a new tab); the selection box sits beside the link, quiet until hovered, focused or selecting (`SelectComment`).
  */
 export function CommentRow({ comment, href, selected, onOpen, card = false, preview = false, actions, describedBy, keyShortcuts, project, tabbable = true }: {
     comment: ProjectCommentView;
@@ -63,11 +64,10 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
 }) {
     const status = commentStatus(comment);
     const unread = Boolean(comment.activity?.unread);
-    const author = comment.deleted ? 'Deleted' : comment.author.isMe ? 'You' : comment.author.name;
     const KindIcon = comment.kind === 'comment' ? undefined : kindIcons[comment.kind];
     const title = commentTitle(comment);
     const link = useRef<HTMLAnchorElement>(null);
-    // A mouse click on the avatars opens the thread like the rest of the row, modifier keys and all
+    // A click on the author's or a mouse click on the assignee's avatars opens the thread like the rest of the row, modifier keys and all
     const openFromAvatars = (event: MouseEvent) => link.current?.dispatchEvent(new window.MouseEvent('click', {
         bubbles: true, cancelable: true, view: window, button: event.button,
         ctrlKey: event.ctrlKey, metaKey: event.metaKey, shiftKey: event.shiftKey, altKey: event.altKey
@@ -104,15 +104,17 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                 </div>
                 <div className={cn('flex min-w-0 gap-x-2 gap-y-1 text-xs text-muted-foreground', card ? 'flex-col' : 'items-center')}>
                     <p className="m-0 flex min-w-0 flex-1 items-center gap-1.5">
+                        {/* A card has the author on the line below, so its path has the card's width */}
+                        {!card && <AuthorAvatar author={comment.author} deleted={comment.deleted} onPress={openFromAvatars} />}
                         {KindIcon && <KindIcon aria-hidden="true" className="size-3.5 shrink-0" />}
                         <span className="truncate">
-                            {project && <><span className="font-medium text-foreground">{project}</span><span aria-hidden="true"> · </span><span className="sr-only">, by </span></>}
-                            {author}
-                            <span aria-hidden="true"> · </span><span className="sr-only">, page </span>
+                            {project && <><span className="font-medium text-foreground">{project}</span><span aria-hidden="true"> · </span></>}
+                            <span className="sr-only">Page </span>
                             <span className="font-mono">{comment.path}</span>
                         </span>
                     </p>
-                    <div className="flex shrink-0 items-center gap-2">
+                    <div className="flex min-h-5 shrink-0 items-center gap-2">
+                        {card && <AuthorAvatar author={comment.author} deleted={comment.deleted} onPress={openFromAvatars} />}
                         {comment.private && <LockIcon aria-label="Private" className="size-3.5" />}
                         {/* Normal is the default: only a priority that differs gets its flag */}
                         {comment.priority !== 'normal' && <PriorityLabel priority={comment.priority} />}
