@@ -46,18 +46,67 @@ const units: [Intl.RelativeTimeFormatUnit, number][] = [
     ['minute', 60]
 ];
 
-/** How long ago or from now, in words ("yesterday", "in 6 days"), with the date and time on hover */
+function relativeText(date: Date, now: number) {
+    const seconds = (date.valueOf() - now) / 1000;
+    const match = units.find(([, size]) => Math.abs(seconds) >= size);
+    return match
+        ? new Intl.RelativeTimeFormat('en-GB', { numeric: 'auto' }).format(Math.round(seconds / match[1]), match[0])
+        : 'just now';
+}
+
+/**
+ * One clock for every relative time on the page: a single timer while any is shown, paused while the
+ * tab is hidden and caught up when it is shown again. Each time reads its own text from it, so a tick
+ * re-renders only the times whose words change ("just now" to "1 minute ago"), never the list around them.
+ */
+const tickMs = 10_000;
+const clockListeners = new Set<() => void>();
+let clockNow = Date.now();
+let clockTimer: number | undefined;
+
+/** The clock's time; with nothing subscribed it isn't ticking, so the first render after a pause catches it up */
+function currentNow() {
+    if (!clockListeners.size && Date.now() - clockNow >= tickMs) clockNow = Date.now();
+    return clockNow;
+}
+
+function tick() {
+    clockNow = Date.now();
+    for (const listener of clockListeners) listener();
+}
+
+function syncClock() {
+    window.clearInterval(clockTimer);
+    clockTimer = undefined;
+    if (!clockListeners.size || document.visibilityState !== 'visible') return;
+    tick();
+    clockTimer = window.setInterval(tick, tickMs);
+}
+
+function subscribeClock(listener: () => void) {
+    clockListeners.add(listener);
+    if (clockListeners.size === 1) {
+        document.addEventListener('visibilitychange', syncClock);
+        syncClock();
+    }
+    return () => {
+        clockListeners.delete(listener);
+        if (!clockListeners.size) {
+            document.removeEventListener('visibilitychange', syncClock);
+            syncClock();
+        }
+    };
+}
+
+/** How long ago or from now, in words ("yesterday", "in 6 days"), with the date and time on hover; it keeps up as time passes */
 export function RelativeTime({ value }: { value: string | undefined }) {
     const local = useLocal();
     const date = parse(value);
-    if (!date)
+    const text = useSyncExternalStore(subscribeClock,
+        () => date && relativeText(date, currentNow()),
+        () => date && relativeText(date, Date.now()));
+    if (!date || !text)
         return null;
-
-    const seconds = (date.valueOf() - Date.now()) / 1000;
-    const match = units.find(([, size]) => Math.abs(seconds) >= size);
-    const text = match
-        ? new Intl.RelativeTimeFormat('en-GB', { numeric: 'auto' }).format(Math.round(seconds / match[1]), match[0])
-        : 'just now';
     // Relative to now, so the server's and the browser's text can differ by a unit at a boundary
     return <time dateTime={value} title={formatDateTime(date, local)} suppressHydrationWarning>{text}</time>;
 }
