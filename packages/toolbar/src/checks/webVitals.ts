@@ -205,10 +205,10 @@ export function vitalCheck(name: VitalName, vital: Vital): PageCheck {
     }
     const value = target.text(vital.value);
     const good = target.text(target.good);
-    if (vital.value <= target.good) return { ...base, state: 'pass', value, reason: `Within the ${good} target.` };
+    if (vital.value <= target.good) return { ...base, state: 'pass', measure: value, reason: `Within the ${good} target.` };
     const element = pageAnchorElement(vital.element);
     return {
-        ...base, state: 'warn', value, reason: `Over the ${good} target. ${vitalWarnings[name]}`,
+        ...base, state: 'warn', measure: value, reason: `Over the ${good} target. ${vitalWarnings[name]}`,
         issues: [{
             key: `vital:${name}`,
             summary: `${target.name} is ${value}.`,

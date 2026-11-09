@@ -20,6 +20,21 @@ Every issue they find has a quick action that posts it as a comment in one click
   checks the page when it has no report of the current page; **Check again** runs it again. A report of
   another page (after a client-side navigation) says so.
 
+## Layout
+
+Both panels share one layout (`components/checks/ChecksParts.tsx`), so they read the same way
+([uier #197](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fbrand&comment=comment_Z9xMVmu-Ai2HN7Hm-ryXZ)):
+
+- **The summary first** (`ChecksSummary`): a tile for each kind of result with its count, its icon in
+  the result's colour only while it counts something (muted at 0), then one line with when it was checked.
+- **Sections** (`CheckSection`): a heading with its count and a short note on the right, over one
+  bordered card whose rows are divided by lines.
+- **Rows** (`CheckItem`): one compact row per check: the state icon, the name, a short measurement on
+  the right (`measure`, Core Web Vitals), what was found on its own line (`value`), then a one-line reason.
+- **Issues** (`IssueList`): one muted row per element, its short name with Highlight and Comment on the
+  right. A line every issue of a list shares is said once (by the check's reason, or under the rule's
+  title), not on every element (`sharedSummary`); a single SEO issue's detail is in its check's reason.
+
 ## Accessibility
 
 - axe-core (`axe-core`, MPL-2.0, its notice kept in the file) is **not** in the review bundle. It is the
@@ -45,7 +60,9 @@ Every issue they find has a quick action that posts it as a comment in one click
 
 `src/checks/seo.ts` reads the page's own document when the panel opens (the toolbar's shadow root and
 inline threads are never in `document.querySelectorAll`). Each check is pass, warning or a note (not
-measured, not needed), with a one-line reason:
+measured, not needed), with a one-line reason. The summary counts what is worth a look (warnings,
+amber) and what passed (green); notes are not counted. The heading outline is folded under the heading
+checks (a `details` row, "Outline").
 
 - **Page**: indexing, the title (10 to 60 characters), the meta description (one, 50 to 160 characters)
   and the canonical link (one, valid, pointing to this page's origin and path). Indexing reads the
@@ -101,8 +118,9 @@ review bundle itself loads only for reviewers.
 `apps/web/e2e/page-checks.spec.ts` on a project's site on another origin with the install guide's CSP
 (`?page-checks` in `e2e/support/reviewedSite.ts`): no audit request before the Accessibility panel opens
 and one after, rules by impact without the toolbar, Highlight, a comment posted on the element with its
-screenshot and details, Show, focus back on Close (Desktop Chrome); the SEO checks, Core Web Vitals not
-counting the toolbar's presses, a guest's name, page feedback and an element's comment (Desktop Chrome);
+screenshot and details, Show, focus back on Close (Desktop Chrome); the SEO checks, the summary's counts,
+the folded outline, Core Web Vitals not counting the toolbar's presses, a guest's name, page feedback, an
+element's comment and a noindex page (its Indexing note, no canonical needed) (Desktop Chrome);
 the panels from Options on a phone, fitting the screen (Mobile Chrome). `toolbar-assets.api.spec.ts`:
 the audit asset is pinned by path and SRI in the review script, absent from the loader and the review
 script, and served with CORS and immutable caching.

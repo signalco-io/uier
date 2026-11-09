@@ -149,7 +149,9 @@ function headingChecks(): SeoReport['headings'] {
             : [];
     });
     const levels = !outline.length ? check('levels', 'Heading levels', 'none', 'No headings.')
-        : skips.length ? check('levels', 'Heading levels', 'warn', `${count(skips.length, 'heading')} ${skips.length === 1 ? 'skips' : 'skip'} a level.`, undefined, skips)
+        // One skip says which (its row then shows only the heading); several say how many
+        : skips.length ? check('levels', 'Heading levels', 'warn', skips.length === 1 ? `${skips[0]!.summary.replace(/\.$/, '')}, skipping a level.`
+            : `${count(skips.length, 'heading')} skip a level.`, undefined, skips)
             : check('levels', 'Heading levels', 'pass', 'No skipped levels.');
     const empty = outline.filter(heading => !heading.text)
         .map(heading => issue('empty-heading', heading.element, 'A heading without text.', 'SEO: This heading has no text.'));
@@ -205,7 +207,8 @@ function linkChecks(): SeoReport['links'] {
         checks: !links.length ? [check('link-text', 'Links', 'none', 'No links on this page.')] : [
             textless.length ? check('link-text', 'Link text', 'warn', `${count(textless.length, 'link')} without text.`, undefined, textless)
                 : check('link-text', 'Link text', 'pass', 'Every link has text.'),
-            broken.length ? check('link-address', 'Link addresses', 'warn', `${count(broken.length, 'link')} ${broken.length === 1 ? 'looks' : 'look'} broken.`, undefined, broken)
+            broken.length ? check('link-address', 'Link addresses', 'warn', broken.length === 1 ? `1 link looks broken. ${broken[0]!.summary}`
+                : `${count(broken.length, 'link')} look broken.`, undefined, broken)
                 : check('link-address', 'Link addresses', 'pass', 'No broken-looking links.')
         ]
     };

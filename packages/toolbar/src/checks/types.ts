@@ -20,8 +20,10 @@ export type PageCheck = {
     id: string;
     label: string;
     state: CheckState;
-    /** What was found (the title, a count, a measurement) */
+    /** What was found (the title, the canonical address), on its own line */
     value?: string;
+    /** A short measurement beside the label ("2.1 s") */
+    measure?: string;
     reason: string;
     issues: PageIssue[];
 };

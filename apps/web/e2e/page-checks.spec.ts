@@ -120,7 +120,10 @@ test('the SEO panel reports the head, headings, links, images and Core Web Vital
     await expect(check('canonical')).toHaveAttribute('data-uier-check-state', 'warn');
     await expect(check('h1')).toHaveAttribute('data-uier-check-state', 'pass');
     await expect(check('levels')).toHaveAttribute('data-uier-check-state', 'warn');
-    await expect(check('levels')).toContainText('An h3 after an h1.');
+    await expect(check('levels')).toContainText('An h3 after an h1, skipping a level.');
+    // The outline is folded until asked for
+    await expect(panel.getByRole('list', { name: 'Headings outline' })).toBeHidden();
+    await panel.locator('summary', { hasText: 'Outline' }).click();
     await expect(panel.getByRole('list', { name: 'Headings outline' })).toContainText('Plans in detail');
     await expect(check('link-text')).toContainText('a#empty-link');
     await expect(check('link-address')).toContainText('It runs a script instead of opening a page.');
@@ -134,6 +137,10 @@ test('the SEO panel reports the head, headings, links, images and Core Web Vital
     // The toolbar's own presses are not the page's interactions
     await expect(check('vital-INP')).toHaveAttribute('data-uier-check-state', 'none');
     await expect(check('vital-INP')).toContainText('No interactions yet.');
+    // The summary first: what is worth a look and what passed
+    await expect(panel.locator('[data-uier-summary="warn"]')).toContainText('To look at');
+    await expect(panel.locator('[data-uier-summary="warn"] dd')).toHaveText(String(await panel.locator('[data-uier-check-state="warn"]').count()));
+    await expect(panel.locator('[data-uier-summary="pass"] dd')).toHaveText(String(await panel.locator('[data-uier-check-state="pass"]').count()));
 
     // A page issue needs the guest's name first, then is page feedback (a bug report)
     await check('description').getByRole('button', { name: 'Comment' }).click();
