@@ -39,7 +39,8 @@ function ruleLink(url: string | undefined) {
     }
 }
 
-function ruleOf(result: Result): AccessibilityRule {
+/** Issue keys end with the page's path, so a comment posted on one page doesn't mark the same finding on another */
+function ruleOf(result: Result, path: string): AccessibilityRule {
     const impact = impacts.includes(result.impact as Impact) ? result.impact as Impact : 'minor';
     const help = oneLine(result.help, 200).replace(/\.$/, '');
     const helpUrl = ruleLink(result.helpUrl);
@@ -49,7 +50,7 @@ function ruleOf(result: Result): AccessibilityRule {
         const target = node.target.at(-1);
         const selector = oneLine(Array.isArray(target) ? target.at(-1) : target, 120);
         return {
-            key: `a11y:${result.id}:${found ? elementKey(found) : `${index}:${selector}`}`,
+            key: `a11y:${result.id}:${found ? elementKey(found) : `${index}:${selector}`}@${path}`,
             summary: oneLine(node.failureSummary?.split('\n').map(line => line.trim()).find(line => line && !/^Fix (any|all) of the following:?$/i.test(line)), 200) || help,
             comment: [`Accessibility (${impact}): ${help}.`, `Rule ${result.id}${helpUrl ? `: ${helpUrl}` : '.'}`].join('\n'),
             element,
@@ -75,7 +76,7 @@ export function checkAccessibility(path: string): Promise<AccessibilityReport> {
                 exclude.length ? { exclude } : document,
                 // Frames are other documents (and maybe other sites): only this document is checked
                 { resultTypes: ['violations'], elementRef: true, iframes: false, performanceTimer: false });
-            const rules = results.violations.map(ruleOf)
+            const rules = results.violations.map(result => ruleOf(result, path))
                 .sort((a, b) => impacts.indexOf(a.impact) - impacts.indexOf(b.impact) || b.issues.length - a.issues.length);
             return { path, checkedAt: Date.now(), rules, count: rules.reduce((total, rule) => total + rule.issues.length, 0) };
         } finally {

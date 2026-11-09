@@ -15,8 +15,11 @@ export type SeoReport = {
     images: { total: number; checks: PageCheck[] };
 };
 
+/** The page `checkSeo` is checking: issue keys end with it, so a comment posted on one page doesn't mark the same finding on another */
+let checkedPath = '';
+
 function issue(check: string, element: Element | undefined, summary: string, comment: string): PageIssue {
-    return { key: `seo:${check}:${element ? elementKey(element) : 'page'}`, summary, comment, element, label: element && elementLabel(element) };
+    return { key: `seo:${check}:${element ? elementKey(element) : 'page'}@${checkedPath}`, summary, comment, element, label: element && elementLabel(element) };
 }
 
 function check(id: string, label: string, state: CheckState, reason: string, value?: string, issues: PageIssue[] = []): PageCheck {
@@ -200,6 +203,7 @@ function imageChecks(): SeoReport['images'] {
 
 /** Reads the page now: its head, headings, links and images */
 export function checkSeo(path: string): SeoReport {
+    checkedPath = path;
     return {
         path,
         checkedAt: Date.now(),

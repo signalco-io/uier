@@ -174,6 +174,13 @@ test('the SEO panel reports the head, headings, links, images and Core Web Vital
     await expect(inbox).toBeVisible();
     await expect(inbox.getByRole('article')).toContainText('The page has no meta description.');
     await expect(panel).toBeHidden();
+
+    // After a client-side navigation, the same finding on another page is not marked as posted
+    await page.evaluate(() => history.pushState({}, '', `${location.pathname}/annual${location.search}`));
+    await button.click();
+    await expect(check('description')).toHaveAttribute('data-uier-check-state', 'warn');
+    await expect(check('description').getByRole('button', { name: 'Comment' })).toBeVisible();
+    await expect(check('description')).not.toContainText(/sent as #1/);
 });
 
 test('on a phone the panels open from Options, keep the pill as wide as before, fit the screen and post with a tap', async ({ page }, testInfo) => {

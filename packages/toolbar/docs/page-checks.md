@@ -15,7 +15,8 @@ Every issue they find has a quick action that posts it as a comment in one click
   checks panel). Their buttons name the open panel in `aria-controls`, and on uier's own pages both
   panels are reviewable parts (`toolbarParts.ts`, "accessibility panel", "SEO panel").
 - `components/checks/PageChecks.tsx` owns what the panels keep while closed: the last report of each,
-  the comments their quick actions posted (by issue key) and the highlighted element. Opening a panel
+  the comments their quick actions posted (by issue key; keys end with the checked page's path, so after a
+  client-side navigation the same finding on another page can be commented again) and the highlighted element. Opening a panel
   checks the page when it has no report of the current page; **Check again** runs it again. A report of
   another page (after a client-side navigation) says so.
 
