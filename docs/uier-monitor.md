@@ -43,8 +43,9 @@ agent stays attached until the comment closes. `monitor.mjs status` lists the le
 
 An optional `agentLease.sessionUrl` carries the existing desktop session link supplied by the
 harness. The watcher forwards it to `set_feedback_agent`, including when it changes or is removed.
-For T3 Code, pass `t3-thread://v2/<environmentId>/<threadId>` with the correct environment id; agent
-kind and session id alone cannot identify the desktop app. Codex accepts
+For T3 Code, pass `t3-thread://v2/<environmentId>/<threadId>` with the correct environment id;
+thread ids may include colons and literal uppercase `%3A` (no other percent encodings, including
+`%3a`, and none in the environment id). Agent kind and session id alone cannot identify the desktop app. Codex accepts
 `codex://threads/<UUID>` and Claude accepts `claude://claude.ai/chat/<UUID>`. Omit the field when the
 harness has no supported link. uier rejects other routes, queries and fragments. Links appear only
 in member agent details and never in guest responses or connected-service deliveries. See the

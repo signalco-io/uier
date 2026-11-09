@@ -180,14 +180,17 @@ test('only the assignee chooses the agent working under them; a new assignee sta
 
 test('desktop session links use a strict route allowlist and stay member-only through attachment edits', async () => {
     const id = '019a0000-1234-5678-9abc-0123456789ab';
-    const t3 = `t3-thread://v2/local-env/${id}`;
-    for (const [url, app] of [[t3, 'T3 Code'], [`codex://threads/${id}`, 'Codex'], [`claude://claude.ai/chat/${id}`, 'Claude']])
+    const t3 = 't3-thread://v2/73899553-410d-4b7f-a173-b59773911f2b/thread:delegated-task:command%3Amcp%3A812c3e72-da4d-4c13-9164-67b13508acd6%3Adelegate-task%3Aum-uier00000002-g190-fix-1';
+    for (const [url, app] of [[t3, 'T3 Code'], [`t3-thread://v2/local-env/${id}`, 'T3 Code'], [`codex://threads/${id}`, 'Codex'], [`claude://claude.ai/chat/${id}`, 'Claude']])
         expect(agentSessionLink(url)).toEqual({ url, app });
     const invalid = ['javascript:alert(1)', 'data:text/html,hello', 'file:///tmp/session', 'https://claude.ai/chat/' + id,
         't3-thread://v2//thread', 't3-thread://v2/env/thread/extra', 't3-thread://v2/env/../thread',
         't3-thread://v2/env/%74hread', 't3-thread://user@v2/env/thread', 't3-thread://v2:123/env/thread',
         't3-thread://v2/env/thread?command=run', 't3-thread://v2/env/thread#other', t3 + '\n', ' ' + t3,
-        t3 + '\u200b', t3.replace('local-env', 'a'.repeat(201)), 't3-thread://v2/env/' + 'a'.repeat(600),
+        t3 + '\u200b', t3.replace('73899553-410d-4b7f-a173-b59773911f2b', 'a'.repeat(201)), 't3-thread://v2/env/' + 'a'.repeat(600),
+        ...['%2F', '%0A', '%2E%2E', '%', '%3a'].map(encoded => `t3-thread://v2/env/thread${encoded}`),
+        `t3-thread://v2/env/t${'%3A'.repeat(170)}`,
+        't3-thread://v2/env%3Aother/thread', `codex://threads/${id}%3A`, `claude://claude.ai/chat/${id}%3A`,
         'codex://threads/new', 'codex://settings', `codex://threads/${id}?prompt=run`, `codex://threads/${id}/`,
         `claude://claude.ai.evil/chat/${id}`, `claude://claudexai/chat/${id}`, `claude://claude.ai/chat/${id}#x`,
         `claude://code/${id}`, 'claude://code/new', `claude://cowork/${id}`, `claude://claude.ai/project/${id}`];
