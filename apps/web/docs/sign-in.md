@@ -77,3 +77,53 @@
 
 All sign-in methods share automatic own-workspace creation through `ensureOwnWorkspace` when
 app context needs one. New workspaces start as **Personal**; signing in never renames an existing one.
+
+## Several accounts in one browser
+
+The sidebar account menu lists up to **5 signed-in accounts**, with each account's avatar, name and
+email. Add account opens `/app/sign-in?add=1`; email (link or code), passkey, Google and Microsoft
+all use the same session writer. Existing accounts stay signed in while another sign-in is pending,
+cancelled or rejected. Signing in again to an account replaces only its own credential. At the cap,
+a new account is refused with a message to sign out of one first; no account is evicted.
+
+`browserAccounts.ts` keeps the active credential in `__Host-uier_session`, with at most four parked
+credentials in `__Host-uier_account_1` through `_4`. Each is independently signed, HttpOnly, Secure,
+SameSite=Lax and Path=/ (unprefixed local HTTP names only). A parked credential is never accepted
+as fallback authorization by an app/API read. Invalid, expired, wrong-purpose or deleted-user
+credentials cannot be selected and do not count toward the cap. The signed-out sign-in page can
+explicitly select a still-live parked account after the active session expires.
+
+Switching uses the original signed token and its remaining lifetime: it does not renew expiry,
+`iat`, recent-sign-in status or email proof (`ev`). The existing recent-sign-in, email proof,
+provider linking and per-account/per-IP rate limits still apply to the active account. A switch
+clears in-flight email/provider/passkey bindings and the browser's workspace selection, so the
+new account starts in its own permitted workspace. Signing out removes only the active credential
+and selects the next live account. Sign out of all accounts removes all five and any legacy active
+cookie. The signed-out review companion is a separate-purpose, non-authorizing marker, so a toolbar
+can distinguish an explicit sign-out from blocked third-party cookies.
+
+`POST /api/account/sessions` validates the same-origin browser request and its strict action body;
+a selected id must match a live signed credential already in that browser. Responses are private,
+no-store and vary by Cookie. Selection/sign-out leave the React tree and router cache through full
+document navigation. Other app tabs recheck the active identity on focus, visibility, reconnect,
+pageshow and a browser-local change event. Account-scoped comment drafts remain separate.
+Reauthentication and coding-tool consent's Use another account retain the other accounts too.
+
+Coverage: `account-sessions.api.spec.ts` tests isolation, cap, replacement, expiry, deletion,
+forgery, cross-site requests, cookie flags, proof age and API authorization. `account-switching.spec.ts`
+covers desktop/mobile menus, provider confirmation, cancellation, tab reconciliation and toolbar
+handoffs; `passkeys.spec.ts` includes Add account with a real virtual-authenticator ceremony.
+
+Only explicit browser-session changes (sign-in, selection and sign-out) write the review companion.
+The app proxy never seeds or repairs it: its Path=/api/review cookie is absent from /app requests,
+and a late app page or prefetch response therefore cannot restore the previous account's review
+identity after a switch or Sign out of all accounts. This does not order concurrent explicit
+session-changing requests or revoke independently issued toolbar/extension credentials. Older
+logins without a companion need to sign in again or select their account to enable background review sign-in.
+
+Coding-tool and extension consent bind approval to the user id shown on the page and compare it
+with the active session before issuing any code. A mismatch leaves the request unapproved. Both
+pages reload their current URL when the account boundary detects an identity change, retaining the
+pending connection and showing the new account before another approval.
+`account-consent.api.spec.ts` covers stale approvals through the built server actions;
+`account-sessions.api.spec.ts` covers late app responses after selection and final sign-out.

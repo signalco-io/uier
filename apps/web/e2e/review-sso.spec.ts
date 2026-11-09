@@ -55,12 +55,10 @@ test('a signed-in member starts reviewing in the background, and sign-out and ex
 test('blocked cookies leave ordinary visitors alone and preserve explicit sign-in', async ({ page }) => {
     await signIn(page, uniqueEmail('blocked-cookies'));
     const project = await createProject(page, { urls: [site.origin()] });
-    // Leave the app before clearing the handoff cookie so pending app prefetches cannot
-    // restore it. The Lax app cookie remains; the cross-site handoff has no credential.
+    // The Lax app cookie remains; simulate a browser refusing the cross-site handoff cookie.
     await page.goto('about:blank');
     await page.context().clearCookies({ name: '__Secure-uier_review_sso' });
-    // App navigation can still seed a companion in a streamed response. Model a browser
-    // refusing that cookie on this cross-site request even if a late response restores it.
+    // Strip it on the cross-site request as well, including after explicit session changes.
     await page.route(`**/api/review/${project}/sso`, async route => {
         const headers = await route.request().allHeaders();
         headers.cookie = (headers.cookie ?? '').split(';').filter(cookie => !cookie.trim().startsWith('__Secure-uier_review_sso=')).join(';');
@@ -166,6 +164,8 @@ test('SSO requires the companion cookie, current membership, a configured parent
     expect((await context.request.post(endpoint, { headers, data })).status()).toBe(204);
     await page.goto('/app/projects');
     expect((await context.request.post(endpoint, { headers, data })).status()).toBe(200);
+    // Leave the app before removing its identity: an open app tab reconciles ended sessions.
+    await page.goto('about:blank');
     // Another signed-in account cannot use this project's background handoff.
     await context.clearCookies();
     await signIn(page, uniqueEmail('no-project-access'));

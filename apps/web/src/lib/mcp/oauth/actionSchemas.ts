@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { isRandomToken } from '../../app/tokens';
+import { userIdSchema } from '../../app/validation';
 
 /** Positional arguments of the OAuth server actions (outside the 'use server' module) */
 export const authorizationRequestActionSchema = z.object({ requestId: z.string().refine(isRandomToken) });
+export const authorizationApprovalActionSchema = authorizationRequestActionSchema.extend({ expectedUserId: userIdSchema });
 export const connectedAppActionSchema = z.object({ revokeCreatedTokens: z.boolean(), grantId: z.string().regex(/^grant_[A-Za-z0-9_-]{1,64}$/) });

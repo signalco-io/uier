@@ -33,12 +33,15 @@ export function GoogleSignInProblem({ outcome }: { outcome?: string | string[] }
 }
 
 /** "Google" ("Sign in with Google" to assistive technologies), the same outline button as the other options (`SignInForm`'s `alternatives`) */
-export function GoogleSignInButton({ next, lastUsed }: { next?: string; lastUsed?: boolean }) {
+export function GoogleSignInButton({ next, lastUsed, addingAccount = false }: { next?: string; lastUsed?: boolean; addingAccount?: boolean }) {
     if (!isGoogleSignInConfigured())
         return null;
+    const params = new URLSearchParams();
+    if (next) params.set('next', next);
+    if (addingAccount) params.set('add', '1');
     return (
         // A plain link: a full navigation, never prefetched (the route starts a sign-in).
-        <a href={`${KnownPages.AppSignInGoogle}${next ? `?next=${encodeURIComponent(next)}` : ''}`}
+        <a href={`${KnownPages.AppSignInGoogle}${params.size ? `?${params}` : ''}`}
             aria-label="Sign in with Google" aria-describedby={lastUsed ? LAST_USED_ID : undefined} data-slot="button" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'relative w-full')}>
             <GoogleLogo data-icon="inline-start" />
             Google

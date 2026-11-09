@@ -11,7 +11,7 @@ import {
     verifyPasskeyRegistration, type PasskeyView
 } from '@/src/lib/app/passkeys';
 import { bindPasskeyChallenge, passkeyCeremonyContext, passkeyFailureMessage, takePasskeyChallenge } from '@/src/lib/app/passkeyRequest';
-import { endSession, getSessionSignIn } from '@/src/lib/app/session';
+import { getSessionSignIn } from '@/src/lib/app/session';
 import { parseActionInput } from '@/src/lib/app/validation';
 
 /** `signInAgain`: the session is too old to add a passkey (`PASSKEY_RECENT_SIGN_IN_SECONDS`) */
@@ -78,6 +78,5 @@ export async function removePasskeyAction(passkeyId: string) {
 
 /** A fresh sign-in, so the person can add a passkey: back to Account afterwards */
 export async function signInAgainAction() {
-    await endSession();
-    redirect(`${KnownPages.AppSignIn}?next=${encodeURIComponent(KnownPageLinks.account('sign-in'))}`);
+    redirect(`${KnownPages.AppSignIn}?add=1&next=${encodeURIComponent(KnownPageLinks.account('sign-in'))}`);
 }

@@ -42,6 +42,8 @@ export async function passkeySignInAction(response: unknown, next: unknown): Pro
         };
 
     // A passkey proves who signs in, not that they still have the account's inbox
-    const proof = await startSession(outcome.value.id, 'passkey');
+    const session = await actionResult(() => startSession(outcome.value.id, 'passkey'));
+    if (!session?.ok) return { ok: false, error: session?.error ?? 'Could not sign in. Try again.' };
+    const proof = session.data;
     redirect(await signInDestination(outcome.value, safeNextPath(next) ?? KnownPages.App, proof));
 }

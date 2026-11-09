@@ -88,6 +88,8 @@ export default defineConfig({
             env: {
                 // Local runtime: BotID is skipped and the in-memory store is allowed (src/lib/comments/environment.ts)
                 UIER_LOCAL: '1',
+                // Fictional registered client for the consent action's local HTTP regression tests.
+                UIER_EXTENSION_CLIENT_IDS: 'abcdefghijklmnopabcdefghijklmnop',
                 UIER_EMAIL_REPORT_SECRET: 'e2e-email-report-secret',
                 UIER_EMAIL_REPORT_SUBSCRIPTION: 'uier-email-delivery',
                 UIER_EMAIL_REPORT_TOPIC: '/subscriptions/test/resourceGroups/test/providers/Microsoft.Communication/communicationServices/test',

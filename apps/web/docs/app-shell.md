@@ -177,3 +177,14 @@ state and redirect to the provider), coding-tool return URLs, review links (sing
 new tab on the reviewed site), external sites and downloads. Sign-out keeps its session-ending
 server action and redirect. Crossing between marketing and `/app` keeps the document-policy
 boundary: CSP and COOP belong to a document and must change together.
+
+### Account selection
+
+The sidebar footer's account menu lists this browser's live signed-in accounts (avatar, name and
+email), marks the active one and offers Add account, Sign out and, with several accounts, Sign out
+of all accounts. The cap is five; at the cap Add account explains that one must be signed out first.
+Switching opens a fresh app document on the selected account's own workspace. Sign out opens the
+next live account, or sign-in when none remains. The shell sends only menu fields to the client,
+never session credentials. `AccountSessionBoundary` reconciles other tabs on focus/visibility,
+reconnect, pageshow and account-change events. See [sign-in](sign-in.md#several-accounts-in-one-browser)
+for credential isolation and [account switching coverage](../e2e/account-switching.spec.ts).

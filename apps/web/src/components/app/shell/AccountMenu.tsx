@@ -3,7 +3,7 @@
 import { useTransition } from 'react';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
-import { ChevronsUpDownIcon, CircleUserIcon, KeyboardIcon, LogOutIcon, MonitorIcon, MoonIcon, SunIcon } from 'lucide-react';
+import { CheckIcon, UserPlusIcon, ChevronsUpDownIcon, CircleUserIcon, KeyboardIcon, LogOutIcon, MonitorIcon, MoonIcon, SunIcon } from 'lucide-react';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -22,8 +22,10 @@ import {
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@/src/components/ui/sidebar';
 import { KnownPages } from '@/src/knownPages';
 import { PersonAvatar } from '../PersonAvatar';
-import { signOutAction } from './actions';
-import { clearAppReplyDrafts } from '../comments/replyDrafts';
+import { changeAccount } from './accountSessions';
+import type { BrowserAccount } from '@/src/lib/app/browserAccounts';
+import { MAX_BROWSER_ACCOUNTS } from '@/src/lib/app/browserAccountLimits';
+import { toast } from 'sonner';
 import { useOpenShortcutsHelp } from '../keyboard/AppShortcuts';
 import { useKeyShortcutLabel } from '../keyboard/keys';
 
@@ -34,12 +36,16 @@ export const themeOptions = [
 ] as const;
 
 /** The signed-in person at the bottom of the sidebar: account, theme, keyboard shortcuts and sign out */
-export function AccountMenu({ name, email, avatarUrl }: { name: string; email: string; avatarUrl?: string }) {
+export function AccountMenu({ name, email, avatarUrl, accounts }: { name: string; email: string; avatarUrl?: string; accounts: BrowserAccount[] }) {
     const { isMobile } = useSidebar();
     const { theme, setTheme } = useTheme();
     const [pending, startTransition] = useTransition();
     const openShortcuts = useOpenShortcutsHelp();
     const shortcutKey = useKeyShortcutLabel('?');
+
+    const change = (input: Parameters<typeof changeAccount>[0]) => startTransition(async () => {
+        try { await changeAccount(input); } catch (error) { toast.error(error instanceof Error ? error.message : 'Could not change accounts.'); }
+    });
 
     // The menu's header: the person with their email
     const person = (
@@ -80,6 +86,25 @@ export function AccountMenu({ name, email, avatarUrl }: { name: string; email: s
                         </DropdownMenuGroup>
                         <DropdownMenuSeparator />
                         <DropdownMenuGroup>
+                            <DropdownMenuLabel>Signed-in accounts</DropdownMenuLabel>
+                            {accounts.map(account => (
+                                <DropdownMenuItem key={account.id} disabled={pending || account.active}
+                                    onClick={() => change({ action: 'switch', userId: account.id })}>
+                                    <PersonAvatar name={account.name} avatarUrl={account.avatarUrl} size="sm" aria-hidden="true" />
+                                    <span className="grid min-w-0 flex-1">
+                                        <span className="truncate">{account.name}</span>
+                                        <span className="truncate text-xs text-muted-foreground">{account.email}</span>
+                                    </span>
+                                    {account.active && <><CheckIcon aria-hidden="true" /><span className="sr-only">active</span></>}
+                                </DropdownMenuItem>
+                            ))}
+                            <DropdownMenuItem disabled={pending || accounts.length >= MAX_BROWSER_ACCOUNTS} render={<a href={`${KnownPages.AppSignIn}?add=1`} />}>
+                                <UserPlusIcon />Add account
+                            </DropdownMenuItem>
+                            {accounts.length >= MAX_BROWSER_ACCOUNTS && <DropdownMenuLabel className="font-normal text-muted-foreground">5 accounts. Sign out to add another.</DropdownMenuLabel>}
+                        </DropdownMenuGroup>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuGroup>
                             <DropdownMenuItem render={<Link href={KnownPages.AppAccount} />}>
                                 <CircleUserIcon />
                                 Account
@@ -107,10 +132,13 @@ export function AccountMenu({ name, email, avatarUrl }: { name: string; email: s
                             </DropdownMenuItem>
                         </DropdownMenuGroup>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => { clearAppReplyDrafts(); startTransition(() => signOutAction()); }}>
+                        <DropdownMenuItem disabled={pending} onClick={() => change({ action: 'sign-out' })}>
                             <LogOutIcon />
                             Sign out
                         </DropdownMenuItem>
+                        {accounts.length > 1 && <DropdownMenuItem disabled={pending} onClick={() => change({ action: 'sign-out-all' })}>
+                            <LogOutIcon />Sign out of all accounts
+                        </DropdownMenuItem>}
                     </DropdownMenuContent>
                 </DropdownMenu>
             </SidebarMenuItem>

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
-import { signIn, uniqueEmail } from './support/app';
+import { hydrated, signIn, uniqueEmail } from './support/app';
 import { signToken, verifyToken } from '../src/lib/app/tokens';
 import { PASSKEY_RECENT_SIGN_IN_SECONDS } from '../src/lib/app/passkeys';
 
@@ -24,6 +24,8 @@ async function virtualAuthenticator(page: Page) {
 async function signOut(page: Page) {
     await page.goto(`${base}/app/account/sign-in`);
     await page.getByRole('region', { name: 'Sign out' }).getByRole('button', { name: 'Sign out' }).click();
+    await expect(page).toHaveURL(`${base}/app/sign-in`);
+    await hydrated(page.getByRole('button', { name: 'Sign in with a passkey' }));
 }
 
 /** The virtual authenticator answers the email field's autofill at once; this browser has none. */
@@ -129,7 +131,7 @@ test('adding a passkey needs a recent sign-in, and Sign in again comes back to A
     await expect(section).toContainText('To add a passkey, sign in again. Adding one needs a sign-in from the last 10 minutes.');
     await expect(section.getByRole('button', { name: 'Add a passkey' })).toHaveCount(0);
     await section.getByRole('button', { name: 'Sign in again' }).click();
-    await expect(page).toHaveURL(`${base}/app/sign-in?next=%2Fapp%2Faccount%2Fsign-in`);
+    await expect(page).toHaveURL(`${base}/app/sign-in?add=1&next=%2Fapp%2Faccount%2Fsign-in`);
     await signIn(page, email, { from: page.url() });
     await expect(page).toHaveURL(`${base}/app/account/sign-in`);
     await expect(section.getByRole('button', { name: 'Add a passkey' })).toBeVisible();
@@ -147,4 +149,24 @@ test('browsers without WebAuthn get no passkey button, and Account says why', as
     const section = page.getByRole('region', { name: 'Passkeys' });
     await expect(section).toContainText('This browser does not support passkeys. You can still sign in with an email code.');
     await expect(section.getByRole('button', { name: 'Add a passkey' })).toHaveCount(0);
+});
+
+test('Add account signs in with a passkey while keeping the other account signed in', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'Chromium virtual authenticator');
+    const authenticator = await virtualAuthenticator(page);
+    await withoutPasskeyAutofill(page);
+    const first = uniqueEmail('passkey-multiple');
+    const second = uniqueEmail('email-multiple');
+    await signIn(page, first, { from: `${base}/app/sign-in` });
+    await addPasskey(page);
+    await signIn(page, second, { from: `${base}/app/sign-in?add=1` });
+    await page.goto(`${base}/app/sign-in?add=1&next=/app/account/sign-in`);
+    await page.getByRole('button', { name: 'Sign in with a passkey' }).click();
+    await expect(page).toHaveURL(`${base}/app/account/sign-in`);
+    await expect(page.getByRole('main')).toContainText(first);
+    const accounts = (await page.context().cookies(base)).filter(cookie => /^uier_(session|account_\d)$/.test(cookie.name));
+    expect(accounts).toHaveLength(2);
+    await page.goto(`${base}/app/sign-in?add=1`);
+    await expect(page.getByRole('region', { name: 'Signed-in accounts' })).toContainText(second);
+    await authenticator.cdp.detach();
 });

@@ -60,7 +60,8 @@ OAuth rules (`src/lib/mcp/oauth/`, `app/api/oauth/`):
   refresh or 1 year after creation. Each access token is checked against its grant (present, active,
   same client) on every request, so deleting the grant revokes everything at once. Never log tokens,
   codes, verifiers, `state` or request bodies.
-- Consent (`authorize.ts`): approval rechecks the session user, validates every chosen workspace and
+- Consent (`actions.ts`, `authorize.ts`): approval compares the active session with the user id shown on the
+  consent page before issuing a code, validates every chosen workspace and
   project with `validateAccessChoice`, enforces 20 active connected apps per user unless replacing one,
   and consumes the stored request with a conditional delete before creating a code. Consent is always
   shown; `prompt=none` fails with `interaction_required`.
@@ -85,9 +86,11 @@ generic bot. Names are untrusted, so the mark is only a picture: it grants nothi
 that named itself. The consent page is `app/connect/[requestId]` (its own centred layout,
 no sidebar) and `app/connect/error` is public. `src/lib/mcp/oauth/actions.ts` approves or cancels by
 returning the client's callback URL, and the page navigates there itself (`form-action 'self'` blocks
-redirects after a form post). Every `/app` server action refreshes the page (the proxy sets the review
-SSO cookie), so the page always renders `ConnectConsent`, which keeps the outcome after the request is
-consumed. Both share `ClientDetails` (Unverified, Published at, Sends you back to) and `scopes.ts` labels.
+redirects after a form post). The page always renders `ConnectConsent`, which keeps the outcome if a
+server-action refresh follows consumption of the request. The connect layout mounts the account
+boundary and reloads the consent URL on an account change; stale approval actions are refused
+server-side even before that reload. `account-consent.api.spec.ts` covers stale approvals. Both share
+`ClientDetails` (Unverified, Published at, Sends you back to) and `scopes.ts` labels.
 
 The route has `maxDuration = 30`; `handleMcp` races transport handling against a 25-second deadline
 (overridable by API specs) and the request abort signal, returns a JSON-RPC error on interruption

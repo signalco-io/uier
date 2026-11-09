@@ -18,18 +18,17 @@ import { PROJECT_ORDER_COOKIE_NAME } from '@/src/lib/app/projectOrderCookie';
 import { projectOrderActionSchema, switchWorkspaceActionSchema } from './actionSchemas';
 
 export async function signOutAction() {
-    await endSession();
-    redirect(KnownPages.AppSignIn);
+    const hasAnother = await endSession();
+    redirect(hasAnother ? KnownPages.App : KnownPages.AppSignIn);
 }
 
 /**
  * A fresh email sign-in for a step that needs the account email proven in the last 10 minutes (joining or
- * adding an email domain, `emailProof.ts`): signs out and opens the email form, back to `next` afterwards.
+ * adding an email domain, `emailProof.ts`): keeps other accounts signed in and opens the email form, back to `next` afterwards.
  */
 export async function signInAgainWithEmailAction(formData: FormData) {
     const next = safeNextPath(formData.get('next')) ?? KnownPages.App;
-    await endSession();
-    redirect(`${KnownPages.AppSignIn}?${new URLSearchParams({ next, with: 'email' })}`);
+    redirect(`${KnownPages.AppSignIn}?${new URLSearchParams({ next, with: 'email', add: '1' })}`);
 }
 
 export async function switchWorkspaceAction(workspaceId: string) {

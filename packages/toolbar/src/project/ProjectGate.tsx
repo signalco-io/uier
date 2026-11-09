@@ -7,7 +7,7 @@ import { activityQueryKey } from '../hooks/useComments';
 import { ProjectNotice } from '../components/ProjectNotice';
 import { useAnnounce } from '../components/Announcer';
 import { clearReviewCode, consumeReviewCode, enableBackgroundSignIn, getReviewToken, setReviewToken } from './projectSession';
-import { backgroundSignIn } from './backgroundSession';
+import { backgroundSignIn, refreshBackgroundSignIn } from './backgroundSession';
 import { checkInstallationReady } from './installationCheck';
 import { defaultPageStatePolicy, pagePath, type PageStatePolicy } from '../pageState';
 
@@ -52,7 +52,7 @@ export async function loadReviewInfo() {
         }
     }
 
-    if (!getReviewToken()) await backgroundSignIn();
+    await backgroundSignIn();
 
     let info = required(await apiRequest<ReviewInfo>(reviewApiUrl));
     if (getReviewToken() && info.viewer.kind !== 'member') {
@@ -139,14 +139,38 @@ type ProjectGateProps = PropsWithChildren<{
 export function ProjectGate({ children, onExitReview }: ProjectGateProps) {
     const client = useQueryClient();
     const previousScope = useRef<string | undefined>(undefined);
-    const { data: info, error, isPending, fetchStatus } = useQuery({
+    const { data: info, error, isPending, fetchStatus, refetch } = useQuery({
         queryKey: projectViewerQueryKey,
         queryFn: loadReviewInfo,
         staleTime: Infinity,
-        refetchOnWindowFocus: 'always',
-        refetchOnReconnect: 'always',
+        refetchOnWindowFocus: false,
+        refetchOnReconnect: false,
         retry: 1
     });
+    useEffect(() => {
+        // Refresh the credential before the viewer on a real return, not every comments invalidation.
+        let wasAway = document.visibilityState === 'hidden';
+        let checking = false;
+        const check = async () => {
+            if (checking || document.visibilityState === 'hidden') return;
+            checking = true;
+            try { await refreshBackgroundSignIn(); await refetch(); }
+            finally { checking = false; }
+        };
+        const blur = () => { wasAway = true; };
+        const focus = () => { if (wasAway) { wasAway = false; void check(); } };
+        const visibility = () => { if (document.visibilityState === 'hidden') blur(); else focus(); };
+        window.addEventListener('blur', blur);
+        window.addEventListener('focus', focus);
+        window.addEventListener('online', check);
+        document.addEventListener('visibilitychange', visibility);
+        return () => {
+            window.removeEventListener('blur', blur);
+            window.removeEventListener('focus', focus);
+            window.removeEventListener('online', check);
+            document.removeEventListener('visibilitychange', visibility);
+        };
+    }, [refetch]);
     useEffect(() => {
         void checkInstallationReady(info, error);
         const scope = info?.viewer.draftScope ?? info?.viewer.kind;

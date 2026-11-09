@@ -577,7 +577,8 @@ test.describe('routes', () => {
             for (const context of [request, await playwright.request.newContext({ baseURL })]) {
                 const replay = await context.get(callback, { maxRedirects: 0 });
                 const location = replay.headers().location!;
-                expect(new URL(location).pathname + new URL(location).search).toBe('/app/sign-in?google=expired');
+                expect(new URL(location).pathname + new URL(location).search).toBe(context === request
+                    ? '/app/sign-in?add=1&google=expired' : '/app/sign-in?google=expired');
                 expect(location).not.toContain(code);
                 expect(location).not.toContain(state);
                 expect(replay.headers()['set-cookie'] ?? '').not.toContain('uier_session=');

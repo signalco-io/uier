@@ -1,14 +1,14 @@
 import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { cookieName, cookieNames, readMigratingCookie } from '../cookieNames';
-import { isLocalRuntime } from '../comments/environment';
 import type { DbUser } from './model';
-import { SESSION_COOKIE_NAME, SESSION_TTL_SECONDS, sessionEmailProof, sessionSignedInAt, sessionToken, sessionUser } from './sessionIdentity';
-import { reviewSsoCookie, REVIEW_SSO_COOKIE_NAME, reviewSsoCookieOptions } from './reviewSsoCookie';
-import { SIGN_IN_REQUEST_COOKIE_NAME } from './signInCookie';
-import { GOOGLE_SIGN_IN_COOKIE_NAME } from './google/cookie';
-import { MICROSOFT_SIGN_IN_COOKIE_NAME } from './microsoft/cookie';
+import { sessionEmailProof, sessionSignedInAt, sessionToken, sessionUser } from './sessionIdentity';
+import { appCookieOptions } from './appCookies';
+import { addBrowserSession, browserSessions, removeBrowserAccount } from './browserAccounts';
+import { avatarUrl } from './avatars';
 
+export { appCookieOptions } from './appCookies';
+export { MAX_BROWSER_ACCOUNTS, type BrowserAccount } from './browserAccounts';
 export { SESSION_COOKIE_NAME, SESSION_TTL_SECONDS } from './sessionIdentity';
 
 /** The ways to sign in; the sign-in page marks the one this browser used last */
@@ -17,17 +17,6 @@ const signInMethods: readonly string[] = ['passkey', 'google', 'microsoft', 'ema
 /** Holds only the method's name, and outlives sign-out: it is a hint for the next sign-in */
 const LAST_SIGN_IN_COOKIE_NAME = cookieName(cookieNames.lastSignIn);
 
-export function appCookieOptions(maxAge: number) {
-    return {
-        httpOnly: true,
-        sameSite: 'lax' as const,
-        path: '/',
-        maxAge,
-        // Plain http only in local development and tests
-        secure: !isLocalRuntime()
-    };
-}
-
 /**
  * Signs the user in on this browser and remembers how (server actions and route handlers only).
  * `provenEmail`: the account email when this sign-in proved its inbox now (`emailProof.ts`); returns that proof.
@@ -35,25 +24,19 @@ export function appCookieOptions(maxAge: number) {
 export async function startSession(userId: string, method: SignInMethod, provenEmail?: string) {
     const jar = await cookies();
     const { token, proof } = sessionToken(userId, provenEmail);
-    jar.set(SESSION_COOKIE_NAME, token, appCookieOptions(SESSION_TTL_SECONDS));
+    await addBrowserSession(jar, token);
     jar.set(LAST_SIGN_IN_COOKIE_NAME, method, appCookieOptions(cookieNames.lastSignIn.lifetime));
-    jar.set(SIGN_IN_REQUEST_COOKIE_NAME, '', appCookieOptions(0));
-    jar.set(GOOGLE_SIGN_IN_COOKIE_NAME, '', appCookieOptions(0));
-    jar.set(MICROSOFT_SIGN_IN_COOKIE_NAME, '', appCookieOptions(0));
-    if (SIGN_IN_REQUEST_COOKIE_NAME !== cookieNames.signInRequest.legacy)
-        jar.set(cookieNames.signInRequest.legacy, '', appCookieOptions(0));
-    const companion = reviewSsoCookie(token);
-    if (companion) jar.set(companion);
     return proof;
 }
 
-export async function endSession() {
-    const jar = await cookies();
-    for (const name of new Set([SESSION_COOKIE_NAME, cookieNames.session.legacy]))
-        jar.set(name, '', appCookieOptions(0));
-    for (const name of [REVIEW_SSO_COOKIE_NAME, cookieNames.reviewSso.legacy])
-        jar.set(name, '', { ...reviewSsoCookieOptions, maxAge: 0 });
+export async function endSession(all = false) {
+    return removeBrowserAccount(await cookies(), all);
 }
+
+/** Public account-menu fields only. Credentials never leave HttpOnly cookie state. */
+export const getBrowserAccounts = cache(async () => (await browserSessions(await cookies())).map(({ user, active }) => ({
+    id: user.id, name: user.name, email: user.email, avatarUrl: avatarUrl(user), active
+})));
 
 /** How this browser signed in last, kept after sign-out, or `undefined` */
 export async function getLastSignInMethod() {

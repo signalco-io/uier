@@ -178,6 +178,13 @@ come to about 360 RU/hour (8,640 RU/day), around €0.0024/day at the rate below
 aggregates; revision checks still load the authorized comment snapshot. Measure with
 `UIER_COSMOS_DIAGNOSTICS_SAMPLE_RATE` and the operation label before assuming either figure.
 
+The account menu additionally validates at most five signed browser credentials and point-reads
+one live user per unique account (`browserAccounts.ts`), without listing workspaces or projects
+for inactive accounts. These reads run in parallel with the other shell data and are memoized only
+within a render. Foreground app identity checks read only the active user; account selection reads
+the held accounts again before writing cookies. No production RU measurement is available for
+these additional bounded point reads.
+
 ## Usage review on 9 November 2026
 
 The [numeric receipt](evidence/usage-performance-2026-11-09.json) records the production `app` and

@@ -1,9 +1,12 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { KnownPages } from '@/src/knownPages';
-import { getLastSignInMethod, getSessionUser } from '@/src/lib/app/session';
+import { getBrowserAccounts, getLastSignInMethod, getSessionUser } from '@/src/lib/app/session';
 import { safeNextPath } from '@/src/lib/app/signIn';
 import { appLinkMetadata, describeAppLink } from '@/src/lib/metadata';
+import { SignedInAccounts } from '@/src/components/app/shell/SignedInAccounts';
+import { ACCOUNT_LIMIT_MESSAGE } from '@/src/lib/app/browserAccounts';
+import { Alert, AlertDescription } from '@/src/components/ui/alert';
 import { SignInForm } from './SignInForm';
 import { GoogleSignInButton, GoogleSignInProblem } from './GoogleSignIn';
 import { MicrosoftSignInButton, MicrosoftSignInProblem } from './MicrosoftSignIn';
@@ -18,22 +21,26 @@ export async function generateMetadata({ searchParams }: PageProps<'/app/sign-in
 }
 
 export default async function SignInPage({ searchParams }: PageProps<'/app/sign-in'>) {
-    const { next, google, microsoft, with: method } = await searchParams;
+    const { next, google, microsoft, with: method, add, accounts: accountProblem } = await searchParams;
     const nextPath = safeNextPath(next);
-    if (await getSessionUser())
+    if (add !== '1' && await getSessionUser())
         redirect(nextPath ?? KnownPages.App);
-    const lastUsed = await getLastSignInMethod();
+    const [lastUsed, accounts] = await Promise.all([getLastSignInMethod(), getBrowserAccounts()]);
 
     // The form renders the card: once the email is sent, the code step has its own header
     return (
-        <SignInForm next={nextPath} withEmail={method === 'email'} lastUsed={lastUsed}
+        <>
+        <SignedInAccounts accounts={accounts} next={nextPath} />
+        <SignInForm addingAccount={add === '1'} next={nextPath} withEmail={method === 'email'} lastUsed={lastUsed}
             problems={<>
+                {accountProblem === 'full' && <Alert role="alert"><AlertDescription>{ACCOUNT_LIMIT_MESSAGE}</AlertDescription></Alert>}
                 <GoogleSignInProblem outcome={google} />
                 <MicrosoftSignInProblem outcome={microsoft} />
             </>}
             alternatives={<>
-                <GoogleSignInButton next={nextPath} lastUsed={lastUsed === 'google'} />
-                <MicrosoftSignInButton next={nextPath} lastUsed={lastUsed === 'microsoft'} />
+                <GoogleSignInButton addingAccount={add === '1'} next={nextPath} lastUsed={lastUsed === 'google'} />
+                <MicrosoftSignInButton addingAccount={add === '1'} next={nextPath} lastUsed={lastUsed === 'microsoft'} />
             </>} />
+        </>
     );
 }

@@ -7,6 +7,11 @@ export const cookieMigrationCutoff = Date.UTC(2026, 9, 30);
 export const cookieNames = {
     visitor: { name: '__Host-uier_visitor', legacy: 'uier_visitor', lifetime: 365 * day },
     session: { name: '__Host-uier_session', legacy: 'uier_session', lifetime: 30 * day },
+    // Parked account credentials: new cookies, no HTTPS legacy fallback.
+    account1: { name: '__Host-uier_account_1', legacy: 'uier_account_1', lifetime: 30 * day },
+    account2: { name: '__Host-uier_account_2', legacy: 'uier_account_2', lifetime: 30 * day },
+    account3: { name: '__Host-uier_account_3', legacy: 'uier_account_3', lifetime: 30 * day },
+    account4: { name: '__Host-uier_account_4', legacy: 'uier_account_4', lifetime: 30 * day },
     signInRequest: { name: '__Host-uier_sign_in_request', legacy: 'uier_sign_in_request', lifetime: 15 * 60 },
     // New after the migration: read only by its current name (`legacy` is the local HTTP name).
     microsoftSignIn: { name: '__Host-uier_microsoft_sign_in', legacy: 'uier_microsoft_sign_in', lifetime: 15 * 60 },
