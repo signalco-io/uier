@@ -1,6 +1,6 @@
 'use client';
 
-import { agentIsWorking, agentLabels, agentMarks, agentText, type AgentKind, type AssigneeAgentView } from '@uier/toolbar/agents';
+import { assigneeAgents, agentIsWorking, agentLabels, agentMarks, agentText, type AgentKind, type AssigneeAgentView } from '@uier/toolbar/agents';
 import { useAgentWorking } from '@uier/toolbar/agent-working';
 import { Spinner } from '@/src/components/ui/spinner';
 import { cn } from '@/src/lib/utils';
@@ -27,48 +27,66 @@ export function AgentMark({ kind, className }: { kind: AgentKind; className?: st
  * An AI agent's mark on a bordered circle, the size of the 20px avatars it sits with (`size-*` on
  * `className` scales it). Every mark is one colour, ink on light and paper on dark (BRAND.md).
  */
-export function AgentAvatar({ kind, workingUntil, className }: { kind: AgentKind; workingUntil?: string; className?: string }) {
+export function AgentAvatar({ kind, workingUntil, className, compact = false }: { kind: AgentKind; workingUntil?: string; className?: string; compact?: boolean }) {
     const working = useAgentWorking(workingUntil);
     return (
         <span {...working ? { role: 'img', 'aria-label': `${agentLabels[kind]} is working now` } : { 'aria-hidden': true }} data-agent={kind}
             className={cn('relative flex size-5 shrink-0 items-center justify-center rounded-full border bg-background text-foreground', className)}>
             <AgentMark kind={kind} className="size-3/5" />
-            {working && <span data-agent-working="" className="absolute -right-1 -bottom-0.5 flex size-3 items-center justify-center rounded-full bg-background">
-                <Spinner className="size-2.5 motion-reduce:animate-none" />
+            {working && <span data-agent-working="" className={cn('absolute -right-1 -bottom-0.5 flex items-center justify-center rounded-full bg-background', compact ? 'size-2' : 'size-3')}>
+                <Spinner className={cn('motion-reduce:animate-none', compact ? 'size-1.5' : 'size-2.5')} />
             </span>}
         </span>
     );
 }
 
-export type Assignee = { id: string; name: string; avatarUrl?: string; agent?: AssigneeAgentView };
+export type Assignee = { id: string; name: string; avatarUrl?: string; agent?: AssigneeAgentView; agents?: AssigneeAgentView[] };
 
 /** "Assigned to Ana" or "Assigned to you, with Claude Opus 5.5 (high reasoning)": the words of the avatars below */
-export function assignedLabel(assignee: Assignee | undefined, userId?: string, working = agentIsWorking(assignee?.agent?.workingUntil)) {
-    if (!assignee) return 'Unassigned';
-    return `Assigned to ${assignee.id === userId ? 'you' : assignee.name}${assignee.agent ? `, with ${agentText(assignee.agent)}${working ? ', working now' : ''}` : ''}`;
+export function assignedLabel(assignee: Assignee | Assignee[] | undefined, userId?: string) {
+    const people = Array.isArray(assignee) ? assignee : assignee ? [assignee] : [];
+    if (!people.length) return 'Unassigned';
+    return `Assigned to ${people.map(person => `${person.id === userId ? 'you' : person.name}${assigneeAgents(person).map(agent => `, with ${agentText(agent)}${agentIsWorking(agent.workingUntil) ? ', working now' : ''}`).join('')}`).join('; ')}`;
 }
 
-/**
- * Who works on a thread: the assignee's 20px avatar, with the AI agent working under them stacked on its
- * right edge. One image named by `assignedLabel` (`decorative` inside a control that carries the name), for rows
- * and board cards.
- */
-export function AssigneeAvatars({ assignee, userId, decorative, className }: { assignee: Assignee; userId?: string; decorative?: boolean; className?: string }) {
-    const working = useAgentWorking(assignee.agent?.workingUntil);
+/** People are grouped separately; every agent belongs to one person's avatar. */
+export function AssigneeAvatars({ assignee, assignees, userId, decorative, className }: { assignee?: Assignee; assignees?: Assignee[]; userId?: string; decorative?: boolean; className?: string }) {
+    const people = assignees ?? (assignee ? [assignee] : []);
+    useAgentWorking(people.flatMap(person => assigneeAgents(person).map(agent => agent.workingUntil)));
     return (
-        <span {...decorative ? { 'aria-hidden': true } : { role: 'img', 'aria-label': assignedLabel(assignee, userId, working) }} className={cn('flex shrink-0 items-center', className)}>
-            <PersonAvatar assignee={assignee} />
-            {assignee.agent && <AgentAvatar kind={assignee.agent.kind} workingUntil={assignee.agent.workingUntil} className="-ml-1.5 ring-2 ring-background" />}
+        <span role="img" {...decorative ? { 'aria-hidden': true } : { 'aria-label': assignedLabel(people, userId) }} className={cn('flex shrink-0 items-center gap-3', className)}>
+            {people.slice(0, 3).map(person => {
+                const agents = assigneeAgents(person);
+                return <span key={person.id} data-assignee-avatar={person.id} className="relative inline-flex size-5 shrink-0">
+                    <PersonAvatar assignee={person} />
+                    {agents.length > 0 && <span data-assignee-agents="" className="absolute -right-1 -bottom-1 flex items-center">
+                        {agents.slice(0, agents.length > 2 ? 1 : 2).map((agent, index) => <AgentAvatar key={agent.id ?? index} kind={agent.kind} workingUntil={agent.workingUntil} compact
+                            className="-ml-0.5 size-3 ring-1 ring-background first:ml-0" />)}
+                        {agents.length > 2 && <OverflowCount count={agents.length - 1} workingUntil={agents.slice(1).map(agent => agent.workingUntil)} compact />}
+                    </span>}
+                </span>;
+            })}
+            {people.length > 3 && <OverflowCount count={people.length - 3} workingUntil={people.slice(3).flatMap(person => assigneeAgents(person).map(agent => agent.workingUntil))} />}
         </span>
     );
+}
+
+/** A compact count still reports work on an attachment that is only shown in the full card. */
+function OverflowCount({ count, workingUntil, compact = false }: { count: number; workingUntil: (string | undefined)[]; compact?: boolean }) {
+    const working = useAgentWorking(workingUntil);
+    return <span data-assignee-overflow="" data-count={`+${count}`} className={cn('relative flex items-center justify-center rounded-full border bg-background font-medium text-foreground after:content-[attr(data-count)]',
+        compact ? '-ml-0.5 size-3 text-[8px] ring-1 ring-background' : 'size-5 text-[10px]')}>
+        {working && <span data-agent-working="" className="absolute -right-1 -bottom-0.5 flex size-2 items-center justify-center rounded-full bg-background"><Spinner className="size-1.5 motion-reduce:animate-none" /></span>}
+    </span>;
 }
 
 /** The assignee's 20px avatar (`size-*` on `className` scales it). Not `size="sm"`: its `data-[size=sm]:size-6` would win over `size-5` */
 export function PersonAvatar({ assignee, className, initialsClassName }: { assignee: Pick<Assignee, 'name' | 'avatarUrl'>; className?: string; initialsClassName?: string }) {
     return (
-        <Avatar aria-hidden="true" className={cn('size-5', className)}>
+        <Avatar role="img" aria-hidden="true" className={cn('size-5', className)}>
             {assignee.avatarUrl && <AvatarImage src={assignee.avatarUrl} alt="" />}
-            <AvatarFallback className={cn('text-[10px] font-semibold text-foreground', initialsClassName)}>{initials(assignee.name)}</AvatarFallback>
+            {/* Initials are a decorative glyph; the enclosing control names the person. */}
+            <AvatarFallback data-initials={initials(assignee.name)} className={cn('text-[10px] font-semibold text-foreground after:content-[attr(data-initials)]', initialsClassName)} />
         </Avatar>
     );
 }

@@ -25,7 +25,8 @@ test('My work lists what needs you across projects, each thread once, and opens 
     await page.goto(`/app/projects/${first}`);
     const thread = await openComment(page, 'Checkout total is wrong');
     await thread.getByRole('button', { name: 'Unassigned. Change assignee', exact: true }).click();
-    await page.getByRole('menuitem', { name: /^my-work-/ }).click();
+    await page.getByRole('menuitemcheckbox', { name: /^my-work-/ }).click();
+    await page.getByRole('menuitem', { name: 'Done', exact: true }).click();
     await expect(thread.getByRole('button', { name: 'Assigned to you. Change assignee', exact: true })).toBeVisible();
 
     await appNavigation(page);

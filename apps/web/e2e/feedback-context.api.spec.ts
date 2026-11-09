@@ -207,13 +207,22 @@ test('titles, author names and all inline metadata remain literal for GitHub and
         expect(packet.markdown).toContain(`# \` ${unsafe} \`\n`);
         expect(packet.markdown).toContain(`\n\n\`\` ${authorName} \`\`\n\n`);
         expect(packet.markdown).toContain(`\n\n\`\`\`text\n${unsafe}\n\`\`\``);
-        const context = { ...packet.context, assignee: { name: unsafe }, source: { path: '/', origin: unsafe, environment: unsafe },
+        const context = { ...packet.context, assignees: undefined, assignee: { name: unsafe }, source: { path: '/', origin: unsafe, environment: unsafe },
             reproduction: { browser: unsafe, os: unsafe, capturedAt: unsafe }, notes: [unsafe] };
         const original = structuredClone(context);
         const markdown = feedbackMarkdown(context);
         for (const label of ['Assignee', 'Source', 'Environment', 'Browser', 'Operating system', 'Captured'])
             expect(markdown).toContain(`${label}: \` ${unsafe} \``);
         expect(context).toEqual(original);
+        const nested = { ...context, assignees: [{ name: unsafe, agents: [
+            { kind: 'claude' as const, label: unsafe, model: unsafe, reasoning: unsafe, sessionId: unsafe },
+            { kind: 'codex' as const, label: unsafe }
+        ] }, { name: unsafe }] };
+        const nestedOriginal = structuredClone(nested);
+        const multiple = feedbackMarkdown(nested);
+        expect(multiple.match(/Assignee:/g)).toHaveLength(2);
+        for (const label of ['Agent', 'Model', 'Reasoning', 'Session']) expect(multiple).toContain(`${label}: \` ${unsafe} \``);
+        expect(nested).toEqual(nestedOriginal);
         expect(markdown).toContain(`\n\n\` ${unsafe} \`\n`);
         // A bare #12 would link to the repository's own issue #12, not to the uier comment.
         const identity = { ...packet.context.identity, number: 12 };

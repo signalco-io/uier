@@ -19,7 +19,8 @@ export function ownsGitHubContent(body: unknown, marker: string, author: { id?: 
 
 export function githubIssueProjection(context: FeedbackContext, marker: string) {
     const safe: FeedbackContext = { ...context, title: mentions(context.title), discussion: [],
-        assignee: context.assignee ? { name: mentions(context.assignee.name) } : undefined,
+        assignees: context.assignees?.map(({ name }) => ({ name: mentions(name) })),
+        assignee: context.assignee ? { name: mentions((context.assignees?.map(person => person.name).join(', ') || context.assignee.name)) } : undefined,
         feedback: context.feedback ? { ...context.feedback, authorName: context.feedback.authorName ? mentions(context.feedback.authorName) : undefined } : null,
         source: { ...context.source, environment: context.source.environment ? mentions(context.source.environment) : undefined },
         reproduction: { ...context.reproduction, browser: context.reproduction.browser ? mentions(context.reproduction.browser) : undefined,

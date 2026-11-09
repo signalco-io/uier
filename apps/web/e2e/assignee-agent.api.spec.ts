@@ -11,14 +11,18 @@ import { memberId, projectRefPk, workspacePk, type DbMember, type DbProject, typ
 import type { AppContext } from '../src/lib/app/context';
 import { projectCommentRouting } from '../src/lib/app/projectCommentRouting';
 import { getCommentsStore } from '../src/lib/repo/commentsStore';
-import { createProjectComment, setProjectCommentAssignee, setProjectCommentPrivate, setProjectCommentStatus } from '../src/lib/review/comments';
+import { createProjectComment, setProjectCommentAssignee, setProjectCommentAssignees, setProjectCommentPrivate, setProjectCommentStatus } from '../src/lib/review/comments';
 import { changeFixVerification } from '../src/lib/review/fixVerification';
 import { setProjectCommentAgent, setProjectCommentAgentWorking } from '../src/lib/review/assigneeAgent';
+import { assignedAgents, assignedUserIds } from '../src/lib/review/assignments';
+import { eventMatches, mcpEventId } from '../src/lib/mcp/events/catalog';
+import { loadMyWork } from '../src/lib/app/myWork';
 import { currentAssigneeAgent } from '../src/lib/review/assigneeAgentModel';
 import { memberActor, type ProjectActor } from '../src/lib/review/actor';
 import { participantNames, toReviewCommentDto } from '../src/lib/review/dto';
 import { projectFeedbackExport } from '../src/lib/review/feedbackContext';
 import { commentRevision } from '../src/lib/review/commentRevision';
+import { commitChangeSubmission, submission } from '../src/lib/comments/submissions';
 import { threadActivity } from '../src/lib/comments/activity';
 import { discoverThreadNotifications, processNotificationDelivery, type NotificationDelivery } from '../src/lib/notifications/delivery';
 import { notificationPk } from '../src/lib/notifications/preferences';
@@ -74,9 +78,9 @@ function mailer(f: Awaited<ReturnType<typeof fixture>>) {
 }
 
 /** An MCP client of the assignee (`a`) with the given scopes */
-async function mcpClient(f: Awaited<ReturnType<typeof fixture>>, name: string, scopes: McpScope[]) {
-    const member = (await getAppStore().get<DbMember>(f.project.pk, memberId(f.a.id)))!.doc;
-    const ownerContext = { user: f.a, member, workspace: { id: f.project.workspaceId }, isAdmin: false } as AppContext;
+async function mcpClient(f: Awaited<ReturnType<typeof fixture>>, name: string, scopes: McpScope[], user = f.a) {
+    const member = (await getAppStore().get<DbMember>(f.project.pk, memberId(user.id)))!.doc;
+    const ownerContext = { user, member, workspace: { id: f.project.workspaceId }, isAdmin: false } as AppContext;
     const { token } = await createMcpCredential(ownerContext, { name, projectIds: [f.project.id], scopes, days: 7 });
     const client = new Client({ name: 'agent-test', version: '1.0.0' });
     await client.connect(new StreamableHTTPClientTransport(new URL(`${base}/api/mcp`), { requestInit: { headers: { Authorization: `Bearer ${token}` } },
@@ -146,8 +150,8 @@ test('only the assignee chooses the agent working under them; a new assignee sta
     expect(packet.markdown).toContain('Agent: ` Claude ` · Model: ` claude-opus-5-5 ` · Reasoning: ` high ` · Session: ` session-123 `');
     // Agents saved before the reasoning level existed keep their packet line
     const { reasoning: _, ...withoutReasoning } = packet.context.assignee!.agent!;
-    expect(feedbackMarkdown({ ...packet.context, assignee: { name: 'Ana', agent: withoutReasoning } })).toContain('Agent: ` Claude ` · Model: ` claude-opus-5-5 ` · Session: ` session-123 `');
-    expect(feedbackMarkdown({ ...packet.context, assignee: { name: 'Ana' } })).not.toContain('Agent:');
+    expect(feedbackMarkdown({ ...packet.context, assignees: undefined, assignee: { name: 'Ana', agent: withoutReasoning } })).toContain('Agent: ` Claude ` · Model: ` claude-opus-5-5 ` · Session: ` session-123 `');
+    expect(feedbackMarkdown({ ...packet.context, assignees: undefined, assignee: { name: 'Ana' } })).not.toContain('Agent:');
 
     // A new assignee starts without an agent: the write records the assignment and the agent leaving
     saved = await setProjectCommentAssignee(f.project, f.admin, f.comment.id, f.b.id);
@@ -414,7 +418,7 @@ test('MCP working leases expire, renew and clear without status, unread, integra
         await working();
         const expired = await stored(f.comment);
         const entry = (await getCommentsStore().get(f.comment.domain, f.comment.id))!;
-        await getCommentsStore().replace({ ...expired, assigneeAgent: { ...expired.assigneeAgent!, workingUntil: new Date(Date.now() - 1).toISOString() } }, entry.etag);
+        await getCommentsStore().replace({ ...expired, assigneeAgent: { ...expired.assigneeAgent!, workingUntil: new Date(Date.now() - 1).toISOString() }, assigneeAgents: expired.assigneeAgents!.map(agent => ({ ...agent, workingUntil: new Date(Date.now() - 1).toISOString() })) }, entry.etag);
         const expiredList = (await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id } })).structuredContent as Record<string, any>;
         expect(expiredList.items[0].assignee.agent).not.toHaveProperty('workingUntil');
         expect(expiredList.items[0].assignee.agent.kind).toBe('claude');
@@ -479,4 +483,165 @@ test('working presence rechecks the attachment after a conditional-write conflic
     expect(saved.assigneeAgent).toBeUndefined();
     await expect(setProjectCommentAgentWorking(f.project, actor, f.comment.id, { working: false, sessionId: 'replacement-session' }, randomUUID()))
         .rejects.toMatchObject({ code: 'not_found' });
+});
+
+test('legacy assignments read without migration; membership changes retain each remaining person and their agents', async () => {
+    const f = await fixture();
+    const entry = (await getCommentsStore().get(f.comment.domain, f.comment.id))!;
+    const legacy = { ...entry.comment, assigneeId: f.a.id, assigneeAgent: { kind: 'claude' as const, assigneeId: f.a.id, setBy: f.a.id, setAt: '2026-01-01T00:00:00.000Z', sessionId: 'legacy' } };
+    await getCommentsStore().replace(legacy, entry.etag);
+    const names = await participantNames(f.project);
+    expect(projectCommentRouting(legacy, f.project, names, undefined).assignees).toMatchObject([{ id: f.a.id, agents: [{ kind: 'claude', sessionId: 'legacy' }] }]);
+    expect(toReviewCommentDto(legacy, f.other, names, [], 0, names)?.assignees).toMatchObject([{ id: f.a.id, agents: [{ kind: 'claude' }] }]);
+    const current = await setProjectCommentAssignees(f.project, f.admin, f.comment.id, [f.b.id], 'add');
+    expect(assignedUserIds(current)).toEqual([f.a.id, f.b.id]);
+    expect(eventMatches('feedback.assignment_changed', { projectId: f.project.id, assignee: 'me' }, current.notificationEvents!.at(-1)!, f.comment.id, f.a.id)).toBe(false);
+    expect(eventMatches('feedback.assignment_changed', { projectId: f.project.id, assignee: 'me' }, current.notificationEvents!.at(-1)!, f.comment.id, f.b.id)).toBe(true);
+    expect(assignedAgents(current)).toMatchObject([{ assigneeId: f.a.id, sessionId: 'legacy' }]);
+    await setProjectCommentAgent(f.project, f.other, f.comment.id, { kind: 'cursor', sessionId: 'b' });
+    await setProjectCommentAgent(f.project, f.assignee, f.comment.id, { kind: 'codex', sessionId: 'second' }, { add: true, idempotencyKey: randomUUID() });
+    let saved = await stored(f.comment);
+    expect(assignedAgents(saved).map(agent => [agent.assigneeId, agent.kind])).toEqual([[f.a.id, 'claude'], [f.b.id, 'cursor'], [f.a.id, 'codex']]);
+    const routing = projectCommentRouting(saved, f.project, names, undefined);
+    expect(routing.assignees.map(person => person.agents.map(agent => agent.kind))).toEqual([['claude', 'codex'], ['cursor']]);
+    const guest = toReviewCommentDto(saved, f.guest, names, [], 0, names)!;
+    expect(guest.assignees).toHaveLength(2);
+    for (const person of guest.assignees!) {
+        expect(person).not.toHaveProperty('id'); expect(person).not.toHaveProperty('agent'); expect(person).not.toHaveProperty('agents');
+    }
+    const packet = await projectFeedbackExport(f.project, f.other, f.comment.id, undefined, base);
+    expect(packet.context.assignees?.map(person => person.agents?.map(agent => agent.kind))).toEqual([['claude', 'codex'], ['cursor']]);
+    expect(packet.markdown).toContain('Session: ` legacy `');
+    expect(packet.markdown).toContain('Session: ` second `');
+    const member = (await getAppStore().get<DbMember>(f.project.pk, memberId(f.b.id)))!.doc;
+    const work = await loadMyWork({ user: f.b, member, workspace: { id: f.project.workspaceId }, isAdmin: false } as AppContext);
+    expect(work.assigned.map(item => item.comment.id)).toContain(f.comment.id);
+    saved = await setProjectCommentAssignees(f.project, f.admin, f.comment.id, [f.a.id], 'remove');
+    expect(assignedUserIds(saved)).toEqual([f.b.id]);
+    expect(assignedAgents(saved)).toMatchObject([{ assigneeId: f.b.id, kind: 'cursor' }]);
+    expect(saved.notificationEvents?.slice(-2).map(event => [event.kind, event.assigneeId, event.assigneeAgent])).toEqual([
+        ['agent', f.a.id, null], ['agent', f.a.id, null]]);
+    const removals = saved.notificationEvents!.slice(-2);
+    expect(new Set(removals.map(event => mcpEventId(f.project.id, saved.id, event, 'feedback.agent_changed'))).size).toBe(2);
+    // Private visibility removes only those who lose access; the admin keeps their agents.
+    await setProjectCommentAssignees(f.project, f.admin, f.comment.id, [f.owner.id], 'add');
+    await setProjectCommentAgent(f.project, f.admin, f.comment.id, { kind: 'codex' });
+    saved = await setProjectCommentPrivate(f.project, f.admin, f.comment.id, true);
+    expect(assignedUserIds(saved)).toEqual([f.owner.id]);
+    expect(assignedAgents(saved)).toMatchObject([{ assigneeId: f.owner.id, kind: 'codex' }]);
+});
+
+test('atomic concurrent assignment and agent additions survive retries; changes notify only the people added or removed', async () => {
+    const f = await fixture();
+    const { sent, dispatch } = mailer(f);
+    await dispatch(); sent.length = 0;
+    await Promise.all([f.a.id, f.b.id].map(id => setProjectCommentAssignees(f.project, f.admin, f.comment.id, [id], 'add', randomUUID())));
+    expect(new Set(assignedUserIds(await stored(f.comment)))).toEqual(new Set([f.a.id, f.b.id]));
+    await dispatch();
+    expect(sent.map(message => message.to).sort()).toEqual([f.a.email, f.b.email].sort());
+    expect(sent.every(message => message.subject.includes('assigned') && message.text.includes('to you'))).toBe(true);
+    sent.length = 0;
+    await Promise.all(['one', 'two'].map(sessionId => setProjectCommentAgent(f.project, f.assignee, f.comment.id, { kind: 'claude', sessionId }, { add: true, idempotencyKey: randomUUID() })));
+    expect(assignedAgents(await stored(f.comment)).map(agent => agent.sessionId).sort()).toEqual(['one', 'two']);
+    await dispatch(); expect(sent).toEqual([]);
+    await setProjectCommentAssignees(f.project, f.admin, f.comment.id, [f.a.id], 'remove');
+    await dispatch();
+    expect(sent.map(message => message.to)).toEqual([f.a.email]);
+    expect(sent[0]!.subject).toContain('unassigned');
+    expect(assignedUserIds(await stored(f.comment))).toEqual([f.b.id]);
+    for (const actor of [f.guest, { kind: 'anonymous' } as ProjectActor])
+        await expect(setProjectCommentAssignees(f.project, actor, f.comment.id, [f.a.id], 'add')).rejects.toMatchObject({ code: 'forbidden' });
+    await expect(setProjectCommentAssignees(f.project, f.admin, f.comment.id, [f.a.id, f.a.id])).rejects.toMatchObject({ code: 'invalid_request' });
+    await expect(setProjectCommentAssignees(f.project, f.admin, f.comment.id, ['user_missing'])).rejects.toMatchObject({ code: 'invalid_request' });
+});
+
+test('MCP multiple assignees and agent ids isolate each person, attachment and working lease while single calls still work', async () => {
+    const f = await fixture();
+    const a = await mcpClient(f, 'Codex', ['feedback:read', 'feedback:assign']);
+    const b = await mcpClient(f, 'Claude', ['feedback:read', 'feedback:assign'], f.b);
+    const otherConnection = await mcpClient(f, 'Other Codex', ['feedback:read', 'feedback:assign']);
+    const watcher = await mcpClient(f, 'Watcher', ['feedback:read']);
+    const call = async (client: Client, name: string, args: Record<string, unknown>) => {
+        const response = await client.callTool({ name, arguments: { projectId: f.project.id, commentId: f.comment.id, idempotencyKey: randomUUID(), ...args } });
+        return { error: Boolean(response.isError), data: response.structuredContent as Record<string, any> };
+    };
+    try {
+        // Legacy assignment replaces all; arrays can add or remove without dropping other people.
+        expect(await call(a, 'assign_feedback', { assigneeId: f.a.id })).toMatchObject({ error: false });
+        expect(await call(a, 'assign_feedback', { assigneeIds: [f.b.id], mode: 'add' })).toMatchObject({ error: false, data: { assigneeIds: [f.a.id, f.b.id] } });
+        expect(await call(a, 'assign_feedback', { assigneeId: f.a.id, assigneeIds: [] })).toMatchObject({ error: true, data: { error: 'invalid_request' } });
+        const first = (await call(a, 'set_feedback_agent', { sessionId: 'a-one' })).data.agent;
+        const addKey = randomUUID();
+        const second = (await call(a, 'set_feedback_agent', { agent: 'cursor', sessionId: 'a-two', add: true, idempotencyKey: addKey })).data.agent;
+        expect(first.id).not.toBe(second.id);
+        expect((await call(a, 'set_feedback_agent', { agent: 'cursor', sessionId: 'a-two', add: true, idempotencyKey: addKey })).data.agents).toHaveLength(2);
+        const bAgent = (await call(b, 'set_feedback_agent', { sessionId: 'b-one' })).data.agent;
+        expect((await call(b, 'set_feedback_agent', { agentId: first.id })).error).toBe(true);
+        expect((await call(b, 'clear_feedback_agent', { agentId: first.id })).error).toBe(true);
+        expect((await call(b, 'set_feedback_agent_working', { agentId: first.id, sessionId: 'a-one', working: true })).error).toBe(true);
+        const before = await stored(f.comment);
+        const revision = commentRevision(before);
+        const aLease = await call(a, 'set_feedback_agent_working', { agentId: second.id, sessionId: 'a-two', working: true });
+        expect(aLease).toMatchObject({ error: false, data: { agent: { id: second.id, workingUntil: expect.any(String) } } });
+        expect(await call(b, 'set_feedback_agent_working', { sessionId: 'b-one', working: true })).toMatchObject({ error: false });
+        expect(await call(otherConnection, 'set_feedback_agent_working', { agentId: second.id, sessionId: 'a-two', working: false })).toMatchObject({ error: true, data: { error: 'conflict' } });
+        let saved = await stored(f.comment);
+        expect(commentRevision(saved)).toBe(revision);
+        expect(threadActivity(saved)).toEqual(threadActivity(before));
+        expect(saved.notificationEvents).toEqual(before.notificationEvents);
+        expect(assignedAgents(saved).filter(agent => agent.workingUntil)).toHaveLength(2);
+        // Two connections may report the same session name: a legacy working call still returns its own attachment.
+        const parallel = (await call(otherConnection, 'set_feedback_agent', { add: true, sessionId: 'a-one' })).data.agent;
+        expect(await call(otherConnection, 'set_feedback_agent_working', { sessionId: ' a-one ', working: true }))
+            .toMatchObject({ error: false, data: { agent: { id: parallel.id, workingUntil: expect.any(String) } } });
+        await call(otherConnection, 'clear_feedback_agent', { agentId: parallel.id });
+        // List filters include a later assignee, including 'me'.
+        for (const [client, assignee] of [[a, f.b.id], [b, 'me']] as const) {
+            const result = await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id, assignee } });
+            const data = result.structuredContent as Record<string, any>;
+            expect(data.items[0].assignees.map((person: any) => person.id)).toEqual([f.a.id, f.b.id]);
+        }
+        expect(await call(a, 'clear_feedback_agent', { agentId: second.id })).toMatchObject({ error: false, data: { agent: null, agents: [{ id: first.id }] } });
+        saved = await stored(f.comment);
+        expect(assignedAgents(saved).find(agent => agent.id === bAgent.id)?.workingUntil).toBeTruthy();
+        expect(await call(a, 'set_feedback_agent_working', { agentId: second.id, sessionId: 'a-two', working: true })).toMatchObject({ error: true, data: { error: 'conflict' } });
+        // Default calls on the later assignee affect only their first agent.
+        expect(await call(b, 'clear_feedback_agent', {})).toMatchObject({ error: false, data: { agent: null } });
+        expect(assignedAgents(await stored(f.comment)).map(agent => agent.id)).toEqual([first.id]);
+        const start = (await watcher.callTool({ name: 'list_feedback_events', arguments: { projectId: f.project.id, events: ['feedback.assignment_changed'] } })).structuredContent as Record<string, any>;
+        await call(a, 'assign_feedback', { assigneeIds: [f.b.id], mode: 'remove' });
+        await call(a, 'assign_feedback', { assigneeIds: [f.a.id], mode: 'remove' });
+        const events = (await watcher.callTool({ name: 'list_feedback_events', arguments: { projectId: f.project.id, cursor: start.cursor, events: ['feedback.assignment_changed'] } })).structuredContent as Record<string, any>;
+        const removal = (await stored(f.comment)).notificationEvents!.filter(event => event.kind === 'assignment').at(-1)!;
+        expect(eventMatches('feedback.assignment_changed', { projectId: f.project.id, assignee: 'me' }, removal, f.comment.id, f.a.id)).toBe(false);
+        expect(events.items.at(-1).data).toMatchObject({ assignees: [], previousAssigneeIds: [f.a.id] });
+        expect(await call(a, 'assign_feedback', { assigneeId: f.b.id })).toMatchObject({ error: false, data: { assigneeIds: [f.b.id] } });
+        expect(assignedAgents(await stored(f.comment))).toEqual([]);
+    } finally { await Promise.all([a.close(), b.close(), otherConnection.close(), watcher.close()]); }
+});
+
+
+test('legacy assignment and agent receipts still replay after the multi-assignee change, and legacy leases do not migrate content', async () => {
+    const f = await fixture();
+    const store = getCommentsStore();
+    const key = randomUUID();
+    const actorId = `user:${f.a.id}`;
+    await commitChangeSubmission(store, submission(f.comment.domain, actorId, key, { operation: 'assignment', id: f.comment.id, assigneeId: f.a.id })!, f.comment.id,
+        async () => {}, async comment => ({ ...comment, assigneeId: f.a.id }));
+    const replay = await setProjectCommentAssignee(f.project, f.assignee, f.comment.id, f.a.id, key);
+    expect(replay.assigneeIds).toBeUndefined();
+    const agentKey = randomUUID();
+    const desired = { kind: 'codex' as const, sessionId: 'legacy-session' };
+    const connector = { credentialId: 'legacy-connection', name: 'Codex' };
+    await commitChangeSubmission(store, submission(f.comment.domain, actorId, agentKey, { operation: 'agent', id: f.comment.id, agent: desired, assignToMe: false })!, f.comment.id,
+        async () => {}, async comment => ({ ...comment, assigneeAgent: { ...desired, assigneeId: f.a.id, setBy: f.a.id, setAt: '2026-01-01T00:00:00.000Z', connector } }));
+    const actor = { ...f.assignee, agent: connector };
+    const attached = await setProjectCommentAgent(f.project, actor, f.comment.id, desired, { idempotencyKey: agentKey });
+    expect(attached.assigneeAgents).toBeUndefined();
+    const working = await setProjectCommentAgentWorking(f.project, actor, f.comment.id, { working: true, sessionId: 'legacy-session' }, randomUUID());
+    expect(working.assigneeAgent?.workingUntil).toBeTruthy();
+    expect(working.assigneeIds).toBeUndefined();
+    expect(working.assigneeAgents).toBeUndefined();
+    expect(commentRevision(working)).toBe(commentRevision(attached));
+    expect(threadActivity(working)).toEqual(threadActivity(attached));
 });

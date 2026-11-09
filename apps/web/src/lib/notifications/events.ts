@@ -4,7 +4,7 @@ import type { NotificationEvent } from './delivery';
 import { isUierFeedbackProject } from '../comments/publicProject';
 
 /** Call on the already advanced #83 activity, inside the same etag-protected comment write. */
-export function withNotificationEvent(comment: DbComment, actorId: string, kind: NotificationEvent['kind'], at = new Date().toISOString(), recipients?: string[], agent?: import('../db/schema').AgentSource, details: Pick<NotificationEvent, 'itemId' | 'assigneeId' | 'verificationOverride' | 'assigneeAgent'> = {}): DbComment {
+export function withNotificationEvent(comment: DbComment, actorId: string, kind: NotificationEvent['kind'], at = new Date().toISOString(), recipients?: string[], agent?: import('../db/schema').AgentSource, details: Pick<NotificationEvent, 'itemId' | 'assigneeId' | 'verificationOverride' | 'assigneeAgent' | 'assigneeIds' | 'previousAssigneeIds' | 'agentId'> = {}): DbComment {
     // The public showcase never queues owner email. Explicit connector actions still retain
     // attribution in the existing activity ledger, without creating a notification job.
     if (!comment.projectId || (isUierFeedbackProject(comment.projectId) && !agent)) return comment;

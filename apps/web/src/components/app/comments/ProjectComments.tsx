@@ -1,5 +1,6 @@
 'use client';
 
+import { commentAssignees } from '@uier/toolbar/agents';
 import { useEffect, useOptimistic, useRef, useState } from 'react';
 import Link from 'next/link';
 import { setUrlSearchParams, useUrlSearchParams } from '@/src/hooks/use-url-search-params';
@@ -48,9 +49,9 @@ function applyFilters(comments: ProjectCommentView[], query: CommentsQuery, user
         if (query.page && !pageMatches(query.page, comment.path))
             return false;
         if (query.people === 'assigned')
-            return comment.assignee?.id === userId;
+            return commentAssignees(comment).some(person => person.id === userId);
         if (query.people === 'unassigned')
-            return !comment.assignee;
+            return !commentAssignees(comment).length;
         if (query.people === 'mine')
             return comment.author.isMe;
         return true;

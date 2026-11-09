@@ -52,3 +52,8 @@ outcome, every row back at rest. The focus goes to Select when the bar had it. A
 boxes out at rest, so a focused box hands the focus to its row's link (Select when the row has none); with a fine
 pointer the box keeps it and stays shown, since the key press makes it `:focus-visible`. `triage.spec.ts` covers rest, pointer, Shift-click, keyboard, touch, the bar
 on a phone, focus and axe in both themes.
+
+Bulk assignment retains the single-target replacement action: it replaces every assignee with the
+selected person (Unassigned clears all). The app sends the content revision with the assignment
+snapshot, so a change to any co-assignee/agent conflicts rather than silently removing newer work.
+Results return all current assignees and their agent views so status/priority batches preserve them.

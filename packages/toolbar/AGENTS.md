@@ -220,8 +220,10 @@ toolbar comment matching the app (pin number, avatar, follow state, no-reviewer 
   frames (`?host-menus`) are in `apps/web/e2e/transient-ui.spec.ts`. Also check the add-comment, reply, resolve and inbox
   flows by hand in light and dark system themes.
 
-Assignment uses `CommentAssignment` and the shared review service. The agent under the assignee
-(`assignee.agent`, members only) is display-only here: only the assignee changes it, in the app or through MCP.
+Assignment uses `CommentAssignment` and the shared review service. `assignees[]` groups each person's
+`agents[]` (members only), falling back to the singular fields on older responses. The people picker
+keeps several choices selected and uses atomic add/remove; Done closes it and Unassign clears everyone.
+Agents are display-only here: only their own assignee changes them, in the app or through MCP.
 `src/agents.ts` (`@uier/toolbar/agents`) is the pure vocabulary both share: kinds, labels, `inferAgentKind`,
 model names (`modelName`, `agentText`) and the one-colour marks. The optional `workingUntil` lease
 shows a small spinner in `CommentAssignment` only while live. `@uier/toolbar/agent-working`

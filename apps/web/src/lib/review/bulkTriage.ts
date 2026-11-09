@@ -1,3 +1,5 @@
+import { assignedUserIds } from './assignments';
+import { assigneeAgentViews } from './assigneeAgentModel';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { commentPriority, type CommentPriority } from '@uier/toolbar/triage';
 import type { DbProject } from '../app/model';
@@ -8,7 +10,7 @@ import { bulkTriageSchema } from './bulkTriageSchema';
 import { commentRevision } from './commentRevision';
 
 export type TriageResult = { id: string; outcome: 'success' | 'noop' | 'conflict' | 'unavailable' | 'failure';
-    saved?: { priority: CommentPriority; resolved: boolean; inProgress: boolean; assigneeId: string | null; revision: string } };
+    saved?: { priority: CommentPriority; resolved: boolean; inProgress: boolean; assigneeId: string | null; assignees: { id: string; agents: import('@uier/toolbar/agents').AssigneeAgentView[] }[]; revision: string } };
 /** Partial success, at most four writes in flight. No client ids or snapshots confer authority. */
 export async function triageProjectComments(project: DbProject, actor: ProjectActor, raw: unknown, store: CommentsStore = getCommentsStore()) {
     const parsed = bulkTriageSchema.safeParse(raw);
@@ -39,7 +41,7 @@ export async function triageProjectComments(project: DbProject, actor: ProjectAc
                     : input.kind === 'assignment' ? await setProjectCommentAssignee(project, actor, item.id, input.assigneeId, item.idempotencyKey, guard, store)
                     : await setProjectCommentResolved(project, actor, item.id, input.resolved, item.idempotencyKey, guard, store);
                 results[index] = { id: item.id, outcome: changed ? 'success' : 'noop', saved: {
-                    priority: commentPriority(saved.priority), resolved: Boolean(saved.resolved), inProgress: Boolean(saved.inProgress && !saved.resolved), assigneeId: saved.assigneeId ?? null, revision: commentRevision(saved)
+                    priority: commentPriority(saved.priority), resolved: Boolean(saved.resolved), inProgress: Boolean(saved.inProgress && !saved.resolved), assigneeId: saved.assigneeId ?? null, assignees: assignedUserIds(saved).map(id => ({ id, agents: assigneeAgentViews(saved, id) })), revision: commentRevision(saved)
                 } };
             } catch (error) {
                 results[index] = { id: item.id, outcome: error instanceof ApiError && error.code === 'conflict' ? 'conflict'

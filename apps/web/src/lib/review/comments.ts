@@ -36,7 +36,7 @@ import { replaceSavedScreenshot } from '../comments/replaceScreenshot';
 import type { ParsedScreenshot } from '../comments/screenshot';
 import { queueMcpEventDelivery } from '../mcp/events/trigger';
 import { queueAiTitles } from '../titles/threadTitles';
-import { currentAssigneeAgent } from './assigneeAgentModel';
+import { assignedAgents, assignedUserIds, assigneeIdsSchema, assignmentModeSchema, withAssignments, type AssignmentMode } from './assignments';
 
 /** Most comments the app loads for a project (all pages) */
 export const MAX_PROJECT_COMMENTS = 1000;
@@ -323,7 +323,7 @@ async function appendProjectReply(request: Request, project: DbProject, actor: P
         throw apiErrors.invalidRequest('Comments need a visitor id.');
     // Only a coding tool connection writes for its owner; the app and the toolbar never mark a message
     const claim = actor.kind === 'member' && actor.agent && input.writtenBy ? parseClaim(input.writtenBy) : undefined;
-    const writtenBy = (comment: DbComment) => claim && actor.kind === 'member' ? { writtenBy: messageAgentFor(comment, actor.userId, claim) } : {};
+    const writtenBy = (comment: DbComment) => claim && actor.kind === 'member' ? { writtenBy: messageAgentFor(comment, actor.userId, claim, actor.agent?.credentialId) } : {};
 
     const store = getCommentsStore();
     const partition = projectPartition(project.id);
@@ -459,44 +459,58 @@ export async function setProjectCommentPrivate(project: DbProject, actor: Projec
         () => canMakeCommentPrivate(actor),
         async comment => {
             if (Boolean(comment.private) === isPrivate) return comment;
-            const updated = { ...comment, private: isPrivate };
-            if (updated.assigneeId) {
-                const recipient = await memberActor(project, updated.assigneeId);
-                if (!recipient || !canSeeComment(updated, recipient)) {
-                    // The agent works under its assignee and leaves with them.
-                    delete updated.assigneeId;
-                    delete updated.assigneeAgent;
-                }
+            let updated: DbComment = { ...comment, private: isPrivate };
+            const visible: string[] = [];
+            for (const userId of assignedUserIds(comment)) {
+                const recipient = await memberActor(project, userId);
+                if (recipient && canSeeComment(updated, recipient)) visible.push(userId);
+            }
+            if (visible.length !== assignedUserIds(comment).length) {
+                updated = assignmentChange(updated, visible, actor, nowIso());
             }
             return updated;
         });
 }
 
-/**
- * One assignment service for the app and toolbar; access is always checked here. A new assignee starts
- * without an agent: the one working under the previous assignee is removed in the same write.
- */
+/** Record the changed people once; retained people keep all their agents and leases. */
+function assignmentChange(comment: DbComment, ids: string[], actor: ProjectActor, at: string) {
+    const previous = assignedUserIds(comment);
+    const changed = [...new Set([...previous, ...ids])].filter(id => previous.includes(id) !== ids.includes(id));
+    const actorId = actorAuthorId(actor)!;
+    const connector = actor.kind === 'member' ? actor.agent : undefined;
+    let updated = withNotificationEvent(withAssignments(withThreadActivity(comment, actorId), ids), actorId, 'assignment', at,
+        changed.map(id => `user:${id}`), connector, { assigneeId: ids[0] ?? null, assigneeIds: ids, previousAssigneeIds: previous });
+    for (const agent of assignedAgents(comment).filter(agent => !ids.includes(agent.assigneeId)))
+        updated = withNotificationEvent(updated, actorId, 'agent', at, undefined, connector, { assigneeId: agent.assigneeId, agentId: agent.id, assigneeAgent: null });
+    return updated;
+}
+
+/** Existing calls replace the assignment with one person (or clear everyone with null). */
 export async function setProjectCommentAssignee(project: DbProject, actor: ProjectActor, id: string, assigneeId: string | null, idempotencyKey?: string, guard?: CommentChangeGuard, store?: CommentsStore) {
     const parsed = userIdSchema.nullable().safeParse(assigneeId);
     if (!parsed.success) throw apiErrors.invalidRequest('Choose a valid user id.');
-    assigneeId = parsed.data;
-    return await changeComment(project, actor, id,
-        () => actor.kind === 'member',
-        async (comment) => {
-            await assertParticipantEditor(project, actor, comment);
-            if (assigneeId) await assertEligibleParticipant(project, comment, assigneeId);
-            if ((comment.assigneeId ?? null) === assigneeId) return comment;
-            const updated = { ...withThreadActivity(comment, actorAuthorId(actor)!), assigneeId: assigneeId ?? undefined };
-            if (!assigneeId) delete updated.assigneeId;
-            delete updated.assigneeAgent;
-            const recipients = [...new Set([comment.assigneeId, assigneeId].filter((id): id is string => Boolean(id)).map(id => `user:${id}`))];
-            const at = nowIso();
-            const connector = actor.kind === 'member' ? actor.agent : undefined;
-            const assigned = withNotificationEvent(updated, actorAuthorId(actor)!, 'assignment', at, recipients, connector, { assigneeId });
-            return currentAssigneeAgent(comment)
-                ? withNotificationEvent(assigned, actorAuthorId(actor)!, 'agent', at, undefined, connector, { assigneeId: comment.assigneeId ?? null, assigneeAgent: null })
-                : assigned;
-        }, submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { operation: 'assignment', id, assigneeId, ...guardFingerprint(guard) }), guard, store);
+    return changeAssignees(project, actor, id, parsed.data ? [parsed.data] : [], 'replace', idempotencyKey, guard, store, { assigneeId: parsed.data });
+}
+
+/** Atomic set/add/remove shared by app, toolbar and MCP. Re-evaluated against the current etag on retry. */
+export async function setProjectCommentAssignees(project: DbProject, actor: ProjectActor, id: string, ids: string[], mode: AssignmentMode = 'replace', idempotencyKey?: string, guard?: CommentChangeGuard, store?: CommentsStore) {
+    return changeAssignees(project, actor, id, ids, mode, idempotencyKey, guard, store);
+}
+
+async function changeAssignees(project: DbProject, actor: ProjectActor, id: string, ids: string[], mode: AssignmentMode, idempotencyKey?: string, guard?: CommentChangeGuard, store?: CommentsStore, legacy?: { assigneeId: string | null }) {
+    const parsed = assigneeIdsSchema.safeParse(ids);
+    if (!parsed.success || !assignmentModeSchema.safeParse(mode).success) throw apiErrors.invalidRequest('Choose up to 50 distinct people and a valid assignment action.');
+    ids = parsed.data;
+    return await changeComment(project, actor, id, () => actor.kind === 'member', async comment => {
+        await assertParticipantEditor(project, actor, comment);
+        const previous = assignedUserIds(comment);
+        const next = mode === 'add' ? [...new Set([...previous, ...ids])] : mode === 'remove' ? previous.filter(id => !ids.includes(id)) : ids;
+        if (!assigneeIdsSchema.safeParse(next).success) throw apiErrors.invalidRequest('A thread can have up to 50 assignees.');
+        // Recheck every requested recipient, even for a no-op or a receipt-free request.
+        if (mode !== 'remove') for (const userId of ids) await assertEligibleParticipant(project, comment, userId);
+        if (previous.length === next.length && previous.every(id => next.includes(id))) return comment;
+        return assignmentChange(comment, next, actor, nowIso());
+    }, submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { ...(legacy ? { operation: 'assignment', id, assigneeId: legacy.assigneeId } : { operation: 'assignments', id, ids, mode }), ...guardFingerprint(guard) }), guard, store);
 }
 
 /** Edits the text of the comment (its first item) */

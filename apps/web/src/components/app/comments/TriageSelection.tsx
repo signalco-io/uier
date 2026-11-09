@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useEffectEvent, useRef, useState, useTransition, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 import { CircleCheckIcon, FlagIcon, ListChecksIcon, RotateCcwIcon, UserIcon, XIcon } from 'lucide-react';
+import { commentAssignees } from '@uier/toolbar/agents';
 import { priorities, priorityLabels } from '@uier/toolbar/triage';
 import { Button } from '@/src/components/ui/button';
 import { cn } from '@/src/lib/utils';
@@ -60,16 +61,17 @@ export function SelectComment({ comment, tabbable = true, className }: {
     );
 }
 /** `current`: the thread's assignee now; their agent stays only while they stay the assignee */
-function patchFor(operation: TriageOperation, assignees: AssigneeOption[], current?: ProjectCommentView['assignee']): Partial<ProjectCommentView> {
+function patchFor(operation: TriageOperation, assignees: AssigneeOption[], current?: ProjectCommentView['assignees']): Partial<ProjectCommentView> {
     if (operation.kind === 'status') return { resolved: operation.resolved };
     if (operation.kind === 'priority') return { priority: operation.priority };
     const person = assignees.find(person => person.userId === operation.assigneeId);
-    const agent = current?.id === operation.assigneeId ? current.agent : undefined;
-    return { assignee: operation.assigneeId ? { id: operation.assigneeId, name: person?.name ?? 'Former member', avatarUrl: person?.avatarUrl, ...(agent ? { agent } : {}) } : undefined };
+    const existing = current?.find(person => person.id === operation.assigneeId);
+    const people = operation.assigneeId ? [existing ?? { id: operation.assigneeId, name: person?.name ?? 'Former member', avatarUrl: person?.avatarUrl }] : [];
+    return { assignees: people, assignee: people[0] };
 }
 function snapshot(operation: TriageOperation, comments: ProjectCommentView[]): BulkTriageInput {
     if (operation.kind === 'priority') return { ...operation, items: comments.map(comment => ({ id: comment.id, expected: comment.priority, idempotencyKey: crypto.randomUUID() })) };
-    if (operation.kind === 'assignment') return { ...operation, items: comments.map(comment => ({ id: comment.id, expected: comment.assignee?.id ?? null, idempotencyKey: crypto.randomUUID() })) };
+    if (operation.kind === 'assignment') return { ...operation, items: comments.map(comment => ({ id: comment.id, expected: comment.assignee?.id ?? null, revision: comment.revision, idempotencyKey: crypto.randomUUID() })) };
     return { ...operation, items: comments.map(comment => ({ id: comment.id, expected: comment.resolved, revision: comment.revision, idempotencyKey: crypto.randomUUID() })) };
 }
 
@@ -160,10 +162,10 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
         // The bar stays for the outcome and the next action, with the threads that need attention still selected
         setExplicit(true);
         start(async () => {
-            for (const item of batch.items) update({ id: item.id, patch: patchFor(batch, assignees, originals.get(item.id)?.assignee) });
+            for (const item of batch.items) update({ id: item.id, patch: patchFor(batch, assignees, originals.get(item.id) && commentAssignees(originals.get(item.id)!)) });
             const rollback = (id: string) => {
                 const original = originals.get(id);
-                if (original) update({ id, patch: { priority: original.priority, resolved: original.resolved, inProgress: original.inProgress, assignee: original.assignee } });
+                if (original) update({ id, patch: { priority: original.priority, resolved: original.resolved, inProgress: original.inProgress, assignees: commentAssignees(original), assignee: original.assignee } });
             };
             try {
                 const response = await triageCommentsAction(projectId, batch);
@@ -171,8 +173,16 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
                 const { results, counts } = response.data;
                 start(() => { for (const item of results) {
                     if (!item.saved) rollback(item.id);
-                    else update({ id: item.id, patch: { ...patchFor({ kind: 'assignment', assigneeId: item.saved.assigneeId }, assignees, originals.get(item.id)?.assignee),
-                        priority: item.saved.priority, resolved: item.saved.resolved, inProgress: item.saved.inProgress, revision: item.saved.revision } });
+                    else {
+                        const people = item.saved.assignees.map(person => {
+                            const known = commentAssignees(originals.get(item.id) ?? {}).find(current => current.id === person.id);
+                            const option = assignees.find(option => option.userId === person.id);
+                            return { ...known, id: person.id, name: known?.name ?? option?.name ?? 'Former member', avatarUrl: option?.avatarUrl,
+                                agents: person.agents, agent: person.agents[0] };
+                        });
+                        update({ id: item.id, patch: { assignees: people, assignee: people[0],
+                            priority: item.saved.priority, resolved: item.saved.resolved, inProgress: item.saved.inProgress, revision: item.saved.revision } });
+                    }
                 } });
                 const failed = results.filter(item => item.outcome !== 'success' && item.outcome !== 'noop').map(item => item.id);
                 setDetails(results.filter(item => failed.includes(item.id)).map(item => ({ id: item.id,

@@ -62,9 +62,11 @@ const payloadSchemas = {
     'feedback.created': z.object({ ...common, priority: z.enum(priorities), excerpt }).strict(),
     'feedback.replied': z.object({ ...common, itemId: z.string(), excerpt }).strict(),
     'feedback.status_changed': z.object({ ...common, change: z.enum(statusChanges), resolved: z.boolean() }).strict(),
-    'feedback.assignment_changed': z.object({ ...common, assignee: z.object({ id: z.string(), name: z.string() }).strict().nullable()
+    'feedback.assignment_changed': z.object({ ...common,
+        assignees: z.array(z.object({ id: z.string(), name: z.string() }).strict()).optional(),
+        previousAssigneeIds: z.array(z.string()).optional(), assignee: z.object({ id: z.string(), name: z.string() }).strict().nullable()
         .describe('The new assignee, or null when unassigned.') }).strict(),
-    'feedback.agent_changed': z.object({ ...common,
+    'feedback.agent_changed': z.object({ ...common, agentId: z.string().optional(),
         assignee: z.object({ id: z.string(), name: z.string() }).strict().nullable().describe('The assignee the agent works under.'),
         agent: z.object({ kind: z.enum(agentKinds), label: z.string(),
             model: z.string().optional().describe('The model the agent reported; untrusted.'),
@@ -118,7 +120,7 @@ export function eventMatches(name: McpEventName, args: McpEventArguments, event:
         case 'feedback.created': return event.kind === 'comment';
         case 'feedback.replied': return event.kind === 'reply';
         case 'feedback.status_changed': return statusKinds[event.kind] !== undefined;
-        case 'feedback.assignment_changed': return event.kind === 'assignment' && (args.assignee !== 'me' || event.assigneeId === subscriberUserId);
+        case 'feedback.assignment_changed': return event.kind === 'assignment' && (args.assignee !== 'me' || (event.assigneeIds ? event.assigneeIds.includes(subscriberUserId) && !event.previousAssigneeIds?.includes(subscriberUserId) : event.assigneeId === subscriberUserId));
         case 'feedback.agent_changed': return event.kind === 'agent' && (args.assignee !== 'me' || event.assigneeId === subscriberUserId);
         case 'feedback.mentioned': return (event.kind === 'comment' || event.kind === 'reply' || event.kind === 'mention')
             && Boolean(event.recipients?.includes(`user:${subscriberUserId}`));
@@ -129,8 +131,8 @@ export function eventMatches(name: McpEventName, args: McpEventArguments, event:
  * Stable per thread event and event name, so a retry or a second scan reuses it. Header-safe:
  * it is also the delivery's `webhook-id`.
  */
-export function mcpEventId(projectId: string, threadId: string, event: Pick<NotificationEvent, 'sequence' | 'kind' | 'at'>, name: McpEventName) {
-    return `evt_${createHash('sha256').update(JSON.stringify(['uier-mcp-event', 1, projectId, threadId, event.sequence, event.kind, event.at, name])).digest('hex').slice(0, 40)}`;
+export function mcpEventId(projectId: string, threadId: string, event: Pick<NotificationEvent, 'sequence' | 'kind' | 'at' | 'agentId'>, name: McpEventName) {
+    return `evt_${createHash('sha256').update(JSON.stringify(['uier-mcp-event', 1, projectId, threadId, event.sequence, event.kind, event.at, name, ...(event.agentId ? [event.agentId] : [])])).digest('hex').slice(0, 40)}`;
 }
 
 function excerptOf(comment: DbComment, itemId: string | undefined) {
@@ -176,10 +178,10 @@ export function mcpEventData(name: McpEventName, project: DbProject, comment: Db
             return { ...base, change, resolved: change === 'resolved' || change === 'verification_confirmed' };
         }
         case 'feedback.assignment_changed':
-            return { ...base, assignee: event.assigneeId ? { id: event.assigneeId, name: participants.get(event.assigneeId) ?? 'Former member' } : null };
+            return { ...base, ...(event.assigneeIds ? { assignees: event.assigneeIds.map(id => ({ id, name: participants.get(id) ?? 'Former member' })), previousAssigneeIds: event.previousAssigneeIds } : {}), assignee: event.assigneeId ? { id: event.assigneeId, name: participants.get(event.assigneeId) ?? 'Former member' } : null };
         case 'feedback.agent_changed': {
             const agent = event.assigneeAgent && agentKinds.includes(event.assigneeAgent.kind) ? event.assigneeAgent : null;
-            return { ...base, assignee: event.assigneeId ? { id: event.assigneeId, name: participants.get(event.assigneeId) ?? 'Former member' } : null,
+            return { ...base, ...(event.agentId ? { agentId: event.agentId } : {}), assignee: event.assigneeId ? { id: event.assigneeId, name: participants.get(event.assigneeId) ?? 'Former member' } : null,
                 agent: agent ? { kind: agent.kind, label: agentLabels[agent.kind], ...(agent.model ? { model: agent.model } : {}),
                     ...(agent.reasoning ? { reasoning: agent.reasoning } : {}),
                     ...(agent.sessionId ? { sessionId: agent.sessionId } : {}) } : null };

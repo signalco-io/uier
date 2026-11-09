@@ -135,9 +135,10 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
         }
         through = ledger.deletion?.version ?? source?.syncVersion ?? ledger.requestedVersion;
         const feedback = mode === 'cleanup' || statusOnly ? null : await (options.exportFeedback ?? projectFeedbackExport)(project, actor, ledger.threadId, undefined, baseUrl);
-        if (feedback?.context.assignee?.agent) {
+        if (feedback && (feedback.context.assignee?.agent || feedback.context.assignees)) {
             // Trackers get the assignee's name, never the AI agent working under them or its session.
-            feedback.context.assignee = { name: feedback.context.assignee.name };
+            if (feedback.context.assignee) feedback.context.assignee = { name: feedback.context.assignee.name };
+            if (feedback.context.assignees) feedback.context.assignees = feedback.context.assignees.map(({ name }) => ({ name }));
             feedback.markdown = feedbackMarkdown(feedback.context);
         }
         if (feedback && [feedback.context.feedback, ...feedback.context.discussion].some(item => item?.agent)) {

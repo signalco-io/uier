@@ -135,10 +135,11 @@ test('status, assignment, follow and read changes render before the server confi
         await expect(card.getByRole('button', { name: 'Status: Done. Change status', exact: true })).toBeEnabled();
         pending = gate();
         await card.getByRole('button', { name: 'Unassigned. Change assignee', exact: true }).click();
-        await page.getByRole('menuitem').filter({ hasNotText: 'Unassign' }).first().click();
+        await page.getByRole('menuitemcheckbox').first().click();
         await expect(card.getByRole('button', { name: 'Assigned to you. Change assignee', exact: true })).toBeVisible();
         pending.release();
         await expect(card.getByRole('button', { name: 'Assigned to you. Change assignee', exact: true })).toBeEnabled();
+        await page.getByRole('menuitem', { name: 'Done', exact: true }).click();
         pending = gate();
         await card.getByRole('button', { name: /^More actions/ }).click();
         await page.getByRole('menuitem', { name: 'Follow thread', exact: true }).click();

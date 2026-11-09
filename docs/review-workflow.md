@@ -260,11 +260,12 @@ dependency in the toolbar bundle ([toolbar note](../packages/toolbar/docs/messag
 
 ### Assignment and mentions
 
-Signed-in project members can change a thread's assignee in its toolbar details or inbox.
+Signed-in project members can select several assignees for a thread in its toolbar details or inbox.
 The assignee shows in the toolbar thread's header as their avatar, with a tooltip that names
 them, and in the app's thread under Assignee as a small avatar and name (an empty dashed avatar
-while unassigned). The app and toolbar use the same assignment service. Assigned
-to me combines with page, status and search filters. Guests see the assignee's avatar and name
+while unassigned). The app and toolbar use the same assignment service, with a picker that stays open between choices.
+Each person has their own agent controls in the app. Assigned
+to me matches any assignee and combines with page, status and search filters. Guests see the assignee's avatar and name
 but cannot change assignment or look up the participant directory. Removed members appear as Former member (no access);
 the assignment can be cleared or changed.
 
@@ -285,7 +286,7 @@ Unassignment targets the previous assignee, subject to the same rules.
 
 ### AI agents under the assignee
 
-A thread's assignee can have one AI agent working under them: Claude, Codex, ChatGPT, Cursor or a
+Each assignee can have several AI agents working under them: Claude, Codex, ChatGPT, Cursor or a
 generic AI agent. Its one-colour logo (`@uier/toolbar/agents`, drawn by `AgentMark` and `AgentAvatar`) sits
 on the right edge of the assignee's avatar in list rows, board cards and My work, and in the toolbar
 thread's header; the avatar's name says both ("Assigned to Ana, with Claude Opus 5.5 (high reasoning)").
@@ -303,10 +304,10 @@ reported, in mono. MCP packets and Markdown keep the reported id.
   It never attaches under someone else; for unassigned feedback it assigns its owner first, only when
   the person asked. Attaching moves an Open thread to In progress ([In progress](#in-progress)); the
   app's **Add agent** does not.
-- **It belongs to its assignee.** A new assignment, unassigning, or making the thread private for an
-  assignee who cannot see it removes the agent in the same write. An agent saved under an earlier
+- **Each belongs to its assignee.** Removing a person, clearing all assignments, or making the thread private for an
+  assignee who cannot see it removes their agents in the same write. Adding another person keeps existing agents and leases. An agent saved under an earlier
   assignee is never shown (`currentAssigneeAgent`).
-- **Stored on the thread** as `assigneeAgent`: kind, the assignee it works under, optional session id
+- **Stored on the thread** in `assigneeAgents`, grouped by the people in `assigneeIds` (singular fields read legacy records and mirror the first entries): kind, the assignee it works under, optional session id
   (200 characters), model (100) and reasoning level (32, free text in the agent's own words), who set it and when, and the MCP connection that attached it.
   Each change advances the shared unread activity and records an `agent` event in `notificationEvents`
   (MCP `feedback.agent_changed`); agent events are never emailed. Copy issue and MCP packets include it

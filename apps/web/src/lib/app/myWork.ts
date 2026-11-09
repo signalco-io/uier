@@ -1,4 +1,5 @@
 import type { AppContext } from './context';
+import { commentAssignees } from '@uier/toolbar/agents';
 import { loadProjectComments, type ProjectCommentView } from './projectComments';
 import { listVisibleProjects } from './projects';
 
@@ -28,7 +29,7 @@ export async function loadMyWork(context: AppContext): Promise<MyWork> {
         return comments.map(comment => ({ projectId: project.id, projectName: project.name, comment }));
     }));
     const items = perProject.flat().sort((a, b) => (b.comment.createdAt ?? '').localeCompare(a.comment.createdAt ?? ''));
-    const assigned = items.filter(({ comment }) => !comment.resolved && comment.assignee?.id === context.user.id);
+    const assigned = items.filter(({ comment }) => !comment.resolved && commentAssignees(comment).some(person => person.id === context.user.id));
     const listed = new Set(assigned.map(item => item.comment.id));
     const mentions = items.filter(({ comment }) => !comment.resolved && comment.mentionsMe && !listed.has(comment.id));
     for (const item of mentions) listed.add(item.comment.id);

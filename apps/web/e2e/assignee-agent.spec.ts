@@ -34,7 +34,8 @@ test('the assignee picks the agent working with them, edits its session, model a
     // Only the assignee adds an agent: none while the thread is unassigned
     await expect(thread.getByRole('button', { name: 'Add agent', exact: true })).toHaveCount(0);
     await thread.getByRole('button', { name: 'Unassigned. Change assignee', exact: true }).click();
-    await page.getByRole('menuitem', { name, exact: true }).click();
+    await page.getByRole('menuitemcheckbox', { name, exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Done', exact: true }).click();
     // The new assignee shows in place once saved; no success toast repeats it
     await expect(thread.getByRole('button', { name: 'Assigned to you. Change assignee', exact: true })).toBeEnabled();
     await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);
@@ -133,7 +134,8 @@ test('the avatars on a row show the assignee and their agent on hover, focus or 
     await page.goto(`/app/projects/${project}`);
     const thread = await openComment(page, 'Price table wraps');
     await thread.getByRole('button', { name: 'Unassigned. Change assignee', exact: true }).click();
-    await page.getByRole('menuitem', { name, exact: true }).click();
+    await page.getByRole('menuitemcheckbox', { name, exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Done', exact: true }).click();
     await expect(thread.getByRole('button', { name: 'Assigned to you. Change assignee', exact: true })).toBeEnabled();
     await thread.getByRole('button', { name: 'Add agent', exact: true }).click();
     const menu = page.getByRole('menu').filter({ has: page.getByRole('menuitemradio', { name: 'Claude', exact: true }) });

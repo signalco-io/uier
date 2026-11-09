@@ -1,7 +1,9 @@
 import type { z } from 'zod';
 import { agentLabels, isAgentKind, type MessageAgentView } from '@uier/toolbar/agents';
-import type { DbComment, DbMessageAgent, DbThreadItem } from '../db/schema';
-import { assigneeAgentInputSchema, currentAssigneeAgent } from './assigneeAgentModel';
+import type { DbMessageAgent, DbThreadItem } from '../db/schema';
+import { assigneeAgentInputSchema } from './assigneeAgentModel';
+
+import { assignedAgents, type AssignmentFields } from './assignments';
 
 /**
  * What an MCP connection says about the agent writing a reply through it: the kind it gives or identifies
@@ -20,12 +22,12 @@ function stored(agent: { kind: DbMessageAgent['kind']; model?: string; reasoning
  * message is marked with that agent and its details. Otherwise it records what the connection gives.
  * Read from the thread as it is when the reply is saved; never from the message text.
  */
-export function messageAgentFor(comment: Pick<DbComment, 'assigneeId' | 'assigneeAgent'>, authorUserId: string, claim: z.output<typeof messageAgentClaimSchema>): DbMessageAgent {
-    const attached = currentAssigneeAgent(comment);
-    if (attached && attached.assigneeId === authorUserId && attached.kind === claim.kind
-        && (claim.model === undefined || claim.model === attached.model)
-        && (claim.reasoning === undefined || claim.reasoning === attached.reasoning))
-        return stored(attached);
+export function messageAgentFor(comment: AssignmentFields, authorUserId: string, claim: z.output<typeof messageAgentClaimSchema>, connectorId?: string): DbMessageAgent {
+    const candidates = assignedAgents(comment).filter(agent => agent.assigneeId === authorUserId && agent.kind === claim.kind
+        && (claim.model === undefined || claim.model === agent.model) && (claim.reasoning === undefined || claim.reasoning === agent.reasoning));
+    const matching = candidates.filter(agent => !connectorId || !agent.connector || agent.connector.credentialId === connectorId);
+    const attached = matching.length === 1 ? matching[0] : undefined;
+    if (attached) return stored(attached);
     return stored(claim);
 }
 

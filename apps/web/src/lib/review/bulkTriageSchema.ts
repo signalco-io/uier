@@ -10,7 +10,7 @@ const items = <T extends z.ZodType>(schema: T) => z.array(schema).min(1).max(MAX
     .refine(values => new Set(values.map(value => (value as { idempotencyKey: string }).idempotencyKey)).size === values.length, 'Use distinct submission keys.');
 export const bulkTriageSchema = z.discriminatedUnion('kind', [
     z.object({ kind: z.literal('priority'), priority: z.enum(priorities), items: items(item.extend({ expected: z.enum(priorities) })) }).strict(),
-    z.object({ kind: z.literal('assignment'), assigneeId: userIdSchema.nullable(), items: items(item.extend({ expected: userIdSchema.nullable() })) }).strict(),
+    z.object({ kind: z.literal('assignment'), assigneeId: userIdSchema.nullable(), items: items(item.extend({ expected: userIdSchema.nullable(), revision: z.string().regex(/^[a-f0-9]{64}$/).optional() })) }).strict(),
     z.object({ kind: z.literal('status'), resolved: z.boolean(), items: items(item.extend({ expected: z.boolean(), revision: z.string().regex(/^[a-f0-9]{64}$/) })) }).strict()
 ]);
 export type BulkTriageInput = z.infer<typeof bulkTriageSchema>;

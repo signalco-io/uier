@@ -5,7 +5,7 @@ import { useAgentWorking } from '@uier/toolbar/agent-working';
 import { toast } from 'sonner';
 import { ChevronDownIcon, PlusIcon } from 'lucide-react';
 import {
-    agentKinds, agentLabels, MAX_AGENT_MODEL_LENGTH, MAX_AGENT_REASONING_LENGTH, MAX_AGENT_SESSION_LENGTH, agentModelText, modelName, reasoningText, type AgentKind, type AssigneeAgentView
+    assigneeAgents, commentAssignees, agentKinds, agentLabels, MAX_AGENT_MODEL_LENGTH, MAX_AGENT_REASONING_LENGTH, MAX_AGENT_SESSION_LENGTH, agentModelText, modelName, reasoningText, type AgentKind, type AssigneeAgentView
 } from '@uier/toolbar/agents';
 import { Button } from '@/src/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/src/components/ui/dialog';
@@ -24,7 +24,7 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/s
 import { Input } from '@/src/components/ui/input';
 import { Spinner } from '@/src/components/ui/spinner';
 import { cn } from '@/src/lib/utils';
-import type { ProjectCommentView } from '../../../lib/app/projectComments';
+import type { ProjectAssignee, ProjectCommentView } from '../../../lib/app/projectComments';
 import type { AssigneeAgentInput } from '../../../lib/review/assigneeAgentModel';
 import { setCommentAgentAction } from './actions';
 import { AgentAvatar } from './AgentAvatar';
@@ -63,7 +63,15 @@ function AgentDetails({ agent }: { agent: AssigneeAgentView }) {
  * picks it (Claude, Codex, ChatGPT, Cursor or AI agent), shown by its logo and name, edits its session id, model and reasoning level (agents usually
  * report these themselves through MCP) or removes it; everyone else reads "with Claude".
  */
-export function AgentControl({ projectId, comment }: { projectId: string; comment: ProjectCommentView }) {
+export function AgentControl({ projectId, comment, assignee, editable }: { projectId: string; comment: ProjectCommentView; assignee: ProjectAssignee; editable: boolean }) {
+    const agents = assigneeAgents(assignee);
+    return <span className="flex min-w-0 flex-wrap items-center gap-1">
+        {agents.map((agent, index) => <SingleAgentControl key={agent.id ?? index} projectId={projectId} comment={comment} assignee={assignee} agent={agent} editable={editable} />)}
+        {editable && agents.length < 10 && <SingleAgentControl projectId={projectId} comment={comment} assignee={assignee} editable adding={agents.length > 0} />}
+    </span>;
+}
+
+function SingleAgentControl({ projectId, comment, assignee, agent, editable, adding = false }: { projectId: string; comment: ProjectCommentView; assignee: ProjectAssignee; agent?: AssigneeAgentView; editable: boolean; adding?: boolean }) {
     const [pending, start] = useTransition();
     const update = useCommentUpdate();
     const attempt = useRef<{ value: string; key: string } | null>(null);
@@ -72,12 +80,10 @@ export function AgentControl({ projectId, comment }: { projectId: string; commen
     const [error, setError] = useState<string>();
     const trigger = useRef<HTMLButtonElement>(null);
     const ids = useId();
-    const assignee = comment.assignee;
-    const agent = assignee?.agent;
-    const working = useAgentWorking(agent?.workingUntil);
-    if (!assignee) return null;
 
-    if (!comment.permissions.agent) {
+    const working = useAgentWorking(agent?.workingUntil);
+
+    if (!editable) {
         if (!agent) return null;
         return (
             <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
@@ -93,13 +99,19 @@ export function AgentControl({ projectId, comment }: { projectId: string; commen
     const save = async (next: AssigneeAgentInput | null) => {
         const value = JSON.stringify(next);
         if (attempt.current?.value !== value) attempt.current = { value, key: crypto.randomUUID() };
-        update({ id: comment.id, patch: { assignee: { ...assignee, agent: next ? agentView(next) : undefined } } });
+        const previous = commentAssignees(comment);
+        const agents = assigneeAgents(assignee);
+        const nextAgents = agent ? agents.flatMap(item => item === agent ? next ? [{ ...agentView(next), id: agent.id }] : [] : [item])
+            : [...agents, ...(next ? [agentView(next)] : [])];
+        const people = previous.map(person => person.id === assignee.id ? { ...person, agents: nextAgents, agent: nextAgents[0] } : person);
+        update({ id: comment.id, patch: { assignees: people, assignee: people[0] } });
+        const rollback = () => update({ id: comment.id, patch: { assignees: previous, assignee: previous[0] } });
         try {
-            const result = await setCommentAgentAction(projectId, comment.id, next, attempt.current.key);
-            if (!result?.ok) return result?.error ?? 'Could not change the agent. Try again.';
+            const result = await setCommentAgentAction(projectId, comment.id, next, attempt.current.key, agent?.id, adding);
+            if (!result?.ok) { rollback(); return result?.error ?? 'Could not change the agent. Try again.'; }
             attempt.current = null;
             return undefined;
-        } catch { return 'Could not change the agent. Try again.'; }
+        } catch { rollback(); return 'Could not change the agent. Try again.'; }
     };
     const choose = (kind: AgentKind) => start(async () => {
         if (kind === agent?.kind) return;

@@ -104,6 +104,16 @@ project existence; direct users to `list_projects` and to reconnecting or explic
 rather than expanding access. List-tool descriptions and field schemas must both
 state the 1–25 limit and `nextCursor` pagination, since clients may flatten schema constraints.
 
+Assignment reads add `assignees[]` and per-person `agents[]`, with the first entry mirrored into
+`assignee` / `agent`. `assign_feedback` accepts exactly one of legacy `assigneeId` (replace with one,
+null clears all) or `assigneeIds` with optional `mode: replace | add | remove`. Add/remove are atomic.
+`set_feedback_agent` adds optional `add: true` for another attachment and `agentId` for an existing
+one; clear and working tools accept `agentId` too. Every agent operation is scoped to the caller's
+own assignment, never another person's. Default set/clear target the first agent under the caller;
+default working selects the unique attached connection/session. Agent results add `assigneeIds`
+and the caller's `agents`, each with a stable `id`. Assignment events add current/previous assignees;
+agent events add `agentId`, including removals. See [AI agents](assignee-agents.md).
+
 `set_feedback_agent_working` (`feedback:assign`) reports transient active work after attachment:
 `working: true` starts/renews a server-issued five-minute lease, `false` clears it. Supply the attached
 session id when present; only that connection/session under its owner can change it. Renew every two
@@ -137,7 +147,9 @@ endpoint verification and encrypted `whsec_` secrets; `webhook.ts` Standard Webh
 POST, which goes only to public HTTPS on the default port through `publicNetwork.ts` (the same
 connection-time address check as OAuth metadata fetches), never follows redirects and reports fixed
 failure categories only; `delivery.ts` discovery from `listChangedSince` with a per-project cursor,
-deterministic delivery records, leased attempts with bounded retries, and `runMcpEventWorker`.
+deterministic delivery records retaining the event's `agentId` (several agent removals can share a sequence, kind and timestamp), leased attempts with bounded retries, and `runMcpEventWorker`.
+`feedback.assignment_changed` with `assignee: "me"` matches only additions of the connection owner,
+not removals or changes retaining that person; agent-event filtering still includes removals under that owner.
 Events never get their own write path: add an event kind to `notificationEvents` and map it in the
 catalog. Every attempt rechecks the connection (`currentMcpConnection`), `mcpProject` and
 `canSeeComment`; lost access deletes the subscription. Never deliver a connection's own changes

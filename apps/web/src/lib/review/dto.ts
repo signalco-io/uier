@@ -8,9 +8,11 @@ export { authorNames } from '../comments/authorNames';
 import { listProjectMembers } from '../app/members';
 import type { DbProject } from '../app/model';
 import { actorAuthorId, type ProjectActor } from './actor';
-import { assigneeAgentView } from './assigneeAgentModel';
+import { assigneeAgentViews } from './assigneeAgentModel';
 import { messageAgentView } from './messageAgent';
 import { canTriageProject, canDeleteComment, canDeleteItem, canEditComment, canEditItem, canResolveComment } from './comments';
+
+import { assignedUserIds } from './assignments';
 
 const memberPrefix = 'user:';
 
@@ -41,10 +43,13 @@ export function messageMentions(item: DbThreadItem, names: Map<string, string>) 
     return item.mentions?.map(mention => ({ ...mention, name: names.get(mention.userId) ?? 'Former member' }));
 }
 
+export type ReviewAssignee = { id?: string; name: string; isMe: boolean; unavailable: boolean; agent?: import('@uier/toolbar/agents').AssigneeAgentView; agents?: import('@uier/toolbar/agents').AssigneeAgentView[] };
+
 export type ReviewCommentDto = CommentDto & {
     source?: FeedbackSource;
     /** `agent`: the AI agent working under the assignee, for members only */
-    assignee?: { id?: string; name: string; isMe: boolean; unavailable: boolean; agent?: import('@uier/toolbar/agents').AssigneeAgentView };
+    assignee?: ReviewAssignee;
+    assignees?: ReviewAssignee[];
     private: boolean;
     reproduction?: ReproductionContext;
     /** What the current reviewer may do (the toolbar shows only these actions) */
@@ -60,7 +65,12 @@ export type ReviewCommentDto = CommentDto & {
  */
 export function toReviewCommentDto(comment: DbComment, actor: ProjectActor, names: Map<string, string>, origins: readonly string[] = [], readSequence = 0, participants = names, project?: DbProject): ReviewCommentDto | null {
     const authorId = actorAuthorId(actor);
-    const agent = actor.kind === 'member' ? assigneeAgentView(comment) : undefined;
+    const assignees: ReviewAssignee[] = assignedUserIds(comment).map(id => {
+        const agents = actor.kind === 'member' ? assigneeAgentViews(comment, id) : undefined;
+        return { ...(actor.kind === 'member' ? { id } : {}), name: participants.get(id) ?? 'Former member',
+            isMe: actor.kind === 'member' && actor.userId === id && participants.has(id), unavailable: !participants.has(id),
+            ...(agents ? { agents, ...(agents[0] ? { agent: agents[0] } : {}) } : {}) };
+    });
     const dto = toCommentDto(comment, authorId, names);
     if (!dto)
         return null;
@@ -73,13 +83,7 @@ export function toReviewCommentDto(comment: DbComment, actor: ProjectActor, name
         activity: readActivity(comment, authorId, readSequence),
         ...(actor.kind === 'member' ? { reproduction: toReproductionContext(comment, origins) } : {}),
         private: comment.private === true,
-        assignee: comment.assigneeId ? {
-            ...(actor.kind === 'member' ? { id: comment.assigneeId } : {}),
-            name: participants.get(comment.assigneeId) ?? 'Former member',
-            isMe: actor.kind === 'member' && actor.userId === comment.assigneeId && participants.has(comment.assigneeId),
-            unavailable: !participants.has(comment.assigneeId),
-            ...(agent ? { agent } : {})
-        } : undefined,
+        assignees, assignee: assignees[0],
         permissions: {
             priority: canTriageProject({ id: project?.id ?? comment.projectId ?? comment.domain.replace(/^project:/, '') }, actor),
             resolve: canResolveComment(comment, actor),
