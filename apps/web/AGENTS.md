@@ -60,7 +60,7 @@ does, and the rules that apply only to it, live in [`docs/`](docs/README.md), on
 - Use the UI kit's semantic utilities: `bg-background`, `text-foreground`, `text-muted-foreground`,
   `text-secondary-foreground`, `border-border` (`border` alone), `bg-muted`, `bg-primary`.
   Brand-only tokens are `hsl(var(--brand-accent))`, `--brand-accent-text`, `--brand-selection`,
-  `--brand-success`, `--brand-warning`. No raw hex in components (the two dark/light logo panels
+  `--brand-success`, `--brand-warning`, `--brand-in-progress`, `--brand-ready` (status dots). No raw hex in components (the two dark/light logo panels
   on the brand page are the deliberate exception: they must stay black and white in both themes;
   so are the sign-in card's Google "G" and Microsoft logo, in their own colours on the shared outline button, and
   `IntegrationLogo`, the provider logos on the Integrations pages: GitHub, Linear and Notion draw in the text colour,

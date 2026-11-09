@@ -21,6 +21,7 @@ import { activeStatusFilters, isActiveStatusFilter, peopleFilterLabels, statusFi
 import { LocationFilter, type PageCount } from './LocationFilter';
 import { pageFilterBase } from './pageFilter';
 import { PriorityFlag } from './PriorityFlag';
+import { StateDot } from './CommentStatus';
 
 /** Tab-like toggles, as `LinkTabs`' segmented filter (the projects list's Active and Done) */
 const segmentedGroup = 'gap-0.5 rounded-lg bg-muted p-[3px]';
@@ -203,6 +204,8 @@ function StatusTabs({ status, counts, onStatus }: {
 }) {
     const activeShown = isActiveStatusFilter(status);
     const activeValue = activeShown ? status : 'active';
+    /** The one status under Active the tab shows, if any */
+    const activeOne = activeStatusFilters.find(value => value === status);
     const activeLabel = activeValue === 'active' ? statusFilterLabels.active : `${statusFilterLabels.active}: ${statusFilterLabels[activeValue]}`;
     return (
         <div className="-mx-1 -my-0.5 overflow-x-auto px-1 py-0.5">
@@ -213,6 +216,7 @@ function StatusTabs({ status, counts, onStatus }: {
                     else if (activeShown && status !== 'active') onStatus('active');
                 }}>
                 <ToggleGroupItem value="active" className={segmentedItem}>
+                    {activeOne && <StateDot status={activeOne} />}
                     {activeLabel} <span className="tabular-nums text-muted-foreground">{counts[activeValue]}</span>
                 </ToggleGroupItem>
                 <DropdownMenu>
@@ -229,6 +233,7 @@ function StatusTabs({ status, counts, onStatus }: {
                                 <Fragment key={value}>
                                     {index === 1 && <DropdownMenuSeparator />}
                                     <DropdownMenuRadioItem value={value} closeOnClick className="pointer-coarse:min-h-11">
+                                        {value !== 'active' && <StateDot status={value} />}
                                         {statusFilterLabels[value]}
                                         <span className="ml-auto tabular-nums text-muted-foreground">{counts[value]}</span>
                                     </DropdownMenuRadioItem>
@@ -239,6 +244,7 @@ function StatusTabs({ status, counts, onStatus }: {
                 </DropdownMenu>
                 {(['done', 'all'] as const).map(value => (
                     <ToggleGroupItem key={value} value={value} className={segmentedItem}>
+                        {value === 'done' && <StateDot status="done" />}
                         {statusFilterLabels[value]} <span className="tabular-nums text-muted-foreground">{counts[value]}</span>
                     </ToggleGroupItem>
                 ))}

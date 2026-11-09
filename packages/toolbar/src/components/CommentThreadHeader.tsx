@@ -20,16 +20,22 @@ import { CommentThreadMenu } from './CommentThreadMenu';
 import { IconTooltip, useIconTooltip } from './IconTooltip';
 import { useThreadNotificationActions } from './ThreadNotifications';
 
-/**
- * "Open", "In progress", "Ready to verify" or "Done", with the status dot (BRAND.md, "Components":
- * ink while not done, green = resolved). The app's `StateBadge`.
- */
+/** Each status's dot colour (BRAND.md, "Status"): Open ink, In progress sky, Ready to verify violet, Done green. The app's `StateDot`. */
+const stageDotColors: Record<FeedbackStage, string> = {
+    open: 'bg-foreground',
+    'in-progress': 'bg-[hsl(var(--brand-in-progress))]',
+    ready: 'bg-[hsl(var(--brand-ready))]',
+    done: 'bg-[hsl(var(--brand-success))]'
+};
+
+/** "Open", "In progress", "Ready to verify" or "Done", with the status dot in its colour. The app's `StateBadge`. */
 export function CommentStatusBadge({ stage }: { stage: FeedbackStage }) {
     return (
         <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium text-foreground">
             <span
                 aria-hidden="true"
-                className={cx('size-1.5 rounded-full', stage === 'done' ? 'bg-[hsl(var(--brand-success))]' : 'bg-foreground')} />
+                data-status-dot={stage}
+                className={cx('size-1.5 rounded-full', stageDotColors[stage])} />
             <span className="sr-only">Status: </span>
             {feedbackStageLabels[stage]}
         </span>

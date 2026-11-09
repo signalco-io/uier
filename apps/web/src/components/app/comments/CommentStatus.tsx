@@ -4,6 +4,7 @@ import type { ReactElement, Ref } from 'react';
 import { CheckIcon, ChevronDownIcon } from 'lucide-react';
 import { feedbackStage, feedbackStageLabels, feedbackStages, type FeedbackStage } from '@uier/toolbar/verification';
 import { Badge } from '@/src/components/ui/badge';
+import { cn } from '@/src/lib/utils';
 import { Button } from '@/src/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from '@/src/components/ui/dropdown-menu';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
@@ -17,9 +18,19 @@ export function commentStatus(comment: Pick<ProjectCommentView, 'resolved' | 'in
     return feedbackStage(comment);
 }
 
-/** Done: green; every other status: ink (BRAND.md, "Components": badges with a status dot). The toolbar's `CommentStatusBadge`. */
+/**
+ * Each status's dot colour (BRAND.md, "Status"): Open ink, In progress sky, Ready to verify violet, Done green.
+ * The name always goes beside the dot. The toolbar's `CommentStatusBadge` uses the same tokens.
+ */
+const stateDotColors: Record<CommentStatus, string> = {
+    open: 'bg-foreground',
+    'in-progress': 'bg-[hsl(var(--brand-in-progress))]',
+    ready: 'bg-[hsl(var(--brand-ready))]',
+    done: 'bg-[hsl(var(--brand-success))]'
+};
+
 export function StateDot({ status }: { status: CommentStatus }) {
-    return <span aria-hidden="true" className={status === 'done' ? 'size-1.5 shrink-0 rounded-full bg-[hsl(var(--brand-success))]' : 'size-1.5 shrink-0 rounded-full bg-foreground'} />;
+    return <span aria-hidden="true" data-status-dot={status} className={cn('size-1.5 shrink-0 rounded-full', stateDotColors[status])} />;
 }
 
 export function StateBadge({ status }: { status: CommentStatus }) {
