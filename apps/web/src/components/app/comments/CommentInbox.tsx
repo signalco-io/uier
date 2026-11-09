@@ -8,6 +8,7 @@ import type { ProjectCommentView } from '../../../lib/app/projectComments';
 import { CommentCard, type AssigneeOption, type ResolveExit } from './CommentCard';
 import { CommentRow, commentRowId } from './CommentRow';
 import { commentStatus, type CommentStatus } from './CommentStatus';
+import { LayoutMotion } from './LayoutMotion';
 
 /** The brand's exit (BRAND.md, "Motion"): 150 ms ease-out, fade plus 8 px slide */
 const exitMs = 150;
@@ -55,7 +56,8 @@ export function useOpenComment(container: RefObject<HTMLElement | null>) {
 /**
  * The list as an inbox: compact rows, and the open thread beside them (the first shown one until
  * another is chosen). Where there is no room for both, a row opens the thread in the list's place,
- * with Back to comments. A thread that Done or Reopen takes out of the list folds away first.
+ * with Back to comments. A thread that Done or Reopen takes out of the list folds away first. Rows that
+ * arrive, leave or change place otherwise (realtime, filters, search, priority) animate (`LayoutMotion`).
  *
  * ↓ and ↑ move to the next and the previous row and stop at the ends; from a row, Home and End move to
  * the first and the last. Beside the list the row's thread opens, like a click; where the thread
@@ -89,7 +91,6 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
     const selected = opened ?? comments[0];
     const listRef = useRef<HTMLUListElement>(null);
     const detailRef = useRef<HTMLDivElement>(null);
-    const [initial] = useState(() => new Set(comments.map(comment => comment.id)));
     // Comment id → the status it is leaving for; it stays hidden only while it has another one
     const [leaving, setLeaving] = useState<Record<string, CommentStatus>>({});
     const isLeaving = (comment: ProjectCommentView) => comment.id in leaving && leaving[comment.id] !== commentStatus(comment);
@@ -184,7 +185,9 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
 
     return (
         <div className="grid grid-cols-1 items-start gap-4 @4xl/comments:grid-cols-[minmax(17rem,22rem)_minmax(0,1fr)] @6xl/comments:grid-cols-[minmax(20rem,26rem)_minmax(0,1fr)]">
-            <ul ref={listRef} aria-label={label} className={cn('m-0 flex min-w-0 list-none flex-col gap-0.5 rounded-xl border bg-card p-1', opened && '@max-4xl/comments:hidden')}
+            <LayoutMotion container={listRef} item="data-comment-id">
+            {/* `isolate`: rows that move stay under the page's sticky header, and leaving copies above the list's background */}
+            <ul ref={listRef} aria-label={label} className={cn('relative isolate m-0 flex min-w-0 list-none flex-col gap-0.5 rounded-xl border bg-card p-1', opened && '@max-4xl/comments:hidden')}
                 onFocus={event => {
                     const id = event.target.closest<HTMLElement>('[data-comment-id]')?.dataset.commentId;
                     if (id) setKeyboard(state => state.id === id ? state : { ...state, id });
@@ -194,9 +197,10 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
                     return (
                         // Scroll margin: clear of the phone layout's sticky header when the keys bring a row into view
                         <li key={comment.id} inert={leaves} data-comment-id={comment.id}
-                            className={cn('grid min-w-0 scroll-mt-14 scroll-mb-1 grid-cols-1 grid-rows-[1fr] transition-[grid-template-rows,opacity,translate] duration-150 ease-out motion-reduce:transition-none md:scroll-mt-1',
-                                leaves && 'grid-rows-[0fr] -translate-y-2 opacity-0',
-                                !initial.has(comment.id) && 'animate-in fade-in slide-in-from-top-2 duration-150 ease-out motion-reduce:animate-none')}>
+                            // While it moves (`LayoutMotion`), a row covers the rows it passes, and the copy of one that
+                            // leaves fades out beneath the rows that take its place
+                            className={cn('grid min-w-0 scroll-mt-14 scroll-mb-1 grid-cols-1 grid-rows-[1fr] transition-[grid-template-rows,opacity,translate] duration-150 ease-out motion-reduce:transition-none data-motion:rounded-lg data-motion:bg-card data-[motion=exit]:-z-1 md:scroll-mt-1',
+                                leaves && 'grid-rows-[0fr] -translate-y-2 opacity-0')}>
                             <div className={cn('min-h-0', leaves && 'overflow-hidden')}>
                                 <CommentRow comment={comment} href={hrefFor(comment.id)} tabbable={comment.id === tabStop?.id}
                                     selected={comment.id === opened?.id ? 'opened' : comment.id === selected?.id ? 'beside' : undefined}
@@ -206,6 +210,7 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
                     );
                 })}
             </ul>
+            </LayoutMotion>
             {selected && (
                 <div ref={detailRef}
                     className={cn('min-w-0 scroll-mt-4 @4xl/comments:sticky @4xl/comments:top-0 @4xl/comments:max-h-[calc(100svh-5rem)] @4xl/comments:overflow-y-auto @4xl/comments:rounded-xl',

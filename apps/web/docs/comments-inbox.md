@@ -35,8 +35,9 @@
   its menu is open (`data-popup-open`); screen readers always find it. Tab reaches it after the card's link, and M on
   a focused card opens it with the first column highlighted (it focuses Move and clicks it, which Base UI treats as
   a keyboard open). The link says so: `aria-keyshortcuts="M"` and the description "Press M to move it to another
-  column.". After a move the focus goes to Move on the card in its new column and a status region says "Comment
-  #12 moved to Done."; during a save Move stays focusable and offers no other column. The single-pointer
+  column.". After a move the card travels to its new column, the focus goes to Move on it there (scrolled into view
+  once it has arrived, `motionSettled`) and a status region says "Comment #12 moved to Done."; during a save Move
+  stays focusable and offers no other column. The single-pointer
   alternative to dragging (and the touch path besides a long press) is the card's tap: it opens the thread, whose
   status menu has the same statuses. dnd-kit's live region announces pointer drags. Columns and both paths
   follow the `statuses` list, never fixed ids. `e2e/comment-board.spec.ts` covers mouse, touch, refused drops,
@@ -51,3 +52,37 @@
   toolbar's `CommentStatusBadge` uses the same tokens. The dot carries `data-status-dot="<status>"`.
   `e2e/status-colors.spec.ts` checks each status's colour in the list, the board, the menu and the filter, in
   light and dark, with axe.
+
+## Motion
+
+- `comments/LayoutMotion.tsx` animates the board's cards (`data-board-card`, in the grid) and the list's rows
+  (`data-comment-id`, in the list), whatever changed them: realtime and fallback refreshes, optimistic status,
+  priority and assignment changes, drops, filters and search. An item that arrives fades in with an 8 px slide and one
+  that leaves fades out where it was (150 ms ease-out; an `inert`, `aria-hidden` copy, since React has already removed
+  it). One that changes place travels there from where it was (200 ms ease-out), and the items around it slide to
+  their new places (BRAND.md, "Motion"). Only `transform` and `opacity` animate, with the Web Animations API, so input,
+  focus and scroll are never held; a new update starts from where an item is on screen.
+- It is FLIP in a small class component: `getSnapshotBeforeUpdate` is React's one hook that runs right before the page
+  changes (the React Compiler leaves classes alone), so the first positions are exact for any kind of update. The View
+  Transitions API (React 19's `<ViewTransition>`) was the alternative: it animates only transition updates (not the
+  optimistic ones), snapshots the whole page and ignores input while it runs, runs one at a time, and would freeze
+  dnd-kit's lifted card during a refresh. No motion library is needed.
+- An item keeps its place in its own list or column: when a column shifts (the stacked board on a phone), its cards
+  shift with it, and only a card that changes list travels across. Items are found by id, so a card React mounts again
+  in another column is the same card. One that crosses others (another column, more than a place away) is lifted above
+  them (`z-index` 11, over the cards' `z-10` controls). List rows take the card background while they move and the
+  copy of a leaving row fades out beneath the rows that take its place (`data-motion:*` classes on the row, the list
+  `isolate`d so neither passes over the phone's sticky header); board cards are opaque and their copies fade on top.
+- No motion on the first render or a switch of List/Board (both mount), for a hidden view or tab, with
+  `prefers-reduced-motion: reduce`, or when more than `motionLimit` (8) items arrive, leave or change column in one
+  update: a bulk change or a filter that swaps the list snaps into place. A row folding out of the list (Done or Reopen
+  from its thread, `leave`) is `inert` and needs no copy.
+- The board's dragged card is dnd-kit's (`skip`: its lifted copy, `data-drag-preview`, is on screen), so the dropped
+  card settles from where it was dropped and does not travel again; the placeholder still makes room with a slide.
+- The keyboard focus stays on a moved item: React mounts a card again in its new column, so the same control in it
+  (by id, else by position) gets the focus back without scrolling, but only when the focus was in that item and
+  nothing else has taken it (React itself keeps it on a list row it only moves). Move keeps its own focus handling;
+  announcements are unchanged.
+- An item carries `data-motion="enter"` or `"move"` while it moves; a leaving copy has `data-motion="exit"` and
+  `data-motion-for`. `e2e/comment-motion.spec.ts` watches for them (never for timing): a status change through the
+  thread, a realtime arrival, search, a drop, a priority change, the bulk limit, reduced motion and focus.
