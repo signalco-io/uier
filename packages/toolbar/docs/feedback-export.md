@@ -15,3 +15,10 @@ autolinks and mentions; messages/quotes remain fenced and the structured context
 Authorization and private-field projection
 belong on the server; never format a raw document or browser location for export. See
 [the shared contract](../../../docs/feedback-context.md).
+
+Custom page feedback retains its stable `kind: custom_<id>` and optional server-captured
+`feedbackType: { id, label, icon }` in the version 1 packet. The display snapshot is independent of
+current workspace/project settings, and includes neither the placeholder nor the enabled state.
+Markdown prints its literal name, stable ID and curated icon key. Built-in kinds and their existing
+Markdown stay unchanged. The same snapshot passes through toolbar/app DTOs, MCP list/single/batch
+reads and MCP event payloads; it never comes from client-submitted display metadata.

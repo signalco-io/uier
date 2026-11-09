@@ -87,3 +87,16 @@ Desktop Chrome) and the options popover (Show on page opening it again). `new-co
 thread. `embed.spec.ts`: on a third-party site the toolbar and its threads stay out of point mode and
 the review API refuses toolbar anchors. `toolbar-anchors.api.spec.ts`: `layer.nested` validation, the refusal
 for reattaching, and the app's and the packet's words.
+
+## Configured Give feedback choices
+
+`ToolbarFeedback` reads the project's `feedbackTypes` from `ProjectGate` (older responses and
+non-project hosts use `defaultFeedbackTypes`). Only enabled types appear, in wrapping rows. A
+custom choice uses its configured icon, name and placeholder, and has its own draft/idempotency
+key by stable type ID, including when the composer expands to `ComposerModal`. If the selected
+type disappears after a settings refresh, the first enabled type is selected without deleting the
+old type's draft. When every type is off, the Send feedback button is absent; a page's explicit
+Give feedback request announces that pinned comments are still available. The server rechecks the
+current enabled list when saving. `CommentKindLabel` uses each saved custom thread's display
+snapshot, not today's type settings. Feedback choices stay within the existing `uier-feedback`
+reviewable surface; expanding the composer retains the modal's existing non-reviewable behavior.

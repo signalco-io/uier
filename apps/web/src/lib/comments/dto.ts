@@ -1,3 +1,4 @@
+import { feedbackTypeSnapshot, isCommentKind } from '@uier/toolbar/feedback-types';
 import { commentPriority, type CommentPriority } from '@uier/toolbar/triage';
 import type { DbComment, DbCommentKind, DbCommentLayer, DbCommentPosition, DbDeviceSize, DbThreadItem } from '../db/schema';
 import { pagePath, sourcePagePath, storedPagePath, storedSourcePath, type PageStatePolicy } from '@uier/toolbar/page-state';
@@ -40,6 +41,7 @@ export type CommentDto = {
     /** A screenshot of the commented part of the page (`GET .../comments/<id>/screenshot`), in pixels */
     screenshot?: { width: number; height: number; revision?: string };
     kind: DbCommentKind;
+    feedbackType?: import('@uier/toolbar/feedback-types').FeedbackTypeSnapshot;
     thread: { items: CommentThreadItemDto[] };
     /** The coarse size and the viewport (width, height in CSS pixels) the comment was left from */
     device?: { size?: DbDeviceSize; windowSize?: [number, number] };
@@ -61,7 +63,6 @@ export type VisitorDto = {
 };
 
 const deviceSizes: readonly DbDeviceSize[] = ['desktop', 'tablet', 'mobile'];
-const commentKinds: readonly DbCommentKind[] = ['comment', 'feedback', 'bug', 'rewrite'];
 
 function optionalString(value: unknown) {
     return typeof value === 'string' ? value : undefined;
@@ -206,7 +207,8 @@ export function toCommentDto(comment: DbComment, visitorAuthorId: string | undef
         screenshot: comment.screenshot && Number.isInteger(comment.screenshot.width) && Number.isInteger(comment.screenshot.height)
             ? { width: comment.screenshot.width, height: comment.screenshot.height, ...(comment.screenshot.revision ? { revision: comment.screenshot.revision } : {}) }
             : undefined,
-        kind: commentKinds.find(kind => kind === comment.kind) ?? 'comment',
+        kind: isCommentKind(comment.kind) ? comment.kind : 'comment',
+        ...(feedbackTypeSnapshot(comment.feedbackType, comment.kind) ? { feedbackType: feedbackTypeSnapshot(comment.feedbackType, comment.kind) } : {}),
         thread: {
             items: items
                 .filter(item => typeof item === 'object' && item !== null && item.id != null)

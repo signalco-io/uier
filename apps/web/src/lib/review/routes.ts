@@ -1,3 +1,5 @@
+import { defaultFeedbackTypes, type FeedbackType } from '@uier/toolbar/feedback-types';
+import { loadFeedbackTypes } from '../app/feedbackTypes';
 import { changeFixVerification } from './fixVerification';
 import { fixVerificationSchema } from './fixVerificationSchema';
 import { priorities } from '@uier/toolbar/triage';
@@ -66,9 +68,13 @@ function writerName(actor: ProjectActor, authorName: string | undefined) {
     return authorName;
 }
 
-/** The project as the toolbar sees it: listed fields only, never its client, members or integrations */
-export function reviewProjectDto(project: PublicProject, canComment: boolean) {
-    return { id: project.publicId, name: project.name, access: project.access, pageState: pageStatePolicy(project.pageState), ...(canComment ? { brief: project.brief, environments: configuredEnvironments(project), environmentOptions: environmentOptions(project) } : {}) };
+/**
+ * The project as the toolbar sees it: listed fields only, never its client, members or integrations.
+ * Only the enabled feedback types (what the form offers): a disabled type's name and placeholder stay with
+ * the project's admins, and saved threads show their own type snapshot.
+ */
+export function reviewProjectDto(project: PublicProject, canComment: boolean, feedbackTypes: readonly FeedbackType[] = defaultFeedbackTypes) {
+    return { id: project.publicId, name: project.name, access: project.access, pageState: pageStatePolicy(project.pageState), ...(canComment ? { brief: project.brief, feedbackTypes: feedbackTypes.filter(type => type.enabled), environments: configuredEnvironments(project), environmentOptions: environmentOptions(project) } : {}) };
 }
 
 /** GET /api/review/<code>: the project, the reviewer and whether they can comment */
@@ -77,7 +83,7 @@ export async function getReviewInfo({ project, actor }: ReviewApiContext) {
     const { publicId } = publicProject;
     const canComment = project.access === 'guests' || (project.access === 'invited' && actor.kind === 'member');
     return Response.json({
-        project: reviewProjectDto(publicProject, canComment),
+        project: reviewProjectDto(publicProject, canComment, canComment ? await loadFeedbackTypes(project) : []),
         viewer: { ...viewerDto(actor), draftScope: keyedHash('draft-scope', actorAuthorId(actor) ?? 'anonymous') },
         canComment,
         // Review links sign people in and come back to the page (the toolbar adds `url`)

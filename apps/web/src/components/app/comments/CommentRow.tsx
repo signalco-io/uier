@@ -1,7 +1,9 @@
 'use client';
 
 import { useRef, type MouseEvent, type ReactNode } from 'react';
-import { BugIcon, GitPullRequestIcon, HeartIcon, LockIcon, ReplaceIcon } from 'lucide-react';
+import { GitPullRequestIcon, LockIcon, ReplaceIcon } from 'lucide-react';
+import { commentKindIcon, commentKindLabel } from '@uier/toolbar/feedback-types';
+import { FeedbackTypeIcon } from '../FeedbackTypeIcon';
 import { commentAssignees } from '@uier/toolbar/agents';
 import { markdownPlainText } from '@uier/toolbar/markdown';
 import { cn } from '@/src/lib/utils';
@@ -15,7 +17,6 @@ import { commentStatus, commentStatusLabels, StateDot } from './CommentStatus';
 import { PriorityLabel } from './PriorityFlag';
 import { commentPullRequestLinks, PullRequestCard } from './ThreadPullRequests';
 
-const kindIcons = { feedback: HeartIcon, bug: BugIcon, rewrite: ReplaceIcon } as const;
 
 /** The row's title: the thread's AI title, else the first line of the first message */
 export function commentTitle(comment: ProjectCommentView) {
@@ -73,7 +74,6 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
     const userId = comment.assignedUserId;
     const status = commentStatus(comment);
     const unread = Boolean(comment.activity?.unread);
-    const KindIcon = comment.kind === 'comment' ? undefined : kindIcons[comment.kind];
     const title = commentTitle(comment);
     const pullRequests = commentPullRequestLinks(comment);
     const link = useRef<HTMLAnchorElement>(null);
@@ -123,7 +123,9 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                 </span>
                 <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
                     <p className="m-0 flex min-w-0 flex-1 items-center gap-1.5">
-                        {KindIcon && <KindIcon aria-hidden="true" className="size-3.5 shrink-0" />}
+                        {comment.kind !== 'comment' && <span role="img" aria-label={commentKindLabel(comment.kind, comment.feedbackType)} title={commentKindLabel(comment.kind, comment.feedbackType)} className="flex shrink-0">
+                            {comment.kind === 'rewrite' ? <ReplaceIcon aria-hidden="true" className="size-3.5" /> : <FeedbackTypeIcon icon={commentKindIcon(comment.kind, comment.feedbackType)} className="size-3.5" />}
+                        </span>}
                         <span className="truncate">
                             {project && <><span className="font-medium text-foreground">{project}</span><span aria-hidden="true"> · </span></>}
                             <span className="sr-only">Page </span>

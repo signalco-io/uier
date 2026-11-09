@@ -100,6 +100,11 @@
             "types": "./src/keyboard.ts",
             "development": "./dist-dev/keyboard.js",
             "default": "./dist/keyboard.js"
+        },
+        "./feedback-types": {
+            "types": "./src/feedbackTypes.ts",
+            "development": "./dist-dev/feedbackTypes.js",
+            "default": "./dist/feedbackTypes.js"
         }
     },
     "scripts": {

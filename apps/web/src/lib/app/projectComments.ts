@@ -1,3 +1,4 @@
+import { feedbackTypeSnapshot, isCommentKind } from '@uier/toolbar/feedback-types';
 import { verificationDetails, verificationPermissions } from '../review/fixVerificationDto';
 import { commentPriority, type CommentPriority } from '@uier/toolbar/triage';
 import { commentRevision } from '../review/commentRevision';
@@ -102,6 +103,7 @@ export type ProjectCommentView = {
     screenshot?: { url: string; width: number; height: number };
     /** A pinned comment, general feedback or a bug report (about the whole page) */
     kind: DbCommentKind;
+    feedbackType?: import('@uier/toolbar/feedback-types').FeedbackTypeSnapshot;
     /** What it was left on: an element, selected text (empty once the comment is deleted) or the whole page */
     anchor: CommentAnchorView;
     device?: DbDeviceSize;
@@ -233,7 +235,8 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         screenshot: comment.screenshot
             ? { url: KnownPageLinks.projectCommentScreenshot(project.id, comment.id), width: comment.screenshot.width, height: comment.screenshot.height }
             : undefined,
-        kind: comment.kind === 'feedback' || comment.kind === 'bug' || comment.kind === 'rewrite' ? comment.kind : 'comment',
+        kind: isCommentKind(comment.kind) ? comment.kind : 'comment',
+        ...(feedbackTypeSnapshot(comment.feedbackType, comment.kind) ? { feedbackType: feedbackTypeSnapshot(comment.feedbackType, comment.kind) } : {}),
         anchor: anchorView(comment, first),
         device: size && deviceSizes.includes(size) ? size : undefined,
         reproduction: toReproductionContext(comment, projectOrigins(project)),

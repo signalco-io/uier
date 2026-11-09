@@ -1,3 +1,4 @@
+import { feedbackTypeForSubmission } from '../app/feedbackTypes';
 import { ordinaryVerificationStatus, withOrdinaryStage } from './verificationState';
 import { withThreadHistory } from './history';
 import { feedbackStage } from '@uier/toolbar/verification';
@@ -269,6 +270,7 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
     });
     const recovered = await recoverSubmission(store, attempt);
     if (recovered) return toDto(recovered, context);
+    const feedbackType = await feedbackTypeForSubmission(context.project, input.kind);
     await enforceNewCommentLimits(store, subject, input.path);
     const screenshot = await availableScreenshot(store, context.domain, input.screenshot);
 
@@ -293,6 +295,7 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
         position: input.position,
         number: await store.nextCommentNumber(context.domain),
         kind: input.kind,
+        ...(feedbackType ? { feedbackType } : {}),
         thread: { items: [firstItem] },
         device: compactDevice(input.device),
         resolved: false,

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { feedbackTypeIdSchema } from '../app/feedbackTypeSchema';
 import { maxPageKeyLength } from '@uier/toolbar/page-state';
 import { feedbackStatusTargets } from '@uier/toolbar/verification';
 import { pageLanguagePattern } from '@uier/toolbar/devices';
@@ -163,7 +164,7 @@ export type ReattachAnchorInput = z.infer<typeof reattachAnchorSchema>;
  * Feedback and bug reports are about the page (`page` position); comments are pinned to it, and
  * rewrite suggestions (the suggested text) to the selected text they would replace
  */
-export const kindSchema = z.enum(['comment', 'feedback', 'bug', 'rewrite']);
+export const kindSchema = z.union([z.enum(['comment', 'rewrite']), feedbackTypeIdSchema]);
 
 const windowDimensionSchema = z.int().min(0).max(MAX_WINDOW_DIMENSION);
 // Control and format characters (zero-width, bidirectional) never belong in a browser or model name
@@ -229,7 +230,8 @@ export const createCommentSchema = z.object({
             case 'feedback':
             case 'bug': return input.position.type === 'page';
             case 'rewrite': return input.position.type === 'text';
-            default: return input.position.type !== 'page';
+            case 'comment': return input.position.type !== 'page';
+            default: return input.position.type === 'page';
         }
     },
     { path: ['position'], message: 'Comments are pinned to an element or text, rewrite suggestions to text; feedback and bug reports are about the page' });

@@ -1,3 +1,4 @@
+import { defaultFeedbackTypes } from '@uier/toolbar/feedback-types';
 import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -728,4 +729,24 @@ test('PR linking uses assignment scope, canonical idempotence and thread visibil
         expect(after?.history).toEqual(before?.history);
         expect(after?.activity).toEqual(before?.activity);
     } finally { await client.close(); await reader.close(); }
+});
+
+test('custom feedback types are preserved in list, single and batch MCP packets after their configuration is removed', async () => {
+    const f = await fixture();
+    const custom = { id: 'custom_mcp_feature_request' as const, label: 'Feature request', icon: 'rocket' as const, enabled: true, placeholder: 'What would help?' };
+    const project = (await updateProject(f.project.workspaceId, f.project.id, { feedbackTypes: { mode: 'replace', value: [...defaultFeedbackTypes, custom] } }))!;
+    const saved = await createProjectComment(new Request(base), project, f.actor, { origin: 'https://reviewed.example', path: '/types', kind: custom.id, position: { type: 'page' }, text: 'Custom MCP thread' });
+    await updateProject(project.workspaceId, project.id, { feedbackTypes: undefined });
+    const { token } = await createMcpCredential(f.context, { name: 'Custom types', projectIds: [project.id], scopes: ['feedback:read'], days: 7 });
+    const client = await connect(token);
+    try {
+        const listed = data(await client.callTool({ name: 'list_feedback', arguments: { projectId: project.id, search: 'Custom MCP thread' } }));
+        expect(listed.items).toEqual([expect.objectContaining({ kind: custom.id, feedbackType: saved.feedbackType })]);
+        const single = data(await client.callTool({ name: 'get_feedback', arguments: { projectId: project.id, commentId: saved.id } }));
+        expect(single.context).toMatchObject({ kind: custom.id, feedbackType: saved.feedbackType });
+        expect(single.markdown).toContain('Feature request');
+        const batch = data(await client.callTool({ name: 'get_feedback_batch', arguments: { projectId: project.id, commentIds: [saved.id] } }));
+        expect(JSON.stringify(batch)).toContain('Feature request');
+        expect(JSON.stringify(batch)).not.toContain('What would help?');
+    } finally { await client.close(); }
 });

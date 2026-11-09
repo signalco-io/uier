@@ -75,7 +75,7 @@ export type AiTitleWrite = 'written' | 'current' | 'gone' | 'stale' | 'conflict'
 
 function titleInput(comment: DbComment): AiTitleInput {
     const first = comment.thread.items[0]!;
-    const kind: DbCommentKind = comment.kind === 'feedback' || comment.kind === 'bug' || comment.kind === 'rewrite' ? comment.kind : 'comment';
+    const kind: DbCommentKind = comment.kind ?? 'comment';
     const anchor = commentAnchor(comment.position, kind, first.quotedText);
     return { text: first.text, kind, leftOn: anchor.label, selectedText: anchor.type === 'text' ? anchor.text : undefined };
 }

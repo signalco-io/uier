@@ -85,7 +85,7 @@ export type CommentItemPosition = CommentAnchor | CommentPage;
  * A comment pinned to the page, general feedback or a bug report, or a rewrite suggestion for
  * selected text (its first message is the suggested text, the quote the original)
  */
-export type CommentKind = 'comment' | 'feedback' | 'bug' | 'rewrite';
+export type CommentKind = import('../../feedbackTypes').CommentKind;
 
 export type CommentAuthor = {
     /** Display name, `Guest XXXX` for anonymous visitors */
@@ -188,6 +188,7 @@ export type CommentItem = {
     screenshot?: { width: number; height: number; revision?: string };
     /** `feedback` and `bug` have a `page` position */
     kind: CommentKind;
+    feedbackType?: import('../../feedbackTypes').FeedbackTypeSnapshot;
     thread: CommentItemThread;
     /** The coarse device size and the viewport (width, height) it was left from */
     device?: { size?: CommentDeviceSize; windowSize?: [number, number] };

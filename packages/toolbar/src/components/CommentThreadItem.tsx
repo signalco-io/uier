@@ -180,7 +180,7 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                             } : undefined} />
                     )}
                 </Row>
-                {first && <CommentKindLabel kind={comment.kind} />}
+                {first && <CommentKindLabel kind={comment.kind} feedbackType={comment.feedbackType} />}
                 {Boolean(quote?.length) && (
                     <blockquote className="m-0 line-clamp-4 border-l-2 border-border pl-2.5 text-sm text-secondary-foreground">
                         {quote}

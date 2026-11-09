@@ -1,5 +1,8 @@
 'use client';
 
+import type { FeedbackType } from '@uier/toolbar/feedback-types';
+import type { DbProject } from '../../../lib/app/model';
+import { FeedbackTypesEditor } from '../FeedbackTypesEditor';
 import { startTransition, useActionState, useId, useOptimistic, useRef, useState, useTransition, type FormEvent, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import Link from 'next/link';
@@ -140,7 +143,7 @@ export function ProjectGeneralForm({ projectId, name, clientName, clients, aiTit
 }
 
 /** Review: who can comment, the brief and, under Advanced, the page state; one save */
-export function ProjectReviewForm({ projectId, access, brief, policy, suggestions, guestLinks }: {
+export function ProjectReviewForm({ projectId, access, brief, policy, suggestions, guestLinks, feedbackTypes, workspaceTypes }: {
     projectId: string;
     access: ProjectAccess;
     /** The saved access's guest links, shown under Who can comment while it stays chosen */
@@ -148,6 +151,8 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
     brief?: string;
     policy?: PageStatePolicy;
     suggestions: QueryFieldSuggestion[];
+    feedbackTypes?: DbProject['feedbackTypes'];
+    workspaceTypes: FeedbackType[];
 }) {
     const formId = useId();
     const [state, formAction, pending] = useActionState(updateProjectReviewAction, null);
@@ -155,6 +160,8 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
     const { draft, dirty, update, discard } = useSettingsDraft({
         access,
         brief: brief ?? '',
+        feedbackTypesMode: feedbackTypes ? 'replace' as const : 'workspace' as const,
+        feedbackTypes: feedbackTypes?.value ?? workspaceTypes,
         queryParameters: saved.queryParameters.join(', '),
         hashRouting: saved.hashRouting
     }, state);
@@ -171,6 +178,7 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
             footer={<SaveFooter formId={formId} state={state} pending={pending} dirty={dirty} onDiscard={discard} />}>
             <form id={formId} action={formAction} onResetCapture={keepValues}>
                 <input type="hidden" name="projectId" value={projectId} />
+                <input type="hidden" name="feedbackTypes" value={draft.feedbackTypesMode === 'workspace' ? 'workspace' : JSON.stringify({ mode: 'replace', value: draft.feedbackTypes })} />
                 <input type="hidden" name="access" value={draft.access} />
                 <input type="hidden" name="queryParameters" value={draft.queryParameters} />
                 <input type="hidden" name="hashRouting" value={String(draft.hashRouting)} />
@@ -204,6 +212,27 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
                             {' '}Plain text, up to {MAX_PROJECT_BRIEF_LENGTH} characters.
                         </FieldDescription>
                     </Field>
+                    <FieldSeparator />
+                    <FieldSet>
+                        <FieldLegend variant="label">Feedback types</FieldLegend>
+                        <FieldDescription>The choices in Send feedback. Pinned comments and suggested rewrites stay available separately.</FieldDescription>
+                        <FieldGroup>
+                            <Field>
+                                <FieldLabel htmlFor={`${formId}-feedback-types`}>Feedback type defaults</FieldLabel>
+                                <Select value={draft.feedbackTypesMode} items={[{ value: 'workspace', label: 'Workspace defaults' }, { value: 'replace', label: 'Project override' }]}
+                                    onValueChange={mode => { if (mode) update(current => ({ ...current, feedbackTypesMode: mode })); }}>
+                                    <SelectTrigger id={`${formId}-feedback-types`} className="w-full max-w-md"><SelectValue /></SelectTrigger>
+                                    <SelectContent><SelectGroup>
+                                        <SelectItem value="workspace">Workspace defaults</SelectItem>
+                                        <SelectItem value="replace">Project override</SelectItem>
+                                    </SelectGroup></SelectContent>
+                                </Select>
+                                <FieldDescription>Workspace defaults follow future workspace changes. An override keeps this project's own list.</FieldDescription>
+                            </Field>
+                            <FeedbackTypesEditor value={draft.feedbackTypesMode === 'workspace' ? workspaceTypes : draft.feedbackTypes}
+                                onChange={types => update(current => ({ ...current, feedbackTypes: types }))} disabled={draft.feedbackTypesMode === 'workspace' || pending} />
+                        </FieldGroup>
+                    </FieldSet>
                     <FieldSeparator />
                     <Collapsible open={advanced} onOpenChange={setAdvanced} className="flex flex-col gap-4">
                         <CollapsibleTrigger render={<Button variant="ghost" size="sm" className="group/advanced h-auto self-start px-0 py-1 text-muted-foreground hover:bg-transparent hover:text-foreground aria-expanded:bg-transparent aria-expanded:text-foreground dark:hover:bg-transparent" />}>
