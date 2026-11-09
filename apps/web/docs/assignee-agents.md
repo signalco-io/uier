@@ -17,7 +17,7 @@ previous assignee) and `setProjectCommentPrivate` with an assignee who loses the
 and records an `agent` notification event (MCP `feedback.agent_changed`), which `eligibleEvents` never emails. Members
 get the agent in views, the review DTO (toolbar), `list_feedback` and packets; guests never. Integration delivery
 strips `context.assignee.agent` before formatting. The UI is `AgentMark` (each agent's one-colour product logo from `agentMarks`:
-Claude, Codex, ChatGPT, Cursor, a generic bot for AI agent), `AgentAvatar` / `AssigneeAvatars` (the mark on a bordered
+Claude, the OpenAI logo for Codex and ChatGPT, Cursor, a generic bot for AI agent), `AgentAvatar` / `AssigneeAvatars` (the mark on a bordered
 circle, stacked on the assignee's avatar: rows, board cards, the agent menu), `AssigneeCard` (those avatars on rows,
 board cards and My work as a hover popover, `hoverPopoverTrigger` with a 200 ms delay: the assignee, "You" for the
 signed-in assignee, and the agent with its model by name, reasoning level, when it started and its session; a mouse
