@@ -10,6 +10,7 @@ import { selectWorkspace } from '@/src/lib/app/workspaceCookie';
 import { parseActionInput } from '@/src/lib/app/validation';
 import { actionResult, type ActionState } from '@/src/lib/app/actionResult';
 import { createWorkspace } from '@/src/lib/app/workspaces';
+import { safeNextPath } from '@/src/lib/app/signIn';
 import { appCookieOptions } from '@/src/lib/app/session';
 import { cookieNames } from '@/src/lib/cookieNames';
 import { formatProjectOrder, type ProjectOrder } from '@/src/lib/app/projectOrder';
@@ -19,6 +20,16 @@ import { projectOrderActionSchema, switchWorkspaceActionSchema } from './actionS
 export async function signOutAction() {
     await endSession();
     redirect(KnownPages.AppSignIn);
+}
+
+/**
+ * A fresh email sign-in for a step that needs the account email proven in the last 10 minutes (joining or
+ * adding an email domain, `emailProof.ts`): signs out and opens the email form, back to `next` afterwards.
+ */
+export async function signInAgainWithEmailAction(formData: FormData) {
+    const next = safeNextPath(formData.get('next')) ?? KnownPages.App;
+    await endSession();
+    redirect(`${KnownPages.AppSignIn}?${new URLSearchParams({ next, with: 'email' })}`);
 }
 
 export async function switchWorkspaceAction(workspaceId: string) {

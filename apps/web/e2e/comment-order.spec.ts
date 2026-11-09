@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { commentRows, createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { commentRows, createProject, selectionBox, selectThread, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 
@@ -10,15 +10,13 @@ let site: Awaited<ReturnType<typeof startReviewedSite>>;
 test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(new URL(baseURL!).origin); });
 test.afterAll(async () => { await site.close(); });
 
-const selected = (page: Page, number: number) => page.getByRole('checkbox', { name: `Select comment #${number}`, exact: true });
-
 /** Sets one thread's priority with the selection's Prioritize selected */
 async function prioritize(page: Page, number: number, priority: 'Urgent' | 'High' | 'Low') {
-    await selected(page, number).check();
+    await selectThread(page, number);
     await page.getByRole('combobox', { name: 'Prioritize selected' }).click();
     await page.getByRole('option', { name: priority, exact: true }).click();
-    await expect(selected(page, number)).toBeEnabled();
-    await expect(selected(page, number)).not.toBeChecked();
+    await expect(selectionBox(page, number)).toBeEnabled();
+    await expect(selectionBox(page, number)).not.toBeChecked();
 }
 
 test('the list and board columns show threads by priority, then by number', async ({ page, request }, testInfo) => {

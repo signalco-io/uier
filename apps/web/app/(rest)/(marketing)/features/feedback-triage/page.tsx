@@ -42,7 +42,7 @@ export default function FeedbackTriagePage() {
             <PageSection
                 id="overview"
                 title="One list to sort through"
-                lead="A project's feedback in the app has a search field, a priority filter and a checkbox on every thread you can triage."
+                lead="A project's feedback in the app has a search field, a priority filter and a way to select the threads you can triage."
                 wide>
                 <TriageSpecimen />
             </PageSection>
@@ -74,7 +74,7 @@ export default function FeedbackTriagePage() {
             <PageSection
                 id="selection"
                 title="Act on a selection"
-                lead="Check the threads you want, or select the shown results with the checkbox above the list. Then choose one action for all of them.">
+                lead="Check a thread's box when you point at it, press x on it, or choose Select. A bar over the end of the list selects the shown results and applies one action to all of them.">
                 <Panel className="md:grid-cols-2">
                     <Tile title="Assign selected">
                         <p>Assign the threads to one person who can see all of them, or choose Unassign.</p>

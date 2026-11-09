@@ -767,9 +767,12 @@ Urgent red. The open thread, its priority menu, the Priority filter and Set prio
 list rows and board cards show it only for a priority other than Normal, so the threads that differ
 stand out. The toolbar keeps its text label.
 
-List and Board have explicit checkboxes, an indeterminate shown-results checkbox, and, once something is
-selected, the selected count, Clear selection, assignment/unassignment, priority, Mark selected as done and
-Reopen selected. Mark selected as done also ends In progress; Reopen selected reopens Done threads and leaves
+List and Board select threads with explicit checkboxes that stay quiet at rest: a row's box shows on hover
+or keyboard focus, and a touch screen starts with Select in the count line. While selecting, every row shows
+its box and a bar floats over the end of the comments with Clear selection, the indeterminate Select shown
+results, the selected count, assignment/unassignment, priority, Mark selected as done and Reopen selected.
+x selects the focused row, Shift-click a range, Ctrl or ⌘ + A the shown results, and Escape ends selecting;
+on a touch screen a tap on a row selects it while selecting. Mark selected as done also ends In progress; Reopen selected reopens Done threads and leaves
 In progress threads as they are ([In progress](#in-progress)).
 Selection is limited to 50 visible threads. More results use **Select first 50 shown**, in the current
 visible order (Open, In progress, Ready to verify, then Done on Board). Changing a project, environment, author, filter or view

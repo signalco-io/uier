@@ -18,3 +18,7 @@ export const MAX_TEAM_DESCRIPTION_LENGTH = 500;
 export const MAX_PASSKEYS = 10;
 export const MAX_PASSKEY_NAME_LENGTH = 60;
 export const ACCESS_EVENT_TTL_SECONDS = 180 * 24 * 60 * 60;
+/** Email domains one workspace offers (each must be the domain of an adding admin's own email) */
+export const MAX_WORKSPACE_DOMAINS = 10;
+/** Workspaces one sign-in looks at for an email domain */
+export const MAX_DOMAIN_WORKSPACES = 20;

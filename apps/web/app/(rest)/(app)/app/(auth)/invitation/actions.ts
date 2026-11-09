@@ -22,7 +22,8 @@ export async function acceptInvitationAction(_: ActionState, formData: FormData)
         return { ok: false, error: 'This invitation has expired or was already used. Ask for a new one.' };
 
     const { user, invitation } = result.data;
-    await startSession(user.id, 'email');
+    // The invitation link came from the invited inbox, which is the account's email: a proof like an email sign-in
+    await startSession(user.id, 'email', user.email);
     (await cookies()).set(WORKSPACE_COOKIE_NAME, invitation.workspaceId, {
         httpOnly: true,
         sameSite: 'lax',

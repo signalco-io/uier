@@ -42,6 +42,7 @@
   `workspace/users/[userId]`) are outside the `(tabs)` group, with their own header. The old addresses
   (`/app/users`, `/app/teams`, `/app/clients`, `/app/settings` and the team and person pages) redirect there
   (`next.config.ts`). Each page keeps its own authorization: Users, Teams, Activity and Settings are admin-only.
+  Settings has General (the name) and Email domains ([access and membership](access-and-membership.md#email-domains)).
   Activity renders access events as sentences (`teams/activityText.ts`, pure, with names from
   `teams/activityNames.ts`, which also looks up people who left, archived teams and who accepted an
   invitation); never show raw actions, ids or before/after JSON. Users shows its filters only past

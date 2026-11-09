@@ -17,8 +17,9 @@
   `ready` links still open on that status. Each status shows its `StateDot` in its colour ([status colours](comments-inbox.md)):
   Done's tab, the three statuses in the menu, and the Active tab while it names one; Active and All have none. The menu button is a plain button inside the toggle group: Tab reaches it,
   the arrow keys move between the tabs only. Each filter in effect shows under the bar with its own clear button ("Clear filter: Unread",
-  "Clear author filter: ..."). The list header (`TriageSelection`) has Select shown results, the count with
-  the unread count, and Mark all as read; the bulk actions appear only once something is selected.
+  "Clear author filter: ..."). The count line under them (`TriageSelection`) has the count with the unread
+  count, Mark all as read and Select; Select shown results and the bulk actions are in the selection bar that
+  floats over the end of the comments once something is selected ([App triage](triage.md#selection)).
   `LocationFilter`: environments on the left, the chosen environment's pages on the right with a search,
   sections such as `/blog/*` and "Pages under" a typed path, matched by `pageFilter.ts`. Choosing an environment
   keeps the panel open and reloads its pages.

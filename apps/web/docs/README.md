@@ -53,7 +53,7 @@ Product contracts, API references and runbooks stay in the repository's [`docs/`
 ## Accounts, access and sign-in
 
 - [Sign-in](sign-in.md): email codes, Google, Microsoft, passkeys and the sign-in card.
-- [Workspace access and membership](access-and-membership.md): teams, access writes and membership rules.
+- [Workspace access and membership](access-and-membership.md): teams, access writes, membership rules and email domains.
 
 ## Integrations, MCP and services
 

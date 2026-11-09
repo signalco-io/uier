@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
-import { backToComments, createProject, openComment, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { backToComments, createProject, openComment, selectThread, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { animationsFinished, toolbar, threadOptions } from './support/toolbar';
@@ -119,7 +119,7 @@ test('ordinary Done and Reopen stay unconfirmed and retain replies, search and s
     await expect(done).toContainText('Done without reviewer confirmation');
     await expect(done.getByRole('button', { name: 'Confirm fix', exact: true })).toHaveCount(0);
     await page.keyboard.press('Escape');
-    await doneColumn.getByRole('checkbox', { name: `Select comment #${f.comment.number}`, exact: true }).check();
+    await selectThread(page, f.comment.number);
     await page.getByRole('button', { name: 'Reopen selected', exact: true }).click();
     await expect(page.getByRole('region', { name: 'Open comments', exact: true }).getByRole('listitem')).toHaveCount(1);
     const search = page.getByRole('searchbox', { name: 'Search feedback' });
