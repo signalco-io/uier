@@ -8,7 +8,7 @@ import { isLocalRuntime } from '../comments/environment';
 import { isUierFeedbackProject } from '../comments/publicProject';
 import type { IntegrationProviderId } from './model';
 
-type BeginInput = { userId: string; workspaceId: string; projectId: string; baseUrl: string; requestReplies?: boolean };
+type BeginInput = { userId: string; workspaceId: string; projectId: string; baseUrl: string; requestReplies?: boolean; requestPullRequests?: boolean };
 type FinishInput = { userId: string; state: unknown; code?: string; error?: string; baseUrl: string };
 type FinishedConnection = { workspaceId: string; projectId: string; status: 'connected' | 'denied' | 'failed'; setupReceipt?: string };
 
@@ -37,7 +37,8 @@ export function integrationConnectRoute(provider: IntegrationProviderId, begin: 
             return redirect(settings.href);
         try {
             return redirect(await begin({ userId: context.user.id, workspaceId: context.workspace.id, projectId, baseUrl,
-                ...(provider === 'slack' && new URL(request.url).searchParams.get('replies') === '1' ? { requestReplies: true } : {}) }));
+                ...(provider === 'slack' && new URL(request.url).searchParams.get('replies') === '1' ? { requestReplies: true } : {}),
+                ...(provider === 'azure-devops' && new URL(request.url).searchParams.get('pullRequests') === '1' ? { requestPullRequests: true } : {}) }));
         } catch {
             settings.searchParams.set(provider, 'unavailable');
             return redirect(settings.href);

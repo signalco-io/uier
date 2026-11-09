@@ -21,6 +21,7 @@ const microsoftStubUrl = `http://127.0.0.1:${PORT + 8000}`;
 const googleStubUrl = `http://127.0.0.1:${PORT + 7000}`;
 // Project sites the server fetches icons from (`ProjectMark`); never the internet
 const siteIconsStubUrl = `http://127.0.0.1:${PORT + 9000}`;
+const pullRequestsStubUrl = `http://127.0.0.1:${PORT + 10000}`;
 const testTokenKey = Buffer.alloc(32, 93).toString('base64');
 // Generated only for this local test process; never a registered GitHub App private key.
 const githubPrivateKey = generateKeyPairSync('rsa', { modulusLength: 2048,
@@ -47,6 +48,8 @@ export default defineConfig({
     testDir: join(dirname(fileURLToPath(import.meta.url)), 'e2e'),
     outputDir: 'test-results/',
     webServer: [
+        { command: 'node e2e/support/pullRequestsStub.ts', url: pullRequestsStubUrl, timeout: 30_000, reuseExistingServer: false,
+            env: { PORT: String(PORT + 10000) } },
         { command: 'node e2e/support/notionStub.ts', url: notionStubUrl, timeout: 30_000, reuseExistingServer: false,
             env: { PORT: String(PORT + 2000), UIER_NOTION_STUB_APP_BASE_URL: baseURL } },
         { command: 'node e2e/support/githubStub.ts', url: githubStubUrl, timeout: 30_000, reuseExistingServer: false,
@@ -104,6 +107,7 @@ export default defineConfig({
                 UIER_MCP_EVENTS_TEST_HTTP_CALLBACKS: '1',
                 // Project site icons come from e2e/support/siteIconsStub.ts (local runtime only)
                 UIER_SITE_ICONS_TEST_UPSTREAM: siteIconsStubUrl,
+                UIER_PULL_REQUEST_TEST_API_URL: pullRequestsStubUrl,
                 // Rewrite suggestions go to the stub above, never to the real API
                 ANTHROPIC_API_KEY: anthropicStubApiKey,
                 ANTHROPIC_BASE_URL: anthropicStubUrl,

@@ -63,6 +63,17 @@ export function githubAppJwt(now = Date.now()) {
 }
 
 export type InstallationToken = { token: string; expiresAt: string };
+/** Optional read permission, separate from the issue writer's token. Existing installations may decline it. */
+export async function mintGitHubPullRequestToken(installationId: string, repositoryId: string, signal: AbortSignal) {
+    const value = await githubRequest<{ token?: unknown; permissions?: { pull_requests?: string }; expires_at?: string; repositories?: { id: number }[] }>(
+        `/app/installations/${githubId(installationId)}/access_tokens`, githubAppJwt(), { method: 'POST', signal,
+            body: { repository_ids: [Number(githubId(repositoryId))], permissions: { pull_requests: 'read', metadata: 'read' } } });
+    if (typeof value?.token !== 'string' || !value.token || value.token.length > 32_000 || value.permissions?.pull_requests !== 'read'
+        || !value.expires_at || Date.parse(value.expires_at) <= Date.now() || !Number.isFinite(Date.parse(value.expires_at))
+        || (value.repositories && (value.repositories.length !== 1 || githubId(value.repositories[0]!.id) !== repositoryId))) throw new GitHubError('invalid_token_response');
+    return value.token;
+}
+
 export async function mintGitHubInstallationToken(installationId: string, repositoryId: string, signal?: AbortSignal): Promise<InstallationToken> {
     const value = await githubRequest<{ token?: unknown; expires_at?: unknown; permissions?: { issues?: string }; repositories?: { id: number }[] }>(
         `/app/installations/${githubId(installationId)}/access_tokens`, githubAppJwt(), { method: 'POST', signal,

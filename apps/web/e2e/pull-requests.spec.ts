@@ -1,0 +1,53 @@
+import AxeBuilder from '@axe-core/playwright';
+import { expect, test } from '@playwright/test';
+import { backToComments, commentRows, createProject, openComment, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { verifiedReviewHeaders } from './support/reviewVerification';
+import { startReviewedSite } from './support/reviewedSite';
+import { animationsFinished } from './support/toolbar';
+
+let site: Awaited<ReturnType<typeof startReviewedSite>>;
+test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(new URL(baseURL!).origin); });
+test.afterAll(async () => { await site.close(); });
+
+test('thread details collect PRs from messages and replies, with one quiet mark in list and board', async ({ page, request }, testInfo) => {
+    const cspViolations: string[] = [];
+    page.on('console', message => { if (/Content Security Policy/i.test(message.text())) cspViolations.push(message.text()); });
+    await signIn(page, uniqueEmail('pull-requests'));
+    const project = await createProject(page, { urls: [site.origin()] });
+    await setProjectAccess(page, project, 'Anyone with the link');
+    const headers = await verifiedReviewHeaders(request, project, site.origin());
+    const response = await request.post(`/api/review/${project}/comments`, { headers, data: { path: '/pricing', kind: 'feedback', authorName: 'Reviewer', text: 'Check the checkout button', position: { type: 'page' } } });
+    expect(response.status()).toBe(201);
+    await page.goto(`/app/projects/${project}`);
+    let thread = await openComment(page, 'Check the checkout button');
+    await expect(thread.getByText('Pull requests', { exact: true })).toHaveCount(0);
+    await expect(commentRows(page).getByLabel('Linked pull request')).toHaveCount(0);
+    await thread.getByRole('button', { name: 'Reply', exact: true }).click();
+    await thread.getByRole('textbox', { name: 'Reply', exact: true }).fill('Fixed in [PR #2](https://github.com/acme/site/pull/2). Also https://github.com/acme/site/pull/1 https://github.com/acme/site/pull/3 https://gitlab.com/acme/site/-/merge_requests/4 https://dev.azure.com/acme/Website/_git/site/pullrequest/9');
+    await thread.getByRole('button', { name: 'Post reply', exact: true }).click();
+    await expect(thread.getByRole('status').filter({ hasText: 'Reply posted' })).toBeVisible();
+    const values = thread.locator('[data-pull-request-links]');
+    await expect(values.getByRole('link')).toHaveCount(5);
+    await expect(values.getByText('Merged', { exact: true })).toBeVisible();
+    await expect(values.getByText('Open', { exact: true })).toBeVisible();
+    await expect(values.getByText('Closed', { exact: true })).toBeVisible();
+    await expect(values.getByText('Draft', { exact: true })).toBeVisible();
+    await expect(values.getByRole('link', { name: 'Azure DevOps acme/Website/site #9' })).toHaveAttribute('href', 'https://dev.azure.com/acme/Website/_git/site/pullrequest/9');
+    // Link destinations stay external, while the row/card's one existing link still opens the thread.
+    await expect(values.getByRole('link', { name: 'GitHub acme/site #2' })).toHaveAttribute('rel', 'noopener noreferrer');
+    for (const colorScheme of ['light', 'dark'] as const) {
+        await page.emulateMedia({ colorScheme });
+        await animationsFinished(thread);
+        const overflow = await thread.evaluate(element => element.scrollWidth > element.clientWidth);
+        expect(overflow).toBe(false);
+        expect(cspViolations).toEqual([]);
+        expect((await new AxeBuilder({ page }).include('[data-thread-details]').analyze()).violations).toEqual([]);
+        cspViolations.length = 0;
+    }
+    if (testInfo.project.name.startsWith('Mobile')) await backToComments(page);
+    await expect(commentRows(page).getByLabel('Linked pull request')).toHaveCount(1);
+    await page.getByRole('button', { name: 'Board', exact: true }).click();
+    await expect(page.locator('[data-board-card]').getByLabel('Linked pull request')).toHaveCount(1);
+    thread = await openComment(page, 'Check the checkout button');
+    await expect(thread.locator('[data-pull-request-links]').getByText('Merged', { exact: true })).toBeVisible();
+});

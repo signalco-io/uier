@@ -8,7 +8,7 @@ import { acquireGrantLease, releaseGrantLease, saveGrantLease } from '../grants'
 import { consumeOauthState, createOauthState } from '../oauthState';
 import { decryptSecret, encryptSecret } from '../secrets';
 import { AzureDevOpsApiError, azureDevOpsProfileUrl, azureDevOpsRequest, azureDevOpsToken, bounded, object, type AzureDevOpsToken } from './client';
-import { azureDevOpsCallback, azureDevOpsConfig, azureDevOpsKey, azureDevOpsScopes, guid, isAzureDevOpsConfigured, validOrganization } from './config';
+import { AZURE_DEVOPS_RESOURCE, azureDevOpsCallback, azureDevOpsConfig, azureDevOpsKey, azureDevOpsScopes, azureDevOpsPullRequestScopes, guid, isAzureDevOpsConfigured, validOrganization } from './config';
 import type { AzureDevOpsConnection, AzureDevOpsGrant, AzureDevOpsSelection } from './model';
 
 export class AzureDevOpsSetupError extends Error {
@@ -66,14 +66,15 @@ function encryptedTokens(grant: Pick<AzureDevOpsGrant, 'workspaceId' | 'projectI
         refresh: encryptSecret(token.refreshToken, secretContext(grant, 'refresh'), azureDevOpsKey()), expiresAt: token.expiresAt, scopes: token.scopes };
 }
 
-export async function beginAzureDevOpsConnect(input: { userId: string; workspaceId: string; projectId: string; baseUrl: string }) {
+export async function beginAzureDevOpsConnect(input: { userId: string; workspaceId: string; projectId: string; baseUrl: string; requestPullRequests?: boolean }) {
     if (!isAzureDevOpsConfigured()) throw new AzureDevOpsSetupError('not_configured');
     const project = await requireAzureDevOpsAdmin({ id: input.projectId, workspaceId: input.workspaceId } as DbProject, input.userId);
+    if (input.requestPullRequests && !await azureDevOpsConnection(project)) throw new AzureDevOpsSetupError('connection_required');
     const state = await createOauthState({ provider: 'azure-devops', userId: input.userId, workspaceId: project.workspaceId,
-        projectId: project.id, pkce: true, key: azureDevOpsKey() });
+        projectId: project.id, pkce: true, key: azureDevOpsKey(), metadata: { pullRequests: input.requestPullRequests ? '1' : '0' } });
     const url = new URL(azureDevOpsConfig().authorizeUrl);
     url.search = new URLSearchParams({ client_id: azureDevOpsConfig().clientId, response_type: 'code', response_mode: 'query',
-        redirect_uri: azureDevOpsCallback(input.baseUrl), scope: azureDevOpsScopes.join(' '), prompt: 'select_account',
+        redirect_uri: azureDevOpsCallback(input.baseUrl), scope: (input.requestPullRequests ? azureDevOpsPullRequestScopes : azureDevOpsScopes).join(' '), prompt: 'select_account',
         state: state.state, code_challenge: state.codeChallenge!, code_challenge_method: 'S256' }).toString();
     return url.href;
 }
@@ -96,7 +97,8 @@ export async function finishAzureDevOpsConnect(input: { userId: string; code?: s
     let created: AzureDevOpsGrant | undefined;
     try {
         const token = await azureDevOpsToken({ grant_type: 'authorization_code', code: input.code, code_verifier: state.codeVerifier,
-            redirect_uri: azureDevOpsCallback(input.baseUrl) });
+            redirect_uri: azureDevOpsCallback(input.baseUrl),
+            scope: (state.metadata?.pullRequests === '1' ? azureDevOpsPullRequestScopes : azureDevOpsScopes).join(' ') });
         const profile = await azureDevOpsProfile(token.accessToken);
         const current = await requireAzureDevOpsAdmin(project, input.userId);
         const store = getAppStore();
@@ -163,7 +165,9 @@ export async function azureDevOpsAccessToken(connection: AzureDevOpsConnection, 
         }
         // Entra keeps a redeemed refresh token valid, so a lost response is retried with the same token.
         const refreshToken = decryptSecret(current.refresh!, secretContext(current, 'refresh'), azureDevOpsKey());
-        const token = await call(signal => azureDevOpsToken({ grant_type: 'refresh_token', refresh_token: refreshToken }, signal));
+        // Preserve the consent of older work-item-only grants. PR reads must never break their refresh.
+        const token = await call(signal => azureDevOpsToken({ grant_type: 'refresh_token', refresh_token: refreshToken,
+            scope: [...new Set([...current.scopes.map(scope => scope.startsWith('vso.') ? `${AZURE_DEVOPS_RESOURCE}/${scope}` : scope), 'offline_access'])].join(' ') }, signal));
         const saved = await saveGrantLease<AzureDevOpsGrant>({ pk: grant.pk, id: grant.id, lease: leased.lease, authorize,
             update: value => ({ ...value, ...encryptedTokens(value, token), forcedRefreshAt: force ? nowIso() : value.forcedRefreshAt, updatedAt: nowIso() }) }, store);
         if (!saved?.access) throw new AzureDevOpsSetupError('grant_changed');

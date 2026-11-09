@@ -57,7 +57,9 @@ control access to its copies. See [setup and manual tasks](integration-setup.md)
   Fresh channel metadata is checked before content writes; a channel becoming shared or otherwise
   ineligible stops those writes while known-copy cleanup remains possible.
 - **Azure DevOps:** Microsoft Entra ID OAuth with delegated `vso.work_write` and `vso.profile`
-  scopes, so work items are written as the connecting admin's work or school account. Each project
+  scopes (plus `vso.code` read only after an explicit **Show pull request state** reconnect, for linked PR
+  state), so work items are written as the
+  connecting admin's work or school account. Each project
   connection has its own grant. Admins choose an organization, project, work item type, open and done
   states from the type's state categories, and an optional area path. One work item per thread holds
   the feedback, context and uier discussion as escaped HTML in Description (Repro Steps for bugs).

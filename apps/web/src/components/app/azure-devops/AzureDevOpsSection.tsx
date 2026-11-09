@@ -49,6 +49,12 @@ export function AzureDevOpsSection({ projectId, settings, outcome }: { projectId
                         <ArrowUpRight data-icon="inline-start" />{settings.status === 'needs_reconnect' ? 'Reconnect Azure DevOps' : 'Connect Azure DevOps'}
                     </a>}
                     {settings.connected && settings.status !== 'needs_reconnect' && <>
+                        {!settings.pullRequestAccess && <div className="flex flex-col gap-2">
+                            <p className="m-0 text-sm text-muted-foreground">Pull requests stay plain links. Reconnect with code read access to show their state.</p>
+                            <a href={`/app/azure-devops/connect?project=${encodeURIComponent(projectId)}&pullRequests=1`} className={cn(buttonVariants({ variant: 'outline' }), 'w-fit')}>
+                                Show pull request state
+                            </a>
+                        </div>}
                         <AzureDevOpsDestination key={`${settings.organization}:${settings.azureProjectId}:${settings.workItemType}:${settings.openState}:${settings.doneState}:${settings.areaPath}`}
                             projectId={projectId} settings={settings} />
                         {settings.azureProjectId && <p className="m-0 text-sm text-muted-foreground">

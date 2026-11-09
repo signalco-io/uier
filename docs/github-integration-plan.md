@@ -1,5 +1,11 @@
 # GitHub integration: implementation plan
 
+> Update, 9 November 2026: [linked PR state](../apps/web/docs/integrations.md#linked-pull-request-state)
+> supersedes the original PR-read non-goal. The optional Pull requests read permission is used only by a
+> separate token scoped to the bound repository. Issue synchronization retains its existing permissions.
+> Register/approve the additional permission for private state; otherwise links use public reads or remain
+> plain links. Hosted provider permission acceptance is separate from local tests.
+
 > Update, 2 November 2026: optional, default-off [reply sync](integrations.md#two-way-reply-sync)
 > supersedes the original discussion-import non-goals below. New replies and original edits/deletions
 > sync through native comments. Provider imports are source-labelled and read-only in uier.

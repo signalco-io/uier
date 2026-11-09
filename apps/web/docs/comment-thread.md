@@ -27,6 +27,17 @@
   UI's `openOnHover`, like the project header's access info) lists the reproduction context and copies its
   text; the toolbar shows the same icons and details. The browser icon is the browser's own mark and the
   popover puts a mark beside the operating system too (`DeviceMark.tsx`: `BrowserMark`, `OsMark`). Pending actions show `Spinner`.
+- Pull requests (`comments/ThreadPullRequests.tsx`) add a Pull requests row to the details when a current
+  message or reply contains a GitHub.com PR, GitLab.com merge request or Azure DevOps Services PR URL.
+  Markdown destinations, autolinks and bare links count; duplicate URLs, query strings and fragments collapse
+  to one canonical link. Edited text is re-read and deleted messages contribute nothing. The row appears
+  immediately, including for a pending reply; only saved text can trigger a server read. Open, Merged,
+  Closed and Draft appear beside the link when known, otherwise it stays a plain link. Nothing changes
+  the thread's uier status. State reads happen only while the detail is on screen in a visible tab, on
+  opening and every five minutes; the server cache and provider budgets are shared across instances.
+  See [integration state reads](integrations.md#linked-pull-request-state) for authority, permissions and
+  limits. `e2e/pull-requests.spec.ts` covers replies, details, list/board marks, both themes and accessibility
+  on desktop and mobile; `pull-requests.api.spec.ts` covers recognition, state mapping and read isolation.
 - Message text is `comments/MessageMarkdown.tsx`: the Markdown subset of `@uier/toolbar/markdown` as React
   elements, the same tree as the toolbar's `MessageMarkdown` (change both together), "(edited)" ending its last
   paragraph. Mentions come as `displayMentions` / a reply's `mentions`, UTF-16 ranges over the text as shown

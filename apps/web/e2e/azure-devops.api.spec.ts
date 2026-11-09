@@ -9,6 +9,9 @@ import { revokeIntegrationGrantsOf, setIntegrationTwoWaySync, setIntegrationRepl
 import { processIntegrationDelivery } from '../src/lib/integrations/delivery';
 import { discoverThreadIntegrationSync, enqueueIntegrationSync, integrationPk, integrationSyncId } from '../src/lib/integrations/discovery';
 import { loadIntegrationLinks } from '../src/lib/integrations/links';
+import { loadThreadPullRequests } from '../src/lib/integrations/pullRequests';
+import { azureDevOpsAccessToken } from '../src/lib/integrations/azure-devops/connection';
+import type { AzureDevOpsGrant } from '../src/lib/integrations/azure-devops/model';
 import { syncPendingKey } from '../src/lib/integrations/syncSignal';
 import type { IntegrationSync } from '../src/lib/integrations/model';
 import { azureDevOpsAdapter, beginAzureDevOpsConnect, disconnectAzureDevOps, finishAzureDevOpsConnect, getAzureDevOpsSettings,
@@ -57,8 +60,8 @@ async function change(f: Fixture, patch: Partial<DbComment>) {
     const next = { ...stored.comment, ...patch, syncVersion: stored.comment.syncVersion! + 1, syncPending: true };
     expect(await f.comments.replace(next, stored.etag)).toBe('ok'); return next;
 }
-async function authorize(f: Fixture, ado: AzureDevOpsStub, options: { userId?: string; profileOnly?: boolean } = {}) {
-    const start = new URL(await beginAzureDevOpsConnect({ userId: f.owner.id, workspaceId: f.project.workspaceId, projectId: f.project.id, baseUrl }));
+async function authorize(f: Fixture, ado: AzureDevOpsStub, options: { userId?: string; profileOnly?: boolean; requestPullRequests?: boolean } = {}) {
+    const start = new URL(await beginAzureDevOpsConnect({ userId: f.owner.id, workspaceId: f.project.workspaceId, projectId: f.project.id, baseUrl, requestPullRequests: options.requestPullRequests }));
     const code = ado.code(start.searchParams.get('code_challenge')!, options);
     return { start, result: await finishAzureDevOpsConnect({ userId: f.owner.id, state: start.searchParams.get('state'), code, baseUrl }) };
 }
@@ -84,6 +87,38 @@ async function retry(f: Fixture) {
     await processIntegrationDelivery(current, baseUrl, azureDevOpsAdapter); return ledger(f);
 }
 const workItem = async (f: Fixture, ado: AzureDevOpsStub) => ado.workItems.get(((await ledger(f)).state as AzureDevOpsState).item!.id!)!;
+
+test('PR state reads use the connected organization/project, never widen older grants, and preserve their refresh', async ({ ado }) => {
+    const f = await fixture(); const connection = await connect(f, ado);
+    await change(f, { thread: { items: [{ ...f.source.thread.items[0]!, text:
+        `Fixed in https://dev.azure.com/${ado.organization}/${encodeURIComponent(ado.projectName)}/_git/site/pullrequest/17 https://dev.azure.com/other-org/Website/_git/site/pullrequest/18` }] } });
+    const load = () => loadThreadPullRequests(f.project.workspaceId, f.project.id, f.owner.id, f.source.id);
+    // A new work-item connection needs no code consent and makes no PR API request.
+    expect((await load()).map(value => value.state)).toEqual([undefined, undefined]);
+    expect(ado.calls.filter(call => call.operation === 'pull_request')).toHaveLength(0);
+    expect((await getAzureDevOpsSettings(f.project, f.owner.id)).pullRequestAccess).toBe(false);
+    const before = await currentAzureDevOpsGrant(connection);
+    const denied = new URL(await beginAzureDevOpsConnect({ userId: f.owner.id, workspaceId: f.project.workspaceId,
+        projectId: f.project.id, baseUrl, requestPullRequests: true }));
+    expect((await finishAzureDevOpsConnect({ userId: f.owner.id, state: denied.searchParams.get('state'), error: 'access_denied', baseUrl })).status).toBe('denied');
+    expect(await currentAzureDevOpsGrant(connection)).toEqual(before);
+    expect((await azureDevOpsConnection(await freshProject(f)))!.enabled).toBe(true);
+    expect((await load())[0]?.state).toBeUndefined();
+    const reconnect = await authorize(f, ado, { requestPullRequests: true });
+    expect(reconnect.start.searchParams.get('scope')).toContain('/vso.code');
+    expect(reconnect.result.status).toBe('connected');
+    expect((await azureDevOpsConnection(await freshProject(f)))!.id).toBe(connection.id);
+    expect((await getAzureDevOpsSettings(f.project, f.owner.id)).pullRequestAccess).toBe(true);
+    expect((await load()).map(value => value.state)).toEqual(['merged', undefined]);
+    expect(ado.calls.filter(call => call.operation === 'pull_request')).toHaveLength(1);
+    await updateDoc<AzureDevOpsGrant>(connection.pk, connection.grantId, grant => ({ ...grant,
+        scopes: grant.scopes.filter(scope => !scope.endsWith('/vso.code')).map(scope => scope.split('/').at(-1)!), expiresAt: old }));
+    expect((await load())[0]?.state).toBeUndefined();
+    await azureDevOpsAccessToken(connection);
+    const refresh = ado.calls.filter(call => call.operation === 'token').at(-1)!;
+    expect(refresh.body).toEqual({ grant_type: 'refresh_token', scope: '499b84ac-1321-427f-aa17-267ca6975798/vso.work_write 499b84ac-1321-427f-aa17-267ca6975798/vso.profile offline_access' });
+    expect(ado.calls.filter(call => call.operation === 'pull_request')).toHaveLength(1);
+});
 
 test('two-way status sync reads mapped and category states, reopens, and can be turned off', async ({ ado }) => {
     const f = await fixture(); const connection = await connect(f, ado); let current = await dispatch(f);

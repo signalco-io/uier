@@ -102,8 +102,11 @@ history or retained files.
 ### GitHub
 
 1. [Register a public GitHub App](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/registering-a-github-app),
-   with repository **Metadata: read** and **Issues: read and write**. Do not add Contents, Actions,
-   Pull requests, organization-member or email permissions. Customers choose selected repositories.
+   with repository **Metadata: read** and **Issues: read and write**. For private linked PR state,
+   also enable **Pull requests: read**; existing installations need to approve that additional permission.
+   PR state uses a separate read-only token. Do not add Contents, Actions, organization-member or email
+   permissions. Customers choose selected repositories. Without PR read permission, issue synchronization
+   continues and linked PRs use public state or stay plain links.
 2. Register these distinct URLs:
 
    | Purpose | URL |
@@ -153,6 +156,7 @@ Azure DevOps OAuth apps no longer accept registrations, so uier uses Microsoft E
 2. Under API permissions, add the delegated **Azure DevOps** permissions `vso.work_write` and
    `vso.profile`. The implemented request also asks for `offline_access`. Do not add
    `user_impersonation`, `vso.work_full` or any code, build or administration scope.
+   Optional PR state: register delegated `vso.code` only for the explicit **Show pull request state** reconnect in integration settings; ordinary connections never request it and keep PRs as plain links.
 3. Create a client secret, record it with the application (client) id and note its expiry: an expired
    secret stops every refresh until the map is updated. Set `AZURE_DEVOPS_TENANT` only to restrict
    sign-in to one tenant id.
