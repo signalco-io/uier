@@ -66,6 +66,24 @@
   margin-inline: calc((100% - var(--page-wide)) / 2);
 }
 
+/*
+ * The page gutter beside --page-wide (the shell's page column sets both). `page-bleed` takes a sideways scroller (the
+ * comments board) to the panel's edges and pads it by the gutter, so its content starts and ends with the page's but
+ * scrolls under the panel's edges, not short of them.
+ */
+@property --page-gutter {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+@utility page-bleed {
+  width: calc(var(--page-wide) + 2 * var(--page-gutter));
+  margin-inline: calc((100% - var(--page-wide)) / 2 - var(--page-gutter));
+  padding-inline: var(--page-gutter);
+  scroll-padding-inline: var(--page-gutter);
+}
+
 html, body, #__next {
   height: 100%;
   width: 100%;

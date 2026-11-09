@@ -34,8 +34,9 @@ export const commentRowId = (id: string) => `comment-row-${id}`;
  * names them), number, title (`commentTitle`) and age. The meta line: the page path, private, a linked pull request (`PullRequestCard`: hovering or tapping it lists the thread's pull requests),
  * priority other than Normal (its flag, named for assistive tech), status (Open too; a board card leaves it to its
  * column), then at its right end who it is assigned to (`AssigneeCard`: each assignee's avatar with its agents' marks on
- * its edge; hovering them shows the assignees and their agents) and the selection box (`SelectComment`). The box shows only while
- * the row is hovered, focused or selecting, but keeps its room, so the assignees never move when it appears. The whole row opens the thread (a link to `?comment=<id>`, so it can also
+ * its edge; hovering them shows the assignees and their agents). The meta line starts under the title, so the path lines up
+ * with "#12 …"; the selection box (`SelectComment`) sits before it, under the author. The box shows only while the row is
+ * hovered, focused or selecting, but keeps its room, so nothing moves when it appears. The whole row opens the thread (a link to `?comment=<id>`, so it can also
  * open in a new tab).
  */
 export function CommentRow({ comment, href, selected, onOpen, card = false, preview = false, actions, describedBy, keyShortcuts, project, projectId, tabbable = true }: {
@@ -89,14 +90,14 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
             card && 'border bg-card hover:bg-muted/40 dark:bg-background dark:hover:bg-muted/40',
             // Selected for a bulk action
             'has-[[data-slot=checkbox][data-checked]]:bg-muted/60')}>
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
+            {/* Two columns: the unread dot and the author over the selection box, then the title over the meta line, so the page path lines up with "#12 …" */}
+            <div className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1">
+                {/* Who wrote it starts the title line, before "#12 …"; centred on its first line, like the unread dot */}
+                <span className="flex h-5 shrink-0 items-center gap-2">
+                    {unread && <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-[hsl(var(--brand-accent))]" />}
+                    <AuthorAvatar author={comment.author} deleted={comment.deleted} onPress={openFromAvatars} />
+                </span>
                 <div className="flex min-w-0 items-baseline gap-2">
-                    {/* On the first line of a two-line card title, like the author */}
-                    {unread && <span aria-hidden="true" className="mt-1.5 size-2 shrink-0 self-start rounded-full bg-[hsl(var(--brand-accent))]" />}
-                    {/* Who wrote it starts the title line, before "#12 …"; centred on its first line */}
-                    <span className="flex h-5 shrink-0 items-center self-start">
-                        <AuthorAvatar author={comment.author} deleted={comment.deleted} onPress={openFromAvatars} />
-                    </span>
                     <a ref={link} id={preview ? undefined : commentRowId(comment.id)} href={href} onClick={onOpen} aria-current={selected === 'opened' ? 'true' : undefined} draggable={card ? false : undefined}
                         aria-describedby={describedBy} aria-keyshortcuts={keyShortcuts}
                         tabIndex={tabbable ? undefined : -1}
@@ -111,9 +112,15 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                         {title}
                         {unread && <span className="sr-only">, unread</span>}
                     </a>
-                    <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums"><RelativeTime value={comment.createdAt} /></span>
+                    <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums"><RelativeTime value={comment.createdAt} short /></span>
                     {actions}
                 </div>
+                {/* The selection box, under the author's own avatar (past the unread dot's room). The slot stays when the box is
+                    hidden or absent, so the path never moves */}
+                <span className="flex h-5 items-center gap-2 self-center">
+                    {unread && <span aria-hidden="true" className="w-2 shrink-0" />}
+                    <span className="flex w-5 shrink-0 justify-center"><SelectComment comment={comment} tabbable={tabbable} /></span>
+                </span>
                 <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
                     <p className="m-0 flex min-w-0 flex-1 items-center gap-1.5">
                         {KindIcon && <KindIcon aria-hidden="true" className="size-3.5 shrink-0" />}
@@ -139,12 +146,10 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                                 {commentStatusLabels[status]}
                             </span>
                         )}
-                        {/* The right end: the assignees, then the selection box, whose room is kept so nothing moves when it shows */}
-                        {/* The dragged copy of a card is inert: its avatars need no card */}
+                        {/* The right end: the assignees. The dragged copy of a card is inert: its avatars need no card */}
                         {people.length > 0 && (preview
                             ? <AssigneeAvatars assignees={people} userId={userId} />
                             : <AssigneeCard assignees={people} userId={userId} tabbable={tabbable} onPress={openFromAvatars} />)}
-                        <SelectComment comment={comment} tabbable={tabbable} />
                     </div>
                 </div>
             </div>

@@ -207,9 +207,11 @@ test('the avatars on a row show the assignee and their agent on hover, focus or 
     await page.mouse.move(0, 0);
     await expect(card).toBeHidden();
 
-    // From the row's link, Tab reaches the avatars and Enter opens the card; Escape gives the focus back
+    // From the row's link, Tab reaches the selection box (under the author), then the avatars, and Enter opens the card; Escape gives the focus back
     const link = commentRowLink(page, 'Price table wraps');
     await link.focus();
+    await page.keyboard.press('Tab');
+    await expect(row.getByRole('checkbox')).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(avatars).toBeFocused();
     await page.keyboard.press('Enter');

@@ -25,12 +25,12 @@ suites. See [review workflow](../../../docs/review-workflow.md#search-priority-a
 
 ## Selection
 
-Selecting stays out of sight until it is used, like Linear's and Gmail's lists. A row's (or card's) box ends
-the meta line, after the assignees (a card's bottom right corner), and shows only while the row is hovered or has
-keyboard focus (`SelectComment`: `opacity-0` until then, still focusable and named). It keeps its room at rest, so
-the assignees and the status before it do not move when it appears; the title line never gives it room. A mouse
+Selecting stays out of sight until it is used, like Linear's and Gmail's lists. A row's (or card's) box starts
+the meta line under the author's avatar, so the page path lines up with "#12 …" (a card's bottom left), and shows only
+while the row is hovered or has keyboard focus (`SelectComment`: `opacity-0` until then, still focusable and named).
+It keeps its room at rest, so the path does not move when it appears; the title line never gives it room. A mouse
 hovers the row before it reaches the box (`selectThread` in `e2e/support/app.ts` does too). Tab reaches it after
-the row's link (and a card's Move). A touch screen has no hover, so there it is left out (`pointer-coarse:hidden`).
+the row's link (and a card's Move), before the assignees. A touch screen has no hover, so there it is left out (`pointer-coarse:hidden`).
 The count line ends with Select (`Toggle`, "Select comments", pressed while selecting). With a fine pointer it
 stays `sr-only` at rest (still focusable and named, shown on `:focus-visible`) and shows once selecting is on; a
 touch screen, which has no hover to reach a box, always shows it. With no unread count beside it, the whole count line is out of
