@@ -245,6 +245,10 @@ HTTP requests to local provider simulators. The matching browser specs cover OAu
 explicit destination controls, permission checks, persistent settings and disconnect;
 `integration-settings.spec.ts` covers the overview's grid and connected list. Playwright
 uses generated fixture credentials and loopback simulators; it never needs real provider tokens.
+The simulators have no rate limits, so `playwright.config.ts` turns off the request spacing that
+the Notion, Linear and Azure DevOps clients keep on a deployment (`NOTION_REQUEST_INTERVAL_MS`,
+`LINEAR_REQUEST_INTERVAL_MS` and `AZURE_DEVOPS_REQUEST_INTERVAL_MS` set to `0`, honoured only in
+local runtime). Linear and Azure DevOps took half of the required suite's time before that.
 
 Local and CI checks prove the code paths exercised. Provider-specific hosted acceptance,
 registration, credentials, distribution approval and deployment readback remain separate evidence.
