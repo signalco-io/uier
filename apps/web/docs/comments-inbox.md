@@ -6,7 +6,7 @@
   the name in a tooltip, a click on it opens the row; it starts a row's meta line and a card's last line, so a card's
   path has the card's width), page path (what it was left on is only in the thread's On row), then priority other than Normal (`PriorityLabel`: its
   flag alone, named "High priority"), status (`StateDot` and its name, Open too; a board card leaves the status to its column, whose region name screen readers announce), the assignee's avatar with their agent's mark stacked on it
-  (`AssigneeCard`: hovering shows who it is assigned to and their [agent](assignee-agents.md); see below), age and the unread dot) beside the open thread
+  (`AssigneeCard`: hovering shows who it is assigned to and their [agent](assignee-agents.md); see below), age (`RelativeTime`: one shared clock ticks every 10 seconds while any age is shown and the tab is visible, and only the ages whose words change re-render) and the unread dot) beside the open thread
   (`CommentCard.tsx`). The open thread is in the URL (`?comment=<id>`, `useOpenComment`): side by side (`@container/comments` from `@3xl`, 48rem: the list's 18rem and
   at least 29rem for the thread; from about 1100 px with the sidebar docked, which takes in most landscape tablets) it replaces
   the history entry and the first shown thread is open until another is chosen; narrower (a phone, a tablet in portrait) a row opens
