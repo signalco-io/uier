@@ -29,7 +29,7 @@ export const commentRowId = (id: string) => `comment-row-${id}`;
  * card leaves it to its column), age and unread. The whole row opens the thread (a link to `?comment=<id>`, so it can also open
  * in a new tab); the selection box sits beside the link.
  */
-export function CommentRow({ comment, href, selected, onOpen, card = false, preview = false, actions, project, tabbable = true }: {
+export function CommentRow({ comment, href, selected, onOpen, card = false, preview = false, actions, describedBy, keyShortcuts, project, tabbable = true }: {
     comment: ProjectCommentView;
     href: string;
     /** Its thread is open (`opened`), or shown beside the list until another is chosen (`beside`, wide layouts only) */
@@ -40,8 +40,15 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
     card?: boolean;
     /** The copy of a card that follows the pointer while it is dragged: its link has no id */
     preview?: boolean;
-    /** Controls above the link, at the end of the first line (the board card's Move to) */
+    /**
+     * Controls at the end of the first line (the board card's Move). They place themselves above the link that
+     * covers the row (`relative z-10`) and take no room while visually hidden (`sr-only`).
+     */
     actions?: ReactNode;
+    /** The id of what else assistive tech reads for the link (a board card's keyboard shortcut) */
+    describedBy?: string;
+    /** The keys that act on the focused link (`aria-keyshortcuts`) */
+    keyShortcuts?: string;
     /** The project's name, where rows of several projects are listed together (My work) */
     project?: string;
     /**
@@ -68,6 +75,7 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                 <div className="flex min-w-0 items-baseline gap-2">
                     {unread && <span aria-hidden="true" className="size-2 shrink-0 self-center rounded-full bg-[hsl(var(--brand-accent))]" />}
                     <a id={preview ? undefined : commentRowId(comment.id)} href={href} onClick={onOpen} aria-current={selected === 'opened' ? 'true' : undefined} draggable={card ? false : undefined}
+                        aria-describedby={describedBy} aria-keyshortcuts={keyShortcuts}
                         tabIndex={tabbable ? undefined : -1}
                         className={cn('min-w-0 flex-1 text-sm outline-none after:absolute after:inset-0 after:rounded-lg', card ? 'line-clamp-2 break-words' : 'truncate',
                             unread ? 'font-semibold' : 'font-medium', comment.deleted && 'text-muted-foreground')}>
@@ -81,7 +89,7 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                         {unread && <span className="sr-only">, unread</span>}
                     </a>
                     <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums"><RelativeTime value={comment.createdAt} /></span>
-                    {actions && <div className="relative z-10 -my-1 -mr-1.5 shrink-0">{actions}</div>}
+                    {actions}
                 </div>
                 <div className={cn('flex min-w-0 gap-x-2 gap-y-1 text-xs text-muted-foreground', card ? 'flex-col' : 'items-center')}>
                     <p className="m-0 flex min-w-0 flex-1 items-center gap-1.5">
