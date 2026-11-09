@@ -8,7 +8,7 @@
   and age (`RelativeTime short`: "3 min ago", "2 hr ago", "yesterday", "2 wk ago", the date and time on hover; the
   thread's messages, its activity and other sentences keep whole words; one shared clock ticks every 10 seconds while any age is shown and the tab is visible, and only the ages whose words change re-render).
   The meta line, one on rows and cards alike, starts under the title, so the path lines up with "#12 …": the selection
-  box under the author's avatar (past the unread dot's room), the page path (what it was left on is only in the thread's On row), then private, a linked pull request, priority other than Normal (`PriorityLabel`: its
+  box under the author's avatar (past the unread dot's room), the page path (what it was left on is only in the thread's On row), then private (a 12 px lock, a step smaller than the other marks), a linked pull request, priority other than Normal (`PriorityLabel`: its
   flag alone, named "High priority"), status (`StateDot` and its name, Open too; a board card leaves the status to its column, whose region name screen readers announce), and at its right end
   every assignee's avatar with their agents' smaller avatars stacked beside it (`AssigneeCard`: hovering shows who it is assigned to
   and their [agents](assignee-agents.md); see [Multiple assignees](#multiple-assignees)), beside the open thread
