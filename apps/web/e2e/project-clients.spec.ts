@@ -121,6 +121,8 @@ test('admins rename a client and set its description, icon and colour; every pro
     await createProject(page, { urls: ['northwind-edit.example.com'], name: 'Northwind site', clientName: 'Northwind' });
     await page.goto('/app/projects');
     await page.getByRole('combobox', { name: 'Client', exact: true }).click();
+    // Each client shows its mark beside its name, like the sidebar and the cards
+    await expect(page.getByRole('option', { name: 'Acme', exact: true }).locator('[data-slot="client-mark"]')).toHaveText('A');
     await page.getByRole('option', { name: 'Acme', exact: true }).click();
     await expect(page).toHaveURL(url => /^client_[\w-]{21}$/.test(url.searchParams.get('client') ?? ''));
     const filtered = page.url();
