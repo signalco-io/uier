@@ -347,7 +347,7 @@ export type DbWorkspaceDomain = AppDoc & {
     /** Teams people who join get, with each team's invitation generation when it was chosen */
     teamIds: string[];
     teamGenerations: Record<string, number>;
-    /** How the domain was verified: the adding admin's account email is at it */
+    /** How the domain was verified: the adding admin's account email is at it, proven by a sign-in in the last 10 minutes */
     verification: 'admin-email';
     addedBy: string;
     addedAt: string;

@@ -31,10 +31,23 @@ Session-consistency limits, real preview Cosmos checks and rollback.
 [teams and access](../../../docs/teams-and-access.md#email-domains).
 
 - **Verification:** an admin adds only the domain of their own account email (`addRefusal`), which the section
-  suggests. Every uier account email is proven (email code or link, invitation link, or Google's verified
-  address for Gmail and the account's own Workspace `hd`), so the account email is the verified email; never
-  match on a provider claim that did not create or prove the account. Public providers (`isPublicEmailDomain`:
-  the welcome step's personal providers plus shared inboxes) are refused for adding and ignored at sign-in.
+  suggests. Public providers (`isPublicEmailDomain`: the welcome step's personal providers plus shared inboxes)
+  are refused for adding and ignored at sign-in. Never match on a provider claim that did not create or prove the
+  account.
+- **Fresh email proof** (`src/lib/app/emailProof.ts`): an account email is proven once, but its owner can lose
+  the inbox and keep signing in (passkey, linked Google or Microsoft, an old session). So adding a domain, the
+  offer, the join page and joining all need the account email proven by this browser's sign-in within
+  `EMAIL_PROOF_SECONDS` (10 minutes). `startSession(userId, method, provenEmail)` puts a keyed hash of the address
+  in the session token (`ev`, never the address) and returns the `EmailProof`; `getSessionEmailProof(user)` reads
+  it back for that account and email. Proofs: email code or link and invitation link (the account email), Google
+  only where `googleIsAuthoritative` for the address it returns in this sign-in (`provenEmail` on `signed_in`; a
+  linked account whose Google address moved proves nothing). Passkeys and Microsoft prove none. The library
+  takes the proof as an argument (`addWorkspaceDomain`, `hasDomainJoinOffer`, `domainJoinOffers`,
+  `joinWorkspaceByDomain`), checks `freshlyProvenEmail` and reads nothing without it. Without a fresh proof,
+  Settings shows a "Sign in again" panel instead of Add, and the join page shows a Sign in again card, the same
+  whether or not a workspace matches (`signInAgainWithEmailAction` in `shell/actions.ts`: sign out, email form,
+  back to `next`). The proxy refreshes the review SSO cookie on every app request, so a failed server action
+  refreshes the page: a Join refused for an old proof re-renders as that card, and a refused Add as the panel.
 - **Matching** is exact on everything after the last `@`, lowercase ASCII (`emailDomainSchema`). No suffix or
   parent matching: a subdomain is its own domain and needs an admin with an email there.
 - **Records:** `workspace-domain` (`domain_<domain>`, the source of truth, written only through `mutateAccess`
@@ -44,13 +57,15 @@ Session-consistency limits, real preview Cosmos checks and rollback.
   domain was added again meanwhile. Several workspaces may offer one domain; at most `MAX_WORKSPACE_DOMAINS`
   per workspace, and a sign-in looks at `MAX_DOMAIN_WORKSPACES`.
 - **Sign-in:** every sign-in path (email code and link, passkey, Google, Microsoft) redirects through
-  `signInDestination`, which sends the account to `/app/join?next=<where it was going>` when
-  `hasDomainJoinOffer`; a failed lookup only logs. Invitation acceptance does not. The join page reads only the
-  session user (no `getAppContext`, so a new account gets no own workspace before it chooses) and shows the
-  workspace name, the domain and the adding admin's name while they are a member: nothing else of the workspace.
-  "Not now" and Join continue to `joinNextPath(next)`, never back to the join page.
-- **Joining** (`joinWorkspaceByDomain`) rechecks everything in the access transaction: the domain record, no
-  membership, and a recipient generation of 0 (`access-generation` of the address: no invitation was ever
+  `signInDestination` with the proof `startSession` returned, which sends the account to
+  `/app/join?next=<where it was going>` when `hasDomainJoinOffer`; without a proof it looks nothing up, and a
+  failed lookup only logs. Invitation acceptance does not redirect. The join page reads only the session user
+  and its proof (no `getAppContext`, so a new account gets no own workspace before it chooses) and shows each
+  workspace's name and the domain: nothing else of the workspace, not even who added the domain. With a fresh
+  proof and no offer it continues to `next`. "Not now" and Join continue to `joinNextPath(next)`, never back to
+  the join page.
+- **Joining** (`joinWorkspaceByDomain`) rechecks everything in the access transaction: the fresh email proof
+  (the offer the page showed does not count), the domain record, no membership, and a recipient generation of 0 (`access-generation` of the address: no invitation was ever
   sent and no removal made there, so a removal is never undone and a pending invitation is accepted from its
   link). The person becomes a commenter with no direct projects, the domain's teams that are still active at
   their chosen generation (`currentDomainTeams`; an archived and restored team does not return) and the

@@ -103,9 +103,9 @@ delivered to a browser or email cannot be retracted.
 For company workspaces, an admin can let colleagues join without an invitation each. In
 **Workspace → Settings → Email domains**, an admin adds the domain of their own email (the section
 suggests it: `example.com` for `ada@example.com`) and, optionally, teams that people who join get.
-After that, anyone who signs in to uier (or registers) with an email at that domain sees a **Join
-your team** page listing the workspace, and joins with one click. **Not now** continues where they
-were going; the page comes back at their next sign-in.
+After that, anyone who signs in to uier (or registers) with an email at that domain, in a way that
+confirms the address, sees a **Join your team** page listing the workspace, and joins with one click.
+**Not now** continues where they were going; the page comes back at their next such sign-in.
 
 - **Verified domains only.** The adding admin's own account email must be at the domain. uier only
   creates accounts for proven addresses (an email code or link, an invitation link, or Google's
@@ -113,6 +113,14 @@ were going; the page comes back at their next sign-in.
   never matches. A DNS record check is not offered: it would let admins with a personal email add a
   company domain, at the cost of a pending state, DNS lookups and a re-check policy. An admin with an
   email at the domain can add it instead.
+- **Fresh proof of the inbox.** An account email is proven when the account is created, but people
+  lose inboxes (they leave the company) and can still sign in with a passkey, a linked Google or
+  Microsoft account or an old session. So adding a domain, seeing the offer and joining all need a
+  sign-in from the last 10 minutes that confirmed the address now: an email code or link, an
+  invitation link, or Google returning the address for its Google Workspace domain. Passkey and
+  Microsoft sign-ins confirm no address: they get no join page. Without such a sign-in, Settings and
+  the join page offer **Sign in again** with an email code. Joining is checked again when the person
+  clicks, not only when the page showed the workspace.
 - **Public email providers are refused** (gmail.com, outlook.com, yahoo.co.uk, proton.me, shared
   inboxes and the like): anyone can have an address there.
 - **Exact matching.** `example.com` matches `maya@example.com` only: never `maya@eu.example.com`,
@@ -120,9 +128,9 @@ were going; the page comes back at their next sign-in.
   email there.
 - **Several workspaces may offer one domain.** Each is listed on the join page and joining stays the
   person's choice, so nobody can claim a company's domain away from its other workspaces, and nobody
-  is added to a workspace they did not pick. The join page shows only the workspace name, the domain and
-  the name of the admin who added it; nothing about people, teams or projects reaches anyone before
-  they join.
+  is added to a workspace they did not pick. The join page shows only the workspace name and the
+  domain; nothing about people (not even who added the domain), teams or projects reaches anyone
+  before they join.
 - **What they get:** the Commenter role, the domain's teams that are still active (an archived team is
   skipped; a restored one has to be chosen again), no direct projects and the Internal label. Admins
   can then change their access like anyone else's. Admin access is never granted through a domain.

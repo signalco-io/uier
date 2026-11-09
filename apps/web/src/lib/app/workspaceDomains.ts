@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { AppContext } from './context';
 import { UserFacingError } from './actionErrors';
 import { accessGeneration, mutateAccess } from './accessMutations';
+import { DOMAIN_ADD_SIGN_IN_AGAIN, DOMAIN_JOIN_SIGN_IN_AGAIN, freshlyProvenEmail, type EmailProof } from './emailProof';
 import { MAX_DOMAIN_WORKSPACES, MAX_WORKSPACE_DOMAINS } from './limits';
 import {
     memberId,
@@ -13,16 +14,18 @@ import {
 } from './model';
 import { getAppStore, type AppStore, type StoredDoc } from './store';
 import { getTeam, validateTeamIds } from './teams';
-import { getUser } from './users';
 import { isPersonalEmailDomain } from './welcome';
 import { getMember, getWorkspace } from './workspaces';
 import { assertMutableWorkspace, PUBLIC_WORKSPACE_ID } from '../comments/publicProjectPolicy';
 
 // Email domains of a workspace: people who sign in with an email at one of them can join it.
 //
-// - Verified by the adding admin's own account email. Every uier account email is proven: an email code
-//   or link, an invitation link, or Google's verified address (gmail.com, or the account's Workspace
-//   domain). Unverified provider addresses never become an account, so they never match.
+// - Verified by the adding admin's own account email, proven again by their current sign-in. Every uier
+//   account email was proven once, but its owner may have lost the inbox since (a former employee still
+//   signed in with a passkey or a linked Google account). So both adding a domain and joining through one
+//   need a fresh proof of the account email (`emailProof.ts`): a sign-in from the last 10 minutes with an
+//   email code or link, an invitation link, or Google's verified address for the Workspace domain it names.
+//   Without one there is no offer, no join and no add; nothing is looked up either.
 // - The match is exact on the part after the @: `example.com` matches `maya@example.com`, never
 //   `maya@eu.example.com`, `maya@example.com.evil.test` or `maya@myexample.com`. A subdomain is a
 //   domain of its own.
@@ -125,10 +128,11 @@ async function teamSelection(workspaceId: string, teamIds: string[], store: AppS
 }
 
 /**
- * Adds a domain to the current workspace for an admin whose own account email is at it. People who sign
- * in with an email at the domain can then join, with the chosen teams.
+ * Adds a domain to the current workspace for an admin whose own account email is at it and was proven by
+ * their sign-in in the last 10 minutes (`proof`, from the session). People who sign in with an email at the
+ * domain can then join, with the chosen teams.
  */
-export async function addWorkspaceDomain(context: AppContext, input: { domain: unknown; teamIds: string[] }) {
+export async function addWorkspaceDomain(context: AppContext, input: { domain: unknown; teamIds: string[] }, proof: EmailProof | null) {
     assertMutableWorkspace(context.workspace.id);
     if (!context.isAdmin)
         throw new UserFacingError('Only workspace admins can add domains.');
@@ -136,6 +140,8 @@ export async function addWorkspaceDomain(context: AppContext, input: { domain: u
     const refusal = addRefusal(domain, context.user.email);
     if (refusal)
         throw new UserFacingError(refusal);
+    if (!freshlyProvenEmail(context.user.email, proof))
+        throw new UserFacingError(DOMAIN_ADD_SIGN_IN_AGAIN);
     const workspaceId = context.workspace.id;
     const store = getAppStore();
     await validateTeamIds(workspaceId, input.teamIds, store);
@@ -227,13 +233,21 @@ export async function removeWorkspaceDomain(context: AppContext, input: unknown)
         await ensureLookup(domain, workspaceId, store);
 }
 
+/** The domain of the account email when the sign-in proved it in the last 10 minutes and anyone can match it */
+function provenDomain(user: DbUser, proof: EmailProof | null) {
+    const email = freshlyProvenEmail(user.email, proof);
+    const domain = email ? emailDomain(email) : null;
+    return domain && !isPublicEmailDomain(domain) ? domain : null;
+}
+
 /**
- * The domain document through which this person can join the workspace, or `null`: the workspace offers
- * their email's domain, they are not a member, and no admin ever invited or removed their address there.
+ * The domain document through which this person can join the workspace, or `null`: their sign-in freshly
+ * proved their email, the workspace offers its domain, they are not a member, and no admin ever invited or
+ * removed their address there.
  */
-async function joinableDomain(user: DbUser, workspaceId: string, store: AppStore): Promise<StoredDoc<DbWorkspaceDomain> | null> {
-    const domain = emailDomain(user.email);
-    if (!domain || isPublicEmailDomain(domain) || workspaceId === PUBLIC_WORKSPACE_ID)
+async function joinableDomain(user: DbUser, proof: EmailProof | null, workspaceId: string, store: AppStore): Promise<StoredDoc<DbWorkspaceDomain> | null> {
+    const domain = provenDomain(user, proof);
+    if (!domain || workspaceId === PUBLIC_WORKSPACE_ID)
         return null;
     const pk = workspacePk(workspaceId);
     const [entry, member, generation] = await Promise.all([
@@ -247,35 +261,35 @@ async function joinableDomain(user: DbUser, workspaceId: string, store: AppStore
     return entry;
 }
 
-/** The domain documents through which this person can join workspaces, at most `MAX_DOMAIN_WORKSPACES` */
-async function joinableDomains(user: DbUser, store: AppStore) {
-    const domain = emailDomain(user.email);
-    if (!domain || isPublicEmailDomain(domain))
+/**
+ * The domain documents through which this person can join workspaces, at most `MAX_DOMAIN_WORKSPACES`.
+ * Without a fresh email proof (`proof`, from the session) nothing is read.
+ */
+async function joinableDomains(user: DbUser, proof: EmailProof | null, store: AppStore) {
+    const domain = provenDomain(user, proof);
+    if (!domain)
         return [];
     const lookups = await store.query<DbDomainWorkspace>({ type: 'domain-workspace', pk: domainPk(domain), limit: MAX_DOMAIN_WORKSPACES });
-    const entries = await Promise.all(lookups.map(lookup => joinableDomain(user, lookup.workspaceId, store)));
+    const entries = await Promise.all(lookups.map(lookup => joinableDomain(user, proof, lookup.workspaceId, store)));
     return entries.filter((entry): entry is StoredDoc<DbWorkspaceDomain> => Boolean(entry));
 }
 
-/** Whether a workspace offers this person's email domain to them (the sign-in redirect needs no more) */
-export async function hasDomainJoinOffer(user: DbUser, store: AppStore = getAppStore()) {
-    return (await joinableDomains(user, store)).length > 0;
+/** Whether a workspace offers this person's freshly proven email domain to them (the sign-in redirect needs no more) */
+export async function hasDomainJoinOffer(user: DbUser, proof: EmailProof | null, store: AppStore = getAppStore()) {
+    return (await joinableDomains(user, proof, store)).length > 0;
 }
 
 /**
- * What the join page shows: the workspace's name, the domain and the name of the admin who added it
- * while they are still a member. Nothing about its people, teams or projects reaches anyone before they join.
+ * What the join page shows: the workspace's name and the domain. Nothing about its people (not even the
+ * admin who added the domain), teams or projects reaches anyone before they join.
  */
-export type DomainJoinOffer = { workspaceId: string; workspaceName: string; domain: string; addedByName?: string };
+export type DomainJoinOffer = { workspaceId: string; workspaceName: string; domain: string };
 
-export async function domainJoinOffers(user: DbUser): Promise<DomainJoinOffer[]> {
-    const entries = await joinableDomains(user, getAppStore());
+export async function domainJoinOffers(user: DbUser, proof: EmailProof | null): Promise<DomainJoinOffer[]> {
+    const entries = await joinableDomains(user, proof, getAppStore());
     const offers = await Promise.all(entries.map(async ({ doc }): Promise<DomainJoinOffer | null> => {
-        const [workspace, adder] = await Promise.all([getWorkspace(doc.workspaceId), getMember(doc.workspaceId, doc.addedBy)]);
-        if (!workspace)
-            return null;
-        const addedBy = adder ? await getUser(doc.addedBy) : null;
-        return { workspaceId: workspace.id, workspaceName: workspace.name, domain: doc.domain, addedByName: addedBy?.name };
+        const workspace = await getWorkspace(doc.workspaceId);
+        return workspace ? { workspaceId: workspace.id, workspaceName: workspace.name, domain: doc.domain } : null;
     }));
     return offers.filter((offer): offer is DomainJoinOffer => Boolean(offer))
         .sort((a, b) => a.workspaceName.localeCompare(b.workspaceName));
@@ -283,15 +297,17 @@ export async function domainJoinOffers(user: DbUser): Promise<DomainJoinOffer[]>
 
 /**
  * Joins the workspace through the person's email domain: a commenter with the domain's current teams and
- * no direct projects, labelled Internal. Rechecked in the access transaction, so a domain removed, an
- * invitation sent or a removal made meanwhile wins. Joining a workspace they are in already changes nothing.
+ * no direct projects, labelled Internal. Needs a fresh email proof (`proof`, from the session), whatever the
+ * join page showed. Rechecked in the access transaction, so a domain removed, an invitation sent or a removal
+ * made meanwhile wins. Joining a workspace they are in already changes nothing.
  */
-export async function joinWorkspaceByDomain(user: DbUser, workspaceId: string) {
+export async function joinWorkspaceByDomain(user: DbUser, workspaceId: string, proof: EmailProof | null) {
     const result: { member: DbMember | null } = { member: null };
-    if (workspaceId !== PUBLIC_WORKSPACE_ID && await getWorkspace(workspaceId))
+    const proven = freshlyProvenEmail(user.email, proof) !== null;
+    if (proven && workspaceId !== PUBLIC_WORKSPACE_ID && await getWorkspace(workspaceId))
         await mutateAccess(workspaceId, user.id, async store => {
             result.member = null;
-            const entry = await joinableDomain(user, workspaceId, store);
+            const entry = await joinableDomain(user, proof, workspaceId, store);
             if (!entry)
                 return null;
             const teamIds = await currentDomainTeams(entry.doc, store);
@@ -319,6 +335,8 @@ export async function joinWorkspaceByDomain(user: DbUser, workspaceId: string) {
         }, { admin: false });
     const member = result.member ?? (workspaceId === PUBLIC_WORKSPACE_ID ? null : await getMember(workspaceId, user.id));
     if (!member)
-        throw new UserFacingError('This workspace is no longer open to your email domain. Ask one of its admins to invite you.');
+        throw new UserFacingError(proven
+            ? 'This workspace is no longer open to your email domain. Ask one of its admins to invite you.'
+            : DOMAIN_JOIN_SIGN_IN_AGAIN);
     return member;
 }

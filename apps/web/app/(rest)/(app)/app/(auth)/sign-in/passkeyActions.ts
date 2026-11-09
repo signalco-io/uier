@@ -41,6 +41,7 @@ export async function passkeySignInAction(response: unknown, next: unknown): Pro
             unknownCredential: outcome.credentialId ? { rpId: context.rp.id, credentialId: outcome.credentialId } : undefined
         };
 
-    await startSession(outcome.value.id, 'passkey');
-    redirect(await signInDestination(outcome.value, safeNextPath(next) ?? KnownPages.App));
+    // A passkey proves who signs in, not that they still have the account's inbox
+    const proof = await startSession(outcome.value.id, 'passkey');
+    redirect(await signInDestination(outcome.value, safeNextPath(next) ?? KnownPages.App, proof));
 }

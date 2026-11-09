@@ -1,4 +1,5 @@
 import { KnownPages } from '../../knownPages';
+import type { EmailProof } from './emailProof';
 import type { DbUser } from './model';
 import { safeNextPath } from './signIn';
 import { getUser } from './users';
@@ -13,16 +14,17 @@ export function joinNextPath(next: unknown) {
 }
 
 /**
- * Where a finished sign-in continues: the join page first when a workspace offers the account's email
- * domain to it (`workspaceDomains.ts`), with `destination` as its `next`, otherwise `destination`. A failed
- * lookup never stops the sign-in.
+ * Where a finished sign-in continues: the join page first when the sign-in proved the account's email
+ * (`proof`, what `startSession` returned) and a workspace offers its domain (`workspaceDomains.ts`), with
+ * `destination` as its `next`, otherwise `destination`. A sign-in that proved no email (a passkey, a linked
+ * Microsoft account) looks nothing up. A failed lookup never stops the sign-in.
  */
-export async function signInDestination(user: DbUser | string, destination: string) {
-    if (isJoinPage(destination))
+export async function signInDestination(user: DbUser | string, destination: string, proof: EmailProof | null) {
+    if (isJoinPage(destination) || !proof)
         return destination;
     try {
         const account = typeof user === 'string' ? await getUser(user) : user;
-        if (account && await hasDomainJoinOffer(account))
+        if (account && await hasDomainJoinOffer(account, proof))
             return `${KnownPages.AppJoin}?${new URLSearchParams({ next: destination })}`;
     } catch (error) {
         console.error('[app] Domain join lookup failed', error);

@@ -257,9 +257,11 @@ export default function PrivacyPolicyPage() {
             <p>
                 A workspace admin can add the domain of their own email (such as example.com) so that colleagues
                 can join the workspace. We store the domain, the teams people who join get, who added it and when,
-                and record it in the workspace&rsquo;s access history. When you sign in, we look up the domain of
-                your account email. If a workspace offers it, we show you that workspace&rsquo;s name and the name
-                of the admin who added the domain, and you choose whether to join. Nobody in that workspace learns
+                and record it in the workspace&rsquo;s access history. Adding a domain, and joining through one, need a
+                sign-in from the last 10 minutes that confirmed your email address: an email code or link, an
+                invitation link, or Google confirming the address for its Google Workspace domain. After such a
+                sign-in, we look up the domain of your account email. If a workspace offers it, we show you only that
+                workspace&rsquo;s name, and you choose whether to join. Nobody in that workspace learns
                 that you signed in unless you join. If you do, the workspace&rsquo;s admins see your name and email
                 like any member&rsquo;s, and its access history records that you joined through the domain. The
                 domain is kept until an admin removes it or the workspace is deleted.

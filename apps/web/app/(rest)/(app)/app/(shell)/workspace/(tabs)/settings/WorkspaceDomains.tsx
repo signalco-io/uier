@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState, useId, useState, useTransition } from 'react';
-import { AtSignIcon, PlusIcon } from 'lucide-react';
+import { AtSignIcon, LogInIcon, PlusIcon } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
     AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/src/components/ui/alert-dialog';
 import { Button } from '@/src/components/ui/button';
@@ -12,7 +12,10 @@ import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, 
 import { Spinner } from '@/src/components/ui/spinner';
 import { Section } from '@/src/components/app/PageHeader';
 import { FormMessage } from '@/src/components/app/FormMessage';
+import { signInAgainWithEmailAction } from '@/src/components/app/shell/actions';
+import { KnownPages } from '@/src/knownPages';
 import type { ActionState } from '@/src/lib/app/actionResult';
+import { DOMAIN_ADD_SIGN_IN_AGAIN } from '@/src/lib/app/emailProof';
 import { addDomainAction, removeDomainAction, updateDomainTeamsAction } from './domainActions';
 
 type Team = { id: string; name: string };
@@ -31,22 +34,31 @@ function list(items: string[]) {
 
 /**
  * Workspace settings: the email domains whose people can join the workspace with a click after they sign
- * in (`workspaceDomains.ts`). An admin can add only the domain of their own email, which is suggested.
+ * in (`workspaceDomains.ts`). An admin can add only the domain of their own email, which is suggested, and
+ * only with a sign-in from the last 10 minutes that proved that email (`emailProof.ts`); otherwise the
+ * section offers to sign in again with the email.
  */
-export function WorkspaceDomains({ domains, teams, suggestion, ownDomain }: {
+export function WorkspaceDomains({ domains, teams, suggestion, ownDomain, signInAgain }: {
     domains: WorkspaceDomainView[];
     teams: Team[];
     /** The admin's own email domain when they can add it */
     suggestion: string | null;
     /** The admin's own email domain, to explain why it can't be added */
     ownDomain: string | null;
+    /** This browser's sign-in proved no email in the last 10 minutes */
+    signInAgain: boolean;
 }) {
+    // Also when adding fails because the proof ran out while the page was open
+    const [expired, setExpired] = useState(false);
+    const needsSignIn = Boolean(suggestion) && (signInAgain || expired);
     return (
         <Section
             id="domains"
             title="Email domains"
             description="People who sign in to uier with an email at these domains can join this workspace as commenters. They join with a click; nobody is added without it."
-            actions={suggestion ? <DomainDialog mode="add" domain={suggestion} teams={teams} /> : undefined}>
+            actions={suggestion && !needsSignIn
+                ? <DomainDialog mode="add" domain={suggestion} teams={teams} onSignInAgain={() => setExpired(true)} />
+                : undefined}>
             <div className="flex flex-col gap-4">
                 {domains.length
                     ? (
@@ -63,6 +75,20 @@ export function WorkspaceDomains({ domains, teams, suggestion, ownDomain }: {
                             : ''}
                     An admin can add only the domain of their own email. Each domain matches exactly: add subdomains separately.
                 </p>
+                {needsSignIn && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3">
+                        <p className="m-0 min-w-0 flex-1 text-sm text-muted-foreground">
+                            To add {suggestion}, sign in again with your email. Adding a domain needs a sign-in from the last 10 minutes that confirms your email address.
+                        </p>
+                        <form action={signInAgainWithEmailAction}>
+                            <input type="hidden" name="next" value={KnownPages.AppSettings} />
+                            <Button type="submit" variant="outline">
+                                <LogInIcon data-icon="inline-start" />
+                                Sign in again
+                            </Button>
+                        </form>
+                    </div>
+                )}
             </div>
         </Section>
     );
@@ -90,8 +116,14 @@ function DomainRow({ domain, teams }: { domain: WorkspaceDomainView; teams: Team
     );
 }
 
-/** Adds the suggested domain, or changes a domain's teams */
-function DomainDialog({ mode, domain, teams, selected = [] }: { mode: 'add' | 'edit'; domain: string; teams: Team[]; selected?: string[] }) {
+/** Adds the suggested domain, or changes a domain's teams. `onSignInAgain`: adding needs a fresh email sign-in. */
+function DomainDialog({ mode, domain, teams, selected = [], onSignInAgain }: {
+    mode: 'add' | 'edit';
+    domain: string;
+    teams: Team[];
+    selected?: string[];
+    onSignInAgain?: () => void;
+}) {
     const [open, setOpen] = useState(false);
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -102,18 +134,32 @@ function DomainDialog({ mode, domain, teams, selected = [] }: { mode: 'add' | 'e
             </DialogTrigger>
             <DialogContent>
                 {/* Unmounted when closed, so every opening starts from the saved teams */}
-                {open && <DomainForm mode={mode} domain={domain} teams={teams} selected={selected} onDone={() => setOpen(false)} />}
+                {open && <DomainForm mode={mode} domain={domain} teams={teams} selected={selected} onDone={() => setOpen(false)}
+                    onSignInAgain={() => {
+                        setOpen(false);
+                        onSignInAgain?.();
+                    }} />}
             </DialogContent>
         </Dialog>
     );
 }
 
-function DomainForm({ mode, domain, teams, selected, onDone }: { mode: 'add' | 'edit'; domain: string; teams: Team[]; selected: string[]; onDone: () => void }) {
+function DomainForm({ mode, domain, teams, selected, onDone, onSignInAgain }: {
+    mode: 'add' | 'edit';
+    domain: string;
+    teams: Team[];
+    selected: string[];
+    onDone: () => void;
+    onSignInAgain: () => void;
+}) {
     const id = useId();
     const [state, formAction, pending] = useActionState(async (previous: ActionState, formData: FormData) => {
         const result = await (mode === 'add' ? addDomainAction : updateDomainTeamsAction)(previous, formData);
         if (result?.ok)
             onDone();
+        // The section's sign-in panel explains it; no second message
+        else if (result?.ok === false && result.error === DOMAIN_ADD_SIGN_IN_AGAIN)
+            onSignInAgain();
         return result;
     }, null);
     const [chosen, setChosen] = useState<string[]>(selected);

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, hydrated, signIn } from './support/app';
+import { signToken, verifyToken } from '../src/lib/app/tokens';
 
 // Email domains (`workspaceDomains.ts`): an admin adds the domain of their own email in Workspace
 // settings, and a colleague who signs in with an email at it joins with a click. The rules are in
@@ -9,6 +10,15 @@ import { createProject, hydrated, signIn } from './support/app';
 
 /** Waits for dialogs and menus to finish animating before an axe scan */
 const settled = (page: Page) => page.waitForFunction(() => document.getAnimations().every(animation => animation.playState !== 'running'));
+
+/** The page's session, signed again without an email proof: a passkey sign-in, or an email code over 10 minutes ago */
+async function withoutEmailProof(page: Page) {
+    // Local runs sign with the development key
+    process.env.UIER_LOCAL ??= '1';
+    const session = (await page.context().cookies()).find(cookie => cookie.name === 'uier_session')!;
+    const { uid } = verifyToken<{ uid: string }>('session', session.value)!;
+    return { ...session, value: signToken('session', { uid, iat: Math.floor(Date.now() / 1000) }, 3600) };
+}
 
 test('an admin adds their email domain and a colleague joins with a click after signing in', async ({ page, browser }) => {
     test.setTimeout(120_000);
@@ -34,10 +44,21 @@ test('an admin adds their email domain and a colleague joins with a click after 
     await page.getByRole('dialog').getByRole('button', { name: 'Confirm changes' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
 
+    // Without a sign-in that proved the email in the last 10 minutes, the domain is suggested but adding it
+    // needs a new email sign-in, which comes back to the settings
+    await page.context().addCookies([await withoutEmailProof(page)]);
     await page.goto('/app/workspace/settings');
     const domains = page.getByRole('region', { name: 'Email domains', exact: true });
     await expect(domains).toContainText('No domains yet.');
     await expect(domains).toContainText(`You can add ${domain}, the domain of your email.`);
+    await expect(domains).toContainText(`To add ${domain}, sign in again with your email.`);
+    await expect(domains.getByRole('button', { name: `Add ${domain}` })).toHaveCount(0);
+    await hydrated(domains.getByRole('button', { name: 'Sign in again', exact: true }));
+    await domains.getByRole('button', { name: 'Sign in again', exact: true }).click();
+    await page.waitForURL(url => url.pathname === '/app/sign-in' && url.searchParams.get('next') === '/app/workspace/settings');
+    await signIn(page, `ada@${domain}`, { from: page.url() });
+    await expect(page).toHaveURL(/\/app\/workspace\/settings$/);
+    await expect(domains.getByRole('button', { name: 'Sign in again', exact: true })).toHaveCount(0);
     await hydrated(domains.getByRole('button', { name: `Add ${domain}` }));
     await domains.getByRole('button', { name: `Add ${domain}` }).click();
     const dialog = page.getByRole('dialog', { name: `Add ${domain}` });
@@ -60,6 +81,17 @@ test('an admin adds their email domain and a colleague joins with a click after 
     await expect(colleague.getByRole('heading', { level: 1, name: `Join ${workspaceName}` })).toBeVisible();
     await expect(colleague.getByRole('listitem')).toContainText(workspaceName);
     await expectNoAxeViolations(colleague);
+    // The proof runs out before the click: joining is checked again and refused, and Sign in again comes back here
+    await colleagueContext.addCookies([await withoutEmailProof(colleague)]);
+    await colleague.getByRole('button', { name: `Join ${workspaceName}`, exact: true }).click();
+    await expect(colleague.getByText(/sign in again with your email\./).first()).toBeVisible();
+    await expect(colleague.getByText(workspaceName)).toHaveCount(0);
+    await expectNoAxeViolations(colleague);
+    await colleague.getByRole('button', { name: 'Sign in again', exact: true }).click();
+    await colleague.waitForURL(url => url.pathname === '/app/sign-in');
+    await signIn(colleague, `maya@${domain}`, { from: colleague.url(), welcome: 'stay' });
+    await expect(colleague).toHaveURL(/\/app\/join\?next=%2Fapp%2Fwelcome$/);
+    await hydrated(colleague.getByRole('button', { name: `Join ${workspaceName}`, exact: true }));
     await colleague.getByRole('button', { name: `Join ${workspaceName}`, exact: true }).click();
 
     // The first-run step asks only for their name: they have no workspace of their own to name

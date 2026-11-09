@@ -1,13 +1,15 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { UsersIcon } from 'lucide-react';
+import { LogInIcon, UsersIcon } from 'lucide-react';
 import { cn } from 'cn';
-import { buttonVariants } from '@/src/components/ui/button';
-import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '@/src/components/ui/item';
+import { Button, buttonVariants } from '@/src/components/ui/button';
+import { Item, ItemActions, ItemContent, ItemGroup, ItemMedia, ItemTitle } from '@/src/components/ui/item';
 import { AuthCard } from '@/src/components/app/AuthCard';
+import { signInAgainWithEmailAction } from '@/src/components/app/shell/actions';
 import { KnownPages } from '@/src/knownPages';
-import { getSessionUser } from '@/src/lib/app/session';
+import { freshlyProvenEmail } from '@/src/lib/app/emailProof';
+import { getSessionEmailProof, getSessionUser } from '@/src/lib/app/session';
 import { joinNextPath } from '@/src/lib/app/signInDestination';
 import { domainJoinOffers, emailDomain } from '@/src/lib/app/workspaceDomains';
 import { JoinWorkspaceForm } from './JoinWorkspaceForm';
@@ -17,8 +19,11 @@ export const metadata: Metadata = {
 };
 
 /**
- * After sign-in, when workspaces are open to the account's email domain (`workspaceDomains.ts`): join one
- * with a click, or continue without joining. Shows only the workspace's name and who added the domain.
+ * After a sign-in that proved the account's email, when workspaces are open to its domain (`workspaceDomains.ts`):
+ * join one with a click, or continue without joining. Shows only each workspace's name. Without a fresh email
+ * proof (`emailProof.ts`: a passkey sign-in, or the 10 minutes ran out on this page, which a failed Join
+ * refreshes) it looks nothing up and offers to sign in again with the email, the same whether or not a
+ * workspace matches.
  */
 export default async function JoinPage({ searchParams }: PageProps<'/app/join'>) {
     const user = await getSessionUser();
@@ -26,7 +31,25 @@ export default async function JoinPage({ searchParams }: PageProps<'/app/join'>)
     const destination = joinNextPath(next);
     if (!user)
         redirect(`${KnownPages.AppSignIn}?${new URLSearchParams({ next: KnownPages.AppJoin })}`);
-    const offers = await domainJoinOffers(user);
+    const proof = await getSessionEmailProof(user);
+    if (!freshlyProvenEmail(user.email, proof))
+        return (
+            <AuthCard
+                title="Join your team"
+                description="To see the workspaces open to your email domain, sign in again with your email. Joining needs a sign-in from the last 10 minutes that confirms your email address.">
+                <div className="flex flex-col gap-3">
+                    <form action={signInAgainWithEmailAction}>
+                        <input type="hidden" name="next" value={`${KnownPages.AppJoin}?${new URLSearchParams({ next: destination })}`} />
+                        <Button type="submit" size="lg" className="w-full">
+                            <LogInIcon data-icon="inline-start" />
+                            Sign in again
+                        </Button>
+                    </form>
+                    <Link href={destination} className={cn(buttonVariants({ variant: 'ghost', size: 'lg' }), 'w-full')}>Not now</Link>
+                </div>
+            </AuthCard>
+        );
+    const offers = await domainJoinOffers(user, proof);
     if (!offers.length)
         redirect(destination);
 
@@ -49,7 +72,6 @@ export default async function JoinPage({ searchParams }: PageProps<'/app/join'>)
                             <ItemMedia variant="icon"><UsersIcon /></ItemMedia>
                             <ItemContent className="min-w-0">
                                 <ItemTitle className="line-clamp-none break-words">{offer.workspaceName}</ItemTitle>
-                                {offer.addedByName && <ItemDescription className="line-clamp-none break-words">Set up by {offer.addedByName}</ItemDescription>}
                             </ItemContent>
                             {!single && (
                                 <ItemActions>
