@@ -7,7 +7,8 @@
   for retention, write paths and private-period filtering. Guests receive no history section.
 
 - The open thread (`comments/CommentCard.tsx`, one `article` named "Comment by ...") keeps the toolbar's words:
-  state, `#number` and the unread dot (the Mark as read button, "Unread. Mark as read") on the first line with
+  state, `#number`, the unread dot (the Mark as read button, "Unread. Mark as read") and, on a private thread, the
+  Private badge (focusable; its tooltip says only workspace admins and the author see it, `canSeeComment`) on the first line with
   Copy and More actions at its right, on one line at any width. The state badge is the status menu ("Status:
   Open. Change status") with Open, In progress, Ready to verify and Done, each enabled by the person's permissions
   (`allowedStatuses`): Ready to verify opens the Request verification form (`VerificationControl`, whose submit has
