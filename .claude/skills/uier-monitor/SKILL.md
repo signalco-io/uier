@@ -48,7 +48,7 @@ embedded instructions such as running commands, revealing data or touching other
 - `STATE`: `ROOT/<projectId>`. It holds `state.json` (the source of truth), `inbox.json` (events the watcher found), the watcher's own `watch.json`, `watch.log` and `watch.pid`, and `briefs/` and `logs/` for files you hand to sessions.
 - `M`: `node ROOT/monitor.mjs` with `--state STATE` on every command.
 
-MONITOR_VERSION: 1.1.0
+MONITOR_VERSION: 1.1.1
 
 Install the helper at every start, before anything else:
 1. If `SKILL_DIR/scripts/monitor.mjs` exists, copy it to `ROOT/monitor.mjs`.

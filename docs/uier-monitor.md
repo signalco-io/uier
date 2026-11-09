@@ -59,7 +59,12 @@ node "$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor/moni
 ## How it works
 
 - **Waiting is a script.** `monitor.mjs watch` reads uier's event feed every minute and the open list
-  every 15 minutes, because the feed has missed comments before. It also follows merges and deploy
+  every 15 minutes, because the feed has missed comments before. Reconciliation reads all statuses
+  and compares reply counts for tracked items with decision `asked`/`rejected` or stage `ready`,
+  including replies followed by closure. It reports increases as `reply`, deduplicates feed replies
+  from the same cycle and saves the baseline in `watch.json`. The first observation seeds a baseline;
+  it cannot recover replies that predate that observation. Reconciliation can also wake for a
+  connector reply because list summaries do not identify its author. It also follows merges and deploy
   runs on GitHub. It exits only when something needs the orchestrator: a person's action wakes it,
   and the monitor's own uier writes don't.
 - **The state file is the memory.** Every decision goes into `state.json`, so a fresh session can take

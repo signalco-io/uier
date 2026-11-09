@@ -134,7 +134,7 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
                     title: visibleAiTitle(comment, titles), summary: first?.deletedAt ? 'Comment deleted' : first?.text.slice(0, 240), updatedAt: comment.updatedAt,
                     path, environment: { id: source.environment, label: source.label }, anchorType: comment.position.type, assignee: assignee ?? null, assignees,
                     authorKind: first && !first.deletedAt ? first.authorId?.startsWith('user:') ? 'member' : 'guest' : undefined,
-                    unread: activity.unread, hasScreenshot: Boolean(first && !first.deletedAt && comment.screenshot) };
+                    replyCount: Math.max(0, comment.thread.items.length - 1), unread: activity.unread, hasScreenshot: Boolean(first && !first.deletedAt && comment.screenshot) };
             }).filter(item => (input.anchorType === undefined || item.anchorType === input.anchorType)
                 && (input.assignee === undefined || (input.assignee === 'unassigned' ? !item.assignees.length : item.assignees.some(person => person.id === (input.assignee === 'me' ? identity.user.id : input.assignee))))
                 && (input.authorKind === undefined || item.authorKind === input.authorKind)

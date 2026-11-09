@@ -46,3 +46,7 @@ never name other mention/assignment recipients. Events store item/new-assignee i
 `emailCommentExcerpts` defaults off and is saved through `adminProject`; commenters see its state.
 New attempts rebuild from fresh settings/items at the send boundary; retained provider operations
 keep their exact message, which can retain opt-in excerpts until reconciliation without a TTL.
+
+uier’s own feedback projects retain every event for MCP, including web-app actions with no
+connector attribution, while keeping `notificationPending` false to avoid owner email jobs.
+Event recording does not depend on whether anyone is eligible for an email.
