@@ -40,7 +40,7 @@ test('thread details collect PRs from messages and replies, with one quiet mark 
     // The open thread's read colours its row's mark too (hidden behind the thread on a phone): its one pull request is merged
     await expect(thread.locator('[data-pull-request-color="merged"]')).toHaveCount(1);
     await expect(page.locator('[data-comment-id] [data-pull-request-mark]')).toHaveAttribute('data-pull-request-color', 'merged');
-    await thread.getByRole('button', { name: `Remove pull request link ${manualUrl}`, exact: true }).click();
+    await thread.getByRole('button', { name: 'Remove link to GitHub acme/site #2', exact: true }).click();
     await expect(thread.locator('[data-pull-request-links]').getByRole('link')).toHaveCount(0);
     await thread.getByRole('button', { name: 'Link a pull request', exact: true }).click();
     await thread.getByRole('textbox', { name: 'Pull request URL', exact: true }).fill(manualUrl);

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useSyncExternalStore, type MouseEvent, type RefObject } from 'react';
-import { ArrowUpRightIcon, GitPullRequestIcon, PlusIcon } from 'lucide-react';
+import { ArrowUpRightIcon, GitPullRequestIcon, PlusIcon, XIcon } from 'lucide-react';
 import { useActionState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/src/components/ui/button';
@@ -10,6 +10,7 @@ import { setCommentPullRequestAction } from './actions';
 import { Badge } from '@/src/components/ui/badge';
 import { Item, ItemContent, ItemMedia, ItemTitle } from '@/src/components/ui/item';
 import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import { cn } from '@/src/lib/utils';
 import { threadPullRequestLinks, type PullRequestLink, type PullRequestState, type PullRequestStatus } from '@/src/lib/comments/pullRequestLinks';
 import type { ProjectCommentView } from '@/src/lib/app/projectComments';
@@ -156,12 +157,14 @@ function PullRequestValues({ projectId, commentId, links, revision, comment }: {
                         </a>
                         {state && <PullRequestStateBadge state={state} />}
                         {comment.pullRequests?.some(saved => saved.url.toLowerCase() === link.url.toLowerCase() && saved.canRemove) &&
-                            <RemovePullRequest projectId={projectId} commentId={commentId} url={link.url} />}
-
+                            <RemovePullRequest projectId={projectId} commentId={commentId} url={link.url} name={pullRequestName(link)} />}
                     </div>
                 );
             })}
-            {comment.permissions.triage && <LinkPullRequest projectId={projectId} commentId={commentId} />}
+            {/* One row tall like the links above, so the control is centred on the label */}
+            {comment.permissions.triage && <div className="flex min-h-8 w-full min-w-0 items-center pointer-coarse:min-h-11">
+                <LinkPullRequest projectId={projectId} commentId={commentId} />
+            </div>}
         </dd>
     );
 }
@@ -218,14 +221,23 @@ function LinkPullRequest({ projectId, commentId }: { projectId: string; commentI
     </form>;
 }
 
-function RemovePullRequest({ projectId, commentId, url }: { projectId: string; commentId: string; url: string }) {
+/** A small x icon button beside a manual link; its name and tooltip say which link it removes */
+function RemovePullRequest({ projectId, commentId, url, name }: { projectId: string; commentId: string; url: string; name: string }) {
     const [, action, pending] = useActionState(async () => {
         const result = await setCommentPullRequestAction(projectId, commentId, url, true);
         if (result && !result.ok) toast.error(result.error);
         return result;
     }, undefined);
-    return <form action={action}><Button type="submit" size="sm" variant="ghost" disabled={pending}
-        aria-label={`Remove pull request link ${url}`} className="pointer-coarse:min-h-11">Remove</Button></form>;
+    const label = `Remove link to ${name}`;
+    return <form action={action} className="flex">
+        <Tooltip>
+            <TooltipTrigger render={<Button type="submit" variant="ghost" size="icon-xs" disabled={pending} aria-label={label}
+                className="text-muted-foreground hover:text-foreground pointer-coarse:size-11" />}>
+                <XIcon aria-hidden="true" />
+            </TooltipTrigger>
+            <TooltipContent>{label}</TooltipContent>
+        </Tooltip>
+    </form>;
 }
 
 function PullRequestCardList({ projectId, commentId, links, revision }: {
