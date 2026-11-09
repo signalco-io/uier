@@ -58,7 +58,10 @@ export function feedbackExport(dto: Omit<CommentDto, 'thread'> & { thread: { ite
         links: { page: options.pageUrl, comment: options.commentUrl },
         reproduction: available ? {
             device: dto.device?.size, windowSize: dto.device?.windowSize,
-            ...(r ? { browser: r.browser, os: r.os, windowSize: r.windowSize ?? dto.device?.windowSize, pixelRatio: r.pixelRatio, capturedAt: r.capturedAt } : {})
+            ...(r ? {
+                browser: r.browser, os: r.os, model: r.model, windowSize: r.windowSize ?? dto.device?.windowSize, pixelRatio: r.pixelRatio,
+                input: r.input, colorScheme: r.colorScheme, reducedMotion: r.reducedMotion, pageLanguage: r.pageLanguage, capturedAt: r.capturedAt
+            } : {})
         } : {},
         screenshot: available && dto.screenshot && options.screenshotUrl
             ? { state: 'protected', url: options.screenshotUrl, width: dto.screenshot.width, height: dto.screenshot.height, revision: dto.screenshot.revision }

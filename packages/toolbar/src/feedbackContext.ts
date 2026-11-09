@@ -1,5 +1,6 @@
 import { commentPriority, priorityLabels, type CommentPriority } from './triage';
 import { feedbackStageLabels } from './verification';
+import { deviceSettings } from './userAgent';
 /** Versioned handoff contract shared by copy/export and future authenticated integrations.
  * Construct on the server from an authorized, explicitly projected view, never a raw document.
  * All saved text is untrusted user content. This model grants no access or capabilities.
@@ -47,7 +48,14 @@ export type FeedbackContext = {
         windowSize?: [number, number];
         browser?: string;
         os?: string;
+        /** A phone's or tablet's model, untrusted text from the browser */
+        model?: string;
         pixelRatio?: number;
+        input?: 'touch' | 'mouse';
+        colorScheme?: 'light' | 'dark';
+        reducedMotion?: boolean;
+        /** The page's language tag ("en-GB") */
+        pageLanguage?: string;
         capturedAt?: string;
     };
     screenshot: { state: 'unavailable' } | { state: 'protected'; url: string; width: number; height: number; revision?: string };
@@ -152,6 +160,8 @@ export function feedbackMarkdown(context: FeedbackContext): string {
             `Browser: ${r.browser ? plain(r.browser) : 'Unavailable or restricted'}`,
             `Operating system: ${r.os ? plain(r.os) : 'Unavailable or restricted'}`,
             `Pixel ratio: ${r.pixelRatio ?? 'Unavailable or restricted'}`,
+            // Model, input, colour scheme, reduced motion and page language: only when recorded (newer comments)
+            ...deviceSettings({ ...r, model: r.model && plain(r.model) }).map(([name, value]) => `${name}: ${value}`),
             `Captured: ${r.capturedAt ? plain(r.capturedAt) : 'Unavailable or restricted'}`
         ].join('\n\n'),
         '## Screenshot',

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
+import { deviceSettings } from '@uier/toolbar/devices';
 import { ArrowUpRightIcon, CheckIcon, CopyIcon, MonitorIcon, SmartphoneIcon, TabletIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/src/components/ui/button';
@@ -18,9 +19,9 @@ const deviceIcons = { desktop: MonitorIcon, tablet: TabletIcon, mobile: Smartpho
 /**
  * The screen and the browser a comment was left from, as two icons next to its time (the browser's own
  * mark, `DeviceMark`, or a globe when unknown). Hovering or clicking them shows the original capture
- * (size, viewport, the browser and OS with their marks, time and the reviewed page) with the
- * reproduction details to copy as text. Only authorized project members get this context
- * (`reproduction.ts`).
+ * (size, viewport, the browser and OS with their marks, then the model, input, colour scheme, reduced
+ * motion and page language when recorded, time and the reviewed page) with the reproduction details to
+ * copy as text. Only authorized project members get this context (`reproduction.ts`).
  */
 export function CommentDevice({ device, context }: { device?: DbDeviceSize; context: ReproductionContext }) {
     const [copied, setCopied] = useState(false);
@@ -30,6 +31,7 @@ export function CommentDevice({ device, context }: { device?: DbDeviceSize; cont
     const viewport = [windowSize && `${windowSize[0]}×${windowSize[1]} CSS px`, pixelRatio && `${pixelRatio}x`].filter(Boolean).join(' · ');
     const browser = context.browser ?? 'Unknown browser';
     const os = context.os ?? 'Unknown OS';
+    const settings = deviceSettings(context);
     // "Device: Desktop · 1674×1318 px · Firefox (131) · macOS"
     const name = `Device: ${[screen, windowSize && `${windowSize[0]}×${windowSize[1]} px`, browser, os].filter(Boolean).join(' · ')}`;
 
@@ -68,6 +70,16 @@ export function CommentDevice({ device, context }: { device?: DbDeviceSize; cont
                         </ItemContent>
                     </Item>
                 </div>
+                {settings.length > 0 && (
+                    <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 px-1 text-xs">
+                        {settings.map(([name, value]) => (
+                            <Fragment key={name}>
+                                <dt className="text-muted-foreground">{name}</dt>
+                                <dd className="m-0 truncate text-foreground">{value}</dd>
+                            </Fragment>
+                        ))}
+                    </dl>
+                )}
                 {(context.capturedAt || context.url) && (
                     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground">
                         {context.capturedAt && <span>Captured <DateTime value={context.capturedAt} /></span>}

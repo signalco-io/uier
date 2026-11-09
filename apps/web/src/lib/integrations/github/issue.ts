@@ -23,7 +23,8 @@ export function githubIssueProjection(context: FeedbackContext, marker: string) 
         feedback: context.feedback ? { ...context.feedback, authorName: context.feedback.authorName ? mentions(context.feedback.authorName) : undefined } : null,
         source: { ...context.source, environment: context.source.environment ? mentions(context.source.environment) : undefined },
         reproduction: { ...context.reproduction, browser: context.reproduction.browser ? mentions(context.reproduction.browser) : undefined,
-            os: context.reproduction.os ? mentions(context.reproduction.os) : undefined }, notes: context.notes.map(mentions) };
+            os: context.reproduction.os ? mentions(context.reproduction.os) : undefined,
+            model: context.reproduction.model ? mentions(context.reproduction.model) : undefined }, notes: context.notes.map(mentions) };
     let body = feedbackMarkdown(safe).replace('## Discussion\n\nNo saved replies.', '## Discussion\n\nSaved replies are mirrored as issue comments.');
     let truncated = false;
     if (body.length > 60_000) {

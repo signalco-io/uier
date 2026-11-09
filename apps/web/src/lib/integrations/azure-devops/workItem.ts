@@ -1,5 +1,6 @@
 import { verificationDescription } from '@uier/toolbar/verification';
 import { commentPriority, priorityLabels } from '@uier/toolbar/triage';
+import { deviceSettings } from '@uier/toolbar/devices';
 import { anchorLabel, areaText, type FeedbackContext, type FeedbackMessage } from '@uier/toolbar/feedback-context';
 import { sha256Hex } from '../../app/tokens';
 
@@ -57,7 +58,9 @@ export function azureDevOpsProjection(context: FeedbackContext, marker: string) 
         '<h2>Original browser context</h2>',
         `<ul><li>Device: ${text(r.device ?? 'Unavailable')}</li><li>Viewport: ${r.windowSize ? `${r.windowSize[0]}×${r.windowSize[1]} CSS px` : 'Unavailable'}</li>`
             + `<li>Browser: ${r.browser ? text(r.browser) : 'Unavailable or restricted'}</li><li>Operating system: ${r.os ? text(r.os) : 'Unavailable or restricted'}</li>`
-            + `<li>Pixel ratio: ${r.pixelRatio ?? 'Unavailable or restricted'}</li><li>Captured: ${r.capturedAt ? text(r.capturedAt) : 'Unavailable or restricted'}</li></ul>`,
+            + `<li>Pixel ratio: ${r.pixelRatio ?? 'Unavailable or restricted'}</li>`
+            + deviceSettings(r).map(([name, value]) => `<li>${name}: ${text(value)}</li>`).join('')
+            + `<li>Captured: ${r.capturedAt ? text(r.capturedAt) : 'Unavailable or restricted'}</li></ul>`,
         '<h2>Screenshot</h2>',
         screenshot.state === 'protected'
             ? paragraph(`${link('Saved screenshot', screenshot.url)} (${screenshot.width}×${screenshot.height} pixels). The image stays in uier and needs uier access to view.`)

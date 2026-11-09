@@ -1,5 +1,5 @@
 import type { CommentDeviceSize, CommentItem } from '../@types/Comments';
-import { useContext, useEffect, useState, type ReactNode } from 'react';
+import { Fragment, useContext, useEffect, useState, type ReactNode } from 'react';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Button } from '@signalco/ui-primitives/Button';
 import { cx } from '@signalco/ui-primitives/cx';
@@ -10,6 +10,7 @@ import { CommentTime } from '../CommentTime';
 import { floatingShadowClassName } from '../@types/Comments';
 import { useHoverPopover } from '../../hooks/useHoverPopover';
 import { BrowserMark, OsMark } from './DeviceMark';
+import { deviceSettings } from '../../devices';
 
 const sizeLabels: Record<CommentDeviceSize, string> = {
     desktop: 'Desktop',
@@ -66,7 +67,8 @@ function CopyReproduction({ text }: { text: string }) {
  * The screen and the browser a comment was left from, as two icons next to its time, like the
  * app's `CommentDevice` (the browser's own mark, `DeviceMark`, or a globe when unknown). Hovering or
  * clicking them shows the screen size and viewport; project members (the API's member-only
- * `reproduction`) also get the browser and OS with their marks, capture time and the reviewed page, with the reproduction details to copy as text. Guests and public viewers never get
+ * `reproduction`) also get the browser and OS with their marks, the model, input, colour scheme, reduced motion and page
+ * language when recorded, capture time and the reviewed page, with the reproduction details to copy as text. Guests and public viewers never get
  * those, so they see the screen size icon only (and nothing when the size was not recorded).
  */
 export function CommentDevice({ device, reproduction }: DeviceProps) {
@@ -82,6 +84,7 @@ export function CommentDevice({ device, reproduction }: DeviceProps) {
     const viewport = [windowSize && `${windowSize[0]}×${windowSize[1]} CSS px`, reproduction?.pixelRatio && `${reproduction.pixelRatio}x`].filter(Boolean).join(' · ');
     const browser = reproduction?.browser ?? 'Unknown browser';
     const os = reproduction?.os ?? 'Unknown OS';
+    const settings = reproduction ? deviceSettings(reproduction) : [];
     // "Device: Desktop · 1280×720 px · Firefox (131) · macOS"; guests get the screen only
     const name = `Device: ${[screen, windowSize && `${windowSize[0]}×${windowSize[1]} px`, ...(reproduction ? [browser, os] : [])].filter(Boolean).join(' · ')}`;
     const capturedAt = reproduction?.capturedAt ? new Date(reproduction.capturedAt) : undefined;
@@ -111,6 +114,16 @@ export function CommentDevice({ device, reproduction }: DeviceProps) {
                 <DeviceRow icon={<SizeIcon size={16} />} title={screen} description={viewport || 'Viewport unavailable'} mono />
                 {reproduction && <DeviceRow icon={<BrowserMark name={reproduction.browser} />} title={browser} description={<><OsMark name={reproduction.os} size={14} />{os}</>} />}
             </div>
+            {settings.length > 0 && (
+                <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 px-1 text-xs">
+                    {settings.map(([name, value]) => (
+                        <Fragment key={name}>
+                            <dt className="text-muted-foreground">{name}</dt>
+                            <dd className="m-0 truncate text-foreground">{value}</dd>
+                        </Fragment>
+                    ))}
+                </dl>
+            )}
             {(captured || reproduction?.url) && (
                 <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground">
                     {captured && <span>Captured <CommentTime date={captured} /></span>}

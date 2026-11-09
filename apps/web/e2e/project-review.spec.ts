@@ -411,9 +411,13 @@ test('guest edits and original reproduction details persist; only members see an
     const projectId = await ownerWithProject(page);
     await setProjectAccess(page, projectId, 'Anyone with the link');
     const guest = await anonymousVisitor(browser, testInfo);
+    // Edge on macOS: the low-entropy hints name the browser, the high-entropy ones the real macOS version
     await guest.page.addInitScript(() => Object.defineProperty(navigator, 'userAgentData', { configurable: true, value: {
-        brands: [{ brand: 'Not_A Brand', version: '99' }, { brand: 'Chromium', version: '123' }, { brand: 'Microsoft Edge', version: '123' }], platform: 'macOS'
+        brands: [{ brand: 'Not_A Brand', version: '99' }, { brand: 'Chromium', version: '123' }, { brand: 'Microsoft Edge', version: '123' }], platform: 'macOS', mobile: false,
+        getHighEntropyValues: async () => ({ platformVersion: '15.1.0', model: '' })
     } }));
+    await guest.page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
+    const input = testInfo.project.name.startsWith('Mobile') ? 'Touch' : 'Mouse or trackpad';
     const path = `/${projectId}/pricing`;
     await guest.page.goto(`${siteOrigin()}${path}?toolbar-code=${projectId}&session_token=never-copy-this#private`);
     const originalViewport = await guest.page.evaluate(() => [innerWidth, innerHeight]);
@@ -430,7 +434,13 @@ test('guest edits and original reproduction details persist; only members see an
     const sent = response.request().postDataJSON();
     expect(sent.device.windowSize).toEqual(originalViewport);
     expect(sent.device.browser).toBe('Microsoft Edge (123)');
+    expect(sent.device.os).toBe('macOS 15.1');
+    expect(sent.device).toMatchObject({ colorScheme: 'dark', reducedMotion: true, pageLanguage: 'en', input: input === 'Touch' ? 'touch' : 'mouse' });
     expect(sent.device.capturedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    // Parsed names only: never the user-agent string itself
+    const userAgent = await guest.page.evaluate(() => navigator.userAgent);
+    expect(JSON.stringify(sent)).not.toContain(userAgent);
+    expect(Object.keys(sent.device).sort()).toEqual(['browser', 'capturedAt', 'colorScheme', 'input', 'os', 'pageLanguage', 'pixelRatio', 'reducedMotion', 'size', 'windowSize']);
     const savedComment = await response.json();
     expect(savedComment.reproduction).toBeUndefined();
     const forbidden = await request.patch(`/api/review/${projectId}/comments/${savedComment.id}/replies/${savedComment.thread.items[0].id}`, {
@@ -447,6 +457,8 @@ test('guest edits and original reproduction details persist; only members see an
     await expect(guestDetails).toContainText(`${originalViewport[0]}×${originalViewport[1]} CSS px`);
     await expect(guestDetails).not.toContainText('Microsoft Edge');
     await expect(guestDetails).not.toContainText('macOS');
+    await expect(guestDetails).not.toContainText('Colour scheme');
+    await expect(guestDetails).not.toContainText('Reduced motion');
     await expect(guestThread.locator('[data-browser-mark], [data-os-mark]')).toHaveCount(0);
     await expect(guestDetails.getByRole('button', { name: 'Copy reproduction details' })).toHaveCount(0);
     // Escape closes only the details and returns focus to the icons
@@ -470,7 +482,7 @@ test('guest edits and original reproduction details persist; only members see an
     const thread = openThread(page);
     // The screen and browser icons by the time name the original capture
     const device = thread.getByRole('button', { name: /^Device:/ });
-    await expect(device).toHaveAccessibleName(/Microsoft Edge \(123\) · macOS/);
+    await expect(device).toHaveAccessibleName(/Microsoft Edge \(123\) · macOS 15\.1/);
     // The browser's own mark beside the screen icon
     await expect(device.locator('[data-browser-mark="edge"]')).toBeVisible();
     const details = page.getByRole('dialog', { name: 'Device and browser' });
@@ -488,10 +500,13 @@ test('guest edits and original reproduction details persist; only members see an
     const copyDetails = details.getByRole('button', { name: 'Copy reproduction details', exact: true });
     await expect(copyDetails).toBeFocused();
     await expect(details).toContainText(`${originalViewport[0]}×${originalViewport[1]} CSS px`);
-    await expect(details).toContainText('macOS');
+    await expect(details).toContainText('macOS 15.1');
     // Each name with its mark
     await expect(details.locator('[data-browser-mark="edge"]')).toBeVisible();
     await expect(details.locator('[data-os-mark="macos"]')).toBeVisible();
+    // The settings the page was seen with
+    await expect(details.getByRole('definition')).toHaveText([input, 'Dark', 'On', 'en']);
+    await expect(details.getByRole('term')).toHaveText(['Input', 'Colour scheme', 'Reduced motion', 'Page language']);
     await expect(details).toContainText('Captured');
     await expect(details.getByRole('link', { name: 'Reviewed page' })).toHaveAttribute('href', `${siteOrigin()}${path}`);
     await copyDetails.click();
@@ -505,6 +520,8 @@ test('guest edits and original reproduction details persist; only members see an
     const copied = await page.evaluate(() => (window as Window & { copiedContext?: string }).copiedContext);
     expect(copied).toContain(`Viewport: ${originalViewport[0]}×${originalViewport[1]} CSS px`);
     expect(copied).toContain(`Captured: ${sent.device.capturedAt}`);
+    expect(copied).toContain(`Operating system: macOS 15.1\nViewport: ${originalViewport[0]}×${originalViewport[1]} CSS px`);
+    expect(copied).toContain(`Input: ${input}\nColour scheme: Dark\nReduced motion: On\nPage language: en\n`);
     expect(copied).not.toMatch(/never-copy-this|toolbar-code|uier-token|session_token|#private/);
     await thread.getByRole('button', { name: 'More options for this comment' }).click();
     await page.getByRole('dialog', { name: 'Comment options', exact: true }).getByRole('button', { name: 'Edit', exact: true }).click();
@@ -537,7 +554,8 @@ test('guest edits and original reproduction details persist; only members see an
     }
     await cardDevice.click();
     await expect(details).toContainText(`${originalViewport[0]}×${originalViewport[1]} CSS px`);
-    await expect(details).toContainText('macOS');
+    await expect(details).toContainText('macOS 15.1');
+    await expect(details.getByRole('definition')).toHaveText([input, 'Dark', 'On', 'en']);
     await expect(details.locator('[data-browser-mark="edge"]')).toBeVisible();
     await expect(details.locator('[data-os-mark="macos"]')).toBeVisible();
     await expect(details.getByRole('link', { name: 'Reviewed page' })).toHaveAttribute('href', `${siteOrigin()}${path}`);
@@ -545,6 +563,31 @@ test('guest edits and original reproduction details persist; only members see an
     await expect(details).toBeVisible();
     expect(await page.evaluate(() => (window as Window & { copiedContext?: string }).copiedContext)).toBe(copied);
     await expectNoAxeViolations(page);
+});
+
+test('browsers without client hints are named from the user-agent string, an iPad asking for the desktop site too', async ({ page, browser }, testInfo) => {
+    const projectId = await ownerWithProject(page);
+    await setProjectAccess(page, projectId, 'Anyone with the link');
+    const guest = await anonymousVisitor(browser, testInfo);
+    // Safari on an iPad: no client hints, a Mac's user-agent string and a touch screen
+    await guest.page.addInitScript(() => {
+        Object.defineProperty(navigator, 'userAgentData', { configurable: true, value: undefined });
+        Object.defineProperty(navigator, 'userAgent', { configurable: true, value: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15' });
+        Object.defineProperty(navigator, 'maxTouchPoints', { configurable: true, value: 5 });
+    });
+    await guest.page.goto(`${siteOrigin()}/${projectId}/pricing?toolbar-code=${projectId}`);
+    await guest.page.getByRole('button', { name: 'Add comment' }).click();
+    const heading = (await guest.page.getByRole('heading', { level: 1 }).boundingBox())!;
+    await guest.page.mouse.click(heading.x + 20, heading.y + heading.height / 2);
+    const draft = guest.page.getByRole('dialog', { name: 'New comment' });
+    await draft.getByRole('textbox', { name: 'Your name' }).fill('Tablet reviewer');
+    await draft.getByRole('textbox', { name: 'Comment', exact: true }).fill('From an iPad.');
+    const posted = guest.page.waitForResponse(response => new URL(response.url()).pathname === `/api/review/${projectId}/comments` && response.request().method() === 'POST');
+    await draft.getByRole('button', { name: 'Post comment' }).click();
+    const sent = (await posted).request().postDataJSON();
+    expect(sent.device).toMatchObject({ browser: 'Safari (18.1)', os: 'iPadOS 18.1' });
+    expect(JSON.stringify(sent)).not.toContain('Intel Mac OS X');
+    await guest.context.close();
 });
 
 for (const layout of ['html-scroll', 'body-hidden']) {

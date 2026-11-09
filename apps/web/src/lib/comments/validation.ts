@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { maxPageKeyLength } from '@uier/toolbar/page-state';
 import { feedbackStatusTargets } from '@uier/toolbar/verification';
+import { pageLanguagePattern } from '@uier/toolbar/devices';
 import { MAX_SCREENSHOT_DATA_URL_LENGTH, parseScreenshot, sanitizeScreenshot } from './screenshot';
 import {
     MAX_DEVICE_LABEL_LENGTH,
@@ -147,16 +148,28 @@ export type ReattachAnchorInput = z.infer<typeof reattachAnchorSchema>;
 export const kindSchema = z.enum(['comment', 'feedback', 'bug', 'rewrite']);
 
 const windowDimensionSchema = z.int().min(0).max(MAX_WINDOW_DIMENSION);
-const deviceLabelSchema = z.string().trim().max(MAX_DEVICE_LABEL_LENGTH)
+// Control and format characters (zero-width, bidirectional) never belong in a browser or model name
+const deviceLabelSchema = z.string().transform(label => label.replace(/[\p{Cc}\p{Cf}]/gu, ' ').replace(/\s+/g, ' ').trim())
+    .pipe(z.string().max(MAX_DEVICE_LABEL_LENGTH))
     .transform(label => label.length ? label : undefined);
 
+/**
+ * What the toolbar parsed in the reviewer's browser (`getDeviceInfo`). Fields added later are dropped
+ * when a value is not one this version knows (an older server, a newer toolbar), never failing the
+ * comment; unknown keys, a user-agent string among them, are stripped.
+ */
 export const deviceSchema = z.object({
     capturedAt: z.iso.datetime().optional(),
     size: z.enum(['desktop', 'tablet', 'mobile']).optional(),
     windowSize: z.tuple([windowDimensionSchema, windowDimensionSchema]).optional(),
     pixelRatio: z.number().min(0).max(MAX_PIXEL_RATIO).optional(),
     browser: deviceLabelSchema.optional(),
-    os: deviceLabelSchema.optional()
+    os: deviceLabelSchema.optional(),
+    model: deviceLabelSchema.optional().catch(undefined),
+    input: z.enum(['touch', 'mouse']).optional().catch(undefined),
+    colorScheme: z.enum(['light', 'dark']).optional().catch(undefined),
+    reducedMotion: z.boolean().optional().catch(undefined),
+    pageLanguage: z.string().regex(pageLanguagePattern).optional().catch(undefined)
 });
 
 /**

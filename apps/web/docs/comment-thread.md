@@ -43,16 +43,29 @@
   page's server actions, or checks the unread dot, calls `inBackground(page)` (`e2e/support/app.ts`) first, so a
   slow step cannot add a read write.
 - Device marks (`comments/DeviceMark.tsx`, the toolbar's `components/info/DeviceMark.tsx`, both over the pure
-  `@uier/toolbar/devices`): `browserKind` and `osKind` read the stored names ("Microsoft Edge (156)", "macOS") and
-  choose a one-colour mark in the text colour, like `AgentMark`, decorative beside the written name. Browsers:
-  Chrome (also Chromium and headless Chrome), Edge, Safari, Firefox, Samsung Internet, Opera (and Opera GX), Brave
-  and Vivaldi, else a globe. Systems: Windows, macOS, iOS and iPadOS (the Apple mark), Android, Linux and Chrome OS,
-  else a window. The names come only from low-entropy client hints (`getDeviceInfo`), which Chromium browsers send
-  with a platform of Windows, macOS, Linux, Android, Chrome OS, Chromium OS, Fuchsia or Unknown; Safari and Firefox
-  send none, so their comments say Unknown browser with the generic marks. Collecting more (user agent parsing) is
-  a privacy decision (`docs/api.md`, the privacy policy), not a mark change. Sources are in `devices.ts` (Simple Icons CC0, Bootstrap Icons MIT, Tabler
-  and Lucide outlines); never redraw a vendor's logo. `e2e/device-marks.api.spec.ts` covers the mapping and
-  `e2e/project-review.spec.ts` (the reproduction details test) the marks in the toolbar and app popovers.
+  `@uier/toolbar/devices`): `browserKind` and `osKind` read the stored names ("Safari (18.1)", "macOS 15.1", and on
+  older comments the client hint brand and platform, "Microsoft Edge (156)", "macOS") and choose a one-colour mark in
+  the text colour, like `AgentMark`, decorative beside the written name. Browsers: Chrome (also Chromium and headless
+  Chrome), Edge, Safari, Firefox, Samsung Internet, Opera (and Opera GX, Opera Mini), Brave, Vivaldi, DuckDuckGo and
+  the Facebook and Instagram in-app browsers, else a globe. Systems: Windows, macOS, iOS and iPadOS (the Apple mark),
+  Android, Linux, Chrome OS, Ubuntu, Fedora, HarmonyOS, FreeBSD and KaiOS, else a window (OpenBSD, NetBSD, Tizen,
+  webOS and Fuchsia are named but have no mark of their own). Sources are in `devices.ts` (Simple Icons CC0, Bootstrap
+  Icons MIT, Tabler and Lucide outlines); never redraw a vendor's logo.
+- Device details (`getDeviceInfo` in the toolbar, `describeDevice` and `parseUserAgent` in `@uier/toolbar/devices`):
+  the toolbar parses the user-agent string in the reviewer's browser when Chromium's client hints are missing
+  (Safari, Firefox, every iOS browser) and sends only the names, never the string. Client hints name Chromium
+  browsers (only they tell Brave from Chrome) unless the string names an in-app browser. A version is shown only
+  when it is real: macOS stays at 10_15_7, Windows 10 and 11 both say NT 10.0, Chrome's reduced Android string says
+  "Android 10; K" and Safari 26 keeps iOS at 18_6, so those show no version; on iOS Safari's own version is the
+  system's, and an iPad asking for the desktop site (a Mac string with touch points) is iPadOS. Chromium's
+  high-entropy hints are asked once, for `platformVersion` (Windows 11 is 13 and later) and a phone's `model`, and
+  the post waits for them at most a second (`completeDeviceInfo`). The toolbar also records the primary input
+  (`pointer: coarse` is touch), the colour scheme, reduced motion and the page's `<html lang>` (language, script and
+  region only). The API keeps bounded names and drops settings it does not know (`deviceSchema`); the popovers list
+  model, input, colour scheme, reduced motion and page language under the browser row when recorded
+  (`deviceSettings`), older comments show what they have. `e2e/user-agent.api.spec.ts` covers the parser with real
+  strings, `e2e/device-details.api.spec.ts` validation, storage and who sees what, `e2e/device-marks.api.spec.ts` the
+  mapping and `e2e/project-review.spec.ts` (the reproduction details tests) the toolbar and app popovers.
 - `comments/ReplyComposer.tsx` is a lazy inline reply form in List and Board, using shadcn controls
   and pure `@uier/toolbar/drafts` / `mentions` logic only. `replyCommentAction` validates the payload,
   resolves current app authority and forwards trusted request headers to `replyToProjectComment`;

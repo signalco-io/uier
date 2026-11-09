@@ -88,8 +88,14 @@ export default function PrivacyPolicyPage() {
                 </li>
                 <li>when it was posted or edited, and the time in your browser when feedback capture started;</li>
                 <li>
-                    details about the device it came from: its size (desktop, tablet or mobile), the window
-                    size, the pixel ratio, the browser name and version, and the operating system;
+                    details about the device it came from, worked out in your browser by the toolbar: its size
+                    (desktop, tablet or mobile), the window size, the pixel ratio, the browser name and version, the
+                    operating system and its version, the model of a phone or tablet when the browser reports it,
+                    whether you used touch or a mouse, your light or dark colour scheme, whether reduced motion is on,
+                    and the language the page declares. These help reproduce what you saw. We do not store the
+                    browser&rsquo;s user-agent string, your IP address or anything worked out from it such as your
+                    location, and we do not collect fonts, graphics hardware, time zone or other details that would
+                    tell one browser from another;
                 </li>
                 <li>an author id: your account id when signed in on {brand.domain}, otherwise a hash of the random token in your <code>__Host-uier_visitor</code> cookie;</li>
                 <li>
@@ -112,8 +118,8 @@ export default function PrivacyPolicyPage() {
                 the page as you saw it), the screenshot if there is one, and a guest name such as &ldquo;Guest
                 3F2A&rdquo;, derived from the author id. If you are signed in on {brand.domain}, comments and replies show your current account name.
                 Feedback on app pages is private to its author and the uier team. Public and guest views never expose the author id, browser,
-                operating system, pixel ratio or capture-start time. Authorized members of a project can view and copy
-                those reproduction details for that project, except the author id. Unsupported browser details are shown
+                operating system, device model, input, colour scheme, reduced motion, page language, pixel ratio or capture-start time.
+                Authorized members of a project can view and copy those reproduction details for that project, except the author id. Unsupported browser details are shown
                 as unknown. The copied page link contains only the stored page path and any approved view state, with no review tokens. Comments on the public
                 site are public, so do not put personal information in them.
             </p>

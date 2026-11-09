@@ -15,6 +15,7 @@ import { pageQueryKeys, pagePath, sourcePagePath, type PageStatePolicy } from '.
 import { getToolbarHost } from '../mount';
 import { subscribeToComments, type RealtimeTicket } from '../realtime';
 import { runtimeAdapters } from '../adapters';
+import { completeDeviceInfo } from '../components/info/getDeviceInfo';
 
 export { CommentsApiError, type CommentsApiErrorCode, type CommentsRateLimitReason } from './api';
 
@@ -158,7 +159,7 @@ function sourcePath(path: string, policy: PageStatePolicy) {
 async function createComment(path: string, policy: PageStatePolicy, { idempotencyKey, position, kind, text, mentions, quotedText, device, screenshot }: CreateCommentInput) {
     return required(await apiRequest<CommentItem>(commentsApiUrl, {
         method: 'POST',
-        body: { idempotencyKey, path, sourcePath: sourcePath(path, policy), position, kind, text, mentions, quotedText, device, screenshot: await screenshot, authorName: guestAuthorName(), queryKeys: queryKeys(path) }
+        body: { idempotencyKey, path, sourcePath: sourcePath(path, policy), position, kind, text, mentions, quotedText, device: device && await completeDeviceInfo(device), screenshot: await screenshot, authorName: guestAuthorName(), queryKeys: queryKeys(path) }
     }));
 }
 
