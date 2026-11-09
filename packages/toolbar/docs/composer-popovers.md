@@ -26,6 +26,21 @@ submission), and its buttons are `type="button"`. A picked suggestion replaces t
 instruction and the suggestions belong to the popover's owner (`useRewriteSuggestionsState` in `CommentBubble`),
 like the attached image: Expand and Collapse keep them; closing the popover or Discard clears them.
 
+## Drafts across reloads
+
+Every message composer already uses `CommentComposer`'s `draftKey` and the shared seven-day
+`draftStorage.ts` store: anchored comments and rewrites retain their anchor, feedback has a key per type,
+replies use the thread id, and edits use `edit:<commentId>:<itemId>` with the original text snapshot.
+Typing writes immediately; reopening the same box after a reload or toolbar remount restores its text and
+mentions. Successful sends/saves and explicit Discard/Cancel clear the appropriate draft; failed or uncertain
+sends retain it. The authorized reviewer, API, project and canonical page scope never includes a build id.
+Screenshots, attached images and device details stay in memory. The app's own feedback-mode toolbar is
+loaded on demand again with Give feedback after a document reload; this reuses the same draft keys.
+
+`apps/web/e2e/drafts.spec.ts` covers every toolbar composer, reloads, separate feedback kinds and edit snapshots;
+`drafts-project.spec.ts` covers reviewer/project/page isolation. `app-composer-drafts.spec.ts` covers the toolbar
+on `/app/projects/<id>`, including an app RSC refresh and Next.js's document navigation after deployment skew.
+
 ## Capture responsiveness
 
 Window dimensions and page scroll are read at the feedback event. Inner-scroll recording and

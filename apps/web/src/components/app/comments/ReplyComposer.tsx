@@ -4,7 +4,7 @@ import { type RefObject, useMemo, useState, useSyncExternalStore, useTransition 
 import { useAttachedImage } from '@uier/toolbar/attachments';
 import { ReplyAttachment } from './ReplyAttachment';
 import { toast } from 'sonner';
-import { createDraftStore } from '@uier/toolbar/drafts';
+import { appCommentDrafts } from './replyDrafts';
 import { Button } from '@/src/components/ui/button';
 import { FieldDescription } from '@/src/components/ui/field';
 import { replyCommentAction } from './actions';
@@ -26,7 +26,7 @@ export function ReplyComposer({ projectId, userId, userName, comment, textareaRe
     textareaRef?: RefObject<HTMLTextAreaElement | null>;
     onClose: () => void;
 }) {
-    const drafts = useMemo(() => createDraftStore([typeof location === 'undefined' ? '' : location.origin, 'app', projectId, userId, comment.id]), [projectId, userId, comment.id]);
+    const drafts = useMemo(() => appCommentDrafts(projectId, userId, comment.id), [projectId, userId, comment.id]);
     const key = 'reply';
     const text = useSyncExternalStore(listener => drafts.subscribe(key, listener), () => drafts.get(key) ?? '', () => '');
     const mentions = useSyncExternalStore(listener => drafts.subscribe(key, listener), () => drafts.details(key)?.mentions ?? emptyMentions, () => emptyMentions);

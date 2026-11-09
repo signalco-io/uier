@@ -68,6 +68,9 @@ test('own replies are edited in place in the open thread, keeping mentions and n
         await editor.press('Enter');
         await editor.pressSequentially('then ship');
         await expect(editor).toHaveValue(`Please check @${name} first draft, ask @${name} then ship`);
+        // Reload while editing: both the text and selected mention identities come back in this message.
+        await page.reload();
+        await expect(editor).toHaveValue(`Please check @${name} first draft, ask @${name} then ship`);
         await card.getByRole('button', { name: 'Save', exact: true }).click();
         const edited = `Please check @${name} first draft, ask @${name} then ship (edited)`;
         await expect(card.getByText(edited, { exact: true })).toBeVisible();
@@ -90,8 +93,13 @@ test('own replies are edited in place in the open thread, keeping mentions and n
         await actions.click();
         await page.getByRole('menuitem', { name: 'Edit', exact: true }).click();
         await editor.fill('My stale edit');
+        // The restored editor must retain the original expectedText even though the page now has a newer reply.
+        await page.reload();
+        await expect(editor).toHaveValue('My stale edit');
         await editor.press('Enter');
         await expect(card.getByRole('alert')).toContainText('This message changed while you were editing.');
+        await expect(editor).toHaveValue('My stale edit');
+        await page.reload();
         await expect(editor).toHaveValue('My stale edit');
         await card.getByRole('button', { name: 'Cancel', exact: true }).click();
         await page.reload();
