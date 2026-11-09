@@ -89,7 +89,10 @@
   the tile in the menu button's 16 px icon slot, so project names line up with Projects and My work,
   expanded, collapsed to icons and in the mobile sheet.
 - **Projects list** (`(shell)/projects/page.tsx`): project cards in as many 18rem columns as the page's width holds
-  (up to three; the sidebar takes part of a window). The page renders both the active and the done list (and
+  (up to three; the sidebar takes part of a window). A card is one header: the favicon, the name (a link over the whole
+  card) and on its line two quiet icon buttons, Open review (`ReviewLinksMenu` with `compact`: a tooltip, named
+  "Open review for <project>", a menu when the project has several addresses) and More actions for admins; under the
+  name one meta line with the client, who can comment and the open count. No footer and no text button. The page renders both the active and the done list (and
   each one's empty state), and `ProjectStatusTabs` (`projects/ProjectStatusTabs.tsx`) shows the one `?status=`
   names. Active and Done are `LinkTabs` with `query`: a click writes the address with `setUrlSearchParams`
   (`push`), so the other list shows at once with no server request, no spinner and no space kept for one;
