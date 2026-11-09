@@ -30,12 +30,13 @@ export function commentTitle(comment: ProjectCommentView) {
 export const commentRowId = (id: string) => `comment-row-${id}`;
 
 /**
- * One comment in the inbox list or on the board: number, title (`commentTitle`), who wrote it (`AuthorAvatar`: its
- * tooltip names them), the page path, priority other than Normal (its flag, named for assistive tech), who it is
- * assigned to (`AssigneeCard`: hovering the avatars shows the assignee and their agent), status (Open too; a board card
- * leaves it to its column), age and unread. The whole row opens the thread (a link to `?comment=<id>`, so it can also
- * open in a new tab). The selection box ends the meta line (`SelectComment`), where a row is usually empty: it takes
- * no room until the row is hovered, focused or selecting, so the title and the path keep the full width.
+ * One comment in the inbox list or on the board. The title line: unread, who wrote it (`AuthorAvatar`: its tooltip
+ * names them), number, title (`commentTitle`) and age. The meta line: the page path, private, a linked pull request,
+ * priority other than Normal (its flag, named for assistive tech), status (Open too; a board card leaves it to its
+ * column), then at its right end who it is assigned to (`AssigneeCard`: each assignee's avatar with its agents' marks on
+ * its edge; hovering them shows the assignees and their agents) and the selection box (`SelectComment`). The box shows only while
+ * the row is hovered, focused or selecting, but keeps its room, so the assignees never move when it appears. The whole row opens the thread (a link to `?comment=<id>`, so it can also
+ * open in a new tab).
  */
 export function CommentRow({ comment, href, selected, onOpen, card = false, preview = false, actions, describedBy, keyShortcuts, project, tabbable = true }: {
     comment: ProjectCommentView;
@@ -44,7 +45,7 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
     selected?: 'opened' | 'beside';
     /** Opens the thread in place; without it, the link navigates */
     onOpen?: (event: MouseEvent<HTMLAnchorElement>) => void;
-    /** A board card: bordered, the meta on lines of its own; its link is not dragged on its own */
+    /** A board card: bordered, a title of up to two lines, no status (its column says it); its link is not dragged on its own */
     card?: boolean;
     /** The copy of a card that follows the pointer while it is dragged: its link has no id */
     preview?: boolean;
@@ -87,7 +88,12 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
             'has-[[data-slot=checkbox][data-checked]]:bg-muted/60')}>
             <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <div className="flex min-w-0 items-baseline gap-2">
-                    {unread && <span aria-hidden="true" className="size-2 shrink-0 self-center rounded-full bg-[hsl(var(--brand-accent))]" />}
+                    {/* On the first line of a two-line card title, like the author */}
+                    {unread && <span aria-hidden="true" className="mt-1.5 size-2 shrink-0 self-start rounded-full bg-[hsl(var(--brand-accent))]" />}
+                    {/* Who wrote it starts the title line, before "#12 …"; centred on its first line */}
+                    <span className="flex h-5 shrink-0 items-center self-start">
+                        <AuthorAvatar author={comment.author} deleted={comment.deleted} onPress={openFromAvatars} />
+                    </span>
                     <a ref={link} id={preview ? undefined : commentRowId(comment.id)} href={href} onClick={onOpen} aria-current={selected === 'opened' ? 'true' : undefined} draggable={card ? false : undefined}
                         aria-describedby={describedBy} aria-keyshortcuts={keyShortcuts}
                         tabIndex={tabbable ? undefined : -1}
@@ -105,10 +111,8 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                     <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums"><RelativeTime value={comment.createdAt} /></span>
                     {actions}
                 </div>
-                <div className={cn('flex min-w-0 gap-x-2 gap-y-1 text-xs text-muted-foreground', card ? 'flex-col' : 'items-center')}>
+                <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
                     <p className="m-0 flex min-w-0 flex-1 items-center gap-1.5">
-                        {/* A card has the author on the line below, so its path has the card's width */}
-                        {!card && <AuthorAvatar author={comment.author} deleted={comment.deleted} onPress={openFromAvatars} />}
                         {KindIcon && <KindIcon aria-hidden="true" className="size-3.5 shrink-0" />}
                         <span className="truncate">
                             {project && <><span className="font-medium text-foreground">{project}</span><span aria-hidden="true"> · </span></>}
@@ -117,7 +121,6 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                         </span>
                     </p>
                     <div className="flex min-h-5 shrink-0 items-center gap-2">
-                        {card && <AuthorAvatar author={comment.author} deleted={comment.deleted} onPress={openFromAvatars} />}
                         {comment.private && <LockIcon aria-label="Private" className="size-3.5" />}
                         {threadPullRequestLinks([{ text: comment.text, deleted: comment.deleted }, ...comment.replies]).length > 0 &&
                             <GitPullRequestIcon aria-label="Linked pull request" className="size-3.5" />}
@@ -131,12 +134,12 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                                 {commentStatusLabels[status]}
                             </span>
                         )}
+                        {/* The right end: the assignees, then the selection box, whose room is kept so nothing moves when it shows */}
                         {/* The dragged copy of a card is inert: its avatars need no card */}
                         {people.length > 0 && (preview
                             ? <AssigneeAvatars assignees={people} userId={userId} />
                             : <AssigneeCard assignees={people} userId={userId} tabbable={tabbable} onPress={openFromAvatars} />)}
-                        {/* Last, where the line is usually empty: a card's bottom right corner, the end of a list row */}
-                        <SelectComment comment={comment} tabbable={tabbable} className={card ? 'ml-auto' : undefined} />
+                        <SelectComment comment={comment} tabbable={tabbable} />
                     </div>
                 </div>
             </div>

@@ -25,10 +25,10 @@ suites. See [review workflow](../../../docs/review-workflow.md#search-priority-a
 
 ## Selection
 
-Selecting stays out of sight until it is used, like Linear's and Gmail's lists. At rest a row's (or card's)
-box takes no room: it ends the meta line, after the assignee (a card's bottom right corner), where a row is
-usually empty, and shows only while the row is hovered or has keyboard focus (`SelectComment`: `sr-only` and
-`opacity-0` until then, still focusable and named), so the title and the path keep the row's width. A mouse
+Selecting stays out of sight until it is used, like Linear's and Gmail's lists. A row's (or card's) box ends
+the meta line, after the assignees (a card's bottom right corner), and shows only while the row is hovered or has
+keyboard focus (`SelectComment`: `opacity-0` until then, still focusable and named). It keeps its room at rest, so
+the assignees and the status before it do not move when it appears; the title line never gives it room. A mouse
 hovers the row before it reaches the box (`selectThread` in `e2e/support/app.ts` does too). Tab reaches it after
 the row's link (and a card's Move). A touch screen has no hover, so there it is left out (`pointer-coarse:hidden`).
 The count line ends with Select (`Toggle`, "Select comments", pressed while selecting). With a fine pointer it

@@ -1,19 +1,22 @@
 # Comments inbox and board
 
-- The comments page is an inbox. `comments/CommentInbox.tsx` lists compact rows (`CommentRow.tsx`: number,
-  title (`commentTitle`: the [AI title](ai-titles.md), else the first line without its Markdown, `markdownPlainText`), author (`AuthorAvatar`: a member's picture or initial with the AI agent that wrote it for them
+- The comments page is an inbox. `comments/CommentInbox.tsx` lists compact rows (`CommentRow.tsx`). The title line:
+  the unread dot, the author (`AuthorAvatar`: a member's picture or initial with the AI agent that wrote it for them
   stacked on its edge, a person's outline for a guest, uier's mark on its own starter threads; one image named "By Ana",
-  the name in a tooltip, a click on it opens the row; it starts a row's meta line and a card's last line, so a card's
-  path has the card's width), page path (what it was left on is only in the thread's On row), then priority other than Normal (`PriorityLabel`: its
-  flag alone, named "High priority"), status (`StateDot` and its name, Open too; a board card leaves the status to its column, whose region name screen readers announce), the assignee's avatar with their agent's mark stacked on it
-  (`AssigneeCard`: hovering shows who it is assigned to and their [agent](assignee-agents.md); see below), age (`RelativeTime`: one shared clock ticks every 10 seconds while any age is shown and the tab is visible, and only the ages whose words change re-render) and the unread dot) beside the open thread
+  the name in a tooltip, a click on it opens the row; it starts the line, before the number, centred on a card's
+  first title line), number, title (`commentTitle`: the [AI title](ai-titles.md), else the first line without its Markdown, `markdownPlainText`; up to two lines on a card)
+  and age (`RelativeTime`: one shared clock ticks every 10 seconds while any age is shown and the tab is visible, and only the ages whose words change re-render).
+  The meta line, one on rows and cards alike: the page path (what it was left on is only in the thread's On row), then private, a linked pull request, priority other than Normal (`PriorityLabel`: its
+  flag alone, named "High priority"), status (`StateDot` and its name, Open too; a board card leaves the status to its column, whose region name screen readers announce), and at its right end
+  every assignee's avatar with their agents' marks on its edge (`AssigneeCard`: hovering shows who it is assigned to
+  and their [agents](assignee-agents.md); see [Multiple assignees](#multiple-assignees)) and the selection box, beside the open thread
   (`CommentCard.tsx`). The open thread is in the URL (`?comment=<id>`, `useOpenComment`): side by side (`@container/comments` from `@3xl`, 48rem: the list's 18rem and
   at least 29rem for the thread; from about 1100 px with the sidebar docked, which takes in most landscape tablets) it replaces
   the history entry and the first shown thread is open until another is chosen; narrower (a phone, a tablet in portrait) a row opens
   the thread in the list's and the filters' place with Back to comments, and adds a history entry so Back closes
   it. Where the page scrolls (below `lg`) the thread opens and stays (beside the list) under the sticky top bar. Each row is a link (it opens in a new tab too); its selection box ends the meta line (a card's bottom right
-  corner) and takes no room until it is used ([App triage](triage.md#selection)), so the title and the path keep
-  the row's width. The list moves with the
+  corner) and shows only when it is used ([App triage](triage.md#selection)), but keeps its room, so the assignees
+  and the status before it never move when it appears. The list moves with the
   keyboard like an inbox: ↓/↑ go to the next/previous row and stop at the ends, Home/End (from a row) to the first and
   last; side by side the row's thread opens through the same `open()` as a click, narrower only the focus moves and
   Enter opens it. The keys act from the list, or from the page while nothing has the focus and the caret is not in the
