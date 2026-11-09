@@ -101,6 +101,8 @@
   strings, `e2e/device-details.api.spec.ts` validation, storage and who sees what, `e2e/device-marks.api.spec.ts` the
   mapping and `e2e/project-review.spec.ts` (the reproduction details tests) the toolbar and app popovers,
   including the app's compact tile words and identical copied details from both surfaces.
+  `e2e/editing.spec.ts` checks that missing client hints fall back to parsed browser and OS names,
+  without sending the raw user-agent string or exposing reproduction details on public feedback.
 - Under the messages, Reply is a quiet ghost button with the reply icon, aligned with the message text (R opens it).
   `comments/ReplyComposer.tsx` is the lazy inline reply form it opens in List and Board, using shadcn controls;
   Post reply is a ghost button too, as Enter sends (Shift+Enter for a new line), like the toolbar's plain send button.

@@ -1072,6 +1072,8 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
     await expect(status.getByRole('button', { name: 'Done 1' })).toBeVisible();
     await status.getByRole('button', { name: 'All 2' }).click();
     await expect(commentRows(page)).toHaveCount(2);
+    // Scan final colours after the restored row's entrance fade.
+    await expect(page.locator('[data-motion]')).toHaveCount(0);
     await expectNoAxeViolations(page);
     await page.goto(`/app/projects/${projectId}?view=board`);
 
