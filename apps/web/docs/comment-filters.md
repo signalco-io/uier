@@ -14,12 +14,15 @@
   (`activeStatusFilters`) to keep the tabs narrow: the "Active statuses" button beside the Active tab opens a menu of
   Active and the three, each with its count, and a choice closes it. The Active tab then names the choice ("Active: In
   progress 4") and stays pressed; pressing it again goes back to every active status. `?status=open`, `in-progress` and
-  `ready` links still open on that status. Each status shows its `StateDot` in its colour ([status colours](comments-inbox.md)):
-  Done's tab, the three statuses in the menu, and the Active tab while it names one; Active and All have none. The menu button is a plain button inside the toggle group: Tab reaches it,
+  `ready` links still open on that status. The tabs have no `StateDot`, so Done never reads as a
+  notification; the three statuses in the menu show theirs in its colour ([status colours](comments-inbox.md)). The menu button is a plain button inside the toggle group: Tab reaches it,
   the arrow keys move between the tabs only. Each filter in effect shows under the bar with its own clear button ("Clear filter: Unread",
-  "Clear author filter: ..."). The count line under them (`TriageSelection`) has the count with the unread
+  "Clear author filter: ..."). The count line under them (`TriageSelection`) has the unread
   count, then Mark all as read right beside it (a small filled `secondary` button whose icon takes the unread
-  accent, so it reads as that count's action), and Select at the end. It has no side padding of its own, so its
+  accent, so it reads as that count's action), and Select at the end. The list has no "15 of 93 comments": the
+  status tabs already count what is shown, under every other filter. The board has no tabs, so it keeps that count
+  before the unread count. With a mouse Select is `sr-only` until something is selected (or it has keyboard focus),
+  since hovering a row's box starts selecting; a touch screen always shows it. The count line has no side padding of its own, so its
   edges line up with the search and Filter row in the list and the board; Select shown results and the bulk actions are in the selection bar that
   floats over the end of the comments once something is selected ([App triage](triage.md#selection)).
   `LocationFilter`: environments on the left, the chosen environment's pages on the right with a search,

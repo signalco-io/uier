@@ -227,7 +227,8 @@ export const selectionBox = (page: Page, number: number) => page.getByRole('chec
 /** Turns Select on in the count line: every row shows its box, as a touch screen needs before it can select */
 export async function startSelecting(page: Page) {
     const select = page.getByRole('button', { name: 'Select comments', exact: true });
-    if (await select.getAttribute('aria-pressed') !== 'true') await select.click();
+    // With a mouse Select stays out of sight until something is selected (it shows when focused); Enter works everywhere
+    if (await select.getAttribute('aria-pressed') !== 'true') await select.press('Enter');
     await expect(select).toHaveAttribute('aria-pressed', 'true');
     await expect(selectionBar(page)).toBeVisible();
 }

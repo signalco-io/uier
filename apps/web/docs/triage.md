@@ -31,7 +31,9 @@ usually empty, and shows only while the row is hovered or has keyboard focus (`S
 `opacity-0` until then, still focusable and named), so the title and the path keep the row's width. A mouse
 hovers the row before it reaches the box (`selectThread` in `e2e/support/app.ts` does too). Tab reaches it after
 the row's link (and a card's Move). A touch screen has no hover, so there it is left out (`pointer-coarse:hidden`).
-The count line ends with Select (`Toggle`, "Select comments", pressed while selecting). Selecting is on while
+The count line ends with Select (`Toggle`, "Select comments", pressed while selecting). With a fine pointer it
+stays `sr-only` at rest (still focusable and named, shown on `:focus-visible`) and shows once selecting is on; a
+touch screen, which has no hover to reach a box, always shows it. Selecting is on while
 anything is selected, after Select or after a batch (`explicit`), and then every row shows its box and a
 checked row is tinted. The selection bar (`role="group"`, "Selected feedback actions") floats instead of
 pushing a row into the layout: `sticky` at the bottom of the scrolling panel, after the comments on screen

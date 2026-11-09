@@ -71,7 +71,7 @@
 - Status colours: `StateDot` (`comments/CommentStatus.tsx`) gives each status its own dot, Open ink
   (`--foreground`), In progress sky (`--brand-in-progress`), Ready to verify violet (`--brand-ready`) and Done
   green (`--brand-success`; BRAND.md, "Status"), always beside the name. List rows, board column headers, the
-  thread's status menu (`StateMenu`, `StateBadge`) and the Status filter (Done, the statuses under Active) all use it; the
+  thread's status menu (`StateMenu`, `StateBadge`) and the Active statuses menu of the Status filter all use it (the status tabs have none); the
   toolbar's `CommentStatusBadge` uses the same tokens. The dot carries `data-status-dot="<status>"`.
   `e2e/status-colors.spec.ts` checks each status's colour in the list, the board, the menu and the filter, in
   light and dark, with axe.

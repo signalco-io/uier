@@ -90,17 +90,17 @@ test('each status shows its own colour in the board, the list, the status menu a
         await expect(commentRows(page)).toHaveCount(4);
         for (const [status] of statuses)
             await expectDot(commentRows(page).filter({ hasText: threads[status] }), status);
-        // The Status filter: Done's tab and the statuses under Active have their dots; Active and All have none
+        // The Status filter: the tabs have no dots (none reads as a notification); the statuses under Active have theirs
         const tabs = page.getByRole('group', { name: 'Status', exact: true });
-        await expectDot(tabs.getByRole('button', { name: /^Done \d/ }), 'done');
-        await expect(tabs.getByRole('button', { name: /^(Active|All) \d/ }).locator('[data-status-dot]')).toHaveCount(0);
+        await expect(tabs.locator('[data-status-dot]')).toHaveCount(0);
         await tabs.getByRole('button', { name: 'Active statuses', exact: true }).click();
         const activeMenu = page.getByRole('menu');
         for (const [status, name] of statuses.slice(0, 3))
             await expectDot(activeMenu.getByRole('menuitemradio', { name: new RegExp(`^${name} \\d`) }), status);
         await activeMenu.getByRole('menuitemradio', { name: /^In progress \d/ }).click();
-        // The Active tab then says which status it shows, with its dot
-        await expectDot(tabs.getByRole('button', { name: /^Active: In progress \d/ }), 'in-progress');
+        // The Active tab then says which status it shows, still without a dot
+        await expect(tabs.getByRole('button', { name: /^Active: In progress \d/ })).toBeVisible();
+        await expect(tabs.locator('[data-status-dot]')).toHaveCount(0);
         await expect(commentRows(page)).toHaveCount(1);
 
         // The thread's status control and its menu

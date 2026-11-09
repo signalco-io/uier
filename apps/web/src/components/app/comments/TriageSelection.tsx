@@ -74,7 +74,7 @@ function snapshot(operation: TriageOperation, comments: ProjectCommentView[]): B
 }
 
 /**
- * Selecting threads for one action at a time. Quiet at rest: the count line has Select, and a row's box shows on
+ * Selecting threads for one action at a time. Quiet at rest: the count line has Select (only on a touch screen), and a row's box shows on
  * hover or keyboard focus. Once something is selected (or Select is on) every row shows its box and a floating bar
  * holds the actions, Select shown results and the outcome, over the bottom of the list instead of a row above it.
  * x selects the focused row, Shift-click a range, Ctrl or ⌘ + A the shown results, and Escape or Clear selection ends it.
@@ -86,7 +86,7 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
     projectId: string; scope: string; shown: ProjectCommentView[]; assignees: AssigneeOption[];
     /** Hides the count line and the selection bar while one thread takes the whole width */
     barClassName?: string;
-    /** How many are shown, at the start of the count line */
+    /** At the start of the count line: the unread count (and on the board, how many are shown) */
     summary?: ReactNode;
     /** Right after the summary, beside the unread count it acts on (Mark all as read) */
     actions?: ReactNode;
@@ -254,7 +254,7 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
     return <Selection.Provider value={{ ids, pending, active, toggle }}>
         <div ref={regionRef} className="contents"
             style={{ '--selection-bar': open ? `calc(${barHeight}px + 1rem)` : '0px' } as CSSProperties} onClickCapture={tapToSelect}>
-            {/* The count line: how many are shown, Mark all as read and Select */}
+            {/* The count line: the unread count, Mark all as read and Select */}
             {/* No side padding: it lines up with the search and Filter row above, in both views */}
             <div className={cn('flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1', barClassName)}>
                 <span role="status" className="text-sm text-muted-foreground tabular-nums">{summary}</span>
@@ -262,7 +262,9 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
                 <div className="ml-auto flex items-center gap-1">
                     {eligible.length > 0 && (
                         <Toggle ref={selectRef} size="sm" aria-label="Select comments" pressed={active} disabled={pending}
-                            onPressedChange={pressed => { if (pressed) setExplicit(true); else end(); }} className="pointer-coarse:min-h-11">
+                            // With a mouse, hovering a row's box starts selecting: Select shows only while selecting (or focused
+                            // from the keyboard). A touch screen has no hover, so there it always shows.
+                            onPressedChange={pressed => { if (pressed) setExplicit(true); else end(); }} className={cn('pointer-coarse:min-h-11', !active && 'pointer-fine:not-focus-visible:sr-only')}>
                             <ListChecksIcon data-icon="inline-start" />Select
                         </Toggle>
                     )}

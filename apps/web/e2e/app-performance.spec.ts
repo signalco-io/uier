@@ -213,7 +213,7 @@ test('mark all as read clears the rendered unread snapshot before confirmation',
     // The row says it is unread, as does the count beside Mark all as read
     const unreadRow = page.getByRole('link', { name: /, unread$/ });
     await expect(unreadRow).toHaveCount(1);
-    await expect(page.getByText('· 1 unread')).toBeVisible();
+    await expect(page.getByText('1 unread', { exact: true })).toBeVisible();
     const pending = gate();
     await page.route(`**/app/projects/${project}*`, async route => {
         if (route.request().method() === 'POST') await pending.wait;
@@ -222,7 +222,7 @@ test('mark all as read clears the rendered unread snapshot before confirmation',
     try {
         await page.getByRole('button', { name: 'Mark all as read', exact: true }).click();
         await expect(unreadRow).toHaveCount(0);
-        await expect(page.getByText('· 1 unread')).toHaveCount(0);
+        await expect(page.getByText('1 unread', { exact: true })).toHaveCount(0);
         pending.release();
         await expect(page.getByText('1 thread marked as read.', { exact: true })).toBeVisible();
         await page.reload();
