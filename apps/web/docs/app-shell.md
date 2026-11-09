@@ -105,7 +105,9 @@
   the status from the current address. Its menu and trigger show each client's `ClientMark` beside the name; All
   clients and No client get an empty dashed tile of the same size so the names line up.
 - The project header's Open review is a menu with Review and Visit site for every address; the header does not
-  repeat the addresses. The install guide
+  repeat the addresses. On the comments page the header is as wide as the comments' filters header, the list
+  with its thread or the board's columns ([comments inbox](comments-inbox.md)); the project's other pages keep the
+  reading width. The install guide
   opens from the empty comments list and from Settings → Installation. It shows "Connected" with the latest
   comment's time once a comment came from one of the project's addresses, with the guide behind Show install
   guide. Its parts (`ScriptSnippet`, `PlatformSteps`, `InstallationCheck`) are exported for onboarding. The script
