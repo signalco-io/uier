@@ -338,6 +338,7 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     await expect(notice).toContainText('Version 65535.0.0 is downloaded.');
     for (const colorScheme of ['light', 'dark'] as const) {
         await resumedPopup.emulateMedia({ colorScheme });
+        await expect(resumedPopup.locator('html')).toHaveClass(colorScheme === 'dark' ? 'dark' : '');
         await animationsFinished(resumedPopup.getByRole('main'));
         await expectNoAxeViolations(resumedPopup);
         await resumedPopup.screenshot({ path: info.outputPath(`popup-update-${colorScheme}.png`) });
