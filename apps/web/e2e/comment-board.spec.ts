@@ -269,6 +269,9 @@ test('In progress is a column between Open and Ready to verify; cards move in an
     await expect(page.getByRole('status').filter({ hasText: `Comment #${comments[0]!.number} moved to In progress.` })).toBeAttached();
     await page.reload();
     await expect(card('In progress', 'First board thread')).toBeVisible();
+    // A card leaves its status to the column, in every column
+    await expect(page.getByRole('region', { name: /comments$/ }).getByRole('listitem').getByText(/^Status: /)).toHaveCount(0);
+    await expect(card('In progress', 'First board thread')).not.toContainText('In progress');
 
     // Its thread says so, and its menu takes it back
     await card('In progress', 'First board thread').getByRole('link').click();
@@ -280,6 +283,7 @@ test('In progress is a column between Open and Ready to verify; cards move in an
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(column('Done').getByRole('listitem')).toHaveCount(1);
     await expect(column('In progress').getByRole('listitem')).toHaveCount(0);
+    await expect(card('Done', 'First board thread')).not.toContainText('Done');
 
     if (!testInfo.project.name.startsWith('Mobile')) {
         // Dragged from Done to In progress, then back to Open
