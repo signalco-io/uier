@@ -46,7 +46,8 @@ export function AssigneesControl({ projectId, comment, userId, options, trigger,
                     data-unset={people.length ? undefined : ''} className={cn('-ml-1.5 h-7 min-w-0 gap-1.5 px-1.5 font-normal pointer-coarse:min-h-11', !people.length && unsetValueClass)} />}>
                     {avatar}
                     <span className="truncate">{people.length === 1 ? name(people[0]!) : people.length ? `${people.length} people` : 'Unassigned'}</span>
-                    <ChevronDownIcon aria-hidden="true" data-icon="inline-end" />
+                    {/* The chevron only invites a first pick; once someone is assigned the name reads as the button */}
+                    {!people.length && <ChevronDownIcon aria-hidden="true" data-icon="inline-end" />}
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="max-h-72 min-w-48 overflow-y-auto">
                     <DropdownMenuGroup>
