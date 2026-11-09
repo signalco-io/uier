@@ -462,21 +462,11 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                 <ThreadTitle key={`${comment.id}-title`} projectId={projectId} commentId={comment.id} title={comment.title} byAi={comment.titleByAi} canRename={permissions.title} />
                 <CopyIssueResult state={copyIssue} />
 
-                {/* What it is about and where: the element or text, the page (it opens the review there) and its environment.
+                {/* From the most abstract to the most detailed: the page (it opens the review there) and its environment, the
+                    element or text, who has it, its priority, then its pull requests.
                     A properties list: every row is one control tall (44px on touch screens), labels and values centred on it,
                     and a ghost control pulled left by its padding so its text starts where plain text does. */}
                 <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 text-sm" data-thread-details>
-                    <dt className={detailLabelClass}>On</dt>
-                    {/* The selector beside the label while it fits, else on its own line; padded so its first line sits where a one-line row's does */}
-                    <dd className="m-0 flex min-h-8 min-w-0 flex-wrap items-baseline gap-x-2 py-1.5 pointer-coarse:min-h-11 pointer-coarse:py-3">
-                        <span className="min-w-0 break-words">{anchor.label}</span>
-                        {(anchor.type === 'element' || anchor.type === 'area') && (
-                            <SelectorCode selector={anchor.selector} className="min-w-0" />
-                        )}
-                        {anchor.type === 'text' && anchor.text && (
-                            <blockquote className="m-0 mt-1 line-clamp-4 basis-full border-l-2 border-border pl-2.5 text-secondary-foreground">{anchor.text}</blockquote>
-                        )}
-                    </dd>
                     <dt className={detailLabelClass}>Page</dt>
                     <dd className={`${detailValueClass} gap-x-2`}>
                         {source.available ? (
@@ -489,12 +479,23 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                         ) : <span className="truncate font-mono text-xs">{comment.path}</span>}
                         {sourceText && <span className="min-w-0 truncate text-xs text-muted-foreground">{sourceText}</span>}
                     </dd>
-                    <dt className={detailLabelClass}>Priority</dt>
-                    <dd className={detailValueClass}><PriorityControl projectId={projectId} commentId={comment.id} priority={comment.priority} canEdit={permissions.triage} /></dd>
+                    <dt className={detailLabelClass}>On</dt>
+                    {/* The selector beside the label while it fits, else on its own line; padded so its first line sits where a one-line row's does */}
+                    <dd className="m-0 flex min-h-8 min-w-0 flex-wrap items-baseline gap-x-2 py-1.5 pointer-coarse:min-h-11 pointer-coarse:py-3">
+                        <span className="min-w-0 break-words">{anchor.label}</span>
+                        {(anchor.type === 'element' || anchor.type === 'area') && (
+                            <SelectorCode selector={anchor.selector} className="min-w-0" />
+                        )}
+                        {anchor.type === 'text' && anchor.text && (
+                            <blockquote className="m-0 mt-1 line-clamp-4 basis-full border-l-2 border-border pl-2.5 text-secondary-foreground">{anchor.text}</blockquote>
+                        )}
+                    </dd>
                     <dt className={detailLabelClass}>Assignees</dt>
                     <dd className={detailValueClass}>
                         <AssigneesControl projectId={projectId} comment={comment} userId={userId} options={assignees} trigger={assigneeTrigger} shortcut={assigneeShortcut} />
                     </dd>
+                    <dt className={detailLabelClass}>Priority</dt>
+                    <dd className={detailValueClass}><PriorityControl projectId={projectId} commentId={comment.id} priority={comment.priority} canEdit={permissions.triage} /></dd>
                     <ThreadPullRequests projectId={projectId} comment={comment} />
                 </dl>
 
@@ -529,9 +530,10 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                     {comment.replies.map(item => <li key={item.id}>{reply(item)}</li>)}
                 </ol>
 
+                {/* Reply's icon lines up with the message text: past the 24px avatar and its 10px gap, less the button's 6px padding */}
                 {permissions.reply && (replying
                     ? <ReplyComposer projectId={projectId} userId={userId} userName={assignees.find(person => person.userId === userId)?.name} comment={comment} onClose={() => setReplying(false)} />
-                    : <Button variant="ghost" size="sm" className="-ml-2 self-start text-muted-foreground hover:text-foreground pointer-coarse:min-h-11" aria-keyshortcuts={replyShortcut} onClick={() => setReplying(true)}>
+                    : <Button variant="ghost" size="sm" className="ml-7 self-start text-muted-foreground hover:text-foreground pointer-coarse:min-h-11" aria-keyshortcuts={replyShortcut} onClick={() => setReplying(true)}>
                         <ReplyIcon data-icon="inline-start" />Reply
                     </Button>)}
 
