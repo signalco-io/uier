@@ -116,4 +116,6 @@
 
 Project triagers can paste a supported pull request URL in the open thread properties. The row shows a quiet
 Link a pull request ghost control (plus icon, muted text, like Assignees' Unassigned); choosing it reveals the
-Pull request URL field with focus in it, Escape closes it and returns focus, and a saved link closes it. Manually linked PRs persist separately from messages, deduplicate with message links and appear in the row/card hover or tap card with the same provider icons and state badges as detected links. Only the member who linked one can remove that manual link; message detection remains independent.
+Pull request URL field with focus in it, Escape closes it and returns focus, and a saved link closes it. Manually linked PRs persist separately from messages, deduplicate with message links and appear in the row/card hover or tap card with the same provider icons and state badges as detected links. Once a state is known, the link's icon and name take the
+badge's colour (Open green, Merged violet, Closed red, Draft muted; `data-pull-request-color`); a closed one's name stays
+in ink, as the red is under 4.5:1 for text on dark. Only the member who linked one can remove that manual link; message detection remains independent.

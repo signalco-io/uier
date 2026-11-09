@@ -131,7 +131,7 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                         </span>
                     </p>
                     <div className="flex min-h-5 shrink-0 items-center gap-2">
-                        {comment.private && <LockIcon aria-label="Private" className="size-3.5" />}
+                        {comment.private && <LockIcon aria-label="Private" className="size-3 shrink-0" />}
                         {/* Hovering or tapping the mark shows the pull requests; the dragged copy of a card and a row without its project keep the plain mark */}
                         {pullRequests.length > 0 && (preview || !projectId
                             ? <GitPullRequestIcon aria-label="Linked pull request" className="size-3.5" />

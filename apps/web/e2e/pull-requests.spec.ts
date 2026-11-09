@@ -37,6 +37,9 @@ test('thread details collect PRs from messages and replies, with one quiet mark 
     await page.reload();
     thread = page.getByRole('article');
     await expect(thread.locator('[data-pull-request-links]').getByRole('link')).toHaveCount(1);
+    // The open thread's read colours its row's mark too (hidden behind the thread on a phone): its one pull request is merged
+    await expect(thread.locator('[data-pull-request-color="merged"]')).toHaveCount(1);
+    await expect(page.locator('[data-comment-id] [data-pull-request-mark]')).toHaveAttribute('data-pull-request-color', 'merged');
     await thread.getByRole('button', { name: `Remove pull request link ${manualUrl}`, exact: true }).click();
     await expect(thread.locator('[data-pull-request-links]').getByRole('link')).toHaveCount(0);
     await thread.getByRole('button', { name: 'Link a pull request', exact: true }).click();
@@ -53,6 +56,15 @@ test('thread details collect PRs from messages and replies, with one quiet mark 
     await expect(values.getByText('Open', { exact: true })).toBeVisible();
     await expect(values.getByText('Closed', { exact: true })).toBeVisible();
     await expect(values.getByText('Draft', { exact: true })).toBeVisible();
+    // The icon and the name take their state's colour, the same as the badge's dot
+    for (const state of ['open', 'merged', 'closed', 'draft']) {
+        const row = values.locator(`[data-pull-request-color="${state}"]`).first();
+        const dot = values.locator(`[data-pull-request-state="${state}"] > span`).first();
+        const color = await dot.evaluate(element => getComputedStyle(element).backgroundColor);
+        await expect(row.locator('svg').first()).toHaveCSS('color', color);
+        // Closed's red is too faint for text on dark: its name stays in ink
+        if (state !== 'closed') await expect(row).toHaveCSS('color', color);
+    }
     await expect(values.getByRole('link', { name: 'Azure DevOps acme/Website/site #9' })).toHaveAttribute('href', 'https://dev.azure.com/acme/Website/_git/site/pullrequest/9');
     // Link destinations stay external, while the row/card's one existing link still opens the thread.
     await expect(values.getByRole('link', { name: 'GitHub acme/site #2' })).toHaveAttribute('rel', 'noopener noreferrer');
@@ -67,6 +79,8 @@ test('thread details collect PRs from messages and replies, with one quiet mark 
     }
     if (testInfo.project.name.startsWith('Mobile')) await backToComments(page);
     await expect(commentRows(page).getByLabel('Linked pull request')).toHaveCount(1);
+    // Pull requests in different states leave the row's mark uncoloured
+    await expect(commentRows(page).locator('[data-pull-request-mark]')).not.toHaveAttribute('data-pull-request-color');
     // Hovering the mark (a tap on touch screens) lists the pull requests with their provider and state
     const mark = commentRows(page).getByRole('button', { name: 'Linked pull request', exact: true });
     const card = page.getByRole('dialog', { name: 'Pull requests', exact: true });
@@ -79,6 +93,7 @@ test('thread details collect PRs from messages and replies, with one quiet mark 
     await expect(card.locator('[data-provider-mark="gitlab"]')).toHaveCount(1);
     await expect(card.getByRole('link', { name: /^GitLab acme\/site !4/ })).toHaveAttribute('href', 'https://gitlab.com/acme/site/-/merge_requests/4');
     await expect(card.locator('[data-pull-request-state="merged"]')).toHaveText('Merged');
+    await expect(card.locator('[data-pull-request-color="merged"]')).toHaveCount(1);
     await animationsFinished(card);
     expect((await new AxeBuilder({ page }).include('[data-pull-request-card]').analyze()).violations).toEqual([]);
     await page.keyboard.press('Escape');

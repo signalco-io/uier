@@ -8,12 +8,14 @@
   and age (`RelativeTime short`: "3 min ago", "2 hr ago", "yesterday", "2 wk ago", the date and time on hover; the
   thread's messages, its activity and other sentences keep whole words; one shared clock ticks every 10 seconds while any age is shown and the tab is visible, and only the ages whose words change re-render).
   The meta line, one on rows and cards alike, starts under the title, so the path lines up with "#12 …": the selection
-  box under the author's avatar (past the unread dot's room), the page path (what it was left on is only in the thread's On row), then private, a linked pull request, priority other than Normal (`PriorityLabel`: its
+  box under the author's avatar (past the unread dot's room), the page path (what it was left on is only in the thread's On row), then private (a 12 px lock, a step smaller than the other marks), a linked pull request, priority other than Normal (`PriorityLabel`: its
   flag alone, named "High priority"), status (`StateDot` and its name, Open too; a board card leaves the status to its column, whose region name screen readers announce), and at its right end
   every assignee's avatar with their agents' smaller avatars stacked beside it (`AssigneeCard`: hovering shows who it is assigned to
   and their [agents](assignee-agents.md); see [Multiple assignees](#multiple-assignees)), beside the open thread
   (`CommentCard.tsx`). The open thread is in the URL (`?comment=<id>`, `useOpenComment`): side by side (`@container/comments` from `@3xl`, 48rem: the list's 18rem and
-  at least 29rem for the thread; from about 1100 px with the sidebar docked, which takes in most landscape tablets) it replaces
+  at least 29rem for the thread; from about 1100 px with the sidebar docked, which takes in most landscape tablets; the
+  list and the thread then break out of the reading column to the panel's width, at most 96rem, with `page-wide`'s length
+  ([app shell](app-shell.md)), the list taking up to 30 % of it, 28rem at most, and the filters staying in the column) it replaces
   the history entry and the first shown thread is open until another is chosen (it stays while it is listed, so a thread
   that arrives above it in a realtime refresh does not take its place, and the arrow keys go on from it; a filter that
   hides it shows the new first one; `e2e/realtime.spec.ts`); narrower (a phone, a tablet in portrait) a row opens
@@ -103,7 +105,10 @@ Rows and board cards show one small outlined pull request mark, named "Linked pu
 current message or reply links to a supported provider PR. It is `PullRequestCard` (`ThreadPullRequests.tsx`),
 which works like the assignee card: hovering it, Enter on it (it shares the row's tab stop rule) or a tap
 opens a popover listing each pull request with its provider's mark, repository and number as an external link,
-and its state badge when known; a mouse click still opens the thread. State is read only while the popover is
+and its state badge when known (the name in the state's colour, but a closed one's in ink); a mouse click still opens the thread. The mark takes the
+state's colour (`data-pull-request-color`) when every one of the thread's pull requests is in the same known state,
+from a read the page already made (the open thread beside it, or the mark's card; a shared store in
+`ThreadPullRequests.tsx`): rows never read on their own, so a list doesn't spend the providers' hourly reads. State is read only while the popover is
 open, through the same endpoint and five-minute reuse as the [open thread's details](comment-thread.md).
 Provider titles are never read, so none shows. Rows without a project id and the board's drag preview keep the plain mark.
 `CommentRow` uses the browser-safe `lib/comments/pullRequestLinks.ts` recognizer for both layouts,

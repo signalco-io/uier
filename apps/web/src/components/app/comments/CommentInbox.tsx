@@ -211,7 +211,12 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
     }, [openId]);
 
     return (
-        <div className="grid grid-cols-1 items-start gap-4 @3xl/comments:grid-cols-[minmax(16rem,18rem)_minmax(0,1fr)] @4xl/comments:grid-cols-[minmax(17rem,22rem)_minmax(0,1fr)] @6xl/comments:grid-cols-[minmax(20rem,26rem)_minmax(0,1fr)]">
+        // Side by side (with a thread beside the list) the split view breaks out of the reading column to the panel's
+        // width less the gutters (`page-wide`, app-shell.md), capped at 96rem on very wide screens; the list takes up to
+        // 30 % of it (28rem at most) and the thread the rest. The filters and the count line keep the reading width.
+        <div data-page-width={selected ? 'wide' : undefined}
+            className={cn('grid grid-cols-1 items-start gap-4 @3xl/comments:grid-cols-[minmax(16rem,18rem)_minmax(0,1fr)] @4xl/comments:grid-cols-[minmax(17rem,clamp(22rem,30%,28rem))_minmax(0,1fr)]',
+                selected && '@3xl/comments:w-[min(var(--page-wide),96rem)] @3xl/comments:mx-[calc((100%-min(var(--page-wide),96rem))/2)]')}>
             <LayoutMotion container={listRef} item="data-comment-id">
             {/* `isolate`: rows that move stay under the page's sticky header, and leaving copies above the list's background */}
             <ul ref={listRef} aria-label={label} className={cn('relative isolate m-0 flex min-w-0 list-none flex-col gap-0.5 rounded-xl border bg-card p-1', opened && '@max-3xl/comments:hidden')}

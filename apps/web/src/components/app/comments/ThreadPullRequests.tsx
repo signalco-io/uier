@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type MouseEvent, type RefObject } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type MouseEvent, type RefObject } from 'react';
 import { ArrowUpRightIcon, GitPullRequestIcon, PlusIcon } from 'lucide-react';
 import { useActionState } from 'react';
 import { toast } from 'sonner';
@@ -31,6 +31,18 @@ const stateDotColors: Record<PullRequestState, string> = {
     closed: 'bg-[hsl(var(--destructive))]',
     draft: 'bg-muted-foreground'
 };
+/** The same colours for the pull request's icon once its state is known (at least 3:1 on its surface) */
+const stateIconColors: Record<PullRequestState, string> = {
+    open: 'text-[hsl(var(--brand-success))]',
+    merged: 'text-[hsl(var(--brand-ready))]',
+    closed: 'text-destructive',
+    draft: 'text-muted-foreground'
+};
+/**
+ * And for its name (at least 4.5:1): Closed's red is 4.1:1 on dark, so a closed pull request's name stays in ink and its
+ * icon says it.
+ */
+const stateTextColors: Record<PullRequestState, string> = { ...stateIconColors, closed: 'text-foreground' };
 
 /** Simple Icons (CC0); GitLab is not an integration, so its mark lives here. Monochrome marks draw in the text colour. */
 const gitlabLogo = { viewBox: '0 0 24 24', paths: [{ fill: undefined as string | undefined, d: 'm23.6004 9.5927-.0337-.0862L20.3.9814a.851.851 0 0 0-.3362-.405.8748.8748 0 0 0-.9997.0539.8748.8748 0 0 0-.29.4399l-2.2055 6.748H7.5375l-2.2057-6.748a.8573.8573 0 0 0-.29-.4412.8748.8748 0 0 0-.9997-.0537.8585.8585 0 0 0-.3362.4049L.4332 9.5015l-.0325.0862a6.0657 6.0657 0 0 0 2.0119 7.0105l.0113.0087.03.0213 4.976 3.7264 2.462 1.8633 1.4995 1.1321a1.0085 1.0085 0 0 0 1.2197 0l1.4995-1.1321 2.4619-1.8633 5.006-3.7489.0125-.01a6.0682 6.0682 0 0 0 2.0094-7.003z' }] };
@@ -63,14 +75,32 @@ export function PullRequestStateBadge({ state }: { state: PullRequestState }) {
 
 /** What the last read said, per thread and revision, so the row's card and the details share one recent read. */
 const recentStates = new Map<string, { at: number; states: PullRequestStatus[] }>();
+const recentListeners = new Set<() => void>();
+const rememberStates = (key: string, value: { at: number; states: PullRequestStatus[] }) => {
+    recentStates.set(key, value);
+    recentListeners.forEach(listener => listener());
+};
+const subscribeRecent = (listener: () => void) => { recentListeners.add(listener); return () => { recentListeners.delete(listener); }; };
 const refreshEvery = 5 * 60_000;
+const statesKey = (projectId: string, commentId: string, revision: string, links: PullRequestLink[]) =>
+    `${projectId}\n${commentId}\n${revision}\n${links.map(link => link.url).join('\n')}`;
+
+/**
+ * The one state all of a thread's pull requests share, from a read the page already made (the open thread or the
+ * mark's card); the mark never reads on its own, so rows don't spend the providers' hourly reads.
+ */
+function useKnownState(key: string, links: PullRequestLink[]) {
+    const states = useSyncExternalStore(subscribeRecent, () => recentStates.get(key)?.states, () => undefined);
+    const known = links.map(link => states?.find(value => value.url === link.url)?.state);
+    return known.length > 0 && known.every(state => state && state === known[0]) ? known[0] : undefined;
+}
 
 /**
  * The links' known states. Reads happen only while `element` is on screen in a visible tab, on showing it and every
  * five minutes; a read in the last five minutes for the same thread revision is reused.
  */
-function usePullRequestStates(element: RefObject<HTMLElement | null>, projectId: string, commentId: string, source: string, revision: string) {
-    const key = `${projectId}\n${commentId}\n${revision}\n${source}`;
+function usePullRequestStates(element: RefObject<HTMLElement | null>, projectId: string, commentId: string, links: PullRequestLink[], revision: string) {
+    const key = statesKey(projectId, commentId, revision, links);
     const [states, setStates] = useState<PullRequestStatus[]>(() => recentStates.get(key)?.states ?? []);
     useEffect(() => {
         let cancelled = false;
@@ -87,7 +117,7 @@ function usePullRequestStates(element: RefObject<HTMLElement | null>, projectId:
                     cache: 'no-store', credentials: 'same-origin', signal: controller.signal
                 });
                 const result = response.ok ? await response.json() as PullRequestStatus[] : [];
-                if (response.ok) recentStates.set(key, { at: lastRead, states: result });
+                if (response.ok) rememberStates(key, { at: lastRead, states: result });
                 if (!cancelled) setStates(result);
             } catch { if (!cancelled) setStates([]); }
             finally { busy = false; }
@@ -109,7 +139,7 @@ function PullRequestValues({ projectId, commentId, links, revision, comment }: {
     projectId: string; commentId: string; links: PullRequestLink[]; revision: string; comment: ProjectCommentView;
 }) {
     const value = useRef<HTMLElement>(null);
-    const states = usePullRequestStates(value, projectId, commentId, links.map(link => link.url).join('\n'), revision);
+    const states = usePullRequestStates(value, projectId, commentId, links, revision);
     return (
         <dd ref={value} className="m-0 flex min-h-8 min-w-0 flex-col items-start pointer-coarse:min-h-11" data-pull-request-links>
             {links.map(link => {
@@ -117,8 +147,10 @@ function PullRequestValues({ projectId, commentId, links, revision, comment }: {
                 return (
                     <div key={link.url} className="flex min-h-8 max-w-full items-center gap-2 pointer-coarse:min-h-11">
                         <a href={link.url} target="_blank" rel="noopener noreferrer"
-                            className="-mx-1 inline-flex min-h-8 min-w-0 items-center gap-1 rounded-md px-1 underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none pointer-coarse:min-h-11">
-                            <GitPullRequestIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+                            // The state's colour (as on its badge) for the icon and the name once it is known
+                            className={cn('-mx-1 inline-flex min-h-8 min-w-0 items-center gap-1 rounded-md px-1 underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none pointer-coarse:min-h-11', state && stateTextColors[state])}
+                            data-pull-request-color={state}>
+                            <GitPullRequestIcon aria-hidden="true" className={cn('size-3.5 shrink-0', state ? stateIconColors[state] : 'text-muted-foreground')} />
                             <span className="truncate">{pullRequestName(link)}</span>
                             <ArrowUpRightIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                         </a>
@@ -200,7 +232,7 @@ function PullRequestCardList({ projectId, commentId, links, revision }: {
     projectId: string; commentId: string; links: PullRequestLink[]; revision: string;
 }) {
     const list = useRef<HTMLUListElement>(null);
-    const states = usePullRequestStates(list, projectId, commentId, links.map(link => link.url).join('\n'), revision);
+    const states = usePullRequestStates(list, projectId, commentId, links, revision);
     return (
         <ul ref={list} className="m-0 flex list-none flex-col gap-1 p-0" data-pull-request-card>
             {links.map(link => {
@@ -211,7 +243,8 @@ function PullRequestCardList({ projectId, commentId, links, revision }: {
                             className="flex-nowrap pointer-coarse:min-h-11">
                             <ItemMedia variant="icon"><ProviderMark provider={link.provider} className="size-4" /></ItemMedia>
                             <ItemContent className="min-w-0">
-                                <ItemTitle className="block max-w-full truncate" title={pullRequestName(link)}>{pullRequestName(link)}</ItemTitle>
+                                <ItemTitle className={cn('block max-w-full truncate', state && stateTextColors[state])} data-pull-request-color={state}
+                                    title={pullRequestName(link)}>{pullRequestName(link)}</ItemTitle>
                             </ItemContent>
                             {state && <PullRequestStateBadge state={state} />}
                             <ArrowUpRightIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
@@ -239,6 +272,7 @@ export function PullRequestCard({ projectId, comment, links, tabbable = true, on
     const [open, setOpen] = useState(false);
     const pointer = useRef<string>('');
     const popup = useRef<HTMLDivElement>(null);
+    const state = useKnownState(statesKey(projectId, comment.id, comment.revision, links), links);
     return (
         <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger {...hoverPopoverTrigger} delay={200} data-pull-request-mark="" aria-label="Linked pull request" tabIndex={tabbable ? undefined : -1}
@@ -251,7 +285,9 @@ export function PullRequestCard({ projectId, comment, links, tabbable = true, on
                     onPress(event);
                 }}
                 // Above the row's link; on a touch screen the tap target reaches 44px around the 14px mark
-                className="relative z-10 -m-1 flex shrink-0 rounded-sm p-1 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:-m-3.5 pointer-coarse:p-3.5">
+                data-pull-request-color={state}
+                className={cn('relative z-10 -m-1 flex shrink-0 rounded-sm p-1 outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:-m-3.5 pointer-coarse:p-3.5',
+                    state ? stateIconColors[state] : 'hover:text-foreground')}>
                 <GitPullRequestIcon aria-hidden="true" className="size-3.5" />
             </PopoverTrigger>
             <PopoverContent ref={popup} initialFocus={popup} align="end" aria-label="Pull requests" className="max-h-[min(32rem,80dvh)] w-80 max-w-[calc(100vw-2rem)] gap-1 overflow-y-auto p-1.5">
