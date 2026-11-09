@@ -21,7 +21,9 @@ Claude, the OpenAI logo for Codex and ChatGPT, Cursor, a generic bot for AI agen
 circle, stacked on the assignee's avatar: rows, board cards, the agent menu), `AssigneeCard` (those avatars on rows,
 board cards and My work as a hover popover, `hoverPopoverTrigger` with a 200 ms delay: the assignee, "You" for the
 signed-in assignee, and the agent with its model by name, reasoning level, when it started and its session; a mouse
-click still opens the thread, the keyboard and a tap open the card; the trigger is named by `assignedLabel`) and `AgentControl` (the logo beside the
+click still opens the thread, the keyboard and a tap open the card; the trigger is named by `assignedLabel`; a value cut
+off with an ellipsis, such as a long session id, shows in full in a tooltip on hover and on keyboard focus: `CutText`
+measures it, and only a cut-off line joins the Tab order; opened by the keyboard, focus starts on the card itself) and `AgentControl` (the logo beside the
 agent's name in the thread's Assignee field with the model and reasoning level, the assignee's menu, Session and model dialog).
 Views show the model by name: `modelName` (`@uier/toolbar/agents`, pure) turns known ids into their makers' names
 (Claude current, dated, older and routed ids; OpenAI GPT, Codex and o-series; Gemini; Grok, DeepSeek, Mistral, Qwen,
@@ -31,8 +33,8 @@ Kimi, Llama, GLM, Cursor's Composer) and returns undefined for any other id, whi
 shows the level alone after a dot ("· xhigh", titled and read as "xhigh reasoning") and the reported id as the model's
 title; the Session and model dialog, packets and Markdown keep the raw values. Add a family to `modelName` and a case to
 `agent-models.api.spec.ts` together. The MCP tools are `set_feedback_agent` / `clear_feedback_agent` under
-`feedback:assign`. Tests: `assignee-agent{,.api}.spec.ts` (the card: hover, keyboard, a click opening the thread, a tap
-on a phone), `agent-models.api.spec.ts`.
+`feedback:assign`. Tests: `assignee-agent{,.api}.spec.ts` (the card: hover, keyboard, a cut-off session id's tooltip, a click opening
+the thread, a tap on a phone), `agent-models.api.spec.ts`.
 
 **Messages an agent writes.** `DbThreadItem.writtenBy` marks a reply an MCP connection posted for its owner:
 kind, optional model and reasoning level. `replyToProjectComment` sets it only for an MCP actor (one with a

@@ -147,7 +147,9 @@ test('the avatars on a row show the assignee and their agent on hover, focus or 
     await page.getByRole('menuitem', { name: 'Session and model', exact: true }).click();
     const details = page.getByRole('dialog', { name: 'Claude details' });
     await animationsFinished(details);
-    await details.getByRole('textbox', { name: 'Session id' }).fill('session-74');
+    // Longer than the card is wide: cut off with an ellipsis, in full in a tooltip
+    const sessionId = `session-74-${'a1b2c3d4'.repeat(8)}`;
+    await details.getByRole('textbox', { name: 'Session id' }).fill(sessionId);
     await details.getByRole('textbox', { name: 'Model' }).fill('claude-opus-5-5');
     await details.getByRole('textbox', { name: 'Reasoning level' }).fill('high');
     await details.getByRole('button', { name: 'Save', exact: true }).click();
@@ -158,6 +160,8 @@ test('the avatars on a row show the assignee and their agent on hover, focus or 
     const row = commentRows(page).filter({ hasText: 'Price table wraps' });
     const avatars = row.getByRole('button', { name: 'Assigned to you, with Claude Opus 5.5 (high reasoning)', exact: true });
     const card = page.getByRole('dialog', { name: 'Assignee details', exact: true });
+    const session = card.locator('[data-agent-session]');
+    const tooltip = page.locator('[data-slot="tooltip-content"]');
     const expectCard = async () => {
         await expect(card).toBeVisible();
         await expect(card).toContainText('Assigned to');
@@ -169,7 +173,7 @@ test('the avatars on a row show the assignee and their agent on hover, focus or 
         await expect(card.locator('[data-agent-model]')).toHaveAttribute('title', 'claude-opus-5-5');
         await expect(card).toContainText('high reasoning');
         await expect(card.locator('[data-agent-since]')).toHaveText(/^Started (just now|\d+ minutes? ago)$/);
-        await expect(card).toContainText('Session session-74');
+        await expect(session).toHaveText(`Session ${sessionId}`);
     };
 
     if (testInfo.project.name.startsWith('Mobile')) {
@@ -194,6 +198,10 @@ test('the avatars on a row show the assignee and their agent on hover, focus or 
     // The list and the card: the thread beside the list has its own checks
     await expectNoAxeViolations(page, { include: ['[aria-label="Comments"]', '[aria-label="Assignee details"]'] });
     await page.screenshot({ path: testInfo.outputPath('assignee-card.png') });
+    // The cut-off session id in full on hover; the model fits, so it has no tooltip or tab stop
+    await session.hover();
+    await expect(tooltip).toHaveText(sessionId);
+    await expect(card.locator('[data-agent-model]')).not.toHaveAttribute('tabindex');
     await page.mouse.move(0, 0);
     await expect(card).toBeHidden();
 
@@ -204,6 +212,14 @@ test('the avatars on a row show the assignee and their agent on hover, focus or 
     await expect(avatars).toBeFocused();
     await page.keyboard.press('Enter');
     await expectCard();
+    // Tab reaches the cut-off session id and shows it in full
+    await page.keyboard.press('Tab');
+    await expect(session).toBeFocused();
+    await expect(tooltip).toHaveText(sessionId);
+    // Escape closes the tooltip, then the card
+    await page.keyboard.press('Escape');
+    await expect(tooltip).toBeHidden();
+    await expect(card).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(card).toBeHidden();
     await expect(avatars).toBeFocused();
