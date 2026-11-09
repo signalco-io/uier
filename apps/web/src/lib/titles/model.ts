@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { DbComment } from '../db/schema';
+import type { DbAiTitle, DbComment } from '../db/schema';
 
 /** Longest title kept; a longer one is discarded, never cut */
 export const AI_TITLE_MAX_LENGTH = 80;
@@ -13,6 +13,25 @@ function firstItem(comment: Pick<DbComment, 'thread'>) {
     return Array.isArray(comment.thread?.items) ? comment.thread.items[0] : undefined;
 }
 
+/** The version of {@link cleanAiTitle} a new title passes through (`DbAiTitle.cleanup`) */
+export const AI_TITLE_CLEANUP = 2;
+
+/**
+ * Titles made before quotes that belong to the title were kept (no `cleanup`) lost a leading or
+ * final quote of any kind the old cleanup stripped (`C" shortcut opens …`, `C’ shortcut opens …`,
+ * `` npm` fails ``). One with unbalanced quotes is treated as missing, so the next list render makes
+ * it again (bounded like any other missing title). Apostrophes inside a word (don't, it’s) are not
+ * quotes; a trailing one (users' titles) can't be told apart, so such a title is made again once:
+ * the new one has `cleanup` and is never checked again.
+ */
+function lostQuote(title: DbAiTitle) {
+    if (title.cleanup) return false;
+    const text = title.text.replace(/(?<=[\p{L}\p{N}])['’](?=\p{L})/gu, '');
+    const count = (pattern: RegExp) => text.match(pattern)?.length ?? 0;
+    return count(/"/gu) % 2 === 1 || count(/'/gu) % 2 === 1 || count(/`/gu) % 2 === 1
+        || count(/“/gu) !== count(/”/gu) || count(/‘/gu) !== count(/’/gu) || count(/«/gu) !== count(/»/gu);
+}
+
 /**
  * The stored title while it still describes the first message: none once that message was
  * edited (until a new one is made) or deleted. A title is only as visible as the first message:
@@ -21,7 +40,7 @@ function firstItem(comment: Pick<DbComment, 'thread'>) {
 export function currentAiTitle(comment: Pick<DbComment, 'thread' | 'aiTitle'>) {
     const first = firstItem(comment);
     const title = comment.aiTitle;
-    if (!first || first.deletedAt || !first.text || !title?.text || typeof title.source !== 'string')
+    if (!first || first.deletedAt || !first.text || !title?.text || typeof title.source !== 'string' || lostQuote(title))
         return undefined;
     return title.source === aiTitleSource(first.text) ? title.text : undefined;
 }
@@ -31,21 +50,69 @@ export function visibleAiTitle(comment: Pick<DbComment, 'thread' | 'aiTitle'>, e
     return enabled ? currentAiTitle(comment) : undefined;
 }
 
-/** A thread whose first message has text and no current title */
-export function needsAiTitle(comment: Pick<DbComment, 'thread' | 'aiTitle'>) {
+/** A title a member gave the thread (`DbComment.manualTitle`), while its first message is there */
+export function manualThreadTitle(comment: Pick<DbComment, 'thread' | 'manualTitle'>) {
     const first = firstItem(comment);
-    return Boolean(first && !first.deletedAt && first.text?.trim()) && !currentAiTitle(comment);
+    const title = comment.manualTitle?.trim();
+    return first && !first.deletedAt && title ? title : undefined;
+}
+
+/**
+ * The title to show for a thread: the one a member gave it, else its AI title while titles are on.
+ * `ai` says which, so the AI mark shows only on a title AI wrote.
+ */
+export function threadTitle(comment: Pick<DbComment, 'thread' | 'aiTitle' | 'manualTitle'>, aiTitlesOn: boolean) {
+    const manual = manualThreadTitle(comment);
+    if (manual) return { text: manual, ai: false };
+    const ai = visibleAiTitle(comment, aiTitlesOn);
+    return ai ? { text: ai, ai: true } : undefined;
+}
+
+/** A thread whose first message has text, without a title of its own or a current AI title */
+export function needsAiTitle(comment: Pick<DbComment, 'thread' | 'aiTitle' | 'manualTitle'>) {
+    const first = firstItem(comment);
+    return Boolean(first && !first.deletedAt && first.text?.trim()) && !manualThreadTitle(comment) && !currentAiTitle(comment);
+}
+
+/** Longest title a member can give a thread */
+export const MANUAL_TITLE_MAX_LENGTH = 120;
+
+/**
+ * A member's title as plain text on one line (whitespace collapsed, invisible characters removed).
+ * Empty clears it; `null` when it is longer than {@link MANUAL_TITLE_MAX_LENGTH} characters.
+ */
+export function cleanManualTitle(raw: string): string | null {
+    const title = raw.replace(invisible, ' ').replace(/\s+/gu, ' ').trim();
+    if (!visibleCharacter.test(title)) return '';
+    return Array.from(title).length > MANUAL_TITLE_MAX_LENGTH ? null : title;
 }
 
 // Bidirectional controls, other format characters and controls (line breaks included) become spaces
 const invisible = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu;
 const visibleCharacter = /[^\p{White_Space}\p{Cc}\p{Cf}ᅟᅠㅤﾠ⠀]/u;
-const wrappingQuotes = /^["'“”‘’«»„`]+|["'“”‘’«»„`]+$/gu;
+/** Opening quote to its closing ones */
+const quotePairs: Record<string, string> = { '"': '"', "'": "'", '“': '”', '‘': '’', '«': '»', '»': '«', '„': '“”', '‚': '‘’', '`': '`', '‹': '›', '「': '」' };
+
+/**
+ * Quotes around the whole title, as one pair (`"Checkout fails"`), never quotes that belong to it:
+ * `"C" shortcut opens "Send feedback"` starts and ends with a quote but keeps both.
+ */
+function withoutWrappingQuotes(title: string) {
+    for (let i = 0; i < 3; i++) {
+        const closing = quotePairs[title[0] ?? ''];
+        const last = title.at(-1) ?? '';
+        if (!closing || title.length < 2 || !closing.includes(last)) break;
+        const inner = title.slice(1, -1);
+        if (inner.includes(title[0]!) || [...closing].some(quote => inner.includes(quote))) break;
+        title = inner.trim();
+    }
+    return title;
+}
 
 /**
  * A model's title as plain text on one line: whitespace collapsed, a "Title:" label, Markdown
- * heading or emphasis marks, wrapping quotes and a final period removed. `null` when nothing
- * visible is left or it is longer than {@link AI_TITLE_MAX_LENGTH} characters.
+ * heading or emphasis marks, one pair of quotes around the whole title and a final period
+ * removed. `null` when no letter or digit is left (`"""`, `…`) or it is longer than {@link AI_TITLE_MAX_LENGTH} characters.
  */
 export function cleanAiTitle(raw: unknown): string | null {
     if (typeof raw !== 'string') return null;
@@ -53,11 +120,10 @@ export function cleanAiTitle(raw: unknown): string | null {
         .replace(/^title\s*:\s*/iu, '')
         .replace(/^#+\s*/u, '')
         .replace(/^(\*\*|__)(.*)\1$/u, '$2')
-        .trim()
-        .replace(wrappingQuotes, '')
         .trim();
+    title = withoutWrappingQuotes(title);
     if (/[^.]\.$/u.test(title)) title = title.slice(0, -1).trimEnd();
-    if (!visibleCharacter.test(title) || Array.from(title).length > AI_TITLE_MAX_LENGTH)
+    if (!visibleCharacter.test(title) || !/[\p{L}\p{N}]/u.test(title) || Array.from(title).length > AI_TITLE_MAX_LENGTH)
         return null;
     return title;
 }

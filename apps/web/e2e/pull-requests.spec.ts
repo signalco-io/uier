@@ -35,7 +35,7 @@ test('thread details collect PRs from messages and replies, with one quiet mark 
     await thread.getByRole('button', { name: 'Link', exact: true }).click();
     await expect(thread.locator('[data-pull-request-links]').getByRole('link')).toHaveCount(1);
     await thread.getByRole('button', { name: 'Reply', exact: true }).click();
-    await thread.getByRole('textbox', { name: 'Reply', exact: true }).fill('Fixed in [PR #2](https://github.com/acme/site/pull/2). Also https://github.com/acme/site/pull/1 https://github.com/acme/site/pull/3 https://gitlab.com/acme/site/-/merge_requests/4 https://dev.azure.com/acme/Website/_git/site/pullrequest/9');
+    await thread.getByRole('textbox', { name: 'Reply', exact: true }).fill('Also https://github.com/acme/site/pull/1 https://github.com/acme/site/pull/3 https://gitlab.com/acme/site/-/merge_requests/4 https://dev.azure.com/acme/Website/_git/site/pullrequest/9');
     await thread.getByRole('button', { name: 'Post reply', exact: true }).click();
     await expect(thread.getByRole('status').filter({ hasText: 'Reply posted' })).toBeVisible();
     const values = thread.locator('[data-pull-request-links]');
@@ -58,6 +58,22 @@ test('thread details collect PRs from messages and replies, with one quiet mark 
     }
     if (testInfo.project.name.startsWith('Mobile')) await backToComments(page);
     await expect(commentRows(page).getByLabel('Linked pull request')).toHaveCount(1);
+    // Hovering the mark (a tap on touch screens) lists the pull requests with their provider and state
+    const mark = commentRows(page).getByRole('button', { name: 'Linked pull request', exact: true });
+    const card = page.getByRole('dialog', { name: 'Pull requests', exact: true });
+    if (testInfo.project.name.startsWith('Mobile')) await mark.tap();
+    // The list may still settle after the reply, moving the row from under the pointer: hover again until it shows
+    else await expect(async () => { await mark.hover(); await expect(card).toBeVisible({ timeout: 1000 }); }).toPass();
+    await expect(card.getByRole('link')).toHaveCount(5);
+    // PR #2 is only manually linked; it shares the detected links' card and state badge.
+    await expect(card.getByRole('link', { name: /^GitHub acme\/site #2/ })).toHaveAttribute('href', manualUrl);
+    await expect(card.locator('[data-provider-mark="gitlab"]')).toHaveCount(1);
+    await expect(card.getByRole('link', { name: /^GitLab acme\/site !4/ })).toHaveAttribute('href', 'https://gitlab.com/acme/site/-/merge_requests/4');
+    await expect(card.locator('[data-pull-request-state="merged"]')).toHaveText('Merged');
+    await animationsFinished(card);
+    expect((await new AxeBuilder({ page }).include('[data-pull-request-card]').analyze()).violations).toEqual([]);
+    await page.keyboard.press('Escape');
+    await expect(card).toBeHidden();
     await page.getByRole('button', { name: 'Board', exact: true }).click();
     await expect(page.locator('[data-board-card]').getByLabel('Linked pull request')).toHaveCount(1);
     thread = await openComment(page, 'Check the checkout button');

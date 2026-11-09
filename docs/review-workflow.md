@@ -353,6 +353,14 @@ subjects instead of the start of each message. Rows, board cards, My work and th
 matches it too. Copy issue, MCP packets (`title`, and `title` in `list_feedback` items) and connected
 services' issue titles (from the issue's next update) use it in place of the first message's first words.
 
+- **Renaming.** Members who can triage (as for priority; guests never) click or focus the open thread's
+  title to edit it in place, or Add a title on a thread without one: Enter or leaving the field saves,
+  Escape cancels. Their title is stored as the thread's own (`manualTitle`, at most 120 characters), shows
+  everywhere the AI title would (rows, cards, search, Copy issue, MCP, connected services) without the AI
+  mark, also while AI titles are off, and AI never writes over it: no title is made for the thread while it
+  is set. Clearing it brings the AI title back. It stays when the first message is edited and goes when
+  that message is deleted.
+
 - **Model and timing.** `claude-haiku-5-5` (`src/lib/titles/generate.ts`) with the existing
   `ANTHROPIC_API_KEY`, after the response is sent, so posting never waits for it. The thread shows its
   first line until the title is saved; the save changes the thread, so open pages refresh to it.
@@ -369,15 +377,17 @@ services' issue titles (from the issue's next update) use it in place of the fir
   deployment and leaves rewrite suggestions on.
 - **Safety.** The message, selected text and anchor words are untrusted content in tags the visitor's text
   cannot close; the prompt treats them as text to describe. The answer is a JSON object; the title is
-  cleaned to plain text on one line and dropped beyond 80 characters, never cut.
+  cleaned to plain text on one line and dropped beyond 80 characters, never cut. Quotes go only as one pair
+  around the whole title; quotes that belong to it (`"C" shortcut opens …`) stay. Titles made before that
+  rule which lost a quote (unbalanced quotes, no `cleanup` mark) count as missing and are made again.
 - **Visibility.** Stored on the thread as `aiTitle` (text, a hash of the first message it was made from,
   model, time). It is shown only on threads the viewer can see (private threads stay private), never in
   the toolbar's thread data, and is removed when the first message is deleted. It is not part of
   `commentRevision`, `updatedAt`, sync or notifications. Emails keep naming threads by number and page:
   comment text only appears there as the opt-in excerpts.
 - `e2e/ai-titles.api.spec.ts` covers the setting, the request with the API stubbed, storing, edits,
-  deletion, visibility and the bounds; `e2e/ai-titles.spec.ts` a row and the thread showing a title, and
-  the project setting turning it off. The Anthropic stub gives a title only for a `[stub:title:Words]`
+  deletion, visibility, the bounds and members' titles; `e2e/ai-titles.spec.ts` a row and the thread
+  showing a title, renaming it in place, and the project setting turning it off. The Anthropic stub gives a title only for a `[stub:title:Words]`
   marker in the first message.
 
 ### Review email notifications

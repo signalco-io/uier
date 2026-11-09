@@ -9,7 +9,7 @@ import { getCommentsStore } from '../repo/commentsStore';
 import type { ProjectActor } from './actor';
 import { getProjectComment } from './comments';
 import { authorNames, participantNames, toReviewCommentDto } from './dto';
-import { visibleAiTitle } from '../titles/model';
+import { manualThreadTitle, threadTitle } from '../titles/model';
 import { loadAiTitlesEnabled } from '../titles/threadTitles';
 
 /** One authorized read model for toolbar, app and later integrations. Reloads at export time. */
@@ -30,7 +30,7 @@ export async function projectFeedbackExport(project: DbProject, actor: ProjectAc
     const [screenshot, titles] = await Promise.all([
         dto.screenshot ? getCommentsStore().getScreenshot(comment.domain, comment.id) : null,
         // Only on a thread the actor can see (getProjectComment): the title is as visible as the first message
-        comment.aiTitle ? loadAiTitlesEnabled(project) : false
+        comment.aiTitle && !manualThreadTitle(comment) ? loadAiTitlesEnabled(project) : false
     ]);
     let commentUrl: string | undefined;
     if (pageUrl) {
@@ -49,7 +49,7 @@ export async function projectFeedbackExport(project: DbProject, actor: ProjectAc
         assigneeAgent: actor.kind === 'member' ? dto.assignee?.agent : undefined,
         environment: actor.kind === 'member' || pageUrl ? feedbackSource(project, comment.origin).label : undefined,
         commentUrl,
-        title: visibleAiTitle(comment, titles),
+        title: threadTitle(comment, titles)?.text,
         screenshotUrl: screenshot ? new URL(actor.kind === 'member'
             ? KnownPageLinks.projectCommentScreenshot(project.id, comment.id)
             : `/api/review/${encodeURIComponent(project.publicId ?? project.id)}/comments/${encodeURIComponent(comment.id)}/screenshot`, baseUrl).href : undefined

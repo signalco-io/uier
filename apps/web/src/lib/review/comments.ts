@@ -37,6 +37,7 @@ import { replaceSavedScreenshot } from '../comments/replaceScreenshot';
 import type { ParsedScreenshot } from '../comments/screenshot';
 import { queueMcpEventDelivery } from '../mcp/events/trigger';
 import { queueAiTitles } from '../titles/threadTitles';
+import { cleanManualTitle, MANUAL_TITLE_MAX_LENGTH } from '../titles/model';
 import { assignedAgents, assignedUserIds, assigneeIdsSchema, assignmentModeSchema, withAssignments, type AssignmentMode } from './assignments';
 
 /** Most comments the app loads for a project (all pages) */
@@ -473,6 +474,21 @@ export async function setProjectCommentPrivate(project: DbProject, actor: Projec
         });
 }
 
+/**
+ * A member's own title for the thread (those who can triage, as for priority): it replaces the AI title,
+ * which is no longer made for it. An empty title removes it, and the AI title shows again.
+ */
+export async function setProjectCommentTitle(project: DbProject, actor: ProjectActor, id: string, title: string) {
+    const cleaned = typeof title === 'string' ? cleanManualTitle(title) : null;
+    if (cleaned === null) throw apiErrors.invalidRequest(`Keep the title to ${MANUAL_TITLE_MAX_LENGTH} characters or fewer.`);
+    return changeComment(project, actor, id, comment => canTriageProject(project, actor) && !threadItems(comment)[0]?.deletedAt, comment => {
+        if ((comment.manualTitle ?? '') === cleaned) return comment;
+        const updated: DbComment = { ...comment, manualTitle: cleaned };
+        if (!cleaned) delete updated.manualTitle;
+        return updated;
+    });
+}
+
 /** Record the changed people once; retained people keep all their agents and leases. */
 function assignmentChange(comment: DbComment, ids: string[], actor: ProjectActor, at: string) {
     const previous = assignedUserIds(comment);
@@ -600,8 +616,9 @@ export async function deleteProjectCommentItem(project: DbProject, actor: Projec
             if (item.createdAt)
                 placeholder.createdAt = item.createdAt;
             const kept: DbComment = { ...comment, thread: { ...comment.thread, items: [placeholder, ...replies] }, updatedAt: now };
-            // The title was made from the deleted text
+            // The titles were made from, or describe, the deleted text
             delete kept.aiTitle;
+            delete kept.manualTitle;
             delete kept.verification;
             delete kept.authorId;
             delete kept.device;

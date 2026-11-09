@@ -452,7 +452,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                         </DropdownMenu>
                     </div>
                 </div>
-                <ThreadTitle title={comment.title} />
+                <ThreadTitle key={`${comment.id}-title`} projectId={projectId} commentId={comment.id} title={comment.title} byAi={comment.titleByAi} canRename={permissions.title} />
                 <CopyIssueResult state={copyIssue} />
 
                 {/* What it is about and where: the element or text, the page (it opens the review there) and its environment.

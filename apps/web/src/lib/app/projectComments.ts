@@ -35,7 +35,7 @@ import { isNotificationParticipant, notificationPk, type NotificationSubscriptio
 import { getAppStore } from './store';
 import { loadIntegrationLinks } from '../integrations/links';
 import type { ExternalFeedbackLink } from '@uier/toolbar/feedback-context';
-import { visibleAiTitle } from '../titles/model';
+import { threadTitle } from '../titles/model';
 import { aiTitlesEnabled } from '../titles/settings';
 import { assignedUserIds } from '../review/assignments';
 import { queueAiTitles } from '../titles/threadTitles';
@@ -116,11 +116,13 @@ export type ProjectCommentView = {
     assignedUserId?: string;
     eligibleAssigneeIds: string[];
     /**
-     * The thread's title, written by AI from its first message (`lib/titles`): missing until one is made,
-     * while titles are off for the project, and once the first message is edited (until a new one) or deleted.
-     * Lists show the first line of `displayText` without it.
+     * The thread's title (`threadTitle`): the one a member gave it, else the one AI wrote from its first message
+     * (`lib/titles`), which is missing until one is made, while titles are off for the project, and once the first
+     * message is edited (until a new one) or deleted. Lists show the first line of `displayText` without it.
      */
     title?: string;
+    /** `title` was written by AI (it shows the AI mark), not given by a member */
+    titleByAi?: boolean;
     /** Author of the comment (its first message) */
     author: ProjectCommentAuthor;
     /** Text of the first message; empty when its author deleted it (`deleted`) */
@@ -137,7 +139,8 @@ export type ProjectCommentView = {
     mentionsMe: boolean;
     canFilterAuthor: boolean;
     /** `agent`: the signed-in member is the assignee, so they choose the agent working under them */
-    permissions: { resolve: boolean; edit: boolean; delete: boolean; makePrivate: boolean; assign: boolean; agent: boolean; reply: boolean; triage: boolean };
+    /** `title`: can give the thread its own title (as for priority) */
+    permissions: { resolve: boolean; edit: boolean; delete: boolean; makePrivate: boolean; assign: boolean; agent: boolean; reply: boolean; triage: boolean; title: boolean };
 };
 
 const deviceSizes: readonly DbDeviceSize[] = ['desktop', 'tablet', 'mobile'];
@@ -208,6 +211,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
     const origin = source.origin ?? '';
     const size = comment.device?.size;
     const firstText = mentionText(first, participants);
+    const title = threadTitle(comment, titles);
     return {
         verification: verificationDetails(comment, project, actor, participants),
         verificationPermissions: verificationPermissions(comment, project, actor, participants),
@@ -237,7 +241,8 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         eligibleAssigneeIds: members.filter(({ member, user }) => user && canSeeComment(comment, { kind: 'member', userId: member.userId, name: '', isAdmin: member.role === 'admin' })).map(({ member }) => member.userId),
         assignees: assignees.map(person => ({ ...person, avatarUrl: avatars.get(person.id) })),
         assignee: assignees[0] && { ...assignees[0], avatarUrl: avatars.get(assignees[0].id) },
-        title: visibleAiTitle(comment, titles),
+        title: title?.text,
+        ...(title?.ai ? { titleByAi: true } : {}),
         author: first.deletedAt
             ? { name: 'Deleted', isMe: false, kind: 'deleted' }
             : messageAuthor(first, names, myId, avatars),
@@ -267,6 +272,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
             delete: canDeleteComment(comment, actor),
             makePrivate: canMakeCommentPrivate(actor),
             triage: canTriageProject(project, actor),
+            title: canTriageProject(project, actor) && !first.deletedAt,
             assign: actor.kind === 'member',
             agent: actor.kind === 'member' && assignedUserIds(comment).includes(actor.userId),
             reply: project.access !== 'disabled' && items.length < MAX_THREAD_ITEMS

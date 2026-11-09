@@ -33,7 +33,8 @@ import {
     setProjectCommentAssignees,
     setProjectCommentPrivate,
     setProjectCommentStatus,
-    setProjectCommentPriority
+    setProjectCommentPriority,
+    setProjectCommentTitle
 } from '../../../lib/review/comments';
 import { markThreadRead, markThreadUnread } from '../../../lib/comments/readState';
 import { actorAuthorId } from '../../../lib/review/actor';
@@ -48,7 +49,7 @@ import { assertCanUseComments } from '../../../lib/review/actor';
 import { eligibleParticipants } from '../../../lib/review/participants';
 import { assignCommentActionSchema, commentActionSchema, deleteReplyActionSchema, editCommentActionSchema,
     filterAuthorActionSchema, privateCommentActionSchema, readCommentActionSchema, readCommentsActionSchema,
-    replyCommentActionSchema, statusCommentActionSchema } from './actionSchemas';
+    replyCommentActionSchema, statusCommentActionSchema, titleCommentActionSchema } from './actionSchemas';
 
 /** Session/workspace authority and request metadata come only from the server request. */
 export async function replyCommentAction(input: import('zod').infer<typeof replyCommentActionSchema>) {
@@ -126,6 +127,12 @@ export async function updateCommentAssigneesAction(projectId: string, commentId:
 export async function editCommentAction(projectId: string, commentId: string, text: string) {
     return await commentAction(editCommentActionSchema, { projectId, commentId, text },
         ({ project, actor }, input) => editProjectCommentText(project, actor, input.commentId, input.text));
+}
+
+/** The thread's own title; an empty one removes it, so the AI title shows again */
+export async function setCommentTitleAction(projectId: string, commentId: string, title: string) {
+    return commentAction(titleCommentActionSchema, { projectId, commentId, title },
+        ({ project, actor }, input) => setProjectCommentTitle(project, actor, input.commentId, input.title));
 }
 
 export async function deleteCommentAction(projectId: string, commentId: string) {

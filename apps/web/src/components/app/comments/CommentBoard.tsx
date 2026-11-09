@@ -145,7 +145,8 @@ function openMoveFromKeyboard(event: KeyboardEvent<HTMLElement>) {
  * screen readers: Tab to it, or press M on the card. A pointer that does not drag opens the thread and
  * its status menu.
  */
-function BoardCard({ comment, href, opened, moving, tabbable, onOpen, onMove }: {
+function BoardCard({ projectId, comment, href, opened, moving, tabbable, onOpen, onMove }: {
+    projectId: string;
     comment: ProjectCommentView;
     href: string;
     opened: boolean;
@@ -167,7 +168,7 @@ function BoardCard({ comment, href, opened, moving, tabbable, onOpen, onMove }: 
                 canMove && 'touch-manipulation select-none [-webkit-touch-callout:none] [&_a]:cursor-grab',
                 isDragging && 'opacity-40')}>
             {canMove && <span id={shortcutId} hidden>Press M to move it to another column.</span>}
-            <CommentRow card comment={comment} href={href} selected={opened ? 'opened' : undefined} onOpen={onOpen} tabbable={tabbable}
+            <CommentRow card comment={comment} projectId={projectId} href={href} selected={opened ? 'opened' : undefined} onOpen={onOpen} tabbable={tabbable}
                 describedBy={canMove ? shortcutId : undefined} keyShortcuts={canMove ? 'M' : undefined}
                 actions={canMove && (
                     // While the move saves, Move keeps the focus it was given but offers no other column
@@ -441,7 +442,7 @@ export function CommentBoard({ projectId, columns, sorts, onSort, allComments, a
                         const slot = <li key="placeholder" aria-hidden="true" data-drop-placeholder="" style={{ height: drag?.height }}
                             className="rounded-lg border border-dashed border-foreground/30 bg-background/60" />;
                         const items = cards.map(comment => (
-                            <BoardCard key={comment.id} comment={comment} href={hrefFor(comment.id)} opened={comment.id === openId}
+                            <BoardCard key={comment.id} projectId={projectId} comment={comment} href={hrefFor(comment.id)} opened={comment.id === openId}
                                 moving={pending && movingId === comment.id} tabbable={comment.id === tabStop?.id}
                                 onOpen={event => open(comment.id, event, { replace: false })}
                                 onMove={next => move(comment, next, 'menu')} />
