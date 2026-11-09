@@ -613,7 +613,7 @@ test('MCP multiple assignees and agent ids isolate each person, attachment and w
         await call(a, 'assign_feedback', { assigneeIds: [f.a.id], mode: 'remove' });
         const events = (await watcher.callTool({ name: 'list_feedback_events', arguments: { projectId: f.project.id, cursor: start.cursor, events: ['feedback.assignment_changed'] } })).structuredContent as Record<string, any>;
         const removal = (await stored(f.comment)).notificationEvents!.filter(event => event.kind === 'assignment').at(-1)!;
-        expect(eventMatches('feedback.assignment_changed', { projectId: f.project.id, assignee: 'me' }, removal, f.comment.id, f.a.id)).toBe(true);
+        expect(eventMatches('feedback.assignment_changed', { projectId: f.project.id, assignee: 'me' }, removal, f.comment.id, f.a.id)).toBe(false);
         expect(events.items.at(-1).data).toMatchObject({ assignees: [], previousAssigneeIds: [f.a.id] });
         expect(await call(a, 'assign_feedback', { assigneeId: f.b.id })).toMatchObject({ error: false, data: { assigneeIds: [f.b.id] } });
         expect(assignedAgents(await stored(f.comment))).toEqual([]);

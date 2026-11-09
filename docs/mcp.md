@@ -481,7 +481,7 @@ not yet accepted; expect changes when it is.
 | `feedback.created` | `projectId` | New feedback is posted |
 | `feedback.replied` | `projectId`, optional `commentId` | A reply is added |
 | `feedback.status_changed` | `projectId`, optional `commentId` | Feedback is marked done or reopened, moved to In progress or back to Open, or a fix check is requested, confirmed, rejected or canceled |
-| `feedback.assignment_changed` | `projectId`, optional `commentId`, optional `assignee: "me"` | Feedback is assigned or unassigned |
+| `feedback.assignment_changed` | `projectId`, optional `commentId`, optional `assignee: "me"` | Feedback is assigned or unassigned; `assignee: "me"` fires only when the connection owner is added |
 | `feedback.agent_changed` | `projectId`, optional `commentId`, optional `assignee: "me"` | An AI agent starts, changes or stops working on feedback under its assignee, also when a new assignment removes it ([agents](#agents-working-on-feedback)) |
 | `feedback.mentioned` | `projectId` | Someone mentions the account of the connection |
 

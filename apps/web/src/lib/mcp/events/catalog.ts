@@ -120,7 +120,7 @@ export function eventMatches(name: McpEventName, args: McpEventArguments, event:
         case 'feedback.created': return event.kind === 'comment';
         case 'feedback.replied': return event.kind === 'reply';
         case 'feedback.status_changed': return statusKinds[event.kind] !== undefined;
-        case 'feedback.assignment_changed': return event.kind === 'assignment' && (args.assignee !== 'me' || (event.assigneeIds ? event.assigneeIds.includes(subscriberUserId) !== Boolean(event.previousAssigneeIds?.includes(subscriberUserId)) : event.assigneeId === subscriberUserId));
+        case 'feedback.assignment_changed': return event.kind === 'assignment' && (args.assignee !== 'me' || (event.assigneeIds ? event.assigneeIds.includes(subscriberUserId) && !event.previousAssigneeIds?.includes(subscriberUserId) : event.assigneeId === subscriberUserId));
         case 'feedback.agent_changed': return event.kind === 'agent' && (args.assignee !== 'me' || event.assigneeId === subscriberUserId);
         case 'feedback.mentioned': return (event.kind === 'comment' || event.kind === 'reply' || event.kind === 'mention')
             && Boolean(event.recipients?.includes(`user:${subscriberUserId}`));

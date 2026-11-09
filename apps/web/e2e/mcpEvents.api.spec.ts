@@ -213,6 +213,35 @@ test('webhooks preserve each removed agent and its assignee through delivery and
     } finally { await client.close(); await colleagueClient.close(); await receiver.stop(); }
 });
 
+test('assignment me subscriptions and polling fire on addition only, including a later re-addition', async () => {
+    const f = await fixture();
+    const thread = await f.create('Assignment transitions');
+    const receiver = await new WebhookReceiver().start();
+    const client = await connect(f.token);
+    try {
+        const secret = newWebhookSecret();
+        receiver.secrets.add(secret);
+        const args = { name: 'feedback.assignment_changed', arguments: { projectId: f.project.id, assignee: 'me' } };
+        await subscribe(client, { ...args, delivery: { mode: 'webhook', url: receiver.url, secret } });
+        let { cursor } = await poll(client, { ...args, cursor: null });
+        for (const [ids, expected] of [[[f.user.id], 1], [[], 0], [[f.user.id], 1]] as [string[], number][]) {
+            await setProjectCommentAssignees(f.project, f.actor, thread.id, ids);
+            expect(await dispatch(f.project.id)).toMatchObject({ discovered: expected, delivered: expected });
+            const page = await poll(client, { ...args, cursor });
+            expect(page.events).toHaveLength(expected);
+            cursor = page.cursor;
+        }
+        expect(receiver.deliveries()).toHaveLength(2);
+        // An unfiltered subscription still observes the removal.
+        const all = await poll(client, { name: 'feedback.assignment_changed', arguments: { projectId: f.project.id }, cursor: null });
+        await setProjectCommentAssignees(f.project, f.actor, thread.id, []);
+        const removed = await poll(client, { name: 'feedback.assignment_changed', arguments: { projectId: f.project.id }, cursor: all.cursor });
+        expect(removed.events).toHaveLength(1);
+        expect(removed.events[0]!.data.assignees).toEqual([]);
+        expect(await dispatch(f.project.id)).toMatchObject({ discovered: 0, delivered: 0 });
+    } finally { await client.close(); await receiver.stop(); }
+});
+
 test('mentions and private threads follow the subscriber\'s current visibility', async () => {
     const f = await fixture();
     const colleague = await findOrCreateUser(`mcp-events-colleague-${randomUUID()}@example.com`);
