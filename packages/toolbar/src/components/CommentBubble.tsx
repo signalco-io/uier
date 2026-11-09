@@ -18,7 +18,7 @@ import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import { holdsLayersAttribute, isToolbarAnchor, pressableToolbarOpener, toolbarPinId, toolbarSurface } from '../toolbarReview';
 import { RewriteSuggestions } from './RewriteSuggestions';
-import { ComposerAttachmentsHeader } from './ComposerAttachments';
+import { ComposerAttachmentsHeader, useAttachedImage, type AttachedImage } from './ComposerAttachments';
 import { CommentDraft, CommentItem, CommentItemPosition, commentTextMaxLength, floatingShadowClassName, isCommentArea } from './@types/Comments';
 
 // Bubble (the pin) half size, how far its message count badge reaches past the right edge (Pin,
@@ -75,8 +75,8 @@ type CommentBubbleProps = {
     onCreated?: (localId: string) => void;
     /** The API saved it */
     onSaved?: (localId: string, commentId: string) => void;
-    /** Sending failed: the draft (its text is back, and the choice to omit its screenshot) should be on the page again */
-    onSendFailed?: (error: unknown, omitScreenshot: boolean) => void;
+    /** Sending failed: the draft (its text is back, the choice to omit its screenshot and its attached image) should be on the page again */
+    onSendFailed?: (error: unknown, choice: { omitScreenshot: boolean; image?: AttachedImage }) => void;
     onCanceled?: () => void;
     className?: string;
 } & (
@@ -117,6 +117,8 @@ export function CommentBubble(props: CommentBubbleProps) {
         });
     }, [creating, position, rootElement, props.draft]);
     const [omitScreenshot, setOmitScreenshot] = useState(props.draft?.omitScreenshot ?? false);
+    // The reviewer's own image, sent instead of the automatic screenshot
+    const attachment = useAttachedImage(props.draft?.image);
     // Omitted while it is taken: its work stops. Attached after all: a new one is taken.
     const handleOmittedChange = (omitted: boolean) => {
         setOmitScreenshot(omitted);
@@ -152,7 +154,7 @@ export function CommentBubble(props: CommentBubbleProps) {
             quotedText: quotedText || undefined,
             // The original viewport, alongside the automatic capture, even after resizing.
             device: capture?.device ?? getDeviceInfo(),
-            screenshot: omitScreenshot ? undefined : capture?.screenshot
+            screenshot: attachment.screenshotFor(omitScreenshot, capture?.screenshot)
         });
         // The draft pin makes way for the comment's, shown at once
         onCreated?.(localId);
@@ -161,7 +163,7 @@ export function CommentBubble(props: CommentBubbleProps) {
             saved = await posting;
         } catch (error) {
             // After the composer has put the text back
-            window.setTimeout(() => onSendFailed?.(error, omitScreenshot), 0);
+            window.setTimeout(() => onSendFailed?.(error, { omitScreenshot, image: attachment.image }), 0);
             throw error;
         }
         announce(rewriting ? 'Suggestion posted' : 'Comment posted');
@@ -343,13 +345,15 @@ export function CommentBubble(props: CommentBubbleProps) {
                     </>
                 )}
                 {/* Replies wait until the comment is saved (they need its id) */}
-                {!commentItem?.pending && <div className="shrink-0">
+                {/* A pasted image file is attached to a new comment, instead of its screenshot */}
+                {!commentItem?.pending && <div className="shrink-0" onPaste={creating ? attachment.handlePaste : undefined}>
                     {creating && (
                         <ComposerAttachmentsHeader
                             title={<span className="text-sm font-semibold text-foreground">{newLabel}</span>}
                             screenshot={capture?.screenshot}
                             omitted={omitScreenshot}
-                            onOmittedChange={handleOmittedChange} />
+                            onOmittedChange={handleOmittedChange}
+                            attachment={attachment} />
                     )}
                     <CommentComposer
                         commentId={commentItem?.id}

@@ -15,7 +15,7 @@ import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { useInkContainer } from './InkScope';
 import { CommentComposer } from './CommentComposer';
 import { CommentKindIcon, commentKindLabels } from './CommentKindLabel';
-import { ComposerAttachmentsHeader } from './ComposerAttachments';
+import { ComposerAttachmentsHeader, useAttachedImage } from './ComposerAttachments';
 import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import { cancelCommentScreenshot, captureCommentScreenshot } from '../screenshot';
@@ -50,6 +50,8 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
     const [screenshot, setScreenshot] = useState<Promise<string | undefined>>();
     // Per feedback: back to the automatic screenshot once it is sent
     const [omitScreenshot, setOmitScreenshot] = useState(false);
+    // The reviewer's own image, sent instead of the screenshot; also per feedback
+    const attachment = useAttachedImage();
     const device = useRef<ReturnType<typeof getDeviceInfo>>(undefined);
     const [kind, setKind] = useState<FeedbackKind>(() => (drafts.details(`${feedbackDraftKey}:bug`)?.updatedAt ?? 0) > (drafts.details(`${feedbackDraftKey}:feedback`)?.updatedAt ?? 0) ? 'bug' : 'feedback');
     const selected = kinds.find(k => k.value === kind) ?? kinds[0]!;
@@ -95,11 +97,12 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
             text,
             mentions,
             device: device.current,
-            screenshot: omitScreenshot ? undefined : screenshot
+            screenshot: attachment.screenshotFor(omitScreenshot, screenshot)
         });
         handleOpenChange(false);
         await sending;
         setOmitScreenshot(false);
+        attachment.remove();
         announce(selected.sent);
     };
 
@@ -122,41 +125,45 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
                     <Megaphone />
                 </IconButton>
             )}>
-            <ComposerAttachmentsHeader
-                page
-                title={<Typography component="h2" level="body2" semiBold className="text-foreground">Send feedback</Typography>}
-                screenshot={screenshot}
-                omitted={omitScreenshot}
-                onOmittedChange={handleOmittedChange} />
-            <div className="bg-card px-3 pt-2">
-                {/* Like the inbox's status switch: two pressed/unpressed buttons */}
-                <Row role="group" aria-label="Type" className="rounded-md bg-muted p-0.5">
-                    {kinds.map((k) => (
-                        <Button
-                            key={k.value}
-                            size="sm"
-                            variant="plain"
-                            aria-pressed={kind === k.value}
-                            className={cx(
-                                'flex-1 gap-1.5 rounded-sm',
-                                kind === k.value ? 'bg-accent text-foreground' : 'text-muted-foreground'
-                            )}
-                            startDecorator={<CommentKindIcon kind={k.value} />}
-                            onClick={() => setKind(k.value)}>
-                            {commentKindLabels[k.value]}
-                        </Button>
-                    ))}
-                </Row>
+            {/* A pasted image file is attached instead of the screenshot */}
+            <div className="contents" onPaste={attachment.handlePaste}>
+                <ComposerAttachmentsHeader
+                    page
+                    title={<Typography component="h2" level="body2" semiBold className="text-foreground">Send feedback</Typography>}
+                    screenshot={screenshot}
+                    omitted={omitScreenshot}
+                    onOmittedChange={handleOmittedChange}
+                    attachment={attachment} />
+                <div className="bg-card px-3 pt-2">
+                    {/* Like the inbox's status switch: two pressed/unpressed buttons */}
+                    <Row role="group" aria-label="Type" className="rounded-md bg-muted p-0.5">
+                        {kinds.map((k) => (
+                            <Button
+                                key={k.value}
+                                size="sm"
+                                variant="plain"
+                                aria-pressed={kind === k.value}
+                                className={cx(
+                                    'flex-1 gap-1.5 rounded-sm',
+                                    kind === k.value ? 'bg-accent text-foreground' : 'text-muted-foreground'
+                                )}
+                                startDecorator={<CommentKindIcon kind={k.value} />}
+                                onClick={() => setKind(k.value)}>
+                                {commentKindLabels[k.value]}
+                            </Button>
+                        ))}
+                    </Row>
+                </div>
+                <CommentComposer
+                    key={kind}
+                    label={commentKindLabels[kind]}
+                    placeholder={selected.placeholder}
+                    submitLabel={selected.submitLabel}
+                    draftKey={`${feedbackDraftKey}:${kind}`}
+                    autoFocus
+                    error={create.error}
+                    onSubmit={handleSubmit} />
             </div>
-            <CommentComposer
-                key={kind}
-                label={commentKindLabels[kind]}
-                placeholder={selected.placeholder}
-                submitLabel={selected.submitLabel}
-                draftKey={`${feedbackDraftKey}:${kind}`}
-                autoFocus
-                error={create.error}
-                onSubmit={handleSubmit} />
         </Popper></>
     );
 }

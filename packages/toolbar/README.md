@@ -375,7 +375,9 @@ error boundary, so one bad comment never breaks the toolbar.
 - Screenshots are captured automatically when a new element/text comment, rewrite, feedback or bug report starts.
   There is no camera button or preview while writing. The form's header has a screen icon, **Omit screenshot**: its
   tooltip says that a screenshot will be attached (or that it is being taken, or could not be taken), and pressing it
-  (a crossed-out screen) posts only the text: no image is sent for that comment. Posting waits for that capture attempt (up to 15 seconds);
+  (a crossed-out screen) posts only the text: no image is sent for that comment. **Attach image** beside it, or
+  pasting an image into the form, sends the reviewer's own PNG, JPEG or WebP (up to 512 KB and 4096 pixels on each
+  side) instead of the screenshot; the header names the file and removes it again. Posting waits for that capture attempt (up to 15 seconds);
   a failed capture still saves the text. Reopening or restoring a draft refreshes its capture and viewport from the current page, and
   discarding it saves no image. Replies and edits keep the original screenshot. Saved threads and the inbox
   show a small thumbnail; click, tap or press Enter to expand it, and close to return focus to the thumbnail.

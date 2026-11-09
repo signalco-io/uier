@@ -313,3 +313,63 @@ test('screenshots: feedback can be sent without the screenshot of the visible pa
     await expect(dialog.getByRole('button', { name: 'Omit screenshot' })).toHaveAttribute('aria-pressed', 'false');
     await context.close();
 });
+
+/** Pastes an image file into an element of the toolbar, like a keyboard paste of a copied image */
+async function pasteImage(target: Locator, dataUrl: string) {
+    await target.evaluate((element, data) => {
+        const bytes = Uint8Array.from(atob(data.split(',')[1]!), c => c.charCodeAt(0));
+        const transfer = new DataTransfer();
+        transfer.items.add(new File([bytes], 'image.png', { type: 'image/png' }));
+        element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: transfer, bubbles: true, composed: true, cancelable: true }));
+    }, dataUrl);
+}
+
+test('screenshots: the reviewer attaches their own image instead, from the header with the file picker or by pasting', async ({ browser }, testInfo) => {
+    const { context, page } = await newVisitor(browser, testInfo);
+    await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
+    const draft = await startComment(page, 'This is what I see instead.', page.getByRole('heading', { level: 1 }));
+    // Both controls are compact icons in the header, the status is read out
+    const omit = draft.getByRole('button', { name: 'Omit screenshot' });
+    await expect(omit).toHaveAccessibleDescription('A screenshot of this part of the page will be attached.');
+    const attach = draft.getByRole('button', { name: 'Attach image' });
+    await expect(attach).toHaveAccessibleDescription(/PNG, JPEG or WebP, up to 512 KB/);
+    const input = draft.locator('input[type="file"]');
+    await input.setInputFiles({ name: 'drawing.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg/>') });
+    await expect(draft.getByRole('alert')).toContainText('Choose a PNG, JPEG or WebP');
+    await input.setInputFiles({ name: 'evidence.png', mimeType: 'image/png', buffer: Buffer.from(pngImage.split(',')[1]!, 'base64') });
+    await expect(draft.getByRole('status').filter({ hasText: 'Your image evidence.png will be attached instead of a screenshot.' })).toBeAttached();
+    await expect(draft.getByRole('alert')).toHaveCount(0);
+    await expect(omit).toHaveCount(0);
+    // Named, never previewed
+    await expect(draft.getByRole('img')).toHaveCount(0);
+    await expectNoAxeViolations(page);
+    const body = nextCreatedComment(page);
+    await draft.getByRole('button', { name: 'Post comment' }).click();
+    expect((await body).screenshot).toBe(pngImage);
+    await expect(page.getByRole('status').filter({ hasText: 'Comment posted' })).toBeAttached();
+    expect((await savedComment(page, 'This is what I see instead.')).screenshot).toMatchObject({ width: 3, height: 2 });
+
+    // Feedback: a pasted image, removed again, then pasted and sent
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'Send feedback' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Send feedback' });
+    const textbox = dialog.getByRole('textbox');
+    await textbox.fill('A pasted picture.');
+    await pasteImage(textbox, pngImage);
+    const remove = dialog.getByRole('button', { name: 'Remove attached image image.png' });
+    await expect(remove).toBeVisible();
+    await expect(textbox).toHaveValue('A pasted picture.');
+    await remove.click();
+    await expect(dialog.getByRole('button', { name: 'Omit screenshot' })).toHaveAttribute('aria-pressed', 'false');
+    await pasteImage(textbox, pngImage);
+    await expect(remove).toBeVisible();
+    const feedback = nextCreatedComment(page);
+    await dialog.getByRole('button', { name: 'Send feedback' }).click();
+    expect((await feedback).screenshot).toBe(pngImage);
+    await expect(page.getByRole('status').filter({ hasText: 'Feedback sent' })).toBeAttached();
+    // Sent: the next feedback has its automatic screenshot again
+    await page.getByRole('button', { name: 'Send feedback' }).click();
+    await expect(dialog.getByRole('button', { name: 'Omit screenshot' })).toHaveAttribute('aria-pressed', 'false');
+    await expect(dialog.getByRole('button', { name: 'Attach image' })).toBeVisible();
+    await context.close();
+});

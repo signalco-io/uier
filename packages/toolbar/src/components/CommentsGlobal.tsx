@@ -606,11 +606,11 @@ export function CommentsGlobal({
         setOpenComment({ id: commentId });
     };
     // It was not posted: the draft, with its text back, is on the page again
-    const restoreCreatingComment = (kind: CommentDraft['kind'], sendError: unknown, omitScreenshot: boolean) => {
+    const restoreCreatingComment = (kind: CommentDraft['kind'], sendError: unknown, choice: Pick<CommentDraft, 'omitScreenshot' | 'image'>) => {
         const saved = drafts.details(kind === 'rewrite' ? newRewriteDraftKey : newCommentDraftKey);
         if (!saved?.text.trim() || !saved.anchor) return;
         draftKeyRef.current += 1;
-        setCreatingComment({ ...saved.anchor, key: draftKeyRef.current, sendError, omitScreenshot });
+        setCreatingComment({ ...saved.anchor, key: draftKeyRef.current, sendError, ...choice });
     };
     const handleAutoOpened = useCallback(() => setOpenComment(undefined), []);
     const handleShortcutsRequestHandled = useCallback(() => setShortcutsRequested(false), []);
@@ -739,7 +739,7 @@ export function CommentsGlobal({
                         draftPinOffset={pinnedComments.some(comment => resolveAnchorElement(comment.position) === resolveAnchorElement(creatingComment.position)) ? 36 : 0}
                         onCreated={localId => handleCreated(localId, creatingComment.key)}
                         onSaved={handleSaved}
-                        onSendFailed={(error, omitScreenshot) => restoreCreatingComment(creatingComment.kind, error, omitScreenshot)}
+                        onSendFailed={(error, choice) => restoreCreatingComment(creatingComment.kind, error, choice)}
                         onCanceled={() => removeCreatingComment(creatingComment.key)} />
                 </CommentErrorBoundary>
             ))}

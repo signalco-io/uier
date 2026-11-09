@@ -464,14 +464,18 @@ by signing in. Account sign-out remains in the app's account menu.
 
 Every new element/text comment, rewrite, feedback and bug report starts a screenshot automatically
 ([#81](https://github.com/signalco-io/uier/issues/81)). There is no capture button or image preview in the composer.
-In the form's header, `ComposerAttachmentsHeader` has a compact screen icon. Its tooltip
-and read-out status (its description) say what will happen: "Taking a screenshot...", then "A screenshot of this
+In the form's header, `ComposerAttachmentsHeader` has two compact icon buttons with tooltips. The screen icon's
+tooltip and read-out status (its description) say what will happen: "Taking a screenshot...", then "A screenshot of this
 part of the page will be attached." ("of the visible page" for feedback and bug reports), or "The screenshot could not
 be taken. Only the text will be sent." Its **Omit screenshot** toggle ([#323](https://github.com/signalco-io/uier/issues/323),
 a button with `aria-pressed`) sends that one comment without the `screenshot` field, so the API stores no image;
 the icon shows a crossed-out screen and the status reads "No screenshot will be attached." The choice is per comment: it
 stays with an open or returned (failed send) draft in memory, and the next comment, a reload or sent feedback start with
-the automatic screenshot again. Upload, paste and redaction on saved feedback are unchanged. Submitting waits for the capture attempt, with a 15-second limit; failures keep the text and show an unavailable
+the automatic screenshot again. **Attach image** beside it,
+or an image file pasted into the form without text, sends the reviewer's own image as `screenshot` instead of the
+capture. It is checked in the browser with the saved-evidence formats and limits (`suppliedScreenshot`) and on the
+server like every screenshot (`parseScreenshot`, `sanitizeScreenshot`). The header names the file, with a button that
+removes it; the image is never previewed, stays in memory with a returned draft and is never stored in browser storage. Upload, paste and redaction on saved feedback are unchanged. Submitting waits for the capture attempt, with a 15-second limit; failures keep the text and show an unavailable
 image state on saved feedback. Image-capacity or image-storage failures also preserve the text. Images are saved only with successfully posted feedback. Replies keep the original
 capture. Saved inbox entries and comment details show thumbnails that expand on click, tap or keyboard activation.
 
@@ -545,7 +549,7 @@ the earlier text back into the editor while retaining the newer text separately.
 Images and device details are never persisted with drafts. Automatic capture is refreshed on
 reopen/reload, using the restored anchor and the current page/viewport. Capture uses the resolved anchor
 when available; failed capture never blocks text. Composers show no image preview, only the
-capture status and the per-comment Omit screenshot choice, which is not stored in browser storage.
+capture status, the per-comment Omit screenshot choice and the name of an attached image, none stored in browser storage.
 Saved screenshots keep their expandable thumbnail behavior.
 
 Create/reply requests from the toolbar and app reply actions carry a random `idempotencyKey`, kept with the draft.
