@@ -112,7 +112,19 @@ test('search covers replies, quotes, paths and numbers with local URL history an
     await page.unroute(`**/app/projects/${project}?*`);
     await page.reload();
     await expect(search).toHaveValue(`/${project}/pricing`);
-    await expect(page.getByRole('button', { name: 'Priority: Urgent, clear filter', exact: true })).toBeVisible();
+    const chip = page.getByRole('button', { name: 'Priority: Urgent, clear filter', exact: true });
+    await expect(chip).toBeVisible();
+    // The Filter button sits at the right end of the search row with the filters in effect left of it (on a phone, under the row)
+    const searchBox = (await search.boundingBox())!;
+    const chipBox = (await chip.boundingBox())!;
+    const filterBox = (await page.getByRole('button', { name: /^Filter \d/ }).boundingBox())!;
+    const viewBox = (await page.getByRole('group', { name: 'View', exact: true }).boundingBox())!;
+    expect(filterBox.x).toBeGreaterThan(searchBox.x + searchBox.width);
+    expect(filterBox.x + filterBox.width).toBeLessThanOrEqual(viewBox.x);
+    if (page.viewportSize()!.width >= 640) {
+        expect(chipBox.x + chipBox.width).toBeLessThanOrEqual(filterBox.x);
+        expect(Math.abs((chipBox.y + chipBox.height / 2) - (filterBox.y + filterBox.height / 2))).toBeLessThan(4);
+    } else expect(chipBox.y).toBeGreaterThan(filterBox.y + filterBox.height / 2);
     await page.getByRole('button', { name: 'Clear filters', exact: true }).click();
     await expect(search).toHaveValue('');
     await expect(search).toBeFocused();

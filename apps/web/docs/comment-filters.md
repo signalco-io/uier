@@ -6,7 +6,8 @@
   (`PriorityLabel`, `role="img"` named "High priority", no tooltip, like the row's Private lock). It is coloured
   through `stroke`, because highlighted menu and select items set the text colour of everything in them.
   `e2e/priority-flag.spec.ts` covers it.
-- The comments' filter bar (`CommentFilters.tsx`): search, one Filter button (a popover with Priority, Environment
+- The comments' filter bar (`CommentFilters.tsx`): search on the left, then at the right end of that row the filters in
+  effect, one Filter button (a popover with Priority, Environment
   and page, People (Everyone, Assigned to me, Unassigned, Opened by me) and Only unread (plus the open thread); its badge counts the
   filters in effect) and List/Board, then the status tabs
   (list only, `StatusTabs`: Active, Done and All, with counts. Active, the default with no `?status=`, is every status
@@ -16,8 +17,8 @@
   progress 4") and stays pressed; pressing it again goes back to every active status. `?status=open`, `in-progress` and
   `ready` links still open on that status. The tabs have no `StateDot`, so Done never reads as a
   notification; the three statuses in the menu show theirs in its colour ([status colours](comments-inbox.md)). The menu button is a plain button inside the toggle group: Tab reaches it,
-  the arrow keys move between the tabs only. Each filter in effect shows on the status tabs' line (wrapping under them only when there is no
-  room; on the board, which has no tabs, on its own line), named by its filter in muted text ("Priority: Urgent",
+  the arrow keys move between the tabs only. Each filter in effect shows in the search row, left of the Filter button (uier #209; in the list and the board,
+  wrapping only when there is no room; on a phone they go to their own line under the row), named by its filter in muted text ("Priority: Urgent",
   "Environment: Production", "Page: /app/…", "People: Unassigned", "Author: Ana", and "Only unread"), with its own
   clear button, named by its visible text first so the name contains the label (WCAG 2.5.3): "Page: /app/…, clear filter",
   "Author: Ana, clear filter", "Only unread, clear filter". The count line under them (`TriageSelection`) has the unread
