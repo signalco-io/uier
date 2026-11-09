@@ -9,6 +9,8 @@ export type PageIssue = {
     summary: string;
     /** The comment's text: what was found and where, within the API's text limit */
     comment: string;
+    /** The page it was found on; none for a measurement of the page as it is now (Core Web Vitals) */
+    path?: string;
     /** The check it comes from, saved with the comment */
     check: import('../feedbackTypes').CommentCheck;
     /** The element it is about (pinned there); without one the comment is about the page */

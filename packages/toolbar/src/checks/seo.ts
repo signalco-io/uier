@@ -19,7 +19,7 @@ export type SeoReport = {
 let checkedPath = '';
 
 function issue(check: string, element: Element | undefined, summary: string, comment: string): PageIssue {
-    return { key: `seo:${check}:${element ? elementKey(element) : 'page'}@${checkedPath}`, summary, comment, check: { type: 'seo', id: check }, element, label: element && elementLabel(element) };
+    return { key: `seo:${check}:${element ? elementKey(element) : 'page'}@${checkedPath}`, summary, comment, path: checkedPath, check: { type: 'seo', id: check }, element, label: element && elementLabel(element) };
 }
 
 /**

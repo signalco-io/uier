@@ -4,7 +4,7 @@ import { expect, test, type Page, type Request } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, chooseInboxPages, commentBubble, inboxPages, openThread, toolbar } from './support/toolbar';
+import { animationsFinished, chooseInboxPages, commentBubble, inboxPages, openThread, setThreadStatus, toolbar } from './support/toolbar';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 
 // The toolbar's Accessibility and SEO panels (packages/toolbar/docs/page-checks.md) on a project's
@@ -225,6 +225,52 @@ test('the SEO panel reports the head, headings, links, images and Core Web Vital
     await expect(check('link-address')).toContainText('2 links look broken. It runs a script instead of opening a page.');
     await expect(check('link-address').getByRole('listitem')).toHaveCount(2);
     await expect(check('link-address').getByRole('listitem').filter({ hasText: 'It runs a script' })).toHaveCount(0);
+});
+
+test('a finding that is already reported stays marked after a reload, until its thread is done', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.use.isMobile === true, 'Desktop layout');
+    test.setTimeout(60_000);
+    const project = await memberReview(page, 'reported-findings');
+    const button = toolbar(page).getByRole('button', { name: 'SEO', exact: true });
+    await button.click();
+    const panel = page.getByRole('complementary', { name: 'SEO' });
+    const check = (id: string) => panel.locator(`[data-uier-check="${id}"]`);
+
+    // An element's issue and one about the page, each posted with its check
+    let created = nextCreate(page, project);
+    await check('description').getByRole('button', { name: 'Comment' }).click();
+    expect((await created).postDataJSON().check).toEqual({ type: 'seo', id: 'description' });
+    await expect(check('description')).toContainText(/Bug report sent as #1/);
+    created = nextCreate(page, project);
+    await check('levels').getByRole('button', { name: 'Comment' }).click();
+    await created;
+    await expect(check('levels')).toContainText(/Comment posted as #2/);
+
+    // After a reload the panel knows them from the page's threads: no second comment for the same finding
+    await page.reload();
+    await expect(check('levels')).toContainText('Reported as #2');
+    await expect(check('levels').getByRole('button', { name: 'Comment' })).toHaveCount(0);
+    await expect(check('description')).toContainText('Reported as #1');
+    await expect(check('description').getByRole('button', { name: 'Comment' })).toHaveCount(0);
+    // A finding nobody reported still offers its comment
+    await expect(check('canonical').getByRole('button', { name: 'Comment' })).toBeVisible();
+    await expect(check('link-text').getByRole('button', { name: 'Comment' })).toBeVisible();
+    await animationsFinished(panel);
+    await expectNoAxeViolations(page, { include: ['#uier-toolbar'] });
+
+    // Show opens the thread that reported it
+    await check('levels').getByRole('button', { name: 'Show' }).click();
+    await expect(panel).toBeHidden();
+    const thread = openThread(page);
+    await expect(thread).toContainText('This h3 comes after an h1');
+
+    // Once the thread is done, the finding (still on the page) can be reported again
+    await setThreadStatus(page, thread, 'Done');
+    await page.keyboard.press('Escape');
+    await button.click();
+    await expect(check('levels').getByRole('button', { name: 'Comment' })).toBeVisible();
+    await expect(check('levels')).not.toContainText('Reported');
+    await expect(check('description')).toContainText('Reported as #1');
 });
 
 test('an open panel stays open on the next page and shows that page', async ({ page }, testInfo) => {

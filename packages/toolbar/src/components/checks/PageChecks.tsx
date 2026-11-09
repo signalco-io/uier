@@ -5,9 +5,12 @@ import { startWebVitals } from '../../checks/webVitals';
 import { pageSettled } from '../../checks/pageSettled';
 import { RestoredPanelContext } from '../../openPanel';
 import { isRendered, pageAnchorElement } from '../../checks/pageElements';
+import { reportedComment } from '../../checks/reportedIssue';
 import type { PageIssue } from '../../checks/types';
 import { usePagePath } from '../../hooks/usePagePath';
+import { useComments } from '../../hooks/useComments';
 import { useAnnounce } from '../Announcer';
+import type { CommentItem } from '../@types/Comments';
 import { AccessibilityPanel, type AccessibilityState } from './AccessibilityPanel';
 import { SeoPanel } from './SeoPanel';
 import { ChecksContext, type PostedComment } from './ChecksParts';
@@ -55,6 +58,17 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment }: Paramete
     const [settling, setSettling] = useState(() => !!panel && restored === panel);
     const stopSettling = useRef<() => void>(undefined);
     const postIssue = useIssueComment();
+    const pageComments = useComments().query.data;
+    // What this panel posted keeps its own words ("Bug report sent"); a finding reported before, by
+    // anyone, is found among the page's open threads, so it is still marked after a reload
+    // Each comment's element, looked up once per render for all the issues
+    const commentAnchors = new Map<CommentItem, Element | null>();
+    const reportOf = (issue: PageIssue): PostedComment | undefined => {
+        const own = posted.get(issue.key);
+        if (own) return own;
+        const reported = reportedComment(issue, pageComments, path, commentAnchors);
+        return reported && { status: 'posted', commentId: reported.id, page: reported.position.type === 'page', number: reported.number, label: 'Reported' };
+    };
     const nameGate = useGuestNameGate();
 
     // Only the latest audit's result is shown (a page reached since, or Check again, asked for a newer one)
@@ -107,7 +121,7 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment }: Paramete
     };
 
     const actions = {
-        posted,
+        reportOf,
         highlighted: highlighted?.key,
         highlight: (issue: PageIssue) => {
             if (highlighted?.key === issue.key) {
@@ -124,7 +138,7 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment }: Paramete
             setHighlighted({ key: issue.key, element: target });
         },
         comment: (issue: PageIssue) => {
-            if (posted.get(issue.key) || !nameGate()) return;
+            if (reportOf(issue) || !nameGate()) return;
             const mark = (state?: PostedComment) => setPosted(current => {
                 const next = new Map(current);
                 if (state) next.set(issue.key, state); else next.delete(issue.key);

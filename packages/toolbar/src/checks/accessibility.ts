@@ -101,6 +101,7 @@ function ruleOf(result: Result, path: string): AccessibilityRule {
             summary: oneLine(node.failureSummary?.split('\n').map(line => line.trim()).find(line => line && !fixHeading.test(line)), 200) || help,
             comment: commentText(`Accessibility (${impact}): ${help}.${foundLine('Element', selector || (found && elementLabel(found)))}`, failureLines(node.failureSummary), foot),
             // axe-core's rule ids are lowercase words with hyphens; a custom rule named otherwise has no id to keep
+            path,
             check: { type: 'accessibility', id: commentCheckIdPattern.test(result.id) ? result.id : 'custom' },
             element,
             label: found ? elementLabel(found) : selector || undefined

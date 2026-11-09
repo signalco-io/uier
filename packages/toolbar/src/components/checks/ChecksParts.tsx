@@ -8,13 +8,14 @@ import type { CheckState, PageCheck, PageIssue } from '../../checks/types';
 import { CommentIcon } from '../CommentIcon';
 import { IconTooltip } from '../IconTooltip';
 
-/** A quick action's comment: on its way, or posted (with what "Show" opens) */
+/** An issue's comment: on its way, or posted, now or before by anyone (with its words and what "Show" opens) */
 export type PostedComment =
     | { status: 'sending' }
     | { status: 'posted'; commentId: string; page: boolean; number?: number; label: string };
 
 type ChecksActions = {
-    posted: ReadonlyMap<string, PostedComment>;
+    /** The comment the issue already has: the one its quick action posted, else an open thread of the same check on its element */
+    reportOf: (issue: PageIssue) => PostedComment | undefined;
     /** The issue whose element is outlined on the page */
     highlighted?: string;
     comment: (issue: PageIssue) => void;
@@ -23,7 +24,7 @@ type ChecksActions = {
 };
 
 export const ChecksContext = createContext<ChecksActions>({
-    posted: new Map(), comment: () => { }, highlight: () => { }, show: () => { }
+    reportOf: () => undefined, comment: () => { }, highlight: () => { }, show: () => { }
 });
 
 /** Issues listed before "Show all" */
@@ -33,8 +34,8 @@ const actionClassName = 'text-muted-foreground hover:text-foreground pointer-coa
 
 /** Highlight (an issue with an element) and the comment quick action, or the comment it became */
 export function IssueActions({ issue, describedBy, className }: { issue: PageIssue; describedBy?: string; className?: string }) {
-    const { posted, highlighted, comment, highlight, show } = useContext(ChecksContext);
-    const state = posted.get(issue.key);
+    const { reportOf, highlighted, comment, highlight, show } = useContext(ChecksContext);
+    const state = reportOf(issue);
     return (
         <Row spacing={0.5} className={cx('flex-wrap', className)}>
             {/* An icon with its name in a tooltip, so an element's row keeps its actions on one line */}
