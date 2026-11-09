@@ -847,8 +847,8 @@ test('"all" reaches every workspace the person can access now and later, ordered
         const listed = await callTool(client, 'list_projects', { limit: 25 });
         expect(listed.access).toBe('all');
         expect(listed.actingAs).toMatchObject({ userId: a.user.id, credential: 'Claude Code', connection: { kind: 'oauth' } });
-        const ownWorkspace = { id: a.workspaceId, name: a.user.email };
-        const bWorkspace = { id: b.workspaceId, name: b.user.email };
+        const ownWorkspace = { id: a.workspaceId, name: 'Personal' };
+        const bWorkspace = { id: b.workspaceId, name: 'Personal' };
         expect(listed.items.map((item: { id: string }) => item.id)).toEqual([USER_FEEDBACK_PROJECT_ID, alpha.id, zeta.id, beta.id]);
         expect(listed.items[0].workspace.id).toBe(PUBLIC_WORKSPACE_ID);
         expect(listed.items.slice(1)).toEqual([

@@ -3,7 +3,7 @@
 - **First run.** A new user (`findOrCreateUserWithStatus`) has `welcomePending`. Email sign-in without `next`
   goes straight to `/app/welcome` (`(auth)/welcome`), and `/app` sends there too while it is set. The step
   suggests a name (`nameFromEmail`) and, for the workspace made for the account (`welcomeWorkspace`; none after an
-  invitation), a name from the email's domain unless it is webmail (`src/lib/app/welcome.ts`). Continue validates
+  invitation), its stored name (Personal for a newly created workspace) (`src/lib/app/welcome.ts`). Continue validates
   both before saving (`renameWorkspace`, then `finishWelcome` with the name); Skip only clears the flag. Never
   show it to existing accounts (they have no flag) and never rename a workspace the user did not get at sign-up.
   `e2e/support/app.ts` `signIn()` skips it unless `{ welcome: 'stay' }`; `welcome.api.spec.ts` covers the rules.

@@ -1,4 +1,4 @@
-import { MAX_NAME_LENGTH, MAX_WORKSPACE_NAME_LENGTH } from './limits';
+import { MAX_NAME_LENGTH } from './limits';
 
 // The first-run step (`/app/welcome`): a new account confirms its name and its workspace's name once.
 // Pure suggestions only, so the page and the tests share them.
@@ -45,26 +45,4 @@ export function nameFromEmail(email: string) {
     const local = email.split('@')[0]?.split('+')[0] ?? '';
     const name = local.split(/[._-]+/).filter(Boolean).map(capitalize).join(' ');
     return (name || local || email).slice(0, MAX_NAME_LENGTH);
-}
-
-/** `maya@acme-studio.co.uk` -> `Acme Studio`; nothing for webmail (`maya@gmail.com`) */
-export function workspaceNameFromEmail(email: string) {
-    const domain = email.split('@')[1]?.toLowerCase().replace(/\.$/, '');
-    if (!domain || isPersonalEmailDomain(domain))
-        return undefined;
-    const labels = domain.split('.').filter(Boolean);
-    // An IP address or a single label says nothing either
-    if (labels.length < 2 || labels.every(label => /^\d+$/.test(label)))
-        return undefined;
-    labels.pop();
-    if (labels.length > 1 && countrySecondLevels.has(labels.at(-1)!))
-        labels.pop();
-    const name = labels.at(-1)?.split('-').filter(Boolean).map(capitalize).join(' ');
-    return name ? name.slice(0, MAX_WORKSPACE_NAME_LENGTH) : undefined;
-}
-
-/** A workspace of one person: `Maya’s workspace` */
-export function personalWorkspaceName(name: string) {
-    const first = name.trim().split(/\s+/)[0];
-    return (first ? `${first}’s workspace` : 'My workspace').slice(0, MAX_WORKSPACE_NAME_LENGTH);
 }

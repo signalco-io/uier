@@ -74,3 +74,6 @@
   The e2e helpers in `e2e/support/app.ts` sign in with the code. `e2e/sign-in.api.spec.ts` covers expiry,
   concurrency, binding validation, code-email safety and lifetime budgets; `app.spec.ts` and
   `project-review.spec.ts` cover browser isolation, accessibility and the toolbar's return path.
+
+All sign-in methods share automatic own-workspace creation through `ensureOwnWorkspace` when
+app context needs one. New workspaces start as **Personal**; signing in never renames an existing one.

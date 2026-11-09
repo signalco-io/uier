@@ -34,8 +34,8 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   The first sign-in creates the account. Opening the link shows a "Continue" button, because email scanners
   open links before people do. A new account then sees one first-run step, `/app/welcome`: **Your name**
   (suggested from the email: `maya.tester@example.test` becomes "Maya Tester") and, when the account got a
-  workspace of its own, **Workspace name** (the email's domain, "Example", or "Maya’s workspace" for webmail
-  such as Gmail or Outlook). **Continue** saves both, **Skip** keeps the defaults; either way the step does not
+  workspace of its own, **Workspace name** (the stored name, "Personal" for newly created workspaces).
+  **Continue** saves both, **Skip** keeps the defaults; either way the step does not
   come back (`welcomePending` on the user). Sign-ins with `?next=` go straight there; `/app` shows the step on
   the next visit. The session is an HttpOnly `__Host-uier_session` cookie with a signed token (30 days;
   the key is derived from the server secret, like guest names). Signed-out visits to an app page return there

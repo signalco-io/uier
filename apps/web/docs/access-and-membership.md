@@ -78,3 +78,6 @@ container width; narrower cards keep the wrapping item row. Keep new row content
 - Removing a domain stops new joins at once and leaves members who joined. The stored admin role check, the
   public workspace guard and every rule above have tests in `e2e/workspace-domains.api.spec.ts`;
   `workspace-domains.spec.ts` (full suite) adds the domain, joins from a new account and checks Activity.
+
+Automatically created own workspaces start with the name **Personal**. Existing stored names are
+kept, and workspaces created from the menu use the name the person enters.

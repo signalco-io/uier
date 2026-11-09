@@ -123,7 +123,7 @@ export async function ensureOwnWorkspace(user: DbUser): Promise<DbMember> {
     const store = getAppStore();
     for (let generation = 1; generation <= MAX_OWN_WORKSPACES; generation++) {
         const workspaceId = ownWorkspaceId(user.id, generation);
-        const docs = newWorkspaceDocs(workspaceId, user.email, user);
+        const docs = newWorkspaceDocs(workspaceId, 'Personal', user);
         if (await store.createAll(docs))
             return docs[1];
 

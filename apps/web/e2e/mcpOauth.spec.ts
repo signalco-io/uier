@@ -98,7 +98,7 @@ test('a coding tool signs in with OAuth, reaches the chosen workspaces, and lose
 
         // Two workspaces: everything in their own (no project yet), one project in uier's.
         await page.getByRole('radio', { name: 'Choose workspaces and projects' }).click();
-        const own = page.getByRole('group', { name: email, exact: true });
+        const own = page.getByRole('group', { name: 'Personal', exact: true });
         await expect(own).toContainText('No projects you can open yet.');
         await own.getByRole('checkbox', { name: 'All projects, including new ones' }).check();
         await page.getByRole('group', { name: 'uier', exact: true }).getByRole('checkbox', { name: 'uier.io user feedback' }).check();
@@ -140,7 +140,7 @@ test('a coding tool signs in with OAuth, reaches the chosen workspaces, and lose
                 items: { id: string; name: string; workspace: { id: string; name: string } }[]; actingAs: { credential: string } };
             expect(projects.actingAs.credential).toBe('Laptop agent');
             expect(projects.items).toEqual(expect.arrayContaining([
-                expect.objectContaining({ id: projectId, name: 'Agent project', workspace: expect.objectContaining({ name: email }) }),
+                expect.objectContaining({ id: projectId, name: 'Agent project', workspace: expect.objectContaining({ name: 'Personal' }) }),
                 expect.objectContaining({ id: USER_FEEDBACK_PROJECT_ID, workspace: expect.objectContaining({ name: 'uier' }) })
             ]));
             expect(projects.items).toHaveLength(2);
