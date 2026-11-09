@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Ref, useEffect, useRef, useSyncExternalStore } from 'react';
+import React, { useContext, Ref, useEffect, useRef, useSyncExternalStore } from 'react';
 import { IconTooltip, useIconTooltip } from './IconTooltip';
 import { Row } from '@signalco/ui-primitives/Row';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
@@ -15,6 +15,7 @@ import { InkScope } from './InkScope';
 import { ToolbarProfile } from './ToolbarProfile';
 import { ToolbarOptions } from './ToolbarOptions';
 import { ToolbarFeedback } from './ToolbarFeedback';
+import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { AccessibilityIcon, SeoIcon } from './checks/ChecksIcons';
 import type { ChecksPanelId } from './checks/PageChecks';
 import { useToolbarMovement, useToolbarNotice } from '../hooks/useReviewMovement';
@@ -97,6 +98,7 @@ export function CommentToolbar({
     feedbackRequested = false, onFeedbackRequestHandled, onMoveStart, onToggleHint, onCollapsedChange, onExitReview,
     shortcutsRequested = false, onShortcutsRequestHandled
 }: CommentToolbarProps) {
+    const { path } = useContext(CommentsBootstrapperContext);
     const navRef = useRef<HTMLElement>(null);
     // The pill's buttons are one tab stop (a toolbar): ← and → move between them, Home and End to the first and the last
     const toolsRef = useRef<HTMLDivElement>(null);
@@ -234,7 +236,7 @@ export function CommentToolbar({
                                 <CommentIcon icon="add" size={24} variant="outlined" aria-hidden="true" />
                             </IconButton>
                             </IconTooltip>
-                            <ToolbarFeedback onOpen={onFeedbackOpen} openRequested={feedbackRequested} onOpenRequestHandled={onFeedbackRequestHandled} />
+                            <ToolbarFeedback key={path} onOpen={onFeedbackOpen} openRequested={feedbackRequested} onOpenRequestHandled={onFeedbackRequestHandled} />
                             <IconTooltip label="Inbox">
                             <IconButton
                                 ref={inboxButtonRef}

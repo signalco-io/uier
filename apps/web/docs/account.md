@@ -18,3 +18,6 @@
   `listMembersWithUsers`; comment views only for current project members; the review API and toolbar have none.
   Google and Microsoft sign-in import the provider's picture on a first sign-in or link, only while the account has
   none (`importProviderAvatar`). `avatars.api.spec.ts` and `account-avatar.spec.ts` cover it.
+
+Account section links use Next.js navigation and preserve the document and feedback toolbar pill
+(`e2e/app-navigation.spec.ts`). Google/Microsoft account linking still uses provider redirects.

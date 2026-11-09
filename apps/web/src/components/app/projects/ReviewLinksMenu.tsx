@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, type ReactElement } from 'react';
+import Link from 'next/link';
 import { ChevronDownIcon, ExternalLinkIcon, GlobeIcon, MessageSquareIcon } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import {
@@ -130,7 +131,7 @@ function ReviewLinksMenuContent({ projectId, urls, visit, open }: {
             )}
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-                <DropdownMenuItem render={<a href={KnownPageLinks.projectInstall(projectId)} />}>Review setup</DropdownMenuItem>
+                <DropdownMenuItem render={<Link href={KnownPageLinks.projectInstall(projectId)} />}>Review setup</DropdownMenuItem>
             </DropdownMenuGroup>
         </DropdownMenuContent>
     );

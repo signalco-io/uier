@@ -106,3 +106,15 @@ Give feedback request announces that pinned comments are still available. The se
 current enabled list when saving. `CommentKindLabel` uses each saved custom thread's display
 snapshot, not today's type settings. Feedback choices stay within the existing `uier-feedback`
 reviewable surface; expanding the composer retains the modal's existing non-reviewable behavior.
+
+## Client-side page changes
+
+`ReviewLayer` keeps `CommentsGlobal` mounted when the canonical page changes. The toolbar host,
+pill, movement and inbox state survive client navigation. Page-local selection, point mode,
+reattachment, open pins and draft pins reset before the next render commits; saved drafts restore
+from the new page's store. Feedback composers and page checks are keyed by page so screenshots,
+attachments and audit results cannot carry into another page. Reviewer/project scope changes still
+remount the layer. `apps/web/e2e/app-navigation.spec.ts` asserts document, host and pill identity.
+The path-specific visitor query retains its previous result while loading the next page, avoiding
+an empty gate that would remove the layer. A returned reviewer-scope change still clears reviewer
+caches and remounts; API reads and writes continue to check the current session independently.

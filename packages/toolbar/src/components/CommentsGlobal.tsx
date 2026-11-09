@@ -117,11 +117,12 @@ export function CommentsGlobal({
 }: CommentsGlobalProps) {
     const drafts = useDrafts();
     const [creatingCommentSelection, setCreatingCommentSelection] = useState<CommentSelection>();
-    const [creatingComments, setCreatingComments] = useState<CommentDraftState[]>(() =>
+    const restorePageDrafts = () =>
         [newCommentDraftKey, newRewriteDraftKey].map(key => drafts.details(key))
             .filter(value => value?.text.trim() && value.anchor)
             .sort((a, b) => b!.updatedAt - a!.updatedAt)
-            .map((saved, index) => ({ ...saved!.anchor!, key: -index, initiallyClosed: true })));
+            .map((saved, index) => ({ ...saved!.anchor!, key: -index, initiallyClosed: true }));
+    const [creatingComments, setCreatingComments] = useState<CommentDraftState[]>(restorePageDrafts);
     const setCreatingComment = (draft: CommentDraftState) => setCreatingComments(current =>
         [...current.filter(other => other.kind !== draft.kind), draft]);
     const removeCreatingComment = (key: number) => setCreatingComments(current => current.filter(draft => draft.key !== key));
@@ -183,7 +184,7 @@ export function CommentsGlobal({
     // `reading`: J or K went to it, so its messages take the focus instead of its reply box
     const [openComment, setOpenComment] = useState<{ id: string; fromInbox?: boolean; reading?: boolean }>();
     const openCommentId = openComment?.id;
-    const [linkedCommentId] = useState(takeLinkedCommentId);
+    const [linkedCommentId, setLinkedCommentId] = useState(takeLinkedCommentId);
     const linkHandledRef = useRef(false);
     // The inbox's status and search, kept while it is closed and on the next page
     const [sidebarFilter, setSidebarFilter] = useState<CommentsFilter>(() => readInboxFilter() ?? { status: 'unresolved' });
@@ -758,18 +759,41 @@ export function CommentsGlobal({
     // A sent draft until its comment's pin is in the list (`handleCreated`)
     const shownCreatingComments = creatingComments.filter(draft => !draft.sentAs || !pinnedComments.some(comment => commentKey(comment) === draft.sentAs));
 
+    // Keep the pill, movement and inbox mounted across SPA navigation. Only state tied to
+    // the old page's DOM is discarded, before children can commit against the new draft store.
+    const activePath = useRef(path);
+    activePath.current = path;
+    const [previousPath, setPreviousPath] = useState(path);
+    if (previousPath !== path) {
+        setPreviousPath(path);
+        setCreatingComments(restorePageDrafts());
+        setCreatingCommentSelection(undefined);
+        setCreatingCommentPoint(false);
+        setOpenDrafts(new Set());
+        setResumingDraft(undefined);
+        setActiveThreads(new Set());
+        setContinuedThread(undefined);
+        setOpenComment(undefined);
+        setReattaching(undefined);
+        setFeedbackRequested(false);
+        setLinkedCommentId(takeLinkedCommentId());
+        linkHandledRef.current = false;
+        lastPageFocusRef.current = null;
+        setRestoredPanel(openPanel);
+    }
+
     const candidatePlacement = reattaching?.candidate ? getCommentPlacement(reattaching.candidate) : undefined;
     return (
         <ReattachContext.Provider value={requestReattach}>
             {commentItems.isError && (
                 <CommentsLoadError error={commentItems.error} onRetry={() => commentItems.refetch()} />
             )}
-            {!collapsed && <InlineCommentThreads comments={pinnedComments} />}
+            {!collapsed && <InlineCommentThreads key={path} comments={pinnedComments} />}
             {/* A failing comment (e.g. a stored selector this page can't resolve) renders nothing, the rest keeps working */}
             {!collapsed && pinnedComments.length > 0 && (
                 <section aria-label="Comments on this page">
                     {pinnedComments.map((commentItem) => (
-                        <CommentErrorBoundary key={commentKey(commentItem)} commentId={commentItem.id}>
+                        <CommentErrorBoundary key={`${path}:${commentKey(commentItem)}`} commentId={commentItem.id}>
                             <CommentBubble
                                 commentItem={commentItem}
                                 onOpenStateChange={handleThreadOpenState}
@@ -782,7 +806,7 @@ export function CommentsGlobal({
                 </section>
             )}
             {!collapsed && shownCreatingComments.map(creatingComment => (
-                <CommentErrorBoundary key={`new-${creatingComment.key}`}>
+                <CommentErrorBoundary key={`${path}:new-${creatingComment.key}`}>
                     <CommentBubble
                         draft={creatingComment}
                         initiallyClosed={creatingComment.initiallyClosed}
@@ -790,8 +814,8 @@ export function CommentsGlobal({
                         onAutoOpened={handleDraftResumed}
                         onOpenStateChange={handleDraftOpenState}
                         draftPinOffset={pinnedComments.some(comment => resolveAnchorElement(comment.position) === resolveAnchorElement(creatingComment.position)) ? 36 : 0}
-                        onCreated={localId => handleCreated(localId, creatingComment.key)}
-                        onSendFailed={(error, choice) => restoreCreatingComment(creatingComment.kind, error, choice)}
+                        onCreated={localId => { if (activePath.current === path) handleCreated(localId, creatingComment.key); }}
+                        onSendFailed={(error, choice) => { if (activePath.current === path) restoreCreatingComment(creatingComment.kind, error, choice); }}
                         onCanceled={() => removeCreatingComment(creatingComment.key)} />
                 </CommentErrorBoundary>
             ))}
@@ -861,7 +885,7 @@ export function CommentsGlobal({
                         onShowOnPage={handleShowOnPage}
                         focusRequest={inboxFocus} />
                 )}
-                <PageChecks
+                <PageChecks key={path}
                     panel={checksPanel}
                     collapsed={collapsed}
                     onClose={closeChecks}
