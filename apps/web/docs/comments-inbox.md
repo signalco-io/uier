@@ -43,7 +43,9 @@
   there are, each 18rem to 20rem and centred beyond that; when they don't fit, the board scrolls sideways
   (`data-board-scroll`, `justify-center-safe`; a swipe on a touch screen) rather than squeezing them. The scroller runs
   edge to edge of the panel, padded by the page gutter (`page-bleed`, `--page-gutter`), so the first and last columns
-  line up with the page content at either end and the others scroll under the panel's edges, not short of them. A phone stacks them. On dark a card is the page's black, a step
+  line up with the page content at either end and the others scroll under the panel's edges, not short of them. Where
+  the columns fit there is no scrollbar, scrollbars that take room included (the panel's width is measured inside its
+  scrollbar, [app shell](app-shell.md)). A phone stacks them. On dark a card is the page's black, a step
   darker than its column, so it stands apart (light keeps paper cards on the muted column). Only the board's grid is wider than the reading width (`md:page-bleed`,
   `data-page-width="wide"`); the project header, the filters, the count line, the selection bar and the empty states
   stay in the reading column, as in the list. An empty column's line ("Nothing open.", "Drop here." while
