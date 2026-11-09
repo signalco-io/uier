@@ -488,8 +488,10 @@ export function CommentBoard({ projectId, columns, sorts, onSort, allComments, a
                     finalFocus={() => (opened ? document.getElementById(commentRowId(opened.id)) : null) ?? true}>
                     <SheetTitle className="sr-only">{opened?.number !== undefined ? `Comment #${opened.number}` : 'Comment'}</SheetTitle>
                     {opened && (
+                        // `shrink-0`: the card clips (`overflow-hidden`), so as a flex item it would shrink to the sheet's
+                        // height and hide what is below the fold; at its full height the sheet scrolls it
                         <CommentCard key={`${opened.id}-${verifyId === opened.id}`}
-                            className="rounded-none border-0 ring-0"
+                            className="shrink-0 rounded-none border-0 ring-0"
                             projectId={projectId}
                             comment={opened}
                             reviewLink={KnownPageLinks.projectReview(projectId, opened.url, opened.id)}
