@@ -66,7 +66,7 @@ const radii = [
 ];
 
 const spacing = [
-    [4, 'icon to label'], [8, 'inside a pill, between buttons'], [12, 'list rows, menu padding'],
+    [4, 'icon to label in text'], [8, 'inside a pill, between buttons, icon to label in menu rows'], [12, 'list rows, menu padding'],
     [16, 'card and popover padding'], [24, 'between cards, dialog padding'], [32, 'section inner padding'], [64, 'between marketing sections']
 ] as const;
 
