@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, type MouseEvent, type ReactNode } from 'react';
-import { BugIcon, HeartIcon, LockIcon, ReplaceIcon } from 'lucide-react';
+import { BugIcon, GitPullRequestIcon, HeartIcon, LockIcon, ReplaceIcon } from 'lucide-react';
 import { markdownPlainText } from '@uier/toolbar/markdown';
 import { cn } from '@/src/lib/utils';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
@@ -12,6 +12,7 @@ import { AssigneeCard } from './AssigneeCard';
 import { AuthorAvatar } from './AuthorAvatar';
 import { commentStatus, commentStatusLabels, StateDot } from './CommentStatus';
 import { PriorityLabel } from './PriorityFlag';
+import { threadPullRequestLinks } from '@/src/lib/comments/pullRequestLinks';
 
 const kindIcons = { feedback: HeartIcon, bug: BugIcon, rewrite: ReplaceIcon } as const;
 
@@ -115,6 +116,8 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                     <div className="flex min-h-5 shrink-0 items-center gap-2">
                         {card && <AuthorAvatar author={comment.author} deleted={comment.deleted} onPress={openFromAvatars} />}
                         {comment.private && <LockIcon aria-label="Private" className="size-3.5" />}
+                        {threadPullRequestLinks([{ text: comment.text, deleted: comment.deleted }, ...comment.replies]).length > 0 &&
+                            <GitPullRequestIcon aria-label="Linked pull request" className="size-3.5" />}
                         {/* Normal is the default: only a priority that differs gets its flag */}
                         {comment.priority !== 'normal' && <PriorityLabel priority={comment.priority} />}
                         {/* Every row says its status (Active mixes them); a board card's column (named for assistive tech) already does */}

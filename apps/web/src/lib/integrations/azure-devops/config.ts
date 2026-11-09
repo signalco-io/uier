@@ -3,7 +3,7 @@ import { isSecretKeyConfigured } from '../secrets';
 
 /** Microsoft Entra resource id of Azure DevOps. Delegated scopes are `<resource>/<scope>`. */
 export const AZURE_DEVOPS_RESOURCE = '499b84ac-1321-427f-aa17-267ca6975798';
-export const azureDevOpsScopes = [`${AZURE_DEVOPS_RESOURCE}/vso.work_write`, `${AZURE_DEVOPS_RESOURCE}/vso.profile`, 'offline_access'];
+export const azureDevOpsScopes = [`${AZURE_DEVOPS_RESOURCE}/vso.work_write`, `${AZURE_DEVOPS_RESOURCE}/vso.profile`, `${AZURE_DEVOPS_RESOURCE}/vso.code`, 'offline_access'];
 
 export function azureDevOpsKey() {
     return { key: process.env.AZURE_DEVOPS_TOKEN_KEY, keyId: process.env.AZURE_DEVOPS_TOKEN_KEY_ID ?? 'k1',

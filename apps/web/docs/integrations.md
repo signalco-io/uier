@@ -1,5 +1,50 @@
 # Integration foundation
 
+## Linked pull request state
+
+`lib/comments/pullRequestLinks.ts` recognizes GitHub.com `/pull/<number>`, GitLab.com (nested groups
+included) `/-/merge_requests/<number>`, and `dev.azure.com` / `<org>.visualstudio.com` PR links in current
+messages and replies. It never infers a repository from a bare `#472`. Self-hosted/other URLs remain
+ordinary message links and never trigger a fetch.
+
+`lib/integrations/pullRequests.ts` is a read path independent of the mirror worker and its sync toggles.
+The app-session-only `GET /api/projects/<project>/comments/<thread>/pull-requests` accepts only
+project/thread ids, validates them, resolves current membership and reloads the visible saved thread.
+It uses `no-store`, rejects cross-site browser requests and does not allow CORS or review-token access.
+It runs outside the server action queue so a slow provider never delays a reply. It checks source access before external calls and again before
+returning. The DTO has canonical URLs and optional states only, never provider titles, bodies or tokens.
+The UI lists all recognized links and reads at most twenty states per view, three concurrently.
+
+Private GitHub reads require this project's current binding to the exact repository, the connecting admin,
+an active installation with repository access and unrevoked user authorization. A separate installation
+token requests only Metadata read and Pull requests read; issue writer tokens retain their existing
+permissions. GitHub installations without the optional permission fall back to public reads or a plain link.
+Azure DevOps reads require the bound organization and project, the current connecting admin and a connected
+grant with `vso.code` (or its stronger code scopes). New connections request code read; older grants keep
+their original scopes on refresh and can reconnect to consent to it. Missing scope is a plain link.
+Cached private state is checked against current connection/installation authority before returning it.
+Preview deployments cannot use these provider credentials.
+
+Public GitHub and GitLab reads send no authorization. URLs are constructed on `api.github.com`,
+`gitlab.com/api/v4`, or `dev.azure.com` for authorized Azure reads; no message URL or provider redirect is
+followed. Calls time out after five seconds and JSON reads are bounded to 512 KiB. The local-only public
+API override accepts loopback hosts for `e2e/support/pullRequestsStub.ts`.
+
+`pullRequestCache.ts` stores only hashed identities, state, expiry and leases, with a one-day TTL. Public
+cache scopes are per provider; private scopes include workspace, project, connection and revision (and
+Azure grant generation). A conditional 30-second lease deduplicates cold reads across instances; concurrent
+views wait up to ten seconds for the existing read with bounded, spaced cache checks. State
+expires after five minutes; unavailable state after ten. Durable hourly budgets allow 40 unauthenticated
+GitHub reads, 120 GitLab reads and 120 reads per connected provider bucket. A 429 or GitHub rate-limit 403
+pauses its shared bucket for at least fifteen minutes, honoring later provider retry/reset headers (up to
+one day). A failed read stays a plain link. There is no scheduled polling or provider write.
+
+`pull-requests.api.spec.ts` covers parsing, mapping, caching, budgets, private GitHub authority, visibility,
+redirects and failures. `azure-devops.api.spec.ts` covers the connected-project scope and old-grant refresh.
+`pull-requests.spec.ts` covers the app's details, list and board on desktop and mobile.
+
+## Synchronization
+
 `TwoWaySync` and its admin-only action save the independent, default-off `twoWaySync` connection
 setting for GitHub, Linear, Azure DevOps and Notion. Notion requires a mapped Status/Select property.
 `statusSync.ts` rotates a bounded accepted-ledger scan in the scheduled worker. Status-only delivery

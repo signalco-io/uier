@@ -8,7 +8,7 @@ import { acquireGrantLease, releaseGrantLease, saveGrantLease } from '../grants'
 import { consumeOauthState, createOauthState } from '../oauthState';
 import { decryptSecret, encryptSecret } from '../secrets';
 import { AzureDevOpsApiError, azureDevOpsProfileUrl, azureDevOpsRequest, azureDevOpsToken, bounded, object, type AzureDevOpsToken } from './client';
-import { azureDevOpsCallback, azureDevOpsConfig, azureDevOpsKey, azureDevOpsScopes, guid, isAzureDevOpsConfigured, validOrganization } from './config';
+import { AZURE_DEVOPS_RESOURCE, azureDevOpsCallback, azureDevOpsConfig, azureDevOpsKey, azureDevOpsScopes, guid, isAzureDevOpsConfigured, validOrganization } from './config';
 import type { AzureDevOpsConnection, AzureDevOpsGrant, AzureDevOpsSelection } from './model';
 
 export class AzureDevOpsSetupError extends Error {
@@ -163,7 +163,9 @@ export async function azureDevOpsAccessToken(connection: AzureDevOpsConnection, 
         }
         // Entra keeps a redeemed refresh token valid, so a lost response is retried with the same token.
         const refreshToken = decryptSecret(current.refresh!, secretContext(current, 'refresh'), azureDevOpsKey());
-        const token = await call(signal => azureDevOpsToken({ grant_type: 'refresh_token', refresh_token: refreshToken }, signal));
+        // Preserve the consent of older work-item-only grants. PR reads must never break their refresh.
+        const token = await call(signal => azureDevOpsToken({ grant_type: 'refresh_token', refresh_token: refreshToken,
+            scope: [...new Set([...current.scopes.map(scope => scope.startsWith('vso.') ? `${AZURE_DEVOPS_RESOURCE}/${scope}` : scope), 'offline_access'])].join(' ') }, signal));
         const saved = await saveGrantLease<AzureDevOpsGrant>({ pk: grant.pk, id: grant.id, lease: leased.lease, authorize,
             update: value => ({ ...value, ...encryptedTokens(value, token), forcedRefreshAt: force ? nowIso() : value.forcedRefreshAt, updatedAt: nowIso() }) }, store);
         if (!saved?.access) throw new AzureDevOpsSetupError('grant_changed');

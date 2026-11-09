@@ -484,6 +484,17 @@ response of the request that created or changed a thread, never in its path. See
 See [rewrite usage and costs](rewrite-costs.md) for daily reports, versioned pricing, retry/fallback gaps and the
 current model evaluation. Estimates are not provider invoices.
 
+## Linked pull request state
+
+`GET /api/projects/<projectId>/comments/<id>/pull-requests` returns an array of `{ url, state? }` for
+provider PR links in the thread's current saved messages. State is `open`, `merged`, `closed` or `draft`
+when readable; unavailable state leaves the canonical link alone. Only the app's session cookie is
+accepted (`401` signed out), with current project membership and private-thread visibility (`404`
+otherwise). Invalid ids are `400`, cross-site browser requests are `403`. Responses are `no-store`,
+vary on Cookie and allow no CORS. The request accepts no provider URL or credential. It runs outside
+the server action queue. Provider reads, permission requirements, shared cache expiry and budgets are
+described in [the integration note](../apps/web/docs/integrations.md#linked-pull-request-state).
+
 ## Profile pictures
 
 A signed-in person sets their picture on Account → General → Profile; Google and Microsoft sign-in

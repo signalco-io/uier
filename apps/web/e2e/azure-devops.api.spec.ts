@@ -9,6 +9,9 @@ import { revokeIntegrationGrantsOf, setIntegrationTwoWaySync, setIntegrationRepl
 import { processIntegrationDelivery } from '../src/lib/integrations/delivery';
 import { discoverThreadIntegrationSync, enqueueIntegrationSync, integrationPk, integrationSyncId } from '../src/lib/integrations/discovery';
 import { loadIntegrationLinks } from '../src/lib/integrations/links';
+import { loadThreadPullRequests } from '../src/lib/integrations/pullRequests';
+import { azureDevOpsAccessToken } from '../src/lib/integrations/azure-devops/connection';
+import type { AzureDevOpsGrant } from '../src/lib/integrations/azure-devops/model';
 import { syncPendingKey } from '../src/lib/integrations/syncSignal';
 import type { IntegrationSync } from '../src/lib/integrations/model';
 import { azureDevOpsAdapter, beginAzureDevOpsConnect, disconnectAzureDevOps, finishAzureDevOpsConnect, getAzureDevOpsSettings,
@@ -85,6 +88,22 @@ async function retry(f: Fixture) {
 }
 const workItem = async (f: Fixture, ado: AzureDevOpsStub) => ado.workItems.get(((await ledger(f)).state as AzureDevOpsState).item!.id!)!;
 
+test('PR state reads use the connected organization/project, never widen older grants, and preserve their refresh', async ({ ado }) => {
+    const f = await fixture(); const connection = await connect(f, ado);
+    await change(f, { thread: { items: [{ ...f.source.thread.items[0]!, text:
+        `Fixed in https://dev.azure.com/${ado.organization}/${encodeURIComponent(ado.projectName)}/_git/site/pullrequest/17 https://dev.azure.com/other-org/Website/_git/site/pullrequest/18` }] } });
+    const load = () => loadThreadPullRequests(f.project.workspaceId, f.project.id, f.owner.id, f.source.id);
+    expect((await load()).map(value => value.state)).toEqual(['merged', undefined]);
+    expect(ado.calls.filter(call => call.operation === 'pull_request')).toHaveLength(1);
+    await updateDoc<AzureDevOpsGrant>(connection.pk, connection.grantId, grant => ({ ...grant,
+        scopes: grant.scopes.filter(scope => !scope.endsWith('/vso.code')).map(scope => scope.split('/').at(-1)!), expiresAt: old }));
+    expect((await load())[0]?.state).toBeUndefined();
+    await azureDevOpsAccessToken(connection);
+    const refresh = ado.calls.filter(call => call.operation === 'token').at(-1)!;
+    expect(refresh.body).toEqual({ grant_type: 'refresh_token', scope: '499b84ac-1321-427f-aa17-267ca6975798/vso.work_write 499b84ac-1321-427f-aa17-267ca6975798/vso.profile offline_access' });
+    expect(ado.calls.filter(call => call.operation === 'pull_request')).toHaveLength(1);
+});
+
 test('two-way status sync reads mapped and category states, reopens, and can be turned off', async ({ ado }) => {
     const f = await fixture(); const connection = await connect(f, ado); let current = await dispatch(f);
     const remote = await workItem(f, ado);
@@ -109,7 +128,7 @@ test('Entra sign-in uses PKCE and delegated work item scopes, binds nothing befo
     const { start, result } = await authorize(f, ado);
     expect(result.status).toBe('connected');
     expect(start.searchParams.get('code_challenge_method')).toBe('S256');
-    expect(start.searchParams.get('scope')).toBe('499b84ac-1321-427f-aa17-267ca6975798/vso.work_write 499b84ac-1321-427f-aa17-267ca6975798/vso.profile offline_access');
+    expect(start.searchParams.get('scope')).toBe('499b84ac-1321-427f-aa17-267ca6975798/vso.work_write 499b84ac-1321-427f-aa17-267ca6975798/vso.profile 499b84ac-1321-427f-aa17-267ca6975798/vso.code offline_access');
     expect(start.searchParams.get('state')).not.toContain(f.owner.id);
     expect((await freshProject(f)).integrations?.['azure-devops']).toBeUndefined();
     await expect(finishAzureDevOpsConnect({ userId: f.owner.id, state: start.searchParams.get('state'), code: 'replayed', baseUrl })).rejects.toThrow();

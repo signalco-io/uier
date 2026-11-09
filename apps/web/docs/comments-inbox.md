@@ -84,6 +84,13 @@ preserve it. Reopening and completing again records a new time. Optimistic moves
 first in Done, including the drag placeholder; realtime snapshots use the persisted time and the
 existing layout motion.
 
+Rows and board cards show one small outlined pull request mark, named "Linked pull request", when a
+current message or reply links to a supported provider PR. It adds no control or tab stop and does not
+fetch provider state; the [open thread's details](comment-thread.md) list the links and their known states.
+`CommentRow` uses the browser-safe `lib/comments/pullRequestLinks.ts` recognizer for both layouts,
+including My work and the board's drag preview. Deleted messages lose their links; an edited or newly
+saved reply updates the mark through the existing comment refresh.
+
 ## Motion
 
 - `comments/LayoutMotion.tsx` animates the board's cards (`data-board-card`, in the grid) and the list's rows

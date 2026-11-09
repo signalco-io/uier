@@ -40,7 +40,7 @@ export async function startAzureDevOpsStub(port = 0) {
         const access = `ado-test-access-${randomUUID()}`; const refresh = `ado-test-refresh-${randomUUID()}`;
         tokens.set(access, { userId: owner }); refreshes.set(refresh, { userId: owner });
         return { token_type: 'Bearer', expires_in: 3599, access_token: access, refresh_token: refresh,
-            scope: `${RESOURCE}/vso.work_write ${RESOURCE}/vso.profile` };
+            scope: `${RESOURCE}/vso.work_write ${RESOURCE}/vso.profile ${RESOURCE}/vso.code` };
     };
     const typeOf = (name: string) => types.find(type => type.name.toLowerCase() === name.toLowerCase());
     const itemDto = (item: StubWorkItem, fields?: string[]) => ({ id: item.id, rev: item.rev, url: `${url}/devops/${organization}/_apis/wit/workItems/${item.id}`,
@@ -70,7 +70,7 @@ export async function startAzureDevOpsStub(port = 0) {
                 if (!['localhost', '127.0.0.1', '[::1]'].includes(redirect.hostname) || redirect.pathname !== '/app/azure-devops/callback'
                     || target.searchParams.get('client_id') !== 'ado-test-client' || target.searchParams.get('response_type') !== 'code'
                     || target.searchParams.get('code_challenge_method') !== 'S256' || !/^[A-Za-z0-9_-]{43}$/.test(challenge) || !state
-                    || target.searchParams.get('scope') !== `${RESOURCE}/vso.work_write ${RESOURCE}/vso.profile offline_access`)
+                    || target.searchParams.get('scope') !== `${RESOURCE}/vso.work_write ${RESOURCE}/vso.profile ${RESOURCE}/vso.code offline_access`)
                     return send(response, { error: 'invalid_request' }, 400);
                 const flow = randomUUID(); authorizations.set(flow, { redirect: redirect.href, state, challenge });
                 response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -88,11 +88,11 @@ export async function startAzureDevOpsStub(port = 0) {
             }
             if (path === '/oauth2/v2.0/token' && request.method === 'POST') {
                 const params = new URLSearchParams(await body(request));
-                calls.push({ operation: 'token', method: 'POST', path, body: { grant_type: params.get('grant_type') } });
+                calls.push({ operation: 'token', method: 'POST', path, body: { grant_type: params.get('grant_type'), scope: params.get('scope') } });
                 const fault = faults.get('token')?.shift();
                 if (fault === 'unanswered') { response.destroy(); return; }
                 if (params.get('client_id') !== 'ado-test-client' || params.get('client_secret') !== 'ado-test-secret') return send(response, { error: 'invalid_client' }, 401);
-                if (params.get('scope') !== `${RESOURCE}/vso.work_write ${RESOURCE}/vso.profile offline_access`) return send(response, { error: 'invalid_scope' }, 400);
+                if (![`${RESOURCE}/vso.work_write ${RESOURCE}/vso.profile ${RESOURCE}/vso.code offline_access`, `${RESOURCE}/vso.work_write ${RESOURCE}/vso.profile offline_access`].includes(params.get('scope') ?? '')) return send(response, { error: 'invalid_scope' }, 400);
                 if (params.get('grant_type') === 'authorization_code') {
                     const flow = codes.get(params.get('code') ?? ''); codes.delete(params.get('code') ?? '');
                     if (!flow || createHash('sha256').update(params.get('code_verifier') ?? '').digest('base64url') !== flow.challenge)
@@ -105,7 +105,7 @@ export async function startAzureDevOpsStub(port = 0) {
                     const old = refreshes.get(params.get('refresh_token') ?? '');
                     if (!old || fault === 'bad_request') return send(response, { error: 'invalid_grant' }, 400);
                     // Entra keeps a redeemed refresh token valid until it expires.
-                    return send(response, tokenPair(old.userId));
+                    return send(response, { ...tokenPair(old.userId), scope: params.get('scope')!.replace(' offline_access', '') });
                 }
                 return send(response, { error: 'unsupported_grant_type' }, 400);
             }
@@ -119,7 +119,8 @@ export async function startAzureDevOpsStub(port = 0) {
             else if (path === '/vssps/_apis/accounts') operation = 'accounts';
             else if (segments[0] === 'devops' && segments[1] === organization) {
                 const rest = segments.slice(2);
-                if (rest.join('/') === '_apis/projects') operation = 'projects';
+                if (rest[0] === projectId && rest[1] === '_apis' && rest[2] === 'git' && rest[3] === 'repositories' && rest[5] === 'pullrequests') operation = 'pull_request';
+                else if (rest.join('/') === '_apis/projects') operation = 'projects';
                 else if (rest[0] === '_apis' && rest[1] === 'projects' && rest.length === 3) operation = 'project';
                 else if (rest[0] === '_apis' && rest[1] === 'wit' && rest[2] === 'workitems' && rest.length === 4)
                     operation = request.method === 'PATCH' ? 'update' : request.method === 'DELETE' ? 'delete' : 'get';
@@ -148,7 +149,8 @@ export async function startAzureDevOpsStub(port = 0) {
             if (fault === 'server_error') return fail(response, 500);
             if (fault === 'unanswered') { response.destroy(); return; }
             let result: unknown; let status = 200;
-            if (operation.startsWith('reply_') && replyMatch) {
+            if (operation === 'pull_request') result = { pullRequestId: Number(segments.at(-1)), status: 'completed', isDraft: false };
+            else if (operation.startsWith('reply_') && replyMatch) {
                 const item = workItems.get(Number(replyMatch[1])); if (!item || item.deleted) return fail(response, 404);
                 if (operation === 'reply_list') {
                     const rows = [...comments.values()].filter(comment => comment.workItemId === item.id);

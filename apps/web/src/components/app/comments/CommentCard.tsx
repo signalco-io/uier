@@ -64,6 +64,7 @@ import { Spinner } from '@/src/components/ui/spinner';
 import { Textarea } from '@/src/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import { ThreadTitle } from './ThreadTitle';
+import { ThreadPullRequests } from './ThreadPullRequests';
 import type { MessageMentionRange, ProjectCommentMessage, ProjectCommentView } from '../../../lib/app/projectComments';
 import { MessageMarkdown } from './MessageMarkdown';
 import type { ActionState } from '../../../lib/app/actionResult';
@@ -545,6 +546,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                         )}
                         <AgentControl projectId={projectId} comment={comment} />
                     </dd>
+                    <ThreadPullRequests projectId={projectId} comment={comment} />
                 </dl>
 
                 <VerificationControl projectId={projectId} userId={userId} comment={comment}
