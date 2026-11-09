@@ -1,8 +1,14 @@
-import { cloneElement, useContext, useLayoutEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type PointerEvent, type ReactElement } from 'react';
+import { cloneElement, createContext, useContext, useLayoutEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type PointerEvent, type ReactElement } from 'react';
 import { createPortal } from 'react-dom';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 
 const showDelayMs = 300;
+
+/**
+ * Where tooltips go instead of the shadow root's container: a modal dialog (`ComposerModal`), whose
+ * top layer would otherwise cover them
+ */
+export const TooltipContainerContext = createContext<HTMLElement | null>(null);
 const gap = 6;
 const margin = 8;
 
@@ -16,7 +22,8 @@ const margin = 8;
  * A `shortcut` shows after the name, in mono.
  */
 export function useIconTooltip(label: string, shortcut?: string) {
-    const { rootElement } = useContext(CommentsBootstrapperContext);
+    const { rootElement: shadowContainer } = useContext(CommentsBootstrapperContext);
+    const rootElement = useContext(TooltipContainerContext) ?? shadowContainer;
     const [anchor, setAnchor] = useState<DOMRect>();
     const [placement, setPlacement] = useState<{ left: number; top: number }>();
     const tooltipRef = useRef<HTMLSpanElement>(null);

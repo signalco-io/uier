@@ -464,17 +464,17 @@ by signing in. Account sign-out remains in the app's account menu.
 
 Every new element/text comment, rewrite, feedback and bug report starts a screenshot automatically
 ([#81](https://github.com/signalco-io/uier/issues/81)). There is no capture button or image preview in the composer.
-In the form's header, `ComposerAttachmentsHeader` has two compact icon buttons with tooltips. The screen icon's
+In the form's header, `ComposerAttachmentsHeader` has a compact screen icon button with a tooltip. Its
 tooltip and read-out status (its description) say what will happen: "Taking a screenshot...", then "A screenshot of this
 part of the page will be attached." ("of the visible page" for feedback and bug reports), or "The screenshot could not
 be taken. Only the text will be sent." Its **Omit screenshot** toggle ([#323](https://github.com/signalco-io/uier/issues/323),
 a button with `aria-pressed`) sends that one comment without the `screenshot` field, so the API stores no image;
 the icon shows a crossed-out screen and the status reads "No screenshot will be attached." The choice is per comment: it
 stays with an open or returned (failed send) draft in memory, and the next comment, a reload or sent feedback start with
-the automatic screenshot again. **Attach image** beside it,
+the automatic screenshot again. **Attach image**, in the bottom-left corner of the text box ([uier #155](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2F7z6v9829ezdc%2Fsettings&comment=comment_zoNUoCT0BH5rPguGnKI4t)) so it reads as a part of the comment,
 or an image file pasted into the form without text, sends the reviewer's own image as `screenshot` instead of the
 capture. It is checked in the browser with the saved-evidence formats and limits (`suppliedScreenshot`) and on the
-server like every screenshot (`parseScreenshot`, `sanitizeScreenshot`). The header names the file, with a button that
+server like every screenshot (`parseScreenshot`, `sanitizeScreenshot`). The file's name takes its place, with a button that
 removes it; the image is never previewed, stays in memory with a returned draft and is never stored in browser storage. While a chosen or pasted image is still being read and checked, Enter and the send button wait, so the automatic screenshot is never sent in its place. The image belongs to the send it goes with: feedback opened again while one is on its way starts without it, and a failed send brings its image (and Omit screenshot) back only when no newer image was attached meanwhile; a new comment started meanwhile keeps its own image. Upload, paste and redaction on saved feedback are unchanged. Submitting waits for the capture attempt, with a 15-second limit; failures keep the text and show an unavailable
 image state on saved feedback. Image-capacity or image-storage failures also preserve the text. Images are saved only with successfully posted feedback. Replies keep the original
 capture. Saved inbox entries and comment details show thumbnails that expand on click, tap or keyboard activation.

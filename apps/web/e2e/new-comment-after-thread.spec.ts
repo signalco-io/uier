@@ -85,3 +85,59 @@ test('Add comment while a thread is open starts a new comment', async ({ browser
     await expect(commentBubble(page, 1, 1)).toBeVisible();
     await context.close();
 });
+
+test('posting keeps one popover open: the draft goes on as its thread, without closing and opening again', async ({ browser }, info) => {
+    const { context, page } = await newVisitor(browser, info);
+    await openLanding(page, isolatedOrigin(info), { dismissHint: true });
+    // The comment stays on its way until released
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    await page.route(url => url.pathname === '/api/comments', async route => {
+        if (route.request().method() !== 'POST') return route.fallback();
+        await held;
+        await route.fallback();
+    });
+
+    const draft = await pointAt(page, 'h1');
+    await page.keyboard.type('The heading could be shorter.');
+    // From now on, every change in the toolbar has a popover of the comment on the page
+    await page.evaluate(() => {
+        const root = document.querySelector('#uier-toolbar')!.shadowRoot!;
+        const state = window as unknown as { uierPopoverGaps: number };
+        state.uierPopoverGaps = 0;
+        const check = () => {
+            const popovers = [...root.querySelectorAll('[role="dialog"]')].filter(dialog =>
+                ['New comment', 'Sending comment', 'Comment thread'].includes(dialog.getAttribute('aria-label') ?? ''));
+            if (!popovers.some(popover => popover.getBoundingClientRect().width > 0)) state.uierPopoverGaps++;
+        };
+        new MutationObserver(check).observe(root, { childList: true, subtree: true, attributes: true });
+    });
+    await page.keyboard.press('Enter');
+
+    // At once: the comment's thread, its reply box (with the focus) waiting until it is saved, not animated in
+    const sending = page.getByRole('dialog', { name: 'Sending comment', exact: true });
+    await expect(sending).toContainText('The heading could be shorter.');
+    await expect(draft).toHaveCount(0);
+    const reply = sending.getByRole('textbox', { name: 'Reply', exact: true });
+    await expect(reply).toBeFocused();
+    await expect(reply).not.toBeEditable();
+    expect(await sending.evaluate(element => getComputedStyle(element).animationName)).toBe('none');
+    await sending.evaluate(element => element.setAttribute('data-e2e-continued', ''));
+
+    // Saved: the same popover, now the saved thread, its reply box ready
+    release();
+    const thread = page.getByRole('dialog', { name: 'Comment thread', exact: true });
+    await expect(thread).toHaveAttribute('data-e2e-continued', '');
+    const ready = thread.getByRole('textbox', { name: 'Reply', exact: true });
+    await expect(ready).toBeEditable();
+    await expect(ready).toBeFocused();
+    await expect(page.getByRole('status').filter({ hasText: 'Comment posted' })).toBeAttached();
+    expect(await page.evaluate(() => (window as unknown as { uierPopoverGaps: number }).uierPopoverGaps)).toBe(0);
+
+    // Opened again later, it animates as any thread does
+    await page.keyboard.press('Escape');
+    await expect(thread).toBeHidden();
+    await commentBubble(page, 1).click();
+    expect(await thread.evaluate(element => getComputedStyle(element).animationName)).not.toBe('none');
+    await context.close();
+});

@@ -52,11 +52,14 @@ a key keeps it), while the toolbar is expanded and the shortcuts are on. `toolba
 | ? | Options on the keyboard shortcuts, the heading focused, with the switch |
 
 None act while typing or in a widget whose letters choose an item (`isLetterKeyTarget`), in the toolbar's
-dialogs (Options, feedback; a thread's popover keeps the thread keys), while choosing an anchor, or, except
+dialogs (Options, feedback, an expanded form; a thread's popover keeps the thread keys), while choosing an anchor, or, except
 C, in point mode. `src/threadShortcuts.ts` finds the thread: the one with the focus
 (`data-uier-thread-scope`: a pin's popover or an inbox card), else the only open thread popover; its
 controls are marked `data-uier-thread-header`, `data-uier-status` (the status menu's badge) and `data-uier-reply`. On uier's own app
 pages the app takes a key first (its listeners run before the toolbar's) unless the focus is in the toolbar.
+
+Escape in a new comment or feedback expanded to a modal goes back to its popover; Escape there closes it
+([popovers](composer-popovers.md)).
 
 Reply composers send on Enter and insert a line break on Shift+Enter. Their submit control stays
 labelled and uses the plain button variant; on touch input it has a 44px minimum target.

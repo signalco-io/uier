@@ -324,15 +324,21 @@ async function pasteImage(target: Locator, dataUrl: string) {
     }, dataUrl);
 }
 
-test('screenshots: the reviewer attaches their own image instead, from the header with the file picker or by pasting', async ({ browser }, testInfo) => {
+test('screenshots: the reviewer attaches their own image instead, from the text box with the file picker or by pasting', async ({ browser }, testInfo) => {
     const { context, page } = await newVisitor(browser, testInfo);
     await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
     const draft = await startComment(page, 'This is what I see instead.', page.getByRole('heading', { level: 1 }));
-    // Both controls are compact icons in the header, the status is read out
+    // Compact icons: the screenshot toggle in the header (its status read out), Attach image in the
+    // text box's bottom-left corner, as a part of the comment
     const omit = draft.getByRole('button', { name: 'Omit screenshot' });
     await expect(omit).toHaveAccessibleDescription('A screenshot of this part of the page will be attached.');
     const attach = draft.getByRole('button', { name: 'Attach image' });
     await expect(attach).toHaveAccessibleDescription(/PNG, JPEG or WebP, up to 512 KB/);
+    const text = (await draft.getByRole('textbox', { name: 'Comment', exact: true }).boundingBox())!;
+    const attachBox = (await attach.boundingBox())!;
+    expect(attachBox.y).toBeGreaterThanOrEqual(text.y + text.height - 1);
+    expect(attachBox.x - text.x).toBeLessThan(16);
+    expect((await omit.boundingBox())!.y).toBeLessThan(text.y);
     const input = draft.locator('input[type="file"]');
     await input.setInputFiles({ name: 'drawing.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg/>') });
     await expect(draft.getByRole('alert')).toContainText('Choose a PNG, JPEG or WebP');
