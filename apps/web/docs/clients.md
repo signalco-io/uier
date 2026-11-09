@@ -1,6 +1,7 @@
 # Clients
 
-- Clients are workspace documents (`DbClient`: name, description, icon, colour) in the workspace partition;
+- Clients are workspace documents (`DbClient`: name, description, icon, colour, optional logo reference)
+  in the workspace partition;
   projects point to one with `clientId`, and `DbClientName` (`client_name_<sha256>`) keeps names unique. A
   rename is one transaction on the client and its name reservations, so every project follows at once.
   `src/lib/app/clients.ts` owns them: `createProjectWithClient` / `setProjectClient` find or create the
@@ -11,7 +12,9 @@
   workspace first. `projectClientNameSchema` collapses whitespace and clears blank input; the shared limit
   is 80 characters (280 for descriptions). Icons (`clientIcons`, Lucide) and colours (`clientColors`:
   tints of `--brand-accent`, `--brand-success`, `--brand-warning`, `--destructive`; letters stay ink) live
-  in `clientAppearance.ts`; `ClientMark` draws the tile. More colours need new brand tokens first.
+  in `clientAppearance.ts`; `ClientMark` draws the tile, or its `logoUrl` with the icon/letter as its
+  loading and failure fallback. Existing callers may omit `logoUrl`; the project client filter passes
+  it to both its menu and trigger. More colours need new brand tokens first.
   Show clients only through visible projects: pages call `listVisibleProjects` first, then `loadClients`,
   and `projectClients` / `clientNames` / `projectClient` keep only clients those projects point to (the
   Clients tab, the sidebar's Workspace link, the suggestions, the filter, cards and the project header). The filter
@@ -24,3 +27,22 @@
   (the review API's project) and MCP project lists never include it. `e2e/clients.api.spec.ts` covers
   rename, admin-only access, workspace isolation, migration and DTO exclusion; `project-clients.spec.ts`
   and `users.spec.ts` the UI.
+
+- **Client avatar editor**: clicking the avatar in `ClientEditDialog` opens a popover with Icon and
+  Colour (saved with the form) and Upload/Change/Remove logo (saved immediately, like profile pictures).
+  Uploads and refreshes preserve the unsaved name, description, icon and colour. A logo takes precedence;
+  removing it restores the icon/letter and colour. Controls have 44 px touch targets.
+- **Logos** (`lib/app/clientLogos.ts`, [API](../../../docs/api.md#client-logos)) share profile pictures'
+  `normalizeAvatar`, bounded multipart reader (`avatarUpload.ts`) and browser downsizing (`fitAvatarUpload.ts`):
+  PNG/JPEG/WebP/GIF, 4 MB, 25 MP, centre-square WebP up to 256 px, without metadata. The separate
+  `client-logo` document (`client_logo_<version>`) and `DbClient.logo` are swapped/deleted in one workspace
+  transaction using the client's etag. Detail edits preserve the reference; deleting an unused client
+  during a rename also deletes its logo. Transferring a project keeps the destination client's existing
+  identity (or creates its icon/colour); a source workspace's private logo URL never moves with it.
+  Reads require current workspace membership and access to a live project of that client (direct or
+  team access, including done projects), regardless of the selected workspace cookie. Missing, hidden,
+  replaced and removed images return 404. Writes recheck admin authority and visibility on conflict retries,
+  require same-origin session requests and allow 30 logo changes per person per hour. Image URLs have a
+  random immutable version and private caching, same as profile pictures. No image bytes or references
+  enter review/MCP DTOs. `client-logos.api.spec.ts` covers authorization, validation, replacement/removal,
+  conditional conflicts and cleanup; `project-clients.spec.ts` covers the popover and displayed marks.

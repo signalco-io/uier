@@ -225,10 +225,27 @@ export type DbClient = AppDoc & {
     description?: string;
     icon?: ClientIcon;
     color?: ClientColor;
+    /** Current image in the workspace partition; swapped with its image using this document's etag. */
+    logo?: { version: string; updatedAt: string };
     createdBy: string;
     createdAt: string;
     updatedAt: string;
 };
+
+/** A client logo, normalized with the profile picture limits. Only the current version exists. */
+export type DbClientLogo = AppDoc & {
+    type: 'client-logo';
+    pk: `workspace:${string}`;
+    workspaceId: string;
+    clientId: string;
+    contentType: 'image/webp';
+    size: number;
+    bytes: number;
+    data: string;
+    createdAt: string;
+};
+
+export const clientLogoDocId = (version: string) => `client_logo_${version}`;
 
 /** Client name -> client (`client_name_<sha256 of the name>`), so a name belongs to one client of the workspace */
 export type DbClientName = AppDoc & {

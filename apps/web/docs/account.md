@@ -8,8 +8,9 @@
   applies to both settings.
 - **Profile pictures** (`lib/app/avatars.ts`, [API](../../../docs/api.md#profile-pictures)): Account's Profile uploads,
   changes and removes one at once through `POST`/`DELETE /api/account/avatar` (a route, not an action: a
-  multipart body, a same-origin `Origin` check, then the session; the page calls `router.refresh()`). The server
-  sniffs PNG/JPEG/WebP/GIF, caps 4 MB and 25 MP, and Sharp re-encodes a centre square of at most 256 px as WebP.
+  multipart body, a same-origin `Origin` check, then the session; the page calls `router.refresh()`). The shared
+  upload parser (`avatarUpload.ts`) and browser downsizing helper (`fitAvatarUpload.ts`) also serve client logos.
+  The server sniffs PNG/JPEG/WebP/GIF, caps 4 MB and 25 MP, and Sharp re-encodes a centre square of at most 256 px as WebP.
   The image is a `user-avatar` document in the user's partition, swapped with `user.avatar` in one `transact`
   batch; never write a user document without its etag, or a stale copy drops the reference. `avatarUrl(user)` gives
   `/api/avatars/<userId>/<version>` (random version, immutable, private cache, any signed-in viewer). Show a person

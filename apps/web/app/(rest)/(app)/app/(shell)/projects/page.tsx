@@ -159,7 +159,7 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
                         hrefs={{ active: statusHref('active'), done: statusHref('done') }}
                         counts={{ active: lists.active.length, done: lists.done.length }} />
                     {/* Only when a project has a client, like the sidebar's Clients link */}
-                    {clients.length > 0 && <ClientFilter clients={clients.map(({ id, name, icon, color }) => ({ id, name, icon, color }))} value={client} />}
+                    {clients.length > 0 && <ClientFilter clients={clients.map(({ id, name, icon, color, logoUrl }) => ({ id, name, icon, color, logoUrl }))} value={client} />}
                 </div>
             </PageHeader>
             {statusPanel('active')}

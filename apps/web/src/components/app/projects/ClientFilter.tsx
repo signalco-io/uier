@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { ClientMark } from '@/src/components/app/clients/ClientMark';
 import type { ClientSummary } from '@/src/lib/app/clients';
 
-type FilterClient = Pick<ClientSummary, 'id' | 'name' | 'icon' | 'color'>;
+type FilterClient = Pick<ClientSummary, 'id' | 'name' | 'icon' | 'color' | 'logoUrl'>;
 
 /** The client's mark, or an empty tile of the same size for All clients and No client so the names line up */
 function FilterMark({ client }: { client?: FilterClient }) {

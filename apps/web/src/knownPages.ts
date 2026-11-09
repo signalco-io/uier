@@ -119,6 +119,11 @@ export const KnownPageLinks = {
     projectInstall: (projectId: string, { onboarding = false, step }: { onboarding?: boolean; step?: OnboardingStep } = {}) => onboarding
         ? `/app/projects/${encodeURIComponent(projectId)}/install?onboarding=1${step && step !== 'script' ? `&step=${step}` : ''}`
         : `/app/projects/${encodeURIComponent(projectId)}/settings/installation`,
+    /** Admin-only upload/removal; image reads require access to a project of the client. */
+    clientLogoUpload: (workspaceId: string, clientId: string) =>
+        `/api/workspaces/${encodeURIComponent(workspaceId)}/clients/${encodeURIComponent(clientId)}/logo`,
+    clientLogo: (workspaceId: string, clientId: string, version: string) =>
+        `${KnownPageLinks.clientLogoUpload(workspaceId, clientId)}/${encodeURIComponent(version)}`,
     /** A person's profile picture (an image, for the signed-in app); a new version is a new address */
     avatar: (userId: string, version: string) => `/api/avatars/${encodeURIComponent(userId)}/${encodeURIComponent(version)}`,
     /** The screenshot of a project comment (an image, for the signed-in app) */

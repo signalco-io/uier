@@ -1,3 +1,6 @@
+'use client';
+
+import { Avatar, AvatarFallback, AvatarImage } from '@/src/components/ui/avatar';
 import {
     BriefcaseIcon,
     Building2Icon,
@@ -78,22 +81,26 @@ export const clientColorClasses: Record<ClientColor, { label: string; tile: stri
     }
 };
 
-/** A client's tile: its icon, or the first letter of its name, on its colour (ink on paper without one) */
-export function ClientMark({ client: { name, icon, color }, className }: {
-    client: { name: string; icon?: ClientIcon; color?: ClientColor };
+/** A client's logo, with its icon or first letter on its colour as the loading/failure fallback. */
+export function ClientMark({ client: { name, icon, color, logoUrl }, className }: {
+    client: { name: string; icon?: ClientIcon; color?: ClientColor; logoUrl?: string };
     className?: string;
 }) {
     const Icon = icon && clientIconComponents[icon];
     const colors = color && clientColorClasses[color];
     return (
-        <span
+        <Avatar
+            render={<span />}
             aria-hidden="true"
             data-slot="client-mark"
             className={cn(
-                'flex size-4 shrink-0 items-center justify-center rounded-[4px] border bg-background text-[10px] leading-none font-semibold text-foreground uppercase',
+                'size-4 shrink-0 after:hidden items-center justify-center rounded-[4px] border bg-background text-[10px] leading-none font-semibold text-foreground uppercase',
                 colors?.tile,
                 className)}>
-            {Icon ? <Icon className={cn('size-[60%]', colors?.icon)} /> : name.trim()[0] ?? '?'}
-        </span>
+            {logoUrl && <AvatarImage src={logoUrl} alt="" className="rounded-[inherit]" />}
+            <AvatarFallback className="rounded-[inherit] bg-transparent text-[length:inherit] text-inherit">
+                {Icon ? <Icon className={cn('size-[60%]', colors?.icon)} /> : name.trim()[0] ?? '?'}
+            </AvatarFallback>
+        </Avatar>
     );
 }

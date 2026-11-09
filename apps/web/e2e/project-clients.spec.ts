@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { appNavigation, closeAppNavigation, createProject, fillClientName, hydrated, signIn, uniqueEmail } from './support/app';
@@ -132,10 +133,20 @@ test('admins rename a client and set its description, icon and colour; every pro
     await clients.nth(0).getByRole('button', { name: 'Edit Acme', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Edit client' });
     await expect(dialog.getByLabel('Client name')).toHaveValue('Acme');
-    await expect(dialog.getByRole('button', { name: 'First letter' })).toHaveAttribute('aria-pressed', 'true');
-    await expect(dialog.getByRole('button', { name: 'Ink' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: 'First letter' })).toHaveCount(0);
+    const avatarTrigger = dialog.getByRole('button', { name: 'Edit client avatar' });
+    await avatarTrigger.focus();
+    await avatarTrigger.press('Enter');
+    const avatar = page.getByRole('dialog', { name: 'Client avatar', exact: true });
+    await expect(avatar.getByRole('button', { name: 'First letter' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(avatar.getByRole('button', { name: 'Ink' })).toHaveAttribute('aria-pressed', 'true');
     await animationsFinished(page.locator('body')); // Scan the opened dialog, not its fade-in
     await expectNoAxeViolations(page);
+
+    await page.keyboard.press('Escape');
+    await expect(avatar).toBeHidden();
+    await expect(avatarTrigger).toBeFocused();
+    await expect(dialog).toBeVisible();
 
     // Another client's name is refused, and nothing changes
     await dialog.getByLabel('Client name').fill('Northwind');
@@ -149,9 +160,12 @@ test('admins rename a client and set its description, icon and colour; every pro
     await expect(dialog.getByLabel('Client name')).toHaveValue('Acme');
     await dialog.getByLabel('Client name').fill('  Acme   Studio ');
     await dialog.getByLabel('Description (optional)').fill('Retail sites for the spring launch.');
-    await dialog.getByRole('button', { name: 'Rocket' }).click();
-    await dialog.getByRole('button', { name: 'Blue' }).click();
-    await expect(dialog.getByRole('button', { name: 'Rocket' })).toHaveAttribute('aria-pressed', 'true');
+    await dialog.getByRole('button', { name: 'Edit client avatar' }).click();
+    await avatar.getByRole('button', { name: 'Rocket' }).click();
+    await avatar.getByRole('button', { name: 'Blue' }).click();
+    await expect(avatar.getByRole('button', { name: 'Rocket' })).toHaveAttribute('aria-pressed', 'true');
+    await expectNoAxeViolations(page);
+    await avatar.getByRole('button', { name: 'Done', exact: true }).click();
     await page.screenshot({ path: testInfo.outputPath('client-edit-light.png') });
     await dialog.getByRole('button', { name: 'Save' }).click();
     await expect(dialog).toBeHidden();
@@ -163,8 +177,9 @@ test('admins rename a client and set its description, icon and colour; every pro
     await page.reload();
     await clients.nth(0).getByRole('button', { name: 'Edit Acme Studio', exact: true }).click();
     await expect(dialog.getByLabel('Client name')).toHaveValue('Acme Studio');
-    await expect(dialog.getByRole('button', { name: 'Rocket' })).toHaveAttribute('aria-pressed', 'true');
-    await expect(dialog.getByRole('button', { name: 'Blue' })).toHaveAttribute('aria-pressed', 'true');
+    await dialog.getByRole('button', { name: 'Edit client avatar' }).click();
+    await expect(avatar.getByRole('button', { name: 'Rocket' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(avatar.getByRole('button', { name: 'Blue' })).toHaveAttribute('aria-pressed', 'true');
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.reload(); // Scan settled dark colors, outside the theme's color transition.
     await expect(page.locator('html')).toHaveClass(/\bdark\b/);
@@ -362,4 +377,73 @@ test('a project card keeps its favicon and actions at the top when the client an
     const middle = (box: { y: number; height: number }) => box.y + box.height / 2;
     expect(Math.abs(middle(actionsBox) - middle(titleBox))).toBeLessThanOrEqual(2);
     expect(Math.abs(middle(reviewBox) - middle(titleBox))).toBeLessThanOrEqual(2);
+});
+
+
+test('client logos save from the avatar picker and appear on every client mark, with icon fallback after removal', async ({ page }) => {
+    await signIn(page, uniqueEmail('client-logo'));
+    const project = await createProject(page, { urls: ['logo.example.com'], name: 'Logo site', clientName: 'Logo client' });
+    await page.goto('/app/workspace/clients');
+    await page.getByRole('button', { name: 'Edit Logo client', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Edit client', exact: true });
+    await dialog.getByLabel('Description (optional)').fill('Keep this draft.');
+    await dialog.getByRole('button', { name: 'Edit client avatar' }).click();
+    const avatar = page.getByRole('dialog', { name: 'Client avatar', exact: true });
+    const picture = dialog.locator('[data-slot="client-mark"] img');
+    let chooser = page.waitForEvent('filechooser');
+    await avatar.getByRole('button', { name: 'Upload logo' }).click();
+    await (await chooser).setFiles({ name: 'bad.png', mimeType: 'image/png', buffer: Buffer.from('not an image') });
+    await expect(avatar.getByRole('alert')).toHaveText('Use a PNG, JPEG, WebP or GIF image.');
+    const photo = async (width: number) => ({ name: 'logo.png', mimeType: 'image/png', buffer:
+        await sharp({ create: { width, height: 300, channels: 3, background: { r: 30, g: 110, b: 190 } } }).png().toBuffer() });
+    chooser = page.waitForEvent('filechooser');
+    await avatar.getByRole('button', { name: 'Upload logo' }).click();
+    await (await chooser).setFiles(await photo(400));
+    await expect(avatar.getByRole('status')).toHaveText('Logo saved.');
+    await expect(picture).toBeVisible();
+    await expect(dialog.getByLabel('Description (optional)')).toHaveValue('Keep this draft.');
+    await expect(avatar.getByRole('button', { name: 'Rocket' })).toBeDisabled();
+    await animationsFinished(page.locator('body'));
+    await expectNoAxeViolations(page);
+    const first = await picture.getAttribute('src');
+    chooser = page.waitForEvent('filechooser');
+    await avatar.getByRole('button', { name: 'Change logo' }).click();
+    await (await chooser).setFiles(await photo(120));
+    await expect(picture).not.toHaveAttribute('src', first!);
+    await expect.poll(() => picture.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(120);
+    expect((await page.request.get(first!)).status()).toBe(404);
+    const second = await picture.getAttribute('src');
+    await avatar.getByRole('button', { name: 'Done', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole('list', { name: 'Clients' }).locator('[data-slot="client-mark"] img')).toHaveAttribute('src', second!);
+    for (const path of ['/app/projects', `/app/projects/${project}/settings`]) {
+        await page.goto(path);
+        await expect(page.locator('[data-slot="client-mark"] img').first()).toHaveAttribute('src', second!);
+    }
+    await page.goto('/app/projects');
+    const filter = page.getByRole('combobox', { name: 'Client', exact: true });
+    await filter.click();
+    const option = page.getByRole('option', { name: 'Logo client', exact: true });
+    await expect(option.locator('img')).toHaveAttribute('src', second!);
+    await option.click();
+    await expect(filter.locator('img')).toHaveAttribute('src', second!);
+    // A failed image keeps its icon/initial fallback.
+    await page.route('**/api/workspaces/**/logo/*', route => route.fulfill({ status: 404 }));
+    await page.reload();
+    await expect(page.locator('[data-slot="client-mark"]').first()).toHaveText('L');
+    await page.unroute('**/api/workspaces/**/logo/*');
+    await page.goto('/app/workspace/clients');
+    await page.getByRole('button', { name: 'Edit Logo client', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Edit client avatar' }).click();
+    await avatar.getByRole('button', { name: 'Remove logo' }).click();
+    await expect(avatar.getByRole('status')).toHaveText('Logo removed.');
+    await expect(picture).toHaveCount(0);
+    expect((await page.request.get(second!)).status()).toBe(404);
+    await avatar.getByRole('button', { name: 'Rocket' }).click();
+    await avatar.getByRole('button', { name: 'Blue' }).click();
+    await avatar.getByRole('button', { name: 'Done', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole('list', { name: 'Clients' }).locator('[data-slot="client-mark"] svg')).toBeVisible();
 });
