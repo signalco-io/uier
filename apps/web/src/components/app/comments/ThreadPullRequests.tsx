@@ -2,18 +2,23 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRightIcon, GitPullRequestIcon } from 'lucide-react';
+import { useActionState } from 'react';
+import { toast } from 'sonner';
+import { Button } from '@/src/components/ui/button';
+import { Input } from '@/src/components/ui/input';
+import { setCommentPullRequestAction } from './actions';
 import { Badge } from '@/src/components/ui/badge';
 import { threadPullRequestLinks, type PullRequestLink, type PullRequestStatus } from '@/src/lib/comments/pullRequestLinks';
 import type { ProjectCommentView } from '@/src/lib/app/projectComments';
 
-const commentPullRequestLinks = (comment: Pick<ProjectCommentView, 'text' | 'deleted' | 'replies'>) =>
-    threadPullRequestLinks([{ text: comment.text, deleted: comment.deleted }, ...comment.replies]);
+const commentPullRequestLinks = (comment: Pick<ProjectCommentView, 'text' | 'deleted' | 'replies' | 'pullRequests'>) =>
+    threadPullRequestLinks([{ text: comment.text, deleted: comment.deleted }, ...comment.replies], comment.pullRequests);
 
 const providers = { github: 'GitHub', gitlab: 'GitLab', 'azure-devops': 'Azure DevOps' };
 const labels = { open: 'Open', merged: 'Merged', closed: 'Closed', draft: 'Draft' };
 
-function PullRequestValues({ projectId, commentId, links, revision }: {
-    projectId: string; commentId: string; links: PullRequestLink[]; revision: string;
+function PullRequestValues({ projectId, commentId, links, revision, comment }: {
+    projectId: string; commentId: string; links: PullRequestLink[]; revision: string; comment: ProjectCommentView;
 }) {
     const value = useRef<HTMLElement>(null);
     const [states, setStates] = useState<PullRequestStatus[]>([]);
@@ -61,9 +66,13 @@ function PullRequestValues({ projectId, commentId, links, revision }: {
                             <ArrowUpRightIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                         </a>
                         {state && <Badge variant="outline">{labels[state]}</Badge>}
+                        {comment.pullRequests?.some(saved => saved.url.toLowerCase() === link.url.toLowerCase() && saved.canRemove) &&
+                            <RemovePullRequest projectId={projectId} commentId={commentId} url={link.url} />}
+
                     </div>
                 );
             })}
+            {comment.permissions.triage && <LinkPullRequest projectId={projectId} commentId={commentId} />}
         </dd>
     );
 }
@@ -71,9 +80,34 @@ function PullRequestValues({ projectId, commentId, links, revision }: {
 /** One properties row; no extra control or tab stop in a list/board card. */
 export function ThreadPullRequests({ projectId, comment }: { projectId: string; comment: ProjectCommentView }) {
     const links = commentPullRequestLinks(comment);
-    if (!links.length) return null;
+    if (!links.length && !comment.permissions.triage) return null;
     return <>
         <dt className="flex h-8 items-center text-muted-foreground pointer-coarse:h-11">Pull requests</dt>
-        <PullRequestValues key={`${projectId}:${comment.id}:${links.map(link => link.url).join('\n')}`} projectId={projectId} commentId={comment.id} links={links} revision={comment.revision} />
+        <PullRequestValues key={`${projectId}:${comment.id}:${links.map(link => link.url).join('\n')}`} projectId={projectId} commentId={comment.id} links={links} revision={comment.revision} comment={comment} />
     </>;
+}
+
+function LinkPullRequest({ projectId, commentId }: { projectId: string; commentId: string }) {
+    const [url, setUrl] = useState('');
+    const [state, action, pending] = useActionState(async () => {
+        const result = await setCommentPullRequestAction(projectId, commentId, url);
+        if (result?.ok) setUrl('');
+        return result;
+    }, undefined);
+    return <form action={action} className="flex w-full min-w-0 flex-wrap items-center gap-2">
+        <Input aria-label="Pull request URL" type="url" placeholder="Paste a pull request URL" required maxLength={2048}
+            value={url} onChange={event => setUrl(event.target.value)} className="min-w-0 flex-1 pointer-coarse:min-h-11" />
+        <Button type="submit" size="sm" variant="outline" disabled={pending} className="pointer-coarse:min-h-11">Link</Button>
+        {state && !state.ok && <p role="alert" className="w-full text-sm text-destructive">{state.error}</p>}
+    </form>;
+}
+
+function RemovePullRequest({ projectId, commentId, url }: { projectId: string; commentId: string; url: string }) {
+    const [, action, pending] = useActionState(async () => {
+        const result = await setCommentPullRequestAction(projectId, commentId, url, true);
+        if (result && !result.ok) toast.error(result.error);
+        return result;
+    }, undefined);
+    return <form action={action}><Button type="submit" size="sm" variant="ghost" disabled={pending}
+        aria-label={`Remove pull request link ${url}`} className="pointer-coarse:min-h-11">Remove</Button></form>;
 }

@@ -10,6 +10,7 @@ import { integrationLabels } from '../integrations/model';
 export const MAX_THREAD_HISTORY = 200;
 type HistoryAction = 'assigned' | 'unassigned' | 'status' | 'verification-requested' | 'verification-confirmed'
     | 'verification-rejected' | 'verification-canceled' | 'priority' | 'title-written' | 'title-edited' | 'title-cleared'
+    | 'pull-request-linked' | 'pull-request-removed'
     | 'agent-attached' | 'agent-updated' | 'agent-removed' | 'public' | 'private' | 'moved';
 export type DbThreadHistoryEntry = {
     id: string; at: string; actorId: string; action: HistoryAction;
@@ -28,6 +29,8 @@ export function withThreadHistory(previous: DbComment, next: DbComment, actorId:
     const add = (action: HistoryAction, detail: Partial<Pick<DbThreadHistoryEntry, 'userId' | 'agentKind' | 'status' | 'priority'>> = {}) => {
         entries.push({ id: randomUUID(), at, actorId, action, private: Boolean(previous.private || next.private), ...detail });
     };
+    for (const link of next.pullRequests ?? []) if (!previous.pullRequests?.some(old => old.url === link.url)) add('pull-request-linked');
+    for (const link of previous.pullRequests ?? []) if (!next.pullRequests?.some(saved => saved.url === link.url)) add('pull-request-removed');
     const before = assignedUserIds(previous), after = assignedUserIds(next);
     for (const userId of before) if (!after.includes(userId)) add('unassigned', { userId });
     for (const userId of after) if (!before.includes(userId)) add('assigned', { userId });
@@ -70,6 +73,7 @@ export function threadHistoryView(comment: DbComment, viewer: { member: boolean;
         const target = entry.userId ? person(entry.userId) : 'someone';
         const agent = entry.agentKind ? agentLabels[entry.agentKind] : 'an AI agent';
         const actions: Record<HistoryAction, string> = {
+            'pull-request-linked': 'linked a pull request', 'pull-request-removed': 'removed a pull request link',
             assigned: `assigned ${target}`, unassigned: `unassigned ${target}`,
             status: `changed status to ${entry.status ? feedbackStageLabels[entry.status] : 'Open'}`,
             'verification-requested': 'requested verification', 'verification-confirmed': 'confirmed the fix',

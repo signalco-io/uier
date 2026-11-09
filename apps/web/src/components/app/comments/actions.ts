@@ -1,5 +1,7 @@
 'use server';
 
+import { setProjectCommentPullRequest } from '../../../lib/review/pullRequests';
+import { pullRequestCommentActionSchema } from './actionSchemas';
 import { z as verificationZ } from 'zod';
 import { changeFixVerification } from '../../../lib/review/fixVerification';
 import { fixVerificationSchema } from '../../../lib/review/fixVerificationSchema';
@@ -222,4 +224,9 @@ export async function triageCommentsAction(projectId: string, batch: unknown) {
 export async function verificationCommentAction(projectId: string, commentId: string, input: unknown) {
     return commentAction(verificationZ.object({ projectId: projectIdSchema, commentId: commentActionSchema.shape.commentId, input: fixVerificationSchema }),
         { projectId, commentId, input }, ({ project, actor }, parsed) => changeFixVerification(project, actor, parsed.commentId, parsed.input));
+}
+
+export async function setCommentPullRequestAction(projectId: string, commentId: string, url: string, remove = false) {
+    return commentAction(pullRequestCommentActionSchema, { projectId, commentId, url, remove },
+        ({ project, actor }, input) => setProjectCommentPullRequest(project, actor, input.commentId, input.url, input.remove));
 }

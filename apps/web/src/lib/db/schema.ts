@@ -155,6 +155,7 @@ export type DbVerification = {
 
 export type DbComment = {
     /** Bounded audit history, independent of notification delivery and unread cursors. */
+    pullRequests?: { url: string; addedBy: string }[];
     history?: import('../comments/history').DbThreadHistoryEntry[];
     verification?: DbVerification;
     /** Missing means Normal; no migration required. */

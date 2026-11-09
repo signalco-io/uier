@@ -78,6 +78,7 @@ export type ProjectAssignee = { id: string; name: string; avatarUrl?: string; ag
 
 /** A comment as the app shows it */
 export type ProjectCommentView = {
+    pullRequests?: { url: string; canRemove: boolean }[];
     history?: ThreadHistoryEntry[];
     priority: CommentPriority;
     revision: string;
@@ -259,6 +260,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
             canDelete: actor.kind === 'member' && actor.isAdmin && canDeleteItem(reply, actor),
             canFilterAuthor: actor.kind === 'member' && actor.isAdmin && Boolean(reply.authorId) && !reply.deletedAt
         })),
+        pullRequests: comment.pullRequests?.map(link => ({ url: link.url, canRemove: canTriageProject(project, actor) && link.addedBy === `user:${actor.kind === 'member' ? actor.userId : ''}` })),
         permissions: {
             resolve: canResolveComment(comment, actor),
             edit: canEditComment(comment, actor) && !first.deletedAt,

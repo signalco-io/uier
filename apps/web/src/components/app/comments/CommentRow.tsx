@@ -122,7 +122,7 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                     </p>
                     <div className="flex min-h-5 shrink-0 items-center gap-2">
                         {comment.private && <LockIcon aria-label="Private" className="size-3.5" />}
-                        {threadPullRequestLinks([{ text: comment.text, deleted: comment.deleted }, ...comment.replies]).length > 0 &&
+                        {threadPullRequestLinks([{ text: comment.text, deleted: comment.deleted }, ...comment.replies], comment.pullRequests).length > 0 &&
                             <GitPullRequestIcon aria-label="Linked pull request" className="size-3.5" />}
                         {/* Normal is the default: only a priority that differs gets its flag */}
                         {comment.priority !== 'normal' && <PriorityLabel priority={comment.priority} />}

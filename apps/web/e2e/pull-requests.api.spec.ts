@@ -234,3 +234,28 @@ test('provider failures, oversized bodies and rate limits leave plain links with
     expect((await other.load())[0]?.state).toBeUndefined();
     expect(calls).toBe(0);
 });
+
+test('manual links validate, deduplicate, retain ownership and record history only on change', async () => {
+    const { setProjectCommentPullRequest } = await import('../src/lib/review/pullRequests');
+    const f = await fixture('Fixed in https://github.com/acme/site/pull/7');
+    const actor = { kind: 'member' as const, userId: f.owner.id, name: 'Owner', isAdmin: true };
+    const url = 'https://github.com/acme/site/pull/7';
+    const saved = await setProjectCommentPullRequest(f.project, actor, f.comment.id, `${url}/files?diff=1`);
+    expect(saved.pullRequests).toEqual([{ url, addedBy: `user:${f.owner.id}` }]);
+    expect(threadPullRequestLinks(saved.thread.items, saved.pullRequests)).toHaveLength(1);
+    expect(saved.history?.at(-1)?.action).toBe('pull-request-linked');
+    const replay = await setProjectCommentPullRequest(f.project, actor, f.comment.id, url);
+    expect(replay.history).toEqual(saved.history);
+    await expect(setProjectCommentPullRequest(f.project, actor, f.comment.id, 'https://evil.test/pull/7')).rejects.toThrow();
+    await expect(setProjectCommentPullRequest(f.project, { kind: 'guest', visitorId: 'visitor_test' }, f.comment.id, url)).rejects.toThrow();
+    const other = await findOrCreateUser(`other-${randomUUID()}@example.com`);
+    await getAppStore().create<DbMember>({ type: 'member', pk: f.project.pk, id: memberId(other.id), userId: other.id,
+        email: other.email, workspaceId: f.project.workspaceId, role: 'admin', projects: 'all', createdAt: '2026-01-01' });
+    await expect(setProjectCommentPullRequest(f.project, { ...actor, userId: other.id }, f.comment.id, url, true)).rejects.toThrow('only remove');
+    const removed = await setProjectCommentPullRequest(f.project, actor, f.comment.id, url, true);
+    expect(removed.pullRequests).toEqual([]);
+    expect(removed.history?.at(-1)?.action).toBe('pull-request-removed');
+    expect(threadPullRequestLinks(removed.thread.items, removed.pullRequests)).toHaveLength(1);
+    const repeat = await setProjectCommentPullRequest(f.project, actor, f.comment.id, url, true);
+    expect(repeat.history).toEqual(removed.history);
+});

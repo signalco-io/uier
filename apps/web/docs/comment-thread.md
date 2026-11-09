@@ -34,7 +34,8 @@
   text; the toolbar shows the same icons and details. The browser icon is the browser's own mark and the
   popover puts a mark beside the operating system too (`DeviceMark.tsx`: `BrowserMark`, `OsMark`). Pending actions show `Spinner`.
 - Pull requests (`comments/ThreadPullRequests.tsx`) add a Pull requests row to the details when a current
-  message or reply contains a GitHub.com PR, GitLab.com merge request or Azure DevOps Services PR URL.
+  message, reply or manual attachment contains a GitHub.com PR, GitLab.com merge request or Azure DevOps Services PR URL.
+  Project triagers also see the URL entry field when there are no links.
   Markdown destinations, autolinks and bare links count; duplicate URLs, query strings and fragments collapse
   to one canonical link. Edited text is re-read and deleted messages contribute nothing. The row appears
   immediately, including for a pending reply; only saved text can trigger a server read. Open, Merged,
@@ -104,3 +105,5 @@
   The reply browser check waits for the saved-reply announcement before its light/dark axe scans,
   so it audits the settled document after action revalidation rather than the optimistic message.
   Never import the toolbar runtime/providers/styles into the app. See `docs/review-workflow.md`.
+
+Project triagers can paste a supported pull request URL in the open thread properties. Manually linked PRs persist separately from messages, deduplicate with message links and show on row/card marks. Only the member who linked one can remove that manual link; message detection remains independent.

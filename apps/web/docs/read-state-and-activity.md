@@ -52,3 +52,5 @@ isolation; `thread-history.spec.ts` covers the app/toolbar controls, reloads, th
 
 MCP list summaries also expose `replyCount` (all reply items, including deleted placeholders) for
 missed-event reconciliation. This count is independent of unread activity and read acknowledgements.
+
+Manual pull request additions/removals record URL-free history entries in the conditional thread write and advance thread activity. Duplicate links and absent removals are no-ops; only the linking triager can remove their manual link.
