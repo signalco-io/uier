@@ -25,6 +25,11 @@ Every issue they find has a quick action that posts it as a comment in one click
 Both panels share one layout (`components/checks/ChecksParts.tsx`), so they read the same way
 ([uier #197](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fbrand&comment=comment_Z9xMVmu-Ai2HN7Hm-ryXZ)):
 
+- **The title row** (`ChecksPanel`): the handle and the title, then two icon buttons, Check again and
+  Close, each with its name as the accessible name and tooltip
+  ([uier #206](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_AwJBAvg6X-mTNMYh8MVJA)).
+  Check again is never disabled and is `aria-busy` while a check runs.
+
 - **The summary first** (`ChecksSummary`): a tile for each kind of result with its count, its icon in
   the result's colour only while it counts something (muted at 0), then one line with when it was checked.
 - **Sections** (`CheckSection`): a heading with its count and a short note on the right, over one
