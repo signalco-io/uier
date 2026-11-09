@@ -373,3 +373,131 @@ test('screenshots: the reviewer attaches their own image instead, from the heade
     await expect(dialog.getByRole('button', { name: 'Attach image' })).toBeVisible();
     await context.close();
 });
+
+/** Holds the reading of the next attached images (src/suppliedScreenshot.ts) until the returned function is called */
+async function holdImageReading(page: Page) {
+    await page.evaluate(() => {
+        const held = window as unknown as { readAsDataURL?: FileReader['readAsDataURL']; releaseImage?: () => void };
+        const original = held.readAsDataURL ??= FileReader.prototype.readAsDataURL;
+        const release = new Promise<void>(resolve => { held.releaseImage = resolve; });
+        FileReader.prototype.readAsDataURL = function (this: FileReader, blob: Blob) { void release.then(() => original.call(this, blob)); };
+    });
+    return () => page.evaluate(() => (window as unknown as { releaseImage: () => void }).releaseImage());
+}
+
+/** Holds the next new comment or feedback on its way until the returned function is called, then saves it or fails */
+async function holdNextPost(page: Page, outcome: 'save' | 'fail') {
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    let used = false;
+    await page.route(url => url.pathname === '/api/comments', async route => {
+        if (used || route.request().method() !== 'POST') return route.fallback();
+        used = true;
+        await held;
+        if (outcome === 'save') await route.fallback();
+        else await route.fulfill({ status: 500, json: { error: 'server_error', message: 'Something went wrong' } });
+    });
+    return release;
+}
+
+test('screenshots: nothing is sent while an attached image is still being read', async ({ browser }, testInfo) => {
+    const { context, page } = await newVisitor(browser, testInfo);
+    await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
+    const posts: string[] = [];
+    page.on('request', request => {
+        if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/comments') posts.push(request.url());
+    });
+
+    // A comment: neither Enter nor the button sends the automatic screenshot in its place
+    const draft = await startComment(page, 'Wait for my picture.', page.getByRole('heading', { level: 1 }));
+    let release = await holdImageReading(page);
+    await draft.locator('input[type="file"]').setInputFiles({ name: 'evidence.png', mimeType: 'image/png', buffer: Buffer.from(pngImage.split(',')[1]!, 'base64') });
+    await expect(draft.getByRole('status').filter({ hasText: 'Reading your image...' })).toBeAttached();
+    await expect(draft.getByRole('button', { name: 'Post comment' })).toBeDisabled();
+    await draft.getByRole('textbox', { name: 'Comment' }).press('Enter');
+    await release();
+    await expect(draft.getByRole('button', { name: 'Remove attached image evidence.png' })).toBeVisible();
+    expect(posts).toHaveLength(0);
+    await expect(draft.getByRole('textbox', { name: 'Comment' })).toHaveValue('Wait for my picture.');
+    const body = nextCreatedComment(page);
+    await draft.getByRole('button', { name: 'Post comment' }).click();
+    expect((await body).screenshot).toBe(pngImage);
+    await expect(page.getByRole('status').filter({ hasText: 'Comment posted' })).toBeAttached();
+
+    // Feedback, with a pasted image
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'Send feedback' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Send feedback' });
+    const textbox = dialog.getByRole('textbox');
+    await textbox.fill('Wait for this one too.');
+    release = await holdImageReading(page);
+    await pasteImage(textbox, pngImage);
+    await expect(dialog.getByRole('status').filter({ hasText: 'Reading your image...' })).toBeAttached();
+    await expect(dialog.getByRole('button', { name: 'Send feedback' })).toBeDisabled();
+    await textbox.press('Enter');
+    await release();
+    await expect(dialog.getByRole('button', { name: 'Remove attached image image.png' })).toBeVisible();
+    expect(posts).toHaveLength(1);
+    await expect(textbox).toHaveValue('Wait for this one too.');
+    const feedback = nextCreatedComment(page);
+    await textbox.press('Enter');
+    expect((await feedback).screenshot).toBe(pngImage);
+    await context.close();
+});
+
+test('screenshots: an attached image belongs to the feedback it was sent with', async ({ browser }, testInfo) => {
+    const { context, page } = await newVisitor(browser, testInfo);
+    await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
+    const dialog = page.getByRole('dialog', { name: 'Send feedback' });
+    const openFeedback = async () => {
+        await expect(dialog).toBeHidden();
+        await toolbar(page).getByRole('button', { name: 'Send feedback' }).click();
+    };
+    const textbox = dialog.getByRole('textbox');
+    const send = dialog.getByRole('button', { name: 'Send feedback' });
+    const removeButton = (name: string) => dialog.getByRole('button', { name: `Remove attached image ${name}` });
+    const second = { name: 'second.png', mimeType: 'image/png', buffer: Buffer.from(pngImage.split(',')[1]!, 'base64') };
+
+    // Not sent, nothing newer: the text and the image are back in the form
+    await openFeedback();
+    await textbox.fill('Kept with its image.');
+    await pasteImage(textbox, pngImage);
+    await expect(removeButton('image.png')).toBeVisible();
+    let release = await holdNextPost(page, 'fail');
+    await send.click();
+    await expect(dialog).toBeHidden();
+    release();
+    await openFeedback();
+    await expect(textbox).toHaveValue('Kept with its image.');
+    await expect(removeButton('image.png')).toBeVisible();
+
+    // Opened again while it is on its way: a clean form, and the image attached there stays when it is saved
+    release = await holdNextPost(page, 'save');
+    const sent = nextCreatedComment(page);
+    await send.click();
+    expect((await sent).screenshot).toBe(pngImage);
+    await openFeedback();
+    await expect(removeButton('image.png')).toHaveCount(0);
+    await expect(dialog.getByRole('button', { name: 'Omit screenshot' })).toHaveAttribute('aria-pressed', 'false');
+    await dialog.locator('input[type="file"]').setInputFiles(second);
+    await expect(removeButton('second.png')).toBeVisible();
+    release();
+    await expect(page.getByRole('status').filter({ hasText: 'Feedback sent' })).toBeAttached();
+    await expect(removeButton('second.png')).toBeVisible();
+
+    // Not sent, with a newer image attached meanwhile: the newer one stays
+    await textbox.fill('Sent with the second image.');
+    release = await holdNextPost(page, 'fail');
+    const failing = nextCreatedComment(page);
+    await send.click();
+    expect((await failing).screenshot).toBe(pngImage);
+    await openFeedback();
+    await expect(removeButton('second.png')).toHaveCount(0);
+    await pasteImage(textbox, pngImage);
+    await expect(removeButton('image.png')).toBeVisible();
+    release();
+    await expect(textbox).toHaveValue('Sent with the second image.');
+    await expect(removeButton('image.png')).toBeVisible();
+    await expect(removeButton('second.png')).toHaveCount(0);
+    await context.close();
+});

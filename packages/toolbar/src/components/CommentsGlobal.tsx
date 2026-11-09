@@ -605,12 +605,14 @@ export function CommentsGlobal({
         awaitingThreadRef.current = undefined;
         setOpenComment({ id: commentId });
     };
-    // It was not posted: the draft, with its text back, is on the page again
+    // It was not posted: the draft, with its text back, is on the page again. One started meanwhile
+    // stays as it is, with its own image and screenshot choice; the text is back in it.
     const restoreCreatingComment = (kind: CommentDraft['kind'], sendError: unknown, choice: Pick<CommentDraft, 'omitScreenshot' | 'image'>) => {
         const saved = drafts.details(kind === 'rewrite' ? newRewriteDraftKey : newCommentDraftKey);
         if (!saved?.text.trim() || !saved.anchor) return;
         draftKeyRef.current += 1;
-        setCreatingComment({ ...saved.anchor, key: draftKeyRef.current, sendError, ...choice });
+        const restored = { ...saved.anchor, key: draftKeyRef.current, sendError, ...choice };
+        setCreatingComments(current => current.some(other => other.kind === kind) ? current : [...current, restored]);
     };
     const handleAutoOpened = useCallback(() => setOpenComment(undefined), []);
     const handleShortcutsRequestHandled = useCallback(() => setShortcutsRequested(false), []);

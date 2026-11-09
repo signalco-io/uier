@@ -89,8 +89,11 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
         }
     }, [openRequested]);
 
-    // Sent in the background: the form closes at once, a failure says so and keeps the text
+    // Sent in the background: the form closes at once and is clean when opened again, while this
+    // send keeps its image. A failure says so, keeps the text and brings the image and the choice to
+    // omit the screenshot back, unless another image was attached meanwhile.
     const handleSubmit = async (text: string, mentions?: import('./@types/Comments').Mention[]) => {
+        const sent = { image: attachment.image, omitScreenshot };
         const sending = create.mutateAsync({
             position: { type: 'page' },
             kind,
@@ -99,10 +102,18 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
             device: device.current,
             screenshot: attachment.screenshotFor(omitScreenshot, screenshot)
         });
-        handleOpenChange(false);
-        await sending;
         setOmitScreenshot(false);
         attachment.remove();
+        handleOpenChange(false);
+        try {
+            await sending;
+        } catch (error) {
+            if (!attachment.attached()) {
+                if (sent.image) attachment.restore(sent.image);
+                if (sent.omitScreenshot) setOmitScreenshot(true);
+            }
+            throw error;
+        }
         announce(selected.sent);
     };
 
@@ -161,6 +172,7 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
                     submitLabel={selected.submitLabel}
                     draftKey={`${feedbackDraftKey}:${kind}`}
                     autoFocus
+                    holdSubmit={attachment.reading}
                     error={create.error}
                     onSubmit={handleSubmit} />
             </div>

@@ -367,6 +367,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                         // Escape): the focus, and a page selection made meanwhile, stay where they are
                         autoFocus={open && !reading}
                         error={mutation.error ?? props.draft?.sendError}
+                        holdSubmit={creating && attachment.reading}
                         onSubmit={handleSubmit}
                         onDiscard={creating ? handleDiscard : undefined} />
                 </div>}

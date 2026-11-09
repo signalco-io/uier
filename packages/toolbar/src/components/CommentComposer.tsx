@@ -61,6 +61,8 @@ type CommentComposerProps = {
     autoFocus?: boolean;
     /** Editing only: the save is on its way */
     pending?: boolean;
+    /** Part of what it sends is not ready (an attached image is still being read): Enter and the send button wait */
+    holdSubmit?: boolean;
     error?: unknown;
     /**
      * Resolves when saved; rejects to retain the text. Capture belongs to the draft, not this form.
@@ -77,7 +79,7 @@ type CommentComposerProps = {
  * textarea styled like the kit's `Input` (bordered, radius 8, blue focus ring).
  * Enter sends, Shift+Enter adds a new line.
  */
-export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, error, onSubmit, onDiscard, initialText, initialMentions, commentId, onCancel }: CommentComposerProps) {
+export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, holdSubmit = false, error, onSubmit, onDiscard, initialText, initialMentions, commentId, onCancel }: CommentComposerProps) {
     const formRef = useRef<HTMLFormElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const inputId = useId();
@@ -225,7 +227,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
         const text = drafts.get(draftKey) ?? initialText ?? '';
         const mentions = drafts.details(draftKey)?.mentions ?? (text === initialText ? initialMentions ?? noMentions : noMentions);
         const trimmedText = text.trim();
-        if (!trimmedText.length || busy || drafts.pending(draftKey) || submittingRef.current) {
+        if (!trimmedText.length || busy || holdSubmit || drafts.pending(draftKey) || submittingRef.current) {
             return;
         }
         if (askName) {
@@ -381,14 +383,14 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                             </Button>
                         )}
                         {onCancel ? (
-                            <Button type="submit" variant="plain" size="xs" className="pointer-coarse:min-h-11" disabled={!trimmedText.length || busy}>{submitLabel}</Button>
+                            <Button type="submit" variant="plain" size="xs" className="pointer-coarse:min-h-11" disabled={!trimmedText.length || busy || holdSubmit}>{submitLabel}</Button>
                         ) : <IconTooltip label={submitLabel}><IconButton
                             variant="plain"
                             size="xs"
                             type="submit"
                             className="size-7 rounded-md pointer-coarse:size-11"
                             aria-label={submitLabel}
-                            disabled={!trimmedText.length || busy || sharedPending}>
+                            disabled={!trimmedText.length || busy || holdSubmit || sharedPending}>
                             <Send size={14} />
                         </IconButton></IconTooltip>}
                     </Row>

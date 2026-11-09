@@ -56,7 +56,10 @@ function ScreenIcon({ off, size = 16 }: { off?: boolean; size?: number }) {
  * Held in memory only, never in draft or idempotency storage.
  */
 export function useAttachedImage(initial?: AttachedImage) {
-    const [image, setImage] = useState(initial);
+    const [image, setStateImage] = useState(initial);
+    // The image now, for a send that settles after later renders
+    const imageRef = useRef(initial);
+    const setImage = (next: AttachedImage | undefined) => { imageRef.current = next; setStateImage(next); };
     const [error, setError] = useState('');
     const [reading, setReading] = useState(false);
     const readingRef = useRef(false);
@@ -88,6 +91,10 @@ export function useAttachedImage(initial?: AttachedImage) {
         attach,
         handlePaste,
         remove: () => { setImage(undefined); setError(''); },
+        /** Whether an image is attached or being read now (not as of this render) */
+        attached: () => Boolean(imageRef.current) || readingRef.current,
+        /** A failed send's image, back in the form unless another one was attached meanwhile */
+        restore: (sent: AttachedImage) => { if (!imageRef.current && !readingRef.current) setImage(sent); },
         /** The image the request sends: the reviewer's, else the automatic capture unless it was omitted */
         screenshotFor: (omitted: boolean, capture: Promise<string | undefined> | undefined) =>
             image ? image.dataUrl : omitted ? undefined : capture

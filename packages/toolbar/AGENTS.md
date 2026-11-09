@@ -176,7 +176,8 @@ text. Drafts are local to each browser origin and expire after seven days.
   stops a capture still being taken (`cancelCommentScreenshot`; turning it off again takes a new one)
   (`CommentDraft.omitScreenshot` carries the choice through a failed send, in memory only). An attached own image (`useAttachedImage`,
   checked by `suppliedScreenshot` with the saved-evidence limits) replaces the capture in the create request and stays in memory
-  (`CommentDraft.image`), never in draft/idempotency storage. Redaction happens after saving. Saved thumbnails expand by click, tap or keyboard; failed image
+  (`CommentDraft.image`), never in draft/idempotency storage. Sending waits while it is read (`CommentComposer`'s
+  `holdSubmit`); feedback clears it from the form on submit and a failed send restores it only into a form without a newer one. Redaction happens after saving. Saved thumbnails expand by click, tap or keyboard; failed image
   replacement retains feedback and reports the error. Keep the API's revision check on replacements.
   `apiImage` negotiates short-lived private Blob URLs and fetches bytes without cookies, review
   headers or referrers. Never forward uier headers by redirect. The embed CSP needs the configured
