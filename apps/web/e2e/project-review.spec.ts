@@ -988,7 +988,7 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
 
     // Filter by page (relative URLs), in Filter
     await backToComments(page);
-    await (await openCommentFilters(page)).getByRole('button', { name: /^Environment and page:/ }).click();
+    await (await openCommentFilters(page)).getByRole('button', { name: /, environment and page$/ }).click();
     await page.getByRole('group', { name: 'Pages' }).getByRole('button', { name: new RegExp(`^${about}\\s*,`) }).click();
     await expect(page).toHaveURL(new RegExp(`page=${encodeURIComponent(about)}`));
     await page.keyboard.press('Escape');
@@ -1023,7 +1023,7 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
     await expect(commentRows(page)).toHaveCount(1);
     await expect(commentRowLink(page, 'Pricing needs a table.')).toBeVisible();
     await expect(page.getByRole('group', { name: 'Status' }).getByRole('button', { name: 'Active 1' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Clear people filter: Unassigned' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'People: Unassigned, clear filter' })).toBeVisible();
     // It survives a reload and combines with search and page
     await page.goto(`/app/projects/${projectId}?people=unassigned&q=photo`);
     await expect(page.getByText('No comments match these filters.')).toBeVisible();

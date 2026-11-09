@@ -377,7 +377,10 @@ test('app bulk read follows environment, page and people filters in list and boa
         await page.goto(`/app/projects/${projectId}`);
         const row = (name: string) => commentRowLink(page, `${name} feedback`);
         await (await openComment(page, 'Selected feedback')).getByRole('button', { name: 'Unassigned. Change assignee', exact: true }).click();
-        await page.getByRole('menuitem', { name: /^bulk-owner-/ }).click();
+        const assignee = page.getByRole('menuitemcheckbox', { name: /^bulk-owner-/ });
+        await assignee.click();
+        await expect(assignee).toBeChecked();
+        await page.getByRole('menuitem', { name: 'Done', exact: true }).click();
         await expect(page.getByRole('button', { name: /^Assigned to you\. Change assignee$/ })).toBeVisible();
         const url = `/app/projects/${projectId}?unread=true&people=assigned&page=${encodeURIComponent(path)}&environment=${environment}`;
         await page.goto(url);
