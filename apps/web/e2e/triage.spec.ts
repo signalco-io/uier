@@ -135,6 +135,9 @@ test('selection stays quiet until it is used, by pointer, keyboard or touch, and
     // a touch screen leaves it out until Select is on
     await expect(bar).toHaveCount(0);
     await expect(select).toHaveAttribute('aria-pressed', 'false');
+    // Select shows at rest only on a touch screen; a mouse starts selecting from a row's box
+    const selectShown = () => select.evaluate(element => getComputedStyle(element).position !== 'absolute');
+    expect(await selectShown()).toBe(mobile);
     if (mobile) await expect(anyBox).toHaveCount(0);
     else {
         for (const index of [0, 1, 2]) {
@@ -151,6 +154,7 @@ test('selection stays quiet until it is used, by pointer, keyboard or touch, and
         await box(0).check();
         await expect(bar).toBeVisible();
         await expect(select).toHaveAttribute('aria-pressed', 'true');
+        expect(await selectShown()).toBe(true);
         await page.mouse.move(0, 0);
         await expect(box(2)).toHaveCSS('opacity', '1');
         await box(2).click({ modifiers: ['Shift'] });
@@ -160,6 +164,7 @@ test('selection stays quiet until it is used, by pointer, keyboard or touch, and
         await expect(bar).toHaveCount(0);
         await expect(page.getByRole('checkbox', { name: /^Select comment #/, checked: true })).toHaveCount(0);
         await expect(box(0)).toHaveCSS('opacity', '0');
+        expect(await selectShown()).toBe(false);
     }
 
     // Keyboard: x selects the focused row, Ctrl or ⌘ + A the shown results, Escape ends it and the focus stays
@@ -257,7 +262,7 @@ test('selection resets on search and view changes, and the bar passes accessibil
     await page.goBack();
     await expect(bar).toHaveCount(0);
     // Select, then Tab: the bar is next in the focus order, though it floats over the end of the list
-    await select.click();
+    await select.press('Enter');
     await expect(select).toHaveAttribute('aria-pressed', 'true');
     await page.keyboard.press('Tab');
     await expect(bar.getByRole('button', { name: 'Clear selection', exact: true })).toBeFocused();
