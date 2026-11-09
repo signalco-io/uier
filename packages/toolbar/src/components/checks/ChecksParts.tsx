@@ -1,10 +1,12 @@
-import { createContext, useContext, useId, useState, type ComponentProps, type ReactNode } from 'react';
+import { createContext, useContext, useId, useState, type ComponentProps, type ComponentType, type ReactNode } from 'react';
 import { Button } from '@signalco/ui-primitives/Button';
+import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Row } from '@signalco/ui-primitives/Row';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Check, Info, MapPin, MyLocation, Warning } from '@signalco/ui-icons';
 import type { CheckState, PageCheck, PageIssue } from '../../checks/types';
 import { CommentIcon } from '../CommentIcon';
+import { IconTooltip } from '../IconTooltip';
 
 /** A quick action's comment: on its way, or posted (with what "Show" opens) */
 export type PostedComment =
@@ -34,14 +36,16 @@ export function IssueActions({ issue, describedBy, className }: { issue: PageIss
     const { posted, highlighted, comment, highlight, show } = useContext(ChecksContext);
     const state = posted.get(issue.key);
     return (
-        <Row spacing={1} className={cx('flex-wrap', className)}>
+        <Row spacing={0.5} className={cx('flex-wrap', className)}>
+            {/* An icon with its name in a tooltip, so an element's row keeps its actions on one line */}
             {issue.element && (
-                <Button key="highlight" size="xs" variant="plain" aria-pressed={highlighted === issue.key} aria-describedby={describedBy}
-                    className={cx(actionClassName, highlighted === issue.key && 'bg-accent text-foreground')}
-                    startDecorator={<MyLocation size={14} aria-hidden="true" />}
-                    onClick={() => highlight(issue)}>
-                    Highlight
-                </Button>
+                <IconTooltip key="highlight" label="Highlight">
+                    <IconButton size="xs" variant="plain" aria-label="Highlight" aria-pressed={highlighted === issue.key} aria-describedby={describedBy}
+                        className={cx('text-muted-foreground hover:text-foreground pointer-coarse:size-11', highlighted === issue.key && 'bg-accent text-foreground')}
+                        onClick={() => highlight(issue)}>
+                        <MyLocation size={14} aria-hidden="true" />
+                    </IconButton>
+                </IconTooltip>
             )}
             {state?.status === 'posted' && (
                 <span key="posted" className="inline-flex items-center gap-1 text-xs text-muted-foreground">
@@ -78,8 +82,9 @@ function IssueItem({ issue, showSummary }: { issue: PageIssue; showSummary: bool
     const id = useId();
     return (
         <li className="flex min-w-0 flex-wrap items-center gap-x-2 rounded-lg bg-muted py-1 pl-2.5 pr-1">
-            <div id={id} className="min-w-0 flex-1 basis-28 py-1">
-                {(showSummary || !issue.label) && <p className="m-0 break-words text-xs text-foreground">{issue.summary}</p>}
+            <div id={id} className="min-w-0 flex-1 basis-24 py-1">
+                {/* A long line (axe-core's contrast details) shows two lines; the rest is in its title and read in full */}
+                {(showSummary || !issue.label) && <p className="m-0 line-clamp-2 break-words text-xs text-foreground" title={issue.summary}>{issue.summary}</p>}
                 {issue.label && <p className="m-0 truncate font-mono text-xs text-muted-foreground" title={issue.label}>{issue.label}</p>}
             </div>
             <IssueActions issue={issue} describedBy={id} className="ml-auto" />
@@ -106,7 +111,7 @@ export function IssueList({ issues, label, showSummary = true }: { issues: PageI
 }
 
 /** Each state's shape and colour: pass a green check, worth a look an amber warning, a note muted (not measured, not needed) */
-export const checkStates: Record<CheckState, { icon: typeof Check; tone: string; word: string }> = {
+export const checkStates: Record<CheckState, { icon: ChecksIcon; tone: string; word: string }> = {
     pass: { icon: Check, tone: 'text-[hsl(var(--brand-success))]', word: 'Pass' },
     warn: { icon: Warning, tone: 'text-[hsl(var(--brand-warning))]', word: 'Warning' },
     none: { icon: Info, tone: 'text-muted-foreground', word: 'Note' }
@@ -176,11 +181,14 @@ export function CheckSection({ title, count, note, children, ...rest }: Omit<Com
     );
 }
 
+/** An outlined icon: the kit's, or one drawn like it (`ChecksIcons.tsx`) */
+export type ChecksIcon = ComponentType<{ size?: number; className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>;
+
 export type SummaryTile = {
     key: string;
     label: string;
     count: number;
-    icon: typeof Check;
+    icon: ChecksIcon;
     /** The icon's colour, while there is something to count */
     tone: string;
 };

@@ -162,7 +162,7 @@ export default function BrandPage() {
                     <TokenSwatch token="--brand-in-progress" name="Sky" role="In progress" />
                     <TokenSwatch token="--brand-ready" name="Violet" role="Ready to verify, merged pull request" />
                     <TokenSwatch token="--brand-warning" name="Amber" role="warning, High priority" />
-                    <TokenSwatch token="--destructive" name="Red" role="destructive, Urgent priority, closed pull request" />
+                    <TokenSwatch token="--destructive" name="Red" role="destructive, Urgent priority, critical issue, closed pull request" />
                     <TokenSwatch token="--brand-selection" name="Selection" role="commented text or area" bordered />
                     <TokenSwatch token="--sidebar" name="Sidebar" role="the app's sidebar" bordered />
                     <TokenSwatch token="--sidebar-accent" name="Sidebar accent" role="sidebar hover, current item" />

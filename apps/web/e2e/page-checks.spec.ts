@@ -59,6 +59,14 @@ test('the Accessibility panel loads axe-core only when opened, audits the page w
     await expect(panel.locator('[data-uier-impact="critical"]').locator('[data-uier-rule="image-alt"]')).toHaveCount(1);
     await expect(panel.locator('[data-uier-rule="link-name"]')).toContainText('a#empty-link');
     await expect(panel).not.toContainText('uier-toolbar');
+    // The summary first, a tile for each impact with its elements' count
+    const elementCount = (impact: string) => panel.locator(`[data-uier-impact="${impact}"] [data-uier-rule] li`).count();
+    await expect(panel.locator('[data-uier-summary="critical"]')).toContainText('Critical');
+    await expect(panel.locator('[data-uier-summary="critical"] dd')).toHaveText(String(await elementCount('critical')));
+    await expect(panel.locator('[data-uier-summary="serious"] dd')).toHaveText(String(await elementCount('serious')));
+    // A line every element of a rule shares is said once, under its title, not on the element
+    await expect(imageRule).toContainText('Element does not have an alt attribute');
+    await expect(imageRule.getByRole('listitem').filter({ hasText: 'img#plan-chart' })).not.toContainText('alt attribute');
 
     // Highlight outlines the element on the page
     const item = imageRule.getByRole('listitem').filter({ hasText: 'img#plan-chart' });

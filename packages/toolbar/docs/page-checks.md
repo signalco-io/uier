@@ -50,9 +50,16 @@ Both panels share one layout (`components/checks/ChecksParts.tsx`), so they read
   an AMD `define`, and puts both back.
 - `src/checks/accessibility.ts` runs every rule axe-core runs by default (WCAG A and AA, best practices)
   on the document, excluding the toolbar's host and inline thread slots by reference, without frames
-  (`iframes: false`). One audit runs at a time. Results are grouped by impact (critical, serious, moderate,
-  minor), each rule with its help text, id and **How to fix** link (Deque University, without its tracking
-  query), and each element with axe-core's first failure line and its short name (`img#hero.logo`).
+  (`iframes: false`). One audit runs at a time. The panel lists only what axe-core finds
+  ([uier #198](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fbrand&comment=comment_fCCTyY6zuzO3K_Kr-DALq)):
+  the status ("3 issues found."), a summary tile per impact with its elements' count, when it was checked,
+  then a section per impact (critical, serious, moderate, minor). Each rule is a row marked with its
+  impact's icon in its colour (`impactStyles`: the priority colours, a shape each, see `BRAND.md`,
+  "Accessibility impact"), its help text, id and **How to fix** link (Deque University, without its
+  tracking query); each element is a row with its short name (`img#hero.logo`). axe-core's first failure
+  line is said once under the rule's title when every element shares it, else on each element, two lines
+  at most (the whole line is its `title`, and screen readers read all of it). Without issues the panel
+  says so in one line, with a reminder to also try a keyboard and a screen reader.
 - Packaged clients (the browser extension) never inject a remote script: there the Accessibility button
   is absent (`auditAvailable()`), and the SEO panel works as everywhere.
 
@@ -91,7 +98,7 @@ checks (a `details` row, "Outline").
 
 ## Quick actions
 
-- **Highlight** (an issue with an element) scrolls the element into view and outlines it
+- **Highlight** (an issue with an element; an icon button named in its tooltip, so the row keeps one line) scrolls the element into view and outlines it
   (`ElementHighlight`: the point-mode outline with the selection tint, in the shadow root, so screenshots
   and the audit leave it out). One element at a time; a hidden element is announced as not visible.
 - **Comment** posts the issue at once through the new-comment create (`useIssueComment`): the optimistic
@@ -118,7 +125,7 @@ review bundle itself loads only for reviewers.
 `apps/web/e2e/page-checks.spec.ts` on a project's site on another origin with the install guide's CSP
 (`?page-checks` in `e2e/support/reviewedSite.ts`): no audit request before the Accessibility panel opens
 and one after, rules by impact without the toolbar, Highlight, a comment posted on the element with its
-screenshot and details, Show, focus back on Close (Desktop Chrome); the SEO checks, the summary's counts,
+screenshot and details, Show, focus back on Close, the impact tiles' counts and a rule's shared line said once (Desktop Chrome); the SEO checks, the summary's counts,
 the folded outline, Core Web Vitals not counting the toolbar's presses, a guest's name, page feedback, an
 element's comment and a noindex page (its Indexing note, no canonical needed) (Desktop Chrome);
 the panels from Options on a phone, fitting the screen (Mobile Chrome). `toolbar-assets.api.spec.ts`:
