@@ -63,33 +63,33 @@ test('beside the list the shown thread is read, and the arrow keys read only the
 
     // The first thread is shown in full beside the list: once it has been on screen it is read, the dot,
     // the row and the count change together
-    await expect(thread).toContainText('Guest thread 1');
+    await expect(thread).toContainText('Guest thread 5');
     await expect(dot).toHaveCount(0);
-    await expect(row(page, 1)).not.toHaveAccessibleName(/, unread$/);
+    await expect(row(page, 5)).not.toHaveAccessibleName(/, unread$/);
     await expect(page.getByText('· 4 unread', { exact: true })).toBeVisible();
-    await expect.poll(() => reads).toEqual([ids[1]]);
+    await expect.poll(() => reads).toEqual([ids[5]]);
 
     // Skimming with the keys: only the thread the reader stops on is read
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('ArrowDown');
-    await expect.poll(() => openId(page)).toBe(ids[4]);
-    await expect(thread).toContainText('Guest thread 4');
+    await expect.poll(() => openId(page)).toBe(ids[2]);
+    await expect(thread).toContainText('Guest thread 2');
     await expect(dot).toHaveCount(0);
-    await expect.poll(() => reads).toEqual([ids[1], ids[4]]);
+    await expect.poll(() => reads).toEqual([ids[5], ids[2]]);
     await page.waitForTimeout(pastDwell);
-    expect(reads).toEqual([ids[1], ids[4]]);
-    await expect(row(page, 2)).toHaveAccessibleName(/, unread$/);
+    expect(reads).toEqual([ids[5], ids[2]]);
+    await expect(row(page, 4)).toHaveAccessibleName(/, unread$/);
     await expect(row(page, 3)).toHaveAccessibleName(/, unread$/);
     await expect(page.getByText('· 3 unread', { exact: true })).toBeVisible();
 
     // Saved: after a reload the open thread is already read, so nothing is written again
     await page.reload();
-    await expect(thread).toContainText('Guest thread 4');
-    await expect(row(page, 1)).not.toHaveAccessibleName(/, unread$/);
-    await expect(row(page, 2)).toHaveAccessibleName(/, unread$/);
+    await expect(thread).toContainText('Guest thread 2');
+    await expect(row(page, 5)).not.toHaveAccessibleName(/, unread$/);
+    await expect(row(page, 4)).toHaveAccessibleName(/, unread$/);
     await page.waitForTimeout(pastDwell);
-    expect(reads).toEqual([ids[1], ids[4]]);
+    expect(reads).toEqual([ids[5], ids[2]]);
 
     // Mark as unread keeps the thread unread while it stays open
     await thread.getByRole('button', { name: 'More actions for the comment by guest', exact: true }).click();
@@ -97,21 +97,21 @@ test('beside the list the shown thread is read, and the arrow keys read only the
     await expect(dot).toBeVisible();
     await page.waitForTimeout(pastDwell);
     await expect(dot).toBeVisible();
-    await expect(row(page, 4)).toHaveAccessibleName(/, unread$/);
-    expect(reads).toEqual([ids[1], ids[4]]);
+    await expect(row(page, 2)).toHaveAccessibleName(/, unread$/);
+    expect(reads).toEqual([ids[5], ids[2]]);
     // Opening another thread reads it; opening this one again reads it again
-    await openComment(page, 'Guest thread 5');
+    await openComment(page, 'Guest thread 1');
     await expect(dot).toHaveCount(0);
-    await openComment(page, 'Guest thread 4');
+    await openComment(page, 'Guest thread 2');
     await expect(dot).toHaveCount(0);
-    await expect.poll(() => reads).toEqual([ids[1], ids[4], ids[5], ids[4]]);
+    await expect.poll(() => reads).toEqual([ids[5], ids[2], ids[1], ids[2]]);
 
     // A link to a thread (`?comment=`, as My work's rows and copied links open it) reads it too
     await page.goto(`/app/projects/${project}?comment=${ids[3]}`);
     await expect(thread).toContainText('Guest thread 3');
     await expect(dot).toHaveCount(0);
     await expect(row(page, 3)).not.toHaveAccessibleName(/, unread$/);
-    await expect.poll(() => reads).toEqual([ids[1], ids[4], ids[5], ids[4], ids[3]]);
+    await expect.poll(() => reads).toEqual([ids[5], ids[2], ids[1], ids[2], ids[3]]);
 });
 
 test('where the thread takes the list\'s place, nothing is read until a row is opened', async ({ page, request }) => {
@@ -144,32 +144,32 @@ test('Only unread keeps the read thread while it is open, the board\'s sheet rea
     // and read, in its place
     await page.goto(`/app/projects/${project}?unread=true`);
     const thread = page.getByRole('article');
-    await expect(thread).toContainText('Guest thread 1');
-    await expect.poll(() => openId(page)).toBe(ids[1]);
-    await expect(row(page, 1)).not.toHaveAccessibleName(/, unread$/);
+    await expect(thread).toContainText('Guest thread 4');
+    await expect.poll(() => openId(page)).toBe(ids[4]);
+    await expect(row(page, 4)).not.toHaveAccessibleName(/, unread$/);
     await expect(commentRows(page)).toHaveCount(4);
     await expect(page.getByText('· 3 unread', { exact: true })).toBeVisible();
     await page.waitForTimeout(pastDwell);
-    expect(reads).toEqual([ids[1]]);
-    await expect(row(page, 2)).toHaveAccessibleName(/, unread$/);
+    expect(reads).toEqual([ids[4]]);
+    await expect(row(page, 3)).toHaveAccessibleName(/, unread$/);
     // Another thread opened: the read one leaves the list, the new one stays while it is open
-    await openComment(page, 'Guest thread 2');
-    await expect(row(page, 1)).toHaveCount(0);
-    await expect(row(page, 2)).not.toHaveAccessibleName(/, unread$/);
+    await openComment(page, 'Guest thread 3');
+    await expect(row(page, 4)).toHaveCount(0);
+    await expect(row(page, 3)).not.toHaveAccessibleName(/, unread$/);
     await expect(commentRows(page)).toHaveCount(3);
-    await expect.poll(() => reads).toEqual([ids[1], ids[2]]);
+    await expect.poll(() => reads).toEqual([ids[4], ids[3]]);
 
     // The board opens a thread in a sheet, which reads it
     await page.goto(`/app/projects/${project}?view=board`);
-    await expect(row(page, 3)).toHaveAccessibleName(/, unread$/);
-    await row(page, 3).click();
+    await expect(row(page, 2)).toHaveAccessibleName(/, unread$/);
+    await row(page, 2).click();
     const sheet = page.getByRole('dialog');
-    await expect(sheet.getByRole('article')).toContainText('Guest thread 3');
+    await expect(sheet.getByRole('article')).toContainText('Guest thread 2');
     await expect(sheet.getByRole('button', { name: 'Unread. Mark as read', exact: true })).toHaveCount(0);
-    await expect.poll(() => reads).toEqual([ids[1], ids[2], ids[3]]);
+    await expect.poll(() => reads).toEqual([ids[4], ids[3], ids[2]]);
     await page.keyboard.press('Escape');
     await expect(sheet).toHaveCount(0);
-    await expect(row(page, 3)).not.toHaveAccessibleName(/, unread$/);
+    await expect(row(page, 2)).not.toHaveAccessibleName(/, unread$/);
 
     // A failed write: the dot goes at once and comes back, and the read is not tried again while open
     let release = () => {};
@@ -181,8 +181,8 @@ test('Only unread keeps the read thread while it is open, the board\'s sheet rea
         await held;
         await route.abort();
     });
-    await row(page, 4).click();
-    await expect(sheet.getByRole('article')).toContainText('Guest thread 4');
+    await row(page, 1).click();
+    await expect(sheet.getByRole('article')).toContainText('Guest thread 1');
     const dot = sheet.getByRole('button', { name: 'Unread. Mark as read', exact: true });
     await expect.poll(() => attempts).toBe(1);
     await expect(dot).toHaveCount(0);
@@ -192,6 +192,6 @@ test('Only unread keeps the read thread while it is open, the board\'s sheet rea
     expect(attempts).toBe(1);
     await expect(dot).toBeVisible();
     await page.keyboard.press('Escape');
-    await expect(row(page, 4)).toHaveAccessibleName(/, unread$/);
-    await expect(row(page, 3)).not.toHaveAccessibleName(/, unread$/);
+    await expect(row(page, 1)).toHaveAccessibleName(/, unread$/);
+    await expect(row(page, 2)).not.toHaveAccessibleName(/, unread$/);
 });

@@ -7,8 +7,8 @@ type Ordered = { priority?: CommentPriority; number?: number };
 
 /**
  * A project's threads in the order its list and board columns show them: by priority (Urgent, High,
- * Normal, Low; missing is Normal), then by number, lowest first, so each priority reads like a queue
- * (the oldest request first). Threads without a number (older records) come after the numbered ones
+ * Normal, Low; missing is Normal), then by number, highest first, so the newest request of each priority
+ * comes first. Threads without a number (older records) come after the numbered ones
  * of their priority, in the order they were given (`sort` is stable).
  */
 export function compareCommentOrder(a: Ordered, b: Ordered) {
@@ -16,7 +16,7 @@ export function compareCommentOrder(a: Ordered, b: Ordered) {
     if (priority) return priority;
     if (a.number === undefined || b.number === undefined)
         return a.number === undefined ? (b.number === undefined ? 0 : 1) : -1;
-    return a.number - b.number;
+    return b.number - a.number;
 }
 
 /** A sorted copy (`compareCommentOrder`) */
