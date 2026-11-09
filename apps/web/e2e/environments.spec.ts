@@ -56,7 +56,7 @@ test('environment labels, isolation, alias sharing, history, direct links and pe
     await environmentGroup.getByRole('button', { name: 'Production', exact: true }).click();
     await page.keyboard.press('Escape');
     await expect(commentRows(page)).toHaveCount(1);
-    await expect(page.getByRole('button', { name: 'Clear filter: Production', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Clear environment filter: Production', exact: true })).toBeVisible();
     await page.reload();
     await expect(commentRows(page)).toHaveCount(1);
     await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${production}${path}`)}`);

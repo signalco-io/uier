@@ -16,8 +16,10 @@
   progress 4") and stays pressed; pressing it again goes back to every active status. `?status=open`, `in-progress` and
   `ready` links still open on that status. The tabs have no `StateDot`, so Done never reads as a
   notification; the three statuses in the menu show theirs in its colour ([status colours](comments-inbox.md)). The menu button is a plain button inside the toggle group: Tab reaches it,
-  the arrow keys move between the tabs only. Each filter in effect shows under the bar with its own clear button ("Clear filter: Unread",
-  "Clear author filter: ..."). The count line under them (`TriageSelection`) has the unread
+  the arrow keys move between the tabs only. Each filter in effect shows on the status tabs' line (wrapping under them only when there is no
+  room; on the board, which has no tabs, on its own line), named by its filter in muted text ("Priority: Urgent",
+  "Environment: Production", "Page: /app/…", "People: Unassigned", "Author: Ana", and "Only unread"), with its own
+  clear button ("Clear page filter: /app/…", "Clear author filter: Ana", "Clear filter: Only unread"). The count line under them (`TriageSelection`) has the unread
   count, then Mark all as read right beside it (a small filled `secondary` button whose icon takes the unread
   accent, so it reads as that count's action), and Select at the end. Neither view has "15 of 93 comments": the
   list's status tabs and the board's columns already count what is shown. With a mouse Select is `sr-only` until something is selected (or it has keyboard focus),

@@ -28,12 +28,14 @@ import { useKeyShortcutLabel } from '../keyboard/keys';
 const segmentedGroup = 'gap-0.5 rounded-lg bg-muted p-[3px]';
 const segmentedItem = 'h-[26px] min-w-[26px] shrink-0 rounded-md px-2.5 text-muted-foreground hover:bg-transparent hover:text-foreground data-pressed:bg-background data-pressed:text-foreground data-pressed:shadow-sm pointer-coarse:min-h-11';
 
-/** A filter in effect, under the bar: its name and a button that clears it */
-function FilterChip({ label, clearLabel = `Clear filter: ${label}`, icon, onClear }: { label: string; clearLabel?: string; icon?: React.ReactNode; onClear: () => void }) {
+/** A filter in effect, beside the status tabs: the filter's name, what it is set to and a button that clears it */
+function FilterChip({ name, value, icon, onClear }: { name?: string; value: string; icon?: React.ReactNode; onClear: () => void }) {
     return (
-        <Button size="xs" variant="outline" className="max-w-full font-normal pointer-coarse:min-h-11" aria-label={clearLabel} onClick={onClear}>
+        <Button size="xs" variant="outline" className="max-w-full font-normal pointer-coarse:min-h-11"
+            aria-label={name ? `Clear ${name.toLowerCase()} filter: ${value}` : `Clear filter: ${value}`} onClick={onClear}>
             {icon}
-            <span className="truncate">{label}</span>
+            {name && <span className="shrink-0 text-muted-foreground">{name}:</span>}
+            <span className="truncate">{value}</span>
             <XIcon data-icon="inline-end" className="text-muted-foreground" />
         </Button>
     );
@@ -41,9 +43,11 @@ function FilterChip({ label, clearLabel = `Clear filter: ${label}`, icon, onClea
 
 /**
  * Search, the status tabs and one Filter button (priority, environment and page, people, unread);
- * the filters in effect show under the bar, each with its own clear button. All kept in the URL.
+ * the filters in effect show on the status tabs' line, each named, with its own clear button. All kept in the URL.
  */
-export function CommentFilters({ unread, unreadCount, view, status, statusCounts, people, page, pages, environment, environments, historySources, author, search, onSearch, priority }: {
+export function CommentFilters({ className, unread, unreadCount, view, status, statusCounts, people, page, pages, environment, environments, historySources, author, search, onSearch, priority }: {
+    /** The header's width: the list's or the board's (ProjectComments) */
+    className?: string;
     search: string;
     onSearch: (value: string) => void;
     priority?: CommentPriority;
@@ -85,16 +89,16 @@ export function CommentFilters({ unread, unreadCount, view, status, statusCounts
         : undefined;
     const pagePrefix = page ? pageFilterBase(page) : undefined;
     const chips = [
-        priority && { key: 'priority', label: `${priorityLabels[priority]} priority`, clear: () => go({ priority: undefined }) },
-        unread && { key: 'unread', label: 'Unread', clear: () => go({ unread: undefined }) },
-        environmentLabel && { key: 'environment', label: environmentLabel, clear: () => go({ environment: undefined, page: undefined }) },
-        page && { key: 'page', label: pagePrefix !== undefined ? `${pagePrefix}/…` : page, clear: () => go({ page: undefined }) },
-        people !== 'all' && { key: 'people', label: peopleFilterLabels[people], clear: () => go({ people: undefined }) }
-    ].filter(Boolean) as { key: string; label: string; clear: () => void }[];
+        priority && { key: 'priority', name: 'Priority', value: priorityLabels[priority], clear: () => go({ priority: undefined }) },
+        unread && { key: 'unread', value: 'Only unread', clear: () => go({ unread: undefined }) },
+        environmentLabel && { key: 'environment', name: 'Environment', value: environmentLabel, clear: () => go({ environment: undefined, page: undefined }) },
+        page && { key: 'page', name: 'Page', value: pagePrefix !== undefined ? `${pagePrefix}/…` : page, clear: () => go({ page: undefined }) },
+        people !== 'all' && { key: 'people', name: 'People', value: peopleFilterLabels[people], clear: () => go({ people: undefined }) }
+    ].filter(Boolean) as { key: string; name?: string; value: string; clear: () => void }[];
     const active = chips.length + (author ? 1 : 0);
 
     return (
-        <div className="flex w-full min-w-0 flex-col gap-2">
+        <div className={cn('flex w-full min-w-0 flex-col gap-2', className)}>
             <div className="flex min-w-0 items-center gap-2">
                 <InputGroup className="min-w-0 flex-1 sm:max-w-80 pointer-coarse:min-h-11">
                     <InputGroupAddon><SearchIcon /></InputGroupAddon>
@@ -183,14 +187,15 @@ export function CommentFilters({ unread, unreadCount, view, status, statusCounts
             </div>
             {/* Active (the default, every status but Done), Done and All; the board shows the statuses side by side.
                 Open, In progress and Ready to verify fold under Active: its menu picks one, and the Active tab then names it.
-                The scroller's padding gives the tabs room without adding to the rows' spacing. */}
-            {view === 'list' && <StatusTabs status={status} counts={statusCounts} onStatus={value => go({ status: value === 'active' ? undefined : value })} />}
-            {active > 0 && (
-                <div role="group" aria-label="Filters in effect" className="flex flex-wrap items-center gap-1.5">
-                    {chips.map(chip => <FilterChip key={chip.key} label={chip.label} onClear={chip.clear} />)}
-                    {author && (
-                        <FilterChip label={`Author: ${author.name}`} clearLabel={`Clear author filter: ${author.name}`}
-                            icon={<UserIcon data-icon="inline-start" />} onClear={() => go({ author: undefined })} />
+                The filters in effect share the tabs' line and wrap under them only when there is no room. */}
+            {(view === 'list' || active > 0) && (
+                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
+                    {view === 'list' && <StatusTabs status={status} counts={statusCounts} onStatus={value => go({ status: value === 'active' ? undefined : value })} />}
+                    {active > 0 && (
+                        <div role="group" aria-label="Filters in effect" className="flex min-w-0 flex-wrap items-center gap-1.5">
+                            {chips.map(chip => <FilterChip key={chip.key} name={chip.name} value={chip.value} onClear={chip.clear} />)}
+                            {author && <FilterChip name="Author" value={author.name} icon={<UserIcon data-icon="inline-start" />} onClear={() => go({ author: undefined })} />}
+                        </div>
                     )}
                 </div>
             )}
@@ -212,7 +217,7 @@ function StatusTabs({ status, counts, onStatus }: {
     const activeValue = activeShown ? status : 'active';
     const activeLabel = activeValue === 'active' ? statusFilterLabels.active : `${statusFilterLabels.active}: ${statusFilterLabels[activeValue]}`;
     return (
-        <div className="-mx-1 -my-0.5 overflow-x-auto px-1 py-0.5">
+        <div className="-mx-1 -my-0.5 max-w-[calc(100%+0.5rem)] overflow-x-auto px-1 py-0.5">
             <ToggleGroup size="sm" spacing={0.5} aria-label="Status" className={cn(segmentedGroup, 'w-max')} value={[activeShown ? 'active' : status]}
                 // Pressing the Active tab again while it shows one of its statuses unpresses it: back to every active status
                 onValueChange={([value]) => {
