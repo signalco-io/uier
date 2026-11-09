@@ -308,7 +308,12 @@ its `summary`). It ends with a `RESULT` block (see the fix-session rules).
 2. Blocked items: reply with the session's question or reason, record `asked` or `rejected`, and
    leave them Open. The watcher removes their agent (`clear` above); without a lease, call
    `clear_feedback_agent` yourself.
-3. A PR: in T3 `link_pull_request` and `watch_pull_request`; record it in `prs`. Then review it:
+3. A PR: immediately call uier `link_feedback_pull_request` for each item the session fixed, with
+   its owning `projectId`, `commentId` and the PR `url`. Do this as soon as the PR is opened, before
+   review, CI or merging. It requires `feedback:assign`; the canonical URL makes retries safe without
+   an idempotency key. If linking fails, retain the PR, record the failure and retry it; never treat
+   a local T3 PR link as a uier attachment. In T3 `link_pull_request` and `watch_pull_request`;
+   record it in `prs`. Then review it:
    - `gh pr view <n> --json files,additions,deletions`. Flag files outside the expected areas,
      secrets, infrastructure, CI workflows, auth or permission code and new dependencies.
    - Up to about 300 changed lines and nothing flagged: read `gh pr diff <n>` and check it does what

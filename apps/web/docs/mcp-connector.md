@@ -249,3 +249,5 @@ uier’s feedback projects. Only actions attributed to the calling connection ar
 other connections of the same account remain visible. `list_feedback.replyCount` counts reply
 items (including deleted placeholders), so watchers can detect missed replies without treating
 status or assignment changes as messages. It does not acknowledge read state.
+
+`link_feedback_pull_request` attaches a canonical supported PR URL through the shared thread mutation service. It requires `feedback:assign`: attaching work belongs with assignment metadata and needs no reply/status authority. Current project triage and thread visibility are rechecked on each write. URL identity makes retries naturally idempotent without a receipt key; ownership and activity remain unchanged on duplicate calls. Its result exposes URLs, never linker ids.

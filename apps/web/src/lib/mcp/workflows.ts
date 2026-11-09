@@ -42,6 +42,7 @@ const toolScopes = [
     ['set_feedback_status', 'feedback:status', 'Set Open, In progress or Done without reviewer confirmation after approval.'],
     ['request_feedback_verification', 'feedback:status', 'Request a fix check after approval, using the current revision.'],
     ['cancel_feedback_verification', 'feedback:status', 'Cancel the current fix check after approval.'],
+    ['link_feedback_pull_request', 'feedback:assign', 'Attach a pull request opened for authorized feedback work; canonical URLs are naturally idempotent.'],
     ['assign_feedback', 'feedback:assign', 'Assign an eligible participant, or unassign, after approval.'],
     ['set_feedback_agent', 'feedback:assign', 'Attach yourself as the agent working under the person on feedback assigned to them; Open feedback moves to In progress when the connection also has feedback:status.'],
     ['set_feedback_agent_working', 'feedback:assign', 'Report active work with a five-minute lease; renew every two minutes or clear it without changing thread status.'],
@@ -79,6 +80,10 @@ For an approved assignment, first use list_assignees for the thread. Assignment 
 ## Show that you are working on it
 
 When the person asks you to work on feedback that is assigned to them, call set_feedback_agent for that thread before you start, with your session id, model and reasoning level when you know them; uier shows you beside them as the agent working on it. Asking you to work on it approves attaching yourself and reporting active work for this task. After attaching, call set_feedback_agent_working with working: true and the attached sessionId, if any. Renew every two minutes while actively working, with a fresh idempotency key per renewal (reuse the original key only for retries). Each lease expires after five minutes. Call it with working: false when you pause or finish; this keeps the agent attached and never changes the thread status. Call clear_feedback_agent to detach when you stop without finishing; detaching also ends the working indicator. Only the assignee's own connection can attach an agent: feedback assigned to someone else is refused, so do not reassign it to make room. For unassigned feedback, pass assignToMe: true only after the person explicitly approves taking it. Removing a person removes their agents; adding someone else preserves them. To attach an additional agent under the same person, pass add: true and keep its returned id as agentId for subsequent update, clear and working calls. Existing calls without a selector update or clear the first agent under you; working calls without agentId must match one attached connection/session. Replies you post show as written by you for the person ("Ana via Claude"), with the attached agent's model and reasoning level; when you have not attached yourself, pass agent, model and reasoning to reply_to_feedback when you know them.
+
+## Link the pull request
+
+When authorized feedback work opens a pull request, immediately call link_feedback_pull_request with the owning projectId, commentId and PR URL for each item it addresses. This uses feedback:assign because the link records work attached to feedback, without replying or changing status. The canonical URL is the retry identity; no idempotencyKey is needed. Repeated calls do not add history or take ownership from the original linker.
 
 ## Watch for new activity
 

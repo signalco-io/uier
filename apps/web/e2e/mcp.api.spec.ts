@@ -707,3 +707,25 @@ test('approved verification tools request/cancel under status scope; boolean sta
         expect(feedbackSkill()).toContain('MCP cannot confirm a fix');
     } finally { await client.close(); }
 });
+
+test('PR linking uses assignment scope, canonical idempotence and thread visibility', async () => {
+    const f = await fixture();
+    const grant = await createMcpCredential(f.context, { name: 'Link PRs', projectIds: [f.project.id], scopes: ['feedback:read', 'feedback:assign'], days: 7 });
+    const readGrant = await createMcpCredential(f.context, { name: 'Read only', projectIds: [f.project.id], scopes: ['feedback:read'], days: 7 });
+    const client = await connect(grant.token), reader = await connect(readGrant.token);
+    const args = { projectId: f.project.id, commentId: f.comment.id, url: 'https://gitlab.com/acme/site/-/merge_requests/8' };
+    try {
+        expect((await reader.callTool({ name: 'link_feedback_pull_request', arguments: args })).isError).toBe(true);
+        expect((await client.callTool({ name: 'link_feedback_pull_request', arguments: { ...args, url: 'https://evil.test/pr/1' } })).isError).toBe(true);
+        expect((await client.callTool({ name: 'link_feedback_pull_request', arguments: { ...args, projectId: f.other.id } })).isError).toBe(true);
+        const linked = await client.callTool({ name: 'link_feedback_pull_request', arguments: args });
+        expect(linked.isError).toBeFalsy();
+        expect(data(linked).pullRequests).toEqual([{ url: args.url }]);
+        const before = (await getCommentsStore().get(f.comment.domain, f.comment.id))!.comment;
+        expect((await client.callTool({ name: 'link_feedback_pull_request', arguments: { ...args, url: `${args.url}?view=diff` } })).isError).toBeFalsy();
+        const after = (await getCommentsStore().get(f.comment.domain, f.comment.id))!.comment;
+        expect(after?.pullRequests).toEqual(before?.pullRequests);
+        expect(after?.history).toEqual(before?.history);
+        expect(after?.activity).toEqual(before?.activity);
+    } finally { await client.close(); await reader.close(); }
+});
