@@ -47,16 +47,18 @@ export function AssigneeCard({ assignees, userId, tabbable = true, onPress, clas
                 className={cn('relative z-10 -m-0.5 flex shrink-0 rounded-full p-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:-m-3 pointer-coarse:p-3', className)}>
                 <AssigneeAvatars assignees={assignees} decorative />
             </PopoverTrigger>
-            <PopoverContent ref={popup} initialFocus={popup} align="end" aria-label="Assignee details" className="w-72 gap-1 p-2">
+            <PopoverContent ref={popup} initialFocus={popup} align="end" aria-label="Assignee details" className="max-h-[min(32rem,80dvh)] w-72 gap-2 overflow-y-auto p-2">
                 {assignees.map(assignee => <div key={assignee.id} data-assignee-details={assignee.id} className="flex min-w-0 flex-col gap-1">
-                <Item size="xs">
-                    <ItemMedia><PersonAvatar assignee={assignee} className="size-8" initialsClassName="text-xs" /></ItemMedia>
-                    <ItemContent className="min-w-0">
-                        <ItemDescription>Assigned to</ItemDescription>
-                        <CutText full={assignee.id === userId ? 'You' : assignee.name} render={<ItemTitle className="block max-w-full truncate" />} />
-                    </ItemContent>
-                </Item>
-                    {assigneeAgents(assignee).map((agent, index) => <AgentDetails key={agent.id ?? index} agent={agent} />)}
+                    <Item size="xs">
+                        <ItemMedia><PersonAvatar assignee={assignee} className="size-8" initialsClassName="text-xs" /></ItemMedia>
+                        <ItemContent className="min-w-0">
+                            <ItemDescription>Assigned to</ItemDescription>
+                            <CutText full={assignee.id === userId ? 'You' : assignee.name} render={<ItemTitle className="block max-w-full truncate" />} />
+                        </ItemContent>
+                    </Item>
+                    {assigneeAgents(assignee).length > 0 && <div data-assignee-agents="" className="ml-4 flex min-w-0 flex-col gap-1 border-l pl-3">
+                        {assigneeAgents(assignee).map((agent, index) => <AgentDetails key={agent.id ?? index} agent={agent} />)}
+                    </div>}
                 </div>)}
             </PopoverContent>
         </Popover>
@@ -66,25 +68,25 @@ export function AssigneeCard({ assignees, userId, tabbable = true, onPress, clas
 function AgentDetails({ agent }: { agent: AssigneeAgentView }) {
     const working = useAgentWorking(agent.workingUntil);
     return (
-                    <Item size="xs" variant="muted">
-                        <ItemMedia><AgentAvatar kind={agent.kind} workingUntil={agent.workingUntil} className="size-8" /></ItemMedia>
-                        <ItemContent className="min-w-0">
-                            <CutText full={agent.label} render={<ItemTitle className="block max-w-full truncate" />} />
-                            {working && <ItemDescription>Working now</ItemDescription>}
-                            {/* By name like the thread's Assignee field, the reported id as its title; an unknown id as it is, in mono */}
-                            {agent.model
-                                ? <CutText data-agent-model="" title={agent.model} full={<>{agentModelText({ label: agent.label, model: agent.model })}{modelName(agent.model) && <span className="block font-mono">{agent.model}</span>}</>}
-                                    render={<ItemDescription className={modelName(agent.model) ? 'truncate' : 'truncate font-mono'} />}>
-                                    {agentModelText({ label: agent.label, model: agent.model })}
-                                </CutText>
-                                : <ItemDescription className="truncate">No model given</ItemDescription>}
-                            {agent.reasoning && <CutText full={reasoningText(agent.reasoning)} render={<ItemDescription className="truncate" />} />}
-                            {agent.setAt && <ItemDescription data-agent-since="">Started <RelativeTime value={agent.setAt} /></ItemDescription>}
-                            {agent.sessionId && <CutText data-agent-session="" full={<span className="font-mono break-all">{agent.sessionId}</span>} render={<ItemDescription className="truncate" />}>
-                                Session <span className="font-mono">{agent.sessionId}</span>
-                            </CutText>}
-                        </ItemContent>
-                    </Item>
+        <Item size="xs">
+            <ItemMedia><AgentAvatar kind={agent.kind} workingUntil={agent.workingUntil} className="size-6" /></ItemMedia>
+            <ItemContent className="min-w-0">
+                <CutText full={agent.label} render={<ItemTitle className="block max-w-full truncate" />} />
+                {working && <ItemDescription>Working now</ItemDescription>}
+                {/* By name like the thread's Assignee field, the reported id as its title; an unknown id as it is, in mono */}
+                {agent.model
+                    ? <CutText data-agent-model="" title={agent.model} full={<>{agentModelText({ label: agent.label, model: agent.model })}{modelName(agent.model) && <span className="block font-mono">{agent.model}</span>}</>}
+                        render={<ItemDescription className={modelName(agent.model) ? 'truncate' : 'truncate font-mono'} />}>
+                        {agentModelText({ label: agent.label, model: agent.model })}
+                    </CutText>
+                    : <ItemDescription className="truncate">No model given</ItemDescription>}
+                {agent.reasoning && <CutText full={reasoningText(agent.reasoning)} render={<ItemDescription className="truncate" />} />}
+                {agent.setAt && <ItemDescription data-agent-since="">Started <RelativeTime value={agent.setAt} /></ItemDescription>}
+                {agent.sessionId && <CutText data-agent-session="" full={<span className="font-mono break-all">{agent.sessionId}</span>} render={<ItemDescription className="truncate" />}>
+                    Session <span className="font-mono">{agent.sessionId}</span>
+                </CutText>}
+            </ItemContent>
+        </Item>
     );
 }
 

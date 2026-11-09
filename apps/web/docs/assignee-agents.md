@@ -30,8 +30,11 @@ Adding more agents, updating and clearing keep the stage.
 `AssigneesControl` uses a checkbox menu that stays open between people, with atomic add/remove and
 optimistic shared-list patches. It groups each person's `AgentControl` beneath the selection; only
 the signed-in person's controls edit agents, including Add agent while they already have agents.
-`AssigneeCard` shows every person and their agents in rows, board cards and My work, with the existing
-hover/keyboard/touch behavior and cut-off-value tooltips (`CutText`). `AgentMark` uses the shared
+`AssigneeCard` opens from rows, board cards and My work. Its full list indents agents beneath their
+person, whose avatar is larger. Compact avatars carry each person's agent marks as small badges on
+their lower edge. Up to three people and two badges per person fit in a compact row; a count names
+the remainder and shows any active work there. The label and scrollable hover card retain everyone.
+Hover, keyboard, touch and cut-off-value tooltips (`CutText`) keep their behavior. `AgentMark` uses the shared
 one-colour product marks. `assigneeAgentViews` projects only display fields, never credential ids.
 `modelName`, `agentModelText`, `agentText` and `reasoningText` keep the app and toolbar's model names
 and labels aligned; unknown ids stay as reported in mono. The Session and model dialog and packets

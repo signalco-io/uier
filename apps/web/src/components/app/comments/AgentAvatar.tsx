@@ -27,14 +27,14 @@ export function AgentMark({ kind, className }: { kind: AgentKind; className?: st
  * An AI agent's mark on a bordered circle, the size of the 20px avatars it sits with (`size-*` on
  * `className` scales it). Every mark is one colour, ink on light and paper on dark (BRAND.md).
  */
-export function AgentAvatar({ kind, workingUntil, className }: { kind: AgentKind; workingUntil?: string; className?: string }) {
+export function AgentAvatar({ kind, workingUntil, className, compact = false }: { kind: AgentKind; workingUntil?: string; className?: string; compact?: boolean }) {
     const working = useAgentWorking(workingUntil);
     return (
         <span {...working ? { role: 'img', 'aria-label': `${agentLabels[kind]} is working now` } : { 'aria-hidden': true }} data-agent={kind}
             className={cn('relative flex size-5 shrink-0 items-center justify-center rounded-full border bg-background text-foreground', className)}>
             <AgentMark kind={kind} className="size-3/5" />
-            {working && <span data-agent-working="" className="absolute -right-1 -bottom-0.5 flex size-3 items-center justify-center rounded-full bg-background">
-                <Spinner className="size-2.5 motion-reduce:animate-none" />
+            {working && <span data-agent-working="" className={cn('absolute -right-1 -bottom-0.5 flex items-center justify-center rounded-full bg-background', compact ? 'size-2' : 'size-3')}>
+                <Spinner className={cn('motion-reduce:animate-none', compact ? 'size-1.5' : 'size-2.5')} />
             </span>}
         </span>
     );
@@ -54,13 +54,30 @@ export function AssigneeAvatars({ assignee, assignees, userId, decorative, class
     const people = assignees ?? (assignee ? [assignee] : []);
     useAgentWorking(people.flatMap(person => assigneeAgents(person).map(agent => agent.workingUntil)));
     return (
-        <span role="img" {...decorative ? { 'aria-hidden': true } : { 'aria-label': assignedLabel(people, userId) }} className={cn('flex shrink-0 items-center gap-2', className)}>
-            {people.map(person => <span key={person.id} data-assignee-avatar={person.id} className="flex shrink-0 items-center">
-                <PersonAvatar assignee={person} />
-                {assigneeAgents(person).map((agent, index) => <AgentAvatar key={agent.id ?? index} kind={agent.kind} workingUntil={agent.workingUntil} className="-ml-1.5 ring-2 ring-background" />)}
-            </span>)}
+        <span role="img" {...decorative ? { 'aria-hidden': true } : { 'aria-label': assignedLabel(people, userId) }} className={cn('flex shrink-0 items-center gap-3', className)}>
+            {people.slice(0, 3).map(person => {
+                const agents = assigneeAgents(person);
+                return <span key={person.id} data-assignee-avatar={person.id} className="relative inline-flex size-5 shrink-0">
+                    <PersonAvatar assignee={person} />
+                    {agents.length > 0 && <span data-assignee-agents="" className="absolute -right-1 -bottom-1 flex items-center">
+                        {agents.slice(0, agents.length > 2 ? 1 : 2).map((agent, index) => <AgentAvatar key={agent.id ?? index} kind={agent.kind} workingUntil={agent.workingUntil} compact
+                            className="-ml-0.5 size-3 ring-1 ring-background first:ml-0" />)}
+                        {agents.length > 2 && <OverflowCount count={agents.length - 1} workingUntil={agents.slice(1).map(agent => agent.workingUntil)} compact />}
+                    </span>}
+                </span>;
+            })}
+            {people.length > 3 && <OverflowCount count={people.length - 3} workingUntil={people.slice(3).flatMap(person => assigneeAgents(person).map(agent => agent.workingUntil))} />}
         </span>
     );
+}
+
+/** A compact count still reports work on an attachment that is only shown in the full card. */
+function OverflowCount({ count, workingUntil, compact = false }: { count: number; workingUntil: (string | undefined)[]; compact?: boolean }) {
+    const working = useAgentWorking(workingUntil);
+    return <span data-assignee-overflow="" data-count={`+${count}`} className={cn('relative flex items-center justify-center rounded-full border bg-background font-medium text-foreground after:content-[attr(data-count)]',
+        compact ? '-ml-0.5 size-3 text-[8px] ring-1 ring-background' : 'size-5 text-[10px]')}>
+        {working && <span data-agent-working="" className="absolute -right-1 -bottom-0.5 flex size-2 items-center justify-center rounded-full bg-background"><Spinner className="size-1.5 motion-reduce:animate-none" /></span>}
+    </span>;
 }
 
 /** The assignee's 20px avatar (`size-*` on `className` scales it). Not `size="sm"`: its `data-[size=sm]:size-6` would win over `size-5` */

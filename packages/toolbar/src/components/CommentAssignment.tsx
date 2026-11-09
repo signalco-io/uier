@@ -30,19 +30,30 @@ export function workingText(comment: CommentItem) {
 /** The agent's one-colour mark on a bordered circle, as in the app (`@uier/toolbar/agents`) */
 function AgentAvatar({ kind, workingUntil }: { kind: AgentKind; workingUntil?: string }) {
     const working = useAgentWorking(workingUntil);
-    return <span aria-hidden="true" data-agent={kind} className="relative -ml-2 flex size-6 shrink-0 items-center justify-center rounded-full border bg-background text-foreground ring-2 ring-background">
-        <AgentMark kind={kind} />
-        {working && <span data-agent-working="" className="absolute -right-1 -bottom-0.5 flex size-3 items-center justify-center rounded-full bg-background">
-            <LoaderSpinner size={10} className="motion-safe:animate-spin" />
+    return <span aria-hidden="true" data-agent={kind} className="relative -ml-0.5 flex size-3 shrink-0 items-center justify-center rounded-full border bg-background text-foreground ring-1 ring-background first:ml-0">
+        <AgentMark kind={kind} size={8} />
+        {working && <span data-agent-working="" className="absolute -right-1 -bottom-0.5 flex size-2 items-center justify-center rounded-full bg-background">
+            <LoaderSpinner size={6} className="motion-safe:animate-spin" />
         </span>}
     </span>;
 }
 
 /** The assignee's avatar, as in the messages, with the agent's stacked on it, or the user icon while unassigned */
 function AssigneeAvatar({ person }: { person: Assignee }) {
-    return <span data-assignee-avatar={person.id ?? person.name} className="flex items-center">
+    const agents = assigneeAgents(person);
+    return <span data-assignee-avatar={person.id ?? person.name} className="relative inline-flex shrink-0">
         <Avatar size="sm" aria-hidden="true" className="border bg-accent text-[11px] font-semibold text-foreground">{avatarText(person.name)}</Avatar>
-        {assigneeAgents(person).map((agent, index) => <AgentAvatar key={agent.id ?? index} kind={agent.kind} workingUntil={agent.workingUntil} />)}
+        {agents.length > 0 && <span data-assignee-agents="" className="absolute -right-1 -bottom-1 flex items-center">
+            {agents.slice(0, agents.length > 2 ? 1 : 2).map((agent, index) => <AgentAvatar key={agent.id ?? index} kind={agent.kind} workingUntil={agent.workingUntil} />)}
+            {agents.length > 2 && <OverflowCount count={agents.length - 1} workingUntil={agents.slice(1).map(agent => agent.workingUntil)} compact />}
+        </span>}
+    </span>;
+}
+
+function OverflowCount({ count, workingUntil, compact = false }: { count: number; workingUntil: (string | undefined)[]; compact?: boolean }) {
+    const working = useAgentWorking(workingUntil);
+    return <span aria-hidden="true" data-count={`+${count}`} className={cx('relative flex items-center justify-center rounded-full border bg-background text-foreground after:content-[attr(data-count)]', compact ? '-ml-0.5 size-3 text-[8px]' : 'size-6 text-[10px]')}>
+        {working && <span data-agent-working="" className="absolute -right-1 -bottom-0.5 flex size-2 items-center justify-center rounded-full bg-background"><LoaderSpinner size={6} className="motion-safe:animate-spin" /></span>}
     </span>;
 }
 
@@ -58,8 +69,9 @@ export function CommentAssignee({ comment, className }: { comment: CommentItem; 
     const { triggerProps, tooltip } = useIconTooltip(assigned);
     if (!people.length) return null;
     return <>
-        <span role="img" tabIndex={-1} aria-label={assigned} className={cx('inline-flex shrink-0 items-center justify-center gap-2', className)} {...triggerProps}>
-            {people.map((person, index) => <AssigneeAvatar key={person.id ?? index} person={person} />)}
+        <span role="img" tabIndex={-1} aria-label={assigned} className={cx('inline-flex shrink-0 items-center justify-center gap-3', className)} {...triggerProps}>
+            {people.slice(0, 3).map((person, index) => <AssigneeAvatar key={person.id ?? index} person={person} />)}
+            {people.length > 3 && <OverflowCount count={people.length - 3} workingUntil={people.slice(3).flatMap(person => assigneeAgents(person).map(agent => agent.workingUntil))} />}
         </span>
         {tooltip}
     </>;

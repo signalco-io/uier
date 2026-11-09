@@ -133,7 +133,9 @@ saved reply updates the mark through the existing comment refresh.
 ## Multiple assignees
 
 Rows, board cards and My work use `commentAssignees` (arrays with a singular fallback), and
-`AssigneeCard` groups every person's agents with that person. The thread's `AssigneesControl`
+`AssigneeCard` groups every person's agents with that person: small marks on the edge of their avatar,
+and smaller, indented agent rows under their name in the hover card. Counts keep larger groups compact;
+the card scrolls to show everyone. The thread's `AssigneesControl`
 checkbox menu stays open to select several people; toggling uses atomic add/remove, while Unassign
 clears everyone. Only your own assignment exposes editable `AgentControl` instances. Assigned to me
 matches any person in the assignment; Unassigned means the array is empty. My work includes a thread

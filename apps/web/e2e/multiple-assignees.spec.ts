@@ -79,6 +79,11 @@ for (const colorScheme of ['light', 'dark'] as const) {
             const avatars = commentRows(page).locator('[data-assignee-card]');
             await expect(avatars.locator('[data-assignee-avatar]')).toHaveCount(2);
             await expect(avatars.locator('[data-agent]')).toHaveCount(3);
+            const ownGroup = avatars.locator('[data-assignee-avatar]').nth(1);
+            const humanBox = (await ownGroup.locator('[data-slot="avatar"]').boundingBox())!;
+            const agentBox = (await ownGroup.locator('[data-agent]').first().boundingBox())!;
+            expect(agentBox.width).toBeLessThan(humanBox.width);
+            expect(agentBox.y).toBeGreaterThan(humanBox.y);
             if (mobile) await avatars.tap();
             else { await avatars.focus(); await page.keyboard.press('Enter'); }
             const card = page.getByRole('dialog', { name: 'Assignee details', exact: true });
@@ -87,8 +92,13 @@ for (const colorScheme of ['light', 'dark'] as const) {
             await expect(people.nth(0).locator('[data-agent]')).toHaveCount(1);
             await expect(people.nth(1).locator('[data-agent]')).toHaveCount(2);
             await expect(people.nth(1)).toContainText('You');
+            const person = (await people.nth(1).locator('[data-slot="avatar"]').boundingBox())!;
+            const agent = (await people.nth(1).locator('[data-agent]').first().boundingBox())!;
+            expect(agent.width).toBeLessThan(person.width);
+            expect(agent.x).toBeGreaterThan(person.x);
             await animationsFinished(card);
             await expectNoAxeViolations(page);
+            await page.screenshot({ path: testInfo.outputPath('multiple-assignees-card.png') });
             await page.keyboard.press('Escape');
             await page.getByRole('button', { name: 'Board', exact: true }).click();
             await expect(page.locator('[data-board-card]').locator('[data-assignee-avatar]')).toHaveCount(2);
