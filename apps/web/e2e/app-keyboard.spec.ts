@@ -204,18 +204,30 @@ test('one switch for the app and its toolbar: turned off on either side, the oth
     await page.setViewportSize({ width: 1280, height: 800 });
     await signIn(page, uniqueEmail('keys'));
     await page.goto('/app/projects');
-    // uier's toolbar on the page (its own bundle, its own listeners): Give feedback mounts it
+    // uier's toolbar on the page (its own bundle, its own listeners): the app's C mounts it placing a comment
     await appNavigation(page);
     const giveFeedback = page.getByRole('button', { name: 'Give feedback' });
-    await expect(giveFeedback).toHaveAttribute('aria-keyshortcuts', 'C');
+    await expect(giveFeedback).not.toHaveAttribute('aria-keyshortcuts');
+    const pointMode = page.getByRole('status').filter({ hasText: 'anywhere to pin a comment' });
+    await blur(page);
+    await page.keyboard.press('c');
+    await expect(pointMode).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(pointMode).toHaveCount(0);
+    // Give feedback keeps opening the feedback form
     await giveFeedback.click();
     const feedback = page.getByRole('dialog', { name: 'Send feedback' });
     await expect(feedback).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(feedback).toBeHidden();
     const add = toolbar(page).getByRole('button', { name: 'Add comment', exact: true });
-    const pointMode = page.getByRole('status').filter({ hasText: 'anywhere to pin a comment' });
     await expect(add).toHaveAttribute('aria-keyshortcuts', 'C');
+    // With the toolbar on the page, the app's C starts its comment mode too
+    await blur(page);
+    await page.keyboard.press('c');
+    await expect(pointMode).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(pointMode).toHaveCount(0);
     // With the focus in the toolbar, C is the toolbar's
     await add.focus();
     await page.keyboard.press('c');
@@ -230,7 +242,6 @@ test('one switch for the app and its toolbar: turned off on either side, the oth
     await help.getByRole('switch', { name: 'Single-key shortcuts' }).click();
     await page.keyboard.press('Escape');
     await expect(help).toBeHidden();
-    await expect(giveFeedback).not.toHaveAttribute('aria-keyshortcuts');
     await expect(add).not.toHaveAttribute('aria-keyshortcuts');
     await add.focus();
     await page.keyboard.press('c');
@@ -242,19 +253,18 @@ test('one switch for the app and its toolbar: turned off on either side, the oth
     await optionsButton.click();
     await options.getByRole('button', { name: 'Turn on shortcuts', exact: true }).click();
     await expect(options).toBeHidden();
-    await expect(giveFeedback).toHaveAttribute('aria-keyshortcuts', 'C');
     await expect(add).toHaveAttribute('aria-keyshortcuts', 'C');
 
     // Off in the toolbar's Options: the app's letters stop
     await optionsButton.click();
     await options.getByRole('button', { name: 'Turn off shortcuts', exact: true }).click();
     await expect(options).toBeHidden();
-    await expect(giveFeedback).not.toHaveAttribute('aria-keyshortcuts');
+    await expect(add).not.toHaveAttribute('aria-keyshortcuts');
     await blur(page);
     await page.keyboard.press('?');
     await page.keyboard.press('c');
     await expect(help).toBeHidden();
-    await expect(feedback).toBeHidden();
+    await expect(pointMode).toHaveCount(0);
 });
 
 test('the sidebar, the tabs and My work are one tab stop each; G then I, B, M or P goes there', async ({ page, request }) => {

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { openFeedbackEvent } from './openFeedback';
+import { openFeedbackEvent, startCommentEvent, type ToolbarRequest } from './openFeedback';
 
 /**
  * React integration of the uier toolbar (`@uier/toolbar/react`, built to `dist/react.js`).
@@ -10,7 +10,8 @@ import { openFeedbackEvent } from './openFeedback';
  *     <UierToolbar project="k3m9x2p7q4ab" />  // a project's site, opened with its review links
  *     <UierToolbar mode="showcase" />         // always shown
  *
- * `openUierFeedback()` opens the toolbar's feedback form from a button of your own.
+ * `openUierFeedback()` opens the toolbar's feedback form from a button of your own, and
+ * `startUierComment()` starts placing a comment, as the toolbar's own + button does.
  */
 
 export type UierToolbarProps = {
@@ -60,13 +61,28 @@ export function UierToolbar({ mode = 'review', project, src = defaultToolbarScri
     return null;
 }
 
+type OpenOptions = Omit<UierToolbarProps, 'mode'>;
+
 /**
  * Opens the toolbar's feedback form, e.g. from a "Give feedback" button. A toolbar already on the
  * page opens its form; otherwise the first call adds the toolbar script in `feedback` mode, which
  * mounts the toolbar with the form open (and can be closed from its options).
  */
-export function openUierFeedback({ project, src = defaultToolbarScriptSrc, apiUrl }: Omit<UierToolbarProps, 'mode'> = {}) {
-    window.dispatchEvent(new Event(openFeedbackEvent));
+export function openUierFeedback(options: OpenOptions = {}) {
+    openToolbar('feedback', options);
+}
+
+/**
+ * Starts placing a comment on the page, e.g. from a keyboard shortcut: the toolbar's comment mode,
+ * as its + button starts it. A toolbar already on the page starts it; otherwise the first call adds
+ * the toolbar script in `feedback` mode, which mounts the toolbar and starts it.
+ */
+export function startUierComment(options: OpenOptions = {}) {
+    openToolbar('comment', options);
+}
+
+function openToolbar(request: ToolbarRequest, { project, src = defaultToolbarScriptSrc, apiUrl }: OpenOptions) {
+    window.dispatchEvent(new Event(request === 'comment' ? startCommentEvent : openFeedbackEvent));
     if (document.querySelector('script[data-uier-mode="feedback"]')) {
         return;
     }
@@ -75,6 +91,8 @@ export function openUierFeedback({ project, src = defaultToolbarScriptSrc, apiUr
     script.src = src;
     script.async = true;
     script.dataset.uierMode = 'feedback';
+    // What the first mount opens (`readToolbarRequest`)
+    script.dataset.uierOpen = request;
     if (project) {
         script.dataset.uierProject = project;
     }

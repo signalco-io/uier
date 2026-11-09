@@ -42,7 +42,7 @@ a key keeps it), while the toolbar is expanded and the shortcuts are on. `toolba
 
 | Key | What |
 | --- | --- |
-| C | Point mode, or a comment on the selected text |
+| C | Point mode, or a comment on the selected text. The page can start the same with `startUierComment()` (the `uier:start-comment` event; uier's app does on its own C, which then starts and never ends point mode) |
 | G then I | Opens the inbox (the focus on Close, as when it opens) |
 | / | Opens the inbox and goes to its search |
 | J, K | The next or the previous thread: the inbox's cards while it is open (focusable, `tabIndex=-1`), else the pins' threads in page order. A pin's thread opened this way focuses its messages (`autoOpenReading`), not the reply box, so the keys go on |

@@ -1,8 +1,10 @@
 import { runtimeAdapters } from './adapters';
 import type { ToolbarConfig, ToolbarMode } from './config';
+import type { ToolbarRequest } from './openFeedback';
 import type { ReviewSession } from './review';
 
-export type MountToolbar = (mode: ToolbarMode, review: ReviewSession | null) => void;
+/** `request`: what a `feedback` mode mount opens (its feedback form, or a new comment) */
+export type MountToolbar = (mode: ToolbarMode, review: ReviewSession | null, request?: ToolbarRequest) => void;
 
 type RuntimeContext = {
     config?: ToolbarConfig;

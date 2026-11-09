@@ -105,7 +105,9 @@ Props: `mode` (`review` or `showcase`), `project` (`data-uier-project`), `src` (
 `openUierFeedback({ project, src, apiUrl })` opens the toolbar's feedback form from a button of your own
 (uier's app has "Give feedback" in its sidebar). A toolbar already on the page opens its form; otherwise the
 first call adds the script in `feedback` mode. A reviewed site passes its project code from the app's install
-guide; without it, comments can't load or post there (see above). The package is part of this repository
+guide; without it, comments can't load or post there (see above). `startUierComment()` takes the same options
+and starts placing a comment instead, the toolbar's comment mode as its + button starts it (uier's app calls it
+on C); like the + button's C, it comments on page text the toolbar holds selected. The package is part of this repository
 and not published to npm yet.
 
 ### Review links
@@ -182,10 +184,11 @@ for under five minutes and sends it as `X-Uier-Verification`. No third-party coo
 ### Modes
 
 - `review` mode mounts the toolbar only for a review (see above).
-- `feedback` mode mounts it when the page asks for feedback: when the script loads, and again on every
-  `uier:open-feedback` event on `window` after **Close toolbar** (in its options) removed it. It mounts
-  with the feedback form open; a toolbar already on the page opens its form on the same event
-  (`src/openFeedback.ts`).
+- `feedback` mode mounts it when the page asks for feedback or a comment: when the script loads, and again on
+  every `uier:open-feedback` or `uier:start-comment` event on `window` after **Close toolbar** (in its options)
+  removed it. It mounts with the feedback form open, or placing a comment (`uier:start-comment`, or
+  `data-uier-open="comment"` on the script for its first mount); a toolbar already on the page does the same
+  on the same events (`src/openFeedback.ts`).
 - `showcase` mode (uier.io public pages) always mounts it. Review and showcase modes show the same
   first-run guide above the toolbar; About uier reopens it in every mode. Feedback mode opens and focuses
   its form without the guide covering it. Starting a comment or feedback remembers dismissal.

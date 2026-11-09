@@ -25,7 +25,7 @@ import { isShowcaseHintDismissed, rememberShowcaseHintDismissed, ShowcaseHint } 
 import { toolbarConfig } from '../config';
 import { usePagePath } from '../hooks/usePagePath';
 import { takeLinkedCommentId } from '../review';
-import { openFeedbackEvent, takeFeedbackRequest } from '../openFeedback';
+import { openFeedbackEvent, startCommentEvent, takeToolbarRequest } from '../openFeedback';
 import { captureCommentScreenshot } from '../screenshot';
 import { activeModalDialog, isInActiveModal, listenToWindowKeydown } from '../modalLayer';
 import { withLayer } from '../layerAnchor';
@@ -150,10 +150,12 @@ export function CommentsGlobal({
         });
     }, []);
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    // What `feedback` mode mounted for: the feedback form, or a new comment (`startCommentEvent`)
+    const [mountRequest] = useState(takeToolbarRequest);
     // The page asked to give feedback (`openFeedbackEvent`, or `feedback` mode mounting for it)
-    const [feedbackRequested, setFeedbackRequested] = useState(takeFeedbackRequest);
-    const [collapsed, setCollapsed] = useState(() => !feedbackRequested && readCollapsed());
-    const [hintOpen, setHintOpen] = useState(() => !feedbackRequested && mode !== 'feedback' && !isShowcaseHintDismissed());
+    const [feedbackRequested, setFeedbackRequested] = useState(mountRequest === 'feedback');
+    const [collapsed, setCollapsed] = useState(() => !mountRequest && readCollapsed());
+    const [hintOpen, setHintOpen] = useState(() => !mountRequest && mode !== 'feedback' && !isShowcaseHintDismissed());
     // "About uier" and its hint introduce uier on uier.io's landing page (the showcase without a
     // project); its other pages, its app, reviews and embeds do without them
     const pagePath = usePagePath();
@@ -225,7 +227,7 @@ export function CommentsGlobal({
         [allComments, drafts, activeThreads]);
     // The API lists at most this many comments; the page can have more
 
-    const [creatingCommentPoint, setCreatingCommentPoint] = useState(false);
+    const [creatingCommentPoint, setCreatingCommentPoint] = useState(mountRequest === 'comment');
     const shortcutsEnabled = useShortcutsEnabled();
 
     /** The visitor found the feature: the first-run hint is not needed anymore */
@@ -288,10 +290,29 @@ export function CommentsGlobal({
         }
         setFeedbackRequested(true);
     });
+    // The page asked to comment (`startUierComment()`, the app's C): what the + button or C starts,
+    // a comment on the page text selected, else point mode (started, never ended, by a repeat)
+    const handleCommentRequest = useEffectEvent(() => {
+        if (reattaching) return;
+        closeHintForUse();
+        if (collapsed) {
+            handleCollapsedChange(false);
+        }
+        if (creatingCommentSelection) {
+            handleCreateComment('comment');
+            return;
+        }
+        setCreatingCommentPoint(true);
+    });
     useEffect(() => {
-        const listener = () => handleFeedbackRequest();
-        window.addEventListener(openFeedbackEvent, listener);
-        return () => window.removeEventListener(openFeedbackEvent, listener);
+        const feedback = () => handleFeedbackRequest();
+        const comment = () => handleCommentRequest();
+        window.addEventListener(openFeedbackEvent, feedback);
+        window.addEventListener(startCommentEvent, comment);
+        return () => {
+            window.removeEventListener(openFeedbackEvent, feedback);
+            window.removeEventListener(startCommentEvent, comment);
+        };
     }, []);
 
     // On uier's own pages: what a touch pressed, for the toolbar popovers that stay open (toolbarReview.ts)

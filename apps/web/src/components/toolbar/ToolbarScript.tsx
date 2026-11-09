@@ -1,4 +1,4 @@
-import { openUierFeedback, UierToolbar } from '@uier/toolbar/react';
+import { openUierFeedback, startUierComment, UierToolbar } from '@uier/toolbar/react';
 
 /**
  * - `showcase`: always mounted, anyone can leave public feedback (every public page)
@@ -35,4 +35,12 @@ export function ToolbarScript({ mode }: { mode: ToolbarMode }) {
  */
 export function openToolbarFeedback() {
     openUierFeedback({ src: toolbarScriptSrc, apiUrl: window.location.origin });
+}
+
+/**
+ * Starts placing a comment with uier's own toolbar on this page (its comment mode, as its + button
+ * starts it; in the app it mounts the toolbar first). Call it from a click or key handler.
+ */
+export function startToolbarComment() {
+    startUierComment({ src: toolbarScriptSrc, apiUrl: window.location.origin });
 }
