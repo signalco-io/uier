@@ -11,9 +11,9 @@ comments are pinned to elements or selected text and stored per domain.
 
 | Path | Package | What | Guide |
 | --- | --- | --- | --- |
-| `apps/web` | `@uier/web` | uier.io website, `/brand` page, the signed-in app (`/app`) and the `/api/comments` API (Next.js, Cosmos DB) | [apps/web/AGENTS.md](apps/web/AGENTS.md) |
+| `apps/web` | `@uier/web` | uier.io website, `/brand` page, the signed-in app (`/app`) and the `/api/comments` API (Next.js, Cosmos DB) | [apps/web/AGENTS.md](apps/web/AGENTS.md), [area notes](apps/web/docs/README.md) |
 | `apps/extension` | `@uier/extension` | desktop Manifest V3 browser extension | [apps/extension/AGENTS.md](apps/extension/AGENTS.md) |
-| `packages/toolbar` | `@uier/toolbar` | the review toolbar bundle (tsup, React, shadow DOM) | [packages/toolbar/AGENTS.md](packages/toolbar/AGENTS.md) |
+| `packages/toolbar` | `@uier/toolbar` | the review toolbar bundle (tsup, React, shadow DOM) | [packages/toolbar/AGENTS.md](packages/toolbar/AGENTS.md), [area notes](packages/toolbar/docs/README.md) |
 | `packages/brand` | `@uier/brand` | **the brand: tokens, logo, constants, assets, `BRAND.md`** | [packages/brand/AGENTS.md](packages/brand/AGENTS.md) |
 | `infra` | `@uier/infra` | Pulumi (Vercel project, Cloudflare DNS, Cosmos DB); not in the pnpm workspace | [infra/AGENTS.md](infra/AGENTS.md) |
 
@@ -21,6 +21,12 @@ The [README](README.md) is the human entry point: product overview, quick start,
 links. Keep contribution rules in [CONTRIBUTING.md](CONTRIBUTING.md), package-specific agent
 instructions in the matching `AGENTS.md`, and detailed references and runbooks in [docs/](docs/README.md).
 When moving documentation, update relative links and links to section anchors across the repository.
+
+A package's `AGENTS.md` holds its code map and the rules for every change there. How a feature
+works, and the rules that apply only to it, are in the package's `docs/` notes, one file per area.
+Read the note for the area you change, not all of them, and update that note with the change.
+Don't add feature notes to an `AGENTS.md`: every session reads it, and parallel pull requests
+that append to the same file conflict.
 
 ## Ground rules
 
@@ -93,5 +99,6 @@ See [the focused test commands](docs/development.md#while-implementing) and
    check the content and links. The full regression suite is not a routine PR requirement.
 2. Anything user-facing matches `BRAND.md`; if you changed a brand value, `BRAND.md` and
    [uier.io/brand](https://uier.io/brand) (`/brand` locally) say the same thing.
-3. Docs that describe what you changed are updated (the relevant guide in `docs/`, package
-   documentation and `AGENTS.md`; README when setup, commands or navigation change).
+3. Docs that describe what you changed are updated (the relevant guide in `docs/`, the package's
+   area note, and `AGENTS.md` only when a rule for every change in the package changed; README when
+   setup, commands or navigation change).

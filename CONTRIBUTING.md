@@ -45,12 +45,16 @@ human contributors; [the root guide](AGENTS.md) links to each one.
 
 - Keep the README focused on the product, local quick start, everyday commands and navigation.
 - Keep contributor workflow and shared conventions here. Put agent instructions in the matching
-  `AGENTS.md`, and detailed behavior, API contracts and runbooks in `docs/` or the package guide.
+  `AGENTS.md`, and detailed behavior, API contracts and runbooks in `docs/`.
+- Keep each `AGENTS.md` to its code map and the rules every change in that package must follow.
+  How a feature works, and the rules that apply only to it, go in the package's `docs/` notes, one
+  file per area ([apps/web](apps/web/docs/README.md), [packages/toolbar](packages/toolbar/docs/README.md)).
+  Every agent session reads the guide, and parallel pull requests that append to one file conflict.
 - Update the guide that describes your change and keep [the documentation index](docs/README.md)
   useful. Check relative paths and section links when moving content.
 - Keep the brand guide and [live brand page](https://uier.io/brand) aligned. Changes to privacy,
   retention, cookies or security controls also need the matching public documents updated; see
-  [the web guide](apps/web/AGENTS.md#legal-documents).
+  [legal documents](apps/web/docs/legal-documents.md).
 
 ## Testing while implementing
 
