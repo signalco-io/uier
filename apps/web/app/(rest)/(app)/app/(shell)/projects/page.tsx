@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { FolderOpenIcon, MessageSquareIcon, PlusIcon } from 'lucide-react';
 import { buttonVariants } from '@/src/components/ui/button';
-import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '@/src/components/ui/card';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 import { requireAppContext } from '@/src/lib/app/context';
@@ -77,45 +77,42 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
                         return (
                             <li key={project.id} className="flex">
                                 <Card size="sm" className="relative flex-1 transition-colors hover:border-foreground/20">
-                                    {/* The project header's layout: the favicon beside the name and the row under it (client, then who can comment).
-                                        The favicon and the actions button sit at the top, level with the name, however far the row wraps */}
-                                    <CardHeader className="flex items-start gap-3">
-                                        <ProjectMark name={project.name} projectId={project.id} url={project.urls[0]} className="size-11 rounded-lg text-base [&>img]:p-2" />
-                                        <div className="flex min-w-0 flex-1 flex-col gap-1">
-                                            <CardTitle className="truncate">
-                                                {/* The whole card opens the project; the buttons sit above the link */}
-                                                <Link
-                                                    href={KnownPageLinks.project(project.id)}
-                                                    className="outline-none after:absolute after:inset-0 after:rounded-xl focus-visible:after:ring-3 focus-visible:after:ring-ring/50 focus-visible:after:ring-inset">
-                                                    {project.name}
-                                                </Link>
-                                            </CardTitle>
-                                            <CardDescription className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
-                                                {projectClientSummary && (
-                                                    <span className="flex min-w-0 items-center gap-1.5">
-                                                        <ClientMark client={projectClientSummary} />
-                                                        <span className="truncate">Client: {projectClientSummary.name}</span>
-                                                    </span>
-                                                )}
+                                    {/* The project header's layout: the favicon beside the name and the row under it (client, who can comment,
+                                        then the open count). The small actions sit on the name's line, so the row under it has the card's width */}
+                                    <CardHeader className="grid-cols-[auto_minmax(0,1fr)_auto] gap-x-3 gap-y-1">
+                                        <ProjectMark name={project.name} projectId={project.id} url={project.urls[0]} className="row-span-2 size-11 rounded-lg text-base [&>img]:p-2" />
+                                        <CardTitle className="truncate">
+                                            {/* The whole card opens the project; the buttons sit above the link */}
+                                            <Link
+                                                href={KnownPageLinks.project(project.id)}
+                                                className="outline-none after:absolute after:inset-0 after:rounded-xl focus-visible:after:ring-3 focus-visible:after:ring-ring/50 focus-visible:after:ring-inset">
+                                                {project.name}
+                                            </Link>
+                                        </CardTitle>
+                                        {/* Open review, and More actions for admins: quiet icon buttons that keep the name's line height */}
+                                        <div className="relative z-10 -my-1.5 -mr-1.5 flex items-center">
+                                            <ReviewLinksMenu projectId={project.id} urls={project.urls} compact={{ projectName: project.name }} />
+                                            {canManageProjects && (
+                                                <ProjectActionsMenu projectId={project.id} projectName={project.name} status={project.status} className="text-muted-foreground hover:text-foreground" />
+                                            )}
+                                        </div>
+                                        <CardDescription className="col-span-2 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
+                                            {projectClientSummary && (
                                                 <span className="flex min-w-0 items-center gap-1.5">
-                                                    <AccessIcon access={project.access} className="size-4 shrink-0" aria-hidden="true" />
-                                                    <span className="truncate">{access.label}</span>
+                                                    <ClientMark client={projectClientSummary} />
+                                                    <span className="truncate">Client: {projectClientSummary.name}</span>
                                                 </span>
-                                            </CardDescription>
-                                        </div>
-                                        {canManageProjects && (
-                                            <ProjectActionsMenu projectId={project.id} projectName={project.name} status={project.status} className="relative z-10 -mr-1.5" />
-                                        )}
+                                            )}
+                                            <span className="flex min-w-0 items-center gap-1.5">
+                                                <AccessIcon access={project.access} className="size-4 shrink-0" aria-hidden="true" />
+                                                <span className="truncate">{access.label}</span>
+                                            </span>
+                                            <span className="flex items-center gap-1.5 tabular-nums">
+                                                <MessageSquareIcon className="size-4 shrink-0" aria-hidden="true" />
+                                                {open} open
+                                            </span>
+                                        </CardDescription>
                                     </CardHeader>
-                                    <CardFooter className="mt-auto flex-wrap justify-between gap-2">
-                                        <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground tabular-nums">
-                                            <MessageSquareIcon className="size-4" aria-hidden="true" />
-                                            {open} open
-                                        </span>
-                                        <div className="relative z-10">
-                                            <ReviewLinksMenu projectId={project.id} urls={project.urls} size="sm" />
-                                        </div>
-                                    </CardFooter>
                                 </Card>
                             </li>
                         );
