@@ -10,7 +10,7 @@ export class AmoClient {
         assert.match(path, /^(?:addons\/)[A-Za-z0-9@._%{}\/?=-]+$/);
         const now = Math.floor(Date.now() / 1000);
         const part = value => Buffer.from(JSON.stringify(value)).toString('base64url');
-        const payload = `${part({ alg: 'HS256', typ: 'JWT' })}.${part({ iss: this.issuer, jti: randomUUID(), iat: now - 30, exp: now + 300 })}`;
+        const payload = `${part({ alg: 'HS256', typ: 'JWT' })}.${part({ iss: this.issuer, jti: randomUUID(), iat: now - 30, exp: now + 60 })}`;
         const token = `${payload}.${createHmac('sha256', this.secret).update(payload).digest('base64url')}`;
         const multipart = body instanceof FormData;
         const response = await this.request(`https://addons.mozilla.org/api/v5/${path}`, {

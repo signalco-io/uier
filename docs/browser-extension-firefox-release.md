@@ -10,6 +10,8 @@ After adding credentials, run **Extension Firefox account check** from `main` an
 protected environment. This reads Mozilla's private upload list without making store writes.
 It needs no release tag or publishing flag and never prints credentials or private response bodies.
 Verify this bootstrap before enabling store writes.
+Mozilla limits `exp - iat` to five minutes. The client uses a 90-second lifetime, including its
+30-second clock allowance; a locally valid signature alone does not prove API acceptance.
 
 PR CI runs Mozilla's pinned linter, tests the store client, and checks the unchanged Chrome ZIP.
 Review the linter's warnings for static helper templates and bundled libraries; errors fail the job.
