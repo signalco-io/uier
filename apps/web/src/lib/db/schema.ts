@@ -249,6 +249,8 @@ export type DbAiTitle = {
     model: string;
     /** ISO 8601, server time */
     generatedAt: string;
+    /** `AI_TITLE_CLEANUP` it was cleaned with; missing on older titles (see `currentAiTitle`) */
+    cleanup?: number;
 };
 
 /**

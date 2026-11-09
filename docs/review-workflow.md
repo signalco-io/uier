@@ -369,7 +369,9 @@ services' issue titles (from the issue's next update) use it in place of the fir
   deployment and leaves rewrite suggestions on.
 - **Safety.** The message, selected text and anchor words are untrusted content in tags the visitor's text
   cannot close; the prompt treats them as text to describe. The answer is a JSON object; the title is
-  cleaned to plain text on one line and dropped beyond 80 characters, never cut.
+  cleaned to plain text on one line and dropped beyond 80 characters, never cut. Quotes go only as one pair
+  around the whole title; quotes that belong to it (`"C" shortcut opens …`) stay. Titles made before that
+  rule which lost a quote (unbalanced quotes, no `cleanup` mark) count as missing and are made again.
 - **Visibility.** Stored on the thread as `aiTitle` (text, a hash of the first message it was made from,
   model, time). It is shown only on threads the viewer can see (private threads stay private), never in
   the toolbar's thread data, and is removed when the first message is deleted. It is not part of

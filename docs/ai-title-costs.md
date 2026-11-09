@@ -40,6 +40,8 @@ These are estimates, not an invoice. Reconcile them with the Anthropic Console's
   for the model. Comment creation keeps its existing rate limits.
 - **An edit of the first message** drops the title in the same write and asks once for the new text. Other
   changes ask only when a thread has no title for its current first message.
+- **Titles that lost a quote** (made before quotes belonging to a title were kept) are made again once, through
+  the same bounded list batches; only titles with unbalanced quotes and no `cleanup` mark qualify.
 - **Lists** (a project's comments, My work) ask for at most 10 threads per render (`AI_TITLE_BATCH`), newest
   first, three at a time, after the response. A written title changes the thread, so an open page refreshes
   and the next render asks for the next 10: a project's older threads get titles once, in steps, while someone
