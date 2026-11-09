@@ -1,4 +1,4 @@
-/** A check's result: passed, worth a look, or nothing to say yet (not measured, not supported) */
+/** A check's result: passed, worth a look, or a note without a verdict (not measured, not supported, not needed, a noindex page) */
 export type CheckState = 'pass' | 'warn' | 'none';
 
 /** Something a panel found, which one click turns into a comment (`useIssueComment`) */
@@ -20,8 +20,10 @@ export type PageCheck = {
     id: string;
     label: string;
     state: CheckState;
-    /** What was found (the title, a count, a measurement) */
+    /** What was found (the title, the canonical address), on its own line */
     value?: string;
+    /** A short measurement beside the label ("2.1 s") */
+    measure?: string;
     reason: string;
     issues: PageIssue[];
 };

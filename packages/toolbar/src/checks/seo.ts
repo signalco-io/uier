@@ -22,6 +22,14 @@ function issue(check: string, element: Element | undefined, summary: string, com
     return { key: `seo:${check}:${element ? elementKey(element) : 'page'}@${checkedPath}`, summary, comment, element, label: element && elementLabel(element) };
 }
 
+/**
+ * Whether every issue says the same thing. The panel then shows that line once, as the check's reason, so a
+ * check whose generic reason doesn't already say it puts it there (`sharedSummary` in `ChecksParts.tsx`)
+ */
+function alike(issues: readonly PageIssue[]) {
+    return issues.every(item => item.summary === issues[0]?.summary);
+}
+
 function check(id: string, label: string, state: CheckState, reason: string, value?: string, issues: PageIssue[] = []): PageCheck {
     return { id, label, state, reason, value, issues };
 }
@@ -70,10 +78,34 @@ function descriptionCheck(): PageCheck {
     return check('description', 'Meta description', 'pass', `${length} characters, within 50 to 160.`, text);
 }
 
+/** A robots meta tag's directives, lowercase: `noindex, nofollow` is `['noindex', 'nofollow']` */
+const directives = (tag: Element) => (tag.getAttribute('content') ?? '').toLowerCase().split(',').map(directive => directive.trim()).filter(Boolean);
+
+/**
+ * What the page's robots meta tags (`robots`, and `googlebot` for Google) ask of search engines.
+ * `noindex` (or `none`) keeps the page out of search results, so it needs no canonical link. The
+ * `X-Robots-Tag` response header is not in the document and is not read.
+ */
+function robotsCheck(): { check: PageCheck; noindex: boolean } {
+    const tags = [...document.querySelectorAll('meta[name="robots" i], meta[name="googlebot" i]')];
+    const blocking = tags.filter(tag => directives(tag).some(directive => directive === 'noindex' || directive === 'none'));
+    const content = (list: Element[]) => oneLine(list.map(tag => directives(tag).join(', ')).filter(Boolean).join('; ')) || undefined;
+    if (blocking.length) {
+        const everyEngine = blocking.some(tag => tag.getAttribute('name')?.toLowerCase() === 'robots');
+        return {
+            noindex: true,
+            check: check('robots', 'Indexing', 'none', `The page asks ${everyEngine ? 'search engines' : 'Google'} not to index it.`, content(blocking))
+        };
+    }
+    return { noindex: false, check: check('robots', 'Indexing', 'pass', 'Search engines may index it.', content(tags)) };
+}
+
 const withoutTrailingSlash = (path: string) => path.length > 1 ? path.replace(/\/+$/, '') : path;
 
-function canonicalCheck(): PageCheck {
+function canonicalCheck(noindex: boolean): PageCheck {
     const links = [...document.querySelectorAll('link[rel~="canonical" i]')];
+    // A page kept out of search results has no main address to choose
+    if (!links.length && noindex) return check('canonical', 'Canonical', 'none', 'Not needed on a noindex page.');
     if (!links.length) {
         return check('canonical', 'Canonical', 'warn', 'No canonical link. Search engines choose the main address on their own.', undefined,
             [issue('canonical', undefined, 'The page has no canonical link.', 'SEO: The page has no canonical link. Search engines choose the main address on their own.')]);
@@ -125,7 +157,9 @@ function headingChecks(): SeoReport['headings'] {
             : [];
     });
     const levels = !outline.length ? check('levels', 'Heading levels', 'none', 'No headings.')
-        : skips.length ? check('levels', 'Heading levels', 'warn', `${count(skips.length, 'heading')} ${skips.length === 1 ? 'skips' : 'skip'} a level.`, undefined, skips)
+        // One skip says which (its row then shows only the heading); several say how many, and which when they are all alike
+        : skips.length ? check('levels', 'Heading levels', 'warn', skips.length === 1 ? `${skips[0]!.summary.replace(/\.$/, '')}, skipping a level.`
+            : `${count(skips.length, 'heading')} skip a level.${alike(skips) ? ` ${skips[0]!.summary}` : ''}`, undefined, skips)
             : check('levels', 'Heading levels', 'pass', 'No skipped levels.');
     const empty = outline.filter(heading => !heading.text)
         .map(heading => issue('empty-heading', heading.element, 'A heading without text.', 'SEO: This heading has no text.'));
@@ -181,7 +215,9 @@ function linkChecks(): SeoReport['links'] {
         checks: !links.length ? [check('link-text', 'Links', 'none', 'No links on this page.')] : [
             textless.length ? check('link-text', 'Link text', 'warn', `${count(textless.length, 'link')} without text.`, undefined, textless)
                 : check('link-text', 'Link text', 'pass', 'Every link has text.'),
-            broken.length ? check('link-address', 'Link addresses', 'warn', `${count(broken.length, 'link')} ${broken.length === 1 ? 'looks' : 'look'} broken.`, undefined, broken)
+            // Why goes in the reason when every link shares it, since the rows then show only the links
+            broken.length ? check('link-address', 'Link addresses', 'warn', broken.length === 1 ? `1 link looks broken. ${broken[0]!.summary}`
+                : `${count(broken.length, 'link')} look broken.${alike(broken) ? ` ${broken[0]!.summary}` : ''}`, undefined, broken)
                 : check('link-address', 'Link addresses', 'pass', 'No broken-looking links.')
         ]
     };
@@ -204,10 +240,11 @@ function imageChecks(): SeoReport['images'] {
 /** Reads the page now: its head, headings, links and images */
 export function checkSeo(path: string): SeoReport {
     checkedPath = path;
+    const robots = robotsCheck();
     return {
         path,
         checkedAt: Date.now(),
-        page: [titleCheck(), descriptionCheck(), canonicalCheck()],
+        page: [robots.check, titleCheck(), descriptionCheck(), canonicalCheck(robots.noindex)],
         headings: headingChecks(),
         links: linkChecks(),
         images: imageChecks()

@@ -20,6 +20,23 @@ Every issue they find has a quick action that posts it as a comment in one click
   checks the page when it has no report of the current page; **Check again** runs it again. A report of
   another page (after a client-side navigation) says so.
 
+## Layout
+
+Both panels share one layout (`components/checks/ChecksParts.tsx`), so they read the same way
+([uier #197](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fbrand&comment=comment_Z9xMVmu-Ai2HN7Hm-ryXZ)):
+
+- **The summary first** (`ChecksSummary`): a tile for each kind of result with its count, its icon in
+  the result's colour only while it counts something (muted at 0), then one line with when it was checked.
+- **Sections** (`CheckSection`): a heading with its count and a short note on the right, over one
+  bordered card whose rows are divided by lines.
+- **Rows** (`CheckItem`): one compact row per check: the state icon, the name, a short measurement on
+  the right (`measure`, Core Web Vitals), what was found on its own line (`value`), then a one-line reason.
+- **Issues** (`IssueList`): one muted row per element, its short name with Highlight and Comment on the
+  right. A line every issue of a list shares is said once (by the check's reason, or under the rule's
+  title), not on every element (`sharedSummary`); a single SEO issue's detail is in its check's reason.
+  So an SEO check whose count alone doesn't say why (link addresses, heading levels) adds the shared line
+  to its reason ("2 links look broken. It runs a script instead of opening a page.").
+
 ## Accessibility
 
 - axe-core (`axe-core`, MPL-2.0, its notice kept in the file) is **not** in the review bundle. It is the
@@ -35,20 +52,35 @@ Every issue they find has a quick action that posts it as a comment in one click
   an AMD `define`, and puts both back.
 - `src/checks/accessibility.ts` runs every rule axe-core runs by default (WCAG A and AA, best practices)
   on the document, excluding the toolbar's host and inline thread slots by reference, without frames
-  (`iframes: false`). One audit runs at a time. Results are grouped by impact (critical, serious, moderate,
-  minor), each rule with its help text, id and **How to fix** link (Deque University, without its tracking
-  query), and each element with axe-core's first failure line and its short name (`img#hero.logo`).
+  (`iframes: false`). One audit runs at a time. The panel lists only what axe-core finds
+  ([uier #198](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fbrand&comment=comment_fCCTyY6zuzO3K_Kr-DALq)):
+  the status ("3 issues found."), a summary tile per impact with its elements' count, when it was checked,
+  then a section per impact (critical, serious, moderate, minor). Each rule is a row marked with its
+  impact's icon in its colour (`impactStyles`: the priority colours, a shape each, see `BRAND.md`,
+  "Accessibility impact"), its help text, id and **How to fix** link (Deque University, without its
+  tracking query); each element is a row with its short name (`img#hero.logo`). axe-core's first failure
+  line is said once under the rule's title when every element shares it, else on each element, two lines
+  at most (the whole line is its `title`, and screen readers read all of it). Without issues the panel
+  says so in one line, with a reminder to also try a keyboard and a screen reader.
 - Packaged clients (the browser extension) never inject a remote script: there the Accessibility button
   is absent (`auditAvailable()`), and the SEO panel works as everywhere.
 
 ## SEO
 
 `src/checks/seo.ts` reads the page's own document when the panel opens (the toolbar's shadow root and
-inline threads are never in `document.querySelectorAll`). Each check is pass, warning or not measured,
-with a one-line reason:
+inline threads are never in `document.querySelectorAll`). Each check is pass, warning or a note (not
+measured, not needed), with a one-line reason. The summary counts what is worth a look (warnings,
+amber) and what passed (green); notes are not counted. The heading outline is folded under the heading
+checks (a `details` row, "Outline").
 
-- **Page**: the title (10 to 60 characters), the meta description (one, 50 to 160 characters) and the
-  canonical link (one, valid, pointing to this page's origin and path).
+- **Page**: indexing, the title (10 to 60 characters), the meta description (one, 50 to 160 characters)
+  and the canonical link (one, valid, pointing to this page's origin and path). Indexing reads the
+  `robots` and `googlebot` meta tags: `noindex` (or `none`) is a note that the page asks search engines
+  (or Google) not to index it, and on such a page a missing canonical link is a note, "Not needed",
+  not a warning ([uier #195](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_1hEpNjurDgh70vdAEO8Tn)).
+  The uier app's pages declare `noindex` on purpose ([search indexing](../../../apps/web/docs/search-indexing.md)).
+  A canonical that is there is still checked. The `X-Robots-Tag` response header is not in the document
+  and is not read.
 - **Headings**: one h1, no skipped levels (an h3 right after an h1), no empty headings, and the outline.
 - **Links**: the count (this site and other sites), links without text (text, `aria-label`,
   `aria-labelledby`, `title` or an image's alt text), and addresses that look broken: empty, `#` alone,
@@ -68,7 +100,7 @@ with a one-line reason:
 
 ## Quick actions
 
-- **Highlight** (an issue with an element) scrolls the element into view and outlines it
+- **Highlight** (an issue with an element; an icon button named in its tooltip, so the row keeps one line) scrolls the element into view and outlines it
   (`ElementHighlight`: the point-mode outline with the selection tint, in the shadow root, so screenshots
   and the audit leave it out). One element at a time; a hidden element is announced as not visible.
 - **Comment** posts the issue at once through the new-comment create (`useIssueComment`): the optimistic
@@ -95,8 +127,9 @@ review bundle itself loads only for reviewers.
 `apps/web/e2e/page-checks.spec.ts` on a project's site on another origin with the install guide's CSP
 (`?page-checks` in `e2e/support/reviewedSite.ts`): no audit request before the Accessibility panel opens
 and one after, rules by impact without the toolbar, Highlight, a comment posted on the element with its
-screenshot and details, Show, focus back on Close (Desktop Chrome); the SEO checks, Core Web Vitals not
-counting the toolbar's presses, a guest's name, page feedback and an element's comment (Desktop Chrome);
+screenshot and details, Show, focus back on Close, the impact tiles' counts and a rule's shared line said once (Desktop Chrome); the SEO checks, the summary's counts,
+the folded outline, Core Web Vitals not counting the toolbar's presses, a guest's name, page feedback, an
+element's comment, a noindex page (its Indexing note, no canonical needed) and broken links sharing one reason (Desktop Chrome);
 the panels from Options on a phone, fitting the screen (Mobile Chrome). `toolbar-assets.api.spec.ts`:
 the audit asset is pinned by path and SRI in the review script, absent from the loader and the review
 script, and served with CORS and immutable caching.

@@ -125,7 +125,7 @@ Contrast ratios are against the mode's background.
 | Sky | `#0284C5` | the In progress status (`#3ABFF8` on dark) |
 | Violet | `#7C3BED` | the Ready to verify status, a merged pull request (`#A689FA` on dark) |
 | Amber | `#B45309` | warning, High priority |
-| Red | `#DC2626` | destructive, Urgent priority, a closed pull request |
+| Red | `#DC2626` | destructive, Urgent priority, a critical accessibility issue, a closed pull request |
 
 **Where blue shows up:** a selected text range (20 % tint), a focused control (2 px ring at
 2 px offset, keyboard only), an unread count, a link. **Primary buttons and pins stay ink.**
@@ -135,6 +135,14 @@ Blue is never a background for a section, a card or a button.
 colour is never the only signal: Low muted grey (`--muted-foreground`), Normal ink (`--foreground`),
 High amber (`--brand-warning`), Urgent red (`--destructive`). Lists and boards show it only for a
 priority other than Normal, so the threads that differ stand out. Priority has no tokens of its own.
+
+**Accessibility impact** (the toolbar's Accessibility panel) uses the priority colours, each with an
+outlined shape of its own beside its name, so colour is never the only signal: Critical red
+(`--destructive`, octagon alert), Serious amber (`--brand-warning`, triangle alert), Moderate ink
+(`--foreground`, circle alert), Minor muted grey (`--muted-foreground`, info). The SEO panel's checks
+are a green check (`--brand-success`) for a pass, an amber triangle for what is worth a look and a muted
+info for a note. A summary tile's icon takes its colour only while its count is above 0. Impact has no
+tokens of its own.
 
 **Status** is a 6 px dot in the status's colour, always beside its name: Open an outlined ink ring
 (`--foreground`, 1 px, not filled), In progress sky (`--brand-in-progress`), Ready to verify violet

@@ -1,36 +1,47 @@
+import { Down } from '@signalco/ui-icons';
 import type { SeoReport } from '../../checks/seo';
+import type { CheckState, PageCheck } from '../../checks/types';
 import { useWebVitals, vitalCheck, type VitalName } from '../../checks/webVitals';
 import { ChecksPanel } from './ChecksPanel';
 import { GuestNameField } from './GuestName';
-import { CheckItem, CheckSection } from './ChecksParts';
+import { CheckItem, CheckSection, ChecksSummary, checkStates, OtherPageNote } from './ChecksParts';
 import { CheckedAt } from './CheckedAt';
 
 const vitalNames: readonly VitalName[] = ['LCP', 'CLS', 'INP'];
 
-const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-
-/** The page's headings in order, indented by level */
+/** The page's headings in order, indented by level, behind a disclosure so the checks stay in view */
 function HeadingsOutline({ outline }: { outline: SeoReport['headings']['outline'] }) {
     if (!outline.length) return null;
     return (
-        <li className="py-2.5">
-            <p className="m-0 mb-1 text-xs text-muted-foreground">Outline</p>
-            <ol aria-label="Headings outline" className="m-0 flex list-none flex-col gap-0.5 p-0">
-                {outline.map(heading => (
-                    <li key={heading.key} className="flex min-w-0 items-baseline gap-2 text-sm" style={{ paddingLeft: `${(heading.level - 1) * 12}px` }}>
-                        <span className="shrink-0 font-mono text-xs text-muted-foreground">h{heading.level}</span>
-                        <span className={heading.text ? 'min-w-0 break-words text-foreground' : 'italic text-muted-foreground'}>{heading.text || 'No text'}</span>
-                    </li>
-                ))}
-            </ol>
+        <li className="px-3 py-1">
+            <details className="group">
+                <summary className="-mx-1 flex min-h-8 cursor-pointer list-none items-center gap-2 rounded-md px-1 text-sm text-muted-foreground transition-colors duration-[120ms] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11 [&::-webkit-details-marker]:hidden">
+                    <Down size={16} aria-hidden="true" className="-rotate-90 transition-transform duration-150 ease-out group-open:rotate-0 motion-reduce:transition-none" />
+                    Outline
+                </summary>
+                <ol aria-label="Headings outline" className="m-0 flex list-none flex-col gap-0.5 p-0 pb-2 pl-6">
+                    {outline.map(heading => (
+                        <li key={heading.key} className="flex min-w-0 items-baseline gap-2 text-sm" style={{ paddingLeft: `${(heading.level - 1) * 12}px` }}>
+                            <span className="shrink-0 font-mono text-xs text-muted-foreground">h{heading.level}</span>
+                            <span className={heading.text ? 'min-w-0 break-words text-secondary-foreground' : 'italic text-muted-foreground'}>{heading.text || 'No text'}</span>
+                        </li>
+                    ))}
+                </ol>
+            </details>
         </li>
     );
 }
 
+/** How many checks are in each state */
+function tally(checks: readonly PageCheck[], state: CheckState) {
+    return checks.filter(check => check.state === state).length;
+}
+
 /**
- * The SEO panel: the page's title, meta description and canonical link, its headings, links and
- * images, then Core Web Vitals measured in this browser (updated while the page is used). Every
- * check has a pass or warning state and a one-line reason.
+ * The SEO panel: a summary of what passed and what is worth a look first, then the page's indexing,
+ * title, meta description and canonical link, its headings (the outline folded), links and images,
+ * and Core Web Vitals measured in this browser (updated while the page is used). Every check is one
+ * compact row with its state and a one-line reason.
  */
 export function SeoPanel({ report, path, onCheck, onClose }: {
     report?: SeoReport;
@@ -39,32 +50,38 @@ export function SeoPanel({ report, path, onCheck, onClose }: {
     onClose: () => void;
 }) {
     const vitals = useWebVitals();
+    const vitalChecks = vitalNames.map(name => vitalCheck(name, vitals[name]));
+    const checks = [...report ? [...report.page, ...report.headings.checks, ...report.links.checks, ...report.images.checks] : [], ...vitalChecks];
     return (
         <ChecksPanel id="seo" title="SEO" onCheckAgain={onCheck} onClose={onClose}>
+            {report && <>
+                <ChecksSummary tiles={[
+                    { key: 'warn', label: 'To look at', count: tally(checks, 'warn'), icon: checkStates.warn.icon, tone: checkStates.warn.tone },
+                    { key: 'pass', label: 'Passed', count: tally(checks, 'pass'), icon: checkStates.pass.icon, tone: checkStates.pass.tone }
+                ]}>
+                    <p className="m-0 px-1 text-xs text-muted-foreground"><CheckedAt time={report.checkedAt} /></p>
+                </ChecksSummary>
+                {report.path !== path && <OtherPageNote path={report.path} />}
+            </>}
             <GuestNameField />
             {report && <>
-                <p className="m-0 text-xs text-muted-foreground">
-                    What this page tells search engines. <CheckedAt time={report.checkedAt} />
-                </p>
-                {report.path !== path && (
-                    <p className="m-0 rounded-lg border p-2.5 text-xs text-muted-foreground">These results are for <span className="font-mono">{report.path}</span>. Check again for this page.</p>
-                )}
                 <CheckSection title="Page">
                     {report.page.map(check => <CheckItem key={check.id} check={check} />)}
                 </CheckSection>
-                <CheckSection title="Headings" note={count(report.headings.outline.length, 'heading')}>
+                <CheckSection title="Headings" count={report.headings.outline.length}>
                     {report.headings.checks.map(check => <CheckItem key={check.id} check={check} />)}
                     <HeadingsOutline outline={report.headings.outline} />
                 </CheckSection>
-                <CheckSection title="Links" note={`${count(report.links.total, 'link')}: ${report.links.internal} on this site, ${report.links.external} to other sites.`}>
+                <CheckSection title="Links" count={report.links.total}
+                    note={report.links.total ? `${report.links.internal} on this site, ${report.links.external} to other sites` : undefined}>
                     {report.links.checks.map(check => <CheckItem key={check.id} check={check} />)}
                 </CheckSection>
-                <CheckSection title="Images" note={count(report.images.total, 'image')}>
+                <CheckSection title="Images" count={report.images.total}>
                     {report.images.checks.map(check => <CheckItem key={check.id} check={check} />)}
                 </CheckSection>
             </>}
-            <CheckSection title="Core Web Vitals" note="Measured in this browser since the page loaded, without the toolbar. They update as you use the page.">
-                {vitalNames.map(name => <CheckItem key={name} check={vitalCheck(name, vitals[name])} />)}
+            <CheckSection title="Core Web Vitals" note="Measured in this browser">
+                {vitalChecks.map(check => <CheckItem key={check.id} check={check} />)}
             </CheckSection>
         </ChecksPanel>
     );
