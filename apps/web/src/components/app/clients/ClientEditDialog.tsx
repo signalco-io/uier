@@ -5,7 +5,7 @@ import { PencilIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/src/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/src/components/ui/dialog';
-import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/src/components/ui/field';
+import { Field, FieldGroup, FieldLabel } from '@/src/components/ui/field';
 import { Input } from '@/src/components/ui/input';
 import { Spinner } from '@/src/components/ui/spinner';
 import { Textarea } from '@/src/components/ui/textarea';
@@ -85,7 +85,6 @@ function ClientForm({ client, workspaceId, onSaved }: { client: ClientSummary; w
                         onChange={event => setDescription(event.target.value)}
                         maxLength={MAX_CLIENT_DESCRIPTION_LENGTH}
                         rows={3} />
-                    <FieldDescription>Shows on the Clients page to everyone who can open one of its projects.</FieldDescription>
                 </Field>
             </FieldGroup>
             <FormMessage state={state} />

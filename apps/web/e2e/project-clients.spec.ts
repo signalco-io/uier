@@ -132,6 +132,7 @@ test('admins rename a client and set its description, icon and colour; every pro
     const clients = page.getByRole('list', { name: 'Clients' }).getByRole('listitem');
     await clients.nth(0).getByRole('button', { name: 'Edit Acme', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Edit client' });
+    await expect(dialog.getByText('Shows on the Clients page to everyone who can open one of its projects.')).toHaveCount(0);
     await expect(dialog.getByLabel('Client name')).toHaveValue('Acme');
     await expect(page.getByRole('button', { name: 'First letter' })).toHaveCount(0);
     const avatarTrigger = dialog.getByRole('button', { name: 'Edit client avatar' });

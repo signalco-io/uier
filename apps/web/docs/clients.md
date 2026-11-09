@@ -30,6 +30,7 @@
 
 - **Client avatar editor**: clicking the avatar in `ClientEditDialog` opens a popover with Icon and
   Colour (saved with the form) and Upload/Change/Remove logo (saved immediately, like profile pictures).
+  The optional description has no visibility hint beneath it.
   Uploads and refreshes preserve the unsaved name, description, icon and colour. A logo takes precedence;
   removing it restores the icon/letter and colour. Controls have 44 px touch targets.
 - **Logos** (`lib/app/clientLogos.ts`, [API](../../../docs/api.md#client-logos)) share profile pictures'
