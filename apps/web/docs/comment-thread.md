@@ -94,7 +94,8 @@
   (`pointer: coarse` is touch), the colour scheme, reduced motion and the page's `<html lang>` (language, script and
   region only). The API keeps bounded names and drops settings it does not know (`deviceSchema`); the popovers list
   model, input, colour scheme, reduced motion and page language under the browser row when recorded
-  (`deviceSettings`), older comments show what they have. `e2e/user-agent.api.spec.ts` covers the parser with real
+  (`deviceSettings`; in the app as two-column tiles styled like the screen and browser rows, each with a lucide icon:
+  phone, pointer or hand, sun or moon, accessibility, languages), older comments show what they have. `e2e/user-agent.api.spec.ts` covers the parser with real
   strings, `e2e/device-details.api.spec.ts` validation, storage and who sees what, `e2e/device-marks.api.spec.ts` the
   mapping and `e2e/project-review.spec.ts` (the reproduction details tests) the toolbar and app popovers.
 - Under the messages, Reply is a quiet ghost button with the reply icon, aligned with the message text (R opens it).
