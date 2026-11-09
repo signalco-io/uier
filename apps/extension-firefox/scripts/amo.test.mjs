@@ -44,7 +44,8 @@ test('Mozilla authentication signs a short-lived JWT and refuses redirects', asy
         assert.equal(url, 'https://addons.mozilla.org/api/v5/addons/upload/'); assert.equal(init.redirect, 'error');
         const [head, body, signature] = init.headers.Authorization.slice(4).split('.');
         assert.equal(signature, createHmac('sha256', 'local-test-secret').update(`${head}.${body}`).digest('base64url'));
-        const claims = JSON.parse(Buffer.from(body, 'base64url')); assert.equal(claims.iss, 'publisher'); assert(claims.exp - claims.iat < 600);
+        const claims = JSON.parse(Buffer.from(body, 'base64url')); assert.equal(claims.iss, 'publisher');
+        assert(claims.exp > claims.iat && claims.exp - claims.iat <= 300, 'Mozilla limits JWT lifetime to five minutes');
         return Response.json({ okay: true });
     } });
     assert.deepEqual(await client.call('addons/upload/'), { okay: true });
