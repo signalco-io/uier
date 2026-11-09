@@ -5,7 +5,8 @@
   stacked on its edge, a person's outline for a guest, uier's mark on its own starter threads; one image named "By Ana",
   the name in a tooltip, a click on it opens the row; it starts the line, before the number, centred on a card's
   first title line), number, title (`commentTitle`: the [AI title](ai-titles.md), else the first line without its Markdown, `markdownPlainText`; up to two lines on a card)
-  and age (`RelativeTime`: one shared clock ticks every 10 seconds while any age is shown and the tab is visible, and only the ages whose words change re-render).
+  and age (`RelativeTime short`: "3 min ago", "2 hr ago", "yesterday", "2 wk ago", the date and time on hover; the
+  thread's messages, its activity and other sentences keep whole words; one shared clock ticks every 10 seconds while any age is shown and the tab is visible, and only the ages whose words change re-render).
   The meta line, one on rows and cards alike: the page path (what it was left on is only in the thread's On row), then private, a linked pull request, priority other than Normal (`PriorityLabel`: its
   flag alone, named "High priority"), status (`StateDot` and its name, Open too; a board card leaves the status to its column, whose region name screen readers announce), and at its right end
   every assignee's avatar with their agents' smaller avatars stacked beside it (`AssigneeCard`: hovering shows who it is assigned to

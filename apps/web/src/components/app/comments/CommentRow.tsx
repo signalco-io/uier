@@ -108,7 +108,7 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                         {title}
                         {unread && <span className="sr-only">, unread</span>}
                     </a>
-                    <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums"><RelativeTime value={comment.createdAt} /></span>
+                    <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums"><RelativeTime value={comment.createdAt} short /></span>
                     {actions}
                 </div>
                 <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">

@@ -46,12 +46,18 @@ const units: [Intl.RelativeTimeFormatUnit, number][] = [
     ['minute', 60]
 ];
 
-function relativeText(date: Date, now: number) {
+const long = new Intl.RelativeTimeFormat('en-GB', { numeric: 'auto' });
+// Short units ("3 min ago", "2 hr ago", "2 wk ago"); "yesterday" stays a word, but not "last wk" or "last yr"
+const short = new Intl.RelativeTimeFormat('en-GB', { numeric: 'always', style: 'short' });
+const shortDay = new Intl.RelativeTimeFormat('en-GB', { numeric: 'auto', style: 'short' });
+
+function relativeText(date: Date, now: number, compact: boolean) {
     const seconds = (date.valueOf() - now) / 1000;
     const match = units.find(([, size]) => Math.abs(seconds) >= size);
-    return match
-        ? new Intl.RelativeTimeFormat('en-GB', { numeric: 'auto' }).format(Math.round(seconds / match[1]), match[0])
-        : 'just now';
+    if (!match)
+        return 'just now';
+    const format = !compact ? long : match[0] === 'day' ? shortDay : short;
+    return format.format(Math.round(seconds / match[1]), match[0]);
 }
 
 /**
@@ -98,13 +104,16 @@ function subscribeClock(listener: () => void) {
     };
 }
 
-/** How long ago or from now, in words ("yesterday", "in 6 days"), with the date and time on hover; it keeps up as time passes */
-export function RelativeTime({ value }: { value: string | undefined }) {
+/**
+ * How long ago or from now, in words ("yesterday", "in 6 days"), with the date and time on hover; it keeps up as time passes.
+ * `short` abbreviates the units for compact rows and cards ("3 min ago"); sentences (a thread's messages, its activity) keep them whole.
+ */
+export function RelativeTime({ value, short: compact = false }: { value: string | undefined; short?: boolean }) {
     const local = useLocal();
     const date = parse(value);
     const text = useSyncExternalStore(subscribeClock,
-        () => date && relativeText(date, currentNow()),
-        () => date && relativeText(date, Date.now()));
+        () => date && relativeText(date, currentNow(), compact),
+        () => date && relativeText(date, Date.now(), compact));
     if (!date || !text)
         return null;
     // Relative to now, so the server's and the browser's text can differ by a unit at a boundary
