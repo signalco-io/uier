@@ -36,7 +36,10 @@ ID is `uier@signalco.io`. Register its exact callback as described in
 [browser targets](browser-extension.md#browser-targets).
 
 The publisher sends the unchanged ZIP to AMO v5 with `channel=listed`, polls validation, creates
-the first listing or next version, and attaches the exact committed source archive.
+the first listing or next version, links the published privacy policy through AMO's policy endpoint,
+and attaches the exact committed source archive. Categories are scoped to Firefox and compatibility
+is desktop Firefox only. The create response's `version` identifies the submitted version even
+before a public `current_version` exists.
 `apps/extension-firefox/amo-metadata.json` owns listing and reviewer instructions. The AGPL license
 text comes from the root `LICENSE`. Check listing/privacy information, screenshots and publisher
 contact/trader requirements in Developer Hub before initial public submission. A

@@ -27,11 +27,13 @@ export class AmoClient {
 
 export async function submitFirefox({ client, artifact, source, metadata, receipt, checkpoint, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), polls = 60 }) {
     const base = `addons/addon/${encodeURIComponent('uier@signalco.io')}/`;
+    const { privacy_policy, ...listing } = metadata;
+    assert.equal(typeof privacy_policy?.['en-US'], 'string', 'Mozilla requires the published privacy policy');
     let state = receipt ?? { schema: 1, browser: 'firefox', version: artifact.version, commit: artifact.commit, sha256: artifact.sha256, sourceSha256: source.sha256, phase: 'prepared' };
     assert.equal(state.sourceSha256, source.sha256);
     const save = async patch => { state = { ...state, ...patch, updatedAt: new Date().toISOString() }; await checkpoint(state); };
     // A lost response after a mutation is not permission to submit it again.
-    assert(!['upload-started', 'submission-started', 'source-upload-started'].includes(state.phase), 'Previous Mozilla write is uncertain; reconcile the durable receipt in Developer Hub');
+    assert(!['upload-started', 'submission-started', 'policy-update-started', 'source-upload-started'].includes(state.phase), 'Previous Mozilla write is uncertain; reconcile the durable receipt in Developer Hub');
     if (['submitted-for-review', 'published', 'rejected'].includes(state.phase)) return state;
     if (!state.uploadId) {
         assert(!await client.call(`${base}versions/v${artifact.version}/`, { missing: true }), 'This version already exists without a matching completed receipt');
@@ -58,12 +60,17 @@ export async function submitFirefox({ client, artifact, source, metadata, receip
         let version;
         if (addon) version = await client.call(`${base}versions/`, { method: 'POST', body: { ...metadata.version, upload: state.uploadId } });
         else {
-            const created = await client.call('addons/addon/', { method: 'POST', body: { ...metadata, version: { ...metadata.version, upload: state.uploadId } } });
+            const created = await client.call('addons/addon/', { method: 'POST', body: { ...listing, version: { ...metadata.version, upload: state.uploadId } } });
             assert.equal(created.guid, 'uier@signalco.io');
-            version = created.current_version ?? await client.call(`${base}versions/v${artifact.version}/`);
+            version = created.version ?? created.current_version ?? await client.call(`${base}versions/v${artifact.version}/`);
         }
         assert.equal(version.version, artifact.version); assert(Number.isInteger(version.id));
         await save({ phase: 'version-created', versionId: version.id });
+    }
+    if (!state.policyUpdated) {
+        await save({ phase: 'policy-update-started' });
+        await client.call(`${base}eula_policy/`, { method: 'PATCH', body: { privacy_policy } });
+        await save({ phase: 'policy-updated', policyUpdated: true });
     }
     const body = new FormData(); body.set('source', new Blob([source.bytes]), source.name);
     await save({ phase: 'source-upload-started' });

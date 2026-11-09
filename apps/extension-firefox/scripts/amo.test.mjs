@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { AmoClient, submitFirefox } from './amo.mjs';
 
 const artifact = { version: '0.1.3', commit: 'a'.repeat(40), sha256: 'b'.repeat(64), name: 'package.zip', bytes: Buffer.from('unchanged ZIP') };
 const source = { name: 'source.zip', bytes: Buffer.from('source'), sha256: 'c'.repeat(64) };
-const metadata = { summary: { 'en-US': 'uier' }, version: { approval_notes: 'Build from the supplied source.' } };
+const metadata = JSON.parse(await readFile(new URL('../amo-metadata.json', import.meta.url), 'utf8'));
 function fixture({ existing = false, invalid = false, pending = false, lost } = {}) {
     const writes = [], calls = [];
     const client = { async call(path, options = {}) {
@@ -18,8 +19,18 @@ function fixture({ existing = false, invalid = false, pending = false, lost } = 
                 assert.equal(options.body.get('channel'), 'listed');
                 return { uuid: '12345678-1234-1234-1234-123456789abc' };
             }
+            if (path.endsWith('/eula_policy/')) {
+                assert.equal(options.body.privacy_policy['en-US'], metadata.privacy_policy['en-US']);
+                return {};
+            }
             if (options.method === 'PATCH') { assert.equal(await options.body.get('source').text(), source.bytes.toString()); return {}; }
-            return path === 'addons/addon/' ? { guid: 'uier@signalco.io', current_version: { id: 42, version: artifact.version } } : { id: 42, version: artifact.version };
+            if (path === 'addons/addon/') {
+                assert.deepEqual(options.body.categories, { firefox: ['web-development'] });
+                assert.deepEqual(options.body.version.compatibility, ['firefox']);
+                assert(!('privacy_policy' in options.body));
+                return { guid: 'uier@signalco.io', version: { id: 42, version: artifact.version } };
+            }
+            return { id: 42, version: artifact.version };
         }
         if (path.includes('versions/v')) return undefined;
         if (path.startsWith('addons/upload/')) return { processed: !pending, valid: !invalid, channel: 'listed', version: artifact.version };
@@ -43,7 +54,7 @@ for (const existing of [false, true]) test(`Mozilla ${existing ? 'update' : 'fir
     const f = fixture({ existing });
     const result = await submitFirefox({ ...f, artifact, source, metadata });
     assert.equal(result.phase, 'submitted-for-review'); assert.equal(result.versionId, 42);
-    assert.equal(f.writes.length, 3); assert.equal(f.writes[1], existing ? 'addons/addon/uier%40signalco.io/versions/' : 'addons/addon/');
+    assert.equal(f.writes.length, 4); assert.equal(f.writes[1], existing ? 'addons/addon/uier%40signalco.io/versions/' : 'addons/addon/');
 });
 test('validation timeout resumes the same upload without a second store upload', async () => {
     const f = fixture({ pending: true });
@@ -53,7 +64,7 @@ test('validation timeout resumes the same upload without a second store upload',
     await submitFirefox({ ...ready, receipt: f.receipt, artifact, source, metadata });
     assert(!ready.writes.includes('addons/upload/'));
 });
-for (const lost of ['addons/upload/', 'addons/addon/', 'addons/addon/uier%40signalco.io/versions/42/']) test(`lost Mozilla response at ${lost} cannot trigger a duplicate write`, async () => {
+for (const lost of ['addons/upload/', 'addons/addon/', 'addons/addon/uier%40signalco.io/eula_policy/', 'addons/addon/uier%40signalco.io/versions/42/']) test(`lost Mozilla response at ${lost} cannot trigger a duplicate write`, async () => {
     const f = fixture({ lost });
     await assert.rejects(submitFirefox({ ...f, artifact, source, metadata }), /Lost response/);
     const before = f.calls.length;
