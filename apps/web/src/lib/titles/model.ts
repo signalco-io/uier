@@ -18,13 +18,18 @@ export const AI_TITLE_CLEANUP = 2;
 
 /**
  * Titles made before quotes that belong to the title were kept (no `cleanup`) lost a leading or
- * final quote (`C" shortcut opens …`). One with unbalanced quotes is treated as missing, so the
- * next list render makes it again (bounded like any other missing title).
+ * final quote of any kind the old cleanup stripped (`C" shortcut opens …`, `C’ shortcut opens …`,
+ * `` npm` fails ``). One with unbalanced quotes is treated as missing, so the next list render makes
+ * it again (bounded like any other missing title). Apostrophes inside a word (don't, it’s) are not
+ * quotes; a trailing one (users' titles) can't be told apart, so such a title is made again once:
+ * the new one has `cleanup` and is never checked again.
  */
 function lostQuote(title: DbAiTitle) {
     if (title.cleanup) return false;
-    const count = (pattern: RegExp) => title.text.match(pattern)?.length ?? 0;
-    return count(/"/gu) % 2 === 1 || count(/“/gu) !== count(/”/gu) || count(/«/gu) !== count(/»/gu);
+    const text = title.text.replace(/(?<=[\p{L}\p{N}])['’](?=\p{L})/gu, '');
+    const count = (pattern: RegExp) => text.match(pattern)?.length ?? 0;
+    return count(/"/gu) % 2 === 1 || count(/'/gu) % 2 === 1 || count(/`/gu) % 2 === 1
+        || count(/“/gu) !== count(/”/gu) || count(/‘/gu) !== count(/’/gu) || count(/«/gu) !== count(/»/gu);
 }
 
 /**
@@ -107,7 +112,7 @@ function withoutWrappingQuotes(title: string) {
 /**
  * A model's title as plain text on one line: whitespace collapsed, a "Title:" label, Markdown
  * heading or emphasis marks, one pair of quotes around the whole title and a final period
- * removed. `null` when nothing visible is left or it is longer than {@link AI_TITLE_MAX_LENGTH} characters.
+ * removed. `null` when no letter or digit is left (`"""`, `…`) or it is longer than {@link AI_TITLE_MAX_LENGTH} characters.
  */
 export function cleanAiTitle(raw: unknown): string | null {
     if (typeof raw !== 'string') return null;
@@ -118,7 +123,7 @@ export function cleanAiTitle(raw: unknown): string | null {
         .trim();
     title = withoutWrappingQuotes(title);
     if (/[^.]\.$/u.test(title)) title = title.slice(0, -1).trimEnd();
-    if (!visibleCharacter.test(title) || Array.from(title).length > AI_TITLE_MAX_LENGTH)
+    if (!visibleCharacter.test(title) || !/[\p{L}\p{N}]/u.test(title) || Array.from(title).length > AI_TITLE_MAX_LENGTH)
         return null;
     return title;
 }

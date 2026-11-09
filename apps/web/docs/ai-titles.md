@@ -41,8 +41,10 @@ hash of the first message's text, model, time). Product behaviour is in
 - **The prompt** keeps visitor text inside tags it cannot close and says it is not instructions; the answer
   is a `{ title }` JSON schema, cleaned by `cleanAiTitle` (plain text, one line, at most 80 characters, never
   cut; quotes go only as one pair around the whole title, so `"C" shortcut opens "Send feedback"` keeps
-  them). New titles carry `cleanup: AI_TITLE_CLEANUP`; an older one with unbalanced quotes (it lost one to
-  the earlier rule) is not current, so it is made again through the usual bounded batches. Thinking is off, effort `low`, no fallbacks (Haiku has none). Events carry no text, titles or
+  them; an answer with no letter or digit, such as `"""`, is no title). New titles carry
+  `cleanup: AI_TITLE_CLEANUP`; an older one with unbalanced quotes of any kind the earlier rule stripped
+  (`"`, `'`, `` ` ``, curly and angle quotes; apostrophes inside a word don't count) is not current, so it is
+  made again once through the usual bounded batches. Thinking is off, effort `low`, no fallbacks (Haiku has none). Events carry no text, titles or
   identifiers.
 - **Settings.** Workspace settings → AI (`WorkspaceAiTitlesForm`, a switch that saves at once,
   `setWorkspaceAiTitles`); project General → Thread titles (a select in `ProjectGeneralForm`, saved with

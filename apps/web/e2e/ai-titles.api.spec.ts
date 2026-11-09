@@ -161,7 +161,7 @@ test('a title is plain text on one line, at most 80 characters', () => {
     expect(cleanAiTitle('Wait for it...')).toBe('Wait for it...');
     expect(cleanAiTitle('a‮b')).toBe('a b');
     expect(cleanAiTitle('y'.repeat(80))).toBe('y'.repeat(80));
-    for (const rejected of ['y'.repeat(81), '   ', '""', '​', 42, null]) expect(cleanAiTitle(rejected)).toBeNull();
+    for (const rejected of ['y'.repeat(81), '   ', '""', '"""', '“”', '«»', '"?"', '…', '​', 42, null]) expect(cleanAiTitle(rejected)).toBeNull();
 });
 
 test('quotes around the whole title go as one pair; quotes that belong to the title stay', () => {
@@ -183,6 +183,11 @@ test('a title made before quotes were kept, with a lost quote, is made again; on
     expect(currentAiTitle(await f.read())).toBeUndefined();
     expect(needsAiTitle(await f.read())).toBe(true);
     expect(currentAiTitle({ ...f.comment, aiTitle: { ...old, text: 'Checkout button hidden by footer' } })).toBe('Checkout button hidden by footer');
+    // Every quote the old cleanup stripped, but not apostrophes inside a word
+    for (const damaged of ['C’ shortcut opens Send feedback popover', "C' shortcut opens Send feedback popover", 'npm` install fails on Windows'])
+        expect(currentAiTitle({ ...f.comment, aiTitle: { ...old, text: damaged } })).toBeUndefined();
+    for (const intact of ['Users can’t sign in on Safari', "Hero image doesn't load", 'The `npm` install fails'])
+        expect(currentAiTitle({ ...f.comment, aiTitle: { ...old, text: intact } })).toBe(intact);
     expect(await makeAiTitle(f.comment, 'shown', { service: titled('"C" shortcut opens Send feedback popover') })).toBe('written');
     const saved = await f.read();
     expect(saved.aiTitle).toMatchObject({ text: '"C" shortcut opens Send feedback popover', cleanup: AI_TITLE_CLEANUP });
