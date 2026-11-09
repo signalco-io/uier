@@ -55,7 +55,7 @@ export type CreateCommentInput = {
     screenshot?: string | Promise<string | undefined>;
 };
 
-type ReplyInput = { commentId: string; text: string; mentions?: Mention[] };
+type ReplyInput = { commentId: string; text: string; mentions?: Mention[]; screenshot?: string; imageKey?: string };
 
 /*
  * Optimistic comments and replies: shown at once, sent in the background. A list fetched while
@@ -173,14 +173,14 @@ async function createComment(path: string, policy: PageStatePolicy, { idempotenc
 }
 
 /** The image of a comment's screenshot, as a data URL */
-export function getCommentScreenshot(commentId: string) {
-    return apiImage(`${commentUrl(commentId)}/screenshot`);
+export function getCommentScreenshot(commentId: string, itemId?: string) {
+    return apiImage(`${commentUrl(commentId)}${itemId ? `/replies/${encodeURIComponent(itemId)}` : ''}/screenshot`);
 }
 
-async function replyToComment({ commentId, text, mentions, idempotencyKey }: { commentId: string; text: string; mentions?: Mention[]; idempotencyKey?: string }) {
+async function replyToComment({ commentId, text, mentions, screenshot, idempotencyKey }: ReplyInput & { idempotencyKey?: string }) {
     return required(await apiRequest<CommentItem>(`${commentUrl(commentId)}/replies`, {
         method: 'POST',
-        body: { text, mentions, idempotencyKey, authorName: guestAuthorName() }
+        body: { text, mentions, screenshot, idempotencyKey, authorName: guestAuthorName() }
     }));
 }
 
@@ -353,7 +353,7 @@ export function useComments(refreshOnMount = false): {
 
     const reply = useMutation({
         mutationFn: (input: ReplyInput) => drafts.run(input.commentId, () => replyToComment({
-            ...input, idempotencyKey: drafts.attempt(input.commentId, JSON.stringify(input))
+            ...input, idempotencyKey: drafts.attempt(input.commentId, JSON.stringify({ ...input, screenshot: undefined }))
         })),
         onMutate: (input: ReplyInput) => {
             const item: CommentItemThreadItem = {

@@ -119,13 +119,20 @@
 - Under the messages, Reply is a quiet ghost button with the reply icon, aligned with the message text (R opens it).
   `comments/ReplyComposer.tsx` is the lazy inline reply form it opens in List, Board and the inbox: the shared composer
   with mentions, Close reply, Discard and the Post reply send button (Enter sends, Shift+Enter adds a line, Escape is
-  left to the thread). It uses pure `@uier/toolbar/drafts` / `mentions` logic only. `replyCommentAction` validates the payload,
+  left to the thread). It shares the toolbar's draft/mention logic and browser-only attachment reader. `replyCommentAction` validates the payload,
   resolves current app authority and forwards trusted request headers to `replyToProjectComment`;
   `commentParticipantsAction` rechecks the thread before returning names/opaque ids without email.
   Replies preserve status and unread state; `CommentUpdates` appends pending messages and action
   revalidation reconciles them. Seven-day drafts are scoped to app origin/deployment, project,
   account and thread. Closing/filtering keeps text; explicit discard, successful send and both
   app sign-out controls clear relevant drafts. Storage failure stays in memory with a notice.
+  Reply's Attach image and image paste use the same memory-only browser reader (`@uier/toolbar/attachments`)
+  as new toolbar comments: one PNG, JPEG or WebP up to 512 KB and 4096 px per side. The file name replaces
+  the attach button, with Remove; reading holds Enter/send, Discard clears the image, and failed sends restore
+  it unless a newer image was attached. Image bytes never enter draft or idempotency storage. Reply images
+  use the same thumbnail/expanded dialog (`MessageImage`) as the first message, each through its authorized
+  thread/reply image route. `e2e/reply-images.spec.ts` covers picker, paste, retry, both surfaces, reload,
+  light/dark accessibility and touch.
   The reply browser check waits for the saved-reply announcement before its light/dark axe scans,
   so it audits the settled document after action revalidation rather than the optimistic message.
   Never import the toolbar runtime/providers/styles into the app. See `docs/review-workflow.md`.

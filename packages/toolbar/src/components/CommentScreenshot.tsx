@@ -63,8 +63,10 @@ function useSeen<T extends Element>() {
  * (the inbox lists many threads), once per image revision; until then a placeholder of its size
  * keeps the thread from jumping. Without a screenshot and nothing to do, it renders nothing.
  */
-export function CommentScreenshot({ comment }: { comment: CommentItem }) {
-    const size = comment.screenshot;
+export function CommentScreenshot({ comment, itemId }: { comment: CommentItem; itemId?: string }) {
+    const item = itemId ? comment.thread.items.find(item => item.id === itemId) : undefined;
+    const size = item && !item.deleted ? item.screenshot : itemId ? undefined : comment.screenshot;
+    const alt = itemId ? 'Image attached to reply' : screenshotAlt;
     const { rootElement } = useContext(CommentsBootstrapperContext);
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState(false);
@@ -74,12 +76,12 @@ export function CommentScreenshot({ comment }: { comment: CommentItem }) {
     const [message, setMessage] = useState('');
     const [failure, setFailure] = useState('');
     const replacement = useReplaceScreenshot(comment);
-    const canReplace = comment.permissions?.edit ?? comment.isMine;
+    const canReplace = !itemId && (comment.permissions?.edit ?? comment.isMine);
     const busy = working || replacement.isPending;
     const [placeholderRef, seen] = useSeen<HTMLDivElement>();
     const { data, isError } = useQuery({
-        queryKey: [...screenshotQueryKey(comment.id), size?.revision ?? null],
-        queryFn: () => getCommentScreenshot(comment.id),
+        queryKey: itemId ? [...screenshotQueryKey(comment.id), 'reply', itemId] : [...screenshotQueryKey(comment.id), comment.screenshot?.revision ?? null],
+        queryFn: () => getCommentScreenshot(comment.id, itemId),
         enabled: Boolean(size) && seen,
         staleTime: Infinity,
         retry: 1
@@ -153,13 +155,13 @@ export function CommentScreenshot({ comment }: { comment: CommentItem }) {
                 aria-label="Screenshot"
                 {...toolbarSurface('uier-screenshot', 'z-[70] flex max-h-[min(var(--radix-popover-content-available-height),85vh)] w-[min(88vw,64rem)] flex-col gap-2 overflow-auto rounded-xl p-3')}
                 trigger={(
-                    <Button variant="plain" className="mr-1 block h-auto w-24 cursor-zoom-in overflow-hidden rounded-lg p-0" aria-label={screenshotAlt} title="Expand screenshot">
-                        <ScreenshotImage src={data} width={size.width} height={size.height} alt={screenshotAlt}
+                    <Button variant="plain" className="mr-1 block h-auto w-24 cursor-zoom-in overflow-hidden rounded-lg p-0" aria-label={alt} title="Expand screenshot">
+                        <ScreenshotImage src={data} width={size.width} height={size.height} alt={alt}
                             className="block h-16 w-24 rounded-lg border object-contain" />
                     </Button>
                 )}>
                 <Button variant="plain" className="min-h-11 self-end" disabled={busy} onClick={() => { setOpen(false); setEditing(false); }}>Close screenshot</Button>
-                {editing ? <ScreenshotRedaction key={size.revision ?? 'original'} data={data} pending={replacement.isPending}
+                {editing ? <ScreenshotRedaction key={comment.screenshot?.revision ?? 'original'} data={data} pending={replacement.isPending}
                     onSave={replace} onCancel={() => setEditing(false)} /> : <>
                     <ScreenshotImage src={data} width={size.width} height={size.height} alt="Expanded screenshot"
                         className="block min-h-0 w-full object-contain" />

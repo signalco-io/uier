@@ -179,7 +179,7 @@ async function deleteProjectThreads(intent: ProjectDeletion, comments: CommentsS
                     : await comments.delete(domain, thread.id, stored.etag);
                 if (result !== 'ok') continue;
                 deleted++;
-                await forgetScreenshot(comments, domain, thread.id, Boolean(stored.comment.screenshot), null);
+                await forgetScreenshot(comments, domain, thread.id, Boolean(stored.comment.screenshot), null, stored.comment.thread.items.filter(item => item.screenshot).map(item => item.id));
             }
         }));
         // A conflict is a concurrent write: the next pass reads the thread again

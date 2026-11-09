@@ -241,7 +241,7 @@ export function getMemoryCommentsStore(): CommentsStore {
                 .flatMap(entry => {
                     const image = entry.document;
                     if (!('type' in image) || image.type !== 'screenshot' || image.createdAt >= before) return [];
-                    return [{ domain: image.domain, commentId: image.commentId, etag: String(entry.version), key: `${image.domain}:${image.id}` }];
+                    return [{ domain: image.domain, commentId: image.commentId, itemId: image.itemId, etag: String(entry.version), key: `${image.domain}:${image.id}` }];
                 }).filter(image => !continuation || image.key > continuation).sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
             const page = items.slice(0, 100);
             return { items: page, continuation: items.length > page.length ? page.at(-1)?.key : undefined };
@@ -265,13 +265,13 @@ export function getMemoryCommentsStore(): CommentsStore {
             entries.set(screenshot.id, { document: savedImage, version: ++state().version, modifiedAt });
             return 'ok';
         },
-        async getScreenshot(domain, commentId) {
-            const document = domainEntries(domain).get(screenshotDocumentId(commentId))?.document;
+        async getScreenshot(domain, commentId, itemId) {
+            const document = domainEntries(domain).get(screenshotDocumentId(commentId, itemId))?.document;
             return document && 'type' in document && document.type === 'screenshot' ? clone(document) : null;
         },
-        async deleteScreenshot(domain, commentId, etag) {
+        async deleteScreenshot(domain, commentId, etag, itemId) {
             const entries = domainEntries(domain);
-            const id = screenshotDocumentId(commentId);
+            const id = screenshotDocumentId(commentId, itemId);
             if (!etag || String(entries.get(id)?.version) === etag) entries.delete(id);
         },
         async nextCommentNumber(domain) {

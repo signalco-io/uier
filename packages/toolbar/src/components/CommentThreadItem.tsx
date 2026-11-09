@@ -196,7 +196,7 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                         }} />
                 ) : <MessageMarkdown text={text} mentions={mentions}
                     suffix={threadItem.editedAt && <span className="font-normal text-muted-foreground"> (edited)</span>} />}
-                {first && <CommentScreenshot comment={comment} />}
+                {(first || threadItem.screenshot) && <CommentScreenshot comment={comment} itemId={first ? undefined : threadItem.id} />}
                 <CommentsErrorMessage error={error} />
             </Stack>
         </div>

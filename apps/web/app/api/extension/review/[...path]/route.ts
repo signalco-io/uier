@@ -23,7 +23,7 @@ const handler = extensionHandler(async request => {
     if (operation) assertCanUseComments(context.project, context.actor);
     if (request.method !== 'GET') await assertVerifiedWrite(context);
     const { project, actor, siteOrigin } = context;
-    const [, id, suffix, itemId] = path.split('/');
+    const [, id, suffix, itemId, itemResource] = path.split('/');
     if (!operation) return review.getReviewInfo(context);
     if (path === 'comments') return request.method === 'GET' ? review.listReviewComments(context) : review.createReviewComment(context);
     if (path === 'comments/activity') return reviewActivitySummary(context);
@@ -37,6 +37,7 @@ const handler = extensionHandler(async request => {
     }
     if (!id) throw apiErrors.notFound();
     if (!suffix) return request.method === 'PATCH' ? review.updateReviewComment(context, { id }) : review.deleteReviewCommentItem(context, { id });
+    if (suffix === 'replies' && itemId && itemResource === 'screenshot') return review.getReviewScreenshot(context, { id, itemId });
     if (suffix === 'replies') return !itemId ? review.replyToReviewComment(context, { id })
         : request.method === 'PATCH' ? review.editReviewCommentItem(context, { id, itemId }) : review.deleteReviewCommentItem(context, { id, itemId });
     if (suffix === 'screenshot') return request.method === 'GET' ? review.getReviewScreenshot(context, { id }) : review.replaceReviewScreenshot(context, { id });

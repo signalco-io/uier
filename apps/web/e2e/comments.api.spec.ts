@@ -805,11 +805,11 @@ test('requests are validated', async ({ newVisitor }) => {
 
     // Body that is not JSON
     await expectError(await visitor.post('/api/comments', { headers: { 'Content-Type': 'application/json' }, data: '{"path":' }), 400, 'invalid_request');
-    // A new comment's body up to 16 KB and a screenshot (about 700 KB), other writes up to 16 KB
+    // A new comment or reply can include an image (about 700 KB); other writes stay at 16 KB
     await expectError(await createComment(visitor, path, { text: 'x'.repeat(720 * 1024) }), 413, 'too_large');
 
     const comment = await created(await createComment(visitor, path, { text: 'x'.repeat(1000) }));
-    await expectError(await visitor.post(`/api/comments/${comment.id}/replies`, { data: { text: 'x'.repeat(17 * 1024) } }), 413, 'too_large');
+    await expectError(await visitor.post(`/api/comments/${comment.id}/replies`, { data: { text: 'x'.repeat(720 * 1024) } }), 413, 'too_large');
     await expectError(await visitor.post(`/api/comments/${comment.id}/replies`, { data: { text: 'x'.repeat(1001) } }), 400, 'invalid_request');
     await expectError(await visitor.patch(`/api/comments/${comment.id}`, { data: { resolved: 'yes' } }), 400, 'invalid_request');
 

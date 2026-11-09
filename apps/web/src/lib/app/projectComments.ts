@@ -61,6 +61,7 @@ export type ProjectCommentAuthor = { name: string; isMe: boolean; kind?: Project
 export type MessageMentionRange = { start: number; end: number };
 
 export type ProjectCommentMessage = {
+    screenshot?: { url: string; width: number; height: number };
     id: string;
     author: ProjectCommentAuthor;
     /** As shown: mentions are `@` and the person's current name */
@@ -265,6 +266,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         canFilterAuthor: actor.kind === 'member' && actor.isAdmin && Boolean(first.authorId ?? comment.authorId) && !first.deletedAt,
         replies: replies.map(reply => ({
             id: String(reply.id),
+            ...(!reply.deletedAt && reply.screenshot ? { screenshot: { url: KnownPageLinks.projectReplyScreenshot(project.id, comment.id, reply.id), width: reply.screenshot.width, height: reply.screenshot.height } } : {}),
             author: messageAuthor(reply, names, myId, avatars),
             ...mentionText(reply, participants),
             quotedText: reply.deletedAt ? undefined : reply.quotedText,

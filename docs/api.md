@@ -53,7 +53,8 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
 | `POST /api/review/<code>/sso` | Same-origin frame-only background handoff: `{ origin }` plus the dedicated HttpOnly cookie; rechecks project/site/member access, returns a review token or 204. No CORS or app-cookie authentication |
 | `POST /api/review/<code>/verification` | same-origin BotID verification from the empty `/review-verification` frame; a five-minute proof bound to the reviewed origin, project and reviewer |
 | `GET`, `POST /api/review/<code>/comments` | the comments of a page (`?path=`) or of every page (`?scope=site`, the inbox) the reviewer can see, a new comment (`authorName` from guests) |
-| `POST /api/review/<code>/comments/<id>/replies`, `PATCH`/`DELETE /api/review/<code>/comments/<id>`, `PATCH`/`DELETE .../replies/<itemId>` | replies, status (`{ status }`: `open`, `in-progress` or `done`; or the earlier `{ resolved }`, never both; see [In progress](#in-progress)), editing messages (`text`, `expectedText`), deleting |
+| `POST /api/review/<code>/comments/<id>/replies`, `PATCH`/`DELETE /api/review/<code>/comments/<id>`, `PATCH`/`DELETE .../replies/<itemId>` | replies (`{ text, screenshot?, mentions?, idempotencyKey? }`), status (`{ status }`: `open`, `in-progress` or `done`; or the earlier `{ resolved }`, never both; see [In progress](#in-progress)), editing messages (`text`, `expectedText`), deleting |
+| `GET /api/review/<code>/comments/<id>/replies/<itemId>/screenshot` | the reply image, with the same thread visibility and private Blob read contract as the original screenshot |
 | `GET /api/review/<code>/comments/<id>/screenshot` | the comment's screenshot, for reviewers who can see the comment |
 | `PATCH /api/review/<code>/comments/<id>/anchor` | reattach with `{ path, position, expectedRevision }`; author/admin, saved page and original allowed origin only |
 | `POST /api/review/<code>/comments/<id>/screenshot` | supply or replace saved evidence, with `{ screenshot, expectedRevision }`; author or workspace admin only |
@@ -283,10 +284,11 @@ find the thread in either. `sourcePath` is the same page as it was addressed, fo
 | `GET /api/comments?path=/x` | | `200` comments of the page, newest first (max. 200 and 1 MB), resolved ones included (`resolved: true`) |
 | `GET /api/comments?scope=site` | | `200` comments of every page of the domain, newest first, with the same limits (the toolbar's inbox) |
 | `POST /api/comments` | `{ path, sourcePath?, position, kind?, text, quotedText?, device?, screenshot? }` | `201` the new comment, with `screenshot: { width, height }` when it has one (see [Screenshots](review-workflow.md#screenshots)). `kind` is `comment` (default; `position` is a point, an area or a text selection: a point is `{ "type": "point", selector, xNormal, yNormal }`, fractions of the element's box, and an area adds `widthNormal` and `heightNormal`, both above 0 and within the element, with the point as its top-left corner; a point or a text selection in a menu, popover or dialog may add `layer: { opener, label? }`, the selector of the page element that opens it and that element's name, up to 120 characters), `rewrite` (a suggested replacement for selected text: `position` is a text selection, `text` the suggested text, `quotedText` the original), or `feedback` / `bug` with `position: { "type": "page" }` (about the page, no pin) |
-| `POST /api/comments/{id}/replies` | `{ text }` | `201` the updated comment; anyone may reply |
+| `POST /api/comments/{id}/replies` | `{ text, screenshot?, idempotencyKey? }` | `201` the updated comment; anyone may reply |
 | `PATCH /api/comments/{id}/replies/{itemId}` | `{ text, expectedText }` | `200` the updated thread; the message's author only. Includes the first message. A stale edit gets `409` and does not overwrite newer text |
 | `PATCH /api/comments/{id}/anchor` | `{ path, position, expectedRevision }` | `200` updated thread; author only, exact saved page and validated element/text selector. `expectedRevision` is `anchorContext.revision` or `null`; stale anchors return `409` |
 | `PATCH /api/comments/{id}` | `{ resolved }` or `{ status }` | `200` the updated comment; author only. `status` is `open`, `in-progress` or `done` ([In progress](#in-progress)) |
+| `GET /api/comments/{id}/replies/{itemId}/screenshot` | | `200` the reply image, for people who can read the thread; `404` for a missing/deleted reply or image |
 | `GET /api/comments/{id}/screenshot` | | `200` the comment's screenshot (`image/webp`, `image/jpeg` or `image/png`), public like the comment; `404` when it has none |
 | `POST /api/comments/{id}/screenshot` | `{ screenshot, expectedRevision }` | `200` updated comment; author only. `expectedRevision` is the current image revision, or `null` for an original/missing image; stale evidence returns `409` |
 | `DELETE /api/comments/{id}` | | Deletes the first item; author only. `204` when the comment is gone, or `200` with the comment when other visitors replied (see below) |
@@ -397,7 +399,7 @@ carry no IP-derived data:
 
 | Limit | Value |
 | --- | --- |
-| Request body | 16 KB (`413`); a new comment with a screenshot about 700 KB |
+| Request body | 16 KB (`413`); a new comment or reply with an image about 700 KB |
 | Screenshots | PNG, JPEG or WebP, 512 KB and 4096 px on a side; 300 per domain or project per day |
 | Comment / reply text | 1-1000 characters after trimming, at least one visible character; bidirectional override characters are removed; quoted text up to 1000 |
 | Path / selectors / selected text | 512 / 1024 / 2000 characters |

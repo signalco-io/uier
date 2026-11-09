@@ -67,8 +67,9 @@ export async function sweepCommentCleanup(comments = getCommentsStore(), app = g
         for (const image of page.items) {
             try {
                 const owner = await comments.get(image.domain, image.commentId);
-                if (!owner?.comment.screenshot) {
-                    await comments.deleteScreenshot(image.domain, image.commentId, image.etag);
+                const live = image.itemId ? owner?.comment.thread.items.some(item => item.id === image.itemId && !item.deletedAt && item.screenshot) : owner?.comment.screenshot;
+                if (!live) {
+                    await comments.deleteScreenshot(image.domain, image.commentId, image.etag, image.itemId);
                     removed++;
                 }
             } catch { failed++; console.error('[comments] Scheduled image cleanup needs retry'); }

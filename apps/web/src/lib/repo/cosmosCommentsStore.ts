@@ -252,12 +252,12 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
             throw new Error(`Comment ${id} changed too often while replying`);
         },
         async listScreenshotsBefore(before, continuation) {
-            const page = await cosmosPoint(() => getContainer().items.query<{ domain: string; commentId: string; _etag: string }>({
-                query: "SELECT c.domain, c.commentId, c._etag FROM c WHERE c.type = 'screenshot' AND IS_STRING(c.data) AND c.createdAt < @before",
+            const page = await cosmosPoint(() => getContainer().items.query<{ domain: string; commentId: string; itemId?: string; _etag: string }>({
+                query: "SELECT c.domain, c.commentId, c.itemId, c._etag FROM c WHERE c.type = 'screenshot' AND IS_STRING(c.data) AND c.createdAt < @before",
                 parameters: [{ name: '@before', value: before }]
             }, { maxItemCount: 100, continuationToken: continuation }).fetchNext(),
                 { operation: 'comments.screenshot-metadata', container: getContainer().id, partition: 'cross' });
-            return { items: page.resources.map(image => ({ domain: image.domain, commentId: image.commentId, etag: image._etag })),
+            return { items: page.resources.map(image => ({ domain: image.domain, commentId: image.commentId, itemId: image.itemId, etag: image._etag })),
                 continuation: page.continuationToken || undefined };
         },
         async createScreenshot(screenshot) {
@@ -290,9 +290,9 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
                 throw error;
             }
         },
-        async getScreenshot(domain, commentId) {
+        async getScreenshot(domain, commentId, itemId) {
             try {
-                const { resource } = await getContainer().item(screenshotDocumentId(commentId), domain).read<Record<string, unknown>>();
+                const { resource } = await getContainer().item(screenshotDocumentId(commentId, itemId), domain).read<Record<string, unknown>>();
                 return resource?.type === 'screenshot'
                     ? withoutSystemProperties(resource) as unknown as DbScreenshot
                     : null;
@@ -302,8 +302,8 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
                 throw error;
             }
         },
-        async deleteScreenshot(domain, commentId, etag) {
-            const target = getContainer().item(screenshotDocumentId(commentId), domain);
+        async deleteScreenshot(domain, commentId, etag, itemId) {
+            const target = getContainer().item(screenshotDocumentId(commentId, itemId), domain);
             try {
                 const current = await target.read<DbScreenshot>();
                 if (!current.resource || !current.etag || (etag && etag !== current.etag)) return;
@@ -347,14 +347,15 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
             for (const blob of page.items) {
                 try {
                     const owner = await store.get(blob.domain, blob.commentId);
-                    const target = getContainer().item(screenshotDocumentId(blob.commentId), blob.domain);
+                    const target = getContainer().item(screenshotDocumentId(blob.commentId, blob.itemId), blob.domain);
                     let image: { resource?: DbScreenshot; etag?: string } = {};
                     try { image = await target.read<DbScreenshot>(); }
                     catch (error) { if (errorCode(error) !== 404) throw error; }
-                    if (!owner?.comment.screenshot || image.resource?.blob !== blob.name) {
+                    const live = blob.itemId ? owner?.comment.thread.items.some(item => item.id === blob.itemId && !item.deletedAt && item.screenshot) : owner?.comment.screenshot;
+                    if (!live || image.resource?.blob !== blob.name) {
                         await getBlobs().delete(blob.name, blob.etag);
-                        if (!owner?.comment.screenshot && image.resource?.blob === blob.name && image.etag)
-                            await store.deleteScreenshot(blob.domain, blob.commentId, image.etag);
+                        if (!live && image.resource?.blob === blob.name && image.etag)
+                            await store.deleteScreenshot(blob.domain, blob.commentId, image.etag, blob.itemId);
                         removed++;
                     }
                 } catch { failed++; console.error('[screenshots] Blob cleanup needs retry'); }

@@ -1,17 +1,16 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type ClipboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Close, Paperclip } from '@signalco/ui-icons';
-import { suppliedScreenshot } from '../suppliedScreenshot';
+import { useAttachedImage } from '../useAttachedImage';
 import { screenshotContentTypes } from '../screenshotPolicy';
 import { IconTooltip } from './IconTooltip';
 import { destructiveTextClassName } from './@types/Comments';
 
-/** The reviewer's own image, sent as the comment's image instead of the automatic screenshot (memory only) */
-export type AttachedImage = { name: string; dataUrl: string };
+export { useAttachedImage, type AttachedImage } from '../useAttachedImage';
 
 type CaptureState = 'capturing' | 'ready' | 'failed';
 
@@ -48,57 +47,6 @@ function ScreenIcon({ off, size = 16 }: { off?: boolean; size?: number }) {
             </>}
         </svg>
     );
-}
-
-/**
- * The reviewer's own image for a new comment or feedback: chosen with the file picker or pasted
- * into the form, checked with the same formats and limits as saved evidence (suppliedScreenshot).
- * Held in memory only, never in draft or idempotency storage.
- */
-export function useAttachedImage(initial?: AttachedImage) {
-    const [image, setStateImage] = useState(initial);
-    // The image now, for a send that settles after later renders
-    const imageRef = useRef(initial);
-    const setImage = (next: AttachedImage | undefined) => { imageRef.current = next; setStateImage(next); };
-    const [error, setError] = useState('');
-    const [reading, setReading] = useState(false);
-    const readingRef = useRef(false);
-    const attach = async (file: Blob, name = file instanceof File && file.name ? file.name : 'Pasted image') => {
-        if (readingRef.current) return;
-        readingRef.current = true;
-        setReading(true);
-        setError('');
-        try {
-            setImage({ name, dataUrl: await suppliedScreenshot(file) });
-        } catch (cause) {
-            setError(cause instanceof Error ? cause.message : 'The image could not be read. Choose it again.');
-        } finally {
-            readingRef.current = false;
-            setReading(false);
-        }
-    };
-    /** A pasted image file, unless text came with it (text is pasted as usual) */
-    const handlePaste = (event: ClipboardEvent) => {
-        const file = [...event.clipboardData.files].find(file => file.type.startsWith('image/'));
-        if (!file || event.clipboardData.getData('text/plain')) return;
-        event.preventDefault();
-        void attach(file);
-    };
-    return {
-        image,
-        error,
-        reading,
-        attach,
-        handlePaste,
-        remove: () => { setImage(undefined); setError(''); },
-        /** Whether an image is attached or being read now (not as of this render) */
-        attached: () => Boolean(imageRef.current) || readingRef.current,
-        /** A failed send's image, back in the form unless another one was attached meanwhile */
-        restore: (sent: AttachedImage) => { if (!imageRef.current && !readingRef.current) setImage(sent); },
-        /** The image the request sends: the reviewer's, else the automatic capture unless it was omitted */
-        screenshotFor: (omitted: boolean, capture: Promise<string | undefined> | undefined) =>
-            image ? image.dataUrl : omitted ? undefined : capture
-    };
 }
 
 /** A compact icon button of a composer's header or text box */
@@ -177,15 +125,15 @@ export function ComposerAttachmentsHeader({ title, screenshot, page, omitted, on
  * of `CommentComposer`), so it reads as a part of the comment: picks the reviewer's own image, sent
  * instead of the screenshot. Once attached, its name with a remove button takes its place.
  */
-export function ComposerAttachButton({ attachment }: { attachment: ReturnType<typeof useAttachedImage> }) {
+export function ComposerAttachButton({ attachment, reply = false }: { attachment: ReturnType<typeof useAttachedImage>; reply?: boolean }) {
     const limitsId = useId();
     const inputRef = useRef<HTMLInputElement>(null);
     const { image, reading } = attachment;
     return (
         <>
-            <span id={limitsId} className="sr-only">Sent instead of the screenshot. {imageLimits}</span>
+            <span id={limitsId} className="sr-only">{reply ? 'Attached to your reply.' : 'Sent instead of the screenshot.'} {imageLimits}</span>
             {image ? (
-                <IconTooltip label="Your image is attached instead of a screenshot. Select to remove it.">
+                <IconTooltip label={reply ? 'Your image is attached to the reply. Select to remove it.' : 'Your image is attached instead of a screenshot. Select to remove it.'}>
                     <Button
                         variant="plain"
                         size="xs"
@@ -199,7 +147,7 @@ export function ComposerAttachButton({ attachment }: { attachment: ReturnType<ty
                     </Button>
                 </IconTooltip>
             ) : (
-                <IconTooltip label={`Attach your own image instead of the screenshot. ${imageLimits}`}>
+                <IconTooltip label={`${reply ? 'Attach an image to your reply.' : 'Attach your own image instead of the screenshot.'} ${imageLimits}`}>
                     <IconButton
                         variant="plain"
                         size="xs"

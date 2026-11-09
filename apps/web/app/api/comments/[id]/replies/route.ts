@@ -3,6 +3,8 @@ import { apiErrors, commentContext, commentsApiHandler, parseJsonBody } from '..
 import { replyToComment } from '../../../../../src/lib/comments/service';
 import { isValidId, replySchema } from '../../../../../src/lib/comments/validation';
 
+import { MAX_COMMENT_BODY_BYTES } from '@/src/lib/comments/limits';
+
 type Params = { id: string };
 
 // POST /api/comments/{id}/replies - { text }, anyone
@@ -11,6 +13,6 @@ export const POST = commentsApiHandler<Params>(async (context, { id }) => {
     if (!isValidId(id))
         throw apiErrors.notFound();
 
-    const input = await parseJsonBody(context.request, replySchema);
+    const input = await parseJsonBody(context.request, replySchema, MAX_COMMENT_BODY_BYTES);
     return Response.json(await replyToComment(await commentContext(context, id), id, input), { status: 201 });
 });

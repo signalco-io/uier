@@ -17,6 +17,7 @@ import type { AssigneeAgentInput } from '../../../lib/review/assigneeAgentModel'
 import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
 import type { z } from 'zod';
+import { screenshotSchema } from '../../../lib/comments/validation';
 import { parseActionInput } from '../../../lib/app/validation';
 import { actionResult, UserFacingError, type ActionState } from '../../../lib/app/actionResult';
 import { appContextOrThrow } from '../../../lib/app/context';
@@ -57,7 +58,8 @@ export async function replyCommentAction(input: import('zod').infer<typeof reply
     return commentAction(replyCommentActionSchema, input, async ({ project, actor }, parsed) => {
         assertCanUseComments(project, actor);
         const request = new Request(`${await appBaseUrl()}/app/projects/${project.id}`, { headers: await headers() });
-        await replyToProjectComment(request, project, actor, parsed.commentId, parsed);
+        const screenshot = parsed.screenshot ? await screenshotSchema.parseAsync(parsed.screenshot) : undefined;
+        await replyToProjectComment(request, project, actor, parsed.commentId, { ...parsed, screenshot });
     });
 }
 

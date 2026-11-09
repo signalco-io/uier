@@ -31,3 +31,8 @@ hosted `UIER_EXTENSION_*` settings). The store button uses the same `chromeWebSt
 link. Recheck both pages, and the legal pages' extension sections, when a release changes labels,
 permissions, sign-in or capture. `browser-extension.api.spec.ts` checks the store link and
 `browser-extension.spec.ts` their content.
+
+The shared broker contract also permits `GET comments/<id>/replies/<itemId>/screenshot`. This read uses
+the scoped project's current membership and parent-thread visibility through `getReviewScreenshot`;
+it never dispatches to reply deletion. Image uploads use the existing verified reply POST and sanitizer.
+`e2e/extension.api.spec.ts` covers the closed read-only route, image bytes and revoked membership.

@@ -45,6 +45,18 @@ long task, but preparation no longer runs as an unbroken whole-page scan. The re
 `screenshot-performance.spec.ts` checks that capture yields to the browser before all inner-scroll reads finish,
 while the composer keeps typed text and capture completes.
 
+## Reply images
+
+The thread's reply form uses the same Attach image control and `useAttachedImage` reader as a new comment,
+including file and paste validation, the filename/remove state and holding send while an image is read.
+Replies have no automatic capture: one attached image belongs to that reply and never replaces the first
+message's screenshot. A send clears the attachment; a failed send restores it only without a newer attachment.
+Discard clears it. Bytes stay in memory, outside draft and idempotency storage; only an opaque attachment key
+identifies a retry in the browser. Saved reply images use `CommentScreenshot`'s lazy thumbnail and expansion,
+with the parent thread and item ids in both the request and query key. Image edits remain on the original
+comment's screenshot. The app shares the reader, with its own shadcn controls and thumbnail/dialog.
+`apps/web/e2e/reply-images.spec.ts` covers both surfaces on desktop and mobile.
+
 ## Where the pin and its popover go
 
 A pin sits 16 px below and right of its anchor (`bubbleLeft`, `bubbleTop` in `CommentBubble`), kept inside

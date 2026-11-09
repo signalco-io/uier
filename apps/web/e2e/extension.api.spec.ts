@@ -241,3 +241,32 @@ test('priority uses scoped extension identity and the shared proof and member au
     await getAppStore().delete(workspacePk(f.project.workspaceId), memberId(f.user.id));
     await expect(extensionReviewContext(verified)).rejects.toMatchObject({ status: 401 });
 });
+
+test('extension reply image reads use the closed broker route and current thread authority', async () => {
+    const { getReviewScreenshot } = await import('../src/lib/review/routes');
+    const { allowedExtensionOperation, extensionOperation } = await import('@uier/toolbar/extension-contract');
+    const { getMemoryCommentsStore } = await import('../src/lib/repo/memoryCommentsStore');
+    const { screenshotSchema } = await import('../src/lib/comments/validation');
+    const { screenshotDocument, screenshotInfo } = await import('../src/lib/comments/service');
+    const { pngImage } = await import('./support/images');
+    const f = await renewableFixture();
+    const scoped = await (await createScope(request('scope', f.credentials.token, { projectId: f.project.id, origin: 'https://reviewed.example' }))).json() as { token: string };
+    const screenshot = await screenshotSchema.parseAsync(pngImage);
+    const id = `comment_${randomUUID()}`, itemId = `item_${randomUUID()}`;
+    const comment = { id, domain: `project:${f.project.id}`, path: '/', position: { type: 'page' as const }, authorId: `user:${f.user.id}`,
+        private: true, thread: { items: [{ id: 'first', text: 'Original' }, { id: itemId, text: 'Reply evidence', screenshot: screenshotInfo(screenshot) }] } };
+    const store = getMemoryCommentsStore();
+    await store.create(comment);
+    await store.createScreenshot(screenshotDocument(comment, screenshot, itemId));
+    const path = `comments/${id}/replies/${itemId}/screenshot`;
+    const GET = extensionHandler(async request => getReviewScreenshot(await extensionReviewContext(request), { id, itemId }));
+    expect(extensionOperation(`https://uier.io/api/review/${f.project.id}/${path}`, 'https://uier.io', f.project.id, 'GET').path).toBe(path);
+    for (const method of ['POST', 'PATCH', 'DELETE']) expect(allowedExtensionOperation(path, method)).toBe(false);
+    const response = await GET(request(`review/${path}`, scoped.token));
+    expect(response.status).toBe(200);
+    expect(Buffer.from(await response.arrayBuffer())).toEqual(screenshot.data);
+    expect((await store.get(comment.domain, id))!.comment.thread.items).toHaveLength(2);
+    expect((await GET(request(`review/${path}`))).status).toBe(401);
+    await getAppStore().delete(workspacePk(f.project.workspaceId), memberId(f.user.id));
+    expect((await GET(request(`review/${path}`, scoped.token))).status).toBe(401);
+});

@@ -271,10 +271,11 @@ export async function createProjectComment(request: Request, project: DbProject,
 }
 
 /** The screenshot of a comment the actor can see */
-export async function getProjectScreenshot(project: DbProject, actor: ProjectActor, id: string) {
+export async function getProjectScreenshot(project: DbProject, actor: ProjectActor, id: string, itemId?: string) {
     const comment = await getProjectComment(project, actor, id);
-    const screenshot = comment?.screenshot
-        ? await getCommentsStore().getScreenshot(projectPartition(project.id), id)
+    const hasImage = itemId ? comment?.thread.items.some(item => item.id === itemId && !item.deletedAt && item.screenshot) : comment?.screenshot;
+    const screenshot = hasImage
+        ? await getCommentsStore().getScreenshot(projectPartition(project.id), id, itemId)
         : null;
     if (!screenshot)
         throw apiErrors.notFound('Screenshot not found.');
@@ -312,7 +313,7 @@ function parseClaim(claim: MessageAgentClaim) {
  * `writtenBy`: what an MCP connection says about the agent writing the reply. It marks the message only
  * for an MCP actor (one with a connector), and only as `messageAgentFor` decides from the stored thread.
  */
-export type ReplyInput = { text: string; authorName?: string; mentions?: DbMention[]; idempotencyKey?: string; writtenBy?: MessageAgentClaim };
+export type ReplyInput = { screenshot?: ParsedScreenshot; text: string; authorName?: string; mentions?: DbMention[]; idempotencyKey?: string; writtenBy?: MessageAgentClaim };
 
 export async function replyToProjectComment(request: Request, project: DbProject, actor: ProjectActor, id: string, input: ReplyInput) {
     const saved = await appendProjectReply(request, project, actor, id, input);
@@ -332,7 +333,8 @@ async function appendProjectReply(request: Request, project: DbProject, actor: P
 
     const store = getCommentsStore();
     const partition = projectPartition(project.id);
-    const attempt = submission(partition, authorId, input.idempotencyKey, {
+    const attempt = submission(partition, authorId, input.idempotencyKey ?? (input.screenshot ? nanoid() : undefined), {
+        ...(input.screenshot ? { image: input.screenshot.data.toString('base64') } : {}),
         operation: 'reply', id, text: input.text, mentions: input.mentions ?? [], authorName: actor.kind === 'guest' ? input.authorName : undefined
     });
     const recovered = await recoverSubmission(store, attempt);
@@ -343,11 +345,13 @@ async function appendProjectReply(request: Request, project: DbProject, actor: P
     visibleOrThrow(stored.comment, actor);
 
     await enforceReplyLimits(store, commentRateLimitSubject(request, project, actor, authorId));
+    const screenshot = await availableScreenshot(store, partition, input.screenshot);
 
     const now = nowIso();
     const itemId = `item_${nanoid()}`;
     if (attempt) return await commitReplySubmission(store, attempt, id, comment => ({
         id: itemId, text: input.text, authorId,
+        ...(screenshot ? { screenshot: screenshotInfo(screenshot) } : {}),
         ...(actor.kind === 'member' && actor.agent ? { agent: actor.agent } : {}),
         ...writtenBy(comment),
         authorName: actor.kind === 'guest' ? input.authorName : undefined,
@@ -355,7 +359,7 @@ async function appendProjectReply(request: Request, project: DbProject, actor: P
     }), async comment => { await refreshMutationActor(project, actor, true); return visibleOrThrow(comment, actor); }, async (previous, updated) => {
         const mentions = await validateMentions(project, actor, previous, input.text, input.mentions);
         return withSyncMark(project, previous, withNotificationEvent(updated, authorId, 'reply', now, mentionRecipients(mentions), actor.kind === 'member' ? actor.agent : undefined, { itemId }));
-    });
+    }, screenshot ? comment => screenshotDocument(comment, screenshot, itemId) : undefined);
     return await updateComment(store, project, actor, id, async comment => {
         await refreshMutationActor(project, actor, true);
         visibleOrThrow(comment, actor);
@@ -578,14 +582,16 @@ export async function removeProjectComment(project: DbProject, actor: ProjectAct
     const store = getCommentsStore();
     const partition = projectPartition(project.id);
     let hadScreenshot = false;
+    let previousImageItems: string[] = [];
     await updateComment(store, project, actor, id, (comment) => {
         visibleOrThrow(comment, actor);
         if (!canDeleteComment(comment, actor))
             throw apiErrors.forbidden('Only the author or an admin can delete this comment.');
         hadScreenshot = Boolean(comment.screenshot);
+        previousImageItems = comment.thread.items.filter(item => item.screenshot).map(item => item.id);
         return null;
     }, (comment, etag) => deleteProjectThread(store, project, comment, etag));
-    await forgetScreenshot(store, partition, id, hadScreenshot, null);
+    await forgetScreenshot(store, partition, id, hadScreenshot, null, previousImageItems);
 }
 
 /**
@@ -598,9 +604,11 @@ export async function deleteProjectCommentItem(project: DbProject, actor: Projec
     const store = getCommentsStore();
     const partition = projectPartition(project.id);
     let hadScreenshot = false;
+    let previousImageItems: string[] = [];
     const updated = await updateComment(store, project, actor, id, (comment): DbComment | null => {
         visibleOrThrow(comment, actor);
         hadScreenshot = Boolean(comment.screenshot);
+        previousImageItems = comment.thread.items.filter(item => item.screenshot).map(item => item.id);
         const items = threadItems(comment);
         const index = items.findIndex(item => item.id === itemId);
         const item = items[index];
@@ -634,7 +642,7 @@ export async function deleteProjectCommentItem(project: DbProject, actor: Projec
             return null;
         return withSyncMark(project, comment, { ...comment, thread: { ...comment.thread, items: remaining }, updatedAt: now });
     }, (comment, etag) => deleteProjectThread(store, project, comment, etag));
-    await forgetScreenshot(store, partition, id, hadScreenshot, updated);
+    await forgetScreenshot(store, partition, id, hadScreenshot, updated, previousImageItems);
     return updated;
 }
 

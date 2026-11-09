@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode, type RefObject, type ClipboardEventHandler } from 'react';
 import { SendIcon } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Field, FieldDescription, FieldError, FieldLabel } from '@/src/components/ui/field';
@@ -21,7 +21,10 @@ import { useMentionTextarea, type MessageMention } from './MentionTextarea';
  * named `submitLabel`, "save" a text button.
  */
 export function MessageComposer({ label, formLabel = label, name, placeholder, value, mentions, onValueChange, mentionsIn, maxLength = 1000, textareaRef,
-    submitLabel, submitVerb, onSubmit, pending = false, cancelLabel = 'Cancel', onCancel, escapeCancels = false, onDiscard, error, announcement, notices }: {
+    submitLabel, submitVerb, onSubmit, pending = false, cancelLabel = 'Cancel', onCancel, escapeCancels = false, onDiscard, error, announcement, notices, attachments, onPaste, holdSubmit = false }: {
+    attachments?: ReactNode;
+    onPaste?: ClipboardEventHandler<HTMLFormElement>;
+    holdSubmit?: boolean;
     /** The field's name ("Reply", "Edit reply") */
     label: string;
     /** The form's name, when it differs from the field's ("Reply to thread") */
@@ -67,7 +70,7 @@ export function MessageComposer({ label, formLabel = label, name, placeholder, v
         onSubmit: () => form.current?.requestSubmit(), onEscape: escape, onMention: person => setMentioned(`Mentioned ${person}`)
     });
     const counting = value.length >= maxLength * 0.9;
-    const canSubmit = Boolean(value.trim()) && !pending;
+    const canSubmit = Boolean(value.trim()) && !pending && !holdSubmit;
 
     useEffect(() => {
         const input = textarea.current;
@@ -75,7 +78,7 @@ export function MessageComposer({ label, formLabel = label, name, placeholder, v
         input?.setSelectionRange(input.value.length, input.value.length);
     }, [textarea]);
 
-    return <form ref={form} aria-label={formLabel} aria-busy={pending || undefined} onSubmit={event => {
+    return <form ref={form} onPaste={onPaste} aria-label={formLabel} aria-busy={pending || undefined} onSubmit={event => {
         event.preventDefault();
         if (canSubmit) onSubmit();
     }}>
@@ -88,10 +91,13 @@ export function MessageComposer({ label, formLabel = label, name, placeholder, v
                     className="max-h-44 min-h-14 overflow-y-auto px-3 pt-2.5 pb-1"
                     aria-describedby={`${hintId} ${keysId}`} aria-invalid={error ? true : undefined} />
                 <InputGroupAddon align="block-end" className="cursor-default justify-between gap-2 py-1.5 pr-1.5 pl-3 font-normal">
-                    <span id={hintId} className={`min-w-0 truncate text-xs tabular-nums ${value.length >= maxLength ? 'text-destructive' : 'text-muted-foreground'}`}>
-                        {counting ? <>{value.length}/{maxLength}<span className="sr-only"> characters</span></>
-                            : mentionsIn && <><span aria-hidden="true">@ to mention</span><span className="sr-only">Type @ to mention someone with access.</span></>}
-                    </span>
+                    <div className="flex min-w-0 items-center gap-1">
+                        {attachments}
+                        <span id={hintId} className={`min-w-0 truncate text-xs tabular-nums ${value.length >= maxLength ? 'text-destructive' : 'text-muted-foreground'}`}>
+                            {counting ? <>{value.length}/{maxLength}<span className="sr-only"> characters</span></>
+                                : mentionsIn && <><span aria-hidden="true">@ to mention</span><span className="sr-only">Type @ to mention someone with access.</span></>}
+                        </span>
+                    </div>
                     <div className="flex shrink-0 items-center gap-0.5">
                         {onCancel && <Button variant="ghost" size="xs" className="pointer-coarse:min-h-11" onClick={onCancel}>{cancelLabel}</Button>}
                         {onDiscard && value.length > 0 && <Button variant="ghost" size="xs" className="pointer-coarse:min-h-11" onClick={onDiscard}>Discard</Button>}

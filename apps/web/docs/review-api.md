@@ -25,6 +25,15 @@
   Never delete the original before this transaction succeeds. Public authors and project authors/admins
   can replace evidence; readers retain the existing comment visibility rules. The screenshot replacement
   API/browser tests cover failure, reload, redaction, private visibility and deletion.
+- Replies accept one optional `screenshot` image through both comments APIs and the app reply action. They use
+  the same body, pixel, re-encoding and daily-budget limits as new comments; text remains required. Each item's
+  DTO carries dimensions only. `GET .../comments/<id>/replies/<itemId>/screenshot` rechecks parent-thread access
+  and the live reply before returning bytes or the existing short-lived private Blob read URL. The app has the
+  equivalent cookie-protected route. A receipt, reply and image reference commit atomically under the thread
+  etag; retries recognize the image content. Failed image storage/capacity preserves the text, like new comments.
+  Deleting a reply or thread removes its images, with failed cleanup retried by the existing orphan sweep.
+  `e2e/reply-images.api.spec.ts` covers sanitization, isolation, privacy, deletion, budgets and receipt recovery;
+  `blob-screenshots.api.spec.ts` also checks live/deleted reply Blob ownership during sweeps.
 - A new comment's `screenshot` is either the automatic capture or the reviewer's own attached image
   (toolbar Attach image or paste). The API cannot tell them apart and needs not: `comments/validation.ts`
   parses (`parseScreenshot`) and re-encodes (`sanitizeScreenshot`) every one under the same limits and image budget.

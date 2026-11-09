@@ -10,6 +10,11 @@
         "node": "26.x"
     },
     "exports": {
+        "./attachments": {
+            "types": "./src/useAttachedImage.ts",
+            "development": "./dist-dev/attachments.js",
+            "default": "./dist/attachments.js"
+        },
         "./realtime": {
             "types": "./src/realtime.ts",
             "development": "./dist-dev/realtime.js",

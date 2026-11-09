@@ -11,6 +11,7 @@ export type CommentAuthorDto = {
 };
 
 export type CommentThreadItemDto = {
+    screenshot?: { width: number; height: number };
     id: string;
     text: string;
     quotedText?: string;
@@ -173,7 +174,8 @@ function toThreadItemDto(item: DbThreadItem, visitorAuthorId: string | undefined
             ? { name: names.get(authorId.slice('user:'.length)) ?? 'Former member' }
             : item.authorName ? { name: item.authorName } : {}) },
         createdAt: optionalString(item.createdAt),
-        editedAt: optionalString(item.editedAt)
+        editedAt: optionalString(item.editedAt),
+        ...(item.screenshot ? { screenshot: { width: item.screenshot.width, height: item.screenshot.height } } : {})
     };
 }
 
