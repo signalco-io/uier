@@ -74,7 +74,7 @@ export default async function ClientsPage() {
                                         </ItemContent>
                                         <ItemActions className="ml-auto text-sm text-muted-foreground tabular-nums">
                                             {statusText(active, done)}
-                                            {canEdit && <ClientEditDialog client={summary} className="relative z-10" />}
+                                            {canEdit && <ClientEditDialog client={summary} workspaceId={context.workspace.id} className="relative z-10" />}
                                             <ChevronRightIcon aria-hidden="true" className="size-4" />
                                         </ItemActions>
                                     </Item>

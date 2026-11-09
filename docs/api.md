@@ -532,6 +532,31 @@ can bring one too ([Google](google-sign-in.md#profile-picture), [Microsoft](micr
   a comment's author and assignee show a picture only while they can still review the project. The review
   API and the toolbar do not include pictures.
 
+## Client logos
+
+Admins edit a client's avatar on Workspace → Clients → Edit client. Icon and colour choices appear in
+its avatar popover. A custom logo replaces the icon tile everywhere `ClientMark` is shown.
+[`clientLogos.ts`](../apps/web/src/lib/app/clientLogos.ts) owns storage and authorization.
+
+| Route | Answer |
+| --- | --- |
+| `POST /api/workspaces/<workspaceId>/clients/<clientId>/logo` (`multipart/form-data`, field `file`) | `200` `{ url }`: the new logo |
+| `DELETE /api/workspaces/<workspaceId>/clients/<clientId>/logo` | `204`: icon/letter again, also when no logo was set |
+| `GET /api/workspaces/<workspaceId>/clients/<clientId>/logo/<version>` | `200` WebP for a current member who can open a live project of this client |
+
+Uploads use the same byte sniffing, size/pixel limits, square WebP normalization, request body bound,
+same-origin checks and browser downsizing as [profile pictures](#profile-pictures). Writes require a
+current admin with a visible client (`403` for a non-admin) and allow 30 changes per person per hour
+(`429`). Signed out is `401`; a hidden, foreign, unused or missing client is `404`. Direct and team
+project grants both count for reads; knowing a URL alone grants no access. Replaced/removed versions
+are `404`; errors are `no-store`.
+
+The image (`client-logo`, `client_logo_<version>`, base64) lives in the client's workspace partition.
+Creating/replacing/removing the `DbClient.logo` reference and deleting its previous image is one
+transaction with the client's etag. Concurrent detail edits preserve the logo. Each random version
+names immutable bytes with `Cache-Control: private, max-age=31536000, immutable`, `nosniff` and
+`Cross-Origin-Resource-Policy: same-origin`. Logos remain app-only, outside review and MCP projections.
+
 ## Feedback priority and app triage
 
 Comment DTOs add `priority`: `low`, `normal`, `high` or `urgent`. Missing stored values and older

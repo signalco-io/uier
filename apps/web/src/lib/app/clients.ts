@@ -1,10 +1,11 @@
+import { KnownPageLinks } from '../../knownPages';
 import { nanoid } from 'nanoid';
 import { z } from 'zod';
 import type { AppContext } from './context';
 import { UserFacingError } from './actionErrors';
 import { clientColors, clientIcons } from './clientAppearance';
 import { MAX_CLIENT_DESCRIPTION_LENGTH, MAX_CLIENT_NAME_LENGTH } from './limits';
-import { workspacePk, type DbClient, type DbClientName, type DbProject } from './model';
+import { clientLogoDocId, workspacePk, type DbClientLogo, type DbClient, type DbClientName, type DbProject } from './model';
 import { getAppStore, type AppMutation, type AppStore, type StoredDoc } from './store';
 import { sha256Hex } from './tokens';
 import { assertMutableProject, assertMutableWorkspace } from '../comments/publicProjectPolicy';
@@ -36,15 +37,15 @@ export const clientDetailsSchema = z.object({
 export type ClientDetails = z.output<typeof clientDetailsSchema>;
 
 /** What the app shows of a client (no authorship or timestamps) */
-export type ClientSummary = Pick<DbClient, 'id' | 'name' | 'description' | 'icon' | 'color'>;
+export type ClientSummary = Pick<DbClient, 'id' | 'name' | 'description' | 'icon' | 'color'> & { logoUrl?: string };
 
 type ClientProject = Pick<DbProject, 'id' | 'name' | 'status'>;
 
 /** A client with the projects that point to it */
 export type Client = ClientSummary & { projects: ClientProject[] };
 
-export function clientSummary({ id, name, description, icon, color }: DbClient): ClientSummary {
-    return { id, name, description, icon, color };
+export function clientSummary({ id, workspaceId, name, description, icon, color, logo }: DbClient): ClientSummary {
+    return { id, name, description, icon, color, ...(logo ? { logoUrl: KnownPageLinks.clientLogo(workspaceId, id, logo.version) } : {}) };
 }
 
 export async function getClient(workspaceId: string, clientId: string, store: AppStore = getAppStore()): Promise<StoredDoc<DbClient> | null> {
@@ -233,6 +234,10 @@ export async function updateClient(context: AppContext, clientId: string, detail
                         throw new UserFacingError('Another client already uses this name.');
                     // Assigning a project rewrites its client, so this delete fails if one joined since the query
                     operations.push({ kind: 'delete', pk, id: other.doc.id, etag: other.etag });
+                    if (other.doc.logo) {
+                        const image = await store.get<DbClientLogo>(pk, clientLogoDocId(other.doc.logo.version));
+                        if (image) operations.push({ kind: 'delete', pk, id: image.doc.id, etag: image.etag });
+                    }
                 }
                 operations.push({ kind: 'replace', doc: { ...taken.doc, clientId }, etag: taken.etag });
             } else if (!taken) {
