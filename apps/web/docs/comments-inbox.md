@@ -13,7 +13,9 @@
   every assignee's avatar with their agents' smaller avatars stacked beside it (`AssigneeCard`: hovering shows who it is assigned to
   and their [agents](assignee-agents.md); see [Multiple assignees](#multiple-assignees)), beside the open thread
   (`CommentCard.tsx`). The open thread is in the URL (`?comment=<id>`, `useOpenComment`): side by side (`@container/comments` from `@3xl`, 48rem: the list's 18rem and
-  at least 29rem for the thread; from about 1100 px with the sidebar docked, which takes in most landscape tablets) it replaces
+  at least 29rem for the thread; from about 1100 px with the sidebar docked, which takes in most landscape tablets; the
+  list and the thread then break out of the reading column to the panel's width, at most 96rem, with `page-wide`'s length
+  ([app shell](app-shell.md)), the list taking up to 30 % of it, 28rem at most, and the filters staying in the column) it replaces
   the history entry and the first shown thread is open until another is chosen (it stays while it is listed, so a thread
   that arrives above it in a realtime refresh does not take its place, and the arrow keys go on from it; a filter that
   hides it shows the new first one; `e2e/realtime.spec.ts`); narrower (a phone, a tablet in portrait) a row opens
