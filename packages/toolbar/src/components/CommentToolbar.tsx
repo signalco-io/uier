@@ -15,7 +15,7 @@ import { InkScope } from './InkScope';
 import { ToolbarProfile } from './ToolbarProfile';
 import { ToolbarOptions } from './ToolbarOptions';
 import { ToolbarFeedback } from './ToolbarFeedback';
-import { useToolbarMovement } from '../hooks/useReviewMovement';
+import { useToolbarMovement, useToolbarNotice } from '../hooks/useReviewMovement';
 import { canReviewToolbar, holdsLayersAttribute } from '../toolbarReview';
 import { addCommentShortcut, useShortcutsEnabled } from '../shortcuts';
 import { useRovingFocus } from '../focusKeys';
@@ -82,6 +82,9 @@ export function CommentToolbar({
     const tools = useRovingFocus(toolsRef, { orientation: 'horizontal' });
     const moveRef = useRef<HTMLButtonElement>(null);
     const movement = useToolbarMovement(navRef, onMoveStart);
+    // Centred on the pill, above it (below it when there is no room): never over it
+    const instruction = useToolbarNotice<HTMLDivElement>();
+    const resumeDraft = useToolbarNotice<HTMLDivElement>();
     const resetPosition = () => { movement.reset(); requestAnimationFrame(() => moveRef.current?.focus()); };
     const shortcut = useShortcutsEnabled() ? addCommentShortcut : undefined;
     const capped = commentsCountCapped;
@@ -121,10 +124,11 @@ export function CommentToolbar({
         <InkScope>
             {/* Always rendered, so screen readers announce the instruction when point mode starts */}
             <div
+                ref={instruction.ref}
                 role="status"
-                style={movement.instructionStyle}
+                style={instruction.style}
                 data-uier-capture-exclude=""
-                className={cx('pointer-events-none fixed w-max max-w-[calc(100vw-2rem)] -translate-x-1/2', canReviewToolbar() ? 'z-[54]' : 'z-[51]')}>
+                className={cx('pointer-events-none fixed w-max max-w-[calc(100vw-2rem)]', canReviewToolbar() ? 'z-[54]' : 'z-[51]')}>
                 {creatingPointComment && (
                     <p className="m-0 rounded-full border bg-background px-3 py-1.5 text-center text-sm text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]">
                         {isCoarsePointer() && !canReviewToolbar()
@@ -138,9 +142,10 @@ export function CommentToolbar({
             {/* Beside the instruction's place, not in the pill: the pill keeps its width */}
             {onResumeDraft && !creatingPointComment && !collapsed && (
                 <div
-                    style={movement.instructionStyle}
+                    ref={resumeDraft.ref}
+                    style={resumeDraft.style}
                     data-uier-capture-exclude=""
-                    className={cx('fixed w-max -translate-x-1/2', canReviewToolbar() ? 'z-[54]' : 'z-[51]')}>
+                    className={cx('fixed w-max', canReviewToolbar() ? 'z-[54]' : 'z-[51]')}>
                     <Button
                         size="sm"
                         variant="outlined"

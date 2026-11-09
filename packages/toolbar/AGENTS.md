@@ -61,6 +61,8 @@ every change in the package.
   root (`:root` alone would not). The `[data-uier-root]` container gets the `dark` class when the
   system prefers dark, so threads follow the system theme; the pill and the sidebar are wrapped in
   `components/InkScope.tsx` (always the dark tokens), pins are always ink.
+  `styles/toolbar-theme.css` sets `color-scheme` and a token `scrollbar-color` for both, so
+  scrollbars follow the toolbar's theme, not the host page's.
 - Fonts: `runtime.tsx` appends the self-hosted Geist stylesheet (`GEIST_FONTS_PATH` from
   `@uier/brand`, resolved against `toolbarConfig.apiUrl`) to the host document, because `@font-face` inside a shadow root is unreliable.
   If the host's CSP blocks it, the toolbar falls back to `system-ui`.
@@ -115,7 +117,7 @@ every change in the package.
 | `pageState.ts`, `hooks/usePagePath.tsx` | shared browser/server canonical identity (pathname by default; approved query fields and optional hash routes), `sourcePagePath`/`storedSourcePath` (the same filtering with trailing slashes kept, for links only, never a key), the names of other selectable query fields sent with new project comments for the settings suggestions (`pageQueryKeys`), SPA history/hash subscriptions with cleanup and a fallback; exported as `@uier/toolbar/page-state` |
 | `hooks/useCommentItemRects.tsx` | resolves positions to rectangles and pin placements; offsets are verified, then a lazy whitespace-free page index is shared by every comment, with one record per text node. Exact/restored/missing/ambiguous results persist until the DOM version changes; geometry/visibility is remeasured on layout frames. No pin for missing/ambiguous/hidden anchors; never throws |
 | `hooks/useLayoutVersion.ts` | shared geometry version for scroll (capture), resize, size and DOM changes; separate DOM evidence version for anchor/index invalidation, including observer restarts |
-| `hooks/useReviewMovement.ts`, `components/DockablePanel.tsx` | shared pointer/touch handles, visible viewport bounds, toolbar position and reusable panel docking; versioned browser-local preferences and keyboard alternatives |
+| `hooks/useReviewMovement.ts`, `components/DockablePanel.tsx` | shared pointer/touch handles, visible viewport bounds, toolbar position and reusable panel docking; versioned browser-local preferences and keyboard alternatives. `useToolbarNotice` places a notice by the pill (the point-mode instruction, Resume draft, toasts, the load error): centred on it, above it, or below when there is no room above, inside the viewport, so it never covers the pill |
 | `hooks/useDrafts.tsx` | seven-day browser-local text/anchor/edit snapshots scoped to API/project/authorized reviewer/canonical page/item; `draftStorage.ts` handles expiry, discard, sign-out clearing, blocked storage and stable submission identities; captures stay in memory and refresh on reopen |
 
 The inbox's Reply action mounts `CommentComposer` only for the opened card, inside a

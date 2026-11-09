@@ -5,6 +5,7 @@ import { Close, ExternalLink } from '@signalco/ui-icons';
 import { cx } from '@signalco/ui-primitives/cx';
 import { destructiveTextClassName } from './@types/Comments';
 import { InkScope } from './InkScope';
+import { useToolbarNotice } from '../hooks/useReviewMovement';
 
 /** A link the toast offers, opened in a new tab (uier's pages, never the reviewed site's) */
 export type ToastAction = { label: string; href: string };
@@ -47,15 +48,21 @@ export function showErrorToast(title: string, description?: string, action?: Toa
     scheduleDismiss(toast);
 }
 
-/** The toolbar's notifications, above the pill (in the review layer's ink) */
+/** The toolbar's notifications, beside the pill (in the review layer's ink) */
 export function Toaster() {
     const items = useSyncExternalStore(
         listener => { listeners.add(listener); return () => listeners.delete(listener); },
         () => toasts);
     if (!items.length) return null;
+    return <ToastList items={items} />;
+}
+
+function ToastList({ items }: { items: Toast[] }) {
+    // Beside the pill, wherever it was moved: never over it
+    const notice = useToolbarNotice<HTMLElement>();
     return (
         <InkScope>
-            <section aria-label="uier notifications" className="fixed bottom-20 left-1/2 z-[53] flex w-80 max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-col gap-2">
+            <section ref={notice.ref} style={notice.style} aria-label="uier notifications" className="fixed z-[53] flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2">
                 {items.map(toast => (
                     <div
                         key={toast.id}
