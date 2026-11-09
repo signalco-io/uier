@@ -9,6 +9,8 @@ import { commentKey, useComments, useSiteComments, useCommentsRefresh, useActivi
 import { newCommentDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
 import { getCommentPlacement, resolveAnchorElement, selectionTextMaxLength, textOffsetWithin, useCommentItemRects } from '../hooks/useCommentItemRects';
 import { CommentsSidebar } from './sidebar/CommentsSidebar';
+import { PageChecks, type ChecksPanelId, type ShownComment } from './checks/PageChecks';
+import { auditAvailable } from '../checks/axeLoader';
 import { CommentToolbar } from './CommentToolbar';
 import { CommentSelectionPopover } from './CommentSelectionPopover';
 import { CommentSelectionHighlight } from './CommentSelectionHighlight';
@@ -158,6 +160,8 @@ export function CommentsGlobal({
         });
     }, []);
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    // The Accessibility or SEO panel: docked like the inbox, so one of them is open at a time
+    const [checksPanel, setChecksPanel] = useState<ChecksPanelId>();
     // What `feedback` mode mounted for: the feedback form, or a new comment (`startCommentEvent`)
     const [mountRequest] = useState(takeToolbarRequest);
     // The page asked to give feedback (`openFeedbackEvent`, or `feedback` mode mounting for it)
@@ -182,6 +186,9 @@ export function CommentsGlobal({
     const addButtonRef = useRef<HTMLButtonElement>(null);
     const inboxButtonRef = useRef<HTMLButtonElement>(null);
     const hintButtonRef = useRef<HTMLButtonElement>(null);
+    const accessibilityButtonRef = useRef<HTMLButtonElement>(null);
+    const seoButtonRef = useRef<HTMLButtonElement>(null);
+    const optionsButtonRef = useRef<HTMLButtonElement>(null);
     const draftKeyRef = useRef(0);
     // The last focused review target, for comments created with the keyboard.
     const lastPageFocusRef = useRef<Element | null>(null);
@@ -671,6 +678,37 @@ export function CommentsGlobal({
         inboxButtonRef.current?.focus();
     };
 
+    // The inbox (however it opens) and a new anchor's panel take the checks panel's place
+    useEffect(() => {
+        if (sidebarOpen || reattaching) setChecksPanel(undefined);
+    }, [sidebarOpen, reattaching]);
+    const changeChecksPanel = (panel: ChecksPanelId | undefined) => {
+        if (reattaching) return;
+        if (!panel) {
+            closeChecks();
+            return;
+        }
+        setHintOpen(false);
+        setSidebarOpen(false);
+        setChecksPanel(panel);
+    };
+    // The focus goes back to the panel's button (Options on a narrow screen)
+    const closeChecks = () => {
+        ((checksPanel === 'seo' ? seoButtonRef : accessibilityButtonRef).current ?? optionsButtonRef.current)?.focus();
+        setChecksPanel(undefined);
+    };
+    // "Show" after a panel's quick action: the comment's thread on its pin, or the inbox for one about the page
+    const handleShowCheckComment = (comment: ShownComment) => {
+        setChecksPanel(undefined);
+        handleCollapsedChange(false);
+        if (comment.page) {
+            setSidebarFilter({ status: 'unresolved', keywords: comment.number !== undefined ? `#${comment.number}` : undefined });
+            setSidebarOpen(true);
+        } else {
+            setOpenComment({ id: comment.commentId });
+        }
+    };
+
     // "Show on page" in the inbox (only while the pin can be placed): the thread opens on its pin
     // (and takes the focus)
     const handleShowOnPage = (commentId: string) => {
@@ -809,6 +847,11 @@ export function CommentsGlobal({
                     onShowOnPage={handleShowOnPage}
                     focusRequest={inboxFocus} />
             )}
+            <PageChecks
+                panel={checksPanel}
+                collapsed={collapsed}
+                onClose={closeChecks}
+                onShowComment={handleShowCheckComment} />
             <CommentToolbar
                 mode={mode}
                 creatingPointComment={creatingCommentPoint}
@@ -826,6 +869,12 @@ export function CommentsGlobal({
                 onResumeDraft={resumableDraft && !sidebarOpen && !reattaching ? resumeDraft : undefined}
                 onCancelPointComment={() => { setCreatingCommentPoint(false); addButtonRef.current?.focus(); }}
                 sidebarOpen={sidebarOpen}
+                checksPanel={checksPanel}
+                onChecksPanelChange={changeChecksPanel}
+                accessibilityAvailable={auditAvailable()}
+                accessibilityButtonRef={accessibilityButtonRef}
+                seoButtonRef={seoButtonRef}
+                optionsButtonRef={optionsButtonRef}
                 onToggleSidebar={() => {
                     if (reattaching) return;
                     if (sidebarOpen) handleCloseSidebar();

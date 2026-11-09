@@ -96,11 +96,12 @@ const nextConfig: NextConfig = {
             return rewrites;
         // `next dev`: the install snippet's /toolbar.js is the toolbar's watch build (`pnpm dev`),
         // never the ignored copy an earlier `pnpm build` left in public/. Its dev loader fetches
-        // ./review.js next to itself.
+        // ./review.js next to itself, and the review script ./audit.js (the Accessibility panel's axe-core).
         return {
             beforeFiles: [
                 { source: '/toolbar.js', destination: `${toolbarDevOrigin}/index.js` },
-                { source: '/review.js', destination: `${toolbarDevOrigin}/review.js` }
+                { source: '/review.js', destination: `${toolbarDevOrigin}/review.js` },
+                { source: '/audit.js', destination: `${toolbarDevOrigin}/audit.js` }
             ],
             afterFiles: rewrites,
             fallback: []

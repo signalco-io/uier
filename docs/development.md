@@ -56,7 +56,7 @@ pnpm dev
 | http://localhost:4005/index.js | `packages/toolbar` (tsup watch build served from `dist-dev/`); the web app loads this script instead of `/toolbar.js` |
 
 Sites you review locally can use the install snippet as it is: in `next dev`, http://localhost:4004/toolbar.js
-(and the `review.js` its loader fetches) is the watch build on port 4005, not the `public/toolbar.js` an
+(and the `review.js` its loader fetches, and the `audit.js` the Accessibility panel loads) is the watch build on port 4005, not the `public/toolbar.js` an
 earlier `pnpm build` left behind (`next.config.ts`).
 
 The watch build writes to `packages/toolbar/dist-dev/` and production builds to `dist/`, so

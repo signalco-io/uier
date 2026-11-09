@@ -51,6 +51,8 @@ test('the review API refuses to move a comment onto the toolbar from a project\'
 test('the app and feedback packets name the toolbar part a comment is on, and how to open it', () => {
     expect(toolbarPartLabel(inThread)).toBe('comment thread');
     expect(toolbarPartLabel('#uier-toolbar>>>#uier-panel-inbox>div:nth-of-type(1)>input:nth-of-type(1)')).toBe('inbox');
+    expect(toolbarPartLabel('#uier-toolbar>>>#uier-panel-accessibility>div:nth-of-type(1)>button:nth-of-type(1)')).toBe('accessibility panel');
+    expect(toolbarPartLabel('#uier-toolbar>>>#uier-panel-seo>div:nth-of-type(1)')).toBe('SEO panel');
     expect(toolbarPartLabel('#uier-toolbar>>>div.uier-options>a:nth-of-type(1)')).toBe('options');
     expect(toolbarPartLabel('#uier-toolbar>>>div.unknown>a')).toBe('toolbar');
     expect(toolbarPartLabel('main>h1')).toBeUndefined();

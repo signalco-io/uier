@@ -1,0 +1,118 @@
+import { useEffect, useRef, useState } from 'react';
+import { checkAccessibility } from '../../checks/accessibility';
+import { checkSeo, type SeoReport } from '../../checks/seo';
+import { startWebVitals } from '../../checks/webVitals';
+import { isRendered, pageAnchorElement } from '../../checks/pageElements';
+import type { PageIssue } from '../../checks/types';
+import { usePagePath } from '../../hooks/usePagePath';
+import { useAnnounce } from '../Announcer';
+import { AccessibilityPanel, type AccessibilityState } from './AccessibilityPanel';
+import { SeoPanel } from './SeoPanel';
+import { ChecksContext, type PostedComment } from './ChecksParts';
+import { ElementHighlight } from './ElementHighlight';
+import { GuestNameProvider, useGuestNameGate } from './GuestName';
+import { useIssueComment } from './useIssueComment';
+
+export type ChecksPanelId = 'accessibility' | 'seo';
+export type ShownComment = Extract<PostedComment, { status: 'posted' }>;
+
+function prefersReducedMotion() {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/**
+ * The Accessibility and SEO panels, one open at a time (`panel`), and what they keep while closed:
+ * the last reports, the comments their quick actions posted and the highlighted element. The
+ * accessibility audit runs when its panel opens without a report of this page, or on Check again.
+ */
+export function PageChecks(props: {
+    panel?: ChecksPanelId;
+    /** The toolbar is collapsed: nothing is outlined on the page */
+    collapsed: boolean;
+    onClose: () => void;
+    /** "Show": the posted comment's thread (or the inbox, for one about the page) */
+    onShowComment: (comment: ShownComment) => void;
+}) {
+    return <GuestNameProvider><PageChecksPanels {...props} /></GuestNameProvider>;
+}
+
+function PageChecksPanels({ panel, collapsed, onClose, onShowComment }: Parameters<typeof PageChecks>[0]) {
+    // Measured from the review layer's start, so interactions before a panel opens count too; stopped when it leaves
+    useEffect(() => startWebVitals(), []);
+    const path = usePagePath();
+    const pathRef = useRef(path);
+    pathRef.current = path;
+    const announce = useAnnounce();
+    const [accessibility, setAccessibility] = useState<AccessibilityState>({ checking: false });
+    const [seo, setSeo] = useState<SeoReport>();
+    const [posted, setPosted] = useState<ReadonlyMap<string, PostedComment>>(() => new Map());
+    const [highlighted, setHighlighted] = useState<{ key: string; element: Element }>();
+    const postIssue = useIssueComment();
+    const nameGate = useGuestNameGate();
+
+    const runAccessibility = () => {
+        setAccessibility(current => ({ ...current, checking: true, error: false }));
+        setHighlighted(undefined);
+        checkAccessibility(pathRef.current).then(report => {
+            setAccessibility({ report, checking: false });
+        }, error => {
+            console.warn('uier-toolbar: The accessibility check could not run', error);
+            setAccessibility(current => ({ ...current, checking: false, error: true }));
+        });
+    };
+    const runSeo = () => {
+        setHighlighted(undefined);
+        setSeo(checkSeo(pathRef.current));
+    };
+
+    // Opening a panel checks the page unless it has this page's report
+    useEffect(() => {
+        if (panel === 'accessibility' && !accessibility.checking && accessibility.report?.path !== pathRef.current) runAccessibility();
+        if (panel === 'seo' && seo?.path !== pathRef.current) runSeo();
+        if (!panel) setHighlighted(undefined);
+    }, [panel]);
+
+    const actions = {
+        posted,
+        highlighted: highlighted?.key,
+        highlight: (issue: PageIssue) => {
+            if (highlighted?.key === issue.key) {
+                setHighlighted(undefined);
+                return;
+            }
+            const element = pageAnchorElement(issue.element) ?? undefined;
+            const target = issue.element?.isConnected && isRendered(issue.element) ? issue.element : element;
+            if (!target || !isRendered(target)) {
+                announce('This element is not visible on the page.');
+                return;
+            }
+            target.scrollIntoView({ block: 'center', behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+            setHighlighted({ key: issue.key, element: target });
+        },
+        comment: (issue: PageIssue) => {
+            if (posted.get(issue.key) || !nameGate()) return;
+            const mark = (state?: PostedComment) => setPosted(current => {
+                const next = new Map(current);
+                if (state) next.set(issue.key, state); else next.delete(issue.key);
+                return next;
+            });
+            mark({ status: 'sending' });
+            postIssue(issue).then(({ comment, page, label }) => {
+                mark({ status: 'posted', commentId: comment.id, page, number: comment.number, label });
+                announce(label);
+            }, () => mark(undefined)); // The toast says it was not posted
+        },
+        show: (comment: ShownComment) => {
+            setHighlighted(undefined);
+            onShowComment(comment);
+        }
+    };
+
+    return (
+        <ChecksContext value={actions}>
+            {panel === 'accessibility' && <AccessibilityPanel state={accessibility} path={path} onCheck={runAccessibility} onClose={onClose} />}
+            {panel === 'seo' && <SeoPanel report={seo} path={path} onCheck={runSeo} onClose={onClose} />}
+            {panel && !collapsed && highlighted && <ElementHighlight element={highlighted.element} />}
+        </ChecksContext>
+    );
+}

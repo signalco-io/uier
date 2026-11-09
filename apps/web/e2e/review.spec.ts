@@ -221,10 +221,10 @@ test('the profile shows the guest name; signing out forgets it', async ({ browse
     await page.keyboard.press('Escape');
     await expect(profile).toBeHidden();
     // Nothing to sign out of yet, and the landing page has no review to exit: Options links to
-    // uier.io, with the keyboard shortcut's switch where there is a keyboard
+    // uier.io, with the keyboard shortcut's switch where there is a keyboard and the page's checks on a phone
     await page.getByRole('button', { name: 'Options', exact: true }).click();
     await expect(options(page).getByRole('link', { name: 'Powered by uier' })).toHaveAttribute('href', 'https://uier.io');
-    if (testInfo.project.use.hasTouch) await expect(options(page).locator('button')).toHaveCount(0);
+    if (testInfo.project.use.hasTouch) await expect(options(page).locator('button')).toHaveText(['Accessibility', 'SEO']);
     else {
         // The switch in its own group first, with a separator from the actions
         await expect(options(page).getByRole('switch', { name: 'Shortcuts', exact: true })).toBeChecked();

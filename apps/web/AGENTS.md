@@ -182,7 +182,7 @@ Start a fresh audit for subsequent product actions; retain the strict policy and
 
 `ClientProvider` loads http://localhost:4005/index.js (the port after `PORT`, `UIER_TOOLBAR_DEV_ORIGIN` from
 `next.config.ts`) in development only, and `next dev` rewrites
-`/toolbar.js` and `/review.js` to that watch build, so a locally reviewed site's install snippet never
+`/toolbar.js`, `/review.js` and `/audit.js` to that watch build, so a locally reviewed site's install snippet never
 runs a stale `public/toolbar.js` from an earlier `pnpm build`. Open any page with a
 review link, `?review=true` or `?toolbar-code=<project code>` (for example `/brand?review=true`), to
 see the real toolbar on top of it. uier.io's public marketing layout embeds showcase mode on every page, using the same-origin cookie API

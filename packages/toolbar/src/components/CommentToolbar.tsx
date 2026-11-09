@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Ref, useEffect, useRef } from 'react';
+import React, { Ref, useEffect, useRef, useSyncExternalStore } from 'react';
 import { IconTooltip, useIconTooltip } from './IconTooltip';
 import { Row } from '@signalco/ui-primitives/Row';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
@@ -15,6 +15,8 @@ import { InkScope } from './InkScope';
 import { ToolbarProfile } from './ToolbarProfile';
 import { ToolbarOptions } from './ToolbarOptions';
 import { ToolbarFeedback } from './ToolbarFeedback';
+import { AccessibilityIcon, SeoIcon } from './checks/ChecksIcons';
+import type { ChecksPanelId } from './checks/PageChecks';
 import { useToolbarMovement, useToolbarNotice } from '../hooks/useReviewMovement';
 import { canReviewToolbar, holdsLayersAttribute } from '../toolbarReview';
 import { addCommentShortcut, useShortcutsEnabled } from '../shortcuts';
@@ -47,6 +49,15 @@ type CommentToolbarProps = {
     /** Whether the inbox sidebar is open (the Inbox button opens and closes it) */
     sidebarOpen?: boolean;
     onToggleSidebar: () => void;
+    /** The Accessibility or SEO panel, while one is open (its button opens and closes it) */
+    checksPanel?: ChecksPanelId;
+    onChecksPanelChange: (panel: ChecksPanelId | undefined) => void;
+    /** Whether the accessibility audit can load here (not in packaged clients) */
+    accessibilityAvailable?: boolean;
+    accessibilityButtonRef?: Ref<HTMLButtonElement>;
+    seoButtonRef?: Ref<HTMLButtonElement>;
+    /** Options, where the panels' buttons are on a narrow screen */
+    optionsButtonRef?: Ref<HTMLButtonElement>;
     /** The feedback dialog opened */
     onFeedbackOpen?: () => void;
     /** The page asked to give feedback: the feedback dialog opens */
@@ -66,6 +77,15 @@ function isCoarsePointer() {
     return window.matchMedia('(pointer: coarse)').matches;
 }
 
+/** Room for the panels' buttons in the pill: where panels dock beside the page (`DockablePanel`) */
+const roomyQuery = '(min-width: 640px)';
+function subscribeRoomy(listener: () => void) {
+    const query = window.matchMedia(roomyQuery);
+    query.addEventListener('change', listener);
+    return () => query.removeEventListener('change', listener);
+}
+const isRoomy = () => window.matchMedia(roomyQuery).matches;
+
 function countText(count: number, capped: boolean) {
     return capped ? `${count}+` : String(count);
 }
@@ -73,6 +93,7 @@ function countText(count: number, capped: boolean) {
 export function CommentToolbar({
     mode, creatingPointComment, collapsed, commentsCount = 0, commentsCountCapped = false, hintOpen, showAbout = true, hintId, projectUrl,
     addButtonRef, inboxButtonRef, hintButtonRef, sidebarOpen = false, onAddPointComment, onCancelPointComment, onResumeDraft, onToggleSidebar, onFeedbackOpen,
+    checksPanel, onChecksPanelChange, accessibilityAvailable = false, accessibilityButtonRef, seoButtonRef, optionsButtonRef,
     feedbackRequested = false, onFeedbackRequestHandled, onMoveStart, onToggleHint, onCollapsedChange, onExitReview,
     shortcutsRequested = false, onShortcutsRequestHandled
 }: CommentToolbarProps) {
@@ -87,6 +108,9 @@ export function CommentToolbar({
     const resumeDraft = useToolbarNotice<HTMLDivElement>();
     const resetPosition = () => { movement.reset(); requestAnimationFrame(() => moveRef.current?.focus()); };
     const shortcut = useShortcutsEnabled() ? addCommentShortcut : undefined;
+    // A phone's pill keeps its width: the panels open from Options there
+    const roomy = useSyncExternalStore(subscribeRoomy, isRoomy);
+    const toggleChecks = (panel: ChecksPanelId) => onChecksPanelChange(checksPanel === panel ? undefined : panel);
     const capped = commentsCountCapped;
     const badgeText = commentsCount > 99 && !capped ? '99+' : countText(commentsCount, capped);
     const commentsLabel = commentsCount
@@ -225,6 +249,35 @@ export function CommentToolbar({
                                 {badge}
                             </IconButton>
                             </IconTooltip>
+                            {/* The page's checks, docked like the inbox (components/checks/PageChecks.tsx) */}
+                            {roomy && accessibilityAvailable && (
+                                <IconTooltip label="Accessibility">
+                                <IconButton
+                                    ref={accessibilityButtonRef}
+                                    variant="plain"
+                                    className="rounded-full"
+                                    aria-label="Accessibility"
+                                    aria-expanded={checksPanel === 'accessibility'}
+                                    aria-controls={checksPanel === 'accessibility' ? 'uier-panel-accessibility' : undefined}
+                                    onClick={() => toggleChecks('accessibility')}>
+                                    <AccessibilityIcon />
+                                </IconButton>
+                                </IconTooltip>
+                            )}
+                            {roomy && (
+                            <IconTooltip label="SEO">
+                            <IconButton
+                                ref={seoButtonRef}
+                                variant="plain"
+                                className="rounded-full"
+                                aria-label="SEO"
+                                aria-expanded={checksPanel === 'seo'}
+                                aria-controls={checksPanel === 'seo' ? 'uier-panel-seo' : undefined}
+                                onClick={() => toggleChecks('seo')}>
+                                <SeoIcon />
+                            </IconButton>
+                            </IconTooltip>
+                            )}
                             {showAbout && (
                                 <IconTooltip label="About uier">
                                 <IconButton
@@ -242,6 +295,8 @@ export function CommentToolbar({
                             <Divider orientation="vertical" className="mx-1 h-6" />
                             <ToolbarProfile />
                             <ToolbarOptions projectUrl={projectUrl} onExitReview={onExitReview} onResetPosition={movement.custom ? resetPosition : undefined}
+                                triggerRef={optionsButtonRef}
+                                pageChecks={roomy ? undefined : { accessibility: accessibilityAvailable, onOpen: onChecksPanelChange }}
                                 shortcutsRequested={shortcutsRequested} onShortcutsRequestHandled={onShortcutsRequestHandled} />
                             <IconTooltip label="Collapse toolbar">
                             <IconButton

@@ -1,0 +1,70 @@
+import { useState, type ReactNode } from 'react';
+import { Stack } from '@signalco/ui-primitives/Stack';
+import { Row } from '@signalco/ui-primitives/Row';
+import { Button } from '@signalco/ui-primitives/Button';
+import { IconButton } from '@signalco/ui-primitives/IconButton';
+import { Typography } from '@signalco/ui-primitives/Typography';
+import { cx } from '@signalco/ui-primitives/cx';
+import { PanelRightClose, Reset } from '@signalco/ui-icons';
+import { DockablePanel, PanelHandle } from '../DockablePanel';
+import { IconTooltip } from '../IconTooltip';
+import { InkScope } from '../InkScope';
+
+/**
+ * The Accessibility and SEO panels' shell: docked like the inbox (`DockablePanel`, its own side),
+ * ink, sliding in from its side; the title row with the handle, Check again and Close, which has
+ * the focus when it opens. Escape closes it.
+ */
+export function ChecksPanel({ id, title, checking, onCheckAgain, onClose, children }: {
+    id: 'accessibility' | 'seo';
+    title: string;
+    /** A check is running (Check again gets its result) */
+    checking?: boolean;
+    onCheckAgain: () => void;
+    onClose: () => void;
+    children: ReactNode;
+}) {
+    const [hiding, setHiding] = useState(false);
+    const close = () => {
+        setHiding(true);
+        window.setTimeout(onClose, 150);
+    };
+    return (
+        <InkScope>
+            <DockablePanel id={id} label={title}
+                onKeyDown={event => {
+                    if (event.key === 'Escape') {
+                        event.stopPropagation();
+                        close();
+                    }
+                }}
+                className={cx(hiding
+                    ? 'animate-out fade-out fill-mode-forwards duration-150 ease-in motion-safe:data-[side=left]:slide-out-to-left motion-safe:data-[side=right]:slide-out-to-right'
+                    : 'animate-in fade-in duration-200 ease-out motion-safe:data-[side=left]:slide-in-from-left motion-safe:data-[side=right]:slide-in-from-right')}>
+                {/* Focusable so a long report scrolls with the keyboard */}
+                <Stack tabIndex={0} className="h-full overflow-y-auto rounded-b-2xl outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+                    <Row justifyContent="space-between" className="shrink-0 px-4 pt-3">
+                        <Row spacing={0.5} className="min-w-0">
+                            <PanelHandle />
+                            <Typography component="h2" level="body1" semiBold className="text-foreground">{title}</Typography>
+                        </Row>
+                        <Row>
+                            {/* Never disabled, so it keeps the focus: a check already running is the one it gets */}
+                            <Button size="sm" variant="plain" aria-busy={checking || undefined} startDecorator={<Reset size={16} aria-hidden="true" />} onClick={onCheckAgain}>
+                                Check again
+                            </Button>
+                            <IconTooltip label="Close panel">
+                                <IconButton variant="plain" aria-label={`Close ${title} panel`} autoFocus onClick={close}>
+                                    <PanelRightClose />
+                                </IconButton>
+                            </IconTooltip>
+                        </Row>
+                    </Row>
+                    <Stack spacing={3} className="shrink-0 px-4 pb-4 pt-2">
+                        {children}
+                    </Stack>
+                </Stack>
+            </DockablePanel>
+        </InkScope>
+    );
+}
