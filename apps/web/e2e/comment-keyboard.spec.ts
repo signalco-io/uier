@@ -65,7 +65,7 @@ test('↑ and ↓ open the next and previous threads beside the list, from the l
         await startSelecting(page);
         await links.nth(1).focus();
     }
-    // One tab stop: Tab goes to the row's selection box (it ends the row), then on to the open thread
+    // One tab stop: Tab goes to the row's selection box (under its author, after its link), then on to the open thread
     await expect(page.locator('[id^="comment-row-"]:not([tabindex="-1"])')).toHaveCount(1);
     await expect(commentRows(page).getByRole('checkbox').and(page.locator(':not([tabindex="-1"])'))).toHaveCount(1);
     const box = (index: number) => commentRows(page).nth(index).getByRole('checkbox');

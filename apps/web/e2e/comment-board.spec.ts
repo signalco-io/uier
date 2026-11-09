@@ -170,11 +170,11 @@ test('only the board widens on a wide window; the header and filters stay where 
     const comments = atBoard[1]!;
     expect(comments.width).toBe(1024 - 64);
     expect(comments.left).toBeCloseTo(comments.right, 0);
-    // The board takes the panel but its gutters, centred, with an equal column per status in one row,
+    // The board takes the panel edge to edge (padded by its gutters), with an equal column per status in one row,
     // each up to 20rem
     const wide = await placement(grid);
-    expect(wide.width).toBeCloseTo(wide.room - 64, 0);
-    expect(wide.left).toBeCloseTo(wide.right, 0);
+    expect(wide.width).toBeCloseTo(wide.room, 0);
+    expect(wide.left).toBeCloseTo(0, 0);
     const boxes = await Promise.all(boardStatuses.map(async name => (await column(name).boundingBox())!));
     for (const box of boxes) {
         expect(box.y).toBeCloseTo(boxes[0]!.y, 0);
@@ -212,22 +212,27 @@ test('only the board widens on a wide window; the header and filters stay where 
     expect(await columnBoxes()).toEqual(beforeSheet);
 
     // A smaller laptop: the panel is narrower than the reading width, so the board and the page share it.
-    // The four columns keep a readable 18rem and the board scrolls sideways; the page does not
+    // The four columns keep a readable 18rem and the board scrolls sideways, edge to edge of the panel so the
+    // columns pass under its edges; the page does not
     await page.keyboard.press('Escape');
     await page.setViewportSize({ width: 1280, height: 800 });
-    await expect.poll(async () => (await placement(grid)).width).toBeLessThan(1024 - 64);
+    await expect.poll(async () => (await placement(grid)).width).toBeLessThan(1024);
     const [, laptopComments] = await pageParts(page);
-    expect((await placement(grid)).width).toBeCloseTo(laptopComments!.width, 0);
+    const laptopGrid = await placement(grid);
+    expect(laptopGrid.width).toBeCloseTo(laptopComments!.width + 64, 0);
+    expect(laptopGrid.left).toBeCloseTo(0, 0);
     for (const name of boardStatuses) expect((await column(name).boundingBox())!.width).toBeGreaterThanOrEqual(288);
     const scroll = () => grid.evaluate(element => ({ width: element.scrollWidth, room: element.clientWidth, left: element.scrollLeft }));
     const scrolling = await scroll();
     expect(scrolling.width).toBeGreaterThan(scrolling.room);
     // From its start: the first column is not cut off on the left
     expect(scrolling.left).toBe(0);
-    expect((await column('Open').boundingBox())!.x).toBeGreaterThanOrEqual((await grid.boundingBox())!.x);
+    // At either end the first and the last column line up with the page's content
+    expect((await placement(column('Open'))).left).toBeCloseTo(laptopComments!.left, 0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1280);
     await grid.evaluate(element => { element.scrollLeft = element.scrollWidth; });
     await expect(column('Done')).toBeInViewport({ ratio: 1 });
+    expect((await placement(column('Done'))).right).toBeCloseTo(laptopComments!.right, 0);
 });
 
 test('board cards are darker than their column on dark', async ({ page, request }) => {
@@ -241,7 +246,7 @@ test('board cards are darker than their column on dark', async ({ page, request 
     expect(await surface(column('Open'))).not.toBe('rgb(0, 0, 0)');
 });
 
-test('a card starts its title with its author\'s avatar, keeps its selection box hidden at rest without moving, and an empty column centres its line', async ({ page, request }, testInfo) => {
+test('a card starts its title with its author\'s avatar, keeps its selection box under it hidden at rest without moving, and an empty column centres its line', async ({ page, request }, testInfo) => {
     test.skip(testInfo.project.name.startsWith('Mobile'), 'Hover; a touch screen leaves the box out until Select');
     const { column, card } = await board(page, request);
     const first = card('Open', 'First board thread');
@@ -255,7 +260,10 @@ test('a card starts its title with its author\'s avatar, keeps its selection box
     const [authorBox, link] = [(await author.boundingBox())!, (await first.getByRole('link').boundingBox())!];
     expect(authorBox.x + authorBox.width).toBeLessThanOrEqual(link.x);
     expect(authorBox.y).toBeLessThan(link.y + 20);
-    // The box is hidden until the card is hovered, in its bottom right corner, and keeps its room so nothing moves
+    // The page path starts the second line under "#12 …"
+    const meta = (await first.locator('[data-comment-row] p').first().boundingBox())!;
+    expect(meta.x).toBeCloseTo(link.x, 0);
+    // The box is hidden until the card is hovered, under the author at the start of that line, and keeps its room so nothing moves
     const box = first.getByRole('checkbox');
     await page.mouse.move(0, 0);
     await expect(box).toHaveCSS('opacity', '0');
@@ -264,7 +272,9 @@ test('a card starts its title with its author\'s avatar, keeps its selection box
     await expect(box).toHaveCSS('opacity', '1');
     expect((await box.boundingBox())!.x).toBe(atRest.x);
     const [cardBox, checkbox] = [(await first.boundingBox())!, (await box.boundingBox())!];
-    expect(cardBox.x + cardBox.width - (checkbox.x + checkbox.width)).toBeLessThan(24);
+    expect(checkbox.x + checkbox.width / 2).toBeCloseTo(authorBox.x + authorBox.width / 2, 0);
+    expect(checkbox.y).toBeGreaterThan(authorBox.y + authorBox.height);
+    expect(checkbox.x + checkbox.width).toBeLessThan(meta.x);
     expect(cardBox.y + cardBox.height - (checkbox.y + checkbox.height)).toBeLessThan(24);
     // An empty column's line is in the middle of the room below the column's name
     const empty = await column('Done').locator('[data-empty-column]').evaluate(line => {

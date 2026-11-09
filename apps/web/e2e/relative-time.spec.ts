@@ -3,7 +3,7 @@ import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 
-// Relative times ("just now", "1 minute ago") keep up as time passes, without a data refresh: one
+// Relative times ("just now", "1 minute ago"; "1 min ago" on rows) keep up as time passes, without a data refresh: one
 // shared clock ticks while they are shown.
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
@@ -28,6 +28,6 @@ test('a row and its open thread move from just now to minutes ago on their own',
     await expect(thread.locator('time').first()).toHaveText('just now');
 
     await page.clock.runFor('02:05');
-    await expect(row.locator('time')).toHaveText('2 minutes ago');
+    await expect(row.locator('time')).toHaveText('2 min ago');
     await expect(thread.locator('time').first()).toHaveText('2 minutes ago');
 });
