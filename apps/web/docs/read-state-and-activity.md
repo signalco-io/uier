@@ -54,3 +54,15 @@ MCP list summaries also expose `replyCount` (all reply items, including deleted 
 missed-event reconciliation. This count is independent of unread activity and read acknowledgements.
 
 Manual pull request additions/removals record URL-free history entries in the conditional thread write and advance thread activity. Duplicate links and absent removals are no-ops; only the linking triager can remove their manual link.
+
+Connector writes use a separate server-only activity identity per account. A reply through MCP
+(or another authenticated connector) is therefore unread for its human owner too, even without
+`writtenBy`. Real authorship, permissions, history and notification recipients keep the account id.
+The same rule applies to connector status, verification, assignment, agent attachment, priority,
+mention and manual PR-link changes that already advance activity, and to imported integration
+status changes attributed to the connecting account. Imported replies already have external actor
+identities. No-op writes, receipt replays and working-presence leases still add no activity.
+Human app/toolbar/extension replies remain own activity and never clear unseen connector activity.
+Existing persisted cursors are not rewritten; the distinction starts with new connector writes.
+`e2e/activity.api.spec.ts` covers both reply persistence paths, summary/toolbar projections,
+acknowledgements, mark unread, replay/no-op behavior and imported status changes.

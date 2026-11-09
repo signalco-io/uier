@@ -382,7 +382,7 @@ test('official HTTP client reads context and image, then records approved reply/
         expect(saved.notificationEvents?.slice(1).map(event => event.kind)).toEqual(['reply', 'resolved', 'assignment']);
         expect(saved.notificationEvents?.slice(1).every(event => event.agent?.credentialId === credential.id)).toBe(true);
         expect(readActivity(saved, 'another-user').unread).toBe(true);
-        expect(readActivity(saved, `user:${f.user.id}`).unread).toBe(false);
+        expect(readActivity(saved, `user:${f.user.id}`).unread).toBe(true);
         expect(threadActivity(saved).sequence).toBe(4);
         // A lost response retried after a human reopens must not re-resolve the thread.
         await setProjectCommentResolved(f.project, f.actor, f.comment.id, false);

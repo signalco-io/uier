@@ -54,7 +54,7 @@ export async function setProjectCommentAgent(project: DbProject, actor: ProjectA
         let updated = comment;
         if (assignToMe && !assignedUserIds(comment).length) {
             await assertEligibleParticipant(project, comment, actor.userId);
-            updated = withNotificationEvent(withAssignments(withThreadActivity(comment, actorId), [actor.userId]), actorId, 'assignment', at,
+            updated = withNotificationEvent(withAssignments(withThreadActivity(comment, actorId, actor.kind === 'member' && Boolean(actor.agent)), [actor.userId]), actorId, 'assignment', at,
                 [actorId], actor.agent, { assigneeId: actor.userId, assigneeIds: [actor.userId], previousAssigneeIds: [] });
         }
         if (!assignedUserIds(updated).includes(actor.userId))
@@ -66,7 +66,7 @@ export async function setProjectCommentAgent(project: DbProject, actor: ProjectA
         if (!desired) {
             if (!current) return updated.assigneeAgent && !all.length ? withAssignments(updated, assignedUserIds(updated), all) : updated;
             const cleared = withAssignments(updated, assignedUserIds(updated), all.filter(agent => agent !== current));
-            return withNotificationEvent(withThreadActivity(cleared, actorId), actorId, 'agent', at, undefined, actor.agent,
+            return withNotificationEvent(withThreadActivity(cleared, actorId, actor.kind === 'member' && Boolean(actor.agent)), actorId, 'agent', at, undefined, actor.agent,
                 { assigneeId: actor.userId, agentId: current.id, assigneeAgent: null });
         }
         if (!current && own.length >= MAX_ASSIGNEE_AGENTS) throw apiErrors.invalidRequest('Each assignee can have up to 10 agents.');
@@ -85,11 +85,11 @@ export async function setProjectCommentAgent(project: DbProject, actor: ProjectA
         };
         // One activity step per change: an assignment made here keeps its own, before the agent's, and the
         // move to In progress its own after it.
-        const attached = withNotificationEvent(withAssignments(withThreadActivity(updated, actorId), assignedUserIds(updated), current ? all.map(agent => agent === current ? next : agent) : [...all, next]), actorId, 'agent', at, undefined, actor.agent,
+        const attached = withNotificationEvent(withAssignments(withThreadActivity(updated, actorId, actor.kind === 'member' && Boolean(actor.agent)), assignedUserIds(updated), current ? all.map(agent => agent === current ? next : agent) : [...all, next]), actorId, 'agent', at, undefined, actor.agent,
             { assigneeId: actor.userId, agentId: next.id, assigneeAgent: { kind: next.kind, ...(next.model ? { model: next.model } : {}),
                 ...(next.reasoning ? { reasoning: next.reasoning } : {}), ...(next.sessionId ? { sessionId: next.sessionId } : {}) } });
         if (!options.startWork || own.length > 0 || feedbackStage(attached) !== 'open') return attached;
-        return withNotificationEvent(withOrdinaryStage(withThreadActivity(attached, actorId), 'in-progress'), actorId, 'progress-started', at, undefined, actor.agent);
+        return withNotificationEvent(withOrdinaryStage(withThreadActivity(attached, actorId, actor.kind === 'member' && Boolean(actor.agent)), 'in-progress'), actorId, 'progress-started', at, undefined, actor.agent);
     }, submission(projectPartition(project.id), actorId, options.idempotencyKey, { operation: 'agent', id, agent: desired, assignToMe, ...(options.agentId ? { agentId: options.agentId } : {}), ...(options.add ? { add: true } : {}) }), undefined, options.store);
 }
 

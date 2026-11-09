@@ -9,9 +9,12 @@ import { getMemoryCommentsStore } from '../src/lib/repo/memoryCommentsStore';
 import { listComments, replyToComment, getCommentScreenshot } from '../src/lib/comments/service';
 import { readActivity, threadActivity } from '../src/lib/comments/activity';
 import { getReadSequence, markThreadRead, markThreadUnread, projectActivity, unreadComments } from '../src/lib/comments/readState';
-import { deleteProjectCommentItem, setProjectCommentResolved } from '../src/lib/review/comments';
+import { deleteProjectCommentItem, replyToProjectComment, setProjectCommentResolved } from '../src/lib/review/comments';
 import { reviewApiHandler } from '../src/lib/review/http';
 import { listReviewComments, readReviewComment, readReviewComments, unreadReviewComment } from '../src/lib/review/readRoutes';
+import { toReviewCommentDto } from '../src/lib/review/dto';
+import { withImportedReplies } from '../src/lib/integrations/importReplies';
+import type { IntegrationConnection } from '../src/lib/integrations/model';
 import { markThreadsRead } from '../src/lib/comments/bulkRead';
 import { POST as publicBulkRead } from '../app/api/comments/read/route';
 import { POST as publicRead } from '../app/api/comments/[id]/read/route';
@@ -405,4 +408,51 @@ test('reading then deleting a legacy reply cannot cause its cursor to be reused'
     expect(threadActivity(afterDelete).sequence).toBe(2);
     await store.appendThreadItem(comment.domain, comment.id, { id: 'new_reply', text: 'New reply', authorId: 'user:bob' }, 50, now);
     expect(readActivity((await store.get(comment.domain, comment.id))!.comment, 'user:alice', 2)).toMatchObject({ sequence: 3, unread: true });
+});
+
+for (const receipts of [false, true]) test(`connector replies are unread for their owner across shared cursors (receipts: ${receipts})`, async () => {
+    process.env.UIER_LOCAL = '1';
+    const project = { id: randomUUID(), access: 'invited' } as DbProject;
+    await persistProjectAccess(project, [alice, bob]);
+    const store = getMemoryCommentsStore();
+    const domain = `project:${project.id}`;
+    let comment: DbComment = { id: `comment_${randomUUID()}`, domain, projectId: project.id, path: '/',
+        position: { type: 'page' }, authorId: 'user:alice', thread: { items: [{ id: 'first', text: 'Feedback', authorId: 'user:alice' }] } };
+    await store.create(comment);
+    const connector = { ...alice, agent: { credentialId: 'private-credential', name: 'Coding tool' } };
+    await markThreadRead(comment, 'user:alice', 1);
+    await markThreadRead(comment, 'user:bob', 1);
+    const reply = { text: 'Agent reply', ...(receipts ? { idempotencyKey: randomUUID() } : {}) };
+    comment = await replyToProjectComment(new Request('https://uier.io/api/review'), project, connector, comment.id, reply);
+    expect(comment.thread.items.at(-1)?.authorId).toBe('user:alice');
+    expect(readActivity(comment, 'user:alice', 1)).toMatchObject({ sequence: 2, unread: true });
+    expect(readActivity(comment, 'user:bob', 1).unread).toBe(true);
+    expect((await projectActivity(domain, 'user:alice')).summary.unread).toBe(1);
+    expect((await unreadComments(domain, 'user:alice')).map(item => item.id)).toEqual([comment.id]);
+    const dto = toReviewCommentDto(comment, alice, new Map(), [], 1)!;
+    expect(dto.activity?.unread).toBe(true);
+    expect(JSON.stringify(dto.activity)).not.toContain('connector:');
+    if (receipts) {
+        const replay = await replyToProjectComment(new Request('https://uier.io/api/review'), project, connector, comment.id, reply);
+        expect(threadActivity(replay).sequence).toBe(2);
+    }
+    // A human reply does not erase the still-unseen connector reply.
+    comment = await replyToProjectComment(new Request('https://uier.io/api/review'), project, alice, comment.id, { text: 'Human reply' });
+    expect(readActivity(comment, 'user:alice', 1).unread).toBe(true);
+    expect(await markThreadRead(comment, 'user:alice', 1)).toMatchObject({ unread: true });
+    expect(await markThreadRead(comment, 'user:alice', 3)).toMatchObject({ unread: false });
+    expect(await markThreadUnread(comment, 'user:alice')).toMatchObject({ lastOtherSequence: 2, readSequence: 1, unread: true });
+    await markThreadRead(comment, 'user:alice', 3);
+    comment = await replyToProjectComment(new Request('https://uier.io/api/review'), project, alice, comment.id, { text: 'Another human reply' });
+    expect(readActivity(comment, 'user:alice', 3).unread).toBe(false);
+    comment = await setProjectCommentResolved(project, connector, comment.id, true);
+    expect(readActivity(comment, 'user:alice', 4).unread).toBe(true);
+    await markThreadRead(comment, 'user:alice', 5);
+    expect(threadActivity(await setProjectCommentResolved(project, connector, comment.id, true)).sequence).toBe(5);
+    comment = await setProjectCommentResolved(project, alice, comment.id, false);
+    expect(readActivity(comment, 'user:alice', 5).unread).toBe(false);
+    const connection = { provider: 'github', connectedBy: alice.userId, twoWaySync: true } as IntegrationConnection;
+    const imported = withImportedReplies(comment, connection, { resolved: true, replies: [], at: now }).comment;
+    expect(readActivity(imported, 'user:alice', 6).unread).toBe(true);
+    expect(withImportedReplies(imported, connection, { resolved: true, replies: [], at: now }).comment).toBe(imported);
 });

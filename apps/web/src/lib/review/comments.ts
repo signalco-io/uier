@@ -367,7 +367,7 @@ async function appendProjectReply(request: Request, project: DbProject, actor: P
         if (items.length >= MAX_THREAD_ITEMS)
             throw apiErrors.invalidRequest(`This thread is full (maximum ${MAX_THREAD_ITEMS} messages).`);
         const mentions = await validateMentions(project, actor, comment, input.text, input.mentions);
-        const updated = { ...withThreadActivity(comment, authorId), updatedAt: now, thread: { ...comment.thread, items: [...items, {
+        const updated = { ...withThreadActivity(comment, authorId, actor.kind === 'member' && Boolean(actor.agent)), updatedAt: now, thread: { ...comment.thread, items: [...items, {
             id: itemId, text: input.text, authorId,
             ...(actor.kind === 'member' && actor.agent ? { agent: actor.agent } : {}),
             ...writtenBy(comment),
@@ -428,7 +428,7 @@ export async function setProjectCommentPriority(project: DbProject, actor: Proje
     priority = parsed.data;
     if (!idempotencyKeySchema.safeParse(idempotencyKey).success) throw apiErrors.invalidRequest('Use a valid submission key.');
     return changeComment(project, actor, id, () => canTriageProject(project, actor), comment =>
-        commentPriority(comment.priority) === priority ? comment : { ...withThreadActivity(comment, actorAuthorId(actor)!), priority },
+        commentPriority(comment.priority) === priority ? comment : { ...withThreadActivity(comment, actorAuthorId(actor)!, actor.kind === 'member' && Boolean(actor.agent)), priority },
         submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { operation: 'priority', id, priority, ...guardFingerprint(guard) }), guard, store);
 }
 
@@ -437,7 +437,7 @@ export async function setProjectCommentResolved(project: DbProject, actor: Proje
     return await changeComment(project, actor, id,
         comment => canResolveComment(comment, actor),
         comment => Boolean(comment.resolved) === resolved && !(!resolved && comment.verification?.outcome === 'pending') ? comment : withNotificationEvent(
-            { ...ordinaryVerificationStatus(withThreadActivity(comment, actorAuthorId(actor)!), resolved, true) }, actorAuthorId(actor)!, resolved ? 'resolved' : 'reopened', nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined),
+            { ...ordinaryVerificationStatus(withThreadActivity(comment, actorAuthorId(actor)!, actor.kind === 'member' && Boolean(actor.agent)), resolved, true) }, actorAuthorId(actor)!, resolved ? 'resolved' : 'reopened', nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined),
         submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { operation: 'status', id, resolved, ...guardFingerprint(guard) }), guard, store);
 }
 
@@ -457,7 +457,7 @@ export async function setProjectCommentStatus(project: DbProject, actor: Project
             if (from === status) return comment;
             const actorId = actorAuthorId(actor)!;
             const kind = status === 'done' ? 'resolved' : status === 'in-progress' ? 'progress-started' : from === 'in-progress' ? 'progress-stopped' : 'reopened';
-            return withNotificationEvent(withOrdinaryStage(withThreadActivity(comment, actorId), status), actorId, kind, nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined);
+            return withNotificationEvent(withOrdinaryStage(withThreadActivity(comment, actorId, actor.kind === 'member' && Boolean(actor.agent)), status), actorId, kind, nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined);
         },
         submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { operation: 'status', id, status, ...guardFingerprint(guard) }), guard, store);
 }
@@ -502,7 +502,7 @@ function assignmentChange(comment: DbComment, ids: string[], actor: ProjectActor
     const changed = [...new Set([...previous, ...ids])].filter(id => previous.includes(id) !== ids.includes(id));
     const actorId = actorAuthorId(actor)!;
     const connector = actor.kind === 'member' ? actor.agent : undefined;
-    let updated = withNotificationEvent(withAssignments(withThreadActivity(comment, actorId), ids), actorId, 'assignment', at,
+    let updated = withNotificationEvent(withAssignments(withThreadActivity(comment, actorId, actor.kind === 'member' && Boolean(actor.agent)), ids), actorId, 'assignment', at,
         changed.map(id => `user:${id}`), connector, { assigneeId: ids[0] ?? null, assigneeIds: ids, previousAssigneeIds: previous });
     for (const agent of assignedAgents(comment).filter(agent => !ids.includes(agent.assigneeId)))
         updated = withNotificationEvent(updated, actorId, 'agent', at, undefined, connector, { assigneeId: agent.assigneeId, agentId: agent.id, assigneeAgent: null });
@@ -565,7 +565,7 @@ export async function editProjectCommentItem(project: DbProject, actor: ProjectA
             if (edited.thread.items[0]?.id === itemId) delete updated.aiTitle;
             const existing = new Set(previous?.mentions?.map(mention => mention.userId));
             const recipients = mentionRecipients(mentions.filter(mention => !existing.has(mention.userId)));
-            return recipients.length ? withNotificationEvent(withThreadActivity(updated, actorAuthorId(actor)!), actorAuthorId(actor)!, 'mention', nowIso(), recipients, actor.kind === 'member' ? actor.agent : undefined, { itemId }) : updated;
+            return recipients.length ? withNotificationEvent(withThreadActivity(updated, actorAuthorId(actor)!, actor.kind === 'member' && Boolean(actor.agent)), actorAuthorId(actor)!, 'mention', nowIso(), recipients, actor.kind === 'member' ? actor.agent : undefined, { itemId }) : updated;
         });
 }
 

@@ -16,10 +16,12 @@ export function threadActivity(comment: Pick<DbCommentActivity, 'activity' | 'th
 }
 
 /** Call inside the comment's etag-protected mutation, so concurrent writes cannot share a cursor. */
-export function withThreadActivity(comment: DbComment, authorId: string): DbComment {
+export function withThreadActivity(comment: DbComment, authorId: string, viaConnector = false): DbComment {
+    // One extra activity identity per account, independent of connection names/ids.
+    const activityActor = viaConnector ? `connector:${authorId}` : authorId;
     const current = threadActivity(comment);
     const sequence = current.sequence + 1;
-    return { ...comment, activity: { sequence, byActor: { ...current.byActor, [authorId]: sequence } } };
+    return { ...comment, activity: { sequence, byActor: { ...current.byActor, [activityActor]: sequence } } };
 }
 
 export function readActivity(comment: Pick<DbCommentActivity, 'activity' | 'thread'>, authorId: string | undefined, readSequence = 0): ReadActivity {
