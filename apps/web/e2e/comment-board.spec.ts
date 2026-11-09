@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Locator, type Page, type Route } from '@playwright/test';
-import { createProject, openComment, setProjectAccess, signIn, uniqueEmail, type ProjectAccessLabel } from './support/app';
+import { commentRowLink, createProject, openBoardMove, openComment, setProjectAccess, signIn, uniqueEmail, type ProjectAccessLabel } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { expectNoAxeViolations } from './accessibility';
@@ -29,6 +29,12 @@ async function board(page: Page, request: APIRequestContext, { access }: { acces
     const card = (name: string, text: string) => column(name).getByRole('listitem').filter({ hasText: text });
     return { project, comments, column, card };
 }
+
+/**
+ * Whether a card's Move is on screen. At rest it is visually hidden (`sr-only`: clipped to nothing, out of the
+ * layout), as pointers drag the card; it shows while the card has keyboard focus or its menu is open.
+ */
+const moveShown = (move: Locator) => move.evaluate(button => getComputedStyle(button).clipPath === 'none' && getComputedStyle(button).position !== 'absolute');
 
 /** The lifted copy of the dragged card and the place it would land (visual only, hidden from assistive tech) */
 const dragPreview = (page: Page) => page.locator('[data-drag-preview]');
@@ -66,12 +72,24 @@ async function dragWithTouch(page: Page, card: Locator, target: Locator) {
 }
 
 test('board cards move with Move from the keyboard; Ready to verify asks for the request first', async ({ page, request }) => {
-    const { comments, column } = await board(page, request);
+    const { comments, column, card } = await board(page, request);
     const move = column('Open').getByRole('button', { name: `Move comment #${comments[0]!.number}`, exact: true });
-    await move.focus();
-    await page.keyboard.press('Enter');
+    // Pointers drag the card: Move is not on screen at rest, under the pointer either, but screen readers find it
+    await card('Open', 'First board thread').hover();
+    await expect.poll(() => moveShown(move)).toBe(false);
+    await expect(move).toBeAttached();
+    // A focused card shows its Move, and says how to open it
+    const link = commentRowLink(column('Open'), comments[0]!.number);
+    await link.focus();
+    await expect(link).toHaveAccessibleDescription('Press M to move it to another column.');
+    await expect(link).toHaveAttribute('aria-keyshortcuts', 'M');
+    await expect.poll(() => moveShown(move)).toBe(true);
+    // M opens Move with the first column highlighted, as Enter on Move does
+    await page.keyboard.press('m');
     const menu = page.getByRole('menu');
     await expect(menu.getByRole('menuitem')).toHaveText(['Open', 'In progress', 'Ready to verify', 'Done']);
+    await expect(menu.getByRole('menuitem', { name: 'Open', exact: true })).toBeFocused();
+    await expect.poll(() => moveShown(move)).toBe(true);
     await animationsFinished(menu);
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('ArrowDown');
@@ -80,13 +98,26 @@ test('board cards move with Move from the keyboard; Ready to verify asks for the
     await expect(column('Done').getByRole('listitem')).toHaveCount(1);
     await expect(column('Open').getByRole('listitem')).toHaveCount(1);
     // The focus follows the card to its new column, and the move is announced
-    await expect(column('Done').getByRole('button', { name: `Move comment #${comments[0]!.number}`, exact: true })).toBeFocused();
+    const moved = column('Done').getByRole('button', { name: `Move comment #${comments[0]!.number}`, exact: true });
+    await expect(moved).toBeFocused();
+    await expect.poll(() => moveShown(moved)).toBe(true);
     await expect(page.getByRole('status').filter({ hasText: `Comment #${comments[0]!.number} moved to Done.` })).toBeAttached();
+    // Tab reaches Move from the card's link too; Escape closes its menu and leaves the card where it was
+    await commentRowLink(column('Open'), comments[1]!.number).focus();
+    await page.keyboard.press('Tab');
+    const second = column('Open').getByRole('button', { name: `Move comment #${comments[1]!.number}`, exact: true });
+    await expect(second).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(menu).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(menu).toHaveCount(0);
+    await expect(second).toBeFocused();
+    await expect(column('Open').getByRole('listitem')).toHaveCount(1);
     await page.reload();
     await expect(column('Done').getByRole('listitem').filter({ hasText: 'First board thread' })).toBeVisible();
 
     // Ready to verify opens the thread with the form; the card stays until the request is sent
-    await column('Open').getByRole('button', { name: `Move comment #${comments[1]!.number}`, exact: true }).click();
+    await openBoardMove(page, comments[1]!.number, column('Open'));
     await page.getByRole('menuitem', { name: 'Ready to verify', exact: true }).click();
     const thread = page.getByRole('article');
     const form = thread.getByRole('form', { name: 'Request verification' });
@@ -260,8 +291,8 @@ test('In progress is a column between Open and Ready to verify; cards move in an
     await expect(page.getByRole('region', { name: /comments$/ })).toHaveText([/^Open/, /^In progress/, /^Ready to verify/, /^Done/]);
     await expect(column('In progress')).toContainText('Nothing in progress.');
 
-    // Move from the keyboard or a touch screen
-    await column('Open').getByRole('button', { name: `Move comment #${comments[0]!.number}`, exact: true }).click();
+    // Move from the keyboard
+    await openBoardMove(page, comments[0]!.number, column('Open'));
     await page.getByRole('menuitem', { name: 'In progress', exact: true }).click();
     await expect(column('In progress').getByRole('listitem')).toHaveCount(1);
     await expect(column('Open').getByRole('listitem')).toHaveCount(1);
@@ -291,7 +322,7 @@ test('In progress is a column between Open and Ready to verify; cards move in an
     }
 
     // The list's status tabs: In progress is part of Active and has its own tab
-    await column('Open').getByRole('button', { name: `Move comment #${comments[1]!.number}`, exact: true }).click();
+    await openBoardMove(page, comments[1]!.number, column('Open'));
     await page.getByRole('menuitem', { name: 'In progress', exact: true }).click();
     await expect(column('In progress').getByRole('listitem')).toHaveCount(1);
     await page.getByRole('button', { name: 'List', exact: true }).click();
@@ -323,7 +354,7 @@ test('the list shows Active by default, every status but Done, and each row says
     expect(response.status()).toBe(201);
     await page.reload();
     const move = async (number: number, to: string) => {
-        await page.getByRole('button', { name: `Move comment #${number}`, exact: true }).click();
+        await openBoardMove(page, number);
         await page.getByRole('menuitem', { name: to, exact: true }).click();
         await expect(column(to).getByRole('listitem').filter({ hasText: `#${number}` })).toHaveCount(1);
     };
@@ -496,13 +527,15 @@ test('a column the card cannot move to refuses it', async ({ page, request }, te
     await expect(column('Ready to verify').getByRole('listitem')).toHaveCount(0);
     await expect(page.getByRole('article')).toHaveCount(0);
     // Move offers the same choices
-    await column('Open').getByRole('button', { name: `Move comment #${comments[0]!.number}`, exact: true }).click();
+    await openBoardMove(page, comments[0]!.number, column('Open'));
     await expect(page.getByRole('menuitem', { name: 'Ready to verify', exact: true })).toBeDisabled();
 });
 
 test('board cards move with a long press on a touch screen', async ({ page, request }, testInfo) => {
     test.skip(!testInfo.project.name.startsWith('Mobile'), 'Touch screens');
-    const { column, card } = await board(page, request);
+    const { comments, column, card } = await board(page, request);
+    // No Move on a card: a long press drags it, a tap opens the thread and its status menu
+    await expect.poll(() => moveShown(column('Open').getByRole('button', { name: `Move comment #${comments[0]!.number}`, exact: true }))).toBe(false);
     // The phone stacks the columns: In progress is the one below Open, on the screen
     await dragWithTouch(page, card('Open', 'First board thread'), column('In progress'));
     await expect(column('In progress').getByRole('listitem')).toHaveCount(1);

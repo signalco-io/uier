@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useSyncExternalStore, type MouseEvent, type ReactNode, type SyntheticEvent } from 'react';
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type KeyboardEvent, type MouseEvent, type ReactNode, type SyntheticEvent } from 'react';
 import { createPortal } from 'react-dom';
 import {
     DndContext, DragOverlay, MouseSensor, TouchSensor, defaultDropAnimationSideEffects, pointerWithin, useDraggable, useDroppable, useSensor, useSensors,
@@ -33,7 +33,7 @@ const columnOf = (over: Over | null) => statuses.find(status => status === over?
 
 /**
  * What a screen reader hears while a card is dragged (dnd-kit's live region). Keyboard and screen
- * reader users move cards with Move, which announces the move itself.
+ * reader users move cards with Move (M on a focused card), which announces the move itself.
  */
 const announcements: Announcements = {
     onDragStart: ({ active }) => {
@@ -87,6 +87,8 @@ const subscribeNothing = () => () => {};
  */
 function suppressClickAfterDrag() {
     const prevent = (event: Event) => {
+        // A keyboard click (Enter, or M opening Move) carries no pointer detail and goes through
+        if ((event as globalThis.MouseEvent).detail === 0) return;
         event.preventDefault();
         event.stopPropagation();
         stop();
@@ -112,12 +114,30 @@ function fromCardSurface(listeners: DraggableSyntheticListeners) {
 
 const noMoves = (allowed: Record<CommentStatus, boolean>) => Object.fromEntries(Object.keys(allowed).map(status => [status, false])) as Record<CommentStatus, boolean>;
 const moveIcon = (moving: boolean) => moving ? <Spinner /> : <ArrowRightLeftIcon />;
-const moveButtonClassName = 'text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11';
+/** The key that opens Move on a focused card */
+const moveKey = 'm';
+/**
+ * Pointers drag the card, so Move is visually hidden (and takes no room) until its card has keyboard
+ * focus or its menu is open. Screen readers always find it.
+ */
+const moveButtonClassName = cn('relative z-10 -my-1 -mr-1.5 shrink-0 text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11',
+    '[[data-board-card]:not(:has(:focus-visible))_&:not([data-popup-open])]:sr-only');
+
+/** M on a focused card opens its Move, as Enter on Move does (a click without pointer detail highlights the first column) */
+function openMoveFromKeyboard(event: KeyboardEvent<HTMLElement>) {
+    if (event.defaultPrevented || event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.key.toLowerCase() !== moveKey) return;
+    const button = event.currentTarget.querySelector<HTMLButtonElement>('[data-move]');
+    if (!button) return;
+    event.preventDefault();
+    button.focus();
+    button.click();
+}
 
 /**
  * A board card: the row's summary, dragged by itself to another column (the mouse, or a long press on
- * a touch screen), and Move (the same statuses from the keyboard, a screen reader or one tap, like the
- * thread's status menu).
+ * a touch screen), and Move (the same statuses, like the thread's status menu) for the keyboard and
+ * screen readers: Tab to it, or press M on the card. A pointer that does not drag opens the thread and
+ * its status menu.
  */
 function BoardCard({ comment, href, opened, moving, entering, onEntered, onOpen, onMove }: {
     comment: ProjectCommentView;
@@ -134,13 +154,17 @@ function BoardCard({ comment, href, opened, moving, entering, onEntered, onOpen,
     const allowed = allowedStatuses(comment);
     const canMove = statuses.some(option => option !== status && allowed[option]);
     const { setNodeRef, listeners, isDragging } = useDraggable({ id: comment.id, data: { comment }, disabled: !canMove || moving });
+    const shortcutId = useId();
     return (
         <li ref={setNodeRef} {...fromCardSurface(listeners)} data-board-card={comment.id} onAnimationEnd={entering ? onEntered : undefined}
+            onKeyDown={canMove ? openMoveFromKeyboard : undefined}
             className={cn('rounded-lg transition-opacity duration-150 ease-out',
                 canMove && 'touch-manipulation select-none [-webkit-touch-callout:none] [&_a]:cursor-grab',
                 isDragging && 'opacity-40',
                 entering && 'motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-2 motion-safe:duration-150 motion-safe:ease-out')}>
+            {canMove && <span id={shortcutId} hidden>Press M to move it to another column.</span>}
             <CommentRow card comment={comment} href={href} selected={opened ? 'opened' : undefined} onOpen={onOpen}
+                describedBy={canMove ? shortcutId : undefined} keyShortcuts={canMove ? 'M' : undefined}
                 actions={canMove && (
                     // While the move saves, Move keeps the focus it was given but offers no other column
                     <StateMenu status={status} allowed={moving ? noMoves(allowed) : allowed} disabled={false} onChange={onMove}
@@ -270,7 +294,7 @@ export function CommentBoard({ projectId, columns, allComments, assignees, userI
     return (
         <>
             <DndContext id="comment-board" sensors={sensors} collisionDetection={pointerWithin}
-                accessibility={{ announcements, screenReaderInstructions: { draggable: 'To move a comment to another column, use its Move button.' } }}
+                accessibility={{ announcements, screenReaderInstructions: { draggable: 'To move a comment to another column, focus it and press M.' } }}
                 onDragStart={({ active }) => {
                     const comment = draggedComment(active);
                     if (!comment) return;
@@ -328,8 +352,7 @@ export function CommentBoard({ projectId, columns, allComments, assignees, userI
                         {drag && (
                             // The lifted card: floating, like a menu (BRAND.md, "Borders and elevation")
                             <div inert aria-hidden="true" data-drag-preview="" className="rounded-lg bg-card shadow-md ring-1 ring-foreground/10">
-                                <CommentRow card preview comment={drag.comment} href={hrefFor(drag.comment.id)}
-                                    actions={<Button variant="ghost" size="icon-xs" tabIndex={-1} className={moveButtonClassName}>{moveIcon(false)}</Button>} />
+                                <CommentRow card preview comment={drag.comment} href={hrefFor(drag.comment.id)} />
                             </div>
                         )}
                     </DragOverlay>,

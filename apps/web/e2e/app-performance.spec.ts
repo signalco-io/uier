@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
-import { commentRowLink, commentRows, createProject, hydrated, inBackground, openComment, openCommentFilters, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { commentRowLink, commentRows, createProject, hydrated, openBoardMove, inBackground, openComment, openCommentFilters, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { animationsFinished, toolbar } from './support/toolbar';
@@ -85,7 +85,7 @@ test('the open thread and the filters follow clicks and Back while a write waits
     // Short waits: the UI must not wait for the held write (it would only catch up once it is released)
     const now = { timeout: 2_000 };
     try {
-        await column('Open').getByRole('button', { name: `Move comment #${comment.number}`, exact: true }).click();
+        await openBoardMove(page, comment.number, column('Open'));
         await page.getByRole('menuitem', { name: 'Done', exact: true }).click();
         await expect(column('Done').getByRole('listitem')).toHaveCount(1);
         await expect.poll(() => posts).toBe(1);

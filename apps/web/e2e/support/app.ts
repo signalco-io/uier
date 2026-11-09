@@ -183,6 +183,20 @@ export function commentRowLink(scope: Page | Locator, row: number | string | Reg
 }
 
 /**
+ * Opens a board card's Move from the keyboard, as a keyboard or screen reader user does: the card's
+ * link takes the focus and M opens the menu of columns (pointers drag the card instead). Returns the menu.
+ */
+export async function openBoardMove(page: Page, card: number | string | RegExp, scope: Page | Locator = page) {
+    // A card dropped a moment ago has settled: dnd-kit swallows clicks for 50 ms after a drop
+    await expect(page.locator('[data-drag-preview]')).toHaveCount(0);
+    await commentRowLink(scope, card).focus();
+    await page.keyboard.press('m');
+    const menu = page.getByRole('menu');
+    await expect(menu).toBeVisible();
+    return menu;
+}
+
+/**
  * Opens a thread from the comments list (or a board column) and returns it: the one `article`,
  * beside the list on wide screens, in the list's place on a phone, in a sheet on the board.
  */

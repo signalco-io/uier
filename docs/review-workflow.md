@@ -102,8 +102,9 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     status (a dot and its name, Open too, so an Active list shows where each thread is), the assignee's avatar, age and an unread dot. A row opens its thread (`?comment=<id>`): beside the list on
     wide screens (the first shown thread until another is chosen), in the list's place on a phone (Back to comments,
     or the browser's Back), and in a sheet on the board. On the board, drag a card to another column with the mouse,
-    or press and hold it on a touch screen (the page scrolls at the edges), or use its Move button, which lists the
-    same columns for the keyboard, screen readers and a single tap. While a card is dragged, the columns it can go to
+    or press and hold it on a touch screen (the page scrolls at the edges), or tap it and change the thread's status.
+    From the keyboard, focus a card and press M (or Tab to its Move button, which shows only while the card has
+    keyboard focus): Move lists the same columns, for screen readers too. While a card is dragged, the columns it can go to
     are dashed, the one under it is highlighted with a space where the card will land, and a column it can't go to
     is dimmed and refuses it; Escape puts the card back. Ready to verify asks for the request first. After Move, the
     focus stays on the card in its new column and screen readers hear where it went. In the list, ↓ and ↑ move to the next and the previous comment
@@ -200,7 +201,7 @@ environment or author still loads a fresh authorized list from the server. Setti
 navigation feedback, and General renders its forms before usage totals finish loading.
 
 Status, assignment, follow and read changes update the app's cards and counts while saving,
-including board moves (by drag or Move; Open or In progress from Ready to verify cancels the check and lands the card there).
+including board moves (by drag or Move, M on a focused card; Open or In progress from Ready to verify cancels the check and lands the card there).
 A failed save restores the confirmed state and shows an error; a failed automatic read only brings the
 unread dot back. Mark all as read uses only the
 rendered activity snapshot, keeps newer activity unread, and offers Retry for failed writes.
@@ -776,7 +777,7 @@ toolbar inbox, and, like Ready to verify, counts as open: the Open tab, Open cou
 `resolved: false` all include it. Board columns are exclusive.
 
 - **Who.** The people who can mark the thread done or reopen it can set it: project members, and a
-  guest on their own thread. In the app it is in the status menu and the board card's Move (or a
+  guest on their own thread. In the app it is in the status menu and the board card's Move (M on a focused card, or a
   drag to its column); in the toolbar, Thread options has Mark as in progress and, for a thread in
   progress, Mark as open. MCP sets it with `set_feedback_status` `status: "in-progress"`.
 - **An agent starting.** A coding tool that attaches itself through MCP (`set_feedback_agent`) moves
