@@ -9,6 +9,8 @@ import { getCommentsStore } from '../repo/commentsStore';
 import type { ProjectActor } from './actor';
 import { getProjectComment } from './comments';
 import { authorNames, participantNames, toReviewCommentDto } from './dto';
+import { visibleAiTitle } from '../titles/model';
+import { loadAiTitlesEnabled } from '../titles/threadTitles';
 
 /** One authorized read model for toolbar, app and later integrations. Reloads at export time. */
 export async function projectFeedbackExport(project: DbProject, actor: ProjectActor, id: string, siteOrigin: string | undefined, baseUrl: string) {
@@ -25,7 +27,11 @@ export async function projectFeedbackExport(project: DbProject, actor: ProjectAc
     const pageUrl = toReproductionContext(comment, allowedOrigins).url;
     if (actor.kind !== 'member' && dto.verification?.fixUrl && origins.includes(new URL(dto.verification.fixUrl).origin)
         && !allowedOrigins.includes(new URL(dto.verification.fixUrl).origin)) delete dto.verification.fixUrl;
-    const screenshot = dto.screenshot ? await getCommentsStore().getScreenshot(comment.domain, comment.id) : null;
+    const [screenshot, titles] = await Promise.all([
+        dto.screenshot ? getCommentsStore().getScreenshot(comment.domain, comment.id) : null,
+        // Only on a thread the actor can see (getProjectComment): the title is as visible as the first message
+        comment.aiTitle ? loadAiTitlesEnabled(project) : false
+    ]);
     let commentUrl: string | undefined;
     if (pageUrl) {
         if (actor.kind === 'member') commentUrl = new URL(KnownPageLinks.projectReview(project.id, pageUrl, comment.id), baseUrl).href;
@@ -42,6 +48,7 @@ export async function projectFeedbackExport(project: DbProject, actor: ProjectAc
         assigneeAgent: actor.kind === 'member' ? dto.assignee?.agent : undefined,
         environment: actor.kind === 'member' || pageUrl ? feedbackSource(project, comment.origin).label : undefined,
         commentUrl,
+        title: visibleAiTitle(comment, titles),
         screenshotUrl: screenshot ? new URL(actor.kind === 'member'
             ? KnownPageLinks.projectCommentScreenshot(project.id, comment.id)
             : `/api/review/${encodeURIComponent(project.publicId ?? project.id)}/comments/${encodeURIComponent(comment.id)}/screenshot`, baseUrl).href : undefined

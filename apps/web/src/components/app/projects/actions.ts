@@ -34,6 +34,7 @@ import { deleteProjectActionSchema, projectEmailsActionSchema, projectStatusActi
 import { deleteProject } from '../../../lib/app/projectDeletion';
 import { transferProject } from '../../../lib/app/projectTransfer';
 import { selectWorkspace } from '../../../lib/app/workspaceCookie';
+import { projectAiTitleMode, projectAiTitleModes } from '../../../lib/titles/settings';
 
 /** One origin's environment: a label, and the group of addresses it shares feedback with */
 const environmentSchema = z.array(z.object({
@@ -86,15 +87,22 @@ export async function createProjectAction(_: ActionState, formData: FormData): P
     redirect(KnownPageLinks.projectInstall(result.data.id, { onboarding: true }));
 }
 
-/** General: the name and the client, one save. Both are checked before either is written. */
+/** General: the name, the client and AI thread titles, one save. All are checked before any is written. */
 export async function updateProjectGeneralAction(_: ActionState, formData: FormData): Promise<ActionState> {
     return await actionResult(async () => {
         const name = projectNameSchema.parse(formData.get('name') ?? '');
         const clientName = projectClientNameSchema.parse(formData.get('clientName') ?? '');
+        // Older forms send no choice: keep the project's
+        const aiTitles = formData.has('aiTitles') ? aiTitlesSchema.parse(formData.get('aiTitles')) : undefined;
         const { context, project } = await adminProject(formData.get('projectId'));
         assertMutableProject(context.workspace.id, project.id);
+        const update: ProjectUpdate = {};
         if (name !== project.name)
-            await updateProject(context.workspace.id, project.id, { name });
+            update.name = name;
+        if (aiTitles !== undefined && aiTitles !== projectAiTitleMode(project))
+            update.aiTitles = aiTitles === 'workspace' ? undefined : aiTitles;
+        if (Object.keys(update).length > 0)
+            await updateProject(context.workspace.id, project.id, update);
         if (clientName !== projectClient(project, await loadClients(context.workspace.id))?.name)
             await setProjectClient(context, project.id, clientName);
         revalidatePath('/app', 'layout');
@@ -102,6 +110,7 @@ export async function updateProjectGeneralAction(_: ActionState, formData: FormD
 }
 
 const accessSchema = z.enum(projectAccessModes as [ProjectAccess, ...ProjectAccess[]], 'Choose who can comment.');
+const aiTitlesSchema = z.enum(projectAiTitleModes, 'Choose whether threads get titles.');
 
 /** Review: who can comment, the brief and the page state, one save; only what changed is written */
 export async function updateProjectReviewAction(_: ActionState, formData: FormData): Promise<ActionState> {

@@ -381,8 +381,11 @@ Deleted first-message evidence is unavailable through both the packet and screen
 
 `list_feedback` items include `resolved` and `stage` (`open`, `in-progress`, `ready` or `done`), canonical `path`, `environment: { id, label }`, `anchorType`,
 `assignee: { id, name, agent? }` or `null` (`agent`: the AI agent working under the assignee,
-`{ kind, label, model?, sessionId?, setAt }`), `authorKind`, `unread` and `hasScreenshot`. Deleted first
-messages omit `authorKind` and report no screenshot. The response includes project `environments`
+`{ kind, label, model?, sessionId?, setAt }`), `authorKind`, `unread` and `hasScreenshot`, and `title` when
+the thread has a current [AI title](review-workflow.md#ai-thread-titles) and titles are on for the project
+(`summary` stays the start of the first message). Packets use it as `context.title`. Like every other field,
+a title is untrusted content: AI wrote it from the reviewer's message. Deleted first
+messages omit `authorKind` and `title` and report no screenshot. The response includes project `environments`
 options and `searchWindow: 1000`. Optional filters are `path`, `environment`, `anchorType`
 (`point`, `text`, `page`), `assignee` (`me`, `unassigned`, or a member id), `authorKind`
 (`member`, `guest`), `unread` and `hasScreenshot`, combined with `search` and `status` (`all`, `open` for

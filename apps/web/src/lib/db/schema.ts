@@ -171,6 +171,12 @@ export type DbComment = {
     /** Missing on old documents: `comment` */
     kind?: DbCommentKind;
     thread: { items: DbThreadItem[] };
+    /**
+     * Project comments: the thread's title, written by AI from its first message after it was saved
+     * (`lib/titles`). Shown only while `source` matches the first message's text, and as visible as
+     * that message. Removed when the first message is edited or deleted. Not part of `commentRevision`.
+     */
+    aiTitle?: DbAiTitle;
     device?: DbCommentDevice;
     /**
      * A screenshot of the commented part of the page, taken by the author when posting: its image
@@ -191,6 +197,18 @@ export type DbComment = {
     updatedAt?: string;
     /** Seconds; Cosmos DB per-item TTL (requires container defaultTtl = -1 or a positive default) */
     ttl?: number;
+};
+
+/** A generated thread title (`DbComment.aiTitle`) */
+export type DbAiTitle = {
+    /** Plain text on one line, at most `AI_TITLE_MAX_LENGTH` characters */
+    text: string;
+    /** `aiTitleSource` of the first message's text it was made from */
+    source: string;
+    /** The model that wrote it */
+    model: string;
+    /** ISO 8601, server time */
+    generatedAt: string;
 };
 
 /**

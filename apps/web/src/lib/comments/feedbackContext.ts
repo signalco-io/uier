@@ -19,6 +19,8 @@ export function feedbackExport(dto: CommentDto & { reproduction?: ReproductionCo
     assigneeName?: string;
     /** The AI agent working under the assignee (members only) */
     assigneeAgent?: import('@uier/toolbar/agents').AssigneeAgentView;
+    /** The thread's AI title (`lib/titles`), used in place of the summary while the first message is there */
+    title?: string;
 }): FeedbackExport {
     const items: FeedbackMessage[] = dto.thread.items.map(item => 'deleted' in item
         ? { id: item.id, deleted: true, createdAt: item.createdAt }
@@ -31,7 +33,7 @@ export function feedbackExport(dto: CommentDto & { reproduction?: ReproductionCo
     const context: FeedbackContext = {
         schemaVersion: 1, contentTrust: 'untrusted',
         identity: { projectId: options.projectId, commentId: dto.id, number: dto.number, itemId: first?.id },
-        title: `${dto.kind === 'rewrite' ? 'Suggested rewrite: ' : ''}${summary || 'Website feedback'}`,
+        title: `${dto.kind === 'rewrite' ? 'Suggested rewrite: ' : ''}${(available && options.title) || summary || 'Website feedback'}`,
         verification: dto.verification, priority: dto.priority, kind: dto.kind, status: dto.resolved ? 'done' : 'open', stage: feedbackStage(dto), feedback: first,
         ...(options.assigneeName ? { assignee: { name: options.assigneeName, ...(options.assigneeAgent ? { agent: {
             kind: options.assigneeAgent.kind, label: options.assigneeAgent.label,

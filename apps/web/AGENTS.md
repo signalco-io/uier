@@ -34,11 +34,12 @@ does, and the rules that apply only to it, live in [`docs/`](docs/README.md), on
 | `proxy.ts` | exact-path page security headers, request nonces and signed-out `/app/*` redirects (`?next=`) |
 | `app/api/comments/route.ts` | comments API (Cosmos DB through `src/lib/db` and `src/lib/repo`) |
 | `app/api/mcp/`, `src/lib/mcp/` | the MCP connector: authentication (`credentials.ts`), tools (`server.ts`), prompts, event webhooks (`events/`), client setup blocks ([MCP connector](docs/mcp-connector.md)) |
-| `instrumentation.ts` | runs once per Node.js server: registers Next.js `after()` for library code (MCP event delivery after a change), so `src/lib` never imports `next/server` |
+| `instrumentation.ts` | runs once per Node.js server: registers Next.js `after()` for library code (`src/lib/afterResponse.ts`: MCP event delivery after a change, AI thread titles), so `src/lib` never imports `next/server` |
 | `app/api/oauth/`, `src/lib/mcp/oauth/` | uier's OAuth authorization server for `/api/mcp` only: authorize, token, register, revoke and the metadata routes that `next.config.ts` rewrites from `/.well-known/`; consent is `/app/connect/<requestId>` |
 | `app/api/status/route.ts`, `src/lib/status/` | live service checks for `/status` and monitors ([status reference](../../docs/operations.md#status)) |
 | `app/api/visitor/route.ts` | the anonymous visitor: guest name (`GET`) and sign out (`DELETE`) |
 | `app/api/rewrite/route.ts`, `src/lib/rewrite/` | AI rewrite suggestions for selected text (Anthropic SDK; `503` without `ANTHROPIC_API_KEY`; the e2e tests use `e2e/support/anthropicStub.ts`) |
+| `src/lib/titles/` | AI thread titles: workspace setting and project override, the Haiku call, the after-response queue and write ([note](docs/ai-titles.md)) |
 | `app/manifest.ts`, `app/opengraph-image.tsx` | web manifest and the brand social card, generated from brand constants |
 | `src/lib/social/`, `app/og/[card]/route.ts` | social cards: `pageCardImage` for a public page's `opengraph-image.tsx`, and the static cards of app links ([social cards](docs/social-cards.md)) |
 | `app/not-found.tsx`, `app/(rest)/error.tsx` | the 404 page and the error boundary, both a `StatusPage` (`src/components/StatusPage.tsx`: logo, a browser frame with a pin on the empty spot, what happened, where to go) |
@@ -149,8 +150,8 @@ Start a fresh audit for subsequent product actions; retain the strict policy and
   `PLAYWRIGHT_FULL=1 pnpm -C apps/web exec playwright test <file> --project="Desktop Chrome" --retries=0`.
   Keep new feature permutations in the full suite; do not add smoke tags by default.
   A server that already answers on that port is never reused (the run fails), so
-  stop `pnpm dev` or pick another `PORT`. Rewrite suggestions go to `e2e/support/anthropicStub.ts`
-  on `PORT + 1000`, never to the real API.
+  stop `pnpm dev` or pick another `PORT`. Rewrite suggestions and AI thread titles go to
+  `e2e/support/anthropicStub.ts` on `PORT + 1000`, never to the real API.
 - Accessibility is part of both suites: new pages should be added to an `assertAccessibility`
   test. Keep text at 4.5:1 or better (`text-muted-foreground` is the lightest text colour).
 - The feature coverage the area notes describe is the full suite; only tagged browser

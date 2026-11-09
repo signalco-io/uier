@@ -62,6 +62,7 @@ import { Field, FieldError, FieldLabel } from '@/src/components/ui/field';
 import { Spinner } from '@/src/components/ui/spinner';
 import { Textarea } from '@/src/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
+import { ThreadTitle } from './ThreadTitle';
 import type { ProjectCommentMessage, ProjectCommentView } from '../../../lib/app/projectComments';
 import type { ActionState } from '../../../lib/app/actionResult';
 import type { DbCommentKind } from '../../../lib/db/schema';
@@ -436,6 +437,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                         </DropdownMenu>
                     </div>
                 </div>
+                <ThreadTitle title={comment.title} />
                 <CopyIssueResult state={copyIssue} />
 
                 {/* What it is about and where: the element or text, the page (it opens the review there) and its environment.

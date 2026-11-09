@@ -107,6 +107,8 @@ export type DbWorkspace = AppDoc & {
     memberRemovalVersion?: number;
     /** Serializes workspace access mutations in conditional transactions. */
     accessRevision?: number;
+    /** AI thread titles (`lib/titles`). Missing means on: no migration for existing workspaces. */
+    aiTitles?: boolean;
 };
 
 export type MemberRole = 'admin' | 'commenter';
@@ -184,6 +186,8 @@ export type DbProject = AppDoc & {
     pageState?: PageStatePolicy;
     /** Opt-in comment text in review emails, including verified guest recipients. */
     emailCommentExcerpts?: boolean;
+    /** Overrides the workspace's AI thread titles. Missing means the workspace setting (`lib/titles/settings.ts`). */
+    aiTitles?: 'on' | 'off';
     /** Server-owned provider bindings. Secrets and provider settings live in separate records. */
     integrations?: Partial<Record<import('../integrations/model').IntegrationProviderId, import('../integrations/model').IntegrationBinding>>;
     /** Optional labels and explicit alias groups, keyed by configured origin. */

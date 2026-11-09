@@ -279,6 +279,41 @@ reasoning level ("high reasoning").
   MCP tools call it. `e2e/assignee-agent.api.spec.ts` covers the rules and `e2e/assignee-agent.spec.ts`
   picking an agent, its logo in the thread and the menu, its details (reasoning level included) and its avatar on rows, the board and the toolbar.
 
+### AI thread titles
+
+A thread's title is a short line AI writes from its first message, so a list reads like a list of
+subjects instead of the start of each message. Rows, board cards, My work and the open thread's heading
+(marked "Title written by AI") show it; the first message always shows in full in the thread. Search
+matches it too. Copy issue, MCP packets (`title`, and `title` in `list_feedback` items) and connected
+services' issue titles (from the issue's next update) use it in place of the first message's first words.
+
+- **Model and timing.** `claude-haiku-5-5` (`src/lib/titles/generate.ts`) with the existing
+  `ANTHROPIC_API_KEY`, after the response is sent, so posting never waits for it. The thread shows its
+  first line until the title is saved; the save changes the thread, so open pages refresh to it.
+- **When.** For a new thread, after an edit of its first message (the old title is removed in the same
+  write), after other changes to a thread without one, and for threads a list shows without one: at most
+  10 per render, newest first. Threads with their own expiry (uier's public project) are titled only within
+  10 minutes of a change, so a title never restarts their retention. [Costs and bounds](ai-title-costs.md).
+- **Fallback.** No title (not made yet, titles off, no API key, a declined, empty, invalid or too long
+  answer, a failed call) shows the first line, as before. A title made from text that has since changed is
+  never shown or written.
+- **Settings.** Workspace settings → AI → **Thread titles** (admins, on by default); each project's General
+  settings → **Thread titles**: the workspace setting, On or Off. Existing workspaces and projects count
+  as on (`aiTitles` is missing). Off makes none and hides stored ones. `UIER_AI_TITLES=off` stops them for a
+  deployment and leaves rewrite suggestions on.
+- **Safety.** The message, selected text and anchor words are untrusted content in tags the visitor's text
+  cannot close; the prompt treats them as text to describe. The answer is a JSON object; the title is
+  cleaned to plain text on one line and dropped beyond 80 characters, never cut.
+- **Visibility.** Stored on the thread as `aiTitle` (text, a hash of the first message it was made from,
+  model, time). It is shown only on threads the viewer can see (private threads stay private), never in
+  the toolbar's thread data, and is removed when the first message is deleted. It is not part of
+  `commentRevision`, `updatedAt`, sync or notifications. Emails keep naming threads by number and page:
+  comment text only appears there as the opt-in excerpts.
+- `e2e/ai-titles.api.spec.ts` covers the setting, the request with the API stubbed, storing, edits,
+  deletion, visibility and the bounds; `e2e/ai-titles.spec.ts` a row and the thread showing a title, and
+  the project setting turning it off. The Anthropic stub gives a title only for a `[stub:title:Words]`
+  marker in the first message.
+
 ### Review email notifications
 
 Owners and admins receive new feedback. Members automatically follow threads they post in, can follow or

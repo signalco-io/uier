@@ -460,6 +460,10 @@ suggestions are not available, while the reviewer's own rewrite still works. Set
 
 Both routes emit one bounded operational usage event per configured model call, including responses with no usable
 suggestions. No selected text, instructions, generated text or customer identifiers enter these events.
+
+The same key writes [AI thread titles](review-workflow.md#ai-thread-titles) with `claude-haiku-5-5`, after the
+response of the request that created or changed a thread, never in its path. See
+[AI thread title costs](ai-title-costs.md).
 See [rewrite usage and costs](rewrite-costs.md) for daily reports, versioned pricing, retry/fallback gaps and the
 current model evaluation. Estimates are not provider invoices.
 

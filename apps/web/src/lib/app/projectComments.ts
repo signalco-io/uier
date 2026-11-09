@@ -33,6 +33,9 @@ import { isNotificationParticipant, notificationPk, type NotificationSubscriptio
 import { getAppStore } from './store';
 import { loadIntegrationLinks } from '../integrations/links';
 import type { ExternalFeedbackLink } from '@uier/toolbar/feedback-context';
+import { visibleAiTitle } from '../titles/model';
+import { aiTitlesEnabled } from '../titles/settings';
+import { queueAiTitles } from '../titles/threadTitles';
 
 /** The signed-in app user as the actor on a project of the current workspace */
 export function appActor(context: AppContext): ProjectActor {
@@ -87,6 +90,12 @@ export type ProjectCommentView = {
     /** `agent`: the AI agent working under the assignee */
     assignee?: { id: string; name: string; avatarUrl?: string; agent?: import('@uier/toolbar/agents').AssigneeAgentView };
     eligibleAssigneeIds: string[];
+    /**
+     * The thread's title, written by AI from its first message (`lib/titles`): missing until one is made,
+     * while titles are off for the project, and once the first message is edited (until a new one) or deleted.
+     * Lists show the first line of `displayText` without it.
+     */
+    title?: string;
     /** Author of the comment (its first message) */
     author: ProjectCommentAuthor;
     /** Text of the first message; empty when its author deleted it (`deleted`) */
@@ -127,7 +136,7 @@ function authorAvatar(item: import('../db/schema').DbThreadItem, avatars: Map<st
     return item.authorId?.startsWith('user:') && !item.deletedAt ? avatars.get(item.authorId.slice('user:'.length)) : undefined;
 }
 
-function toView(comment: DbComment, project: DbProject, actor: ProjectActor, names: Map<string, string>, participants: Map<string, string>, members: Awaited<ReturnType<typeof listProjectMembers>>, readSequence = 0, avatars = memberAvatars(members)): ProjectCommentView | null {
+function toView(comment: DbComment, project: DbProject, actor: ProjectActor, names: Map<string, string>, participants: Map<string, string>, members: Awaited<ReturnType<typeof listProjectMembers>>, readSequence = 0, avatars = memberAvatars(members), titles = false): ProjectCommentView | null {
     const items = Array.isArray(comment.thread?.items) ? comment.thread.items : [];
     const [first, ...replies] = items;
     if (!first)
@@ -161,6 +170,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         private: comment.private === true,
         eligibleAssigneeIds: members.filter(({ member, user }) => user && canSeeComment(comment, { kind: 'member', userId: member.userId, name: '', isAdmin: member.role === 'admin' })).map(({ member }) => member.userId),
         assignee: assignee && { ...assignee, avatarUrl: avatars.get(assignee.id) },
+        title: visibleAiTitle(comment, titles),
         author: first.deletedAt
             ? { name: 'Deleted', isMe: false }
             : { name: itemAuthorName(first, names), isMe: Boolean(myId) && first.authorId === myId, avatarUrl: authorAvatar(first, avatars) },
@@ -207,9 +217,13 @@ export async function loadProjectComments(context: AppContext, project: DbProjec
     const [names, integrationLinks] = await Promise.all([authorNames(comments), loadIntegrationLinks(project, actor, comments)]);
     const participants = new Map(members.filter(({ user }) => user).map(({ member, name }) => [member.userId, name]));
     const avatars = memberAvatars(members);
+    // Only threads this person can see (listProjectComments), so a title is never shown beyond its first message
+    const titles = aiTitlesEnabled(context.workspace, project);
     const views = comments
-        .map(comment => toView(comment, project, actor, names, participants, members, reads.get(comment.id), avatars))
+        .map(comment => toView(comment, project, actor, names, participants, members, reads.get(comment.id), avatars, titles))
         .filter((view): view is ProjectCommentView => Boolean(view));
+    // Threads from before titles, or whose title was not made yet: a bounded batch, newest first, after the response
+    queueAiTitles(project, comments, 'shown', { enabled: titles });
     const following = new Map(subscriptions.map(subscription => [subscription.threadId, subscription.following]));
     const participated = new Set(comments.filter(comment => isNotificationParticipant(comment, `user:${context.user.id}`)).map(comment => comment.id));
     return views.map(view => ({ ...view, following: following.get(view.id) ?? participated.has(view.id), integrationLinks: integrationLinks.get(view.id) }));

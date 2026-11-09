@@ -12,9 +12,10 @@ import { PriorityLabel } from './PriorityFlag';
 
 const kindIcons = { feedback: HeartIcon, bug: BugIcon, rewrite: ReplaceIcon } as const;
 
-/** The first line of the first message, the row's title */
+/** The row's title: the thread's AI title, else the first line of the first message */
 export function commentTitle(comment: ProjectCommentView) {
     if (comment.deleted) return 'Comment deleted';
+    if (comment.title) return comment.title;
     const line = comment.displayText.split('\n').map(text => text.trim()).find(Boolean);
     return line ?? (comment.anchor.type === 'text' ? comment.anchor.text : '');
 }
@@ -23,7 +24,7 @@ export function commentTitle(comment: ProjectCommentView) {
 export const commentRowId = (id: string) => `comment-row-${id}`;
 
 /**
- * One comment in the inbox list or on the board: number, first line, who wrote it, the page path,
+ * One comment in the inbox list or on the board: number, title (`commentTitle`), who wrote it, the page path,
  * priority other than Normal (its flag, named for assistive tech), who it is assigned to, status (Open too, except
  * on a board card), age and unread. The whole row opens the thread (a link to `?comment=<id>`, so it can also open
  * in a new tab); the selection box sits beside the link.

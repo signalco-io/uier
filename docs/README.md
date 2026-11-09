@@ -17,7 +17,7 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 - [Browser extension](browser-extension.md): the published desktop extension's design, security boundaries, local loading, receipts and public pages.
 - [Extension releases](browser-extension-release.md): protected release/status CI, owner bootstrap and recovery.
 - [Extension listing](browser-extension-listing.md): prepared copy, artwork and disclosure worksheet.
-- [Review workflow](review-workflow.md): the app, access, assignment, screenshots, drafts, unread activity and environments.
+- [Review workflow](review-workflow.md): the app, access, assignment, AI thread titles, screenshots, drafts, unread activity and environments.
 - [Teams and access](teams-and-access.md): team grants, external reviewers, invitations, revocation, history, limits and rollback.
 - [Project deletion](project-deletion.md): what deleting a project removes, in what order, what stays and how failed steps are retried.
 - [Project transfer](project-transfer.md): moving a project to another workspace, what moves with it, what stays behind and how an interrupted move is retried.
@@ -37,6 +37,7 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 - [CI credential rollout](ci-credential-rollout.md): staged least-privilege environments, build/deploy separation and production Cosmos DB identity access.
 - [Live rewrite evaluation](rewrite-evaluation-2026-11-02.md): bounded Opus/Sonnet measurements, provisional quality screen and accounting limits.
 - [Rewrite usage and costs](rewrite-costs.md): daily operational reports, versioned estimates, accounting limits and model evaluation evidence.
+- [AI thread title costs](ai-title-costs.md): the Haiku request, price estimates, what bounds the calls, usage events and how to turn titles off.
 - [Backups and restore](backups-and-restore.md): policy rollout gates, access, recovery procedure and drill evidence.
 - [Cosmos query costs](cosmos-query-costs.md): operation inventory, bounded profiling, measured RU results and query/count contracts.
 - [Review notifications](review-notifications.md): email delivery, retention, scheduler and production acceptance gates.

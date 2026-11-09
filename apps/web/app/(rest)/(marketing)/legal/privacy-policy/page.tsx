@@ -502,6 +502,25 @@ export default function PrivacyPolicyPage() {
                 They follow the hosting log retention settings.
             </p>
 
+            <h3>Thread titles</h3>
+            <p>
+                Comment threads in projects, including those on {brand.domain}, can get a short title written by AI. After a comment is posted, and
+                after its first message is edited, that message is sent to Anthropic, whose Claude Haiku model writes
+                the title. The request also contains the kind of comment, what it was left on (such as &ldquo;Link in
+                navigation&rdquo;) and up to 300 characters of the selected text. It contains no names of the people
+                in the project, no email addresses and no page address beyond what the message itself says. Threads
+                posted before titles existed are sent the same way when the app shows them.
+            </p>
+            <p>
+                We store the title with the thread. It is shown only to people who can see the thread&rsquo;s first
+                message, in the app, in exports such as Copy issue, to connected coding tools and as the title of
+                issues in connected services. It is removed when the first message is edited or deleted, and deleted
+                with the thread. Workspace admins can turn titles off for their workspace, and project admins for a
+                project; then no message is sent for titles and stored titles are not shown. We record the model, token
+                counts, time taken, outcome and estimated cost in our hosting logs, without messages, titles or
+                identifiers. They follow the hosting log retention settings.
+            </p>
+
             <h3>Rate limits and bot protection</h3>
             <p>
                 To stop spam we count new comments and replies per visitor or project member, and new comments per page.
@@ -578,6 +597,7 @@ export default function PrivacyPolicyPage() {
                     are delivered from Vercel&rsquo;s global network.
                 </li>
                 <li>Rewrite suggestions: Anthropic receives the selected text and your instruction to write them.</li>
+                <li>Thread titles: Anthropic receives a thread&rsquo;s first message, its kind, what it was left on and the start of the selected text to write the title, unless titles are turned off.</li>
                 <li>Google sign-in, only if you choose it: you sign in at Google, which handles that under its own privacy policy and learns that you use {brand.name}.</li>
                 <li>Microsoft sign-in, only if you choose it: you sign in at Microsoft, which handles that under its own privacy policy and learns that you use {brand.name}.</li>
                 <li>DNS: Cloudflare answers DNS queries for {brand.domain}. It does not see the pages you visit.</li>

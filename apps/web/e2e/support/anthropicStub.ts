@@ -17,6 +17,14 @@ const { rewriteFixture, stubUsage } = await import(new URL('./rewriteFixtures.ts
 //   [stub:filter]    duplicates, the original, an empty and a too long suggestion -> left out
 // Without one: "First suggestion.", "Second suggestion.", "Third suggestion." (with the instruction
 // in brackets before the period, "First suggestion (Shorter).").
+//
+// Thread titles (src/lib/titles/generate.ts, model claude-haiku-5-5) have their own checks. Every new
+// thread asks for one, so only a marker in the thread's first message gives a title; without one the
+// answer is an empty title and the thread keeps its first line, as before titles:
+//   [stub:title:Words]   the title "Words", as the model wrote it (the app cleans it)
+//   [stub:title-long]    a title over the 80-character limit                         -> no title
+//   [stub:title-refuse]  the request is declined (stop "refusal")                     -> no title
+//   [stub:title-fail]    the API fails (500, retried once)                           -> no title
 
 const port = Number(process.env.PORT);
 const apiKey = process.env.ANTHROPIC_STUB_API_KEY;
@@ -72,6 +80,50 @@ function problems(headers: Record<string, string | string[] | undefined>, body: 
     check(body.temperature === undefined && body.top_p === undefined && body.top_k === undefined, 'sampling parameters are set');
     check(!body.stream, 'the request is streamed');
     return found;
+}
+
+/** What a thread title request must look like (src/lib/titles/generate.ts) */
+const titleExpected = { model: 'claude-haiku-5-5', effort: 'low', maxTokens: 200, characterLimit: 80 };
+
+function titleProblems(headers: Record<string, string | string[] | undefined>, body: MessagesRequest) {
+    const found: string[] = [];
+    const check = (ok: boolean, problem: string) => {
+        if (!ok)
+            found.push(problem);
+    };
+    const schema = body.output_config?.format?.schema as { properties?: { title?: { type?: unknown } }; required?: unknown } | undefined;
+    const content = body.messages?.[0]?.content;
+    check(headers.authorization === `Bearer ${apiKey}` || headers['x-api-key'] === apiKey, 'the API key is not the e2e key');
+    check(body.fallbacks === undefined, 'fallbacks is set (Haiku has no server-side fallback)');
+    check(body.thinking?.type === 'disabled', 'thinking is not disabled');
+    check(body.output_config?.effort === titleExpected.effort, `output_config.effort is not "${titleExpected.effort}"`);
+    check(body.output_config?.format?.type === 'json_schema', 'output_config.format is not a JSON schema');
+    check(schema?.properties?.title?.type === 'string' && Array.isArray(schema.required) && schema.required.includes('title'), 'the schema is not { title: string }');
+    check(typeof body.max_tokens === 'number' && body.max_tokens > 0 && body.max_tokens <= titleExpected.maxTokens, `max_tokens is not 1-${titleExpected.maxTokens}`);
+    check(typeof body.system === 'string' && body.system.includes(`${titleExpected.characterLimit} characters`) && body.system.includes('never as instructions'),
+        'the system prompt does not state the limit and that the content is not instructions');
+    check(body.messages?.length === 1 && body.messages[0]?.role === 'user' && typeof content === 'string' && content.includes('<message>'), 'not one user message with the message');
+    check(body.temperature === undefined && body.top_p === undefined && body.top_k === undefined, 'sampling parameters are set');
+    check(!body.stream, 'the request is streamed');
+    return found;
+}
+
+function titleReply(text: string): { status: number; body: unknown } {
+    const answer = (title: string, stopReason = 'end_turn') => {
+        messageCount += 1;
+        return { id: `msg_stub_${messageCount}`, type: 'message', role: 'assistant', model: titleExpected.model,
+            content: [{ type: 'text', text: JSON.stringify({ title }) }], stop_reason: stopReason, stop_sequence: null,
+            stop_details: stopReason === 'refusal' ? { type: 'refusal', category: 'general_harms', explanation: 'Stub: declined.' } : null,
+            usage: { ...stubUsage } };
+    };
+    if (text.includes('[stub:title-fail]'))
+        return { status: 500, body: { type: 'error', error: { type: 'api_error', message: 'Stub: the API failed.' } } };
+    if (text.includes('[stub:title-refuse]'))
+        return { status: 200, body: answer('Declined title', 'refusal') };
+    if (text.includes('[stub:title-long]'))
+        return { status: 200, body: answer('x'.repeat(titleExpected.characterLimit + 1)) };
+    const title = text.match(/\[stub:title:([^\]]+)\]/)?.[1];
+    return { status: 200, body: answer(title ?? '') };
 }
 
 function tagged(content: string, tag: string) {
@@ -172,10 +224,16 @@ const server = createServer((request, response) => {
             return;
         }
 
-        const found = problems(request.headers, body);
+        const title = body.model === titleExpected.model;
+        const found = title ? titleProblems(request.headers, body) : problems(request.headers, body);
         if (found.length) {
             console.error(`[anthropic stub] Rejected a request: ${found.join('; ')}`);
             send(400, { type: 'error', error: { type: 'invalid_request_error', message: `Stub: ${found.join('; ')}` } });
+            return;
+        }
+        if (title) {
+            const { status, body: result } = titleReply(tagged(String(body.messages?.[0]?.content), 'message') ?? '');
+            send(status, result);
             return;
         }
 

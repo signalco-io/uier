@@ -4,6 +4,8 @@ import { KnownPages } from '@/src/knownPages';
 import { WorkspaceTabHeader } from '@/src/components/app/workspace/WorkspaceTabHeader';
 import { requireAdminContext } from '@/src/lib/app/context';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
+import { workspaceAiTitles } from '@/src/lib/titles/settings';
+import { WorkspaceAiTitlesForm } from './WorkspaceAiTitlesForm';
 import { WorkspaceNameForm } from './WorkspaceNameForm';
 
 export const metadata: Metadata = {
@@ -21,6 +23,7 @@ export default async function WorkspaceSettingsPage() {
             <WorkspaceTabHeader description="Settings for everyone in this workspace." />
             <div className="flex flex-col gap-6">
                 <WorkspaceNameForm name={context.workspace.name} />
+                <WorkspaceAiTitlesForm enabled={workspaceAiTitles(context.workspace)} />
             </div>
         </div>
     );
