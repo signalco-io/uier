@@ -124,7 +124,7 @@ test('invited people only: a review link signs members in, everyone else is aske
     await addPointComment(page, 'The yearly price is missing.');
     // Posting opens the thread
     await expect(openThread(page).getByText('You', { exact: true })).toBeVisible();
-    await expect(openThread(page).getByRole('button', { name: 'Mark as done' })).toBeVisible();
+    await expect(openThread(page).getByRole('button', { name: 'Status: Open. Change status', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(openThread(page)).toBeHidden();
     // Before axe, which fetches the page's stylesheets itself (blocked by connect-src)

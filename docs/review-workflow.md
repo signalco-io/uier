@@ -211,7 +211,7 @@ including board moves (by drag or Move, M on a focused card; Open or In progress
 A failed save restores the confirmed state and shows an error; a failed automatic read only brings the
 unread dot back. Mark all as read uses only the
 rendered activity snapshot, keeps newer activity unread, and offers Retry for failed writes.
-The toolbar likewise reflects Done/Reopen immediately (Mark as in progress and Mark as open once saved); comments and replies appear while sending,
+The toolbar likewise reflects a status change (Open, In progress, Done) immediately; comments and replies appear while sending,
 with failed text kept in drafts. Destructive actions and access-setting changes wait for server
 confirmation.
 
@@ -847,8 +847,8 @@ toolbar inbox, and, like Ready to verify, counts as open: the Open tab, Open cou
 
 - **Who.** The people who can mark the thread done or reopen it can set it: project members, and a
   guest on their own thread. In the app it is in the status menu and the board card's Move (M on a focused card, or a
-  drag to its column); in the toolbar, Thread options has Mark as in progress and, for a thread in
-  progress, Mark as open. MCP sets it with `set_feedback_status` `status: "in-progress"`.
+  drag to its column); in the toolbar, the thread's status menu,
+  as in the app. MCP sets it with `set_feedback_status` `status: "in-progress"`.
 - **An agent starting.** A coding tool that attaches itself through MCP (`set_feedback_agent`) moves
   an Open thread to In progress in the same write, when its connection may change status
   ([agents](mcp.md#agents-working-on-feedback)). Threads already In progress, Ready to verify or Done

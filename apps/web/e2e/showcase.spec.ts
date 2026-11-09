@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { brand } from '@uier/brand';
-import { addToolbarScript, animationsFinished, commentBubble, commentBubbles, isolatedOrigin, newVisitor, openLanding, openThread, showcaseHint, toolbar, copyFromThread } from './support/toolbar';
+import { addToolbarScript, animationsFinished, commentBubble, commentBubbles, isolatedOrigin, newVisitor, openLanding, openThread, showcaseHint, toolbar, copyFromThread, setThreadStatus } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
 // The landing page runs the uier toolbar in showcase mode: anonymous visitors leave public feedback.
@@ -136,7 +136,8 @@ test('visitors leave public feedback; only the author resolves or deletes it', a
     await commentBubbles(visitor).first().click();
     const visitorThread = openThread(visitor);
     await expect(visitorThread.getByText(/^Guest [0-9A-F]{4}$/)).toBeVisible();
-    await expect(visitorThread.getByRole('button', { name: 'Mark as done' })).toHaveCount(0);
+    await expect(visitorThread.getByRole('button', { name: /Change status$/ })).toHaveCount(0);
+    await expect(visitorThread).toContainText('Status: Open');
     await expect(visitorThread.getByRole('button', { name: 'More options' })).toHaveCount(0);
     // Anyone can copy a link to it
     await expect(visitorThread.getByRole('button', { name: 'Copy', exact: true })).toBeVisible();
@@ -149,7 +150,7 @@ test('visitors leave public feedback; only the author resolves or deletes it', a
     await expect(visitorThread.getByText('You', { exact: true })).toBeVisible();
     // Only the own reply can be deleted
     await expect(visitorThread.getByRole('button', { name: 'More options' })).toHaveCount(1);
-    await expect(visitorThread.getByRole('button', { name: 'Mark as done' })).toHaveCount(0);
+    await expect(visitorThread.getByRole('button', { name: /Change status$/ })).toHaveCount(0);
     await visitor.keyboard.press('Escape');
     await expect(visitorThread).toBeHidden();
 
@@ -168,7 +169,7 @@ test('visitors leave public feedback; only the author resolves or deletes it', a
     const authorThread = openThread(author);
     await expect(authorThread.getByText(/^Guest [0-9A-F]{4}$/)).toBeVisible();
     await expect(authorThread.getByRole('button', { name: 'More options' })).toHaveCount(1);
-    await authorThread.getByRole('button', { name: 'Mark as done' }).click();
+    await setThreadStatus(author, authorThread, 'Done');
     await expect(commentBubbles(author)).toHaveCount(1);
     await expect(author.getByRole('button', { name: /^Inbox(?:,|$)/ })).toBeVisible();
 
@@ -336,7 +337,7 @@ test('deleting a comment others replied to keeps their replies', async ({ browse
     await expect(authorThread.getByText('Comment deleted', { exact: true })).toBeVisible();
     await expect(authorThread.getByText('The heading could use a subtitle.')).toHaveCount(0);
     await expect(authorThread.getByText('Agreed, +1')).toBeVisible();
-    await expect(authorThread.getByRole('button', { name: /^(More options|Mark as done|Reopen)/ })).toHaveCount(0);
+    await expect(authorThread.getByRole('button', { name: /^(More options|Status: .+\. Change status$)/ })).toHaveCount(0);
     await expect(authorThread.getByRole('group', { name: 'Messages' })).toBeFocused();
     await expect(author.getByRole('status').filter({ hasText: 'Comment deleted' })).toBeAttached();
     // The pin counts messages, not the placeholder
@@ -496,7 +497,7 @@ test('a thread keeps its replies and status; Copy link opens it', async ({ brows
     expect(link).toBe(`${origin}/?uier-comment=${created.body.id}`);
 
     // Done: the pin goes, the thread waits under "Done" with its reply
-    await thread.getByRole('button', { name: 'Mark as done' }).click();
+    await setThreadStatus(page, thread, 'Done');
     await expect(commentBubbles(page)).toHaveCount(0);
     await expect(page.getByRole('status').filter({ hasText: 'Marked as done' })).toBeAttached();
     await page.reload();
@@ -517,7 +518,7 @@ test('a thread keeps its replies and status; Copy link opens it', async ({ brows
     // leaves after the BotID check on uier.io's own pages: navigate once it is saved.
     const reopened = page.waitForResponse(response => new URL(response.url()).pathname === `/api/comments/${created.body.id}`
         && response.request().method() === 'PATCH');
-    await sidebar.getByRole('button', { name: 'Reopen' }).click();
+    await setThreadStatus(page, sidebar, 'Open');
     await expect(commentBubble(page, 2)).toBeVisible();
     expect((await reopened).status()).toBe(200);
     await page.goto(link);

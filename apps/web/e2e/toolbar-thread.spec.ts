@@ -35,9 +35,22 @@ test('a new thread shows its comment and reply box; triage and email controls ar
     for (const name of [/Change priority/, /Change assignee/, /^Request verification$/, /follow thread$/i, /project emails$/, /^Copy issue$/, /^Copy link$/])
         await expect(thread.getByRole('button', { name })).toHaveCount(0);
     await expect(thread).not.toContainText('Priority: Normal');
-    // The header: status, number, then Mark as done, Copy and Thread options
-    for (const name of ['Mark as done', 'Copy', 'Thread options'])
+    // The header: the status menu, number, then Copy and Thread options (no separate Mark as done)
+    for (const name of ['Status: Open. Change status', 'Copy', 'Thread options'])
         await expect(thread.getByRole('button', { name, exact: true })).toBeVisible();
+    await expect(thread.getByRole('button', { name: /^(Mark as done|Reopen)$/ })).toHaveCount(0);
+
+    // The status menu: every status, as in the app, the current one pressed and focused
+    await thread.getByRole('button', { name: 'Status: Open. Change status', exact: true }).click();
+    const statusMenu = page.getByRole('dialog', { name: 'Status', exact: true });
+    await expect(statusMenu.getByRole('button')).toHaveText(['Open', 'In progress', 'Ready to verify', 'Done']);
+    await expect(statusMenu.getByRole('button', { name: 'Open', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(statusMenu.getByRole('button', { name: 'Open', exact: true })).toBeFocused();
+    await animationsFinished(statusMenu);
+    await expectNoAxeViolations(page);
+    await page.keyboard.press('Escape');
+    await expect(statusMenu).toBeHidden();
+    await expect(thread.getByRole('button', { name: 'Status: Open. Change status', exact: true })).toBeFocused();
 
     const options = await threadOptions(page, thread);
     for (const name of ['Unassigned. Change assignee', 'Priority: Normal. Change priority', 'Request verification', 'Unfollow thread', 'Mute project emails'])

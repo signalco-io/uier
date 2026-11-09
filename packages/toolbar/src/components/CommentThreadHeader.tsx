@@ -1,26 +1,30 @@
 'use client';
 
-import { feedbackStage, feedbackStageLabels, readyForReview, type FeedbackStage } from '../verification';
+import { feedbackStage, feedbackStageLabels, feedbackStages, type FeedbackStage } from '../verification';
 import { useContext, useEffect, useRef, useState, type RefObject } from 'react';
 import { Row } from '@signalco/ui-primitives/Row';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { cx } from '@signalco/ui-primitives/cx';
-import { Check, Undo } from '@signalco/ui-icons';
+import { Check, ExpandDown } from '@signalco/ui-icons';
+import { Popper } from '@signalco/ui-primitives/Popper';
+import { Button } from '@signalco/ui-primitives/Button';
 import { newLocalId, useComments, useReadComment, useUnreadComment } from '../hooks/useComments';
 import { commentPriority, priorityLabels, type CommentPriority as CommentPriorityValue } from '../triage';
 import { commentLink } from '../review';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
-import { CommentItem, destructiveTextClassName } from './@types/Comments';
+import { CommentItem, destructiveTextClassName, floatingShadowClassName } from './@types/Comments';
 import { CopyIssueResult, CopyMenu, useCopyIssue } from './CopyIssue';
 import { assignedText, CommentAssignee, CommentAssigneeOptions } from './CommentAssignment';
 import { CommentThreadMenu } from './CommentThreadMenu';
-import { IconTooltip, useIconTooltip } from './IconTooltip';
+import { IconTooltip } from './IconTooltip';
 import { useThreadNotificationActions } from './ThreadNotifications';
 import { useShortcutsEnabled } from '../shortcuts';
 import { assignShortcutEvent } from '../threadShortcuts';
+import { keepMovedFocus, toolbarSurface } from '../toolbarReview';
+import { moveFocusInMenu } from '../focusKeys';
 
 /** Each status's dot colour (BRAND.md, "Status"): Open ink, In progress sky, Ready to verify violet, Done green. The app's `StateDot`. */
 const stageDotColors: Record<FeedbackStage, string> = {
@@ -30,17 +34,104 @@ const stageDotColors: Record<FeedbackStage, string> = {
     done: 'bg-[hsl(var(--brand-success))]'
 };
 
+function StatusDot({ stage }: { stage: FeedbackStage }) {
+    return <span aria-hidden="true" data-status-dot={stage} className={cx('size-1.5 shrink-0 rounded-full', stageDotColors[stage])} />;
+}
+
 /** "Open", "In progress", "Ready to verify" or "Done", with the status dot in its colour. The app's `StateBadge`. */
 export function CommentStatusBadge({ stage }: { stage: FeedbackStage }) {
     return (
         <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium text-foreground">
-            <span
-                aria-hidden="true"
-                data-status-dot={stage}
-                className={cx('size-1.5 rounded-full', stageDotColors[stage])} />
+            <StatusDot stage={stage} />
             <span className="sr-only">Status: </span>
             {feedbackStageLabels[stage]}
         </span>
+    );
+}
+
+/**
+ * The status badge as a menu with every status, like the app's `StateMenu`: each is enabled when the
+ * person may move the thread there (`allowed`). Ready to verify opens the Request verification form
+ * (again while a check is pending); from Ready to verify, Done says Done without verification. S moves
+ * the focus to the badge (`data-uier-status`); Enter or Space opens it, the current status focused.
+ */
+function CommentStatusMenu({ stage, allowed, pending, shortcut, onChange }: {
+    stage: FeedbackStage;
+    allowed: Record<FeedbackStage, boolean>;
+    pending: boolean;
+    shortcut: boolean;
+    onChange: (stage: FeedbackStage) => void;
+}) {
+    const { rootElement } = useContext(CommentsBootstrapperContext);
+    const [open, setOpen] = useState(false);
+    const currentRef = useRef<HTMLButtonElement>(null);
+    // Ready to verify waits for the menu to close: its form then takes the focus
+    const requesting = useRef(false);
+    const label = feedbackStageLabels[stage];
+    const choose = (option: FeedbackStage) => {
+        setOpen(false);
+        if (option === 'ready') requesting.current = true;
+        else onChange(option);
+    };
+    // Radix props passed through the Popper to the popover content
+    const contentProps = {
+        onOpenAutoFocus: (event: Event) => {
+            event.preventDefault();
+            currentRef.current?.focus();
+        },
+        onCloseAutoFocus: (event: Event) => {
+            if (!requesting.current) {
+                keepMovedFocus(event);
+                return;
+            }
+            requesting.current = false;
+            event.preventDefault();
+            onChange('ready');
+        }
+    };
+    return (
+        <Popper
+            container={rootElement}
+            open={open}
+            onOpenChange={setOpen}
+            align="start"
+            aria-label="Status"
+            // Like a menu: ↑ and ↓ move between its statuses. Escape closes only the menu (React
+            // events bubble out of the portal to the thread, whose inbox would close too)
+            onKeyDown={event => { if (event.key === 'Escape') event.stopPropagation(); else moveFocusInMenu(event); }}
+            {...toolbarSurface('uier-thread-status-menu', cx('z-[70] w-52 max-w-[calc(100vw-1rem)] rounded-xl p-1', floatingShadowClassName))}
+            trigger={(
+                <Button
+                    variant="outlined"
+                    size="xs"
+                    className="h-6 shrink-0 gap-1.5 rounded-full px-2 text-xs font-medium"
+                    aria-label={`Status: ${label}. Change status`}
+                    aria-keyshortcuts={shortcut ? 'S' : undefined}
+                    data-uier-status="">
+                    <StatusDot stage={stage} />
+                    <span className="sr-only">Status: </span>
+                    {label}
+                    <ExpandDown aria-hidden="true" size={12} className="text-muted-foreground" />
+                </Button>
+            )}
+            {...contentProps}>
+            <Stack role="group" aria-label="Set status">
+                {feedbackStages.map(option => {
+                    const current = option === stage;
+                    // The current status only acts for Ready to verify: a new check
+                    const acts = allowed[option] && (!current || option === 'ready');
+                    return (
+                        <Button key={option} ref={current ? currentRef : undefined} variant="plain" size="sm" fullWidth className="justify-start"
+                            aria-pressed={current} disabled={pending || (!current && !allowed[option])}
+                            startDecorator={<StatusDot stage={option} />}
+                            endDecorator={current ? <Check size={14} className="ml-auto" /> : undefined}
+                            onClick={() => acts ? choose(option) : setOpen(false)}>
+                            {option === 'done' && stage === 'ready' ? 'Done without verification' : feedbackStageLabels[option]}
+                        </Button>
+                    );
+                })}
+            </Stack>
+        </Popper>
     );
 }
 
@@ -86,29 +177,29 @@ function PriorityBadge({ comment }: { comment: CommentItem }) {
 /**
  * The top of a thread (popover and inbox), on one line: its status, public id (`#12`), unread dot (it
  * marks the thread read), a priority other than Normal and the assignee's avatar, then the actions:
- * Mark as done / Reopen for those who can resolve, Copy (the issue or the link) and Thread options with
- * the triage and email controls each person may use (assign, priority, Mark as in progress or Mark as
- * open, Request verification, follow, mute, Mark as unread). The people to assign open under the line.
- * `onMarkedUnread`: the reviewer asked for the thread to stay unread (no automatic read while open).
+ * Copy (the issue or the link) and Thread options with the triage and email controls each person may
+ * use (assign, priority, Request verification, follow, mute, Mark as unread). The status is a menu
+ * (Open, In progress, Ready to verify, Done) for those who may change it, else a badge. The people to
+ * assign open under the line. `onMarkedUnread`: the reviewer asked for the thread to stay unread (no
+ * automatic read while open).
  */
 export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerification, optionsRef }: {
     comment: CommentItem;
     onMarkedUnread?: () => void;
-    /** Thread options' Request verification: the form opens in the thread */
+    /** Thread options' Request verification and the status menu's Ready to verify: the form opens in the thread */
     onRequestVerification?: () => void;
     /** Thread options' button, where focus returns from the forms it opens */
     optionsRef?: RefObject<HTMLButtonElement | null>;
 }) {
     const { review } = useContext(CommentsBootstrapperContext);
-    const { resolve, progress, prioritize } = useComments();
+    const { resolve, progress, prioritize, verification: verificationMutation } = useComments();
     const read = useReadComment();
     const unreadMutation = useUnreadComment();
     const announce = useAnnounce();
     const [uncopiedLink, setUncopiedLink] = useState<string>();
-    const done = comment.resolved;
     const stage = feedbackStage(comment);
-    const canResolve = comment.permissions?.resolve ?? comment.isMine;
-    const doneLabel = readyForReview(comment) ? 'Done without verification' : 'Mark as done';
+    // Only the author changes the status (the API enforces it too); in a project, every member can (the API's `permissions`)
+    const canResolve = !comment.pending && (comment.permissions?.resolve ?? comment.isMine);
     const unread = Boolean(comment.activity?.unread);
     // Only someone else's activity can be unread
     const canMarkUnread = !unread && !comment.pending && Boolean(comment.activity?.lastOtherSequence);
@@ -129,29 +220,48 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
     }, [canAssign]);
     const shortcuts = useShortcutsEnabled();
     const notifications = useThreadNotificationActions(comment);
-    const statusTooltip = useIconTooltip(done ? 'Reopen' : doneLabel);
     // A failed priority change keeps its identity until the intended value changes
     const priorityAttempt = useRef<{ priority: string; key: string } | null>(null);
+    // A failed canceled check keeps its identity until the intended status changes
+    const cancelAttempt = useRef<{ status: string; key: string } | null>(null);
     const verification = comment.verificationPermissions;
 
-    const handleStatus = async () => {
-        try {
-            await resolve.mutateAsync({ commentId: comment.id, resolved: !done });
-            announce(done ? 'Reopened' : 'Marked as done');
-        } catch {
-            // Shown below
-        }
+    // Where the person may move the thread, as the app's `allowedStatuses`: Open, In progress and Done
+    // with the resolve permission; from Ready to verify, Open and In progress cancel the check (the
+    // requester or an admin); Ready to verify with the request permission
+    const leave = stage === 'ready' ? Boolean(verification?.cancel) && !comment.pending : canResolve;
+    const allowed: Record<FeedbackStage, boolean> = {
+        open: stage !== 'open' && leave,
+        'in-progress': stage !== 'in-progress' && leave,
+        ready: Boolean(verification?.request && onRequestVerification) && !comment.pending,
+        done: stage !== 'done' && canResolve
     };
+    const canChangeStatus = feedbackStages.some(option => allowed[option]);
 
-    const handleProgress = async () => {
-        const status = stage === 'in-progress' ? 'open' : 'in-progress';
+    const handleStage = async (next: FeedbackStage) => {
+        if (next === 'ready') {
+            onRequestVerification?.();
+            return;
+        }
+        if (next === stage) return;
         try {
-            await progress.mutateAsync({ commentId: comment.id, status });
-            announce(status === 'open' ? 'Marked as open' : 'Marked as in progress');
+            if (stage === 'ready' && next !== 'done') {
+                if (cancelAttempt.current?.status !== next) cancelAttempt.current = { status: next, key: newLocalId() };
+                await verificationMutation.mutateAsync({ commentId: comment.id, input: {
+                    action: 'cancel', override: false, status: next,
+                    expectedRevision: comment.verification?.revision ?? null, idempotencyKey: cancelAttempt.current.key
+                } });
+                cancelAttempt.current = null;
+            } else if (next === 'done' || (stage === 'done' && next === 'open')) {
+                // Done and Reopen
+                await resolve.mutateAsync({ commentId: comment.id, resolved: next === 'done' });
+            } else {
+                await progress.mutateAsync({ commentId: comment.id, status: next });
+            }
+            announce(next === 'done' ? 'Marked as done' : stage === 'done' && next === 'open' ? 'Reopened' : `Marked as ${feedbackStageLabels[next].toLowerCase()}`);
         } catch {
             // Shown below
         }
-        optionsRef?.current?.focus();
     };
 
     const handleMarkUnread = async () => {
@@ -188,11 +298,15 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
     };
 
     return (
-        // S and A find the thread's status button and its people here (`threadShortcuts.ts`)
+        // S and A find the thread's status menu and its people here (`threadShortcuts.ts`)
         <Stack ref={headerRef} spacing={1} data-uier-thread-header="">
             <Row spacing={1} justifyContent="space-between" className="flex-nowrap">
                 <Row spacing={1} className="min-w-0 flex-wrap gap-y-1">
-                    <CommentStatusBadge stage={stage} />
+                    {canChangeStatus
+                        ? <CommentStatusMenu stage={stage} allowed={allowed} shortcut={shortcuts}
+                            pending={resolve.isPending || progress.isPending || verificationMutation.isPending}
+                            onChange={next => void handleStage(next)} />
+                        : <CommentStatusBadge stage={stage} />}
                     {/* The public id, numbered per site */}
                     {comment.number !== undefined && (
                         <span className="truncate font-mono text-xs tabular-nums text-muted-foreground">
@@ -203,50 +317,28 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
                     <PriorityBadge comment={comment} />
                     <CommentAssignee comment={comment} className={threadActionClassName} />
                 </Row>
-                <Row className="-mr-1.5 shrink-0">
-                    {/* Only the author changes the status (the API enforces it too); in a project,
-                        every member can (the API's `permissions`) */}
-                    {canResolve && <>
-                        <IconButton
-                            size="xs"
-                            variant="plain"
-                            className={threadActionClassName}
-                            aria-label={done ? 'Reopen' : doneLabel}
-                            // S moves the focus here; Enter or Space then changes the status
-                            aria-keyshortcuts={shortcuts ? 'S' : undefined}
-                            data-uier-status=""
-                            disabled={resolve.isPending}
-                            onClick={handleStatus}
-                            {...statusTooltip.triggerProps}>
-                            {done ? <Undo size={16} /> : <Check size={16} />}
-                        </IconButton>
-                        {statusTooltip.tooltip}
-                    </>}
-                    {/* A comment on its way has no link, issue or options yet */}
-                    {!comment.pending && <>
+                {/* A comment on its way has no link, issue or options yet */}
+                {!comment.pending && (
+                    <Row className="-mr-1.5 shrink-0">
                         <CopyMenu state={issue} className={threadActionClassName} linkAvailable={comment.source?.available !== false} onCopyLink={handleCopyLink} />
                         <CommentThreadMenu className={threadActionClassName} triggerRef={optionsRef} actions={{
                             assign: comment.permissions?.assign ? { label: assignedText(comment), onAssign: () => setAssigning('menu') } : undefined,
                             priority: comment.permissions?.priority ? { value: comment.priority, pending: prioritize.isPending, onChange: handlePriority } : undefined,
-                            // Open and In progress, for those who mark it done; Ready to verify has its own controls
-                            progress: canResolve && (stage === 'open' || stage === 'in-progress')
-                                ? { label: stage === 'open' ? 'Mark as in progress' : 'Mark as open', pending: progress.isPending, onChange: handleProgress }
-                                : undefined,
                             verify: verification?.request && onRequestVerification
-                                ? { label: comment.verification?.outcome === 'pending' && !done ? 'Request a new check' : 'Request verification', onRequest: onRequestVerification }
+                                ? { label: comment.verification?.outcome === 'pending' && !comment.resolved ? 'Request a new check' : 'Request verification', onRequest: onRequestVerification }
                                 : undefined,
                             follow: notifications.follow,
                             mute: notifications.mute,
                             markUnread: canMarkUnread ? { pending: unreadMutation.isPending, onMarkUnread: handleMarkUnread } : undefined
                         }} />
-                    </>}
-                </Row>
+                    </Row>
+                )}
             </Row>
             {assigning && comment.permissions?.assign && (
                 <CommentAssigneeOptions comment={comment} autoFocus={assigning === 'key'} onAssigned={() => { setAssigning(false); optionsRef?.current?.focus(); }} />
             )}
             <CopyIssueResult state={issue} />
-            <CommentsErrorMessage error={resolve.error ?? progress.error ?? read.error ?? unreadMutation.error ?? prioritize.error ?? notifications.error} />
+            <CommentsErrorMessage error={resolve.error ?? progress.error ?? verificationMutation.error ?? read.error ?? unreadMutation.error ?? prioritize.error ?? notifications.error} />
             {uncopiedLink && (
                 <label className="flex flex-col gap-1 text-sm">
                     <span className={destructiveTextClassName}>The link could not be copied. Copy it from here:</span>

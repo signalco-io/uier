@@ -62,7 +62,9 @@ type ReplyInput = { commentId: string; text: string; mentions?: Mention[] };
 const pendingComments = new Map<string, CommentItem>();
 const pendingReplies = new Map<string, CommentItemThreadItem[]>();
 const pendingReplyContexts = new Map<string, { revision: number; previousIds: Set<string> }>();
-const pendingResolutions = new Map<string, { token: string; resolved: boolean; revision: number }>();
+/** A status change on its way: Done, Reopen (`resolved` only), Open or In progress */
+type StatusPatch = { resolved: boolean; inProgress?: boolean };
+const pendingStatuses = new Map<string, StatusPatch & { token: string; revision: number }>();
 // The temporary id a saved comment had (see `commentKey`)
 const localKeys = new Map<string, string>();
 
@@ -83,8 +85,9 @@ const sameText = (item: CommentItemThreadItem | undefined, text: string) => Bool
 
 /** A saved comment with the replies to it that are still on their way */
 function applyPending(comment: CommentItem): CommentItem {
-    const resolution = pendingResolutions.get(comment.id);
-    if (resolution?.revision === currentReviewerRevision()) comment = { ...comment, resolved: resolution.resolved };
+    const status = pendingStatuses.get(comment.id);
+    if (status?.revision === currentReviewerRevision())
+        comment = { ...comment, resolved: status.resolved, ...(status.inProgress === undefined ? {} : { inProgress: status.inProgress }) };
     const replies = pendingReplies.get(comment.id)?.filter(reply => {
         const context = pendingReplyContexts.get(reply.id);
         return context?.revision === currentReviewerRevision() && !reply.deleted
@@ -377,40 +380,44 @@ export function useComments(refreshOnMount = false): {
         onSettled: handleSettled
     });
 
-    const resolve = useMutation({
-        mutationFn: (input: { commentId: string; resolved: boolean }) => authorizedList(client, () => resolveComment(input)),
-        onMutate: async (input) => {
+    // Done, Reopen, Open and In progress show at once (`pendingStatuses`) and go back on failure
+    type StatusContext = { token: string; previous?: StatusPatch; revision: number };
+    const statusMutation = <Input extends { commentId: string }>(save: (input: Input) => Promise<CommentItem>, patch: (input: Input) => StatusPatch) => ({
+        mutationFn: (input: Input) => authorizedList(client, () => save(input)),
+        onMutate: async (input: Input): Promise<StatusContext> => {
             const revision = currentReviewerRevision();
             const token = newLocalId();
-            const previous = client.getQueriesData<CommentItem[]>({ queryKey: commentsQueryKeyPrefix })
-                .flatMap(([, comments]) => comments ?? []).find(comment => comment.id === input.commentId)?.resolved;
-            pendingResolutions.set(input.commentId, { token, resolved: input.resolved, revision });
+            const current = client.getQueriesData<CommentItem[]>({ queryKey: commentsQueryKeyPrefix })
+                .flatMap(([, comments]) => comments ?? []).find(comment => comment.id === input.commentId);
+            const previous = current && { resolved: current.resolved, inProgress: Boolean(current.inProgress) };
+            pendingStatuses.set(input.commentId, { token, ...patch(input), revision });
             await client.cancelQueries({ queryKey: commentsQueryKeyPrefix });
             if (revision === currentReviewerRevision())
                 updateAllCachedComments(client, comments => comments.map(applyPending));
             return { token, previous, revision };
         },
-        onSuccess: (comment, _input, context) => {
+        onSuccess: (comment: CommentItem, _input: Input, context: StatusContext) => {
             if (context.revision === currentReviewerRevision()) handleCommentChanged(comment);
         },
-        onError: (_error, input, context) => {
-            if (context?.revision !== currentReviewerRevision() || pendingResolutions.get(input.commentId)?.token !== context.token) return;
-            if (context.previous !== undefined)
+        onError: (_error: Error, input: Input, context: StatusContext | undefined) => {
+            if (context?.revision !== currentReviewerRevision() || pendingStatuses.get(input.commentId)?.token !== context.token) return;
+            const previous = context.previous;
+            if (previous)
                 updateAllCachedComments(client, comments => comments.map(comment => comment.id === input.commentId
-                    ? { ...comment, resolved: context.previous! } : comment));
+                    ? { ...comment, ...previous } : comment));
         },
-        onSettled: (_comment, _error, input, context) => {
-            if (pendingResolutions.get(input.commentId)?.token === context?.token) pendingResolutions.delete(input.commentId);
+        onSettled: (_comment: CommentItem | undefined, _error: Error | null, input: Input, context: StatusContext | undefined) => {
+            if (pendingStatuses.get(input.commentId)?.token === context?.token) pendingStatuses.delete(input.commentId);
             handleSettled();
         }
     });
 
-    const progress = useMutation({
-        mutationFn: (input: { commentId: string; status: 'open' | 'in-progress' }) => authorizedList(client, () => setCommentProgress(input)),
-        onMutate: () => currentReviewerRevision(),
-        onSuccess: (comment, _input, revision) => { if (revision === currentReviewerRevision()) handleCommentChanged(comment); },
-        onSettled: handleSettled
-    });
+    // Done clears In progress; Reopen leaves it as it was (the API's `ordinaryVerificationStatus`)
+    const resolve = useMutation(statusMutation(resolveComment,
+        (input: { commentId: string; resolved: boolean }) => input.resolved ? { resolved: true, inProgress: false } : { resolved: false }));
+
+    const progress = useMutation(statusMutation(setCommentProgress,
+        (input: { commentId: string; status: 'open' | 'in-progress' }) => ({ resolved: false, inProgress: input.status === 'in-progress' })));
 
     const prioritize = useMutation({
         mutationFn: async ({ commentId, priority, idempotencyKey }: { commentId: string; priority: CommentPriority; idempotencyKey: string }) =>

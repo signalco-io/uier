@@ -272,7 +272,8 @@ test('the profile shows the guest name; signing out forgets it', async ({ browse
     await expect(signedOutOptions).toBeHidden();
     await commentBubble(page, 1).click();
     await expect(openThread(page).getByText(name, { exact: true })).toBeVisible();
-    await expect(openThread(page).getByRole('button', { name: 'Mark as done' })).toHaveCount(0);
+    await expect(openThread(page).getByRole('button', { name: /Change status$/ })).toHaveCount(0);
+    await expect(openThread(page)).toContainText('Status: Open');
 
     await context.close();
 });

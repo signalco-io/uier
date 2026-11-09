@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
 import { createProject, signIn, uniqueEmail, openComment } from './support/app';
-import { commentBubble, openThread, threadOptions } from './support/toolbar';
+import { commentBubble, openThread, setThreadStatus, threadOptions } from './support/toolbar';
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
 test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(baseURL!); });
@@ -70,7 +70,7 @@ test('with nobody else to check a fix, the request form says so and offers an in
 test('In progress set in the toolbar reads the same in the app, and back', async ({ page }) => {
     const { projectId, reviewUrl } = await memberComment(page);
     const thread = openThread(page);
-    await (await threadOptions(page, thread)).getByRole('button', { name: 'Mark as in progress', exact: true }).click();
+    await setThreadStatus(page, thread, 'In progress');
     await expect(thread.getByRole('group', { name: 'Messages' })).toContainText('Status: In progress');
     // The inbox has its own tab, between Open and Ready to verify
     await page.getByRole('button', { name: /^Inbox/ }).click();
@@ -88,5 +88,5 @@ test('In progress set in the toolbar reads the same in the app, and back', async
     await page.goto(reviewUrl);
     await commentBubble(page, 1, 1).click();
     await expect(openThread(page).getByRole('group', { name: 'Messages' })).toContainText('Status: Open');
-    await expect((await threadOptions(page, openThread(page))).getByRole('button', { name: 'Mark as in progress', exact: true })).toBeVisible();
+    await expect(openThread(page).getByRole('button', { name: 'Status: Open. Change status', exact: true })).toBeVisible();
 });

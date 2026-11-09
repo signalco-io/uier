@@ -132,6 +132,15 @@ export async function threadOptions(page: Page, thread: Locator) {
     return menu;
 }
 
+/** Opens a thread's status menu (its badge: "Status: Open. Change status") and chooses `status` ("Done", "In progress", "Done without verification" ...) */
+export async function setThreadStatus(page: Page, thread: Locator, status: string) {
+    await thread.getByRole('button', { name: /^Status: .+\. Change status$/ }).click();
+    const menu = page.getByRole('dialog', { name: 'Status', exact: true });
+    await expect(menu).toBeVisible();
+    await menu.getByRole('button', { name: status, exact: true }).click();
+    await expect(menu).toBeHidden();
+}
+
 /** Copy, in a thread's header: the issue (Markdown) or the link (opens the page at the thread) */
 export async function copyFromThread(page: Page, thread: Locator, what: 'Copy issue' | 'Copy link') {
     await thread.getByRole('button', { name: 'Copy', exact: true }).click();

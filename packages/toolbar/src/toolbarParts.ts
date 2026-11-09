@@ -17,6 +17,7 @@ export const toolbarParts = {
     'uier-panel-inbox': 'inbox',
     'uier-thread': 'comment thread',
     'uier-thread-menu': 'thread options',
+    'uier-thread-status-menu': 'thread status',
     'uier-message-menu': 'message options',
     'uier-copy-menu': 'copy menu',
     'uier-device': 'device details',

@@ -200,7 +200,7 @@ export function closeToolbarLayers(anchor: Element | null | undefined) {
  * A closing toolbar popover gives the focus back to its button, unless the focus has moved on in the
  * toolbar meanwhile: the text box of a new comment started on the page, which closed it.
  */
-function keepMovedFocus(event: Event) {
+export function keepMovedFocus(event: Event) {
     const active = reviewedRoot()?.activeElement;
     if (active && !(event.target instanceof Node && event.target.contains(active))) event.preventDefault();
 }

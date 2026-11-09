@@ -2,7 +2,7 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
 import { commentRowLink, commentRows, createProject, hydrated, openBoardMove, inBackground, openComment, openCommentFilters, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, toolbar } from './support/toolbar';
+import { animationsFinished, setThreadStatus, toolbar } from './support/toolbar';
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
 test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(new URL(baseURL!).origin); });
@@ -193,18 +193,27 @@ test('toolbar status changes appear during a delayed save and roll back on failu
     await toolbar(page).getByRole('button', { name: /^Inbox/ }).click();
     const inbox = page.getByRole('complementary', { name: 'Comments', exact: true });
     await expect(inbox.getByRole('article')).toHaveCount(1);
-    const pending = gate();
+    // Each save waits for its gate, then fails
+    let pending = gate();
     await page.route(`**/api/review/${project}/comments/${comment.id}`, async route => {
         if (route.request().method() !== 'PATCH') return route.continue();
         await pending.wait;
         await route.fulfill({ status: 503, json: { error: 'unavailable', message: 'Try again.' } });
     });
     try {
-        await inbox.getByRole('button', { name: 'Mark as done', exact: true }).click();
+        await setThreadStatus(page, inbox.getByRole('article'), 'Done');
         await expect(inbox.getByRole('article')).toHaveCount(0);
         pending.release();
         await expect(inbox.getByRole('article')).toHaveCount(1);
-        await expect(inbox.getByRole('button', { name: 'Mark as done', exact: true })).toBeEnabled();
+        const open = inbox.getByRole('button', { name: 'Status: Open. Change status', exact: true });
+        await expect(open).toBeEnabled();
+
+        // In progress from the status menu: also at once, and back on failure
+        pending = gate();
+        await setThreadStatus(page, inbox.getByRole('article'), 'In progress');
+        await expect(open).toHaveCount(0);
+        pending.release();
+        await expect(open).toBeEnabled();
     } finally { pending.release(); }
 });
 
