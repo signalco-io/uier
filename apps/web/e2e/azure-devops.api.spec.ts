@@ -60,8 +60,8 @@ async function change(f: Fixture, patch: Partial<DbComment>) {
     const next = { ...stored.comment, ...patch, syncVersion: stored.comment.syncVersion! + 1, syncPending: true };
     expect(await f.comments.replace(next, stored.etag)).toBe('ok'); return next;
 }
-async function authorize(f: Fixture, ado: AzureDevOpsStub, options: { userId?: string; profileOnly?: boolean } = {}) {
-    const start = new URL(await beginAzureDevOpsConnect({ userId: f.owner.id, workspaceId: f.project.workspaceId, projectId: f.project.id, baseUrl }));
+async function authorize(f: Fixture, ado: AzureDevOpsStub, options: { userId?: string; profileOnly?: boolean; requestPullRequests?: boolean } = {}) {
+    const start = new URL(await beginAzureDevOpsConnect({ userId: f.owner.id, workspaceId: f.project.workspaceId, projectId: f.project.id, baseUrl, requestPullRequests: options.requestPullRequests }));
     const code = ado.code(start.searchParams.get('code_challenge')!, options);
     return { start, result: await finishAzureDevOpsConnect({ userId: f.owner.id, state: start.searchParams.get('state'), code, baseUrl }) };
 }
@@ -93,6 +93,22 @@ test('PR state reads use the connected organization/project, never widen older g
     await change(f, { thread: { items: [{ ...f.source.thread.items[0]!, text:
         `Fixed in https://dev.azure.com/${ado.organization}/${encodeURIComponent(ado.projectName)}/_git/site/pullrequest/17 https://dev.azure.com/other-org/Website/_git/site/pullrequest/18` }] } });
     const load = () => loadThreadPullRequests(f.project.workspaceId, f.project.id, f.owner.id, f.source.id);
+    // A new work-item connection needs no code consent and makes no PR API request.
+    expect((await load()).map(value => value.state)).toEqual([undefined, undefined]);
+    expect(ado.calls.filter(call => call.operation === 'pull_request')).toHaveLength(0);
+    expect((await getAzureDevOpsSettings(f.project, f.owner.id)).pullRequestAccess).toBe(false);
+    const before = await currentAzureDevOpsGrant(connection);
+    const denied = new URL(await beginAzureDevOpsConnect({ userId: f.owner.id, workspaceId: f.project.workspaceId,
+        projectId: f.project.id, baseUrl, requestPullRequests: true }));
+    expect((await finishAzureDevOpsConnect({ userId: f.owner.id, state: denied.searchParams.get('state'), error: 'access_denied', baseUrl })).status).toBe('denied');
+    expect(await currentAzureDevOpsGrant(connection)).toEqual(before);
+    expect((await azureDevOpsConnection(await freshProject(f)))!.enabled).toBe(true);
+    expect((await load())[0]?.state).toBeUndefined();
+    const reconnect = await authorize(f, ado, { requestPullRequests: true });
+    expect(reconnect.start.searchParams.get('scope')).toContain('/vso.code');
+    expect(reconnect.result.status).toBe('connected');
+    expect((await azureDevOpsConnection(await freshProject(f)))!.id).toBe(connection.id);
+    expect((await getAzureDevOpsSettings(f.project, f.owner.id)).pullRequestAccess).toBe(true);
     expect((await load()).map(value => value.state)).toEqual(['merged', undefined]);
     expect(ado.calls.filter(call => call.operation === 'pull_request')).toHaveLength(1);
     await updateDoc<AzureDevOpsGrant>(connection.pk, connection.grantId, grant => ({ ...grant,
@@ -128,7 +144,7 @@ test('Entra sign-in uses PKCE and delegated work item scopes, binds nothing befo
     const { start, result } = await authorize(f, ado);
     expect(result.status).toBe('connected');
     expect(start.searchParams.get('code_challenge_method')).toBe('S256');
-    expect(start.searchParams.get('scope')).toBe('499b84ac-1321-427f-aa17-267ca6975798/vso.work_write 499b84ac-1321-427f-aa17-267ca6975798/vso.profile 499b84ac-1321-427f-aa17-267ca6975798/vso.code offline_access');
+    expect(start.searchParams.get('scope')).toBe('499b84ac-1321-427f-aa17-267ca6975798/vso.work_write 499b84ac-1321-427f-aa17-267ca6975798/vso.profile offline_access');
     expect(start.searchParams.get('state')).not.toContain(f.owner.id);
     expect((await freshProject(f)).integrations?.['azure-devops']).toBeUndefined();
     await expect(finishAzureDevOpsConnect({ userId: f.owner.id, state: start.searchParams.get('state'), code: 'replayed', baseUrl })).rejects.toThrow();

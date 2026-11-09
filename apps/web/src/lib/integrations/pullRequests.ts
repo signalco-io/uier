@@ -15,7 +15,7 @@ import { githubAppPk, type GitHubUserAccess } from './github/webhook';
 import { azureDevOpsAccessToken, currentAzureDevOpsGrant } from './azure-devops/connection';
 import { azureDevOpsUrl } from './azure-devops/client';
 import type { AzureDevOpsConnection } from './azure-devops/model';
-import { isAzureDevOpsConfigured } from './azure-devops/config';
+import { hasAzureDevOpsCodeRead, isAzureDevOpsConfigured } from './azure-devops/config';
 
 const object = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 const signal = () => AbortSignal.timeout(5000);
@@ -130,7 +130,7 @@ async function privateReader(project: DbProject, ref: PullRequestLink, sourceAut
         || azure.config.organization.toLowerCase() !== ref.organization?.toLowerCase()
         || ![azure.config.projectId, azure.config.projectName].some(value => typeof value === 'string' && value.toLowerCase() === ref.project?.toLowerCase())) return;
     const grant = await currentAzureDevOpsGrant(azure);
-    if (grant.status !== 'connected' || !grant.scopes.some(scope => /(?:^|\/)vso\.code(?:_write|_manage)?$/.test(scope))) return;
+    if (grant.status !== 'connected' || !hasAzureDevOpsCodeRead(grant.scopes)) return;
     const authorize = async () => await sourceAuthority() && await connectionAuthority(project, azure)
         && (await currentAzureDevOpsGrant(azure)).status === 'connected';
     return { scope: `${project.workspaceId}:${project.id}:${azure.id}:${azure.destinationRevision}:${azure.updatedAt}:${grant.generation}`,

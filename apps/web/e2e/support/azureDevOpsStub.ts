@@ -70,7 +70,7 @@ export async function startAzureDevOpsStub(port = 0) {
                 if (!['localhost', '127.0.0.1', '[::1]'].includes(redirect.hostname) || redirect.pathname !== '/app/azure-devops/callback'
                     || target.searchParams.get('client_id') !== 'ado-test-client' || target.searchParams.get('response_type') !== 'code'
                     || target.searchParams.get('code_challenge_method') !== 'S256' || !/^[A-Za-z0-9_-]{43}$/.test(challenge) || !state
-                    || target.searchParams.get('scope') !== `${RESOURCE}/vso.work_write ${RESOURCE}/vso.profile ${RESOURCE}/vso.code offline_access`)
+                    || ![`${RESOURCE}/vso.work_write ${RESOURCE}/vso.profile ${RESOURCE}/vso.code offline_access`, `${RESOURCE}/vso.work_write ${RESOURCE}/vso.profile offline_access`].includes(target.searchParams.get('scope') ?? ''))
                     return send(response, { error: 'invalid_request' }, 400);
                 const flow = randomUUID(); authorizations.set(flow, { redirect: redirect.href, state, challenge });
                 response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -98,7 +98,7 @@ export async function startAzureDevOpsStub(port = 0) {
                     if (!flow || createHash('sha256').update(params.get('code_verifier') ?? '').digest('base64url') !== flow.challenge)
                         return send(response, { error: 'invalid_grant' }, 400);
                     const pair = tokenPair(flow.userId);
-                    return send(response, flow.scope === 'full' ? pair : { ...pair, scope: `${RESOURCE}/vso.profile` });
+                    return send(response, { ...pair, scope: flow.scope === 'full' ? params.get('scope')!.replace(' offline_access', '') : `${RESOURCE}/vso.profile` });
                 }
                 if (params.get('grant_type') === 'refresh_token') {
                     refreshCalls++;

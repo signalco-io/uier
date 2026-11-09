@@ -153,11 +153,10 @@ Azure DevOps OAuth apps no longer accept registrations, so uier uses Microsoft E
 1. In the Microsoft Entra admin center, register a multitenant web application for
    **Accounts in any organizational directory**. Personal Microsoft accounts are not supported for
    the Azure DevOps resource. Add the exact redirect URI `https://uier.io/app/azure-devops/callback`.
-2. Under API permissions, add the delegated **Azure DevOps** permissions `vso.work_write`,
-   `vso.profile` and `vso.code` (read linked pull request state). The implemented request also asks for
-   `offline_access`. Do not add `user_impersonation`, `vso.work_full`, code write, build or administration
-   scopes. Existing work-item-only connections keep their original scopes when refreshed; reconnect to
-   consent to code read. Until then, linked PRs stay plain links and work-item synchronization continues.
+2. Under API permissions, add the delegated **Azure DevOps** permissions `vso.work_write` and
+   `vso.profile`. The implemented request also asks for `offline_access`. Do not add
+   `user_impersonation`, `vso.work_full` or any code, build or administration scope.
+   Optional PR state: register delegated `vso.code` only for the explicit **Show pull request state** reconnect in integration settings; ordinary connections never request it and keep PRs as plain links.
 3. Create a client secret, record it with the application (client) id and note its expiry: an expired
    secret stops every refresh until the map is updated. Set `AZURE_DEVOPS_TENANT` only to restrict
    sign-in to one tenant id.

@@ -20,8 +20,10 @@ an active installation with repository access and unrevoked user authorization. 
 token requests only Metadata read and Pull requests read; issue writer tokens retain their existing
 permissions. GitHub installations without the optional permission fall back to public reads or a plain link.
 Azure DevOps reads require the bound organization and project, the current connecting admin and a connected
-grant with `vso.code` (or its stronger code scopes). New connections request code read; older grants keep
-their original scopes on refresh and can reconnect to consent to it. Missing scope is a plain link.
+grant with `vso.code` (or its stronger code scopes). Ordinary connections request only work-item/profile access and offline access.
+The explicit **Show pull request state** reconnect in integration settings requests optional code read;
+its scope choice is bound to the OAuth state and token exchange. Grants keep their original scopes on
+refresh. Missing or denied code consent leaves PRs as plain links and work-item sync available.
 Cached private state is checked against current connection/installation authority before returning it.
 Preview deployments cannot use these provider credentials.
 

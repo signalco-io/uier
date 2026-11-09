@@ -20,6 +20,7 @@ test('Azure DevOps sign-in, destination choices, sync controls, backfill and dis
     expect(new URL(prefetch.headers().location!).pathname).toBe(settingsUrl);
     await connect.click();
     await expect(page.getByRole('heading', { name: 'Sign in to the Azure DevOps test organization' })).toBeVisible();
+    expect(new URL(page.url()).searchParams.get('scope')).not.toContain('/vso.code');
     await page.getByRole('button', { name: 'Cancel Azure DevOps access' }).click();
     await expect(page).toHaveURL(new RegExp(`${settingsUrl}\\?azure-devops=denied$`));
     await expect(section).toContainText('The Azure DevOps connection was canceled.');
@@ -54,6 +55,21 @@ test('Azure DevOps sign-in, destination choices, sync controls, backfill and dis
     await section.getByRole('button', { name: 'Save Azure DevOps destination', exact: true }).click();
     await expect(section).toContainText('Sync on');
     await page.reload();
+    await expect(section).toContainText('Destination: uier-test / Website, Bug work items in Website\\Marketing. Open feedback is New, done feedback is Resolved.');
+    // Optional code consent is separate from the normal work-item connection.
+    const showState = section.getByRole('link', { name: 'Show pull request state', exact: true });
+    await expect(showState).toHaveAttribute('href', `/app/azure-devops/connect?project=${projectId}&pullRequests=1`);
+    await showState.click();
+    expect(new URL(page.url()).searchParams.get('scope')).toContain('/vso.code');
+    await expect(page.getByRole('heading', { name: 'Sign in to the Azure DevOps test organization' })).toBeVisible();
+    await page.getByRole('button', { name: 'Cancel Azure DevOps access' }).click();
+    await expect(section).toContainText('Sync on');
+    await expect(showState).toBeVisible();
+    await showState.click();
+    await page.getByRole('button', { name: 'Accept Azure DevOps access' }).click();
+    await expect(showState).toHaveCount(0);
+    await section.getByRole('button', { name: 'Turn sync on', exact: true }).click();
+    await expect(section).toContainText('Sync on');
     await expect(section).toContainText('Destination: uier-test / Website, Bug work items in Website\\Marketing. Open feedback is New, done feedback is Resolved.');
     const document = await page.content();
     expect(document).not.toMatch(/ado-test-(?:access|refresh|secret)|"(?:grantId|accessToken|refreshToken|userId)":/);

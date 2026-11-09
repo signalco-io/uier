@@ -1,7 +1,7 @@
 import type { DbProject } from '../../app/model';
 import { getAppStore } from '../../app/store';
 import type { IntegrationSync } from '../model';
-import { isAzureDevOpsConfigured } from './config';
+import { hasAzureDevOpsCodeRead, isAzureDevOpsConfigured } from './config';
 import { azureDevOpsConnection, requireAzureDevOpsAdmin } from './connection';
 import type { AzureDevOpsGrant } from './model';
 
@@ -16,6 +16,7 @@ export async function getAzureDevOpsSettings(project: DbProject, userId: string)
     const config = connection?.config;
     return { configured: isAzureDevOpsConfigured(), connected: Boolean(connection && grant && connection.statusCode !== 'disconnected'),
         status: connection?.status ?? 'not_connected', statusCode: connection?.statusCode, enabled: connection?.enabled ?? false,
+        pullRequestAccess: grant?.status === 'connected' && hasAzureDevOpsCodeRead(grant.scopes),
         accountName: grant?.status === 'connected' ? grant.userName : undefined,
         organization: config?.organization, azureProjectId: config?.projectId, azureProjectName: config?.projectName,
         workItemType: config?.workItemType, openState: config?.openState, doneState: config?.doneState, areaPath: config?.areaPath,
