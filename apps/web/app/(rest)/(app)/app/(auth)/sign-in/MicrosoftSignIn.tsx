@@ -23,11 +23,14 @@ export function MicrosoftSignInProblem({ outcome }: { outcome?: string | string[
     return <Alert role="alert" className="mb-3"><CircleAlertIcon /><AlertDescription>{problem}</AlertDescription></Alert>;
 }
 
-export function MicrosoftSignInButton({ next, lastUsed }: { next?: string; lastUsed?: boolean }) {
+export function MicrosoftSignInButton({ next, lastUsed, addingAccount = false }: { next?: string; lastUsed?: boolean; addingAccount?: boolean }) {
     if (!isMicrosoftSignInConfigured()) return null;
+    const params = new URLSearchParams();
+    if (next) params.set('next', next);
+    if (addingAccount) params.set('add', '1');
     return (
         // Full navigation: this route starts a sign-in and must never be prefetched.
-        <a href={`${KnownPages.AppSignInMicrosoft}${next ? `?next=${encodeURIComponent(next)}` : ''}`}
+        <a href={`${KnownPages.AppSignInMicrosoft}${params.size ? `?${params}` : ''}`}
             aria-label="Sign in with Microsoft" aria-describedby={lastUsed ? LAST_USED_ID : undefined} data-slot="button" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'relative w-full')}>
             <MicrosoftLogo data-icon="inline-start" />
             Microsoft

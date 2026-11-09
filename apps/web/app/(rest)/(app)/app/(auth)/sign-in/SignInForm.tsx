@@ -18,8 +18,9 @@ import { PasskeySignIn } from './PasskeySignIn';
 import { LAST_USED_ID, LastUsedBadge } from './LastUsedBadge';
 
 /** The sign-in page, keeping `next`; `email` opens the email form straight away (`?with=email`) */
-function signInHref(next: string | undefined, email: boolean) {
+function signInHref(next: string | undefined, email: boolean, addingAccount = false) {
     const params = new URLSearchParams();
+    if (addingAccount) params.set('add', '1');
     if (next) params.set('next', next);
     if (email) params.set('with', 'email');
     const query = params.toString();
@@ -30,7 +31,7 @@ function signInHref(next: string | undefined, email: boolean) {
  * The code field of a sent sign-in email. On its own (Google and Microsoft linking) it starts with the
  * "Check your email" status; the sign-in page's {@link SignInCodeStep} says that in the card's header.
  */
-export function SignInCodeForm({ sent, next, announce = true }: { sent: SignInLinkSent; next?: string; announce?: boolean }) {
+export function SignInCodeForm({ sent, next, announce = true, addingAccount = false }: { sent: SignInLinkSent; next?: string; announce?: boolean; addingAccount?: boolean }) {
     const id = useId();
     const [state, formAction, pending] = useActionState(confirmSignInCodeAction, null);
     const [code, setCode] = useState('');
@@ -74,7 +75,7 @@ export function SignInCodeForm({ sent, next, announce = true }: { sent: SignInLi
                         Sign in
                     </Button>
                     {/* A fresh navigation resets the email form, even on the same route. */}
-                    <a href={signInHref(next, true)} className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'w-full')}>Ask for a new email</a>
+                    <a href={signInHref(next, true, addingAccount)} className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'w-full')}>Ask for a new email</a>
                 </FieldGroup>
             </form>
         </div>
@@ -90,10 +91,10 @@ function SentTo({ sent }: { sent: SignInLinkSent }) {
 }
 
 /** The sign-in card once the email is sent: its own header, then the code field (focused) */
-function SignInCodeStep({ sent, next }: { sent: SignInLinkSent; next?: string }) {
+function SignInCodeStep({ sent, next, addingAccount }: { sent: SignInLinkSent; next?: string; addingAccount?: boolean }) {
     return (
         <AuthCard title="Check your email" description={<span role="status"><SentTo sent={sent} /></span>}>
-            <SignInCodeForm sent={sent} next={next} announce={false} />
+            <SignInCodeForm addingAccount={addingAccount} sent={sent} next={next} announce={false} />
         </AuthCard>
     );
 }
@@ -105,8 +106,8 @@ function SignInCodeStep({ sent, next }: { sent: SignInLinkSent; next?: string })
  * this browser signed in with last; `problems` (a provider's failed sign-in) go above the options. Once
  * the email is sent, the card becomes the code step, with its own header.
  */
-export function SignInForm({ next, alternatives, problems, withEmail = false, lastUsed }: {
-    next?: string; alternatives?: ReactNode; problems?: ReactNode; withEmail?: boolean; lastUsed?: SignInMethod;
+export function SignInForm({ next, alternatives, problems, withEmail = false, lastUsed, addingAccount = false }: {
+    next?: string; alternatives?: ReactNode; problems?: ReactNode; withEmail?: boolean; lastUsed?: SignInMethod; addingAccount?: boolean;
 }) {
     const id = useId();
     const [state, formAction, pending] = useActionState(requestSignInAction, null);
@@ -115,11 +116,11 @@ export function SignInForm({ next, alternatives, problems, withEmail = false, la
     const [email, setEmail] = useState('');
 
     if (state?.ok) {
-        return <SignInCodeStep key={state.data.requestId} sent={state.data} next={next} />;
+        return <SignInCodeStep key={state.data.requestId} sent={state.data} next={next} addingAccount={addingAccount} />;
     }
 
     return (
-        <AuthCard title="Sign in" description={<>Choose how to sign in.<br />New here? Signing in creates your account.</>}>
+        <AuthCard title={addingAccount ? "Add account" : "Sign in"} description={addingAccount ? "Sign in to another account. Your other accounts stay signed in." : <>Choose how to sign in.<br />New here? Signing in creates your account.</>}>
             {problems}
             <div className="flex flex-col gap-3">
                 <PasskeySignIn next={next} autofill={emailOpen} lastUsed={lastUsed === 'passkey'} />
@@ -156,7 +157,7 @@ export function SignInForm({ next, alternatives, problems, withEmail = false, la
                     </>
                 ) : (
                     // A link, so it opens the form before hydration too (a full navigation to ?with=email)
-                    <a href={signInHref(next, true)} onClick={(event) => { event.preventDefault(); setEmailOpen(true); }}
+                    <a href={signInHref(next, true, addingAccount)} onClick={(event) => { event.preventDefault(); setEmailOpen(true); }}
                         aria-label="Sign in with email" aria-describedby={lastUsed === 'email' ? LAST_USED_ID : undefined} data-slot="button" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'relative w-full')}>
                         <MailIcon data-icon="inline-start" />
                         Email

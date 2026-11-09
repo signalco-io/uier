@@ -23,7 +23,8 @@ export async function acceptInvitationAction(_: ActionState, formData: FormData)
 
     const { user, invitation } = result.data;
     // The invitation link came from the invited inbox, which is the account's email: a proof like an email sign-in
-    await startSession(user.id, 'email', user.email);
+    const session = await actionResult(() => startSession(user.id, 'email', user.email));
+    if (!session?.ok) return session;
     (await cookies()).set(WORKSPACE_COOKIE_NAME, invitation.workspaceId, {
         httpOnly: true,
         sameSite: 'lax',

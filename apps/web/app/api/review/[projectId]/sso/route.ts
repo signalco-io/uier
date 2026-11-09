@@ -2,7 +2,7 @@ import { cookieNames, readMigratingCookie } from '@/src/lib/cookieNames';
 import { cookies } from 'next/headers';
 import { z } from 'zod';
 import { appBaseUrl } from '@/src/lib/app/request';
-import { readReviewSsoSession } from '@/src/lib/app/reviewSsoCookie';
+import { isReviewSignedOut, readReviewSsoSession } from '@/src/lib/app/reviewSsoCookie';
 import { findReviewProject, projectOrigins } from '@/src/lib/app/projects';
 import { apiErrors, errorResponse, parseJsonBody } from '@/src/lib/comments/http';
 import { memberActor, REVIEW_TOKEN_TTL_SECONDS } from '@/src/lib/review/actor';
@@ -22,14 +22,15 @@ export async function POST(request: Request, { params }: RouteContext<'/api/revi
         const project = await findReviewProject(projectId);
         if (!project || project.access === 'disabled' || !projectOrigins(project).includes(input.origin))
             throw apiErrors.forbidden();
-        const session = readReviewSsoSession(readMigratingCookie(await cookies(), cookieNames.reviewSso, true));
+        const credential = readMigratingCookie(await cookies(), cookieNames.reviewSso, true);
+        const session = readReviewSsoSession(credential);
         const actor = session ? await memberActor(project, session.uid) : null;
         if (!session || !actor) {
-            response = new Response(null, { status: 204 });
+            response = new Response(null, { status: 204, headers: session || isReviewSignedOut(credential) ? { 'X-Uier-Active-Account': '1' } : undefined });
         } else {
             // Never extend the login that authorized this background handoff.
             const ttl = Math.min(REVIEW_TOKEN_TTL_SECONDS, session.exp - Math.floor(Date.now() / 1000));
-            response = Response.json({ token: signToken('review', { uid: session.uid, pid: project.id }, ttl) });
+            response = Response.json({ token: signToken('review', { uid: session.uid, pid: project.id }, ttl) }, { headers: { 'X-Uier-Active-Account': '1' } });
         }
     } catch (error) {
         response = errorResponse(error);

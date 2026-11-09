@@ -9,6 +9,7 @@ export type MountToolbar = (mode: ToolbarMode, review: ReviewSession | null, req
 type RuntimeContext = {
     config?: ToolbarConfig;
     projectSession?: { memory: Map<string, string>; initialReviewCode: string | null | undefined };
+    signIn?: Promise<boolean>;
     installationCheck?: {
         nonce?: string;
         latest: { stage: 'loaded' | 'api' | 'ready' | 'failed'; code?: string };

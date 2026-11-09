@@ -1,15 +1,13 @@
 import { runtimeAdapters } from '../adapters';
 import { toolbarConfig } from '../config';
+import { runtimeContext } from '../runtimeContext';
 import { backgroundSignInDisabled, getReviewToken, setReviewToken } from './projectSession';
 
-let attempted: Promise<boolean> | undefined;
-
-/** One bounded, silent attempt per page. Source, origin and request id all belong to this frame. */
+/** Bounded silent checks, deduplicated per page and on foreground identity refreshes. */
 export function backgroundSignIn(): Promise<boolean> {
     if (runtimeAdapters()) return Promise.resolve(false);
     if (!toolbarConfig.project || backgroundSignInDisabled()) return Promise.resolve(false);
-    if (getReviewToken()) return Promise.resolve(true);
-    return attempted ??= new Promise<boolean>(resolve => {
+    return runtimeContext.signIn ??= new Promise<boolean>(resolve => {
         const origin = new URL(toolbarConfig.apiUrl).origin;
         const id = crypto.randomUUID();
         const frame = document.createElement('iframe');
@@ -17,14 +15,14 @@ export function backgroundSignIn(): Promise<boolean> {
         frame.title = 'uier background sign-in';
         frame.hidden = true;
         let finished = false;
-        const finish = (token?: string) => {
+        const finish = (token?: string, activeAccount = false) => {
             if (finished) return;
             finished = true;
             clearTimeout(timeout);
             window.removeEventListener('message', receive);
             frame.remove();
-            if (token && !backgroundSignInDisabled()) setReviewToken(token);
-            resolve(Boolean(token && !backgroundSignInDisabled()));
+            if ((token || activeAccount) && !backgroundSignInDisabled()) setReviewToken(token);
+            resolve(Boolean(getReviewToken() && !backgroundSignInDisabled()));
         };
         const receive = (event: MessageEvent) => {
             if (event.origin !== origin || event.source !== frame.contentWindow) return;
@@ -32,7 +30,7 @@ export function backgroundSignIn(): Promise<boolean> {
                 frame.contentWindow?.postMessage({ type: 'uier:session', id, project: toolbarConfig.project }, origin);
             } else if (event.data?.type === 'uier:session-result' && event.data.id === id) {
                 const token = event.data.token;
-                finish(typeof token === 'string' && token.length <= 2048 && /^[A-Za-z0-9_-]+\.[a-f0-9]{64}$/.test(token) ? token : undefined);
+                finish(typeof token === 'string' && token.length <= 2048 && /^[A-Za-z0-9_-]+\.[a-f0-9]{64}$/.test(token) ? token : undefined, event.data.account === true);
             }
         };
         const timeout = window.setTimeout(() => finish(), 3000);
@@ -40,4 +38,11 @@ export function backgroundSignIn(): Promise<boolean> {
         window.addEventListener('message', receive);
         document.body.appendChild(frame);
     }).catch(() => false);
+}
+
+/** Only the loaded review UI needs foreground refreshes; keep this helper out of the bootstrap. */
+export async function refreshBackgroundSignIn() {
+    await runtimeContext.signIn;
+    runtimeContext.signIn = undefined;
+    return backgroundSignIn();
 }

@@ -57,7 +57,10 @@ export async function confirmSignInCodeAction(_: ActionState, formData: FormData
         return { ok: false, error: SIGN_IN_CODE_ERROR };
 
     // The code came from the account's inbox: this sign-in proves its email, also when it links a provider
-    const proof = await startSession(result.data.user.id, result.data.method, result.data.user.email);
+    const confirmed = result.data;
+    const session = await actionResult(() => startSession(confirmed.user.id, confirmed.method, confirmed.user.email));
+    if (!session?.ok) return session;
+    const proof = session.data;
     redirect(await signInDestination(result.data.user, afterSignIn(result.data), proof));
 }
 
@@ -78,6 +81,9 @@ export async function confirmSignInAction(_: ActionState, formData: FormData): P
         return { ok: false, error: 'This link has expired or was already used. Ask for a new one.' };
 
     // The link came from the account's inbox: this sign-in proves its email
-    const proof = await startSession(result.data.user.id, result.data.method, result.data.user.email);
+    const confirmed = result.data;
+    const session = await actionResult(() => startSession(confirmed.user.id, confirmed.method, confirmed.user.email));
+    if (!session?.ok) return session;
+    const proof = session.data;
     redirect(await signInDestination(result.data.user, afterSignIn(result.data), proof));
 }

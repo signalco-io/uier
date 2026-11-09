@@ -4,6 +4,8 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/src/components/
 import { requireAppContext } from '@/src/lib/app/context';
 import { listVisibleProjects } from '@/src/lib/app/projects';
 import { loadSidebarProjects } from '@/src/lib/app/sidebarProjects';
+import { getBrowserAccounts } from '@/src/lib/app/session';
+import { AccountSessionBoundary } from '@/src/components/app/shell/AccountSessionBoundary';
 import { getProjectOrder } from '@/src/lib/app/projectOrderCookie';
 import { AppSidebar } from '@/src/components/app/shell/AppSidebar';
 import { avatarUrl } from '@/src/lib/app/avatars';
@@ -19,19 +21,22 @@ export default async function AppShellLayout({ children }: PropsWithChildren) {
     const projectOrder = await getProjectOrder();
     const visibleProjects = listVisibleProjects(context);
     // The sidebar's reads start once the projects are listed, alongside the access snapshot
-    const [projects, access, sidebarProjects] = await Promise.all([
+    const [projects, access, sidebarProjects, accounts] = await Promise.all([
         visibleProjects,
         context.isAdmin ? loadWorkspaceAccessForRender(context.workspace.id) : undefined,
-        visibleProjects.then(listed => loadSidebarProjects(context, listed, projectOrder))
+        visibleProjects.then(listed => loadSidebarProjects(context, listed, projectOrder)),
+        getBrowserAccounts()
     ]);
     const teams = access?.teams.map(({ id, name }) => ({ id, name })) ?? [];
 
     return (
         <SidebarProvider>
+            <AccountSessionBoundary userId={context.user.id} />
             {/* The keyboard shortcuts of every page, and `?` to list them */}
             <AppShortcuts>
             <InviteProvider teams={teams} enabled={context.isAdmin && context.workspace.id !== PUBLIC_WORKSPACE_ID} projects={projects.map(({ id, name, status }) => ({ id, name, status }))}>
                 <AppSidebar
+                    accounts={accounts}
                     isAdmin={context.isAdmin && context.workspace.id !== PUBLIC_WORKSPACE_ID}
                     user={{ name: context.user.name, email: context.user.email, avatarUrl: avatarUrl(context.user) }}
                     currentWorkspaceId={context.workspace.id}

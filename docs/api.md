@@ -143,6 +143,16 @@ member; concurrent removals recheck the admin count. A removed membership is nev
 Sign-in return paths are rebuilt with `new URL()` against a fixed origin, restricted to `/app`
 and its descendants, and reject dot segments (including encoded forms), backslashes and controls.
 
+Browser account selection uses `POST /api/account/sessions`: a strict JSON body of
+`{ action: "switch", userId, next? }`, `{ action: "sign-out" }` or `{ action: "sign-out-all" }`.
+It requires the app's own Origin and same-origin Fetch Metadata when present. A selection requires
+that account's live, signed HttpOnly credential already in the browser; an id or the active account's
+credential cannot authorize a different account. It returns `{ next }` for a full document navigation,
+with no credentials in JSON. `GET` returns only `{ userId: string | null }` for the active session,
+rejects cross-site browser requests and never falls back to parked accounts. Both responses are
+private, no-store and vary by Cookie. Up to five independent sessions retain their original expiry,
+recent-sign-in time and account email proof; see [sign-in](../apps/web/docs/sign-in.md#several-accounts-in-one-browser).
+
 Passkeys (`src/lib/app/passkeys.ts`, `@simplewebauthn/server`) use the RP ID and origin of
 `appBaseUrl()`. Every ceremony's challenge is a single-use record that only the winner of an atomic
 delete may verify, bound to the browser by the signed HttpOnly `__Host-uier_passkey_challenge` cookie

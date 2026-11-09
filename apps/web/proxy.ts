@@ -6,7 +6,7 @@ import { combineSecureHeaders, siteExternalUrls, permissionsPolicy, siteIconCont
 import { sessionContentSecurityPolicy } from './src/lib/review/sessionDocument';
 import { botIdPath, proxyBotId } from './src/lib/botIdProxy';
 import { cookieNames, readMigratingCookie } from './src/lib/cookieNames';
-import { reviewSsoCookie } from './src/lib/app/reviewSsoCookie';
+import { readReviewSsoSession, reviewSsoCookie } from './src/lib/app/reviewSsoCookie';
 import { KnownPages } from './src/knownPages';
 
 /** App pages that work signed out */
@@ -68,7 +68,13 @@ export async function proxy(request: NextRequest) {
     if (sessionToken) {
         const response = next();
         const companion = reviewSsoCookie(sessionToken);
-        if (companion) response.cookies.set(companion);
+        const current = readReviewSsoSession(readMigratingCookie(request.cookies, cookieNames.reviewSso, true));
+        // Seed old logins or repair a mismatched companion. Ordinary prefetched pages must not
+        // rewrite it later with the account that was active when their request started.
+        if (companion) {
+            const expected = readReviewSsoSession(companion.value)!;
+            if (current?.uid !== expected.uid || current.exp !== expected.exp) response.cookies.set(companion);
+        }
         return finish(response);
     }
 

@@ -5,7 +5,6 @@ import { redirect } from 'next/navigation';
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 import { actionResult, UserFacingError } from '../../app/actionResult';
 import { appContextOrThrow } from '../../app/context';
-import { endSession } from '../../app/session';
 import { parseActionInput } from '../../app/validation';
 import { authorizationRequestActionSchema, connectedAppActionSchema } from './actionSchemas';
 import { approveAuthorization, denyAuthorization } from './authorize';
@@ -40,11 +39,10 @@ export async function cancelConnectionAction(requestId: string) {
     });
 }
 
-/** "Use another account": signs out and comes back to the same consent page after sign-in */
+/** "Use another account": keeps existing accounts and comes back to the same consent page after sign-in */
 export async function switchConnectionAccountAction(requestId: string) {
     const input = parseActionInput(authorizationRequestActionSchema, { requestId });
-    await endSession();
-    redirect(`${KnownPages.AppSignIn}?${new URLSearchParams({ next: KnownPageLinks.mcpConnect(input.requestId) })}`);
+    redirect(`${KnownPages.AppSignIn}?${new URLSearchParams({ next: KnownPageLinks.mcpConnect(input.requestId), add: '1' })}`);
 }
 
 /** Revokes a connected app from Account; the app loses access on its next request. */

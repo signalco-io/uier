@@ -14,7 +14,7 @@ export function MicrosoftLinkForm({ email: suggestedEmail, next }: { email: stri
     const id = useId();
     const [email, setEmail] = useState(suggestedEmail);
     const [state, formAction, pending] = useActionState(requestSignInAction, null);
-    if (state?.ok) return <SignInCodeForm key={state.data.requestId} sent={state.data} next={next} />;
+    if (state?.ok) return <SignInCodeForm addingAccount key={state.data.requestId} sent={state.data} next={next} />;
     return (
         <form action={formAction}>
             <input type="hidden" name="linkProvider" value="microsoft" />

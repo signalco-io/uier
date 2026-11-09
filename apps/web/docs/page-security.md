@@ -33,3 +33,13 @@ stop being accepted 15 minutes later, session/SSO cookies after 30 days, visitor
 after 365 days. Never reset this date on a rebuild. Prefer the new name even when its value is
 invalid; do not resurrect a legacy identity. New writes use only the chosen current name; sign-out
 expires both names so fallback cannot undo it. Remove the migration branches after their deadlines.
+
+The multi-account credentials `__Host-uier_account_1` through `_4` are new cookies: their
+unprefixed names work only in local HTTP runtime, without a deployed legacy fallback. Only the
+active `__Host-uier_session` authorizes app/API requests; selecting a parked credential validates
+its signature, purpose, original expiry and live user. Switching keeps its original recent-sign-in
+and email-proof claims. Sign-out clears current and legacy active cookies so migration cannot
+restore an account. `__Secure-uier_review_sso` continues to use its own purpose and review-only
+path; an explicit final sign-out writes a `review-sign-out` marker which authorizes no identity.
+The marker lets a foreground toolbar clear its saved review identity when third-party cookies are
+available; blocked cookies/frames retain the explicit authenticated review-link flow.

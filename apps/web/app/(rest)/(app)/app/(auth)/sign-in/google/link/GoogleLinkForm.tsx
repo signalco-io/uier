@@ -12,7 +12,7 @@ export function GoogleLinkForm({ email, next }: { email: string; next?: string }
     const [state, formAction, pending] = useActionState(requestSignInAction, null);
 
     if (state?.ok)
-        return <SignInCodeForm key={state.data.requestId} sent={state.data} next={next} />;
+        return <SignInCodeForm addingAccount key={state.data.requestId} sent={state.data} next={next} />;
 
     return (
         <form action={formAction} className="flex flex-col gap-4">

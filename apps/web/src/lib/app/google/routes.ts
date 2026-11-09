@@ -1,3 +1,4 @@
+import { AccountLimitError } from '../browserAccounts';
 import { cookies } from 'next/headers';
 import { KnownPageLinks, KnownPages } from '../../../knownPages';
 import { ApiError } from '../../comments/http';
@@ -15,8 +16,9 @@ function redirect(location: string) {
 }
 
 /** Sign in, with an allowlisted `google` outcome and the stored return path, never OAuth parameters */
-function signInUrl(baseUrl: string, outcome?: string, next?: string) {
+function signInUrl(baseUrl: string, outcome?: string, next?: string, addingAccount = false) {
     const url = new URL(KnownPages.AppSignIn, baseUrl);
+    if (addingAccount) url.searchParams.set('add', '1');
     if (next) url.searchParams.set('next', next);
     if (outcome) url.searchParams.set('google', outcome);
     return url.href;
@@ -38,7 +40,7 @@ export async function startGoogleSignInRoute(request: Request) {
     const params = new URL(request.url).searchParams;
     const linking = params.get('intent') === 'link';
     const next = linking ? undefined : safeNextPath(params.get('next') ?? undefined);
-    const back = (outcome?: string) => linking ? accountUrl(baseUrl, outcome) : signInUrl(baseUrl, outcome, next);
+    const back = (outcome?: string) => linking ? accountUrl(baseUrl, outcome) : signInUrl(baseUrl, outcome, next, params.get('add') === '1');
     const site = request.headers.get('sec-fetch-site');
     if ((site && site !== 'same-origin' && site !== 'none') || /prefetch/i.test(`${request.headers.get('purpose')} ${request.headers.get('sec-purpose')}`))
         return redirect(back());
@@ -48,7 +50,7 @@ export async function startGoogleSignInRoute(request: Request) {
     const [user, session] = await Promise.all([getSessionUser(), getSessionSignIn()]);
     if (linking && (!user || session?.userId !== user.id))
         return redirect(signInUrl(baseUrl, undefined, KnownPageLinks.account('sign-in')));
-    if (!linking && user)
+    if (!linking && user && params.get('add') !== '1')
         return redirect(new URL(next ?? KnownPages.App, baseUrl).href);
     try {
         const started = await beginGoogleSignIn({ next, link: linking ? session! : undefined, baseUrl, ipBucket: await requestIpBucket() });
@@ -78,8 +80,13 @@ export async function finishGoogleSignInRoute(request: Request) {
 
     switch (outcome.kind) {
         case 'signed_in': {
-            const proof = await startSession(outcome.userId, 'google', outcome.provenEmail);
-            return redirect(new URL(await signInDestination(outcome.userId, outcome.next ?? KnownPages.App, proof), baseUrl).href);
+            try {
+                const proof = await startSession(outcome.userId, 'google', outcome.provenEmail);
+                return redirect(new URL(await signInDestination(outcome.userId, outcome.next ?? KnownPages.App, proof), baseUrl).href);
+            } catch (error) {
+                if (error instanceof AccountLimitError) return redirect(new URL(`${KnownPages.AppSignIn}?add=1&accounts=full`, baseUrl).href);
+                throw error;
+            }
         }
         case 'confirm_email':
             jar.set(GOOGLE_SIGN_IN_COOKIE_NAME, outcome.binding, appCookieOptions(GOOGLE_LINK_TTL_SECONDS));
@@ -87,6 +94,6 @@ export async function finishGoogleSignInRoute(request: Request) {
         case 'linked':
             return redirect(accountUrl(baseUrl, 'linked'));
         case 'problem':
-            return redirect(outcome.linking ? accountUrl(baseUrl, outcome.problem) : signInUrl(baseUrl, outcome.problem, outcome.next));
+            return redirect(outcome.linking ? accountUrl(baseUrl, outcome.problem) : signInUrl(baseUrl, outcome.problem, outcome.next, Boolean(await getSessionUser())));
     }
 }

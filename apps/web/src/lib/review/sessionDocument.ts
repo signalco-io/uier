@@ -14,7 +14,7 @@ window.addEventListener('message', async (event) => {
             body: JSON.stringify({ origin: event.origin })
         });
         const result = response.ok && response.status !== 204 ? await response.json() : undefined;
-        window.parent.postMessage({ type: 'uier:session-result', id: data.id, token: result?.token }, event.origin);
+        window.parent.postMessage({ type: 'uier:session-result', id: data.id, token: result?.token, account: response.headers.get('X-Uier-Active-Account') === '1' }, event.origin);
     } catch {
         window.parent.postMessage({ type: 'uier:session-result', id: data.id }, event.origin);
     }

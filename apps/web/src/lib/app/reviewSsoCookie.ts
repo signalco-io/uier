@@ -8,6 +8,14 @@ export const reviewSsoCookieOptions = {
     httpOnly: true, secure: true, sameSite: 'none' as const, path: '/api/review'
 };
 
+/** An explicit browser sign-out, distinguishable from a browser blocking third-party cookies. */
+export function reviewSignedOutCookie() {
+    const maxAge = cookieNames.reviewSso.lifetime;
+    return { value: signToken('review-sign-out', {}, maxAge), ...reviewSsoCookieOptions, maxAge };
+}
+
+export const isReviewSignedOut = (token: string | undefined) => Boolean(verifyToken('review-sign-out', token));
+
 export function readReviewSsoSession(token: string | undefined) {
     const session = verifyToken<{ uid: string }>('review-sso', token);
     return session && typeof session.uid === 'string' ? session : null;

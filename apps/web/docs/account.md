@@ -29,3 +29,11 @@
 
 Account section links use Next.js navigation and preserve the document and feedback toolbar pill
 (`e2e/app-navigation.spec.ts`). Google/Microsoft account linking still uses provider redirects.
+
+- **Several signed-in accounts.** The sidebar account menu switches accounts independently of the
+  workspace switcher. Add account supports every sign-in method and retains existing accounts,
+  up to five. Signing out here or in Account → Sign-in removes the active account and opens another
+  live one; the menu's Sign out of all accounts clears them all. Profile, passkeys, provider links,
+  workspace access and recent-sign-in/email-proof checks always belong to the active account.
+  A fresh sign-in for a protected account action keeps the other accounts signed in. See
+  [sign-in](sign-in.md#several-accounts-in-one-browser).

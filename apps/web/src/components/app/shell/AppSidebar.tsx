@@ -26,6 +26,7 @@ import { orderProjects, type ProjectOrder } from '@/src/lib/app/projectOrder';
 import type { SidebarProject } from '@/src/lib/app/sidebarProjects';
 import { ClientMark } from '../clients/ClientMark';
 import { ProjectMark } from '../projects/ProjectMark';
+import type { BrowserAccount } from '@/src/lib/app/browserAccounts';
 import { AccountMenu } from './AccountMenu';
 import { FeedbackButton } from './FeedbackButton';
 import { ProjectOrderMenu } from './ProjectOrderMenu';
@@ -88,8 +89,9 @@ const statusLabels = { active: 'Active', done: 'Done' } as const;
  * then at the bottom the workspace area (users, teams, clients and settings in tabs), feedback on the
  * app and the signed-in person. Collapses to icons on desktop and opens as a sheet on small screens.
  */
-export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, projects, projectOrder, hasClients }: {
+export function AppSidebar({ isAdmin, user, accounts, workspaces, currentWorkspaceId, projects, projectOrder, hasClients }: {
     isAdmin: boolean;
+    accounts: BrowserAccount[];
     user: { name: string; email: string; avatarUrl?: string };
     workspaces: WorkspaceOption[];
     currentWorkspaceId: string;
@@ -220,7 +222,7 @@ export function AppSidebar({ isAdmin, user, workspaces, currentWorkspaceId, proj
                 navigation's (the menu's gap-1), not the footer's default 8px plus the group's padding */}
             <SidebarFooter className="gap-1 pt-1">
                 <FeedbackButton />
-                <AccountMenu name={user.name} email={user.email} avatarUrl={user.avatarUrl} />
+                <AccountMenu accounts={accounts} name={user.name} email={user.email} avatarUrl={user.avatarUrl} />
             </SidebarFooter>
             <SidebarRail />
         </Sidebar>

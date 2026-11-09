@@ -166,6 +166,8 @@ test('SSO requires the companion cookie, current membership, a configured parent
     expect((await context.request.post(endpoint, { headers, data })).status()).toBe(204);
     await page.goto('/app/projects');
     expect((await context.request.post(endpoint, { headers, data })).status()).toBe(200);
+    // Leave the app before removing its identity: an open app tab reconciles ended sessions.
+    await page.goto('about:blank');
     // Another signed-in account cannot use this project's background handoff.
     await context.clearCookies();
     await signIn(page, uniqueEmail('no-project-access'));
