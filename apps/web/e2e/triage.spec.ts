@@ -42,7 +42,7 @@ test('find, select, assign, prioritize and complete feedback in list and board @
     await page.getByRole('combobox', { name: 'Assign selected', exact: true }).click();
     await page.getByRole('option').filter({ hasNotText: 'Unassign' }).first().click();
     // The row shows the assignee's avatar and a priority other than Normal
-    await expect(commentRows(page).getByRole('img', { name: /^Assigned to / })).toBeVisible();
+    await expect(commentRows(page).getByRole('button', { name: /^Assigned to / })).toBeVisible();
     await expect(page.getByText('1 changed, 0 unchanged, 0 stale, 0 unavailable, 0 failed.', { exact: true })).toBeVisible();
     // The bar stays for the next action; the changed thread left the selection
     await expect(selected(page, comments[0]!.number)).toBeEnabled();
@@ -70,7 +70,7 @@ test('find, select, assign, prioritize and complete feedback in list and board @
     await page.getByRole('combobox', { name: 'Assign selected', exact: true }).click();
     await page.getByRole('option', { name: 'Unassign', exact: true }).click();
     const openColumn = page.getByRole('region', { name: 'Open comments', exact: true });
-    await expect(openColumn.getByRole('img', { name: /^Assigned to / })).toHaveCount(0);
+    await expect(openColumn.getByRole('button', { name: /^Assigned to / })).toHaveCount(0);
     // Saved: the bar counts the selection again (it shows Saving while the batch runs)
     await expect(selectionBar(page).getByText('0 selected', { exact: true })).toBeVisible();
     // Escape ends the selection: the bar goes and the boxes are quiet again

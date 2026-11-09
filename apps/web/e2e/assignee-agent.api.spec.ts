@@ -121,8 +121,10 @@ test('only the assignee chooses the agent working under them; a new assignee sta
     // The same agent again is a no-op; blank details clear them
     expect(threadActivity(await setProjectCommentAgent(f.project, f.assignee, f.comment.id, claude)).sequence).toBe(before + 1);
     // A new reasoning level alone is a change
+    const started = saved.assigneeAgent!.setAt;
     saved = await setProjectCommentAgent(f.project, f.assignee, f.comment.id, { ...claude, reasoning: ' max ' });
-    expect(saved.assigneeAgent).toMatchObject({ ...claude, reasoning: 'max' });
+    // New details in the same session keep when the agent started (the avatars' card says since when it works)
+    expect(saved.assigneeAgent).toMatchObject({ ...claude, reasoning: 'max', setAt: started });
     expect(threadActivity(saved).sequence).toBe(before + 2);
     saved = await setProjectCommentAgent(f.project, f.assignee, f.comment.id, { kind: 'codex', sessionId: '  ', model: '', reasoning: ' ' });
     expect(saved.assigneeAgent).toMatchObject({ kind: 'codex' });

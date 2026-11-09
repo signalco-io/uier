@@ -66,7 +66,9 @@ export async function setProjectCommentAgent(project: DbProject, actor: ProjectA
             kind: desired.kind, assigneeId: actor.userId,
             ...(desired.sessionId ? { sessionId: desired.sessionId } : {}), ...(desired.model ? { model: desired.model } : {}),
             ...(desired.reasoning ? { reasoning: desired.reasoning } : {}),
-            setBy: actor.userId, setAt: at, ...(actor.agent ? { connector: actor.agent } : {})
+            // The same agent in the same session keeps when it started; new details are not a new start
+            setBy: actor.userId, setAt: current && current.kind === desired.kind && current.sessionId === desired.sessionId ? current.setAt : at,
+            ...(actor.agent ? { connector: actor.agent } : {})
         };
         // One activity step per change: an assignment made here keeps its own, before the agent's, and the
         // move to In progress its own after it.

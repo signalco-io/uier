@@ -3,10 +3,13 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { animationsFinished, showcaseHint, toolbar } from './support/toolbar';
 
-export async function expectNoAxeViolations(page: Page) {
+/** Scans the page, or only the parts `include` selects */
+export async function expectNoAxeViolations(page: Page, { include = [] }: { include?: string[] } = {}) {
     // App Router can stream metadata after the visible page. Scan the settled document title.
     await expect(page).toHaveTitle(/\S/);
-    const accessibilityScanResults = await new AxeBuilder({ page })
+    const builder = new AxeBuilder({ page });
+    for (const selector of include) builder.include(selector);
+    const accessibilityScanResults = await builder
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag21aaa'])
         // The landing's animated scene is a picture (hidden from assistive technologies, text that
         // is part of a picture is exempt from contrast): mid-fade frames would fail at random.

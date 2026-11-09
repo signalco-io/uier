@@ -1,6 +1,6 @@
 'use client';
 
-import type { MouseEvent, ReactNode } from 'react';
+import { useRef, type MouseEvent, type ReactNode } from 'react';
 import { BugIcon, HeartIcon, LockIcon, ReplaceIcon } from 'lucide-react';
 import { markdownPlainText } from '@uier/toolbar/markdown';
 import { cn } from '@/src/lib/utils';
@@ -8,6 +8,7 @@ import type { ProjectCommentView } from '../../../lib/app/projectComments';
 import { RelativeTime } from './DateTime';
 import { SelectComment } from './TriageSelection';
 import { AssigneeAvatars } from './AgentAvatar';
+import { AssigneeCard } from './AssigneeCard';
 import { commentStatus, commentStatusLabels, StateDot } from './CommentStatus';
 import { PriorityLabel } from './PriorityFlag';
 
@@ -27,9 +28,10 @@ export const commentRowId = (id: string) => `comment-row-${id}`;
 
 /**
  * One comment in the inbox list or on the board: number, title (`commentTitle`), who wrote it, the page path,
- * priority other than Normal (its flag, named for assistive tech), who it is assigned to, status (Open too; a board
- * card leaves it to its column), age and unread. The whole row opens the thread (a link to `?comment=<id>`, so it can also open
- * in a new tab); the selection box sits beside the link, quiet until hovered, focused or selecting (`SelectComment`).
+ * priority other than Normal (its flag, named for assistive tech), who it is assigned to (`AssigneeCard`: hovering the
+ * avatars shows the assignee and their agent), status (Open too; a board card leaves it to its column), age and unread.
+ * The whole row opens the thread (a link to `?comment=<id>`, so it can also open in a new tab); the selection box sits
+ * beside the link, quiet until hovered, focused or selecting (`SelectComment`).
  */
 export function CommentRow({ comment, href, selected, onOpen, card = false, preview = false, actions, describedBy, keyShortcuts, project, tabbable = true }: {
     comment: ProjectCommentView;
@@ -64,6 +66,12 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
     const author = comment.deleted ? 'Deleted' : comment.author.isMe ? 'You' : comment.author.name;
     const KindIcon = comment.kind === 'comment' ? undefined : kindIcons[comment.kind];
     const title = commentTitle(comment);
+    const link = useRef<HTMLAnchorElement>(null);
+    // A mouse click on the avatars opens the thread like the rest of the row, modifier keys and all
+    const openFromAvatars = (event: MouseEvent) => link.current?.dispatchEvent(new window.MouseEvent('click', {
+        bubbles: true, cancelable: true, view: window, button: event.button,
+        ctrlKey: event.ctrlKey, metaKey: event.metaKey, shiftKey: event.shiftKey, altKey: event.altKey
+    }));
     return (
         <div className={cn('group/row relative flex min-w-0 gap-2.5 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/60 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring',
             selected === 'opened' && 'bg-muted hover:bg-muted',
@@ -76,7 +84,7 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
             <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <div className="flex min-w-0 items-baseline gap-2">
                     {unread && <span aria-hidden="true" className="size-2 shrink-0 self-center rounded-full bg-[hsl(var(--brand-accent))]" />}
-                    <a id={preview ? undefined : commentRowId(comment.id)} href={href} onClick={onOpen} aria-current={selected === 'opened' ? 'true' : undefined} draggable={card ? false : undefined}
+                    <a ref={link} id={preview ? undefined : commentRowId(comment.id)} href={href} onClick={onOpen} aria-current={selected === 'opened' ? 'true' : undefined} draggable={card ? false : undefined}
                         aria-describedby={describedBy} aria-keyshortcuts={keyShortcuts}
                         tabIndex={tabbable ? undefined : -1}
                         className={cn('min-w-0 flex-1 text-sm outline-none after:absolute after:inset-0 after:rounded-lg', card ? 'line-clamp-2 break-words' : 'truncate',
@@ -115,7 +123,10 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                                 {commentStatusLabels[status]}
                             </span>
                         )}
-                        {comment.assignee && <AssigneeAvatars assignee={comment.assignee} />}
+                        {/* The dragged copy of a card is inert: its avatars need no card */}
+                        {comment.assignee && (preview
+                            ? <AssigneeAvatars assignee={comment.assignee} />
+                            : <AssigneeCard assignee={comment.assignee} me={comment.permissions.agent} tabbable={tabbable} onPress={openFromAvatars} />)}
                     </div>
                 </div>
             </div>
