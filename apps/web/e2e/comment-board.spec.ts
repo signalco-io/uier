@@ -101,9 +101,9 @@ test('board cards move with Move from the keyboard; Ready to verify asks for the
     await expectNoAxeViolations(page);
 });
 
-/** Where the comments sit in the page's scrolling panel (`room` leaves out its scrollbar) */
-function placement(comments: Locator) {
-    return comments.evaluate(element => {
+/** Where an element sits in the page's scrolling panel (`room` leaves out its scrollbar) */
+function placement(target: Locator) {
+    return target.evaluate(element => {
         let scroller = element.parentElement!;
         while (getComputedStyle(scroller).overflowY !== 'auto') scroller = scroller.parentElement!;
         const box = element.getBoundingClientRect();
@@ -112,38 +112,79 @@ function placement(comments: Locator) {
     });
 }
 
-test('the board takes the width of a wide window; the list keeps its reading width', async ({ page, request }, testInfo) => {
+/** The parts of the page around the comments: the header, the comments section, the search and the count line */
+function pageParts(page: Page) {
+    return Promise.all([
+        page.getByRole('heading', { level: 1 }),
+        page.locator('#comments'),
+        page.locator('#feedback-search'),
+        page.getByRole('checkbox', { name: 'Select shown results', exact: true })
+    ].map(placement));
+}
+
+const boardStatuses = ['Open', 'In progress', 'Ready to verify', 'Done'];
+
+test('only the board widens on a wide window; the header and filters stay where the list has them', async ({ page, request }, testInfo) => {
     test.skip(testInfo.project.name.startsWith('Mobile'), 'Desktop windows; a phone shows one column either way');
     // The window the feedback came from
     await page.setViewportSize({ width: 1674, height: 1366 });
     const { column } = await board(page, request);
-    const comments = page.locator('#comments');
-    // The whole panel but its 32 px gutters, an equal column per status in one row
-    const wide = await placement(comments);
+    const grid = page.locator('[data-page-width="wide"]');
+    const columns = () => Promise.all(boardStatuses.map(name => placement(column(name))));
+    const atBoard = await pageParts(page);
+    // The page keeps the reading width, 64rem with the 32 px gutters, centred
+    const comments = atBoard[1]!;
+    expect(comments.width).toBe(1024 - 64);
+    expect(comments.left).toBeCloseTo(comments.right, 0);
+    // The board takes the panel but its gutters, centred, with an equal column per status in one row,
+    // each up to 20rem
+    const wide = await placement(grid);
     expect(wide.width).toBeCloseTo(wide.room - 64, 0);
-    const boxes = await Promise.all(['Open', 'In progress', 'Ready to verify', 'Done'].map(async name => (await column(name).boundingBox())!));
+    expect(wide.left).toBeCloseTo(wide.right, 0);
+    const boxes = await Promise.all(boardStatuses.map(async name => (await column(name).boundingBox())!));
     for (const box of boxes) {
         expect(box.y).toBeCloseTo(boxes[0]!.y, 0);
         expect(box.width).toBeCloseTo(boxes[0]!.width, 0);
     }
     expect(boxes[0]!.width).toBeGreaterThan(300);
+    expect(boxes[0]!.width).toBeLessThanOrEqual(320);
 
-    // The list keeps the reading width: 64rem with the gutters, centred
+    // The list: the header, the search and the count line are where the board had them
     await page.getByRole('button', { name: 'List', exact: true }).click();
-    await expect.poll(async () => (await placement(comments)).width).toBe(1024 - 64);
-    const list = await placement(comments);
-    expect(list.left).toBeCloseTo(list.right, 0);
+    await expect(grid).toHaveCount(0);
+    expect(await pageParts(page)).toEqual(atBoard);
 
-    // On a very wide window the board stops at 1920 px with the gutters, centred
+    // On a very wide window the columns stop at 20rem and the row is centred; the page keeps the reading width
     await page.getByRole('button', { name: 'Board', exact: true }).click();
     await page.setViewportSize({ width: 2560, height: 1440 });
-    await expect.poll(async () => (await placement(comments)).width).toBe(1920 - 64);
-    const widest = await placement(comments);
-    expect(widest.left).toBeCloseTo(widest.right, 0);
+    await expect.poll(async () => (await placement(grid)).width).toBeGreaterThan(2000);
+    const widest = await columns();
+    for (const box of widest) expect(box.width).toBe(320);
+    const first = widest[0]!, last = widest.at(-1)!;
+    expect(first.room - first.left - last.right).toBe(4 * 320 + 3 * 16);
+    expect(first.left).toBeCloseTo(last.right, 0);
+    const [, widestComments] = await pageParts(page);
+    expect(widestComments!.width).toBe(1024 - 64);
+    expect(widestComments!.left).toBeCloseTo(widestComments!.right, 0);
 
-    // A card's thread opens in the sheet over the board, which keeps its width
+    // A card's thread opens in the sheet over the board, which keeps its columns (inert under the sheet,
+    // so measured without the accessibility tree)
+    const columnBoxes = () => grid.evaluate(element => [...element.children].map(child => {
+        const { left, width } = child.getBoundingClientRect();
+        return { left, width };
+    }));
+    const beforeSheet = await columnBoxes();
     await expect(await openComment(page, 'First board thread')).toHaveAccessibleName('Comment by Reviewer');
-    expect((await placement(comments)).width).toBe(1920 - 64);
+    expect(await columnBoxes()).toEqual(beforeSheet);
+
+    // A smaller laptop: the panel is narrower than the reading width, so the board and the page share it
+    // and the four columns fit without scrolling sideways
+    await page.keyboard.press('Escape');
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await expect.poll(async () => (await placement(grid)).width).toBeLessThan(1024 - 64);
+    const [, laptopComments] = await pageParts(page);
+    expect((await placement(grid)).width).toBeCloseTo(laptopComments!.width, 0);
+    expect((await columns()).at(-1)!.right).toBeGreaterThanOrEqual(31);
 });
 
 test('on a phone the board stacks its columns without scrolling sideways', async ({ page, request }, testInfo) => {

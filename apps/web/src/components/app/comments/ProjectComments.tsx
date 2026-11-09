@@ -182,8 +182,8 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
         <RealtimeComments projectId={projectId} />
         <CommentsSearchNavigationProvider value={commitSearch}>
         {/* The filter rows, the count line and the comments share one spacing: the gap between search and the status tabs.
-            The board widens the page (the app shell's `data-page-width`); the list keeps the reading width. */}
-        <div ref={containerRef} data-page-width={board ? 'wide' : undefined} className="@container/comments flex flex-col gap-2">
+            They keep the page's reading width in both views; only the board itself is wider (CommentBoard). */}
+        <div ref={containerRef} className="@container/comments flex flex-col gap-2">
             <div className={cn('contents', threadOnly && '@max-4xl/comments:hidden')}>
             <CommentFilters search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} unread={Boolean(query.unread)} unreadCount={comments.filter(comment => comment.activity?.unread).length} view={query.view} status={query.status} statusCounts={statusCounts} people={query.people} page={query.page} pages={pages} />
             {searchWindowCapped && <p className="m-0 text-sm text-muted-foreground">Search covers up to 1,000 recent threads in this environment and author scope. Narrow the environment or author to find older feedback.</p>}

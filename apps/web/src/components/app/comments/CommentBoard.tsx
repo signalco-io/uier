@@ -293,9 +293,11 @@ export function CommentBoard({ projectId, columns, allComments, assignees, userI
                     if (comment && status && takes(comment, status)) move(comment, status, 'drag');
                 }}
                 onDragCancel={endDrag}>
-                {/* From lg one row of equal columns, one per status, however many there are. While a card is
-                    dragged every column is as tall as the longest, so any part of it takes the card. */}
-                <div className={cn('grid grid-cols-1 items-start gap-4 lg:grid-flow-col lg:grid-cols-none lg:auto-cols-fr', drag && 'lg:items-stretch')}>
+                {/* From lg the board takes the panel's width (`page-wide`) while the page around it keeps the reading
+                    width, with one row of equal columns, one per status however many there are. A column stops at
+                    20rem (four fill a 1674 px window with the sidebar open) and the row is centred beyond that.
+                    While a card is dragged every column is as tall as the longest, so any part of it takes the card. */}
+                <div data-page-width="wide" className={cn('grid grid-cols-1 items-start gap-4 lg:page-wide lg:grid-flow-col lg:grid-cols-none lg:auto-cols-[minmax(0,20rem)] lg:justify-center', drag && 'lg:items-stretch')}>
                     {statuses.map(status => {
                         const state = columnState(status);
                         const cards = columns[status];

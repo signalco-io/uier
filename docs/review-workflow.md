@@ -88,7 +88,8 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   - My work `/app/my-work`: across the workspace's projects you can see, open threads assigned to you, open threads that
     mention you and other unread threads, each once; a row opens the thread on its project's comments page.
   - Comments `/app/projects/<code>`: the project's **comments**, as an inbox list or a board (Open / In progress / Ready to verify / Done).
-    The list keeps the app's reading width; the board takes the panel's width on wide screens, up to 1920 px.
+    The header, the filters and the count line keep the app's reading width in both views. On wide screens the board
+    alone is wider: its columns grow to 20rem each (four fill a 1674 px window with the sidebar open) and centre beyond that.
     Above them: search, one Filter button (priority; environment and page in one control, with environments on the left
     and that environment's pages on the right: a relative URL, or a section such as `/blog/*` for every page under it;
     people: all, assigned to me, opened by me; only unread) and List/Board, then the status tabs (the toolbar inbox's Open,

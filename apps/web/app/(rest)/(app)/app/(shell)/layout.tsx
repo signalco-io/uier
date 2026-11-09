@@ -52,10 +52,12 @@ export default async function AppShellLayout({ children }: PropsWithChildren) {
                         <Separator orientation="vertical" className="mr-1 data-vertical:h-4 data-vertical:self-center" />
                         <AppBreadcrumbs projectNames={Object.fromEntries(projects.map(project => [project.id, project.name]))} />
                     </header>
-                    <div className="flex-1 md:overflow-y-auto">
-                        {/* A reading width. A page that lays things side by side (the comments board) takes the
-                            panel's width, up to 1920 px, with data-page-width="wide" on an element inside it */}
-                        <div className="mx-auto flex w-full max-w-5xl flex-col px-4 py-6 md:px-8 md:py-10 has-data-[page-width=wide]:max-w-[120rem]">
+                    {/* While an element marked data-page-width="wide" is in it, the panel is a container, so the
+                        column can measure it for `page-wide` (global.css) */}
+                    <div className="flex-1 md:overflow-y-auto has-data-[page-width=wide]:[container-type:inline-size]">
+                        {/* A reading width, on every page. An element that lays things side by side (the comments
+                            board) breaks out of it to the panel's width with `page-wide`; the rest of its page stays */}
+                        <div className="mx-auto flex w-full max-w-5xl flex-col px-4 py-6 [--page-wide:calc(100cqw-2rem)] md:px-8 md:py-10 md:[--page-wide:calc(100cqw-4rem)]">
                             {children}
                         </div>
                     </div>

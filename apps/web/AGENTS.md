@@ -352,9 +352,11 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   Create project icon link and a Sort and Group menu (`ProjectOrderMenu`) in their header, then at the bottom Workspace (admins; for everyone else only when a
   visible project has a client), Give feedback and the account menu), the inset panel with the breadcrumbs
   (`AppBreadcrumbs`, from the path) and the one invite dialog (`InviteProvider`; `InviteButton` and
-  `useInvite()` open it). Pages sit in a centred reading column (`max-w-5xl`); a page that lays things side by side
-  renders an element with `data-page-width="wide"` and the column takes the panel's width, up to 120rem (1920 px), through
-  CSS `:has()`, so it follows a client-side view switch at once. Only the comments board does. uier's own workspace, which every account joins for Give feedback, is a
+  `useInvite()` open it). Pages sit in a centred reading column (`max-w-5xl`) on every page, in every view. An element that lays things
+  side by side breaks out of it with the `page-wide` utility (`app/global.css`: the panel's width less the gutters, centred
+  on the column; its parent must span the column) and `data-page-width="wide"`, which makes the panel a container
+  (CSS `:has()`, so it follows a client-side view switch at once) for the registered `--page-wide` length the column sets.
+  The rest of the page (header, filters) stays in the reading column. Only the comments board does it. uier's own workspace, which every account joins for Give feedback, is a
   `feedback` option in the switcher for people who are not its admins: its own entry after Create workspace,
   named "Feedback on uier", never in the list of their workspaces. A project's header is
   `projects/[projectId]/layout.tsx` (the favicon in `PageHeader`'s `media`, beside both the name and the row under it: client, then who can comment, whose popover has Invite for admins, Open
@@ -460,8 +462,9 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   the board keeps plain Tab order. `CommentBoard.tsx` shows
   Open, In progress, Ready to verify and Done as compact cards, one column per `commentStatuses` entry (keep the
   column set data-driven: that list and `commentStatusLabels`), from `lg` in one row of equal columns however many
-  there are; the board widens the page (`data-page-width="wide"` on the comments container in board view, empty states
-  included), the list keeps the reading width. A card opens its thread in a sheet over the board. Switching List/Board
+  there are, each up to 20rem and centred beyond that. Only the board's grid is wider than the reading width (`lg:page-wide`,
+  `data-page-width="wide"`); the project header, the filters, the count line, the selection bar and the empty states
+  stay in the reading column, as in the list. A card opens its thread in a sheet over the board. Switching List/Board
   closes the open thread. Cards move between columns with `@dnd-kit/core`: the whole card drags (its link shows
   the grab cursor; its selection box and Move keep their presses, as Base UI opens a menu on press), with the
   mouse after 6 px or a 250 ms long press on a touch screen, so a swipe still scrolls the page (auto-scroll at
