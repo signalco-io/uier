@@ -29,8 +29,8 @@
   the selected text; `SelectorCode` shows a selector longer than 28 characters as its start and end,
   `#comments>…>dd.m-0>code.ml-2`, one line on a phone, and Show full selector / Shorten selector toggles it; only
   the middle is visually hidden, so assistive tech and a copied selection get the whole selector;
-  `e2e/comment-selector.spec.ts` covers it), Page (the review link, "Open on ...", and the environment's name or why the original
-  source is unavailable), Priority (`PriorityControl`: the flag and the name; for those who can triage a menu of the
+  `e2e/comment-selector.spec.ts` covers it), Page (the environment's name or why the original source is unavailable, then the review link,
+  "Open on ..."), Priority (`PriorityControl`: the flag and the name; for those who can triage a menu of the
   four, each with its flag, the current one checked) and Assignee (a 20px avatar, or a person icon while unassigned,
   and the name, together one menu button for those who can assign; then the AI agent working with the assignee, `AgentControl`: "with",
   the agent's logo, Claude, its model by name and reasoning level ("Opus 5.5 · xhigh"), or Add agent for the assignee), the verification, every message, Reply (its icon in line with the message text) and the quiet Open in ....
