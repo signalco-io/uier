@@ -27,7 +27,7 @@ async function board(page: Page, request: APIRequestContext, { access }: { acces
     const column = (name: string) => page.getByRole('region', { name: `${name} comments`, exact: true });
     await expect(column('Open').getByRole('listitem')).toHaveCount(2);
     const card = (name: string, text: string) => column(name).getByRole('listitem').filter({ hasText: text });
-    return { project, comments, column, card };
+    return { project, headers, comments, column, card };
 }
 
 /**
@@ -331,6 +331,35 @@ test('a card starts its title with its author\'s avatar, keeps its selection box
     expect(empty.below).toBeLessThan(1);
     expect(empty.room).toBeGreaterThan(20);
     expect(empty.offCentre).toBeLessThan(1);
+});
+
+// uier #201: the sheet is a flex column and the card clips, so the card shrank to the sheet and hid what was below
+test('a long thread scrolls in the board\'s sheet on a short window, down to Reply', async ({ page, request }, testInfo) => {
+    const { project, headers, comments, card } = await board(page, request);
+    if (!testInfo.project.name.startsWith('Mobile')) await page.setViewportSize({ width: 1366, height: 520 });
+    const words = 'This reply is long on purpose, so the thread runs well past the bottom of a short window. ';
+    for (let index = 1; index <= 6; index++) {
+        const response = await request.post(`/api/review/${project}/comments/${comments[0]!.id}/replies`, { headers, data: { text: `Reply ${index}. ${words.repeat(4)}`, authorName: 'Reviewer' } });
+        expect(response.ok()).toBe(true);
+    }
+    await page.reload();
+    await card('Open', 'First board thread').getByRole('link').click();
+    const sheet = page.getByRole('dialog');
+    const thread = sheet.getByRole('article');
+    await expect(thread.getByText('Reply 6.')).toBeAttached();
+    await animationsFinished(sheet);
+    // The card keeps its full height and the sheet scrolls it
+    const [sheetBox, threadBox] = [(await sheet.boundingBox())!, (await thread.boundingBox())!];
+    expect(threadBox.height).toBeGreaterThan(sheetBox.height);
+    const reply = thread.getByRole('button', { name: 'Reply', exact: true });
+    await expect(reply).not.toBeInViewport();
+    await page.mouse.move(sheetBox.x + sheetBox.width / 2, sheetBox.y + sheetBox.height / 2);
+    for (let step = 0; step < 20 && !(await reply.evaluate(button => {
+        const box = button.getBoundingClientRect();
+        return box.bottom <= window.innerHeight && box.top >= 0;
+    })); step++) await page.mouse.wheel(0, 400);
+    await expect(reply).toBeInViewport();
+    expect(await sheet.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
 });
 
 test('on a phone the board stacks its columns without scrolling sideways', async ({ page, request }, testInfo) => {
