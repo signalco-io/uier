@@ -4,7 +4,7 @@
   workspaces, creates one (`createWorkspaceAction`, a dialog for the name) and, for admins, opens Workspace
   settings), Projects (the projects index; the person's own work goes beside it), active projects (every project when grouped by status) with a
   Create project icon link and a Sort and Group menu (`ProjectOrderMenu`) in their header, then at the bottom Workspace (admins; for everyone else only when a
-  visible project has a client), Give feedback and the account menu: rows like the navigation's, the person's avatar centred in their 16px icon column so
+  visible project has a client), Give feedback and the account menu: rows like the navigation's, 4px apart like them (uier #165: the Workspace group has no bottom padding and the footer `gap-1 pt-1`), the person's avatar centred in their 16px icon column so
   its name starts with the labels above; the email is in the account menu, with Keyboard shortcuts). The navigation's
   links are one tab stop (the current page's): ↓ and ↑, Home and End move between them; `LinkTabs` move with ← and →
   ([keyboard](keyboard.md)). The layout also holds `AppShortcuts`, the inset panel with the breadcrumbs
@@ -94,7 +94,8 @@
   (up to three; the sidebar takes part of a window). A card is one header: the favicon, the name (a link over the whole
   card) and on its line two quiet icon buttons, Open review (`ReviewLinksMenu` with `compact`: a tooltip, named
   "Open review for <project>", a menu when the project has several addresses) and More actions for admins; under the
-  name one meta line with the client, who can comment and the open count. No footer and no text button. The page renders both the active and the done list (and
+  name one meta line with the client, who can comment and the open count (the comment icon and the number, named
+  "11 open comments" for screen readers, so it does not wrap; uier #167). No footer and no text button. The page renders both the active and the done list (and
   each one's empty state), and `ProjectStatusTabs` (`projects/ProjectStatusTabs.tsx`) shows the one `?status=`
   names. Active and Done are `LinkTabs` with `query`: a click writes the address with `setUrlSearchParams`
   (`push`), so the other list shows at once with no server request, no spinner and no space kept for one;

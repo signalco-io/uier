@@ -107,9 +107,12 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
                                                 <AccessIcon access={project.access} className="size-4 shrink-0" aria-hidden="true" />
                                                 <span className="truncate">{access.label}</span>
                                             </span>
-                                            <span className="flex items-center gap-1.5 tabular-nums">
+                                            {/* The icon and the number, so the count never wraps to a line of its own; the
+                                                words are for screen readers ("11 open comments") */}
+                                            <span className="flex shrink-0 items-center gap-1.5 tabular-nums">
                                                 <MessageSquareIcon className="size-4 shrink-0" aria-hidden="true" />
-                                                {open} open
+                                                {open}
+                                                <span className="sr-only">{open === 1 ? ' open comment' : ' open comments'}</span>
                                             </span>
                                         </CardDescription>
                                     </CardHeader>
