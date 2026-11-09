@@ -51,7 +51,9 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   never added back by opening the app again: with no other workspace, they get a new, empty one of their own.
 - **Projects** (`/app/projects`): one project per reviewed site, with its addresses (the main site first,
   then staging or preview addresses), its status (active or done) and who can comment. The page shows the
-  active or done projects as cards with their open comments, who can comment and review links. A card
+  active or done projects as cards with their open comments, who can comment and review links. Both
+  lists come with the page, so Active and Done switch at once, with no loading; the tab stays in the URL
+  (`?status=done`) across Back, Forward and reloads. A card
   lays out its name like the project header: the favicon beside the name and the row under it, with the
   client, then who can comment; the open comments and Open review sit at the bottom. Projects is the first
   link in the sidebar.
