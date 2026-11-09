@@ -24,9 +24,9 @@ export const commentRowId = (id: string) => `comment-row-${id}`;
 
 /**
  * One comment in the inbox list or on the board: number, first line, who wrote it, the page path,
- * priority other than Normal (its flag, named for assistive tech), who it is assigned to, status, age and unread. The
- * whole row opens the thread (a link to `?comment=<id>`, so it can also open in a new tab); the
- * selection box sits beside the link.
+ * priority other than Normal (its flag, named for assistive tech), who it is assigned to, status (Open too, except
+ * on a board card), age and unread. The whole row opens the thread (a link to `?comment=<id>`, so it can also open
+ * in a new tab); the selection box sits beside the link.
  */
 export function CommentRow({ comment, href, selected, onOpen, card = false, preview = false, actions, project, tabbable = true }: {
     comment: ProjectCommentView;
@@ -96,9 +96,11 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                         {comment.private && <LockIcon aria-label="Private" className="size-3.5" />}
                         {/* Normal is the default: only a priority that differs gets its flag */}
                         {comment.priority !== 'normal' && <PriorityLabel priority={comment.priority} />}
-                        {status !== 'open' && (
-                            <span className="inline-flex items-center gap-1 text-foreground">
+                        {/* Every row says its status (Active mixes them); a board card's column already does for Open */}
+                        {(!card || status !== 'open') && (
+                            <span className="inline-flex items-center gap-1 whitespace-nowrap text-foreground">
                                 <StateDot status={status} />
+                                <span className="sr-only">Status: </span>
                                 {commentStatusLabels[status]}
                             </span>
                         )}

@@ -10,6 +10,6 @@ clear it directly; it emits `progress-started` / `progress-stopped` (digest line
 `progress_started` / `progress_stopped`) or the usual `resolved` / `reopened`. The flag stays while a
 check is pending. App writes go through `setCommentStatusAction`; the review and same-origin PATCH
 routes take `{ status }` or `{ resolved }`, never both. Lists, counts, tabs and the board read the
-stage, never the raw flag; Open filters and counts mean not done. Focused coverage is
+stage, never the raw flag; the app's Active tab and MCP `status: "open"` mean not done, the app's Open tab means Open only. Focused coverage is
 `in-progress.api.spec.ts`, the MCP spec, `comment-board.spec.ts`, `verification.spec.ts` and
 `toolbar-app-parity.spec.ts`. See [review workflow](../../../docs/review-workflow.md#in-progress).
