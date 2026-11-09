@@ -241,7 +241,7 @@ test('board cards are darker than their column on dark', async ({ page, request 
     expect(await surface(column('Open'))).not.toBe('rgb(0, 0, 0)');
 });
 
-test('a card starts its title with its author\'s avatar, keeps its selection box hidden at rest without moving, and an empty column centres its line', async ({ page, request }, testInfo) => {
+test('a card starts its title with its author\'s avatar, keeps its selection box under it hidden at rest without moving, and an empty column centres its line', async ({ page, request }, testInfo) => {
     test.skip(testInfo.project.name.startsWith('Mobile'), 'Hover; a touch screen leaves the box out until Select');
     const { column, card } = await board(page, request);
     const first = card('Open', 'First board thread');
@@ -255,7 +255,10 @@ test('a card starts its title with its author\'s avatar, keeps its selection box
     const [authorBox, link] = [(await author.boundingBox())!, (await first.getByRole('link').boundingBox())!];
     expect(authorBox.x + authorBox.width).toBeLessThanOrEqual(link.x);
     expect(authorBox.y).toBeLessThan(link.y + 20);
-    // The box is hidden until the card is hovered, in its bottom right corner, and keeps its room so nothing moves
+    // The page path starts the second line under "#12 …"
+    const meta = (await first.locator('[data-comment-row] p').first().boundingBox())!;
+    expect(meta.x).toBeCloseTo(link.x, 0);
+    // The box is hidden until the card is hovered, under the author at the start of that line, and keeps its room so nothing moves
     const box = first.getByRole('checkbox');
     await page.mouse.move(0, 0);
     await expect(box).toHaveCSS('opacity', '0');
@@ -264,7 +267,9 @@ test('a card starts its title with its author\'s avatar, keeps its selection box
     await expect(box).toHaveCSS('opacity', '1');
     expect((await box.boundingBox())!.x).toBe(atRest.x);
     const [cardBox, checkbox] = [(await first.boundingBox())!, (await box.boundingBox())!];
-    expect(cardBox.x + cardBox.width - (checkbox.x + checkbox.width)).toBeLessThan(24);
+    expect(checkbox.x + checkbox.width / 2).toBeCloseTo(authorBox.x + authorBox.width / 2, 0);
+    expect(checkbox.y).toBeGreaterThan(authorBox.y + authorBox.height);
+    expect(checkbox.x + checkbox.width).toBeLessThan(meta.x);
     expect(cardBox.y + cardBox.height - (checkbox.y + checkbox.height)).toBeLessThan(24);
     // An empty column's line is in the middle of the room below the column's name
     const empty = await column('Done').locator('[data-empty-column]').evaluate(line => {

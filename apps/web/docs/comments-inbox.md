@@ -7,17 +7,18 @@
   first title line), number, title (`commentTitle`: the [AI title](ai-titles.md), else the first line without its Markdown, `markdownPlainText`; up to two lines on a card)
   and age (`RelativeTime short`: "3 min ago", "2 hr ago", "yesterday", "2 wk ago", the date and time on hover; the
   thread's messages, its activity and other sentences keep whole words; one shared clock ticks every 10 seconds while any age is shown and the tab is visible, and only the ages whose words change re-render).
-  The meta line, one on rows and cards alike: the page path (what it was left on is only in the thread's On row), then private, a linked pull request, priority other than Normal (`PriorityLabel`: its
+  The meta line, one on rows and cards alike, starts under the title, so the path lines up with "#12 …": the selection
+  box under the author's avatar (past the unread dot's room), the page path (what it was left on is only in the thread's On row), then private, a linked pull request, priority other than Normal (`PriorityLabel`: its
   flag alone, named "High priority"), status (`StateDot` and its name, Open too; a board card leaves the status to its column, whose region name screen readers announce), and at its right end
   every assignee's avatar with their agents' smaller avatars stacked beside it (`AssigneeCard`: hovering shows who it is assigned to
-  and their [agents](assignee-agents.md); see [Multiple assignees](#multiple-assignees)) and the selection box, beside the open thread
+  and their [agents](assignee-agents.md); see [Multiple assignees](#multiple-assignees)), beside the open thread
   (`CommentCard.tsx`). The open thread is in the URL (`?comment=<id>`, `useOpenComment`): side by side (`@container/comments` from `@3xl`, 48rem: the list's 18rem and
   at least 29rem for the thread; from about 1100 px with the sidebar docked, which takes in most landscape tablets) it replaces
   the history entry and the first shown thread is open until another is chosen; narrower (a phone, a tablet in portrait) a row opens
   the thread in the list's and the filters' place with Back to comments, and adds a history entry so Back closes
-  it. Where the page scrolls (below `lg`) the thread opens and stays (beside the list) under the sticky top bar. Each row is a link (it opens in a new tab too); its selection box ends the meta line (a card's bottom right
-  corner) and shows only when it is used ([App triage](triage.md#selection)), but keeps its room, so the assignees
-  and the status before it never move when it appears. The list moves with the
+  it. Where the page scrolls (below `lg`) the thread opens and stays (beside the list) under the sticky top bar. Each row is a link (it opens in a new tab too); its selection box starts the meta line under the author (a
+  card's bottom left) and shows only when it is used ([App triage](triage.md#selection)), but keeps its room (and the
+  room stays where a person can't triage), so the path never moves when it appears. The list moves with the
   keyboard like an inbox: ↓/↑ go to the next/previous row and stop at the ends, Home/End (from a row) to the first and
   last; side by side the row's thread opens through the same `open()` as a click, narrower only the focus moves and
   Enter opens it. The keys act from the list, or from the page while nothing has the focus and the caret is not in the
@@ -27,7 +28,7 @@
   history entry is replaced, so Back still closes it). R, S and A reply, open the status menu and the assignee menu
   of the thread on screen ([keyboard](keyboard.md)). Only the current row's link and selection box (where it shows) are in the Tab order (a roving
   tab stop: the row last focused or opened), so Tab goes on to the thread. The assignee's avatars are a button above
-  the row's link that follows the same tab stop (one more stop in the current row only, after the link and before the selection box): Enter
+  the row's link that follows the same tab stop (one more stop in the current row only, after the link and the selection box): Enter
   opens their card, Escape gives the focus back, ↓/↑ still move between rows. A mouse click on the avatars opens the
   thread like the rest of the row (the click goes to the row's link, modifier keys too); a tap on a touch screen
   opens the card instead (44 px target), and the rest of the row opens the thread. The board and My work have the same
