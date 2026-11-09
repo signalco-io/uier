@@ -11,6 +11,7 @@ import { getWorkspace, setWorkspaceFeedbackTypes } from '../src/lib/app/workspac
 import { createCommentSchema } from '../src/lib/comments/validation';
 import { createProjectComment, replyToProjectComment } from '../src/lib/review/comments';
 import { toReviewCommentDto } from '../src/lib/review/dto';
+import { reviewProjectDto } from '../src/lib/review/routes';
 import { projectFeedbackExport } from '../src/lib/review/feedbackContext';
 import { loadProjectComments } from '../src/lib/app/projectComments';
 import type { AppContext } from '../src/lib/app/context';
@@ -110,4 +111,14 @@ test('saved custom kinds survive disabled/renamed settings in toolbar DTOs, the 
     const context = { user: { id: 'admin', name: 'Admin' }, member: { role: 'admin', projects: 'all' }, isAdmin: true, workspace } as unknown as AppContext;
     const app = await loadProjectComments(context, project);
     expect(app.find(item => item.id === comment.id)).toMatchObject({ kind: custom.id, feedbackType: comment.feedbackType });
+});
+
+test('review info offers only enabled feedback types; a disabled type stays with the admins', async () => {
+    const { project } = await fixture();
+    const disabled = types().map(type => type.id === custom.id ? { ...type, enabled: false } : type);
+    const dto = reviewProjectDto({ ...project, publicId: project.id }, true, disabled);
+    expect(dto.feedbackTypes?.map(type => type.id)).not.toContain(custom.id);
+    expect(dto.feedbackTypes?.length).toBeGreaterThan(0);
+    expect(dto.feedbackTypes?.every(type => type.enabled)).toBe(true);
+    expect(JSON.stringify(dto)).not.toContain(custom.placeholder);
 });

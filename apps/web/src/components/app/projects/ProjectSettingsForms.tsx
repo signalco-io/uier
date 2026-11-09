@@ -215,7 +215,7 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
                     <FieldSeparator />
                     <FieldSet>
                         <FieldLegend variant="label">Feedback types</FieldLegend>
-                        <FieldDescription>The choices in Give feedback. Pinned comments and suggested rewrites stay available separately.</FieldDescription>
+                        <FieldDescription>The choices in Send feedback. Pinned comments and suggested rewrites stay available separately.</FieldDescription>
                         <FieldGroup>
                             <Field>
                                 <FieldLabel htmlFor={`${formId}-feedback-types`}>Feedback type defaults</FieldLabel>
