@@ -65,14 +65,14 @@ test('↑ and ↓ open the next and previous threads beside the list, from the l
         await startSelecting(page);
         await links.nth(1).focus();
     }
-    // One tab stop: Tab goes on to the open thread, Shift+Tab back to the row and its selection box
+    // One tab stop: Tab goes to the row's selection box (it ends the row), then on to the open thread
     await expect(page.locator('[id^="comment-row-"]:not([tabindex="-1"])')).toHaveCount(1);
     await expect(commentRows(page).getByRole('checkbox').and(page.locator(':not([tabindex="-1"])'))).toHaveCount(1);
+    const box = (index: number) => commentRows(page).nth(index).getByRole('checkbox');
+    await page.keyboard.press('Tab');
+    await expect(box(1)).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(thread.getByRole('button', { name: 'Status: Open. Change status', exact: true })).toBeFocused();
-    await page.keyboard.press('Shift+Tab');
-    await expect(links.nth(1)).toBeFocused();
-    const box = (index: number) => commentRows(page).nth(index).getByRole('checkbox');
     await page.keyboard.press('Shift+Tab');
     await expect(box(1)).toBeFocused();
     // From a selection box, ↓ moves to the next row's box (and still opens its thread)

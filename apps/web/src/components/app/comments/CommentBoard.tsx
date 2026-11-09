@@ -320,11 +320,14 @@ export function CommentBoard({ projectId, columns, allComments, assignees, userI
                 }}
                 onDragCancel={endDrag}>
                 {/* From lg the board takes the panel's width (`page-wide`) while the page around it keeps the reading
-                    width, with one row of equal columns, one per status however many there are. A column stops at
-                    20rem (four fill a 1674 px window with the sidebar open) and the row is centred beyond that.
+                    width, with one row of equal columns, one per status however many there are. A column is 18rem to
+                    20rem (four fill a 1674 px window with the sidebar open) and the row is centred beyond that; when
+                    the columns don't fit, the board scrolls sideways (`data-board-scroll`) instead of squeezing them, with room for a column's
+                    drop ring (`p-1`); not up and down (`overflow-y-clip`), the page does that.
                     While a card is dragged every column is as tall as the longest, so any part of it takes the card. */}
                 <LayoutMotion container={grid} item="data-board-card" skip={settling}>
-                <div ref={grid} data-page-width="wide" className={cn('relative grid grid-cols-1 items-start gap-4 lg:page-wide lg:grid-flow-col lg:grid-cols-none lg:auto-cols-[minmax(0,20rem)] lg:justify-center', drag && 'lg:items-stretch')}>
+                <div ref={grid} data-page-width="wide" data-board-scroll=""
+                    className={cn('relative grid grid-cols-1 items-start gap-4 lg:page-wide lg:grid-flow-col lg:grid-cols-none lg:auto-cols-[minmax(18rem,20rem)] lg:justify-center-safe lg:overflow-x-auto lg:overflow-y-clip lg:overscroll-x-contain lg:p-1', drag && 'lg:items-stretch')}>
                     {statuses.map(status => {
                         const state = columnState(status);
                         const cards = columns[status];
@@ -344,7 +347,10 @@ export function CommentBoard({ projectId, columns, allComments, assignees, userI
                                     <ul aria-label={`${commentStatusLabels[status]} comments list`} className="m-0 flex list-none flex-col gap-2 p-0">
                                         {items}
                                     </ul>
-                                ) : <p className="m-0 px-2 pb-1 text-sm text-muted-foreground">{state === 'target' ? 'Drop here.' : emptyColumn[status]}</p>}
+                                ) : (
+                                    // In the middle of the column's room below its name, a drag's longer column too
+                                    <p data-empty-column="" className="m-0 flex flex-1 items-center px-2 text-sm text-muted-foreground">{state === 'target' ? 'Drop here.' : emptyColumn[status]}</p>
+                                )}
                             </BoardColumn>
                         );
                     })}

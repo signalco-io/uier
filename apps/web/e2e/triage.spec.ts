@@ -1,5 +1,5 @@
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
-import { backToComments, openReply, commentRowLink, commentRows, createProject, inBackground, openComment, openCommentFilters, selectionBar, selectShownResults, selectThread, setProjectAccess, signIn, startSelecting, uniqueEmail } from './support/app';
+import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import { backToComments, openReply, commentRowLink, commentRows, createProject, inBackground, openComment, openCommentFilters, selectionBar, selectShownResults, selectThread, rowOf, setProjectAccess, signIn, startSelecting, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { toolbar, animationsFinished, threadOptions } from './support/toolbar';
@@ -29,6 +29,8 @@ async function fixture(page: Page, request: APIRequestContext, count = 3) {
     return { project, headers, comments };
 }
 const selected = (page: Page, number: number) => page.getByRole('checkbox', { name: `Select comment #${number}`, exact: true });
+/** Whether a row's box takes its room at the end of the meta line; at rest it is `sr-only` (out of the layout) */
+const boxShown = (box: Locator) => box.evaluate(element => getComputedStyle(element.parentElement!).position !== 'absolute');
 function gate() { let release!: () => void; const wait = new Promise<void>(resolve => { release = resolve; }); return { wait, release }; }
 
 test('find, select, assign, prioritize and complete feedback in list and board @smoke @mobile-smoke', async ({ page, request }) => {
@@ -135,11 +137,17 @@ test('selection stays quiet until it is used, by pointer, keyboard or touch, and
     await expect(select).toHaveAttribute('aria-pressed', 'false');
     if (mobile) await expect(anyBox).toHaveCount(0);
     else {
-        for (const index of [0, 1, 2]) await expect(box(index)).toHaveCSS('opacity', '0');
-        await commentRows(page).nth(1).hover();
+        for (const index of [0, 1, 2]) {
+            await expect(box(index)).toHaveCSS('opacity', '0');
+            // No room kept for it: the title and the path have the row's width
+            expect(await boxShown(box(index))).toBe(false);
+        }
+        await rowOf(box(1)).hover();
         await expect(box(1)).toHaveCSS('opacity', '1');
+        expect(await boxShown(box(1))).toBe(true);
         await expect(box(0)).toHaveCSS('opacity', '0');
         // Pointer: check one, Shift-click another for the range between them; while selecting every box shows
+        await rowOf(box(0)).hover();
         await box(0).check();
         await expect(bar).toBeVisible();
         await expect(select).toHaveAttribute('aria-pressed', 'true');
@@ -178,6 +186,7 @@ test('selection stays quiet until it is used, by pointer, keyboard or touch, and
         await select.tap();
         await box(0).tap();
     } else {
+        await rowOf(box(0)).hover();
         await box(0).click();
         await page.mouse.move(0, 0);
     }
@@ -192,7 +201,8 @@ test('selection stays quiet until it is used, by pointer, keyboard or touch, and
         await expect(box(0)).toBeFocused();
         await expect(box(0)).toHaveCSS('opacity', '1');
         await firstLink.focus();
-        await page.keyboard.press('Shift+Tab');
+        // The box ends the row, after its link
+        await page.keyboard.press('Tab');
         await expect(box(0)).toBeFocused();
         await page.keyboard.press('x');
         await expect(box(0)).toBeChecked();

@@ -205,9 +205,9 @@ test('the mark shows wherever the message does: the app, the toolbar, packets, e
         // The app: the person's name, the agent and its details, the connection it came through
         const [view] = await loadProjectComments({ user: f.b, isAdmin: false } as AppContext, f.project);
         const reply = view!.replies.find(entry => entry.id === data.itemId)!;
-        expect(reply.author).toEqual({ name: f.aName, isMe: false,
+        expect(reply.author).toEqual({ name: f.aName, isMe: false, kind: 'member',
             agent: { kind: 'claude', label: 'Claude', model: 'claude-opus-5-5', reasoning: 'xhigh', connection: 'Claude Code' } });
-        expect(view!.replies.find(entry => entry.id === 'item_legacy')!.author).toEqual({ name: `${f.aName} via Old connection`, isMe: false });
+        expect(view!.replies.find(entry => entry.id === 'item_legacy')!.author).toEqual({ name: `${f.aName} via Old connection`, isMe: false, kind: 'member' });
         const [own] = await loadProjectComments({ user: f.a, isAdmin: false } as AppContext, f.project);
         expect(own!.replies.find(entry => entry.id === data.itemId)!.author).toMatchObject({ isMe: true, agent: { kind: 'claude' } });
 

@@ -255,6 +255,9 @@ test('comment views show the pictures of authors and assignees who can still rev
     expect(view!.author.avatarUrl).toBe(await url(author.userId));
     expect(view!.assignee).toMatchObject({ id: assignee.userId, avatarUrl: await url(assignee.userId) });
     expect(view!.replies.map(reply => reply.author.avatarUrl)).toEqual([undefined, undefined, undefined]);
+    // Rows and cards pick the author's avatar by kind
+    expect(view!.author.kind).toBe('member');
+    expect(view!.replies.map(reply => reply.author.kind)).toEqual(['member', 'member', 'guest']);
 });
 
 test.describe('provider pictures', () => {

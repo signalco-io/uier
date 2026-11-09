@@ -1,21 +1,25 @@
 # Comments inbox and board
 
 - The comments page is an inbox. `comments/CommentInbox.tsx` lists compact rows (`CommentRow.tsx`: number,
-  title (`commentTitle`: the [AI title](ai-titles.md), else the first line without its Markdown, `markdownPlainText`), author, page path (what it was left on is only in the thread's On row), then priority other than Normal (`PriorityLabel`: its
+  title (`commentTitle`: the [AI title](ai-titles.md), else the first line without its Markdown, `markdownPlainText`), author (`AuthorAvatar`: a member's picture or initial with the AI agent that wrote it for them
+  stacked on its edge, a person's outline for a guest, uier's mark on its own starter threads; one image named "By Ana",
+  the name in a tooltip, a click on it opens the row; it starts a row's meta line and a card's last line, so a card's
+  path has the card's width), page path (what it was left on is only in the thread's On row), then priority other than Normal (`PriorityLabel`: its
   flag alone, named "High priority"), status (`StateDot` and its name, Open too; a board card leaves the status to its column, whose region name screen readers announce), the assignee's avatar with their agent's mark stacked on it
   (`AssigneeCard`: hovering shows who it is assigned to and their [agent](assignee-agents.md); see below), age and the unread dot) beside the open thread
   (`CommentCard.tsx`). The open thread is in the URL (`?comment=<id>`, `useOpenComment`): side by side (`@container/comments` from `@4xl`) it replaces
   the history entry and the first shown thread is open until another is chosen; narrower (a phone) a row opens
   the thread in the list's and the filters' place with Back to comments, and adds a history entry so Back closes
-  it. Each row is a link (it opens in a new tab too) with the selection box beside it, quiet until it is used
-  ([App triage](triage.md#selection)). The list moves with the
+  it. Each row is a link (it opens in a new tab too); its selection box ends the meta line (a card's bottom right
+  corner) and takes no room until it is used ([App triage](triage.md#selection)), so the title and the path keep
+  the row's width. The list moves with the
   keyboard like an inbox: ↓/↑ go to the next/previous row and stop at the ends, Home/End (from a row) to the first and
   last; side by side the row's thread opens through the same `open()` as a click, narrower only the focus moves and
   Enter opens it. The keys act from the list, or from the page while nothing has the focus and the caret is not in the
   open thread (it keeps scrolling with them); never from text fields, menus or dialogs, and they leave a key the page
   already handled (`defaultPrevented`). Only the current row's link and selection box (where it shows) are in the Tab order (a roving
   tab stop: the row last focused or opened), so Tab goes on to the thread. The assignee's avatars are a button above
-  the row's link that follows the same tab stop (one more stop in the current row only, after the link): Enter
+  the row's link that follows the same tab stop (one more stop in the current row only, after the link and before the selection box): Enter
   opens their card, Escape gives the focus back, ↓/↑ still move between rows. A mouse click on the avatars opens the
   thread like the rest of the row (the click goes to the row's link, modifier keys too); a tap on a touch screen
   opens the card instead (44 px target), and the rest of the row opens the thread. On the board and My work, where
@@ -23,9 +27,12 @@
   buttons. `e2e/comment-keyboard.spec.ts` covers the keys; the board keeps plain Tab order. `CommentBoard.tsx` shows
   Open, In progress, Ready to verify and Done as compact cards, one column per `commentStatuses` entry (keep the
   column set data-driven: that list and `commentStatusLabels`), from `lg` in one row of equal columns however many
-  there are, each up to 20rem and centred beyond that. Only the board's grid is wider than the reading width (`lg:page-wide`,
+  there are, each 18rem to 20rem and centred beyond that; when they don't fit, the board scrolls sideways
+  (`data-board-scroll`, `justify-center-safe`) rather than squeezing them. On dark a card is the page's black, a step
+  darker than its column, so it stands apart (light keeps paper cards on the muted column). Only the board's grid is wider than the reading width (`lg:page-wide`,
   `data-page-width="wide"`); the project header, the filters, the count line, the selection bar and the empty states
-  stay in the reading column, as in the list. A card opens its thread in a sheet over the board. Switching List/Board
+  stay in the reading column, as in the list. An empty column's line ("Nothing open.", "Drop here." while
+  dragging, `data-empty-column`) fills the room below the column's name and sits in its middle. A card opens its thread in a sheet over the board. Switching List/Board
   closes the open thread. Cards move between columns with `@dnd-kit/core`: the whole card drags (its link shows
   the grab cursor; its selection box and Move keep their presses, as Base UI opens a menu on press), with the
   mouse after 6 px or a 250 ms long press on a touch screen, so a swipe still scrolls the page (auto-scroll at

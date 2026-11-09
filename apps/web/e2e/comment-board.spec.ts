@@ -208,14 +208,69 @@ test('only the board widens on a wide window; the header and filters stay where 
     await expect(await openComment(page, 'First board thread')).toHaveAccessibleName('Comment by Reviewer');
     expect(await columnBoxes()).toEqual(beforeSheet);
 
-    // A smaller laptop: the panel is narrower than the reading width, so the board and the page share it
-    // and the four columns fit without scrolling sideways
+    // A smaller laptop: the panel is narrower than the reading width, so the board and the page share it.
+    // The four columns keep a readable 18rem and the board scrolls sideways; the page does not
     await page.keyboard.press('Escape');
     await page.setViewportSize({ width: 1280, height: 800 });
     await expect.poll(async () => (await placement(grid)).width).toBeLessThan(1024 - 64);
     const [, laptopComments] = await pageParts(page);
     expect((await placement(grid)).width).toBeCloseTo(laptopComments!.width, 0);
-    expect((await columns()).at(-1)!.right).toBeGreaterThanOrEqual(31);
+    for (const name of boardStatuses) expect((await column(name).boundingBox())!.width).toBeGreaterThanOrEqual(288);
+    const scroll = () => grid.evaluate(element => ({ width: element.scrollWidth, room: element.clientWidth, left: element.scrollLeft }));
+    const scrolling = await scroll();
+    expect(scrolling.width).toBeGreaterThan(scrolling.room);
+    // From its start: the first column is not cut off on the left
+    expect(scrolling.left).toBe(0);
+    expect((await column('Open').boundingBox())!.x).toBeGreaterThanOrEqual((await grid.boundingBox())!.x);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1280);
+    await grid.evaluate(element => { element.scrollLeft = element.scrollWidth; });
+    await expect(column('Done')).toBeInViewport({ ratio: 1 });
+});
+
+test('board cards are darker than their column on dark', async ({ page, request }) => {
+    const { column, card } = await board(page, request);
+    // On dark the card is the page's black, a step darker than its column
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await expect(page.locator('html')).toHaveClass(/\bdark\b/);
+    const surface = (target: Locator) => target.evaluate(element => getComputedStyle(element).backgroundColor);
+    const row = card('Open', 'First board thread').locator('[data-comment-row]');
+    await expect.poll(() => surface(row)).toBe('rgb(0, 0, 0)');
+    expect(await surface(column('Open'))).not.toBe('rgb(0, 0, 0)');
+});
+
+test('a card names its author with an avatar, keeps its selection box out of the way at rest, and an empty column centres its line', async ({ page, request }, testInfo) => {
+    test.skip(testInfo.project.name.startsWith('Mobile'), 'Hover; a touch screen leaves the box out until Select');
+    const { column, card } = await board(page, request);
+    const first = card('Open', 'First board thread');
+    // The author is an avatar named for assistive tech, with the name in a tooltip, not a line of text
+    const author = first.getByRole('img', { name: 'By Reviewer', exact: true });
+    await expect(author).toBeVisible();
+    await expect(first).not.toContainText('Reviewer');
+    await author.hover();
+    await expect(page.locator('[data-slot="tooltip-content"]')).toHaveText('Reviewer');
+    // The box takes no room until the card is hovered, then sits in its bottom right corner
+    const box = first.getByRole('checkbox');
+    const boxShown = () => box.evaluate(element => getComputedStyle(element.parentElement!).position !== 'absolute');
+    await page.mouse.move(0, 0);
+    await expect.poll(boxShown).toBe(false);
+    await first.hover();
+    await expect.poll(boxShown).toBe(true);
+    const [cardBox, checkbox] = [(await first.boundingBox())!, (await box.boundingBox())!];
+    expect(cardBox.x + cardBox.width - (checkbox.x + checkbox.width)).toBeLessThan(24);
+    expect(cardBox.y + cardBox.height - (checkbox.y + checkbox.height)).toBeLessThan(24);
+    // An empty column's line is in the middle of the room below the column's name
+    const empty = await column('Done').locator('[data-empty-column]').evaluate(line => {
+        const range = document.createRange();
+        range.selectNodeContents(line);
+        const text = range.getBoundingClientRect(), room = line.getBoundingClientRect();
+        const section = line.closest('section')!, style = getComputedStyle(section);
+        const end = section.getBoundingClientRect().bottom - parseFloat(style.paddingBottom) - parseFloat(style.borderBottomWidth);
+        return { offCentre: Math.abs((text.top + text.bottom) / 2 - (room.top + room.bottom) / 2), below: end - room.bottom, room: room.height - text.height };
+    });
+    // The line fills the column to its end and its words sit in the middle
+    expect(empty.below).toBeLessThan(1);
+    expect(empty.room).toBeGreaterThan(20);
+    expect(empty.offCentre).toBeLessThan(1);
 });
 
 test('on a phone the board stacks its columns without scrolling sideways', async ({ page, request }, testInfo) => {
@@ -317,7 +372,9 @@ test('In progress is a column between Open and Ready to verify; cards move in an
     await expect(card('Done', 'First board thread')).not.toContainText('Done');
 
     if (!testInfo.project.name.startsWith('Mobile')) {
-        // Dragged from Done to In progress, then back to Open
+        // Dragged from Done to In progress, then back to Open, on a window where all four columns fit (narrower,
+        // the board scrolls sideways and Done starts out of view)
+        await page.setViewportSize({ width: 1674, height: 900 });
         await dragWithMouse(page, card('Done', 'First board thread'), column('In progress'));
         await expect(column('In progress').getByRole('listitem')).toHaveCount(1);
         await dragWithMouse(page, card('In progress', 'First board thread'), column('Open'));

@@ -47,8 +47,11 @@ export function appActor(context: AppContext): ProjectActor {
  * `avatarUrl`: the profile picture of a member who can still review the project, when they have one.
  * `agent`: the AI agent that wrote the message for them through a coding tool connection (`connection`, its
  * name); `name` is then the person alone and the thread adds "via Claude".
+ * `kind`: a member, a guest, a reply from a connected tool (Linear, GitHub...), uier's own starter threads, or a
+ * deleted message; rows and cards show an avatar for each (`AuthorAvatar`).
  */
-export type ProjectCommentAuthor = { name: string; isMe: boolean; avatarUrl?: string; agent?: import('@uier/toolbar/agents').MessageAgentView & { connection?: string } };
+export type ProjectCommentAuthorKind = 'member' | 'guest' | 'integration' | 'uier' | 'deleted';
+export type ProjectCommentAuthor = { name: string; isMe: boolean; kind?: ProjectCommentAuthorKind; avatarUrl?: string; agent?: import('@uier/toolbar/agents').MessageAgentView & { connection?: string } };
 
 /** Where a message's text names someone it mentions (`@Ana`): UTF-16 offsets into the text as shown */
 export type MessageMentionRange = { start: number; end: number };
@@ -160,12 +163,24 @@ function authorAvatar(item: import('../db/schema').DbThreadItem, avatars: Map<st
     return item.authorId?.startsWith('user:') && !item.deletedAt ? avatars.get(item.authorId.slice('user:'.length)) : undefined;
 }
 
+/**
+ * What kind of author wrote a message. Guests always have an author id (their visitor id), so only uier's own
+ * starter threads (`publicProject.ts`) are named "uier" without one.
+ */
+function authorKind(item: import('../db/schema').DbThreadItem): ProjectCommentAuthorKind {
+    if (item.deletedAt) return 'deleted';
+    if (item.authorId?.startsWith('user:')) return 'member';
+    if (item.authorId?.startsWith('integration:')) return 'integration';
+    return !item.authorId && item.authorName === 'uier' ? 'uier' : 'guest';
+}
+
 /** Who wrote a message: the person, and the AI agent that wrote it for them */
 function messageAuthor(item: import('../db/schema').DbThreadItem, names: Map<string, string>, myId: string | undefined, avatars: Map<string, string>): ProjectCommentAuthor {
     const agent = messageAgentView(item, true);
     return {
         name: agent ? itemPersonName(item, names) : itemAuthorName(item, names),
         isMe: Boolean(myId) && item.authorId === myId,
+        kind: authorKind(item),
         avatarUrl: authorAvatar(item, avatars),
         ...(agent ? { agent: { ...agent, ...(item.agent?.name ? { connection: item.agent.name } : {}) } } : {})
     };
@@ -208,7 +223,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         assignee: assignee && { ...assignee, avatarUrl: avatars.get(assignee.id) },
         title: visibleAiTitle(comment, titles),
         author: first.deletedAt
-            ? { name: 'Deleted', isMe: false }
+            ? { name: 'Deleted', isMe: false, kind: 'deleted' }
             : messageAuthor(first, names, myId, avatars),
         text: first.deletedAt ? '' : first.text,
         displayText: firstText.text,
