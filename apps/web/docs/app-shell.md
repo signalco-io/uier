@@ -23,8 +23,9 @@
   The container is a wrapper inside the scrolling panel, not the panel: a scroller's `cqw` takes in its own scrollbar where
   scrollbars take room (shown always, as on macOS with a mouse), and the board would then be that much wider than the panel
   and scroll it sideways when its columns fit.
-  The rest of the page (header, filters) stays in the reading column. Only the comments board and the comments list with
-  its thread beside it (capped at 96rem, [comments inbox](comments-inbox.md)) do it. uier's own workspace, which every account joins for Give feedback, is a
+  The rest of the page (the page header, the count line) stays in the reading column. Only the comments board and the
+  comments list with its thread beside it (capped at 96rem, [comments inbox](comments-inbox.md)) do it, and the comments'
+  filters header above them takes their width. uier's own workspace, which every account joins for Give feedback, is a
   `feedback` option in the switcher for people who are not its admins: its own entry after Create workspace,
   named "Feedback on uier", never in the list of their workspaces. A project's header is
   `projects/[projectId]/layout.tsx` (the favicon in `PageHeader`'s `media`, beside both the name and the row under it: client, then who can comment (`ProjectAccessInfo`: its popover has the guest links and Invite for admins; for those who configure the project the label is a link to Who can comment in Review settings, `KnownPageLinks.projectAccessSettings`, and the popover opens on hover only, so Who can comment there shows the guest links too), Open

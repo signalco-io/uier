@@ -213,7 +213,7 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
     return (
         // Side by side (with a thread beside the list) the split view breaks out of the reading column to the panel's
         // width less the gutters (`page-wide`, app-shell.md), capped at 96rem on very wide screens; the list takes up to
-        // 30 % of it (28rem at most) and the thread the rest. The filters and the count line keep the reading width.
+        // 30 % of it (28rem at most) and the thread the rest. The filters' header takes this width too (ProjectComments); the count line keeps the reading width.
         <div data-page-width={selected ? 'wide' : undefined}
             className={cn('grid grid-cols-1 items-start gap-4 @3xl/comments:grid-cols-[minmax(16rem,18rem)_minmax(0,1fr)] @4xl/comments:grid-cols-[minmax(17rem,clamp(22rem,30%,28rem))_minmax(0,1fr)]',
                 selected && '@3xl/comments:w-[min(var(--page-wide),96rem)] @3xl/comments:mx-[calc((100%-min(var(--page-wide),96rem))/2)]')}>

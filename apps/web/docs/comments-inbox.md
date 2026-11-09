@@ -19,7 +19,7 @@ rows with the status filter it waits for their entrance motion to settle before 
   (`CommentCard.tsx`). The open thread is in the URL (`?comment=<id>`, `useOpenComment`): side by side (`@container/comments` from `@3xl`, 48rem: the list's 18rem and
   at least 29rem for the thread; from about 1100 px with the sidebar docked, which takes in most landscape tablets; the
   list and the thread then break out of the reading column to the panel's width, at most 96rem, with `page-wide`'s length
-  ([app shell](app-shell.md)), the list taking up to 30 % of it, 28rem at most, and the filters staying in the column) it replaces
+  ([app shell](app-shell.md)), the list taking up to 30 % of it, 28rem at most; the filters' header (search, Filter, List/Board, the status tabs and the filters in effect) takes the same width, `ProjectComments`) it replaces
   the history entry and the first shown thread is open until another is chosen (it stays while it is listed, so a thread
   that arrives above it in a realtime refresh does not take its place, and the arrow keys go on from it; a filter that
   hides it shows the new first one; `e2e/realtime.spec.ts`); narrower (a phone, a tablet in portrait) a row opens
@@ -54,9 +54,11 @@ rows with the status filter it waits for their entrance motion to settle before 
   line up with the page content at either end and the others scroll under the panel's edges, not short of them. Where
   the columns fit there is no scrollbar, scrollbars that take room included (the panel's width is measured inside its
   scrollbar, [app shell](app-shell.md)). A phone stacks them. On dark a card is the page's black, a step
-  darker than its column, so it stands apart (light keeps paper cards on the muted column). Only the board's grid is wider than the reading width (`md:page-bleed`,
-  `data-page-width="wide"`); the project header, the filters, the count line, the selection bar and the empty states
-  stay in the reading column, as in the list. An empty column's line ("Nothing open.", "Drop here." while
+  darker than its column, so it stands apart (light keeps paper cards on the muted column). The board's grid is wider than the reading width (`md:page-bleed`,
+  `data-page-width="wide"`), and from `md` the filters' header takes the columns' width (`--board-width`: 20rem a
+  column and the gaps, never narrower than the reading column), up to the panel's width less the gutters
+  (`page-wide`): when the columns don't fit, the header stays at that width while the board scrolls under it. The
+  project header, the count line, the selection bar and the empty states stay in the reading column. An empty column's line ("Nothing open.", "Drop here." while
   dragging, `data-empty-column`) fills the room below the column's name and sits in its middle. A card opens its thread in a sheet over the board. Switching List/Board
   closes the open thread. Cards move between columns with `@dnd-kit/core`: the whole card drags (its link shows
   the grab cursor; its selection box and Move keep their presses, as Base UI opens a menu on press), with the
