@@ -29,11 +29,11 @@ const tokenColor = (page: Page, token: string) => page.evaluate(name => {
 }, token);
 
 /** The flag in a scope: hidden from assistive tech (the name beside it says the priority), in its priority's colour */
-async function expectFlag(scope: Locator, priority: Priority) {
+async function expectFlag(scope: Locator, priority: Priority, token = tokens[priority]) {
     const flag = scope.locator(`svg[data-priority="${priority}"]`);
     await expect(flag).toBeVisible();
     await expect(flag).toHaveAttribute('aria-hidden', 'true');
-    await expect(flag).toHaveCSS('stroke', await tokenColor(scope.page(), tokens[priority]));
+    await expect(flag).toHaveCSS('stroke', await tokenColor(scope.page(), token));
 }
 
 /** A row's or card's priority: the flag alone, its name only for assistive tech */
@@ -64,7 +64,10 @@ test('priority shows a flag in its colour in the thread, its menu, list rows and
     const thread = await openComment(page, numbers[0]!);
     const control = thread.getByRole('button', { name: 'Priority: Normal. Change priority', exact: true });
     await expect(control).toHaveText('Normal');
-    await expectFlag(control, 'normal');
+    // The default Normal is "not set": muted text and flag, like Unassigned and Link a pull request
+    await expect(control).toHaveAttribute('data-unset', '');
+    await expect(control).toHaveCSS('color', await tokenColor(page, '--muted-foreground'));
+    await expectFlag(control, 'normal', '--muted-foreground');
     await control.click();
     const menu = page.getByRole('menu');
     for (const [priority, name] of priorities)
@@ -77,6 +80,7 @@ test('priority shows a flag in its colour in the thread, its menu, list rows and
     const urgent = thread.getByRole('button', { name: 'Priority: Urgent. Change priority', exact: true });
     await expect(urgent).toBeEnabled();
     await expectFlag(urgent, 'urgent');
+    await expect(urgent).not.toHaveAttribute('data-unset');
     await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);
 
     // The list row: the flag without its name, read as "Urgent priority"; the Normal row stays without one

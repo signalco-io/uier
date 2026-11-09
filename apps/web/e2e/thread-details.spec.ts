@@ -78,6 +78,14 @@ test('the thread details are a properties list: even rows, values on one left ed
 
     // Text rows and control rows: the assignee with their agent is the busiest one
     let thread = await openComment(page, 'Checkout button fails');
+    // Every value still unset or at its default has the one "not set" look: muted text, its icon in the same colour
+    const unset = thread.locator('dl[data-thread-details] [data-unset]');
+    await expect(unset).toHaveText(['Unassigned', 'Normal', 'Link a pull request']);
+    const looks = await unset.evaluateAll(values => values.map(value => {
+        const icon = value.querySelector('svg')!;
+        return [getComputedStyle(value).color, getComputedStyle(icon).stroke];
+    }));
+    for (const look of looks) expect(look).toEqual([looks[0]![0], looks[0]![0]]);
     await thread.getByRole('button', { name: 'Unassigned. Change assignee', exact: true }).click();
     await page.getByRole('menuitemcheckbox', { name, exact: true }).click();
     await page.getByRole('menuitem', { name: 'Done', exact: true }).click();
@@ -89,6 +97,7 @@ test('the thread details are a properties list: even rows, values on one left ed
     await page.keyboard.press('Enter');
     await expect(thread.getByRole('button', { name: 'Agent: Claude. Change agent', exact: true })).toBeVisible();
     await expect(menu).toHaveCount(0);
+    await expect(unset).toHaveText(['Normal', 'Link a pull request']);
 
     const details = thread.locator('dl[data-thread-details]');
     for (const colorScheme of ['light', 'dark'] as const) {
