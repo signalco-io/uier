@@ -13,3 +13,4 @@ Read the note for the area you change, and update it in the same pull request. A
 - [Message Markdown](message-markdown.md): the Markdown subset thread messages show, its parser and renderers.
 - [Reviewing uier's own toolbar](toolbar-review.md): commenting on the toolbar's parts on uier's own pages, popovers held open, openers.
 - [Keyboard](keyboard.md): the shortcuts, the switch that turns them off, and the composites with one tab stop.
+- [Realtime subscription](realtime.md): socket reconciliation reasons shared by the toolbar and app.

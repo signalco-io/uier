@@ -1,0 +1,244 @@
+{
+  "version": 1,
+  "observedWindowUtc": {
+    "start": "2026-11-08T12:06:17Z",
+    "end": "2026-11-09T12:06:17Z"
+  },
+  "auditCommit": "7f062f8e119a43141079c60be1d70fa7e6e0e372",
+  "implementationBase": "9823fad8ece63d86406b65b6c0dac9a10518f71a",
+  "productionCosmos": {
+    "currentRU": {
+      "total": 440667.5178848691,
+      "containers": {
+        "app": 226865.10661251264,
+        "comments": 213802.41127235652
+      },
+      "operations": {
+        "Read": 152712.0476190476,
+        "Query": 204418.80882826538,
+        "Patch": 25383.280485175204,
+        "Batch": 20007.761904761905,
+        "Replace": 14011.904761904761,
+        "Create": 15298.000000000005,
+        "Delete": 5381.809523809533,
+        "TimeToLiveBasedDelete": 3400.190476190476,
+        "Upsert": 53.71428571428571
+      },
+      "statuses": {
+        "200": 413409.2128264684,
+        "201": 8275.904761904767,
+        "409": 6220.190476190474,
+        "204": 4276.1904761904825,
+        "404": 3983.190476190477,
+        "304": 2088.0,
+        "449": 2156.2491734052137,
+        "412": 258.5796945193174
+      }
+    },
+    "previousRU": {
+      "total": 116997.78345525889,
+      "containers": {
+        "app": 87325.49843567499,
+        "comments": 29672.285019583895
+      },
+      "operations": {
+        "Read": 50479.71428571429,
+        "Query": 39852.6667526533,
+        "Patch": 10001.73575022462,
+        "Replace": 6603.809523809525,
+        "Batch": 4240.761904761905,
+        "Create": 3857.761904761905,
+        "TimeToLiveBasedDelete": 1854.2857142857144,
+        "Delete": 53.71428571428571,
+        "Upsert": 53.33333333333333
+      },
+      "statuses": {
+        "200": 110571.67934025438,
+        "201": 2528.190476190476,
+        "409": 1324.142857142857,
+        "304": 1151.0,
+        "404": 1087.0,
+        "449": 272.6237915543576,
+        "204": 53.71428571428571,
+        "412": 9.432704402515723
+      }
+    },
+    "currentRequests": {
+      "total": 252558.0,
+      "containers": {
+        "app": 190176.0,
+        "comments": 62382.0
+      },
+      "operations": {
+        "Read": 150800.0,
+        "QueryPlan": 46307.0,
+        "Query": 46474.0,
+        "Create": 3675.0,
+        "Patch": 2605.0,
+        "Replace": 1331.0,
+        "Batch": 645.0,
+        "Delete": 535.0,
+        "TimeToLiveBasedDelete": 171.0,
+        "Upsert": 5.0,
+        "ReadFeed": 10.0
+      },
+      "statuses": {
+        "200": 244413.0,
+        "409": 2941.0,
+        "404": 3905.0,
+        "201": 734.0,
+        "204": 194.0,
+        "412": 199.0,
+        "400": 172.0
+      }
+    },
+    "previousRequests": {
+      "total": 78194.0,
+      "containers": {
+        "app": 69394.0,
+        "comments": 8800.0
+      },
+      "operations": {
+        "Read": 49450.0,
+        "QueryPlan": 12840.0,
+        "Query": 13009.0,
+        "Patch": 1114.0,
+        "Create": 977.0,
+        "Replace": 506.0,
+        "TimeToLiveBasedDelete": 143.0,
+        "Batch": 134.0,
+        "Delete": 6.0,
+        "Upsert": 5.0,
+        "ReadFeed": 10.0
+      },
+      "statuses": {
+        "200": 75950.0,
+        "404": 1082.0,
+        "409": 645.0,
+        "201": 332.0,
+        "400": 171.0,
+        "412": 8.0,
+        "204": 6.0
+      }
+    },
+    "ruGrowth": 3.76646039669106,
+    "requestGrowth": 3.2298897613627644,
+    "retailForecastEUR": 0.12065476639687717
+  },
+  "mcp": {
+    "window": {
+      "from": "2026-11-08T12:15:00.000Z",
+      "to": "2026-11-09T12:06:17.000Z",
+      "queryCalls": 68,
+      "uncappedWindows": 40,
+      "failures": 0
+    },
+    "requests": 2007,
+    "p50Ms": 362,
+    "p95Ms": 1265,
+    "startupRequests": 798,
+    "startupDefinition": [
+      "initialize",
+      "notifications/initialized",
+      "tools/list",
+      "prompts/list",
+      "resources/list",
+      "POST 400 other",
+      "GET 405"
+    ]
+  },
+  "batchEnrichment": {
+    "fixture": "Ten visible titled threads with one repeated current member/author; in-memory store boundaries",
+    "before": {
+      "userReads": 20,
+      "projectReads": 10,
+      "workspaceSettingReads": 10,
+      "workspaceQueries": 20
+    },
+    "after": {
+      "userReads": 2,
+      "projectReads": 1,
+      "workspaceSettingReads": 1,
+      "workspaceQueries": 2
+    },
+    "comparison": "Unshared reader per thread versus one request-local reader; identical full packets",
+    "scope": "Enrichment operation count only; not whole-route RU, latency or invoice savings"
+  },
+  "realtimeAuthorization": {
+    "fixture": "20 concurrent identical scopes held in flight",
+    "beforeUnderlyingCalls": 20,
+    "afterUnderlyingCalls": 1,
+    "scope": "No settled authorization results retained. Nonoverlapping polls are unchanged."
+  },
+  "decisions": {
+    "mcpLifecycle": "Repository watcher already sends direct stateless HTTP tool requests and stops on auth failure. Client/harness startup reuse is not implemented by this server change.",
+    "realtimeMarker": "No durable change marker, new pub/sub service or cross-request positive authorization cache introduced.",
+    "eagerMetadataPreparation": "Declined after sparse single-viewer CPU regression; see docs/cosmos-query-costs.md.",
+    "deployment": "PR506 already merged as 0cd2eda42b5821279d747f6b9382b9c5a9bb1cf8."
+  },
+  "limitations": [
+    "Minute buckets and provider metric aggregation; Count for requests and Total for RU.",
+    "Production metrics identify operation/container, not source route.",
+    "Local fixtures establish operation reductions and correctness, not hosted latency or billed savings."
+  ],
+  "idleRefresh": {
+    "fixture": "100 threads per project, same user/context, in-memory current services. Explicit render-scoped React cache simulation; API branch uncached. Includes app context, snapshot, sidebar and project header services.",
+    "comparisons": [
+      {
+        "projects": 1,
+        "sort": "alphabetical",
+        "fullRenderStoreCalls": 19,
+        "revisionStoreCalls": 16
+      },
+      {
+        "projects": 1,
+        "sort": "recent",
+        "fullRenderStoreCalls": 20,
+        "revisionStoreCalls": 16
+      },
+      {
+        "projects": 10,
+        "sort": "alphabetical",
+        "fullRenderStoreCalls": 19,
+        "revisionStoreCalls": 16
+      },
+      {
+        "projects": 10,
+        "sort": "recent",
+        "fullRenderStoreCalls": 29,
+        "revisionStoreCalls": 16
+      }
+    ],
+    "scheduledFullShellRendersPerConnectedHour": {
+      "before": 60,
+      "after": 12
+    },
+    "scheduledFullShellRendersPerFallbackHour": {
+      "before": 120,
+      "after": 12
+    },
+    "scope": "Read boundaries and unchanged scheduler cadence only; not measured network latency, RU or actual invoice savings. Comment snapshot and authorization reads continue."
+  },
+  "validation": {
+    "integratedMain": "8637bf35",
+    "typecheck": "passed",
+    "productionBuild": "passed",
+    "defaultSuite": {
+      "passed": 873,
+      "skipped": 1
+    },
+    "focusedApi": {
+      "passed": 35,
+      "note": "Initial focused API run; all new and existing API specs also passed in final default suite."
+    },
+    "focusedDesktopMobile": {
+      "passed": 31,
+      "skipped": 1
+    },
+    "finalIdleAndAuthorizationDesktopMobile": {
+      "passed": 2
+    },
+    "independentReviews": "Batch, refresh, and combined authorization/race/privacy reviews had no unresolved substantive findings.",
+    "documentationLinks": "70 local documentation links and anchors checked."
+  }
+}

@@ -131,3 +131,113 @@ test('toolbar receives replies, reconciles after socket replacement and preserve
     await expect(thread).toContainText('Posted while tab was hidden');
     await expect(draft).toHaveValue('Still writing this reply');
 });
+
+/** Only app-shell RSC reads: revision probes and other request types do not count as renders. */
+function shellRefreshes(page: Page, project: string) {
+    const reads: string[] = [];
+    page.on('request', request => {
+        if (request.method() === 'GET' && new URL(request.url()).pathname === `/app/projects/${project}`
+            && request.headers().rsc === '1' && !request.headers()['next-router-prefetch']) reads.push(request.url());
+    });
+    return reads;
+}
+
+async function idleFixture(page: Page, request: Parameters<typeof verifiedReviewHeaders>[0]) {
+    const sockets = await transport(page);
+    await signIn(page, uniqueEmail('idle-revision'));
+    const project = await createProject(page, { urls: [site.origin()] });
+    await setProjectAccess(page, project, 'Anyone with the link');
+    const headers = await verifiedReviewHeaders(request, project, site.origin());
+    await page.clock.install();
+    const initial = page.waitForResponse(response => response.url().includes(`/api/projects/${project}/comments/revision`));
+    await page.goto(`/app/projects/${project}`);
+    await expect.poll(() => sockets.length).toBeGreaterThan(0);
+    await page.clock.runFor(200);
+    await initial;
+    return { sockets, project, headers };
+}
+
+test('unchanged idle comments skip app shell renders and retain one five-minute shell safety refresh', async ({ page, request }) => {
+    const { project } = await idleFixture(page, request);
+    const revisionUrl = `/api/projects/${project}/comments/revision`;
+    const revision = await page.request.get(revisionUrl);
+    expect(revision.status()).toBe(200);
+    expect(Object.keys(await revision.json())).toEqual(['revision']);
+    expect(revision.headers()['cache-control']).toBe('private, no-store');
+    expect((await page.request.get('/api/projects/zzzzzzzzzzzz/comments/revision')).status()).toBe(404);
+    expect((await page.request.get(`${revisionUrl}?author=invalid-reference`)).status()).toBe(404);
+    const reads = shellRefreshes(page, project);
+    for (let minute = 1; minute <= 4; minute++) {
+        const checked = page.waitForResponse(response => response.url().includes(`/api/projects/${project}/comments/revision`));
+        await page.clock.fastForward(60_000);
+        expect((await checked).status()).toBe(200);
+        expect(reads).toHaveLength(0);
+    }
+    const rendered = page.waitForResponse(response => new URL(response.url()).pathname === `/app/projects/${project}` && response.request().headers().rsc === '1');
+    await page.clock.fastForward(60_000);
+    expect((await rendered).status()).toBe(200);
+    expect(reads).toHaveLength(1);
+});
+
+test('the refreshed page revision includes a mutation committed after its revision check', async ({ page, request }) => {
+    const { project, headers } = await idleFixture(page, request);
+    const reads = shellRefreshes(page, project);
+    const post = (text: string) => request.post(`/api/review/${project}/comments`, { headers, data: {
+        path: `/${project}/pricing`, position: { type: 'page' }, kind: 'feedback', text, authorName: 'Remote reviewer'
+    } });
+    expect((await post('Before the revision check')).status()).toBe(201);
+    let inject = true;
+    await page.route(`**/api/projects/${project}/comments/revision?*`, async route => {
+        const response = await route.fetch();
+        if (inject) {
+            inject = false;
+            expect((await post('Between the check and render')).status()).toBe(201);
+        }
+        await route.fulfill({ response });
+    });
+    await page.clock.fastForward(60_000);
+    await expect(commentRowLink(page, 2)).toBeVisible();
+    await expect(commentRowLink(page, 1)).toBeVisible();
+    expect(reads).toHaveLength(1);
+    const checked = page.waitForResponse(response => response.url().includes(`/api/projects/${project}/comments/revision`));
+    await page.clock.fastForward(60_000);
+    expect((await checked).status()).toBe(200);
+    expect(reads).toHaveLength(1);
+});
+
+test('an idle revision check rechecks the session and redirects an ended session', async ({ page, request }) => {
+    const { project } = await idleFixture(page, request);
+    const response = await request.get(`/api/projects/${project}/comments/revision`);
+    expect(response.status()).toBe(401);
+    expect(response.headers()['cache-control']).toBe('private, no-store');
+    expect((await request.get(`/api/projects/${project}/comments/revision`, { headers: { 'sec-fetch-site': 'cross-site' } })).status()).toBe(403);
+    await page.context().clearCookies();
+    await page.clock.fastForward(60_000);
+    await expect(page).toHaveURL(/\/app\/sign-in/);
+});
+
+test('a late changed revision response does not refresh a hidden tab', async ({ page, request }) => {
+    const { project } = await idleFixture(page, request);
+    const reads = shellRefreshes(page, project);
+    let release!: () => void;
+    const waiting = new Promise<void>(resolve => { release = resolve; });
+    let entered = false;
+    await page.route(`**/api/projects/${project}/comments/revision?*`, async route => {
+        entered = true;
+        await waiting;
+        await route.fulfill({ json: { revision: 'a different revision' } });
+    });
+    try {
+        await page.clock.fastForward(60_000);
+        await expect.poll(() => entered).toBe(true);
+        await page.evaluate(() => {
+            Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+            document.dispatchEvent(new Event('visibilitychange'));
+        });
+        const checked = page.waitForResponse(response => response.url().includes(`/api/projects/${project}/comments/revision`));
+        release();
+        await checked;
+        await page.clock.runFor(500);
+        expect(reads).toHaveLength(0);
+    } finally { release(); }
+});

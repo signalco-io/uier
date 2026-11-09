@@ -403,8 +403,10 @@ same `context`, `markdown` and optional `screenshotResource` as `get_feedback`, 
 `message`. Missing, deleted and inaccessible ids all return `not_found`. A packet too large for
 one response returns `too_large` for that id. The batch returns only whole packets that fit within
 256 KiB; retry `remainingIds` separately. Duplicate ids, empty batches and more than ten ids are
-tool errors. Each packet loads its authorized thread, member names and saved screenshot document;
-batching reduces transport calls, not these storage reads. Both tools leave read cursors unchanged.
+tool errors. Each packet loads its authorized thread and saved screenshot document. Within one batch,
+member names, repeated author accounts and the AI-title setting are loaded once when needed; no
+context survives the request. Visibility is checked before enrichment, and scope, project selection
+and membership are rechecked on each call. Both tools leave read cursors unchanged.
 
 Screenshot references are `uier://projects/{projectId}/feedback/{commentId}/screenshot` resources.
 Use MCP `resources/read` with `screenshots:read` to retrieve the saved image; current feedback

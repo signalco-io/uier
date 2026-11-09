@@ -62,7 +62,8 @@ function applyFilters(comments: ProjectCommentView[], query: CommentsQuery, user
 }
 
 /** The project's comments in a list (a status tab) or on a board (a column per status), filtered by people and page */
-export function ProjectComments({ projectId, access, isAdmin, comments: savedComments, query: serverQuery, userId, assignees, installHref, environments, authorFilter, searchWindowCapped = false, boardSorts: savedSorts, canSortBoard }: {
+export function ProjectComments({ projectId, revision, access, isAdmin, comments: savedComments, query: serverQuery, userId, assignees, installHref, environments, authorFilter, searchWindowCapped = false, boardSorts: savedSorts, canSortBoard }: {
+    revision: string;
     searchWindowCapped?: boolean;
     /** Each board column's sort, saved on the project for everyone (`lib/app/boardSort.ts`) */
     boardSorts: Record<CommentStatus, BoardSort>;
@@ -207,7 +208,7 @@ export function ProjectComments({ projectId, access, isAdmin, comments: savedCom
     const selectionScope = JSON.stringify([projectId, query.environment, query.author, query.unread, query.people, query.page, query.status, query.q, query.priority, query.view]);
     return (
         <CommentUpdatesProvider value={updateComment}>
-        <RealtimeComments projectId={projectId} />
+        <RealtimeComments projectId={projectId} revision={revision} environment={serverQuery.environment} author={serverQuery.author} />
         <CommentsSearchNavigationProvider value={commitSearch}>
         {/* The filter rows, the count line and the comments share one spacing: the gap between search and the status tabs.
             They keep the page's reading width in both views; only the board itself is wider (CommentBoard). */}

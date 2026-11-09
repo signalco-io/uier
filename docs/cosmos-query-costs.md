@@ -71,7 +71,7 @@ their existing conditional/transactional semantics and TTLs.
 | Email reports/suppression/status (`email/*`, `status/*`) | P normalized-address hash suppression/receipt and missing comment probe; global Q operation-id ledger matching | Report callbacks/requested email/status polling; report receipts 30 days; status probe does not list documents |
 | AI thread titles (`titles/threadTitles`, `review/feedbackContext`, MCP `list_feedback`) | After the response only: P workspace (the setting, unless the caller knows it) and P comment per thread, then one conditional replace per written title; no queries. Exports and `list_feedback` add P workspace only when a thread has a stored title | A new or changed thread, and at most 10 threads per comments list render or My work project; each title once per first-message version ([AI title costs](ai-title-costs.md)) |
 | Usage pages (`app/usage`, account and workspace Usage) | Q projects and access per listed workspace (the account page: every workspace of the person; the workspace page: the open one, P project per other workspace only for a `?project=` link elsewhere); then only P counter reads in each project's partition (3–4 per project on the account page, 2 on the workspace page) and one in the `app` counters partition; never a counter write | Only when someone opens a Usage page; scales with the person's visible projects, not with threads |
-| Sidebar project order (`app/sidebarProjects`, shell layout) | Recent activity only: one comments Q per listed project (the active ones; every project when grouped by status) in its own partition, `SELECT VALUE MAX(c.updatedAt)` with the member's visibility (`commentVisibilityFilter`, the rule of `canSeeComment`), one scalar and no documents; Q clients in the workspace only when an active project has a client. Name and Recently created read no comments | Every shell render: page loads, `router.refresh()` (`RealtimeComments` every 30–60 s and on changes), `revalidatePath('/app', 'layout')` and the order cookie action; scales with listed projects, not threads |
+| Sidebar project order (`app/sidebarProjects`, shell layout) | Recent activity only: one comments Q per listed project (the active ones; every project when grouped by status) in its own partition, `SELECT VALUE MAX(c.updatedAt)` with the member's visibility (`commentVisibilityFilter`, the rule of `canSeeComment`), one scalar and no documents; Q clients in the workspace only when an active project has a client. Name and Recently created read no comments | Every shell render: page loads, changed comments, five-minute idle safety refresh, `revalidatePath('/app', 'layout')` and the order cookie action. Unchanged 30–60 s revision checks skip the shell; scales with listed projects, not threads |
 
 All call sites use the shared store contract. SQL parameter values and partition suffixes must
 never become operation labels. Global membership, access erasure and identifier-only recovery
@@ -173,9 +173,79 @@ Every comment write sets `updatedAt`; only threads untouched since before it exi
 a project without counted threads uses its creation time. The cost is **not measured** on Cosmos yet.
 The comparable scalar aggregate measured above (the exact blocked count) cost 3.29 RU at 20 and at
 1,200 history rows, so expect about **3 RU × listed projects per render**. For example, ten active projects in a tab
-left open on a project page (`RealtimeComments`, one refresh per minute when connected) come to about
-1,800 RU/hour (43,200 RU/day), around €0.012/day at the rate below. Measure with
+left open on an unchanged project page (`RealtimeComments`, one full safety refresh every five minutes)
+come to about 360 RU/hour (8,640 RU/day), around €0.0024/day at the rate below. This models only sidebar
+aggregates; revision checks still load the authorized comment snapshot. Measure with
 `UIER_COSMOS_DIAGNOSTICS_SAMPLE_RATE` and the operation label before assuming either figure.
+
+## Usage review on 9 November 2026
+
+The [numeric receipt](evidence/usage-performance-2026-11-09.json) records the production `app` and
+`comments` metrics for 8 November 12:06:17–9 November 12:06:17 UTC, compared with the preceding day.
+Requests rose from 78,194 to 252,558 (3.23×), and RU from about 116,998 to 440,668 (3.77×).
+Preview containers are excluded. Azure Monitor uses minute buckets; `TotalRequests` requires
+**Count**, while `TotalRequestUnits` uses **Total**. Summing `TotalRequests` is not a request count.
+The current retail RU-only forecast was about €0.121 for this window, not the account's invoice.
+
+The selected batch-export change shares display enrichment within one request, while retaining
+each thread's visibility check and the response byte-budget early stop. A ten-thread fixture
+returned identical packets with user reads 20→2, project reads 10→1, workspace-setting reads
+10→1 and workspace queries 20→2. These are in-memory service boundaries, not whole-route RU or
+hosted-latency measurements. [MCP tools](mcp.md#tools) describes the batch-export contract.
+
+The retained idle gate avoids full shell/header rendering and transfer when the authorized
+snapshot is unchanged. It still reads comments, members, current access, read cursors and
+subscriptions, sharing the route's live project/access/member loads explicitly because API handlers
+do not receive React's render cache. A synthetic 100-thread service comparison, including app context
+and simulating that render cache only for the full-render branch, measured 19→16 store boundaries
+with one project's Name order, 20→16 with Recent activity and 29→16 for ten projects with Recent
+activity. These are operation counts, not measured RU or network latency. Unrelated navigation may
+wait up to the five-minute safety refresh; socket content changes still reconcile immediately.
+
+MCP startup/discovery/protocol probes accounted for 798 of 2,007 exported requests in the retained
+23 h 51 min. The repository monitor already sends direct stateless HTTP requests without repeating
+initialization and stops on an authentication failure. Reusing the external coding client's
+initialized session remains client/harness work; this release does not claim to remove that traffic.
+It also keeps the transport's authentication and rate limits intact. Deployment parallelization
+was already merged in [#506](https://github.com/signalco-io/uier/pull/506).
+
+## Realtime evaluation on 9 November 2026
+
+`authorizeRealtime` now shares only an identical authorization operation that is already in
+flight, keyed by audience, partition, project, workspace, both origins and viewer identity.
+The pending entry is removed on success or failure before a later call can reuse it. No
+settled access decision is retained, and every socket continues to check current membership,
+role, address and project access on each two-second poll. Visibility remains per socket.
+The focused `realtime-performance.api.spec.ts` fixture compares twenty simultaneous identical
+calls with one underlying authorization operation, then proves that the next revoked and
+restored reads are fresh. Different scope/identity/origin combinations use independent reads.
+That is an overlapping-call reduction, not a measured production RU saving: sockets whose
+polls do not overlap do the same database work as before.
+
+An eager shared sort/serialization of comment revision metadata was evaluated and declined.
+The local Node 26.13 comparison used the same 2,000 deterministically shuffled metadata rows,
+one partition, and 1, 10 or 40 concurrent viewers. Full visibility selected every row; sparse
+visibility selected 5%. The baseline was the filter-then-sort implementation at `9823fad8`.
+After ten warm-up pairs, forty alternating before/after runs measured the median elapsed time
+to prepare all viewers' revisions from one metadata read, including the prototype's shared
+preparation. These are local elapsed timings, without Cosmos/network latency or Function billing.
+
+| Viewers | Visible rows | Existing ms | Eager shared preparation ms |
+| --- | --- | ---: | ---: |
+| 1 | All | 0.556 | 0.556 |
+| 1 | 5% | 0.032 | 0.465 |
+| 10 | All | 5.478 | 1.583 |
+| 10 | 5% | 0.294 | 0.597 |
+| 40 | All | 21.834 | 4.868 |
+| 40 | 5% | 1.155 | 1.125 |
+
+Sorting/encoding metadata invisible to a viewer regressed the sparse cases, so the existing
+filter-first revision calculation is retained. A durable revision marker or new change-feed/pub/sub
+service is also deferred: correctness would require covering every write and deletion plus private
+visibility and access changes, while the current audit estimates about €0.12/day for all production
+RU consumption. Measure `comments.realtime` operation charges and concurrent sockets before
+introducing that storage/write-path complexity; the audit's all-query RU total cannot attribute
+the cost to realtime alone.
 
 ## Diagnostics and store contract
 

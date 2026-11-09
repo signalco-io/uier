@@ -1,14 +1,9 @@
-import { environmentOptions, isEnvironmentSelection } from '@/src/lib/app/environments';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { KnownPageLinks } from '@/src/knownPages';
 import { requireAppContext } from '@/src/lib/app/context';
 import { getVisibleProject } from '@/src/lib/app/projects';
-import { resolveCommentAuthorFilter } from '@/src/lib/app/commentAuthors';
-import { appActor, loadProjectComments } from '@/src/lib/app/projectComments';
-import { boardSortsOf } from '@/src/lib/app/boardSort';
-import { canSortProjectBoard } from '@/src/lib/app/projectBoard';
-import { listProjectMembers } from '@/src/lib/app/members';
+import { loadAppCommentsSnapshot } from '@/src/lib/app/appCommentsSnapshot';
 import { ProjectComments } from '@/src/components/app/comments/ProjectComments';
 import { parseCommentsQuery } from '@/src/components/app/comments/commentsQuery';
 
@@ -27,34 +22,13 @@ export default async function ProjectPage({ params, searchParams }: PageProps<'/
     if (!project)
         notFound();
 
-    const query = parseCommentsQuery(await searchParams);
-    const author = query.author ? await resolveCommentAuthorFilter(context, project, query.author) : undefined;
-    if (query.author && !author) notFound();
-    // All environments unless a valid one is chosen
-    query.environment = isEnvironmentSelection(project, query.environment) ? query.environment : 'all';
-    let searchWindowCapped = false;
-    const [comments, members] = await Promise.all([
-        loadProjectComments(context, project, query.environment, author?.authorId, capped => { searchWindowCapped = capped; }),
-        listProjectMembers(context.workspace.id, project.id)
-    ]);
+    const snapshot = await loadAppCommentsSnapshot(context, project, parseCommentsQuery(await searchParams));
+    if (!snapshot) notFound();
     return (
         <>
             <section id="comments" aria-labelledby="comments-title" className="flex scroll-mt-6 flex-col gap-4">
                 <h2 id="comments-title" className="sr-only">Comments</h2>
-                <ProjectComments
-                    environments={environmentOptions(project)}
-                    projectId={project.id}
-                    access={project.access}
-                    isAdmin={context.isAdmin}
-                    comments={comments}
-                    searchWindowCapped={searchWindowCapped}
-                    query={query}
-                    authorFilter={author?.filter}
-                    userId={context.user.id}
-                    boardSorts={boardSortsOf(project.boardSorts)}
-                    canSortBoard={canSortProjectBoard(project, appActor(context))}
-                    installHref={KnownPageLinks.projectInstall(project.id)}
-                    assignees={members.map(({ member, name, avatarUrl }) => ({ userId: member.userId, name, avatarUrl }))} />
+                <ProjectComments {...snapshot} installHref={KnownPageLinks.projectInstall(project.id)} />
             </section>
         </>
     );
