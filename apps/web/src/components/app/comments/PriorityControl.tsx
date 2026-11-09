@@ -30,7 +30,7 @@ export function PriorityControl({ projectId, commentId, priority, canEdit }: { p
                     try {
                         const result = await setCommentPriorityAction(projectId, commentId, value, attempt.current.key);
                         if (!result?.ok) toast.error(result?.error ?? 'Could not set priority. Try again.');
-                        else { attempt.current = null; toast(`Priority set to ${priorityLabels[value]}.`); }
+                        else attempt.current = null;
                     } catch { toast.error('Could not set priority. Try again.'); }
                 })}>
                     <PriorityFlag priority={value} />

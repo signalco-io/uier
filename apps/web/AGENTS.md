@@ -327,7 +327,9 @@ not checked. A new service gets a real check there first. `e2e/status.spec.ts` c
   (BRAND.md). Icons come from `lucide-react` (1.75 stroke, set in the theme). A person (Users, assignees,
   invites) is `User` / `UserPlus`, a team is `Users`, and your own account is `CircleUser`, in the app and
   the toolbar (`@signalco/ui-icons` `User`, `UserCircle`). Toasts are `sonner`
-  (`toast()`), mounted with the tooltip provider in the app layout.
+  (`toast()`), mounted with the tooltip provider in the app layout. A change that shows in place (a
+  thread's assignee, agent or priority) gets no success toast, only an error toast when it fails;
+  confirm with a toast only what nothing on screen shows (a copied link, a deleted comment).
 - **Base UI.** The components are on [Base UI](https://base-ui.com) (`base-vega`); a new `shadcn add`
   delivers the Base UI variant. Compose with `render` (`<DialogTrigger render={<Button />}>Open</DialogTrigger>`),
   never `asChild`. A link that looks like a button is the link itself with `buttonVariants`
