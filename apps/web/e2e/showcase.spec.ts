@@ -402,6 +402,57 @@ test('a long thread keeps its reply box inside the window', async ({ browser }, 
     await context.close();
 });
 
+test('a pin at the bottom and right edges turns upside down; its thread opens where there is room (uier #166)', async ({ browser }, testInfo) => {
+    const origin = isolatedOrigin(testInfo);
+    const { context, page } = await newVisitor(browser, testInfo);
+    await openLanding(page, origin, { dismissHint: true });
+
+    // Near the right edge of the features section, in its middle (below the first screen)
+    const selector = 'main>section:nth-of-type(2)';
+    const created = await postComment(page, { position: { type: 'point', selector, xNormal: 0.97, yNormal: 0.5 }, text: 'Near the edge.' });
+    expect(created.status).toBe(201);
+    await page.reload();
+    const pin = commentBubble(page, 1);
+    await expect(pin).toBeAttached();
+
+    // The point 10px above the bottom of the window: no room for the pin below it
+    const point = await page.evaluate((selector) => {
+        const rect = document.querySelector(selector)!.getBoundingClientRect();
+        window.scrollBy({ top: rect.top + rect.height / 2 - (document.documentElement.clientHeight - 10), behavior: 'instant' });
+        const after = document.querySelector(selector)!.getBoundingClientRect();
+        return { x: after.left + after.width * 0.97, y: after.top + after.height / 2 };
+    }, selector);
+    await expect(pin).toHaveAttribute('data-uier-upside-down', '');
+    await expect(pin).toBeInViewport({ ratio: 1 });
+    const pinBox = (await pin.boundingBox())!;
+    expect(pinBox.y + pinBox.height).toBeLessThanOrEqual(point.y + 8);
+
+    await pin.click();
+    const thread = openThread(page);
+    await expect(thread.getByRole('textbox', { name: 'Reply' })).toBeFocused();
+    await animationsFinished(thread);
+    await expect(thread).toBeInViewport({ ratio: 1 });
+    // Clear of the toolbar pill and of the pin, which stays reachable
+    const box = (await thread.boundingBox())!;
+    const pill = (await toolbar(page).boundingBox())!;
+    const overlaps = (a: typeof box, b: typeof box) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+    expect(overlaps(box, pill)).toBe(false);
+    const pinNow = (await pin.boundingBox())!;
+    expect(overlaps(box, { x: pinNow.x + 6, y: pinNow.y + 6, width: pinNow.width - 12, height: pinNow.height - 12 })).toBe(false);
+    if (!testInfo.project.use.isMobile) {
+        // On the left of the pin: no room on its right
+        expect(box.x + box.width).toBeLessThanOrEqual(pinNow.x + 6);
+    }
+    await page.keyboard.press('Escape');
+    await expect(thread).toBeHidden();
+
+    // With room below the point again, the pin is the right way up
+    await page.evaluate(() => window.scrollBy({ top: 200, behavior: 'instant' }));
+    await expect(pin).not.toHaveAttribute('data-uier-upside-down');
+
+    await context.close();
+});
+
 test('point comments: instructions, keyboard path, kept drafts', async ({ browser }, testInfo) => {
     const origin = isolatedOrigin(testInfo);
     const { context, page } = await newVisitor(browser, testInfo);

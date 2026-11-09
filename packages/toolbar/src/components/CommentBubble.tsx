@@ -23,7 +23,7 @@ import { ComposerModal, ExpandComposerButton } from './ComposerModal';
 import { CommentDraft, CommentItem, CommentItemPosition, commentTextMaxLength, floatingShadowClassName, isCommentArea } from './@types/Comments';
 
 // Bubble (the pin) half size, how far its message count badge reaches past the right edge (Pin,
-// @uier/brand) and its minimal distance from the left and right window edges
+// @uier/brand) and its minimal distance from the window edges
 const bubbleHalfSize = 16;
 const bubbleBadgeOverhang = 5;
 const bubbleWindowMargin = 4;
@@ -34,13 +34,76 @@ const bubbleWindowMargin = 4;
  */
 const popoverCollisionPadding = { top: 8, left: 8, right: 8, bottom: 80 };
 
+/** Half the pin's hit area: 44px on touch (`pointer-coarse:p-1.5`), the pin itself otherwise */
+function bubbleHalfHitArea() {
+    return window.matchMedia('(pointer: coarse)').matches ? 22 : bubbleHalfSize;
+}
+
 /** Keeps the bubble inside the window horizontally, e.g. for text that ends at the right edge on mobile */
 function bubbleLeft(rect: DOMRect | undefined) {
     const left = (rect?.right ?? 0) + 16;
-    const halfHitArea = window.matchMedia('(pointer: coarse)').matches ? 22 : bubbleHalfSize;
+    const halfHitArea = bubbleHalfHitArea();
     const min = halfHitArea + bubbleWindowMargin;
     const max = document.documentElement.clientWidth - Math.max(halfHitArea, bubbleHalfSize + bubbleBadgeOverhang) - bubbleWindowMargin;
     return max > min ? Math.min(Math.max(left, min), max) : left;
+}
+
+/** The toolbar pill's box (`CommentToolbar`), in the shadow root that holds `rootElement` */
+function toolbarPillRect(rootElement: HTMLElement | null | undefined) {
+    const root = rootElement?.getRootNode();
+    return root instanceof ShadowRoot ? root.getElementById('uier-feedback-toolbar')?.getBoundingClientRect() : undefined;
+}
+
+/**
+ * The bubble's middle, 16px below its anchor. When that leaves the bottom of the window, or goes
+ * under the toolbar pill, while the anchor's bottom is in the window (an element or area that ends
+ * at the bottom edge, uier #166), the bubble is above that point, upside down (its sharp corner
+ * still on the point), and kept inside the window and above the pill. An anchor below the window
+ * keeps its bubble below it, off-screen until scrolled to.
+ */
+function bubbleTop(rect: DOMRect | undefined, offset: number, left: number, rootElement: HTMLElement | null | undefined): { top: number; upsideDown: boolean } {
+    const bottom = rect?.bottom ?? 0;
+    const below = bottom + 16 + offset;
+    const height = document.documentElement.clientHeight;
+    const halfHitArea = bubbleHalfHitArea();
+    let max = height - halfHitArea - bubbleWindowMargin;
+    // The pill at the bottom edge (where it starts; it can be moved), in the bubble's columns
+    const pill = toolbarPillRect(rootElement);
+    if (pill && pill.width && pill.bottom > height - popoverCollisionPadding.bottom && pill.left < left + halfHitArea && pill.right > left - halfHitArea) {
+        max = Math.min(max, pill.top - halfHitArea - bubbleWindowMargin);
+    }
+    // A pixel of slack for an anchor that ends at the bottom edge with a fractional size
+    if (below <= max || bottom > height + 1) {
+        return { top: below, upsideDown: false };
+    }
+    return { top: Math.min(bottom - 16 - offset, max), upsideDown: true };
+}
+
+type PopoverPlacement = { side: 'top' | 'right' | 'bottom' | 'left'; align: 'start' | 'end'; sideOffset: number; alignOffset: number };
+
+/**
+ * Where the thread popover opens: beside its bubble, on the side with room for it (right, else
+ * left), going down from the bubble's top, or up from its bottom when the bubble is upside down; it
+ * shifts up or down to stay inside the window, and never covers the bubble. A window too narrow for
+ * either (mobile) has it below the bubble (or above, when there is more room there), or above an
+ * upside-down one and the toolbar pill, shifted sideways to stay inside. Offsets are from the bubble
+ * itself, not its hit area.
+ */
+function popoverPlacement(left: number, top: number, upsideDown: boolean): PopoverPlacement {
+    const inset = bubbleHalfHitArea() - bubbleHalfSize;
+    // The popover's width (`w-72`, Popper), in the page's rem
+    const width = 18 * (Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16);
+    const align = upsideDown ? 'end' : 'start';
+    if (document.documentElement.clientWidth - popoverCollisionPadding.right - (left + bubbleHalfSize) >= width) {
+        return { side: 'right', align, sideOffset: -inset, alignOffset: inset };
+    }
+    if (left - bubbleHalfSize - popoverCollisionPadding.left >= width) {
+        return { side: 'left', align, sideOffset: -inset, alignOffset: inset };
+    }
+    if (!upsideDown) return { side: 'bottom', align: 'start', sideOffset: 4 - inset, alignOffset: inset };
+    // Above the bubble, and clear of the toolbar pill when the bubble is in its row
+    const lift = Math.max(0, top - bubbleHalfSize - 4 - (document.documentElement.clientHeight - popoverCollisionPadding.bottom));
+    return { side: 'top', align: 'start', sideOffset: 4 - inset + lift, alignOffset: inset };
 }
 
 function prefersReducedMotion() {
@@ -265,6 +328,10 @@ export function CommentBubble(props: CommentBubbleProps) {
         return null;
     }
 
+    const pinLeft = bubbleLeft(lastRect);
+    const { top: pinTop, upsideDown } = bubbleTop(lastRect, creating ? props.draftPinOffset ?? 0 : 0, pinLeft, rootElement);
+    const placement = popoverPlacement(pinLeft, pinTop, upsideDown);
+
     // Bounded by the space the window has left, so the reply box always stays visible
     const popoverClassName = cx(
         onToolbar ? 'z-[78]' : 'z-[60]',
@@ -363,9 +430,10 @@ export function CommentBubble(props: CommentBubbleProps) {
                             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                             className
                         )}
+                        data-uier-upside-down={upsideDown ? '' : undefined}
                         style={{
-                            left: bubbleLeft(lastRect),
-                            top: (lastRect?.bottom ?? 0) + 16 + (creating ? props.draftPinOffset ?? 0 : 0),
+                            left: pinLeft,
+                            top: pinTop,
                             transform: 'translate(-50%, -50%)',
                             willChange: 'left, top'
                         }}>
@@ -374,6 +442,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                             aria-hidden="true"
                             number={creating || sending ? undefined : commentItem.number}
                             messages={creating || sending ? undefined : messagesCount}
+                            upsideDown={upsideDown}
                             style={{ display: 'block' }}
                             className="group-hover:scale-110 group-hover:brightness-75" />
                     </button>
@@ -385,9 +454,10 @@ export function CommentBubble(props: CommentBubbleProps) {
                 {...(commentItem ? toolbarSurface('uier-thread', popoverClassName) : { className: popoverClassName })}
                 // A saved thread: R, S and A act on it (`threadShortcuts.ts`)
                 {...(commentItem && { 'data-uier-thread-scope': '' })}
-                sideOffset={-32}
-                align="start"
-                alignOffset={32}
+                side={placement.side}
+                sideOffset={placement.sideOffset}
+                align={placement.align}
+                alignOffset={placement.alignOffset}
                 open={open && !expanded}
                 // Not while expanded: the popover makes way for the modal, which has the focus now
                 onOpenChange={next => { if (next || !expandedRef.current) handleOpenChange(next); }}

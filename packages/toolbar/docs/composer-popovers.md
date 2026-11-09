@@ -12,6 +12,22 @@ Attach image (`ComposerAttachButton`) is in the bottom-left corner of the text b
 takes that place and the screenshot toggle leaves the header (the image replaces the screenshot). Screenshot
 rules: [review workflow](../../../docs/review-workflow.md#screenshots).
 
+## Where the pin and its popover go
+
+A pin sits 16 px below and right of its anchor (`bubbleLeft`, `bubbleTop` in `CommentBubble`), kept inside
+the window sideways. When that place leaves the bottom of the window, or goes under the toolbar pill at the
+bottom edge, while the anchor's bottom is still in the window (an element or area that ends at the bottom
+edge, [uier #166](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_H_TrIieqwg6OA4Px0efJx)),
+the pin goes above that point upside down (`<Pin upsideDown />`, `data-uier-upside-down`), its sharp corner
+still on the point, inside the window and above the pill. An anchor below the window keeps its pin below
+it, off-screen until scrolled to.
+
+The popover, a thread or a new comment's form, opens beside its pin on the side with room (right, else left;
+`popoverPlacement`), down from the pin's top, or up from its bottom when the pin is upside down, and shifts up
+or down to stay inside the window and clear of the pill. It never covers the pin. A window too narrow for
+either side (mobile) has it below the pin, or above it when there is more room there or the pin is upside
+down, shifted sideways to stay inside.
+
 ## Posting: one popover
 
 Sending a new comment never closes one popover to open another. `handleCreated` in `CommentsGlobal` marks the
@@ -51,3 +67,5 @@ text box starts at 8 lines (`CommentComposer`'s `tall`).
 image and screenshot choice, Escape, Collapse and sending; a new comment's modal, Tab staying in it, the
 backdrop and posting. `new-comment-after-thread.spec.ts`: posting keeps one popover open (no gap, no opening
 animation, the same element once saved). `screenshots.spec.ts`: Attach image in the text box.
+`showcase.spec.ts` (desktop and mobile): a pin at the bottom and right edges is upside down, its thread inside
+the window, clear of the pill and the pin.
