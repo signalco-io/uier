@@ -1,5 +1,9 @@
 # Comments inbox and board
 
+`e2e/project-review.spec.ts` checks the row's author through the avatar's accessible name and
+the page path separately, so layout changes keep both pieces of information covered. After restoring
+rows with the status filter it waits for their entrance motion to settle before scanning contrast.
+
 - The comments page is an inbox. `comments/CommentInbox.tsx` lists compact rows (`CommentRow.tsx`). The title line:
   the unread dot, the author (`AuthorAvatar`: a member's picture or initial with the AI agent that wrote it for them
   stacked on its edge, a person's outline for a guest, uier's mark on its own starter threads; one image named "By Ana",

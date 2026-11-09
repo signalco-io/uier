@@ -559,7 +559,9 @@ test('guest edits and original reproduction details persist; only members see an
     await cardDevice.click();
     await expect(details).toContainText(`${originalViewport[0]}×${originalViewport[1]} CSS px`);
     await expect(details).toContainText('macOS 15.1');
-    await expect(details.getByRole('definition')).toHaveText([input, 'Dark', 'On', 'en']);
+    // The app uses compact tile words; the clipboard keeps the original details checked above.
+    await expect(details.getByRole('definition')).toHaveText([input === 'Touch' ? 'Touch' : 'Mouse', 'Dark', 'Reduced', 'en']);
+    await expect(details.getByRole('term')).toHaveText(['Input', 'Theme', 'Motion', 'Language']);
     await expect(details.locator('[data-browser-mark="edge"]')).toBeVisible();
     await expect(details.locator('[data-os-mark="macos"]')).toBeVisible();
     await expect(details.getByRole('link', { name: 'Reviewed page' })).toHaveAttribute('href', `${siteOrigin()}${path}`);
@@ -650,15 +652,21 @@ test('comments off: the toolbar says so and the API refuses', async ({ page, req
 
     for (const path of [`/app/projects/${projectId}/install?onboarding=1&step=invite`, `/app/projects/${projectId}`, `/app/projects/${projectId}/settings/review`]) {
         await page.goto(path);
-        const content = path.endsWith(projectId)
-            ? page.locator('[data-slot="empty"]')
-            : page.getByRole('region', { name: 'Invite a reviewer' });
-        await expect(content).toContainText('Comments are off.');
-        await expect(content.getByRole('link', { name: 'Settings', exact: true })).toHaveAttribute('href', `/app/projects/${projectId}/settings/review`);
+        if (path.endsWith('/settings/review')) {
+            const access = page.getByRole('group', { name: 'Who can comment' });
+            await expect(access.getByRole('radio', { name: 'Comments off', exact: true })).toBeChecked();
+            await expect(access).toContainText('Nobody can leave comments on the site. Existing comments stay here.');
+        } else {
+            const content = path.endsWith(projectId)
+                ? page.locator('[data-slot="empty"]')
+                : page.getByRole('region', { name: 'Invite a reviewer' });
+            await expect(content).toContainText('Comments are off.');
+            await expect(content.getByRole('link', { name: 'Settings', exact: true })).toHaveAttribute('href', `/app/projects/${projectId}/settings/review`);
+            if (path.endsWith(projectId))
+                await expect(content.getByRole('link', { name: 'Set up reviews' })).toBeVisible();
+        }
         await expect(page.getByRole('button', { name: 'Invite', exact: true })).toHaveCount(0);
         await expect(page.getByRole('list', { name: 'Guest links' })).toHaveCount(0);
-        if (path.endsWith(projectId))
-            await expect(content.getByRole('link', { name: 'Set up reviews' })).toBeVisible();
         for (const colorScheme of ['light', 'dark'] as const) {
             await page.emulateMedia({ colorScheme });
             await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${colorScheme}\\b`));
@@ -968,7 +976,8 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
     await expect(page).toHaveTitle('Reviewed site · uier');
     // A row says who and where (what it was left on is only in the thread); it opens the thread
     const benRow = commentRows(page).filter({ hasText: 'Team photo is blurry.' });
-    await expect(benRow).toContainText(new RegExp(`Ben · , page ${about}`));
+    await expect(benRow.getByRole('img', { name: 'By Ben', exact: true })).toBeVisible();
+    await expect(benRow).toContainText(`Page ${about}`);
     await expect(benRow).not.toContainText('Heading');
     const benCard = await openComment(page, 'Team photo is blurry.');
     await expect(benCard).toHaveAccessibleName('Comment by Ben');
@@ -1063,6 +1072,8 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
     await expect(status.getByRole('button', { name: 'Done 1' })).toBeVisible();
     await status.getByRole('button', { name: 'All 2' }).click();
     await expect(commentRows(page)).toHaveCount(2);
+    // Scan final colours after the restored row's entrance fade.
+    await expect(page.locator('[data-motion]')).toHaveCount(0);
     await expectNoAxeViolations(page);
     await page.goto(`/app/projects/${projectId}?view=board`);
 

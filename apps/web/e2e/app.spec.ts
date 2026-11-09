@@ -759,7 +759,7 @@ test('the account page saves the name and signs out', async ({ page }) => {
 
     // The account's sections, like a project's settings: General is the account page itself
     const sections = page.getByRole('navigation', { name: 'Account' });
-    await expect(sections.getByRole('link')).toHaveText(['General', 'Sign-in', 'Notifications', 'Coding agents']);
+    await expect(sections.getByRole('link')).toHaveText(['General', 'Sign-in', 'Notifications', 'Usage', 'Coding agents']);
     // The workspace access leaves out what is not set: a new account has no relationship and no teams
     const workspaceAccess = page.getByRole('region', { name: 'Your workspace access' });
     await expect(workspaceAccess.locator('dt')).toHaveText(['Role', 'Projects']);

@@ -96,9 +96,13 @@ test('failed and stale edits keep the attempted text and never overwrite the new
     await context.close();
 });
 
-test('missing browser hints stay unknown and public feedback never exposes reproduction details', async ({ browser }, testInfo) => {
+test('missing browser hints fall back to parsed names and public feedback never exposes reproduction details', async ({ browser }, testInfo) => {
     const { context, page } = await newVisitor(browser, testInfo);
-    await page.addInitScript(() => Object.defineProperty(navigator, 'userAgentData', { configurable: true, value: undefined }));
+    const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+    await page.addInitScript(userAgent => {
+        Object.defineProperty(navigator, 'userAgentData', { configurable: true, value: undefined });
+        Object.defineProperty(navigator, 'userAgent', { configurable: true, value: userAgent });
+    }, userAgent);
     await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
     await page.getByRole('button', { name: 'Add comment' }).click();
     const heading = (await page.getByRole('heading', { level: 1 }).boundingBox())!;
@@ -109,8 +113,10 @@ test('missing browser hints stay unknown and public feedback never exposes repro
     await draft.getByRole('button', { name: 'Post comment' }).click();
     const response = await posted;
     const sent = response.request().postDataJSON();
-    expect(sent.device.browser).toBeUndefined();
-    expect(sent.device.os).toBeUndefined();
+    expect(sent.device.browser).toBe('Google Chrome (131)');
+    expect(sent.device.os).toBe('Windows');
+    expect(JSON.stringify(sent)).not.toContain(userAgent);
+    expect(sent.device).not.toHaveProperty('userAgent');
     expect(sent.device.capturedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     const saved = await response.json();
     expect(saved.device).toEqual({ size: sent.device.size, windowSize: sent.device.windowSize });
