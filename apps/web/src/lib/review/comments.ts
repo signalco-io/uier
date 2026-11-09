@@ -236,6 +236,7 @@ export async function createProjectComment(request: Request, project: DbProject,
         number: await store.nextCommentNumber(partition),
         kind: input.kind,
         ...(feedbackType ? { feedbackType } : {}),
+        ...(input.check ? { check: input.check } : {}),
         thread: {
             items: [{
                 id: `item_${nanoid()}`,

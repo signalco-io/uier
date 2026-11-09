@@ -7,8 +7,10 @@ export type PageIssue = {
     key: string;
     /** One line in the panel */
     summary: string;
-    /** The comment's text */
+    /** The comment's text: what was found and where, within the API's text limit */
     comment: string;
+    /** The check it comes from, saved with the comment */
+    check: import('../feedbackTypes').CommentCheck;
     /** The element it is about (pinned there); without one the comment is about the page */
     element?: Element;
     /** The element's short name in the panel (`img#hero.logo`) */

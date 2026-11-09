@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { getToolbarHost } from '../mount';
-import { elementLabel, isToolbarNode, pageAnchorElement } from './pageElements';
+import { elementLabel, foundLine, isToolbarNode, pageAnchorElement } from './pageElements';
 import type { PageCheck, PageIssue } from './types';
 
 // Core Web Vitals of the reviewed page, measured in this browser with the Performance Timeline:
@@ -212,7 +212,8 @@ export function vitalCheck(name: VitalName, vital: Vital): PageCheck {
         issues: [{
             key: `vital:${name}`,
             summary: `${target.name} is ${value}.`,
-            comment: `Core Web Vitals: ${target.name} (${name}) is ${value} in this browser. The target is ${good} or less. ${vitalWarnings[name]}`,
+            comment: `Core Web Vitals: ${target.name} (${name}) is ${value} in this browser. The target is ${good} or less. ${vitalWarnings[name]}${foundLine('Element', element && elementLabel(element))}`,
+            check: { type: 'web-vitals', id: name.toLowerCase() },
             element,
             label: element && elementLabel(element)
         }]

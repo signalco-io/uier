@@ -190,6 +190,8 @@ export type CommentItem = {
     /** `feedback` and `bug` have a `page` position */
     kind: CommentKind;
     feedbackType?: import('../../feedbackTypes').FeedbackTypeSnapshot;
+    /** The page check it was posted from (the Accessibility and SEO panels); missing on every other comment */
+    check?: import('../../feedbackTypes').CommentCheck;
     thread: CommentItemThread;
     /** The coarse device size and the viewport (width, height) it was left from */
     device?: { size?: CommentDeviceSize; windowSize?: [number, number] };

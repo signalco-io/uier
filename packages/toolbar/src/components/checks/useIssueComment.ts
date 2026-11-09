@@ -51,6 +51,7 @@ export function useIssueComment() {
             kind,
             feedbackType,
             text: issue.comment,
+            check: issue.check,
             device: getDeviceInfo(),
             screenshot: captureCommentScreenshot(position, rootElement)
         });

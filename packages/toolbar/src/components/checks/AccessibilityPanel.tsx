@@ -44,6 +44,7 @@ function RuleItem({ rule }: { rule: AccessibilityRule }) {
                     {shared && shared !== rule.help && <p className="m-0 break-words text-xs text-secondary-foreground">{shared}</p>}
                     <p className="m-0 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
                         <span className="font-mono">{rule.id}</span>
+                        {rule.standard && <span>{rule.standard}</span>}
                         {rule.helpUrl && (
                             <a href={rule.helpUrl} target="_blank" rel="noopener noreferrer"
                                 className="inline-flex items-center gap-1 rounded-sm text-[hsl(var(--brand-accent-text))] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11">

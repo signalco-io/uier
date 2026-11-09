@@ -87,8 +87,8 @@ An open inbox, Accessibility or SEO panel stays open on the next page and shows 
   the status ("3 issues found."), a summary tile per impact with its elements' count, when it was checked,
   then a section per impact (critical, serious, moderate, minor). Each rule is a row marked with its
   impact's icon in its colour (`impactStyles`: the priority colours, a shape each, see `BRAND.md`,
-  "Accessibility impact"), its help text, id and **How to fix** link (Deque University, without its
-  tracking query); each element is a row with its short name (`img#hero.logo`). axe-core's first failure
+  "Accessibility impact"), its help text, id, the standard it tests (`ruleStandard`, from axe-core's tags: "WCAG 1.4.3 (AA)",
+  or "Best practice") and **How to fix** link (Deque University, without its tracking query); each element is a row with its short name (`img#hero.logo`). axe-core's first failure
   line is said once under the rule's title when every element shares it, else on each element, two lines
   at most (the whole line is its `title`, and screen readers read all of it). Without issues the panel
   says so in one line, with a reminder to also try a keyboard and a screen reader.
@@ -138,9 +138,22 @@ checks (a `details` row, "Outline").
   element is pinned to its middle (an element in the page's own shadow root goes to its outermost host;
   one in a closed menu gets its opener as `layer`), scrolled into view first for the screenshot. One about
   the page is the project's page feedback, a bug report where that type is on (else feedback, else the
-  first enabled type), and pinned to the main content when every page feedback type is off. The text is
-  the issue's short description (`Accessibility (critical): ... Rule image-alt: <link>`, `SEO: ...`,
-  `Core Web Vitals: ...`). The row then says "Comment posted as #12" (or "Bug report sent") with **Show**:
+  first enabled type), and pinned to the main content when every page feedback type is off. The text says
+  what was found and where, so whoever fixes it needs nothing from the panel:
+  - Accessibility: `Accessibility (critical): <help>.`, `Element:` with axe-core's selector, axe-core's
+    failure lines for that element as a list under its "Fix any of the following:" headings (the measured
+    contrast ratio, the missing attribute), then `WCAG 1.1.1 (A). Rule image-alt: <link>`. Failure lines
+    that would pass the API's 1000 characters are left out (`commentText`); the rule's page has them all.
+  - SEO: the sentence, then what was found on a line of its own: the title or description, a heading's
+    text, a link's text and address, an image's address (`foundLine`). Core Web Vitals name the element.
+  - Text from the page is a code span, so it is never read as Markdown. Addresses are written without
+    their query, which can hold a token, and a `data:` address as its type alone (`writtenAddress`).
+- The request also names the check, `check: { type, id }` (`accessibility` with the rule id, `seo` with
+  the check id, `web-vitals` with `lcp`, `cls` or `inp`; [the API](../../../docs/api.md#comments-api)). The API
+  saves it and returns it with the comment (`CommentItem.check`), in the feedback packet and through MCP.
+  Nothing reads it in the toolbar yet: it is there so a later change can mark findings already reported
+  and check a fix again.
+- After posting, the row says "Comment posted as #12" (or "Bug report sent") with **Show**:
   the thread on its pin, or the inbox narrowed to it for page feedback. A failed post shows the usual
   toast and the action comes back.
 - A project's guest without a saved name gets the comment form's name field above the issues; a quick
@@ -157,14 +170,15 @@ review bundle itself loads only for reviewers.
 `apps/web/e2e/page-checks.spec.ts` on a project's site on another origin with the install guide's CSP
 (`?page-checks` in `e2e/support/reviewedSite.ts`): no audit request before the Accessibility panel opens
 and one after, rules by impact without the toolbar, Highlight, a comment posted on the element with its
-screenshot and details, Show, focus back on Close, the impact tiles' counts and a rule's shared line said once (Desktop Chrome); the SEO checks, the summary's counts,
+screenshot, details, failure lines, standard and check, Show, focus back on Close, the impact tiles' counts and a rule's shared line said once (Desktop Chrome); the SEO checks, the summary's counts,
 the folded outline, Core Web Vitals not counting the toolbar's presses, a guest's name, page feedback, an
-element's comment, a noindex page (its Indexing note, no canonical needed) and broken links sharing one reason (Desktop Chrome);
+element's comment with what was found and its check, a noindex page (its Indexing note, no canonical needed) and broken links sharing one reason (Desktop Chrome);
 the panels from Options on a phone, fitting the screen (Mobile Chrome); the SEO panel and the inbox
 staying open across a client-side navigation, a same-site full load and a reload, and not on a page
 opened anew; an Accessibility panel left open while the previous page's audit still runs (a slow
 axe-core) showing the new page's report, a window opened from the site starting without the panel, and
 the inbox showing another page listing its comments once it reaches that page (Desktop Chrome).
+`comments.api.spec.ts`: a comment keeps its `check`, the packet names it, and other values are refused.
 `toolbar-assets.api.spec.ts`:
 the audit asset is pinned by path and SRI in the review script, absent from the loader and the review
 script, and served with CORS and immutable caching.

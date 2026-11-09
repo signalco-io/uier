@@ -1,4 +1,4 @@
-import { elementKey, elementLabel, oneLine } from './pageElements';
+import { elementKey, elementLabel, foundLine, oneLine, writtenAddress } from './pageElements';
 import type { CheckState, PageCheck, PageIssue } from './types';
 
 // The SEO panel's checks: what the page tells search engines, read from the page's own document
@@ -19,7 +19,7 @@ export type SeoReport = {
 let checkedPath = '';
 
 function issue(check: string, element: Element | undefined, summary: string, comment: string): PageIssue {
-    return { key: `seo:${check}:${element ? elementKey(element) : 'page'}@${checkedPath}`, summary, comment, element, label: element && elementLabel(element) };
+    return { key: `seo:${check}:${element ? elementKey(element) : 'page'}@${checkedPath}`, summary, comment, check: { type: 'seo', id: check }, element, label: element && elementLabel(element) };
 }
 
 /**
@@ -46,11 +46,11 @@ function titleCheck(): PageCheck {
     }
     if (length > 60) {
         return check('title', 'Title', 'warn', `${length} characters. Search results show about 60.`, title,
-            [issue('title', undefined, 'The title is long.', `SEO: The page title is ${length} characters. Search results show about 60.`)]);
+            [issue('title', undefined, 'The title is long.', `SEO: The page title is ${length} characters. Search results show about 60.${foundLine('Title', title)}`)]);
     }
     if (length < 10) {
         return check('title', 'Title', 'warn', `${count(length, 'character')}. Aim for 10 to 60.`, title,
-            [issue('title', undefined, 'The title is short.', `SEO: The page title is ${count(length, 'character')}. A title of 10 to 60 characters describes the page better.`)]);
+            [issue('title', undefined, 'The title is short.', `SEO: The page title is ${count(length, 'character')}. A title of 10 to 60 characters describes the page better.${foundLine('Title', title)}`)]);
     }
     return check('title', 'Title', 'pass', `${length} characters, within 10 to 60.`, title);
 }
@@ -65,15 +65,15 @@ function descriptionCheck(): PageCheck {
     }
     if (tags.length > 1) {
         return check('description', 'Meta description', 'warn', `${tags.length} description tags. Keep one.`, text,
-            [issue('description', undefined, 'The page has more than one meta description.', `SEO: The page has ${tags.length} meta description tags. Keep one.`)]);
+            [issue('description', undefined, 'The page has more than one meta description.', `SEO: The page has ${tags.length} meta description tags. Keep one.${foundLine('First description', text)}`)]);
     }
     if (length > 160) {
         return check('description', 'Meta description', 'warn', `${length} characters. Search results show about 160.`, text,
-            [issue('description', undefined, 'The description is long.', `SEO: The meta description is ${length} characters. Search results show about 160.`)]);
+            [issue('description', undefined, 'The description is long.', `SEO: The meta description is ${length} characters. Search results show about 160.${foundLine('Description', text)}`)]);
     }
     if (length < 50) {
         return check('description', 'Meta description', 'warn', `${count(length, 'character')}. Aim for 50 to 160.`, text,
-            [issue('description', undefined, 'The description is short.', `SEO: The meta description is ${count(length, 'character')}. Aim for 50 to 160.`)]);
+            [issue('description', undefined, 'The description is short.', `SEO: The meta description is ${count(length, 'character')}. Aim for 50 to 160.${foundLine('Description', text)}`)]);
     }
     return check('description', 'Meta description', 'pass', `${length} characters, within 50 to 160.`, text);
 }
@@ -148,12 +148,12 @@ function headingChecks(): SeoReport['headings'] {
             [issue('h1', undefined, 'The page has no h1.', 'SEO: The page has no h1 heading. Give it one main heading.')])
         : mains.length > 1
             ? check('h1', 'Main heading', 'warn', `${mains.length} h1 headings. Keep one main heading.`, undefined,
-                mains.slice(1).map(heading => issue('h1', heading.element, 'Another h1 on the page.', 'SEO: This is another h1 on the page. Keep one main heading.')))
+                mains.slice(1).map(heading => issue('h1', heading.element, 'Another h1 on the page.', `SEO: This is another h1 on the page. Keep one main heading.${foundLine('Heading', heading.text)}`)))
             : check('h1', 'Main heading', 'pass', 'One h1.', mains[0]!.text || undefined);
     const skips = outline.flatMap((heading, index) => {
         const previous = outline[index - 1];
         return previous && heading.level > previous.level + 1
-            ? [issue('levels', heading.element, `An h${heading.level} after an h${previous.level}.`, `SEO: This h${heading.level} comes after an h${previous.level}, skipping a level.`)]
+            ? [issue('levels', heading.element, `An h${heading.level} after an h${previous.level}.`, `SEO: This h${heading.level} comes after an h${previous.level}, skipping a level.${foundLine('Heading', heading.text)}`)]
             : [];
     });
     const levels = !outline.length ? check('levels', 'Heading levels', 'none', 'No headings.')
@@ -162,7 +162,7 @@ function headingChecks(): SeoReport['headings'] {
             : `${count(skips.length, 'heading')} skip a level.${alike(skips) ? ` ${skips[0]!.summary}` : ''}`, undefined, skips)
             : check('levels', 'Heading levels', 'pass', 'No skipped levels.');
     const empty = outline.filter(heading => !heading.text)
-        .map(heading => issue('empty-heading', heading.element, 'A heading without text.', 'SEO: This heading has no text.'));
+        .map(heading => issue('empty-heading', heading.element, 'A heading without text.', `SEO: This heading has no text.${foundLine('Element', elementLabel(heading.element))}`));
     const text = !outline.length ? check('empty-heading', 'Heading text', 'none', 'No headings.')
         : empty.length ? check('empty-heading', 'Heading text', 'warn', `${count(empty.length, 'heading')} without text.`, undefined, empty)
             : check('empty-heading', 'Heading text', 'pass', 'Every heading has text.');
@@ -205,10 +205,10 @@ function linkChecks(): SeoReport['links'] {
         } catch { /* Counted as neither. */ }
     }
     const textless = links.filter(link => !accessibleText(link))
-        .map(link => issue('link-text', link, 'A link without text.', 'SEO: This link has no text. Search engines and screen readers cannot tell where it goes.'));
+        .map(link => issue('link-text', link, 'A link without text.', `SEO: This link has no text. Search engines and screen readers cannot tell where it goes.${foundLine('Address', writtenAddress(link.getAttribute('href')))}`));
     const broken = links.flatMap(link => {
         const reason = brokenReason(link);
-        return reason ? [issue('link-address', link, reason, `SEO: This link looks broken. ${reason}`)] : [];
+        return reason ? [issue('link-address', link, reason, `SEO: This link looks broken. ${reason}${foundLine('Link text', accessibleText(link))}${foundLine('Address', writtenAddress(link.getAttribute('href')))}`)] : [];
     });
     return {
         total: links.length, internal, external,
@@ -228,7 +228,7 @@ function imageChecks(): SeoReport['images'] {
     const images = [...document.querySelectorAll('img')];
     const missing = images.filter(image => !image.hasAttribute('alt') && !/^(presentation|none)$/.test(image.getAttribute('role') ?? '')
         && !image.closest('[aria-hidden="true"]'))
-        .map(image => issue('alt', image, 'An image without alt text.', 'SEO: This image has no alt text. Search engines and screen readers cannot tell what it shows.'));
+        .map(image => issue('alt', image, 'An image without alt text.', `SEO: This image has no alt text. Search engines and screen readers cannot tell what it shows.${foundLine('Image', writtenAddress(image.getAttribute('src') || image.currentSrc))}`));
     return {
         total: images.length,
         checks: [!images.length ? check('alt', 'Alt text', 'none', 'No images on this page.')
