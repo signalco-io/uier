@@ -89,8 +89,9 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
                         return (
                             <li key={project.id} className="flex">
                                 <Card size="sm" className="relative flex-1 transition-colors hover:border-foreground/20">
-                                    {/* The project header's layout: the favicon beside the name and the row under it (client, then who can comment) */}
-                                    <CardHeader className="flex items-center gap-3">
+                                    {/* The project header's layout: the favicon beside the name and the row under it (client, then who can comment).
+                                        The favicon and the actions button sit at the top, level with the name, however far the row wraps */}
+                                    <CardHeader className="flex items-start gap-3">
                                         <ProjectMark name={project.name} url={project.urls[0]} className="size-11 rounded-lg text-base [&>img]:p-2" />
                                         <div className="flex min-w-0 flex-1 flex-col gap-1">
                                             <CardTitle className="truncate">
