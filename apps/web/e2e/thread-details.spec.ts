@@ -4,7 +4,7 @@ import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { animationsFinished } from './support/toolbar';
 
-// The open thread's details (On, Page, Priority, Assignees) read as a properties list: every row is the
+// The open thread's details (Page, On, Assignees, Priority, then Pull requests) read as a properties list: every row is the
 // same minimum height whether it holds text or a ghost control; assignees can wrap to hold several
 // people and agents. Every value starts at the same left edge
 // (a control's flag, avatar or text lines up with plain text). In the side panel, the sheet over the
@@ -44,7 +44,7 @@ const measure = (details: Locator) => details.evaluate(list => {
 });
 
 function expectEvenRows(rows: Row[], rowHeight: number) {
-    expect(rows.map(row => row.label)).toEqual(['On', 'Page', 'Priority', 'Assignees']);
+    expect(rows.map(row => row.label)).toEqual(['Page', 'On', 'Assignees', 'Priority']);
     for (const row of rows) {
         expect.soft(row.labelHeight, `${row.label} label height`).toBeCloseTo(rowHeight, 0);
         if (row.label === 'Assignees') expect.soft(row.valueHeight, 'Assignees can grow for people and agents').toBeGreaterThanOrEqual(rowHeight);
