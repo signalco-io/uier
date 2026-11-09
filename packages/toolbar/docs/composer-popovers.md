@@ -26,6 +26,25 @@ submission), and its buttons are `type="button"`. A picked suggestion replaces t
 instruction and the suggestions belong to the popover's owner (`useRewriteSuggestionsState` in `CommentBubble`),
 like the attached image: Expand and Collapse keep them; closing the popover or Discard clears them.
 
+## Capture responsiveness
+
+Window dimensions and page scroll are read at the feedback event. Inner-scroll recording and
+offscreen-element checks now wait for the composer's first paint and share the clone's 8 ms
+work budget. Both traversals yield and check cancellation between elements; scroll recording uses a
+TreeWalker instead of building a whole-page array. Partial scroll marks are cleaned up on cancellation.
+If page scroll changes during the offscreen scan, pruning is discarded for that capture. Encoding
+continues to use `toBlob`; no worker or new dependency is needed. These changes stay in capture code,
+so the screenshot toggle and image attachments use the same promise and cancellation contract.
+
+Measured locally in headless Chromium, 1674 × 1366, 4× CPU throttling, 20,000 feedback-like rows
+(100,000 elements), three fresh pages per version: before, the initiating call took 101–119 ms,
+with a second 372–415 ms long task; after, initiation took about 1 ms and the largest long task
+was 68–79 ms. Total capture time increased from 1.15–1.19 s to 1.37–1.56 s. These are synthetic
+measurements, not an Edge production trace: library rendering/serialization can still produce a
+long task, but preparation no longer runs as an unbroken whole-page scan. The regression in
+`screenshot-performance.spec.ts` checks that capture yields to the browser before all inner-scroll reads finish,
+while the composer keeps typed text and capture completes.
+
 ## Where the pin and its popover go
 
 A pin sits 16 px below and right of its anchor (`bubbleLeft`, `bubbleTop` in `CommentBubble`), kept inside

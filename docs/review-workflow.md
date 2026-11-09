@@ -484,7 +484,8 @@ The toolbar draws the capture in the reviewer's browser
 ([`packages/toolbar/src/screenshot.ts`](../packages/toolbar/src/screenshot.ts), with
 [`modern-screenshot`](https://github.com/qq15725/modern-screenshot)), without the toolbar or inline review threads,
 cut to the element/text with some room around it (the window for page feedback), as WebP (JPEG where unavailable)
-of at most 480 KB.
+of at most 480 KB. Whole-page preparation (inner scroll and offscreen checks) starts after the
+composer paints and yields between short batches, like cloning, so pending input can run during capture.
 Images, fonts and stylesheets from other sites that don't allow it (CORS, or the site's CSP `connect-src`),
 images that haven't loaded within a second (lazy ones below the window), `<canvas>`, video, iframes and
 `backdrop-filter` come out empty or plain.

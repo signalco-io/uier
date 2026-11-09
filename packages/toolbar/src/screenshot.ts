@@ -11,8 +11,8 @@ import { runtimeAdapters } from './adapters';
  * keep their scroll. Then the region around the comment is cut out and encoded (WebP, else JPEG)
  * under the API's limits.
  *
- * The window, its scroll and what is scrolled inside it are read when the reviewer asks for the
- * composer; the copy is made after the composer has been painted, in short pieces of work that let
+ * The window and its scroll are read when the reviewer asks for the composer. Inner scroll and
+ * offscreen checks, then the copy, run after the composer has been painted, in short pieces of work that let
  * the page handle input in between (#319). The content of blocks far from the window is left out:
  * nothing of it can be seen, and the copy keeps their boxes.
  *
@@ -219,24 +219,27 @@ async function fontFaceCss() {
 }
 
 /**
- * Marks the elements scrolled inside the page (not the page itself, which is shifted as a whole),
- * so their copies can show the same scroll. Returns the clean-up.
+ * Records inner scroll after the first paint, in cancellable pieces. The caller owns the marks
+ * so even a capture cancelled during this scan removes every attribute it added.
  */
-function markScrolledElements(includeToolbar: boolean) {
-    const marked: Element[] = [];
-    const elements = [...document.body.querySelectorAll('*')];
-    if (includeToolbar) elements.push(...getToolbarHost()?.shadowRoot?.querySelectorAll('*') ?? []);
-    for (const element of elements) {
-        if (element !== document.scrollingElement && (element.scrollTop || element.scrollLeft)) {
-            element.setAttribute(scrollAttribute, `${element.scrollLeft},${element.scrollTop}`);
-            marked.push(element);
+async function markScrolledElements(includeToolbar: boolean, slice: () => Promise<void>, marked: Element[]) {
+    // A TreeWalker avoids materialising every descendant before the first yield. Start with the
+    // body too: in standards mode it can be an independently scrolled container.
+    const roots: Node[] = [document.body];
+    const shadow = includeToolbar && getToolbarHost()?.shadowRoot;
+    if (shadow) roots.push(shadow);
+    for (const root of roots) {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+        let node: Node | null = root;
+        while (node) {
+            await slice();
+            if (node instanceof Element && node !== document.scrollingElement && (node.scrollTop || node.scrollLeft)) {
+                node.setAttribute(scrollAttribute, `${node.scrollLeft},${node.scrollTop}`);
+                marked.push(node);
+            }
+            node = walker.nextNode();
         }
     }
-    if (document.body !== document.scrollingElement && (document.body.scrollTop || document.body.scrollLeft)) {
-        document.body.setAttribute(scrollAttribute, `${document.body.scrollLeft},${document.body.scrollTop}`);
-        marked.push(document.body);
-    }
-    return () => marked.forEach(element => element.removeAttribute(scrollAttribute));
 }
 
 /**
@@ -348,6 +351,7 @@ function yieldToPage() {
         const channel = new MessageChannel();
         channel.port1.onmessage = () => {
             channel.port1.close();
+            channel.port2.close();
             resolve();
         };
         channel.port2.postMessage(null);
@@ -408,23 +412,28 @@ function leaveOutOf(element: Element, rect: DOMRect, windowBottom: number): 'ele
  * unless it is positioned, transformed or overflows: then that content has its own box, measured too).
  * A sticky element is kept wherever it is, with all of it: the copy places it again.
  */
-function farFromWindow(view: { width: number; height: number }) {
+async function farFromWindow(view: { width: number; height: number }, slice: () => Promise<void>) {
     const near = { left: -view.width, top: -view.height, right: 2 * view.width, bottom: 2 * view.height };
     const rects = new Map<Element, DOMRect>();
     const far = { elements: new Set<Element>(), content: new Set<Element>() };
-    const collect = (element: Element) => {
-        const leaveOut = leaveOutOf(element, rects.get(element)!, near.bottom);
+    const collect = async (element: Element): Promise<void> => {
+        await slice();
+        const rect = rects.get(element);
+        // Page input can add children while the scan yields. Keep unmeasured content.
+        if (!rect) return;
+        const leaveOut = leaveOutOf(element, rect, near.bottom);
         if (leaveOut === 'element') {
             far.elements.add(element);
         } else if (leaveOut === 'content') {
             far.content.add(element);
         } else {
-            for (const child of element.children) collect(child);
+            for (const child of element.children) await collect(child);
         }
     };
     // Whether the element or anything in it is near the window. A shadow root's content isn't
     // measured, nor a sticky element's: it is all kept.
-    const visit = (element: Element): boolean => {
+    const visit = async (element: Element): Promise<boolean> => {
+        await slice();
         const rect = element.getBoundingClientRect();
         rects.set(element, rect);
         if (element.shadowRoot || getComputedStyle(element).position === 'sticky') {
@@ -433,19 +442,19 @@ function farFromWindow(view: { width: number; height: number }) {
         let isNear = rect.right >= near.left && rect.left <= near.right && rect.bottom >= near.top && rect.top <= near.bottom;
         const farChildren: Element[] = [];
         for (const child of element.children) {
-            if (visit(child)) {
+            if (await visit(child)) {
                 isNear = true;
             } else {
                 farChildren.push(child);
             }
         }
         if (isNear) {
-            farChildren.forEach(collect);
+            for (const child of farChildren) await collect(child);
         }
         return isNear;
     };
     if (document.body) {
-        visit(document.body);
+        await visit(document.body);
     }
     return far;
 }
@@ -461,16 +470,22 @@ export async function captureScreenshot(region: ScreenshotRegion, exclude: Eleme
     const scroll = { x: window.scrollX, y: window.scrollY };
     const scale = Math.min(window.devicePixelRatio || 1, maxScale);
     const reviewRoot = includeToolbar ? getToolbarHost()?.shadowRoot : undefined;
-    const unmark = markScrolledElements(includeToolbar);
+    const marked: Element[] = [];
     let page: HTMLCanvasElement;
     try {
         await afterNextPaint();
         const slice = timeSlices(signal);
-        await slice();
+        await markScrolledElements(includeToolbar, slice, marked);
         // Measured again only if the page did not scroll meanwhile (otherwise all of it is copied)
         const far = window.scrollX === scroll.x && window.scrollY === scroll.y
-            ? farFromWindow(view)
+            ? await farFromWindow(view, slice)
             : { elements: new Set<Element>(), content: new Set<Element>() };
+        // Input can scroll the page during the scan. In that case keep the full copy rather
+        // than pruning with rectangles measured against two different scroll positions.
+        if (window.scrollX !== scroll.x || window.scrollY !== scroll.y) {
+            far.elements.clear();
+            far.content.clear();
+        }
         await slice();
         const cssText = await fontFaceCss();
         await slice();
@@ -524,7 +539,7 @@ export async function captureScreenshot(region: ScreenshotRegion, exclude: Eleme
         }
         await slice();
     } finally {
-        unmark();
+        for (const element of marked) element.removeAttribute(scrollAttribute);
     }
 
     // The region, at most `maxSide` pixels on a side
