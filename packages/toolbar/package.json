@@ -47,6 +47,11 @@
             "development": "./dist-dev/mentions.js",
             "default": "./dist/mentions.js"
         },
+        "./markdown": {
+            "types": "./src/markdown.ts",
+            "development": "./dist-dev/markdown.js",
+            "default": "./dist/markdown.js"
+        },
         "./drafts": {
             "types": "./src/hooks/draftStorage.ts",
             "development": "./dist-dev/draftStorage.js",

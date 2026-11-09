@@ -225,6 +225,33 @@ mentions. Current access, comments-off state, private visibility, eligible menti
 50-message thread limit are checked on the server. Replies use the existing notifications and
 integration synchronization, and capture no screenshot.
 
+### Markdown in messages
+
+Thread messages show their Markdown in the app (the open thread, the board's sheet) and in the toolbar
+(pin popovers and the inbox), since coding agents reply in it. Messages are stored as written; only
+the display changes.
+
+- Supported: paragraphs, with every line break kept as in plain text; bold, italic, `~~strikethrough~~`,
+  inline code and fenced code blocks; links, `<https://…>` and bare http(s) addresses; ordered and
+  unordered lists; block quotes (a quote ends at its last `>` line, so a reply typed under it stays
+  outside); headings, shown as bold text; thematic breaks. Not supported, shown as typed: tables,
+  reference links, indented code, footnotes, HTML entities.
+- Never HTML: tags show as text. Images are links to the image, so reading a thread never loads a
+  third-party address (which would reveal readers' IP addresses). Links open only http, https and mailto
+  addresses, in a new tab with `rel="noopener noreferrer nofollow ugc"`; any other link (`javascript:`,
+  `data:`, a relative path) stays the text it was written as. Each link names its full address on hover,
+  and link text that looks like an address on another site (`[https://uier.io](https://example.com)`)
+  shows the real address instead.
+- Mentions are ranges over the text: Markdown never changes or splits them, a name is never read as
+  Markdown, and in code a mention shows as `@` and the name.
+- Long code and addresses wrap inside the message on any screen.
+- List rows (the app's inbox, board cards and My work) show the first message's first line without
+  its Markdown markers. AI titles, emails, digests, feedback packets and connected services (which take
+  Markdown themselves) get the text as it was written.
+
+The parser is `@uier/toolbar/markdown`, small and written for this subset: no HTML pass-through and no
+dependency in the toolbar bundle ([toolbar note](../packages/toolbar/docs/message-markdown.md)).
+
 ### Assignment and mentions
 
 Signed-in project members can change a thread's assignee in its toolbar details or inbox.

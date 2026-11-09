@@ -27,6 +27,14 @@
   UI's `openOnHover`, like the project header's access info) lists the reproduction context and copies its
   text; the toolbar shows the same icons and details. The browser icon is the browser's own mark and the
   popover puts a mark beside the operating system too (`DeviceMark.tsx`: `BrowserMark`, `OsMark`). Pending actions show `Spinner`.
+- Message text is `comments/MessageMarkdown.tsx`: the Markdown subset of `@uier/toolbar/markdown` as React
+  elements, the same tree as the toolbar's `MessageMarkdown` (change both together), "(edited)" ending its last
+  paragraph. Mentions come as `displayMentions` / a reply's `mentions`, UTF-16 ranges over the text as shown
+  (`projectComments.ts` `mentionText`), so Markdown never touches a name; a pending reply passes its composer
+  ranges. Headings are bold paragraphs, links open in a new tab, code is Geist Mono on `bg-muted` with a hairline
+  border (in dark mode a popover is the muted colour). What is supported and why: [Markdown in
+  messages](../../../docs/review-workflow.md#markdown-in-messages). `e2e/message-markdown.api.spec.ts` covers the
+  parser and both renderers, `e2e/message-markdown.spec.ts` the app and toolbar threads on desktop and mobile.
 - The open thread reads itself (`comments/useReadWhenShown.ts`, the toolbar's rule): once its `article` has been
   on screen for 800 ms in a visible, focused window it is marked read at its shown sequence through
   `markCommentReadAction`. That covers a click, a `?comment=` link (My work, copied links, Back/Forward), the
