@@ -11,8 +11,16 @@
  */
 export const shortcutsOffStorageKey = 'uier:shortcuts-off';
 
-const listeners = new Set<() => void>();
+/**
+ * The window event that tells every copy of this module on the page that the switch changed (`detail`:
+ * whether the shortcuts are on). The app and the toolbar injected into it each bundle their own copy, and
+ * a browser sends no `storage` event to the window that wrote the value, so the event keeps them in step;
+ * the `storage` event does that for the site's other tabs.
+ */
+export const shortcutsChangeEvent = 'uier:shortcuts-change';
+
 let enabled: boolean | undefined;
+let watching = false;
 
 function storage() {
     try {
@@ -30,14 +38,36 @@ function readEnabled() {
     }
 }
 
+function isSwitchStorageEvent(event: StorageEvent) {
+    return event.key === shortcutsOffStorageKey || event.key === null;
+}
+
+/** Keeps this copy's cached switch current, before any subscriber hears of a change */
+function watch() {
+    if (watching || typeof globalThis.addEventListener !== 'function') return;
+    watching = true;
+    globalThis.addEventListener(shortcutsChangeEvent, event => {
+        const next = (event as CustomEvent<unknown>).detail;
+        enabled = typeof next === 'boolean' ? next : readEnabled();
+    });
+    globalThis.addEventListener('storage', event => {
+        if (isSwitchStorageEvent(event)) enabled = readEnabled();
+    });
+}
+
 /** Whether single-key shortcuts are on (they are unless turned off in this browser) */
 export function shortcutsEnabled() {
+    watch();
     enabled ??= readEnabled();
     return enabled;
 }
 
-/** Turns single-key shortcuts on or off in this browser (for this page only when storage is unavailable) */
+/**
+ * Turns single-key shortcuts on or off in this browser (for this page only when storage is unavailable),
+ * for the app and the toolbar on this page as well as the site's other tabs
+ */
 export function setShortcutsEnabled(next: boolean) {
+    watch();
     enabled = next;
     try {
         if (next) storage()?.removeItem(shortcutsOffStorageKey);
@@ -45,21 +75,25 @@ export function setShortcutsEnabled(next: boolean) {
     } catch {
         // Not remembered: the shortcuts are on again on the next page
     }
-    listeners.forEach(listener => listener());
+    if (typeof globalThis.dispatchEvent === 'function') globalThis.dispatchEvent(new CustomEvent(shortcutsChangeEvent, { detail: next }));
 }
 
-/** Calls `listener` when the shortcuts are turned on or off, here or in another tab of the site */
+/**
+ * Calls `listener` when the shortcuts are turned on or off: on this page (by the app or the toolbar) or in
+ * another tab of the site
+ */
 export function subscribeShortcutsEnabled(listener: () => void) {
-    listeners.add(listener);
+    if (typeof globalThis.addEventListener !== 'function') return () => {};
+    watch();
+    const onChange = () => listener();
     const onStorage = (event: StorageEvent) => {
-        if (event.key !== shortcutsOffStorageKey && event.key !== null) return;
-        enabled = readEnabled();
-        listener();
+        if (isSwitchStorageEvent(event)) listener();
     };
-    globalThis.addEventListener?.('storage', onStorage);
+    globalThis.addEventListener(shortcutsChangeEvent, onChange);
+    globalThis.addEventListener('storage', onStorage);
     return () => {
-        listeners.delete(listener);
-        globalThis.removeEventListener?.('storage', onStorage);
+        globalThis.removeEventListener(shortcutsChangeEvent, onChange);
+        globalThis.removeEventListener('storage', onStorage);
     };
 }
 

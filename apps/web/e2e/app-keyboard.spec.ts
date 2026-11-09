@@ -1,8 +1,8 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
-import { commentRowLink, commentRows, createProject, inBackground, openBoardMove, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { appNavigation, commentRowLink, commentRows, createProject, inBackground, openBoardMove, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished } from './support/toolbar';
+import { animationsFinished, toolbar } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
 // The app with the keyboard (src/components/app/keyboard): the board, My work, the sidebar and tabs are
@@ -198,6 +198,63 @@ test('the list: J and K from the open thread, R, S, A and /, and ? lists them wi
     await blur(page);
     await page.keyboard.press('k');
     await expect(thread).toContainText(shown);
+});
+
+test('one switch for the app and its toolbar: turned off on either side, the other stops too', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signIn(page, uniqueEmail('keys'));
+    await page.goto('/app/projects');
+    // uier's toolbar on the page (its own bundle, its own listeners): Give feedback mounts it
+    await appNavigation(page);
+    const giveFeedback = page.getByRole('button', { name: 'Give feedback' });
+    await expect(giveFeedback).toHaveAttribute('aria-keyshortcuts', 'C');
+    await giveFeedback.click();
+    const feedback = page.getByRole('dialog', { name: 'Send feedback' });
+    await expect(feedback).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(feedback).toBeHidden();
+    const add = toolbar(page).getByRole('button', { name: 'Add comment', exact: true });
+    const pointMode = page.getByRole('status').filter({ hasText: 'anywhere to pin a comment' });
+    await expect(add).toHaveAttribute('aria-keyshortcuts', 'C');
+    // With the focus in the toolbar, C is the toolbar's
+    await add.focus();
+    await page.keyboard.press('c');
+    await expect(pointMode).toBeVisible();
+    await page.keyboard.press('c');
+    await expect(pointMode).toHaveCount(0);
+
+    // Off in the app's dialog: the toolbar's letters stop as well
+    await blur(page);
+    await page.keyboard.press('?');
+    const help = page.getByRole('dialog', { name: 'Keyboard shortcuts' });
+    await help.getByRole('switch', { name: 'Single-key shortcuts' }).click();
+    await page.keyboard.press('Escape');
+    await expect(help).toBeHidden();
+    await expect(giveFeedback).not.toHaveAttribute('aria-keyshortcuts');
+    await expect(add).not.toHaveAttribute('aria-keyshortcuts');
+    await add.focus();
+    await page.keyboard.press('c');
+    await expect(pointMode).toHaveCount(0);
+
+    // On in the toolbar's Options: the app's come back
+    const optionsButton = toolbar(page).getByRole('button', { name: 'Options', exact: true });
+    const options = page.getByRole('dialog', { name: 'Options' });
+    await optionsButton.click();
+    await options.getByRole('button', { name: 'Turn on shortcuts', exact: true }).click();
+    await expect(options).toBeHidden();
+    await expect(giveFeedback).toHaveAttribute('aria-keyshortcuts', 'C');
+    await expect(add).toHaveAttribute('aria-keyshortcuts', 'C');
+
+    // Off in the toolbar's Options: the app's letters stop
+    await optionsButton.click();
+    await options.getByRole('button', { name: 'Turn off shortcuts', exact: true }).click();
+    await expect(options).toBeHidden();
+    await expect(giveFeedback).not.toHaveAttribute('aria-keyshortcuts');
+    await blur(page);
+    await page.keyboard.press('?');
+    await page.keyboard.press('c');
+    await expect(help).toBeHidden();
+    await expect(feedback).toBeHidden();
 });
 
 test('the sidebar, the tabs and My work are one tab stop each; G then I, B, M or P goes there', async ({ page, request }) => {

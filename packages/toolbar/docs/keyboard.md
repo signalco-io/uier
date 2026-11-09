@@ -11,7 +11,11 @@ app share:
 
 - The switch for single-key shortcuts (`shortcutsEnabled`, `setShortcutsEnabled`,
   `subscribeShortcutsEnabled`), kept per browser under `uier:shortcuts-off`. On uier.io the app and the
-  toolbar read the same switch. WCAG 2.1.4: letters can be turned off, the arrows, Enter and Esc always work.
+  toolbar read the same switch. Each bundles its own copy of this module, and a browser sends no `storage`
+  event to the window that wrote the value, so `setShortcutsEnabled` also dispatches `uier:shortcuts-change`
+  (`shortcutsChangeEvent`, `detail`: on or off) on the window: every copy on the page updates its cached
+  value and tells its subscribers; the `storage` event does that for the site's other tabs. WCAG 2.1.4:
+  letters can be turned off, the arrows, Enter and Esc always work.
 - Which key a press is: `isShortcutPress` (not handled already, not held, not composing, no Ctrl, ⌘ or Alt),
   `shortcutLetter` (the letter on Latin layouts, else the key in its place; no Shift), `isShortcutsHelpKey`
   (`?`), `isSearchKey` (`/`) and `sequenceTimeoutMs` (G, then the next key).

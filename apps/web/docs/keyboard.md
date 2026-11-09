@@ -44,7 +44,8 @@ handler): it listens on the document in the bubble phase, after React's handlers
 - The key after G is taken in the capture phase, before the focused control's own handling of the letter.
 - The controls they press name them with `aria-keyshortcuts` (`useKeyShortcutLabel`: only while they are on).
 - Single-key shortcuts can be turned off (WCAG 2.1.4): the switch in the dialog sets `uier:shortcuts-off`
-  through `@uier/toolbar/keyboard`, the same switch as the toolbar's. The arrows, Enter, Esc and the keys with
+  through `@uier/toolbar/keyboard`, the same switch as the toolbar's. Turned on or off on either side, the
+  other follows on the same page (the `uier:shortcuts-change` window event) and in the site's other tabs. The arrows, Enter, Esc and the keys with
   Ctrl or ⌘ keep working; the account menu still opens the dialog.
 - The dialog lists every shortcut by where it works (`groups` in `ShortcutsDialog.tsx`); keep it in step with the
   handlers. Keys print in Geist Mono (`Kbd`, BRAND.md: mono means machine); symbols have their names for screen
@@ -53,5 +54,6 @@ handler): it listens on the document in the bubble phase, after React's handlers
 ## Tests
 
 `e2e/app-keyboard.spec.ts` (desktop, full suite): the board's tab stop, arrows, J and K in the sheet, S and R;
-the list's J and K from the thread, R, S, A, `/`, `?`, the switch and the account menu; the sidebar, My work and
+the list's J and K from the thread, R, S, A, `/`, `?`, the switch and the account menu; the switch turned off
+in the app's dialog stops the toolbar's letters on the page and the other way round; the sidebar, My work and
 the workspace tabs, and G with I, B, M and P. `e2e/comment-keyboard.spec.ts` covers the list's arrows.
