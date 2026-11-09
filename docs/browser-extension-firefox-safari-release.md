@@ -6,6 +6,11 @@ Manual dispatch selects `all`, `chrome`, `firefox` or `safari`; `dry_run` defaul
 Dry runs use no store credentials and perform no store writes. Browser-specific repository flags
 and dedicated environment approvals control the new publishers independently of Chrome.
 
+After adding credentials, run **Extension browser account check** from `main`, select the browser,
+and approve its environment. This uses authenticated reads only: Mozilla's private upload list or
+the exact Safari app record. It needs no release tag or publishing flag. Verify this bootstrap
+before enabling store writes; it never prints credentials or private API response bodies.
+
 PR CI runs Mozilla's pinned linter, tests the store clients, and compiles an unsigned Safari archive
 on a macOS runner with full Xcode. The native build compares every embedded extension resource
 with the shared build. These checks do not replace native hosted acceptance. Review the linter's
