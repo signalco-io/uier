@@ -28,12 +28,12 @@ export function PageHeader({ title, description, media, actions, children, class
     return (
         <div className={cn('flex flex-col gap-4 pb-6', className)}>
             <div className="flex flex-wrap items-start justify-between gap-4">
-                {media ? (
-                    <div className="flex min-w-0 items-center gap-4">
-                        {media}
-                        {heading}
-                    </div>
-                ) : heading}
+                {/* The title wraps beside the actions (a tablet keeps them on its row); only when it would get narrower
+                    than 20rem (a phone) do the actions go under it */}
+                <div className="flex min-w-0 flex-1 basis-80 items-center gap-4">
+                    {media}
+                    {heading}
+                </div>
                 {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
             </div>
             {children}

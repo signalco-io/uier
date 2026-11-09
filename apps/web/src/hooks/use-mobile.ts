@@ -1,6 +1,11 @@
 import * as React from "react"
 
-const MOBILE_BREAKPOINT = 768
+/**
+ * Below `lg` (1024 px) the sidebar is a sheet: phones and tablets in portrait get the page's full width.
+ * Keep it in step with the `lg:` classes that dock the sidebar (`components/ui/sidebar.tsx`) and frame the
+ * panel (the shell layout).
+ */
+const MOBILE_BREAKPOINT = 1024
 
 export function useIsMobile() {
   const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined)

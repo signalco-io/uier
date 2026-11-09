@@ -76,7 +76,7 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
     return (
         <div data-comment-row="" className={cn('group/row relative flex min-w-0 gap-2.5 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/60 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring',
             selected === 'opened' && 'bg-muted hover:bg-muted',
-            selected === 'beside' && '@4xl/comments:bg-muted @4xl/comments:hover:bg-muted',
+            selected === 'beside' && '@3xl/comments:bg-muted @3xl/comments:hover:bg-muted',
             // On dark the surface is as dark as the column: the page's black sets a card apart from it
             card && 'border bg-card hover:bg-muted/40 dark:bg-background dark:hover:bg-muted/40',
             // Selected for a bulk action

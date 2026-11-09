@@ -34,6 +34,8 @@ Object.assign(process.env, unpacedProviders);
 
 // API and service tests run once, without a browser or device duplication.
 const apiTests = /\.api\.spec\.ts$/;
+// Tablet layouts run in their own project only.
+const tabletTests = /tablet\.spec\.ts$/;
 
 export default defineConfig({
     // The required suite should expose failures immediately, without retrying a slow browser flow.
@@ -144,7 +146,7 @@ export default defineConfig({
         },
         {
             name: 'Desktop Chrome',
-            testIgnore: apiTests,
+            testIgnore: [apiTests, tabletTests],
             grep: fullSuite ? undefined : /@smoke/,
             fullyParallel: !fullSuite,
             use: {
@@ -153,11 +155,23 @@ export default defineConfig({
         },
         {
             name: 'Mobile Chrome',
-            testIgnore: apiTests,
+            testIgnore: [apiTests, tabletTests],
             grep: fullSuite ? undefined : /@mobile-smoke/,
             fullyParallel: !fullSuite,
             use: {
                 ...devices['Pixel 5'],
+            },
+        },
+        {
+            // An iPad mini's 768 × 1024 with touch, in Chromium; the tests turn it to landscape where they say so.
+            // No tablet test is an essential: they run in the full suite (`@tablet-smoke` would add one).
+            name: 'Tablet Chrome',
+            testMatch: tabletTests,
+            grep: fullSuite ? undefined : /@tablet-smoke/,
+            fullyParallel: !fullSuite,
+            use: {
+                ...devices['iPad Mini'],
+                browserName: 'chromium',
             },
         },
         // Portable launch and loader flows complement the Chromium-specific touch tests.

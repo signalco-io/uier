@@ -104,7 +104,9 @@ does, and the rules that apply only to it, live in [`docs/`](docs/README.md), on
   Base UI's attributes only. Local changes to keep when re-adding a component: `badge`, `item` and
   `breadcrumb` (Base UI's `useRender`, which needs `useRef`) start with `"use client"` so server pages can
   render them; `buttonVariants` returns `cn()`-merged classes; dialog and alert-dialog backdrops have
-  `forceRender` (a dialog opened from the mobile sidebar sheet is nested). In tests, single-choice toggle
+  `forceRender` (a dialog opened from the mobile sidebar sheet is nested); `sidebar` docks from `lg` (its `md:` classes
+  are `lg:`, with `useIsMobile`'s 1024 px) and keeps its actions' larger hit area on touch screens
+  (`pointer-fine:after:hidden`, not `md:after:hidden`). In tests, single-choice toggle
   groups are `button`s with `aria-pressed` in a `group` (not radios), Base UI checkboxes are found by role
   (`getByLabel` also matches their hidden input), a tab panel is found by its tab's name (the outgoing
   panel stays mounted while it exits), and a test waits for a menu to finish opening
@@ -130,9 +132,9 @@ CSP console audits must be asserted before an axe scan. Axe fetches external sty
 Start a fresh audit for subsequent product actions; retain the strict policy and assertions.
 
 - While implementing, run `pnpm typecheck` plus the relevant spec file and project (`API` or
-  `Desktop Chrome`; add `Mobile Chrome` for touch or responsive changes). Direct Playwright
-  commands need `pnpm build` after app/toolbar changes. Enable untagged browser cases with
-  `PLAYWRIGHT_FULL=1` and use `--retries=0`; the file/project filters still limit the run.
+  `Desktop Chrome`; add `Mobile Chrome` for touch or responsive changes, `Tablet Chrome` for tablet
+  layouts). Direct Playwright commands need `pnpm build` after app/toolbar changes. Enable untagged
+  browser cases with `PLAYWRIGHT_FULL=1` and use `--retries=0`; the file/project filters still limit the run.
   See [focused commands and test categories](../../docs/development.md#while-implementing).
   New features do not require `pnpm test:full`; reserve it for broad regression verification
   when focused checks are insufficient or a full run is explicitly requested. Documentation-only

@@ -6,8 +6,15 @@
   Create project icon link and a Sort and Group menu (`ProjectOrderMenu`) in their header, then at the bottom Workspace (admins; for everyone else only when a
   visible project has a client), Give feedback and the account menu: rows like the navigation's, the person's avatar centred in their 16px icon column so
   its name starts with the labels above; the email is in the account menu), the inset panel with the breadcrumbs
-  (`AppBreadcrumbs`, from the path) and the one invite dialog (`InviteProvider`; `InviteButton` and
-  `useInvite()` open it). Pages sit in a centred reading column (`max-w-5xl`) on every page, in every view. An element that lays things
+  (`AppBreadcrumbs`, from the path: one line, a long name cut short) and the one invite dialog (`InviteProvider`; `InviteButton` and
+  `useInvite()` open it). The sidebar is docked from `lg` (1024 px: landscape tablets and wider), where the panel keeps
+  its frame and scrolls inside it; narrower (phones, tablets in portrait) it is a sheet behind the top bar's toggle
+  (`useIsMobile`, `hooks/use-mobile.ts`, in step with the `lg:` classes of `ui/sidebar.tsx` and the shell layout) and the
+  page scrolls under the sticky top bar, so what sticks there (settings sections, the thread beside the list) sits
+  below the bar. The sidebar's small actions (Sort and Group, Create project) keep their larger hit area on touch
+  screens (`pointer-fine:after:hidden`). `PageHeader` keeps its actions on the title's row and wraps the title
+  beside them; only below 20rem for the title (a phone) do they go under it. `e2e/tablet.spec.ts` (the Tablet Chrome
+  project) covers portrait and landscape tablets. Pages sit in a centred reading column (`max-w-5xl`) on every page, in every view. An element that lays things
   side by side breaks out of it with the `page-wide` utility (`app/global.css`: the panel's width less the gutters, centred
   on the column; its parent must span the column) and `data-page-width="wide"`, which makes the panel a container
   (CSS `:has()`, so it follows a client-side view switch at once) for the registered `--page-wide` length the column sets.
@@ -75,7 +82,8 @@
   1 px padding (`[&>img]:p-px`), so the favicon shows at the 16 px it is drawn for; a negative margin keeps
   the tile in the menu button's 16 px icon slot, so project names line up with Projects and My work,
   expanded, collapsed to icons and in the mobile sheet.
-- **Projects list** (`(shell)/projects/page.tsx`): the page renders both the active and the done list (and
+- **Projects list** (`(shell)/projects/page.tsx`): project cards in as many 18rem columns as the page's width holds
+  (up to three; the sidebar takes part of a window). The page renders both the active and the done list (and
   each one's empty state), and `ProjectStatusTabs` (`projects/ProjectStatusTabs.tsx`) shows the one `?status=`
   names. Active and Done are `LinkTabs` with `query`: a click writes the address with `setUrlSearchParams`
   (`push`), so the other list shows at once with no server request, no spinner and no space kept for one;
