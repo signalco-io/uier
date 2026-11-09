@@ -227,8 +227,8 @@ function linkParts(link: Locator) {
     });
 }
 
-// uier #44: favicons are drawn for 16 px, so the sidebar shows them at that size, in the column of the page icons
-test('the sidebar shows project favicons at 16 px with names in line with the pages above', async ({ page, isMobile }) => {
+// uier #44: project tiles sit in the column of the page icons; uier #87: the favicon keeps the mark's padding inside the tile
+test('the sidebar shows project favicons padded inside their tiles with names in line with the pages above', async ({ page, isMobile }) => {
     // uier #47: uier's server finds the icon (e2e/support/siteIconsStub.ts): icon.example.com redirects to a
     // sign-in page that declares an SVG at its own path and has no /favicon.ico; letter.example.com has no icon.
     // The browser never contacts the sites.
@@ -254,14 +254,15 @@ test('the sidebar shows project favicons at 16 px with names in line with the pa
     const withFavicon = navigation.getByRole('link', { name: 'Icon', exact: true });
     const withLetter = navigation.getByRole('link', { name: 'Letter', exact: true });
 
-    // The favicon fills a 20 px tile inside its border and 1 px padding; a site without one shows the name's first letter
+    // The favicon sits in a 20 px tile inside its border and 2 px padding, like the project header and the projects list;
+    // a site without one shows the name's first letter
     const favicon = withFavicon.locator('img');
     await expect(favicon).toBeVisible();
     expect(await favicon.evaluate((image: HTMLImageElement) => {
         const style = getComputedStyle(image);
         return [image.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
             image.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom)];
-    })).toEqual([16, 16]);
+    })).toEqual([14, 14]);
     await expect(withLetter.locator(':scope > span[aria-hidden="true"]')).toHaveText('L');
 
     // Sheet or expanded sidebar: tiles centred on the page icons' column, names start where the pages' names do

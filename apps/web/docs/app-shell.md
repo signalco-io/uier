@@ -79,7 +79,8 @@
   2 px of padding inside the 16 px tile (larger tiles set their own with `[&>img]:p-*`), so icons drawn
   edge to edge stay clear of the border and the rounded corners. The image fills the tile inside its 1 px
   border, so the 16 px tile draws a favicon at 10 px. The sidebar's active projects use a 20 px tile with
-  1 px padding (`[&>img]:p-px`), so the favicon shows at the 16 px it is drawn for; a negative margin keeps
+  the same 2 px padding (uier #87: with 1 px the favicon filled the tile edge to edge), so the favicon shows
+  at 14 px clear of the border, like the project header and the projects list; a negative margin keeps
   the tile in the menu button's 16 px icon slot, so project names line up with Projects and My work,
   expanded, collapsed to icons and in the mobile sheet.
 - **Projects list** (`(shell)/projects/page.tsx`): project cards in as many 18rem columns as the page's width holds

@@ -66,9 +66,10 @@ function ProjectItem({ project, current }: { project: SidebarProject; current: b
     return (
         <SidebarMenuItem>
             <SidebarMenuButton isActive={current} tooltip={project.name} render={<Link href={KnownPageLinks.project(project.id)} aria-current={current ? 'page' : undefined} />}>
-                {/* A 20 px tile with 1 px padding inside its border, so the favicon shows at the 16 px it is drawn for. The
-                    negative margin keeps it in the 16 px icon slot: names line up with the pages above, also collapsed and in the sheet */}
-                <ProjectMark name={project.name} projectId={project.id} url={project.url} className="-m-0.5 size-5 text-xs [&>img]:p-px" />
+                {/* A 20 px tile with the mark's own 2 px padding inside its border (uier #87), so the favicon sits on the tile
+                    as in the project header and the projects list. The negative margin keeps it in the 16 px icon slot:
+                    names line up with the pages above, also collapsed and in the sheet */}
+                <ProjectMark name={project.name} projectId={project.id} url={project.url} className="-m-0.5 size-5 text-xs" />
                 <span>{project.name}</span>
             </SidebarMenuButton>
         </SidebarMenuItem>
