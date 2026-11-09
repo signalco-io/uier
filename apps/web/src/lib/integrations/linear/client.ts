@@ -10,6 +10,8 @@ export class LinearApiError extends Error {
 }
 type Budget = { nextAt: number; pausedUntil: number };
 const requestBudgets = new Map<string, Budget>();
+/** 250 ms between requests on one grant. Local test runs against the stub set `LINEAR_REQUEST_INTERVAL_MS=0`. */
+const requestInterval = () => isLocalRuntime() && process.env.LINEAR_REQUEST_INTERVAL_MS === '0' ? 0 : 250;
 /** Reserve the provider slot before the core's final authority/projection check. */
 export async function withLinearRequest<T>(key: string, signal: AbortSignal, send: () => Promise<T>): Promise<T> {
     const now = Date.now();
@@ -18,7 +20,7 @@ export async function withLinearRequest<T>(key: string, signal: AbortSignal, sen
     requestBudgets.set(key, budget);
     if (budget.pausedUntil > now) throw new LinearApiError('rate_limited', 429, new Date(budget.pausedUntil).toISOString(), undefined, true);
     const reservedAt = Math.max(now, budget.nextAt);
-    budget.nextAt = reservedAt + 250;
+    budget.nextAt = reservedAt + requestInterval();
     const delay = reservedAt - now;
     signal.throwIfAborted();
     if (delay > 0) await new Promise<void>((resolve, reject) => {

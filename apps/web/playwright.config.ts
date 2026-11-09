@@ -26,6 +26,12 @@ const testTokenKey = Buffer.alloc(32, 93).toString('base64');
 const githubPrivateKey = generateKeyPairSync('rsa', { modulusLength: 2048,
     privateKeyEncoding: { type: 'pkcs8', format: 'pem' }, publicKeyEncoding: { type: 'spki', format: 'pem' } }).privateKey;
 
+// Provider clients space their requests to stay under the real APIs' rate limits; the stubs have none.
+// API specs call the clients in the test workers, so set it here as well as for the app server.
+// Both clients honour it only in local runtime (UIER_LOCAL), never on a deployment.
+const unpacedProviders = { LINEAR_REQUEST_INTERVAL_MS: '0', AZURE_DEVOPS_REQUEST_INTERVAL_MS: '0' };
+Object.assign(process.env, unpacedProviders);
+
 // API and service tests run once, without a browser or device duplication.
 const apiTests = /\.api\.spec\.ts$/;
 
@@ -101,6 +107,7 @@ export default defineConfig({
                 ANTHROPIC_BASE_URL: anthropicStubUrl,
                 NOTION_CLIENT_ID: 'notion-test-client', NOTION_CLIENT_SECRET: 'notion-test-secret', NOTION_TOKEN_KEY: testTokenKey,
                 NOTION_API_BASE_URL: notionStubUrl, NOTION_OAUTH_AUTHORIZE_URL: `${notionStubUrl}/v1/oauth/authorize`, NOTION_REQUEST_INTERVAL_MS: '0',
+                ...unpacedProviders,
                 UIER_GITHUB_APP_ID: '999', UIER_GITHUB_APP_SLUG: 'uier-test', UIER_GITHUB_CLIENT_ID: 'Iv1.uier-test',
                 UIER_GITHUB_CLIENT_SECRET: 'test-client-secret', UIER_GITHUB_SETUP_KEY: testTokenKey,
                 UIER_GITHUB_WEBHOOK_SECRET: 'test-webhook-secret', UIER_GITHUB_PRIVATE_KEY: githubPrivateKey,

@@ -1,3 +1,4 @@
+import { isLocalRuntime } from '../../comments/environment';
 import { azureDevOpsConfig, azureDevOpsScopes, validOrganization } from './config';
 
 export class AzureDevOpsApiError extends Error {
@@ -9,6 +10,8 @@ export class AzureDevOpsApiError extends Error {
 
 type Budget = { nextAt: number; pausedUntil: number };
 const requestBudgets = new Map<string, Budget>();
+/** 250 ms between requests on one grant. Local test runs against the stub set `AZURE_DEVOPS_REQUEST_INTERVAL_MS=0`. */
+const requestInterval = () => isLocalRuntime() && process.env.AZURE_DEVOPS_REQUEST_INTERVAL_MS === '0' ? 0 : 250;
 /** One paced request at a time per grant. Reserve the slot before the core's final authority check. */
 export async function withAzureDevOpsRequest<T>(key: string, signal: AbortSignal, send: () => Promise<T>): Promise<T> {
     const now = Date.now();
@@ -17,7 +20,7 @@ export async function withAzureDevOpsRequest<T>(key: string, signal: AbortSignal
     requestBudgets.set(key, budget);
     if (budget.pausedUntil > now) throw new AzureDevOpsApiError('rate_limited', 429, new Date(budget.pausedUntil).toISOString(), true);
     const reservedAt = Math.max(now, budget.nextAt);
-    budget.nextAt = reservedAt + 250;
+    budget.nextAt = reservedAt + requestInterval();
     const delay = reservedAt - now;
     signal.throwIfAborted();
     if (delay > 0) await new Promise<void>((resolve, reject) => {

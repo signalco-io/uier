@@ -382,17 +382,24 @@ test('request, complexity and endpoint exhaustion stop subsequent requests using
 });
 
 test('a private transition while waiting for provider pacing is rechecked before any GraphQL request', async ({ linear }) => {
-    const f = await fixture(); const connection = await connect(f, linear); const grant = await currentLinearGrant(connection);
-    const candidate = await enqueueIntegrationSync(f.project, 'linear', connection.id, f.source.id, 1);
-    await withLinearRequest(`${grant.clientId}:${grant.appUserId}`, AbortSignal.timeout(5000), async () => undefined);
-    const before = linear.calls.length;
-    const processing = processIntegrationDelivery(candidate, baseUrl, linearAdapter);
-    await new Promise(resolve => setTimeout(resolve, 20));
-    await change(f, { private: true });
-    await processing;
-    expect(linear.calls.length).toBe(before);
-    expect((await ledger(f)).status).toBe('waiting');
-    expect((await ledger(f)).lastCode).toBe('projection_changed');
+    // This test needs the deployed request spacing that the suite turns off (playwright.config.ts)
+    const unpaced = process.env.LINEAR_REQUEST_INTERVAL_MS;
+    delete process.env.LINEAR_REQUEST_INTERVAL_MS;
+    try {
+        const f = await fixture(); const connection = await connect(f, linear); const grant = await currentLinearGrant(connection);
+        const candidate = await enqueueIntegrationSync(f.project, 'linear', connection.id, f.source.id, 1);
+        await withLinearRequest(`${grant.clientId}:${grant.appUserId}`, AbortSignal.timeout(5000), async () => undefined);
+        const before = linear.calls.length;
+        const processing = processIntegrationDelivery(candidate, baseUrl, linearAdapter);
+        await new Promise(resolve => setTimeout(resolve, 20));
+        await change(f, { private: true });
+        await processing;
+        expect(linear.calls.length).toBe(before);
+        expect((await ledger(f)).status).toBe('waiting');
+        expect((await ledger(f)).lastCode).toBe('projection_changed');
+    } finally {
+        if (unpaced !== undefined) process.env.LINEAR_REQUEST_INTERVAL_MS = unpaced;
+    }
 });
 
 test('a 401 followed by refresh response loss keeps the original pair for grace-period recovery', async ({ linear }) => {
