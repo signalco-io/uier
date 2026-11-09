@@ -21,7 +21,9 @@
   "Environment: Production", "Page: /app/…", "People: Unassigned", "Author: Ana", and "Only unread"), with its own
   clear button ("Clear page filter: /app/…", "Clear author filter: Ana", "Clear filter: Only unread"). The count line under them (`TriageSelection`) has the unread
   count, then Mark all as read right beside it (a small filled `secondary` button whose icon takes the unread
-  accent, so it reads as that count's action), and Select at the end. Neither view has "15 of 93 comments": the
+  accent, so it reads as that count's action), and Select at the end. The toolbar's inbox has the same count line under its
+  filters (`packages/toolbar/src/components/sidebar/MarkAllRead.tsx`: "7 unread", then Mark all as read with its icon), and its
+  Unread toggle ("Unread 7") is a filter like Only unread here: no dot, the count in the unread accent. Neither view has "15 of 93 comments": the
   list's status tabs and the board's columns already count what is shown. With a mouse Select is `sr-only` until something is selected (or it has keyboard focus),
   since hovering a row's box starts selecting; a touch screen always shows it. When it shows nothing (no unread count and, with a mouse, nothing selected) the
   count line is `sr-only` too: it takes no room and no gap in the column, and shows again while Select has the keyboard focus. The count line has no side padding of its own, so its

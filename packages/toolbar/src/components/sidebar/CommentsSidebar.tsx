@@ -115,18 +115,19 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
                                 environment={setEnvironment && { value: environment, options: environmentOptions ?? [], onChange: setEnvironment }}
                                 onChange={(page) => setFilter({ ...filter, page })} />
                             {/* Unread threads can be done ones and on any page (the pill counts the whole
-                                site): the filter shows every status, and turning it on every page */}
+                                site): the filter shows every status, and turning it on every page. A filter like the
+                                app's Only unread: no dot, the count in the unread accent */}
                             <FilterChip pressed={Boolean(filter.unread)} onClick={() => setFilter({ ...filter, unread: !filter.unread, status: 'all', ...(filter.unread ? {} : { page: 'all' as const }) })}>
-                                {unread > 0 && <span aria-hidden="true" className="size-2 rounded-full bg-[hsl(var(--brand-accent))]" />}
                                 Unread <span className={cx('tabular-nums', unread > 0 ? 'text-[hsl(var(--brand-accent-text))]' : 'text-muted-foreground')}>{unread}</span>
                             </FilterChip>
-                            <MarkAllRead comments={inbox.state.error ? [] : inbox.comments ?? []} />
                             {isMember && (
                                 <FilterChip pressed={Boolean(filter.assignedToMe)} onClick={() => setFilter({ ...filter, assignedToMe: !filter.assignedToMe })}>
                                     Assigned to me
                                 </FilterChip>
                             )}
                         </div>
+                        {/* The count line under the filters, as in the app: the shown unread count, then Mark all as read */}
+                        <MarkAllRead comments={inbox.state.error ? [] : inbox.comments ?? []} />
                         </Stack>
                         <CommentsStatusTabs
                             counts={inbox.counts}
