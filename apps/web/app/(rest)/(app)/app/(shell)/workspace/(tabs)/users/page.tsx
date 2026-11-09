@@ -51,6 +51,10 @@ function Access({ role, projects, names }: { role: 'admin' | 'commenter'; projec
 const centeredMedia = 'group-has-data-[slot=item-description]/item:translate-y-0 group-has-data-[slot=item-description]/item:self-center';
 // A fixed column, so the role badges line up whatever their width
 const roleColumn = 'flex w-24 justify-end';
+// Where the card is wide enough, the rows share one grid (subgrid), so the person, access and actions
+// columns line up whichever actions a row has; narrower cards keep the wrapping row
+const columnsGroup = 'gap-0 divide-y @2xl:grid @2xl:grid-cols-[auto_minmax(12rem,1fr)_minmax(0,18rem)_auto]';
+const columnsRow = 'rounded-none @2xl:col-span-full @2xl:grid @2xl:grid-cols-subgrid';
 
 /** Internal or External; nothing while unspecified */
 const relationshipLabels: Record<string, string> = { internal: 'Internal', external: 'External' };
@@ -152,10 +156,10 @@ export default async function UsersPage({ searchParams }: PageProps<'/app/worksp
                     title="People"
                     count={shownMembers.length}
                     description={project ? `Who can review ${projectNames.get(project)}.` : 'Admins and commenters of this workspace.'}>
-                    <Card className="gap-0 py-0">
-                        <ItemGroup aria-label="People" className="gap-0 divide-y">
+                    <Card className="@container gap-0 py-0">
+                        <ItemGroup aria-label="People" className={columnsGroup}>
                             {shownMembers.map(({ member, name, avatarUrl }) => (
-                                <Item key={member.id} role="listitem" className="rounded-none">
+                                <Item key={member.id} role="listitem" className={columnsRow}>
                                     <ItemMedia className={centeredMedia}>
                                         <PersonAvatar name={name} avatarUrl={avatarUrl} aria-hidden="true" />
                                     </ItemMedia>
@@ -175,7 +179,7 @@ export default async function UsersPage({ searchParams }: PageProps<'/app/worksp
                                             Joined <RelativeTime value={member.createdAt} />
                                         </ItemDescription>
                                     </ItemContent>
-                                    <ItemActions className="ml-auto">
+                                    <ItemActions className="ml-auto @2xl:ml-0">
                                         <span className={roleColumn}><RoleBadge role={member.role} /></span>
                                         <Link href={KnownPageLinks.member(member.userId)} aria-label={`Manage access for ${name}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>Manage access</Link>
                                         {member.userId !== context.user.id && <RemoveMemberButton userId={member.userId} name={name} />}
@@ -191,10 +195,10 @@ export default async function UsersPage({ searchParams }: PageProps<'/app/worksp
                     count={shownInvitations.length}
                     description="Sent and not accepted yet.">
                     {shownInvitations.length ? (
-                        <Card className="gap-0 py-0">
-                            <ItemGroup aria-label="Invitations" className="gap-0 divide-y">
+                        <Card className="@container gap-0 py-0">
+                            <ItemGroup aria-label="Invitations" className={columnsGroup}>
                                 {shownInvitations.map(invitation => (
-                                    <Item key={invitation.id} role="listitem" className="rounded-none">
+                                    <Item key={invitation.id} role="listitem" className={columnsRow}>
                                         <ItemMedia variant="icon" className={cn(centeredMedia, 'size-8 rounded-full border border-dashed')}>
                                             <MailIcon aria-hidden="true" className="text-muted-foreground" />
                                         </ItemMedia>
@@ -209,7 +213,7 @@ export default async function UsersPage({ searchParams }: PageProps<'/app/worksp
                                                 <ItemDescription className="text-xs">{relationshipLabels[invitation.relationship]}</ItemDescription>
                                             )}
                                         </ItemContent>
-                                        <ItemActions className="ml-auto">
+                                        <ItemActions className="ml-auto @2xl:ml-0">
                                             <span className={roleColumn}><RoleBadge role={invitation.role} /></span>
                                             <ResendInvitationButton invitationId={invitation.id} email={invitation.email} />
                                             <RevokeInvitationButton invitationId={invitation.id} email={invitation.email} />
