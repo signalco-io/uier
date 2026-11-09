@@ -76,6 +76,9 @@
   `e2e/status-colors.spec.ts` checks each status's colour in the list, the board, the menu and the filter, in
   light and dark, with axe.
 
+The touch drag test centres its source card in the viewport before the long press so edge auto-scroll
+does not invalidate the captured drop coordinates as card heights change.
+
 The list and active board columns sort by priority, then newest number. Done sorts by the last
 transition into Done (`completedAt`), newest first, regardless of priority or number. Legacy Done
 threads fall back to `updatedAt`, then `createdAt`; ties use the usual list order. Ordinary Done

@@ -58,6 +58,9 @@ async function dragWithMouse(page: Page, card: Locator, target: Locator, { drop 
 
 /** A long press lifts the card on a touch screen; then it follows the finger */
 async function dragWithTouch(page: Page, card: Locator, target: Locator) {
+    // Keep the gesture away from the viewport edge: taller cards can trigger auto-scroll,
+    // moving the destination away from the coordinates captured below.
+    await card.evaluate(element => element.scrollIntoView({ block: 'center', behavior: 'instant' }));
     const session = await page.context().newCDPSession(page);
     const from = (await card.boundingBox())!;
     const start = { x: from.x + from.width / 2, y: from.y + from.height / 2 };
