@@ -9,6 +9,11 @@ on:
         description: 'Existing protected extension-vX.Y.Z tag on main'
         required: true
         type: string
+      browser:
+        description: 'Browser stores to release'
+        type: choice
+        options: [all, chrome, firefox]
+        default: all
       dry_run:
         description: 'Build and test only; no store credentials or writes'
         type: boolean
@@ -56,8 +61,19 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck && pnpm build && pnpm -C apps/extension test
-      - run: pnpm -C apps/extension validate && pnpm -C apps/extension package
+      - run: pnpm typecheck && pnpm build && pnpm -C packages/extension test && pnpm -C apps/extension test
+      - name: Validate and package every browser target
+        run: |
+          pnpm -C apps/extension validate
+          pnpm -C apps/extension package
+          pnpm -C apps/extension-firefox validate
+          pnpm -C apps/extension-firefox lint:store
+          pnpm -C apps/extension-firefox package
+          pnpm -C apps/extension-firefox test
+      - name: Retain the exact committed source for Mozilla reviewers
+        env:
+          RELEASE_TAG: ${{ steps.resolve.outputs.tag }}
+        run: pnpm -C packages/extension release:source ../../apps/extension-firefox/release
       - run: pnpm -C apps/extension exec playwright install chromium
       - name: Test the unchanged production ZIP against the local API
         run: pnpm -C apps/extension test:package
@@ -76,13 +92,19 @@ jobs:
             apps/extension/test-results/
             apps/extension/playwright-report/
           retention-days: 90
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: extension-firefox-release-package
+          path: apps/extension-firefox/release/
+          if-no-files-found: error
+          retention-days: 90
       - name: Record dry-run outcome
         if: github.event_name == 'workflow_dispatch' && inputs.dry_run
         run: echo 'Dry-run complete. Tested package retained; no store authentication or submission occurred.' >> "$GITHUB_STEP_SUMMARY"
 
   publish:
     needs: build
-    if: github.event_name == 'push' || !inputs.dry_run
+    if: (github.event_name == 'push' || !inputs.dry_run) && (github.event_name == 'push' || inputs.browser == 'all' || inputs.browser == 'chrome')
     runs-on: ubuntu-slim
     timeout-minutes: 10
     environment: extension-production
@@ -144,5 +166,57 @@ jobs:
         with:
           name: extension-store-receipt
           path: apps/extension/release/*.store.json
+          if-no-files-found: ignore
+          retention-days: 90
+
+  firefox-publish:
+    needs: [build, publish]
+    if: >-
+      always() && !cancelled() && needs.build.result == 'success' &&
+      (needs.publish.result == 'success' || needs.publish.result == 'skipped') &&
+      (github.event_name == 'push' || !inputs.dry_run) &&
+      (github.event_name == 'push' || inputs.browser == 'all' || inputs.browser == 'firefox') &&
+      vars.FIREFOX_PUBLISHING_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: extension-firefox-production
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.build.outputs.commit }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Recheck the immutable release tag
+        env:
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          RELEASE_COMMIT: ${{ needs.build.outputs.commit }}
+        run: node apps/extension/scripts/resolve-release.mjs
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: extension-firefox-release-package
+          path: apps/extension-firefox/release/
+      - name: Submit the retained ZIP and source to Mozilla
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          RELEASE_REF_PROTECTED: ${{ github.ref_protected }}
+          FIREFOX_PUBLISHING_ENABLED: ${{ vars.FIREFOX_PUBLISHING_ENABLED }}
+          HOSTED_ACCEPTANCE_URL: ${{ vars.FIREFOX_HOSTED_ACCEPTANCE_URL }}
+          AMO_API_KEY: ${{ secrets.AMO_API_KEY }}
+          AMO_API_SECRET: ${{ secrets.AMO_API_SECRET }}
+        run: pnpm -C apps/extension-firefox publish:store
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: always()
+        with:
+          name: extension-firefox-store-receipt
+          path: apps/extension-firefox/release/*.store.json
           if-no-files-found: ignore
           retention-days: 90

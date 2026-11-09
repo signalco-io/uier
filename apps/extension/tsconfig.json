@@ -1,5 +1,14 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "jsx": "react-jsx", "types": ["chrome", "node"] },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "e2e/**/*.ts", "playwright.config.ts", "../../packages/toolbar/src/globals.d.ts", "../../packages/toolbar/src/css.d.ts"]
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "types": [
+      "chrome",
+      "node"
+    ]
+  },
+  "include": [
+    "e2e/**/*.ts",
+    "playwright.config.ts"
+  ]
 }

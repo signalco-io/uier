@@ -1,3 +1,4 @@
+import { browser } from './browser';
 import type { WorkerMessage } from './protocol';
 declare const __EXTENSION_API__: string;
 export const apiOrigin = __EXTENSION_API__;
@@ -17,12 +18,13 @@ export function reviewable(url: string | undefined) {
     try {
         const u = new URL(url);
         return ['https:', 'http:'].includes(u.protocol) && !u.username && !u.password
+            && u.hostname !== 'addons.mozilla.org'
             && u.hostname !== 'chromewebstore.google.com' && u.hostname !== 'microsoftedge.microsoft.com'
             && !(u.hostname === 'chrome.google.com' && u.pathname.startsWith('/webstore'));
     } catch { return false; }
 }
 export async function message<T>(input: WorkerMessage): Promise<T> {
-    const response = await chrome.runtime.sendMessage(input);
+    const response = await browser.runtime.sendMessage(input);
     if (!response?.ok) throw new Error(response?.error || 'The extension could not connect.');
     return response.value as T;
 }

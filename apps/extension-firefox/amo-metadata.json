@@ -1,0 +1,14 @@
+{
+  "default_locale": "en-US",
+  "name": { "en-US": "uier" },
+  "summary": { "en-US": "Review configured project sites with comments pinned to the page. Signed-in project membership required." },
+  "description": { "en-US": "Review sites configured in your uier projects without adding a script. Pin feedback to elements, text or areas, attach a viewport screenshot, reply and resolve comments. Each reviewer signs in and needs access to the project. The extension requests temporary access to the reviewed tab and communicates with uier.io. See https://uier.io/legal/privacy-policy for privacy details." },
+  "categories": { "firefox": ["web-development"] },
+  "homepage": { "en-US": "https://uier.io" },
+  "support_email": { "en-US": "contact@signalco.io" },
+  "privacy_policy": { "en-US": "Privacy policy: https://uier.io/legal/privacy-policy" },
+  "version": {
+    "compatibility": ["firefox"],
+    "approval_notes": "Build from the attached source using Node 26, Corepack and pnpm install --frozen-lockfile, then pnpm --filter @uier/extension-firefox... build. See docs/browser-extension-source.md. Reviewers can create their own account and isolated project at https://uier.io/app and configure https://uier.io/extension-demo.html. Sign in from the extension popup, choose the project and Start review. No shared account or customer data is required. Minified JavaScript is bundled from the attached TypeScript source."
+  }
+}

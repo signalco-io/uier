@@ -3,7 +3,7 @@
  * @uier/brand tokens as the toolbar, compiled with this folder as an extra source. Geist ships in the
  * package (fonts/), so these pages never load anything remote. Rules: packages/brand/BRAND.md
  */
-@import '../../../packages/toolbar/src/index.css';
+@import '../../toolbar/src/index.css';
 
 @source './';
 

@@ -1,25 +1,13 @@
-'use client';
-import { useEffect } from 'react';
+import { extensionFrameAncestors } from '@/src/lib/extension/config';
+import { ExtensionVerificationBridge } from './VerificationBridge';
 
-/** Cookie-independent bridge inside a packaged extension-owned helper, never a reviewed page. */
-export default function ExtensionVerification() {
-    useEffect(() => {
-        const receive = async (event: MessageEvent) => {
-            if (event.source !== parent || !/^chrome-extension:\/\/[a-p]{32}$/.test(event.origin)) return;
-            const data = event.data;
-            if (data?.type !== 'uier:extension-verify' || !/^[A-Za-z0-9_-]{43}$/.test(data.id) || typeof data.token !== 'string' || data.token.length > 2048) return;
-            let result;
-            try {
-                const response = await fetch('/api/extension/verification', { method: 'POST', credentials: 'omit', redirect: 'error',
-                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.token}` },
-                    body: JSON.stringify({ clientId: event.origin.slice('chrome-extension://'.length) }) });
-                if (response.ok) result = await response.json();
-            } catch { /* Fail closed. */ }
-            parent.postMessage({ type: 'uier:extension-verified', id: data.id, result }, event.origin);
-        };
-        addEventListener('message', receive);
-        parent.postMessage({ type: 'uier:extension-verification-ready' }, '*');
-        return () => removeEventListener('message', receive);
-    }, []);
-    return <p>Verifying your browser for uier.</p>;
+/** Server configuration selects the exact extension parent, including per-install UUIDs. */
+export default async function ExtensionVerification({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+    const input = await searchParams;
+    const url = new URL('https://uier.invalid/extension-verification');
+    for (const key of ['clientId', 'extensionOrigin']) {
+        const value = input[key];
+        if (value !== undefined) url.searchParams.set(key, typeof value === 'string' ? value : '');
+    }
+    return <ExtensionVerificationBridge origins={extensionFrameAncestors(url)} clientId={typeof input.clientId === 'string' ? input.clientId : undefined} />;
 }

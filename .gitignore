@@ -72,6 +72,9 @@ apps/web/public/toolbar-fonts/LICENSE.txt
 apps/extension/dist-test/
 apps/extension/dist-hosted-test/
 apps/extension/release/
+apps/extension-firefox/dist-test/
+apps/extension-firefox/dist-hosted-test/
+apps/extension-firefox/release/
 
 # Unmodified production ZIP extracted for persistent Chromium acceptance
 apps/extension/test-package/

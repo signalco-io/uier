@@ -7,7 +7,9 @@ and capture come from the trusted caller. Never read extension credentials from 
 for one year after the last supported release. `coexistence.ts` is a secret-free DOM event handshake
 so a mounted or late embed yields to extension activation across isolated worlds. DOM ids do not
 prove ownership. `screenshotImage.tsx` uses byte-decoded canvas in extension mode for strict img-src.
-See [browser-extension.md](../../../docs/browser-extension.md) for unreleased status and hosted gate.
+The Chrome/Edge and Firefox apps use this adapter through the local
+`@uier/extension-core` package. See [browser-extension.md](../../../docs/browser-extension.md) for
+browser packaging, publication status and hosted gates.
 
 Packaged request adapter failures must become CommentsApiError(network_error), preserving the
 shared retry/draft recovery behavior. Keep HTTP status parsing outside that transport catch.

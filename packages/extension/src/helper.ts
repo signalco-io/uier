@@ -1,3 +1,4 @@
+import { clientId, extensionOrigin } from './browser';
 import { MARK_PATH, MARK_VIEWBOX } from '@uier/brand';
 import { apiOrigin, message } from './environment';
 import { followSystemTheme } from './theme';
@@ -36,7 +37,8 @@ const show = (value: string, tone: keyof typeof icons = 'working') => {
 // and stays in the viewport (so the browser runs it like any visible frame), under the status card.
 const frame = document.createElement('iframe');
 frame.title = 'uier browser verification';
-frame.src = `${apiOrigin}/extension-verification`;
+const verificationQuery = new URLSearchParams({ clientId, extensionOrigin: extensionOrigin() });
+frame.src = `${apiOrigin}/extension-verification?${verificationQuery}`;
 frame.tabIndex = -1;
 frame.setAttribute('aria-hidden', 'true');
 frame.className = 'pointer-events-none fixed inset-0 -z-10 size-full border-0';

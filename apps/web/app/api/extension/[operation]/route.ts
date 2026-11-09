@@ -7,6 +7,7 @@ import { signToken } from '@/src/lib/app/tokens';
 import { apiErrors, parseJsonBody } from '@/src/lib/comments/http';
 import { assertNotBot } from '@/src/lib/comments/botProtection';
 import { actorAuthorId } from '@/src/lib/review/actor';
+import { extensionClient, extensionClientOrigin } from '@/src/lib/extension/config';
 
 export const dynamic = 'force-dynamic';
 const handler = extensionHandler(async request => {
@@ -25,8 +26,11 @@ const handler = extensionHandler(async request => {
         // BotID runs in our own frame. No cookie or extension ID can substitute for it.
         if (request.headers.get('origin') !== extensionApiOrigin(request) || request.headers.get('sec-fetch-site') === 'cross-site') throw apiErrors.forbidden();
         const scope = readScope(request);
-        const { clientId } = await parseJsonBody(request, z.object({ clientId: z.string() }));
+        const { clientId, extensionOrigin } = await parseJsonBody(request, z.object({ clientId: z.string(), extensionOrigin: z.string().optional() }));
         if (clientId !== scope.clientId) throw apiErrors.forbidden();
+        const client = extensionClient(clientId);
+        const origin = client && extensionClientOrigin(client, extensionOrigin);
+        if (!origin || origin !== (scope.extensionOrigin ?? (client?.browser === 'chrome' ? `chrome-extension://${clientId}` : undefined))) throw apiErrors.forbidden();
         const { project, actor, siteOrigin } = await extensionReviewContext(request);
         await assertNotBot();
         return Response.json({ token: signToken('review-verification', { projectId: project.id, origin: siteOrigin, authorId: actorAuthorId(actor) }, 300), expiresAt: Date.now() + 300_000 });

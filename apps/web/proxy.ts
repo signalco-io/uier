@@ -1,4 +1,4 @@
-import { extensionClientIds } from './src/lib/extension/config';
+import { extensionFrameAncestors } from './src/lib/extension/config';
 import { NextResponse, type NextRequest } from 'next/server';
 import { randomBytes } from 'node:crypto';
 import { createSecureHeaders } from 'next-secure-headers';
@@ -32,7 +32,7 @@ export async function proxy(request: NextRequest) {
     const policy = createSecureHeaders({
         ...combineSecureHeaders(['uier.io'], false, development, [
             { connectSrc: [request.nextUrl.origin.replace(/^http/, 'ws')] },
-            ...siteExternalUrls(development, preview), ...(bridge ? [{ frameAncestors: pathname === '/extension-verification' ? extensionClientIds().map(id => `chrome-extension://${id}`) : ['*'] }] : [])
+            ...siteExternalUrls(development, preview), ...(bridge ? [{ frameAncestors: pathname === '/extension-verification' ? extensionFrameAncestors(request.nextUrl) : ['*'] }] : [])
         ], nonce),
         ...(bridge ? { frameGuard: false } : {})
     });

@@ -54,6 +54,7 @@ jobs:
               - ".github/scripts/**"
             extension:
               - "apps/extension/**"
+              - "apps/extension-firefox/**"
               - "apps/web/**"
               - "packages/**"
               - "package.json"
@@ -242,7 +243,13 @@ jobs:
           restore-keys: |
             next-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}-
       - run: pnpm typecheck && pnpm build
-      - run: pnpm -C apps/extension validate && pnpm -C apps/extension package && pnpm -C apps/extension test
+      - run: pnpm -C packages/extension test && pnpm -C apps/extension validate && pnpm -C apps/extension package && pnpm -C apps/extension test
+      - name: Validate and package Firefox resources
+        run: |
+          pnpm -C apps/extension-firefox validate
+          pnpm -C apps/extension-firefox package
+          pnpm -C apps/extension-firefox lint:store
+          pnpm -C apps/extension-firefox test
       # Persistent extension contexts require full Chromium, not the web job's headless shell.
       - run: pnpm -C apps/extension exec playwright install chromium
       - run: pnpm -C apps/extension test:package
@@ -253,6 +260,7 @@ jobs:
           name: extension-runtime-evidence
           path: |
             apps/extension/release/
+            apps/extension-firefox/release/
             apps/extension/playwright-report/
             apps/extension/test-results/
 

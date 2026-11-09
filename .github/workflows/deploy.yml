@@ -15,6 +15,10 @@ on:
       - "*.md"
       - "LICENSE"
       - "renovate.json"
+      # Browser packages ship separately from the web app.
+      - "apps/extension/**"
+      - "apps/extension-firefox/**"
+      - "packages/extension/**"
       - ".github/ISSUE_TEMPLATE/**"
       # Agent skills and settings; nothing deployed reads them.
       - ".claude/**"

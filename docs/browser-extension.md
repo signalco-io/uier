@@ -18,7 +18,7 @@ compiled from the toolbar's Tailwind setup and brand tokens, and Geist ships in 
 shows the active tab's site, the matching projects, an active review with Exit review, and Open uier
 and Sign out. The 16/32/48 px icons are the rounded app icon; the 128 px icon keeps 16 px padding.
 
-Only activeTab, scripting, storage and identity are requested. The sole persistent host permission
+Chrome/Firefox request activeTab, scripting, storage and identity. The sole persistent host permission
 is the uier API. No cookies, history, all-sites grant, header rewriting or offscreen permission.
 A temporary activeTab grant follows same-origin navigation. Bindings in trusted storage.session
 are checked against the current top-frame document and actual tab URL for every operation.
@@ -28,12 +28,14 @@ back/forward cache. Only worker reinjection with a live binding restores same-or
 an old cached document cannot revive its toolbar after cross-origin deactivation. Lazy mounting
 also checks that the content runtime has not been disposed.
 
-An explicit identity.launchWebAuthFlow opens first-party sign-in and consent. Registered clients
-have an exact https://<extension-id>.chromiumapp.org/uier callback. State and S256 PKCE bind a
+An explicit identity.launchWebAuthFlow opens first-party sign-in and consent in Chrome/Firefox.
+Chrome clients have an exact
+https://<extension-id>.chromiumapp.org/uier callback; other callbacks are registered explicitly below. State and S256 PKCE bind a
 60-second one-use handoff. Updated packages request a renewable, server-revocable extension session:
 access tokens last 15 minutes, rotating refresh tokens extend a 30-day inactivity window, and a
 session ends after one year regardless of activity. Only the refresh credential and a local identity
-are persisted in API-scoped `chrome.storage.local`, restricted to `TRUSTED_CONTEXTS`; access tokens,
+are persisted in API-scoped `chrome.storage.local`, restricted to `TRUSTED_CONTEXTS`, on Chrome/Edge,
+and in extension-origin IndexedDB on Firefox; access tokens,
 active bindings, proofs and drafts stay in `storage.session`. Browser restart keeps sign-in but
 requires Start review again. A worker refresh is single-flight and persists a random attempt before
 sending it. An exact retry recovers the same successor after a lost response or worker suspension;
@@ -79,6 +81,52 @@ A public, secret-free DOM event protocol coordinates embed/extension ownership. 
 runtime yields to the extension, including late loading and a different project. A fake DOM id is
 never accepted as a toolbar. This protocol is coordination, not an authentication boundary: a hostile
 page can hide or interfere with any injected UI, but cannot acquire extension credentials.
+
+## Browser targets
+
+All desktop targets use `@uier/extension-core` in [packages/extension](../packages/extension).
+It owns the worker, content runtime, popup, helper, styles, manifest generation and packaging.
+Browser apps select a target and version; they contain no copies of that code. The existing
+`@uier/toolbar` and `@uier/brand` packages remain shared with the website.
+
+| Browser | Build output | Local loading / packaging |
+| --- | --- | --- |
+| Chrome and Edge | `apps/extension/dist` | Load unpacked; existing Chrome store pipeline and ZIP name |
+| Firefox 153+ | `apps/extension-firefox/dist` | Temporary add-on from `about:debugging`; deterministic ZIP for Mozilla signing |
+
+`pnpm build` builds all targets. Each app has `build:test`, `build:hosted-test`, `validate` and
+`package` commands. The test modes keep the API environments separate; only Chromium gets its
+development public key. See [Firefox setup](../apps/extension-firefox/README.md) for registration, loading and Mozilla signing.
+
+The API keeps Chrome IDs in `UIER_EXTENSION_CLIENT_IDS`. Additional clients must be enabled
+explicitly with `UIER_EXTENSION_CLIENTS`, for example:
+
+```json
+[
+  { "id": "uier@signalco.io", "browser": "firefox", "redirectUri": "https://<value-from-firefox>.extensions.allizom.org/" }
+]
+```
+
+Replace the Firefox placeholder with the exact URL returned by `browser.identity.getRedirectURL()`
+in the extension context. Firefox UUID origins are supplied during authorization and bound to the handoff, live session and scope.
+The verification helper uses one validated exact frame ancestor. A successful refresh can rebind
+a changed extension UUID; previous access/scope tokens then fail. See [server registration](../apps/web/docs/browser-extension.md).
+
+Chrome uses a module service worker; Firefox uses packaged background scripts, which are
+nonpersistent in MV3. Do not set `background.persistent`; Firefox does not support that MV3 property.
+The common runtime selects the browser's native Promise APIs. All targets retain browser-issued
+document IDs, top-frame targeting and the same closed worker protocol. Firefox's minimum version
+keeps document-ID support; older browsers fail closed.
+
+Chrome retains restricted `storage.local` for existing installed sessions. Firefox stores
+refresh credentials in extension-origin IndexedDB because its local storage cannot be made
+private from content scripts. Native private `storage.session` still owns access tokens, proofs,
+drafts and bindings; nothing falls back to persistent storage. Chrome/Firefox use native identity
+sign-in with shared state/PKCE validation.
+
+A Firefox build is not a store publication. Its release gates require native hosted BotID,
+screenshot, navigation and installed-update receipts. Chrome/Edge receipts below apply to those
+published versions only.
 
 ## Local loading
 
@@ -160,7 +208,8 @@ cookie policy and security page's extension sections together; changed legal wor
 review and a new effective date. The setup guide lives with the other guides until the docs hub
 (#293) exists.
 
-Native Edge Add-ons, Firefox, Safari, mobile and anonymous extension access remain separate follow-ups.
+Native Edge Add-ons distribution, Firefox store rollout, mobile and anonymous extension access
+remain separate follow-ups. The Firefox source target is described above.
 Extension API contract v1 must remain compatible for one year after its last supported release.
 A bad store release requires a higher numeric version containing a fix; installed versions cannot
 be rolled back by decreasing the version.

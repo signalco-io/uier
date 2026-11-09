@@ -17,6 +17,7 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 - [Toolbar guide](../packages/toolbar/README.md): embedding, modes and configuration.
 - [Browser extension](browser-extension.md): the published desktop extension's design, security boundaries, local loading, receipts and public pages.
 - [Extension releases](browser-extension-release.md): protected release/status CI, owner bootstrap and recovery.
+- [Firefox releases](browser-extension-firefox-release.md): publisher setup, validation, submission and recovery; [reviewer source](browser-extension-source.md) explains reproducible builds.
 - [Extension listing](browser-extension-listing.md): prepared copy, artwork and disclosure worksheet.
 - [Review workflow](review-workflow.md): the app, access, assignment, AI thread titles, screenshots, drafts, unread activity and environments.
 - [Teams and access](teams-and-access.md): team grants, external reviewers, invitations, email domains, revocation, history, limits and rollback.
