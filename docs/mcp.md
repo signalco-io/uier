@@ -95,8 +95,10 @@ in your coding tool.
 
 ## Connected apps
 
-**Account → Coding agents → Connected apps** lists your OAuth connections: the name, the tool, its access
-and operations. Connections belong to your account, so every workspace shows the same list. You can have
+**Account → Coding agents → Connected apps** lists your OAuth connections: the name with the tool's mark
+(Claude, Codex, ChatGPT or Cursor when the tool's name says so, a generic agent otherwise), the tool, its
+access, its operations as chips, and when it connected, was last used and expires. With none yet, the list
+points to **Connect a coding tool** below it. Connections belong to your account, so every workspace shows the same list. You can have
 up to 20 active connected apps, separate from your access tokens; at the limit, replace or revoke one
 before connecting another.
 

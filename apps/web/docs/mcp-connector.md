@@ -70,9 +70,19 @@ OAuth rules (`src/lib/mcp/oauth/`, `app/api/oauth/`):
   tool sign-in" control describe these records, lifetimes and limits. Change them, and `docs/mcp.md`,
   with any change to what `src/lib/mcp/oauth/` stores or how long.
 
-Account → Coding agents (`src/components/app/mcp/CodingAgents.tsx`) has the client setup, **Connected
-apps** (one row per OAuth grant, an allowlisted `connectedAppView`, Revoke through an `AlertDialog`)
-and collapsed **Access tokens**. The consent page is `app/connect/[requestId]` (its own centred layout,
+Account → Coding agents (`src/components/app/mcp/CodingAgents.tsx`, one region named Coding agents) is four
+`Section` cards: **Connected apps** (one row per OAuth grant, an allowlisted `connectedAppView`, Revoke through an
+`AlertDialog`; with none, an `Empty` state links to the setup card at `#connect`), **Connect a coding tool** (the
+endpoint, then numbered steps in a tab per client, each tab with its agent's mark, and Other clients), collapsed
+**Access tokens** (the shadcn `Field` form; its state lives above the collapsible, so a secret shown once stays on
+screen when the card is closed and opened again) and **Prompts and agent skill**. Connected apps and access tokens
+share one row, `ConnectionItem` in `ConnectionSummary.tsx`: the agent's `AgentAvatar`, the name and where it comes
+from (an app's client facts, a token's "Created by <connection>"), Revoke as a ghost button, then what it can reach (`ConnectionReach`), one chip per operation
+(`ScopeBadges`: an eye for reading, a pencil for a change in uier; read as a list with commas) and the dates as
+relative times with the exact time on hover. `ConnectionAvatar` runs `inferAgentKind` on each hint in order and takes
+the first known agent: an app's own name and published host before the connection name, a token's name, else the
+generic bot. Names are untrusted, so the mark is only a picture: it grants nothing, and Unverified stays beside an app
+that named itself. The consent page is `app/connect/[requestId]` (its own centred layout,
 no sidebar) and `app/connect/error` is public. `src/lib/mcp/oauth/actions.ts` approves or cancels by
 returning the client's callback URL, and the page navigates there itself (`form-action 'self'` blocks
 redirects after a form post). Every `/app` server action refreshes the page (the proxy sets the review

@@ -11,7 +11,12 @@ test('a person grants selected feedback access, connects a compatible client, an
     const projectId = await createProject(page, { name: 'Client review', urls: ['https://reviewed.example'] });
     await page.goto('/app/account/coding-agents');
     const section = page.getByRole('region', { name: 'Coding agents' });
-    await expect(section.getByRole('region', { name: 'Connected apps' })).toContainText('No connected apps yet.');
+    const apps = section.getByRole('region', { name: 'Connected apps' });
+    await expect(apps).toContainText('No connected apps yet');
+    // The empty state leads to the setup below it
+    await apps.getByRole('link', { name: 'Connect a coding tool' }).click();
+    await expect(page).toHaveURL(/#connect$/);
+    await expect(section.getByRole('region', { name: 'Connect a coding tool' })).toBeInViewport();
     // Access tokens (for environments without a browser) are collapsed by default.
     await expect(section.getByLabel('Token label')).toHaveCount(0);
     await section.getByRole('button', { name: 'Show access tokens' }).click();
@@ -28,8 +33,8 @@ test('a person grants selected feedback access, connects a compatible client, an
     await expect(code).toBeVisible();
     const token = (await code.textContent())!;
     // Check every setup while the newly created secret is still visible elsewhere.
-    await section.getByText('Prompts and agent skill', { exact: true }).click();
-    const skill = section.locator('details').filter({ has: page.getByText('Prompts and agent skill', { exact: true }) });
+    const skill = section.getByRole('region', { name: 'Prompts and agent skill' });
+    await expect(skill.getByRole('list', { name: 'Prompts' })).toContainText('report-back');
     await skill.getByText('View and copy SKILL.md', { exact: true }).click();
     const skillText = await skill.locator('pre code').innerText();
     expect(skillText).toMatch(/^---\nname: uier-feedback\ndescription: /);
@@ -59,6 +64,9 @@ test('a person grants selected feedback access, connects a compatible client, an
     await expect(section).not.toContainText('OAuth login is not supported');
     await section.getByRole('button', { name: 'Hide token' }).click();
     await expect(code).toHaveCount(0);
+    const tokenRow = section.getByRole('list', { name: 'Your access tokens' }).getByRole('listitem').filter({ hasText: 'My coding tool' });
+    await expect(tokenRow).toContainText('Projects: Client review');
+    await expect(tokenRow).toContainText('Read feedback');
     const client = new Client({ name: 'explicit-user-client', version: '1.0.0' });
     await client.connect(new StreamableHTTPClientTransport(new URL('/api/mcp', baseURL), { requestInit: { headers: { Authorization: `Bearer ${token}` } } }));
     try {
