@@ -37,14 +37,33 @@ export class CommentsApiError extends Error {
      * (the page has too many open comments). A missing reason means `too_fast`.
      */
     readonly reason?: CommentsRateLimitReason | (string & {});
+    /**
+     * For `rate_limited` of a signed-in member: the uier page that shows how much of the limit is used
+     * (the account's or the workspace's usage), always on the API's own origin
+     */
+    readonly usageUrl?: string;
 
-    constructor(code: CommentsApiError['code'], message: string, status: number, retryAfter?: number, reason?: string) {
+    constructor(code: CommentsApiError['code'], message: string, status: number, retryAfter?: number, reason?: string, usageUrl?: string) {
         super(message);
         this.name = 'CommentsApiError';
         this.code = code;
         this.status = status;
         this.retryAfter = retryAfter;
         this.reason = reason;
+        this.usageUrl = usageUrl;
+    }
+}
+
+/** The API's `usage` app path as a link on the API's origin; anything else (another origin, not an app page) is ignored */
+function usagePageUrl(path: unknown) {
+    if (typeof path !== 'string' || !path.startsWith('/app/'))
+        return undefined;
+    try {
+        const api = new URL(toolbarConfig.apiUrl);
+        const url = new URL(path, api);
+        return url.origin === api.origin ? url.toString() : undefined;
+    } catch {
+        return undefined;
     }
 }
 
@@ -104,7 +123,7 @@ async function apiFetch(url: string, init?: { method?: 'GET' | 'POST' | 'PATCH' 
 
 async function checkedResponse(response: Response) {
     if (!response.ok) {
-        let body: { error?: unknown; message?: unknown; reason?: unknown } | undefined;
+        let body: { error?: unknown; message?: unknown; reason?: unknown; usage?: unknown } | undefined;
         try {
             body = await response.json() as typeof body;
         } catch {
@@ -118,7 +137,8 @@ async function checkedResponse(response: Response) {
             typeof body?.message === 'string' ? body.message : response.statusText,
             response.status,
             Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : undefined,
-            typeof body?.reason === 'string' ? body.reason : undefined);
+            typeof body?.reason === 'string' ? body.reason : undefined,
+            usagePageUrl(body?.usage));
     }
     return response;
 }

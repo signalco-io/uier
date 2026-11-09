@@ -291,6 +291,10 @@ export function getMemoryCommentsStore(): CommentsStore {
         async deleteSequence(domain) {
             domainEntries(domain).delete(commentSequenceId);
         },
+        async getCounter(domain, id) {
+            const counter = state().counters.get(`${domain}/${id}`);
+            return counter && counter.expiresAt > Date.now() ? counter.count : 0;
+        },
         async incrementCounter(domain, id, limit, ttlSeconds) {
             const counters = state().counters;
             const key = `${domain}/${id}`;

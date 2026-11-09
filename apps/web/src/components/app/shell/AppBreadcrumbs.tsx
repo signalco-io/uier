@@ -25,6 +25,7 @@ const workspacePages: Record<string, { label: string; href: string; item?: strin
     users: { label: 'Users', href: KnownPages.AppUsers, item: 'Person' },
     teams: { label: 'Teams', href: KnownPages.AppTeams, item: 'Team' },
     clients: { label: 'Clients', href: KnownPages.AppClients },
+    usage: { label: 'Usage', href: KnownPages.AppWorkspaceUsage },
     activity: { label: 'Activity', href: KnownPages.AppActivity },
     settings: { label: 'Settings', href: KnownPages.AppSettings }
 };
