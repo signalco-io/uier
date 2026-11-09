@@ -2,9 +2,10 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+export const toolbarAssetMaxBytes = 1_500_000;
+
 const year = 365 * 24 * 60 * 60 * 1000;
 const hashPattern = /^[a-f0-9]{64}$/;
-const bundleSizeLimit = 1_000_000;
 
 function hash(bytes) { return createHash('sha256').update(bytes).digest('hex'); }
 
@@ -30,11 +31,11 @@ async function download(url, limit) {
  */
 export async function publishToolbar(source, publicDir, { retainFrom, now = new Date(), dependencies = [] } = {}) {
     const bytes = await readFile(source);
-    if (bytes.length > bundleSizeLimit) throw new Error('Toolbar bundle exceeds its size limit');
+    if (bytes.length > toolbarAssetMaxBytes) throw new Error('Toolbar asset exceeds its size limit');
     const currentHash = hash(bytes);
     const assets = await Promise.all(dependencies.map(async path => {
         const bytes = await readFile(path);
-        if (bytes.length > bundleSizeLimit) throw new Error('Toolbar bundle exceeds its size limit');
+        if (bytes.length > toolbarAssetMaxBytes) throw new Error('Toolbar asset exceeds its size limit');
         return { bytes, hash: hash(bytes) };
     }));
     const directory = join(publicDir, 'toolbar');
@@ -62,7 +63,7 @@ export async function publishToolbar(source, publicDir, { retainFrom, now = new 
             }
             if (Object.hasOwn(bundles, id) || now.getTime() - Date.parse(lastPublished) > year) return;
             const name = `${id}.js`;
-            const saved = retainFrom ? await download(new URL(`/toolbar/${name}`, retainFrom), bundleSizeLimit)
+            const saved = retainFrom ? await download(new URL(`/toolbar/${name}`, retainFrom), toolbarAssetMaxBytes)
                 : await readFile(join(directory, name));
             if (!saved || hash(saved) !== id) throw new Error(`Toolbar archive hash mismatch: ${id}`);
             await writeFile(join(directory, name), saved);

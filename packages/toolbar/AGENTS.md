@@ -71,6 +71,8 @@ every change in the package.
 - The final CSS-inlined review bytes produce a SHA-256 path and SHA-384 SRI embedded in the loader.
   The loader bytes produce `dist/bundle.json` (`@uier/toolbar/bundle`): its SHA-256 path and SHA-384 SRI.
   The web build publishes default/pinned loaders and the review asset, retaining both in its archive. Keep
+  each loader/review asset within the shared 1,500,000-byte limit in `toolbar-assets.mjs`; publication
+  checks new assets before archive requests and uses the same limit for retained downloads. Keep
   production pins/API compatibility for one year after last release as current (docs/api.md).
 - UI-kit `next/link` imports in the embedded IIFE resolve to `components/ToolbarLink.tsx`, a
   ref-forwarding native anchor: reviewed sites need browser navigation, not Next.js routing.

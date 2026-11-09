@@ -360,7 +360,9 @@ The Playwright projects ([`apps/web/playwright.config.ts`](../apps/web/playwrigh
   It also posts through an SRI-checked pinned snippet, verifies both delivery headers, and covers
   named-element collisions, duplicate scripts and malformed/throwing window configuration.
 - **API** - `toolbar-assets.api.spec.ts` checks archive carry-forward on a clean deployment,
-  hash/fetch failures and expiry. `feedback-context.api.spec.ts` covers literal Markdown titles,
+  hash/fetch failures, expiry and the shared 1,500,000-byte asset limit. The publisher rejects
+  oversized new loaders and review assets before archive requests or publication; archived downloads
+  use the same limit so every published asset can be retained by later builds. `feedback-context.api.spec.ts` covers literal Markdown titles,
   names and metadata, including URLs/hosts and user/team mentions, with unchanged structured context.
 
 Browser verification, rewrite and AI thread title requests use the local Anthropic stand-in configured by

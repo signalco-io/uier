@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
 import { expect, test } from '@playwright/test';
-import { publishToolbar } from '../scripts/toolbar-assets.mjs';
+import { publishToolbar, toolbarAssetMaxBytes } from '../scripts/toolbar-assets.mjs';
 
 test('the bootstrap stays small and pins the exact integrity-checked review script', async () => {
     const loader = await readFile(new URL('../../../packages/toolbar/dist/index.js', import.meta.url));
@@ -66,33 +66,49 @@ test('pins survive a clean deployment, hashes are verified, and only expired pin
     }
 });
 
-test('new and retained toolbar bundles share the same bounded size limit', async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'uier-pin-limits-'));
+test('archive downloads accept the asset limit and reject one byte over it', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'uier-asset-limit-'));
     const source = join(directory, 'source.js');
-    const review = join(directory, 'review.js');
-    const output = join(directory, 'public');
-    const oversized = Buffer.alloc(1_000_001, 'x');
-    const id = createHash('sha256').update(oversized).digest('hex');
+    let archived = Buffer.alloc(toolbarAssetMaxBytes, 'a');
     const server = createServer((request, response) => {
+        const id = createHash('sha256').update(archived).digest('hex');
         response.end(request.url === '/toolbar/manifest.json'
-            ? JSON.stringify({ version: 1, bundles: { [id]: '2026-01-01T00:00:00.000Z' } })
-            : oversized);
+            ? JSON.stringify({ version: 1, bundles: { [id]: '2026-01-01T00:00:00.000Z' } }) : archived);
     });
     await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
     try {
-        await writeFile(source, 'console.log("loader");');
-        await writeFile(review, oversized.subarray(0, 1_000_000));
-        await publishToolbar(source, output, { dependencies: [review] });
-        await writeFile(review, oversized);
-        await expect(publishToolbar(source, output, { dependencies: [review] })).rejects.toThrow('Toolbar bundle exceeds its size limit');
-        await writeFile(source, oversized);
-        await expect(publishToolbar(source, output)).rejects.toThrow('Toolbar bundle exceeds its size limit');
-        await writeFile(source, 'console.log("loader");');
+        await writeFile(source, 'current');
         const retainFrom = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+        const output = join(directory, 'output');
+        await publishToolbar(source, output, { retainFrom, now: new Date('2026-01-02') });
+        const id = createHash('sha256').update(archived).digest('hex');
+        expect(await readFile(join(output, 'toolbar', `${id}.js`))).toEqual(archived);
+        archived = Buffer.alloc(toolbarAssetMaxBytes + 1, 'a');
         await expect(publishToolbar(source, output, { retainFrom, now: new Date('2026-01-02') }))
             .rejects.toThrow('Toolbar archive exceeds its size limit');
     } finally {
         await new Promise<void>(resolve => server.close(() => resolve()));
         await rm(directory, { recursive: true, force: true });
     }
+});
+
+test('new loaders and review assets must fit the retention limit before publication', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'uier-publish-limit-'));
+    const source = join(directory, 'source.js');
+    const review = join(directory, 'review.js');
+    const output = join(directory, 'output');
+    try {
+        await writeFile(source, Buffer.alloc(toolbarAssetMaxBytes, 'a'));
+        await writeFile(review, Buffer.alloc(toolbarAssetMaxBytes, 'b'));
+        await publishToolbar(source, output, { dependencies: [review] });
+        const manifest = await readFile(join(output, 'toolbar/manifest.json'), 'utf8');
+        for (const oversized of [source, review]) {
+            await writeFile(oversized, Buffer.alloc(toolbarAssetMaxBytes + 1));
+            // An invalid retention origin would fail if archive work happened before validation.
+            await expect(publishToolbar(source, output, { dependencies: [review], retainFrom: 'invalid' }))
+                .rejects.toThrow('Toolbar asset exceeds its size limit');
+            expect(await readFile(join(output, 'toolbar/manifest.json'), 'utf8')).toBe(manifest);
+            await writeFile(oversized, Buffer.alloc(toolbarAssetMaxBytes));
+        }
+    } finally { await rm(directory, { recursive: true, force: true }); }
 });
