@@ -26,7 +26,7 @@ Everything keyed by the project, not by its workspace, stays where it is and so 
 
 The project document is the one thing in the workspace's partition, so it is copied. The copy keeps
 the id, public id, name, addresses, environments, who can comment, the review brief, page state, the
-email excerpts setting, status, creator and creation time.
+email excerpts setting, the board's column sorts, status, creator and creation time.
 
 The project's **client** is matched by name: the target workspace's client with that name, or a new
 one there with the old client's description, icon and colour. The old workspace keeps its client;

@@ -16,7 +16,10 @@ import { Spinner } from '@/src/components/ui/spinner';
 import { CommentCard, type AssigneeOption } from './CommentCard';
 import { CommentRow, commentRowId } from './CommentRow';
 import { commentStatus, commentStatuses, commentStatusLabels, StateDot, StateMenu, type CommentStatus } from './CommentStatus';
-import { allowedStatuses, useStatusChanger } from './useStatusChange';
+import { allowedStatuses, movedPatch, useStatusChanger } from './useStatusChange';
+import type { BoardSort } from '../../../lib/app/boardSort';
+import { BoardSortMenu } from './BoardSortMenu';
+import { sortBoardColumn } from './commentOrder';
 import type { useOpenComment } from './CommentInbox';
 import { LayoutMotion, motionSettled } from './LayoutMotion';
 import { shortcutLetter } from '@uier/toolbar/keyboard';
@@ -185,9 +188,17 @@ type ColumnState = 'idle' | 'home' | 'target' | 'over' | 'refused';
 
 /**
  * A column and its drop target. While a card is dragged, the columns it can move to are dashed, the
- * one under it is highlighted, and the others are dimmed and refuse it.
+ * one under it is highlighted, and the others are dimmed and refuse it. Its header ends with the column's
+ * sort for the people who may change it (`onSort`).
  */
-function BoardColumn({ status, count, state, children }: { status: CommentStatus; count: number; state: ColumnState; children: ReactNode }) {
+function BoardColumn({ status, count, state, sort, onSort, children }: {
+    status: CommentStatus;
+    count: number;
+    state: ColumnState;
+    sort: BoardSort;
+    onSort?: (status: CommentStatus, sort: BoardSort) => void;
+    children: ReactNode;
+}) {
     // A placeholder changes a column's height, and on narrow screens moves the columns below it
     const { setNodeRef } = useDroppable({ id: status, resizeObserverConfig: { updateMeasurementsFor: [...statuses] } });
     return (
@@ -195,11 +206,14 @@ function BoardColumn({ status, count, state, children }: { status: CommentStatus
             className={cn('flex min-h-24 flex-col gap-2 rounded-2xl border bg-muted/50 p-2 transition-[background-color,border-color,box-shadow,opacity] duration-150 ease-out',
                 'data-[drop=over]:border-dashed data-[drop=target]:border-dashed data-[drop=target]:border-foreground/30',
                 'data-[drop=over]:border-foreground/30 data-[drop=over]:bg-muted data-[drop=over]:ring-2 data-[drop=over]:ring-ring data-[drop=refused]:opacity-50')}>
-            <h3 className="m-0 flex items-center gap-2 px-2 pt-1 text-sm font-medium">
-                <StateDot status={status} />
-                {commentStatusLabels[status]}
-                <span className="font-normal tabular-nums text-muted-foreground">{count}</span>
-            </h3>
+            <div className="flex items-center gap-2 px-2 pt-1">
+                <h3 className="m-0 flex min-w-0 items-center gap-2 text-sm font-medium">
+                    <StateDot status={status} />
+                    {commentStatusLabels[status]}
+                    <span className="font-normal tabular-nums text-muted-foreground">{count}</span>
+                </h3>
+                {onSort && <BoardSortMenu status={status} sort={sort} onChange={next => onSort(status, next)} />}
+            </div>
             {children}
         </section>
     );
@@ -214,11 +228,17 @@ function BoardColumn({ status, count, state, children }: { status: CommentStatus
  * does not take it. Ready to verify opens the thread with the Request verification form, which asks for
  * the details first. Moves show at once and go back if saving fails (`useStatusChanger`). Cards that
  * arrive, leave or change column however it happens animate (`LayoutMotion`), except the dragged one,
- * which dnd-kit settles from where it was dropped.
+ * which dnd-kit settles from where it was dropped. Each column is in the project's sort for it (`sorts`, already
+ * applied to `columns`): drops, Move and the keys follow it, and the people who may change it (`onSort`) choose
+ * it from the column's header.
  */
-export function CommentBoard({ projectId, columns, allComments, assignees, userId, openComment }: {
+export function CommentBoard({ projectId, columns, sorts, onSort, allComments, assignees, userId, openComment }: {
     projectId: string;
+    /** Each column's cards, in its sort */
     columns: Record<CommentStatus, ProjectCommentView[]>;
+    sorts: Record<CommentStatus, BoardSort>;
+    /** Changes a column's sort for everyone; missing for people who may not */
+    onSort?: (status: CommentStatus, sort: BoardSort) => void;
     allComments: ProjectCommentView[];
     assignees: AssigneeOption[];
     userId: string;
@@ -252,7 +272,7 @@ export function CommentBoard({ projectId, columns, allComments, assignees, userI
         // A long press, so a swipe over the cards still scrolls the page
         useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 6 } })
     );
-    // Active columns keep the list order; a newly completed card lands first in Done.
+    // The list's order: a column's sort keeps it for ties, and so does the place a dragged card would land
     const order = new Map(allComments.map((comment, index) => [comment.id, index]));
     // The cards' positions are read in the grid, and copies of cards that leave fade out in it
     const grid = useRef<HTMLDivElement>(null);
@@ -365,12 +385,13 @@ export function CommentBoard({ projectId, columns, allComments, assignees, userI
         if (!takes(drag.comment, status)) return 'refused';
         return over === status ? 'over' : 'target';
     };
-    // Where the dragged card would land in the column under it
+    // Where the dragged card would land in the column under it: the card as the move shows it (`movedPatch`: first
+    // in Done by completion, or by update), placed by the column's sort among its cards, as it will be after the drop
     const landing = (status: CommentStatus) => {
-        if (status === 'done') return 0;
-        const position = order.get(drag?.comment.id ?? '') ?? 0;
-        const index = columns[status].findIndex(comment => (order.get(comment.id) ?? 0) > position);
-        return index === -1 ? columns[status].length : index;
+        if (!drag) return -1;
+        const moved = { ...drag.comment, ...movedPatch(drag.comment, status) };
+        const listed = [...columns[status], moved].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+        return sortBoardColumn(listed, sorts[status]).indexOf(moved);
     };
     const refusedOver = Boolean(drag && over && over !== commentStatus(drag.comment) && !takes(drag.comment, over));
 
@@ -427,7 +448,7 @@ export function CommentBoard({ projectId, columns, allComments, assignees, userI
                         ));
                         if (placeholder >= 0) items.splice(placeholder, 0, slot);
                         return (
-                            <BoardColumn key={status} status={status} count={cards.length} state={state}>
+                            <BoardColumn key={status} status={status} count={cards.length} state={state} sort={sorts[status]} onSort={onSort}>
                                 {items.length ? (
                                     <ul aria-label={`${commentStatusLabels[status]} comments list`} className="m-0 flex list-none flex-col gap-2 p-0">
                                         {items}

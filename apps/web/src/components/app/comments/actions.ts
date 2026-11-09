@@ -7,7 +7,9 @@ import { fixVerificationSchema } from '../../../lib/review/fixVerificationSchema
 import { triageProjectComments } from '../../../lib/review/bulkTriage';
 import { bulkTriageSchema } from '../../../lib/review/bulkTriageSchema';
 import { projectIdSchema } from '../../../lib/app/validation';
-import { agentCommentActionSchema, assignCommentsPeopleActionSchema, priorityCommentActionSchema } from './actionSchemas';
+import { agentCommentActionSchema, assignCommentsPeopleActionSchema, boardSortActionSchema, priorityCommentActionSchema } from './actionSchemas';
+import { saveProjectBoardSort } from '../../../lib/app/projectBoard';
+import type { BoardSort } from '../../../lib/app/boardSort';
 import { setProjectCommentAgent } from '../../../lib/review/assigneeAgent';
 import type { AssigneeAgentInput } from '../../../lib/review/assigneeAgentModel';
 import { revalidatePath } from 'next/cache';
@@ -188,6 +190,19 @@ export async function setCommentPriorityAction(projectId: string, commentId: str
     return commentAction(priorityCommentActionSchema, { projectId, commentId, priority, idempotencyKey },
         ({ project, actor }, input) => setProjectCommentPriority(project, actor, input.commentId, input.priority, input.idempotencyKey));
 }
+/**
+ * How one of the board's columns sorts, saved on the project for everyone who opens its board. The people who
+ * triage the project may change it (checked again by the service, with the column's choices).
+ */
+export async function setBoardSortAction(projectId: string, status: import('@uier/toolbar/verification').FeedbackStage, sort: BoardSort) {
+    return await actionResult(async () => {
+        const input = parseActionInput(boardSortActionSchema, { projectId, status, sort });
+        const { project, actor } = await commentContext(input.projectId);
+        await saveProjectBoardSort(project, actor, input.status, input.sort);
+        revalidatePath(KnownPageLinks.project(input.projectId));
+    });
+}
+
 /** The agent working under the signed-in member on a thread assigned to them, or `null` to remove it */
 export async function setCommentAgentAction(projectId: string, commentId: string, agent: AssigneeAgentInput | null, idempotencyKey: string, agentId?: string, add?: boolean) {
     return commentAction(agentCommentActionSchema, { projectId, commentId, agent, idempotencyKey, agentId, add },

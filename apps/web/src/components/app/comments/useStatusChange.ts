@@ -36,6 +36,19 @@ export function allowedStatuses(comment: ProjectCommentView): Record<CommentStat
 }
 
 /**
+ * What a move to `next` shows at once (`useOptimistic`), and so where the board's drop placeholder puts the card
+ * in a column's sort: the new status, Done's completion time and the update time the server gives every change.
+ * Leaving Ready to verify for Open or In progress cancels the check; Ready to verify itself waits for the request
+ * form, so only its time counts.
+ */
+export function movedPatch(comment: ProjectCommentView, next: CommentStatus, now = new Date().toISOString()): Partial<ProjectCommentView> {
+    if (next === 'ready') return { updatedAt: now };
+    if (commentStatus(comment) === 'ready' && next !== 'done' && comment.verification)
+        return { verification: { ...comment.verification, outcome: 'canceled' }, inProgress: next === 'in-progress', updatedAt: now };
+    return { resolved: next === 'done', ...(next === 'done' ? { completedAt: now } : {}), inProgress: next === 'in-progress', updatedAt: now };
+}
+
+/**
  * Status changes for any thread of the list: Open, In progress and Done, Open or In progress from
  * Ready to verify (cancels the check, then the thread is there; each shown at once and rolled back on
  * failure) and Ready to verify (`onVerify`). The board uses one for every card it moves;
@@ -52,7 +65,7 @@ export function useStatusChanger(projectId: string) {
             const request = setCommentStatusAction(projectId, comment.id, status)
                 .catch(() => ({ ok: false as const, error: 'Could not save the change. Try again.' }));
             if (exit) await exit.finished;
-            startTransition(() => updateComment({ id: comment.id, patch: { resolved: status === 'done', ...(status === 'done' ? { completedAt: new Date().toISOString() } : {}), inProgress: status === 'in-progress' } }));
+            startTransition(() => updateComment({ id: comment.id, patch: movedPatch(comment, status) }));
             const result = await request;
             if (result && !result.ok) {
                 exit?.cancel();
@@ -66,9 +79,7 @@ export function useStatusChanger(projectId: string) {
 
     const cancelCheck = (comment: ProjectCommentView, status: Exclude<FeedbackStatusTarget, 'done'>) => startTransition(async () => {
         // In Open or In progress at once; `useOptimistic` puts the check back if canceling fails
-        if (comment.verification) {
-            updateComment({ id: comment.id, patch: { verification: { ...comment.verification, outcome: 'canceled' }, inProgress: status === 'in-progress' } });
-        }
+        if (comment.verification) updateComment({ id: comment.id, patch: movedPatch(comment, status) });
         try {
             const result = await verificationCommentAction(projectId, comment.id, {
                 action: 'cancel', override: false, status, expectedRevision: comment.verification?.revision ?? null, idempotencyKey: crypto.randomUUID()

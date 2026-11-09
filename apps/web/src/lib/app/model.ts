@@ -192,6 +192,11 @@ export type DbProject = AppDoc & {
     integrations?: Partial<Record<import('../integrations/model').IntegrationProviderId, import('../integrations/model').IntegrationBinding>>;
     /** Optional labels and explicit alias groups, keyed by configured origin. */
     environments?: import('./environments').ProjectEnvironment[];
+    /**
+     * How each column of the comments board orders its cards, for everyone who opens it (`lib/app/boardSort.ts`).
+     * Only columns with a choice other than their default; missing means today's order everywhere.
+     */
+    boardSorts?: import('./boardSort').BoardSorts;
     status: ProjectStatus;
     access: ProjectAccess;
     /**
