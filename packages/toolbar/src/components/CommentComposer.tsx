@@ -30,6 +30,12 @@ const counterThreshold = commentTextMaxLength - 100;
 const announceThresholds = [counterThreshold, commentTextMaxLength - 10, commentTextMaxLength];
 // The text box grows with the text up to about 8 lines, then scrolls
 const textareaMaxHeight = 176;
+// Expanded (`tall`): it starts at 8 lines and grows to about 22, within the window
+const tallTextareaRows = 8;
+const tallTextareaMaxHeight = 480;
+
+// A guest's name typed but not sent yet: the same form expanded or collapsed again starts with it
+let unsentGuestName = '';
 
 function thresholdIndex(length: number) {
     return announceThresholds.filter(t => length >= t).length;
@@ -70,6 +76,8 @@ type CommentComposerProps = {
     waiting?: boolean;
     /** In the bottom-left corner of the text box, before its hint (Attach image for new comments and feedback) */
     attachments?: ReactNode;
+    /** Expanded to a modal for focused writing: a larger text box */
+    tall?: boolean;
     error?: unknown;
     /**
      * Resolves when saved; rejects to retain the text. Capture belongs to the draft, not this form.
@@ -86,7 +94,7 @@ type CommentComposerProps = {
  * textarea styled like the kit's `Input` (bordered, radius 8, blue focus ring).
  * Enter sends, Shift+Enter adds a new line.
  */
-export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, holdSubmit = false, waiting = false, attachments, error, onSubmit, onDiscard, initialText, initialMentions, commentId, onCancel }: CommentComposerProps) {
+export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, holdSubmit = false, waiting = false, attachments, tall = false, error, onSubmit, onDiscard, initialText, initialMentions, commentId, onCancel }: CommentComposerProps) {
     const formRef = useRef<HTMLFormElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const inputId = useId();
@@ -123,7 +131,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
     const { needsName, isMember } = useProjectViewer();
     const [savedName, setSavedName] = useState(() => needsName ? getGuestName() : undefined);
     const askName = needsName && !savedName;
-    const [name, setName] = useState('');
+    const [name, setName] = useState(() => unsentGuestName);
     const [nameMissing, setNameMissing] = useState(false);
     const showCounter = text.length >= counterThreshold;
     const submittingRef = useRef(false);
@@ -197,8 +205,8 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
             return;
         }
         textarea.style.height = 'auto';
-        textarea.style.height = `${Math.min(textarea.scrollHeight + 2, textareaMaxHeight)}px`;
-    }, [text]);
+        textarea.style.height = `${Math.min(textarea.scrollHeight + 2, tall ? tallTextareaMaxHeight : textareaMaxHeight)}px`;
+    }, [text, tall]);
 
     // Announce the remaining characters when the text crosses a threshold
     const lastThreshold = useRef(thresholdIndex(text.length));
@@ -244,6 +252,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
             }
             setGuestName(name);
             setSavedName(name.trim());
+            unsentGuestName = '';
         }
 
         const leading = text.length - text.trimStart().length;
@@ -317,6 +326,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                             value={name}
                             onChange={(e) => {
                                 setName(e.target.value);
+                                unsentGuestName = e.target.value;
                                 setNameMissing(false);
                             }}
                             maxLength={guestNameMaxLength}
@@ -335,7 +345,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                     ref={textareaRef}
                     id={inputId}
                     name="text"
-                    rows={2}
+                    rows={tall ? tallTextareaRows : 2}
                     value={text}
                     onChange={(e) => { setText(e.target.value); setCaret(e.target.selectionStart); setSuggestionsDismissed(false); setActiveSuggestion(0); }}
                     onSelect={e => setCaret(e.currentTarget.selectionStart)}
@@ -357,7 +367,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                         'focus-visible:outline-none',
                         'disabled:cursor-not-allowed disabled:opacity-50'
                     )}
-                    style={{ maxHeight: textareaMaxHeight }} />
+                    style={{ maxHeight: tall ? `min(${tallTextareaMaxHeight}px, calc(100dvh - 16rem))` : textareaMaxHeight }} />
                 <Row justifyContent="space-between" spacing={1} className={cx('py-1.5 pr-1.5', attachments ? 'pl-1.5' : 'pl-3')}>
                     <Row spacing={1} className="min-w-0">
                     {attachments}

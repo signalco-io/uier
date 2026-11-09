@@ -435,7 +435,7 @@ export function CommentsGlobal({
     // selected, the selection gets the comment. `?` lists the shortcuts (Options), G then I opens the
     // inbox and `/` its search, J and K go from thread to thread, and R, S and A reply, go to Mark as
     // done and assign in the thread with the focus (or the one open). Bubble phase, so the page's own
-    // handling of the key (`preventDefault`) wins. The toolbar's dialogs (options, feedback) keep their
+    // handling of the key (`preventDefault`) wins. The toolbar's dialogs (options, feedback, an expanded form) keep their
     // keys; a thread's popover keeps C, but the thread keys work in it.
     const handleShortcut = useEffectEvent((event: KeyboardEvent) => {
         if (reattaching || isLetterKeyTarget(event)) {
@@ -443,7 +443,7 @@ export function CommentsGlobal({
         }
         const target = event.composedPath()[0];
         const element = target instanceof Element ? target : undefined;
-        const inDialog = Boolean(element && isToolbarNode(element, rootElement) && element.closest('[role="dialog"], [role="alertdialog"]'));
+        const inDialog = Boolean(element && isToolbarNode(element, rootElement) && element.closest('[role="dialog"], [role="alertdialog"], dialog'));
         if (isAddCommentShortcut(event)) {
             if (inDialog) return;
             event.preventDefault();

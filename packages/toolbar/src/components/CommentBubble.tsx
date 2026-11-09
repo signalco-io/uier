@@ -19,6 +19,7 @@ import { getDeviceInfo } from './info/getDeviceInfo';
 import { holdsLayersAttribute, isToolbarAnchor, pressableToolbarOpener, toolbarPinId, toolbarSurface } from '../toolbarReview';
 import { RewriteSuggestions } from './RewriteSuggestions';
 import { ComposerAttachButton, ComposerAttachmentsHeader, useAttachedImage, type AttachedImage } from './ComposerAttachments';
+import { ComposerModal, ExpandComposerButton } from './ComposerModal';
 import { CommentDraft, CommentItem, CommentItemPosition, commentTextMaxLength, floatingShadowClassName, isCommentArea } from './@types/Comments';
 
 // Bubble (the pin) half size, how far its message count badge reaches past the right edge (Pin,
@@ -174,6 +175,11 @@ export function CommentBubble(props: CommentBubbleProps) {
     const [open, setOpen] = useState(creating ? !props.initiallyClosed : continuesDraft);
     // Until it is closed: opening it again animates as usual
     const [continuing, setContinuing] = useState(continuesDraft);
+    // A new comment expanded to a modal for focused writing: the popover is closed meanwhile, the form goes on
+    const [expanded, setExpandedState] = useState(false);
+    // At once: the popover's own close (the focus moving into the modal) comes before the next render
+    const expandedRef = useRef(false);
+    const setExpanded = (next: boolean) => { expandedRef.current = next; setExpandedState(next); };
     // Opened with J or K: the messages have the focus, so the keys go on to the next thread instead of typing
     const [reading, setReading] = useState(false);
     const messagesRef = useRef<HTMLDivElement>(null);
@@ -189,6 +195,7 @@ export function CommentBubble(props: CommentBubbleProps) {
     }, [openStateId, open, onOpenStateChange]);
     const handleOpenChange = (open: boolean) => {
         setContinuing(false);
+        setExpanded(false);
         if (open && creating) setCapture({ device: getDeviceInfo(), screenshot: captureCommentScreenshot(position, rootElement) });
         if (!open) {
             mutation.reset();
@@ -267,6 +274,8 @@ export function CommentBubble(props: CommentBubbleProps) {
         rewriting ? 'overflow-y-auto overscroll-contain' : 'overflow-hidden',
         // In place of the draft's popover, already on the page
         continuing && 'data-[state=open]:animate-none!',
+        // Expanding: gone at once, the modal is there
+        expanded && 'data-[state=closed]:animate-none!',
         floatingShadowClassName
     );
 
@@ -279,7 +288,8 @@ export function CommentBubble(props: CommentBubbleProps) {
                     screenshot={capture?.screenshot}
                     omitted={omitScreenshot}
                     onOmittedChange={handleOmittedChange}
-                    attachment={attachment} />
+                    attachment={attachment}
+                    actions={<ExpandComposerButton expanded={expanded} onExpandedChange={setExpanded} />} />
             )}
             <CommentComposer
                 commentId={commentItem?.id}
@@ -292,6 +302,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                 // Not when it appears in a thread that is closing (its comment was saved after
                 // Escape): the focus, and a page selection made meanwhile, stay where they are
                 autoFocus={open && !reading}
+                tall={expanded}
                 error={mutation.error ?? props.draft?.sendError}
                 holdSubmit={creating && attachment.reading}
                 // Replies wait until the comment is saved (they need its id); the reply box
@@ -312,6 +323,12 @@ export function CommentBubble(props: CommentBubbleProps) {
 
     return (
         <>
+            {creating && open && expanded && (
+                <ComposerModal container={rootElement} label={newLabel} onCollapse={() => setExpanded(false)} {...holdsLayers}>
+                    {composer}
+                    {suggestions}
+                </ComposerModal>
+            )}
             {position.type === 'text' && (
                 <CommentSelectionHighlight
                     commentSelection={position}
@@ -371,8 +388,9 @@ export function CommentBubble(props: CommentBubbleProps) {
                 sideOffset={-32}
                 align="start"
                 alignOffset={32}
-                open={open}
-                onOpenChange={handleOpenChange}
+                open={open && !expanded}
+                // Not while expanded: the popover makes way for the modal, which has the focus now
+                onOpenChange={next => { if (next || !expandedRef.current) handleOpenChange(next); }}
                 // Passed through to the Radix popover content (the Popper's own value is derived from the offsets)
                 {...{ collisionPadding: popoverCollisionPadding }}
             >

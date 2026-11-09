@@ -16,6 +16,7 @@ import { useInkContainer } from './InkScope';
 import { CommentComposer } from './CommentComposer';
 import { CommentKindIcon, commentKindLabels } from './CommentKindLabel';
 import { ComposerAttachButton, ComposerAttachmentsHeader, useAttachedImage } from './ComposerAttachments';
+import { ComposerModal, ExpandComposerButton } from './ComposerModal';
 import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import { cancelCommentScreenshot, captureCommentScreenshot } from '../screenshot';
@@ -47,6 +48,11 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
     const drafts = useDrafts();
     const announce = useAnnounce();
     const [open, setOpen] = useState(false);
+    // Expanded to a modal for focused writing: the popover is closed meanwhile, the form goes on
+    const [expanded, setExpandedState] = useState(false);
+    // At once: the popover's own close (the focus moving into the modal) comes before the next render
+    const expandedRef = useRef(false);
+    const setExpanded = (next: boolean) => { expandedRef.current = next; setExpandedState(next); };
     const [screenshot, setScreenshot] = useState<Promise<string | undefined>>();
     // Per feedback: back to the automatic screenshot once it is sent
     const [omitScreenshot, setOmitScreenshot] = useState(false);
@@ -58,6 +64,7 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
 
     const handleOpenChange = (next: boolean) => {
         setOpen(next);
+        setExpanded(false);
         if (next) {
             device.current = getDeviceInfo();
             setScreenshot(captureCommentScreenshot({ type: 'page' }, rootElement));
@@ -118,15 +125,67 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
     };
 
     const tip = useIconTooltip('Send feedback');
+    // A pasted image file is attached instead of the screenshot
+    const form = (
+        <div className="contents" onPaste={attachment.handlePaste}>
+            <ComposerAttachmentsHeader
+                page
+                title={<Typography component="h2" level="body2" semiBold className="text-foreground">Send feedback</Typography>}
+                screenshot={screenshot}
+                omitted={omitScreenshot}
+                onOmittedChange={handleOmittedChange}
+                attachment={attachment}
+                actions={<ExpandComposerButton expanded={expanded} onExpandedChange={setExpanded} />} />
+            <div className="bg-card px-3 pt-2">
+                {/* Like the inbox's status switch: two pressed/unpressed buttons */}
+                <Row role="group" aria-label="Type" className="rounded-md bg-muted p-0.5">
+                    {kinds.map((k) => (
+                        <Button
+                            key={k.value}
+                            size="sm"
+                            variant="plain"
+                            aria-pressed={kind === k.value}
+                            className={cx(
+                                'flex-1 gap-1.5 rounded-sm',
+                                kind === k.value ? 'bg-accent text-foreground' : 'text-muted-foreground'
+                            )}
+                            startDecorator={<CommentKindIcon kind={k.value} />}
+                            onClick={() => setKind(k.value)}>
+                            {commentKindLabels[k.value]}
+                        </Button>
+                    ))}
+                </Row>
+            </div>
+            <CommentComposer
+                key={kind}
+                label={commentKindLabels[kind]}
+                placeholder={selected.placeholder}
+                submitLabel={selected.submitLabel}
+                draftKey={`${feedbackDraftKey}:${kind}`}
+                autoFocus
+                tall={expanded}
+                holdSubmit={attachment.reading}
+                attachments={<ComposerAttachButton attachment={attachment} />}
+                error={create.error}
+                onSubmit={handleSubmit} />
+        </div>
+    );
     return (
-        <>{tip.tooltip}<Popper
+        <>{tip.tooltip}{open && expanded && (
+            <ComposerModal container={container} label="Send feedback" onCollapse={() => setExpanded(false)}>
+                {form}
+            </ComposerModal>
+        )}<Popper
             container={container}
-            open={open}
-            onOpenChange={handleOpenChange}
+            open={open && !expanded}
+            // Not while expanded: the popover makes way for the modal, which has the focus now
+            onOpenChange={next => { if (next || !expandedRef.current) handleOpenChange(next); }}
             side="top"
             sideOffset={12}
             aria-label="Send feedback"
-            {...toolbarSurface('uier-feedback', cx('flex max-h-[var(--radix-popover-content-available-height)] w-80 max-w-[calc(100vw-1rem)] flex-col overflow-y-auto rounded-xl p-0', floatingShadowClassName))}
+            {...toolbarSurface('uier-feedback', cx('flex max-h-[var(--radix-popover-content-available-height)] w-80 max-w-[calc(100vw-1rem)] flex-col overflow-y-auto rounded-xl p-0', floatingShadowClassName,
+                // Expanding: gone at once, the modal is there
+                expanded && 'data-[state=closed]:animate-none!'))}
             trigger={(
                 <IconButton
                     variant="plain"
@@ -136,47 +195,7 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
                     <Megaphone />
                 </IconButton>
             )}>
-            {/* A pasted image file is attached instead of the screenshot */}
-            <div className="contents" onPaste={attachment.handlePaste}>
-                <ComposerAttachmentsHeader
-                    page
-                    title={<Typography component="h2" level="body2" semiBold className="text-foreground">Send feedback</Typography>}
-                    screenshot={screenshot}
-                    omitted={omitScreenshot}
-                    onOmittedChange={handleOmittedChange}
-                    attachment={attachment} />
-                <div className="bg-card px-3 pt-2">
-                    {/* Like the inbox's status switch: two pressed/unpressed buttons */}
-                    <Row role="group" aria-label="Type" className="rounded-md bg-muted p-0.5">
-                        {kinds.map((k) => (
-                            <Button
-                                key={k.value}
-                                size="sm"
-                                variant="plain"
-                                aria-pressed={kind === k.value}
-                                className={cx(
-                                    'flex-1 gap-1.5 rounded-sm',
-                                    kind === k.value ? 'bg-accent text-foreground' : 'text-muted-foreground'
-                                )}
-                                startDecorator={<CommentKindIcon kind={k.value} />}
-                                onClick={() => setKind(k.value)}>
-                                {commentKindLabels[k.value]}
-                            </Button>
-                        ))}
-                    </Row>
-                </div>
-                <CommentComposer
-                    key={kind}
-                    label={commentKindLabels[kind]}
-                    placeholder={selected.placeholder}
-                    submitLabel={selected.submitLabel}
-                    draftKey={`${feedbackDraftKey}:${kind}`}
-                    autoFocus
-                    holdSubmit={attachment.reading}
-                    attachments={<ComposerAttachButton attachment={attachment} />}
-                    error={create.error}
-                    onSubmit={handleSubmit} />
-            </div>
+            {form}
         </Popper></>
     );
 }
