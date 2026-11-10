@@ -88,7 +88,8 @@ as the comments' author, or create a token with the missing operation.
 
 Everything lives in `$(git rev-parse --git-common-dir)/uier-monitor/`, which all worktrees share and
 git never commits. That folder holds `monitor.mjs`, and each project has a folder with
-`state.json`, `inbox.json` and `watch.log`. For a quick look:
+`state.json`, `inbox.json` and `watch.log`. `context.json` retains the last compact wake and its
+delta baseline; `notification.json` tracks delivery without consuming the inbox. For a quick look:
 
 ```bash
 node "$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor/monitor.mjs" status --project uier00000001
@@ -96,6 +97,18 @@ node "$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor/moni
 
 ## How it works
 
+- **Gate before the model.** In T3, the local `t3 thread send` CLI lets a detached persistent watcher
+  wake its existing thread only after work arrives. Use `watch --persistent --detach --thread <id>`;
+  pass `--t3-cli <absolute path>` when the CLI is not on PATH. The skill verifies a live PID and
+  fresh `watch.json.heartbeatAt` before disabling an old interval fallback. Busy threads queue the
+  message without interruption. Models and provider routing are unchanged. A webhook task is an
+  alternative for other harnesses (`--notify-file`, bearer URL in a file private from creation).
+  Neither mode sends an idle heartbeat to the model. Notification failures retry after a minute
+  without dropping events; an unconsumed wake is recovered after thirty minutes. A new urgent
+  control can notify sooner. A detached process survives a terminal exit, not an OS restart;
+  manual resume checks health, and an existing OS supervisor can restart a dead watcher. No system
+  service is installed. When neither wake transport is available, the existing fallback remains;
+  checking for changes inside a scheduled model prompt does not save that prompt's tokens.
 - **Waiting is a script.** `monitor.mjs watch` reads uier's event feed every minute and the open list
   every 15 minutes, because the feed has missed comments before. Reconciliation reads all statuses
   and compares reply counts for tracked items with decision `asked`/`rejected` or stage `ready`,
@@ -104,12 +117,24 @@ node "$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor/moni
   it cannot recover replies that predate that observation. Reconciliation can also wake for a
   connector reply because list summaries do not identify its author. It also follows merges and deploy
   runs on GitHub. It exits only when something needs the orchestrator: a person's action wakes it,
-  and the monitor's own uier writes don't.
+  and the monitor's own uier writes don't. Persistent mode delivers that wake and keeps running.
+  Ordinary events collect for ten seconds (`--batch-seconds`, maximum thirty), preserving separate
+  replies, transitions and deployed PRs. Reassignment, agent removal, stop-work and auth/lease
+  errors bypass the delay. Identical poll errors notify once per outage. Lease renewal continues
+  during batching and while an inbox is waiting to be consumed.
 - **The state file is the memory.** Every decision goes into `state.json`, so a fresh session can take
   over at any time. In T3 the orchestrator starts one about every 40 wakes to keep its context small.
+  It reads `M context` once, then `M context --take` for events and changed active records, instead
+  of repeatedly loading the full state. Each section prints at most 25 changed records; `more`
+  identifies unread ids, which stay due on the next read. `M detail items <id>`, `groups <id>` or
+  `prs <n>` fetches exact selected records, and `M detail <field>` fetches named extra state such as
+  runtime evidence. Routing, scope, release restrictions and pending writes remain visible; closed
+  history and transcripts remain on disk. A recovery packet is written before the inbox is drained.
 - **Sessions.** Up to 6 run at once. A slot frees as soon as a session opens its PR; CI, merges and
   deploys don't hold one. Small fixes in the same area share one session and one PR, and simple
-  fixes wait up to 10 minutes for others to join them.
+  fixes collect for two quiet minutes, up to ten minutes from the first held item or five items.
+  The orchestrator triages the whole incoming batch before starting sessions, releases all due
+  groups together, and starts urgent fixes or follow-ups immediately. Required checks are unchanged.
 - **Models in T3.** UI work runs on the newest Claude Opus and backend work and investigations on the
   newest GPT sol. Image generation runs on GPT sol at xhigh, redesign and branding on Opus at xhigh.
   Effort follows size: medium for simple fixes, high for rearrangements and new simple components,

@@ -59,8 +59,13 @@ installation: there are no lifecycle hooks, local MCP servers or package install
 
 The monitor saves state, logs, feedback packets and optional screenshots below the repository's
 shared git directory in `uier-monitor/`, outside tracked source. Those files persist until you
-remove them. Its separately scoped watcher token can read feedback and screenshots, assign people, link pull
-requests and maintain agent presence; it cannot reply or change thread status. On macOS it uses Keychain; elsewhere provide
+remove them. Compact wake receipts and delivery acknowledgements live there too. In T3, an
+optional detached watcher uses the local `t3` CLI to wake the existing thread only for pending
+work. A harness webhook can serve the same purpose; its private URL stays in a separate `0600`
+file and receives only the project and batch identifiers. This installs no OS service.
+Its separately scoped watcher token can read feedback and screenshots, assign people, link pull
+requests and maintain agent presence; status changes and replies require their separately granted
+operations. On macOS it uses Keychain; elsewhere provide
 the token through `UIER_MCP_TOKEN` or the helper's file input. Never commit or share the token or
 private feedback artifacts. Monitor replies, assignments, merges and deployment retries follow
 the skill's standing approval and the person's explicit constraints.

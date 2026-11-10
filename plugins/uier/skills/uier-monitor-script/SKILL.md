@@ -5,7 +5,7 @@ description: Recreate monitor.mjs, the watcher and state helper of the uier-moni
 
 # Recreate the uier monitor helper
 
-This skill carries `monitor.mjs` version 1.2.0, sha256 `39efe63cf374431aa849642525e3f263b6b5a09b518e3db827c9cb010151a919`. It needs Node 18 or later
+This skill carries `monitor.mjs` version 1.3.0, sha256 `316a81f29667dee76f33ba70d6ca5758bf1c1f821d235ed405d57c55c1cc5c21`. It needs Node 18 or later
 and has no dependencies. The uier-monitor skill runs it as `ROOT/monitor.mjs`, where `ROOT` is
 `$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor`.
 
@@ -19,8 +19,8 @@ and has no dependencies. The uier-monitor skill runs it as `ROOT/monitor.mjs`, w
    ```
 
 2. Only when this file isn't on disk, write the code below to `$ROOT/monitor.mjs` exactly as shown.
-3. Check it: `node "$ROOT/monitor.mjs" version` must print version 1.2.0 and sha256
-   `39efe63cf374431aa849642525e3f263b6b5a09b518e3db827c9cb010151a919`. If the hash differs, write the file again; never patch it by hand.
+3. Check it: `node "$ROOT/monitor.mjs" version` must print version 1.3.0 and sha256
+   `316a81f29667dee76f33ba70d6ca5758bf1c1f821d235ed405d57c55c1cc5c21`. If the hash differs, write the file again; never patch it by hand.
 
 Don't edit the code here. Its source is `.claude/skills/uier-monitor/scripts/monitor.mjs` in the uier
 repository, and `build-script-skill.mjs` next to it writes this file.
@@ -37,17 +37,17 @@ repository, and `build-script-skill.mjs` next to it writes this file.
 // `node .claude/skills/uier-monitor/scripts/build-script-skill.mjs` to refresh the copy in the
 // uier-monitor-script skill, which recreates this file where the scripts folder is missing.
 
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.2.0';
+const VERSION = '1.3.0';
 const DEFAULT_ENDPOINT = 'https://uier.io/api/mcp';
 const KEYCHAIN_SERVICE = 'uier-mcp';
-const BOOLEAN_FLAGS = new Set(['replace', 'screenshots', 'help']);
+const BOOLEAN_FLAGS = new Set(['replace', 'screenshots', 'help', 'persistent', 'take', 'detach']);
 const SLOT_STATES = new Set(['building', 'fixing', 'reviewing']);
 const FAILED = new Set(['failure', 'timed_out', 'startup_failure', 'action_required', 'error']);
 const DAY = 86_400_000;
@@ -66,7 +66,17 @@ Usage: node monitor.mjs <command> [--state DIR | --project ID] [options]
                           Wait without model tokens. Exits with one JSON line when there is
                           something to do; the details go to inbox.json. Keeps the agent
                           attached and its working spinner renewed for groups.*.agentLease.
+                          --batch-seconds N coalesces ordinary events (default 10, max 30).
+                          --persistent --thread ID wakes a local T3 thread via its CLI.
+                          --t3-cli PATH selects that CLI when it is not on PATH.
+                          Alternatively --notify-file FILE wakes a harness webhook.
+                          FILE holds its HTTPS URL, with mode 0600. No idle heartbeat
+                          invokes the model; failed delivery retries the same durable batch.
+                          Add --detach to run independently of the terminal/harness lifetime.
   take                    Print and clear inbox.json.
+  context [--take]         Compact active snapshot; --take consumes events and prints only
+                          changed state since the last context. Saves a recovery receipt.
+  detail SECTION ID...     Read selected items, groups or PRs, or a named top-level field.
   status                  Compact view of sessions, leases, queue, PRs, deploys and open questions.
   patch '<json>' | -      Apply a JSON merge patch (RFC 7386) to state.json.
   packet ID... [--out DIR] [--screenshots]
@@ -83,7 +93,7 @@ project id, its workspace id or "default"). UIER_MCP_URL overrides ${DEFAULT_END
 `;
 
 const { command, opts } = parseArgs(process.argv.slice(2));
-const commands = { help: () => print(HELP), version, check, watch, take, status, patch, packet, call, token, stop };
+const commands = { help: () => print(HELP), version, check, watch, take, context: contextCommand, detail, status, patch, packet, call, token, stop };
 
 // ---------------------------------------------------------------- arguments and files
 
@@ -184,6 +194,93 @@ async function take(options) {
         return inbox;
     });
     print({ now: new Date().toISOString(), items });
+}
+
+function pick(value, keys) {
+    return Object.fromEntries(keys.filter(key => value?.[key] !== undefined).map(key => [key, value[key]]));
+}
+
+function digest(value) {
+    return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
+// History and transcripts stay on disk. Authorization, routing and release restrictions do not.
+function activeContext(state) {
+    const items = Object.fromEntries(Object.entries(state.items ?? {}).filter(([, item]) =>
+        item.writePending?.length || (item.decision !== 'skipped' && item.stage !== 'done'))
+        .map(([id, item]) => [id, pick(item, ['number', 'link', 'priority', 'decision', 'reason', 'size', 'class', 'areas',
+            'verify', 'group', 'stage', 'round', 'writePending'])]));
+    const groups = Object.fromEntries(Object.entries(state.groups ?? {}).filter(([, group]) =>
+        group.prLinkPending?.length || (!['closed', 'cancelled', 'done', 'closed-out'].includes(group.state)
+            && (!group.items?.length || group.items.some(id => items[id]))))
+        .map(([id, group]) => [id, pick(group, ['items', 'state', 'size', 'class', 'areas', 'provider', 'model', 'effort',
+            'taskId', 'threadId', 'branch', 'port', 'pr', 'head', 'dependsOnPr', 'prLinkPending', 'agentLease',
+            'providerBlocked', 'holdUntil', 'firstHeldAt', 'lastAcceptedAt', 'dependsOn', 'dependencyCondition', 'note'])]));
+    const prs = Object.fromEntries(Object.entries(state.prs ?? {}).filter(([, pr]) =>
+        !['merged', 'closed', 'closed-out', 'deployed', 'done'].includes(String(pr.state).toLowerCase()))
+        .map(([id, pr]) => [id, pick(pr, ['group', 'groups', 'state', 'head', 'autoMerge', 'review', 'reviewTaskId', 'taskId',
+            'blocked', 'mergeCommit', 'checks', 'flags', 'held', 'approvedByPerson', 'note'])]));
+    const known = new Set(['project', 'repo', 'me', 'scope', 'max', 'harness', 'workflow', 'watch', 'items', 'groups',
+        'prs', 'deploys', 'restrictions', 'updatedAt', 'stopped']);
+    return {
+        config: { ...pick(state, ['project', 'repo', 'me', 'scope', 'max', 'workflow', 'restrictions', 'stopped']),
+            harness: pick(state.harness, ['kind', 'prWatch', 'threadId', 'routing', 'mcpActingAs', 'orchestratorInstance',
+                'claudeInstance', 'providerPreference']),
+            watch: pick(state.watch, ['wakes', 'wakeAt', 'lease', 'writes', 'writer', 'mode', 'enabled', 'stopped', 'scheduledTaskId']) },
+        items, groups, prs, deploys: state.deploys?.pending ?? [],
+        extraFields: Object.keys(state).filter(key => !known.has(key))
+    };
+}
+
+function contextPacket(state, events, previous = null) {
+    const active = activeContext(state);
+    const baseline = {};
+    const packet = { now: new Date().toISOString(), mode: previous ? 'delta' : 'snapshot', config: active.config,
+        events, counts: {}, more: {}, removed: {}, deploys: active.deploys, extraFields: active.extraFields };
+    for (const section of ['items', 'groups', 'prs']) {
+        const entries = Object.entries(active[section]);
+        packet.counts[section] = entries.length;
+        const changed = entries.filter(([id, value]) => previous?.[section]?.[id] !== digest(value));
+        const page = changed.slice(0, 25);
+        packet[section] = Object.fromEntries(page);
+        packet.more[section] = changed.slice(25).map(([id]) => id);
+        packet.removed[section] = Object.keys(previous?.[section] ?? {}).filter(id => !active[section][id]);
+        // Unprinted changes remain due on the next read; never acknowledge them by hashing them.
+        baseline[section] = Object.fromEntries(entries.filter(([id]) => previous?.[section]?.[id])
+            .map(([id]) => [id, previous[section][id]]));
+        for (const [id, value] of page) baseline[section][id] = digest(value);
+    }
+    return { packet, baseline };
+}
+
+async function contextCommand(options) {
+    const dir = stateDir(options);
+    const result = await withLock(dir, 'context', () => withLock(dir, 'inbox', () => {
+        const state = readJson(join(dir, 'state.json'), {});
+        const events = coalesceEvents(readJson(join(dir, 'inbox.json'), []));
+        const saved = readJson(join(dir, 'context.json'), null);
+        const previous = options.take ? saved?.baseline : null;
+        const result = contextPacket(state, events, previous);
+        result.recovery = events.length ? result.packet : saved?.recovery;
+        if (!events.length && result.recovery && !(Date.parse(state.updatedAt) > Date.parse(result.recovery.now)))
+            result.packet.recoverFrom = join(dir, 'context.json');
+        // Persist both the packet and its baseline before draining, so interrupted output is recoverable.
+        writeJson(join(dir, 'context.json'), result);
+        if (options.take && events.length) writeJson(join(dir, 'inbox.json'), []);
+        return result.packet;
+    }));
+    print(result);
+}
+
+function detail(options) {
+    const [section, ...ids] = options._;
+    if (!section || ['__proto__', 'constructor', 'prototype'].includes(section)) fail('Pass a state field and optional ids.');
+    const state = readJson(join(stateDir(options), 'state.json'), {});
+    if (!Object.hasOwn(state, section)) fail('That state field does not exist.');
+    if (ids.length) {
+        if (!['items', 'groups', 'prs'].includes(section) || ids.length > 10) fail('Select 1–10 ids from items, groups or prs.');
+        print(Object.fromEntries(ids.filter(id => Object.hasOwn(state[section] ?? {}, id)).map(id => [id, state[section][id]])));
+    } else print(state[section]);
 }
 
 async function patch(options) {
@@ -447,31 +544,146 @@ function watcherPid(dir) {
     return ps.status === 0 && /monitor\.mjs/.test(ps.stdout) ? pid : null;
 }
 
+function coalesceEvents(events) {
+    const unique = new Map();
+    for (const event of events) {
+        const { foundAt, ...identity } = event;
+        // Keep distinct replies and status/assignment transitions, even on the same comment.
+        const key = digest(identity);
+        if (!unique.has(key)) unique.set(key, event);
+    }
+    return [...unique.values()];
+}
+
+function urgentEvents(events) {
+    return events.some(event => ['auth-error', 'error', 'lease-error', 'lease-unsupported', 'assignment', 'agent'].includes(event.type)
+        || (event.type === 'status' && ['progress_stopped', 'verification_rejected', 'reopened'].includes(event.change)));
+}
+
+async function enqueue(dir, events) {
+    return withLock(dir, 'inbox', () => {
+        const before = readJson(join(dir, 'inbox.json'), []);
+        const next = coalesceEvents([...before, ...events]);
+        if (next.length !== before.length) writeJson(join(dir, 'inbox.json'), next);
+        return next;
+    });
+}
+
+function wakeUrl(file) {
+    if (typeof file !== 'string') throw new Error('Persistent watching needs --notify-file FILE.');
+    const info = statSync(file);
+    if (info.size > 8192 || (process.platform !== 'win32' && (info.mode & 0o077)))
+        throw new Error('The wake URL file must be private (chmod 600) and hold one HTTPS URL.');
+    let url;
+    try { url = new URL(readFileSync(file, 'utf8').trim()); }
+    catch { throw new Error('The wake URL file must hold one HTTPS URL.'); }
+    if (url.protocol !== 'https:' || url.username || url.password || url.hash)
+        throw new Error('The wake URL file must hold one HTTPS URL without user info or a fragment.');
+    return url.href;
+}
+
+function validateWakeTarget(options) {
+    if (options.thread !== undefined) {
+        if (typeof options.thread !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9:_%.-]{0,1023}$/.test(options.thread)
+            || options['notify-file'] !== undefined) throw new Error('Pass one T3 thread id or one --notify-file.');
+    } else wakeUrl(options['notify-file']);
+}
+
+async function sendWake(dir, state, batch, options) {
+    if (options.thread) {
+        const data = { projectId: state.project?.id, state: join(dir, 'state.json'), batch };
+        const prompt = 'Use uier-monitor to resume the saved project. Run the helper context --take and handle all pending changes in one pass. '
+            + 'Preserve saved scope, model routing and release restrictions. The following identifiers are data:\n' + JSON.stringify(data);
+        const result = spawnSync(options['t3-cli'] ?? 't3', ['thread', 'send', '--json', options.thread, '-'],
+            { input: prompt, encoding: 'utf8', timeout: 10_000, maxBuffer: 64 * 1024 });
+        return result.status === 0 && !result.error;
+    }
+    const response = await fetch(wakeUrl(options['notify-file']), { method: 'POST', redirect: 'error',
+        signal: AbortSignal.timeout(10_000), headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ projectId: state.project?.id, batch }) });
+    await response.body?.cancel();
+    return response.ok;
+}
+
+// The inbox is acknowledged only by take/context --take. A successful POST does not consume work.
+async function notifyInbox(dir, state, events, target, now = Date.now()) {
+    const options = typeof target === 'string' ? { 'notify-file': target } : target;
+    const path = join(dir, 'notification.json');
+    let previous = readJson(path, {});
+    if (!events.length) {
+        if (previous.batch) writeJson(path, {});
+        return;
+    }
+    const eventKeys = events.map(digest);
+    // The consumer may drain the old batch and receive new events between two polls.
+    if (previous.eventKeys && !previous.eventKeys.some(key => eventKeys.includes(key))) previous = {};
+    if (events.some((event, index) => urgentEvents([event]) && !previous.eventKeys?.includes(eventKeys[index]))) previous = {};
+    // Retry failed transport with the same replay key. An unconsumed successful wake gets a
+    // distinct recovery key only after 30 minutes, rather than queuing a model on each poll.
+    const stalled = previous.deliveredAt && now - previous.deliveredAt >= 30 * 60_000;
+    if (previous.deliveredAt && !stalled) return;
+    if (!stalled && previous.attemptedAt && now - previous.attemptedAt < 60_000) return;
+    const batch = !previous.batch || stalled ? digest({ events, now }) : previous.batch;
+    const pending = { batch, eventKeys, attemptedAt: now };
+    writeJson(path, pending);
+    try {
+        if (!await sendWake(dir, state, batch, options)) return { delivered: false };
+        writeJson(path, { ...pending, deliveredAt: now });
+        return { delivered: true };
+    } catch {
+        // Fetch errors can contain the bearer URL. Never print them or copy them into state.
+        return { delivered: false };
+    }
+}
+
 async function watch(options) {
     const dir = stateDir(options);
     mkdirSync(dir, { recursive: true });
     const log = logger(dir);
-    const existing = watcherPid(dir);
-    if (existing && existing !== process.pid) {
-        if (!options.replace) { print({ wake: [{ type: 'already-running', pid: existing }] }); return; }
-        try { process.kill(existing, 'SIGTERM'); } catch { /* gone */ }
-        for (let wait = 0; wait < 30 && watcherPid(dir); wait++) await sleep(100);
-    }
-    writeJson(join(dir, 'watch.pid'), { pid: process.pid, startedAt: new Date().toISOString(), version: VERSION });
+    if (options.persistent) validateWakeTarget(options);
+    if (options.detach && !options.persistent) throw new Error('--detach requires --persistent and a wake target.');
+    const started = await withLock(dir, 'watcher', async () => {
+        const existing = watcherPid(dir);
+        if (existing && existing !== process.pid) {
+            if (!options.replace) { print({ wake: [{ type: 'already-running', pid: existing }] }); return false; }
+            try { process.kill(existing, 'SIGTERM'); } catch { /* gone */ }
+            for (let wait = 0; wait < 30 && watcherPid(dir); wait++) await sleep(100);
+            if (watcherPid(dir)) throw new Error('The previous watcher did not stop; no second watcher was started.');
+        }
+        if (options.detach) {
+            const args = ['watch', '--state', dir, '--persistent'];
+            if (options.thread) args.push('--thread', options.thread);
+            else args.push('--notify-file', resolve(options['notify-file']));
+            for (const key of ['interval', 'batch-seconds', 't3-cli']) if (options[key] !== undefined) args.push(`--${key}`, String(options[key]));
+            const child = spawn(process.execPath, [fileURLToPath(import.meta.url), ...args], { detached: true, stdio: 'ignore' });
+            // Report startup, not readiness. status/watch.json proves the child entered its loop.
+            await new Promise((resolve, reject) => { child.once('spawn', resolve); child.once('error', reject); });
+            child.unref();
+            print({ started: child.pid, persistent: true, health: 'pending; check status once' });
+            return false;
+        }
+        writeJson(join(dir, 'watch.pid'), { pid: process.pid, startedAt: new Date().toISOString(), version: VERSION,
+            persistent: Boolean(options.persistent), ...(options.thread ? { thread: options.thread } : {}) });
+        return true;
+    });
+    if (!started) return;
     const release = () => { if (readJson(join(dir, 'watch.pid'), null)?.pid === process.pid) rmSync(join(dir, 'watch.pid'), { force: true }); };
     for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(signal, () => { log(`stopped by ${signal}`); release(); process.exit(0); });
 
     const startedAt = Date.now();
     const intervalMs = Math.max(30, Number(options.interval) || 60) * 1000;
+    const batchMs = options['batch-seconds'] === undefined ? 10_000 : Math.min(30, Math.max(0, Number(options['batch-seconds']) || 0)) * 1000;
     let ctx;
     let failures = 0;
     let lastGithub = 0;
+    let batchStarted = null;
     log(`watch ${VERSION} started, pid ${process.pid}`);
 
     for (;;) {
         const state = readJson(join(dir, 'state.json'), {});
         const seen = readJson(join(dir, 'watch.json'), {});
         const settings = state.watch ?? {};
+        if (state.stopped || settings.stopped || settings.enabled === false) { release(); return; }
         const found = [];
         if (ctx === undefined) ctx = connection(state);
         // Lease trouble never blocks the rest of the cycle.
@@ -484,32 +696,48 @@ async function watch(options) {
                 if (state.harness?.prWatch !== true) pollPullRequests(state, seen, found);
             }
             failures = 0;
+            delete seen.pollError;
         } catch (error) {
             log(`error: ${error.message}`);
             if (error.kind === 'auth') { found.push({ type: 'auth-error', message: error.message }); ctx = null; }
-            else if (++failures >= 10) found.push({ type: 'error', message: String(error.message).slice(0, 300) });
+            else if (++failures >= 10 && seen.pollError !== error.message) {
+                seen.pollError = error.message;
+                found.push({ type: 'error', message: String(error.message).slice(0, 300) });
+            }
         }
         const now = Date.now();
         if (!found.length) {
             const wakeAt = Date.parse(settings.wakeAt ?? '');
             const maxMinutes = Number(options['max-minutes']) || Number(settings.maxMinutes) || 110;
-            if (!ctx && now - startedAt >= Math.max(5, Number(settings.fallbackMinutes) || 15) * 60_000) found.push({ type: 'poll-uier' });
+            const fallbackAt = seen.lastFallbackAt ?? startedAt;
+            if (!ctx && now - fallbackAt >= Math.max(5, Number(settings.fallbackMinutes) || 15) * 60_000) {
+                found.push({ type: 'poll-uier' }); seen.lastFallbackAt = now;
+            }
             else if (wakeAt <= now && settings.wakeAt !== seen.firedWakeAt) { found.push({ type: 'timer', at: settings.wakeAt }); seen.firedWakeAt = settings.wakeAt; }
-            else if (now - startedAt >= maxMinutes * 60_000) found.push({ type: 'heartbeat' });
+            else if (!options.persistent && now - startedAt >= maxMinutes * 60_000) found.push({ type: 'heartbeat' });
         }
         prune(seen, now);
-        if (found.length) {
-            const stamped = found.map(item => ({ ...item, foundAt: new Date(now).toISOString() }));
-            await withLock(dir, 'inbox', () => writeJson(join(dir, 'inbox.json'), [...readJson(join(dir, 'inbox.json'), []), ...stamped]));
-            writeJson(join(dir, 'watch.json'), seen);
-            const brief = stamped.map(({ type, number, pr, sha, change }) => ({ type, ...(number ? { number } : {}), ...(pr ? { pr } : {}), ...(sha ? { sha: sha.slice(0, 7) } : {}), ...(change ? { change } : {}) }));
-            log(`wake ${JSON.stringify(brief)}`);
-            release();
-            print({ wake: brief, inbox: join(dir, 'inbox.json'), next: 'Run: node monitor.mjs take' });
-            return;
-        }
+        const stamped = found.map(item => ({ ...item, foundAt: new Date(now).toISOString() }));
+        const inbox = await enqueue(dir, stamped);
+        if (inbox.length && batchStarted === null) batchStarted = now;
+        if (!inbox.length) batchStarted = null;
+        seen.heartbeatAt = new Date(now).toISOString();
         writeJson(join(dir, 'watch.json'), seen);
-        await sleep(ctx && leasesLive(state, seen) ? Math.min(intervalMs, LEASE_CYCLE_MS) : intervalMs);
+        if (inbox.length && (urgentEvents(inbox) || now - batchStarted >= batchMs)) {
+            if (options.persistent) {
+                const delivery = await notifyInbox(dir, state, inbox, options, now);
+                if (delivery) log(delivery.delivered ? 'wake delivered; waiting for inbox acknowledgement' : 'wake delivery failed; inbox retained');
+            } else {
+                const brief = inbox.map(({ type, number, pr, sha, change }) => ({ type, ...(number ? { number } : {}), ...(pr ? { pr } : {}), ...(sha ? { sha: sha.slice(0, 7) } : {}), ...(change ? { change } : {}) }));
+                log(`wake ${JSON.stringify(brief)}`);
+                release();
+                print({ wake: brief, inbox: join(dir, 'inbox.json'), next: 'Run: node monitor.mjs context --take' });
+                return;
+            }
+        }
+        if (options.persistent && !inbox.length) await notifyInbox(dir, state, [], options, now);
+        const interval = ctx && leasesLive(state, seen) ? Math.min(intervalMs, LEASE_CYCLE_MS) : intervalMs;
+        await sleep(batchStarted === null || now - batchStarted >= batchMs ? interval : Math.min(interval, batchMs - (now - batchStarted)));
     }
 }
 
@@ -886,12 +1114,13 @@ function status(options) {
     const seen = readJson(join(dir, 'watch.json'), {});
     const inbox = readJson(join(dir, 'inbox.json'), []);
     const pid = watcherPid(dir);
+    const watcher = pid ? readJson(join(dir, 'watch.pid'), {}) : {};
     const items = state.items ?? {};
     const label = ids => (ids ?? []).map(id => `#${items[id]?.number ?? id}`).join(' ');
     const groups = Object.entries(state.groups ?? {});
     const lines = [
         `${state.project?.name ?? '?'} (${state.project?.id ?? '?'}) · ${state.repo?.slug ?? '?'} → ${state.repo?.base ?? '?'} · ${state.workflow?.mode ?? '?'}${state.workflow?.autoMerge ? ' + auto-merge' : ''} · ${state.harness?.kind ?? '?'}`,
-        `watcher ${pid ? `running (pid ${pid})` : 'stopped'} · uier ${connection(state) ? 'token' : 'no token (fallback)'} · inbox ${inbox.length} · reconciled ${seen.reconciledAt ?? 'never'} · wakes ${state.watch?.wakes ?? 0}${state.watch?.wakeAt ? ` · timer ${state.watch.wakeAt}` : ''}`,
+        `watcher ${pid ? `running (pid ${pid}, ${watcher.persistent ? 'persistent' : 'one-shot'}, v${watcher.version ?? '?'})` : 'stopped'} · heartbeat ${seen.heartbeatAt ?? 'never'} · uier ${connection(state) ? 'token' : 'no token (fallback)'} · inbox ${inbox.length} · reconciled ${seen.reconciledAt ?? 'never'} · wakes ${state.watch?.wakes ?? 0}${state.watch?.wakeAt ? ` · timer ${state.watch.wakeAt}` : ''}`,
         `sessions ${groups.filter(([, group]) => SLOT_STATES.has(group.state)).length}/${state.max ?? 6}`
     ];
     for (const [id, group] of groups) {

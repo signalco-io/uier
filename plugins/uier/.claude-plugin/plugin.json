@@ -1,6 +1,6 @@
 {
   "name": "uier",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Connect website feedback to your coding agent, with skills to monitor a uier project and carry fixes through review and deployment.",
   "author": {
     "name": "signalco",
