@@ -1,6 +1,6 @@
 # SEO panel: AI search
 
-The SEO panel's last section ([the panels](page-checks.md), "Sections"): whether AI assistants and AI search
+The last section of the SEO panel's Search tab ([the panels](page-checks.md), "Sections"): whether AI assistants and AI search
 can read and attribute the page. The field is young and little about it is verified, so the section states
 facts about the page and never says what an AI does with them.
 

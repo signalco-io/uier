@@ -2,7 +2,7 @@ import { expect, test, type Page, type Request } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, toolbar } from './support/toolbar';
+import { animationsFinished, showChecksTab, toolbar } from './support/toolbar';
 
 // The SEO panel's AI search section (packages/toolbar/docs/page-checks-ai-search.md) on a project's
 // site on another origin with the install guide's CSP: the page's main content as Markdown, what the
@@ -40,6 +40,7 @@ async function openSeoPanel(page: Page, label: string, query = '') {
     await toolbar(page).getByRole('button', { name: /^SEO/ }).click();
     const panel = page.getByRole('complementary', { name: 'SEO' });
     await expect(panel.locator('[data-uier-section="aiSearch"]')).toHaveAttribute('data-uier-section-status', 'done', { timeout: 20_000 });
+    await showChecksTab(panel, 'search');
     return { project, panel };
 }
 
@@ -168,6 +169,7 @@ test('on a phone the section fits the panel and its controls are large enough to
     await pill.getByRole('button', { name: 'Options', exact: true }).tap();
     await page.getByRole('dialog', { name: 'Options' }).getByRole('button', { name: /^SEO/ }).tap();
     const panel = page.getByRole('complementary', { name: 'SEO' });
+    await showChecksTab(panel, 'search');
     const suggestions = panel.locator('[data-uier-ai-suggestions]');
     await expect(suggestions).toBeVisible({ timeout: 20_000 });
     await suggestions.getByRole('button', { name: 'Suggest a meta description' }).tap();

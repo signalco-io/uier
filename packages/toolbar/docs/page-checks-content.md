@@ -1,6 +1,6 @@
 # Accessibility panel: alt text, zoom and text spacing, motion
 
-Three sections of the Accessibility panel, after axe-core's audit, for what the audit cannot judge
+Three sections of the Accessibility panel, Alt text in its Screen reader tab and the others in its Visual tab, for what the audit cannot judge
 ([page checks](page-checks.md#sections)). They do not repeat it: images without alt text, alt text
 that repeats its link's text, and `marquee` and `blink` elements are axe-core's rules above them.
 The logic is in the audit asset (`src/checks/lazy/altText.ts`, `reflow.ts`, `motion.ts`), the views in

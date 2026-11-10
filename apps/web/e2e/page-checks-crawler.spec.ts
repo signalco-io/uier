@@ -3,7 +3,7 @@ import { expectNoAxeViolations } from './accessibility';
 import { createProject, signIn, uniqueEmail } from './support/app';
 import { auditAssetPath } from './support/auditRuns';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, toolbar } from './support/toolbar';
+import { animationsFinished, showChecksTab, toolbar } from './support/toolbar';
 
 // The SEO panel's Crawlers section (packages/toolbar/docs/page-checks-crawler.md) on a project's site
 // on another origin with the install guide's CSP (`fixture-crawler`, e2e/support/fixtures/crawler.ts):
@@ -49,6 +49,7 @@ async function openCrawlers(page: Page) {
     const panel = page.getByRole('complementary', { name: 'SEO' });
     const section = panel.locator('[data-uier-section="crawler"]');
     await expect(section).toHaveAttribute('data-uier-section-status', 'done', { timeout: 20_000 });
+    await showChecksTab(panel, 'search');
     return { panel, section, check: (id: string) => section.locator(`[data-uier-check="${id}"]`) };
 }
 

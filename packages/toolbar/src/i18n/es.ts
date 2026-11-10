@@ -805,7 +805,8 @@ export const es: Messages = {
             noIssues: 'No se han encontrado problemas.',
             automatedNote: ' Las comprobaciones automáticas solo encuentran algunos problemas. Prueba también con teclado y lector de pantalla.',
             blocked: 'Puede que la Content-Security-Policy del sitio o la conexión bloqueen su script.',
-            undecided: 'axe-core no pudo decidir. No se cuenta.'
+            undecided: 'axe-core no pudo decidir. No se cuenta.',
+            tabs: { issues: 'Problemas', keyboard: 'Teclado', screenReader: 'Lector de pantalla', visual: 'Visual' }
         },
         seoPanel: {
             title: 'SEO',
@@ -820,7 +821,8 @@ export const es: Messages = {
             linksNote: (internal: number, external: number) => `${internal} en este sitio, ${external} a otros sitios`,
             images: 'Imágenes',
             vitals: 'Core Web Vitals',
-            measuredHere: 'Medido en este navegador'
+            measuredHere: 'Medido en este navegador',
+            tabs: { page: 'Página', content: 'Contenido', sharing: 'Compartir', search: 'Búsqueda' }
         },
         vitals: {
             names: { LCP: 'Largest Contentful Paint', CLS: 'Cumulative Layout Shift', INP: 'Interaction to Next Paint' },

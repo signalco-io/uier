@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page, type Request } from '@playwright
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, toolbar } from './support/toolbar';
+import { animationsFinished, showChecksTab, toolbar } from './support/toolbar';
 
 // The SEO panel's Sharing and Structured data sections (packages/toolbar/docs/page-checks-seo-head.md)
 // on a project's site on another origin with the install guide's CSP: `fixture-seo-head`
@@ -34,6 +34,7 @@ async function openSeoPanel(page: Page) {
     await expect(sharing).toHaveAttribute('data-uier-section-status', 'done', { timeout: 20_000 });
     await expect(panel.locator('[data-uier-section="structuredData"]')).toHaveAttribute('data-uier-section-status', 'done');
     await expect(sharing).not.toContainText('Loading the image...', { timeout: 15_000 });
+    await showChecksTab(panel, 'sharing');
     return panel;
 }
 
@@ -127,6 +128,7 @@ test('the sections report broken sharing tags and structured data, count them an
 
     // A finding about the page names the block and the property, and the documentation it comes from
     const created = nextCreate(page, project);
+    await showChecksTab(panel, 'search');
     await row(panel, 'schema-product').getByRole('button', { name: 'Comment' }).click();
     const body = (await created).postDataJSON();
     expect(body.text).toBe('SEO: The Product in the page\'s structured data (JSON-LD block 3) has no offers, review or aggregateRating. '
@@ -178,6 +180,7 @@ test('on a phone the previews fit the panel', async ({ page }, testInfo) => {
     await page.getByRole('dialog', { name: 'Options' }).getByRole('button', { name: /^SEO/ }).tap();
     const panel = page.getByRole('complementary', { name: 'SEO' });
     await expect(panel.locator('[data-uier-section="sharing"]')).toHaveAttribute('data-uier-section-status', 'done', { timeout: 20_000 });
+    await showChecksTab(panel, 'sharing');
     await expectRow(panel, 'share-image-size', 'pass', '1200 × 630');
     const card = panel.locator('[data-uier-preview="card"]');
     await card.scrollIntoViewIfNeeded();

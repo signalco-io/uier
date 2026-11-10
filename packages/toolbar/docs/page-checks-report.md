@@ -29,7 +29,7 @@ issue.
   An element's reason is the messages of its undecided checks (`any`, `all`, `none`; for these
   `failureSummary` repeats them under "Fix any of the following:", which does not fit), such as
   "Element's background color could not be determined due to a background gradient".
-- The panel shows them after the impact sections and before the on-demand sections, in "To review"
+- The panel shows them after the impact sections, in the Issues tab, in "To review"
   (`data-uier-review`, a search icon on each rule, "axe-core could not decide. Not counted."), with
   Highlight, Comment, Comment on all and Not an issue like the issues. They are in no count: not in
   "3 issues found.", the impact tiles, the button's name or its dot. Their keys start `a11y-review:`, so a

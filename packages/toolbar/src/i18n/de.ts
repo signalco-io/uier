@@ -804,7 +804,8 @@ export const de: Messages = {
             noIssues: 'Keine Probleme gefunden.',
             automatedNote: ' Automatische Prüfungen finden nur einen Teil der Probleme. Testen Sie auch mit Tastatur und Screenreader.',
             blocked: 'Die Content-Security-Policy der Website oder die Verbindung blockiert womöglich ihr Skript.',
-            undecided: 'axe-core konnte nicht entscheiden. Nicht gezählt.'
+            undecided: 'axe-core konnte nicht entscheiden. Nicht gezählt.',
+            tabs: { issues: 'Probleme', keyboard: 'Tastatur', screenReader: 'Screenreader', visual: 'Darstellung' }
         },
         seoPanel: {
             title: 'SEO',
@@ -819,7 +820,8 @@ export const de: Messages = {
             linksNote: (internal: number, external: number) => `${internal} auf dieser Website, ${external} zu anderen Websites`,
             images: 'Bilder',
             vitals: 'Core Web Vitals',
-            measuredHere: 'In diesem Browser gemessen'
+            measuredHere: 'In diesem Browser gemessen',
+            tabs: { page: 'Seite', content: 'Inhalt', sharing: 'Teilen', search: 'Suche' }
         },
         vitals: {
             names: { LCP: 'Largest Contentful Paint', CLS: 'Cumulative Layout Shift', INP: 'Interaction to Next Paint' },

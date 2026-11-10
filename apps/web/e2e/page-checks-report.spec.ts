@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page, type Request } from '@playwright
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, commentBubble, toolbar } from './support/toolbar';
+import { animationsFinished, commentBubble, showChecksTab, toolbar } from './support/toolbar';
 
 // The panels' reporting core (packages/toolbar/docs/page-checks-report.md) on its own page of the
 // reviewed site (`fixture-report`, e2e/support/fixtures/report.ts): WCAG 2.2 target size, what
@@ -140,6 +140,7 @@ test('one comment for all of a rule\'s or a check\'s elements, listed within the
     // An SEO check with several elements gets it from the same list
     await toolbar(page).getByRole('button', { name: /^SEO/ }).click();
     const seo = seoPanel(page);
+    await showChecksTab(seo, 'content');
     const alt = seo.locator('[data-uier-check="alt"]');
     created = nextCreate(page, project);
     await alt.getByRole('button', { name: /^Comment on all 3/ }).click();
@@ -150,6 +151,7 @@ test('one comment for all of a rule\'s or a check\'s elements, listed within the
 
     // After a reload every element it covered is reported, for anyone: no second comment
     await page.reload();
+    await showChecksTab(seo, 'content');
     await expect(alt.getByRole('listitem').filter({ hasText: 'Reported as #4' })).toHaveCount(3);
     await expect(alt.getByRole('button', { name: /^Comment/ })).toHaveCount(0);
     await toolbar(page).getByRole('button', { name: /^Accessibility/ }).click();
@@ -176,6 +178,7 @@ test('on a phone the rows keep their actions in the panel, and Not an issue and 
     await expect(options.getByRole('button', { name: /^SEO, \d+ to look at$/ })).toBeVisible({ timeout: 30_000 });
     await options.getByRole('button', { name: /^SEO/ }).tap();
     const seo = seoPanel(page);
+    await showChecksTab(seo, 'content');
     const alt = seo.locator('[data-uier-check="alt"]');
     // Every row keeps its three actions inside the panel, each 44 px to tap
     const panelBox = (await seo.boundingBox())!;

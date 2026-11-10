@@ -1,6 +1,6 @@
 # Keyboard and screen reader sections
 
-Two sections of the Accessibility panel ([page checks](page-checks.md#sections)) cover what the
+Two sections of the Accessibility panel, each in its own tab (Keyboard, Screen reader; [page checks](page-checks.md#sections)), cover what the
 automated audit cannot judge: how a keyboard moves through the page, and what a screen reader user
 navigates by. They add what axe-core does not report; missing names, `aria-hidden` focusable elements
 and the landmark rules stay with the audit above them. Logic: `src/checks/lazy/keyboard.ts` and
