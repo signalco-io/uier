@@ -15,7 +15,7 @@ import { dirname, join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.1.2';
+const VERSION = '1.2.0';
 const DEFAULT_ENDPOINT = 'https://uier.io/api/mcp';
 const KEYCHAIN_SERVICE = 'uier-mcp';
 const BOOLEAN_FLAGS = new Set(['replace', 'screenshots', 'help']);
@@ -30,8 +30,9 @@ const HELP = `uier monitor helper ${VERSION}
 Usage: node monitor.mjs <command> [--state DIR | --project ID] [options]
 
   version                 Print the version and this file's sha256.
-  check                   Test the uier token, show who it acts as and whether it can keep the
-                          working spinner (Assign feedback), seed the event cursor.
+  check                   Test the uier token, show who it acts as, whether it can keep the
+                          working spinner (Assign feedback), change status and reply, and seed
+                          the event cursor.
   watch [--replace] [--max-minutes N] [--interval SECONDS]
                           Wait without model tokens. Exits with one JSON line when there is
                           something to do; the details go to inbox.json. Keeps the agent
@@ -41,6 +42,8 @@ Usage: node monitor.mjs <command> [--state DIR | --project ID] [options]
   patch '<json>' | -      Apply a JSON merge patch (RFC 7386) to state.json.
   packet ID... [--out DIR] [--screenshots]
                           Save feedback packets (and screenshots) as files for fix sessions.
+  call TOOL '<json>' | -  Call one uier tool with the watcher's token and print its result, for
+                          writes the MCP connection can't make (projectId defaults to the state's).
   token --from-file FILE [--account ID]
                           Store a uier access token in the system keychain.
   stop                    Stop a running watcher.
@@ -51,7 +54,7 @@ project id, its workspace id or "default"). UIER_MCP_URL overrides ${DEFAULT_END
 `;
 
 const { command, opts } = parseArgs(process.argv.slice(2));
-const commands = { help: () => print(HELP), version, check, watch, take, status, patch, packet, token, stop };
+const commands = { help: () => print(HELP), version, check, watch, take, status, patch, packet, call, token, stop };
 
 // ---------------------------------------------------------------- arguments and files
 
@@ -312,27 +315,58 @@ async function check(options) {
             seen.cursor = (await tool(ctx, 'list_feedback_events', { projectId, cursor: null })).cursor;
             seen.forceReconcile = true;
         }
-        const assign = await canAssign(ctx, projectId);
+        const { assign, status: canStatus, reply } = await probeScopes(ctx, projectId);
         // A new token can bring the Assign operation; let the watcher try leases again.
         if (assign === true && seen.leases === 'unsupported') delete seen.leases;
         if (assign === false) seen.leases = 'unsupported';
         // Write only on a change, so a running watcher's cursor isn't overwritten.
         if (JSON.stringify(seen) !== before) writeJson(watchFile, seen);
         print({ ok: true, version: VERSION, actingAs: projects.actingAs, project: { id: project.id, name: project.name, workspace: project.workspace }, cursor: 'set',
-            assign, lease: assign === true ? 'available' : assign === false ? 'unsupported' : 'unknown' });
+            assign, lease: assign === true ? 'available' : assign === false ? 'unsupported' : 'unknown',
+            status: canStatus, reply, writes: canStatus && reply ? 'available' : canStatus === false || reply === false ? 'missing' : 'unknown' });
     } catch (error) {
         print({ ok: false, reason: error.kind === 'auth' ? 'unauthorized' : 'error', message: error.message });
     }
 }
 
-// Whether the token has the Assign operation (feedback:assign), without writing anything:
-// list_assignees needs that scope, and a thread id that doesn't exist answers not_found when it has it.
-async function canAssign(ctx, projectId) {
-    try { await tool(ctx, 'list_assignees', { projectId, commentId: 'uier-monitor-scope-probe', limit: 1 }); return true; }
+// Which operations the token has, without writing anything. uier checks the operation first, so a
+// thread id that doesn't exist answers forbidden ("needs feedback:…") without it and not_found (or,
+// for a status call without a status, invalid_request) with it.
+const PROBE_ID = 'uier-monitor-scope-probe';
+async function probeScopes(ctx, projectId) {
+    const probe = async (scope, name, args) => {
+        try { await tool(ctx, name, { projectId, commentId: PROBE_ID, ...args }); return true; }
+        catch (error) {
+            if (error.code === 'forbidden' && new RegExp(`needs\\W*${scope}`, 'i').test(error.message)) return false;
+            if (error.code === 'not_found' || error.code === 'invalid_request') return true;
+            return null;
+        }
+    };
+    return {
+        assign: await probe('feedback:assign', 'list_assignees', { limit: 1 }),
+        status: await probe('feedback:status', 'set_feedback_status', { idempotencyKey: PROBE_ID }),
+        reply: await probe('feedback:reply', 'reply_to_feedback', { idempotencyKey: PROBE_ID, text: 'scope probe' })
+    };
+}
+
+// One uier tool call with the watcher's token: the orchestrator's way to write when its own MCP
+// connection acts as another account. The token never leaves this process.
+async function call(options) {
+    const dir = stateDir(options);
+    const state = readJson(join(dir, 'state.json'), {});
+    const [name, ...rest] = options._;
+    if (!name || !/^[a-z_]+$/.test(name)) fail(`Pass a uier tool name, for example: call set_feedback_status '{"commentId":"…","status":"done","idempotencyKey":"…"}'`);
+    const raw = rest.length === 0 || rest[0] === '-' ? readFileSync(0, 'utf8') : rest.join(' ');
+    let args;
+    try { args = JSON.parse(raw || '{}'); } catch (error) { fail(`The arguments are not JSON: ${error.message}`); }
+    if (args === null || typeof args !== 'object' || Array.isArray(args)) fail('The arguments must be a JSON object.');
+    if (!args.projectId && state.project?.id) args.projectId = state.project.id;
+    const ctx = connection(state, args.projectId);
+    if (!ctx) { print({ ok: false, tool: name, code: 'no-token' }); process.exitCode = 1; return; }
+    try { print({ ok: true, tool: name, result: await tool(ctx, name, args) }); }
     catch (error) {
-        if (error.code === 'forbidden' && /needs\W*feedback:assign/i.test(error.message)) return false;
-        if (error.code === 'not_found') return true;
-        return null;
+        print({ ok: false, tool: name, code: error.code ?? error.kind, message: error.detail ?? error.message });
+        process.exitCode = 1;
     }
 }
 
@@ -856,6 +890,8 @@ function status(options) {
     if (verify.length) lines.push(`ready to verify: ${verify.map(item => `#${item.number}`).join(' ')}`);
     const waiting = [...byDecision('asked'), ...byDecision('rejected')];
     if (waiting.length) lines.push(`waiting for the person: ${waiting.map(item => `#${item.number} (${item.decision})`).join(' ')}`);
+    const writes = Object.values(items).filter(item => Array.isArray(item.writePending) && item.writePending.length);
+    if (writes.length) lines.push(`uier writes pending (needs the person): ${writes.map(item => `#${item.number} (${item.writePending.map(entry => entry.tool ?? entry).join(', ')})`).join(' ')}`);
     const blocked = groups.filter(([, group]) => group.state === 'blocked');
     if (blocked.length) lines.push(`blocked: ${blocked.map(([id, group]) => `${id} ${label(group.items)}`).join(', ')}`);
     const done = Object.values(items).filter(item => item.stage === 'done' && item.decision !== 'skipped').map(item => item.number).filter(Boolean).sort((a, b) => b - a);

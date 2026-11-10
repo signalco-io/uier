@@ -87,3 +87,22 @@ test('leases forward supplied desktop links, reattach on URL edits/removal, and 
     assert.equal(calls[6].args.sessionId, 'thread-id');
     assert.equal(found.length, 0);
 });
+
+test('check probes each operation without writing: forbidden means missing, not_found means granted', async () => {
+    const context = vm.createContext({ process: { argv: [] }, Date, Set, Map, RegExp });
+    vm.runInContext(source, context);
+    const calls = [];
+    context.missing = new Set(['feedback:status']);
+    context.record = (name, args) => calls.push({ name, args });
+    vm.runInContext(`tool = async (ctx, name, args) => {
+        record(name, args);
+        const scope = { list_assignees: 'feedback:assign', set_feedback_status: 'feedback:status', reply_to_feedback: 'feedback:reply' }[name];
+        const error = new Error(missing.has(scope) ? 'This connection needs ' + scope + '.' : 'Not found');
+        error.code = missing.has(scope) ? 'forbidden' : name === 'set_feedback_status' ? 'invalid_request' : 'not_found';
+        throw error;
+    };`, context);
+    const scopes = await context.probeScopes(null, 'project');
+    assert.deepEqual({ ...scopes }, { assign: true, status: false, reply: true });
+    for (const { args } of calls) assert.equal(args.commentId, 'uier-monitor-scope-probe');
+    assert.equal('status' in calls.find(entry => entry.name === 'set_feedback_status').args, false);
+});
