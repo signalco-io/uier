@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "uier",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Connect website feedback to your coding agent, with skills to monitor a uier project and carry fixes through review and deployment.",
   "author": {
     "name": "signalco",
@@ -88,7 +88,7 @@
         }
       },
       "publication": {
-        "release_notes": "Initial uier plugin: authenticated remote MCP connection, uier-monitor and uier-monitor-script, shared by the repository's Claude Code and Codex marketplaces."
+        "release_notes": "Reduce monitoring overhead with persistent event-triggered T3 wakes, compact state snapshots and deltas, and batching for nearby events and related small fixes. Existing provider routing and delivery checks remain in place."
       }
     }
   }
