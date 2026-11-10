@@ -27,9 +27,9 @@ grants the scope described in the skill. Manual skill links remain an option.
 
 The watcher checks uier with its own access token, so waiting costs no model tokens. When the MCP
 connection has **Create access tokens**, the skill calls `create_access_token` for this project with
-Read feedback, Read screenshots and Assign feedback, requesting 30 days (capped at the creating
-connection’s hard expiry). These operations must already
-belong to the connection. The new token cannot reply, change status or create more tokens.
+Read feedback, Read screenshots, Assign feedback, Change status and Reply to feedback, requesting
+30 days (capped at the creating connection’s hard expiry). These operations must already
+belong to the connection. The new token cannot create more tokens.
 
 The tool returns the secret once. Set `umask 077` in the writing shell before creating the file.
 The skill writes it directly to a new `0600` file in the harness scratchpad, runs `monitor.mjs token --project <id> --from-file <file>` to store it in the macOS
@@ -40,8 +40,8 @@ The token appears under Account → Coding agents → Access tokens, marked with
 created it, and can be revoked there.
 
 Without that permission or the required operations, the skill keeps the existing flow: create a token
-in Account → Coding agents → Access tokens, select the project, choose Read feedback, Read screenshots
-and Assign feedback, and use 30 days. In T3 Code it asks with `request_secret` and file delivery, then
+in Account → Coding agents → Access tokens, select the project, choose Read feedback, Read screenshots,
+Assign feedback, Change status and Reply to feedback, and use 30 days. In T3 Code it asks with `request_secret` and file delivery, then
 imports the file with `monitor.mjs token --from-file`. Elsewhere, import a file or export
 `UIER_MCP_TOKEN` in the environment that starts the coding tool. Without a token the monitor still
 works, but it polls uier itself every 15 minutes, which costs more tokens.
@@ -67,9 +67,22 @@ in member agent details and never in guest responses or connected-service delive
 [validated formats and official documentation](../apps/web/docs/assignee-agents.md#desktop-session-links).
 
 uier only lets the connection that attached an agent report its work, which is why the watcher
-attaches it rather than the orchestrator. Its token can't change status, so the orchestrator moves
-the comment to In progress. With a token without "Assign feedback", or without a token, the
-orchestrator attaches agents itself as before and there is no spinner; the watcher says so once.
+attaches it rather than the orchestrator. When its token can change status, that attachment also
+moves the comment to In progress; with an older token the orchestrator does it. With a token without
+"Assign feedback", or without a token, the orchestrator attaches agents itself as before and there is
+no spinner; the watcher says so once.
+
+### Status changes and replies
+
+The orchestrator's MCP connection and the watcher's token can act as different accounts. If the
+connection is signed in as another of the person's accounts, it can't see their private threads,
+so its status changes and replies fail with `not_found`. `monitor.mjs check` reports whether the
+token can change status and reply (`writes`). When the two act as different accounts, or a write
+through the connection fails on a comment the watcher can read, the orchestrator writes with
+`monitor.mjs call <tool> '<json>'`, which uses the token. A write that fails both ways is kept in
+the item's `writePending`, retried on every wake and listed by `monitor.mjs status`, and every
+monitor message starts with a **Needs you:** line that names the fix: reconnect the uier connection
+as the comments' author, or create a token with the missing operation.
 
 ### Where its files are
 
