@@ -811,6 +811,7 @@ export const es: Messages = {
             couldNotRun: 'No se pudo ejecutar la comprobación de accesibilidad.',
             noIssues: 'No se han encontrado problemas.',
             automatedNote: 'Las comprobaciones automáticas solo encuentran algunos problemas. Prueba también con teclado y lector de pantalla.',
+            issuesEmpty: 'Nada que corregir aquí. Las otras pestañas cubren lo que las comprobaciones automáticas no pueden juzgar.',
             blocked: 'Puede que la Content-Security-Policy del sitio o la conexión bloqueen su script.',
             undecided: 'axe-core no pudo decidir. No se cuenta.',
             tabs: { issues: 'Problemas', keyboard: 'Teclado', screenReader: 'Lector de pantalla', visual: 'Visual' }

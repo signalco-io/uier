@@ -156,6 +156,19 @@ test('the Accessibility panel audits the page in the background without the tool
     await expect(button).toBeFocused();
 });
 
+test('the Accessibility panel\'s Issues tab has a placeholder on a page without issues', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.use.isMobile === true, 'Desktop layout');
+    await signIn(page, uniqueEmail('a11y-empty'));
+    const project = await createProject(page, { urls: [site.origin()] });
+    // Without `?page-checks`, the page has nothing axe-core reports
+    await page.goto(`/app/review/${project}?url=${encodeURIComponent(`${site.origin()}/${project}/pricing`)}`);
+    await toolbar(page).getByRole('button', { name: /^Accessibility/ }).click();
+    const panel = page.getByRole('complementary', { name: 'Accessibility' });
+    await expect(panel.getByRole('status')).toHaveText('No issues found.', { timeout: 20_000 });
+    await expect(panel.locator('[data-uier-issues-empty]')).toHaveText('Nothing to fix here. The other tabs cover what automated checks cannot judge.');
+    await expect(panel.locator('[data-uier-impact]')).toHaveCount(0);
+});
+
 test('the SEO panel reports the head, headings, links, images and Core Web Vitals, and posts page and element issues', async ({ page }, testInfo) => {
     test.skip(testInfo.project.use.isMobile === true, 'Desktop layout; the phone test is below');
     test.setTimeout(90_000);
