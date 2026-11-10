@@ -3,8 +3,19 @@ import { commentAssignees } from '../../agents';
 import { matchesFeedbackSearch } from '../../triage';
 import type { CommentItem } from '../@types/Comments';
 
-/** `unresolved`: Open, not done (In progress and Ready to verify are there too); the others are one status each */
-export type CommentsStatusFilter = 'unresolved' | 'in-progress' | 'ready' | 'resolved' | 'all';
+/**
+ * `unresolved`: Active, everything not done (Open, In progress and Ready to verify), the default; `open`, `in-progress`
+ * and `ready` are the statuses folded under Active, one each; `resolved` is Done. The app's `StatusFilter`.
+ */
+export type CommentsStatusFilter = 'unresolved' | 'open' | 'in-progress' | 'ready' | 'resolved' | 'all';
+
+/** The statuses folded under Active, each also a filter of its own */
+export const activeStatusFilters = ['open', 'in-progress', 'ready'] as const satisfies readonly CommentsStatusFilter[];
+
+/** Whether the status filter shows Active or one of the statuses folded under it */
+export function isActiveStatusFilter(status: CommentsStatusFilter) {
+    return status === 'unresolved' || (activeStatusFilters as readonly CommentsStatusFilter[]).includes(status);
+}
 
 /**
  * Which pages the inbox lists: this page (the default), all of the site's pages, one other

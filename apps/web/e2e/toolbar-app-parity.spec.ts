@@ -72,11 +72,25 @@ test('In progress set in the toolbar reads the same in the app, and back', async
     const thread = openThread(page);
     await setThreadStatus(page, thread, 'In progress');
     await expect(thread.getByRole('group', { name: 'Messages' })).toContainText('Status: In progress');
-    // The inbox has its own tab, between Open and Ready to verify
+    // The inbox's status tabs are the app's: Active, Done and All, with In progress in the Active statuses menu
     await page.getByRole('button', { name: /^Inbox/ }).click();
     const inbox = page.getByRole('complementary', { name: 'Comments' });
-    await expect(inbox.getByRole('group', { name: 'Show comments' }).getByRole('button')).toHaveText([/^Open/, /^In progress/, /^Ready to verify/, /^Done/, /^All/]);
-    await inbox.getByRole('button', { name: /^In progress/ }).click();
+    const tabs = inbox.getByRole('group', { name: 'Show comments' });
+    await expect(tabs.getByRole('button')).toHaveText([/^Active/, '', /^Done/, /^All/]);
+    await expect(tabs.getByRole('button', { name: 'Active 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await tabs.getByRole('button', { name: 'Active statuses', exact: true }).click();
+    const statusMenu = page.getByRole('dialog', { name: 'Active statuses' });
+    await expect(statusMenu.getByRole('button')).toHaveText([/^Active\s*1$/, /^Open\s*0$/, /^In progress\s*1$/, /^Ready to verify\s*0$/]);
+    await statusMenu.getByRole('button', { name: /^In progress/ }).click();
+    await expect(statusMenu).toBeHidden();
+    await expect(tabs.getByRole('button', { name: 'Active: In progress 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(inbox.getByRole('article')).toHaveCount(1);
+    await tabs.getByRole('button', { name: 'Active statuses', exact: true }).click();
+    await statusMenu.getByRole('button', { name: /^Open/ }).click();
+    await expect(inbox.getByRole('article')).toHaveCount(0);
+    // Pressing the Active tab again goes back to every active status
+    await tabs.getByRole('button', { name: 'Active: Open 0', exact: true }).click();
+    await expect(tabs.getByRole('button', { name: 'Active 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(inbox.getByRole('article')).toHaveCount(1);
 
     await page.goto(`/app/projects/${projectId}`);

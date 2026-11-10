@@ -28,7 +28,11 @@
   accent, so it reads as that count's action). There is no Select (uier #179): selecting starts from a row's box, x, or a long press on a
   touch screen ([App triage](triage.md#selection)). The toolbar's inbox has the same count line under its
   filters (`packages/toolbar/src/components/sidebar/MarkAllRead.tsx`: "7 unread", then Mark all as read with its icon), and its
-  Unread toggle ("Unread 7") is a filter like Only unread here: no dot, the count in the unread accent. Neither view has "15 of 93 comments": the
+  Unread toggle ("Unread 7") is a filter like Only unread here: no dot, the count in the unread accent. Its status tabs are these
+  (uier #216, `CommentsStatusTabs` in `sidebar/CommentsSidebarHeader.tsx`): Active (`unresolved`, the default), Done and All, with the
+  same Active statuses menu (a toolbar `Popper`, the `uier-status-filter-menu` part: Active, then Open, In progress and Ready to verify
+  with their status dots and counts) and the same "Active: In progress 4" tab; underlined like the toolbar's other tabs. Site-wide
+  counts come from the activity summary, Open as its not-done count less In progress and Ready to verify. Neither view has "15 of 93 comments": the
   list's status tabs and the board's columns already count what is shown. With no unread count the count line is `sr-only`: it takes no
   room and no gap in the column, and its status stays mounted for announcements. The count line has no side padding of its own and takes the filters header's width, so its
   edges line up with the search and Filter row (and the view toggle) in the list and the board, the board's wide layout too; Select shown results and the bulk actions are in the selection bar that

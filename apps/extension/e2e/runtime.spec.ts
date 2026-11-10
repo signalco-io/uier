@@ -175,7 +175,7 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     await inbox.getByRole('button', { name: /^Done/ }).click();
     await setThreadStatus(reviewed, inbox.getByRole('article'), 'Open');
     await expect(commentBubble(reviewed, 2)).toBeVisible();
-    await inbox.getByRole('button', { name: /^Open/ }).click();
+    await inbox.getByRole('button', { name: /^Active \d/ }).click();
     // Priority is in Thread options; a priority other than Normal shows beside the status
     const options = await threadOptions(reviewed, inbox.getByRole('article'));
     await options.getByRole('button', { name: 'Priority: Normal. Change priority', exact: true }).click();

@@ -34,7 +34,7 @@ const stageDotColors: Record<FeedbackStage, string> = {
     done: 'bg-[hsl(var(--brand-success))]'
 };
 
-function StatusDot({ stage }: { stage: FeedbackStage }) {
+export function StatusDot({ stage }: { stage: FeedbackStage }) {
     return <span aria-hidden="true" data-status-dot={stage} className={cx('size-1.5 shrink-0 rounded-full', stageDotColors[stage])} />;
 }
 

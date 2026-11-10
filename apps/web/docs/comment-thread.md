@@ -7,6 +7,11 @@
   It adds no reads or acknowledgements. See [thread history](read-state-and-activity.md#thread-history)
   for retention, write paths and private-period filtering. Guests receive no history section.
 
+- The toolbar's thread (`CommentThread.tsx`, in pin popovers and inbox cards) keeps its sections 8 px apart: the
+  status line, the messages (16 px between messages) and what follows them, inside 12 px of padding above and
+  below (uier #215). A part that shows nothing renders nothing, so it adds no gap: a quiet anchor's
+  `data-uier-anchor-state` status is the absolutely positioned `sr-only` span alone (`CommentAnchorDetails.tsx`).
+
 - The open thread (`comments/CommentCard.tsx`, one `article` named "Comment by ...") keeps the toolbar's words:
   state, `#number`, the unread dot (the Mark as read button, "Unread. Mark as read") and, on a private thread, the
   Private badge (a ghost badge with no background, muted lock and text; focusable; its tooltip says only workspace admins and the author see it, `canSeeComment`) on the first line with
