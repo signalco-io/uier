@@ -1,14 +1,14 @@
 import { brand } from '@uier/brand';
 import { Button } from '@signalco/ui-primitives/Button';
 import { CheckList, InlineLink, PageHeader, PageSection, Panel, Tile } from '@/src/components/marketing/ContentPage';
-import { ExtensionStoreButton } from '@/src/components/marketing/BrowserExtension';
+import { ExtensionStoreButton, FirefoxExtensionNotice } from '@/src/components/marketing/BrowserExtension';
 import { KnownPages } from '@/src/knownPages';
-import { extensionRelease } from '@/src/lib/extension/release';
+import { extensionRelease, firefoxExtensionRelease } from '@/src/lib/extension/release';
 import { guides } from '@/src/lib/guides';
 import { publicPageMetadata } from '@/src/lib/metadata';
 
 // The public setup guide for the published browser extension. Its source of truth is
-// docs/browser-extension.md (design and receipts) and apps/extension (popup labels, manifest); it
+// docs/browser-extension.md (design and receipts) and packages/extension (popup labels, manifests); it
 // follows the app's setup tab (BrowserExtensionGuide) and docs/browser-extension-listing.md. Change
 // them together, and recheck the steps and labels when a release changes the extension.
 
@@ -72,12 +72,21 @@ export default function BrowserExtensionGuide() {
                     <>The site&rsquo;s exact address in the project. An admin adds it in the project&rsquo;s settings; <code className="font-mono">https://example.com</code> and <code className="font-mono">https://www.example.com</code> are different addresses.</>,
                     'Comments turned on for the project.'
                 ]} />
-                <p className="text-sm leading-relaxed text-muted-foreground">Firefox, Safari, mobile browsers and anonymous guests are not supported. They review through the script and a review link.</p>
+                <FirefoxExtensionNotice />
+                <p className="text-sm leading-relaxed text-muted-foreground">Safari, mobile browsers and anonymous guests use the script and a review link.</p>
             </PageSection>
 
             <PageSection id="install" title="Install the extension" lead="Each reviewer installs it in their own browser.">
+                <Panel className="md:grid-cols-2">
+                    <Tile title="Chrome and Edge">
+                        <p>Add {brand.name} from the Chrome Web Store. In Edge, allow extensions from other stores when it asks.</p>
+                    </Tile>
+                    <Tile title="Firefox">
+                        <p>The Firefox build requires desktop Firefox {firefoxExtensionRelease.minimumBrowserVersion} or later. Once its public release is available, add {brand.name} from Firefox Browser Add-ons, then follow the same sign-in and review steps below.</p>
+                    </Tile>
+                </Panel>
                 <ol className="flex list-decimal flex-col gap-4 pl-5 text-base leading-relaxed">
-                    <li className="pl-2">Open the {brand.name} extension in the Chrome Web Store and add it to your browser. In Edge, allow extensions from other stores when it asks.</li>
+                    <li className="pl-2">Add the extension from the store for your browser using the instructions above.</li>
                     <li className="pl-2">Pin {brand.name} from the browser&rsquo;s extensions menu, or open it with <kbd className="font-mono">{extensionRelease.shortcut}</kbd>.</li>
                     <li className="pl-2">Open the extension and choose <Label>{labels.signIn}</Label>. Sign in to {brand.name} in the window that opens, then confirm.</li>
                 </ol>

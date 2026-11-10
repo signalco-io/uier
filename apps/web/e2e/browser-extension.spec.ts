@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { brand } from '@uier/brand';
 import { KnownPages } from '../src/knownPages';
-import { extensionRelease, extensionStoreUrl } from '../src/lib/extension/release';
+import { extensionRelease, extensionStoreUrl, firefoxExtensionRelease } from '../src/lib/extension/release';
 import { guides } from '../src/lib/guides';
 import { assertAccessibility } from './accessibility';
 
@@ -9,7 +9,9 @@ import { assertAccessibility } from './accessibility';
 // seo.api.spec.ts and social-cards.api.spec.ts check their metadata, sitemap entries and cards.
 
 async function expectStoreLink(page: Page) {
-    await expect(page.getByRole('main').getByRole('link', { name: 'Get the browser extension' })).toHaveAttribute('href', extensionStoreUrl);
+    await expect(page.getByRole('main').getByRole('link', { name: extensionRelease.storeLabel })).toHaveAttribute('href', extensionStoreUrl);
+    await expect(page.getByRole('main').getByText(firefoxExtensionRelease.availabilityMessage, { exact: true })).toBeVisible();
+    await expect(page.locator('main a[href*="addons.mozilla.org"]')).toHaveCount(0);
 }
 
 async function expectSocialMetadata(page: Page, path: string, title: string) {
@@ -36,7 +38,8 @@ test('the extension page explains the review path, its limits and permissions', 
         await expect(steps.getByText(label, { exact: true }).first()).toBeVisible();
     // The names of the app's setup tabs (InstallGuide)
     await expect(page.getByRole('region', { name: 'Script or extension' }).getByRole('heading', { level: 3 })).toHaveText(['Install the script', 'Use the browser extension']);
-    await expect(page.getByRole('region', { name: 'Where it works' })).toContainText('Not supported: Firefox, Safari and mobile browsers');
+    await expect(page.getByRole('region', { name: 'Where it works' })).toContainText('Not supported: Safari and mobile browsers');
+    await expect(page.getByRole('region', { name: 'Where it works' })).toContainText(`Firefox ${firefoxExtensionRelease.minimumBrowserVersion} or later`);
     const privacy = page.getByRole('region', { name: 'Permissions and privacy' });
     await expect(privacy).toContainText('It cannot read your cookies or history');
     await expect(privacy).toContainText('The site’s address, to find projects you can access.');
@@ -57,6 +60,8 @@ test('the setup guide covers installation, reviews, links, headers, screenshots 
     for (const section of ['Before you start', 'Install the extension', 'Review a site', 'Comment links', 'Strict security headers', 'Screenshots', 'Common problems', 'Get help'])
         await expect(page.getByRole('region', { name: section }), section).toBeVisible();
     await expect(page.getByRole('region', { name: 'Install the extension' }).getByRole('listitem')).toHaveCount(3);
+    await expect(page.getByRole('region', { name: 'Install the extension' }).getByRole('heading', { level: 3, name: 'Firefox', exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Install the extension' })).toContainText('Firefox Browser Add-ons');
     await expect(page.getByRole('region', { name: 'Screenshots' }).getByText(extensionRelease.omitScreenshot, { exact: true })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Common problems' }).getByRole('heading', { level: 3 })).toHaveCount(8);
     await expect(page.getByRole('region', { name: 'Common problems' }).getByRole('link', { name: 'service status' })).toHaveAttribute('href', KnownPages.Status);

@@ -37,7 +37,9 @@ browser packages. Installed packages compare it before asking the browser for a 
 Installation uses the script/extension tabs in InstallGuide. Keep Check installation inside the
 script tab; comment activity does not prove embed installation. BrowserExtensionGuide reads the
 server-only distribution gate (UIER_EXTENSION_AVAILABLE=1, valid STORE_ID also in CLIENT_IDS).
-Never invent a store URL or enable it without hosted/store acceptance.
+Never invent a store URL or enable it without hosted/store acceptance. Its current button says
+**Get for Chrome or Edge**. Both the gated and available states also show the shared Firefox
+availability notice; the Chrome distribution gate does not enable Firefox installation.
 
 `public/extension-demo.html` is an unindexed, deliberately plain reviewer fixture without the
 marketing layout, embed, scripts or styles. Its exact-path proxy policy denies all page resource
@@ -46,17 +48,23 @@ project. The API check preserves that boundary; the browser check scans its cont
 because the ordinary public-page accessibility helper waits for a showcase toolbar.
 
 The public `/browser-extension` page and the `/guides/browser-extension` setup guide describe the
-published 0.1.2 extension. Their copy follows BrowserExtensionGuide, the listing worksheet, the
-popup (`packages/extension/src/popup.tsx`) and the receipts in `docs/browser-extension.md`; popup labels
-and the published store ID live in `src/lib/extension/release.ts` (static pages build without the
-hosted `UIER_EXTENSION_*` settings). The store button uses the same `chromeWebStoreUrl` as the app's
-link. Recheck both pages, and the legal pages' extension sections, when a release changes labels,
+shared runtime and each browser's release status. Their copy follows BrowserExtensionGuide, the
+listing worksheet, the popup (`packages/extension/src/popup.tsx`) and the receipts in
+`docs/browser-extension.md`. Popup labels, the published Chrome store ID, store button label and
+Firefox notice live in `src/lib/extension/release.ts` (static pages build without the hosted
+`UIER_EXTENSION_*` settings). The store button uses the same `chromeWebStoreUrl` as the app's link.
+Recheck both pages, and the legal pages' extension sections, when a release changes labels,
 permissions, sign-in or capture. `browser-extension.api.spec.ts` checks the store link and
 `browser-extension.spec.ts` their content.
 
 `/browser-extension` lists the supported browsers under the hero: desktop Chrome and Microsoft Edge
-from `minimumBrowserVersion`, nothing else until the manifest supports it; the "Where it works"
-section keeps the unsupported browsers and pages. Its pictures (`ExtensionSpecimens`) are the popup
+from `minimumBrowserVersion`. Firefox's shared build requires version 153 or later; its 0.1.5 native
+hosted acceptance passed and its submission is awaiting Mozilla review. The homepage, FAQ, public
+pages and app installation guide show the same notice. The setup guide describes Firefox Browser
+Add-ons installation for when the release is available, then shares the sign-in/review steps.
+No Firefox download link is offered before approval and store acceptance. Safari and mobile use the
+script. The "Where it works" section keeps the unsupported browsers and pages. Its pictures
+(`ExtensionSpecimens`) are the popup
 in its "Review this site" state and the expanded review toolbar on the landing page's example site,
 built from the tokens and hidden from assistive technologies, never screenshots or generated
 images. Change them with `packages/extension/src/popup.tsx` and the toolbar's `CommentToolbar`.

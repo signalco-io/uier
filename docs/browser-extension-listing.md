@@ -4,6 +4,19 @@ Copy and artwork for the public [Chrome Web Store listing](https://chromewebstor
 Change the dashboard and this worksheet together. Account, reviewer access and disclosure setup
 is recorded in the [release runbook](browser-extension-release.md).
 
+Firefox uses the same runtime with separate [Mozilla metadata](../apps/extension-firefox/amo-metadata.json)
+and [release controls](browser-extension-firefox-release.md). Version 0.1.5 is submitted and awaiting
+review as of 10 November 2026; this does not make it publicly installable. Its category is **Web
+Development**, language **English (US)**, support email **contact@signalco.io**, and homepage/privacy
+addresses match the table below. The production icon and a native Firefox screenshot from the
+isolated fictional demo project are saved in Developer Hub. The release receipt retains the exact
+ZIP and reviewer source, AGPL license, screenshot and native acceptance evidence.
+
+The common sign-in, project selection, review and screenshot instructions below also apply to
+desktop Firefox 153 or later once its store release is available. Firefox keeps the refresh
+credential in private extension-origin IndexedDB; Chrome and Edge use restricted extension local
+storage. Both keep access tokens, proofs, bindings and drafts in private session storage.
+
 | Field | Listing |
 | --- | --- |
 | Name | uier |

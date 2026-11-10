@@ -8,7 +8,7 @@ import { PIN_PATH, PIN_VIEWBOX } from '@uier/brand';
 import { extensionRelease } from '../../lib/extension/release';
 import { Avatar, floating } from './LandingSpecimens';
 
-// Static pictures of the browser extension for /browser-extension: its popup (apps/extension/src/popup.tsx,
+// Static pictures of the browser extension for /browser-extension: its popup (packages/extension/src/popup.tsx,
 // the "Review this site" state with two matching projects) and the review toolbar it starts
 // (packages/toolbar CommentToolbar, expanded). Built from the tokens like the landing specimens, never
 // screenshots; hidden from assistive technologies, since the captions and steps say the same. Recheck
