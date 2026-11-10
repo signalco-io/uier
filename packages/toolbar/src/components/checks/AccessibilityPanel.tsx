@@ -97,6 +97,8 @@ export function AccessibilityPanel({ state, path, onCheck, onClose }: {
     const status = checking ? a.checkingPage
         : error ? a.couldNotRun
             : report ? (report.count ? a.found(a.issues(report.count)) : a.noIssues) : '';
+    // With issues, the tiles show how many: the status is read out only
+    const statusShown = checking || error || !shown?.count;
     // A summary tile pressed: only its impact's rules, without the sections to review or check by hand
     const [selected, setFilter] = useState<Impact>();
     const counts = Object.fromEntries(impacts.map(impact => [impact, elementCount(shown?.rules.filter(rule => rule.impact === impact) ?? [])])) as Record<Impact, number>;
@@ -105,7 +107,7 @@ export function AccessibilityPanel({ state, path, onCheck, onClose }: {
     return (
         <ChecksPanel id="accessibility" title={a.title} checking={checking} onCheckAgain={onCheck} onClose={onClose}>
             <div className="flex flex-col gap-2">
-                <p role="status" className="m-0 flex items-center gap-2 px-1 text-sm text-foreground">
+                <p role="status" className={statusShown ? 'm-0 flex items-center gap-2 px-1 text-sm text-foreground' : 'sr-only'}>
                     {checking && <LoaderSpinner size={16} aria-hidden="true" className="motion-safe:animate-spin" />}
                     {shown && !error && !shown.count && <Check size={16} aria-hidden="true" className="text-[hsl(var(--brand-success))]" />}
                     {status}
