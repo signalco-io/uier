@@ -404,7 +404,8 @@ error boundary, so one bad comment never breaks the toolbar.
   (save for edits); a phone's on-screen Enter key sends and has no Shift, so there the textarea's `enterkeyhint`
   labels that key Send (Done for edits) instead.
   Unsent text is kept when the popover closes (a new comment stays as a draft pin until it is posted or discarded).
-  A composer that opens with such kept text says "Draft saved in this browser" under its box (only from the start,
+  A comment, rewrite, reply or edit composer that opens with such kept text says "Draft saved in this browser" under
+  its box (feedback and bug reports just show the text again; only from the start,
   so nothing appears or moves while typing; not while sending, after an error, or when storage is unavailable).
   While a new comment or rewrite draft pin is closed, **Resume draft** appears above the pill: it scrolls the pin
   into view when needed and opens its composer with the text (the latest draft when there are two).

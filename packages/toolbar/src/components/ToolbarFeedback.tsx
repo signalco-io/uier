@@ -171,6 +171,7 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
                 holdSubmit={attachment.reading}
                 attachments={<ComposerAttachButton attachment={attachment} />}
                 error={create.error}
+                draftCue={false}
                 onSubmit={handleSubmit} />
         </div>
     );

@@ -135,6 +135,8 @@ test('page feedback, bugs and edits keep separate drafts and sign-out clears eve
     await expect(feedback.getByRole('textbox', { name: 'Bug report', exact: true })).toHaveValue('Bug draft');
     await feedback.getByRole('button', { name: 'Feedback', exact: true }).click();
     await expect(feedback.getByRole('textbox', { name: 'Feedback', exact: true })).toHaveValue('Feedback draft');
+    // The kept text is the cue: no "Draft saved in this browser" line under the feedback box
+    await expect(feedback.getByText('Draft saved in this browser')).toHaveCount(0);
     await feedback.getByRole('button', { name: 'Send feedback', exact: true }).click();
     await expect(feedback).toBeHidden();
     // Sent in the background: saved before leaving the page
