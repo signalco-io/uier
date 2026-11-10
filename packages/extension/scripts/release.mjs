@@ -48,7 +48,7 @@ export async function sourceArchive({ directory, version, cwd = process.cwd() })
 
 // The journal must be persisted outside the runner before each non-idempotent store write.
 // Callers serialize browser submissions in the workflow so release creation cannot race Chrome.
-export async function releaseJournal({ directory, tag, browser, artifact, extraFiles = [], gh = (...args) => execFileSync('gh', args, { stdio: ['ignore', 'pipe', 'pipe'] }) }) {
+export async function releaseJournal({ directory, tag, browser, artifact, extraFiles = [], gh = (...args) => execFileSync('gh', args, { stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 64 * 1024 * 1024 }) }) {
     const version = releaseVersion(tag);
     const releases = JSON.parse(gh('api', `repos/${repository}/releases?per_page=100`));
     let release = releases.find(item => item.tag_name === tag);

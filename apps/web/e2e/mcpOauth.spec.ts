@@ -257,3 +257,89 @@ test('cancelling sends access_denied back, a used request cannot be reused, and 
         expect(new URL(href).origin).toBe(origin);
     await expectNoAxeViolationsInThemes(page, testInfo, 'connect-error');
 });
+
+test('one coding-tool connection includes selected accounts and projects after the browser switches accounts', async ({ page, context, baseURL }, testInfo) => {
+    const a = uniqueEmail('mcp-profile-a');
+    const b = uniqueEmail('mcp-profile-b');
+    await signIn(page, a);
+    const projectA = await createProject(page, { name: 'Profile A review', urls: ['https://profile-a.example'] });
+    const { userId: userA } = await (await context.request.get('/api/account/sessions')).json() as { userId: string };
+    await signIn(page, b, { from: '/app/sign-in?add=1' });
+    const projectB = await createProject(page, { name: 'Profile B review', urls: ['https://profile-b.example'] });
+    await createProject(page, { name: 'Profile B excluded', urls: ['https://excluded.example'] });
+    const { userId: userB } = await (await context.request.get('/api/account/sessions')).json() as { userId: string };
+    const activeCookie = (await context.cookies()).find(cookie => cookie.name === 'uier_session')!.value;
+    const flow = await startSignIn(baseURL, 'Multi-profile tool');
+    try {
+        await page.goto(flow.authorizationUrl);
+        const accountA = page.getByRole('group', { name: a, exact: true });
+        const accountB = page.getByRole('group', { name: b, exact: true });
+        await expect(accountA.getByRole('checkbox', { name: `Include ${a}`, exact: true })).not.toBeChecked();
+        await expect(accountB.getByRole('checkbox', { name: `Include ${b}`, exact: true })).toBeChecked();
+        await accountB.getByRole('checkbox', { name: `Include ${b}`, exact: true }).uncheck();
+        await expect(page.getByRole('button', { name: 'Allow access', exact: true })).toBeDisabled();
+        await accountB.getByRole('checkbox', { name: `Include ${b}`, exact: true }).check();
+        await accountA.getByRole('checkbox', { name: `Include ${a}`, exact: true }).check();
+        for (const [account, projectName] of [[accountA, 'Profile A review'], [accountB, 'Profile B review']] as const) {
+            await account.getByRole('radio', { name: 'Choose workspaces and projects', exact: true }).click();
+            await account.getByRole('checkbox', { name: projectName, exact: true }).check();
+        }
+        expect((await context.cookies()).find(cookie => cookie.name === 'uier_session')!.value).toBe(activeCookie);
+        await expect(page.getByText(`Signed in as ${b}.`)).toBeVisible();
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+        await expectNoAxeViolationsInThemes(page, testInfo, 'multi-account-consent');
+        await page.getByRole('button', { name: 'Allow access', exact: true }).click();
+        const callback = await flow.listener.received;
+        expect(callback.searchParams.get('state')).toBe(flow.provider.stateValue);
+        expect(await auth(flow.provider, {
+            serverUrl: flow.serverUrl, resourceMetadataUrl: flow.resourceMetadataUrl, scope: flow.scope,
+            authorizationCode: callback.searchParams.get('code')!
+        })).toBe('AUTHORIZED');
+        const client = new Client({ name: 'multi-profile-browser-regression', version: '1.0.0' });
+        await client.connect(new StreamableHTTPClientTransport(flow.serverUrl, { authProvider: flow.provider }));
+        try {
+            const listed = async () => (await client.callTool({ name: 'list_projects', arguments: { limit: 25 } })).structuredContent as {
+                items: { id: string; account: { id: string; email: string } }[]
+            };
+            expect((await listed()).items).toEqual(expect.arrayContaining([
+                expect.objectContaining({ id: projectA, account: expect.objectContaining({ id: userA, email: a }) }),
+                expect.objectContaining({ id: projectB, account: expect.objectContaining({ id: userB, email: b }) })
+            ]));
+            expect((await listed()).items).toHaveLength(2);
+            // Account and project choices are durable OAuth consent, independent of the browser's active cookie.
+            expect((await context.request.post('/api/account/sessions', {
+                headers: { Origin: baseURL!, 'Sec-Fetch-Site': 'same-origin' }, data: { action: 'switch', userId: userA }
+            })).status()).toBe(200);
+            expect((await listed()).items.map(item => item.id).sort()).toEqual([projectA, projectB].sort());
+            expect((await context.request.post('/api/account/sessions', {
+                headers: { Origin: baseURL!, 'Sec-Fetch-Site': 'same-origin' }, data: { action: 'sign-out-all' }
+            })).status()).toBe(200);
+            expect(await (await context.request.get('/api/account/sessions')).json()).toEqual({ userId: null });
+            expect((await listed()).items.map(item => item.id).sort()).toEqual([projectA, projectB].sort());
+        } finally { await client.close(); }
+    } finally { await flow.listener.close(); }
+});
+
+test('approval rechecks a parked account removed since the consent page opened', async ({ page, context, baseURL }) => {
+    const a = uniqueEmail('mcp-expired-profile');
+    const b = uniqueEmail('mcp-active-profile');
+    await signIn(page, a);
+    await signIn(page, b, { from: '/app/sign-in?add=1' });
+    const flow = await startSignIn(baseURL, 'Account proof tool');
+    try {
+        await page.goto(flow.authorizationUrl);
+        const consentUrl = page.url();
+        await page.getByRole('checkbox', { name: `Include ${a}`, exact: true }).check();
+        await expect(page.getByRole('checkbox', { name: `Include ${b}`, exact: true })).toBeChecked();
+        await context.clearCookies({ name: 'uier_account_1' });
+        await page.getByRole('button', { name: 'Allow access', exact: true }).click();
+        await expect(page.getByRole('alert').filter({ hasText: 'An account is no longer signed in.' })).toBeVisible();
+        await expect(page).toHaveURL(consentUrl);
+        // Failed approval leaves the request pending; reloading can still cancel it normally.
+        await page.reload();
+        await expect(page.getByRole('heading', { name: 'Connect Account proof tool to uier', exact: true })).toBeVisible();
+        await expect(page.getByRole('checkbox', { name: `Include ${a}`, exact: true })).toHaveCount(0);
+        await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+        expect((await flow.listener.received).searchParams.get('error')).toBe('access_denied');
+    } finally { await flow.listener.close(); }
+});

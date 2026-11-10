@@ -37,3 +37,11 @@ Account section links use Next.js navigation and preserve the document and feedb
   workspace access and recent-sign-in/email-proof checks always belong to the active account.
   A fresh sign-in for a protected account action keeps the other accounts signed in. See
   [sign-in](sign-in.md#several-accounts-in-one-browser).
+- **Coding tool account selection.** MCP consent can explicitly include any of the browser's five
+  signed-in accounts, with a separate workspace/project selection for each. Only the active account
+  starts selected; choosing an account does not switch the browser. The active account at approval
+  manages the resulting connection in Coding agents, even when it was excluded from project access.
+  Its connection details show included profiles and their selections; profile email and project names
+  are shown only for accounts currently signed in to that browser. Switching or signing out of browser
+  accounts does not revoke the approved MCP connection. Revoke from its managing account ends access
+  for all selected profiles. Reconnect and replace it to change the selection. See [MCP connector](mcp-connector.md).

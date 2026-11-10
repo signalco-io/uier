@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { test, expect } from '@playwright/test';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { signIn, uniqueEmail, createProject, appNavigation, closeAppNavigation } from './support/app';
-import { PUBLIC_PROJECT_ID } from '../src/lib/comments/publicProject';
+import { USER_FEEDBACK_PROJECT_ID } from '../src/lib/comments/publicProject';
 import { expectNoAxeViolations } from './accessibility';
 
 test('a person grants selected feedback access, connects a compatible client, and revokes it', async ({ page, baseURL }, testInfo) => {
@@ -116,8 +116,8 @@ test('feedback on a customer project page exports its uier owner and needs a gra
     expect(response.status(), await response.text()).toBe(201);
     const saved = await response.json();
     const packet = await (await page.request.get(`/api/comments/${saved.id}/context`)).json();
-    expect(packet.context.identity.projectId).toBe(PUBLIC_PROJECT_ID);
-    expect(packet.markdown).toContain(`Project: \` ${PUBLIC_PROJECT_ID} \``);
+    expect(packet.context.identity.projectId).toBe(USER_FEEDBACK_PROJECT_ID);
+    expect(packet.markdown).toContain(`Project: \` ${USER_FEEDBACK_PROJECT_ID} \``);
     expect(packet.context.source.path).toBe(`/app/projects/${projectId}`);
     const stranger = await playwright.request.newContext({ baseURL });
     try { expect((await stranger.get(`/api/comments/${saved.id}/context`)).status()).toBe(404); }
@@ -151,15 +151,15 @@ test('feedback on a customer project page exports its uier owner and needs a gra
     await appNavigation(page);
     await page.getByRole('button', { name: /^Workspace:/ }).click();
     await page.getByRole('menuitem', { name: /^Feedback on uier/ }).click();
-    await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io public feedback', exact: true }))
-        .toHaveAttribute('href', `/app/projects/${PUBLIC_PROJECT_ID}`);
+    await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io user feedback', exact: true }))
+        .toHaveAttribute('href', `/app/projects/${USER_FEEDBACK_PROJECT_ID}`);
     await closeAppNavigation(page);
-    const uier = await connect('uier access', 'uier.io public feedback', true);
+    const uier = await connect('uier access', 'uier.io user feedback', true);
     try {
         const args = { projectId: packet.context.identity.projectId, commentId: saved.id };
         const read = await uier.callTool({ name: 'get_feedback', arguments: args });
         expect(read.isError).not.toBe(true);
-        expect(read.structuredContent).toMatchObject({ context: { identity: { projectId: PUBLIC_PROJECT_ID, commentId: saved.id }, feedback: { text: 'Move this action into the header' } } });
+        expect(read.structuredContent).toMatchObject({ context: { identity: { projectId: USER_FEEDBACK_PROJECT_ID, commentId: saved.id }, feedback: { text: 'Move this action into the header' } } });
         const resolved = await uier.callTool({ name: 'set_feedback_status', arguments: { ...args, resolved: true, idempotencyKey: crypto.randomUUID() } });
         expect(resolved.isError).not.toBe(true);
         expect((await (await page.request.get(`/api/comments/${saved.id}/context`)).json()).context.status).toBe('done');

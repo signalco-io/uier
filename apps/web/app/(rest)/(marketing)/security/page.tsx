@@ -44,7 +44,7 @@ const controls = [
     },
     {
         title: 'Coding tool sign-in',
-        text: 'Coding tools sign in through uier’s own OAuth server, for the MCP endpoint only. PKCE is required, codes work once within 60 seconds, access tokens last one hour and refresh tokens change on every use. Only token hashes are stored. Revoking a connection in Account ends its access on the next request.'
+        text: 'Coding tools sign in through uier’s own OAuth server, for the MCP endpoint only. You choose which signed-in accounts to include and the workspaces and projects each can reach. Every project action checks one account’s current permissions. PKCE is required, codes work once within 60 seconds, access tokens last one hour and refresh tokens change on every use. Only token hashes are stored. Revoking a connection from its managing account ends its access on the next request.'
     },
     {
         title: 'Coding tool events',

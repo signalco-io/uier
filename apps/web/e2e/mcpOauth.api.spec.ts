@@ -848,14 +848,15 @@ test('"all" reaches every workspace the person can access now and later, ordered
         expect(listed.actingAs).toMatchObject({ userId: a.user.id, credential: 'Claude Code', connection: { kind: 'oauth' } });
         const ownWorkspace = { id: a.workspaceId, name: 'Personal' };
         const bWorkspace = { id: b.workspaceId, name: 'Personal' };
+        const account = { id: a.user.id, name: a.user.name, email: a.user.email };
         expect(listed.items.map((item: { id: string }) => item.id)).toEqual([USER_FEEDBACK_PROJECT_ID, alpha.id, zeta.id, beta.id]);
         expect(listed.items[0].workspace.id).toBe(PUBLIC_WORKSPACE_ID);
         expect(listed.items.slice(1)).toEqual([
-            { id: alpha.id, name: 'Alpha site', status: 'active', workspace: ownWorkspace },
-            { id: zeta.id, name: 'Zeta site', status: 'active', workspace: ownWorkspace },
-            { id: beta.id, name: 'Beta site', status: 'active', workspace: bWorkspace }
+            { id: alpha.id, name: 'Alpha site', status: 'active', workspace: ownWorkspace, account },
+            { id: zeta.id, name: 'Zeta site', status: 'active', workspace: ownWorkspace, account },
+            { id: beta.id, name: 'Beta site', status: 'active', workspace: bWorkspace, account }
         ]);
-        expect((await callTool(client, 'list_projects', { workspaceId: b.workspaceId })).items).toEqual([{ id: beta.id, name: 'Beta site', status: 'active', workspace: bWorkspace }]);
+        expect((await callTool(client, 'list_projects', { workspaceId: b.workspaceId })).items).toEqual([{ id: beta.id, name: 'Beta site', status: 'active', workspace: bWorkspace, account }]);
         expect((await callTool(client, 'list_projects', { workspaceId: 'w_unknown' })).items).toEqual([]);
         const paged = await callTool(client, 'list_projects', { limit: 2 });
         expect(paged).toMatchObject({ nextCursor: 2 });
@@ -958,7 +959,8 @@ test('list_projects scans at most 50 workspaces and asks for a workspace filter 
         expect(listed.items.map((item: { id: string }) => item.id)).toEqual([USER_FEEDBACK_PROJECT_ID]);
         const filtered = await callTool(client, 'list_projects', { workspaceId: workspaceIds.at(-1) });
         expect(filtered.truncated).toBeUndefined();
-        expect(filtered.items).toEqual([{ id: last.id, name: 'Last workspace project', status: 'active', workspace: { id: workspaceIds.at(-1), name: 'Bound 49' } }]);
+        expect(filtered.items).toEqual([{ id: last.id, name: 'Last workspace project', status: 'active', workspace: { id: workspaceIds.at(-1), name: 'Bound 49' },
+            account: { id: a.user.id, name: a.user.name, email: a.user.email } }]);
         // Tools reach a project beyond the bound directly.
         expect((await callTool(client, 'list_feedback', { projectId: last.id })).error).toBeUndefined();
     } finally { await client.close(); }

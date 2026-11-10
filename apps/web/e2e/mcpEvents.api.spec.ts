@@ -4,6 +4,8 @@ import { z } from 'zod';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { handleMcp } from '../src/lib/mcp/http';
 import { createMcpCredential, revokeMcpCredential } from '../src/lib/mcp/credentials';
+import { userPk, type McpAccountAccess, type McpGrant } from '../src/lib/mcp/oauth/grants';
+import type { McpAccessToken } from '../src/lib/mcp/oauth/tokens';
 import { mcpRequestEventSchema, type McpRequestEvent } from '../src/lib/mcp/telemetry';
 import { dispatchProjectEvents, type McpEventDelivery } from '../src/lib/mcp/events/delivery';
 import { eventsPk, type McpEventSubscription } from '../src/lib/mcp/events/subscriptions';
@@ -13,11 +15,12 @@ import { serverCard } from '../src/lib/mcp/serverCard';
 import { subscriptionWatermark, type McpEventCursor } from '../src/lib/mcp/events/watermark';
 import { callbackUrl, webhookSecretBytes } from '../src/lib/mcp/events/webhook';
 import { getAppStore, updateDoc } from '../src/lib/app/store';
+import { sha256Hex } from '../src/lib/app/tokens';
 import { findOrCreateUser } from '../src/lib/app/users';
 import { ensureOwnWorkspace } from '../src/lib/app/workspaces';
 import { getProject, createProject } from '../src/lib/app/projects';
 import { joinPublicProject, PUBLIC_WORKSPACE_ID, USER_FEEDBACK_PROJECT_ID } from '../src/lib/comments/publicProject';
-import { memberId, workspacePk, type DbMember } from '../src/lib/app/model';
+import { memberId, workspacePk, type DbMember, type DbUser } from '../src/lib/app/model';
 import type { AppContext } from '../src/lib/app/context';
 import { createProjectComment, replyToProjectComment, setProjectCommentAssignee, setProjectCommentAssignees, setProjectCommentPrivate, setProjectCommentResolved } from '../src/lib/review/comments';
 import { setProjectCommentAgent } from '../src/lib/review/assigneeAgent';
@@ -88,6 +91,109 @@ function poll(client: Client, params: Record<string, unknown>) {
 }
 function data(result: Awaited<ReturnType<Client['callTool']>>) { return result.structuredContent as Record<string, any>; }
 const dispatch = (projectId: string, now?: () => number) => dispatchProjectEvents(projectId, { baseUrl: base, deadline: Date.now() + 15_000, ...(now ? { now } : {}) });
+
+async function accountEventConnection(owner: DbUser, accounts: McpAccountAccess[]) {
+    const now = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + 86_400_000).toISOString();
+    const grant: McpGrant = {
+        type: 'mcp-grant', id: `grant_${randomBytes(16).toString('base64url')}`, pk: userPk(owner.id), userId: owner.id,
+        clientId: 'uier_client_account_events', client: { name: 'Account event watcher', kind: 'dcr', redirectHost: null },
+        name: 'Account event watcher', resource: `${base}/api/mcp`, scopes: ['feedback:read'],
+        access: { kind: 'selected', workspaces: [] }, accounts,
+        createdAt: now, updatedAt: now, idleExpiresAt: expiresAt, absoluteExpiresAt: expiresAt
+    };
+    const token = `uier_at.${owner.id}.${randomBytes(32).toString('base64url')}`;
+    const access: McpAccessToken = {
+        type: 'mcp-access-token', id: sha256Hex(token), pk: grant.pk, userId: owner.id,
+        grantId: grant.id, clientId: grant.clientId, resource: grant.resource, expiresAt
+    };
+    expect(await getAppStore().create(grant)).toBe(true);
+    expect(await getAppStore().create(access)).toBe(true);
+    return { token, grant };
+}
+
+test('secondary-account OAuth events use its assignments and the managing account grant', async () => {
+    const f = await fixture();
+    const owner = await findOrCreateUser(`mcp-events-manager-${randomUUID()}@example.com`);
+    const { token, grant } = await accountEventConnection(owner, [{ userId: f.user.id, access: {
+        kind: 'selected', workspaces: [{ workspaceId: f.project.workspaceId, projects: [f.project.id] }]
+    } }]);
+    const receiver = await new WebhookReceiver().start();
+    const client = await connect(token);
+    try {
+        const secret = newWebhookSecret();
+        receiver.secrets.add(secret);
+        const args = { name: 'feedback.assignment_changed', arguments: { projectId: f.project.id, assignee: 'me' } };
+        const subscribed = await subscribe(client, { ...args, delivery: { mode: 'webhook', url: receiver.url, secret } });
+        const stored = (await getAppStore().get<McpEventSubscription>(eventsPk(f.project.id), subscribed.id))!.doc;
+        expect(stored).toMatchObject({ userId: owner.id, actorUserId: f.user.id, connectionId: grant.id, connectionKind: 'oauth' });
+        const { cursor } = await poll(client, { ...args, cursor: null });
+        const thread = await f.create('Assigned under the selected profile');
+        await setProjectCommentAssignee(f.project, f.actor, thread.id, f.user.id);
+        expect(await dispatch(f.project.id)).toMatchObject({ discovered: 1, delivered: 1 });
+        expect(receiver.deliveries('feedback.assignment_changed')[0]!.json.data).toMatchObject({
+            commentId: thread.id, assignee: { id: f.user.id }
+        });
+        const page = await poll(client, { ...args, cursor });
+        expect(page.events.map(event => event.data.assignee.id)).toEqual([f.user.id]);
+
+        // The selected profile has no grant in its own partition; delivery must use the managing account.
+        expect(await getAppStore().get(userPk(f.user.id), grant.id)).toBeNull();
+        await getAppStore().delete(grant.pk, grant.id);
+        const later = await f.create('The managing account revoked the connection');
+        await setProjectCommentAssignee(f.project, f.actor, later.id, f.user.id);
+        expect(await dispatch(f.project.id)).toMatchObject({ delivered: 0, skipped: 1 });
+        expect(await getAppStore().get(eventsPk(f.project.id), subscribed.id)).toBeNull();
+        expect(receiver.deliveries()).toHaveLength(1);
+    } finally { await client.close(); await receiver.stop(); }
+});
+
+test('webhook profile changes end old subscriptions and resubscription skips queued actor events', async () => {
+    const f = await fixture();
+    const owner = await findOrCreateUser(`mcp-events-manager-${randomUUID()}@example.com`);
+    const alternate = await findOrCreateUser(`mcp-events-alternate-${randomUUID()}@example.com`);
+    const alternateMember: DbMember = { type: 'member', id: memberId(alternate.id), pk: workspacePk(f.project.workspaceId),
+        workspaceId: f.project.workspaceId, userId: alternate.id, email: alternate.email, role: 'admin', projects: 'all', createdAt: new Date().toISOString() };
+    expect(await getAppStore().create(alternateMember)).toBe(true);
+    const alternateActor = (await memberActor(f.project, alternate.id))!;
+    const access = { kind: 'selected' as const, workspaces: [{ workspaceId: f.project.workspaceId, projects: [f.project.id] }] };
+    const { token } = await accountEventConnection(owner, [{ userId: f.user.id, access }, { userId: alternate.id, access }]);
+    const receiver = await new WebhookReceiver().start();
+    const client = await connect(token);
+    try {
+        const secret = newWebhookSecret();
+        receiver.secrets.add(secret);
+        const delivery = { mode: 'webhook', url: receiver.url, secret };
+        const args = { name: 'feedback.assignment_changed', arguments: { projectId: f.project.id, assignee: 'me' } };
+        const assigned = await subscribe(client, { ...args, delivery });
+        const created = await subscribe(client, { name: 'feedback.created', arguments: { projectId: f.project.id }, delivery });
+        receiver.status = 503;
+        const thread = await f.create('Queued for the original profile');
+        await setProjectCommentAssignee(f.project, f.actor, thread.id, f.user.id);
+        expect(await dispatch(f.project.id)).toMatchObject({ discovered: 2, retrying: 2 });
+        expect(receiver.deliveries()).toHaveLength(2);
+
+        // Losing membership selects the next explicitly authorized account for new requests.
+        await getAppStore().delete(workspacePk(f.project.workspaceId), memberId(f.user.id));
+        receiver.status = 200;
+        const renewed = await subscribe(client, { ...args, delivery });
+        expect(renewed.id).toBe(assigned.id);
+        expect((await getAppStore().get<McpEventSubscription>(eventsPk(f.project.id), renewed.id))!.doc.actorUserId).toBe(alternate.id);
+        // Make the failed attempts due without moving the discovery clock into the future.
+        for (const queued of await getAppStore().query<McpEventDelivery>({ type: 'mcp-event-delivery', pk: eventsPk(f.project.id) })) {
+            const stored = (await getAppStore().get<McpEventDelivery>(queued.pk, queued.id))!;
+            expect(await getAppStore().replace({ ...stored.doc, nextAttemptAt: new Date().toISOString() }, stored.etag)).toBe('ok');
+        }
+        expect(await dispatch(f.project.id)).toMatchObject({ delivered: 0, skipped: 2 });
+        expect(receiver.deliveries()).toHaveLength(2);
+        expect(await getAppStore().get(eventsPk(f.project.id), created.id)).toBeNull();
+        expect(await getAppStore().get(eventsPk(f.project.id), assigned.id)).not.toBeNull();
+
+        await setProjectCommentAssignee(f.project, alternateActor, thread.id, alternate.id);
+        expect(await dispatch(f.project.id)).toMatchObject({ discovered: 1, delivered: 1 });
+        expect(receiver.deliveries('feedback.assignment_changed').at(-1)!.json.data.assignee.id).toBe(alternate.id);
+    } finally { await client.close(); await receiver.stop(); }
+});
 
 test('initialize advertises the events extension and events/list describes webhook, push and poll feedback events', async () => {
     const f = await fixture();

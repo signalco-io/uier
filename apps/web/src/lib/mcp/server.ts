@@ -7,7 +7,7 @@ import { screenshotBytes } from '../screenshots/blobStore';
 import { McpServer, ProtocolError, ProtocolErrorCode, ResourceTemplate } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 import { pagePath } from '@uier/toolbar/page-state';
-import { mcpProject, requireMcpScope, type McpIdentity } from './credentials';
+import { mcpAccounts, mcpProject, requireMcpScope, type McpIdentity } from './credentials';
 import { accessCovers, listAccessibleWorkspaces } from './oauth/grants';
 import { ApiError, apiErrors } from '../comments/http';
 import { MAX_SCREENSHOT_BYTES } from '../comments/limits';
@@ -40,11 +40,15 @@ import { assignedAgents, assignedUserIds, agentIdSchema, assigneeIdsSchema, assi
 import { agentSessionUrlSchema, assigneeAgentViews } from '../review/assigneeAgentModel';
 import { messageAgentView } from '../review/messageAgent';
 import { createAccessToken, createAccessTokenSchema } from './createAccessToken';
+import type { DbUser } from '../app/model';
 
 const page = {
     limit: z.number().int().min(1).max(25).default(20).describe('Results per page: 1–25, default 20. Use nextCursor for more results.'),
     cursor: z.number().int().min(0).max(1000).default(0).describe('Offset returned as nextCursor by the previous page, or 0 for the first page.')
 };
+// Project discovery spans several accounts, so its continuation can exceed one account's scan limit.
+const projectPage = { ...page, cursor: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).default(0)
+    .describe('Offset returned as nextCursor by the previous page, or 0 for the first page.') };
 const write = { ...thread, idempotencyKey: idempotencyKeySchema.describe('A fresh random key per intended action. Reuse exactly this key and input when retrying, for up to 30 days.') };
 const MAX_RESULT_BYTES = 256 * 1024;
 const feedbackFilters = z.object({
@@ -108,27 +112,54 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
     log?.watch(server);
     registerFeedbackPrompts(server, identity);
     registerMcpEvents(server, identity, log, { baseUrl, stream: options.stream });
-    const actingAs = { userId: identity.user.id, name: identity.user.name, credential: identity.connection.name, connection: { kind: identity.connection.kind } };
+    const actingAsFor = (user: DbUser) => ({ userId: user.id, name: user.name, credential: identity.connection.name, connection: { kind: identity.connection.kind } });
+    const actingAs = actingAsFor(identity.user);
     const readAnnotations = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
     const writeAnnotations = { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false };
-    const { access } = identity;
     server.registerTool('create_access_token', {
         description: 'Create a named access token for an authorized script or watcher. Requires tokens:create. Choose 1–20 projects in one workspace and a subset of this connection’s operations; tokens:create can never be included. Lifetime: 1–30 days. The returned token is a secret: store it securely and never repeat it in chat, logs, feedback or source control. The secret is returned only once; retries with the same idempotencyKey return metadata only. Listed and revocable in Account → Coding agents → Access tokens. Limited to 5 creations per connection and 10 per account per hour.',
         inputSchema: createAccessTokenSchema, annotations: writeAnnotations
-    }, input => safely(async () => result({ actingAs, ...await createAccessToken(identity, input) })));
-    server.registerTool('list_projects', { description: `List projects this connection can reach that its human owner can still access, with their workspace. Optional workspaceId filter. Limit: 1–25 (default 20); follow nextCursor. If a feedback packet's owning project is absent, ask the person to reconnect and choose it. ${untrusted}`, inputSchema: { ...page, workspaceId: z.string().min(1).max(128).optional().describe('Only projects in this workspace.') }, annotations: readAnnotations }, input => safely(async () => {
+    }, input => safely(async () => {
+        const { user } = await mcpProject(identity, input.projectIds[0]!);
+        return result({ actingAs: actingAsFor(user), ...await createAccessToken(identity, input) });
+    }));
+    server.registerTool('list_projects', { description: `List projects this connection can reach through its selected accounts, with each project's acting account and workspace. When accounts share a project, the connection's managing account is used first, then the selected account order. Optional workspaceId filter. Limit: 1–25 (default 20); follow nextCursor. If a feedback packet's owning project is absent, ask the person to reconnect and choose it. ${untrusted}`, inputSchema: { ...projectPage, workspaceId: z.string().min(1).max(128).optional().describe('Only projects in this workspace.') }, annotations: readAnnotations }, input => safely(async () => {
         requireMcpScope(identity, 'feedback:read');
-        const { workspaces, truncated } = await listAccessibleWorkspaces(identity.user.id, identity.user.email, workspaceId =>
-            (input.workspaceId === undefined || workspaceId === input.workspaceId)
-            && (access.kind === 'all' || access.workspaces.some(entry => entry.workspaceId === workspaceId)));
-        const projects = workspaces.flatMap(({ workspace, projects: visible }) => visible
-            .filter(project => accessCovers(access, workspace.id, project.id))
-            .map(project => ({ id: project.id, name: project.name, status: project.status, workspace })));
-        return result({ actingAs, contentTrust: 'untrusted', access: access.kind === 'all' ? 'all' : { workspaces: access.workspaces.length },
-            ...(truncated ? { truncated: true, message: 'Too many workspaces or projects to list. Filter by workspaceId.' } : {}), ...slice(projects, input.cursor, input.limit) });
+        const accounts = mcpAccounts(identity);
+        const accessible = await Promise.all(accounts.map(async ({ user, access }) => ({ user, access,
+            ...await listAccessibleWorkspaces(user.id, user.email, workspaceId =>
+                (input.workspaceId === undefined || workspaceId === input.workspaceId)
+                && (access.kind === 'all' || access.workspaces.some(entry => entry.workspaceId === workspaceId))) })));
+        const seen = new Set<string>();
+        const projects = accessible.flatMap(({ user, access, workspaces }) => workspaces.flatMap(({ workspace, projects: visible }) => visible
+            .filter(project => {
+                if (seen.has(project.id) || !accessCovers(access, workspace.id, project.id)) return false;
+                seen.add(project.id);
+                return true;
+            })
+            .map(project => ({ id: project.id, name: project.name, status: project.status, workspace,
+                account: { id: user.id, name: user.name, email: user.email } }))));
+        const truncated = accessible.some(account => account.truncated);
+        const access = accounts[0]?.access ?? { kind: 'selected' as const, workspaces: [] };
+        const discovered = slice(projects, input.cursor, input.limit);
+        // Discovery is capped per account; an earlier account may reach a shared project outside
+        // that scan. Resolve the returned page through the same actor check as every project tool.
+        const items = accounts.length > 1 ? (await Promise.all(discovered.items.map(async item => {
+            try {
+                const { user } = await mcpProject(identity, item.id);
+                return { ...item, account: { id: user.id, name: user.name, email: user.email } };
+            } catch (error) {
+                if (error instanceof ApiError && error.code === 'not_found') return null;
+                throw error;
+            }
+        }))).filter(item => item !== null) : discovered.items;
+        return result({ actingAs, contentTrust: 'untrusted', access: accounts.length > 1 ? { accounts: accounts.length }
+            : access.kind === 'all' ? 'all' : { workspaces: access.workspaces.length },
+            ...(truncated ? { truncated: true, message: 'Too many workspaces or projects to list. Filter by workspaceId.' } : {}), items, nextCursor: discovered.nextCursor });
     }));
     server.registerTool('list_feedback', { description: `Search/list visible feedback in the latest 1000 threads matching the page and environment. Limit: 1–25 (default 20); follow nextCursor. Other filters apply within that window. Reading never marks feedback read. Cursor is an offset within the current result; concurrent additions can shift pages. ${untrusted}`, inputSchema: feedbackFilters, annotations: readAnnotations }, input => safely(async () => {
-        const { project, actor } = await mcpProject(identity, input.projectId);
+        const { project, actor, user } = await mcpProject(identity, input.projectId);
+        const actingAs = actingAsFor(user);
         const environments = environmentOptions(project);
         if (input.environment !== undefined && !['unknown', 'removed'].includes(input.environment) && !environments.some(option => option.id === input.environment))
             throw apiErrors.invalidRequest('Choose a configured environment, unknown or removed.');
@@ -152,14 +183,15 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
                     authorKind: first && !first.deletedAt ? first.authorId?.startsWith('user:') ? 'member' : 'guest' : undefined,
                     replyCount: Math.max(0, comment.thread.items.length - 1), unread: activity.unread, hasScreenshot: Boolean(first && !first.deletedAt && comment.screenshot) };
             }).filter(item => (input.anchorType === undefined || item.anchorType === input.anchorType)
-                && (input.assignee === undefined || (input.assignee === 'unassigned' ? !item.assignees.length : item.assignees.some(person => person.id === (input.assignee === 'me' ? identity.user.id : input.assignee))))
+                && (input.assignee === undefined || (input.assignee === 'unassigned' ? !item.assignees.length : item.assignees.some(person => person.id === (input.assignee === 'me' ? user.id : input.assignee))))
                 && (input.authorKind === undefined || item.authorKind === input.authorKind)
                 && (input.unread === undefined || item.unread === input.unread)
                 && (input.hasScreenshot === undefined || item.hasScreenshot === input.hasScreenshot));
         return result({ actingAs, contentTrust: 'untrusted', environments, searchWindow: MAX_PROJECT_COMMENTS, ...slice(items, input.cursor, input.limit) });
     }));
     server.registerTool('get_feedback_batch', { description: `Read 1–10 distinct authorized threads in request order without marking them read. Missing, deleted and inaccessible threads return not_found. Only whole packets fit within 256 KiB; retry remainingIds separately. ${untrusted}`, inputSchema: batchInput, annotations: readAnnotations }, input => safely(async () => {
-        const { project, actor } = await mcpProject(identity, input.projectId);
+        const { project, actor, user } = await mcpProject(identity, input.projectId);
+        const actingAs = actingAsFor(user);
         const exportFeedback = createProjectFeedbackExportReader(project, actor, undefined, baseUrl);
         const items: Record<string, unknown>[] = [];
         const response = (entries: Record<string, unknown>[], remainingIds: string[]) => ({ actingAs, contentTrust: 'untrusted', items: entries, remainingIds });
@@ -185,14 +217,16 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         return result(response(items, []));
     }));
     server.registerTool('get_feedback', { description: `Read an authorized thread, anchor and reproduction context. ${untrusted}`, inputSchema: thread, annotations: readAnnotations }, input => safely(async () => {
-        const { project, actor } = await mcpProject(identity, input.projectId);
+        const { project, actor, user } = await mcpProject(identity, input.projectId);
+        const actingAs = actingAsFor(user);
         const packet = await projectFeedbackExport(project, actor, input.commentId, undefined, baseUrl);
         return result({ actingAs, contentTrust: 'untrusted', ...packet,
             screenshotResource: packet.context.screenshot.state === 'protected' && identity.scopes.includes('screenshots:read')
                 ? { uri: `uier://projects/${project.id}/feedback/${input.commentId}/screenshot`, access: 'Use resources/read with this connection. No public image URL is issued.' } : undefined });
     }));
     server.registerTool('list_feedback_events', { description: `Poll a project's feedback activity since a cursor: new feedback, replies, status changes, assignments, AI agents working under assignees and mentions of you. Call first with cursor null: it returns no items and a cursor that starts now. Keep the returned cursor and pass it on every later call (for example from a looping or scheduled task); it never ends. hasMore: call again at once. truncated: events were skipped, so re-read state with list_feedback. Limit: 1–25 (default 20). Changes made through this connection are left out. Items are minimal; read threads with get_feedback. An event never approves a write. ${untrusted}`, inputSchema: feedEventsInput, annotations: readAnnotations }, input => safely(async () => {
-        const { project, actor } = await mcpProject(identity, input.projectId);
+        const { project, actor, user } = await mcpProject(identity, input.projectId);
+        const actingAs = actingAsFor(user);
         try {
             const page = await pollProjectEvents({ identity, project, actor, names: input.events ?? mcpEventNames,
                 args: input.commentId === undefined ? {} : { commentId: input.commentId }, cursor: input.cursor, maxEvents: input.limit, baseUrl });
@@ -203,7 +237,8 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         }
     }));
     server.registerTool('list_assignees', { description: `List existing project participants eligible to see this thread. Limit: 1–25 (default 20); follow nextCursor. Assignment never grants access. ${untrusted}`, inputSchema: { ...thread, ...page }, annotations: readAnnotations }, input => safely(async () => {
-        const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:assign');
+        const { project, actor, user } = await mcpProject(identity, input.projectId, 'feedback:assign');
+        const actingAs = actingAsFor(user);
         const comment = await getProjectComment(project, actor, input.commentId);
         if (!comment) throw apiErrors.notFound();
         return result({ actingAs, contentTrust: 'untrusted', ...slice(await eligibleParticipants(project, actor, comment), input.cursor, input.limit) });
@@ -215,7 +250,8 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         model: z.string().max(MAX_AGENT_MODEL_LENGTH).optional().describe(`The model you run on, when you know it (up to ${MAX_AGENT_MODEL_LENGTH} characters). Omit it to use the attached agent's.`),
         reasoning: z.string().max(MAX_AGENT_REASONING_LENGTH).optional().describe(`The reasoning level (effort) you run at, when you know it (up to ${MAX_AGENT_REASONING_LENGTH} characters, one line). Omit it to use the attached agent's.`)
     }, annotations: writeAnnotations }, input => safely(async () => {
-        const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:reply');
+        const { project, actor, user } = await mcpProject(identity, input.projectId, 'feedback:reply');
+        const actingAs = actingAsFor(user);
         assertCanUseComments(project, actor);
         const saved = await replyToProjectComment(request, project, actor, input.commentId, { text: input.text, idempotencyKey: key(identity, input.idempotencyKey),
             writtenBy: { kind: input.agent ?? connectionAgent(), model: input.model, reasoning: input.reasoning } });
@@ -229,7 +265,8 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         status: z.enum(feedbackStatusTargets).optional().describe('open, in-progress (someone is working on it) or done. Ready to verify is request_feedback_verification.'),
         resolved: z.boolean().optional().describe('The earlier Done/Open switch, kept for existing clients: true is done; false reopens a Done thread and keeps In progress.')
     }, annotations: writeAnnotations }, input => safely(async () => {
-        const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:status');
+        const { project, actor, user } = await mcpProject(identity, input.projectId, 'feedback:status');
+        const actingAs = actingAsFor(user);
         if ((input.status === undefined) === (input.resolved === undefined)) throw apiErrors.invalidRequest('Send either status or resolved.');
         const saved = input.status !== undefined
             ? await setProjectCommentStatus(project, actor, input.commentId, input.status, key(identity, input.idempotencyKey))
@@ -240,7 +277,8 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         ...write, expectedRevision: z.string().min(1).max(128).nullable(), reviewerId: z.union([z.literal('author'), userIdSchema]),
         summary: z.string().trim().max(500).optional(), fixUrl: z.string().trim().max(2048).optional()
     }, annotations: writeAnnotations }, input => safely(async () => {
-        const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:status');
+        const { project, actor, user } = await mcpProject(identity, input.projectId, 'feedback:status');
+        const actingAs = actingAsFor(user);
         const saved = await changeFixVerification(project, actor, input.commentId, { action: 'request', reviewerId: input.reviewerId,
             expectedRevision: input.expectedRevision, summary: input.summary, fixUrl: input.fixUrl, idempotencyKey: key(identity, input.idempotencyKey) });
         return result({ actingAs, commentId: saved.id, saved: true, revision: saved.verification?.revision });
@@ -249,7 +287,8 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         ...write, expectedRevision: z.string().min(1).max(128),
         status: z.enum(['open', 'in-progress']).optional().describe('Where the thread goes; without it, back to where it was before the request.')
     }, annotations: writeAnnotations }, input => safely(async () => {
-        const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:status');
+        const { project, actor, user } = await mcpProject(identity, input.projectId, 'feedback:status');
+        const actingAs = actingAsFor(user);
         const saved = await changeFixVerification(project, actor, input.commentId, { action: 'cancel', expectedRevision: input.expectedRevision, idempotencyKey: key(identity, input.idempotencyKey),
             ...(input.status ? { status: input.status } : {}) });
         return result({ actingAs, commentId: saved.id, saved: true, revision: saved.verification?.revision, stage: feedbackStage(saved) });
@@ -257,7 +296,8 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
     server.registerTool('link_feedback_pull_request', { description: `Attach a GitHub, GitLab or Azure DevOps pull request URL to a visible thread. Requires feedback:assign and current project triage permission. Repeating a canonical URL is a no-op and preserves the original linker. Link the PR as soon as you open it for authorized feedback work. ${untrusted}`, inputSchema: {
         ...thread, url: z.string().trim().min(1).max(2048)
     }, annotations: { ...writeAnnotations, idempotentHint: true } }, input => safely(async () => {
-        const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:assign');
+        const { project, actor, user } = await mcpProject(identity, input.projectId, 'feedback:assign');
+        const actingAs = actingAsFor(user);
         const saved = await setProjectCommentPullRequest(project, actor, input.commentId, input.url);
         return result({ actingAs, commentId: saved.id, saved: true, pullRequests: saved.pullRequests?.map(link => ({ url: link.url })) ?? [] });
     }));
@@ -266,16 +306,18 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
     }, annotations: writeAnnotations }, input => safely(async () => {
         if ((input.assigneeId !== undefined) === (input.assigneeIds !== undefined) || (input.assigneeId !== undefined && input.mode !== undefined))
             throw apiErrors.invalidRequest('Send assigneeId, or assigneeIds with an optional mode.');
-        const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:assign');
+        const { project, actor, user } = await mcpProject(identity, input.projectId, 'feedback:assign');
+        const actingAs = actingAsFor(user);
         const saved = input.assigneeIds !== undefined
             ? await setProjectCommentAssignees(project, actor, input.commentId, input.assigneeIds, input.mode, key(identity, input.idempotencyKey))
             : await setProjectCommentAssignee(project, actor, input.commentId, input.assigneeId!, key(identity, input.idempotencyKey));
         return result({ actingAs, commentId: saved.id, assigneeId: saved.assigneeId ?? null, assigneeIds: assignedUserIds(saved) });
     }));
-    const agentResult = (saved: Awaited<ReturnType<typeof setProjectCommentAgent>>, agentId?: string) => {
-        const agents = assigneeAgentViews(saved, identity.user.id);
+    const agentResult = (saved: Awaited<ReturnType<typeof setProjectCommentAgent>>, user: DbUser, agentId?: string) => {
+        const actingAs = actingAsFor(user);
+        const agents = assigneeAgentViews(saved, user.id);
         const selected = agentId ? agents.find(agent => agent.id === agentId) : agents[0];
-        return result({ actingAs, commentId: saved.id, assigneeId: identity.user.id, assigneeIds: assignedUserIds(saved), agent: selected ?? null, agents, stage: feedbackStage(saved) });
+        return result({ actingAs, commentId: saved.id, assigneeId: user.id, assigneeIds: assignedUserIds(saved), agent: selected ?? null, agents, stage: feedbackStage(saved) });
     };
     server.registerTool('set_feedback_agent', { description: `When you start working on feedback assigned to the connection owner, attach yourself as the AI agent working under them, with your session id, model and reasoning level when you know them; call again to update them (an omitted detail is cleared). Pass add: true to attach another agent under your own assignment, then use its returned id as agentId to update, clear or report its working lease. Without add or agentId, existing calls act on the first agent under you. Then call set_feedback_agent_working with working: true to report that you are actively working now. Attaching yourself moves Open feedback to In progress when this connection can also change status (feedback:status); feedback that is In progress, Ready to verify or Done keeps its status, and updating or clearing the agent never changes it. Only the assignee's own connection can: feedback assigned to someone else is refused. For unassigned feedback, pass assignToMe only when the person explicitly asked to take it. ${untrusted}`, inputSchema: {
         ...write,
@@ -288,11 +330,11 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         reasoning: z.string().max(MAX_AGENT_REASONING_LENGTH).optional().describe(`The reasoning level (effort) you run at, when you know it, as your tool names it: for example low, medium, high, xhigh or max for Claude, minimal to high for OpenAI models (up to ${MAX_AGENT_REASONING_LENGTH} characters, one line).`),
         assignToMe: z.boolean().default(false).describe('Assign unassigned feedback to the connection owner first, in the same write. Only when the person explicitly asked for it.')
     }, annotations: writeAnnotations }, input => safely(async () => {
-        const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:assign');
+        const { project, actor, user } = await mcpProject(identity, input.projectId, 'feedback:assign');
         const kind = input.agent ?? connectionAgent();
         return agentResult(await setProjectCommentAgent(project, actor, input.commentId, { kind, sessionId: input.sessionId, sessionUrl: input.sessionUrl, model: input.model, reasoning: input.reasoning },
             { idempotencyKey: key(identity, input.idempotencyKey), assignToMe: input.assignToMe, startWork: identity.scopes.includes('feedback:status'), agentId: input.agentId, add: input.add }),
-            input.add ? attachmentId(key(identity, input.idempotencyKey)) : input.agentId);
+            user, input.add ? attachmentId(key(identity, input.idempotencyKey)) : input.agentId);
     }));
     server.registerTool('set_feedback_agent_working', { description: `Report whether you are actively working now, separately from the thread's In progress status, which never changes here. First attach this connection and session with set_feedback_agent. working: true starts or renews a five-minute lease; renew every two minutes with a fresh idempotency key while working. Retry the same action with its original key; a retry never extends the lease. working: false clears the indicator but keeps you attached. Detaching, changing agent/session or changing assignee ends it too. No unread activity, email or agent event is recorded for these transient heartbeats. ${untrusted}`, inputSchema: {
         ...write,
@@ -300,16 +342,16 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         working: z.boolean().describe('true: actively working now, for five minutes unless renewed. false: stop showing the indicator, keeping the attached agent and thread status.'),
         sessionId: z.string().max(MAX_AGENT_SESSION_LENGTH).optional().describe('The exact session id attached with set_feedback_agent. Required when the attached agent has a session id; omit when it has none.')
     }, annotations: writeAnnotations }, input => safely(async () => {
-        const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:assign');
+        const { project, actor, user } = await mcpProject(identity, input.projectId, 'feedback:assign');
         const saved = await setProjectCommentAgentWorking(project, actor, input.commentId, { working: input.working, sessionId: input.sessionId, agentId: input.agentId }, key(identity, input.idempotencyKey));
-        const target = assignedAgents(saved).find(agent => agent.assigneeId === identity.user.id
+        const target = assignedAgents(saved).find(agent => agent.assigneeId === user.id
             && agent.connector?.credentialId === identity.connection.id && agent.sessionId === (input.sessionId?.trim() || undefined)
             && (!input.agentId || agent.id === input.agentId));
-        return agentResult(saved, target?.id ?? 'missing');
+        return agentResult(saved, user, target?.id ?? 'missing');
     }));
     server.registerTool('clear_feedback_agent', { description: `Remove the AI agent and any active working indicator under the connection owner on feedback assigned to them, for example when you stop working on it. Feedback assigned to someone else is refused. ${untrusted}`, inputSchema: { ...write, agentId: agentIdSchema.optional().describe('The attachment under you to remove; omitted means the first agent under your own assignment.') }, annotations: writeAnnotations }, input => safely(async () => {
-        const { project, actor } = await mcpProject(identity, input.projectId, 'feedback:assign');
-        return agentResult(await setProjectCommentAgent(project, actor, input.commentId, null, { idempotencyKey: key(identity, input.idempotencyKey), agentId: input.agentId }), input.agentId ?? 'removed');
+        const { project, actor, user } = await mcpProject(identity, input.projectId, 'feedback:assign');
+        return agentResult(await setProjectCommentAgent(project, actor, input.commentId, null, { idempotencyKey: key(identity, input.idempotencyKey), agentId: input.agentId }), user, input.agentId ?? 'removed');
     }));
     server.registerResource('feedback_screenshot', new ResourceTemplate('uier://projects/{projectId}/feedback/{commentId}/screenshot', { list: undefined }), { description: 'Untrusted saved screenshot. Requires screenshots:read and current access to this feedback.', mimeType: 'application/octet-stream' }, async (uri, variables) => {
         try {

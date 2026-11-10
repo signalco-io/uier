@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, rm, chmod } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -59,4 +59,29 @@ test('retained binary ZIPs are compared as bytes and cannot be overwritten on re
         await assert.rejects(releaseJournal(options), /differs/);
         assert.equal(writes.length, 1);
     } finally { await rm(root, { recursive: true, force: true }); }
+});
+test('the default GitHub client compares retained source archives larger than one MiB', async () => {
+    const root = await mkdtemp(resolve(tmpdir(), 'uier-large-journal-test-'));
+    const originalPath = process.env.PATH;
+    const name = 'uier-extension-firefox-0.1.3.zip';
+    const source = 'uier-extension-source-0.1.3.zip';
+    const files = { [name]: Buffer.from([0, 255, 128]), [`${name}.json`]: Buffer.from('{}'), [`${name}.sha256`]: Buffer.from('checksum'), [source]: Buffer.alloc(2 * 1024 * 1024, 255) };
+    try {
+        for (const [name, bytes] of Object.entries(files)) await writeFile(resolve(root, name), bytes);
+        const cli = resolve(root, 'gh');
+        await writeFile(cli, `#!${process.execPath}
+const fs = require('node:fs');
+const args = process.argv.slice(2);
+if (args[0] === 'api') process.stdout.write(JSON.stringify([{ tag_name: 'extension-v0.1.3', draft: true }]));
+else if (args[1] === 'view') process.stdout.write(JSON.stringify({ assets: ${JSON.stringify(Object.keys(files).map(name => ({ name })))} }));
+else if (args[1] === 'download') fs.writeFileSync(1, fs.readFileSync(require('node:path').join(__dirname, args[args.indexOf('--pattern') + 1])));
+else process.exit(1);
+`);
+        await chmod(cli, 0o755);
+        process.env.PATH = `${root}:${originalPath}`;
+        await releaseJournal({ directory: root, tag: 'extension-v0.1.3', browser: 'firefox', artifact: { name }, extraFiles: [source] });
+    } finally {
+        process.env.PATH = originalPath;
+        await rm(root, { recursive: true, force: true });
+    }
 });

@@ -167,7 +167,7 @@ async function discoverThread(project: DbProject, comment: DbComment, subscripti
         for (const subscription of subscriptions) {
             // Never echo a connection's own actions back to it: that loops an agent on its replies.
             if (at < Date.parse(subscription.since) || !isSubscriptionActive(subscription, now) || event.agent?.credentialId === subscription.connectionId
-                || !eventMatches(subscription.name, subscription.arguments, event, comment.id, subscription.userId)) continue;
+                || !eventMatches(subscription.name, subscription.arguments, event, comment.id, subscription.actorUserId ?? subscription.userId)) continue;
             const eventId = mcpEventId(project.id, comment.id, event, subscription.name);
             const delivery: McpEventDelivery = {
                 type: 'mcp-event-delivery', pk: eventsPk(project.id), id: deliveryId(subscription.id, eventId), projectId: project.id,
@@ -246,13 +246,16 @@ async function noteOutcome(context: Context, subscription: McpEventSubscription,
 
 /**
  * The member actor a subscription delivers as, or `null` when its access has ended (see
- * `currentEventAccess`). Other failures throw, so they never end it.
+ * `currentEventAccess`) or its account is no longer the one selected for the project. Other
+ * failures throw, so they never end it.
  */
 async function subscriberActor(context: Context, subscription: McpEventSubscription) {
     const key = `${subscription.userId}:${subscription.connectionId}`;
     const connection = { userId: subscription.userId, connectionId: subscription.connectionId, kind: subscription.connectionKind };
     if (!context.identities.has(key)) context.identities.set(key, currentMcpConnection(connection.userId, connection.connectionId, connection.kind));
-    return (await currentEventAccess(connection, subscription.projectId, () => context.identities.get(key)!))?.actor ?? null;
+    const access = await currentEventAccess(connection, subscription.projectId, () => context.identities.get(key)!);
+    // Also ended when the connection now acts as another account in this project than the one that subscribed.
+    return access && access.actor.userId === (subscription.actorUserId ?? subscription.userId) ? access.actor : null;
 }
 
 /**
@@ -296,7 +299,8 @@ async function deliver(context: Context, candidate: McpEventDelivery): Promise<'
     const event = comment?.notificationEvents?.find(entry => entry.sequence === delivery.sequence && entry.kind === delivery.eventKind && entry.at === delivery.eventAt
         && (entry.agentId ?? undefined) === delivery.agentId);
     // A deleted thread, or one the account can no longer see, is not delivered.
-    if (!comment || !event || !canSeeComment(comment, actor)) return skip();
+    if (!comment || !event || !canSeeComment(comment, actor) || Date.parse(event.at) < Date.parse(subscription.since)
+        || !eventMatches(subscription.name, subscription.arguments, event, comment.id, actor.userId)) return skip();
 
     context.participants ??= participantNames(context.project);
     const body = JSON.stringify({ eventId: delivery.eventId, name: delivery.name, timestamp: event.at,

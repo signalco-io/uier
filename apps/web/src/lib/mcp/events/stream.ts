@@ -13,7 +13,8 @@ import { currentEventAccess, McpEventsError, mcpEventErrorCodes, mcpEventProject
  * with `notifications/events/active`, sends each event with the position after it, a heartbeat with
  * the current position while quiet, and ends itself before the route's time limit with an empty
  * result. The client opens it again with its last cursor. Access is checked again on every poll;
- * when it has ended the stream sends `notifications/events/terminated`.
+ * when it has ended, or the connection now acts as another account in the project, the stream
+ * sends `notifications/events/terminated`.
  */
 
 /** How often an open stream looks for new events */
@@ -111,7 +112,10 @@ export async function streamMcpEvent(identity: McpIdentity, input: StreamInput, 
 
     // Everything that can refuse the subscription happens before the stream opens.
     let page: FeedPage;
-    try { page = await read(await mcpEventProject(identity, projectId), identity, input.cursor, input.maxAgeMs); }
+    // The account the connection acts as in this project: the stream is that account's, like a webhook subscription.
+    const opened = await mcpEventProject(identity, projectId);
+    const actorUserId = opened.actor.userId;
+    try { page = await read(opened, identity, input.cursor, input.maxAgeMs); }
     catch (error) {
         if (error instanceof InvalidFeedCursorError) throw new McpEventsError('invalid', error.message);
         throw error;
@@ -144,7 +148,7 @@ export async function streamMcpEvent(identity: McpIdentity, input: StreamInput, 
             if (!open || channel.signal.aborted || Date.now() >= deadline) break;
             try {
                 const access = await currentEventAccess(connection, projectId);
-                if (!access) {
+                if (!access || access.actor.userId !== actorUserId) {
                     await send('notifications/events/terminated', { error: { code: mcpEventErrorCodes.forbidden, message: 'Forbidden', data: { reason: 'Access revoked' } } });
                     break;
                 }
