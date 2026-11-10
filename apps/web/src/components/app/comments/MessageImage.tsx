@@ -5,9 +5,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 
 /** Same thumbnail and keyboard/touch expansion for comment and reply images. */
 export function MessageImage({ image, reply = false }: { image: { url: string; width: number; height: number }; reply?: boolean }) {
-    const alt = reply ? 'Image attached to reply' : 'Screenshot of the commented part of the page';
+    // The button names the image; the image says what it shows, without "Screenshot of" (screen readers announce images)
+    const label = reply ? 'Image attached to reply' : 'Screenshot of the commented part of the page';
+    const alt = reply ? 'Image attached to reply' : 'Commented part of the page';
     return <Dialog>
-        <DialogTrigger render={<Button variant="ghost" className="mt-1 h-auto max-w-full self-start p-0" aria-label={alt} />}>
+        <DialogTrigger render={<Button variant="ghost" className="mt-1 h-auto max-w-full self-start p-0" aria-label={label} />}>
             <img src={image.url} width={image.width} height={image.height} alt={alt} loading="lazy"
                 className="block h-auto max-h-56 w-auto max-w-full rounded-lg border object-contain" />
         </DialogTrigger>

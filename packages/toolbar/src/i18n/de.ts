@@ -454,6 +454,7 @@ export const de: Messages = {
     },
     screenshot: {
         alt: 'Screenshot des kommentierten Teils der Seite',
+        imageAlt: 'Kommentierter Teil der Seite',
         replyImageAlt: 'An die Antwort angehängtes Bild',
         limits: 'PNG, JPEG oder WebP. Bis 512 KB und 4096 Pixel pro Seite.',
         replaced: 'Screenshot ersetzt.',

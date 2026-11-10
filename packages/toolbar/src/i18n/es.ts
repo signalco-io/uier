@@ -455,6 +455,7 @@ export const es: Messages = {
     },
     screenshot: {
         alt: 'Captura de pantalla de la parte comentada de la página',
+        imageAlt: 'Parte comentada de la página',
         replyImageAlt: 'Imagen adjunta a la respuesta',
         limits: 'PNG, JPEG o WebP. Hasta 512 KB y 4096 píxeles por lado.',
         replaced: 'Captura de pantalla sustituida.',

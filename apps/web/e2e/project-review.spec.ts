@@ -361,7 +361,7 @@ test('a screenshot with a comment on the project\'s site, shown in the toolbar a
     await page.goto(`/app/projects/${projectId}`);
     const card = await openComment(page, /^Comment/);
     await expect(card).toHaveAccessibleName('Comment by Dana');
-    const appImage = card.getByRole('img', { name: 'Screenshot of the commented part of the page' });
+    const appImage = card.getByRole('img', { name: 'Commented part of the page', exact: true });
     await expect(appImage).toBeVisible();
     await expect.poll(async () => await appImage.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(comment!.screenshot!.width);
     const thumbnail = card.getByRole('button', { name: 'Screenshot of the commented part of the page' });
@@ -620,7 +620,7 @@ for (const layout of ['html-scroll', 'body-hidden']) {
         await draft.getByRole('button', { name: 'Post comment' }).click();
         const savedThread = guest.page.getByRole('dialog', { name: 'Comment thread' });
         await savedThread.getByRole('region', { name: 'Screenshot evidence' }).scrollIntoViewIfNeeded();
-        const preview = savedThread.getByRole('img', { name: 'Screenshot of the commented part of the page' });
+        const preview = savedThread.getByRole('img', { name: 'Commented part of the page', exact: true });
         await expect(preview).toBeVisible();
         expect(Date.now() - started).toBeLessThan(5_000);
 

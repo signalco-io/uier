@@ -137,7 +137,10 @@
   the attach button, with Remove; reading holds Enter/send, Discard clears the image, and failed sends restore
   it unless a newer image was attached. Image bytes never enter draft or idempotency storage. Reply images
   use the same thumbnail/expanded dialog (`MessageImage`) as the first message, each through its authorized
-  thread/reply image route. `e2e/reply-images.spec.ts` covers picker, paste, retry, both surfaces, reload,
+  thread/reply image route. The thumbnail button keeps the name "Screenshot of the commented part of the page"
+  (the toolbar's `screenshot.alt`); the image inside says only what it shows, "Commented part of the page"
+  (`screenshot.imageAlt`), because screen readers already announce an image and the alt-text check flags "Screenshot of".
+  `e2e/reply-images.spec.ts` covers picker, paste, retry, both surfaces, reload,
   light/dark accessibility and touch.
   The reply browser check waits for the saved-reply announcement before its light/dark axe scans,
   so it audits the settled document after action revalidation rather than the optimistic message.

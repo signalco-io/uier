@@ -66,7 +66,8 @@ export function CommentScreenshot({ comment, itemId }: { comment: CommentItem; i
     const size = item && !item.deleted ? item.screenshot : itemId ? undefined : comment.screenshot;
     const t = useMessages();
     const imageLimits = t.screenshot.limits;
-    const alt = itemId ? t.screenshot.replyImageAlt : t.screenshot.alt;
+    const label = itemId ? t.screenshot.replyImageAlt : t.screenshot.alt;
+    const alt = itemId ? t.screenshot.replyImageAlt : t.screenshot.imageAlt;
     const { rootElement } = useContext(CommentsBootstrapperContext);
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState(false);
@@ -156,7 +157,7 @@ export function CommentScreenshot({ comment, itemId }: { comment: CommentItem; i
                 aria-label={t.screenshot.label}
                 {...toolbarSurface('uier-screenshot', 'z-[70] flex max-h-[min(var(--radix-popover-content-available-height),85vh)] w-[min(88vw,64rem)] flex-col gap-2 overflow-auto rounded-xl p-3')}
                 trigger={(
-                    <Button variant="plain" className="mr-1 block h-auto w-24 cursor-zoom-in overflow-hidden rounded-lg p-0" aria-label={alt} title={t.screenshot.expand}>
+                    <Button variant="plain" className="mr-1 block h-auto w-24 cursor-zoom-in overflow-hidden rounded-lg p-0" aria-label={label} title={t.screenshot.expand}>
                         <ScreenshotImage src={data} width={size.width} height={size.height} alt={alt}
                             className="block h-16 w-24 rounded-lg border object-contain" />
                     </Button>

@@ -454,6 +454,7 @@ export const fr: Messages = {
     },
     screenshot: {
         alt: 'Capture d’écran de la partie commentée de la page',
+        imageAlt: 'Partie commentée de la page',
         replyImageAlt: 'Image jointe à la réponse',
         limits: 'PNG, JPEG ou WebP. Jusqu’à 512 Ko et 4096 pixels de côté.',
         replaced: 'Capture d’écran remplacée.',
