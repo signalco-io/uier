@@ -98,6 +98,10 @@ test('the Keyboard section reports the tab order and draws it on the page while 
     expect((await tools.boundingBox())!.y).toBeLessThan((await keyboard.boundingBox())!.y);
     await expect(tools).toContainText('Numbers each stop on the page, with a line to the next.');
     await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    // Each tool's label stays inside its button, also wrapped in a narrow card
+    for (const button of await tools.getByRole('button').all()) {
+        expect(await button.evaluate(element => element.scrollHeight <= element.clientHeight && element.scrollWidth <= element.clientWidth)).toBe(true);
+    }
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-pressed', 'true');
     const layer = page.locator('[data-uier-tab-order]');
