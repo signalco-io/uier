@@ -3,6 +3,7 @@
 // this file. One module per area; whatever a module exports is its part of `LazyChecks`, so adding a
 // check changes only its own module. Modules here must not import React, the UI kit, hooks or
 // components: they read the page and return plain data (docs/page-checks.md, "Sections").
+import * as accessibilityReport from './accessibilityReport';
 import * as aiSearch from './aiSearch';
 import * as altText from './altText';
 import * as crawler from './crawler';
@@ -14,5 +15,5 @@ import * as screenReader from './screenReader';
 import * as sharing from './sharing';
 import * as structuredData from './structuredData';
 
-export const lazyChecks = { aiSearch, altText, crawler, keyboard, motion, pageExtras, reflow, screenReader, sharing, structuredData };
+export const lazyChecks = { accessibilityReport, aiSearch, altText, crawler, keyboard, motion, pageExtras, reflow, screenReader, sharing, structuredData };
 export type LazyChecks = typeof lazyChecks;

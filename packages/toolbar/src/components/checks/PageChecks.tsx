@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { backgroundElementLimit, checkAccessibility } from '../../checks/accessibility';
 import { checkSeo, type SeoReport } from '../../checks/seo';
 import { startWebVitals, useWebVitals } from '../../checks/webVitals';
@@ -8,7 +8,9 @@ import { auditAvailable } from '../../checks/axeLoader';
 import { RestoredPanelContext } from '../../openPanel';
 import { isRendered, pageAnchorElement } from '../../checks/pageElements';
 import { reportedComment } from '../../checks/reportedIssue';
-import type { PageIssue } from '../../checks/types';
+import { dismissedIdentity, dismissedPrefix, readDismissed, writeDismissed } from '../../checks/dismissedIssues';
+import { groupIssue } from '../../checks/issueGroup';
+import type { IssueGroup, PageCheck, PageIssue } from '../../checks/types';
 import { usePagePath } from '../../hooks/usePagePath';
 import { useComments } from '../../hooks/useComments';
 import { useAnnounce } from '../Announcer';
@@ -74,17 +76,60 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentio
     const stopSettling = useRef<() => void>(undefined);
     const postIssue = useIssueComment();
     const pageComments = useComments().query.data;
+    // Findings marked "Not an issue" in this browser: they leave every count, folded under their list
+    const [dismissed, setDismissed] = useState(readDismissed);
+    const dismissedPrefixes = useMemo(() => new Set([...dismissed.keys()].map(identity => identity.split('.')[0])), [dismissed]);
+    const isDismissed = (issue: PageIssue) => dismissedPrefixes.has(dismissedPrefix(issue)!) && dismissed.has(dismissedIdentity(issue)!);
     // What this panel posted keeps its own words ("Bug report sent"); a finding reported before, by
     // anyone, is found among the page's open threads, so it is still marked after a reload
     // Each comment's element, looked up once per render for all the issues
     const commentAnchors = new Map<CommentItem, Element | null>();
+    // A rule's elements, issues and the undecided apart: one comment for several of one list is not the other's
+    let ruleElements: Map<string, Set<Element | undefined>> | undefined;
+    const otherList = (issue: PageIssue) => {
+        ruleElements ??= new Map([...accessibility.report?.rules ?? [], ...accessibility.report?.review ?? []]
+            .map(rule => [`${rule.review ? 'review' : ''}:${rule.id}`, new Set(rule.issues.map(item => pageAnchorElement(item.element)))]));
+        return ruleElements.get(`${issue.review ? '' : 'review'}:${issue.check.id}`);
+    };
     const reportOf = (issue: PageIssue): PostedComment | undefined => {
         const own = posted.get(issue.key);
         if (own) return own;
-        const reported = reportedComment(issue, pageComments, path, commentAnchors);
+        const reported = reportedComment(issue, pageComments, path, commentAnchors,
+            issue.check.type === 'accessibility' ? anchor => !anchor || !otherList(issue)?.has(anchor) : undefined);
         return reported && { status: 'posted', commentId: reported.id, page: reported.position.type === 'page', number: reported.number, label: 'Reported' };
     };
     const nameGate = useGuestNameGate();
+
+    /** Out of `issues`, into `dismissed`: the issues marked "Not an issue" (none marked: the same object) */
+    const withoutDismissed = <T extends { issues: PageIssue[]; dismissed?: PageIssue[] }>(item: T): T => {
+        const hidden = dismissed.size ? item.issues.filter(isDismissed) : [];
+        return hidden.length ? { ...item, issues: item.issues.filter(issue => !hidden.includes(issue)), dismissed: hidden } : item;
+    };
+    /** A check worth a look whose every issue is marked "Not an issue" is a note: a deliberate choice */
+    const checkWithoutDismissed = (check: PageCheck): PageCheck => {
+        const next = withoutDismissed(check);
+        return next !== check && !next.issues.length && check.state === 'warn' ? { ...next, state: 'none' } : next;
+    };
+    const shownAccessibility = useMemo((): AccessibilityState => {
+        const { report } = accessibility;
+        if (!report || !dismissed.size) return accessibility;
+        const rules = report.rules.map(withoutDismissed);
+        return { ...accessibility, report: { ...report, rules, review: report.review?.map(withoutDismissed),
+            count: rules.reduce((total, rule) => total + rule.issues.length, 0) } };
+    }, [accessibility, dismissed]);
+    const shownSeo = useMemo(() => seo && dismissed.size ? {
+        ...seo,
+        page: seo.page.map(checkWithoutDismissed),
+        headings: { ...seo.headings, checks: seo.headings.checks.map(checkWithoutDismissed) },
+        links: { ...seo.links, checks: seo.links.checks.map(checkWithoutDismissed) },
+        images: { ...seo.images, checks: seo.images.checks.map(checkWithoutDismissed) }
+    } : seo, [seo, dismissed]);
+    // The sections' reports the same way, so their views and the panels' counts leave them out
+    const shownSections = dismissed.size ? {
+        ...sections,
+        states: new Map([...sections.states].map(([id, state]): [string, typeof state] => [id, state.report
+            ? { ...state, report: { ...state.report, checks: state.report.checks.map(checkWithoutDismissed) } } : state]))
+    } : sections;
 
     // Only the latest audit's result is shown (a page reached since, or Check again, asked for a newer one)
     const latestAudit = useRef(0);
@@ -212,47 +257,74 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentio
         },
         comment: (issue: PageIssue) => {
             if (reportOf(issue) || !nameGate()) return;
-            const mark = (state?: PostedComment) => setPosted(current => {
-                const next = new Map(current);
-                if (state) next.set(issue.key, state); else next.delete(issue.key);
-                return next;
-            });
-            mark({ status: 'sending' });
-            postIssue(issue).then(({ comment, page, label }) => {
-                mark({ status: 'posted', commentId: comment.id, page, number: comment.number, label });
-                announce(label);
-            }, () => mark(undefined)); // The toast says it was not posted
+            post([issue], issue);
+        },
+        // One request for all of them (the API limits how fast and how many comments a page gets): each is marked by it
+        commentAll: (issues: PageIssue[], group: IssueGroup, of: number) => {
+            const open = issues.filter(issue => !reportOf(issue));
+            if (open.length < 2 || !nameGate()) return;
+            post(open, groupIssue(open, group, of));
         },
         show: (comment: ShownComment) => {
             setHighlighted(undefined);
             onShowComment(comment);
+        },
+        isDismissed,
+        dismiss: (issue: PageIssue) => {
+            const identity = dismissedIdentity(issue);
+            if (!identity) return;
+            if (highlighted?.key === issue.key) setHighlighted(undefined);
+            setDismissed(writeDismissed(identity, Date.now()));
+            announce('Marked as not an issue in this browser.');
+        },
+        restore: (issue: PageIssue) => {
+            const identity = dismissedIdentity(issue);
+            if (!identity) return;
+            setDismissed(writeDismissed(identity, undefined));
+            announce('Restored.');
         }
     };
+    /** Posts `issue` (one of `issues`, or one comment for all of them), marking each of them */
+    function post(issues: PageIssue[], issue: PageIssue) {
+        const mark = (state?: PostedComment) => setPosted(current => {
+            const next = new Map(current);
+            for (const { key } of issues) {
+                if (state) next.set(key, state); else next.delete(key);
+            }
+            return next;
+        });
+        mark({ status: 'sending' });
+        postIssue(issue).then(({ comment, page, label }) => {
+            mark({ status: 'posted', commentId: comment.id, page, number: comment.number, label });
+            announce(issues.length > 1 ? `${label} for ${issues.length} elements` : label);
+        }, () => mark(undefined)); // The toast says it was not posted
+    }
 
     return (
-        <SectionsContext value={sections}>
+        <SectionsContext value={shownSections}>
         <PageLayerContext value={!collapsed}>
         <ChecksContext value={actions}>
             {panel === 'accessibility' && (
-                <AccessibilityPanel state={settling ? { ...accessibility, checking: true } : accessibility} path={path} onClose={onClose}
+                <AccessibilityPanel state={settling ? { ...shownAccessibility, checking: true } : shownAccessibility} path={path} onClose={onClose}
                     onCheck={checkNow(() => {
                         runAccessibility();
                         sections.runPanel('accessibility', { again: true });
                     })} />
             )}
             {panel === 'seo' && (
-                <SeoPanel report={seo} path={path} onClose={onClose}
+                <SeoPanel report={shownSeo} path={path} onClose={onClose}
                     onCheck={checkNow(() => {
                         runSeo();
                         sections.runPanel('seo', { again: true });
                     })} />
             )}
+            {/* What was marked "Not an issue" in this browser is not counted */}
             {onAttentionChange && (
                 <ChecksAttentionReporter
-                    accessibility={accessibility.report?.path === path ? accessibility.report.count : undefined}
-                    accessibilitySections={sectionsAttention(sections, 'accessibility')}
-                    seo={seo?.path === path ? seo : undefined}
-                    seoSections={sectionsAttention(sections, 'seo')}
+                    accessibility={shownAccessibility.report?.path === path ? shownAccessibility.report.count : undefined}
+                    accessibilitySections={sectionsAttention(shownSections, 'accessibility')}
+                    seo={shownSeo?.path === path ? shownSeo : undefined}
+                    seoSections={sectionsAttention(shownSections, 'seo')}
                     onChange={onAttentionChange} />
             )}
             <PageSummaryReporter path={path}

@@ -128,11 +128,14 @@ An open inbox, Accessibility or SEO panel stays open on the next page and shows 
   page global: `auditPrelude.ts` saves the page's `axe` and `define` before axe-core initializes, hides
   an AMD `define`, and puts both back.
 - `src/checks/accessibility.ts` runs every rule axe-core runs by default (WCAG A and AA, best practices)
-  on the document, excluding the toolbar's host and inline thread slots by reference, without frames
+  and WCAG 2.2's target size (`target-size`, 2.5.8 AA, off by default in axe-core) on the document,
+  excluding the toolbar's host and inline thread slots by reference, without frames
   (`iframes: false`). One audit runs at a time: one asked for while another runs waits for it, then
   checks the page as it is then (never sharing the running one's report), and the panel shows only its
   latest audit; a newer audit cancels the previous one ([above](#in-the-background)). Asked for (the panel,
-  Check again), it is one `axe.run` of the whole page; in the background, short steps. The panel lists only what axe-core finds
+  Check again), it is one `axe.run` of the whole page; in the background, short steps. The run and its
+  report are in the audit asset (`lazy/accessibilityReport.ts`); `accessibility.ts` is the queue in the
+  review bundle. The panel lists only what axe-core finds
   ([uier #198](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fbrand&comment=comment_fCCTyY6zuzO3K_Kr-DALq)):
   the status ("3 issues found."), a summary tile per impact with its elements' count, when it was checked,
   then a section per impact (critical, serious, moderate, minor). Each rule is a row marked with its
@@ -142,6 +145,13 @@ An open inbox, Accessibility or SEO panel stays open on the next page and shows 
   line is said once under the rule's title when every element shares it, else on each element, two lines
   at most (the whole line is its `title`, and screen readers read all of it). Without issues the panel
   says so in one line, with a reminder to also try a keyboard and a screen reader.
+- **To review**: what axe-core could not decide (its incomplete results: contrast over an image or a
+  gradient, a target it cannot measure) is a section of its own after the impacts and before the
+  on-demand sections, each rule with a search icon, its elements and the reason axe-core gave (the
+  messages of its undecided checks), with Highlight and Comment. They are not issues: they are in no
+  count, tile or dot ([page-checks-report.md](page-checks-report.md)).
+- **Not an issue** hides a finding in this browser: it leaves the counts, the tiles and the button's
+  dot, and is listed folded under its rule as "Dismissed" with Restore ([page-checks-report.md](page-checks-report.md)).
 - Packaged clients (the browser extension) never inject a remote script: they package the audit asset,
   built from the same `auditEntry.ts` without a published path, and their adapter runs it in the toolbar's
   isolated world when a check runs (`ToolbarAdapters.loadAudit`, [the extension adapter](extension-adapter.md#the-audit-asset)).
@@ -241,6 +251,8 @@ panel. The review bundle (858 KB of the 1 MB a published bundle may be) gets onl
     failure lines for that element as a list under its "Fix any of the following:" headings (the measured
     contrast ratio, the missing attribute), then `WCAG 1.1.1 (A). Rule image-alt: <link>`. Failure lines
     that would pass the API's 1000 characters are left out (`commentText`); the rule's page has them all.
+    One to review is `Accessibility (to review): <help>.`, its reasons under "axe-core could not decide:",
+    then "A person needs to check this." before the standard.
   - SEO: the sentence, then what was found on a line of its own: the title or description, a heading's
     text, a link's text and address, an image's address (`foundLine`). Core Web Vitals name the element.
   - Text from the page is a code span, so it is never read as Markdown. Addresses are written without
@@ -259,6 +271,16 @@ panel. The review bundle (858 KB of the 1 MB a published bundle may be) gets onl
 - After posting, the row says "Comment posted as #12" (or "Bug report sent") with **Show**:
   the thread on its pin, or the inbox narrowed to it for page feedback. A failed post shows the usual
   toast and the action comes back.
+- **Comment on all** (under every list, `IssueList`: a rule's, an SEO check's, a section's) posts one
+  comment for the list's elements not reported yet, at least two of one check: pinned to the first,
+  its text lists their selectors as far as 1000 characters go ("and 4 more"), and its check has their
+  `count`. One request, so the API's limits (`too_fast`, `page_full`) and a failure are as for one
+  comment. Every element it covers is marked by it, after a reload and for every reviewer too
+  ([page-checks-report.md](page-checks-report.md)).
+- **Not an issue** (an icon on every row of a finding of the page as checked; not on Core Web Vitals,
+  which are measured live, nor on a reported one) hides it in this browser only, folded under its list
+  as "Dismissed" with **Restore**; a check whose every issue is dismissed is a note
+  ([page-checks-report.md](page-checks-report.md)).
 - A project's guest without a saved name gets the comment form's name field above the issues; a quick
   action asks for it first and saves it like the form does.
 
