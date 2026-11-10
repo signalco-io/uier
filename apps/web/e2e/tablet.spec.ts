@@ -50,6 +50,8 @@ test('in portrait the sidebar is a sheet, and the page, its header and settings 
     const openReview = await box(page.getByRole('button', { name: 'Open review' }));
     expect(openReview.y).toBeLessThan(title.y + title.height);
     expect(openReview.x).toBeGreaterThan(title.x + title.width);
+    // The tabs' line runs to the window's edges without scrolling the page sideways (uier #237)
+    expect(await noSidewaysScroll(page)).toBe(true);
 
     // Settings keep their sections beside the form, and the form has room
     await page.goto(`/app/projects/${project}/settings`);
