@@ -17,7 +17,7 @@ export default async function ProjectReviewSettingsPage({ params }: PageProps<'/
     const querySuggestions = await loadQueryFieldSuggestions(project);
 
     return (
-        <ProjectReviewForm workspaceTypes={workspaceFeedbackTypes(context.workspace)}
+        <ProjectReviewForm toolbarFeatures={project.toolbarFeatures} workspaceTypes={workspaceFeedbackTypes(context.workspace)}
             toolbarLanguage={projectToolbarLanguageMode(project)} workspaceToolbarLanguage={workspaceToolbarLanguage(context.workspace)} feedbackTypes={project.feedbackTypes} projectId={project.id} access={project.access} brief={project.brief} policy={project.pageState} suggestions={querySuggestions}
             // The header's access label leads here, so the guest links from its popover are here too
             guestLinks={project.access === 'guests' && project.urls[0] ? <GuestReviewLinks publicId={project.publicId} urls={project.urls} /> : undefined} />

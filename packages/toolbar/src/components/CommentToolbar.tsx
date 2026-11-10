@@ -23,6 +23,7 @@ import { useToolbarMovement, useToolbarNotice } from '../hooks/useReviewMovement
 import { canReviewToolbar, holdsLayersAttribute } from '../toolbarReview';
 import { addCommentShortcut, useShortcutsEnabled } from '../shortcuts';
 import { useRovingFocus } from '../focusKeys';
+import { useToolbarFeatures } from '../hooks/useToolbarFeatures';
 import { useMessages } from '../i18n';
 
 type CommentToolbarProps = {
@@ -104,6 +105,7 @@ export function CommentToolbar({
 }: CommentToolbarProps) {
     const { path } = useContext(CommentsBootstrapperContext);
     const t = useMessages();
+    const features = useToolbarFeatures();
     const navRef = useRef<HTMLElement>(null);
     // The pill's buttons are one tab stop (a toolbar): ← and → move between them, Home and End to the first and the last
     const toolsRef = useRef<HTMLDivElement>(null);
@@ -257,7 +259,7 @@ export function CommentToolbar({
                             </IconButton>
                             </IconTooltip>
                             {/* The page's checks, docked like the inbox (components/checks/PageChecks.tsx) */}
-                            {roomy && accessibilityAvailable && (
+                            {roomy && accessibilityAvailable && features.includes('accessibility') && (
                                 <IconTooltip label={t.toolbar.accessibility}>
                                 <IconButton
                                     ref={accessibilityButtonRef}
@@ -272,7 +274,7 @@ export function CommentToolbar({
                                 </IconButton>
                                 </IconTooltip>
                             )}
-                            {roomy && (
+                            {roomy && features.includes('seo') && (
                             <IconTooltip label={t.toolbar.seo}>
                             <IconButton
                                 ref={seoButtonRef}
@@ -305,7 +307,7 @@ export function CommentToolbar({
                             <ToolbarProfile />
                             <ToolbarOptions projectUrl={projectUrl} onExitReview={onExitReview} onResetPosition={movement.custom ? resetPosition : undefined}
                                 triggerRef={optionsButtonRef}
-                                pageChecks={roomy ? undefined : { accessibility: accessibilityAvailable, attention: checksAttention, onOpen: onChecksPanelChange }}
+                                pageChecks={roomy ? undefined : { accessibility: accessibilityAvailable && features.includes('accessibility'), seo: features.includes('seo'), attention: checksAttention, onOpen: onChecksPanelChange }}
                                 shortcutsRequested={shortcutsRequested} onShortcutsRequestHandled={onShortcutsRequestHandled} />
                             <IconTooltip label={t.toolbar.collapse}>
                             <IconButton

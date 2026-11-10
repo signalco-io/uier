@@ -1,5 +1,7 @@
 'use client';
 
+import { ToolbarFeaturesFields } from './ToolbarFeaturesFields';
+import type { ToolbarFeatureVisibility } from '@uier/toolbar/toolbar-features';
 import type { FeedbackType } from '@uier/toolbar/feedback-types';
 import type { DbProject } from '../../../lib/app/model';
 import { FeedbackTypesEditor } from '../FeedbackTypesEditor';
@@ -147,13 +149,14 @@ export function ProjectGeneralForm({ projectId, name, clientName, clients, aiTit
 type ProjectToolbarLanguage = 'workspace' | ToolbarLanguage;
 
 /** Review: who can comment, the toolbar's language, the brief and, under Advanced, the page state; one save */
-export function ProjectReviewForm({ projectId, access, brief, policy, suggestions, guestLinks, feedbackTypes, workspaceTypes, toolbarLanguage, workspaceToolbarLanguage }: {
+export function ProjectReviewForm({ projectId, access, brief, policy, suggestions, guestLinks, feedbackTypes, workspaceTypes, toolbarLanguage, workspaceToolbarLanguage, toolbarFeatures }: {
     projectId: string;
     access: ProjectAccess;
     /** The project's own toolbar language, or the workspace's */
     toolbarLanguage: ProjectToolbarLanguage;
     /** The workspace's default, which `workspace` follows */
     workspaceToolbarLanguage: ToolbarLanguage;
+    toolbarFeatures?: ToolbarFeatureVisibility;
     /** The saved access's guest links, shown under Who can comment while it stays chosen */
     guestLinks?: ReactNode;
     brief?: string;
@@ -168,6 +171,7 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
     const { draft, dirty, update, discard } = useSettingsDraft({
         access,
         toolbarLanguage,
+        toolbarFeatures: toolbarFeatures ?? {},
         brief: brief ?? '',
         feedbackTypesMode: feedbackTypes ? 'replace' as const : 'workspace' as const,
         feedbackTypes: feedbackTypes?.value ?? workspaceTypes,
@@ -194,6 +198,7 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
                 <input type="hidden" name="feedbackTypes" value={draft.feedbackTypesMode === 'workspace' ? 'workspace' : JSON.stringify({ mode: 'replace', value: draft.feedbackTypes })} />
                 <input type="hidden" name="access" value={draft.access} />
                 <input type="hidden" name="toolbarLanguage" value={draft.toolbarLanguage} />
+                <input type="hidden" name="toolbarFeatures" value={JSON.stringify(draft.toolbarFeatures)} />
                 <input type="hidden" name="queryParameters" value={draft.queryParameters} />
                 <input type="hidden" name="hashRouting" value={String(draft.hashRouting)} />
                 <FieldGroup>
@@ -232,6 +237,8 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
                             What reviewers see the toolbar in. People who choose their own language in the toolbar&apos;s Options keep it. Change the workspace default in <Link href={KnownPages.AppSettings} className="underline underline-offset-4 hover:text-foreground">Workspace settings</Link>.
                         </FieldDescription>
                     </Field>
+                    <FieldSeparator />
+                    <ToolbarFeaturesFields value={draft.toolbarFeatures} onChange={toolbarFeatures => update(current => ({ ...current, toolbarFeatures }))} guests={draft.access === 'guests'} disabled={pending} />
                     <FieldSeparator />
                     <Field>
                         <FieldLabel htmlFor={`${formId}-brief`}>Review brief</FieldLabel>

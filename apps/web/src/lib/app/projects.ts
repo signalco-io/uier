@@ -1,3 +1,4 @@
+import { toolbarFeatureVisibilitySchema } from './toolbarFeatures';
 import { projectFeedbackTypesSchema } from './feedbackTypeSchema';
 import { customAlphabet } from 'nanoid';
 import { cache } from 'react';
@@ -169,6 +170,7 @@ export async function createProject(context: AppContext, { name, urls, clientNam
 }
 
 export type ProjectUpdate = Partial<{
+    toolbarFeatures: DbProject['toolbarFeatures'];
     rewriteInstructions: import('./inheritedSettings').ProjectSetting<string> | undefined;
     feedbackTypes: DbProject['feedbackTypes'];
     emailCommentExcerpts: boolean;
@@ -189,6 +191,7 @@ export async function updateProject(workspaceId: string, projectId: string, upda
     assertMutableProject(workspaceId, projectId);
     if (update.rewriteInstructions !== undefined)
         update = { ...update, rewriteInstructions: projectRewriteInstructionsSchema.parse(update.rewriteInstructions) };
+    if (update.toolbarFeatures !== undefined) update = { ...update, toolbarFeatures: toolbarFeatureVisibilitySchema.parse(update.toolbarFeatures) };
     if (update.feedbackTypes !== undefined) update = { ...update, feedbackTypes: projectFeedbackTypesSchema.parse(update.feedbackTypes) };
     return await updateDoc<DbProject>(workspacePk(workspaceId), projectId, project => ({
         ...project,

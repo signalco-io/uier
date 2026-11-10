@@ -9,6 +9,7 @@ import { CommentIcon } from './CommentIcon';
 import { InkScope } from './InkScope';
 import { RewriteIcon } from './RewriteIcon';
 import { addCommentShortcut, useShortcutsEnabled } from '../shortcuts';
+import { useToolbarFeatures } from '../hooks/useToolbarFeatures';
 import { useMessages } from '../i18n';
 
 type CommentSelectionPopoverProps = {
@@ -25,6 +26,7 @@ type CommentSelectionPopoverProps = {
  */
 export function CommentSelectionPopover({ rects, onCreate, onRewrite }: CommentSelectionPopoverProps) {
     const t = useMessages();
+    const rewriteAvailable = useToolbarFeatures().includes('rewrite');
     const [popoverHeight, setPopoverHeight] = useState(0);
     const resizeObserverRef = useCallback((element: HTMLDivElement | null) => {
         if (!element) return;
@@ -38,14 +40,16 @@ export function CommentSelectionPopover({ rects, onCreate, onRewrite }: CommentS
     const shortcut = useShortcutsEnabled() ? addCommentShortcut : undefined;
     const actions = [
         { label: t.toolbar.addComment, icon: <CommentIcon icon="add" size={20} variant="outlined" aria-hidden="true" />, onClick: onCreate, shortcut },
-        { label: t.selection.rewrite, icon: <RewriteIcon size={20} aria-hidden="true" />, onClick: onRewrite, shortcut: undefined }
+        ...(rewriteAvailable ? [{ label: t.selection.rewrite, icon: <RewriteIcon size={20} aria-hidden="true" />, onClick: onRewrite, shortcut: undefined }] : [])
     ];
+
+    const activeActionIndex = Math.min(activeIndex, actions.length - 1);
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
         const last = actions.length - 1;
         const targets: Partial<Record<string, number>> = {
-            ArrowRight: activeIndex === last ? 0 : activeIndex + 1,
-            ArrowLeft: activeIndex === 0 ? last : activeIndex - 1,
+            ArrowRight: activeActionIndex === last ? 0 : activeActionIndex + 1,
+            ArrowLeft: activeActionIndex === 0 ? last : activeActionIndex - 1,
             Home: 0,
             End: last
         };
@@ -86,7 +90,7 @@ export function CommentSelectionPopover({ rects, onCreate, onRewrite }: CommentS
                             variant="plain"
                             size="sm"
                             className="gap-1.5 rounded-full pl-2.5"
-                            tabIndex={index === activeIndex ? 0 : -1}
+                            tabIndex={index === activeActionIndex ? 0 : -1}
                             aria-keyshortcuts={action.shortcut}
                             onFocus={() => setActiveIndex(index)}
                             // Keep the page selection intact until its action has consumed it.

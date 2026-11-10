@@ -48,7 +48,7 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
 
 | Request | What |
 | --- | --- |
-| `GET /api/review/<code>` | the project (name, who can comment, page-state policy; configured `feedbackTypes` only when the reviewer can comment), the reviewer and whether they can comment, the sign-in URL, and `language`: `{ default, source, preference? }`, the [toolbar language](../apps/web/docs/project-settings.md#toolbar-language) (`source`: `project`, `workspace` or `default`; `preference`, the account's own choice or `null`, only for a member) |
+| `GET /api/review/<code>` | the project (name, who can comment, page-state policy; configured `feedbackTypes` and the reviewer's effective optional [`toolbarFeatures`](../apps/web/docs/project-settings.md#toolbar-features) list only when they can comment), the reviewer and whether they can comment, the sign-in URL, and `language`: `{ default, source, preference? }`, the [toolbar language](../apps/web/docs/project-settings.md#toolbar-language) (`source`: `project`, `workspace` or `default`; `preference`, the account's own choice or `null`, only for a member) |
 | `POST /api/review/<code>/language` | `{ language }` (a language code, or `null` for the project's): a member's own toolbar language, saved to their account; also where comments are off. Guests get `401 sign_in_required` before the body is read |
 | `POST /api/review/<code>/session` | `{ code }`: exchanges a review link's single-use code (10 minutes) for a review token (30 days) |
 | `POST /api/review/<code>/sso` | Same-origin frame-only background handoff: `{ origin }` plus the dedicated HttpOnly cookie; rechecks project/site/member access, returns a review token or 204. No CORS or app-cookie authentication |

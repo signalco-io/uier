@@ -345,3 +345,18 @@ test('extension reply image reads use the closed broker route and current thread
     await getAppStore().delete(workspacePk(f.project.workspaceId), memberId(f.user.id));
     expect((await GET(request(`review/${path}`, scoped.token))).status).toBe(401);
 });
+
+
+test('extension comment lists forward archive filters while unknown query keys stay closed', async () => {
+    const { extensionOperation } = await import('@uier/toolbar/extension-contract');
+    const base = 'https://uier.io/api/review/project123/comments';
+    for (const archive of ['exclude', 'only', 'all']) {
+        for (const scope of ['path=%2F', 'scope=site&unread=true']) {
+            const query = `?${scope}&archive=${archive}`;
+            expect(extensionOperation(`${base}${query}`, 'https://uier.io', 'project123', 'GET'))
+                .toEqual({ path: 'comments', query });
+        }
+    }
+    expect(() => extensionOperation(`${base}?arbitrary=true`, 'https://uier.io', 'project123', 'GET'))
+        .toThrow('Unsupported review query');
+});

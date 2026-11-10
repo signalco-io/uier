@@ -1,5 +1,6 @@
 'use server';
 
+import { toolbarFeatureVisibilitySchema } from '../../../lib/app/toolbarFeatures';
 import { projectFeedbackTypesSchema } from '../../../lib/app/feedbackTypeSchema';
 
 import { revalidatePath } from 'next/cache';
@@ -131,6 +132,8 @@ export async function updateProjectReviewAction(_: ActionState, formData: FormDa
         const feedbackTypes = formData.has('feedbackTypes')
             ? formData.get('feedbackTypes') === 'workspace' ? undefined : projectFeedbackTypesSchema.parse(JSON.parse(String(formData.get('feedbackTypes'))))
             : undefined;
+        const toolbarFeatures = formData.has('toolbarFeatures')
+            ? toolbarFeatureVisibilitySchema.parse(JSON.parse(String(formData.get('toolbarFeatures')))) : undefined;
         const access = accessSchema.parse(formData.get('access'));
         // Forms loaded before this setting existed leave it untouched
         const toolbarLanguage = formData.has('toolbarLanguage') ? projectToolbarLanguageModeSchema.parse(formData.get('toolbarLanguage')) : undefined;
@@ -142,6 +145,8 @@ export async function updateProjectReviewAction(_: ActionState, formData: FormDa
         const update: ProjectUpdate = {};
         if (formData.has('feedbackTypes') && JSON.stringify(feedbackTypes) !== JSON.stringify(project.feedbackTypes))
             update.feedbackTypes = feedbackTypes;
+        if (toolbarFeatures !== undefined && JSON.stringify(toolbarFeatures) !== JSON.stringify(project.toolbarFeatures ?? {}))
+            update.toolbarFeatures = Object.keys(toolbarFeatures).length ? toolbarFeatures : undefined;
         if (access !== project.access)
             update.access = access;
         if (toolbarLanguage !== undefined && toolbarLanguage !== projectToolbarLanguageMode(project))

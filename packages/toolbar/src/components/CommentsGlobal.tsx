@@ -1,3 +1,4 @@
+import { useToolbarFeatures } from '../hooks/useToolbarFeatures';
 import { ReattachContext, describeAnchor } from './CommentAnchorDetails';
 import { messages, useMessages, useToolbarLanguage } from '../i18n';
 import { DockablePanel } from './DockablePanel';
@@ -116,6 +117,7 @@ export function CommentsGlobal({
     rootElement,
     onExitReview
 }: CommentsGlobalProps) {
+    const features = useToolbarFeatures();
     const drafts = useDrafts();
     const [creatingCommentSelection, setCreatingCommentSelection] = useState<CommentSelection>();
     const restorePageDrafts = () =>
@@ -167,11 +169,14 @@ export function CommentsGlobal({
     // The panel open on the previous page stays open on this one (client-side navigation or a full load)
     const [restoredPanel, setRestoredPanel] = useState<DockPanelId | undefined>(() => {
         const panel = mountRequest ? undefined : readOpenPanel();
-        return panel === 'accessibility' && !auditAvailable() ? undefined : panel;
+        return panel && panel !== 'inbox' && (!features.includes(panel) || (panel === 'accessibility' && !auditAvailable())) ? undefined : panel;
     });
     const [sidebarOpen, setSidebarOpen] = useState(restoredPanel === 'inbox');
     // The Accessibility or SEO panel: docked like the inbox, so one of them is open at a time
     const [checksPanel, setChecksPanel] = useState<ChecksPanelId | undefined>(restoredPanel === 'inbox' ? undefined : restoredPanel);
+    useEffect(() => {
+        if (checksPanel && !features.includes(checksPanel)) setChecksPanel(undefined);
+    }, [checksPanel, features]);
     // What the checks of this page (run in the background) found to act on: a dot on their buttons
     const [checksAttention, setChecksAttention] = useState<ChecksAttention>({});
     // The page asked to give feedback (`openFeedbackEvent`, or `feedback` mode mounting for it)
@@ -266,6 +271,7 @@ export function CommentsGlobal({
     };
 
     const startDraft = (anchor: CommentDraft['position'], kind: CommentDraft['kind'] = 'comment', element?: Element) => {
+        if (kind === 'rewrite' && !features.includes('rewrite')) return;
         // While the menu, popover or dialog it is in is open: its opener is saved with it (layerAnchor.ts)
         const position = withLayer(anchor, element);
         // On uier's own pages the toolbar's popovers stayed open while pointing: those the comment is not on close
@@ -608,7 +614,7 @@ export function CommentsGlobal({
     // The latest closed draft pin with text (a closed draft pin always has text)
     const draftKeyOf = (kind: CommentDraft['kind']) => kind === 'rewrite' ? newRewriteDraftKey : newCommentDraftKey;
     const resumableDraft = creatingComments
-        .filter(draft => !openDrafts.has(draftKeyOf(draft.kind)) && drafts.get(draftKeyOf(draft.kind))?.trim())
+        .filter(draft => (draft.kind !== 'rewrite' || features.includes('rewrite')) && !openDrafts.has(draftKeyOf(draft.kind)) && drafts.get(draftKeyOf(draft.kind))?.trim())
         .sort((a, b) => (drafts.details(draftKeyOf(b.kind))?.updatedAt ?? 0) - (drafts.details(draftKeyOf(a.kind))?.updatedAt ?? 0))[0];
     const resumeDraft = () => {
         if (!resumableDraft) return;
@@ -709,7 +715,7 @@ export function CommentsGlobal({
         if (openPanel !== restoredPanel) setRestoredPanel(undefined);
     }, [openPanel]);
     const changeChecksPanel = (panel: ChecksPanelId | undefined) => {
-        if (reattaching) return;
+        if (reattaching || (panel && !features.includes(panel))) return;
         if (!panel) {
             closeChecks();
             return;
@@ -769,7 +775,8 @@ export function CommentsGlobal({
         : undefined;
 
     // A sent draft until its comment's pin is in the list (`handleCreated`)
-    const shownCreatingComments = creatingComments.filter(draft => !draft.sentAs || !pinnedComments.some(comment => commentKey(comment) === draft.sentAs));
+    const shownCreatingComments = creatingComments.filter(draft => (draft.kind !== 'rewrite' || features.includes('rewrite')) &&
+        (!draft.sentAs || !pinnedComments.some(comment => commentKey(comment) === draft.sentAs)));
 
     // Keep the pill, movement and inbox mounted across SPA navigation. Only state tied to
     // the old page's DOM is discarded, before children can commit against the new draft store.
@@ -898,7 +905,7 @@ export function CommentsGlobal({
                         onShowOnPage={handleShowOnPage}
                         focusRequest={inboxFocus} />
                 )}
-                <PageChecks key={`${path}:${language}`}
+                <PageChecks key={`${path}:${language}:${features.join(',')}`}
                     panel={checksPanel}
                     collapsed={collapsed}
                     onClose={closeChecks}
