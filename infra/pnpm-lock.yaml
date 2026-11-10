@@ -179,8 +179,8 @@ importers:
         specifier: 4.21.6
         version: 4.21.6(typescript@7.0.2)
       '@pulumiverse/vercel':
-        specifier: 5.25.0
-        version: 5.25.0(typescript@7.0.2)
+        specifier: 5.26.1
+        version: 5.26.1(typescript@7.0.2)
     devDependencies:
       '@types/node':
         specifier: 26.6.6
@@ -377,8 +377,8 @@ packages:
   '@pulumi/random@4.21.6':
     resolution: {integrity: sha512-HsWUATAcKxceBcvNzPIdkC7sXyWWiGZmd/y4eZKF5nSAwCgpOPReZ+LLFbkl2bvKGHc3nNX5vIM84YU2dpSD1Q==}
 
-  '@pulumiverse/vercel@5.25.0':
-    resolution: {integrity: sha512-gmUYjHtDtz31bwjJpYPDRhAoMM9tGmjuaLltcY+anEhDfwJFWncOW8XX71zh19gqS2ixSllNtdl8zy1aOjfDhg==}
+  '@pulumiverse/vercel@5.26.1':
+    resolution: {integrity: sha512-WnmEseSjXDxOnIb8n8HhoI4mg5drbhHJFNOx6/BSSyDUZSRBWogmy6cH49DHwIxQ76MIEs5W+2ssk/yWesF0Sg==}
 
   '@types/google-protobuf@3.15.12':
     resolution: {integrity: sha512-40um9QqwHjRS92qnOaDpL7RmDK15NuZYo9HihiJRbYkMQZlWnuH8AdvbMy8/o6lgLmKbDUKa+OALCltHdbOTpQ==}
@@ -974,7 +974,7 @@ snapshots:
       - ts-node
       - typescript
 
-  '@pulumiverse/vercel@5.25.0(typescript@7.0.2)':
+  '@pulumiverse/vercel@5.26.1(typescript@7.0.2)':
     dependencies:
       '@pulumi/pulumi': 3.274.1(typescript@7.0.2)
     transitivePeerDependencies:
