@@ -346,7 +346,7 @@ test('onboarding creates a project with its addresses and sets up reviews one st
     await expect(page).toHaveTitle('example.com · uier');
     await expect(page.getByText('No comments yet')).toBeVisible();
     // Until the site sends a comment, the tabs offer the install guide; Settings is the header's cog
-    await expect(page.getByRole('navigation', { name: 'Project' }).getByRole('link')).toHaveText(['Comments', 'Install']);
+    await expect(page.getByRole('navigation', { name: 'Project' }).getByRole('link')).toHaveText(['Comments', 'Page checks', 'Install']);
     await expect(page.getByRole('link', { name: 'Settings', exact: true })).toHaveAttribute('href', `/app/projects/${projectId}/settings`);
     const empty = page.locator('[data-slot="empty"]');
     await expect(empty).toContainText('They sign in with their email.');

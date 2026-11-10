@@ -36,9 +36,9 @@
   named "Feedback on uier", never in the list of their workspaces. A project's header is
   `projects/[projectId]/layout.tsx` (the favicon in `PageHeader`'s `media`, beside both the name and the row under it: client, then who can comment (`ProjectAccessInfo`: its popover has the guest links and Invite for admins; for those who configure the project the label is a link to Who can comment in Review settings, `KnownPageLinks.projectAccessSettings`, and the popover opens on hover only, so Who can comment there shows the guest links too), Open
   review and the settings cog (`ProjectSettingsButton`, an icon link with a tooltip, current on the settings pages),
-  then the `ProjectTabs`: Comments and Install (Settings → Installation and the onboarding install step) until a comment
-  from one of the project's addresses arrives (`hasProjectFeedback`); after that there is nothing to switch between and
-  the tabs are gone); its pages render the comments, install guide or settings under it.
+  then the `ProjectTabs`: Comments, [Page checks](page-checks.md) and Install (Settings → Installation and the onboarding
+  install step) until a comment from one of the project's addresses arrives (`hasProjectFeedback`); after that Install is
+  gone); its pages render the comments, page checks, install guide or settings under it.
 - **Sidebar project order.** `ProjectOrderMenu` has two labelled radio groups: Sort (Recent activity, Recently
   created, Name) and Group (None, Client once an active project has one, Status). Only Group → Status lists the done
   projects too, under Active and Done, and the header then reads "All projects" (`listsProject`).
