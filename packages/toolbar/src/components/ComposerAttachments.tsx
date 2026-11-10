@@ -29,21 +29,19 @@ function useCaptureState(screenshot: Promise<string | undefined> | undefined): C
     return settled.ready ? 'ready' : 'failed';
 }
 
-/** Lucide's monitor and monitor-off, drawn like the UI kit's icons (the kit has no crossed-out screen) */
-function ScreenIcon({ off, size = 16 }: { off?: boolean; size?: number }) {
+/** Lucide's camera and camera-off, drawn like the UI kit's icons (the kit has no camera) */
+function CameraIcon({ off, size = 16 }: { off?: boolean; size?: number }) {
     return (
         <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
             strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             {off ? <>
-                <path d="M17 17H4a2 2 0 0 1-2-2V5c0-1.5 1-2 1-2" />
-                <path d="M22 15V5a2 2 0 0 0-2-2H9" />
-                <path d="M8 21h8" />
-                <path d="M12 17v4" />
+                <path d="M14.564 14.558a3 3 0 1 1-4.122-4.121" />
                 <path d="m2 2 20 20" />
+                <path d="M20 20H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 .819-.175" />
+                <path d="M9.695 4.024A2 2 0 0 1 10.004 4h3.993a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v7.344" />
             </> : <>
-                <rect width="20" height="14" x="2" y="3" rx="2" />
-                <path d="M8 21h8" />
-                <path d="M12 17v4" />
+                <path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z" />
+                <circle cx="12" cy="13" r="3" />
             </>}
         </svg>
     );
@@ -54,7 +52,7 @@ export const composerIconButtonClassName = 'size-7 shrink-0 rounded-md text-mute
 
 /**
  * The header of a new comment or feedback: its title, then the screen toggle (Omit screenshot,
- * pressed shows a crossed-out screen), which says in its tooltip and description what will be
+ * pressed shows a crossed-out camera), which says in its tooltip and description what will be
  * attached, and `actions` (Expand). Attach image is in the text box's bottom-left corner
  * ({@link ComposerAttachButton}). Never a preview: composers stay without images (#81, #92). The
  * status is read out, not shown.
@@ -109,7 +107,7 @@ export function ComposerAttachmentsHeader({ title, screenshot, page, omitted, on
                                 aria-describedby={statusId}
                                 className={cx(composerIconButtonClassName, omitted && 'text-foreground')}
                                 onClick={() => onOmittedChange(!omitted)}>
-                                <ScreenIcon off={omitted} />
+                                <CameraIcon off={omitted} />
                             </IconButton>
                         </IconTooltip>
                     )}

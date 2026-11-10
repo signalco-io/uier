@@ -6,7 +6,7 @@ posted comment's thread opens in the draft's place.
 
 ## The form
 
-`ComposerAttachmentsHeader` is the title line: the title, the screenshot toggle (Omit screenshot) and Expand.
+`ComposerAttachmentsHeader` is the title line: the title, the screenshot toggle (Omit screenshot, a camera icon) and Expand.
 Attach image (`ComposerAttachButton`) is in the bottom-left corner of the text box (`CommentComposer`'s
 `attachments`), so it reads as a part of the comment; once an image is attached, its name with a remove button
 takes that place and the screenshot toggle leaves the header (the image replaces the screenshot). Screenshot

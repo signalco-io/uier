@@ -150,7 +150,8 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
     return (
         <div ref={rootRef} className="flex gap-2">
             <Avatar size="sm" aria-hidden="true" className="shrink-0 border bg-accent text-[11px] font-semibold text-foreground">{avatarText(authorName)}</Avatar>
-            <Stack spacing={1} className="min-w-0 flex-1">
+            {/* The author line and the message almost touch (uier #240); the rest keeps its spacing */}
+            <div className="flex min-w-0 flex-1 flex-col">
                 <Row spacing={1} justifyContent="space-between" className="min-h-6">
                     <Row spacing={1} className="min-w-0">
                         <Typography level="body2" semiBold noWrap className="text-foreground" title={authorName}>
@@ -185,25 +186,27 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                             } : undefined} />
                     )}
                 </Row>
-                {first && <CommentKindLabel kind={comment.kind} feedbackType={comment.feedbackType} />}
-                {Boolean(quote?.length) && (
-                    <blockquote className="m-0 line-clamp-4 border-l-2 border-border pl-2.5 text-sm text-secondary-foreground">
-                        {quote}
-                    </blockquote>
-                )}
-                {editing ? (
-                    <CommentComposer label={first ? t.thread.editComment : t.thread.editReply} placeholder={t.thread.editPlaceholder} submitLabel={t.thread.saveChanges}
-                        commentId={comment.id} initialMentions={threadItem.mentions} draftKey={editDraftKey} initialText={editing.originalText} autoFocus pending={edit.isPending} error={edit.error}
-                        onCancel={finishEdit} onSubmit={async (text, mentions) => {
-                            await edit.mutateAsync({ commentId: comment.id, itemId: threadItem.id, text, mentions, expectedText: editing.originalText });
-                            finishEdit();
-                            announce(first ? t.thread.commentEdited : t.thread.replyEdited);
-                        }} />
-                ) : <MessageMarkdown text={text} mentions={mentions}
-                    suffix={threadItem.editedAt && <span className="font-normal text-muted-foreground">{t.thread.edited}</span>} />}
-                {(first || threadItem.screenshot) && <CommentScreenshot comment={comment} itemId={first ? undefined : threadItem.id} />}
-                <CommentsErrorMessage error={error} />
-            </Stack>
+                <Stack spacing={1} className="min-w-0">
+                    {first && <CommentKindLabel kind={comment.kind} feedbackType={comment.feedbackType} />}
+                    {Boolean(quote?.length) && (
+                        <blockquote className="m-0 line-clamp-4 border-l-2 border-border pl-2.5 text-sm text-secondary-foreground">
+                            {quote}
+                        </blockquote>
+                    )}
+                    {editing ? (
+                        <CommentComposer label={first ? t.thread.editComment : t.thread.editReply} placeholder={t.thread.editPlaceholder} submitLabel={t.thread.saveChanges}
+                            commentId={comment.id} initialMentions={threadItem.mentions} draftKey={editDraftKey} initialText={editing.originalText} autoFocus pending={edit.isPending} error={edit.error}
+                            onCancel={finishEdit} onSubmit={async (text, mentions) => {
+                                await edit.mutateAsync({ commentId: comment.id, itemId: threadItem.id, text, mentions, expectedText: editing.originalText });
+                                finishEdit();
+                                announce(first ? t.thread.commentEdited : t.thread.replyEdited);
+                            }} />
+                    ) : <MessageMarkdown text={text} mentions={mentions}
+                        suffix={threadItem.editedAt && <span className="font-normal text-muted-foreground">{t.thread.edited}</span>} />}
+                    {(first || threadItem.screenshot) && <CommentScreenshot comment={comment} itemId={first ? undefined : threadItem.id} />}
+                    <CommentsErrorMessage error={error} />
+                </Stack>
+            </div>
         </div>
     );
 }
