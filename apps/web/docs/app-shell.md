@@ -187,7 +187,8 @@ The sidebar footer's account menu lists this browser's live signed-in accounts (
 email) and marks the active one with a check; there is no separate header for the active person
 (uier #248). It shows at most three accounts, the active one always among them; with more, a
 fourth row (N more accounts) is a submenu with the rest and Add account (uier #249). Below are
-Sign out and, with several accounts, Sign out of all accounts. The cap is five; at the cap Add account explains that one must be signed out first.
+Sign out and, with several accounts, Sign out of all accounts (a power icon, not Sign out's
+log-out icon; uier #250). The cap is five; at the cap Add account explains that one must be signed out first.
 Switching opens a fresh app document on the selected account's own workspace. Sign out opens the
 next live account, or sign-in when none remains. The shell sends only menu fields to the client,
 never session credentials. `AccountSessionBoundary` reconciles other tabs on focus/visibility,

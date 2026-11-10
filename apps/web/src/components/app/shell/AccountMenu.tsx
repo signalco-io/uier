@@ -3,7 +3,7 @@
 import { useTransition } from 'react';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
-import { CheckIcon, UserPlusIcon, ChevronsUpDownIcon, CircleUserIcon, KeyboardIcon, LogOutIcon, MonitorIcon, MoonIcon, SunIcon, UsersIcon } from 'lucide-react';
+import { CheckIcon, UserPlusIcon, ChevronsUpDownIcon, CircleUserIcon, KeyboardIcon, LogOutIcon, MonitorIcon, MoonIcon, PowerIcon, SunIcon, UsersIcon } from 'lucide-react';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -151,7 +151,7 @@ export function AccountMenu({ name, avatarUrl, accounts }: { name: string; avata
                             Sign out
                         </DropdownMenuItem>
                         {accounts.length > 1 && <DropdownMenuItem disabled={pending} onClick={() => change({ action: 'sign-out-all' })}>
-                            <LogOutIcon />Sign out of all accounts
+                            <PowerIcon />Sign out of all accounts
                         </DropdownMenuItem>}
                     </DropdownMenuContent>
                 </DropdownMenu>
