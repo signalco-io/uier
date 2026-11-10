@@ -5,6 +5,8 @@ import { listVisibleProjects } from '@/src/lib/app/projects';
 import { loadWorkspaceAccess } from '@/src/lib/app/access';
 import { avatarUrl } from '@/src/lib/app/avatars';
 import { AccountForm, AppearanceSection } from './AccountForm';
+import { ToolbarLanguageForm } from './ToolbarLanguageForm';
+import { userToolbarLanguage } from '@/src/lib/app/toolbarLanguage';
 
 export const metadata: Metadata = {
     title: 'Account'
@@ -12,7 +14,7 @@ export const metadata: Metadata = {
 
 const relationshipLabels = { internal: 'Internal', external: 'External' } as const;
 
-/** General: the name, the theme and the person's access in the selected workspace */
+/** General: the name, the theme, the toolbar's language and the person's access in the selected workspace */
 export default async function AccountPage() {
     const context = await requireAppContext();
     const [projects, access] = await Promise.all([listVisibleProjects(context), loadWorkspaceAccess(context.workspace.id)]);
@@ -29,6 +31,7 @@ export default async function AccountPage() {
         <>
             <AccountForm name={context.user.name} avatarUrl={avatarUrl(context.user)} />
             <AppearanceSection />
+            <ToolbarLanguageForm language={userToolbarLanguage(context.user)} />
             <Section id="my-access" title="Your workspace access" description={`Your role, teams and projects in ${context.workspace.name}.`}>
                 <dl className="m-0 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm">
                     {rows.map(row => (

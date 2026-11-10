@@ -4,7 +4,7 @@ const id = '[A-Za-z0-9_-]{1,72}';
 const operations: [RegExp, ExtensionMethod[]][] = [
     [/^$/, ['GET']], [/^comments$/, ['GET', 'POST']], [/^comments\/activity$/, ['GET']],
     [/^comments\/read$/, ['POST']], [/^participants$/, ['GET']], [/^rewrite$/, ['POST']],
-    [/^notifications$/, ['POST']],
+    [/^notifications$/, ['POST']], [/^language$/, ['POST']],
     [new RegExp(`^comments/${id}$`), ['PATCH', 'DELETE']],
     [new RegExp(`^comments/${id}/replies$`), ['POST']],
     [new RegExp(`^comments/${id}/replies/${id}$`), ['PATCH', 'DELETE']],

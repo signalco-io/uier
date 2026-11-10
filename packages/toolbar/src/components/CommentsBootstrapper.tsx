@@ -15,6 +15,7 @@ import { ProjectViewerContext } from '../project/ProjectGate';
 import { defaultPageStatePolicy } from '../pageState';
 import { ProjectGate, useProjectViewer } from '../project/ProjectGate';
 import { ProjectNotice } from './ProjectNotice';
+import { useLangAttribute, useMessages } from '../i18n';
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -48,6 +49,7 @@ function ReviewLayer({
 
 function PublicReviewLayer(props: CommentsGlobalProps) {
     const { query } = useVisitor();
+    const t = useMessages();
     const client = useQueryClient();
     const previousScope = useRef<string | undefined>(undefined);
     const scope = query.data?.draftScope;
@@ -62,8 +64,8 @@ function PublicReviewLayer(props: CommentsGlobalProps) {
     if (!query.data?.draftScope) return query.isError ? (
         <InkScope>
             <div role="status" className="fixed bottom-4 left-1/2 z-[51] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-xl border bg-background p-3 text-foreground">
-                <p className="m-0 text-sm">Your reviewer details could not be loaded.</p>
-                <Button variant="outlined" size="sm" onClick={() => query.refetch()}>Try again</Button>
+                <p className="m-0 text-sm">{t.notice.reviewerNotLoaded}</p>
+                <Button variant="outlined" size="sm" onClick={() => query.refetch()}>{t.common.retry}</Button>
             </div>
         </InkScope>
     ) : null;
@@ -73,14 +75,20 @@ function PublicReviewLayer(props: CommentsGlobalProps) {
 }
 
 export function CommentsBootstrapper(props: CommentsGlobalProps) {
+    return <QueryClientProvider client={queryClient}>
+        <AnnouncerProvider>
+            <BootstrapperContent {...props} />
+        </AnnouncerProvider>
+    </QueryClientProvider>;
+}
+
+function BootstrapperContent(props: CommentsGlobalProps) {
+    const t = useMessages();
+    useLangAttribute(props.rootElement);
     // Configuration alone decides this, before PublicReviewLayer mounts useVisitor or comments.
     const unconfigured = !toolbarConfig.project && new URL(toolbarConfig.apiUrl).origin !== window.location.origin;
     const installUrl = `${toolbarConfig.apiUrl}/app/projects${props.review?.projectCode ? `/${encodeURIComponent(props.review.projectCode)}/install` : ''}`;
-    return <QueryClientProvider client={queryClient}>
-        <AnnouncerProvider>
-            {unconfigured ? <ProjectNotice text="Set up uier on this site to start a review."
-                action={{ label: 'Open install guide', href: installUrl }} onExitReview={props.onExitReview} />
-                : toolbarConfig.project ? <ProjectGate onExitReview={props.onExitReview}><ReviewLayer {...props} /></ProjectGate> : <PublicReviewLayer {...props} />}
-        </AnnouncerProvider>
-    </QueryClientProvider>;
+    return unconfigured ? <ProjectNotice text={t.notice.setUp}
+        action={{ label: t.notice.openInstallGuide, href: installUrl }} onExitReview={props.onExitReview} />
+        : toolbarConfig.project ? <ProjectGate onExitReview={props.onExitReview}><ReviewLayer {...props} /></ProjectGate> : <PublicReviewLayer {...props} />;
 }

@@ -171,3 +171,8 @@ export function ipRateLimitBucket(ip: string) {
 export function displayName(authorId: string | undefined) {
     return authorId ? `Guest ${keyedHash('name', authorId).slice(0, 4).toUpperCase()}` : 'Guest';
 }
+
+/** The signed-in account behind a visitor on uier's own pages (`user:<id>`); none for guests */
+export function accountUserId(visitor: Visitor) {
+    return visitor.member && visitor.authorId?.startsWith('user:') ? visitor.authorId.slice('user:'.length) : undefined;
+}

@@ -34,3 +34,10 @@ audit asset, which packaged clients ship as a file of their own instead of loadi
   or the checks.
 - `auditPrelude.ts` works on that world's own global there: the page's `axe` and `define` are not on
   it, and the `axe` that axe-core assigns is removed again.
+
+## Languages
+
+The web loads each toolbar language but English as an asset next to the review bundle
+([toolbar languages](localization.md)). Packaged clients never add remote scripts: the extension's content
+script bundles them (`i18n/packaged.ts`) and passes `ToolbarAdapters.loadLanguage`, and its build defines
+`__UIER_LANGUAGE_ASSETS__` as `{}`. Without `loadLanguage`, a packaged toolbar is English only.

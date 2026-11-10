@@ -1,11 +1,8 @@
 import { runtimeAdapters, type ToolbarAdapters } from '../adapters';
-import { toolbarConfig } from '../config';
+import { addAssetScript } from '../assetScript';
 import { auditHandoffKey, type AuditAsset, type AuditScript, type AxeApi } from './auditHandoff';
 import type { LazyChecks } from './lazy';
-
-// The review script, read while it runs: the audit asset is published next to it, and gets its
-// nonce and referrer policy like the review script got the loader's (src/index.ts).
-const reviewScript = runtimeAdapters() ? null : document.currentScript instanceof HTMLScriptElement ? document.currentScript : null;
+import { checkMessages, toolbarLanguage } from '../i18n';
 
 /**
  * Whether the audit asset (the accessibility audit and the on-demand page checks) can load here: on
@@ -26,6 +23,14 @@ let pending: Promise<AuditAsset> | undefined;
  * (`packagedAudit`). A failed load lets a later request try again.
  */
 export function loadAudit(): Promise<AuditAsset> {
+    return loadedAudit().then(asset => {
+        // The checks that run next write in the toolbar's language (an older packaged asset has no locale: English)
+        asset.checks.locale?.use(toolbarLanguage(), checkMessages());
+        return asset;
+    });
+}
+
+function loadedAudit(): Promise<AuditAsset> {
     if (pending) return pending;
     const adapters = runtimeAdapters();
     const attempt = adapters ? packagedAudit(adapters) : scriptAudit();
@@ -46,30 +51,15 @@ async function packagedAudit({ loadAudit }: ToolbarAdapters): Promise<AuditAsset
 
 /** The web's asset: a classic script from the published path, next to the review script */
 function scriptAudit() {
-    return new Promise<AuditAsset>((resolve, reject) => {
-        if (!auditAvailable()) {
-            reject(new Error('Accessibility checks are not available here.'));
-            return;
-        }
-        let loaded: AuditAsset | undefined;
-        const script: AuditScript = document.createElement('script');
-        script.src = new URL(__UIER_AUDIT_PATH__, reviewScript?.src || `${toolbarConfig.apiUrl}/toolbar.js`).href;
-        script.async = true;
-        script.integrity = __UIER_AUDIT_INTEGRITY__;
-        if (script.integrity) script.crossOrigin = 'anonymous';
-        if (reviewScript?.nonce) script.nonce = reviewScript.nonce;
-        if (reviewScript?.referrerPolicy) script.referrerPolicy = reviewScript.referrerPolicy;
-        script[auditHandoffKey] = (axe, checks) => { loaded = { axe, checks }; };
-        script.onload = () => {
-            script.remove();
-            if (loaded) resolve(loaded);
-            else reject(new Error('The accessibility checks did not start.'));
-        };
-        script.onerror = () => {
-            script.remove();
-            reject(new Error('The accessibility checks could not be loaded.'));
-        };
-        (document.head ?? document.documentElement).appendChild(script);
+    if (!auditAvailable())
+        return Promise.reject(new Error('Accessibility checks are not available here.'));
+    let loaded: AuditAsset | undefined;
+    return addAssetScript<AuditAsset>({
+        path: __UIER_AUDIT_PATH__,
+        integrity: __UIER_AUDIT_INTEGRITY__,
+        prepare: script => { (script as AuditScript)[auditHandoffKey] = (axe, checks) => { loaded = { axe, checks }; }; },
+        received: () => loaded,
+        errors: { notStarted: 'The accessibility checks did not start.', notLoaded: 'The accessibility checks could not be loaded.' }
     });
 }
 

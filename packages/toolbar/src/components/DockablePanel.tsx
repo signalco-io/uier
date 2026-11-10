@@ -4,6 +4,7 @@ import { cx } from '@signalco/ui-primitives/cx';
 import { Drag } from '@signalco/ui-icons';
 import { readPreference, savePreference, useReviewDrag, useReviewViewport } from '../hooks/useReviewMovement';
 import { useAnnounce } from './Announcer';
+import { useMessages } from '../i18n';
 
 type Side = 'left' | 'right';
 const isSide = (value: unknown): value is Side => value === 'left' || value === 'right';
@@ -30,19 +31,18 @@ export function DockablePanel({ id, label, children, className, onKeyDown }: Pro
     const target = useRef<Side>(side);
     const view = useReviewViewport();
     const announce = useAnnounce();
+    const t = useMessages();
     const wide = view.width >= 640;
     const width = panelWidth(view.width);
-    const moveTo = (next: Side) => { setSide(next); savePreference(key, next); announce(`${label} moved to the ${next}.`); };
+    const moveTo = (next: Side) => { setSide(next); savePreference(key, next); announce(t.panel.moved(label, next)); };
     const drag = useReviewDrag({
         onStart: () => { target.current = side; setDestination(side); },
         onMove: point => { target.current = point.x < view.left + view.width / 2 ? 'left' : 'right'; setDestination(target.current); },
         onEnd: canceled => { setDestination(undefined); if (!canceled) moveTo(target.current); }
     });
-    // "Move comments panel", "Move SEO panel": a capitalized word goes lower case, an abbreviation stays
-    const name = /^[A-Z][a-z]/.test(label) ? label[0]!.toLowerCase() + label.slice(1) : label;
     const handle = (
-        <IconButton variant="plain" size="sm" aria-label={`Move ${name} panel`}
-            title="Drag to the other side, or use the arrow keys" className="-ml-2 shrink-0" {...drag.handle}
+        <IconButton variant="plain" size="sm" aria-label={t.panel.move(label)}
+            title={t.panel.moveTip} className="-ml-2 shrink-0" {...drag.handle}
             onKeyDown={event => {
                 drag.handle.onKeyDown(event);
                 if (event.defaultPrevented) return;
@@ -56,7 +56,7 @@ export function DockablePanel({ id, label, children, className, onKeyDown }: Pro
             {drag.dragging && destination && (
                 <div aria-hidden="true" className="pointer-events-none fixed z-[52] rounded-2xl border-2 border-ring bg-muted/40"
                     style={{ top: view.top + 8, left: view.left + (destination === 'left' ? 8 : view.width / 2), width: view.width / 2 - 8, height: view.height - 16 }}>
-                    <p className="m-4 rounded-md bg-background p-2 text-sm text-foreground">Move to the {destination}</p>
+                    <p className="m-4 rounded-md bg-background p-2 text-sm text-foreground">{t.panel.moveTo(destination)}</p>
                 </div>
             )}
             <aside id={`uier-panel-${id}`} aria-label={label} data-uier-panel={id} data-side={side} onKeyDown={onKeyDown}

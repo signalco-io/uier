@@ -1,5 +1,9 @@
 import { elementKey, elementLabel, foundLine, oneLine, writtenAddress } from './pageElements';
 import type { CheckState, PageCheck, PageIssue } from './types';
+import { messages } from '../i18n';
+
+// In the toolbar's language (`messages().seo`), read at check time: the panel's words and the comments
+// its issues post (docs/localization.md). Check ids, states and issue keys stay the same in every language.
 
 // The SEO panel's checks: what the page tells search engines, read from the page's own document
 // (the toolbar's shadow root and inline threads are never in `document.querySelectorAll`).
@@ -34,48 +38,51 @@ function check(id: string, label: string, state: CheckState, reason: string, val
     return { id, label, state, reason, value, issues };
 }
 
-const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const characters = (text: string) => [...text].length;
 
 function titleCheck(): PageCheck {
+    const { seo: t, found } = messages();
     const title = oneLine(document.title, 1000);
     const length = characters(title);
+    const label = t.labels.title;
     if (!title) {
-        return check('title', 'Title', 'warn', 'No title. Search results and browser tabs show one.', undefined,
-            [issue('title', undefined, 'The page has no title.', 'SEO: The page has no title. Search results and browser tabs show one.')]);
+        return check('title', label, 'warn', t.noTitle, undefined,
+            [issue('title', undefined, t.noTitleSummary, t.comments.noTitle)]);
     }
     if (length > 60) {
-        return check('title', 'Title', 'warn', `${length} characters. Search results show about 60.`, title,
-            [issue('title', undefined, 'The title is long.', `SEO: The page title is ${length} characters. Search results show about 60.${foundLine('Title', title)}`)]);
+        return check('title', label, 'warn', t.titleLong(length), title,
+            [issue('title', undefined, t.titleLongSummary, `${t.comments.titleLong(length)}${foundLine(found.title, title)}`)]);
     }
     if (length < 10) {
-        return check('title', 'Title', 'warn', `${count(length, 'character')}. Aim for 10 to 60.`, title,
-            [issue('title', undefined, 'The title is short.', `SEO: The page title is ${count(length, 'character')}. A title of 10 to 60 characters describes the page better.${foundLine('Title', title)}`)]);
+        return check('title', label, 'warn', t.titleShort(t.characters(length)), title,
+            [issue('title', undefined, t.titleShortSummary, `${t.comments.titleShort(t.characters(length))}${foundLine(found.title, title)}`)]);
     }
-    return check('title', 'Title', 'pass', `${length} characters, within 10 to 60.`, title);
+    return check('title', label, 'pass', t.titleOk(length), title);
 }
 
 function descriptionCheck(): PageCheck {
+    const { seo: t, found } = messages();
     const tags = [...document.querySelectorAll('meta[name="description" i]')];
     const text = oneLine(tags[0]?.getAttribute('content'), 1000);
     const length = characters(text);
+    const label = t.labels.description;
     if (!text) {
-        return check('description', 'Meta description', 'warn', 'No meta description. Search results may show any text from the page.', undefined,
-            [issue('description', undefined, 'The page has no meta description.', 'SEO: The page has no meta description. Search results may show any text from the page.')]);
+        return check('description', label, 'warn', t.noDescription, undefined,
+            [issue('description', undefined, t.noDescriptionSummary, t.comments.noDescription)]);
     }
     if (tags.length > 1) {
-        return check('description', 'Meta description', 'warn', `${tags.length} description tags. Keep one.`, text,
-            [issue('description', undefined, 'The page has more than one meta description.', `SEO: The page has ${tags.length} meta description tags. Keep one.${foundLine('First description', text)}`)]);
+        return check('description', label, 'warn', t.descriptionTags(tags.length), text,
+            [issue('description', undefined, t.descriptionTagsSummary, `${t.comments.descriptionTags(tags.length)}${foundLine(found.firstDescription, text)}`)]);
     }
     if (length > 160) {
-        return check('description', 'Meta description', 'warn', `${length} characters. Search results show about 160.`, text,
-            [issue('description', undefined, 'The description is long.', `SEO: The meta description is ${length} characters. Search results show about 160.${foundLine('Description', text)}`)]);
+        return check('description', label, 'warn', t.descriptionLong(length), text,
+            [issue('description', undefined, t.descriptionLongSummary, `${t.comments.descriptionLong(length)}${foundLine(found.description, text)}`)]);
     }
     if (length < 50) {
-        return check('description', 'Meta description', 'warn', `${count(length, 'character')}. Aim for 50 to 160.`, text,
-            [issue('description', undefined, 'The description is short.', `SEO: The meta description is ${count(length, 'character')}. Aim for 50 to 160.${foundLine('Description', text)}`)]);
+        return check('description', label, 'warn', t.descriptionShort(t.characters(length)), text,
+            [issue('description', undefined, t.descriptionShortSummary, `${t.comments.descriptionShort(t.characters(length))}${foundLine(found.description, text)}`)]);
     }
-    return check('description', 'Meta description', 'pass', `${length} characters, within 50 to 160.`, text);
+    return check('description', label, 'pass', t.descriptionOk(length), text);
 }
 
 /** A robots meta tag's directives, lowercase: `noindex, nofollow` is `['noindex', 'nofollow']` */
@@ -88,6 +95,7 @@ const directives = (tag: Element) => (tag.getAttribute('content') ?? '').toLower
  * page's response (`lazy/crawler.ts`).
  */
 function robotsCheck(): { check: PageCheck; noindex: boolean } {
+    const t = messages().seo;
     const tags = [...document.querySelectorAll('meta[name="robots" i], meta[name="googlebot" i]')];
     const blocking = tags.filter(tag => directives(tag).some(directive => directive === 'noindex' || directive === 'none'));
     const content = (list: Element[]) => oneLine(list.map(tag => directives(tag).join(', ')).filter(Boolean).join('; ')) || undefined;
@@ -95,38 +103,40 @@ function robotsCheck(): { check: PageCheck; noindex: boolean } {
         const everyEngine = blocking.some(tag => tag.getAttribute('name')?.toLowerCase() === 'robots');
         return {
             noindex: true,
-            check: check('robots', 'Indexing', 'none', `The page asks ${everyEngine ? 'search engines' : 'Google'} not to index it.`, content(blocking))
+            check: check('robots', t.labels.robots, 'none', t.noindex(everyEngine), content(blocking))
         };
     }
-    return { noindex: false, check: check('robots', 'Indexing', 'pass', 'Search engines may index it.', content(tags)) };
+    return { noindex: false, check: check('robots', t.labels.robots, 'pass', t.indexable, content(tags)) };
 }
 
 const withoutTrailingSlash = (path: string) => path.length > 1 ? path.replace(/\/+$/, '') : path;
 
 function canonicalCheck(noindex: boolean): PageCheck {
+    const t = messages().seo;
+    const label = t.labels.canonical;
     const links = [...document.querySelectorAll('link[rel~="canonical" i]')];
     // A page kept out of search results has no main address to choose
-    if (!links.length && noindex) return check('canonical', 'Canonical', 'none', 'Not needed on a noindex page.');
+    if (!links.length && noindex) return check('canonical', label, 'none', t.canonicalNotNeeded);
     if (!links.length) {
-        return check('canonical', 'Canonical', 'warn', 'No canonical link. Search engines choose the main address on their own.', undefined,
-            [issue('canonical', undefined, 'The page has no canonical link.', 'SEO: The page has no canonical link. Search engines choose the main address on their own.')]);
+        return check('canonical', label, 'warn', t.noCanonical, undefined,
+            [issue('canonical', undefined, t.noCanonicalSummary, t.comments.noCanonical)]);
     }
     if (links.length > 1) {
-        return check('canonical', 'Canonical', 'warn', `${links.length} canonical links. Search engines may ignore them all.`, undefined,
-            [issue('canonical', undefined, 'The page has more than one canonical link.', `SEO: The page has ${links.length} canonical links. Search engines may ignore them all. Keep one.`)]);
+        return check('canonical', label, 'warn', t.canonicals(links.length), undefined,
+            [issue('canonical', undefined, t.canonicalsSummary, t.comments.canonicals(links.length))]);
     }
     const href = links[0]!.getAttribute('href')?.trim() ?? '';
     let target: URL | undefined;
     try { target = href ? new URL(href, document.baseURI) : undefined; } catch { /* Not valid: below. */ }
     if (!target || !/^https?:$/.test(target.protocol)) {
-        return check('canonical', 'Canonical', 'warn', 'The canonical address is not valid.', oneLine(href) || undefined,
-            [issue('canonical', undefined, 'The canonical address is not valid.', `SEO: The canonical address${href ? ` "${oneLine(href)}"` : ''} is not valid.`)]);
+        return check('canonical', label, 'warn', t.canonicalInvalid, oneLine(href) || undefined,
+            [issue('canonical', undefined, t.canonicalInvalid, t.comments.canonicalInvalid(href ? oneLine(href) : ''))]);
     }
     if (target.origin !== window.location.origin || withoutTrailingSlash(target.pathname) !== withoutTrailingSlash(window.location.pathname)) {
-        return check('canonical', 'Canonical', 'warn', 'Points to another page. Search engines may show that one instead.', target.href,
-            [issue('canonical', undefined, 'The canonical link points to another page.', `SEO: The canonical link points to another page, ${target.href}. Search engines may show that one instead.`)]);
+        return check('canonical', label, 'warn', t.canonicalOther, target.href,
+            [issue('canonical', undefined, t.canonicalOtherSummary, t.comments.canonicalOther(target.href))]);
     }
-    return check('canonical', 'Canonical', 'pass', 'Points to this page.', target.href);
+    return check('canonical', label, 'pass', t.canonicalOk, target.href);
 }
 
 /**
@@ -135,19 +145,21 @@ function canonicalCheck(noindex: boolean): PageCheck {
  * (axe-core's `meta-viewport`).
  */
 function viewportCheck(): PageCheck {
+    const { seo: t, found } = messages();
     const content = oneLine([...document.querySelectorAll('meta[name="viewport" i]')].at(-1)?.getAttribute('content'));
-    if (/(?:^|[,;\s])width\s*=\s*device-width(?:$|[,;\s])/i.test(content)) return check('viewport', 'Viewport', 'pass', 'Fits the screen\'s width (width=device-width).', content);
-    const reason = `${content ? 'No width=device-width in the viewport meta tag' : 'No viewport meta tag'}. Phones show the page zoomed out.`;
-    return check('viewport', 'Viewport', 'warn', reason, content || undefined,
-        [issue('viewport', undefined, reason, `SEO: ${reason} A tag such as \`<meta name="viewport" content="width=device-width, initial-scale=1">\` fits it to the screen.${foundLine('Viewport', content)}`)]);
+    if (/(?:^|[,;\s])width\s*=\s*device-width(?:$|[,;\s])/i.test(content)) return check('viewport', t.labels.viewport, 'pass', t.viewportOk, content);
+    const reason = content ? t.viewportNoWidth : t.viewportMissing;
+    return check('viewport', t.labels.viewport, 'warn', reason, content || undefined,
+        [issue('viewport', undefined, reason, `${t.comments.viewport(reason)}${foundLine(found.viewport, content)}`)]);
 }
 
 /** The page's language (`html[lang]`): a note when missing. Whether its value is valid is the Accessibility panel's */
 function languageCheck(): PageCheck {
+    const t = messages().seo;
     const lang = oneLine(document.documentElement.getAttribute('lang'), 40);
-    return lang ? check('lang', 'Language', 'pass', 'The page says which language it is in.', lang)
-        : check('lang', 'Language', 'none', 'No lang attribute on html. Screen readers and translation tools guess the language.', undefined,
-            [issue('lang', undefined, 'The page does not say its language.', 'SEO: The page does not say its language: the html element has no lang attribute. Screen readers and translation tools then guess it.')]);
+    return lang ? check('lang', t.labels.lang, 'pass', t.langOk, lang)
+        : check('lang', t.labels.lang, 'none', t.langMissing, undefined,
+            [issue('lang', undefined, t.langMissingSummary, t.comments.noLang)]);
 }
 
 /** The text a heading or link is known by: its text, else its label or an image's alt text */
@@ -161,48 +173,50 @@ function accessibleText(element: Element) {
 }
 
 function headingChecks(): SeoReport['headings'] {
+    const { seo: t, found } = messages();
     const outline = [...document.querySelectorAll('h1, h2, h3, h4, h5, h6')].map(element => ({
         key: `heading:${elementKey(element)}`, level: Number(element.tagName[1]), text: accessibleText(element), element
     }));
     const mains = outline.filter(heading => heading.level === 1);
     const main = !mains.length
-        ? check('h1', 'Main heading', 'warn', 'No h1. Give the page one main heading.', undefined,
-            [issue('h1', undefined, 'The page has no h1.', 'SEO: The page has no h1 heading. Give it one main heading.')])
+        ? check('h1', t.labels.h1, 'warn', t.noH1, undefined,
+            [issue('h1', undefined, t.noH1Summary, t.comments.noH1)])
         : mains.length > 1
-            ? check('h1', 'Main heading', 'warn', `${mains.length} h1 headings. Keep one main heading.`, undefined,
-                mains.slice(1).map(heading => issue('h1', heading.element, 'Another h1 on the page.', `SEO: This is another h1 on the page. Keep one main heading.${foundLine('Heading', heading.text)}`)))
-            : check('h1', 'Main heading', 'pass', 'One h1.', mains[0]!.text || undefined);
+            ? check('h1', t.labels.h1, 'warn', t.h1s(mains.length), undefined,
+                mains.slice(1).map(heading => issue('h1', heading.element, t.anotherH1, `${t.comments.anotherH1}${foundLine(found.heading, heading.text)}`)))
+            : check('h1', t.labels.h1, 'pass', t.oneH1, mains[0]!.text || undefined);
     const skips = outline.flatMap((heading, index) => {
         const previous = outline[index - 1];
         return previous && heading.level > previous.level + 1
-            ? [issue('levels', heading.element, `An h${heading.level} after an h${previous.level}.`, `SEO: This h${heading.level} comes after an h${previous.level}, skipping a level.${foundLine('Heading', heading.text)}`)]
+            ? [issue('levels', heading.element, t.skipSummary(heading.level, previous.level), `${t.comments.skip(heading.level, previous.level)}${foundLine(found.heading, heading.text)}`)]
             : [];
     });
-    const levels = !outline.length ? check('levels', 'Heading levels', 'none', 'No headings.')
+    const firstSkip = outline.findIndex((heading, index) => index > 0 && heading.level > outline[index - 1]!.level + 1);
+    const levels = !outline.length ? check('levels', t.labels.levels, 'none', t.noHeadings)
         // One skip says which (its row then shows only the heading); several say how many, and which when they are all alike
-        : skips.length ? check('levels', 'Heading levels', 'warn', skips.length === 1 ? `${skips[0]!.summary.replace(/\.$/, '')}, skipping a level.`
-            : `${count(skips.length, 'heading')} skip a level.${alike(skips) ? ` ${skips[0]!.summary}` : ''}`, undefined, skips)
-            : check('levels', 'Heading levels', 'pass', 'No skipped levels.');
+        : skips.length ? check('levels', t.labels.levels, 'warn', skips.length === 1 ? t.skipOne(outline[firstSkip]!.level, outline[firstSkip - 1]!.level)
+            : `${t.skips(skips.length)}${alike(skips) ? ` ${skips[0]!.summary}` : ''}`, undefined, skips)
+            : check('levels', t.labels.levels, 'pass', t.noSkips);
     const empty = outline.filter(heading => !heading.text)
-        .map(heading => issue('empty-heading', heading.element, 'A heading without text.', `SEO: This heading has no text.${foundLine('Element', elementLabel(heading.element))}`));
-    const text = !outline.length ? check('empty-heading', 'Heading text', 'none', 'No headings.')
-        : empty.length ? check('empty-heading', 'Heading text', 'warn', `${count(empty.length, 'heading')} without text.`, undefined, empty)
-            : check('empty-heading', 'Heading text', 'pass', 'Every heading has text.');
+        .map(heading => issue('empty-heading', heading.element, t.emptyHeadingSummary, `${t.comments.emptyHeading}${foundLine(found.element, elementLabel(heading.element))}`));
+    const text = !outline.length ? check('empty-heading', t.labels.emptyHeading, 'none', t.noHeadings)
+        : empty.length ? check('empty-heading', t.labels.emptyHeading, 'warn', t.emptyHeadings(empty.length), undefined, empty)
+            : check('empty-heading', t.labels.emptyHeading, 'pass', t.headingsOk);
     return { outline, checks: [main, levels, text] };
 }
 
 /** Why a link's address looks broken, as a sentence, or nothing when it looks fine */
-function brokenReason(link: HTMLAnchorElement | HTMLAreaElement): string | undefined {
+function brokenReason(link: HTMLAnchorElement | HTMLAreaElement, t: ReturnType<typeof messages>['seo']['broken']): string | undefined {
     const raw = link.getAttribute('href') ?? '';
     const href = raw.trim();
-    if (!href) return 'It has no address.';
-    if (href === '#') return 'It points to "#" only.';
-    if (/^javascript:/i.test(href)) return 'It runs a script instead of opening a page.';
+    if (!href) return t.none;
+    if (href === '#') return t.hash;
+    if (/^javascript:/i.test(href)) return t.script;
     let url: URL;
-    try { url = new URL(href, document.baseURI); } catch { return 'Its address is not valid.'; }
+    try { url = new URL(href, document.baseURI); } catch { return t.invalid; }
     const placeholder = /(?:^|[/=?&])(undefined|null|NaN)(?=$|[/?&#])/.exec(href)?.[1];
-    if (placeholder) return `Its address contains "${placeholder}".`;
-    if (window.location.protocol === 'https:' && url.protocol === 'http:') return 'It uses http on an https page.';
+    if (placeholder) return t.placeholder(placeholder);
+    if (window.location.protocol === 'https:' && url.protocol === 'http:') return t.http;
     const here = new URL(window.location.href);
     const fragment = url.hash.slice(1);
     if (url.origin === here.origin && url.pathname === here.pathname && url.search === here.search
@@ -210,7 +224,7 @@ function brokenReason(link: HTMLAnchorElement | HTMLAreaElement): string | undef
         && fragment && !/^[/!]/.test(fragment) && fragment.toLowerCase() !== 'top') {
         let id = fragment;
         try { id = decodeURIComponent(fragment); } catch { /* Kept as written. */ }
-        if (!document.getElementById(id) && !document.getElementsByName(id).length) return `It points to #${oneLine(id, 40)}, which is not on this page.`;
+        if (!document.getElementById(id) && !document.getElementsByName(id).length) return t.missingTarget(oneLine(id, 40));
     }
     return undefined;
 }
@@ -230,21 +244,23 @@ const genericText = (text: string) => {
  * of its own (`aria-label`, `aria-labelledby`) that is not generic is left out.
  */
 function genericLinkCheck(links: (HTMLAnchorElement | HTMLAreaElement)[]): PageCheck {
+    const { seo: t, found } = messages();
     const lang = document.documentElement.lang.trim();
-    if (lang && !/^en(?:-|$)/i.test(lang)) return check('link-generic', 'Generic link text', 'none', `Not checked: the phrases checked are English, and the page is in ${oneLine(lang, 20)}.`);
+    if (lang && !/^en(?:-|$)/i.test(lang)) return check('link-generic', t.labels.linkGeneric, 'none', t.genericNotChecked(oneLine(lang, 20)));
     const generic = links.flatMap(link => {
         const text = oneLine(link.textContent);
         const labelledBy = link.getAttribute('aria-labelledby')?.split(/\s+/).map(id => id && document.getElementById(id)?.textContent).join(' ');
         const label = oneLine(link.getAttribute('aria-label')) || oneLine(labelledBy);
         return text && genericText(text) && !(label && !genericText(label))
-            ? [issue('link-generic', link, `Its text is only "${text}".`, `SEO: This link's whole text is a generic phrase. Out of context it does not say where the link goes.${foundLine('Link text', text)}${foundLine('Address', writtenAddress(link.getAttribute('href')))}`)]
+            ? [issue('link-generic', link, t.genericSummary(text), `${t.comments.generic}${foundLine(found.linkText, text)}${foundLine(found.address, writtenAddress(link.getAttribute('href')))}`)]
             : [];
     });
-    return !generic.length ? check('link-generic', 'Generic link text', 'pass', 'No link text like "read more" or "click here" alone.')
-        : check('link-generic', 'Generic link text', 'warn', `${count(generic.length, 'link says', 'links say')} nothing out of context.${alike(generic) ? ` ${generic[0]!.summary}` : ''}`, undefined, generic);
+    return !generic.length ? check('link-generic', t.labels.linkGeneric, 'pass', t.genericOk)
+        : check('link-generic', t.labels.linkGeneric, 'warn', `${t.generic(generic.length)}${alike(generic) ? ` ${generic[0]!.summary}` : ''}`, undefined, generic);
 }
 
 function linkChecks(): SeoReport['links'] {
+    const { seo: t, found } = messages();
     const links = [...document.querySelectorAll<HTMLAnchorElement | HTMLAreaElement>('a[href], area[href]')];
     let internal = 0;
     let external = 0;
@@ -256,20 +272,20 @@ function linkChecks(): SeoReport['links'] {
         } catch { /* Counted as neither. */ }
     }
     const textless = links.filter(link => !accessibleText(link))
-        .map(link => issue('link-text', link, 'A link without text.', `SEO: This link has no text. Search engines and screen readers cannot tell where it goes.${foundLine('Address', writtenAddress(link.getAttribute('href')))}`));
+        .map(link => issue('link-text', link, t.textlessSummary, `${t.comments.textless}${foundLine(found.address, writtenAddress(link.getAttribute('href')))}`));
     const broken = links.flatMap(link => {
-        const reason = brokenReason(link);
-        return reason ? [issue('link-address', link, reason, `SEO: This link looks broken. ${reason}${foundLine('Link text', accessibleText(link))}${foundLine('Address', writtenAddress(link.getAttribute('href')))}`)] : [];
+        const reason = brokenReason(link, t.broken);
+        return reason ? [issue('link-address', link, reason, `${t.comments.broken(reason)}${foundLine(found.linkText, accessibleText(link))}${foundLine(found.address, writtenAddress(link.getAttribute('href')))}`)] : [];
     });
     return {
         total: links.length, internal, external,
-        checks: !links.length ? [check('link-text', 'Links', 'none', 'No links on this page.')] : [
-            textless.length ? check('link-text', 'Link text', 'warn', `${count(textless.length, 'link')} without text.`, undefined, textless)
-                : check('link-text', 'Link text', 'pass', 'Every link has text.'),
+        checks: !links.length ? [check('link-text', t.labels.links, 'none', t.noLinks)] : [
+            textless.length ? check('link-text', t.labels.linkText, 'warn', t.textless(textless.length), undefined, textless)
+                : check('link-text', t.labels.linkText, 'pass', t.linkTextOk),
             // Why goes in the reason when every link shares it, since the rows then show only the links
-            broken.length ? check('link-address', 'Link addresses', 'warn', broken.length === 1 ? `1 link looks broken. ${broken[0]!.summary}`
-                : `${count(broken.length, 'link')} look broken.${alike(broken) ? ` ${broken[0]!.summary}` : ''}`, undefined, broken)
-                : check('link-address', 'Link addresses', 'pass', 'No broken-looking links.'),
+            broken.length ? check('link-address', t.labels.linkAddress, 'warn', broken.length === 1 ? t.brokenOne(broken[0]!.summary)
+                : `${t.brokenMany(broken.length)}${alike(broken) ? ` ${broken[0]!.summary}` : ''}`, undefined, broken)
+                : check('link-address', t.labels.linkAddress, 'pass', t.linksOk),
             genericLinkCheck(links)
         ]
     };
@@ -277,15 +293,16 @@ function linkChecks(): SeoReport['links'] {
 
 /** Images that say nothing to search engines and screen readers: no `alt`, and not marked as decoration */
 function imageChecks(): SeoReport['images'] {
+    const { seo: t, found } = messages();
     const images = [...document.querySelectorAll('img')];
     const missing = images.filter(image => !image.hasAttribute('alt') && !/^(presentation|none)$/.test(image.getAttribute('role') ?? '')
         && !image.closest('[aria-hidden="true"]'))
-        .map(image => issue('alt', image, 'An image without alt text.', `SEO: This image has no alt text. Search engines and screen readers cannot tell what it shows.${foundLine('Image', writtenAddress(image.getAttribute('src') || image.currentSrc))}`));
+        .map(image => issue('alt', image, t.altSummary, `${t.comments.alt}${foundLine(found.image, writtenAddress(image.getAttribute('src') || image.currentSrc))}`));
     return {
         total: images.length,
-        checks: [!images.length ? check('alt', 'Alt text', 'none', 'No images on this page.')
-            : missing.length ? check('alt', 'Alt text', 'warn', `${count(missing.length, 'image')} without alt text.`, undefined, missing)
-                : check('alt', 'Alt text', 'pass', 'Every image has alt text.')]
+        checks: [!images.length ? check('alt', t.labels.alt, 'none', t.noImages)
+            : missing.length ? check('alt', t.labels.alt, 'warn', t.altMissing(missing.length), undefined, missing)
+                : check('alt', t.labels.alt, 'pass', t.altOk)]
     };
 }
 

@@ -9,12 +9,12 @@ import { useAttachedImage } from '../useAttachedImage';
 import { screenshotContentTypes } from '../screenshotPolicy';
 import { IconTooltip } from './IconTooltip';
 import { destructiveTextClassName } from './@types/Comments';
+import { useMessages } from '../i18n';
 
 export { useAttachedImage, type AttachedImage } from '../useAttachedImage';
 
 type CaptureState = 'capturing' | 'ready' | 'failed';
 
-const imageLimits = 'PNG, JPEG or WebP, up to 512 KB and 4096 pixels on each side.';
 
 /** Whether an automatic capture (src/screenshot.ts) is still running; it resolves `undefined` when it failed or timed out */
 function useCaptureState(screenshot: Promise<string | undefined> | undefined): CaptureState {
@@ -73,23 +73,24 @@ export function ComposerAttachmentsHeader({ title, screenshot, page, omitted, on
 }) {
     const state = useCaptureState(screenshot);
     const statusId = useId();
-    const { image, error, reading } = attachment;
+    const t = useMessages();
+    const { image, error, problem, reading } = attachment;
     const message = image
-        ? `Your image ${image.name} will be attached instead of a screenshot.`
+        ? t.attachments.imageInstead(image.name)
         : reading
-            ? 'Reading your image...'
+            ? t.attachments.reading
             : omitted
-                ? 'No screenshot will be attached.'
+                ? t.attachments.noScreenshot
                 : state === 'capturing'
-                    ? 'Taking a screenshot...'
+                    ? t.attachments.capturing
                     : state === 'failed'
-                        ? 'The screenshot could not be taken. Only the text will be sent.'
+                        ? t.attachments.captureFailed
                         : page
-                            ? 'A screenshot of the visible page will be attached.'
-                            : 'A screenshot of this part of the page will be attached.';
+                            ? t.attachments.pageScreenshot
+                            : t.attachments.regionScreenshot;
     const toggleTip = omitted
-        ? 'No screenshot will be attached. Select to attach one.'
-        : `${message} Select to send only the text.`;
+        ? t.attachments.attachScreenshot
+        : t.attachments.textOnly(message);
     return (
         <div className="bg-card px-3 pt-3">
             <div className="flex min-h-7 items-center justify-between gap-2">
@@ -103,7 +104,7 @@ export function ComposerAttachmentsHeader({ title, screenshot, page, omitted, on
                                 variant="plain"
                                 size="xs"
                                 type="button"
-                                aria-label="Omit screenshot"
+                                aria-label={t.attachments.omitScreenshot}
                                 aria-pressed={omitted}
                                 aria-describedby={statusId}
                                 className={cx(composerIconButtonClassName, omitted && 'text-foreground')}
@@ -115,7 +116,7 @@ export function ComposerAttachmentsHeader({ title, screenshot, page, omitted, on
                     {actions}
                 </div>
             </div>
-            {error && <p role="alert" className={cx('m-0 mt-1 text-xs', destructiveTextClassName)}>{error}</p>}
+            {error && <p role="alert" className={cx('m-0 mt-1 text-xs', destructiveTextClassName)}>{problem ? t.imageProblems[problem] : error}</p>}
         </div>
     );
 }
@@ -127,18 +128,20 @@ export function ComposerAttachmentsHeader({ title, screenshot, page, omitted, on
  */
 export function ComposerAttachButton({ attachment, reply = false }: { attachment: ReturnType<typeof useAttachedImage>; reply?: boolean }) {
     const limitsId = useId();
+    const t = useMessages();
+    const imageLimits = t.attachments.imageLimits;
     const inputRef = useRef<HTMLInputElement>(null);
     const { image, reading } = attachment;
     return (
         <>
-            <span id={limitsId} className="sr-only">{reply ? 'Attached to your reply.' : 'Sent instead of the screenshot.'} {imageLimits}</span>
+            <span id={limitsId} className="sr-only">{reply ? t.attachments.attachedToReply : t.attachments.sentInstead} {imageLimits}</span>
             {image ? (
-                <IconTooltip label={reply ? 'Your image is attached to the reply. Select to remove it.' : 'Your image is attached instead of a screenshot. Select to remove it.'}>
+                <IconTooltip label={reply ? t.attachments.replyImageRemove : t.attachments.imageRemove}>
                     <Button
                         variant="plain"
                         size="xs"
                         type="button"
-                        aria-label={`Remove attached image ${image.name}`}
+                        aria-label={t.attachments.removeImage(image.name)}
                         className="min-w-0 max-w-40 gap-1 rounded-md font-normal text-muted-foreground hover:text-foreground pointer-coarse:min-h-11"
                         startDecorator={<Paperclip size={14} aria-hidden="true" />}
                         endDecorator={<Close size={14} aria-hidden="true" />}
@@ -147,12 +150,12 @@ export function ComposerAttachButton({ attachment, reply = false }: { attachment
                     </Button>
                 </IconTooltip>
             ) : (
-                <IconTooltip label={`${reply ? 'Attach an image to your reply.' : 'Attach your own image instead of the screenshot.'} ${imageLimits}`}>
+                <IconTooltip label={`${reply ? t.attachments.attachToReply : t.attachments.attachInstead} ${imageLimits}`}>
                     <IconButton
                         variant="plain"
                         size="xs"
                         type="button"
-                        aria-label="Attach image"
+                        aria-label={t.attachments.attachImage}
                         aria-describedby={limitsId}
                         disabled={reading}
                         className={composerIconButtonClassName}

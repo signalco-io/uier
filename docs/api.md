@@ -48,7 +48,8 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
 
 | Request | What |
 | --- | --- |
-| `GET /api/review/<code>` | the project (name, who can comment, page-state policy; configured `feedbackTypes` only when the reviewer can comment), the reviewer and whether they can comment, the sign-in URL |
+| `GET /api/review/<code>` | the project (name, who can comment, page-state policy; configured `feedbackTypes` only when the reviewer can comment), the reviewer and whether they can comment, the sign-in URL, and `language`: `{ default, source, preference? }`, the [toolbar language](../apps/web/docs/project-settings.md#toolbar-language) (`source`: `project`, `workspace` or `default`; `preference`, the account's own choice or `null`, only for a member) |
+| `POST /api/review/<code>/language` | `{ language }` (a language code, or `null` for the project's): a member's own toolbar language, saved to their account; also where comments are off. Guests get `401 sign_in_required` before the body is read |
 | `POST /api/review/<code>/session` | `{ code }`: exchanges a review link's single-use code (10 minutes) for a review token (30 days) |
 | `POST /api/review/<code>/sso` | Same-origin frame-only background handoff: `{ origin }` plus the dedicated HttpOnly cookie; rechecks project/site/member access, returns a review token or 204. No CORS or app-cookie authentication |
 | `POST /api/review/<code>/verification` | same-origin BotID verification from the empty `/review-verification` frame; a five-minute proof bound to the reviewed origin, project and reviewer |
@@ -246,10 +247,12 @@ HTML and Next.js snippets with `/toolbar/<sha256>.js`, `integrity="sha384-..."` 
 The SHA-256 path and SHA-384 integrity value describe the loader bytes (`@uier/toolbar/bundle`).
 The loader contains the exact review script's SHA-256 path and SHA-384 integrity value, generated
 after its CSS is inlined, and loads it with anonymous CORS. `copy-toolbar.mjs` publishes identical
-loader bytes at the default and pinned paths, the review script and the accessibility audit asset
-(axe-core, which the review script pins the same way and loads only for its Accessibility panel) at their
-content-addressed paths, and a no-store `/toolbar/manifest.json` archive index. The manifest retains the
-loaders, their review scripts and audit assets; a pinned loader never switches to a newer review UI.
+loader bytes at the default and pinned paths, the review script, the accessibility audit asset
+(axe-core, which the review script pins the same way and loads only for its Accessibility panel) and the
+language assets (each toolbar language but English, pinned the same way and loaded only when the toolbar shows
+it, [toolbar languages](../packages/toolbar/docs/localization.md)) at their content-addressed paths, and a
+no-store `/toolbar/manifest.json` archive index. The manifest retains the loaders, their review scripts, audit
+and language assets; a pinned loader never switches to a newer review UI.
 
 Pinned production bundles remain available and compatible with the review API for one year after
 their last release as the current version. They get fixes only when the site updates its snippet.
@@ -307,7 +310,8 @@ find the thread in either. `sourcePath` is the same page as it was addressed, fo
 | `POST /api/comments/{id}/screenshot` | `{ screenshot, expectedRevision }` | `200` updated comment; author only. `expectedRevision` is the current image revision, or `null` for an original/missing image; stale evidence returns `409` |
 | `DELETE /api/comments/{id}` | | Deletes the first item; author only. `204` when the comment is gone, or `200` with the comment when other visitors replied (see below) |
 | `DELETE /api/comments/{id}/replies/{itemId}` | | `200` the updated comment; author of the reply only. The first item is deleted as with `DELETE /api/comments/{id}`; `204` when the comment is gone |
-| `GET /api/visitor` | | `200` `{ name }`: the visitor's guest name, `null` before their first write (the toolbar's profile) |
+| `GET /api/visitor` | | `200` `{ name, language }`: the visitor's guest name, `null` before their first write (the toolbar's profile), and the toolbar language as in `GET /api/review/<code>` (`preference` only for a signed-in account) |
+| `POST /api/visitor/language` | | `{ language }`: a signed-in account's toolbar language on uier's own pages, as `POST /api/review/<code>/language`; guests get `401 sign_in_required`, and no visitor cookie is created |
 | `DELETE /api/visitor` | | `204`; signs out: removes the `__Host-uier_visitor` cookie (never creates one) |
 | `POST /api/rewrite` | `{ text, instruction? }` | `200` `{ suggestions }`: up to 3 rewrites of selected page text, none when the model declines (see [Rewrite suggestions](#rewrite-suggestions)); `503 unavailable` without an API key or when the model can't be reached; never sets the visitor cookie |
 | `POST /api/page-suggestions` | `{ kind, text, title?, description? }` | `200` `{ suggestions }`: up to 3 titles, meta descriptions or questions the page answers (`kind`: `title`, `description` or `questions`), none when the model declines (see [Page suggestions](#page-suggestions)); `503 unavailable` without an API key, when the model can't be reached or answers with something other than a list; never sets the visitor cookie |

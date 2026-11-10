@@ -1,5 +1,7 @@
 'use client';
 
+import { useMessages } from '../i18n';
+
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
@@ -33,13 +35,14 @@ function ExpandIcon({ expanded }: { expanded: boolean }) {
  * header: the same form, with more room for writing.
  */
 export function ExpandComposerButton({ expanded, onExpandedChange }: { expanded: boolean; onExpandedChange: (expanded: boolean) => void }) {
+    const t = useMessages();
     return (
-        <IconTooltip label={expanded ? 'Back to the smaller form' : 'Expand for more room to write'} shortcut={expanded ? 'Esc' : undefined}>
+        <IconTooltip label={expanded ? t.composer.collapseTip : t.composer.expandTip} shortcut={expanded ? 'Esc' : undefined}>
             <IconButton
                 variant="plain"
                 size="xs"
                 type="button"
-                aria-label={expanded ? 'Collapse' : 'Expand'}
+                aria-label={expanded ? t.composer.collapse : t.composer.expand}
                 aria-keyshortcuts={expanded ? 'Escape' : undefined}
                 className={composerIconButtonClassName}
                 onClick={() => onExpandedChange(!expanded)}>

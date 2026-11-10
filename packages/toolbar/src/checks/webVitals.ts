@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react';
 import { getToolbarHost } from '../mount';
 import { elementLabel, foundLine, isToolbarNode, pageAnchorElement } from './pageElements';
 import type { PageCheck, PageIssue } from './types';
+import { messages } from '../i18n';
 
 // Core Web Vitals of the reviewed page, measured in this browser with the Performance Timeline:
 // buffered entries reach back to the page's load, and observing from the review layer's start
@@ -185,39 +186,34 @@ export function largestPaintElement(): Element | undefined {
 }
 
 /** The targets, and the reviewed page's measurement in words: "2.1 s", "0.04", "180 ms" */
-export const vitalTargets: Record<VitalName, { name: string; good: number; text: (value: number) => string }> = {
-    LCP: { name: 'Largest Contentful Paint', good: 2500, text: value => `${(value / 1000).toFixed(1)} s` },
-    CLS: { name: 'Cumulative Layout Shift', good: 0.1, text: value => value === 0 ? '0' : value.toFixed(2) },
-    INP: { name: 'Interaction to Next Paint', good: 200, text: value => `${Math.round(value)} ms` }
-};
-
-const vitalWarnings: Record<VitalName, string> = {
-    LCP: 'The main content shows late.',
-    CLS: 'Content moves while the page is used.',
-    INP: 'The page responds slowly.'
+export const vitalTargets: Record<VitalName, { good: number; text: (value: number) => string }> = {
+    LCP: { good: 2500, text: value => `${(value / 1000).toFixed(1)} s` },
+    CLS: { good: 0.1, text: value => value === 0 ? '0' : value.toFixed(2) },
+    INP: { good: 200, text: value => `${Math.round(value)} ms` }
 };
 
 /** A measurement as a check of the SEO panel, with a comment for one over its target */
 export function vitalCheck(name: VitalName, vital: Vital): PageCheck {
+    const { checks: { vitals: t }, found } = messages();
     const target = vitalTargets[name];
-    const label = `${target.name} (${name})`;
+    const label = `${t.names[name]} (${name})`;
     const base = { id: `vital-${name}`, label, issues: [] as PageIssue[] };
-    if (!vital.supported) return { ...base, state: 'none', reason: 'Not measured in this browser.' };
+    if (!vital.supported) return { ...base, state: 'none', reason: t.notSupported };
     if (vital.value === undefined) {
         return vital.allFast
-            ? { ...base, state: 'pass', reason: 'Every interaction so far took under 104 ms.' }
-            : { ...base, state: 'none', reason: name === 'INP' ? 'No interactions yet. Use the page, then look again.' : 'Not measured yet.' };
+            ? { ...base, state: 'pass', reason: t.allFast }
+            : { ...base, state: 'none', reason: name === 'INP' ? t.noInteractions : t.notMeasured };
     }
     const value = target.text(vital.value);
     const good = target.text(target.good);
-    if (vital.value <= target.good) return { ...base, state: 'pass', measure: value, reason: `Within the ${good} target.` };
+    if (vital.value <= target.good) return { ...base, state: 'pass', measure: value, reason: t.within(good) };
     const element = pageAnchorElement(vital.element);
     return {
-        ...base, state: 'warn', measure: value, reason: `Over the ${good} target. ${vitalWarnings[name]}`,
+        ...base, state: 'warn', measure: value, reason: t.over(good, t.warnings[name]),
         issues: [{
             key: `vital:${name}`,
-            summary: `${target.name} is ${value}.`,
-            comment: `Core Web Vitals: ${target.name} (${name}) is ${value} in this browser. The target is ${good} or less. ${vitalWarnings[name]}${foundLine('Element', element && elementLabel(element))}`,
+            summary: t.summary(t.names[name], value),
+            comment: `${t.comment(t.names[name], name, value, good, t.warnings[name])}${foundLine(found.element, element && elementLabel(element))}`,
             check: { type: 'web-vitals', id: name.toLowerCase() },
             element,
             label: element && elementLabel(element)

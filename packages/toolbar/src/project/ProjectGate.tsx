@@ -10,6 +10,8 @@ import { clearReviewCode, consumeReviewCode, enableBackgroundSignIn, getReviewTo
 import { backgroundSignIn, refreshBackgroundSignIn } from './backgroundSession';
 import { checkInstallationReady } from './installationCheck';
 import { defaultPageStatePolicy, pagePath, type PageStatePolicy } from '../pageState';
+import { applyLanguageInfo, languageReady, useMessages } from '../i18n';
+import type { ToolbarLanguageInfo } from '../languages';
 
 /** GET /api/review/<project> (apps/web/src/lib/review/routes.ts) */
 export type ReviewInfo = {
@@ -18,6 +20,8 @@ export type ReviewInfo = {
     canComment: boolean;
     /** Review link of the project on uier: signs in and comes back (add `url`) */
     signInUrl: string;
+    /** The toolbar's language: the project's default and a member's own choice (older APIs send none: English) */
+    language?: ToolbarLanguageInfo;
 };
 
 export const reviewApiUrl = `${toolbarConfig.apiUrl}/api/review/${toolbarConfig.project}`;
@@ -55,13 +59,18 @@ export async function loadReviewInfo() {
     await backgroundSignIn();
 
     let info = required(await apiRequest<ReviewInfo>(reviewApiUrl));
+    // Before anything renders in it, the notices included
+    applyLanguageInfo(info.language);
     if (getReviewToken() && info.viewer.kind !== 'member') {
         advanceReviewerRevision();
         setReviewToken(undefined);
         if (await backgroundSignIn()) info = required(await apiRequest<ReviewInfo>(reviewApiUrl));
+        applyLanguageInfo(info.language);
         if (info.viewer.kind !== 'member')
             throw new ReviewSessionEndedError(info.signInUrl, info.project.pageState);
     }
+    // A language other than English loads first, so the toolbar does not change language as it appears
+    await languageReady();
     return info;
 }
 
@@ -96,30 +105,25 @@ function signIn(signInUrl: string, policy?: PageStatePolicy) {
 }
 
 function UnavailableProjectNotice({ onExitReview }: { onExitReview?: () => void }) {
+    const t = useMessages();
     const announce = useAnnounce();
     const [uncopiedNote, setUncopiedNote] = useState<string>();
     const copyNote = async () => {
         // Only public script configuration and the page's origin. Never use review info or its URL.
         const code = toolbarConfig.project!;
-        const note = [
-            "uier can't open this project here.",
-            `Site address: ${window.location.origin}`,
-            `Project code: ${code}`,
-            `Project settings: ${toolbarConfig.apiUrl}/app/projects/${encodeURIComponent(code)}/settings`,
-            'Ask a project admin to check the installation and add this address under Site addresses if it belongs to the project.'
-        ].join('\n');
+        const note = t.notice.note(window.location.origin, code, `${toolbarConfig.apiUrl}/app/projects/${encodeURIComponent(code)}/settings`);
         try {
             await navigator.clipboard.writeText(note);
             setUncopiedNote(undefined);
-            announce('Note copied');
+            announce(t.notice.noteCopied);
         } catch {
             setUncopiedNote(note);
         }
     };
-    return <ProjectNotice text="uier can't open this project here."
-        action={{ label: 'Copy note for the owner', onClick: copyNote }} onExitReview={onExitReview}>
+    return <ProjectNotice text={t.notice.cantOpen}
+        action={{ label: t.notice.copyNote, onClick: copyNote }} onExitReview={onExitReview}>
         {uncopiedNote && <label className="mt-2 flex min-w-0 flex-col gap-2 rounded-xl border bg-background p-3 text-sm text-foreground">
-            <span>The note could not be copied. Copy it from here:</span>
+            <span>{t.notice.noteNotCopied}</span>
             <textarea readOnly value={uncopiedNote} onFocus={event => event.currentTarget.select()}
                 className="max-h-48 min-h-32 w-full rounded-md border border-input bg-background p-2 font-mono text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
         </label>}
@@ -137,6 +141,7 @@ type ProjectGateProps = PropsWithChildren<{
  * and still lets the reviewer exit the review.
  */
 export function ProjectGate({ children, onExitReview }: ProjectGateProps) {
+    const t = useMessages();
     const client = useQueryClient();
     const previousScope = useRef<string | undefined>(undefined);
     const { data: info, error, isPending, fetchStatus, refetch } = useQuery({
@@ -182,7 +187,7 @@ export function ProjectGate({ children, onExitReview }: ProjectGateProps) {
     }, [client, info, error]);
 
     if (!navigator.onLine && (error || fetchStatus === 'paused')) {
-        return <ProjectNotice text="Check your connection to open this review." onExitReview={onExitReview} />;
+        return <ProjectNotice text={t.notice.offline} onExitReview={onExitReview} />;
     }
 
     if (isPending) {
@@ -190,7 +195,7 @@ export function ProjectGate({ children, onExitReview }: ProjectGateProps) {
     }
 
     if (error instanceof ReviewSessionEndedError)
-        return <ProjectNotice text="This review session ended." action={{ label: 'Sign in', onClick: () => signIn(error.signInUrl, error.pageState) }} onExitReview={onExitReview} />;
+        return <ProjectNotice text={t.notice.sessionEnded} action={{ label: t.common.signIn, onClick: () => signIn(error.signInUrl, error.pageState) }} onExitReview={onExitReview} />;
 
     if (!info) {
         console.warn('uier-toolbar: The project could not be loaded on this site', error);
@@ -198,11 +203,11 @@ export function ProjectGate({ children, onExitReview }: ProjectGateProps) {
     }
 
     if (info.project.access === 'disabled') {
-        return <ProjectNotice text="Comments are turned off for this project." onExitReview={onExitReview} />;
+        return <ProjectNotice text={t.notice.commentsOff} onExitReview={onExitReview} />;
     }
 
     if (!info.canComment) {
-        return <ProjectNotice text="Sign in to see and leave comments." action={{ label: 'Sign in', onClick: () => signIn(info.signInUrl, info.project.pageState) }} onExitReview={onExitReview} />;
+        return <ProjectNotice text={t.notice.signInToComment} action={{ label: t.common.signIn, onClick: () => signIn(info.signInUrl, info.project.pageState) }} onExitReview={onExitReview} />;
     }
 
     return <ProjectEnvironmentProvider key={info.viewer.draftScope ?? info.viewer.kind} info={info}>{children}</ProjectEnvironmentProvider>;

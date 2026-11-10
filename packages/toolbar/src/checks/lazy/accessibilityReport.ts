@@ -6,6 +6,7 @@ import { commentCheckIdPattern } from '../../feedbackTypes';
 import { nextIdle } from '../pageIdle';
 import { elementKey, elementLabel, foundLine, oneLine, pageAnchorElement } from '../pageElements';
 import type { PageIssue } from '../types';
+import { words } from './locale';
 
 // The Accessibility panel's audit, in the audit asset beside axe-core (the review bundle has the
 // queue, `checkAccessibility` in ../accessibility.ts): every rule axe-core runs by default (WCAG A
@@ -28,8 +29,8 @@ function ruleLink(url: string | undefined) {
 }
 
 const fixHeading = /^Fix (any|all) of the following:?$/i;
-/** The heading of what axe-core could not decide on an element */
-const reviewHeading = 'axe-core could not decide:';
+/** The heading of what axe-core could not decide on an element, in the toolbar's language */
+const reviewHeading = () => words().accessibility.undecided;
 
 /** axe-core's failure summary of one element as Markdown lines: its "Fix any of the following:" headings, each failure a list item */
 function failureLines(summary: string | undefined) {
@@ -52,7 +53,7 @@ function commentText(head: string, failures: string[], foot: string) {
         length += line.length + 1;
     }
     // A heading whose lines were all left out says nothing
-    while (kept.length && (fixHeading.test(kept.at(-1)!) || kept.at(-1) === reviewHeading)) kept.pop();
+    while (kept.length && (fixHeading.test(kept.at(-1)!) || kept.at(-1) === reviewHeading())) kept.pop();
     return kept.length ? `${head}\n${kept.join('\n')}\n\n${foot}` : `${head}\n${foot}`;
 }
 
@@ -71,19 +72,21 @@ function ruleOf(result: Result, path: string, review = false): AccessibilityRule
     const help = oneLine(result.help, 200).replace(/\.$/, '');
     const helpUrl = ruleLink(result.helpUrl);
     const standard = ruleStandard(result.tags);
-    const foot = `${standard ? `${standard}. ` : ''}Rule ${result.id}${helpUrl ? `: ${helpUrl}` : '.'}`;
-    const head = `Accessibility (${review ? 'to review' : impact}): ${help}.`;
+    // The rule's help and failures are axe-core's own words (English); the toolbar's are around them
+    const { accessibility: t, found: names } = words();
+    const foot = t.foot(standard === 'Best practice' ? t.bestPractice : standard ?? '', result.id, helpUrl);
+    const head = t.head(review ? t.toReview : t.impacts[impact], help);
     const issues = result.nodes.map((node, index): PageIssue => {
         const found = node.element ?? undefined;
         const target = node.target.at(-1);
         const selector = oneLine(Array.isArray(target) ? target.at(-1) : target, 120);
         const reasons = review ? reviewReasons(node) : [];
-        const elementLine = foundLine('Element', selector || (found && elementLabel(found)));
+        const elementLine = foundLine(names.element, selector || (found && elementLabel(found)));
         return {
             key: `a11y${review ? '-review' : ''}:${result.id}:${found ? elementKey(found) : `${index}:${selector}`}@${path}`,
             summary: oneLine(review ? reasons[0] : node.failureSummary?.split('\n').map(line => line.trim()).find(line => line && !fixHeading.test(line)), 200) || help,
             comment: review
-                ? commentText(`${head}${elementLine}`, [reviewHeading, ...reasons.map(reason => `- ${reason}`)], `A person needs to check this. ${foot}`)
+                ? commentText(`${head}${elementLine}`, [reviewHeading(), ...reasons.map(reason => `- ${reason}`)], t.personCheck(foot))
                 : commentText(`${head}${elementLine}`, failureLines(node.failureSummary), foot),
             path,
             // axe-core's rule ids are lowercase words with hyphens; a custom rule named otherwise has no id to keep
@@ -96,7 +99,7 @@ function ruleOf(result: Result, path: string, review = false): AccessibilityRule
     });
     return {
         id: result.id, impact, help, helpUrl, standard, issues, ...review ? { review } : {},
-        group: { head, foot: review ? `A person needs to check these. ${foot}` : foot }
+        group: { head, foot: review ? t.personCheckAll(foot) : foot }
     };
 }
 

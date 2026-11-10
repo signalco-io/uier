@@ -14,6 +14,7 @@ import { CommentItem } from './@types/Comments';
 import { ThreadNotifications } from './ThreadNotifications';
 import { toolbarConfig } from '../config';
 import { useVisitor } from '../hooks/useVisitor';
+import { useMessages } from '../i18n';
 
 /**
  * A thread: its first and last message, and "Show all" for the ones between. On the page (a pin's
@@ -26,6 +27,7 @@ export function CommentThread({ commentItem, reading = false, onPage = false, ch
 function ThreadContents({ commentItem, reading, onPage }: { commentItem: CommentItem; reading: boolean; onPage: boolean }) {
     // Request verification opens from Thread options; focus goes back there
     const [verifying, setVerifying] = useState(false);
+    const t = useMessages();
     const optionsRef = useRef<HTMLButtonElement>(null);
     const read = useReadComment();
     const threadRef = useRef<HTMLDivElement>(null);
@@ -77,7 +79,7 @@ function ThreadContents({ commentItem, reading, onPage }: { commentItem: Comment
     const restComments = commentItem.thread.items.slice(1, -1);
     // Like the pin: a deleted first item ("Comment deleted") is not a message
     const messagesCount = commentItem.thread.items.filter(item => !item.deleted).length;
-    const source = commentItem.source && (!onPage || !commentItem.source.available) && <span className="min-w-0 break-words">{sourceText(commentItem.source)}</span>;
+    const source = commentItem.source && (!onPage || !commentItem.source.available) && <span className="min-w-0 break-words">{sourceText(commentItem.source, t)}</span>;
     // A page check's finding run again: under the messages, or between a pending request and its answers
     const recheck = commentItem.check && <CheckRecheck comment={commentItem} />;
     const ready = readyForReview(commentItem);
@@ -114,7 +116,7 @@ function ThreadContents({ commentItem, reading, onPage }: { commentItem: Comment
                         size="xs"
                         className="ml-6 self-start text-muted-foreground"
                         onClick={() => setExpanded(true)}>
-                        Show all {messagesCount} messages
+                        {t.thread.showAll(messagesCount)}
                     </Button>
                 )}
                 {threadLastItem && (
@@ -128,10 +130,10 @@ function ThreadContents({ commentItem, reading, onPage }: { commentItem: Comment
             <CommentAnchorDetails comment={commentItem} />
             <CommentActivity entries={commentItem.history} />
             {toolbarConfig.project && commentItem.notifications?.eligible && <ThreadNotifications comment={commentItem} />}
-            {commentItem.integrationLinks && commentItem.integrationLinks.length > 0 && <nav aria-label="Connected services" className="flex flex-wrap gap-3 text-xs">
+            {commentItem.integrationLinks && commentItem.integrationLinks.length > 0 && <nav aria-label={t.thread.connectedServices} className="flex flex-wrap gap-3 text-xs">
                 {commentItem.integrationLinks.map(link => <a key={link.provider} href={link.url} target="_blank" rel="noopener noreferrer"
                     className="text-muted-foreground underline underline-offset-2 hover:text-foreground">
-                    Open in {({ notion: 'Notion', github: 'GitHub', linear: 'Linear', slack: 'Slack', 'azure-devops': 'Azure DevOps' } as Record<string, string>)[link.provider] ?? link.provider}
+                    {t.thread.openIn(({ notion: 'Notion', github: 'GitHub', linear: 'Linear', slack: 'Slack', 'azure-devops': 'Azure DevOps' } as Record<string, string>)[link.provider] ?? link.provider)}
                 </a>)}
             </nav>}
         </Stack>

@@ -10,6 +10,7 @@ import { CommentThread } from './CommentThread';
 import { CommentErrorBoundary } from './CommentErrorBoundary';
 import type { CommentItem } from './@types/Comments';
 import { adoptToolbarStyles } from '../stylesheet';
+import { useLangAttribute, useMessages } from '../i18n';
 
 /** An optional, live thread in the page's layout; uses the toolbar's styles, cache and identity. */
 function InlineCommentThread({ comment, target }: { comment: CommentItem; target: HTMLElement }) {
@@ -17,6 +18,8 @@ function InlineCommentThread({ comment, target }: { comment: CommentItem; target
     const { reply } = useComments();
     const announce = useAnnounce();
     const [container, setContainer] = useState<HTMLElement>();
+    const t = useMessages();
+    useLangAttribute(container);
 
     useEffect(() => {
         const toolbarRoot = rootElement?.getRootNode();
@@ -42,16 +45,16 @@ function InlineCommentThread({ comment, target }: { comment: CommentItem; target
     }, [target, rootElement]);
 
     return container && createPortal(
-        <section aria-label="Headline comment thread" className="overflow-hidden rounded-xl border bg-card text-card-foreground">
+        <section aria-label={t.inline.label} className="overflow-hidden rounded-xl border bg-card text-card-foreground">
             <CommentThread commentItem={comment} onPage />
             <Divider />
             <CommentComposer
-                label="Reply to the headline" placeholder="Reply..." submitLabel="Post reply"
+                label={t.inline.replyLabel} placeholder={t.thread.replyPlaceholder} submitLabel={t.thread.postReply}
                 draftKey={comment.id} error={reply.error}
                 commentId={comment.id}
                 onSubmit={async (text, mentions) => {
                     await reply.mutateAsync({ commentId: comment.id, text, mentions });
-                    announce('Reply posted');
+                    announce(t.thread.replyPosted);
                 }} />
         </section>, container);
 }

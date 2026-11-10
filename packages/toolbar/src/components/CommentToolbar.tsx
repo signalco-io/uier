@@ -23,6 +23,7 @@ import { useToolbarMovement, useToolbarNotice } from '../hooks/useReviewMovement
 import { canReviewToolbar, holdsLayersAttribute } from '../toolbarReview';
 import { addCommentShortcut, useShortcutsEnabled } from '../shortcuts';
 import { useRovingFocus } from '../focusKeys';
+import { useMessages } from '../i18n';
 
 type CommentToolbarProps = {
     mode: ToolbarMode;
@@ -102,6 +103,7 @@ export function CommentToolbar({
     shortcutsRequested = false, onShortcutsRequestHandled
 }: CommentToolbarProps) {
     const { path } = useContext(CommentsBootstrapperContext);
+    const t = useMessages();
     const navRef = useRef<HTMLElement>(null);
     // The pill's buttons are one tab stop (a toolbar): ← and → move between them, Home and End to the first and the last
     const toolsRef = useRef<HTMLDivElement>(null);
@@ -118,9 +120,7 @@ export function CommentToolbar({
     const toggleChecks = (panel: ChecksPanelId) => onChecksPanelChange(checksPanel === panel ? undefined : panel);
     const capped = commentsCountCapped;
     const badgeText = commentsCount > 99 && !capped ? '99+' : countText(commentsCount, capped);
-    const commentsLabel = commentsCount
-        ? `${badgeText} unread ${commentsCount === 1 && !capped ? 'thread' : 'threads'}${commentsCount > 99 && !capped ? `, ${commentsCount} in total` : ''}`
-        : undefined;
+    const commentsLabel = commentsCount ? t.toolbar.unread(badgeText, commentsCount, capped) : undefined;
 
     // `detail` is 0 for clicks synthesized from Enter or Space
     const handleAddClick = (event: React.MouseEvent) => onAddPointComment(event.detail === 0);
@@ -161,10 +161,10 @@ export function CommentToolbar({
                 {creatingPointComment && (
                     <p className="m-0 rounded-full border bg-background px-3 py-1.5 text-center text-sm text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]">
                         {isCoarsePointer() && !canReviewToolbar()
-                            ? 'Tap anywhere to pin a comment. Tap + to cancel.'
-                            : isCoarsePointer() ? 'Tap anywhere to pin a comment.' : 'Click anywhere to pin a comment, or drag over an area. Esc to cancel.'}
+                            ? t.toolbar.pointTouchCancel
+                            : isCoarsePointer() ? t.toolbar.pointTouch : t.toolbar.pointMouse}
                         {canReviewToolbar() && <Button size="sm" variant="plain" className="pointer-events-auto ml-2 rounded-full"
-                            onClick={onCancelPointComment}>Cancel</Button>}
+                            onClick={onCancelPointComment}>{t.common.cancel}</Button>}
                     </p>
                 )}
             </div>
@@ -181,38 +181,38 @@ export function CommentToolbar({
                         className="rounded-full bg-background text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]"
                         startDecorator={<Edit size={16} aria-hidden="true" />}
                         onClick={onResumeDraft}>
-                        Resume draft
+                        {t.toolbar.resumeDraft}
                     </Button>
                 </div>
             )}
             <nav
                 id="uier-feedback-toolbar"
                 ref={navRef}
-                aria-label="uier feedback"
+                aria-label={t.toolbar.navLabel}
                 style={{ ...movement.style, width: 'max-content' }}
                 className="fixed z-[51]">
                 {/* Collapsed, the pill never overflows: no scroll container, so the unread count is not clipped */}
                 <div
                     role="group"
-                    aria-label="uier feedback toolbar"
+                    aria-label={t.toolbar.groupLabel}
                     className={cx('flex max-w-full items-center rounded-full border bg-background p-1 text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]', !collapsed && 'overflow-x-auto')}>
                     {!collapsed && (
-                        <IconTooltip label="Drag to move. Arrow keys move it; Home resets it.">
+                        <IconTooltip label={t.toolbar.moveTip}>
                             {/* A quiet grip: muted and thinner than the 1.75 stroke (inline, since `svg.lucide` sets it in CSS) until hovered, focused or dragged */}
                             <IconButton ref={moveRef} variant="plain"
                                 className={cx('shrink-0 rounded-full hover:text-foreground focus-visible:text-foreground', movement.dragging ? 'text-foreground' : 'text-muted-foreground')}
-                                aria-label="Move toolbar"
+                                aria-label={t.toolbar.move}
                                 {...movement.handle} onKeyDown={movement.onKeyDown}><Drag style={{ strokeWidth: 1.25 }} /></IconButton>
                         </IconTooltip>
                     )}
                     {collapsed ? (
                         // No separate handle: the mark itself drags the pill, a click expands it
-                        <IconTooltip label="Expand toolbar. Drag to move.">
+                        <IconTooltip label={t.toolbar.expandTip}>
                         <IconButton
                             ref={expandButtonRef}
                             variant="plain"
                             className="relative rounded-full"
-                            aria-label={commentsLabel ? `Expand toolbar, ${commentsLabel}` : 'Expand toolbar'}
+                            aria-label={commentsLabel ? t.toolbar.expandWith(commentsLabel) : t.toolbar.expand}
                             {...movement.handle}
                             style={{ touchAction: 'none', cursor: movement.dragging ? 'grabbing' : undefined }}
                             onKeyDown={movement.onKeyDown}
@@ -223,11 +223,11 @@ export function CommentToolbar({
                         </IconTooltip>
                     ) : (
                         // Beside the move handle, whose arrow keys move the pill
-                        <Row ref={toolsRef} role="toolbar" aria-label="Tools" onFocus={tools.onFocus} onKeyDown={tools.onKeyDown}>
-                            <IconTooltip label="Add comment" shortcut={shortcut}>
+                        <Row ref={toolsRef} role="toolbar" aria-label={t.toolbar.tools} onFocus={tools.onFocus} onKeyDown={tools.onKeyDown}>
+                            <IconTooltip label={t.toolbar.addComment} shortcut={shortcut}>
                             <IconButton
                                 ref={addButtonRef}
-                                aria-label="Add comment"
+                                aria-label={t.toolbar.addComment}
                                 aria-keyshortcuts={shortcut}
                                 aria-pressed={creatingPointComment}
                                 // On uier's own pages the toolbar's open popovers stay open to be pointed at
@@ -240,23 +240,25 @@ export function CommentToolbar({
                             </IconButton>
                             </IconTooltip>
                             <ToolbarFeedback key={path} onOpen={onFeedbackOpen} openRequested={feedbackRequested} onOpenRequestHandled={onFeedbackRequestHandled} />
-                            <IconTooltip label="Inbox">
+                            <IconTooltip label={t.toolbar.inbox}>
                             <IconButton
                                 ref={inboxButtonRef}
+                                // Found by this, not by its name (in the toolbar's language)
+                                data-uier-inbox-button=""
                                 variant="plain"
                                 className="relative rounded-full"
                                 aria-expanded={sidebarOpen}
                                 // The inbox is the `DockablePanel` "inbox"; a comment on it saves this button as its opener
                                 aria-controls={sidebarOpen ? 'uier-panel-inbox' : undefined}
                                 onClick={onToggleSidebar}
-                                aria-label={commentsLabel ? `Inbox, ${commentsLabel}` : 'Inbox'}>
+                                aria-label={commentsLabel ? t.toolbar.inboxWith(commentsLabel) : t.toolbar.inbox}>
                                 <Inbox />
                                 {badge}
                             </IconButton>
                             </IconTooltip>
                             {/* The page's checks, docked like the inbox (components/checks/PageChecks.tsx) */}
                             {roomy && accessibilityAvailable && (
-                                <IconTooltip label="Accessibility">
+                                <IconTooltip label={t.toolbar.accessibility}>
                                 <IconButton
                                     ref={accessibilityButtonRef}
                                     variant="plain"
@@ -271,7 +273,7 @@ export function CommentToolbar({
                                 </IconTooltip>
                             )}
                             {roomy && (
-                            <IconTooltip label="SEO">
+                            <IconTooltip label={t.toolbar.seo}>
                             <IconButton
                                 ref={seoButtonRef}
                                 variant="plain"
@@ -286,13 +288,13 @@ export function CommentToolbar({
                             </IconTooltip>
                             )}
                             {showAbout && (
-                                <IconTooltip label="About uier">
+                                <IconTooltip label={t.toolbar.about}>
                                 <IconButton
                                     ref={hintButtonRef}
                                     variant={hintOpen ? 'soft' : 'plain'}
                                     className="rounded-full"
                                     onClick={onToggleHint}
-                                    aria-label="About uier"
+                                    aria-label={t.toolbar.about}
                                     aria-expanded={hintOpen}
                                     aria-controls={hintOpen ? hintId : undefined}>
                                     <Info />
@@ -305,12 +307,12 @@ export function CommentToolbar({
                                 triggerRef={optionsButtonRef}
                                 pageChecks={roomy ? undefined : { accessibility: accessibilityAvailable, attention: checksAttention, onOpen: onChecksPanelChange }}
                                 shortcutsRequested={shortcutsRequested} onShortcutsRequestHandled={onShortcutsRequestHandled} />
-                            <IconTooltip label="Collapse toolbar">
+                            <IconTooltip label={t.toolbar.collapse}>
                             <IconButton
                                 ref={collapseButtonRef}
                                 variant="plain"
                                 className="rounded-full"
-                                aria-label="Collapse toolbar"
+                                aria-label={t.toolbar.collapse}
                                 onClick={() => handleCollapsedChange(true)}>
                                 <Down />
                             </IconButton>

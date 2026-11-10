@@ -1,5 +1,8 @@
 'use client';
 
+import { useMessages, type Messages } from '../i18n';
+import { agentDescription } from '../i18n/format';
+
 import { useRef, useState, useSyncExternalStore } from 'react';
 import { Typography } from '@signalco/ui-primitives/Typography';
 import { Stack } from '@signalco/ui-primitives/Stack';
@@ -17,7 +20,7 @@ import { CommentScreenshot } from './CommentScreenshot';
 import { CommentComposer } from './CommentComposer';
 import { useDrafts } from '../hooks/useDrafts';
 import { CommentItem, CommentItemThreadItem } from './@types/Comments';
-import { agentText, type MessageAgentView } from '../agents';
+import type { MessageAgentView } from '../agents';
 import { AgentMark } from './AgentMark';
 import { useIconTooltip } from './IconTooltip';
 import { MessageMarkdown } from './MessageMarkdown';
@@ -27,12 +30,13 @@ import { MessageMarkdown } from './MessageMarkdown';
  * coding tool connection. The tooltip and the name add the model and reasoning level members get.
  */
 function MessageAgent({ agent }: { agent: MessageAgentView }) {
-    const details = agentText(agent);
-    const { triggerProps, tooltip } = useIconTooltip(`Written by ${details}`);
+    const t = useMessages();
+    const details = agentDescription(agent, t);
+    const { triggerProps, tooltip } = useIconTooltip(t.thread.writtenBy(details));
     return <>
-        <span role="img" tabIndex={-1} aria-label={`via ${details}`} data-message-agent={agent.kind} {...triggerProps}
+        <span role="img" tabIndex={-1} aria-label={t.thread.viaAgent(details)} data-message-agent={agent.kind} {...triggerProps}
             className="inline-flex shrink-0 items-center gap-1 text-sm text-muted-foreground">
-            via
+            {t.thread.via}
             <span className="inline-flex items-center gap-1 text-foreground"><AgentMark kind={agent.kind} />{agent.label}</span>
         </span>
         {tooltip}
@@ -56,28 +60,29 @@ export function avatarText(name: string) {
  * the first item takes the visitor's own replies with it, but when others replied only its text
  * goes and the thread stays; the last reply under a deleted first item takes the thread with it.
  */
-function deleteConfirmText(comment: CommentItem, first: boolean | undefined) {
+function deleteConfirmText(comment: CommentItem, first: boolean | undefined, t: Messages) {
     const [firstItem, ...replies] = comment.thread.items;
     if (!first) {
         return firstItem?.deleted && replies.length === 1
-            ? 'Delete this reply? It is the last message, so the thread is removed too.'
-            : 'Delete this reply?';
+            ? t.thread.deleteLastReply
+            : t.thread.deleteReply;
     }
 
     // An admin of a project deleting someone else's comment removes the whole thread
     if (!comment.isMine) {
-        return replies.length > 0 ? 'Delete this comment and its replies?' : 'Delete this comment?';
+        return replies.length > 0 ? t.thread.deleteCommentAndReplies : t.thread.deleteComment;
     }
     if (replies.some(reply => reply.deleted || !reply.author?.isMe)) {
-        return 'Delete this comment? Its text is removed. The replies stay.';
+        return t.thread.deleteCommentKeepReplies;
     }
     return replies.length > 0
-        ? `Delete this comment and your ${replies.length} ${replies.length === 1 ? 'reply' : 'replies'}?`
-        : 'Delete this comment?';
+        ? t.thread.deleteCommentAndYourReplies(replies.length)
+        : t.thread.deleteComment;
 }
 
 export function CommentThreadItem({ comment, threadItem, first }: { comment: CommentItem, threadItem: CommentItemThreadItem; first?: boolean; }) {
     const { delete: deleteComment, deleteReply, edit } = useComments();
+    const t = useMessages();
     const announce = useAnnounce();
     const reattach = useReattach(comment);
     const rootRef = useRef<HTMLDivElement>(null);
@@ -95,14 +100,14 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
     // The author deleted it after others replied: a placeholder, without author or actions
     if (threadItem.deleted) {
         return (
-            <Typography level="body1" className="pl-8 text-sm text-muted-foreground">Comment deleted</Typography>
+            <Typography level="body1" className="pl-8 text-sm text-muted-foreground">{t.thread.commentDeleted}</Typography>
         );
     }
 
     const { text } = threadItem;
-    const mentions = threadItem.mentions?.map(mention => ({ start: mention.start, end: mention.end, name: mention.name ?? 'Former member' }));
+    const mentions = threadItem.mentions?.map(mention => ({ start: mention.start, end: mention.end, name: mention.name ?? t.thread.formerMember }));
     const quote: string | undefined = threadItem.quotedText;
-    const authorName = threadItem.author?.name || 'Guest';
+    const authorName = threadItem.author?.name || t.common.guest;
     const isMe = Boolean(threadItem.author?.isMe);
     // "Ana via Claude": the name ends with the agent that wrote it, shown with its logo
     const agent = threadItem.agent;
@@ -136,7 +141,7 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
             return;
         }
 
-        announce(first ? 'Comment deleted' : 'Reply deleted');
+        announce(first ? t.thread.commentDeleted : t.thread.replyDeleted);
         if (list?.isConnected) {
             list.focus();
         }
@@ -149,7 +154,7 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                 <Row spacing={1} justifyContent="space-between" className="min-h-6">
                     <Row spacing={1} className="min-w-0">
                         <Typography level="body2" semiBold noWrap className="text-foreground" title={authorName}>
-                            {isMe ? 'You' : agent ? person : authorName}
+                            {isMe ? t.thread.you : agent ? person : authorName}
                         </Typography>
                         {agent && <MessageAgent agent={agent} />}
                         {createdAt && (
@@ -164,7 +169,7 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                             triggerRef={menuRef}
                             kind={first ? 'comment' : 'reply'}
                             own={isMe}
-                            confirmText={deleteConfirmText(comment, first)}
+                            confirmText={deleteConfirmText(comment, first, t)}
                             disabled={pending}
                             onDelete={canDelete ? handleDelete : undefined}
                             onReattach={first && reattach.available ? reattach.request : undefined}
@@ -187,15 +192,15 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                     </blockquote>
                 )}
                 {editing ? (
-                    <CommentComposer label={first ? 'Edit comment' : 'Edit reply'} placeholder="Update the message" submitLabel="Save changes"
+                    <CommentComposer label={first ? t.thread.editComment : t.thread.editReply} placeholder={t.thread.editPlaceholder} submitLabel={t.thread.saveChanges}
                         commentId={comment.id} initialMentions={threadItem.mentions} draftKey={editDraftKey} initialText={editing.originalText} autoFocus pending={edit.isPending} error={edit.error}
                         onCancel={finishEdit} onSubmit={async (text, mentions) => {
                             await edit.mutateAsync({ commentId: comment.id, itemId: threadItem.id, text, mentions, expectedText: editing.originalText });
                             finishEdit();
-                            announce(first ? 'Comment edited' : 'Reply edited');
+                            announce(first ? t.thread.commentEdited : t.thread.replyEdited);
                         }} />
                 ) : <MessageMarkdown text={text} mentions={mentions}
-                    suffix={threadItem.editedAt && <span className="font-normal text-muted-foreground"> (edited)</span>} />}
+                    suffix={threadItem.editedAt && <span className="font-normal text-muted-foreground">{t.thread.edited}</span>} />}
                 {(first || threadItem.screenshot) && <CommentScreenshot comment={comment} itemId={first ? undefined : threadItem.id} />}
                 <CommentsErrorMessage error={error} />
             </Stack>

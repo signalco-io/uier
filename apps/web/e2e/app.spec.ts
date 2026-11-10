@@ -605,7 +605,7 @@ test('admins rename the workspace from its menu; commenters have no workspace se
     const name = page.getByLabel('Workspace name');
     await expect(name).toHaveValue('Personal');
     await name.fill('  Acme   studio ');
-    await page.getByRole('button', { name: 'Save' }).click();
+    await page.getByRole('region', { name: 'General', exact: true }).getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('status').filter({ hasText: 'The workspace name is saved.' })).toBeVisible();
     await expectNoAxeViolations(page);
 
@@ -780,7 +780,7 @@ test('the account page saves the name and signs out', async ({ page }) => {
     await hydrated(page.getByRole('region', { name: 'Profile' }).locator('form'));
     await page.getByLabel('Name').fill('Mia Reviewer');
     await expect(page.getByRole('region', { name: 'Profile' })).toContainText('Unsaved changes');
-    await page.getByRole('button', { name: 'Save' }).click();
+    await page.getByRole('region', { name: 'Profile' }).getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('region', { name: 'Profile' }).getByRole('status')).toHaveText('Your name is saved.');
     await appNavigation(page);
     await expect(page.getByRole('button', { name: 'Account: Mia Reviewer' })).toBeVisible();

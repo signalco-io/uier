@@ -1,6 +1,7 @@
 import { foundLine, isToolbarNode, oneLine, writtenAddress } from '../pageElements';
 import { nextIdle } from '../pageIdle';
 import type { CheckState, PageCheck } from '../types';
+import { words } from './locale';
 import { pageCheck, pageIssue, type SectionContext, type SectionReport } from './api';
 import {
     aiCrawlers, keepsOut, pageKey, parseRobots, robotsHeader, robotsVerdict, searchCrawlers, sitemapEntries, textLinks, textShare,
@@ -38,11 +39,6 @@ const linksPass = 0.9;
 
 const htmlAccept = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
 
-const csp = 'the site\'s Content-Security-Policy blocks';
-const engines = 'No search engine confirms using it.';
-const withoutCookies = 'a request without cookies';
-const protectedSite = 'Sites under review are often protected on purpose.';
-const javascript = 'Crawlers that do not run JavaScript get only the served HTML.';
 
 type Received = {
     kind: 'response';
@@ -180,16 +176,16 @@ const statusLine = (answer: Received) => `${answer.status} ${oneLine(answer.stat
 
 /** What a request for a file got, after "robots.txt ...": "answers 503 Service Unavailable" */
 function answered(answer: Answer) {
-    return answer.kind === 'response' ? `answers ${statusLine(answer)}`
-        : answer.kind === 'timeout' ? 'did not answer within 10 seconds'
-            : answer.kind === 'away' ? 'redirects where the browser cannot follow'
-                : answer.kind === 'blocked' ? 'is blocked by the site\'s Content-Security-Policy' : 'could not be requested';
+    const said = words().crawler.answered;
+    return answer.kind === 'response' ? said.response(statusLine(answer))
+        : answer.kind === 'timeout' ? said.timeout
+            : answer.kind === 'away' ? said.away
+                : answer.kind === 'blocked' ? said.blocked : said.failed;
 }
 
-const count = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
 const percent = (share: number) => `${Math.floor(share * 100)}%`;
-const names = (list: readonly string[]) => list.length < 2 ? list.join('') : `${list.slice(0, -1).join(', ')} and ${list.at(-1)}`;
-const requested = (address: string) => foundLine('Requested without cookies', `GET ${writtenAddress(address)}`);
+const names = (list: readonly string[]) => list.length < 2 ? list.join('') : `${list.slice(0, -1).join(', ')} ${words().crawler.and} ${list.at(-1)}`;
+const requested = (address: string) => foundLine(words().found.requested, `GET ${writtenAddress(address)}`);
 const pathOf = (address: string) => new URL(address).pathname;
 
 // The site's files, kept per origin while the page is open. Another page of the site reuses them; a
@@ -278,12 +274,12 @@ async function readSitemap(state: Sitemaps, url: string, answer: Answer) {
             text = new TextDecoder().decode(unpacked.bytes);
             truncated ||= unpacked.truncated;
         } catch {
-            state.failed.push(what('could not be unpacked'));
+            state.failed.push(what(words().crawler.unpacked));
             return;
         }
     }
     if (isHtml(answer, text)) {
-        if (state.named) state.failed.push(what('is an HTML page'));
+        if (state.named) state.failed.push(what(words().crawler.htmlPage));
         else state.missing = true;
         return;
     }
@@ -303,7 +299,7 @@ async function readSitemap(state: Sitemaps, url: string, answer: Answer) {
             if (key && !state.listed.has(key)) state.listed.set(key, url);
         }
     }
-    state.read.push(what(index ? `a sitemap index of ${count(locations.length, 'sitemap')}` : count(locations.length, 'address', 'addresses')));
+    state.read.push(what(index ? words().crawler.sitemapIndex(locations.length) : words().crawler.addresses(locations.length)));
 }
 
 /**
@@ -382,159 +378,157 @@ function pageFacts(doc: Document, base: string): PageFacts {
 
 /** The rows comparing the HTML the server sends with the rendered page */
 function servedChecks(live: PageFacts, served: PageFacts, page: Received, path: string, address: string): PageCheck[] {
-    const sent = `${requested(address)}${foundLine('Answer', statusLine(page))}`;
+    const { crawler: t, found: names_ } = words();
+    const sent = `${requested(address)}${foundLine(names_.answer, statusLine(page))}`;
 
-    const h1 = row('served-h1', 'Served h1');
+    const h1 = row('served-h1', t.servedH1);
     const firstH1 = live.h1.find(Boolean) ?? live.h1[0];
-    const h1Check = firstH1 === undefined ? h1('none', 'No h1 on the page.')
-        : served.h1.includes(firstH1) ? h1('pass', 'The server sends the h1.', { value: firstH1 || undefined })
-            : served.h1.length ? h1('none', 'The h1 is changed by JavaScript.', { value: `Served: ${served.h1[0] || 'an empty h1'}` })
-                : h1('warn', `The h1 is added by JavaScript. ${javascript}`, {
+    const h1Check = firstH1 === undefined ? h1('none', t.noH1)
+        : served.h1.includes(firstH1) ? h1('pass', t.h1Sent, { value: firstH1 || undefined })
+            : served.h1.length ? h1('none', t.h1Changed, { value: t.served(served.h1[0] || t.emptyH1) })
+                : h1('warn', t.h1Added(t.javascript), {
                     value: firstH1 || undefined,
-                    issues: seoIssue(path, 'served-h1', 'The h1 is added by JavaScript.',
-                        `SEO: The h1 is added by JavaScript: the HTML the server sends has none. ${javascript}${sent}${foundLine('h1 on the page', firstH1)}`)
+                    issues: seoIssue(path, 'served-h1', t.h1AddedSummary,
+                        `${t.h1AddedComment(t.javascript)}${sent}${foundLine(names_.pageH1, firstH1)}`)
                 });
 
-    const text = row('served-text', 'Served text');
+    const text = row('served-text', t.servedText);
     const share = textShare(live.text, served.text);
     const measure = percent(share.share);
-    const cut = page.truncated ? ' (its first 5 MB)' : '';
-    const measured = `The server sends ${measure} of the page's text${cut}.`;
-    const textCheck = !share.characters ? text('none', 'No text on the page.')
+    const cut = page.truncated ? t.firstMb : '';
+    const measured = t.textMeasured(measure, cut);
+    const textCheck = !share.characters ? text('none', t.noText)
         : share.share >= textPass ? text('pass', measured, { measure })
             : share.share < textWarn && share.characters >= textMinimum
-                ? text('warn', `${measured} The rest is added by JavaScript.`, {
+                ? text('warn', t.restAdded(measured), {
                     measure,
-                    issues: seoIssue(path, 'served-text', 'Most of the text is added by JavaScript.',
-                        `SEO: The HTML the server sends has ${measure} of the page's text${cut}; the rest is added by JavaScript. ${javascript}${sent}${foundLine('Measured', `${share.found.toLocaleString('en-US')} of ${count(share.characters, 'character')} of the page's text are in the served HTML`)}`)
+                    issues: seoIssue(path, 'served-text', t.textSummary,
+                        `${t.textComment(measure, cut, t.javascript)}${sent}${foundLine(names_.measured, t.textMeasuredLine(share.found, share.characters))}`)
                 })
                 : text('none', measured, { measure });
 
     const parts = [
-        { name: 'title', page: live.title, served: served.title },
-        { name: 'meta description', page: live.description, served: served.description },
-        { name: 'canonical link', page: live.canonical, served: served.canonical },
-        { name: 'robots meta tag', page: live.robots, served: served.robots }
+        { name: t.parts.title, page: live.title, served: served.title },
+        { name: t.parts.description, page: live.description, served: served.description },
+        { name: t.parts.canonical, page: live.canonical, served: served.canonical },
+        { name: t.parts.robots, page: live.robots, served: served.robots }
     ];
     const differences = [
-        { verb: 'added', list: parts.filter(part => part.page && !part.served) },
-        { verb: 'changed', list: parts.filter(part => part.page && part.served && part.page !== part.served) },
-        { verb: 'removed', list: parts.filter(part => !part.page && part.served) }
+        { verb: 'added' as const, list: parts.filter(part => part.page && !part.served) },
+        { verb: 'changed' as const, list: parts.filter(part => part.page && part.served && part.page !== part.served) },
+        { verb: 'removed' as const, list: parts.filter(part => !part.page && part.served) }
     ].filter(({ list }) => list.length);
     const different = differences.flatMap(({ list }) => list);
     const present = parts.filter(part => part.page);
-    const head = row('served-head', 'Served head');
+    const head = row('served-head', t.servedHead);
     const headCheck = different.length
-        ? head('none', differences.map(({ verb, list }) => `The ${names(list.map(part => part.name))} ${list.length > 1 ? 'are' : 'is'} ${verb} by JavaScript.`).join(' '),
-            { value: different.length === 1 && different[0]!.served ? `Served: ${oneLine(different[0]!.served)}` : undefined })
-        : present.length ? head('pass', `The served HTML has the page's ${names(present.map(part => part.name))}.`)
-            : head('none', 'No title, meta description, canonical link or robots meta tag.');
+        ? head('none', differences.map(({ verb, list }) => t.changedBy(names(list.map(part => part.name)), list.length > 1, verb)).join(' '),
+            { value: different.length === 1 && different[0]!.served ? t.served(oneLine(different[0]!.served)) : undefined })
+        : present.length ? head('pass', t.headPresent(names(present.map(part => part.name))))
+            : head('none', t.noHead);
 
-    const links = row('served-links', 'Served links');
+    const links = row('served-links', t.servedLinks);
     const pageLinks = [...live.links];
     const found = pageLinks.filter(link => served.links.has(link)).length;
-    const linkCount = { measure: `${found} of ${pageLinks.length}` };
-    const linksCheck = !pageLinks.length ? links('none', 'No links on the page.')
-        : found === pageLinks.length ? links('pass', 'The server sends every link address of the page.', linkCount)
-            : links(found / pageLinks.length >= linksPass ? 'pass' : 'none',
-                `The server sends ${found} of the page's ${count(pageLinks.length, 'link address', 'link addresses')}. The others are added or changed by JavaScript.`, linkCount);
+    const linkCount = { measure: t.linksOf(found, pageLinks.length) };
+    const linksCheck = !pageLinks.length ? links('none', t.noLinks)
+        : found === pageLinks.length ? links('pass', t.allLinks, linkCount)
+            : links(found / pageLinks.length >= linksPass ? 'pass' : 'none', t.someLinks(found, pageLinks.length), linkCount);
 
     return [h1Check, textCheck, headCheck, linksCheck];
 }
 
 /** The Response row: what a request without cookies for this page got */
 function responseCheck(page: Answer, path: string, address: string, samePage: boolean): PageCheck {
-    const status = row('status', 'Response');
-    if (page.kind === 'timeout') return status('none', 'Not checked: no answer within 10 seconds.');
-    if (page.kind === 'away') return status('none', `A request without cookies is redirected where the browser cannot follow it. ${protectedSite}`);
-    if (page.kind !== 'response') return status('none', 'Not checked: the request failed.');
+    const { crawler: t, found } = words();
+    const status = row('status', t.response);
+    if (page.kind === 'timeout') return status('none', t.timeout);
+    if (page.kind === 'away') return status('none', t.away(t.protectedSite));
+    if (page.kind !== 'response') return status('none', t.failed);
     const measure = String(page.status);
-    if (page.status === 401 || page.status === 403) return status('none', `The server refuses ${withoutCookies}. ${protectedSite}`, { measure });
+    if (page.status === 401 || page.status === 403) return status('none', t.refuses(t.withoutCookies, t.protectedSite), { measure });
     if (page.redirected && !samePage) {
-        return status('none', `A request without cookies is redirected to another page. ${protectedSite}`, { measure, value: writtenAddress(page.url) });
+        return status('none', t.redirectedElsewhere(t.protectedSite), { measure, value: writtenAddress(page.url) });
     }
     if (page.status >= 400) {
-        return status('warn', `The server answers ${statusLine(page)} to ${withoutCookies}.`, {
+        return status('warn', t.answersTo(statusLine(page), t.withoutCookies), {
             measure,
-            issues: seoIssue(path, 'status', `The page answers ${page.status} to ${withoutCookies}.`,
-                `SEO: A request for this page without cookies, like a crawler's, gets ${statusLine(page)} instead of the page.${requested(address)}${foundLine('Answer', statusLine(page))}`)
+            issues: seoIssue(path, 'status', t.statusSummary(page.status, t.withoutCookies),
+                `${t.statusComment(statusLine(page))}${requested(address)}${foundLine(found.answer, statusLine(page))}`)
         });
     }
-    if (!ok(page)) return status('none', `The server answers ${statusLine(page)}.`, { measure });
+    if (!ok(page)) return status('none', t.answers(statusLine(page)), { measure });
     if (page.redirected && page.url !== address) {
-        return status('none', 'A request without cookies is redirected to this address first.', { measure, value: writtenAddress(page.url) });
+        return status('none', t.redirectedFirst, { measure, value: writtenAddress(page.url) });
     }
-    return status('pass', `The server sends the page to ${withoutCookies}.`, { measure });
+    return status('pass', t.sends(t.withoutCookies), { measure });
 }
 
 /** Who a header's noindex is for: "search engines", "Google" or the crawlers it names; empty for nobody */
 function noindexFor(rules: Map<string, string[]>) {
     const agents = [...rules].filter(([, directives]) => keepsOut(directives)).map(([agent]) => agent);
-    return agents.includes('*') ? 'search engines' : names(agents.map(agent => agent === 'googlebot' ? 'Google' : agent === 'bingbot' ? 'Bing' : agent));
+    return agents.includes('*') ? words().crawler.searchEngines : names(agents.map(agent => agent === 'googlebot' ? 'Google' : agent === 'bingbot' ? 'Bing' : agent));
 }
 
 function headerCheck(page: Received, live: PageFacts): PageCheck {
+    const t = words().crawler;
     const header = row('x-robots-tag', 'X-Robots-Tag');
     const value = page.headers.get('x-robots-tag');
-    if (!value) return header('pass', 'Not sent: the response adds no indexing rules.');
+    if (!value) return header('pass', t.notSent);
     const who = noindexFor(robotsHeader(value));
     const shown = { value: oneLine(value) };
     if (!who) {
-        return live.noindex ? header('none', 'No noindex in the header, but the robots meta tag has one.', shown)
-            : header('pass', 'No noindex in the header.', shown);
+        return live.noindex ? header('none', t.metaNoindex, shown)
+            : header('pass', t.noNoindex, shown);
     }
-    return header('none', `The response asks ${who} not to index the page.${live.robots && !live.noindex ? ' The robots meta tag does not.' : ''}`, shown);
+    return header('none', t.headerNoindex(who, Boolean(live.robots && !live.noindex)), shown);
 }
 
 /** Why a robots.txt has no rules to evaluate, as the reason of its rows; nothing when it has */
 function robotsUnread(robots: Answer, text: string | undefined): { state: CheckState; reason: string } | undefined {
-    const anyCrawler = 'every crawler may read the site.';
-    if (robots.kind === 'blocked') return { state: 'none', reason: `Not checked: ${csp} this request.` };
-    if (robots.kind !== 'response') return { state: 'none', reason: `Not read: robots.txt ${answered(robots)}.` };
-    if (robots.status === 404 || robots.status === 410) return { state: 'pass', reason: `No robots.txt: ${anyCrawler}` };
-    if (robots.status >= 400 && robots.status < 500) return { state: 'none', reason: `robots.txt ${answered(robots)}, which counts as none: ${anyCrawler}` };
-    if (robots.status >= 500) return { state: 'none', reason: `robots.txt ${answered(robots)}. RFC 9309 asks crawlers to treat every page as blocked then.` };
-    if (!ok(robots)) return { state: 'none', reason: `Not read: robots.txt ${answered(robots)}.` };
-    if (text !== undefined && isHtml(robots, text)) return { state: 'none', reason: `robots.txt is an HTML page without rules: ${anyCrawler}` };
+    const t = words().crawler;
+    const anyCrawler = t.anyCrawler;
+    if (robots.kind === 'blocked') return { state: 'none', reason: t.notCheckedCsp(t.csp) };
+    if (robots.kind !== 'response') return { state: 'none', reason: t.robotsNotRead(answered(robots)) };
+    if (robots.status === 404 || robots.status === 410) return { state: 'pass', reason: t.noRobots(anyCrawler) };
+    if (robots.status >= 400 && robots.status < 500) return { state: 'none', reason: t.robotsNone(answered(robots), anyCrawler) };
+    if (robots.status >= 500) return { state: 'none', reason: t.robotsServerError(answered(robots)) };
+    if (!ok(robots)) return { state: 'none', reason: t.robotsNotRead(answered(robots)) };
+    if (text !== undefined && isHtml(robots, text)) return { state: 'none', reason: t.robotsHtml(anyCrawler) };
     return undefined;
 }
 
-/** What an AI crawler's requests are for, after its vendor's name ("OpenAI, training AI models") */
-const aiUses: Record<AiCrawlerUse, string> = {
-    training: 'training AI models',
-    search: 'AI search',
-    user: 'a user\'s request',
-    data: 'open web data'
-};
 
 function robotsChecks(robots: Answer, file: RobotsFile | undefined, unread: ReturnType<typeof robotsUnread>, target: string,
     indexable: boolean, why: string, path: string, address: string): { checks: PageCheck[]; ai?: AiCrawlerVerdict[] } {
-    const search = row('robots', 'Search crawlers');
-    const aiRow = row('robots-ai', 'AI crawlers');
+    const { crawler: t, found } = words();
+    const search = row('robots', t.searchCrawlers);
+    const aiRow = row('robots-ai', t.aiCrawlers);
     if (unread || !file || robots.kind !== 'response') {
-        const { state, reason } = unread ?? { state: 'none' as const, reason: 'Not read.' };
+        const { state, reason } = unread ?? { state: 'none' as const, reason: t.notRead };
         return { checks: [search(state, reason), aiRow('none', reason)] };
     }
-    const cut = robots.truncated ? ' Its first 500 KiB were read, as RFC 9309 allows.' : '';
-    const crawlers = [...searchCrawlers.map(token => ({ token, name: token })), { token: '*', name: 'other crawlers' }]
+    const cut = robots.truncated ? t.cut : '';
+    const crawlers = [...searchCrawlers.map(token => ({ token, name: token })), { token: '*', name: t.otherCrawlers }]
         .map(crawler => ({ ...crawler, verdict: robotsVerdict(file, crawler.token, target) }));
     const blocked = crawlers.filter(crawler => !crawler.verdict.allowed);
     const blockedNames = names(blocked.map(crawler => crawler.name));
     const rules = [...new Set(blocked.map(crawler => crawler.verdict.rule).filter((rule): rule is RobotsRule => Boolean(rule)))];
-    const searchCheck = !blocked.length ? search('pass', `${names(crawlers.map(crawler => crawler.name))} may read this page.${cut}`)
-        : search(indexable ? 'warn' : 'none', `robots.txt blocks ${blockedNames} from this page.${why}${cut}`, {
+    const searchCheck = !blocked.length ? search('pass', t.mayRead(names(crawlers.map(crawler => crawler.name)), cut))
+        : search(indexable ? 'warn' : 'none', t.robotsBlocks(blockedNames, why, cut), {
             value: rules[0]?.text,
-            issues: indexable ? seoIssue(path, 'robots', 'robots.txt blocks search crawlers from this page.',
-                `SEO: robots.txt blocks ${blockedNames} from this page.${requested(robots.url)}${foundLine('Answer', statusLine(robots))}${rules.slice(0, 3).map(rule => foundLine(`Line ${rule.line}`, rule.text)).join('')}${foundLine('Page', writtenAddress(address))}`) : undefined
+            issues: indexable ? seoIssue(path, 'robots', t.robotsBlocksSummary,
+                `${t.robotsBlocksComment(blockedNames)}${requested(robots.url)}${foundLine(found.answer, statusLine(robots))}${rules.slice(0, 3).map(rule => foundLine(found.line(rule.line), rule.text)).join('')}${foundLine(found.page, writtenAddress(address))}`) : undefined
         });
     const ai = aiCrawlers.map(({ token, by, use }) => {
         const verdict = robotsVerdict(file, token, target);
-        return { token, by, use: aiUses[use], allowed: verdict.allowed, rule: verdict.rule?.text };
+        // The use stays its stable value: the panel names it in the toolbar's language
+        return { token, by, use, allowed: verdict.allowed, rule: verdict.rule?.text };
     });
     const aiBlocked = ai.filter(crawler => !crawler.allowed).map(crawler => crawler.token);
     const allowed = ai.length - aiBlocked.length;
-    const aiCheck = aiRow('none', `${allowed === ai.length ? 'All' : `${allowed} of`} ${ai.length} AI crawlers checked may read this page. Blocking them is the site owner's choice.${cut}`,
-        { value: aiBlocked.length ? `Blocked: ${aiBlocked.join(', ')}` : undefined });
+    const aiCheck = aiRow('none', t.aiAllowed(allowed, ai.length, cut),
+        { value: aiBlocked.length ? t.aiBlocked(aiBlocked.join(', ')) : undefined });
     return { checks: [searchCheck, aiCheck], ai };
 }
 
@@ -545,38 +539,40 @@ function robotsChecks(robots: Answer, file: RobotsFile | undefined, unread: Retu
  */
 async function sitemapCheck(state: Sitemaps, key: string | undefined, lookup: string, unlisted: string | undefined,
     path: string, requests: Requests): Promise<PageCheck> {
-    const sitemap = row('sitemap', 'Sitemap');
+    const { crawler: t, found: names_ } = words();
+    const sitemap = row('sitemap', t.sitemap);
     if (!state.queue.length && !state.read.length && state.elsewhere.length && !state.failed.length) {
-        return sitemap('none', 'robots.txt names a sitemap on another site, which is not read.', { value: writtenAddress(state.elsewhere[0]) });
+        return sitemap('none', t.sitemapElsewhere, { value: writtenAddress(state.elsewhere[0]) });
     }
     const found = key ? await findListed(state, key, requests) : undefined;
-    if (found) return sitemap('pass', `Listed in ${pathOf(found)}.`);
-    if (state.missing && !state.read.length) return sitemap('none', `No sitemap: ${state.robotsRead ? 'robots.txt names none, and ' : ''}/sitemap.xml is not there.`);
-    const failed = state.failed[0] && `${pathOf(state.failed[0].url)} ${state.failed[0].what}.`;
-    if (!state.read.length && failed) return sitemap('none', `Not read: ${failed}`);
-    const gap = failed || (state.truncated || state.bytes >= sitemapBytes ? 'The sitemaps are over 5 MB, the most read.'
-        : state.queue.length ? `The sitemaps have more than ${sitemapFiles} files, the most read.`
-            : state.elsewhere.length && 'A sitemap on another site is not read.');
-    const addresses = count(state.listed.size, 'address', 'addresses');
-    if (gap) return sitemap('none', `Not listed in the ${addresses} read. ${gap}`);
-    const files = state.read.length === 1 ? pathOf(state.read[0]!.url) : `${state.read.length} sitemap files`;
-    if (unlisted !== undefined) return sitemap('none', `Not listed in ${files}.${unlisted}`);
-    return sitemap('warn', `Not listed in ${files} (${addresses}).`, {
-        issues: seoIssue(path, 'sitemap', 'The page is not listed in the sitemap.',
-            `SEO: This page is not listed in the site's sitemap, read in full.${foundLine('Page', writtenAddress(lookup))}${state.read.slice(0, 5).map(file => foundLine('Sitemap', `${writtenAddress(file.url)}: ${file.what}`)).join('')}`)
+    if (found) return sitemap('pass', t.listedIn(pathOf(found)));
+    if (state.missing && !state.read.length) return sitemap('none', t.noSitemap(state.robotsRead));
+    const failed = state.failed[0] && t.failedFile(pathOf(state.failed[0].url), state.failed[0].what);
+    if (!state.read.length && failed) return sitemap('none', t.sitemapNotRead(failed));
+    const gap = failed || (state.truncated || state.bytes >= sitemapBytes ? t.tooBig
+        : state.queue.length ? t.tooMany(sitemapFiles)
+            : state.elsewhere.length && t.elsewhere);
+    const addresses = t.addresses(state.listed.size);
+    if (gap) return sitemap('none', t.notListedRead(addresses, gap));
+    const files = state.read.length === 1 ? pathOf(state.read[0]!.url) : t.sitemapFiles(state.read.length);
+    if (unlisted !== undefined) return sitemap('none', t.notListedIn(files, unlisted));
+    return sitemap('warn', t.notListed(files, addresses), {
+        issues: seoIssue(path, 'sitemap', t.notListedSummary,
+            `${t.notListedComment}${foundLine(names_.page, writtenAddress(lookup))}${state.read.slice(0, 5).map(file => foundLine(names_.sitemap, `${writtenAddress(file.url)}: ${file.what}`)).join('')}`)
     });
 }
 
 function llmsCheck(llms: Answer, here: string | undefined): PageCheck {
+    const t = words().crawler;
     const llmsRow = row('llms', 'llms.txt');
-    if (llms.kind === 'blocked') return llmsRow('none', `Not checked: ${csp} this request.`);
-    if (llms.kind === 'response' && llms.status >= 400 && llms.status < 500) return llmsRow('none', `No llms.txt. ${engines}`);
-    if (!ok(llms)) return llmsRow('none', `Not read: llms.txt ${answered(llms)}.`);
+    if (llms.kind === 'blocked') return llmsRow('none', t.notCheckedCsp(t.csp));
+    if (llms.kind === 'response' && llms.status >= 400 && llms.status < 500) return llmsRow('none', t.noLlms(t.engines));
+    if (!ok(llms)) return llmsRow('none', t.llmsNotRead(answered(llms)));
     const text = decode(llms);
-    if (isHtml(llms, text)) return llmsRow('none', `No llms.txt: the address answers with an HTML page. ${engines}`);
+    if (isHtml(llms, text)) return llmsRow('none', t.llmsHtml(t.engines));
     // A page's Markdown version, as the llms.txt proposal suggests, counts as the page
     const links = new Set(textLinks(text).map(link => pageKey(link, llms.url)?.replace(/(\/index\.html)?\.md$/, '')));
-    return llmsRow('none', `${here && links.has(here) ? 'Found, and it links' : 'Found; it does not link'} this page. ${engines}`,
+    return llmsRow('none', t.llmsFound(Boolean(here && links.has(here)), t.engines),
         { value: oneLine(/^#\s+(.+)$/m.exec(text)?.[1]) || undefined });
 }
 
@@ -587,14 +583,15 @@ function llmsCheck(llms: Answer, here: string | undefined): PageCheck {
  * CSP blocks them gets one note instead.
  */
 export async function checkCrawler({ path, signal }: SectionContext): Promise<CrawlerReport> {
-    const note = 'Requested without cookies';
+    const t = words().crawler;
+    const note = t.note;
     const origin = window.location.origin;
     const address = window.location.href.replace(/#.*$/, '');
     const watch = watchCsp();
     const requests: Requests = { signal, csp: watch };
     try {
         const page = await request(address, pageLimit, requests, htmlAccept);
-        if (page.kind === 'blocked') return { checks: [row('blocked', 'Requests')('none', `Not checked: ${csp} requests to its own origin.`)], note };
+        if (page.kind === 'blocked') return { checks: [row('blocked', t.requests)('none', t.blockedOwn(t.csp))], note };
         const files = siteFiles(origin, path);
         const [robots, llms] = await Promise.all([
             shared(files, 'robots', () => request(`${origin}/robots.txt`, robotsLimit, requests), signal),
@@ -613,7 +610,7 @@ export async function checkCrawler({ path, signal }: SectionContext): Promise<Cr
         const noindex = live.noindex || Boolean(header && noindexFor(robotsHeader(header)));
         // A page the request did not get (a sign-in, an error) is not in search results either way
         const reachable = page.kind !== 'response' || Boolean(thePage);
-        const why = noindex ? ' The page asks search engines not to index it.' : '';
+        const why = noindex ? t.noindexWhy : '';
 
         const checks: PageCheck[] = [responseCheck(page, path, address, samePage)];
         if (thePage) checks.push(headerCheck(thePage, live));
@@ -622,15 +619,15 @@ export async function checkCrawler({ path, signal }: SectionContext): Promise<Cr
         checks.push(...robotsRows.checks);
         // The canonical address when the page has one: that is the one a sitemap lists
         const lookup = live.canonical && /^https?:/i.test(live.canonical) ? live.canonical : address;
-        const unlisted = noindex ? ' Not needed on a noindex page.' : pageKey(lookup) !== pageKey(address) ? ' The canonical link points to another page.'
+        const unlisted = noindex ? t.noindexNotNeeded : pageKey(lookup) !== pageKey(address) ? t.canonicalElsewhere
             : reachable ? undefined : '';
         checks.push(await sitemapCheck(files.sitemaps, pageKey(lookup), lookup, unlisted, path, requests));
 
         if (!thePage) {
             // The Response row says what the request got instead
-            checks.push(row('served', 'Served HTML')('none', 'Not compared: the request did not get this page.'));
+            checks.push(row('served', t.servedHtml)('none', t.notThisPage));
         } else if (thePage.contentType && !/html|xml/i.test(thePage.contentType)) {
-            checks.push(row('served', 'Served HTML')('none', `Not compared: the server sends ${oneLine(thePage.contentType.split(';')[0], 60)}.`));
+            checks.push(row('served', t.servedHtml)('none', t.otherType(oneLine(thePage.contentType.split(';')[0], 60))));
         } else {
             await nextIdle(signal, { soon: true });
             const served = new DOMParser().parseFromString(decode(thePage), 'text/html');

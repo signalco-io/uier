@@ -7,6 +7,7 @@ import { nextIdle } from '../../../checks/pageIdle';
 import type { PageCheck } from '../../../checks/types';
 import { CheckItem, CheckSection } from '../ChecksParts';
 import type { ChecksPanelId } from '../PageChecks';
+import { useMessages } from '../../../i18n';
 
 // The panels' sections whose checks run on demand, in the audit asset (packages/toolbar/docs/page-checks.md,
 // "Sections"). A section is a definition (which panel, when it runs, what it runs) and a component
@@ -227,6 +228,7 @@ export function ReportSection({ id, title, section, note, children }: {
     children?: ReactNode;
 }) {
     const { status, report } = section;
+    const t = useMessages();
     if (!report) {
         if (status !== 'checking' && status !== 'failed') return null;
         return (
@@ -234,7 +236,7 @@ export function ReportSection({ id, title, section, note, children }: {
                 {/* Not a live region: the panel has one status, and several sections start at once */}
                 <li className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
                     {status === 'checking' && <LoaderSpinner size={14} aria-hidden="true" className="motion-safe:animate-spin" />}
-                    {status === 'checking' ? 'Checking this page...' : 'This could not be checked. Check again to retry.'}
+                    {status === 'checking' ? t.sections.checkingPage : t.sections.notChecked}
                 </li>
             </CheckSection>
         );

@@ -2,6 +2,7 @@
 // the focus indicators that moves the focus through it. Plain data and page elements only.
 import { elementLabel, foundLine, isToolbarNode, oneLine } from '../pageElements';
 import type { PageCheck, PageIssue } from '../types';
+import { words } from './locale';
 import { pageCheck, pageIssue, type SectionContext, type SectionReport } from './api';
 
 export type HiddenReason = 'no size' | 'off screen' | 'transparent' | 'clipped';
@@ -18,7 +19,6 @@ export type TabStop = {
 
 export type KeyboardDetails = { stops: TabStop[] };
 
-const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 const focusable = 'a[href],area[href],button,input,select,textarea,iframe,summary,audio[controls],video[controls],[contenteditable],[tabindex]';
 
@@ -206,8 +206,8 @@ export function tabOrderLayout(stops: readonly TabStop[], limit: number): TabOrd
 }
 
 /** Why they all cannot be seen, when it is one reason (the panel then says it once, not on each element) */
-function sameReason(reasons: (string | undefined)[]) {
-    return reasons.every(reason => reason === reasons[0]) ? ` (${reasons[0]})` : '';
+function sameReason(reasons: (HiddenReason | undefined)[]) {
+    return reasons.every(reason => reason === reasons[0]) && reasons[0] ? ` (${words().keyboard.hidden[reasons[0]]})` : '';
 }
 
 /** What the element says, for a comment: its accessible-ish text */
@@ -216,11 +216,13 @@ function elementText(element: Element) {
 }
 
 function elementLines(element: Element) {
-    return `${foundLine('Element', elementLabel(element))}${foundLine('Text', elementText(element))}`;
+    const { found } = words();
+    return `${foundLine(found.element, elementLabel(element))}${foundLine(found.text, elementText(element))}`;
 }
 
 /** The Keyboard section's report: the number of stops, positive tabindex, and stops that cannot be seen */
 export function keyboardReport({ path }: SectionContext): SectionReport<KeyboardDetails> {
+    const t = words().keyboard;
     const stops = tabOrder();
     const issue = (id: string, element: Element, summary: string, comment: string) =>
         pageIssue(path, { type: 'accessibility', id }, element, summary, comment);
@@ -228,23 +230,21 @@ export function keyboardReport({ path }: SectionContext): SectionReport<Keyboard
     const jumps = stops.filter(stop => stop.tabindex);
     const hidden = stops.filter(stop => stop.hidden && !stop.skipLink);
     const skipLinks = stops.filter(stop => stop.hidden && stop.skipLink).length;
-    const skipNote = skipLinks ? ` ${count(skipLinks, 'hidden in-page link')} left out: ${skipLinks === 1 ? 'it' : 'they'} may show on focus. Check focus indicators checks that.` : '';
+    const skipNote = skipLinks ? t.skipNote(skipLinks) : '';
     const checks: PageCheck[] = [
-        pageCheck('tab-stops', 'Tab stops', 'none', stops.length
-            ? `The order the Tab key moves through the page${frames ? `, ${count(frames, 'frame')} as one stop each` : ''}.`
-            : 'Nothing on this page takes the focus with the Tab key.', { measure: String(stops.length) }),
+        pageCheck('tab-stops', t.tabStops, 'none', stops.length ? t.order(frames) : t.noStops, { measure: String(stops.length) }),
         jumps.length
-            ? pageCheck('tab-positive-tabindex', 'Positive tabindex', 'warn', `${count(jumps.length, 'element')} ${jumps.length === 1 ? 'jumps' : 'jump'} ahead of the page's order with a tabindex above 0.`, {
+            ? pageCheck('tab-positive-tabindex', t.positive, 'warn', t.jumps(jumps.length), {
                 issues: jumps.map(stop => issue('tab-positive-tabindex', stop.element, `tabindex="${stop.tabindex}"`,
-                    `Accessibility: This element has tabindex="${stop.tabindex}", so the Tab key reaches it before the rest of the page, out of reading order. Use tabindex="0", or move it in the page.${elementLines(stop.element)}`))
+                    `${t.jumpComment(stop.tabindex!)}${elementLines(stop.element)}`))
             })
-            : pageCheck('tab-positive-tabindex', 'Positive tabindex', 'pass', 'No element has a tabindex above 0.'),
+            : pageCheck('tab-positive-tabindex', t.positive, 'pass', t.noPositive),
         hidden.length
-            ? pageCheck('tab-hidden-stop', 'Hidden tab stops', 'warn', `${count(hidden.length, 'stop')} ${hidden.length === 1 ? 'takes' : 'take'} the focus but cannot be seen${sameReason(hidden.map(stop => stop.hidden))}.${skipNote}`, {
-                issues: hidden.map(stop => issue('tab-hidden-stop', stop.element, `Cannot be seen: ${stop.hidden}`,
-                    `Accessibility: The Tab key stops on this element, but it cannot be seen (${stop.hidden}), so a keyboard user loses track of the focus. Take it out of the tab order while hidden, or show it when it has the focus.${elementLines(stop.element)}`))
+            ? pageCheck('tab-hidden-stop', t.hiddenStops, 'warn', t.hiddenFound(hidden.length, sameReason(hidden.map(stop => stop.hidden)), skipNote), {
+                issues: hidden.map(stop => issue('tab-hidden-stop', stop.element, t.cannotBeSeen(t.hidden[stop.hidden!]),
+                    `${t.hiddenComment(t.hidden[stop.hidden!])}${elementLines(stop.element)}`))
             })
-            : pageCheck('tab-hidden-stop', 'Hidden tab stops', 'pass', `Every stop can be seen.${skipNote}`)
+            : pageCheck('tab-hidden-stop', t.hiddenStops, 'pass', t.allSeen(skipNote))
     ];
     return { checks, details: { stops } };
 }
@@ -338,8 +338,10 @@ async function focusReport(path: string, signal: AbortSignal): Promise<SectionRe
     const checked = stops.slice(0, focusLimit);
     const previous = activeElement();
     const { scrollX, scrollY } = window;
+    const t = words().keyboard;
     const plain: PageIssue[] = [];
     const unseen: PageIssue[] = [];
+    const unseenReasons: HiddenReason[] = [];
     let frames = 0;
     let missed = 0;
     let done = 0;
@@ -377,11 +379,12 @@ async function focusReport(path: string, signal: AbortSignal): Promise<SectionRe
             const lines = elementLines(element);
             const hidden = hiddenReason(element);
             if (hidden && !labelShows(element)) {
-                unseen.push(pageIssue(path, { type: 'accessibility', id: 'focus-hidden' }, element, `Not visible when focused: ${hidden}`,
-                    `Accessibility: This element takes the focus from the Tab key but cannot be seen while it has it (${hidden}). Show it when focused, or take it out of the tab order.${lines}`));
+                unseenReasons.push(hidden);
+                unseen.push(pageIssue(path, { type: 'accessibility', id: 'focus-hidden' }, element, t.notVisibleFocused(t.hidden[hidden]),
+                    `${t.notVisibleComment(t.hidden[hidden])}${lines}`));
             } else if (after === before) {
-                plain.push(pageIssue(path, { type: 'accessibility', id: 'focus-indicator' }, element, 'No visible change when focused',
-                    `Accessibility: This element looks the same with and without the keyboard focus: its outline, border, shadow, background, text decoration and colour did not change. Give it a visible focus indicator (WCAG 2.4.7).${lines}`));
+                plain.push(pageIssue(path, { type: 'accessibility', id: 'focus-indicator' }, element, t.noChange,
+                    `${t.noChangeComment}${lines}`));
             }
         }
     } finally {
@@ -391,20 +394,19 @@ async function focusReport(path: string, signal: AbortSignal): Promise<SectionRe
     }
     if (untrusted) {
         return {
-            checks: [pageCheck('focus-indicator', 'Focus indicators', 'none',
-                'Not checked: the browser showed no keyboard focus styles, since the check started with a click. Press Enter on Check focus indicators to start it from the keyboard.')],
+            checks: [pageCheck('focus-indicator', t.indicators, 'none', t.untrusted)],
             details: { untrusted }
         };
     }
     const skipped = [
-        stops.length > checked.length && `${stops.length - checked.length} after the first ${focusLimit}`,
-        frames && count(frames, 'frame'),
-        missed && `${missed} that did not keep the focus`
+        stops.length > checked.length && t.afterFirst(stops.length - checked.length, focusLimit),
+        frames && t.frames(frames),
+        missed && t.lostFocus(missed)
     ].filter(Boolean);
-    const note = skipped.length ? ` Not checked: ${skipped.join(', ')}.` : '';
+    const note = skipped.length ? t.notCheckedNote(skipped.join(', ')) : '';
     const checks = [plain.length
-        ? pageCheck('focus-indicator', 'Focus indicators', 'warn', `${plain.length} of ${count(done, 'stop')} showed no visible change when focused.${note}`, { issues: plain })
-        : pageCheck('focus-indicator', 'Focus indicators', done ? 'pass' : 'none', done ? `Each of ${count(done, 'stop')} changed when focused.${note}` : `No stop to check.${note}`)];
-    if (unseen.length) checks.push(pageCheck('focus-hidden', 'Hidden when focused', 'warn', `${count(unseen.length, 'stop')} cannot be seen even with the focus${sameReason(unseen.map(issue => issue.summary.split(': ')[1]))}.`, { issues: unseen }));
+        ? pageCheck('focus-indicator', t.indicators, 'warn', t.noChangeCount(plain.length, done, note), { issues: plain })
+        : pageCheck('focus-indicator', t.indicators, done ? 'pass' : 'none', done ? t.eachChanged(done, note) : t.nothingToCheck(note))];
+    if (unseen.length) checks.push(pageCheck('focus-hidden', t.hiddenFocused, 'warn', t.hiddenFocusedCount(unseen.length, sameReason(unseenReasons)), { issues: unseen }));
     return { checks, details: {} };
 }

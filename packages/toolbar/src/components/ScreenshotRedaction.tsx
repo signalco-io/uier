@@ -6,6 +6,7 @@ import { Input } from '@signalco/ui-primitives/Input';
 import { decodeScreenshot } from '../screenshotImage';
 import { encodeScreenshot } from '../screenshot';
 import { destructiveTextClassName } from './@types/Comments';
+import { messages, useMessages } from '../i18n';
 
 type Area = { x: number; y: number; width: number; height: number };
 const initialArea: Area = { x: 0, y: 0, width: 25, height: 25 };
@@ -15,6 +16,7 @@ export function ScreenshotRedaction({ data, pending, onSave, onCancel }: {
     data: string; pending: boolean; onSave: (data: string) => Promise<void>; onCancel: () => void;
 }) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const t = useMessages();
     const imageRef = useRef<Awaited<ReturnType<typeof decodeScreenshot>> | null>(null);
     const startRef = useRef<{ x: number; y: number } | null>(null);
     const savingRef = useRef(false);
@@ -29,7 +31,7 @@ export function ScreenshotRedaction({ data, pending, onSave, onCancel }: {
             if (cancelled) { image.close(); return; }
             imageRef.current = image;
             setReady(true);
-        }).catch(() => { if (!cancelled) setError('The saved image could not be opened. Close and try again.'); });
+        }).catch(() => { if (!cancelled) setError(messages().redaction.notOpened); });
         return () => { cancelled = true; imageRef.current?.close(); imageRef.current = null; };
     }, [data]);
 
@@ -65,15 +67,15 @@ export function ScreenshotRedaction({ data, pending, onSave, onCancel }: {
             if (!canvasRef.current) return;
             await onSave(encodeScreenshot(canvasRef.current).dataUrl);
         } catch {
-            setError('Redaction was not confirmed. Your saved image is kept until replacement succeeds. Try again or reload to check it.');
+            setError(t.redaction.notConfirmed);
         } finally {
             savingRef.current = false;
         }
     };
 
-    return <section aria-label="Redact screenshot" className="flex flex-col gap-3">
-        <p className="m-0 text-sm">Drag over sensitive content, or enter an area as percentages and add it. Black areas replace the image content when saved.</p>
-        <canvas ref={canvasRef} aria-label="Image redaction surface" role="img"
+    return <section aria-label={t.redaction.label} className="flex flex-col gap-3">
+        <p className="m-0 text-sm">{t.redaction.help}</p>
+        <canvas ref={canvasRef} aria-label={t.redaction.surface} role="img"
             className="block h-auto w-full touch-none rounded-md border"
             onPointerDown={event => {
                 if (pending || !ready || event.button !== 0) return;
@@ -95,23 +97,23 @@ export function ScreenshotRedaction({ data, pending, onSave, onCancel }: {
             }}
             onPointerCancel={() => { startRef.current = null; }} />
         <fieldset disabled={pending || !ready} className="m-0 grid grid-cols-2 gap-2 border-0 p-0">
-            <legend className="sr-only">Redaction area in percentages</legend>
+            <legend className="sr-only">{t.redaction.area}</legend>
             {(['x', 'y', 'width', 'height'] as const).map(key => <Input key={key} type="number"
-                label={`${({ x: 'Left', y: 'Top', width: 'Width', height: 'Height' })[key]} (%)`}
+                label={t.redaction.fields[key]}
                 min={0} max={100} step="any" value={Math.round(area[key] * 100) / 100}
                 onChange={event => setArea(current => ({ ...current, [key]: Math.max(0, Math.min(100, Number(event.target.value) || 0)) }))} />)}
         </fieldset>
         <div className="flex flex-wrap gap-2">
             <Button variant="outlined" className="min-h-11" disabled={pending || !ready || boundedArea.width <= 0 || boundedArea.height <= 0}
-                onClick={() => setAreas(current => [...current, boundedArea])}>Add redaction</Button>
+                onClick={() => setAreas(current => [...current, boundedArea])}>{t.redaction.add}</Button>
             <Button variant="plain" className="min-h-11" disabled={pending || !areas.length}
-                onClick={() => setAreas(current => current.slice(0, -1))}>Undo redaction</Button>
+                onClick={() => setAreas(current => current.slice(0, -1))}>{t.redaction.undo}</Button>
         </div>
-        <p role="status" className="m-0 text-xs text-muted-foreground">{areas.length} redaction {areas.length === 1 ? 'area' : 'areas'}. The saved image changes only after you save.</p>
+        <p role="status" className="m-0 text-xs text-muted-foreground">{t.redaction.count(areas.length)}</p>
         {error && <p role="alert" className={destructiveTextClassName}>{error}</p>}
         <div className="flex flex-wrap gap-2">
-            <Button className="min-h-11" disabled={pending || !ready || !areas.length} onClick={() => { void save(); }}>Save redaction</Button>
-            <Button variant="plain" className="min-h-11" disabled={pending} onClick={onCancel}>Cancel redaction</Button>
+            <Button className="min-h-11" disabled={pending || !ready || !areas.length} onClick={() => { void save(); }}>{t.redaction.save}</Button>
+            <Button variant="plain" className="min-h-11" disabled={pending} onClick={onCancel}>{t.redaction.cancel}</Button>
         </div>
     </section>;
 }

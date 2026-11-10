@@ -32,6 +32,11 @@ export type DbUser = AppDoc & {
      * partition. Both change in one batch (`avatars.ts`); missing means initials.
      */
     avatar?: UserAvatarRef;
+    /**
+     * The toolbar language the person chose (toolbar Options or Account). Missing means none: the
+     * project's or workspace's language shows (`lib/app/toolbarLanguage.ts`).
+     */
+    toolbarLanguage?: import('@uier/toolbar/languages').ToolbarLanguage;
     createdAt: string;
     updatedAt: string;
 };
@@ -113,6 +118,8 @@ export type DbWorkspace = AppDoc & {
     rewriteInstructions?: string;
     /** Defaults for each project's Give feedback form. Missing keeps the standard types. */
     feedbackTypes?: import('@uier/toolbar/feedback-types').FeedbackType[];
+    /** The toolbar language of the workspace's projects. Missing means English: no migration for existing workspaces. */
+    toolbarLanguage?: import('@uier/toolbar/languages').ToolbarLanguage;
 };
 
 export type MemberRole = 'admin' | 'commenter';
@@ -196,6 +203,8 @@ export type DbProject = AppDoc & {
     rewriteInstructions?: import('./inheritedSettings').ProjectSetting<string>;
     /** Missing inherits the workspace list; replace keeps a project's own list. */
     feedbackTypes?: import('./inheritedSettings').ProjectSetting<import('@uier/toolbar/feedback-types').FeedbackType[]>;
+    /** Overrides the workspace's toolbar language. Missing means the workspace's (`lib/app/toolbarLanguage.ts`). */
+    toolbarLanguage?: import('@uier/toolbar/languages').ToolbarLanguage;
     /** Server-owned provider bindings. Secrets and provider settings live in separate records. */
     integrations?: Partial<Record<import('../integrations/model').IntegrationProviderId, import('../integrations/model').IntegrationBinding>>;
     /** Optional labels and explicit alias groups, keyed by configured origin. */

@@ -34,6 +34,8 @@ confirms the returned document ID. The asset hands axe-core and the checks to th
 symbol on the isolated world's own global object, which page scripts cannot read, and axe-core's own
 `axe` global is removed again. It uses the review's activeTab and scripting access: no new
 permission, no `web_accessible_resources`, nothing downloaded, and the page's CSP does not apply.
+The toolbar's languages but English, which the web loads as assets, are part of `content.js`
+([extension adapter](../packages/toolbar/docs/extension-adapter.md#languages)).
 axe-core needs no `eval`. The panels draw in the toolbar's shadow root, so strict `img-src` and
 `style-src` do not affect them.
 

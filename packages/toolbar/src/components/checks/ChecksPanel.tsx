@@ -9,6 +9,7 @@ import { DockablePanel, PanelHandle } from '../DockablePanel';
 import { IconTooltip } from '../IconTooltip';
 import { InkScope } from '../InkScope';
 import { RestoredPanelContext } from '../../openPanel';
+import { useMessages } from '../../i18n';
 
 /**
  * The Accessibility and SEO panels' shell: docked like the inbox (`DockablePanel`, its own side),
@@ -25,6 +26,7 @@ export function ChecksPanel({ id, title, checking, onCheckAgain, onClose, childr
     children: ReactNode;
 }) {
     const [hiding, setHiding] = useState(false);
+    const t = useMessages();
     const restored = useContext(RestoredPanelContext) === id;
     const close = () => {
         setHiding(true);
@@ -51,13 +53,13 @@ export function ChecksPanel({ id, title, checking, onCheckAgain, onClose, childr
                         </Row>
                         <Row>
                             {/* Never disabled, so it keeps the focus: a check already running is the one it gets */}
-                            <IconTooltip label="Check again">
-                                <IconButton variant="plain" aria-label="Check again" aria-busy={checking || undefined} onClick={onCheckAgain}>
+                            <IconTooltip label={t.checks.checkAgain}>
+                                <IconButton variant="plain" aria-label={t.checks.checkAgain} aria-busy={checking || undefined} onClick={onCheckAgain}>
                                     <Reset aria-hidden="true" />
                                 </IconButton>
                             </IconTooltip>
-                            <IconTooltip label="Close panel">
-                                <IconButton variant="plain" aria-label={`Close ${title} panel`} autoFocus={!restored} onClick={close}>
+                            <IconTooltip label={t.checks.closePanel}>
+                                <IconButton variant="plain" aria-label={t.checks.closeNamed(title)} autoFocus={!restored} onClick={close}>
                                     <PanelRightClose />
                                 </IconButton>
                             </IconTooltip>

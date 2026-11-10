@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { getToolbarHost } from './mount';
 import { shortcutLetter, shortcutsEnabled, subscribeShortcutsEnabled } from './keyboard';
+import type { Messages } from './i18n';
 
 export { setShortcutsEnabled } from './keyboard';
 
@@ -12,28 +13,29 @@ export { setShortcutsEnabled } from './keyboard';
  */
 export const addCommentShortcut = 'C';
 
-/** A key as it is printed, and its name where the print is a symbol (screen readers read "Left arrow") */
-type ShortcutKey = string | { print: string; name: string };
+/** A key as it is printed, and its name where the print is a symbol (screen readers read "Left arrow", in the toolbar's language) */
+type ShortcutKey = string | { print: string; name: keyof Messages['shortcutList'] };
 
 /**
  * Every keyboard shortcut of the toolbar, as Options lists them (`?`). `letter`: a single-key shortcut,
  * which the switch turns off. Keep it in step with the handlers (`CommentsGlobal`, the pill, the menus).
  */
-export const toolbarShortcuts: { label: string; keys: ShortcutKey[]; join?: 'or' | 'then'; letter?: boolean }[] = [
-    { label: 'Add comment', keys: [addCommentShortcut], letter: true },
-    { label: 'Open the inbox', keys: ['G', 'I'], join: 'then', letter: true },
-    { label: 'Search the inbox', keys: ['/'], letter: true },
-    { label: 'Next thread', keys: ['J'], letter: true },
-    { label: 'Previous thread', keys: ['K'], letter: true },
-    { label: 'Reply', keys: ['R'], letter: true },
-    { label: 'Go to Mark as done', keys: ['S'], letter: true },
-    { label: 'Assign', keys: ['A'], letter: true },
-    { label: 'Show shortcuts', keys: ['?'], letter: true },
-    { label: 'Send a comment', keys: ['Enter'] },
-    { label: 'New line in a comment', keys: ['Shift', 'Enter'] },
-    { label: 'Move along the toolbar', keys: [{ print: '←', name: 'Left arrow' }, { print: '→', name: 'Right arrow' }], join: 'or' },
-    { label: 'Move in a menu', keys: [{ print: '↑', name: 'Up arrow' }, { print: '↓', name: 'Down arrow' }], join: 'or' },
-    { label: 'Close', keys: ['Esc'] }
+export const toolbarShortcuts: { label: keyof Messages['shortcutList']; keys: ShortcutKey[]; join?: 'or' | 'then'; letter?: boolean }[] = [
+    { label: 'addComment', keys: [addCommentShortcut], letter: true },
+    { label: 'openInbox', keys: ['G', 'I'], join: 'then', letter: true },
+    { label: 'searchInbox', keys: ['/'], letter: true },
+    { label: 'nextThread', keys: ['J'], letter: true },
+    { label: 'previousThread', keys: ['K'], letter: true },
+    { label: 'reply', keys: ['R'], letter: true },
+    { label: 'markDone', keys: ['S'], letter: true },
+    { label: 'assign', keys: ['A'], letter: true },
+    { label: 'showShortcuts', keys: ['?'], letter: true },
+    // Key names print as on the keyboard (mono: machine), in every language
+    { label: 'send', keys: ['Enter'] },
+    { label: 'newLine', keys: ['Shift', 'Enter'] },
+    { label: 'moveToolbar', keys: [{ print: '←', name: 'leftArrow' }, { print: '→', name: 'rightArrow' }], join: 'or' },
+    { label: 'moveMenu', keys: [{ print: '↑', name: 'upArrow' }, { print: '↓', name: 'downArrow' }], join: 'or' },
+    { label: 'close', keys: ['Esc'] }
 ];
 
 /** Inputs that take no text: a letter on them does nothing */

@@ -27,6 +27,13 @@
   Google and Microsoft sign-in import the provider's picture on a first sign-in or link, only while the account has
   none (`importProviderAvatar`). `avatars.api.spec.ts` and `account-avatar.spec.ts` cover it.
 
+- **Toolbar language** (General, after Appearance; `ToolbarLanguageForm`, `setToolbarLanguageAction`): the review
+  toolbar's language on every site the account reviews, the same choice as the toolbar's Options → Language
+  (saved through `POST /api/review/<code>/language` or `POST /api/visitor/language`). Project default clears it, so
+  each project's language applies (the project's, else its workspace's, else English); see
+  [project settings](project-settings.md#toolbar-language). `setUserToolbarLanguage` writes only that field,
+  through the user document's etag.
+
 Account section links use Next.js navigation and preserve the document and feedback toolbar pill
 (`e2e/app-navigation.spec.ts`). Google/Microsoft account linking still uses provider redirects.
 

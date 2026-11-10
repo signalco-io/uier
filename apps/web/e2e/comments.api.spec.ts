@@ -683,27 +683,29 @@ test('screenshots are validated', async ({ newVisitor }) => {
 test('visitor: guest name and signing out', async ({ newVisitor }) => {
     const path = uniquePagePath();
     const visitor = await newVisitor();
+    // The toolbar's language comes with it: uier's own, English; a guest has no account choice
+    const language = { default: 'en', source: 'default' };
 
     // No guest name before the first write, and asking for it doesn't create an identity
     const before = await visitor.get('/api/visitor');
     expect(before.status()).toBe(200);
     expect(before.headers()['cache-control']).toBe('no-store');
-    expect(await before.json()).toEqual({ privateAppFeedback: false, name: null });
+    expect(await before.json()).toEqual({ privateAppFeedback: false, name: null, language });
     expect(visitorCookie(before)).toBeUndefined();
 
     const comment = await created(await createComment(visitor, path));
-    expect(await (await visitor.get('/api/visitor')).json()).toEqual({ privateAppFeedback: false, name: comment.thread.items[0]!.author.name, draftScope: expect.stringMatching(/^[a-f0-9]{64}$/) });
+    expect(await (await visitor.get('/api/visitor')).json()).toEqual({ privateAppFeedback: false, name: comment.thread.items[0]!.author.name, draftScope: expect.stringMatching(/^[a-f0-9]{64}$/), language });
 
     // Signing out removes the cookie; the comment stays but is no longer the visitor's
     const signOut = await visitor.delete('/api/visitor');
     expect(signOut.status()).toBe(204);
     expect(visitorCookie(signOut)?.split('; ')).toEqual(expect.arrayContaining(['uier_visitor=', 'Path=/', 'Max-Age=0', 'HttpOnly', 'SameSite=Lax']));
-    expect(await (await visitor.get('/api/visitor')).json()).toEqual({ privateAppFeedback: false, name: null });
+    expect(await (await visitor.get('/api/visitor')).json()).toEqual({ privateAppFeedback: false, name: null, language });
     expect((await listComments(visitor, path)).map(c => c.isMine)).toEqual([false]);
 
     // Signing out never creates an identity
     expect(visitorCookie(await visitor.delete('/api/visitor'))).toMatch(/^uier_visitor=; /);
-    expect(await (await visitor.get('/api/visitor')).json()).toEqual({ privateAppFeedback: false, name: null });
+    expect(await (await visitor.get('/api/visitor')).json()).toEqual({ privateAppFeedback: false, name: null, language });
 
     // Other sites can't sign anyone out
     await expectError(await (await newVisitor({ headers: { Origin: 'https://evil.example' } })).delete('/api/visitor'), 403, 'forbidden');

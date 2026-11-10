@@ -1,5 +1,6 @@
 import { foundLine, isRendered, isToolbarNode, oneLine, writtenAddress } from '../pageElements';
 import type { CheckState, PageCheck, PageIssue } from '../types';
+import { words } from './locale';
 import { pageCheck, pageIssue, type SectionContext, type SectionReport } from './api';
 
 // More of the SEO panel's own Page, Links and Images sections (packages/toolbar/docs/page-checks-seo-page.md):
@@ -7,7 +8,6 @@ import { pageCheck, pageIssue, type SectionContext, type SectionReport } from '.
 // with an error. Plain data and page elements only: `sections/pageExtras.tsx` shows the rows in the
 // panel's sections.
 
-const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const seo = (id: string) => ({ type: 'seo' as const, id });
 
 /**
@@ -38,13 +38,13 @@ const pageKey = (url: URL, query = false) => `${url.origin}${withoutTrailingSlas
 const tagText = (tag: Element) => `hreflang="${oneLine(tag.getAttribute('hreflang'), 40)}" href="${oneLine(writtenAddress(tag.getAttribute('href')), 120)}"`;
 const quoted = (values: string[]) => {
     const shown = values.slice(0, 3).map(value => `"${oneLine(value, 40)}"`).join(', ');
-    return values.length > 3 ? `${shown} and ${values.length - 3} more` : shown;
+    return values.length > 3 ? words().pageExtras.more(shown, values.length - 3) : shown;
 };
 /** The comment's lines naming the tags, as many as fit in `room` characters */
 function tagLines(tags: Element[], room: number) {
     let lines = '';
     for (const tag of tags) {
-        const line = foundLine('Tag', tagText(tag), 260);
+        const line = foundLine(words().found.tag, tagText(tag), 260);
         if (lines.length + line.length > room) break;
         lines += line;
     }
@@ -59,23 +59,24 @@ function tagLines(tags: Element[], room: number) {
 export function checkHreflang({ path }: SectionContext): SectionReport | undefined {
     const tags = [...document.querySelectorAll('link[rel~="alternate" i][hreflang]')].filter(tag => !isToolbarNode(tag));
     if (!tags.length) return undefined;
+    const t = words().pageExtras;
     const issues: PageIssue[] = [];
     const add = (id: string, found: Element[], summary: string, sentence: string) => {
-        const comment = `SEO: ${sentence}`;
+        const comment = t.seo(sentence);
         issues.push(pageIssue(path, seo(id), undefined, summary, `${comment}${tagLines(found, 990 - comment.length)}`));
     };
-    const tagsHave = (n: number) => count(n, 'hreflang tag has', 'hreflang tags have');
+    const tagsHave = t.tagsHave;
 
     // `UK` is not a region code: the United Kingdom is `GB`
     const invalid = tags.filter(tag => !hreflangValue.test(tag.getAttribute('hreflang')?.trim() ?? '') || /-uk$/i.test(tag.getAttribute('hreflang')?.trim() ?? ''));
     if (invalid.length) {
-        add('hreflang-value', invalid, `Not a language code: ${quoted(invalid.map(tag => tag.getAttribute('hreflang') ?? ''))}.`,
-            `${tagsHave(invalid.length)} a value that is not a language code (such as en, en-GB or x-default).`);
+        add('hreflang-value', invalid, t.invalidSummary(quoted(invalid.map(tag => tag.getAttribute('hreflang') ?? ''))),
+            t.invalidSentence(tagsHave(invalid.length)));
     }
     const relative = tags.filter(tag => !/^https?:\/\//i.test(tag.getAttribute('href')?.trim() ?? '') || !parse(tag.getAttribute('href')));
     if (relative.length) {
-        add('hreflang-address', relative, `Not a full address: ${quoted(relative.map(tag => writtenAddress(tag.getAttribute('href')) || 'none'))}.`,
-            `${tagsHave(relative.length)} an address that is not a full one, with https:// and the domain.`);
+        add('hreflang-address', relative, t.relativeSummary(quoted(relative.map(tag => writtenAddress(tag.getAttribute('href')) || t.none))),
+            t.relativeSentence(tagsHave(relative.length)));
     }
     const byValue = new Map<string, Element[]>();
     for (const tag of tags) {
@@ -85,8 +86,8 @@ export function checkHreflang({ path }: SectionContext): SectionReport | undefin
     const repeated = [...byValue].filter(([, list]) => list.length > 1);
     if (repeated.length) {
         const values = quoted(repeated.map(([value]) => value));
-        add('hreflang-duplicate', repeated.flatMap(([, list]) => list), `More than one tag for ${values}.`,
-            `More than one hreflang tag has the same value: ${values}. Keep one per language.`);
+        add('hreflang-duplicate', repeated.flatMap(([, list]) => list), t.duplicateSummary(values),
+            t.duplicateSentence(values));
     }
 
     // This page is among them; with a canonical link to another page, that page is
@@ -96,19 +97,17 @@ export function checkHreflang({ path }: SectionContext): SectionReport | undefin
     const here = new URL(window.location.href);
     const elsewhere = canonical && /^https?:$/.test(canonical.protocol) && pageKey(canonical) !== pageKey(here) ? canonical : undefined;
     if (elsewhere && !addresses.some(url => pageKey(url, true) === pageKey(elsewhere, true))) {
-        add('hreflang-canonical', [], `None points to the canonical address, ${writtenAddress(elsewhere.href)}.`,
-            `None of the page's hreflang tags points to its canonical address, ${writtenAddress(elsewhere.href)}. The canonical address should be one of them.`);
+        add('hreflang-canonical', [], t.canonicalSummary(writtenAddress(elsewhere.href)),
+            t.canonicalSentence(writtenAddress(elsewhere.href)));
     } else if (!elsewhere && !addresses.some(url => pageKey(url) === pageKey(here))) {
-        add('hreflang-self', [], 'None points to this page.',
-            `None of the page's ${count(tags.length, 'hreflang tag')} points to this page. The tags should include the page itself.`);
+        add('hreflang-self', [], t.selfSummary, t.selfSentence(tags.length));
     }
 
-    const value = [...byValue.keys()].map(item => item || 'no value').join(', ');
+    const value = [...byValue.keys()].map(item => item || t.noValue).join(', ');
     return {
         checks: [issues.length
-            ? pageCheck('hreflang', 'Language versions', 'warn', issues.length === 1 ? issues[0]!.summary : `${count(issues.length, 'problem')} with the hreflang tags.`, { value, issues })
-            : pageCheck('hreflang', 'Language versions', 'pass',
-                `${count(tags.length, 'hreflang tag')}, valid and absolute, with ${elsewhere ? 'the canonical address' : 'this page'} among them.`, { value })]
+            ? pageCheck('hreflang', t.versions, 'warn', issues.length === 1 ? issues[0]!.summary : t.problems(issues.length), { value, issues })
+            : pageCheck('hreflang', t.versions, 'pass', t.hreflangOk(tags.length, Boolean(elsewhere)), { value })]
     };
 }
 
@@ -122,7 +121,7 @@ const largeImageArea = 200 * 200;
 const extraPixels = 250_000;
 
 const sizeText = (bytes: number) => bytes >= 1_000_000 ? `${(bytes / 1_000_000).toFixed(1)} MB` : `${Math.round(bytes / 1000)} KB`;
-const imageLine = (image: HTMLImageElement) => foundLine('Image', writtenAddress(image.getAttribute('src') || image.currentSrc));
+const imageLine = (image: HTMLImageElement) => foundLine(words().found.image, writtenAddress(image.getAttribute('src') || image.currentSrc));
 const isVector = (address: string) => /\.svg(?:[?#]|$)/i.test(address) || /^data:image\/svg/i.test(address);
 const hasNumber = (image: HTMLImageElement, name: string) => /^\s*\d/.test(image.getAttribute(name) ?? '');
 
@@ -161,6 +160,7 @@ export function checkImages({ path }: SectionContext, { largestPaint }: { larges
     const ratio = window.devicePixelRatio || 1;
     const windowHeight = window.innerHeight;
     const timings = new Map((performance.getEntriesByType?.('resource') ?? []).map(entry => [entry.name, entry as PerformanceResourceTiming]));
+    const t = words().pageExtras;
     const unsized: PageIssue[] = [];
     const oversized: PageIssue[] = [];
     const lazy: PageIssue[] = [];
@@ -180,8 +180,7 @@ export function checkImages({ path }: SectionContext, { largestPaint }: { larges
             || Math.abs(box.width / box.height / (image.naturalWidth / image.naturalHeight) - 1) < 0.02;
         if (!(hasNumber(image, 'width') && hasNumber(image, 'height')) && style.aspectRatio === 'auto' && !/^(?:absolute|fixed)$/.test(style.position)
             && followsFile && !(loaded && image.naturalWidth <= 1 && image.naturalHeight <= 1)) {
-            unsized.push(pageIssue(path, seo('image-dimensions'), image, 'No width and height, and no aspect-ratio.',
-                `SEO: This image has no width and height attributes and no CSS aspect-ratio. It can shift the page while it loads.${imageLine(image)}`));
+            unsized.push(pageIssue(path, seo('image-dimensions'), image, t.unsizedSummary, `${t.unsizedComment}${imageLine(image)}`));
         }
 
         if (loaded && box.width && box.height && !isVector(address)) {
@@ -189,20 +188,19 @@ export function checkImages({ path }: SectionContext, { largestPaint }: { larges
             const needed = { width: box.width * ratio, height: box.height * ratio };
             if (file.width > 2 * needed.width && file.height > 2 * needed.height && file.width * file.height - needed.width * needed.height >= extraPixels) {
                 const [width, height, shownWidth, shownHeight] = [file.width, file.height, box.width, box.height].map(Math.round);
-                const screen = ratio === 1 ? '' : ` (${Math.round(needed.width)} × ${Math.round(needed.height)} at this screen's pixel ratio of ${ratio})`;
-                oversized.push(pageIssue(path, seo('image-size'), image, `${width} × ${height} shown at ${shownWidth} × ${shownHeight}.`,
-                    `SEO: This image file is ${width} × ${height} pixels, shown at ${shownWidth} × ${shownHeight}${screen}. A smaller file would load faster.${imageLine(image)}`));
+                const screen = ratio === 1 ? '' : t.screenRatio(Math.round(needed.width), Math.round(needed.height), ratio);
+                oversized.push(pageIssue(path, seo('image-size'), image, t.oversizedSummary(width!, height!, shownWidth!, shownHeight!),
+                    `${t.oversizedComment(width!, height!, shownWidth!, shownHeight!, screen)}${imageLine(image)}`));
             }
         }
 
         const isLazy = image.getAttribute('loading')?.trim().toLowerCase() === 'lazy';
         const largest = image === largestPaint;
         if (isLazy && (largest || (top < windowHeight && top + box.height > 0))) {
-            lazy.push(pageIssue(path, seo('image-loading'), image, largest ? 'The page\'s largest content.' : 'In the first window.',
-                `SEO: This image ${largest ? 'is the largest content the page shows first' : 'is in the first window of the page'} and has loading="lazy". It delays what the visitor sees first.${imageLine(image)}`));
+            lazy.push(pageIssue(path, seo('image-loading'), image, largest ? t.largestSummary : t.firstWindowSummary,
+                `${t.lazyComment(largest)}${imageLine(image)}`));
         } else if (!isLazy && !largest && top >= 2 * windowHeight && box.width * box.height >= largeImageArea) {
-            eager.push(pageIssue(path, seo('image-offscreen'), image, 'Far below the first window, without loading="lazy".',
-                `SEO: This image is far below the first window of the page and loads with the page. With loading="lazy" it loads when the visitor scrolls near it.${imageLine(image)}`));
+            eager.push(pageIssue(path, seo('image-offscreen'), image, t.offscreenSummary, `${t.offscreenComment}${imageLine(image)}`));
         }
 
         // Each file once: the browser reports a file's size for this site's images and those sent with Timing-Allow-Origin
@@ -212,38 +210,38 @@ export function checkImages({ path }: SectionContext, { largestPaint }: { larges
         if (bytes > 0) measured++;
         if (bytes > heavyImageBytes) {
             heavy.push(pageIssue(path, seo('image-weight'), image, `${sizeText(bytes)}.`,
-                `SEO: This image file is ${sizeText(bytes)}, over ${sizeText(heavyImageBytes)}. A large file takes long to load on a slow connection.${imageLine(image)}`));
+                `${t.heavyComment(sizeText(bytes), sizeText(heavyImageBytes))}${imageLine(image)}`));
         }
     }
 
-    const onScreen = ratio === 1 ? '' : ` on this screen (pixel ratio ${ratio})`;
+    const onScreen = ratio === 1 ? '' : t.onScreen(ratio);
     const weight = !files.size ? []
-        : !measured ? [pageCheck('image-weight', 'Image weight', 'none', 'Not measured: the browser reports file sizes only for this site\'s images and those sent with Timing-Allow-Origin.')]
-            : [listed('image-weight', 'Image weight', heavy, {
-                pass: `${measured === files.size ? 'Every image file' : `${measured} of ${files.size} image files, all the browser reports on,`} under ${sizeText(heavyImageBytes)}.`,
-                found: n => `${count(n, 'image file is', 'image files are')} over ${sizeText(heavyImageBytes)}.`
+        : !measured ? [pageCheck('image-weight', t.weight, 'none', t.weightUnknown)]
+            : [listed('image-weight', t.weight, heavy, {
+                pass: t.weightOk(measured === files.size, measured, files.size, sizeText(heavyImageBytes)),
+                found: n => t.heavy(n, sizeText(heavyImageBytes))
             })];
     return {
         checks: [
-            listed('image-dimensions', 'Image dimensions', unsized, {
-                pass: 'Every image has a width and height, or an aspect-ratio.',
-                found: n => `${count(n, 'image')} without width and height, or an aspect-ratio.`,
+            listed('image-dimensions', t.dimensions, unsized, {
+                pass: t.dimensionsOk,
+                found: t.unsized,
                 shared: false,
-                after: unsized.length === 1 ? 'It can shift the page while it loads.' : 'They can shift the page while they load.'
+                after: t.shifts(unsized.length)
             }),
-            listed('image-size', 'Image size', oversized, {
-                pass: `No image is over twice the size it is shown at${onScreen}.`,
-                found: n => `${count(n, 'image is', 'images are')} over twice the size ${n === 1 ? 'it is' : 'they are'} shown at${onScreen}.`
+            listed('image-size', t.size, oversized, {
+                pass: t.sizeOk(onScreen),
+                found: n => t.oversized(n, onScreen)
             }),
-            listed('image-loading', 'Lazy loading', lazy, {
-                pass: 'No image in the first window loads lazily.',
-                found: n => `${count(n, 'image has', 'images have')} loading="lazy" where the visitor looks first.`,
-                after: 'It delays what the visitor sees first.'
+            listed('image-loading', t.lazy, lazy, {
+                pass: t.lazyOk,
+                found: t.lazyFound,
+                after: t.delays
             }),
-            ...eager.length ? [listed('image-offscreen', 'Images far below', eager, {
-                found: n => `${count(n, 'large image', 'large images')} far below the first window ${n === 1 ? 'loads' : 'load'} with the page.`,
+            ...eager.length ? [listed('image-offscreen', t.below, eager, {
+                found: t.belowFound,
                 shared: false,
-                after: 'With loading="lazy" they load when the visitor scrolls near them.'
+                after: t.belowAfter
             }, 'none')] : [],
             ...weight
         ]
@@ -274,10 +272,6 @@ export type LinkStatusOptions = {
 
 type Answer = { status: number } | { redirect: true } | { timeout: true } | { failed: true };
 
-const statusNames: Record<number, string> = {
-    401: 'Unauthorized', 403: 'Forbidden', 404: 'Not found', 410: 'Gone', 500: 'Internal server error',
-    502: 'Bad gateway', 503: 'Service unavailable', 504: 'Gateway timeout'
-};
 const isError = (status: number) => status === 404 || status === 410 || status >= 500;
 
 /** One address's answer: `HEAD`, then `GET` when the server refuses `HEAD` or answers it with an error (some answer `HEAD` differently) */
@@ -376,53 +370,50 @@ export async function checkLinkStatus({ path, signal }: SectionContext, { stop, 
     }
 
     const stopped = !blocked && answers.size < total;
+    const { pageExtras: t, found } = words();
     const linkText = (link: Element) => oneLine(link.textContent) || oneLine(link.getAttribute('aria-label')) || oneLine(link.getAttribute('title'));
-    /** An issue on every link of each address whose answer `said` names */
-    const issuesOf = (id: string, said: (result: Answer) => string | undefined, sentence: (words: string) => string) =>
+    /** An issue on every link of each address whose answer `said` names: its summary and the comment's sentence */
+    const issuesOf = (id: string, said: (result: Answer) => { summary: string; sentence: string } | undefined) =>
         [...answers].flatMap(([address, result]) => {
             const words = said(result);
-            return words === undefined ? [] : byAddress.get(address)!.map(link => pageIssue(path, seo(id), link, `${words}.`,
-                `SEO: ${sentence(words)}${foundLine('Link text', linkText(link))}${foundLine('Address', writtenAddress(link.getAttribute('href')))}`));
+            return words === undefined ? [] : byAddress.get(address)!.map(link => pageIssue(path, seo(id), link, `${words.summary}.`,
+                `${t.seo(words.sentence)}${foundLine(found.linkText, linkText(link))}${foundLine(found.address, writtenAddress(link.getAttribute('href')))}`));
         });
-    const status = (test: (status: number) => boolean) => (result: Answer) => 'status' in result && test(result.status) ? `Answers ${result.status}` : undefined;
-    const answeredWith = (words: string) => {
-        const name = statusNames[Number(words.replace(/\D/g, ''))];
-        return `This link ${words.toLowerCase()}${name ? ` (${name})` : ''} when requested from this browser.`;
-    };
+    const status = (test: (status: number) => boolean, sentence: (answered: string) => string = answered => answered) => (result: Answer) =>
+        'status' in result && test(result.status)
+            ? { summary: t.answers(result.status), sentence: sentence(t.answeredWith(result.status, t.statusNames[result.status])) }
+            : undefined;
 
-    const errors = issuesOf('link-status', status(isError), answeredWith);
-    const access = issuesOf('link-access', status(code => code === 401 || code === 403),
-        words => `${answeredWith(words)} It may need another sign-in, or be closed to visitors.`);
-    const redirects = issuesOf('link-redirect', result => 'redirect' in result ? 'Redirects' : undefined,
-        () => 'This link redirects to another address. Linking to the final address saves a request.');
-    const silent = issuesOf('link-no-answer', result => 'timeout' in result ? `No answer in ${linkTimeout / 1000} s` : 'failed' in result ? 'The request failed' : undefined,
-        words => words.startsWith('No answer') ? `This link did not answer within ${linkTimeout / 1000} s when requested from this browser.`
-            : 'A request for this link from this browser failed.');
+    const errors = issuesOf('link-status', status(isError));
+    const access = issuesOf('link-access', status(code => code === 401 || code === 403, t.signIn));
+    const redirects = issuesOf('link-redirect', result => 'redirect' in result ? { summary: t.redirectsSummary, sentence: t.redirectsSentence } : undefined);
+    const silent = issuesOf('link-no-answer', result => 'timeout' in result ? { summary: t.noAnswerSummary(linkTimeout / 1000), sentence: t.noAnswerSentence(linkTimeout / 1000) }
+        : 'failed' in result ? { summary: t.failedSummary, sentence: t.failedSentence } : undefined);
     const notRequested = [
-        otherSites && count(otherSites, 'link to other sites', 'links to other sites'),
-        actions && count(actions, 'link that looks like an action or a download', 'links that look like actions or downloads'),
-        notWeb && count(notWeb, 'link that is not a web address', 'links that are not web addresses')
+        otherSites && t.otherSites(otherSites),
+        actions && t.actions(actions),
+        notWeb && t.notWeb(notWeb)
     ].filter(Boolean);
 
-    const checked = stopped ? `Stopped after ${answers.size} of ${total}`
-        : byAddress.size > total ? `Checked the first ${total} of ${byAddress.size} addresses on this site`
-            : `Checked ${count(total, 'address', 'addresses')} on this site`;
+    const checked = stopped ? t.stoppedAfter(answers.size, total)
+        : byAddress.size > total ? t.firstOf(total, byAddress.size)
+            : t.checkedAll(total);
     const result = blocked
-        ? pageCheck('link-status', 'Link status', 'none', 'Not checked: the site\'s Content-Security-Policy does not allow requests to its own addresses (connect-src).')
-        : !total ? pageCheck('link-status', 'Link status', 'none', 'No links to this site\'s pages to check.')
-            : { ...listed('link-status', 'Link status', errors, {
-                pass: stopped ? 'None of these answered with an error.' : 'Every address answered without an error.',
-                found: n => `${count(n, 'link answers', 'links answer')} with an error.`
+        ? pageCheck('link-status', t.status, 'none', t.blocked)
+        : !total ? pageCheck('link-status', t.status, 'none', t.noLinks)
+            : { ...listed('link-status', t.status, errors, {
+                pass: stopped ? t.noneFailed : t.allAnswered,
+                found: t.errors
             }), value: checked };
     return {
         checks: blocked ? [result] : [
             result,
-            ...access.length ? [listed('link-access', 'Needs a sign-in', access, { found: n => `${count(n, 'link')} may need another sign-in.` }, 'none')] : [],
-            ...redirects.length ? [listed('link-redirect', 'Redirects', redirects, {
-                found: n => `${count(n, 'link redirects', 'links redirect')} to another address.`, shared: false
+            ...access.length ? [listed('link-access', t.access, access, { found: t.accessFound }, 'none')] : [],
+            ...redirects.length ? [listed('link-redirect', t.redirects, redirects, {
+                found: t.redirectsFound, shared: false
             }, 'none')] : [],
-            ...silent.length ? [listed('link-no-answer', 'No answer', silent, { found: n => `${count(n, 'link')} did not answer.` }, 'none')] : [],
-            ...notRequested.length ? [pageCheck('link-skipped', 'Not requested', 'none', `${notRequested.join(', ')}.`)] : []
+            ...silent.length ? [listed('link-no-answer', t.noAnswer, silent, { found: t.noAnswerFound }, 'none')] : [],
+            ...notRequested.length ? [pageCheck('link-skipped', t.notRequested, 'none', `${notRequested.join(', ')}.`)] : []
         ],
         details: { checked: answers.size, total, stopped, blocked }
     };

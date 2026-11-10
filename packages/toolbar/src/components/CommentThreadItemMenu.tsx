@@ -1,5 +1,7 @@
 'use client';
 
+import { useMessages } from '../i18n';
+
 import { useContext, useRef, useState, type Ref } from 'react';
 import { useIconTooltip } from './IconTooltip';
 import { Popper } from '@signalco/ui-primitives/Popper';
@@ -36,6 +38,7 @@ type CommentThreadItemMenuProps = {
  */
 export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled, onDelete, onEdit, onReattach, triggerRef }: CommentThreadItemMenuProps) {
     const { rootElement } = useContext(CommentsBootstrapperContext);
+    const t = useMessages();
     const [open, setOpen] = useState(false);
     const [confirming, setConfirming] = useState(false);
     const deleteRef = useRef<HTMLButtonElement>(null);
@@ -69,14 +72,14 @@ export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled,
         }
     };
 
-    const tip = useIconTooltip('More options');
+    const tip = useIconTooltip(t.thread.moreOptions);
     return (
         <>{tip.tooltip}<Popper
             container={rootElement}
             open={open}
             onOpenChange={handleOpenChange}
             align="end"
-            aria-label={kind === 'comment' ? 'Comment options' : 'Reply options'}
+            aria-label={kind === 'comment' ? t.thread.commentOptions : t.thread.replyOptions}
             // Like a menu: ↑ and ↓ move between its buttons
             onKeyDown={moveFocusInMenu}
             {...toolbarSurface('uier-message-menu', cx('z-[70] w-auto min-w-32 max-w-64 rounded-xl p-1', floatingShadowClassName))}
@@ -87,7 +90,7 @@ export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled,
                     variant="plain"
                     className="size-6 text-muted-foreground hover:text-foreground"
                     {...tip.triggerProps}
-                    aria-label={`More options for ${own ? 'your' : 'this'} ${kind}`}
+                    aria-label={t.thread.moreOptionsFor(own, kind)}
                     disabled={disabled}>
                     <MoreHorizontal size={16} />
                 </IconButton>
@@ -98,7 +101,7 @@ export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled,
                     <p className="m-0 text-sm text-foreground">{confirmText}</p>
                     <Row spacing={1} justifyContent="end">
                         <Button variant="plain" size="sm" onClick={() => handleOpenChange(false)}>
-                            Cancel
+                            {t.common.cancel}
                         </Button>
                         <Button
                             ref={confirmRef}
@@ -106,7 +109,7 @@ export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled,
                             size="sm"
                             className={destructiveTextClassName}
                             onClick={handleDelete}>
-                            Delete
+                            {t.common.delete}
                         </Button>
                     </Row>
                 </Stack>
@@ -115,13 +118,13 @@ export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled,
                     {onEdit && (
                         <Button ref={editRef} variant="plain" size="sm" fullWidth className="justify-start"
                             onClick={() => { handleOpenChange(false); onEdit(); }}>
-                            Edit
+                            {t.common.edit}
                         </Button>
                     )}
                     {onReattach && (
                         <Button ref={reattachRef} variant="plain" size="sm" fullWidth className="justify-start"
                             onClick={() => { handleOpenChange(false); onReattach(); }}>
-                            Reattach comment
+                            {t.thread.reattach}
                         </Button>
                     )}
                     {onDelete && (
@@ -133,7 +136,7 @@ export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled,
                             className={cx('justify-start', destructiveTextClassName)}
                             startDecorator={<Delete size={16} />}
                             onClick={handleAskDelete}>
-                            Delete...
+                            {t.thread.deleteMenu}
                         </Button>
                     )}
                 </Stack>

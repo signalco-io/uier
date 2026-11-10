@@ -10,6 +10,7 @@ import { CommentsBootstrapperContext } from '../../CommentsBootstrapperContext';
 import { InkScope } from '../../InkScope';
 import { CheckItem } from '../ChecksParts';
 import { defineSection, ReportSection, usePageLayerVisible, useSection, type SectionDefinition } from './sections';
+import { useMessages } from '../../../i18n';
 
 // The Accessibility panel's Keyboard section (packages/toolbar/docs/page-checks-keyboard.md): the tab
 // order, drawn on the page on request, and the manual focus indicator check (src/checks/lazy/keyboard.ts).
@@ -51,10 +52,11 @@ function TabOrderLayer({ stops }: { stops: readonly TabStop[] }) {
     useLayoutVersion();
     const { rootElement } = useContext(CommentsBootstrapperContext);
     const shown = usePageLayerVisible();
+    const t = useMessages().sections.keyboard;
     const layout = lazyChecks?.keyboard.tabOrderLayout(stops, markerLimit);
     if (!layout) return null;
     return <>
-        {layout.inView > layout.markers.length && <p className="m-0 text-xs text-muted-foreground">Numbered: the first {layout.markers.length} of {layout.inView} stops in view.</p>}
+        {layout.inView > layout.markers.length && <p className="m-0 text-xs text-muted-foreground">{t.numbered(layout.markers.length, layout.inView)}</p>}
         {shown && rootElement && createPortal(
             <InkScope>
                 <div aria-hidden="true" data-uier-tab-order="" className="pointer-events-none select-none">
@@ -84,6 +86,7 @@ const buttonClassName = 'shrink-0 font-normal pointer-coarse:min-h-11';
 export function KeyboardSection() {
     const section = useSection(keyboardSection);
     const focus = useSection(focusSection);
+    const t = useMessages().sections.keyboard;
     const [showOrder, setShowOrder] = useState(false);
     const focusNote = useId();
     // Closing the panel ends a focus check still moving the focus
@@ -91,20 +94,20 @@ export function KeyboardSection() {
     const stops = section.report?.details?.stops ?? [];
     const checking = focus.status === 'checking';
     return (
-        <ReportSection id={keyboardSection.id} title="Keyboard" section={section}>
+        <ReportSection id={keyboardSection.id} title={t.title} section={section}>
             {stops.length > 0 && (
                 <li className={rowClassName}>
-                    <p className={noteClassName}>Numbers each stop on the page, with a line to the next.</p>
+                    <p className={noteClassName}>{t.orderNote}</p>
                     <Button size="xs" variant="outlined" aria-pressed={showOrder} className={cx(buttonClassName, showOrder && 'bg-accent')}
                         onClick={() => setShowOrder(!showOrder)}>
-                        Show tab order
+                        {t.showOrder}
                     </Button>
                     {showOrder && <TabOrderLayer stops={stops} />}
                 </li>
             )}
             <li className={rowClassName}>
                 <p id={focusNote} className={noteClassName}>
-                    Moves the focus through the page&apos;s controls, running their focus handlers, and lists the ones that show no visible change.
+                    {t.focusNote}
                 </p>
                 <Button size="xs" variant="outlined" aria-describedby={focusNote} aria-disabled={checking || undefined} className={buttonClassName}
                     onClick={event => {
@@ -112,12 +115,12 @@ export function KeyboardSection() {
                         event.currentTarget.focus();
                         if (!checking) focus.run();
                     }}>
-                    Check focus indicators
+                    {t.checkFocus}
                 </Button>
                 {focus.status !== 'idle' && (
                     // Said when it changes; once done, the result's rows show the same
                     <p role="status" className={cx('m-0 basis-full text-xs text-foreground', focus.status === 'done' && 'sr-only')}>
-                        {checking ? 'Moving the focus through the page...' : focus.status === 'failed' ? 'The focus check could not run.' : focus.report?.checks[0]?.reason}
+                        {checking ? t.moving : focus.status === 'failed' ? t.focusFailed : focus.report?.checks[0]?.reason}
                     </p>
                 )}
             </li>

@@ -5,6 +5,7 @@ import { auditAvailable } from '../../../checks/axeLoader';
 import { largestPaintElement } from '../../../checks/webVitals';
 import { CheckItem } from '../ChecksParts';
 import { defineSection, useSection, type SectionDefinition, type SectionState } from './sections';
+import { useMessages } from '../../../i18n';
 
 // More of the SEO panel's own Page, Links and Images sections, from the on-demand checks
 // (src/checks/lazy/pageExtras.ts, docs/page-checks-seo-page.md): hreflang, image weight and links
@@ -53,12 +54,13 @@ export const pageExtrasSections: readonly SectionDefinition[] = [hreflangSection
 
 /** A section's rows inside one of the panel's own sections: its checks, or a line while its first check runs or after it failed */
 function SectionRows({ section, checking }: { section: SectionState; checking?: string }) {
+    const t = useMessages();
     if (section.report) return <>{section.report.checks.map(check => <CheckItem key={check.id} check={check} />)}</>;
     if (section.status === 'failed' || (checking && section.status === 'checking')) {
         return (
             <li className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
                 {section.status === 'checking' && <LoaderSpinner size={14} aria-hidden="true" className="motion-safe:animate-spin" />}
-                {section.status === 'checking' ? checking : 'This could not be checked. Check again to retry.'}
+                {section.status === 'checking' ? checking : t.sections.notChecked}
             </li>
         );
     }
@@ -72,7 +74,7 @@ export function HreflangRows() {
 
 /** The Images section's rows on dimensions, size, loading and weight */
 export function ImageRows() {
-    return <SectionRows section={useSection(imagesSection)} checking="Checking the images..." />;
+    return <SectionRows section={useSection(imagesSection)} checking={useMessages().sections.pageExtras.checkingImages} />;
 }
 
 /**
@@ -82,14 +84,15 @@ export function ImageRows() {
 export function LinkStatusRows() {
     const section = useSection(linkStatusSection);
     const current = useSyncExternalStore(subscribe, () => progress);
+    const t = useMessages().sections.pageExtras;
     if (!auditAvailable()) return null;
     const checking = section.status === 'checking';
     const done = section.report?.details;
-    const status = checking ? current ? `Checked ${current.checked} of ${current.total}` : 'Checking the links...'
-        : section.status === 'failed' ? 'The links could not be checked.'
-            : done ? done.blocked ? 'Not checked.' : !done.total ? 'No links to check on this site.'
-                : `${done.stopped ? 'Stopped after' : 'Checked'} ${done.checked} of ${done.total}.`
-                : 'Requests the links to this site\'s pages to find the ones that answer with an error.';
+    const status = checking ? current ? t.checkedOf(current.checked, current.total) : t.checkingLinks
+        : section.status === 'failed' ? t.linksFailed
+            : done ? done.blocked ? t.notChecked : !done.total ? t.noLinks
+                : t.done(Boolean(done.stopped), done.checked, done.total)
+                : t.note;
     return <>
         {!checking && <SectionRows section={section} />}
         <li className="flex min-w-0 items-center gap-2 px-3 py-2" data-uier-link-check="">
@@ -97,7 +100,7 @@ export function LinkStatusRows() {
             <p role="status" className="m-0 min-w-0 flex-1 text-xs tabular-nums text-muted-foreground">{status}</p>
             <Button size="xs" variant="outlined" className="shrink-0 pointer-coarse:min-h-11"
                 onClick={checking ? () => stopControl?.abort() : section.run}>
-                {checking ? 'Stop' : done ? 'Check links again' : 'Check links'}
+                {checking ? t.stop : done ? t.again : t.check}
             </Button>
         </li>
     </>;

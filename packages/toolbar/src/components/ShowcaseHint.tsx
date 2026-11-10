@@ -9,6 +9,7 @@ import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Close } from '@signalco/ui-icons';
 import { floatingShadowClassName } from './@types/Comments';
+import { useMessages } from '../i18n';
 
 const hintDismissedStorageKey = 'uier:showcase-hint-dismissed';
 
@@ -43,6 +44,7 @@ type ShowcaseHintProps = {
  * pill, so forward Tab from "About uier" reaches it.
  */
 export function ShowcaseHint({ id, pointAtRef, onDismiss }: ShowcaseHintProps) {
+    const t = useMessages();
     const titleId = useId();
     const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
     const hintRef = useRef<HTMLElement>(null);
@@ -94,32 +96,31 @@ export function ShowcaseHint({ id, pointAtRef, onDismiss }: ShowcaseHintProps) {
             <Stack spacing={2} className="max-h-[calc(100dvh-8rem)] overflow-y-auto">
                 <Row spacing={1} justifyContent="space-between" alignItems="start">
                     <Typography id={titleId} component="h2" level="body1" semiBold className="text-foreground">
-                        Try uier on this page
+                        {t.hint.title}
                     </Typography>
                     <IconButton
                         size="xs"
                         variant="plain"
-                        title="Dismiss"
-                        aria-label="Dismiss"
+                        title={t.hint.dismiss}
+                        aria-label={t.hint.dismiss}
                         className="shrink-0"
                         onClick={handleDismiss}>
                         <Close />
                     </IconButton>
                 </Row>
                 <Typography level="body2" className="text-secondary-foreground">
-                    uier is a feedback toolbar for websites: visitors and teammates comment right on the
-                    page, pinned to an element or to selected text.
+                    {t.hint.about}
                 </Typography>
                 <Typography level="body2" className="text-foreground">
-                    {coarsePointer ? 'Tap' : 'Click'} the + button, or select text, to leave feedback.
-                    {' '}Anyone can see and reply to comments. Visitor threads are deleted after 90 days. Starter threads and their replies stay.
+                    {coarsePointer ? t.hint.howTouch : t.hint.howMouse}
+                    {' '}{t.hint.retention}
                 </Typography>
                 <Typography level="body2" className="text-foreground">
-                    Pin a comment to an element, or comment on selected text. Use Send feedback for the whole page. Find threads in the inbox.
+                    {t.hint.where}
                 </Typography>
                 <Row justifyContent="end">
                     <Button variant="solid" size="sm" onClick={handleDismiss}>
-                        Got it
+                        {t.hint.gotIt}
                     </Button>
                 </Row>
             </Stack>

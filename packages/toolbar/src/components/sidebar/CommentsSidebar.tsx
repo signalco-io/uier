@@ -14,6 +14,7 @@ import { InkScope } from '../InkScope';
 import { DockablePanel } from '../DockablePanel';
 import { MarkAllRead } from './MarkAllRead';
 import { RestoredPanelContext } from '../../openPanel';
+import { useMessages } from '../../i18n';
 
 // One element for every render: the kit's input wraps itself anew (and loses the focus) when its
 // decorator changes
@@ -39,6 +40,7 @@ export type CommentsSidebarProps = {
  * unread and assigned filters, then the status tabs right above the comments.
  */
 export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, onShowOnPage, focusRequest }: CommentsSidebarProps) {
+    const t = useMessages();
     const { isMember, environment, environmentOptions, setEnvironment, environmentLabel } = useProjectViewer();
     const { data: activity } = useActivitySummary();
     const unread = activity?.unread ?? 0;
@@ -55,7 +57,7 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
         if (focusRequest.target === 'inbox' && active && content?.contains(active)) return;
         const field = focusRequest.target === 'search'
             ? content?.querySelector<HTMLInputElement>('input[type="search"]')
-            : content?.querySelector<HTMLElement>('button[aria-label="Close sidebar"]');
+            : content?.querySelector<HTMLElement>('button[data-uier-close-inbox]');
         field?.focus();
         if (field instanceof HTMLInputElement) field.select();
     }, [focusRequest?.key]);
@@ -86,7 +88,7 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
     return (
         <InkScope>
             {/* Slides in from (and out to) the side it is docked on; only fades with reduced motion */}
-            <DockablePanel id="inbox" label="Comments" onKeyDown={handleKeyDown}
+            <DockablePanel id="inbox" label={t.inbox.label} onKeyDown={handleKeyDown}
                 className={cx(hidding
                     ? 'animate-out fade-out fill-mode-forwards duration-150 ease-in motion-safe:data-[side=left]:slide-out-to-left motion-safe:data-[side=right]:slide-out-to-right'
                     : !restored && 'animate-in fade-in duration-200 ease-out motion-safe:data-[side=left]:slide-in-from-left motion-safe:data-[side=right]:slide-in-from-right')}>
@@ -98,8 +100,8 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
                         {/* With a decorator the kit's focus ring is on the box, which never has the focus itself */}
                         <Input
                             type="search"
-                            aria-label="Search comments"
-                            placeholder="Search comments"
+                            aria-label={t.inbox.search}
+                            placeholder={t.inbox.search}
                             autoComplete="off"
                             fullWidth
                             startDecorator={searchIcon}
@@ -107,7 +109,7 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
                             value={filter.keywords ?? ''}
                             onChange={(e) => setFilter({ ...filter, keywords: e.target.value })}
                             onKeyDown={handleSearchKeyDown} />
-                        {setEnvironment && <p className="m-0 text-xs text-muted-foreground">Reviewing {environmentLabel ?? window.location.origin}. New feedback stays here.</p>}
+                        {setEnvironment && <p className="m-0 text-xs text-muted-foreground">{t.inbox.reviewing(environmentLabel ?? window.location.origin)}</p>}
                         <div className="flex flex-wrap items-center gap-2">
                             <LocationPicker
                                 value={inbox.scope}
@@ -121,11 +123,11 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
                                 site): the filter shows every status, and turning it on every page. A filter like the
                                 app's Only unread: no dot, the count in the unread accent */}
                             <FilterChip pressed={Boolean(filter.unread)} onClick={() => setFilter({ ...filter, unread: !filter.unread, status: 'all', ...(filter.unread ? {} : { page: 'all' as const }) })}>
-                                Unread <span className={cx('tabular-nums', unread > 0 ? 'text-[hsl(var(--brand-accent-text))]' : 'text-muted-foreground')}>{unread}</span>
+                                {t.inbox.unread} <span className={cx('tabular-nums', unread > 0 ? 'text-[hsl(var(--brand-accent-text))]' : 'text-muted-foreground')}>{unread}</span>
                             </FilterChip>
                             {isMember && (
                                 <FilterChip pressed={Boolean(filter.assignedToMe)} onClick={() => setFilter({ ...filter, assignedToMe: !filter.assignedToMe })}>
-                                    Assigned to me
+                                    {t.inbox.assignedToMe}
                                 </FilterChip>
                             )}
                         </div>

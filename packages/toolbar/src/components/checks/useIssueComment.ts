@@ -10,6 +10,8 @@ import type { PageIssue } from '../../checks/types';
 import { CommentsBootstrapperContext } from '../CommentsBootstrapperContext';
 import { getDeviceInfo } from '../info/getDeviceInfo';
 import type { CommentItem, CommentItemPosition, CommentPoint } from '../@types/Comments';
+import { messages } from '../../i18n';
+import { feedbackTypeText } from '../../i18n/format';
 
 /** A point in the middle of the element, as the keyboard path pins comments */
 function centerPoint(element: Element): CommentPoint {
@@ -29,6 +31,7 @@ export function useIssueComment() {
     const { create } = useComments();
     const { feedbackTypes = defaultFeedbackTypes } = useProjectViewer();
     return async (issue: PageIssue): Promise<IssueCommentResult> => {
+        const t = messages();
         const element = pageAnchorElement(issue.element);
         const enabled = feedbackTypes.filter(type => type.enabled);
         const pageType = element ? undefined : enabled.find(type => type.id === 'bug') ?? enabled.find(type => type.id === 'feedback') ?? enabled[0];
@@ -55,6 +58,6 @@ export function useIssueComment() {
             device: getDeviceInfo(),
             screenshot: captureCommentScreenshot(position, rootElement)
         });
-        return { comment, page: position.type === 'page', label: pageType ? `${pageType.label} sent` : 'Comment posted' };
+        return { comment, page: position.type === 'page', label: pageType ? t.feedback.typeSent(feedbackTypeText(pageType, t).label) : t.pin.commentPosted };
     };
 }

@@ -9,6 +9,7 @@ import type { PageIssue } from '../../../checks/types';
 import { IconTooltip } from '../../IconTooltip';
 import { ChecksContext } from '../ChecksParts';
 import { defineSection, ReportSection, useSection, type SectionDefinition } from './sections';
+import { useMessages } from '../../../i18n';
 
 // The Accessibility panel's Alt text section: every image beside its alt text, and the alt texts that
 // say nothing (src/checks/lazy/altText.ts, packages/toolbar/docs/page-checks-content.md). The flags are
@@ -54,19 +55,20 @@ function Thumbnail({ src }: { src?: string }) {
 /** One image: its thumbnail, what a screen reader reads for it, its short name and Highlight */
 function ImageItem({ image }: { image: AltTextImage }) {
     const { highlighted, highlight } = useContext(ChecksContext);
+    const t = useMessages();
     const key = image.key;
     return (
         <li className="flex min-w-0 items-center gap-2 rounded-lg bg-muted py-1 pl-1 pr-1" data-uier-image={image.state}>
             <Thumbnail src={image.src} />
             <div className="min-w-0 flex-1">
                 <p className={cx('m-0 line-clamp-2 break-words text-xs', image.state === 'text' ? 'text-foreground' : 'text-muted-foreground')} title={image.alt}>
-                    {image.flags.length > 0 && <><Warning size={12} aria-hidden="true" className="mr-1 inline align-[-1px] text-[hsl(var(--brand-warning))]" /><span className="sr-only">Flagged above: </span></>}
-                    {image.state === 'text' ? `"${image.alt}"` : image.state === 'decorative' ? 'Decorative' : 'No alt text (in the audit above)'}
+                    {image.flags.length > 0 && <><Warning size={12} aria-hidden="true" className="mr-1 inline align-[-1px] text-[hsl(var(--brand-warning))]" /><span className="sr-only">{t.sections.altText.flagged}</span></>}
+                    {image.state === 'text' ? `"${image.alt}"` : image.state === 'decorative' ? t.sections.altText.decorative : t.sections.altText.missing}
                 </p>
                 <p className="m-0 truncate font-mono text-xs text-muted-foreground" title={image.label}>{image.label}</p>
             </div>
-            <IconTooltip label="Highlight">
-                <IconButton size="xs" variant="plain" aria-label="Highlight" aria-pressed={highlighted === key}
+            <IconTooltip label={t.checks.highlight}>
+                <IconButton size="xs" variant="plain" aria-label={t.checks.highlight} aria-pressed={highlighted === key}
                     className={cx('shrink-0 text-muted-foreground hover:text-foreground pointer-coarse:size-11', highlighted === key && 'bg-accent text-foreground')}
                     onClick={() => highlight({ key, element: image.target } as PageIssue)}>
                     <MyLocation size={14} aria-hidden="true" />
@@ -79,16 +81,17 @@ function ImageItem({ image }: { image: AltTextImage }) {
 /** The page's images, the first few and then all of them */
 function ImageList({ images }: { images: AltTextImage[] }) {
     const [all, setAll] = useState(false);
+    const t = useMessages();
     if (!images.length) return null;
     return (
         <li className="flex min-w-0 flex-col gap-1 px-3 py-2">
-            <p className="m-0 text-xs text-muted-foreground">Only a person can tell whether alt text says what its image shows. Decorative images should say nothing.</p>
-            <ul aria-label="Images and their alt text" className="m-0 flex list-none flex-col gap-1 p-0">
+            <p className="m-0 text-xs text-muted-foreground">{t.sections.altText.note}</p>
+            <ul aria-label={t.sections.altText.list} className="m-0 flex list-none flex-col gap-1 p-0">
                 {(all ? images : images.slice(0, firstImages)).map(image => <ImageItem key={image.key} image={image} />)}
             </ul>
             {!all && images.length > firstImages && (
                 <Button size="xs" variant="plain" className="self-start text-muted-foreground hover:text-foreground pointer-coarse:min-h-11" onClick={() => setAll(true)}>
-                    Show all {images.length}
+                    {t.checks.showAll(images.length)}
                 </Button>
             )}
         </li>
@@ -97,8 +100,9 @@ function ImageList({ images }: { images: AltTextImage[] }) {
 
 export function AltTextSection() {
     const section = useSection(altTextSection);
+    const t = useMessages();
     return (
-        <ReportSection id={altTextSection.id} title="Alt text" section={section}>
+        <ReportSection id={altTextSection.id} title={t.sections.altText.title} section={section}>
             {section.report?.details && <ImageList images={section.report.details.images} />}
         </ReportSection>
     );

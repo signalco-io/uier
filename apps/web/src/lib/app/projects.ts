@@ -174,6 +174,8 @@ export type ProjectUpdate = Partial<{
     emailCommentExcerpts: boolean;
     /** `undefined` follows the workspace's setting again */
     aiTitles: 'on' | 'off' | undefined;
+    /** `undefined` follows the workspace's language again */
+    toolbarLanguage: import('@uier/toolbar/languages').ToolbarLanguage | undefined;
     pageState: PageStatePolicy;
     environments: import('./environments').ProjectEnvironment[];
     name: string;

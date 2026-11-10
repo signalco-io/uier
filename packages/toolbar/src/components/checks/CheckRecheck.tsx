@@ -4,7 +4,7 @@ import { cx } from '@signalco/ui-primitives/cx';
 import { LoaderSpinner } from '@signalco/ui-icons';
 import { canRecheck, recheck, type Recheck } from '../../checks/recheck';
 import { useWebVitals, type WebVitals } from '../../checks/webVitals';
-import { commentCheckLabels } from '../../feedbackTypes';
+import { useMessages } from '../../i18n';
 import { getDomVersion } from '../../hooks/useLayoutVersion';
 import { useProjectViewer } from '../../project/ProjectGate';
 import { readyForReview } from '../../verification';
@@ -73,6 +73,7 @@ function RecheckLine({ comment, path, vitals }: LineProps) {
     }, [ready, available]);
 
     const { status, result } = state;
+    const t = useMessages();
     if (status === 'unavailable' || (!available && status !== 'checking')) return null;
     const shown = status === 'done' ? result : undefined;
     const { icon: Icon, tone } = checkStates[shown?.state ?? 'none'];
@@ -81,16 +82,16 @@ function RecheckLine({ comment, path, vitals }: LineProps) {
             <p id={statusId} role="status" className="m-0 flex min-w-0 flex-1 items-start gap-1.5 py-1">
                 {status === 'checking' ? <>
                     <LoaderSpinner size={14} aria-hidden="true" className="mt-px shrink-0 motion-safe:animate-spin" />
-                    Checking...
-                </> : status === 'failed' ? 'This could not be checked. Check again to retry.'
+                    {t.checks.checking}
+                </> : status === 'failed' ? t.checks.notChecked
                     : shown ? <>
                         <Icon size={14} aria-hidden="true" className={cx('mt-px shrink-0', tone)} />
                         <span className="min-w-0 break-words"><span className="text-foreground">{shown.text}</span>{shown.reason && ` ${shown.reason}`}</span>
-                    </> : <span className="min-w-0 break-words">{commentCheckLabels[check.type]} check: {check.id}</span>}
+                    </> : <span className="min-w-0 break-words">{t.checks.unknownCheck(t.checks.kinds[check.type], check.id)}</span>}
             </p>
             <Button size="xs" variant="plain" className="shrink-0" aria-busy={status === 'checking' || undefined}
                 aria-describedby={statusId} onClick={start}>
-                Check again
+                {t.checks.checkAgain}
             </Button>
         </div>
     );

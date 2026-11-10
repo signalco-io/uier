@@ -19,6 +19,8 @@ import { assertNotToolbarAnchor } from './toolbarAnchors';
 import { isRewriteConfigured, suggestRewrites } from '../rewrite/suggest';
 import { effectiveRewriteInstructions } from '../rewrite/settings';
 import { getWorkspace } from '../app/workspaces';
+import { getUser } from '../app/users';
+import { setUserToolbarLanguage, toolbarLanguageInfo, userToolbarLanguageSchema } from '../app/toolbarLanguage';
 import { MAX_COMMENT_BODY_BYTES } from '../comments/limits';
 import { screenshotResponse } from '../comments/screenshot';
 import { newSourcePath } from '../comments/dto';
@@ -82,13 +84,28 @@ export async function getReviewInfo({ project, actor }: ReviewApiContext) {
     const publicProject = await ensureProjectPublicId(project);
     const { publicId } = publicProject;
     const canComment = project.access === 'guests' || (project.access === 'invited' && actor.kind === 'member');
+    const [workspace, user] = await Promise.all([getWorkspace(project.workspaceId), actor.kind === 'member' ? getUser(actor.userId) : null]);
     return Response.json({
         project: reviewProjectDto(publicProject, canComment, canComment ? await loadFeedbackTypes(project) : []),
         viewer: { ...viewerDto(actor), draftScope: keyedHash('draft-scope', actorAuthorId(actor) ?? 'anonymous') },
         canComment,
+        // Also before anyone can comment: the notices are in it too. A member's own choice comes with it.
+        language: toolbarLanguageInfo(workspace, project, actor.kind === 'member' ? user ?? {} : undefined),
         // Review links sign people in and come back to the page (the toolbar adds `url`)
         signInUrl: `${await (await import('../app/request')).appBaseUrl()}${KnownPageLinks.projectReview(publicId)}`
     });
+}
+
+/**
+ * POST /api/review/<code>/language: a signed-in member's toolbar language (`null` goes back to the
+ * project's), saved on their account like the app's Account → Toolbar language. Guests keep theirs in
+ * their browser. Checked before the body is read; comments need not be on.
+ */
+export async function setReviewLanguage({ request, actor }: ReviewApiContext) {
+    if (actor.kind !== 'member')
+        throw apiErrors.signInRequired('Sign in to save your language. Without an account it stays in this browser.');
+    const { language } = await parseJsonBody(request, z.object({ language: userToolbarLanguageSchema }).strict());
+    return Response.json({ language: await setUserToolbarLanguage(actor.userId, language) });
 }
 
 const sessionSchema = z.object({ code: z.string().max(128) });

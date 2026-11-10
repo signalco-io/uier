@@ -14,6 +14,7 @@ import { commentLink } from '../../review';
 import { CommentItem } from '../@types/Comments';
 import { CommentsFilter } from './CommentsFilter';
 import { pageLabel } from './LocationPicker';
+import { useMessages, type Messages } from '../../i18n';
 import type { useInboxComments } from './useInboxComments';
 
 /** How long the search waits after the last keystroke before it announces the count */
@@ -25,24 +26,20 @@ const countAnnouncementDelayMs = 500;
  */
 const firstThreads = 20;
 
-function emptyText(filter: CommentsFilter) {
-    const where = (filter.page ?? 'current') === 'current' ? ' on this page' : '';
+function emptyText(filter: CommentsFilter, t: Messages) {
+    const where = (filter.page ?? 'current') === 'current' ? t.inbox.onThisPage : '';
     if (filter.keywords?.trim()) {
-        return `No matches${where}`;
+        return t.inbox.noMatches(where);
     }
-    if (filter.unread) return `No unread comments${where}`;
+    if (filter.unread) return t.inbox.noUnread(where);
     switch (filter.status) {
-        case 'open': return `No open comments${where}`;
-        case 'in-progress': return `Nothing in progress${where}`;
-        case 'ready': return `No checks requested${where}`;
-        case 'resolved': return `No done comments${where}`;
-        case 'all': return `No comments${where}`;
-        default: return `No active comments${where}`;
+        case 'open': return t.inbox.noOpen(where);
+        case 'in-progress': return t.inbox.noInProgress(where);
+        case 'ready': return t.inbox.noReady(where);
+        case 'resolved': return t.inbox.noDone(where);
+        case 'all': return t.inbox.noComments(where);
+        default: return t.inbox.noActive(where);
     }
-}
-
-function countText(count: number) {
-    return `${count} ${count === 1 ? 'comment' : 'comments'}`;
 }
 
 /**
@@ -51,6 +48,7 @@ function countText(count: number) {
  */
 function ShowOnPage({ comment, onShowOnPage }: { comment: CommentItem; onShowOnPage: (commentId: string) => void }) {
     const { rects } = useCommentPlacement(comment.position);
+    const t = useMessages();
     if (!rects.length) {
         return null;
     }
@@ -63,7 +61,7 @@ function ShowOnPage({ comment, onShowOnPage }: { comment: CommentItem; onShowOnP
                 className="text-muted-foreground hover:text-foreground"
                 startDecorator={<MapPin size={14} aria-hidden="true" />}
                 onClick={() => onShowOnPage(comment.id)}>
-                Show on page
+                {t.inbox.showOnPage}
             </Button>
         </CardFooter>
     );
@@ -77,24 +75,26 @@ function CardFooter({ children }: { children: ReactNode }) {
 function InboxReply({ comment, onClose }: { comment: CommentItem; onClose: () => void }) {
     const { reply } = useComments();
     const announce = useAnnounce();
+    const t = useMessages();
     if (comment.pending) return null;
     return <div className="border-t">
-        <CommentComposer commentId={comment.id} label="Reply" placeholder="Reply..." submitLabel="Post reply" draftKey={comment.id}
+        <CommentComposer commentId={comment.id} label={t.inbox.reply} placeholder={t.thread.replyPlaceholder} submitLabel={t.thread.postReply} draftKey={comment.id}
             autoFocus error={reply.error} onSubmit={async (text, mentions) => {
                 await reply.mutateAsync({ commentId: comment.id, text, mentions });
-                announce('Reply posted');
+                announce(t.thread.replyPosted);
             }} />
-        <Button variant="plain" size="xs" className="mb-2 ml-3" onClick={onClose}>Close reply</Button>
+        <Button variant="plain" size="xs" className="mb-2 ml-3" onClick={onClose}>{t.inbox.closeReply}</Button>
     </div>;
 }
 
 function InboxThread({ comment }: { comment: CommentItem }) {
     // Mount the mutation/query hooks only after Reply is opened, keeping long lists light.
     const [replying, setReplying] = useState(false);
+    const t = useMessages();
     return <CommentThread commentItem={comment}>
         {replying ? <InboxReply comment={comment} onClose={() => setReplying(false)} /> : <div className="px-3 pb-2">
             <Button variant="plain" size="sm" disabled={comment.pending} onClick={() => setReplying(true)}
-                {...{ 'data-uier-reply': '' }}>Reply</Button>
+                {...{ 'data-uier-reply': '' }}>{t.inbox.reply}</Button>
         </div>}
     </CommentThread>;
 }
@@ -102,8 +102,9 @@ function InboxThread({ comment }: { comment: CommentItem }) {
 /** Where another page's comment is: a link that opens its thread there, in the review */
 function OtherPage({ comment }: { comment: CommentItem }) {
     const { review } = useContext(CommentsBootstrapperContext);
+    const t = useMessages();
     if (comment.source?.available === false) {
-        return <CardFooter><p className="m-0 truncate px-2 font-mono text-xs text-muted-foreground">{comment.path} · Original source unavailable</p></CardFooter>;
+        return <CardFooter><p className="m-0 truncate px-2 font-mono text-xs text-muted-foreground">{comment.path} · {t.thread.sourceUnavailable}</p></CardFooter>;
     }
 
     return (
@@ -112,7 +113,7 @@ function OtherPage({ comment }: { comment: CommentItem }) {
             <a
                 href={commentLink(comment, review)}
                 className="flex min-w-0 items-center gap-1.5 rounded-md p-2 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11">
-                <span className="sr-only">Open on </span>
+                <span className="sr-only">{t.inbox.openOn}</span>
                 <File size={14} aria-hidden="true" className="shrink-0" />
                 <span className="truncate font-mono">{comment.sourcePath ?? comment.path}</span>
                 <ArrowUpRight size={14} aria-hidden="true" className="shrink-0" />
@@ -136,12 +137,13 @@ type CommentsSidebarCommentsListProps = {
  */
 export function CommentsSidebarCommentsList({ inbox, filter, onShowOnPage, onShowAllPages }: CommentsSidebarCommentsListProps) {
     const { comments, state, scope, otherCount, siteCapped, isCurrentPage, loading } = inbox;
+    const t = useMessages();
     const shownCount = useDeferredValue(comments?.length ?? 0, Math.min(comments?.length ?? 0, firstThreads));
     const searching = Boolean(filter.keywords?.trim());
 
     // The count is announced once the typing stopped and the lists have loaded, so screen readers
     // don't hear a count for every keystroke
-    const countMessage = searching ? `${countText(comments?.length ?? 0)} found` : '';
+    const countMessage = searching ? t.inbox.found(comments?.length ?? 0) : '';
     const [announcedCount, setAnnouncedCount] = useState('');
     useEffect(() => {
         if (loading) {
@@ -153,21 +155,21 @@ export function CommentsSidebarCommentsList({ inbox, filter, onShowOnPage, onSho
 
     let content: ReactNode;
     if (state.isPending) {
-        content = <div className="p-1 text-sm text-muted-foreground">Loading comments...</div>;
+        content = <div className="p-1 text-sm text-muted-foreground">{t.inbox.loading}</div>;
     } else if (state.error && !comments) {
         content = (
             <Stack spacing={1} alignItems="start" className="p-1 text-sm">
                 <CommentsErrorMessage error={state.error} />
-                <Button variant="outlined" size="sm" onClick={() => state.refetch()}>Try again</Button>
+                <Button variant="outlined" size="sm" onClick={() => state.refetch()}>{t.common.retry}</Button>
             </Stack>
         );
     } else if (!comments?.length) {
         content = (
             <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-                <p className="m-0">{emptyText(filter)}</p>
+                <p className="m-0">{emptyText(filter, t)}</p>
                 {scope === 'current' && otherCount > 0 && (
                     <Button size="sm" variant="outlined" onClick={onShowAllPages}>
-                        Show {otherCount} on other pages
+                        {t.inbox.showOnOtherPages(otherCount)}
                     </Button>
                 )}
             </div>
@@ -178,7 +180,7 @@ export function CommentsSidebarCommentsList({ inbox, filter, onShowOnPage, onSho
                 {comments.slice(0, shownCount).map((comment) => (
                     <CommentErrorBoundary key={commentKey(comment)} commentId={comment.id}>
                         {/* J and K move between the cards (focusable for that), R, S and A act on the one with the focus */}
-                        <article aria-label={comment.number !== undefined ? `Comment #${comment.number}` : 'Comment'} tabIndex={-1} data-uier-thread-scope=""
+                        <article aria-label={comment.number !== undefined ? t.inbox.commentNumber(comment.number) : t.inbox.comment} tabIndex={-1} data-uier-thread-scope=""
                             className="scroll-my-3 overflow-hidden rounded-xl border bg-card outline-none focus-visible:ring-2 focus-visible:ring-ring">
                             <InboxThread comment={comment} />
                             {isCurrentPage(comment)
@@ -192,10 +194,10 @@ export function CommentsSidebarCommentsList({ inbox, filter, onShowOnPage, onSho
     }
 
     return (
-        <section aria-label={pageLabel(scope)}>
+        <section aria-label={pageLabel(scope, t)}>
             <Stack spacing={2}>
                 {content}
-                {siteCapped && <div className="px-1 text-xs text-muted-foreground">Older comments are not listed.</div>}
+                {siteCapped && <div className="px-1 text-xs text-muted-foreground">{t.inbox.olderNotListed}</div>}
             </Stack>
             {/* Always there, so screen readers announce the count when a search changes it */}
             <div role="status" className="sr-only">

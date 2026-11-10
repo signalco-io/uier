@@ -10,6 +10,7 @@ import { CommentsApiError } from '../hooks/api';
 import { useRewriteSuggestions } from '../hooks/useRewriteSuggestions';
 import { CommentsErrorMessage, retryAfterText, UsageLink } from './CommentsErrorMessage';
 import { useAnnounce } from './Announcer';
+import { useMessages } from '../i18n';
 import { commentTextMaxLength, destructiveTextClassName, inputFocusRingClassName } from './@types/Comments';
 
 // The API's limit (MAX_REWRITE_INSTRUCTION_LENGTH)
@@ -51,6 +52,7 @@ type RewriteSuggestionsProps = {
 export function RewriteSuggestions({ text, state, onPick }: RewriteSuggestionsProps) {
     const { instruction, setInstruction, suggest } = state;
     const announce = useAnnounce();
+    const t = useMessages();
     const suggestions = suggest.data ?? [];
 
     const handleSuggest = async () => {
@@ -59,9 +61,7 @@ export function RewriteSuggestions({ text, state, onPick }: RewriteSuggestionsPr
         }
         try {
             const result = await suggest.mutateAsync({ text, instruction });
-            announce(result.length
-                ? `${result.length} ${result.length === 1 ? 'suggestion' : 'suggestions'}`
-                : 'No suggestions for this text');
+            announce(result.length ? t.rewrite.count(result.length) : t.rewrite.none);
         } catch {
             // Shown below
         }
@@ -70,7 +70,7 @@ export function RewriteSuggestions({ text, state, onPick }: RewriteSuggestionsPr
     if (text.trim().length > commentTextMaxLength) {
         return (
             <p className="m-0 px-0.5 text-xs text-muted-foreground">
-                Suggestions work on selections of up to {commentTextMaxLength} characters.
+                {t.rewrite.tooLong(commentTextMaxLength)}
             </p>
         );
     }
@@ -83,8 +83,8 @@ export function RewriteSuggestions({ text, state, onPick }: RewriteSuggestionsPr
         <>
             {/* One box like the text box: the AI mark, the instruction and Suggest; the box shows the focus */}
             <Input
-                aria-label="Instruction for suggestions"
-                placeholder="Shorter, friendlier..."
+                aria-label={t.rewrite.instruction}
+                placeholder={t.rewrite.instructionPlaceholder}
                 value={instruction}
                 maxLength={instructionMaxLength}
                 autoComplete="off"
@@ -106,7 +106,7 @@ export function RewriteSuggestions({ text, state, onPick }: RewriteSuggestionsPr
                         loading={suggest.isPending}
                         className="mr-1.5 shrink-0 pointer-coarse:min-h-11"
                         onClick={() => void handleSuggest()}>
-                        Suggest
+                        {t.rewrite.suggest}
                     </Button>
                 )}
                 fullWidth
@@ -114,16 +114,16 @@ export function RewriteSuggestions({ text, state, onPick }: RewriteSuggestionsPr
             {rateLimited
                 ? (
                     <p role="alert" className={cx('m-0 text-sm', destructiveTextClassName)}>
-                        No more suggestions for now. Try again {retryAfterText(rateLimited.retryAfter)}. You can still write your own.
+                        {t.rewrite.limited(retryAfterText(rateLimited.retryAfter))}
                         <UsageLink error={rateLimited} />
                     </p>
                 )
                 : <CommentsErrorMessage error={suggest.error} />}
             {suggest.isSuccess && !suggestions.length && (
-                <p className="m-0 px-0.5 text-sm text-muted-foreground">No suggestions for this text.</p>
+                <p className="m-0 px-0.5 text-sm text-muted-foreground">{t.rewrite.noneVisible}</p>
             )}
             {suggestions.length > 0 && (
-                <Stack role="group" aria-label="Suggestions" spacing={1}>
+                <Stack role="group" aria-label={t.rewrite.suggestions} spacing={1}>
                     {suggestions.map((suggestion) => (
                         <Button
                             key={suggestion}

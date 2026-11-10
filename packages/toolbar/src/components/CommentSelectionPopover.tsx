@@ -9,6 +9,7 @@ import { CommentIcon } from './CommentIcon';
 import { InkScope } from './InkScope';
 import { RewriteIcon } from './RewriteIcon';
 import { addCommentShortcut, useShortcutsEnabled } from '../shortcuts';
+import { useMessages } from '../i18n';
 
 type CommentSelectionPopoverProps = {
     rects: DOMRect[];
@@ -23,6 +24,7 @@ type CommentSelectionPopoverProps = {
  * One Tab stop, like any toolbar: Left and Right arrows (Home, End) move between its buttons.
  */
 export function CommentSelectionPopover({ rects, onCreate, onRewrite }: CommentSelectionPopoverProps) {
+    const t = useMessages();
     const [popoverHeight, setPopoverHeight] = useState(0);
     const resizeObserverRef = useCallback((element: HTMLDivElement | null) => {
         if (!element) return;
@@ -35,8 +37,8 @@ export function CommentSelectionPopover({ rects, onCreate, onRewrite }: CommentS
     // C comments on the selection too (CommentsGlobal)
     const shortcut = useShortcutsEnabled() ? addCommentShortcut : undefined;
     const actions = [
-        { label: 'Add comment', icon: <CommentIcon icon="add" size={20} variant="outlined" aria-hidden="true" />, onClick: onCreate, shortcut },
-        { label: 'Rewrite', icon: <RewriteIcon size={20} aria-hidden="true" />, onClick: onRewrite, shortcut: undefined }
+        { label: t.toolbar.addComment, icon: <CommentIcon icon="add" size={20} variant="outlined" aria-hidden="true" />, onClick: onCreate, shortcut },
+        { label: t.selection.rewrite, icon: <RewriteIcon size={20} aria-hidden="true" />, onClick: onRewrite, shortcut: undefined }
     ];
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -69,7 +71,7 @@ export function CommentSelectionPopover({ rects, onCreate, onRewrite }: CommentS
             <div
                 ref={resizeObserverRef}
                 role="toolbar"
-                aria-label="Selected text"
+                aria-label={t.selection.label}
                 aria-orientation="horizontal"
                 onKeyDown={handleKeyDown}
                 className="absolute z-[52] -translate-x-1/2 rounded-full border bg-background p-1 text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]"

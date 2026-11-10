@@ -1,6 +1,8 @@
 import type { ToolbarConfig } from './config';
 import type { CapturedScreenshot, ScreenshotRegion } from './screenshot';
 import type { AuditAsset } from './checks/auditHandoff';
+import type { ToolbarLanguage } from './languages';
+import type { LanguageAsset } from './i18n/languageHandoff';
 
 /** Explicit runtime boundary for packaged clients. Never populated from the host page. */
 export type ToolbarAdapters = {
@@ -17,6 +19,11 @@ export type ToolbarAdapters = {
      * without it, the client has no audit (no Accessibility button, on-demand sections `unavailable`).
      */
     loadAudit?: () => Promise<AuditAsset>;
+    /**
+     * A language other than English, packaged with the client (`i18n/packaged.ts`): the web loads it as an
+     * asset next to the review bundle, a packaged client never adds remote scripts. Without it, English.
+     */
+    loadLanguage?: (language: ToolbarLanguage) => Promise<LanguageAsset>;
 };
 let adapters: ToolbarAdapters | undefined;
 export const runtimeAdapters = () => adapters;

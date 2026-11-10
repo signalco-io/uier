@@ -1,6 +1,7 @@
 'use client';
 
 import { draftLifetimeMs } from '../hooks/draftStorage';
+import { useMessages } from '../i18n';
 
 const draftLifetimeDays = Math.round(draftLifetimeMs / (24 * 60 * 60 * 1000));
 
@@ -23,16 +24,17 @@ type ComposerFooterProps = {
  * shortcuts list (`toolbarShortcuts`), not under every text box.
  */
 export function ComposerFooter({ keysId, draftId, keyboard, submitVerb, draftSaved }: ComposerFooterProps) {
+    const t = useMessages();
     return (
         <>
             {/* Out of the layout: no empty line under the box */}
-            {keyboard && <span id={keysId} className="sr-only">Enter to {submitVerb}. Shift+Enter for a new line.</span>}
+            {keyboard && <span id={keysId} className="sr-only">{submitVerb === 'save' ? t.composer.keysSave : t.composer.keysSend}</span>}
             {draftSaved && (
                 <p
                     id={draftId}
-                    title={`Unsent text stays in this browser for ${draftLifetimeDays} days after your last change.`}
+                    title={t.composer.draftLifetime(draftLifetimeDays)}
                     className="m-0 px-0.5 text-xs text-muted-foreground">
-                    Draft saved in this browser
+                    {t.composer.draftSaved}
                 </p>
             )}
         </>

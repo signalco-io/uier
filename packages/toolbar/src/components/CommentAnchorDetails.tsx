@@ -2,39 +2,33 @@ import { useProjectViewer } from '../project/ProjectGate';
 import { createContext, useContext } from 'react';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Info } from '@signalco/ui-icons';
-import { useCommentPlacement, type AnchorState } from '../hooks/useCommentItemRects';
+import { useCommentPlacement } from '../hooks/useCommentItemRects';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { isCommentArea, type CommentItem, type CommentItemPosition } from './@types/Comments';
+import { useMessages, useToolbarLanguage, type Messages } from '../i18n';
 
 export const ReattachContext = createContext<(comment: CommentItem) => void>(() => {});
 
-export const anchorStateText: Record<AnchorState, string> = {
-    exact: 'Anchor matches the saved position.', restored: 'Text found at a new position.',
-    hidden: 'Target is hidden in this layout. It may appear on another screen size or when opened.',
-    missing: 'Target is missing from this page.',
-    ambiguous: 'Several targets match. Choose the intended target to reattach.', page: '',
-    closed: 'Target is in a menu or dialog that is closed. Open it to see the comment in place.'
-};
 
 /**
  * The closed state with the opener's name: "Open “Account” to see the comment in place". The name is
  * the outermost opener's: once that is open, a nested toolbar layer's opener has the pin (`depth`).
  */
-function closedText(position: CommentItemPosition, depth = 0) {
+function closedText(position: CommentItemPosition, t: Messages, depth = 0) {
     const name = position.type !== 'page' && depth === 0 ? position.layer?.label : undefined;
-    return name ? `Target is in a menu or dialog that is closed. Open “${name}” to see the comment in place.` : anchorStateText.closed;
+    return name ? t.anchor.closedNamed(name) : t.anchor.state.closed;
 }
 
 /** ", after opening “Account”": the anchor is in a menu, popover or dialog that a page element opens */
-function openedFrom(position: CommentItemPosition) {
+function openedFrom(position: CommentItemPosition, t: Messages) {
     if (position.type === 'page' || !position.layer) return '';
-    return position.layer.label ? `, after opening “${position.layer.label}”` : ', in a menu or dialog';
+    return position.layer.label ? t.anchor.afterOpening(position.layer.label) : t.anchor.inLayer;
 }
 
-export function describeAnchor(position: CommentItemPosition) {
-    return (position.type === 'text' ? `Text: ${position.text}`
-        : isCommentArea(position) ? `Area of element: ${position.selector}`
-            : position.type === 'point' ? `Element: ${position.selector}` : 'Whole page') + openedFrom(position);
+export function describeAnchor(position: CommentItemPosition, t: Messages) {
+    return (position.type === 'text' ? t.anchor.text(position.text)
+        : isCommentArea(position) ? t.anchor.area(position.selector)
+            : position.type === 'point' ? t.anchor.element(position.selector) : t.anchor.wholePage) + openedFrom(position, t);
 }
 
 /**
@@ -65,12 +59,14 @@ export function useReattach(comment: CommentItem) {
  */
 export function CommentAnchorDetails({ comment }: { comment: CommentItem }) {
     const reattach = useReattach(comment);
+    const t = useMessages();
+    const language = useToolbarLanguage();
     const { state, depth } = useCommentPlacement(reattach.samePage ? comment.position : undefined);
     if (comment.position.type === 'page') return null;
     // Only states that need attention are shown, and a closed menu's (where to find the anchor); a
     // matching anchor stays quiet
     const notice = state !== 'exact' && state !== 'page';
-    const text = state === 'closed' ? closedText(comment.position, depth) : anchorStateText[state];
+    const text = state === 'closed' ? closedText(comment.position, t, depth) : t.anchor.state[state];
     const offSource = reattach.canEdit && reattach.samePage && !reattach.originalSource;
     if (!reattach.samePage && !comment.anchorContext) return null;
     // For tests and support: the state of a quiet anchor is still on the page
@@ -88,19 +84,19 @@ export function CommentAnchorDetails({ comment }: { comment: CommentItem }) {
                         {/* Nothing to repair while it is only closed: reattaching is in the first message's menu */}
                         {reattach.available && state !== 'closed' && (
                             <Button size="xs" variant="plain" className="-ml-2" onClick={reattach.request}>
-                                Reattach comment
+                                {t.thread.reattach}
                             </Button>
                         )}
                     </div>
                 </div>
             ) : quiet)}
-            {offSource && <p className="m-0">Open the original reviewed site to reattach.</p>}
+            {offSource && <p className="m-0">{t.anchor.openOriginal}</p>}
             {comment.anchorContext && <details>
-                <summary className="flex min-h-6 cursor-pointer items-center hover:text-foreground">Anchor changed {comment.anchorContext.changes} {comment.anchorContext.changes === 1 ? 'time' : 'times'}</summary>
+                <summary className="flex min-h-6 cursor-pointer items-center hover:text-foreground">{t.anchor.changed(comment.anchorContext.changes)}</summary>
                 <div className="mt-1 flex flex-col gap-0.5 border-l-2 pl-2.5">
-                    <p className="m-0 break-words">Original {describeAnchor(comment.anchorContext.original)}</p>
-                    <p className="m-0 break-words">Previous {describeAnchor(comment.anchorContext.previous)}</p>
-                    <p className="m-0">Changed {new Date(comment.anchorContext.changedAt).toLocaleString()}</p>
+                    <p className="m-0 break-words">{t.anchor.original(describeAnchor(comment.anchorContext.original, t))}</p>
+                    <p className="m-0 break-words">{t.anchor.previous(describeAnchor(comment.anchorContext.previous, t))}</p>
+                    <p className="m-0">{t.anchor.changedAt(new Date(comment.anchorContext.changedAt).toLocaleString(language))}</p>
                 </div>
             </details>}
         </div>

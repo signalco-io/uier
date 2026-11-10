@@ -6,6 +6,7 @@ import { pageCheck } from '../../../checks/lazy/api';
 import { useAnnounce } from '../../Announcer';
 import { CheckItem } from '../ChecksParts';
 import { defineSection, ReportSection, usePageLayerVisible, useSection, type SectionDefinition } from './sections';
+import { messages, useMessages, type Messages } from '../../../i18n';
 
 // The Accessibility panel's Zoom and text spacing section (src/checks/lazy/reflow.ts,
 // packages/toolbar/docs/page-checks-content.md): reflow at the window's width when the panel opens,
@@ -35,8 +36,7 @@ export const textSpacingSection = defineSection({
 /** Every section of this area, for `PageChecks` (their reports, the background checks, the panel's indicator) */
 export const reflowSections: readonly SectionDefinition[] = [reflowSection, textSpacingSection];
 
-const offCheck = pageCheck('text-spacing', 'Text spacing', 'none',
-    'Applies WCAG 1.4.12\'s text spacing to the page and lists text that no longer fits. It stays on while you look.');
+const offCheck = (t: Messages['sections']['reflow']) => pageCheck('text-spacing', t.spacing, 'none', t.spacingNote);
 
 /**
  * Text spacing: "Apply text spacing" puts the spacing on the page and measures it, and it stays on
@@ -47,6 +47,7 @@ function TextSpacingItem() {
     const section = useSection(textSpacingSection);
     const visible = usePageLayerVisible();
     const announce = useAnnounce();
+    const t = useMessages().sections.reflow;
     const [on, setOn] = useState(false);
     const active = on && visible && (section.status === 'checking' || section.status === 'done');
     // Before a check Check again starts reads the page
@@ -62,10 +63,10 @@ function TextSpacingItem() {
     }, []);
     const check = active ? section.status === 'done' && section.report?.checks[0] : undefined;
     useEffect(() => {
-        if (check) announce(`Text spacing applied. ${check.value}`);
+        if (check) announce(messages().sections.reflow.applied(check.value ?? ''));
     }, [check]);
     return (
-        <CheckItem check={check || (active ? { ...offCheck, reason: 'Applying text spacing...' } : offCheck)}>
+        <CheckItem check={check || (active ? { ...offCheck(t), reason: t.applying } : offCheck(t))}>
             <Button size="xs" variant="outlined" aria-pressed={active}
                 className={cx('ml-6 self-start pointer-coarse:min-h-11', active && 'bg-accent text-foreground')}
                 onClick={() => {
@@ -73,7 +74,7 @@ function TextSpacingItem() {
                     setOn(!active);
                     if (!active) section.run();
                 }}>
-                Apply text spacing
+                {t.apply}
             </Button>
         </CheckItem>
     );
@@ -81,7 +82,7 @@ function TextSpacingItem() {
 
 export function ReflowSection() {
     return (
-        <ReportSection id={reflowSection.id} title="Zoom and text spacing" section={useSection(reflowSection)}>
+        <ReportSection id={reflowSection.id} title={useMessages().sections.reflow.title} section={useSection(reflowSection)}>
             <TextSpacingItem />
         </ReportSection>
     );

@@ -12,14 +12,12 @@ import { getCommentScreenshot } from '../hooks/useComments';
 import { screenshotQueryKey } from '../hooks/api';
 import type { CommentItem } from './@types/Comments';
 import { destructiveTextClassName } from './@types/Comments';
-import { suppliedScreenshot } from '../suppliedScreenshot';
+import { useMessages } from '../i18n';
+import { SuppliedImageError, suppliedScreenshot } from '../suppliedScreenshot';
 import { useReplaceScreenshot } from '../hooks/useReplaceScreenshot';
 import { ScreenshotRedaction } from './ScreenshotRedaction';
 import { toolbarSurface } from '../toolbarReview';
 
-export const screenshotAlt = 'Screenshot of the commented part of the page';
-
-const imageLimits = 'PNG, JPEG or WebP. Up to 512 KB and 4096 pixels on each side.';
 
 /** Lucide's clipboard-paste (the UI kit has no clipboard icon), drawn like the kit's icons next to it */
 function PasteIcon({ size = 16 }: { size?: number }) {
@@ -66,7 +64,9 @@ function useSeen<T extends Element>() {
 export function CommentScreenshot({ comment, itemId }: { comment: CommentItem; itemId?: string }) {
     const item = itemId ? comment.thread.items.find(item => item.id === itemId) : undefined;
     const size = item && !item.deleted ? item.screenshot : itemId ? undefined : comment.screenshot;
-    const alt = itemId ? 'Image attached to reply' : screenshotAlt;
+    const t = useMessages();
+    const imageLimits = t.screenshot.limits;
+    const alt = itemId ? t.screenshot.replyImageAlt : t.screenshot.alt;
     const { rootElement } = useContext(CommentsBootstrapperContext);
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState(false);
@@ -88,7 +88,7 @@ export function CommentScreenshot({ comment, itemId }: { comment: CommentItem; i
     });
     const replace = async (dataUrl: string) => {
         await replacement.mutateAsync(dataUrl);
-        setMessage('Screenshot replaced.');
+        setMessage(t.screenshot.replaced);
         setEditing(false);
         setOpen(false);
     };
@@ -100,19 +100,20 @@ export function CommentScreenshot({ comment, itemId }: { comment: CommentItem; i
         setMessage('');
         try { await replace(await suppliedScreenshot(await read())); }
         catch (error) {
-            setFailure(`${error instanceof Error ? error.message : 'The image could not be saved.'} Replacement was not confirmed. Reload to check the saved image, or try again.`);
+            const reason = error instanceof SuppliedImageError ? t.imageProblems[error.problem] : error instanceof Error ? error.message : t.screenshot.notSaved;
+            setFailure(t.screenshot.notConfirmed(reason));
         } finally { workingRef.current = false; setWorking(false); }
     };
     const clipboard = async () => {
-        if (!navigator.clipboard?.read) throw new Error('Clipboard access is unavailable. Upload an image or paste it with your keyboard.');
+        if (!navigator.clipboard?.read) throw new Error(t.screenshot.clipboardUnavailable);
         let items: ClipboardItem[];
         try { items = await navigator.clipboard.read(); }
-        catch { throw new Error('Clipboard access was denied. Upload an image or paste it with your keyboard.'); }
+        catch { throw new Error(t.screenshot.clipboardDenied); }
         for (const item of items) {
             const type = item.types.find(type => ['image/png', 'image/jpeg', 'image/webp'].includes(type));
             if (type) return item.getType(type);
         }
-        throw new Error('The clipboard contains no PNG, JPEG or WebP image.');
+        throw new Error(t.screenshot.clipboardEmpty);
     };
 
     if (!size && !canReplace) {
@@ -122,52 +123,52 @@ export function CommentScreenshot({ comment, itemId }: { comment: CommentItem; i
     // Upload and paste: small labelled buttons beside "No screenshot", or in the expanded view
     const replaceActions = canReplace && <>
         <Button size="xs" variant="plain" className="text-muted-foreground hover:text-foreground"
-            title={`Upload image. ${imageLimits}`} startDecorator={<Upload size={14} />}
+            title={t.screenshot.uploadTip(imageLimits)} startDecorator={<Upload size={14} />}
             disabled={busy || editing} onClick={() => sectionRef.current?.querySelector('input')?.click()}>
-            Upload image
+            {t.screenshot.upload}
         </Button>
         <Button size="xs" variant="plain" className="text-muted-foreground hover:text-foreground"
-            title={`Paste image. ${imageLimits}`} startDecorator={<PasteIcon size={14} />}
+            title={t.screenshot.pasteTip(imageLimits)} startDecorator={<PasteIcon size={14} />}
             disabled={busy || editing} onClick={() => { void supply(clipboard); }}>
-            Paste image
+            {t.screenshot.paste}
         </Button>
     </>;
     // Shown where the person is: in the expanded view while it is open, under the thumbnail otherwise
     const notices = <>
-        {busy && <p role="status" className="m-0 basis-full text-xs text-muted-foreground">Saving replacement...</p>}
+        {busy && <p role="status" className="m-0 basis-full text-xs text-muted-foreground">{t.screenshot.savingReplacement}</p>}
         {message && <p role="status" className="m-0 basis-full text-xs text-muted-foreground">{message}</p>}
         {failure && <p role="alert" className={`m-0 basis-full text-xs ${destructiveTextClassName}`}>{failure}</p>}
     </>;
 
-    return <section ref={sectionRef} aria-label="Screenshot evidence" className="flex flex-wrap items-center gap-1" onPaste={event => {
+    return <section ref={sectionRef} aria-label={t.screenshot.evidence} className="flex flex-wrap items-center gap-1" onPaste={event => {
         if (!canReplace || busy || editing) return;
         const file = [...event.clipboardData.files][0];
         if (file) { event.preventDefault(); void supply(async () => file); }
     }}>
-        {!size ? <span className="mr-1 text-xs text-muted-foreground">No screenshot</span>
-            : isError ? <span className="mr-1 text-xs text-muted-foreground">The screenshot is no longer available.</span>
+        {!size ? <span className="mr-1 text-xs text-muted-foreground">{t.screenshot.none}</span>
+            : isError ? <span className="mr-1 text-xs text-muted-foreground">{t.screenshot.unavailable}</span>
             : data
         ? (
             <Popper
                 container={rootElement}
                 open={open}
                 onOpenChange={value => { if (!busy) { setOpen(value); if (!value) setEditing(false); } }}
-                aria-label="Screenshot"
+                aria-label={t.screenshot.label}
                 {...toolbarSurface('uier-screenshot', 'z-[70] flex max-h-[min(var(--radix-popover-content-available-height),85vh)] w-[min(88vw,64rem)] flex-col gap-2 overflow-auto rounded-xl p-3')}
                 trigger={(
-                    <Button variant="plain" className="mr-1 block h-auto w-24 cursor-zoom-in overflow-hidden rounded-lg p-0" aria-label={alt} title="Expand screenshot">
+                    <Button variant="plain" className="mr-1 block h-auto w-24 cursor-zoom-in overflow-hidden rounded-lg p-0" aria-label={alt} title={t.screenshot.expand}>
                         <ScreenshotImage src={data} width={size.width} height={size.height} alt={alt}
                             className="block h-16 w-24 rounded-lg border object-contain" />
                     </Button>
                 )}>
-                <Button variant="plain" className="min-h-11 self-end" disabled={busy} onClick={() => { setOpen(false); setEditing(false); }}>Close screenshot</Button>
+                <Button variant="plain" className="min-h-11 self-end" disabled={busy} onClick={() => { setOpen(false); setEditing(false); }}>{t.screenshot.close}</Button>
                 {editing ? <ScreenshotRedaction key={comment.screenshot?.revision ?? 'original'} data={data} pending={replacement.isPending}
                     onSave={replace} onCancel={() => setEditing(false)} /> : <>
-                    <ScreenshotImage src={data} width={size.width} height={size.height} alt="Expanded screenshot"
+                    <ScreenshotImage src={data} width={size.width} height={size.height} alt={t.screenshot.expanded}
                         className="block min-h-0 w-full object-contain" />
                     {canReplace && (
                         <div className="flex flex-wrap items-center gap-1">
-                            <Button variant="plain" className="min-h-11" disabled={busy} onClick={() => { setMessage(''); setEditing(true); }}>Redact screenshot</Button>
+                            <Button variant="plain" className="min-h-11" disabled={busy} onClick={() => { setMessage(''); setEditing(true); }}>{t.screenshot.redact}</Button>
                             {replaceActions}
                         </div>
                     )}
@@ -183,7 +184,7 @@ export function CommentScreenshot({ comment, itemId }: { comment: CommentItem; i
                 style={{ aspectRatio: `${size.width} / ${size.height}` }} />
         )}
         {canReplace && (
-            <Input type="file" accept="image/png,image/jpeg,image/webp" aria-label="Upload screenshot image" className="hidden"
+            <Input type="file" accept="image/png,image/jpeg,image/webp" aria-label={t.screenshot.uploadInput} className="hidden"
                 disabled={busy} onChange={event => {
                     const file = event.target.files?.[0];
                     event.target.value = '';
