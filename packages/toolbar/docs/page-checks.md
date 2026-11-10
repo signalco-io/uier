@@ -33,12 +33,14 @@ person's way
   `src/checks/pageIdle.ts`.
 - **In short steps** ([review of #568](https://github.com/signalco-io/uier/pull/568)). One axe-core run
   does all its rules in one task (800 ms on a 1,000-paragraph page at 4× slower CPU), so the unasked audit
-  never makes one (`auditInSteps` in `src/checks/accessibility.ts`). It runs the rules axe-core runs by
-  default (`getRules()`, enabled), each step its own `axe.run` when the browser is idle (`nextIdle`): groups
-  of rules on the whole document, then the two rules whose work grows with every element (`color-contrast`,
-  `link-in-text-block`, which have no page-wide `after` step) on parts of it: disjoint subtrees in document
-  order, and the larger elements above them on their own where they have text of their own (or are a
-  link). A step aims at 50 ms: the next takes fewer rules or elements when one took longer, at most twice
+  never makes one (`auditInSteps` in `src/checks/lazy/accessibilityReport.ts`, in the audit asset). It runs
+  the rules axe-core runs by default (`getRules()`, enabled) and `target-size`, each step its own `axe.run`
+  when the browser is idle (`nextIdle`): groups of rules on the whole document, then the rules whose work
+  grows with every element (`color-contrast` and `link-in-text-block`, which have no page-wide `after` step,
+  and `target-size`, which measures neighbours in axe-core's grid of the whole page whatever the run's
+  context) on parts of it: disjoint subtrees in document order, and the larger elements above them on
+  their own where they have text of their own, are a link, or are a control (`target-size` only). Every
+  step keeps what axe-core could not decide too (To review). A step aims at 50 ms: the next takes fewer rules or elements when one took longer, at most twice
   as many when it took less, never under 50 elements (each run also reads the whole page). The steps find
   what one run finds; the elements of a parted rule are put back in document order, and rules of the same
   impact and count keep axe-core's order, so Check again lists the same report.

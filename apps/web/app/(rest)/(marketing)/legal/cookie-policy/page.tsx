@@ -119,6 +119,13 @@ const items = [
         duration: 'Until you clear your browser data'
     },
     {
+        name: 'uier:checks-dismissed:v1:<api URL>:<project code>',
+        type: 'Local storage (on the reviewed site)',
+        when: 'You mark a finding of the Accessibility or SEO panel as Not an issue',
+        purpose: 'Remembers which findings you dismissed, so they stay out of the counts in this browser. Stores short hashes of the check, the page and the element, with no page text, names or tokens.',
+        duration: '90 days per finding, at most 300 findings; Restore removes one'
+    },
+    {
         name: 'uier:page-checks:v1:<api URL>:<project code>',
         type: 'Local storage (on the reviewed site)',
         when: 'The toolbar saves a page’s check summary while a project member reviews the site',

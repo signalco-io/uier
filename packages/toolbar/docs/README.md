@@ -16,6 +16,7 @@ Read the note for the area you change, and update it in the same pull request. A
 - [Realtime subscription](realtime.md): socket reconciliation reasons shared by the toolbar and app.
 - [New comment and feedback popovers](composer-popovers.md): where a pin and its popover go at the window's edges, the form (and a rewrite's), posting into the thread in one popover, expanding to a modal.
 - [Accessibility and SEO panels](page-checks.md): the page's checks from the pill, their shared layout (summary, sections, compact rows), axe-core and the on-demand sections in a lazy pinned asset, Core Web Vitals, and one-click comments for issues.
+  - [Target size, To review, Comment on all and Not an issue](page-checks-report.md): WCAG 2.2's target size, what axe-core could not decide, one comment for a rule's elements, and findings dismissed in this browser.
   - [Keyboard and screen reader](page-checks-keyboard.md): the tab order on the page, the focus indicator check, and the outline of landmarks, headings and controls.
   - [Alt text, zoom and text spacing, motion](page-checks-content.md): the alt text review, reflow at this width, the text spacing mode, and animations and media that move on their own.
   - [Sharing and structured data](page-checks-seo-head.md): Open Graph and X card tags with their previews, and the JSON-LD checks with their sources.
