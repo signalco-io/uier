@@ -94,7 +94,9 @@ Both panels share one layout (`components/checks/ChecksParts.tsx`), so they read
   Check again is never disabled and is `aria-busy` while a check runs.
 
 - **The summary first** (`ChecksSummary`): a tile for each kind of result with its count, its icon in
-  the result's colour only while it counts something (muted at 0), then one line with when it was checked.
+  the result's colour only while it counts something (muted at 0). No line says when it was checked
+  ([uier #246](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_zhQXsus05JoFbNA2cAae9));
+  an Accessibility report without issues says under it what automated checks cannot tell.
   Each tile is a toggle button (`aria-pressed`, in a group named "Filter results") that shows only its
   results ([uier #222](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_VUQdIFLJjsqv25EgSXjz_),
   [uier #224](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_6WFy0-xb48chE7HJW_Rif)):
@@ -114,7 +116,9 @@ Both panels share one layout (`components/checks/ChecksParts.tsx`), so they read
   **Keyboard**, **Screen reader** (with Alt text) and **Visual** (zoom and text spacing, motion). SEO:
   **Page** (Page and Core Web Vitals), **Content** (headings, links, images), **Sharing** and **Search**
   (Crawlers, Structured data, AI search); Sharing and Search only where the audit asset is. They look like
-  the inbox's status tabs (underlined) and are ARIA tabs: one tab stop, ← and → move and show the tab they
+  the inbox's status tabs (underlined), over a line across the whole panel that parts its header from
+  the tab's content, 8 px above the first section
+  ([uier #245](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_DGGEw_t-OP-ESUVRu0paQ)), and are ARIA tabs: one tab stop, ← and → move and show the tab they
   reach (`useRovingFocus`, not the UI kit's Radix tabs, whose arrow keys fail in a shadow root). A tab whose
   sections found something to act on has the button's amber dot (`data-uier-tab-attention`) and a name that
   says what ("Keyboard, 2 issues found", "Content, 3 to look at"), counted as the button counts
@@ -127,8 +131,13 @@ Both panels share one layout (`components/checks/ChecksParts.tsx`), so they read
   choose one with `showChecksTab` (`e2e/support/toolbar.ts`).
 - **Sections** (`CheckSection`): a heading with its count and a short note on the right, over one
   bordered card whose rows are divided by lines.
-- **Rows** (`CheckItem`): one compact row per check: the state icon, the name, a short measurement on
-  the right (`measure`, Core Web Vitals), what was found on its own line (`value`), then a one-line reason.
+- **Rows** (`CheckItem`): one compact row per check: the state icon, the name with a small info button,
+  a short measurement on the right (`measure`, Core Web Vitals), then what was found on its own line
+  (`value`). Why it passed or is worth a look (`reason`) is the info button's tooltip
+  ([uier #244](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_r_U5YjZFgfWaCDFTBsmDH)):
+  shown on hover, on keyboard focus and on a tap (a second tap, a tap elsewhere or a scroll hides it;
+  `useIconTooltip`'s `tap`), and read with the button and the row's actions through `aria-describedby`
+  (a hidden element in the row, so the row's text still has it). The button is named "About <check>".
 - **Issues** (`IssueList`): one muted row per element, its short name with Highlight and Comment on the
   right. A line every issue of a list shares is said once (by the check's reason, or under the rule's
   title), not on every element (`sharedSummary`); a single SEO issue's detail is in its check's reason.

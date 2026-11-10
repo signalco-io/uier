@@ -5,7 +5,6 @@ import { impacts, type AccessibilityReport, type AccessibilityRule, type Impact 
 import { ChecksPanel } from './ChecksPanel';
 import { GuestNameField } from './GuestName';
 import { CheckSection, ChecksSummary, IssueList, OtherPageNote, sharedSummary, type ChecksIcon } from './ChecksParts';
-import { CheckedAt } from './CheckedAt';
 import { CircleAlertIcon, OctagonAlertIcon } from './ChecksIcons';
 import { ChecksTabs } from './ChecksTabs';
 import { AltTextSection, altTextSections } from './sections/AltTextSection';
@@ -126,13 +125,8 @@ export function AccessibilityPanel({ state, path, onCheck, onClose }: {
                     <ChecksSummary tiles={impacts.map(impact => ({ key: impact, label: a.impacts[impact], count: counts[impact], icon: impactStyles[impact].icon, tone: impactStyles[impact].tone }))}
                         selected={filter} onSelect={key => setFilter(key as Impact | undefined)} />
                 )}
-                {shown && (
-                    <p className="m-0 px-1 text-xs text-muted-foreground">
-                        <CheckedAt time={shown.checkedAt} />
-                        {/* Without issues, what automated checks cannot tell */}
-                        {!shown.count && a.automatedNote}
-                    </p>
-                )}
+                {/* Without issues, what automated checks cannot tell */}
+                {shown && !shown.count && <p className="m-0 px-1 text-xs text-muted-foreground">{a.automatedNote}</p>}
             </div>
             {shown && shown.path !== path && <OtherPageNote path={shown.path} />}
             <GuestNameField />

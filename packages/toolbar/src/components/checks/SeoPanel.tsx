@@ -7,7 +7,6 @@ import { useWebVitals, vitalCheck, type VitalName, type WebVitals } from '../../
 import { ChecksPanel } from './ChecksPanel';
 import { GuestNameField } from './GuestName';
 import { CheckFilterContext, CheckItem, CheckSection, ChecksSummary, checkStates, OtherPageNote } from './ChecksParts';
-import { CheckedAt } from './CheckedAt';
 import { ChecksTabs, type ChecksTab } from './ChecksTabs';
 import { AiSearchSection, aiSearchSections } from './sections/AiSearchSection';
 import { CrawlerSection, crawlerSections } from './sections/CrawlerSection';
@@ -140,9 +139,7 @@ export function SeoPanel({ report, path, onCheck, onClose }: {
                 <ChecksSummary tiles={[
                     { key: 'warn', label: p.toLookAt, count: tally(checks, 'warn'), icon: checkStates.warn.icon, tone: checkStates.warn.tone },
                     { key: 'pass', label: p.passed, count: tally(checks, 'pass'), icon: checkStates.pass.icon, tone: checkStates.pass.tone }
-                ]} selected={filter} onSelect={key => setFilter(key as typeof filter)}>
-                    <p className="m-0 px-1 text-xs text-muted-foreground"><CheckedAt time={report.checkedAt} /></p>
-                </ChecksSummary>
+                ]} selected={filter} onSelect={key => setFilter(key as typeof filter)} />
                 {report.path !== path && <OtherPageNote path={report.path} />}
             </>}
             <GuestNameField />

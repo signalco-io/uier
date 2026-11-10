@@ -784,13 +784,12 @@ export const en = {
         /** "Filtered: Serious." under the summary while a tile filters the results */
         filtered: (label: string) => `Filtered: ${label}.`,
         clearFilter: 'Show all results',
+        /** A check's info button, whose tooltip says why it passed or is worth a look ("About Title") */
+        aboutCheck: (label: string) => `About ${label}`,
         states: { pass: 'Pass', warn: 'Warning', none: 'Note' },
         /** "These results are for /about. Check again for this page.": the path goes between */
         otherPageBefore: 'These results are for ',
         otherPageAfter: '. Check again for this page.',
-        /** "Checked at 14:32.": the time goes between */
-        checkedAtBefore: 'Checked at ',
-        checkedAtAfter: '',
         checkAgain: 'Check again',
         closePanel: 'Close panel',
         closeNamed: (title: string) => `Close ${title} panel`,
@@ -837,7 +836,7 @@ export const en = {
             checkingPage: 'Checking this page...',
             couldNotRun: 'The accessibility check could not run.',
             noIssues: 'No issues found.',
-            automatedNote: ' Automated checks find only some issues. Also try a keyboard and a screen reader.',
+            automatedNote: 'Automated checks find only some issues. Also try a keyboard and a screen reader.',
             blocked: "The site's Content-Security-Policy or the connection may block its script.",
             undecided: 'axe-core could not decide. Not counted.',
             /** The panel's tabs: axe-core's results, then what it cannot judge */
