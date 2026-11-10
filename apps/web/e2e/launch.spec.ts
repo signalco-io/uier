@@ -98,7 +98,7 @@ test('owner checks installation, shares a review, replies and resolves; the name
         const card = await openComment(page, /^Comment/);
     await expect(card).toHaveAccessibleName('Comment by Ana Launch');
         await expect(card).toContainText('Explain the annual price.');
-        await expect(card.getByRole('img', { name: imageLabel })).toBeVisible();
+        await expect(card.getByRole('img', { name: 'Commented part of the page', exact: true })).toBeVisible();
         const directReview = await card.getByRole('link', { name: new RegExp(`${new URL(origin).host}/$`) }).getAttribute('href');
         expect(directReview).toContain(`comment=${saved.id}`);
         await page.goto(directReview!);
