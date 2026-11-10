@@ -73,6 +73,10 @@ export function CommentAnchorDetails({ comment }: { comment: CommentItem }) {
     const text = state === 'closed' ? closedText(comment.position, depth) : anchorStateText[state];
     const offSource = reattach.canEdit && reattach.samePage && !reattach.originalSource;
     if (!reattach.samePage && !comment.anchorContext) return null;
+    // For tests and support: the state of a quiet anchor is still on the page
+    const quiet = reattach.samePage && !notice && <span data-uier-anchor-state={state} className="sr-only">{text}</span>;
+    // Nothing visible: the absolutely positioned status alone, so it adds no gap to the thread (uier #215)
+    if (quiet && !offSource && !comment.anchorContext) return quiet;
 
     return (
         <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
@@ -89,10 +93,7 @@ export function CommentAnchorDetails({ comment }: { comment: CommentItem }) {
                         )}
                     </div>
                 </div>
-            ) : (
-                // For tests and support: the state of a quiet anchor is still on the page
-                <span data-uier-anchor-state={state} className="sr-only">{text}</span>
-            ))}
+            ) : quiet)}
             {offSource && <p className="m-0">Open the original reviewed site to reattach.</p>}
             {comment.anchorContext && <details>
                 <summary className="flex min-h-6 cursor-pointer items-center hover:text-foreground">Anchor changed {comment.anchorContext.changes} {comment.anchorContext.changes === 1 ? 'time' : 'times'}</summary>

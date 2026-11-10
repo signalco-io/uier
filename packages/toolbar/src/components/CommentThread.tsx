@@ -83,7 +83,8 @@ function ThreadContents({ commentItem, reading, onPage }: { commentItem: Comment
     const ready = readyForReview(commentItem);
 
     return (
-        <Stack ref={threadRef} spacing={2} className="px-4 py-3">
+        // Tight around the messages (uier #215): the header, the messages and what follows them are 8 px apart
+        <Stack ref={threadRef} spacing={1} className="px-4 py-3">
             <CommentThreadHeader comment={commentItem} onMarkedUnread={() => setKeptUnread(true)}
                 onRequestVerification={() => setVerifying(true)} optionsRef={optionsRef} />
             {/* Where it came from */}
