@@ -152,7 +152,10 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
   - Review links `/app/review/<code>?url=<page>&comment=<id>` check access and redirect to the page with the
     toolbar's review link parameter `?toolbar-code=<publicId>`, a single-use code that signs the toolbar in
     (`uier-token`) and the comment to open (`uier-comment`); only addresses of the project are redirect
-    targets.
+    targets. A link that cannot open (no access, a missing comment or a removed site address) answers 404
+    with a `StatusPage` that names the signed-in account and offers Open your projects and Use another
+    account (`/app/sign-in?add=1&next=<the link>`). It is a page, so link to it with a plain `<a>`, never a
+    prefetching `next/link`: rendering it mints a single-use code.
   - Project embeds also try background sign-in through the hidden `/review-session` frame. A signed-in
     member can start reviewing a configured site without a link or top-level navigation. The separate
     `__Secure-uier_review_sso` HttpOnly, Secure, SameSite=None cookie only authorizes project review handoffs;

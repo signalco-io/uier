@@ -392,7 +392,8 @@ test('onboarding creates a project with its addresses and sets up reviews one st
 });
 
 test('review links open the project\'s own sites with the toolbar turned on', async ({ page }) => {
-    await signIn(page, uniqueEmail());
+    const email = uniqueEmail();
+    await signIn(page, email);
     const projectId = await createProject(page, { urls: ['https://example.com', 'https://staging.example.com'] });
     const request = page.request;
 
@@ -419,6 +420,19 @@ test('review links open the project\'s own sites with the toolbar turned on', as
     // Someone without access to the project gets nothing
     const response = await request.get('/app/review/aaaaaaaaaaaa', { maxRedirects: 0 });
     expect(response.status()).toBe(404);
+
+    // A link that cannot open says why, who is signed in, and offers another account back to it
+    const unavailable = `/app/review/${projectId}?comment=comment_abc123`;
+    await page.goto(unavailable);
+    await expect(page).toHaveTitle(/^Review link unavailable/);
+    await expect(page.getByRole('heading', { name: 'This review link is unavailable', level: 1 })).toBeVisible();
+    await expect(page.getByText(`You are signed in as ${email}.`)).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Open your projects' })).toHaveAttribute('href', '/app/projects');
+    const anotherAccount = new URL(await page.getByRole('link', { name: 'Use another account' }).getAttribute('href') ?? '', page.url());
+    expect(anotherAccount.pathname).toBe('/app/sign-in');
+    expect(anotherAccount.searchParams.get('add')).toBe('1');
+    expect(anotherAccount.searchParams.get('next')).toBe(unavailable);
+    await expectNoAxeViolations(page);
 });
 
 test('projects can be marked as done and reopened', async ({ page }) => {
