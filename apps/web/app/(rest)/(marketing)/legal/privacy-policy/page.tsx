@@ -544,6 +544,17 @@ export default function PrivacyPolicyPage() {
                 They follow the hosting log retention settings.
             </p>
 
+            <h3>Page suggestions</h3>
+            <p>
+                When you ask the toolbar&rsquo;s SEO panel to suggest a title or a meta description, or the questions a
+                page answers, the start of that page&rsquo;s main text (up to 4,000 characters), its current title and
+                its meta description are sent to Anthropic, whose Claude model writes the suggestions. For a project,
+                this also includes the effective style instructions described above. Nothing is sent until you ask.
+                We do not store the request or unused suggestions; only a suggestion you post is saved, like any
+                comment. Our hosting logs get the same record as for a rewrite, without the page&rsquo;s text or the
+                suggestions, and these requests count against the rewrite suggestion limits.
+            </p>
+
             <h3>Thread titles</h3>
             <p>
                 Comment threads in projects, including those on {brand.domain}, can get a short title written by AI. After a comment is posted, and
@@ -611,7 +622,7 @@ export default function PrivacyPolicyPage() {
             <ul>
                 <li>
                     To post your comments and show them to other visitors, as you asked by posting them, and to
-                    suggest rewrites when you ask for them: the performance of the service you use (Article 6(1)(b) GDPR).
+                    suggest rewrites, titles and descriptions when you ask for them: the performance of the service you use (Article 6(1)(b) GDPR).
                 </li>
                 <li>
                     To sign you in to the app, keep your account, workspace and projects, and send the invitations
@@ -639,6 +650,7 @@ export default function PrivacyPolicyPage() {
                     are delivered from Vercel&rsquo;s global network.
                 </li>
                 <li>Rewrite suggestions: Anthropic receives the selected text, your instruction and any effective workspace or project style guidance to write them.</li>
+                <li>Page suggestions: Anthropic receives the start of the page&rsquo;s main text, its title and meta description and any effective workspace or project style guidance to write them.</li>
                 <li>Thread titles: Anthropic receives a thread&rsquo;s first message, its kind, what it was left on and the start of the selected text to write the title, unless titles are turned off.</li>
                 <li>Google sign-in, only if you choose it: you sign in at Google, which handles that under its own privacy policy and learns that you use {brand.name}.</li>
                 <li>Microsoft sign-in, only if you choose it: you sign in at Microsoft, which handles that under its own privacy policy and learns that you use {brand.name}.</li>
