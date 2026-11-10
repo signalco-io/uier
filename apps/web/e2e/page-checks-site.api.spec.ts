@@ -16,6 +16,7 @@ import { listPageChecks, pageCheckId, savePageCheck } from '../src/lib/pageCheck
 import { PAGE_CHECKS_PER_MEMBER_PER_HOUR, PAGE_CHECKS_PER_PROJECT_PER_DAY, projectPageChecksLimit } from '../src/lib/pageChecks/limits';
 import { PAGE_CHECKS_MAX_PAGES, PAGE_CHECKS_TTL_SECONDS, pageChecksPk, pageCheckRow, type PageCheckRow } from '../src/lib/pageChecks/model';
 import { pageCheckChange, pageCheckInsights, sortPageChecks } from '../src/lib/pageChecks/insights';
+import { pathTree, type PathNode } from '../src/lib/pageChecks/pathTree';
 
 // `POST /api/review/<code>/page-checks` and the store behind the app's Page checks view
 // (apps/web/docs/page-checks.md): members only, strict validation, the latest summary per page with
@@ -249,4 +250,32 @@ test('across pages: shared titles and descriptions per site address, pages witho
     // The view never receives the check states
     const full = { ...pages[0]!, checks: { 'seo:title': 'pass' as const } };
     expect(pageCheckRow(full)).not.toHaveProperty('checks');
+});
+
+test('across pages: addresses as a hierarchy of path segments, a query under its path, empty single levels merged (uier #219)', async () => {
+    const paths = ['/', '/cms', '/cms/articles', '/cms/articles/new', '/cms/destinations/coolinarika/daily-menus',
+        '/cms/products?lang=', '/cms/products?lang=sq-AL', '/cms/users', '/?preview=1', 'not-a-path'];
+    const tree = pathTree(paths, path => path);
+    type Shown = { label: string; page: boolean; children?: Shown[] };
+    const shown = (nodes: PathNode<string>[]): Shown[] => nodes.map(node => ({
+        label: node.path.slice(node.base.length), page: node.item !== undefined,
+        ...(node.children.length ? { children: shown(node.children) } : {})
+    }));
+    expect(shown(tree)).toEqual([
+        { label: '/', page: true, children: [{ label: '?preview=1', page: true }] },
+        { label: '/cms', page: true, children: [
+            { label: '/articles', page: true, children: [{ label: '/new', page: true }] },
+            // No page at /cms/destinations or /cms/destinations/coolinarika: one line
+            { label: '/destinations/coolinarika/daily-menus', page: true },
+            // No page at /cms/products: a level with its two queries
+            { label: '/products', page: false, children: [{ label: '?lang=', page: true }, { label: '?lang=sq-AL', page: true }] },
+            { label: '/users', page: true }
+        ] },
+        { label: 'not-a-path', page: true }
+    ]);
+    // Every level's address starts with the one above it
+    const bases = (nodes: PathNode<string>[]): boolean => nodes.every(node => node.path.startsWith(node.base) && bases(node.children));
+    expect(bases(tree)).toBe(true);
+    // A flat list stays flat
+    expect(shown(pathTree(['/a', '/b'], path => path))).toEqual([{ label: '/a', page: true }, { label: '/b', page: true }]);
 });

@@ -50,8 +50,13 @@ pass); a transfer keeps it, since it is keyed by the project.
 - The caption says where the results come from: members' browsers at the time of each visit.
 - **Across pages** (`AcrossPages`, `pageCheckInsights` in `src/lib/pageChecks/insights.ts`, pure): indexable
   pages of one site address that share a title, or a meta description (case and spacing aside), indexable
-  pages without a description, and pages that ask not to be indexed. Each card lists its pages. A `noindex`
-  page is left out of the first three: it is not in search results.
+  pages without a description, and pages that ask not to be indexed. A `noindex` page is left out of the
+  first three: it is not in search results. Each card's pages are closed until its "Show pages" button opens
+  them (uier #219), in a scroll of at most 20rem, with a search (address or title, and the shared text) when
+  there are more than six. They are listed as a hierarchy of their addresses (`pathTree` in
+  `src/lib/pageChecks/pathTree.ts`, pure): a level per path segment, a query under its path, a level that is
+  not a page and holds one level merged into it, under each environment's name when they are from several.
+  A page under a level shows the rest of its address; the whole address stays its link's name.
 - **Pages**: a table from the `@3xl` container width (a card per page under it, like the site addresses
   table): the page (its address opens it in review in a new tab, with `projectReview`; an address no longer
   among the project's is text), its title (and environment when the project has several), axe-core's issues by
@@ -70,8 +75,8 @@ The tab is always in the project's header (`ProjectTabs`), after Comments.
 `e2e/page-checks-site.api.spec.ts` (API): members only (guests, public viewers, other tokens and other sites
 refused, the site's verification proof), strict validation and the largest summary, replacement with the kept
 previous counts and the page state, the 200-page cap, the member and project rate limits (validation first),
-deletion with the project, and the across-pages and ordering rules.
+deletion with the project, the across-pages and ordering rules, and the address hierarchy.
 `e2e/page-checks-site.spec.ts` (full suite): a member reviews two pages of the `fixture-site` site with the same
 title; the toolbar sends one summary each (not again for an unchanged reload), and the view lists both with
-their counts, the shared title and description, sorts by page and passes axe (Desktop Chrome); a `noindex`
+their counts, the shared title and description (closed until opened, under their common path), sorts by page and passes axe (Desktop Chrome); a `noindex`
 page as a card on a phone, without a sideways scroll (Mobile Chrome).
