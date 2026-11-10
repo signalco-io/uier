@@ -48,7 +48,7 @@ const controls = [
     },
     {
         title: 'Coding tool events',
-        text: 'Event webhooks go only to public HTTPS addresses that first answered a signed challenge. The address is checked on every connection and redirects are not followed. Each delivery is signed with the secret the tool supplied, which uier stores encrypted, and access and visibility are checked again first. A revoked connection receives nothing more.'
+        text: 'Event webhooks go only to public HTTPS addresses that first answered a signed challenge. The address is checked on every connection and redirects are not followed. Each delivery is signed with the secret the tool supplied, which uier stores encrypted, and access and visibility are checked again first. An open event stream checks access again every few seconds. A revoked connection receives nothing more.'
     },
     {
         title: 'Browser extension',

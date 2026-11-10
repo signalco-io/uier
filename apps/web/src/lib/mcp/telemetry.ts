@@ -1,8 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
-import type { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
-import type { RequestId } from '@modelcontextprotocol/sdk/types.js';
+import type { McpServer, RequestId, ResourceTemplate } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 import { logEnvironment } from '../app/deployment';
 import { keyedHash } from '../comments/environment';
@@ -24,6 +22,11 @@ export { mcpRequestEventSchema, type McpRequestEvent } from './telemetrySchema';
 
 const methodNames = new Set<string>(methods);
 type Note = Pick<McpCall, 'error' | 'reason' | 'missingScope' | 'issues' | 'failure'>;
+/** What a transport needs for its answers to be seen: both the 2025 and the per-request 2026-07-28 transport have it. */
+type Observed = { send: (message: never, options?: never) => Promise<void> };
+/** The JSON-RPC errors the 2026-07-28 entry refuses a request with before any handler runs */
+const refusals: Record<number, string> = { [-32020]: 'header_mismatch', [-32021]: 'missing_client_capability', [-32022]: 'unsupported_protocol_version',
+    [-32601]: 'method_not_found', [-32602]: 'invalid_params', [-32600]: 'invalid_request', [-32700]: 'parse_error' };
 type Input = { shape: Record<string, unknown>; schema: z.ZodType };
 type Callback = (...args: unknown[]) => unknown;
 type ObjectValue = Record<string, unknown>;
@@ -104,19 +107,21 @@ function toolError(name: string | undefined, result: ObjectValue) {
     if (name === 'unknown') return 'unknown_tool';
     const content = Array.isArray(result.content) ? result.content.map(record) : [];
     // The SDK turns rejected arguments into a tool result with this text before any handler runs.
-    if (content.some(item => typeof item.text === 'string' && /^MCP error -32602: (?:Input validation error|Invalid arguments for tool)/.test(item.text)))
+    if (content.some(item => typeof item.text === 'string' && /^(?:Input validation error|Invalid arguments for tool)/.test(item.text)))
         return 'invalid_arguments';
     const value = record(result.structuredContent).error;
     return typeof value === 'string' && codePattern.test(value) ? value : 'other';
 }
 
 function protocolError(method: McpCall['method'], name: string | undefined, error: ObjectValue) {
+    // The SDK answers a tool it does not know with a protocol error, not a tool result.
+    if (method === 'tools/call' && name === 'unknown') return 'unknown_tool';
     if (method === 'prompts/get' && name === 'unknown') return 'unknown_prompt';
     if (method === 'resources/read' && name === 'unknown') return 'unknown_resource';
-    if (typeof error.message === 'string' && error.message.startsWith('MCP error -32602: Invalid arguments for prompt')) return 'invalid_arguments';
+    if (typeof error.message === 'string' && error.message.startsWith('Invalid arguments for prompt')) return 'invalid_arguments';
     return ({ [-32700]: 'parse_error', [-32600]: 'invalid_request', [-32601]: 'method_not_found', [-32602]: 'invalid_params',
-        // MCP event errors (events/protocol.ts)
-        [-32011]: 'not_found', [-32012]: 'forbidden', [-32013]: 'resource_exhausted', [-32014]: 'unsupported', [-32015]: 'callback_failed' } as Record<number, string>)[Number(error.code)] ?? 'protocol_error';
+        // MCP event errors (SEP-3415, events/subscriptions.ts)
+        [-32023]: 'not_found', [-32024]: 'forbidden', [-32025]: 'resource_exhausted', [-32026]: 'unsupported', [-32027]: 'callback_failed' } as Record<number, string>)[Number(error.code)] ?? 'protocol_error';
 }
 
 function resultSummary(method: McpCall['method'], result: ObjectValue): McpCall['result'] {
@@ -129,6 +134,8 @@ function resultSummary(method: McpCall['method'], result: ObjectValue): McpCall[
         const events = Array.isArray(result.events) ? result.events : [];
         return { items: events.length, more: result.hasMore === true, ...(result.truncated === true ? { truncated: true as const } : {}) };
     }
+    // A push stream's answer is empty: its events went out as notifications, counted as they were sent.
+    if (method === 'events/stream') return { items: typeof result.items === 'number' ? result.items : 0 };
     if (method !== 'tools/call') return undefined;
     const content = Array.isArray(result.content) ? result.content.map(record) : [];
     const data = record(result.structuredContent);
@@ -169,6 +176,9 @@ export class McpRequestLog {
     private readonly events = new Set<string>();
     private readonly responses = new Map<RequestId, ObjectValue>();
     private readonly notes = new Map<RequestId, Note>();
+    /** Events a push stream sent, by the request that opened it */
+    private readonly streamed = new Map<RequestId, number>();
+    private refusal?: string;
     private messages: unknown[] = [];
     private identity?: McpIdentity;
     private interruption?: 'timeout' | 'cancelled';
@@ -181,22 +191,29 @@ export class McpRequestLog {
     received(body: unknown) { this.messages = Array.isArray(body) ? body : [body]; }
     interrupted(reason: 'timeout' | 'cancelled') { this.interruption ??= reason; }
     rejected(error: unknown) { this.rejection ??= { error }; }
+    /** The protocol entry refused the request with this JSON-RPC error code before any handler ran. */
+    refused(code: unknown) { this.refusal ??= typeof code === 'number' ? refusals[code] ?? 'transport_error' : 'transport_error'; }
     note(id: RequestId, error: unknown) { if (!this.done && !this.notes.has(id)) this.notes.set(id, describeError(error)); }
 
-    /** Runs a request handler where `noteMcpError` can find the request it answers (its last argument carries the id). */
+    /** Runs a request handler where `noteMcpError` can find the request it answers (its last argument, the context, carries the id). */
     inRequest<A extends unknown[], R>(callback: (...args: A) => R): (...args: A) => R {
         return (...args) => {
-            const id = requestId(record(args.at(-1)).requestId);
+            const id = requestId(record(record(args.at(-1)).mcpReq).id);
             return id === undefined ? callback(...args) : calls.run({ log: this, id }, () => callback(...args));
         };
     }
 
-    /** Event names `events/subscribe`, `events/unsubscribe` and `events/poll` are logged by. */
+    /** Event names `events/subscribe`, `events/unsubscribe`, `events/poll` and `events/stream` are logged by. */
     watchEvents(names: readonly string[]) { for (const name of names) this.events.add(name); }
 
-    /** Learns each registration's input schema and runs its handler where `noteMcpError` can find this request. */
+    /**
+     * Learns each registration's input schema, runs its handler where `noteMcpError` can find this
+     * request, and sees the answers on whichever transport serves it.
+     */
     watch(server: McpServer) {
         const inContext = (callback: Callback): Callback => this.inRequest(callback);
+        const connect = server.connect.bind(server);
+        server.connect = transport => { this.observe(transport as unknown as Observed); return connect(transport); };
         const registerTool = server.registerTool.bind(server);
         server.registerTool = ((name: string, config: { inputSchema?: unknown }, callback: Callback) => {
             this.tools.set(name, inputOf(config.inputSchema));
@@ -214,13 +231,17 @@ export class McpRequestLog {
         }) as unknown as McpServer['registerResource'];
     }
 
-    /** Sees each JSON-RPC answer the server sends for this request. */
-    observe(transport: WebStandardStreamableHTTPServerTransport) {
+    /** Sees each JSON-RPC answer the server sends for this request, and counts the events of a push stream. */
+    private observe(transport: Observed) {
         const send = transport.send.bind(transport);
         transport.send = (message, options) => {
             const reply = record(message);
             const id = requestId(reply.id);
             if (!this.done && id !== undefined && ('result' in reply || 'error' in reply) && !this.responses.has(id)) this.responses.set(id, reply);
+            if (!this.done && reply.method === 'notifications/events/event') {
+                const stream = requestId(record(record(reply.params)._meta)['io.modelcontextprotocol/subscriptionId']);
+                if (stream !== undefined) this.streamed.set(stream, (this.streamed.get(stream) ?? 0) + 1);
+            }
             return send(message, options);
         };
     }
@@ -238,7 +259,9 @@ export class McpRequestLog {
         for (const message of this.messages.slice(0, MAX_CALLS)) entries.push(await this.call(message, status));
         const identity = this.identity;
         const initialize = this.messages.map(record).find(message => message.method === 'initialize');
-        const info = record(record(initialize?.params).clientInfo);
+        // A 2026-07-28 request has no handshake: every request names its client in `_meta`.
+        const envelope = record(record(record(this.messages[0]).params)._meta)['io.modelcontextprotocol/clientInfo'];
+        const info = record(initialize ? record(initialize.params).clientInfo : envelope);
         const clientVersion = label(info.version, 32);
         const protocolVersion = [this.request.headers.get('mcp-protocol-version'), record(initialize?.params).protocolVersion]
             .find((value): value is string => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value));
@@ -248,7 +271,7 @@ export class McpRequestLog {
             status, durationMs: Math.max(0, Math.round(performance.now() - this.started)),
             ...this.outcome(status),
             ...(protocolVersion ? { protocolVersion } : {}),
-            ...(initialize && info.name !== undefined ? { client: { name: label(info.name, 64) ?? 'other', ...(clientVersion ? { version: clientVersion } : {}) } } : {}),
+            ...(info.name !== undefined ? { client: { name: label(info.name, 64) ?? 'other', ...(clientVersion ? { version: clientVersion } : {}) } } : {}),
             ...(identity ? { connection: { kind: identity.connection.kind,
                 ref: keyedHash('mcp-log-connection', identity.connection.id).slice(0, 16),
                 user: keyedHash('mcp-log-user', identity.user.id).slice(0, 16),
@@ -265,6 +288,7 @@ export class McpRequestLog {
             ...(error instanceof McpAuthenticationError ? { authentication: error.tokenPresented ? 'invalid' : 'missing' } : {}) };
         if (this.rejection) return { outcome: 'failed', error: 'server_error', failure: failureOf(error) };
         if (status === 405) return { outcome: 'rejected', error: 'method_not_allowed' };
+        if (this.refusal) return { outcome: 'rejected', error: this.refusal };
         // The transport itself refused the request, for example a missing Accept header.
         if (status >= 400) return { outcome: 'rejected', error: 'transport_error' };
         return { outcome: 'handled' };
@@ -284,7 +308,7 @@ export class McpRequestLog {
         }
         if (method === 'resources/read') call.name = this.resource(params.uri);
         // The event name only: never the arguments, callback URL or secret.
-        if (method === 'events/subscribe' || method === 'events/unsubscribe' || method === 'events/poll') {
+        if (method === 'events/subscribe' || method === 'events/unsubscribe' || method === 'events/poll' || method === 'events/stream') {
             call.name = this.events.has(String(params.name)) ? String(params.name) : 'unknown';
             if (call.name === 'unknown' && typeof params.name === 'string' && requestedNamePattern.test(params.name)) call.requestedName = params.name;
         }
@@ -304,7 +328,7 @@ export class McpRequestLog {
             const result = record(reply.result);
             if (method === 'tools/call' && result.isError === true) Object.assign(call, { outcome: 'tool_error' }, note ?? { error: toolError(call.name, result) });
             else call.outcome = 'success';
-            const summary = resultSummary(method, result);
+            const summary = resultSummary(method, method === 'events/stream' ? { items: this.streamed.get(id) ?? 0 } : result);
             if (summary) call.result = summary;
         }
         if (call.error === 'invalid_arguments' && input && !call.issues) {

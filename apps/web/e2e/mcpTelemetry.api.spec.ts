@@ -1,9 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
-import { ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
+import { ProtocolErrorCode as ErrorCode, WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/server';
 import { handleMcp } from '../src/lib/mcp/http';
 import { mcpRequestEventSchema, type McpRequestEvent } from '../src/lib/mcp/telemetry';
 import { createMcpCredential } from '../src/lib/mcp/credentials';
@@ -91,7 +89,8 @@ test('failed calls record why they failed: arguments, scopes, access, unknown na
         await client.callTool({ name: 'get_feedback', arguments: { projectId: f.project.id, comment_id: f.comment.id } });
         await client.callTool({ name: 'reply_to_feedback', arguments: { projectId: f.project.id, commentId: f.comment.id, text: 'PRIVATE_REPLY', idempotencyKey: randomUUID() } });
         await client.callTool({ name: 'get_feedback', arguments: { projectId: 'zzzzzzzzzzzz', commentId: f.comment.id } });
-        await client.callTool({ name: 'create_feedback', arguments: { text: 'PRIVATE_SEARCH' } });
+        // A tool the server does not have is a protocol error, not a tool result.
+        await expect(client.callTool({ name: 'create_feedback', arguments: { text: 'PRIVATE_SEARCH' } })).rejects.toMatchObject({ code: ErrorCode.InvalidParams });
         await expect(client.getPrompt({ name: 'summarize-feedback', arguments: {} })).rejects.toMatchObject({ code: ErrorCode.InvalidParams });
         await expect(client.getPrompt({ name: 'triage-feedback', arguments: { projectId: 'zzzzzzzzzzzz' } })).rejects.toMatchObject({ code: ErrorCode.InvalidParams });
         await expect(client.readResource({ uri: 'uier://PRIVATE_SEARCH' })).rejects.toMatchObject({ code: ErrorCode.InvalidParams });
@@ -108,13 +107,34 @@ test('failed calls record why they failed: arguments, scopes, access, unknown na
     expect(calls[2]).toMatchObject({ name: 'reply_to_feedback', outcome: 'tool_error', error: 'forbidden', missingScope: 'feedback:reply',
         arguments: { projectId, text: { type: 'string', length: 13 }, idempotencyKey: { type: 'string', length: 36 } } });
     expect(calls[3]).toMatchObject({ name: 'get_feedback', outcome: 'tool_error', error: 'not_found' });
-    expect(calls[4]).toEqual({ method: 'tools/call', name: 'unknown', requestedName: 'create_feedback', outcome: 'tool_error', error: 'unknown_tool',
-        result: { bytes: expect.any(Number) } });
+    expect(calls[4]).toEqual({ method: 'tools/call', name: 'unknown', requestedName: 'create_feedback', outcome: 'error',
+        rpcError: ErrorCode.InvalidParams, error: 'unknown_tool' });
     expect(calls[5]).toEqual({ method: 'prompts/get', name: 'unknown', requestedName: 'summarize-feedback', outcome: 'error',
         rpcError: ErrorCode.InvalidParams, error: 'unknown_prompt' });
     expect(calls[6]).toEqual({ method: 'prompts/get', name: 'triage-feedback', arguments: { projectId }, outcome: 'error',
         rpcError: ErrorCode.InvalidParams, error: 'not_found' });
     expect(calls[7]).toEqual({ method: 'resources/read', name: 'unknown', outcome: 'error', rpcError: ErrorCode.InvalidParams, error: 'unknown_resource' });
+});
+
+test('requests of the 2026-07-28 revision log their revision and client on every request, without a handshake', async () => {
+    const f = await fixture();
+    const { events, handle } = recorder();
+    const client = new Client({ name: 'telemetry-modern-client', version: '4.5.6' }, { versionNegotiation: { mode: 'auto' } });
+    await client.connect(new StreamableHTTPClientTransport(new URL(`${base}/api/mcp`), {
+        requestInit: { headers: { Authorization: `Bearer ${f.token}` } }, fetch: async (input, init) => handle(new Request(input, init)) }));
+    try {
+        expect((await client.callTool({ name: 'get_feedback', arguments: { projectId: f.project.id, commentId: f.comment.id } })).isError).toBeFalsy();
+        await expect(client.callTool({ name: 'create_feedback', arguments: { text: 'PRIVATE_SEARCH' } })).rejects.toMatchObject({ code: ErrorCode.InvalidParams });
+    } finally { await client.close(); }
+    expectNothingPrivate(events, f);
+    expect(events.every(event => event.protocolVersion === '2026-07-28' && event.status === 200 && event.outcome === 'handled'
+        && event.client?.name === 'telemetry-modern-client' && event.client.version === '4.5.6' && event.connection?.kind === 'credential')).toBe(true);
+    const calls = events.flatMap(event => event.calls);
+    expect(calls[0]).toEqual({ method: 'server/discover', outcome: 'success' });
+    expect(calls.map(call => call.method)).not.toContain('initialize');
+    expect(calls.find(call => call.name === 'get_feedback')).toMatchObject({ method: 'tools/call', outcome: 'success', result: { bytes: expect.any(Number) },
+        arguments: { projectId: { type: 'string', length: 12 }, commentId: { type: 'string', length: expect.any(Number) } } });
+    expect(calls.at(-1)).toEqual({ method: 'tools/call', name: 'unknown', requestedName: 'create_feedback', outcome: 'error', rpcError: ErrorCode.InvalidParams, error: 'unknown_tool' });
 });
 
 test('rejected requests log the reason before and after authentication', async () => {

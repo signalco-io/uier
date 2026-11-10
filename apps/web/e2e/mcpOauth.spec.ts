@@ -1,10 +1,8 @@
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { test, expect, type Page, type TestInfo } from '@playwright/test';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { auth, extractWWWAuthenticateParams, type OAuthClientProvider } from '@modelcontextprotocol/sdk/client/auth.js';
-import type { OAuthClientInformationMixed, OAuthClientMetadata, OAuthTokens } from '@modelcontextprotocol/sdk/shared/auth.js';
+import { auth, Client, extractWWWAuthenticateParams, StreamableHTTPClientTransport,
+    type OAuthClientInformationMixed, type OAuthClientMetadata, type OAuthClientProvider, type OAuthDiscoveryState, type OAuthTokens } from '@modelcontextprotocol/client';
 import { createProject, requestSignInEmail, signIn, uniqueEmail } from './support/app';
 import { USER_FEEDBACK_PROJECT_ID } from '../src/lib/comments/publicProject';
 import { expectNoAxeViolations } from './accessibility';
@@ -51,6 +49,9 @@ class TestOAuthProvider implements OAuthClientProvider {
     redirectToAuthorization(url: URL) { this.authorizationUrl = url; }
     saveCodeVerifier(verifier: string) { this.verifier = verifier; }
     codeVerifier() { return this.verifier; }
+    discovery?: OAuthDiscoveryState;
+    saveDiscoveryState(state: OAuthDiscoveryState) { this.discovery = state; }
+    discoveryState() { return this.discovery; }
 }
 
 /** Starts sign-in the way a client does after its first 401: challenge, discovery, registration */
@@ -124,7 +125,8 @@ test('a coding tool signs in with OAuth, reaches the chosen workspaces, and lose
         const code = callback.searchParams.get('code');
         expect(code).toMatch(/^uier_code\./);
         await expect(page).toHaveURL(flow.listener.redirectUrl + callback.search);
-        expect(await auth(flow.provider, { serverUrl: flow.serverUrl, resourceMetadataUrl: flow.resourceMetadataUrl, scope: flow.scope, authorizationCode: code! })).toBe('AUTHORIZED');
+        expect(await auth(flow.provider, { serverUrl: flow.serverUrl, resourceMetadataUrl: flow.resourceMetadataUrl, scope: flow.scope, authorizationCode: code!,
+            iss: callback.searchParams.get('iss')! })).toBe('AUTHORIZED');
         const accessToken = flow.provider.saved!.access_token;
         expect(accessToken).toMatch(/^uier_at\./);
         expect(flow.provider.saved!.refresh_token).toMatch(/^uier_rt\./);

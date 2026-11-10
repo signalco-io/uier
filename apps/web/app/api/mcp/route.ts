@@ -3,7 +3,8 @@ import { handleMcp } from '@/src/lib/mcp/http';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 30;
+// A push stream (`events/stream`) stays open for four minutes; every other request has its own 25-second deadline.
+export const maxDuration = 300;
 
 async function handle(request: Request) {
     return handleMcp(request, new URL(await appBaseUrl()).origin);

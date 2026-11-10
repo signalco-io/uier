@@ -1,7 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { test, expect } from '@playwright/test';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { signIn, uniqueEmail, createProject, appNavigation, closeAppNavigation } from './support/app';
 import { PUBLIC_PROJECT_ID } from '../src/lib/comments/publicProject';
 import { expectNoAxeViolations } from './accessibility';

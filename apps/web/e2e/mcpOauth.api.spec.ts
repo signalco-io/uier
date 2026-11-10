@@ -2,10 +2,9 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { test, expect } from '@playwright/test';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { discoverAuthorizationServerMetadata, discoverOAuthProtectedResourceMetadata, UnauthorizedError, type OAuthClientProvider } from '@modelcontextprotocol/sdk/client/auth.js';
-import { OAuthClientInformationFullSchema, OAuthMetadataSchema, OAuthProtectedResourceMetadataSchema, OAuthTokensSchema, type OAuthClientInformationMixed, type OAuthClientMetadata, type OAuthTokens } from '@modelcontextprotocol/sdk/shared/auth.js';
+import { Client, discoverAuthorizationServerMetadata, discoverOAuthProtectedResourceMetadata, StreamableHTTPClientTransport, UnauthorizedError,
+    type OAuthClientInformationMixed, type OAuthClientMetadata, type OAuthClientProvider, type OAuthDiscoveryState, type OAuthTokens } from '@modelcontextprotocol/client';
+import { OAuthClientInformationFullSchema, OAuthMetadataSchema, OAuthProtectedResourceMetadataSchema, OAuthTokensSchema } from '@modelcontextprotocol/core';
 import { GET as authorizeRoute } from '../app/api/oauth/authorize/route';
 import { POST as tokenRoute } from '../app/api/oauth/token/route';
 import { POST as registerRoute } from '../app/api/oauth/register/route';
@@ -1092,9 +1091,14 @@ class TestOAuthProvider implements OAuthClientProvider {
     async redirectToAuthorization(url: URL) { this.redirects.push(url); await this.onRedirect(url); }
     saveCodeVerifier(verifier: string) { this.verifier = verifier; }
     codeVerifier() { return this.verifier; }
+    // Kept with the verifier: the callback is checked against the authorization server found before the redirect.
+    discovery?: OAuthDiscoveryState;
+    saveDiscoveryState(state: OAuthDiscoveryState) { this.discovery = state; }
+    discoveryState() { return this.discovery; }
     invalidateCredentials(scope: 'all' | 'client' | 'tokens' | 'verifier' | 'discovery') {
         if (scope === 'all' || scope === 'tokens') this.saved = undefined;
         if (scope === 'all' || scope === 'client') this.information = undefined;
+        if (scope === 'all' || scope === 'discovery') this.discovery = undefined;
     }
 }
 
@@ -1120,7 +1124,7 @@ test('the official SDK client discovers, registers, signs in, refreshes and lose
     const shared = await project(b.context, 'Shared project');
     await addMember(b.workspaceId, a.user, [shared.id], 'commenter', new Date(Date.now() + 1000).toISOString());
     let approve = true;
-    let code: string | undefined;
+    let callbackParams: URLSearchParams | undefined;
     const provider = new TestOAuthProvider('http://127.0.0.1:47999/callback', async url => {
         expect(`${url.origin}${url.pathname}`).toBe(`${base}/api/oauth/authorize`);
         expect(url.searchParams.get('resource')).toBe(resource);
@@ -1134,14 +1138,15 @@ test('the official SDK client discovers, registers, signs in, refreshes and lose
         const callback = new URL(await approveAuthorization(a.user, requestId, { access: { kind: 'all' }, scopes: ['feedback:read', 'feedback:reply'], name: 'SDK agent' }, base));
         expect(callback.searchParams.get('state')).toBe(provider.expectedState);
         expect(callback.searchParams.get('iss')).toBe(base);
-        code = callback.searchParams.get('code')!;
+        callbackParams = callback.searchParams;
     });
     const transport = () => new StreamableHTTPClientTransport(new URL(resource), { authProvider: provider, fetch: inProcessFetch });
     const first = transport();
     await expect(new Client({ name: 'sdk-oauth', version: '1.0.0' }).connect(first)).rejects.toBeInstanceOf(UnauthorizedError);
     expect(provider.information?.client_id).toMatch(/^uier_client_/);
-    expect(code).toBeTruthy();
-    await first.finishAuth(code!);
+    expect(callbackParams?.get('code')).toBeTruthy();
+    // The client checks the callback's `iss` against the issuer it discovered (RFC 9207) before it uses the code.
+    await first.finishAuth(callbackParams!);
     expect(provider.saved).toMatchObject({ token_type: 'Bearer', scope: 'feedback:read feedback:reply', refresh_token: expect.stringMatching(/^uier_rt\./) });
 
     const client = new Client({ name: 'sdk-oauth', version: '1.0.0' });

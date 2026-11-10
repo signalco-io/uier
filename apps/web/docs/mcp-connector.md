@@ -1,6 +1,8 @@
 # Authenticated MCP connector
 
-`/api/mcp` is stateless Streamable HTTP using the official MCP SDK. `src/lib/mcp/` owns
+`/api/mcp` is stateless, on the official MCP SDK v2 (`@modelcontextprotocol/server`; tests use
+`@modelcontextprotocol/client` and the schemas of `@modelcontextprotocol/core`), and serves
+two protocol generations (see Protocol revisions and transport below). `src/lib/mcp/` owns
 authentication, scopes and tools; `src/lib/mcp/oauth/` is uier's own OAuth 2.1 authorization server
 for this endpoint only. The contract is [docs/mcp.md](../../../docs/mcp.md); the design record and its
 decisions are [docs/mcp-oauth-plan.md](../../../docs/mcp-oauth-plan.md). Two kinds of connection resolve
@@ -93,15 +95,39 @@ boundary and reloads the consent URL on an account change; stale approval action
 server-side even before that reload. `account-consent.api.spec.ts` covers stale approvals. Both share
 `ClientDetails` (Unverified, Published at, Sends you back to) and `scopes.ts` labels.
 
-The route has `maxDuration = 30`; `handleMcp` races transport handling against a 25-second deadline
-(overridable by API specs) and the request abort signal, returns a JSON-RPC error on interruption
-and always closes the server. Screenshot resources map `ApiError` to `InvalidParams` with its
+**Protocol revisions and transport.** `http.ts` builds one server per request (`createFeedbackMcpServer`) and routes it by the SDK's own
+classification (`classifyInboundRequest`): a body with the per-request `_meta` envelope is
+`2026-07-28` and goes to the SDK entry (`createMcpHandler` with `legacy: 'reject'`, whose factory hands
+back the server prepared for that `Request`); anything else is a 2025-era request and gets
+`WebStandardStreamableHTTPServerTransport` in stateless JSON mode, as before. Keep one definition for
+both: never register a tool for one generation only. The SDK entry answers `server/discover`, checks
+the standard headers and stamps `resultType`; `initialize` is the 2025 path. Don't replace the
+hand-wired 2025 path with the entry's default fallback: it answers every request as an SSE stream.
+
+- Capabilities end with `listChanged: false` for tools, prompts and resources (set after the
+  registrations, which turn it on). With that, the SDK acknowledges `subscriptions/listen` empty and
+  closes it; a `true` would hold a stream open for notifications that can never be sent.
+- `cacheHints` let a `2026-07-28` client keep `server/discover` and the lists for five minutes
+  (`private`). They depend only on the connection's operations.
+- Errors are `ProtocolError` with `ProtocolErrorCode` (the wire message has no `MCP error <code>:`
+  prefix any more). A tool that does not exist is a JSON-RPC `-32602`, not a tool result.
+- The SDK checks `Mcp-Name` for its own methods only. `eventNameHeaderRejection` (`events/protocol.ts`)
+  does it for the event methods, before the entry is called, because the answer must be an HTTP 400.
+- The only response that stays open is `events/stream`. For it the 2025 transport is created without
+  JSON mode, and `handleMcp` closes the server and writes the request log when the body has been sent
+  (`whenSent`), not when the response object is returned.
+
+The route has `maxDuration = 300` for push streams; `handleMcp` races the answer against a 25-second
+deadline (overridable by API specs) and the request abort signal, returns a JSON-RPC error on
+interruption and always closes the server; a stream that has opened ends itself after four minutes. Screenshot resources map `ApiError` to `InvalidParams` with its
 code/message, zod errors to fixed `InvalidParams` text and unexpected errors to `InternalError`
 with `The operation failed.`; the request log records the failure. Never return raw storage diagnostics.
 
 **Request logs.** `handleMcp` emits one `mcp_request` event per request through `mcp/telemetry.ts`
 ([request logs](../../../docs/mcp.md#request-logs)). `createFeedbackMcpServer` calls `log.watch(server)`
-before registering anything, so every tool, prompt and resource is logged by name and its own schema;
+before registering anything, so every tool, prompt and resource is logged by name and its own schema,
+and the answers are seen on whichever transport the server is connected to (`watch` wraps `connect`);
+a request the SDK entry refuses before any handler is logged by its JSON-RPC code (`log.refused`);
 handler catch blocks call `noteMcpError(error)` before mapping the error. Events carry names, codes,
 counts, sizes and keyed connection/account references. Argument values are kept only for booleans,
 `null`, numeric fields and options the schema declares; never log content, ids, names, tokens, URLs or
@@ -177,31 +203,64 @@ registration, loopback listener) through sign-in, consent, approval, `list_proje
 revocation in Account (`@smoke`), plus cancel, request reuse, another account and the error page.
 This connector does not prove #90 launch acceptance.
 
-**Events (webhooks and polling).** `src/lib/mcp/events/` implements MCP Events webhook and poll
-delivery as ChatGPT consumes it ([docs/mcp.md](../../../docs/mcp.md#events-webhooks-and-polling)): `protocol.ts` registers
-the top-level `events` capability and `events/list|subscribe|unsubscribe|poll` and owns the error code
-table; `feed.ts` the stateless poll feed behind `events/poll` and the `list_feedback_events` tool (an
-opaque client-held cursor: watermark a minute behind, the start time, and short ids already returned
-since the watermark, so late commits arrive once; nothing stored per client); `catalog.ts` the event names, argument/payload schemas (additive only) and the mapping from a
-thread's `notificationEvents`; `subscriptions.ts` deterministic subscription ids, TTL grants, limits,
-endpoint verification and encrypted `whsec_` secrets; `webhook.ts` Standard Webhooks signing and the
-POST, which goes only to public HTTPS on the default port through `publicNetwork.ts` (the same
-connection-time address check as OAuth metadata fetches), never follows redirects and reports fixed
-failure categories only; `delivery.ts` discovery from `listChangedSince` with a per-project cursor,
-deterministic delivery records retaining the event's `agentId` (several agent removals can share a sequence, kind and timestamp), leased attempts with bounded retries, and `runMcpEventWorker`.
+**Events (webhooks, streams and polling).** `src/lib/mcp/events/` implements SEP-3415 (MCP Events, a
+draft) with all three delivery modes ([docs/mcp.md](../../../docs/mcp.md#events-webhooks-streams-and-polling)):
+
+- `protocol.ts` registers the `io.modelcontextprotocol/events` extension capability (plus the design
+  sketch's top-level `events`, which ChatGPT reads) and `events/list|poll|stream|subscribe|unsubscribe`,
+  adds `resultType: "complete"` to every result (the SDK does on `2026-07-28`; 2025-era answers get it
+  here) and holds the `Mcp-Name` check. `subscriptions.ts` owns the error code table (the SEP's
+  provisional -32023…-32027).
+- `feed.ts` is the stateless feed behind `events/poll`, the `list_feedback_events` tool and push
+  streams: an opaque client-held cursor (watermark a minute behind, the start time, and short ids
+  already returned since the watermark, so late commits arrive once; nothing stored per client). With
+  `positions` it also returns the position after each event. Webhooks issue cursors in the same format
+  (`watermarkCursor`), so one cursor resumes in any mode: keep it that way.
+- `stream.ts` is push delivery: it polls the feed every three seconds, sends `active`, each event with
+  its position, a heartbeat every 25 seconds, `error` for a failed read (once per outage) and `terminated` when
+  `currentEventAccess` says access ended, and ends itself after four minutes with the empty result.
+  One `mcp-event-stream` record per open stream (its connection's partition, 90-second TTL, renewed)
+  enforces 12 per connection. Streams of a project on one instance share their reads. Nothing may be
+  thrown after `active`; whatever refuses a subscription happens before it.
+- `catalog.ts` has the event names, argument/payload schemas (additive only) and the mapping from a
+  thread's `notificationEvents`.
+- `subscriptions.ts`: deterministic subscription ids, TTL grants (clamped, never refused), limits,
+  endpoint verification, encrypted `whsec_` secrets, and where a new subscription starts (`startPosition`:
+  now, or its cursor within the replay limits). `currentEventAccess` is the one access recheck for
+  deliveries, sweeps and streams: only a definite answer (no connection, or a 403/404 from
+  `mcpProject`) ends anything, never a storage error.
+- `watermark.ts`: a webhook subscription's position (the safe-to-persist watermark), computed from the
+  project's discovery cursor and the subscription's deliveries that still wait; never stored. It also
+  holds the cursor and delivery record types.
+- `webhook.ts`: Standard Webhooks signing and the POST, which goes only to public HTTPS on the default
+  port through `publicNetwork.ts` (the same connection-time address check as OAuth metadata fetches),
+  never follows redirects and reports fixed failure categories only.
+- `delivery.ts`: discovery from `listChangedSince` with a per-project cursor, deterministic delivery
+  records retaining the event's `agentId` (several agent removals can share a sequence, kind and
+  timestamp), leased attempts with bounded retries, and `runMcpEventWorker`. Each delivery record has a
+  random `webhookId`, reused by its retries; the SEP forbids deriving it from `eventId`. A subscription
+  with `replay` gets its own scan (`replaySubscription`) for the events before it existed: never rewind
+  the project cursor for it, other subscriptions' expired records would be created again. An event
+  given up (retries exhausted, 413, too large; not 410) marks the subscription `gap`: the endpoint gets
+  a `gap` envelope after its next acknowledged delivery, or the next refresh says `truncated`. Ending
+  a subscription for lost access sends one signed `terminated` envelope.
+
 `feedback.assignment_changed` with `assignee: "me"` matches only additions of the connection owner,
 not removals or changes retaining that person; agent-event filtering still includes removals under that owner.
 Events never get their own write path: add an event kind to `notificationEvents` and map it in the
 catalog. Every attempt rechecks the connection (`currentMcpConnection`), `mcpProject` and
-`canSeeComment`; lost access deletes the subscription. Never deliver a connection's own changes
+`canSeeComment`, and the scheduled sweep (`recheckAccess`) rechecks every live subscription; lost access
+deletes the subscription. Never deliver a connection's own changes
 back to it, never log callback URLs, secrets, arguments or payloads, and keep payloads minimal and
 marked untrusted. `review/comments.ts` calls `queueMcpEventDelivery` after `createProjectComment`,
 replies and `changeComment`; it runs only when `instrumentation.ts` registered `after()`, so API
 specs call `dispatchProjectEvents` themselves. The scheduled worker sweeps after integrations.
 `UIER_MCP_EVENTS_TEST_HTTP_CALLBACKS=1` admits `http://localhost` callbacks in local runtime only (the
 Playwright server sets it); never set it on a deployment. `e2e/mcpEvents.api.spec.ts` covers the
-contract with `e2e/support/webhookReceiver.ts`; `e2e/mcpEvents.spec.ts` proves delivery after a real
-request.
+contract with `e2e/support/webhookReceiver.ts` and `e2e/support/eventStream.ts` (it passes short
+stream timing through `handleMcp`'s `stream` option, and writes `2026-07-28` requests by hand, because
+the SDK client does not send `Mcp-Name` for event methods); `e2e/mcpEvents.spec.ts` proves webhook
+delivery and an open stream over real HTTP.
 
 `mcp/clients.ts` builds the Account client tabs from one endpoint, without taking a token as
 input. Keep these reference-only configurations aligned with the linked official docs and

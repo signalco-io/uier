@@ -26,7 +26,7 @@ test.beforeAll(async () => {
         '../src/lib/notifications/delivery': 'export async function retryNotificationDelivery() { console.log("CALL retry"); } export async function runNotificationWorker() { console.log("CALL email"); return JSON.parse(process.env.UIER_WORKER_TEST_DELIVERY || \'{"checked":0,"failed":0,"blocked":0,"review":[]}\'); }',
         '../src/lib/app/deployment': 'export function configuredAppBaseUrl() { return "https://uier.io"; }',
         '../src/lib/integrations/worker': 'export async function runIntegrationWorker() { console.log("CALL integrations"); return {discovered:{checked:0,deferred:0},providers:[],blocked:0}; }',
-        '../src/lib/mcp/events/delivery': 'export async function runMcpEventWorker() { console.log("CALL mcp-events"); if (process.env.UIER_WORKER_TEST_EVENTS_FAILURE === "1") throw new TypeError("isolated event endpoint detail"); return {projects:1,discovered:2,delivered:1,retrying:1,failed:0,skipped:0,deferred:0}; }'
+        '../src/lib/mcp/events/delivery': 'export async function runMcpEventWorker() { console.log("CALL mcp-events"); if (process.env.UIER_WORKER_TEST_EVENTS_FAILURE === "1") throw new TypeError("isolated event endpoint detail"); return {projects:1,discovered:2,delivered:1,retrying:1,failed:0,skipped:0,terminated:0,deferred:0}; }'
     };
     await build({ entryPoints: [resolve('scripts/notifications-worker.ts')], outfile: worker, bundle: true,
         platform: 'node', format: 'esm', plugins: [{ name: 'isolated-transports', setup(builder) {
@@ -65,7 +65,7 @@ test('normal scheduled runs retain email retries and integration delivery', asyn
     expect(result.stdout).toContain('CALL email');
     // Events imported by integrations this run are delivered in the same run.
     expect(result.stdout).toMatch(/CALL integrations[\s\S]*CALL mcp-events/);
-    expect(result.stdout).toContain('[mcp-events] 1 projects: 2 new deliveries, 1 delivered, 1 retrying, 0 failed, 0 skipped; 0 projects deferred.');
+    expect(result.stdout).toContain('[mcp-events] 1 projects: 2 new deliveries, 1 delivered, 1 retrying, 0 failed, 0 skipped, 0 subscriptions ended; 0 projects deferred.');
 });
 
 test('a failing MCP event sweep fails the run after the other work, logging only the error class', async () => {

@@ -9,8 +9,10 @@ import type { McpIdentity } from '../credentials';
 import { eventMatches, mcpEventData, mcpEventId, type McpEventArguments, type McpEventName } from './catalog';
 
 /*
- * Poll delivery: a stateless feed of a project's events since a client-held cursor, for
- * `events/poll` and the `list_feedback_events` tool. Nothing is stored per client.
+ * A stateless feed of a project's events since a client-held cursor, for `events/poll`, the
+ * `list_feedback_events` tool and push streams (`events/stream`, which polls it). Nothing is stored
+ * per client. Webhook subscriptions issue cursors in the same format (a watermark only), so a cursor
+ * from one delivery mode resumes in another.
  *
  * The cursor is `v1:<watermark>:<from>:<seen>`: every event at or before the watermark was
  * returned or skipped; `from` (from a null cursor) excludes earlier events, keeping those of its
@@ -30,16 +32,17 @@ const MAX_SEEN = 200;
 export const NEXT_POLL_MS = 30_000;
 export const MAX_CURSOR_LENGTH = 8192;
 
-type Cursor = { watermark: number; from?: number; seen: [string, number][] };
+export type FeedCursor = { watermark: number; from?: number; seen: [string, number][] };
+type Cursor = FeedCursor;
 const shortId = (eventId: string) => eventId.slice(4, 16);
 const cursorPattern = /^v1:([0-9a-z]{1,11}):([0-9a-z]{0,11}):((?:[0-9a-f]{12}[0-9a-z]{1,11})(?:,[0-9a-f]{12}[0-9a-z]{1,11})*)?$/;
 
-function encode({ watermark, from, seen }: Cursor) {
+export function encodeFeedCursor({ watermark, from, seen }: Cursor) {
     return `v1:${watermark.toString(36)}:${from === undefined ? '' : from.toString(36)}:${seen.map(([id, at]) => `${id}${at.toString(36)}`).join(',')}`;
 }
 
 /** A parsed cursor, or `null` when it is not one this server issued. */
-function decode(value: string): Cursor | null {
+export function decodeFeedCursor(value: string): Cursor | null {
     const match = value.length <= MAX_CURSOR_LENGTH ? cursorPattern.exec(value) : null;
     if (!match) return null;
     const watermark = parseInt(match[1]!, 36);
@@ -55,7 +58,9 @@ export class InvalidFeedCursorError extends Error {
 }
 
 export type FeedEvent = { eventId: string; name: McpEventName; timestamp: string; data: ReturnType<typeof mcpEventData> };
-export type FeedPage = { events: FeedEvent[]; cursor: string; truncated: boolean; hasMore: boolean; nextPollMs: number };
+export type FeedPage = { events: FeedEvent[]; cursor: string; truncated: boolean; hasMore: boolean; nextPollMs: number;
+    /** With `positions`: the position before the first event (after the replay limits), and the position after each event */
+    start?: string; positions?: string[] };
 
 export type FeedRequest = {
     identity: McpIdentity;
@@ -69,19 +74,26 @@ export type FeedRequest = {
     maxEvents: number;
     /** Do not replay events older than this */
     maxAgeMs?: number;
+    /** Also return `start` and each event's own position (push delivery sends a cursor with every event) */
+    positions?: boolean;
     baseUrl?: string;
     comments?: CommentsStore;
     now?: number;
 };
 
-const fresh = (now: number, truncated: boolean): FeedPage =>
-    ({ events: [], cursor: encode({ watermark: now - SETTLE_MS, from: now, seen: [] }), truncated, hasMore: false, nextPollMs: NEXT_POLL_MS });
+function fresh(now: number, truncated: boolean, positions?: boolean): FeedPage {
+    const cursor = encodeFeedCursor({ watermark: now - SETTLE_MS, from: now, seen: [] });
+    return { events: [], cursor, truncated, hasMore: false, nextPollMs: NEXT_POLL_MS, ...(positions ? { start: cursor, positions: [] } : {}) };
+}
+
+/** A cursor that resumes after every event up to `watermark` (the form webhook subscriptions issue). */
+export const watermarkCursor = (watermark: number) => encodeFeedCursor({ watermark: Math.max(0, Math.floor(watermark)), seen: [] });
 
 /** Events after the cursor that the connection owner can see now, oldest first, at most `maxEvents`. */
 export async function pollProjectEvents(request: FeedRequest): Promise<FeedPage> {
     const now = request.now ?? Date.now();
-    if (request.cursor === null) return fresh(now, false);
-    const cursor = decode(request.cursor);
+    if (request.cursor === null) return fresh(now, false, request.positions);
+    const cursor = decodeFeedCursor(request.cursor);
     if (!cursor) throw new InvalidFeedCursorError();
     let truncated = false;
     let floor = cursor.watermark;
@@ -90,7 +102,7 @@ export async function pollProjectEvents(request: FeedRequest): Promise<FeedPage>
     const seenBefore = cursor.seen.filter(([, at]) => at > floor);
     const changed = await (request.comments ?? getCommentsStore()).listChangedSince(projectPartition(request.project.id), floor - SETTLE_MS, MAX_THREADS);
     // Too much changed to read in one request: start again from now. The client re-reads state with tools.
-    if (changed.length >= MAX_THREADS) return fresh(now, true);
+    if (changed.length >= MAX_THREADS) return fresh(now, true, request.positions);
 
     const seen = new Set(seenBefore.map(([id]) => id));
     const candidates: { eventId: string; at: number; name: McpEventName; comment: DbComment; event: NotificationEvent }[] = [];
@@ -111,23 +123,32 @@ export async function pollProjectEvents(request: FeedRequest): Promise<FeedPage>
     candidates.sort((a, b) => a.at - b.at || a.comment.id.localeCompare(b.comment.id) || a.event.sequence - b.event.sequence
         || a.eventId.localeCompare(b.eventId));
     const returned = candidates.slice(0, request.maxEvents);
-    const pending = candidates[request.maxEvents];
 
-    // The watermark advances to the settle line, never past an event not returned yet.
-    let watermark = Math.max(floor, Math.min(now - SETTLE_MS, pending ? pending.at - 1 : Infinity));
-    let kept = [...seenBefore, ...returned.map(entry => [shortId(entry.eventId), entry.at] as [string, number])]
-        .filter(([, at]) => at > watermark).sort((a, b) => a[1] - b[1]);
-    if (kept.length > MAX_SEEN) {
-        // A burst beyond the cursor's capacity: move the watermark past the oldest entries.
-        watermark = kept[kept.length - MAX_SEEN - 1]![1];
-        kept = kept.filter(([, at]) => at > watermark);
-        if (pending && pending.at <= watermark) truncated = true;
-    }
-    const from = cursor.from !== undefined && cursor.from > watermark ? cursor.from : undefined;
+    // The position after the first `count` candidates. The watermark advances to the settle line,
+    // never past an event not returned yet.
+    const position = (count: number) => {
+        const next = candidates[count];
+        let watermark = Math.max(floor, Math.min(now - SETTLE_MS, next ? next.at - 1 : Infinity));
+        let kept = [...seenBefore, ...candidates.slice(0, count).map(entry => [shortId(entry.eventId), entry.at] as [string, number])]
+            .filter(([, at]) => at > watermark).sort((a, b) => a[1] - b[1]);
+        let skipped = false;
+        if (kept.length > MAX_SEEN) {
+            // A burst beyond the cursor's capacity: move the watermark past the oldest entries.
+            watermark = kept[kept.length - MAX_SEEN - 1]![1];
+            kept = kept.filter(([, at]) => at > watermark);
+            if (next && next.at <= watermark) skipped = true;
+        }
+        const from = cursor.from !== undefined && cursor.from > watermark ? cursor.from : undefined;
+        return { cursor: encodeFeedCursor({ watermark, from, seen: kept }), skipped };
+    };
+    const end = position(returned.length);
+    if (end.skipped) truncated = true;
     const participants = returned.length ? await participantNames(request.project) : new Map<string, string>();
     return {
         events: returned.map(entry => ({ eventId: entry.eventId, name: entry.name, timestamp: entry.event.at,
             data: mcpEventData(entry.name, request.project, entry.comment, entry.event, participants, request.baseUrl) })),
-        cursor: encode({ watermark, from, seen: kept }), truncated, hasMore: Boolean(pending), nextPollMs: NEXT_POLL_MS
+        cursor: end.cursor, truncated, hasMore: candidates.length > returned.length, nextPollMs: NEXT_POLL_MS,
+        ...(request.positions ? { start: encodeFeedCursor({ watermark: floor, from: cursor.from !== undefined && cursor.from > floor ? cursor.from : undefined, seen: seenBefore }),
+            positions: returned.map((_, index) => position(index + 1).cursor) } : {})
     };
 }

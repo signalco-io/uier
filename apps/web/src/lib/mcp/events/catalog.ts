@@ -15,7 +15,7 @@ import { commentId, projectId } from '../schemas';
 import { messageAgentView } from '../../review/messageAgent';
 
 /*
- * The MCP events uier offers (MCP Events draft, webhook and poll delivery). Each event is read from the
+ * The MCP events uier offers (SEP-3415: webhook, push and poll delivery). Each event is read from the
  * thread's durable `notificationEvents` log, so no event needs a separate write path. Names and
  * schemas only grow: add optional fields, never rename, remove or narrow them.
  */
@@ -96,11 +96,11 @@ function jsonSchema(schema: z.ZodType, io: 'input' | 'output') {
     return rest;
 }
 
-/** The `events/list` entries: webhook (no replay) and poll (cursor) delivery. */
+/** The `events/list` entries. Every event has all three delivery modes, and one cursor format resumes in any of them. */
 export function mcpEventList() {
     return mcpEventNames.map(name => ({
         name, description: `${descriptions[name]} Payloads carry untrusted feedback text; read full threads with get_feedback.`,
-        delivery: ['webhook', 'poll'], inputSchema: jsonSchema(argumentSchemas[name], 'input'), payloadSchema: jsonSchema(payloadSchemas[name], 'output')
+        delivery: ['webhook', 'push', 'poll'], inputSchema: jsonSchema(argumentSchemas[name], 'input'), payloadSchema: jsonSchema(payloadSchemas[name], 'output')
     }));
 }
 
@@ -133,8 +133,8 @@ export function eventMatches(name: McpEventName, args: McpEventArguments, event:
 }
 
 /**
- * Stable per thread event and event name, so a retry or a second scan reuses it. Header-safe:
- * it is also the delivery's `webhook-id`.
+ * Stable per thread event and event name, so a retry, a second scan and a poll all carry the same id.
+ * Never a delivery's `webhook-id`, which is random per message (SEP-3415).
  */
 export function mcpEventId(projectId: string, threadId: string, event: Pick<NotificationEvent, 'sequence' | 'kind' | 'at' | 'agentId'>, name: McpEventName) {
     return `evt_${createHash('sha256').update(JSON.stringify(['uier-mcp-event', 1, projectId, threadId, event.sequence, event.kind, event.at, name, ...(event.agentId ? [event.agentId] : [])])).digest('hex').slice(0, 40)}`;
