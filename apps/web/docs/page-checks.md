@@ -54,8 +54,8 @@ pass); a transfer keeps it, since it is keyed by the project.
   first three: it is not in search results. Each card's pages are closed until its "Show pages" button opens
   them (uier #219), in a scroll of at most 20rem, with a search (address or title, and the shared text) when
   there are more than six. They are listed as a hierarchy of their addresses (`pathTree` in
-  `src/lib/pageChecks/pathTree.ts`, pure): a level per path segment, a query under its path, a level that is
-  not a page and holds one level merged into it, under each environment's name when they are from several.
+  `src/lib/pageChecks/pathTree.ts`, pure): unusual paths with empty segments stay exact flat entries so no
+  page link is lost; otherwise a level per path segment, a query under its path, a level that is not a page and holds one level merged into it, under each environment's name when they are from several.
   A page under a level shows the rest of its address; the whole address stays its link's name.
 - **Pages**: a table from the `@3xl` container width (a card per page under it, like the site addresses
   table): the page (its address opens it in review in a new tab, with `projectReview`; an address no longer
@@ -66,8 +66,9 @@ pass); a transfer keeps it, since it is keyed by the project.
   then serious, then all accessibility issues, then SEO to look at, then Core Web Vitals over target),
   Accessibility issues, SEO to look at, Last checked or Page. A column the order follows has `aria-sort`.
 - **Show** (`?show=`, uier #221, `filterPageChecks` in `insights.ts`): All pages by default, Needs attention
-  (accessibility issues, SEO to look at or a Core Web Vital over target), each of those three alone, or Nothing
-  to look at (the rest). A check that did not run finds nothing, so a page counts by the checks that ran. Each
+  (accessibility issues, SEO to look at or a Core Web Vital over target), each of those three alone, or Passes
+  all checks (audit present, SEO results present, all three vitals measured, and no issues). Incomplete checks
+  lists pages missing any of those results, even when known results also need attention. Each
   option shows its count; the heading says "Pages 3 of 21", and a filter that shows none says so with Show all
   pages.
 - Empty: "No pages checked yet", how pages get here, and that reviews in the browser extension are not

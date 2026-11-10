@@ -17,6 +17,8 @@ function levels(path: string) {
     const split = path.search(/[?#]/);
     const pathname = split < 0 ? path : path.slice(0, split);
     const query = split < 0 ? '' : path.slice(split);
+    // Keep unusual paths exact: empty segments distinguish /a//b from /a/b.
+    if (pathname.includes('//') || (pathname.length > 1 && pathname.endsWith('/'))) return [path];
     const segments = pathname.split('/').filter(Boolean);
     const keys = segments.map((_, index) => `/${segments.slice(0, index + 1).join('/')}`);
     if (!keys.length) keys.push('/');

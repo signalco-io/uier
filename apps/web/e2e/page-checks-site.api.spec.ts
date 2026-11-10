@@ -276,11 +276,15 @@ test('across pages: addresses as a hierarchy of path segments, a query under its
     // Every level's address starts with the one above it
     const bases = (nodes: PathNode<string>[]): boolean => nodes.every(node => node.path.startsWith(node.base) && bases(node.children));
     expect(bases(tree)).toBe(true);
+    // Distinct empty path segments and query variants retain every page link
+    const unusual = ['/a/b', '/a//b', '/a//b?q=1', '//a/b', '/a/b/'];
+    const leaves = (nodes: PathNode<string>[]): string[] => nodes.flatMap(node => [...(node.item === undefined ? [] : [node.item]), ...leaves(node.children)]);
+    expect(leaves(pathTree(unusual, path => path)).sort()).toEqual([...unusual].sort());
     // A flat list stays flat
     expect(shown(pathTree(['/a', '/b'], path => path))).toEqual([{ label: '/a', page: true }, { label: '/b', page: true }]);
 });
 
-test('the pages a filter shows: needing attention in any check or in one, or nothing to look at (uier #221)', async () => {
+test('the pages a filter shows: needing attention in any check or in one, passing all categories or incomplete (uier #221)', async () => {
     const row = (path: string, overrides: Partial<PageCheckRow> = {}): PageCheckRow => ({
         id: path, origin: site, path, noindex: false, seo: { warn: 0, pass: 5 }, checkedAt: '2026-11-01T00:00:00.000Z',
         accessibility: { critical: 0, serious: 0, moderate: 0, minor: 0 }, ...overrides
@@ -290,8 +294,11 @@ test('the pages a filter shows: needing attention in any check or in one, or not
         row('/seo', { seo: { warn: 2, pass: 3 } }),
         row('/slow', { vitals: { lcp: 4000, cls: 0.01 } }),
         row('/clean', { vitals: { lcp: 900, cls: 0.01, inp: 40 } }),
-        // The audit did not run: counted by the checks that did
-        row('/unaudited', { accessibility: undefined })
+        // Missing results cannot establish that all checks passed
+        row('/unaudited', { accessibility: undefined, vitals: { lcp: 900, cls: 0.01, inp: 40 } }),
+        row('/no-vitals'),
+        row('/partial-vitals', { vitals: { lcp: 900, cls: 0.01 } }),
+        row('/no-seo', { seo: { pass: 0, warn: 0 }, vitals: { lcp: 900, cls: 0.01, inp: 40 } })
     ];
     const shown = (filter: typeof pageCheckFilters[number]) => filterPageChecks(pages, filter).map(page => page.path);
     expect(shown('all')).toEqual(pages.map(page => page.path));
@@ -299,9 +306,8 @@ test('the pages a filter shows: needing attention in any check or in one, or not
     expect(shown('accessibility')).toEqual(['/a11y']);
     expect(shown('seo')).toEqual(['/seo']);
     expect(shown('vitals')).toEqual(['/slow']);
-    expect(shown('passing')).toEqual(['/clean', '/unaudited']);
-    // Every page is either needing attention or not
-    expect(shown('attention').length + shown('passing').length).toBe(pages.length);
+    expect(shown('passing')).toEqual(['/clean']);
+    expect(shown('incomplete')).toEqual(['/a11y', '/seo', '/slow', '/unaudited', '/no-vitals', '/partial-vitals', '/no-seo']);
     expect(pageCheckFilters.every(isPageCheckFilter)).toBe(true);
     expect(isPageCheckFilter('everything')).toBe(false);
 });

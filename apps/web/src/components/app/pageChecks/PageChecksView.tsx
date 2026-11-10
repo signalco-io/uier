@@ -34,7 +34,8 @@ const noneShown: Record<PageCheckFilter, string> = {
     accessibility: 'No checked page has accessibility issues.',
     seo: 'No checked page has SEO checks to look at.',
     vitals: 'No checked page has Core Web Vitals over target.',
-    passing: 'Every checked page has something to look at.'
+    passing: 'No page has complete results with all checks passing.',
+    incomplete: 'Every page has results for all check categories.'
 };
 
 /** The column a sort is by, for its header's `aria-sort` (Needs attention weighs several) */
