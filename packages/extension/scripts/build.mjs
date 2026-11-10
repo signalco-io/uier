@@ -20,12 +20,22 @@ const testPort = Number(process.env.PORT || 4004);
 if (test && (!Number.isInteger(testPort) || testPort < 1 || testPort > 65535)) throw new Error('Use a valid local test PORT.');
 const api = test ? `http://127.0.0.1:${testPort}` : 'https://uier.io';
 const css = await readFile(resolve(root, '../../packages/toolbar/dist/index.css'), 'utf8');
-for (const [name, entry] of Object.entries({ worker: 'worker.ts', content: 'content.ts', popup: 'popup.tsx', helper: 'helper.ts' })) {
-    await build({ entryPoints: [resolve(sharedRoot, 'src', entry)], outfile: resolve(dest, `${name}.js`), bundle: true,
+const toolbarSource = resolve(sharedRoot, '../toolbar/src');
+const entries = {
+    worker: resolve(sharedRoot, 'src/worker.ts'), content: resolve(sharedRoot, 'src/content.ts'),
+    popup: resolve(sharedRoot, 'src/popup.tsx'), helper: resolve(sharedRoot, 'src/helper.ts'),
+    // The audit asset (axe-core and the on-demand page checks), built from the toolbar's own entry. The
+    // worker runs it in the reviewed document's isolated world only when a check runs (src/worker.ts).
+    audit: resolve(toolbarSource, 'checks/auditEntry.ts')
+};
+const inputs = {};
+for (const [name, entry] of Object.entries(entries)) {
+    const result = await build({ entryPoints: [entry], outfile: resolve(dest, `${name}.js`), bundle: true, metafile: true,
         format: browser === 'chrome' && name === 'worker' ? 'esm' : 'iife', platform: 'browser', target: browser === 'chrome' ? 'chrome120' : 'firefox153', minify: true,
         alias: { 'next/link': resolve(root, '../../packages/toolbar/src/components/ToolbarLink.tsx') },
         define: { 'process.env.NODE_ENV': '"production"', 'process.env': '{}', __UIER_API_URL__: JSON.stringify(api), __UIER_DEV__: 'false', __EXTENSION_API__: JSON.stringify(api), __EXTENSION_BROWSER__: JSON.stringify(browser),
-            // No remote scripts in packaged clients: the toolbar's accessibility audit is not available here
+            // No remote scripts in packaged clients: no published audit path. The toolbar loads the
+            // packaged audit.js through its adapter, and the asset hands over in the isolated world.
             __UIER_AUDIT_PATH__: '""', __UIER_AUDIT_INTEGRITY__: '""' },
         plugins: [{ name: 'packaged-css', setup(b) {
             // The embed runtime imports CSS for tsup; packaged clients use its compiled sheet.
@@ -36,6 +46,13 @@ for (const [name, entry] of Object.entries({ worker: 'worker.ts', content: 'cont
             await writeFile(path, js.replace(/(["'])__uier_toolbar_css__\1/g, () => JSON.stringify(css)));
         }); } }]
     });
+    inputs[name] = Object.keys(result.metafile.inputs);
+}
+// axe-core and the on-demand checks are only in audit.js, never in the content script's first payload.
+const auditOnly = path => path.includes('node_modules/axe-core/') || /checks\/(?:auditEntry|lazy\/index)\.ts$/.test(path);
+for (const [name, files] of Object.entries(inputs)) {
+    if (name === 'audit' ? !files.some(path => path.includes('node_modules/axe-core/')) : files.some(auditOnly))
+        throw new Error(name === 'audit' ? 'audit.js is missing axe-core.' : `${name}.js bundles the audit asset: ${files.filter(auditOnly).join(', ')}`);
 }
 // Extension pages get their own sheet: the toolbar's Tailwind setup and brand tokens, plus the
 // classes used in src/, with Geist packaged next to it (no remote fonts or styles).

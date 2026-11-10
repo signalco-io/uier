@@ -5,6 +5,22 @@ import { message, type Result } from './environment';
 import type { CapturedScreenshot } from '../../toolbar/src/screenshot';
 import type { ToolbarConfig } from '../../toolbar/src/config';
 import { getToolbarHost } from '../../toolbar/src/mount';
+import { auditHandoffKey, type AuditAsset, type AuditWorld } from '../../toolbar/src/checks/auditHandoff';
+
+/**
+ * The audit asset (axe-core and the on-demand page checks) is `audit.js`, a file of this package. It
+ * is never part of this content script: the worker runs it in this isolated world of the bound
+ * document only when the toolbar checks the page, and it hands axe-core and the checks over through
+ * this world's own global object, which the page's scripts never see. Nothing is loaded from the network.
+ */
+async function loadPackagedAudit(): Promise<AuditAsset> {
+    const world = globalThis as AuditWorld;
+    let loaded: AuditAsset | undefined;
+    world[auditHandoffKey] = (axe, checks) => { loaded = { axe, checks }; };
+    try { await message({ type: 'audit' }); } finally { delete world[auditHandoffKey]; }
+    if (!loaded) throw new Error('The accessibility checks did not start.');
+    return loaded;
+}
 
 // Repeated executeScript does not register another listener or create another review layer.
 const key = Symbol.for('uier.extension.content.v1');
@@ -80,7 +96,8 @@ if (!global[key]) {
                         captureQueue = captured.catch(() => {});
                         return captured;
                     },
-                    async signOut() { await message({ type: 'sign-out' }); records.clear(); clearDraftMemory(); unmount?.(); mounted = false; }
+                    async signOut() { await message({ type: 'sign-out' }); records.clear(); clearDraftMemory(); unmount?.(); mounted = false; },
+                    loadAudit: loadPackagedAudit
                 });
                 configured = true;
             }

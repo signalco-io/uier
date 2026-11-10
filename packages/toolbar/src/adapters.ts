@@ -1,5 +1,6 @@
 import type { ToolbarConfig } from './config';
 import type { CapturedScreenshot, ScreenshotRegion } from './screenshot';
+import type { AuditAsset } from './checks/auditHandoff';
 
 /** Explicit runtime boundary for packaged clients. Never populated from the host page. */
 export type ToolbarAdapters = {
@@ -9,6 +10,13 @@ export type ToolbarAdapters = {
     capture: (region: ScreenshotRegion) => Promise<CapturedScreenshot>;
     draftStorage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem' | 'key' | 'length'>;
     signOut: () => Promise<void>;
+    /**
+     * Runs the audit asset packaged with the client (axe-core and the on-demand page checks) in the
+     * toolbar's own world, and resolves with what it hands over. Called only when a check runs, and
+     * again after a failure (`checks/axeLoader.ts`). Never a remote script or a page-visible global:
+     * without it, the client has no audit (no Accessibility button, on-demand sections `unavailable`).
+     */
+    loadAudit?: () => Promise<AuditAsset>;
 };
 let adapters: ToolbarAdapters | undefined;
 export const runtimeAdapters = () => adapters;

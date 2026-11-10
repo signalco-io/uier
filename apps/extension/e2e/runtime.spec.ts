@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { expectNoAxeViolations } from '../../web/e2e/accessibility';
-import { animationsFinished, commentBubble, openThread, selectText, setThreadStatus, threadOptions } from '../../web/e2e/support/toolbar';
+import { animationsFinished, commentBubble, openThread, selectText, setThreadStatus, threadOptions, toolbar } from '../../web/e2e/support/toolbar';
 import { signIn, createProject, uniqueEmail } from '../../web/e2e/support/app';
 
 import { packageApiProxy } from './packageApi';
@@ -20,6 +20,11 @@ const server = createServer((req, res) => {
         return;
     }
     res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'none'; connect-src 'none'; frame-src 'none'; img-src 'none'; font-src 'none'; style-src 'none'");
+    if (req.url?.startsWith('/checks')) {
+        // Accessibility issues on a page of over 1,500 elements, where nothing checks it unasked
+        res.end(`<!doctype html><html lang="en"><title>Strict CSP checks</title><main><h1>Check this page</h1><img id="chart" src="/chart.png"><button id="empty-button"></button>${'<p>A paragraph to check.</p>'.repeat(1_600)}</main></html>`);
+        return;
+    }
     res.end('<!doctype html><html lang="en"><title>Strict CSP</title><main><h1>Review this page</h1><p>No embed or page scripts.</p><a href="/next">Next page</a></main></html>');
 });
 async function launchContext() {
@@ -264,6 +269,52 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     await expect(commentBubble(reviewed, 2)).toBeVisible();
     // Credentials stay out of page storage and DOM attributes.
     expect(await reviewed.evaluate(() => [localStorage.length, sessionStorage.length])).toEqual([0, 0]);
+    // The Accessibility panel and the on-demand checks run the packaged audit asset (audit.js): the
+    // worker runs it in the toolbar's isolated world when a check runs, never as a page script or from
+    // the network. Over 1,500 elements nothing checks the page unasked, so only the panel loads it.
+    const pageRequests: string[] = [];
+    const recordRequest = (request: { url: () => string }) => { pageRequests.push(request.url()); };
+    reviewed.on('request', recordRequest);
+    const proxied = proxy?.requests.length ?? 0;
+    await reviewed.goto(`${origin}/checks`);
+    const pill = toolbar(reviewed);
+    // The background checks ran (SEO found what is missing in the head), without the audit
+    await expect(pill.getByRole('button', { name: /^SEO, \d+ to look at$/ })).toBeVisible({ timeout: 20_000 });
+    const accessibility = pill.getByRole('button', { name: 'Accessibility', exact: true });
+    await expect(accessibility).toBeVisible();
+    await reviewed.waitForTimeout(1_000);
+    // Every script parsed in the reviewed document, including the extension's isolated world
+    const debug = await context.newCDPSession(reviewed);
+    const parsed: string[] = [];
+    debug.on('Debugger.scriptParsed', ({ url }) => { if (url.startsWith(`chrome-extension://${id}/`)) parsed.push(new URL(url).pathname); });
+    await debug.send('Debugger.enable');
+    expect(parsed).toContain('/content.js');
+    expect(parsed).not.toContain('/audit.js');
+    await accessibility.click();
+    const checksPanel = reviewed.getByRole('complementary', { name: 'Accessibility' });
+    await expect(checksPanel.getByRole('status')).toHaveText(/^\d+ issues? found\.$/, { timeout: 30_000 });
+    await expect(checksPanel.locator('[data-uier-rule="image-alt"]')).toContainText('img#chart');
+    await expect(checksPanel.locator('[data-uier-rule="button-name"]')).toContainText('button#empty-button');
+    await expect(checksPanel).not.toContainText('uier-toolbar');
+    await expect(pill.getByRole('button', { name: /^Accessibility, \d+ issues? found$/ })).toBeVisible();
+    expect(parsed.filter(path => path === '/audit.js')).toHaveLength(1);
+    // Check again reuses the loaded asset
+    const checkAgain = checksPanel.getByRole('button', { name: 'Check again' });
+    await checkAgain.click();
+    await expect(checkAgain).not.toHaveAttribute('aria-busy', 'true');
+    await expect(checksPanel.getByRole('status')).toHaveText(/^\d+ issues? found\.$/);
+    expect(parsed.filter(path => path === '/audit.js')).toHaveLength(1);
+    await debug.detach();
+    // The page sees none of it: no axe-core or its shared state, no handoff, no script element
+    expect(await reviewed.evaluate(() => ['axe' in window, '__core-js_shared__' in window, Symbol.for('uier.toolbar.audit') in window, document.scripts.length]))
+        .toEqual([false, false, false, 0]);
+    reviewed.off('request', recordRequest);
+    expect(pageRequests.filter(url => /audit|\/toolbar(?:\.js|\/)/.test(url))).toEqual([]);
+    if (proxy) expect(proxy.requests.slice(proxied).filter(request => request.path.startsWith('/toolbar'))).toEqual([]);
+    await animationsFinished(checksPanel);
+    await expectNoAxeViolations(reviewed, { include: ['#uier-toolbar'] });
+    await reviewed.keyboard.press('Escape');
+    await expect(checksPanel).toBeHidden();
     // A live embed yields to the extension; a late embed also sees the public ownership probe.
     publicId = otherPublicId; // Existing embed intentionally belongs to another project.
     await reviewed.goto(`${origin}/embedded`);
