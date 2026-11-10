@@ -779,10 +779,9 @@ export const en = {
         /** "These results are for /about. Check again for this page.": the path goes between */
         otherPageBefore: 'These results are for ',
         otherPageAfter: '. Check again for this page.',
-        /** "Checked at 14:32 with axe-core.": the time goes between */
+        /** "Checked at 14:32.": the time goes between */
         checkedAtBefore: 'Checked at ',
         checkedAtAfter: '',
-        checkedWith: (by: string) => ` with ${by}`,
         checkAgain: 'Check again',
         closePanel: 'Close panel',
         closeNamed: (title: string) => `Close ${title} panel`,

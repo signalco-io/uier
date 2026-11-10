@@ -118,7 +118,7 @@ export function AccessibilityPanel({ state, path, onCheck, onClose }: {
                 )}
                 {shown && (
                     <p className="m-0 px-1 text-xs text-muted-foreground">
-                        <CheckedAt time={shown.checkedAt} by="axe-core" />
+                        <CheckedAt time={shown.checkedAt} />
                         {/* Without issues, what automated checks cannot tell */}
                         {!shown.count && a.automatedNote}
                     </p>

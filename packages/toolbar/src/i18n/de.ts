@@ -759,7 +759,6 @@ export const de: Messages = {
         otherPageAfter: '. Prüfen Sie diese Seite erneut.',
         checkedAtBefore: 'Geprüft um ',
         checkedAtAfter: '',
-        checkedWith: (by: string) => ` mit ${by}`,
         checkAgain: 'Erneut prüfen',
         closePanel: 'Bereich schließen',
         closeNamed: (title: string) => `Bereich „${title}“ schließen`,

@@ -759,7 +759,6 @@ export const fr: Messages = {
         otherPageAfter: '. Vérifiez à nouveau pour cette page.',
         checkedAtBefore: 'Vérifié à ',
         checkedAtAfter: '',
-        checkedWith: (by: string) => ` avec ${by}`,
         checkAgain: 'Vérifier à nouveau',
         closePanel: 'Fermer le panneau',
         closeNamed: (title: string) => `Fermer le panneau ${title}`,

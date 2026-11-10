@@ -150,8 +150,10 @@ An open inbox, Accessibility or SEO panel stays open on the next page and shows 
   report are in the audit asset (`lazy/accessibilityReport.ts`); `accessibility.ts` is the queue in the
   review bundle. The panel lists only what axe-core finds
   ([uier #198](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fbrand&comment=comment_fCCTyY6zuzO3K_Kr-DALq)):
-  the status ("3 issues found."), a summary tile per impact with its elements' count, when it was checked,
-  then a section per impact (critical, serious, moderate, minor). Each rule is a row marked with its
+  the status ("3 issues found.", read out only: the tiles show the counts, [uier #226](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_rBu2-JZLowGgsaVmjl9o-);
+  "Checking this page...", a failure and "No issues found." show), a summary tile per impact with its
+  elements' count, when it was checked (not with what: the checks change, [uier #227](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_Im2uENyTKFmnJbPng8NWD)),
+  then, in the Issues tab, a section per impact (critical, serious, moderate, minor). Each rule is a row marked with its
   impact's icon in its colour (`impactStyles`: the priority colours, a shape each, see `BRAND.md`,
   "Accessibility impact"), its help text, id, the standard it tests (`ruleStandard`, from axe-core's tags: "WCAG 1.4.3 (AA)",
   or "Best practice") and **How to fix** link (Deque University, without its tracking query); each element is a row with its short name (`img#hero.logo`). axe-core's first failure

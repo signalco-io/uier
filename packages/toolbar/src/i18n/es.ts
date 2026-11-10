@@ -760,7 +760,6 @@ export const es: Messages = {
         otherPageAfter: '. Vuelve a comprobar esta página.',
         checkedAtBefore: 'Comprobado a las ',
         checkedAtAfter: '',
-        checkedWith: (by: string) => ` con ${by}`,
         checkAgain: 'Volver a comprobar',
         closePanel: 'Cerrar el panel',
         closeNamed: (title: string) => `Cerrar el panel ${title}`,

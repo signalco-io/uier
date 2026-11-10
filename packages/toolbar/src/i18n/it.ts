@@ -760,7 +760,6 @@ export const it: Messages = {
         otherPageAfter: '. Controlla di nuovo per questa pagina.',
         checkedAtBefore: 'Controllato alle ',
         checkedAtAfter: '',
-        checkedWith: (by: string) => ` con ${by}`,
         checkAgain: 'Controlla di nuovo',
         closePanel: 'Chiudi il pannello',
         closeNamed: (title: string) => `Chiudi il pannello ${title}`,

@@ -760,7 +760,6 @@ export const hr: Messages = {
         otherPageAfter: '. Ponovno provjerite ovu stranicu.',
         checkedAtBefore: 'Provjereno u ',
         checkedAtAfter: '',
-        checkedWith: (by: string) => ` alatom ${by}`,
         checkAgain: 'Provjeri ponovno',
         closePanel: 'Zatvori ploču',
         closeNamed: (title: string) => `Zatvori ploču ${title}`,
