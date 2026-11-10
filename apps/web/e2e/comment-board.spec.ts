@@ -477,7 +477,7 @@ test('In progress is a column between Open and Ready to verify; cards move in an
     await expect(column('In progress').getByRole('listitem')).toHaveCount(1);
     await page.getByRole('button', { name: 'List', exact: true }).click();
     const tabs = page.getByRole('group', { name: 'Status', exact: true });
-    await expect(tabs.locator('[aria-pressed]')).toHaveText([/^Active \d+$/, /^Done \d+$/, /^All \d+$/]);
+    await expect(tabs.locator('[aria-pressed]')).toHaveText([/^Active \d+$/, /^Done \d+$/, /^All \d+$/, /^Archive \d+$/]);
     await chooseActiveStatus(page, /^In progress \d+$/);
     await expect(page).toHaveURL(/status=in-progress/);
     const row = page.locator('[data-comment-id]').filter({ hasText: 'Second board thread' });
@@ -516,7 +516,7 @@ test('the list shows Active by default, every status but Done, and each row says
     await page.goto(`/app/projects/${project}`);
     const tabs = page.getByRole('group', { name: 'Status', exact: true });
     const toggles = tabs.locator('[aria-pressed]');
-    await expect(toggles).toHaveText([/^Active 2$/, /^Done 1$/, /^All 3$/]);
+    await expect(toggles).toHaveText([/^Active 2$/, /^Done 1$/, /^All 3$/, /^Archive 0$/]);
     await expect(tabs.getByRole('button', { name: 'Active 2', exact: true })).toHaveAttribute('aria-pressed', 'true');
     const rows = page.locator('[data-comment-id]');
     const row = (text: string) => rows.filter({ hasText: text });

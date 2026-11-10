@@ -176,6 +176,11 @@ export const en = {
         unfollow: 'Unfollow thread',
         mute: 'Mute project emails',
         unmute: 'Unmute project emails',
+        archive: "Archive comment",
+        restore: "Restore comment",
+        archived: "Comment archived.",
+        restored: "Comment restored.",
+        archivedLabel: "Archived",
         markUnread: 'Mark as unread',
         writtenBy: (details: string) => `Written by ${details}`,
         via: 'via',
@@ -547,6 +552,7 @@ export const en = {
         reviewBrief: 'Review brief',
         close: 'Close sidebar',
         filters: {
+            archived: "Archive",
             unresolved: 'Active',
             open: 'Open',
             'in-progress': 'In progress',
@@ -560,6 +566,7 @@ export const en = {
         activeStatuses: 'Active statuses',
         /** Each `where` ends the sentence: " on this page", or nothing for every page */
         onThisPage: ' on this page',
+        noArchived: (where: string) => `No archived comments${where}`,
         noMatches: (where: string) => `No matches${where}`,
         noUnread: (where: string) => `No unread comments${where}`,
         noOpen: (where: string) => `No open comments${where}`,

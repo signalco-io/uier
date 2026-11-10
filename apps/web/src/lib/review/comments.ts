@@ -12,6 +12,7 @@ import { reattachAnchor } from '../comments/reattachAnchor';
 import { idempotencyKeySchema, type ReattachAnchorInput } from '../comments/validation';
 import { projectOrigins } from '../app/projects';
 
+import type { ArchiveFilter } from '../repo/archiveFilter';
 import type { OriginFilter } from '../repo/originFilter';
 import type { VisibilityFilter } from '../repo/visibilityFilter';
 import { threadActivity, withThreadActivity } from '../comments/activity';
@@ -173,14 +174,14 @@ function visibleOrThrow(comment: DbComment, actor: ProjectActor) {
 }
 
 /** Comments of one page, or of every page (`path` undefined), that the actor can see */
-export async function listProjectComments(project: DbProject, actor: ProjectActor, path?: string, originFilter?: OriginFilter, authorId?: string, onWindow?: (capped: boolean) => void) {
+export async function listProjectComments(project: DbProject, actor: ProjectActor, path?: string, originFilter?: OriginFilter, authorId?: string, onWindow?: (capped: boolean) => void, archive: ArchiveFilter = 'all') {
     const store = getCommentsStore();
     const partition = projectPartition(project.id);
     if (authorId !== undefined && !isAdmin(actor))
         throw apiErrors.forbidden('Only admins can filter by author.');
     const comments = path === undefined
-        ? await store.listAll(partition, MAX_PROJECT_COMMENTS, originFilter, authorId)
-        : await store.list(partition, path, MAX_PROJECT_COMMENTS, originFilter, authorId);
+        ? await store.listAll(partition, MAX_PROJECT_COMMENTS, originFilter, authorId, archive)
+        : await store.list(partition, path, MAX_PROJECT_COMMENTS, originFilter, authorId, archive);
     onWindow?.(comments.length >= MAX_PROJECT_COMMENTS);
     return comments.filter(comment => canSeeComment(comment, actor));
 }
@@ -462,6 +463,15 @@ export async function setProjectCommentStatus(project: DbProject, actor: Project
             return withNotificationEvent(withOrdinaryStage(withThreadActivity(comment, actorId), status), actorId, kind, nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined);
         },
         submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { operation: 'status', id, status, ...guardFingerprint(guard) }), guard, store);
+}
+
+/** Archiving uses the existing status authority and never changes the workflow or read cursors. */
+export async function setProjectCommentArchived(project: DbProject, actor: ProjectActor, id: string, archived: boolean, idempotencyKey?: string, store?: CommentsStore) {
+    archived = z.boolean().parse(archived);
+    return changeComment(project, actor, id, comment => canResolveComment(comment, actor), comment =>
+        Boolean(comment.archivedAt) === archived ? comment : withNotificationEvent({
+            ...withThreadActivity(comment, actorAuthorId(actor)!), archivedAt: archived ? nowIso() : undefined
+        }, actorAuthorId(actor)!, archived ? 'archived' : 'restored', nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined), submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { operation: 'archive', id, archived }), undefined, store);
 }
 
 export async function setProjectCommentPrivate(project: DbProject, actor: ProjectActor, id: string, isPrivate: boolean) {

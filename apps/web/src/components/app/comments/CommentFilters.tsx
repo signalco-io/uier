@@ -183,7 +183,7 @@ export function CommentFilters({ className, unread, unreadCount, view, status, s
                 {/* Icon-only tabs; the tooltip and the accessible name say which */}
                 <ToggleGroup size="sm" spacing={0.5} aria-label="View" className={cn(segmentedGroup, 'shrink-0')} value={[view]}
                     // A new layout starts with no thread open (the board would open it in a sheet over itself)
-                    onValueChange={([value]) => value && go({ view: value === 'board' ? 'board' : undefined, comment: undefined })}>
+                    onValueChange={([value]) => value && go({ view: value === 'board' ? 'board' : undefined, comment: undefined, ...(status === 'archived' ? { status: undefined } : {}) })}>
                     {([['list', 'List', ListIcon], ['board', 'Board', KanbanIcon]] as const).map(([value, label, Icon]) => (
                         <Tooltip key={value}>
                             <TooltipTrigger render={<ToggleGroupItem value={value} aria-label={label} className={cn(segmentedItem, 'px-0 pointer-coarse:min-w-11')} />}>
@@ -196,6 +196,7 @@ export function CommentFilters({ className, unread, unreadCount, view, status, s
             </div>
             {/* Active (the default, every status but Done), Done and All; the board shows the statuses side by side.
                 Open, In progress and Ready to verify fold under Active: its menu picks one, and the Active tab then names it. */}
+            {view === 'board' && <Button variant="ghost" size="sm" className="self-start pointer-coarse:min-h-11" onClick={() => go({ status: 'archived', view: undefined, comment: undefined })}>Archive <span className="tabular-nums text-muted-foreground">{statusCounts.archived}</span></Button>}
             {view === 'list' && <StatusTabs status={status} counts={statusCounts} onStatus={value => go({ status: value === 'active' ? undefined : value })} />}
         </div>
     );
@@ -248,7 +249,7 @@ function StatusTabs({ status, counts, onStatus }: {
                         </DropdownMenuRadioGroup>
                     </DropdownMenuContent>
                 </DropdownMenu>
-                {(['done', 'all'] as const).map(value => (
+                {(['done', 'all', 'archived'] as const).map(value => (
                     <ToggleGroupItem key={value} value={value} className={segmentedItem}>
                         {statusFilterLabels[value]} <span className="tabular-nums text-muted-foreground">{counts[value]}</span>
                     </ToggleGroupItem>

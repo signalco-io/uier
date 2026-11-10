@@ -69,7 +69,7 @@ const pendingComments = new Map<string, CommentItem>();
 const pendingReplies = new Map<string, CommentItemThreadItem[]>();
 const pendingReplyContexts = new Map<string, { revision: number; previousIds: Set<string> }>();
 /** A status change on its way: Done, Reopen (`resolved` only), Open or In progress */
-type StatusPatch = { resolved: boolean; inProgress?: boolean };
+type StatusPatch = { resolved?: boolean; inProgress?: boolean; archivedAt?: string };
 const pendingStatuses = new Map<string, StatusPatch & { token: string; revision: number }>();
 // The temporary id a saved comment had (see `commentKey`)
 const localKeys = new Map<string, string>();
@@ -93,7 +93,7 @@ const sameText = (item: CommentItemThreadItem | undefined, text: string) => Bool
 function applyPending(comment: CommentItem): CommentItem {
     const status = pendingStatuses.get(comment.id);
     if (status?.revision === currentReviewerRevision())
-        comment = { ...comment, resolved: status.resolved, ...(status.inProgress === undefined ? {} : { inProgress: status.inProgress }) };
+        comment = { ...comment, ...('archivedAt' in status ? { archivedAt: status.archivedAt } : {}), ...(status.resolved === undefined ? {} : { resolved: status.resolved }), ...(status.inProgress === undefined ? {} : { inProgress: status.inProgress }) };
     const replies = pendingReplies.get(comment.id)?.filter(reply => {
         const context = pendingReplyContexts.get(reply.id);
         return context?.revision === currentReviewerRevision() && !reply.deleted
@@ -142,7 +142,7 @@ function toastNotSent(kind: CommentKind | 'reply', error: unknown) {
 }
 
 async function getComments(path: string, client: QueryClient, environment?: string) {
-    const comments = await apiRequest<CommentItem[]>(`${commentsApiUrl}?path=${encodeURIComponent(path)}${environment ? `&environment=${encodeURIComponent(environment)}` : ''}`);
+    const comments = await apiRequest<CommentItem[]>(`${commentsApiUrl}?path=${encodeURIComponent(path)}&archive=all${environment ? `&environment=${encodeURIComponent(environment)}` : ''}`);
     return withPending(reconcileReads(client, Array.isArray(comments) ? comments : []), comment => comment.path === path);
 }
 
@@ -218,7 +218,7 @@ async function editMessage({ commentId, itemId, text, expectedText, mentions }: 
 }
 
 async function getSiteComments(client: QueryClient, unreadOnly: boolean, environment?: string) {
-    const comments = await apiRequest<CommentItem[]>(`${commentsApiUrl}?scope=site${unreadOnly ? '&unread=true' : ''}${environment ? `&environment=${encodeURIComponent(environment)}` : ''}`);
+    const comments = await apiRequest<CommentItem[]>(`${commentsApiUrl}?scope=site&archive=all${unreadOnly ? '&unread=true' : ''}${environment ? `&environment=${encodeURIComponent(environment)}` : ''}`);
     return withPending(reconcileReads(client, Array.isArray(comments) ? comments : []), () => !unreadOnly);
 }
 
@@ -261,6 +261,7 @@ export function useComments(refreshOnMount = false): {
     create: UseMutationResult<CommentItem, Error, CreateCommentInput, { localId: string }>;
     reply: UseMutationResult<CommentItem, Error, ReplyInput, { itemId: string; revision: number }>;
     resolve: UseMutationResult<CommentItem, Error, { commentId: string; resolved: boolean }, unknown>;
+    archive: UseMutationResult<CommentItem, Error, { commentId: string; archived: boolean }, unknown>;
     progress: UseMutationResult<CommentItem, Error, { commentId: string; status: 'open' | 'in-progress' }, unknown>;
     delete: UseMutationResult<CommentItem | undefined, Error, string, unknown>;
     deleteReply: UseMutationResult<CommentItem | undefined, Error, { commentId: string; itemId: string }, unknown>;
@@ -389,7 +390,7 @@ export function useComments(refreshOnMount = false): {
             const token = newLocalId();
             const current = client.getQueriesData<CommentItem[]>({ queryKey: commentsQueryKeyPrefix })
                 .flatMap(([, comments]) => comments ?? []).find(comment => comment.id === input.commentId);
-            const previous = current && { resolved: current.resolved, inProgress: Boolean(current.inProgress) };
+            const previous = current && { resolved: current.resolved, inProgress: Boolean(current.inProgress), archivedAt: current.archivedAt };
             pendingStatuses.set(input.commentId, { token, ...patch(input), revision });
             await client.cancelQueries({ queryKey: commentsQueryKeyPrefix });
             if (revision === currentReviewerRevision())
@@ -401,6 +402,7 @@ export function useComments(refreshOnMount = false): {
         },
         onError: (_error: Error, input: Input, context: StatusContext | undefined) => {
             if (context?.revision !== currentReviewerRevision() || pendingStatuses.get(input.commentId)?.token !== context.token) return;
+            if ('archivedAt' in patch(input)) showErrorToast(getCommentsErrorMessage(_error));
             const previous = context.previous;
             if (previous)
                 updateAllCachedComments(client, comments => comments.map(comment => comment.id === input.commentId
@@ -418,6 +420,10 @@ export function useComments(refreshOnMount = false): {
 
     const progress = useMutation(statusMutation(setCommentProgress,
         (input: { commentId: string; status: 'open' | 'in-progress' }) => ({ resolved: false, inProgress: input.status === 'in-progress' })));
+
+    const archive = useMutation(statusMutation(
+        async (input: { commentId: string; archived: boolean }) => required(await apiRequest<CommentItem>(commentUrl(input.commentId), { method: 'PATCH', body: { archived: input.archived } })),
+        input => ({ archivedAt: input.archived ? new Date().toISOString() : undefined })));
 
     const prioritize = useMutation({
         mutationFn: async ({ commentId, priority, idempotencyKey }: { commentId: string; priority: CommentPriority; idempotencyKey: string }) =>
@@ -468,6 +474,7 @@ export function useComments(refreshOnMount = false): {
         reply,
         resolve,
         progress,
+        archive,
         edit,
         reattach,
         assign,
@@ -684,7 +691,7 @@ export function useCommentsRefresh(expanded: boolean) {
 
 export { activityQueryKey };
 /** `open`: not done, so In progress and Ready to verify count there too */
-export type ActivitySummary = { unread: number; inProgress?: number; ready: number; open: number; done: number; total: number };
+export type ActivitySummary = { archived?: number; unread: number; inProgress?: number; ready: number; open: number; done: number; total: number };
 
 export function useActivitySummary() {
     const { environment, draftScope } = useProjectViewer();

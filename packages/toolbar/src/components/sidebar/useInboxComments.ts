@@ -90,7 +90,8 @@ export function useInboxComments(filter: CommentsFilter) {
         'in-progress': withStatus(scoped, 'in-progress')?.length ?? 0,
         ready: withStatus(scoped, 'ready')?.length ?? 0,
         resolved: withStatus(scoped, 'resolved')?.length ?? 0,
-        all: scoped?.length ?? 0
+        all: withStatus(scoped, 'all')?.length ?? 0,
+        archived: withStatus(scoped, 'archived')?.length ?? 0
     };
 
     // Site-wide totals come from the full authorized projection, never the capped text window.
@@ -103,6 +104,7 @@ export function useInboxComments(filter: CommentsFilter) {
         if (activity.inProgress !== undefined) counts.open = Math.max(0, activity.open - activity.inProgress - counts.ready);
         counts.resolved = activity.done;
         counts.all = activity.total;
+        counts.archived = activity.archived ?? counts.archived;
     }
 
     // Other pages in the order of their newest comment, counted with the search and status
@@ -122,7 +124,7 @@ export function useInboxComments(filter: CommentsFilter) {
     const otherCount = withStatus(othersSearched)?.length ?? 0;
 
     // The site's list has the newest comments only
-    const siteCapped = scope !== 'current' && ((filter.unread ? activity?.unread ?? 0 : activity?.total ?? 0) > (siteQuery.data?.length ?? 0)
+    const siteCapped = scope !== 'current' && ((filter.unread ? activity?.unread ?? 0 : (activity?.total ?? 0) + (activity?.archived ?? 0)) > (siteQuery.data?.length ?? 0)
         || (siteQuery.data?.length ?? 0) >= commentsListMaxLength);
 
     return {

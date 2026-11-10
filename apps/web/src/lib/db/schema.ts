@@ -240,6 +240,8 @@ export type DbComment = {
      * is a {@link DbScreenshot} document. Removed with the author's first item.
      */
     screenshot?: DbCommentScreenshot;
+    /** Reversible archive; workflow status and content are retained. Missing means not archived. */
+    archivedAt?: string;
     resolved?: boolean;
     /** Last transition into Done; absent on legacy threads. */
     completedAt?: string;
@@ -357,7 +359,7 @@ export type DbSubmission = {
 };
 
 /** Lightweight activity projection; legacy threads need only item authors and deletion markers. */
-export type DbCommentActivity = Pick<DbComment, 'id' | 'domain' | 'path' | 'origin' | 'private' | 'authorId' | 'resolved' | 'inProgress' | 'createdAt' | 'activity'> & {
+export type DbCommentActivity = Pick<DbComment, 'id' | 'domain' | 'path' | 'origin' | 'private' | 'authorId' | 'resolved' | 'inProgress' | 'archivedAt' | 'createdAt' | 'activity'> & {
     verification?: Pick<DbVerification, 'outcome'>;
     thread: { items: Pick<DbThreadItem, 'authorId' | 'deletedAt'>[] };
 };

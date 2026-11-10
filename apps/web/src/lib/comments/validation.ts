@@ -276,11 +276,12 @@ export const editThreadItemSchema = z.object({
 });
 export type EditThreadItemInput = z.infer<typeof editThreadItemSchema>;
 
-/** `resolved` (Done or Open, as before) or `status` (Open, In progress or Done), never both */
+/** Exactly one operation; archive never changes the workflow status. */
 export const updateCommentSchema = z.object({
+    archived: z.boolean().optional(),
     resolved: z.boolean().optional(),
     status: z.enum(feedbackStatusTargets).optional()
-}).refine(input => (input.resolved === undefined) !== (input.status === undefined), 'Send either resolved or status.');
+}).refine(input => [input.resolved, input.status, input.archived].filter(value => value !== undefined).length === 1, 'Send exactly one of resolved, status or archived.');
 
 export type CreateCommentInput = z.infer<typeof createCommentSchema>;
 export type ReplyInput = z.infer<typeof replySchema>;

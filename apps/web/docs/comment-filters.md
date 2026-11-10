@@ -47,3 +47,9 @@
   environment column beside it shows the choice. The chosen environment and page have the `accent` background
   as well as the check mark. Each option has a `title` with its full label, since long paths are
   truncated.
+
+
+Archive (`status=archived`) is a separate list scope beside Active, Done and All. All includes ordinary
+workflow statuses, without archived threads. Archive uses the same search, people, page, priority,
+unread, author and environment filters. The board excludes archived cards and offers Archive as a
+separate list. The toolbar's `archived` scope follows the same rule; its `all` filter excludes archive.

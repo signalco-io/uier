@@ -31,7 +31,7 @@ export function parseCommentsQuery(params: Record<string, string | string[] | un
         author: value('author'),
         unread: value('unread') === 'true',
         view: value('view') === 'board' ? 'board' : 'list',
-        status: status === 'open' || status === 'in-progress' || status === 'ready' || status === 'done' || status === 'all' ? status : 'active',
+        status: status === 'open' || status === 'in-progress' || status === 'ready' || status === 'done' || status === 'all' || status === 'archived' ? status : 'active',
         people: people === 'assigned' || people === 'unassigned' || people === 'mine' ? people : 'all',
         page: page?.startsWith('/') ? page : undefined
     };

@@ -1,3 +1,4 @@
+import { archiveFilter } from '../repo/archiveFilter';
 import { environmentSelection, environmentFilter } from '../app/environments';
 import { matchesOrigin } from '../repo/originFilter';
 import { z } from 'zod';
@@ -30,11 +31,12 @@ export async function listReviewComments({ request, project, actor, siteOrigin }
         path = pagePath(query.data.path, project.pageState);
     }
 
+    const archive = archiveFilter(params.get('archive'));
     const filter = environmentFilter(project, environmentSelection(project, params.get('environment'), projectReviewOrigin(project, request, siteOrigin)));
     const visible = (comment: import('../db/schema').DbCommentActivity) => canSeeComment(comment, actor) && matchesOrigin(comment.origin, filter);
     const comments = (params.get('unread') === 'true' && path === undefined
-        ? await unreadComments(`project:${project.id}`, actorAuthorId(actor), visible)
-        : await listProjectComments(project, actor, path, filter)).slice(0, MAX_LIST_COMMENTS);
+        ? await unreadComments(`project:${project.id}`, actorAuthorId(actor), visible, archive)
+        : await listProjectComments(project, actor, path, filter, undefined, undefined, archive)).slice(0, MAX_LIST_COMMENTS);
     const [names, reads, participants, notifications, links] = await Promise.all([
         authorNames(comments), loadReadSequences(`project:${project.id}`, actorAuthorId(actor)), participantNames(project), threadNotificationStates(project, actor, comments),
         loadIntegrationLinks(project, actor, comments)

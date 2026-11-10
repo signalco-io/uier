@@ -208,7 +208,7 @@ test('initialize advertises the events extension and events/list describes webho
         // The SDK client reads `resultType` off the wire and drops it, so the wire itself is checked.
         expect((await call(f.token, 'events/list')).body.result.resultType).toBe('complete');
         const list = await client.request({ method: 'events/list' as never } as never, anyResult) as { events: Record<string, any>[] };
-        expect(list.events.map(event => event.name)).toEqual(['feedback.created', 'feedback.replied', 'feedback.status_changed', 'feedback.assignment_changed', 'feedback.agent_changed', 'feedback.mentioned']);
+        expect(list.events.map(event => event.name)).toEqual(['feedback.created', 'feedback.replied', 'feedback.status_changed', 'feedback.archive_changed', 'feedback.assignment_changed', 'feedback.agent_changed', 'feedback.mentioned']);
         for (const event of list.events) {
             expect(event.delivery).toEqual(['webhook', 'push', 'poll']);
             expect(event.inputSchema).toMatchObject({ type: 'object', required: ['projectId'], additionalProperties: false });
@@ -223,7 +223,9 @@ test('a subscription verifies its callback, then receives signed, minimal events
     const receiver = await new WebhookReceiver().start();
     const client = await connect(f.token);
     try {
-        await f.create('Before the subscription');
+        const beforeSubscription = await f.create('Before the subscription');
+        // Millisecond precision: ensure this event is strictly before a subscription that starts now.
+        await expect.poll(() => Date.now(), { intervals: [1] }).toBeGreaterThan(Date.parse(beforeSubscription.notificationEvents!.at(-1)!.at));
         const secret = newWebhookSecret();
         receiver.secrets.add(secret);
         const subscribed = await subscribe(client, { name: 'feedback.created', arguments: { projectId: f.project.id }, delivery: { mode: 'webhook', url: receiver.url, secret }, cursor: null });

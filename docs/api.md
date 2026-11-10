@@ -54,7 +54,7 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
 | `POST /api/review/<code>/sso` | Same-origin frame-only background handoff: `{ origin }` plus the dedicated HttpOnly cookie; rechecks project/site/member access, returns a review token or 204. No CORS or app-cookie authentication |
 | `POST /api/review/<code>/verification` | same-origin BotID verification from the empty `/review-verification` frame; a five-minute proof bound to the reviewed origin, project and reviewer |
 | `GET`, `POST /api/review/<code>/comments` | the comments of a page (`?path=`) or of every page (`?scope=site`, the inbox) the reviewer can see, a new comment (`authorName` from guests) |
-| `POST /api/review/<code>/comments/<id>/replies`, `PATCH`/`DELETE /api/review/<code>/comments/<id>`, `PATCH`/`DELETE .../replies/<itemId>` | replies (`{ text, screenshot?, mentions?, idempotencyKey? }`), status (`{ status }`: `open`, `in-progress` or `done`; or the earlier `{ resolved }`, never both; see [In progress](#in-progress)), editing messages (`text`, `expectedText`), deleting |
+| `POST /api/review/<code>/comments/<id>/replies`, `PATCH`/`DELETE /api/review/<code>/comments/<id>`, `PATCH`/`DELETE .../replies/<itemId>` | replies (`{ text, screenshot?, mentions?, idempotencyKey? }`), archive (`{ archived }`) or status (`{ status }`: `open`, `in-progress` or `done`; or the earlier `{ resolved }`, exactly one operation; see [In progress](#in-progress)), editing messages (`text`, `expectedText`), deleting |
 | `GET /api/review/<code>/comments/<id>/replies/<itemId>/screenshot` | the reply image, with the same thread visibility and private Blob read contract as the original screenshot |
 | `GET /api/review/<code>/comments/<id>/screenshot` | the comment's screenshot, for reviewers who can see the comment |
 | `PATCH /api/review/<code>/comments/<id>/anchor` | reattach with `{ path, position, expectedRevision }`; author/admin, saved page and original allowed origin only |
@@ -304,7 +304,7 @@ find the thread in either. `sourcePath` is the same page as it was addressed, fo
 | `POST /api/comments/{id}/replies` | `{ text, screenshot?, idempotencyKey? }` | `201` the updated comment; anyone may reply |
 | `PATCH /api/comments/{id}/replies/{itemId}` | `{ text, expectedText }` | `200` the updated thread; the message's author only. Includes the first message. A stale edit gets `409` and does not overwrite newer text |
 | `PATCH /api/comments/{id}/anchor` | `{ path, position, expectedRevision }` | `200` updated thread; author only, exact saved page and validated element/text selector. `expectedRevision` is `anchorContext.revision` or `null`; stale anchors return `409` |
-| `PATCH /api/comments/{id}` | `{ resolved }` or `{ status }` | `200` the updated comment; author only. `status` is `open`, `in-progress` or `done` ([In progress](#in-progress)) |
+| `PATCH /api/comments/{id}` | `{ resolved }`, `{ status }` or `{ archived }` | `200` the updated comment; author only. `status` is `open`, `in-progress` or `done` ([In progress](#in-progress)) |
 | `GET /api/comments/{id}/replies/{itemId}/screenshot` | | `200` the reply image, for people who can read the thread; `404` for a missing/deleted reply or image |
 | `GET /api/comments/{id}/screenshot` | | `200` the comment's screenshot (`image/webp`, `image/jpeg` or `image/png`), public like the comment; `404` when it has none |
 | `POST /api/comments/{id}/screenshot` | `{ screenshot, expectedRevision }` | `200` updated comment; author only. `expectedRevision` is the current image revision, or `null` for an original/missing image; stale evidence returns `409` |
@@ -758,3 +758,19 @@ thread's `feedbackType: { id, label, icon }` itself; submitted display metadata 
 snapshot remains on authorized comment DTOs after settings change. Built-in `comment`, `rewrite`,
 `feedback` and `bug` retain their existing meaning and positions; turning off a page feedback type
 does not block reading or replying to old threads. See [project settings](../apps/web/docs/project-settings.md).
+
+
+## Comment archive
+
+Archive is reversible and separate from workflow. Both comments APIs accept exactly one PATCH
+operation: `{ archived: true }` archives, `{ archived: false }` restores, or the existing `{ status }`
+/ `{ resolved }` changes workflow only. Project archive authority is the existing resolve permission;
+public comments remain author-only. Visibility and verification checks are unchanged.
+
+DTOs add optional `archivedAt`; missing means not archived. Status, completion time, pending
+verification, messages, attachments, assignment and read cursors are retained. Ordinary lists exclude
+archived threads; `archive=only` lists the archive and `archive=all` explicitly includes both. Filtering
+precedes storage limits. Activity summaries exclude archived threads from ordinary totals and unread
+badges and add a separate authorized `archived` count. Authorized direct reads, images and v1 exports
+remain compatible; exports add `archivedAt` and an Archived label without changing status/stage.
+No production data migration is required.

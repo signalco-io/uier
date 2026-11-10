@@ -252,7 +252,7 @@ export function CommentsGlobal({
     // Its draft stays attached to the same stable component and receives the new Done status.
     const pinnedComments = useMemo(
         () => sortByDocumentPosition((allComments ?? []).filter(comment =>
-            comment.position.type !== 'page' && (!comment.resolved || (activeThreads.has(comment.id) && Boolean(drafts.get(comment.id)))))),
+            !comment.archivedAt && comment.position.type !== 'page' && (!comment.resolved || (activeThreads.has(comment.id) && Boolean(drafts.get(comment.id)))))),
         [allComments, drafts, activeThreads]);
     // The API lists at most this many comments; the page can have more
 
@@ -660,13 +660,13 @@ export function CommentsGlobal({
         linkHandledRef.current = true;
         if (linked.path !== path) {
             // Not this page's (any more): all pages, narrowed to its public id
-            setSidebarFilter({ status: linked.resolved ? 'resolved' : 'unresolved', page: 'all', keywords: linked.number !== undefined ? `#${linked.number}` : undefined });
+            setSidebarFilter({ status: linked.archivedAt ? 'archived' : linked.resolved ? 'resolved' : 'unresolved', page: 'all', keywords: linked.number !== undefined ? `#${linked.number}` : undefined });
             setSidebarOpen(true);
             announce(messages().page.earlierPageState);
             return;
         }
-        if (linked.resolved || linked.position.type === 'page') {
-            showInSidebar(linked.resolved ? 'resolved' : 'unresolved');
+        if (linked.archivedAt || linked.resolved || linked.position.type === 'page') {
+            showInSidebar(linked.archivedAt ? 'archived' : linked.resolved ? 'resolved' : 'unresolved');
         } else {
             setOpenComment({ id: linked.id });
         }

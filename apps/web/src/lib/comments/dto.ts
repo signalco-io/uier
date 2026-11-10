@@ -49,6 +49,7 @@ export type CommentDto = {
     /** The coarse size and the viewport (width, height in CSS pixels) the comment was left from */
     device?: { size?: DbDeviceSize; windowSize?: [number, number] };
     verification?: import('@uier/toolbar/verification').VerificationDetails;
+    archivedAt?: string;
     resolved: boolean;
     /** In progress: only when set (missing means not). The stage is `feedbackStage` of `@uier/toolbar/verification`. */
     inProgress?: true;
@@ -222,6 +223,7 @@ export function toCommentDto(comment: DbComment, visitorAuthorId: string | undef
                 .map(item => toThreadItemDto(item, visitorAuthorId, names))
         },
         device: toDeviceDto(comment.device),
+        ...(comment.archivedAt ? { archivedAt: comment.archivedAt } : {}),
         resolved: comment.resolved === true,
         ...(comment.inProgress === true && comment.resolved !== true ? { inProgress: true as const } : {}),
         priority: commentPriority(comment.priority),

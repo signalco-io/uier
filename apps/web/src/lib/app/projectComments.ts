@@ -114,6 +114,7 @@ export type ProjectCommentView = {
     updatedAt?: string;
     verification?: import('@uier/toolbar/verification').VerificationDetails;
     verificationPermissions?: import('@uier/toolbar/verification').VerificationPermissions;
+    archivedAt?: string;
     resolved: boolean;
     /** The stored In progress flag (`feedbackStage` gives the stage: a pending check or Done comes first) */
     inProgress: boolean;
@@ -244,6 +245,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         createdAt: comment.createdAt,
         completedAt: comment.completedAt,
         updatedAt: comment.updatedAt,
+        archivedAt: comment.archivedAt,
         resolved: comment.resolved === true,
         inProgress: comment.inProgress === true && comment.resolved !== true,
         private: comment.private === true,
@@ -331,6 +333,7 @@ export type ProjectUsage = {
 export async function loadProjectUsage(context: AppContext, project: DbProject) {
     const comments = await listProjectComments(project, appActor(context));
     return projectUsage(comments.filter(comment => comment.thread?.items?.length).map(comment => ({
+        archivedAt: comment.archivedAt,
         resolved: comment.resolved === true, replies: comment.thread.items.slice(1), path: comment.path ?? '/', createdAt: comment.createdAt
     })));
 }
@@ -349,11 +352,11 @@ export async function hasProjectFeedback(context: AppContext, project: DbProject
     return recent.some(comment => canSeeComment(comment, actor));
 }
 
-export function projectUsage(comments: { resolved: boolean; replies: unknown[]; path: string; createdAt?: string }[]): ProjectUsage {
+export function projectUsage(comments: { archivedAt?: string; resolved: boolean; replies: unknown[]; path: string; createdAt?: string }[]): ProjectUsage {
     return {
         comments: comments.length,
-        open: comments.filter(comment => !comment.resolved).length,
-        done: comments.filter(comment => comment.resolved).length,
+        open: comments.filter(comment => !comment.archivedAt && !comment.resolved).length,
+        done: comments.filter(comment => !comment.archivedAt && comment.resolved).length,
         replies: comments.reduce((count, comment) => count + comment.replies.length, 0),
         pages: new Set(comments.map(comment => comment.path)).size,
         lastCommentAt: comments.map(comment => comment.createdAt).filter(Boolean).sort().at(-1)

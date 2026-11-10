@@ -38,6 +38,7 @@ function emptyText(filter: CommentsFilter, t: Messages) {
         case 'ready': return t.inbox.noReady(where);
         case 'resolved': return t.inbox.noDone(where);
         case 'all': return t.inbox.noComments(where);
+        case 'archived': return t.inbox.noArchived(where);
         default: return t.inbox.noActive(where);
     }
 }
@@ -184,7 +185,7 @@ export function CommentsSidebarCommentsList({ inbox, filter, onShowOnPage, onSho
                             className="scroll-my-3 overflow-hidden rounded-xl border bg-card outline-none focus-visible:ring-2 focus-visible:ring-ring">
                             <InboxThread comment={comment} />
                             {isCurrentPage(comment)
-                                ? !comment.resolved && comment.position.type !== 'page' && <ShowOnPage comment={comment} onShowOnPage={onShowOnPage} />
+                                ? !comment.archivedAt && !comment.resolved && comment.position.type !== 'page' && <ShowOnPage comment={comment} onShowOnPage={onShowOnPage} />
                                 : <OtherPage comment={comment} />}
                         </article>
                     </CommentErrorBoundary>

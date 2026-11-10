@@ -477,6 +477,7 @@ against the live connection.
 | `list_feedback_events` | `feedback:read` | New feedback, replies, status, assignment, agents and mentions since a cursor ([polling](#polling)) |
 | `list_assignees` | `feedback:assign` | Existing participants eligible to see the thread |
 | `reply_to_feedback` | `feedback:reply` | Validated reply as the human account, attributed to the connection and marked as written by the agent; its text shows as Markdown ([replies written by an agent](#replies-written-by-an-agent)) |
+| `set_feedback_archived` | `feedback:status` | Archive or restore with `archived: boolean`, thread ids and a stable retry key; workflow status is retained |
 | `set_feedback_status` | `feedback:status` | Open, In progress or Done (`status`), or the earlier Done/Open switch (`resolved`), using the app's permission checks ([In progress](#in-progress)) |
 | `link_feedback_pull_request` | `feedback:assign` | Attach a PR URL to a visible thread, idempotently |
 | `assign_feedback` | `feedback:assign` | Assign an existing authorized participant, or `null` to unassign |
@@ -634,6 +635,7 @@ for seven days; an older one starts at the limit and says `truncated: true`.
 | --- | --- | --- |
 | `feedback.created` | `projectId` | New feedback is posted |
 | `feedback.replied` | `projectId`, optional `commentId` | A reply is added |
+| `feedback.archive_changed` | `projectId`, optional `commentId` | Feedback is archived or restored; payload includes `archived`, separate from workflow status |
 | `feedback.status_changed` | `projectId`, optional `commentId` | Feedback is marked done or reopened, moved to In progress or back to Open, or a fix check is requested, confirmed, rejected or canceled |
 | `feedback.assignment_changed` | `projectId`, optional `commentId`, optional `assignee: "me"` | Feedback is assigned or unassigned; `assignee: "me"` fires only when the connection owner is added |
 | `feedback.agent_changed` | `projectId`, optional `commentId`, optional `assignee: "me"` | An AI agent starts, changes or stops working on feedback under its assignee, also when a new assignment removes it ([agents](#agents-working-on-feedback)) |
@@ -1214,3 +1216,18 @@ via Claude" with the agent's logo and, for members, its model and reasoning leve
   connected services get the text as it was written ([Markdown in messages](review-workflow.md#markdown-in-messages)).
 
 `link_feedback_pull_request` (`feedback:assign`) accepts `projectId`, `commentId` and `url` (GitHub, GitLab or Azure DevOps). Call it immediately after opening a PR for authorized feedback work, once per addressed thread. It shares manual-link storage, server URL validation, current triage/access checks and activity history. Canonical URL identity is naturally idempotent; no `idempotencyKey` is needed. The assignment scope fits attaching work metadata without granting reply/status writes. A duplicate never replaces the original linker.
+
+
+## Comment archive
+
+`list_feedback` excludes archived threads by default. Set `archive: "only"` for the archive, or `"all"`
+to include both. This filter precedes the 1,000-thread storage window. Existing status filters still
+refer to workflow, so combine `archive: "only"` with `status: "resolved"` to find archived Done threads.
+Summaries and v1 feedback packets add optional `archivedAt`, preserving `resolved`, `status` and `stage`.
+Authorized single/batch reads and screenshots remain available when a thread is archived.
+
+After human approval, `set_feedback_archived` uses the same status permission and idempotency receipts
+as other writes. Archive/restore retains messages, evidence, assignments, verification and completion
+history. Legacy status writes never restore a thread implicitly. `feedback.archive_changed` is offered
+through the existing webhook, stream and poll modes, with the same access checks and connection
+filtering; it is thread activity without email delivery.

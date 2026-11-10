@@ -33,6 +33,7 @@ import {
     replyToProjectComment,
     setProjectCommentAssignee,
     setProjectCommentAssignees,
+    setProjectCommentArchived,
     setProjectCommentPrivate,
     setProjectCommentStatus,
     setProjectCommentPriority,
@@ -50,7 +51,7 @@ import { createCommentAuthorFilter } from '../../../lib/app/commentAuthors';
 import { assertCanUseComments } from '../../../lib/review/actor';
 import { eligibleParticipants } from '../../../lib/review/participants';
 import { assignCommentActionSchema, commentActionSchema, deleteReplyActionSchema, editCommentActionSchema, editReplyActionSchema,
-    filterAuthorActionSchema, privateCommentActionSchema, readCommentActionSchema, readCommentsActionSchema,
+    filterAuthorActionSchema, archiveCommentActionSchema, privateCommentActionSchema, readCommentActionSchema, readCommentsActionSchema,
     replyCommentActionSchema, statusCommentActionSchema, titleCommentActionSchema } from './actionSchemas';
 
 /** Session/workspace authority and request metadata come only from the server request. */
@@ -110,6 +111,11 @@ async function commentAction<T extends { projectId: string }>(schema: z.ZodType<
 export async function setCommentStatusAction(projectId: string, commentId: string, status: import('@uier/toolbar/verification').FeedbackStatusTarget) {
     return await commentAction(statusCommentActionSchema, { projectId, commentId, status },
         ({ project, actor }, input) => setProjectCommentStatus(project, actor, input.commentId, input.status));
+}
+
+export async function setCommentArchivedAction(projectId: string, commentId: string, archived: boolean) {
+    return await commentAction(archiveCommentActionSchema, { projectId, commentId, archived },
+        ({ project, actor }, input) => setProjectCommentArchived(project, actor, input.commentId, input.archived));
 }
 
 export async function setCommentPrivateAction(projectId: string, commentId: string, isPrivate: boolean) {

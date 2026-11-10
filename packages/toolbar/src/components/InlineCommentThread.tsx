@@ -63,7 +63,7 @@ function InlineCommentThread({ comment, target }: { comment: CommentItem; target
 export function InlineCommentThreads({ comments }: { comments: CommentItem[] }) {
     useLayoutVersion();
     return [...document.querySelectorAll<HTMLElement>('[data-uier-thread]')].map(target => {
-        const comment = comments.find(comment => comment.id === target.dataset.uierThread);
+        const comment = comments.find(comment => !comment.archivedAt && comment.id === target.dataset.uierThread);
         return comment ? (
             <CommentErrorBoundary key={comment.id} commentId={comment.id}>
                 <InlineCommentThread comment={comment} target={target} />

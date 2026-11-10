@@ -16,3 +16,13 @@ request form). People who may change nothing see the badge. Done keeps In progre
 leaves it. S focuses the menu's badge (`data-uier-status`). The delayed Done and In progress checks are
 in `app-performance.spec.ts`; the menu in `toolbar-thread.spec.ts`, `verification.spec.ts` and
 `shortcuts.spec.ts`.
+
+
+Archive/restore uses the same reviewer-scoped pending machinery (`archive`, `archivedAt`) and cache
+invalidation. New toolbar list requests opt into `archive=all`; pins, highlights, inline slots and
+ordinary inbox status filters exclude archived threads. The explicit Archive tab lists them with
+Restore comment in Thread options, using resolve authority; its preview has no Show on page action.
+Workflow status stays separate and unchanged. A failed archive rolls back every cached list and shows
+an error toast even when its optimistic removal unmounted the pin. All six catalogs include the archive
+labels and announcements. Activity summaries keep archived separate from ordinary totals and unread
+badges. Site-wide totals remain authoritative; page/search lists keep their existing bounded windows.

@@ -1,3 +1,4 @@
+import { archiveFilter } from '../../../src/lib/repo/archiveFilter';
 import { assertNotBot } from '../../../src/lib/comments/botProtection';
 import { apiErrors, commentsApiHandler, parseJsonBody } from '../../../src/lib/comments/http';
 import { createComment, listComments } from '../../../src/lib/comments/service';
@@ -9,13 +10,13 @@ import { MAX_COMMENT_BODY_BYTES } from '../../../src/lib/comments/limits';
 export const GET = commentsApiHandler(async (context) => {
     const params = new URL(context.request.url).searchParams;
     if (params.get('scope') === 'site')
-        return Response.json(await listComments(context, null, params.get('unread') === 'true'));
+        return Response.json(await listComments(context, null, params.get('unread') === 'true', archiveFilter(params.get('archive'))));
 
     const path = pathSchema.safeParse(params.get('path'));
     if (!path.success)
         throw apiErrors.invalidRequest(describeValidationError(path.error, 'path'));
 
-    return Response.json(await listComments(context, path.data));
+    return Response.json(await listComments(context, path.data, false, archiveFilter(params.get('archive'))));
 });
 
 // POST /api/comments - create a comment { path, position, text, quotedText?, device? }

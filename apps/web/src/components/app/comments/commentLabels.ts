@@ -25,7 +25,7 @@ export type CommentsView = 'list' | 'board';
  * `active` (the default): every status but Done, so Open, In progress and Ready to verify; the others
  * are one status each, and `all` adds Done. Deleted threads are never listed.
  */
-export type StatusFilter = 'active' | 'open' | 'in-progress' | 'ready' | 'done' | 'all';
+export type StatusFilter = 'active' | 'open' | 'in-progress' | 'ready' | 'done' | 'all' | 'archived';
 
 /** The list's status filter, in order: Active first, then the board's columns, then All */
 export const statusFilterLabels: Record<StatusFilter, string> = {
@@ -34,7 +34,8 @@ export const statusFilterLabels: Record<StatusFilter, string> = {
     'in-progress': 'In progress',
     ready: 'Ready to verify',
     done: 'Done',
-    all: 'All'
+    all: 'All',
+    archived: 'Archive'
 };
 
 /** The statuses folded under Active in the list's status filter, each one also a choice of its own */
@@ -46,7 +47,9 @@ export function isActiveStatusFilter(filter: StatusFilter) {
 }
 
 /** Whether a thread in `status` is listed under the status filter */
-export function statusMatches(filter: StatusFilter, status: import('@uier/toolbar/verification').FeedbackStage) {
+export function statusMatches(filter: StatusFilter, status: import('@uier/toolbar/verification').FeedbackStage, archivedAt?: string) {
+    if (filter === 'archived') return Boolean(archivedAt);
+    if (archivedAt) return false;
     return filter === 'all' || (filter === 'active' ? status !== 'done' : status === filter);
 }
 

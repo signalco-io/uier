@@ -78,7 +78,7 @@ export function CommentsStatusTabs({ status, counts, onStatusChange }: {
                 </Button>
                 <ActiveStatusesMenu status={status} counts={counts} onStatusChange={onStatusChange} />
             </Row>
-            {(['resolved', 'all'] as const).map(value => (
+            {(['resolved', 'all', 'archived'] as const).map(value => (
                 <Button key={value} size="sm" variant="plain" aria-pressed={status === value}
                     className={cx('-mb-px', tabClassName, tabStateClassName(status === value))}
                     onClick={() => onStatusChange(value)}>

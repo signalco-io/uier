@@ -28,7 +28,7 @@ export async function loadMyWork(context: AppContext): Promise<MyWork> {
         const comments = await loadProjectComments(context, project, 'all', undefined, windowCapped => { capped ||= windowCapped; });
         return comments.map(comment => ({ projectId: project.id, projectName: project.name, comment }));
     }));
-    const items = perProject.flat().sort((a, b) => (b.comment.createdAt ?? '').localeCompare(a.comment.createdAt ?? ''));
+    const items = perProject.flat().filter(item => !item.comment.archivedAt).sort((a, b) => (b.comment.createdAt ?? '').localeCompare(a.comment.createdAt ?? ''));
     const assigned = items.filter(({ comment }) => !comment.resolved && commentAssignees(comment).some(person => person.id === context.user.id));
     const listed = new Set(assigned.map(item => item.comment.id));
     const mentions = items.filter(({ comment }) => !comment.resolved && comment.mentionsMe && !listed.has(comment.id));

@@ -178,3 +178,11 @@ Pull request URL field with focus in it, Escape closes it and returns focus, and
 badge's colour (Open green, Merged violet, Closed red, Draft muted; `data-pull-request-color`); a closed one's name stays
 in ink, as the red is under 4.5:1 for text on dark. Only the member who linked one can remove that manual link, with the small x icon button beside it (named and
 tooltipped "Remove link to GitHub acme/site #2"); message detection remains independent.
+
+
+Archive comment / Restore comment are in More actions (toolbar: Thread options) for people with the
+thread's existing resolve permission. Archive remains independent of the status menu: the thread keeps
+its workflow badge and gains a neutral Archived label. Restore retains the original workflow, pending
+verification and completion time. Archive/restore records member-visible Activity entries and advances
+thread activity without acknowledging read cursors. The change reconciles through the existing app
+snapshot and toolbar cache refresh; failures restore the previous view. See [Archive](comments-inbox.md#archive).

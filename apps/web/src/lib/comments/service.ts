@@ -1,3 +1,6 @@
+import { withNotificationEvent } from '../notifications/events';
+import { queueMcpEventDelivery } from '../mcp/events/trigger';
+import { matchesArchive, type ArchiveFilter } from '../repo/archiveFilter';
 import { feedbackTypeForSubmission } from '../app/feedbackTypes';
 import { ordinaryVerificationStatus, withOrdinaryStage } from './verificationState';
 import { withThreadHistory } from './history';
@@ -145,28 +148,28 @@ async function updateComment<T extends DbComment | null>(
  * The page's newest comments (or, without a path, those of every page of the domain), as many as
  * fit into {@link MAX_LIST_RESPONSE_BYTES}
  */
-export async function listComments(context: CommentsApiContext, path: string | null, unreadOnly = false): Promise<CommentDto[]> {
+export async function listComments(context: CommentsApiContext, path: string | null, unreadOnly = false, archive: ArchiveFilter = 'exclude'): Promise<CommentDto[]> {
     // An account sees its own threads and the guests' public ones, newest first
     if (context.publicFeedback) {
-        const lists = await Promise.all([listProjectComments(context, path, unreadOnly), listProjectComments(context.publicFeedback, path, unreadOnly)]);
+        const lists = await Promise.all([listProjectComments(context, path, unreadOnly, archive), listProjectComments(context.publicFeedback, path, unreadOnly, archive)]);
         const starters = new Set([HEADLINE_COMMENT_ID, STEP_COMMENT_ID]);
         const newest = (a: CommentDto, b: CommentDto) => Number(starters.has(b.id)) - Number(starters.has(a.id)) || (b.createdAt ?? '').localeCompare(a.createdAt ?? '');
         return withinListResponseSize(lists.flat().sort(newest).slice(0, MAX_LIST_COMMENTS));
     }
-    return await listProjectComments(context, path, unreadOnly);
+    return await listProjectComments(context, path, unreadOnly, archive);
 }
 
-async function listProjectComments(context: CommentsApiContext, path: string | null, unreadOnly: boolean) {
+async function listProjectComments(context: CommentsApiContext, path: string | null, unreadOnly: boolean, archive: ArchiveFilter) {
     const store = getCommentsStore();
     let comments = unreadOnly
-        ? await unreadComments(context.domain, context.visitor.authorId)
+        ? await unreadComments(context.domain, context.visitor.authorId, undefined, archive)
         : path === null
-        ? await store.listAll(context.domain, MAX_LIST_COMMENTS)
-        : await store.list(context.domain, path, MAX_LIST_COMMENTS);
+        ? await store.listAll(context.domain, MAX_LIST_COMMENTS, undefined, undefined, archive)
+        : await store.list(context.domain, path, MAX_LIST_COMMENTS, undefined, undefined, archive);
     // The initial threads stay visible even when the page has more than one list of feedback.
     if (!unreadOnly && context.domain === PUBLIC_PROJECT_PARTITION && (path === null || path === '/')) {
         const starters = (await Promise.all([HEADLINE_COMMENT_ID, STEP_COMMENT_ID].map(id => store.get(context.domain, id))))
-            .flatMap(stored => stored ? [stored.comment] : []);
+            .flatMap(stored => stored && matchesArchive(stored.comment, archive) ? [stored.comment] : []);
         const ids = new Set(starters.map(comment => comment.id));
         comments = [...starters, ...comments.filter(comment => !ids.has(comment.id))].slice(0, MAX_LIST_COMMENTS);
     }
@@ -370,6 +373,11 @@ export async function replyToComment(context: CommentsApiContext, id: string, in
 export async function updateCommentResolved(context: CommentsApiContext, id: string, input: UpdateCommentInput) {
     const updated = await updateComment(getCommentsStore(), context, id, comment => {
         assertCommentAuthor(comment, context);
+        if (input.archived !== undefined) {
+            if (Boolean(comment.archivedAt) === input.archived) return comment;
+            return withNotificationEvent({ ...withThreadActivity(comment, writerId(context)), archivedAt: input.archived ? nowIso() : undefined, updatedAt: nowIso() },
+                writerId(context), input.archived ? 'archived' : 'restored', nowIso());
+        }
         const status = input.status;
         if (status !== undefined)
             return { ...(feedbackStage(comment) === status ? comment : withOrdinaryStage(withThreadActivity(comment, writerId(context)), status)), updatedAt: nowIso() };
@@ -377,6 +385,7 @@ export async function updateCommentResolved(context: CommentsApiContext, id: str
         return { ...ordinaryVerificationStatus(Boolean(comment.resolved) === resolved && !(!resolved && comment.verification?.outcome === 'pending') ? comment : withThreadActivity(comment, writerId(context)), resolved, true), updatedAt: nowIso() };
     });
 
+    if (input.archived !== undefined && updated.projectId) queueMcpEventDelivery(updated.projectId);
     return toDto(updated, context);
 }
 

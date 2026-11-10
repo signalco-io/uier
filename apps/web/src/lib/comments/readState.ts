@@ -1,3 +1,4 @@
+import { matchesArchive, type ArchiveFilter } from '../repo/archiveFilter';
 import { feedbackStage, readyForReview } from '@uier/toolbar/verification';
 import { threadRecordTtl } from './retention';
 import type { AppDoc } from '../app/model';
@@ -78,16 +79,17 @@ export async function markThreadUnread(comment: DbComment, reviewerId: string) {
 }
 
 /** `open`: not done, so In progress and Ready to verify count there too */
-export type ActivitySummary = { unread: number; inProgress: number; ready: number; open: number; done: number; total: number };
+export type ActivitySummary = { archived: number; unread: number; inProgress: number; ready: number; open: number; done: number; total: number };
 
 /** No text or actor ids are returned to the browser. Authorization/visibility stays server-side. */
 export async function projectActivity(domain: string, reviewerId: string | undefined,
-    visible: (comment: DbCommentActivity) => boolean = comment => isVisible(comment, { visitor: { authorId: reviewerId } })) {
+    visible: (comment: DbCommentActivity) => boolean = comment => isVisible(comment, { visitor: { authorId: reviewerId } }), archive: ArchiveFilter = 'exclude') {
     const [records, reads] = await Promise.all([getCommentsStore().listActivity(domain), loadReadSequences(domain, reviewerId)]);
-    const comments = records.filter(visible).sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
+    const visibleRecords = records.filter(visible);
+    const comments = visibleRecords.filter(comment => matchesArchive(comment, archive)).sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
     const unreadIds = comments.filter(comment => readActivity(comment, reviewerId, reads.get(comment.id)).unread).map(comment => comment.id);
     return {
-        summary: { unread: unreadIds.length, inProgress: comments.filter(comment => feedbackStage(comment) === 'in-progress').length, ready: comments.filter(readyForReview).length, open: comments.filter(comment => !comment.resolved).length,
+        summary: { archived: visibleRecords.filter(comment => Boolean(comment.archivedAt)).length, unread: unreadIds.length, inProgress: comments.filter(comment => feedbackStage(comment) === 'in-progress').length, ready: comments.filter(readyForReview).length, open: comments.filter(comment => !comment.resolved).length,
             done: comments.filter(comment => comment.resolved).length, total: comments.length } satisfies ActivitySummary,
         unreadIds
     };
@@ -95,9 +97,9 @@ export async function projectActivity(domain: string, reviewerId: string | undef
 
 /** Fetch only a bounded batch of unread content, including old threads outside the newest list. */
 export async function unreadComments(domain: string, reviewerId: string | undefined,
-    visible: (comment: DbCommentActivity) => boolean = comment => isVisible(comment, { visitor: { authorId: reviewerId } })) {
-    const { unreadIds } = await projectActivity(domain, reviewerId, visible);
+    visible: (comment: DbCommentActivity) => boolean = comment => isVisible(comment, { visitor: { authorId: reviewerId } }), archive: ArchiveFilter = 'exclude') {
+    const { unreadIds } = await projectActivity(domain, reviewerId, visible, archive);
     const stored = await Promise.all(unreadIds.slice(0, MAX_LIST_COMMENTS).map(id => getCommentsStore().get(domain, id)));
     // Visibility may have changed between the projection and the point read.
-    return stored.flatMap(entry => entry && visible(entry.comment) ? [entry.comment] : []);
+    return stored.flatMap(entry => entry && visible(entry.comment) && matchesArchive(entry.comment, archive) ? [entry.comment] : []);
 }

@@ -12,7 +12,7 @@ import { accessCovers, listAccessibleWorkspaces } from './oauth/grants';
 import { ApiError, apiErrors } from '../comments/http';
 import { MAX_SCREENSHOT_BYTES } from '../comments/limits';
 import { idempotencyKeySchema, reviewPathSchema, textSchema } from '../comments/validation';
-import { getProjectComment, getProjectScreenshot, listProjectComments, MAX_PROJECT_COMMENTS, replyToProjectComment, setProjectCommentAssignee, setProjectCommentAssignees, setProjectCommentResolved, setProjectCommentStatus } from '../review/comments';
+import { getProjectComment, getProjectScreenshot, listProjectComments, MAX_PROJECT_COMMENTS, replyToProjectComment, setProjectCommentAssignee, setProjectCommentAssignees, setProjectCommentResolved, setProjectCommentStatus, setProjectCommentArchived } from '../review/comments';
 import { actorAuthorId, assertCanUseComments } from '../review/actor';
 import { createProjectFeedbackExportReader, projectFeedbackExport } from '../review/feedbackContext';
 import { manualThreadTitle, threadTitle } from '../titles/model';
@@ -54,6 +54,7 @@ const MAX_RESULT_BYTES = 256 * 1024;
 const feedbackFilters = z.object({
     projectId, ...page,
     search: z.string().max(200).default(''),
+    archive: z.enum(['exclude', 'only', 'all']).default('exclude').describe('Archived threads are excluded by default. only: archive view; all: include both. Workflow status is separate.'),
     priority: z.enum(priorities).optional(),
     status: z.enum(['all', 'open', 'in-progress', 'ready', 'resolved']).default('all')
         .describe('open: not done (In progress and Ready to verify included); in-progress: In progress, someone is working on it; ready: Ready to verify, a fix check is pending; resolved: Done.'),
@@ -164,7 +165,7 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         if (input.environment !== undefined && !['unknown', 'removed'].includes(input.environment) && !environments.some(option => option.id === input.environment))
             throw apiErrors.invalidRequest('Choose a configured environment, unknown or removed.');
         const comments = await listProjectComments(project, actor, input.path === undefined ? undefined : pagePath(input.path, project.pageState),
-            input.environment === undefined ? undefined : environmentFilter(project, input.environment));
+            input.environment === undefined ? undefined : environmentFilter(project, input.environment), undefined, undefined, input.archive);
         const authorId = actorAuthorId(actor);
         const [participants, reads, titles] = await Promise.all([participantNames(project), loadReadSequences(`project:${project.id}`, authorId),
             comments.some(comment => comment.aiTitle && !manualThreadTitle(comment)) ? loadAiTitlesEnabled(project) : false]);
@@ -177,7 +178,7 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
                 const first = comment.thread.items[0];
                 const { path, source, assignee, assignees, activity } = projectCommentRouting(comment, project, participants, authorId, reads.get(comment.id));
                 return { verification: verificationDetails(comment, project, actor, participants), id: comment.id, number: comment.number, kind: comment.kind ?? 'comment', ...(feedbackTypeSnapshot(comment.feedbackType, comment.kind) ? { feedbackType: feedbackTypeSnapshot(comment.feedbackType, comment.kind) } : {}),
-                    ...(commentCheck(comment.check) ? { check: commentCheck(comment.check) } : {}), priority: commentPriority(comment.priority), resolved: Boolean(comment.resolved), stage: feedbackStage(comment), private: Boolean(comment.private),
+                    ...(commentCheck(comment.check) ? { check: commentCheck(comment.check) } : {}), priority: commentPriority(comment.priority), archivedAt: comment.archivedAt, resolved: Boolean(comment.resolved), stage: feedbackStage(comment), private: Boolean(comment.private),
                     title: threadTitle(comment, titles)?.text, summary: first?.deletedAt ? 'Comment deleted' : first?.text.slice(0, 240), updatedAt: comment.updatedAt,
                     path, environment: { id: source.environment, label: source.label }, anchorType: comment.position.type, assignee: assignee ?? null, assignees,
                     authorKind: first && !first.deletedAt ? first.authorId?.startsWith('user:') ? 'member' : 'guest' : undefined,
@@ -259,6 +260,13 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         const item = [...saved.thread.items].reverse().find(entry => entry.authorId === actorAuthorId(actor) && entry.text === input.text);
         const writtenBy = item && messageAgentView(item, true);
         return result({ actingAs, commentId: saved.id, saved: true, ...(item ? { itemId: item.id } : {}), ...(writtenBy ? { writtenBy } : {}) });
+    }));
+    server.registerTool('set_feedback_archived', { description: `Archive or restore human-approved feedback without changing its workflow status, content, assignment or verification. Archived feedback is hidden from ordinary lists; use list_feedback with archive: only to find it. ${untrusted}`, inputSchema: {
+        ...write, archived: z.boolean()
+    }, annotations: writeAnnotations }, input => safely(async () => {
+        const { project, actor, user } = await mcpProject(identity, input.projectId, 'feedback:status');
+        const saved = await setProjectCommentArchived(project, actor, input.commentId, input.archived, key(identity, input.idempotencyKey));
+        return result({ actingAs: actingAsFor(user), commentId: saved.id, archivedAt: saved.archivedAt ?? null, resolved: Boolean(saved.resolved), stage: feedbackStage(saved) });
     }));
     server.registerTool('set_feedback_status', { description: `Set an ordinary human-approved status without reviewer confirmation. Send exactly one of status (open, in-progress or done) or resolved (true: Done; false: reopens a Done thread to Open and leaves an In progress thread as it is). Leaving Ready to verify ends the pending check without confirmation. Replaying a key does not overwrite subsequent status changes. ${untrusted}`, inputSchema: {
         ...write,

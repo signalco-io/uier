@@ -23,6 +23,7 @@ export type ThreadMenuActions = {
     verify?: { label: string; onRequest: () => void };
     follow?: { following: boolean; pending: boolean; onToggle: () => void };
     mute?: { muted: boolean; pending: boolean; onToggle: () => void };
+    archive?: { archived: boolean; pending: boolean; onToggle: () => void };
     markUnread?: { pending: boolean; onMarkUnread: () => void };
 };
 
@@ -48,8 +49,8 @@ export function CommentThreadMenu({ className, actions, triggerRef }: { classNam
     const [choosingPriority, setChoosingPriority] = useState(false);
     const firstRef = useRef<HTMLButtonElement>(null);
     const { triggerProps, tooltip } = useIconTooltip(t.thread.options);
-    const { assign, priority, verify, follow, mute, markUnread } = actions;
-    if (!assign && !priority && !verify && !follow && !mute && !markUnread) return null;
+    const { assign, priority, verify, follow, mute, markUnread, archive } = actions;
+    if (!assign && !priority && !verify && !follow && !mute && !markUnread && !archive) return null;
     const run = (action: () => void) => { setOpen(false); setChoosingPriority(false); action(); };
     const current = commentPriority(priority?.value);
 
@@ -123,6 +124,11 @@ export function CommentThreadMenu({ className, actions, triggerRef }: { classNam
                 {mute && (
                     <MenuButton buttonRef={takeFirst()} disabled={mute.pending} onClick={() => run(mute.onToggle)}>
                         {mute.muted ? t.thread.unmute : t.thread.mute}
+                    </MenuButton>
+                )}
+                {archive && (
+                    <MenuButton buttonRef={takeFirst()} disabled={archive.pending} onClick={() => run(archive.onToggle)}>
+                        {archive.archived ? t.thread.restore : t.thread.archive}
                     </MenuButton>
                 )}
                 {markUnread && (

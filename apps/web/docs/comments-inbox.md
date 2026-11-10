@@ -223,3 +223,19 @@ always comes from the completed page render, not the earlier check. Session/acce
 checks use the normal server page to reconcile. Hidden/offline views never refresh from late check
 responses. A full five-minute shell safety refresh keeps unrelated sidebar changes bounded;
 [app shell](app-shell.md#idle-comments-refreshes) describes the cost and freshness tradeoff.
+
+## Archive
+
+Archive is an explicit fourth list tab (`?status=archived`), separate from Active, Done and All. The
+ordinary tabs, workflow board columns and My work exclude archived threads. The board offers an
+Archive button that opens the archive list; choosing Board again returns to workflow columns.
+Counts follow the selected search, people, page, priority, environment and author scopes. The app's
+bounded authorized snapshot includes archive metadata so presentation filtering remains local.
+An archived or restored open thread leaves its previous scope, including its detail panel.
+
+More actions → Archive comment moves a thread into Archive; Restore comment returns it to its prior
+workflow status, including Done or Ready to verify. Both changes are optimistic and roll back on
+failure; they do not delete content or mark it read. The archive detail carries an Archived label.
+The toolbar uses the same actions in Thread options and an Archive tab; archived threads have no pins,
+highlights, inline slots or Show on page action until restored. `e2e/archive.spec.ts` covers both
+surfaces, reload, restore, failed saves, mobile and light/dark accessibility.

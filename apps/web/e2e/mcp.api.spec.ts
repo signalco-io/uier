@@ -913,3 +913,29 @@ test('custom feedback types are preserved in list, single and batch MCP packets 
         expect(JSON.stringify(batch)).not.toContain('What would help?');
     } finally { await client.close(); }
 });
+
+test('MCP archive has an explicit list scope, preserves export status and requires status authority', async () => {
+    const f = await fixture();
+    const { token } = await createMcpCredential(f.context, { name: 'Archive', projectIds: [f.project.id], scopes: ['feedback:read', 'feedback:status'], days: 7 });
+    const { token: readToken } = await createMcpCredential(f.context, { name: 'Read archive', projectIds: [f.project.id], scopes: ['feedback:read'], days: 7 });
+    const client = await connect(token), reader = await connect(readToken);
+    const args = { projectId: f.project.id, commentId: f.comment.id, archived: true, idempotencyKey: idempotencyKey() };
+    const started = data(await reader.callTool({ name: 'list_feedback_events', arguments: { projectId: f.project.id, cursor: null } }));
+    const list = async (archive?: string) => data(await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id, ...(archive ? { archive } : {}) } })).items;
+    try {
+        expect(data(await reader.callTool({ name: 'set_feedback_archived', arguments: args })).error).toBe('forbidden');
+        expect(data(await client.callTool({ name: 'set_feedback_archived', arguments: args }))).toMatchObject({ archivedAt: expect.any(String), resolved: false, stage: 'open' });
+        const changes = data(await reader.callTool({ name: 'list_feedback_events', arguments: { projectId: f.project.id, cursor: started.cursor, events: ['feedback.archive_changed'] } }));
+        expect(changes.items).toMatchObject([{ name: 'feedback.archive_changed', data: { commentId: f.comment.id, archived: true } }]);
+        expect(await list()).toEqual([]);
+        expect(await list('only')).toMatchObject([{ id: f.comment.id, archivedAt: expect.any(String), stage: 'open' }]);
+        expect(await list('all')).toHaveLength(1);
+        const exported = data(await client.callTool({ name: 'get_feedback', arguments: { projectId: f.project.id, commentId: f.comment.id } }));
+        expect(exported.context).toMatchObject({ schemaVersion: 1, archivedAt: expect.any(String), status: 'open', stage: 'open' });
+        await client.callTool({ name: 'set_feedback_archived', arguments: { ...args, archived: false, idempotencyKey: idempotencyKey() } });
+        // Replaying a saved archive action must not undo the later restore.
+        await client.callTool({ name: 'set_feedback_archived', arguments: args });
+        expect(await list()).toHaveLength(1);
+        expect(await list('only')).toEqual([]);
+    } finally { await client.close(); await reader.close(); }
+});

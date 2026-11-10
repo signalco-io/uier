@@ -30,7 +30,7 @@ const REVIEW_LIST_LIMIT = 20;
 export const COMPLETED_DELIVERY_TTL = 30 * 24 * 60 * 60;
 
 /** Atomic outbox entries on the comment, using #83's thread sequence. No copied message content. */
-export type NotificationEvent = { sequence: number; actorId: string; kind: 'comment' | 'reply' | 'resolved' | 'reopened' | 'progress-started' | 'progress-stopped' | 'mention' | 'assignment' | 'agent' | 'verification-requested' | 'verification-confirmed' | 'verification-rejected' | 'verification-canceled'; at: string; recipients?: string[]; agent?: import('../db/schema').AgentSource; verificationOverride?: boolean; itemId?: string; assigneeId?: string | null;
+export type NotificationEvent = { sequence: number; actorId: string; kind: 'archived' | 'restored' | 'comment' | 'reply' | 'resolved' | 'reopened' | 'progress-started' | 'progress-stopped' | 'mention' | 'assignment' | 'agent' | 'verification-requested' | 'verification-confirmed' | 'verification-rejected' | 'verification-canceled'; at: string; recipients?: string[]; agent?: import('../db/schema').AgentSource; verificationOverride?: boolean; itemId?: string; assigneeId?: string | null;
     assigneeIds?: string[]; previousAssigneeIds?: string[]; agentId?: string;
     /** `agent` events: the agent now working under `assigneeId`, or `null` once it was removed. Never emailed. */
     assigneeAgent?: Pick<import('../db/schema').DbAssigneeAgent, 'kind' | 'model' | 'reasoning' | 'sessionId'> | null };
@@ -113,7 +113,7 @@ function eligibleEvents(delivery: NotificationDelivery, context: NonNullable<Awa
         && (!context.memberSince || event.at >= context.memberSince)
         && (!subscription?.since || event.at >= subscription.since)
         // An agent starting or stopping work is thread activity (unread, MCP events), never an email.
-        && event.kind !== 'agent'
+        && event.kind !== 'agent' && event.kind !== 'archived' && event.kind !== 'restored'
         && (event.kind === 'comment' ? actor.kind === 'member' && (actor.isAdmin || actor.userId === context.project.createdBy || event.recipients?.includes(delivery.actorId))
             : event.kind === 'mention' || event.kind === 'assignment' ? Boolean(event.recipients?.includes(delivery.actorId))
                 : subscription?.following ?? (actor.kind === 'member' && (isNotificationParticipant(comment, delivery.actorId)
