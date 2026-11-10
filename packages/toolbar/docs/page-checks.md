@@ -94,7 +94,9 @@ Both panels share one layout (`components/checks/ChecksParts.tsx`), so they read
   Check again is never disabled and is `aria-busy` while a check runs.
 
 - **The summary first** (`ChecksSummary`): a tile for each kind of result with its count, its icon in
-  the result's colour only while it counts something (muted at 0), then one line with when it was checked.
+  the result's colour only while it counts something (muted at 0). No line says when it was checked
+  ([uier #246](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_zhQXsus05JoFbNA2cAae9));
+  an Accessibility report without issues says under it what automated checks cannot tell.
   Each tile is a toggle button (`aria-pressed`, in a group named "Filter results") that shows only its
   results ([uier #222](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_VUQdIFLJjsqv25EgSXjz_),
   [uier #224](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_6WFy0-xb48chE7HJW_Rif)):

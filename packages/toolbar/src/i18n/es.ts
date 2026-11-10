@@ -766,8 +766,6 @@ export const es: Messages = {
         states: { pass: 'Correcto', warn: 'Aviso', none: 'Nota' },
         otherPageBefore: 'Estos resultados son de ',
         otherPageAfter: '. Vuelve a comprobar esta página.',
-        checkedAtBefore: 'Comprobado a las ',
-        checkedAtAfter: '',
         checkAgain: 'Volver a comprobar',
         closePanel: 'Cerrar el panel',
         closeNamed: (title: string) => `Cerrar el panel ${title}`,
@@ -811,7 +809,7 @@ export const es: Messages = {
             checkingPage: 'Comprobando esta página...',
             couldNotRun: 'No se pudo ejecutar la comprobación de accesibilidad.',
             noIssues: 'No se han encontrado problemas.',
-            automatedNote: ' Las comprobaciones automáticas solo encuentran algunos problemas. Prueba también con teclado y lector de pantalla.',
+            automatedNote: 'Las comprobaciones automáticas solo encuentran algunos problemas. Prueba también con teclado y lector de pantalla.',
             blocked: 'Puede que la Content-Security-Policy del sitio o la conexión bloqueen su script.',
             undecided: 'axe-core no pudo decidir. No se cuenta.',
             tabs: { issues: 'Problemas', keyboard: 'Teclado', screenReader: 'Lector de pantalla', visual: 'Visual' }

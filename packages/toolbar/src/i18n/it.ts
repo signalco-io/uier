@@ -766,8 +766,6 @@ export const it: Messages = {
         states: { pass: 'Superato', warn: 'Avviso', none: 'Nota' },
         otherPageBefore: 'Questi risultati riguardano ',
         otherPageAfter: '. Controlla di nuovo per questa pagina.',
-        checkedAtBefore: 'Controllato alle ',
-        checkedAtAfter: '',
         checkAgain: 'Controlla di nuovo',
         closePanel: 'Chiudi il pannello',
         closeNamed: (title: string) => `Chiudi il pannello ${title}`,
@@ -811,7 +809,7 @@ export const it: Messages = {
             checkingPage: 'Controllo di questa pagina...',
             couldNotRun: 'Non è stato possibile eseguire il controllo di accessibilità.',
             noIssues: 'Nessun problema trovato.',
-            automatedNote: ' I controlli automatici trovano solo alcuni problemi. Prova anche con la tastiera e uno screen reader.',
+            automatedNote: 'I controlli automatici trovano solo alcuni problemi. Prova anche con la tastiera e uno screen reader.',
             blocked: 'La Content-Security-Policy del sito o la connessione potrebbero bloccare il suo script.',
             undecided: 'axe-core non ha potuto decidere. Non conteggiato.',
             tabs: { issues: 'Problemi', keyboard: 'Tastiera', screenReader: 'Screen reader', visual: 'Visivo' }

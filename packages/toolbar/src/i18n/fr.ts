@@ -765,8 +765,6 @@ export const fr: Messages = {
         states: { pass: 'Réussi', warn: 'Avertissement', none: 'Note' },
         otherPageBefore: 'Ces résultats concernent ',
         otherPageAfter: '. Vérifiez à nouveau pour cette page.',
-        checkedAtBefore: 'Vérifié à ',
-        checkedAtAfter: '',
         checkAgain: 'Vérifier à nouveau',
         closePanel: 'Fermer le panneau',
         closeNamed: (title: string) => `Fermer le panneau ${title}`,
@@ -810,7 +808,7 @@ export const fr: Messages = {
             checkingPage: 'Vérification de cette page...',
             couldNotRun: 'La vérification d’accessibilité n’a pas pu s’exécuter.',
             noIssues: 'Aucun problème trouvé.',
-            automatedNote: ' Les vérifications automatiques ne trouvent qu’une partie des problèmes. Essayez aussi au clavier et avec un lecteur d’écran.',
+            automatedNote: 'Les vérifications automatiques ne trouvent qu’une partie des problèmes. Essayez aussi au clavier et avec un lecteur d’écran.',
             blocked: 'La Content-Security-Policy du site ou la connexion bloque peut-être son script.',
             undecided: 'axe-core n’a pas pu trancher. Non compté.',
             tabs: { issues: 'Problèmes', keyboard: 'Clavier', screenReader: 'Lecteur d’écran', visual: 'Affichage' }

@@ -766,8 +766,6 @@ export const hr: Messages = {
         states: { pass: 'Prolazi', warn: 'Upozorenje', none: 'Napomena' },
         otherPageBefore: 'Ovi se rezultati odnose na ',
         otherPageAfter: '. Ponovno provjerite ovu stranicu.',
-        checkedAtBefore: 'Provjereno u ',
-        checkedAtAfter: '',
         checkAgain: 'Provjeri ponovno',
         closePanel: 'Zatvori ploču',
         closeNamed: (title: string) => `Zatvori ploču ${title}`,
@@ -811,7 +809,7 @@ export const hr: Messages = {
             checkingPage: 'Provjera ove stranice...',
             couldNotRun: 'Provjera pristupačnosti nije pokrenuta.',
             noIssues: 'Nema pronađenih problema.',
-            automatedNote: ' Automatske provjere pronalaze samo dio problema. Isprobajte i tipkovnicu i čitač zaslona.',
+            automatedNote: 'Automatske provjere pronalaze samo dio problema. Isprobajte i tipkovnicu i čitač zaslona.',
             blocked: 'Content-Security-Policy stranice ili veza možda blokiraju njezinu skriptu.',
             undecided: 'axe-core nije mogao odlučiti. Ne broji se.',
             tabs: { issues: 'Problemi', keyboard: 'Tipkovnica', screenReader: 'Čitač zaslona', visual: 'Prikaz' }

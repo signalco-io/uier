@@ -765,8 +765,6 @@ export const de: Messages = {
         states: { pass: 'Bestanden', warn: 'Warnung', none: 'Hinweis' },
         otherPageBefore: 'Diese Ergebnisse gelten für ',
         otherPageAfter: '. Prüfen Sie diese Seite erneut.',
-        checkedAtBefore: 'Geprüft um ',
-        checkedAtAfter: '',
         checkAgain: 'Erneut prüfen',
         closePanel: 'Bereich schließen',
         closeNamed: (title: string) => `Bereich „${title}“ schließen`,
@@ -810,7 +808,7 @@ export const de: Messages = {
             checkingPage: 'Diese Seite wird geprüft...',
             couldNotRun: 'Die Prüfung der Barrierefreiheit konnte nicht laufen.',
             noIssues: 'Keine Probleme gefunden.',
-            automatedNote: ' Automatische Prüfungen finden nur einen Teil der Probleme. Testen Sie auch mit Tastatur und Screenreader.',
+            automatedNote: 'Automatische Prüfungen finden nur einen Teil der Probleme. Testen Sie auch mit Tastatur und Screenreader.',
             blocked: 'Die Content-Security-Policy der Website oder die Verbindung blockiert womöglich ihr Skript.',
             undecided: 'axe-core konnte nicht entscheiden. Nicht gezählt.',
             tabs: { issues: 'Probleme', keyboard: 'Tastatur', screenReader: 'Screenreader', visual: 'Darstellung' }
