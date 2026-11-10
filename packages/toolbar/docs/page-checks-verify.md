@@ -16,7 +16,8 @@ own look. It never changes the thread's status: the reviewer still confirms or r
   failure line, the SEO check's reason or the element's summary), "No longer found on this page.", or for
   a comment about several elements (an optional `check.count` of 2 or more) "3 elements still fail this
   rule". Core Web Vitals say this visit's measurement against its target ("3.1 s in this visit, over the
-  2.5 s target."). The text is a `role="status"`; the icon (`checkStates`) only repeats it.
+  2.5 s target."). One that failed (the audit asset did not load) says "This could not be checked. Check
+  again to retry." The text is a `role="status"`; the icon (`checkStates`) only repeats it.
 - Under the messages; while the thread is Ready to verify, inside the Fix verification section between
   the request and the answers (`CommentVerification`'s `evidence`).
 - Nothing at all when the check cannot run here: no audit asset (`auditAvailable()`, packaged clients)
