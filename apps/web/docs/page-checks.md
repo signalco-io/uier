@@ -62,6 +62,11 @@ pass); a transfer keeps it, since it is keyed by the project.
   among the project's is text), its title (and environment when the project has several), axe-core's issues by
   impact, the SEO checks to look at and passed, Core Web Vitals against the panel's targets, when it was last
   checked and the change since the check before. Each result is an icon in BRAND.md's colours beside its words.
+- **Core Web Vitals' targets** (uier #220, `VitalResult`): each measured vital opens a popover on hover, on keyboard
+  focus or on a tap or click, with its name, this page's value and its two states, the current one marked:
+  within target (the toolbar SEO panel's good value or less) and over target (with the panel's warning).
+  `vitalTargets` in `src/lib/pageChecks/model.ts` mirrors the toolbar's `webVitals.ts` and `en.ts`; there is no
+  third level, so the view shows none. The popup keeps focus on its trigger; Escape closes it until focus leaves.
 - **Order** (`?sort=`, `setUrlSearchParams`, no server request): Needs attention first by default (critical,
   then serious, then all accessibility issues, then SEO to look at, then Core Web Vitals over target),
   Accessibility issues, SEO to look at, Last checked or Page. A column the order follows has `aria-sort`.
@@ -84,5 +89,5 @@ previous counts and the page state, the 200-page cap, the member and project rat
 deletion with the project, the across-pages, ordering and filter rules, and the address hierarchy.
 `e2e/page-checks-site.spec.ts` (full suite): a member reviews two pages of the `fixture-site` site with the same
 title; the toolbar sends one summary each (not again for an unchanged reload), and the view lists both with
-their counts, the shared title and description (closed until opened, under their common path), shows only the pages needing attention, sorts by page and passes axe (Desktop Chrome); a `noindex`
-page as a card on a phone, without a sideways scroll (Mobile Chrome).
+their counts, the shared title and description (closed until opened, under their common path), shows only the pages needing attention, a vital's targets on hover and keyboard focus, sorts by page and passes axe (Desktop Chrome); a `noindex`
+page as a card on a phone, a vital's targets on a tap, without a sideways scroll (Mobile Chrome).
