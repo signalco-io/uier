@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Badge } from '@/src/components/ui/badge';
 import { cn } from '@/src/lib/utils';
@@ -51,11 +52,14 @@ export default async function ProjectLayout({ children, params }: LayoutProps<'/
                 title={project.name}
                 description={(
                     <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                        {/* The client opens the projects list filtered to it, on the tab of this project's status (uier #241) */}
                         {client && (
-                            <span className="flex min-w-0 items-center gap-1.5">
+                            <Link
+                                href={KnownPageLinks.clientProjects(client.id, project.status === 'done' ? 'done' : 'active')}
+                                className="flex min-w-0 items-center gap-1.5 rounded-sm underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring">
                                 <ClientMark client={clientSummary(client)} />
                                 <span className="min-w-0 break-words">Client: {client.name}</span>
-                            </span>
+                            </Link>
                         )}
                         {/* Who can comment, with the guest links and (for admins) Invite in its popover; admins follow it to the setting */}
                         <ProjectAccessInfo access={project.access} settingsHref={canConfigure ? KnownPageLinks.projectAccessSettings(project.id) : undefined}>

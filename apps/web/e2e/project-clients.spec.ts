@@ -39,6 +39,14 @@ test('clients show in the sidebar and on their page, and new projects pick an ex
     await page.getByRole('button', { name: 'Create project' }).click();
     await page.waitForURL(/\/app\/projects\/[0-9a-z]{12}\/install/);
     await expect(page.getByText('Client: Acme Studio', { exact: true })).toBeVisible();
+    // The header's client is a link to the projects list filtered to that client, reachable by keyboard
+    const clientLink = page.getByRole('link', { name: 'Client: Acme Studio', exact: true });
+    await clientLink.focus();
+    await expect(clientLink).toBeFocused();
+    await page.keyboard.press('Enter');
+    await page.waitForURL(/\/app\/projects\?client=[^&]+$/);
+    await expect(page.getByRole('combobox', { name: 'Client', exact: true })).toContainText('Acme Studio');
+    await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('listitem')).toHaveCount(2);
 
     // A client with only done projects opens the done ones
     const doneId = await createProject(page, { urls: ['northwind.example.com'], name: 'Northwind site', clientName: 'Northwind' });
