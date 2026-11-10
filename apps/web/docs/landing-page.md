@@ -18,8 +18,10 @@ itself, so the global `:target` margin does not apply there and the layout turns
 
 - **Only what uier does today.** Every step, feature and answer describes behaviour that ships: in
   the toolbar (check `packages/toolbar`) or in the app's projects (check `src/lib`) before adding
-  one. Say which parts can be tried on the page itself: the showcase is a guest, so mentions,
-  assignment, environments and the MCP connector only work in a project. The showcase runs on
+  one. Say which parts can be tried on the page itself: the showcase is a guest, so pins, threads,
+  the inbox and the Accessibility and SEO panels work here, while mentions, assignment, the board,
+  environments, integrations and the MCP connector only work in a project. The feature tiles link to
+  the feature pages (`/features/page-checks`, `/features/fix-verification`, `/features/ai`) and `/integrations`. The showcase runs on
   every public marketing page and its inbox includes other public pages. Project embeds work on
   their configured addresses, with headers for identity and BotID proofs for writes.
 - **Pictures are specimens.** The cover scene and the feature tiles are built from the tokens and
@@ -28,6 +30,14 @@ itself, so the global `:target` margin does not apply there and the layout turns
   "add one script tag to your site", the description). The starter thread "Try it here" is pinned
   to the "Try it on this page" box by `id="first-step-comment-anchor"`; the id is stored in
   production, so keep it.
+- **Pictures copy the shipped controls.** Each specimen draws the control it shows as it ships: the toolbar pill
+  (`ToolbarIllustration`, in `CommentToolbar`'s order), the thread header with its status menu and each status's
+  colour (`CommentThreadHeader`), the inbox's search, page picker, filters and Active/Done/All tabs (`sidebar/`),
+  the checks panels (`components/checks/`), and the app's board, rows and filter bar (`CommentBoard`, `CommentRow`,
+  `CommentFilters`). Recheck the pictures when one of those changes; the component comments name what each copies.
+- **Feature tiles alternate wide and narrow** (wide, narrow, narrow, wide, ...): at `lg` each row is one wide and
+  one narrow tile, at `md` the narrow ones pair up and the wide ones take a row, so neither width leaves a gap.
+  "And the details" spans the full width under them. Add or remove tiles in pairs that keep the pattern.
 - **One section moves.** The how-it-works scene is a timeline of phases (`phases` in
   `HowItWorks.tsx`); everything in it is always rendered and shown or hidden with the brand's fade,
   and the pointer's targets are measured from the scene, so it follows any width. It plays only

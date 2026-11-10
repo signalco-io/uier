@@ -1,16 +1,16 @@
 import type { ReactNode } from 'react';
-import { Check, Down, Drag, ExternalLink, Globe, Inbox, LogOut, Megaphone, MoreHorizontal } from '@signalco/ui-icons';
+import { Check, ExternalLink, Globe, LogOut } from '@signalco/ui-icons';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Logo } from '@uier/brand/Logo';
 import { Mark } from '@uier/brand/Mark';
 import { Pin } from '@uier/brand/Pin';
-import { PIN_PATH, PIN_VIEWBOX } from '@uier/brand';
 import { extensionRelease } from '../../lib/extension/release';
+import { ToolbarIllustration } from '../brand/ToolbarIllustration';
 import { Avatar, floating } from './LandingSpecimens';
 
 // Static pictures of the browser extension for /browser-extension: its popup (packages/extension/src/popup.tsx,
 // the "Review this site" state with two matching projects) and the review toolbar it starts
-// (packages/toolbar CommentToolbar, expanded). Built from the tokens like the landing specimens, never
+// (ToolbarIllustration, packages/toolbar CommentToolbar expanded). Built from the tokens like the landing specimens, never
 // screenshots; hidden from assistive technologies, since the captions and steps say the same. Recheck
 // them with the popup and the toolbar. The example site is the landing page's imaginary restaurant.
 
@@ -97,42 +97,6 @@ function Popup() {
     );
 }
 
-/** Accessibility and SEO, drawn like the toolbar's own icons (checks/ChecksIcons.tsx) */
-function CheckIcon({ kind }: { kind: 'accessibility' | 'seo' }) {
-    return (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
-            {kind === 'accessibility'
-                ? <><circle cx="12" cy="4.5" r="1.5" /><path d="M5 8.5 12 10l7-1.5" /><path d="M12 10v4.5" /><path d="m8.5 20.5 3.5-6 3.5 6" /></>
-                : <><path d="M3 7V5a2 2 0 0 1 2-2h2" /><path d="M17 3h2a2 2 0 0 1 2 2v2" /><path d="M21 17v2a2 2 0 0 1-2 2h-2" /><path d="M7 21H5a2 2 0 0 1-2-2v-2" /><circle cx="11.5" cy="11.5" r="3.5" /><path d="m16.5 16.5-2.5-2.5" /></>}
-        </svg>
-    );
-}
-
-/** The expanded review toolbar, ink like the rest of the review layer. Narrow, the checks move into its menu, as in the toolbar. */
-function Toolbar() {
-    const button = 'inline-flex size-8 shrink-0 items-center justify-center rounded-full';
-    return (
-        <div className="dark inline-flex items-center rounded-full border bg-background p-1 text-foreground shadow-[0_8px_24px_rgba(0,0,0,0.16)]">
-            <span className={cx(button, 'text-muted-foreground')}><Drag size={18} style={{ strokeWidth: 1.25 }} /></span>
-            <span className={button}>
-                {/* Add comment: the outlined pin with a plus (CommentIcon) */}
-                <svg viewBox={PIN_VIEWBOX} width="20" height="20" fill="none"><path d={PIN_PATH} stroke="currentColor" strokeWidth="1.75" /><path d="M9 16h14M16 9v14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            </span>
-            <span className={button}><Megaphone size={18} /></span>
-            <span className={cx(button, 'relative')}>
-                <Inbox size={18} />
-                <span className="absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[hsl(var(--brand-accent))] px-1 text-[10px] font-semibold tabular-nums text-[hsl(var(--brand-accent-foreground))]">2</span>
-            </span>
-            <span className={cx(button, 'hidden sm:inline-flex')}><CheckIcon kind="accessibility" /></span>
-            <span className={cx(button, 'hidden sm:inline-flex')}><CheckIcon kind="seo" /></span>
-            <span className="mx-1 h-5 w-px bg-border" />
-            <span className={button}><span className="inline-flex size-6 items-center justify-center rounded-full border bg-accent text-[10px] font-semibold">LE</span></span>
-            <span className={button}><MoreHorizontal size={18} /></span>
-            <span className={button}><Down size={18} /></span>
-        </div>
-    );
-}
-
 /** The thread pinned to the selected words */
 function Thread() {
     return (
@@ -165,7 +129,7 @@ export function ExtensionSpecimens() {
                 <BrowserFrame>
                     <SitePage pinned />
                     <div className="absolute right-4 top-[150px] hidden sm:block"><Thread /></div>
-                    <div className="absolute inset-x-0 bottom-5 flex justify-center"><Toolbar /></div>
+                    <div className="absolute inset-x-0 bottom-5 flex justify-center"><ToolbarIllustration size="sm" /></div>
                 </BrowserFrame>
             )
         }

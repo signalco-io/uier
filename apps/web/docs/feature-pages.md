@@ -1,7 +1,7 @@
 # Feature pages
 
 `/features/<feature>` pages describe one shipped workflow each, with the shared marketing building
-blocks, a static specimen built from the tokens (`TriageSpecimen`, `FixVerificationSpecimen`, `AiSpecimens`),
+blocks, a static specimen built from the tokens (`TriageSpecimen`, `FixVerificationSpecimen`, `AiSpecimens`, `ChecksSpecimens`),
 `publicPageMetadata` with their own path and a page card with the section Features
 ([social cards](social-cards.md)). Page-level questions use `FaqPanel` from `LandingFaq`.
 There is no `/features` index; any other slug is a real 404. Publish a feature page only once the
@@ -34,3 +34,16 @@ links and accessibility; `e2e/feature-pages.api.spec.ts` its metadata and social
 Its rewrite list and privacy answer also describe admin-saved workspace style guidance and project
 additions/replacements ([settings pattern](project-settings.md#workspace-defaults-and-project-settings)).
 The settings remain private to admins; the reviewer still supplies their own optional instruction.
+
+`/features/page-checks` covers the toolbar's Accessibility and SEO panels and the app's Page checks view. Its
+claims come from [the panels' notes](../../../packages/toolbar/docs/page-checks.md) and the `page-checks-*.md`
+notes beside them (the background checks and their bounds: 1,500 elements, `Save-Data`; To review; Not an issue;
+Comment on all; Reported as; the re-check in a thread; each section's checks), the panels' labels in
+`packages/toolbar/src/components/checks`, [the view](page-checks.md) (members' reviews only, 200 pages, 90 days,
+Across pages) and the privacy policy's "Page suggestions" for what reaches Anthropic. Change it with them. It says
+what the checks cannot do (automated checks find only some issues, Core Web Vitals are this browser's, frames are
+not audited) and that a check never changes a thread's status. Its pictures (`ChecksSceneSpecimen`,
+`SeoSceneSpecimen`, `PageChecksTableSpecimen` in `ChecksSpecimens.tsx`) reuse the panel parts the landing's tile
+uses (`AccessibilityPanelSpecimen`, `SeoPanelSpecimen`); keep their text at `text-muted-foreground` contrast or
+better, since the page's axe scan includes them. `e2e/page-checks-page.spec.ts` covers its copy, links, width and
+accessibility; `e2e/feature-pages.api.spec.ts` its metadata and social card.

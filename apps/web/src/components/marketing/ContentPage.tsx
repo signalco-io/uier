@@ -79,9 +79,9 @@ export function Tile({ title, label, children }: PropsWithChildren<{ title: stri
     );
 }
 
-export function CheckList({ items, columns = 1 }: { items: ReactNode[]; columns?: 1 | 2; }) {
+export function CheckList({ items, columns = 1 }: { items: ReactNode[]; columns?: 1 | 2 | 3; }) {
     return (
-        <ul className={cx('text-sm', columns === 2 ? 'grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2' : 'flex flex-col gap-3')}>
+        <ul className={cx('text-sm', columns > 1 ? cx('grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2', columns === 3 && 'lg:grid-cols-3') : 'flex flex-col gap-3')}>
             {items.map((item, index) => (
                 <li key={index} className="flex items-start gap-2.5">
                     <Check size={16} strokeWidth={1.75} aria-hidden="true" className="mt-0.5 shrink-0" />

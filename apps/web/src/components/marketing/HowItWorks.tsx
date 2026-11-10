@@ -1,18 +1,20 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState, type Ref } from 'react';
-import { Pause, Play } from '@signalco/ui-icons';
+import { Check, Copy, ExpandDown, MoreHorizontal, Pause, Play } from '@signalco/ui-icons';
 import { Button } from '@signalco/ui-primitives/Button';
 import { cx } from '@signalco/ui-primitives/cx';
-import { brand, PIN_PATH, PIN_VIEWBOX } from '@uier/brand';
+import { brand } from '@uier/brand';
 import { Pin } from '@uier/brand/Pin';
-import { ToolbarIllustration } from '../brand/ToolbarIllustration';
+import { AddCommentIcon, ToolbarIllustration } from '../brand/ToolbarIllustration';
 
 // The landing page's cover, "How it works": one scene that plays the whole flow on an example site (an
 // imaginary restaurant, like the feature tiles' pictures): the script tag goes in, the review link
-// brings up the toolbar, a pointer selects words and comments, someone replies and the thread is
-// marked as done. The scene is a picture, hidden from assistive technologies; the text beside it
-// says the same in words.
+// brings up the toolbar, a pointer selects words and comments, someone replies and the thread's
+// status menu sets it to Done. The scene is a picture, hidden from assistive technologies; the text
+// beside it says the same in words. The toolbar, the selection toolbar, the new comment form and the
+// thread follow packages/toolbar (CommentToolbar, CommentSelectionPopover, CommentBubble,
+// CommentThreadHeader); recheck them together.
 //
 // Motion (BRAND.md): things come and go with a 150 ms ease-out fade plus 8 px slide, the pointer
 // and the selection move with ease-out and no overshoot, nothing moves on page load. It plays only
@@ -29,7 +31,8 @@ const phases = [
     { name: 'type', ms: 1800 },
     { name: 'posted', ms: 1300 },
     { name: 'reply', ms: 1600 },
-    { name: 'resolve', ms: 900 },
+    { name: 'status', ms: 900 },
+    { name: 'choose', ms: 1000 },
     { name: 'done', ms: 1200 },
     { name: 'leave', ms: 900 },
     { name: 'reset', ms: 800 }
@@ -41,7 +44,7 @@ const captions: { text: string; phases: Phase[] }[] = [
     { text: 'Put one script tag on your site.', phases: ['idle', 'code'] },
     { text: 'Open the site with a review link.', phases: ['link'] },
     { text: 'Select the words, or click anything, and write.', phases: ['point', 'select', 'menu', 'press', 'type', 'posted'] },
-    { text: 'Reply, then mark it as done.', phases: ['reply', 'resolve', 'done', 'leave', 'reset'] }
+    { text: 'Reply, then mark it as done.', phases: ['reply', 'status', 'choose', 'done', 'leave', 'reset'] }
 ];
 
 /** The frame shown with reduced motion: the comment posted, with a reply */
@@ -57,7 +60,7 @@ function fade(visible: boolean) {
 }
 
 type Point = { x: number; y: number };
-type Layout = { width: number; start: Point; end: Point; lineHeight: number; comment: Point; resolve: Point };
+type Layout = { width: number; start: Point; end: Point; lineHeight: number; comment: Point; status: Point; done: Point };
 
 /** Position of `element` inside `ancestor` (offsets ignore transforms, so a sliding element measures where it lands) */
 function offsetIn(element: HTMLElement | null, ancestor: HTMLElement | null): Point & { width: number; height: number } {
@@ -160,7 +163,8 @@ function Scene({ phase, typed }: { phase: Phase; typed: number }) {
     const end = useRef<HTMLSpanElement>(null);
     const commentButton = useRef<HTMLSpanElement>(null);
     const card = useRef<HTMLDivElement>(null);
-    const resolveButton = useRef<HTMLSpanElement>(null);
+    const statusButton = useRef<HTMLSpanElement>(null);
+    const doneItem = useRef<HTMLSpanElement>(null);
     const [layout, setLayout] = useState<Layout | null>(null);
 
     useLayoutEffect(() => {
@@ -170,14 +174,15 @@ function Scene({ phase, typed }: { phase: Phase; typed: number }) {
         const measure = () => {
             const startBox = offsetIn(start.current, element);
             const endBox = offsetIn(end.current, element);
-            const inCard = offsetIn(resolveButton.current, card.current);
             setLayout({
                 width: element.clientWidth,
                 start: startBox,
                 end: endBox,
                 lineHeight: endBox.height,
                 comment: center(offsetIn(commentButton.current, element)),
-                resolve: { x: inCard.x + inCard.width / 2, y: inCard.y + inCard.height / 2 }
+                // In the thread card: its status menu, and Done in the menu
+                status: center(offsetIn(statusButton.current, card.current)),
+                done: center(offsetIn(doneItem.current, card.current))
             });
         };
         measure();
@@ -201,16 +206,18 @@ function Scene({ phase, typed }: { phase: Phase; typed: number }) {
             return { x: layout.end.x, y: layout.end.y + layout.lineHeight / 2 };
         if (is('menu', 'press', 'type'))
             return layout.comment;
-        if (is('posted', 'reply', 'resolve', 'done', 'leave'))
-            return { x: cardPosition.left + layout.resolve.x, y: cardPosition.top + layout.resolve.y };
+        if (is('posted', 'reply', 'status'))
+            return { x: cardPosition.left + layout.status.x, y: cardPosition.top + layout.status.y };
+        if (is('choose', 'done', 'leave'))
+            return { x: cardPosition.left + layout.done.x, y: cardPosition.top + layout.done.y };
         return { x: layout.width * 0.62, y: 300 };
     };
     const cursor = cursorAt();
 
     const reviewing = !is('idle', 'code', 'reset');
-    const selected = is('select', 'menu', 'press', 'type', 'posted', 'reply', 'resolve', 'done');
-    const threadOpen = is('posted', 'reply', 'resolve', 'done');
-    const replied = is('reply', 'resolve', 'done', 'leave');
+    const selected = is('select', 'menu', 'press', 'type', 'posted', 'reply', 'status', 'choose', 'done');
+    const threadOpen = is('posted', 'reply', 'status', 'choose', 'done');
+    const replied = is('reply', 'status', 'choose', 'done', 'leave');
     const done = is('done', 'leave');
 
     return (
@@ -248,7 +255,7 @@ function Scene({ phase, typed }: { phase: Phase; typed: number }) {
 
                 <ScriptCard visible={is('code')} />
                 <div className={cx('absolute inset-x-0 bottom-5 flex justify-center', fade(reviewing))}>
-                    <ToolbarIllustration />
+                    <ToolbarIllustration size="sm" unread={0} initials={null} />
                 </div>
 
                 {layout && cardPosition && (
@@ -260,7 +267,8 @@ function Scene({ phase, typed }: { phase: Phase; typed: number }) {
                             style={{ position: 'absolute', left: layout.end.x - 4, top: layout.end.y + layout.lineHeight - 8 }}
                             className={fade(threadOpen)} />
                         <Composer visible={is('type')} typed={typed} style={cardPosition} />
-                        <Thread cardRef={card} resolveRef={resolveButton} visible={threadOpen} replied={replied} done={done} style={cardPosition} />
+                        <Thread cardRef={card} statusRef={statusButton} doneRef={doneItem} visible={threadOpen} replied={replied}
+                            pressed={is('status')} choosing={is('choose')} done={done} style={cardPosition} />
                     </>
                 )}
 
@@ -271,7 +279,7 @@ function Scene({ phase, typed }: { phase: Phase; typed: number }) {
                     style={{ transform: `translate(${cursor.x}px, ${cursor.y}px)` }}
                     className={cx(
                         'pointer-events-none absolute left-0 top-0 transition-[transform,opacity] duration-700 ease-out motion-reduce:transition-none',
-                        is('point', 'select', 'menu', 'press', 'resolve', 'done') ? 'opacity-100' : 'opacity-0'
+                        is('point', 'select', 'menu', 'press', 'status', 'choose', 'done') ? 'opacity-100' : 'opacity-0'
                     )}>
                     <path d="M1 1v15.5l4.2-4 2.9 6.5 2.6-1.2-2.9-6.4H14z" fill="hsl(var(--foreground))" stroke="hsl(var(--background))" strokeWidth="1.25" strokeLinejoin="round" />
                 </svg>
@@ -302,15 +310,24 @@ function ScriptCard({ visible }: { visible: boolean }) {
     );
 }
 
-/** The toolbar for selected text, ink like the rest of the review layer */
+/** "Rewrite": lines of text with a pencil (packages/toolbar RewriteIcon) */
+function RewriteIcon() {
+    return (
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 5h16M4 10h9M4 19h5" /><path d="M17.6 10.9a1.9 1.9 0 0 1 2.7 2.7l-5.9 5.9-3.4.9.9-3.4z" /><path d="m16.5 12 2.7 2.7" />
+        </svg>
+    );
+}
+
+/** The toolbar for selected text, ink like the rest of the review layer: Add comment and Rewrite */
 function SelectionToolbar({ buttonRef, visible, pressed }: { buttonRef: Ref<HTMLSpanElement>; visible: boolean; pressed: boolean }) {
     return (
         <span className={cx('dark absolute bottom-full left-0 mb-2 inline-flex items-center gap-0.5 whitespace-nowrap rounded-full border bg-background p-1 text-xs font-medium tracking-normal text-foreground', fade(visible))}>
-            <span ref={buttonRef} className={cx('inline-flex h-7 items-center gap-1.5 rounded-full px-3 transition-colors duration-[120ms] ease-out', pressed ? 'bg-tertiary-foreground/40' : 'bg-accent')}>
-                <svg viewBox={PIN_VIEWBOX} width="14" height="14" fill="none"><path d={PIN_PATH} stroke="currentColor" strokeWidth="2.5" /></svg>
-                Comment
+            <span ref={buttonRef} className={cx('inline-flex h-7 items-center gap-1.5 rounded-full pl-2 pr-3 transition-colors duration-[120ms] ease-out', pressed ? 'bg-tertiary-foreground/40' : 'bg-accent')}>
+                <AddCommentIcon size={14} />
+                Add comment
             </span>
-            <span className="inline-flex h-7 items-center px-3 text-muted-foreground">Rewrite</span>
+            <span className="inline-flex h-7 items-center gap-1.5 pl-2 pr-3 text-muted-foreground"><RewriteIcon />Rewrite</span>
         </span>
     );
 }
@@ -321,17 +338,31 @@ function Avatar({ initials }: { initials: string }) {
     return <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-semibold">{initials}</span>;
 }
 
-/** The comment being written */
+/** A message with the avatar column, as threads show them (no dividers) */
+function Message({ initials, name, time, children }: { initials: string; name: string; time: string; children: string }) {
+    return (
+        <div className="flex gap-2">
+            <Avatar initials={initials} />
+            <div className="flex min-w-0 flex-col gap-0.5">
+                <span className="flex items-baseline gap-2"><span className="text-[13px] font-medium">{name}</span><span className="text-[11px] text-muted-foreground">{time}</span></span>
+                <span className="text-[13px] leading-5">{children}</span>
+            </div>
+        </div>
+    );
+}
+
+/** The new comment being written: its title, the quoted words, then the text box with the send button */
 function Composer({ visible, typed, style }: { visible: boolean; typed: number; style: { left: number; top: number } }) {
     return (
         <div style={{ ...style, width: cardWidth }} className={cx(popover, 'gap-2 p-2.5', fade(visible))}>
+            <span className="text-[13px] font-semibold">New comment</span>
             <span className="rounded-r-md border-l-2 border-tertiary bg-muted px-2.5 py-0.5 text-[13px] text-muted-foreground">every day.</span>
-            <div className="flex items-end gap-2">
-                <span className="min-h-10 flex-1 rounded-md border px-2.5 py-2 text-[13px] leading-5">
-                    {typed > 0 ? comment.slice(0, typed) : <span className="text-muted-foreground">Leave a comment…</span>}
+            <div className="flex items-end gap-2 rounded-md border py-1.5 pl-2.5 pr-1.5">
+                <span className="min-h-5 flex-1 text-[13px] leading-5">
+                    {typed > 0 ? comment.slice(0, typed) : <span className="text-muted-foreground">Leave feedback...</span>}
                     <span className="ml-px inline-block h-4 w-px translate-y-[3px] bg-foreground" />
                 </span>
-                <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                <span className="inline-flex size-6 shrink-0 items-center justify-center text-muted-foreground">
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>
                 </span>
             </div>
@@ -339,32 +370,57 @@ function Composer({ visible, typed, style }: { visible: boolean; typed: number; 
     );
 }
 
-/** The posted thread: status, the comment, a reply and "Mark as done" */
-function Thread({ cardRef, resolveRef, visible, replied, done, style }: {
+const statuses = [
+    { label: 'Open', dot: 'border border-foreground' },
+    { label: 'In progress', dot: 'bg-[hsl(var(--brand-in-progress))]' },
+    { label: 'Ready to verify', dot: 'bg-[hsl(var(--brand-ready))]' },
+    { label: 'Done', dot: 'bg-[hsl(var(--brand-success))]' }
+];
+
+/** The posted thread: the status menu, the number, Copy and Thread options, the comment and a reply; the status menu sets Done */
+function Thread({ cardRef, statusRef, doneRef, visible, replied, pressed, choosing, done, style }: {
     cardRef: Ref<HTMLDivElement>;
-    resolveRef: Ref<HTMLSpanElement>;
+    statusRef: Ref<HTMLSpanElement>;
+    doneRef: Ref<HTMLSpanElement>;
     visible: boolean;
     replied: boolean;
+    /** The pointer presses the status menu */
+    pressed: boolean;
+    /** The menu is open, the pointer on Done */
+    choosing: boolean;
     done: boolean;
     style: { left: number; top: number };
 }) {
     return (
         <div ref={cardRef} style={{ ...style, width: cardWidth }} className={cx(popover, fade(visible))}>
             <div className="flex items-center gap-2 px-3 pt-2.5">
-                <span className="inline-flex h-6 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium">
-                    <span className={cx('size-1.5 rounded-full border transition-colors duration-[120ms] ease-out', done ? 'border-[hsl(var(--brand-success))] bg-[hsl(var(--brand-success))]' : 'border-foreground')} />
+                <span ref={statusRef} className={cx('inline-flex h-6 items-center gap-1.5 rounded-full border px-2 text-xs font-medium transition-colors duration-[120ms] ease-out', (pressed || choosing) && 'bg-muted')}>
+                    <span className={cx('size-1.5 rounded-full transition-colors duration-[120ms] ease-out', done ? 'bg-[hsl(var(--brand-success))]' : 'border border-foreground')} />
                     {done ? 'Done' : 'Open'}
+                    <ExpandDown size={12} className="text-muted-foreground" />
                 </span>
                 <span className="font-mono text-xs text-muted-foreground">#15</span>
-                <span ref={resolveRef} className="ml-auto inline-flex h-6 items-center rounded-md border px-2 text-xs font-medium">{done ? 'Reopen' : 'Mark as done'}</span>
+                <span className="ml-auto flex items-center text-muted-foreground">
+                    <span className="inline-flex size-6 items-center justify-center"><Copy size={14} /></span>
+                    <span className="inline-flex size-6 items-center justify-center"><MoreHorizontal size={14} /></span>
+                </span>
             </div>
-            <div className="flex flex-col gap-1.5 px-3 py-2.5">
-                <span className="flex items-center gap-2 text-[13px] font-medium"><Avatar initials="7B" />Guest 7B1C</span>
-                <span className="text-[13px] leading-5">{comment}</span>
+            <div className="flex flex-col gap-2.5 px-3 py-2.5">
+                <Message initials="7B" name="Guest 7B1C" time="just now">{comment}</Message>
+                <div className={fade(replied)}>
+                    <Message initials="LE" name="Leo" time="just now">Every day. Sunday is fixed too.</Message>
+                </div>
             </div>
-            <div className={cx('flex flex-col gap-1.5 border-t px-3 py-2.5', fade(replied))}>
-                <span className="flex items-center gap-2 text-[13px] font-medium"><Avatar initials="LE" />Leo</span>
-                <span className="text-[13px] leading-5">Every day. Sunday is fixed too.</span>
+            {/* The status menu, under its button: every status with its dot, the current one checked */}
+            <div className={cx(popover, 'left-2 top-10 w-44 p-1', fade(choosing))}>
+                {statuses.map(status => (
+                    <span key={status.label} ref={status.label === 'Done' ? doneRef : undefined}
+                        className={cx('flex h-8 items-center gap-2 rounded-lg px-2 text-[13px]', status.label === 'Done' && 'bg-accent')}>
+                        <span className={cx('size-1.5 shrink-0 rounded-full', status.dot)} />
+                        <span className="flex-1">{status.label}</span>
+                        {status.label === 'Open' && <Check size={14} />}
+                    </span>
+                ))}
             </div>
         </div>
     );

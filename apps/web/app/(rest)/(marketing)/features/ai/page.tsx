@@ -8,7 +8,8 @@ import { KnownPages } from '../../../../../src/knownPages';
 
 // What uier does with AI today: the MCP connector for coding tools (docs/mcp.md; src/lib/mcp:
 // server.ts for the tools, workflows.ts for the prompts and the skill, clients.ts for the clients
-// Account offers; src/components/app/mcp/scopes.ts for the operation labels) and rewrite
+// Account offers, with the uier plugin of CodingAgents' PluginSetup; src/components/app/mcp/scopes.ts for
+// the operation labels) and rewrite
 // suggestions in the toolbar (src/lib/rewrite, packages/toolbar RewriteSuggestions), and its FAQ names AI thread
 // titles (src/lib/titles). Change this page
 // with them. Offer a client here only once Account offers it. The connector never confirms a fix
@@ -23,6 +24,7 @@ export const metadata = publicPageMetadata(KnownPages.Ai, {
 
 const endpoint = `${brand.url}/api/mcp`;
 const mcpGuide = `${brand.repository}/blob/main/docs/mcp.md`;
+const pluginGuide = `${brand.repository}/blob/main/docs/agent-plugins.md`;
 
 const steps = [
     {
@@ -35,11 +37,11 @@ const steps = [
     },
     {
         title: 'Fix it in your code',
-        text: `The agent proposes the change in your repository. Nothing changes in ${brand.name} while it works.`
+        text: 'The agent proposes the change in your repository. If you allow it, the thread shows that your coding tool is working on it.'
     },
     {
         title: 'Report back',
-        text: 'When you approve, it replies on the thread as you, labeled with the connection name, and marks the thread done.'
+        text: 'When you approve, it links its pull request, replies on the thread as you, labeled with the connection name, and marks the thread done or asks the reviewer to verify the fix.'
     }
 ];
 
@@ -49,7 +51,8 @@ const operations: { label: string; text: string }[] = [
     { label: 'Read screenshots', text: 'Open the screenshots attached to feedback.' },
     { label: 'Reply to feedback', text: 'Post replies as you, labeled with the connection name.' },
     { label: 'Change status', text: 'Mark feedback in progress or done, open it again, and request or cancel a fix check.' },
-    { label: 'Assign feedback', text: 'Assign feedback to people who can see it, link pull requests to it, and show your coding tool as the agent working on feedback assigned to you.' }
+    { label: 'Assign feedback', text: 'Assign feedback to people who can see it, link pull requests to it, and show your coding tool as the agent working on feedback assigned to you.' },
+    { label: 'Create access tokens', text: 'Create named tokens for scripts and watchers, for up to 30 days, within the connection’s projects and operations. The tool receives each secret once.' }
 ];
 
 // The connector's prompts (src/lib/mcp/workflows.ts)
@@ -75,7 +78,7 @@ const tryIt = [
 const questions: Question[] = [
     {
         question: 'Which coding tools can connect?',
-        answer: <>Claude Code signs in through your browser. Codex and Cursor use an access token from Account → Coding agents. Other tools are added there once their connection has been checked. The <InlineLink href={mcpGuide}>MCP guide</InlineLink> has the details.</>
+        answer: <>Claude Code signs in through your browser. Codex and Cursor use an access token from Account → Coding agents. Claude Code and Codex can also install the {brand.name} plugin, which brings the same connection. Other tools are added there once their connection has been checked. The <InlineLink href={mcpGuide}>MCP guide</InlineLink> has the details.</>
     },
     {
         question: `Does ${brand.name} send my feedback to an AI model?`,
@@ -149,6 +152,12 @@ export default function AiPage() {
                     <Tile title="Cursor" label="Access token">
                         <p>Add {brand.name} to <code className={code}>.cursor/mcp.json</code> with the token from the same environment variable.</p>
                     </Tile>
+                    <div className="md:col-span-2">
+                        <Tile title={`The ${brand.name} plugin`} label="Claude Code and Codex">
+                            <p>Or install the plugin from the repository&rsquo;s marketplace. It adds the same connection and the <code className={code}>uier-monitor</code> skill. Installing it starts nothing and changes no feedback; the <InlineLink href={pluginGuide}>plugin guide</InlineLink> says what the skill does when you run it.</p>
+                            <pre className="whitespace-pre-wrap rounded-xl border bg-muted/50 px-4 py-3 font-mono text-xs text-foreground [overflow-wrap:anywhere]"><code>{'/plugin marketplace add signalco-io/uier\n/plugin install uier@uier'}</code></pre>
+                        </Tile>
+                    </div>
                 </Panel>
                 <p className="max-w-[720px] text-sm text-muted-foreground">
                     An access token also works where no browser can sign in, such as SSH sessions, containers and CI. It lasts 30 days and reaches up to 20 projects in one workspace. Other tools are added to Account once their connection has been checked.
@@ -210,7 +219,7 @@ export default function AiPage() {
                         <p>Your current permissions are checked on every request. If you lose access to a project or a private thread, so does the connection.</p>
                     </Tile>
                     <Tile title="Only what you choose">
-                        <p>All your workspaces and projects, including new ones, or only the ones you pick. Consent is shown every time a tool connects.</p>
+                        <p>The accounts you are signed in to, then all their workspaces and projects, including new ones, or only the ones you pick. Consent is shown every time a tool connects, and again when a signed-in tool asks for an operation it does not have.</p>
                     </Tile>
                     <Tile title="Feedback is data, not instructions">
                         <p>The connector marks feedback as untrusted content and tells your agent to treat what reviewers wrote as text to read, not commands to follow.</p>
