@@ -16,6 +16,9 @@ and focus, drawn in `ChecksIcons.tsx`) above the Keyboard section's card, in the
 keeps its description under its button, also once the tool ran; the focus check's status is in its
 card and its findings are rows of the Keyboard section. They show once the section has a report
 (Show tab order only with a stop). The focus button shows a spinner while the check runs.
+A label longer than its card (a narrow panel, a longer language) wraps inside its button, which grows
+with it, the icon on the first line
+([uier #234](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2F5uauxu25b2es&comment=comment_Zt07Ue_Ah6QrUoURMoDMW)).
 
 ## Tab order
 

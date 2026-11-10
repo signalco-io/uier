@@ -85,7 +85,8 @@ function TabOrderLayer({ stops }: { stops: readonly TabStop[] }) {
 /** A tool's card: its button, then what it does (kept once it ran), then what it found */
 const toolClassName = 'flex min-w-0 flex-1 basis-44 flex-col items-start gap-1.5 rounded-xl border bg-card p-3';
 const noteClassName = 'm-0 text-xs text-muted-foreground';
-const buttonClassName = 'font-normal pointer-coarse:min-h-11';
+// A label too long for a narrow card wraps inside the button (its xs size is a fixed height), the icon on the first line
+const buttonClassName = 'h-auto min-h-7 max-w-full items-start py-1 text-left font-normal pointer-coarse:min-h-11 [&>svg]:mt-1 [&>svg]:shrink-0';
 
 /**
  * The tab order on the page and the focus check, as two buttons with icons above the Keyboard
