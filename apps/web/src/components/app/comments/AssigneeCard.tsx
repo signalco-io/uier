@@ -18,8 +18,10 @@ import { AgentSessionLink } from './AgentSessionLink';
  * A mouse click still opens the thread (`onPress`, the row's link); the keyboard (Enter on the focused
  * avatars) and a tap open the card instead. Guests get no agent in their views, so they see the assignee only.
  */
-export function AssigneeCard({ assignees, userId, tabbable = true, onPress, className }: {
+export function AssigneeCard({ assignees, userId, subject, tabbable = true, onPress, className }: {
     assignees: Assignee[];
+    /** Which thread the avatars belong to, after their name ("comment #12"): every row has them, so the names tell them apart */
+    subject?: string;
     /** The signed-in member is the assignee: "You" */
     userId?: string;
     /** In the Tab order, like the row's link (the inbox list keeps one row there) */
@@ -35,7 +37,7 @@ export function AssigneeCard({ assignees, userId, tabbable = true, onPress, clas
     useAgentWorking(assignees.flatMap(person => assigneeAgents(person).map(agent => agent.workingUntil)));
     return (
         <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger {...hoverPopoverTrigger} delay={200} data-assignee-card="" aria-label={assignedLabel(assignees, userId)} tabIndex={tabbable ? undefined : -1}
+            <PopoverTrigger {...hoverPopoverTrigger} delay={200} data-assignee-card="" aria-label={withSubject(assignedLabel(assignees, userId), subject)} tabIndex={tabbable ? undefined : -1}
                 onPointerDown={event => { pointer.current = event.pointerType; }}
                 onClick={event => {
                     // Keyboard clicks have no detail; a tap has no hover to show the card
@@ -65,6 +67,11 @@ export function AssigneeCard({ assignees, userId, tabbable = true, onPress, clas
             </PopoverContent>
         </Popover>
     );
+}
+
+/** "Linked pull request, comment #12": a row's control named for its own thread */
+export function withSubject(label: string, subject?: string) {
+    return subject ? `${label}, ${subject}` : label;
 }
 
 function AgentDetails({ agent }: { agent: AssigneeAgentView }) {

@@ -76,6 +76,8 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
     const unread = Boolean(comment.activity?.unread);
     const title = commentTitle(comment);
     const pullRequests = commentPullRequestLinks(comment);
+    // The row's buttons repeat on every row: their names end with the thread they act on (and its project in My work)
+    const subject = `${comment.number === undefined ? `comment “${title}”` : `comment #${comment.number}`}${project ? ` in ${project}` : ''}`;
     const link = useRef<HTMLAnchorElement>(null);
     // A click on the author's or a mouse click on the assignee's avatars or the pull request mark opens the thread like the rest of the row, modifier keys and all
     const openFromAvatars = (event: MouseEvent) => link.current?.dispatchEvent(new window.MouseEvent('click', {
@@ -139,7 +141,7 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                         {/* Hovering or tapping the mark shows the pull requests; the dragged copy of a card and a row without its project keep the plain mark */}
                         {pullRequests.length > 0 && (preview || !projectId
                             ? <GitPullRequestIcon aria-label="Linked pull request" className="size-3.5" />
-                            : <PullRequestCard projectId={projectId} comment={comment} links={pullRequests} tabbable={tabbable} onPress={openFromAvatars} />)}
+                            : <PullRequestCard projectId={projectId} comment={comment} links={pullRequests} subject={subject} tabbable={tabbable} onPress={openFromAvatars} />)}
                         {/* Normal is the default: only a priority that differs gets its flag */}
                         {comment.priority !== 'normal' && <PriorityLabel priority={comment.priority} />}
                         {/* Every row says its status (Active mixes them); a board card's column (named for assistive tech) already does */}
@@ -153,7 +155,7 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                         {/* The right end: the assignees. The dragged copy of a card is inert: its avatars need no card */}
                         {people.length > 0 && (preview
                             ? <AssigneeAvatars assignees={people} userId={userId} />
-                            : <AssigneeCard assignees={people} userId={userId} tabbable={tabbable} onPress={openFromAvatars} />)}
+                            : <AssigneeCard assignees={people} userId={userId} subject={subject} tabbable={tabbable} onPress={openFromAvatars} />)}
                     </div>
                 </div>
             </div>

@@ -68,7 +68,7 @@ test('active MCP work refreshes shared avatars, keeps drafts and expires locally
         await working(true);
         await changed();
         await reviewChanged();
-        const avatars = commentRows(page).getByRole('button', { name: 'Assigned to you, with Claude, working now', exact: true });
+        const avatars = commentRows(page).getByRole('button', { name: /^Assigned to you, with Claude, working now, comment #\d+$/ });
         await expect(avatars.locator('[data-agent-working]')).toBeVisible();
         await expect(review.getByRole('img', { name: 'Assigned to you, with Claude, working now', exact: true }).locator('[data-agent-working]')).toBeVisible();
         // The assignee card reports the same live state, by keyboard or tap.
@@ -117,7 +117,7 @@ test('active MCP work refreshes shared avatars, keeps drafts and expires locally
         for (const target of [page, review, myWork]) await expect(target.locator('[data-agent-working]')).toHaveCount(0);
         await expect(draft).toHaveValue('Keep this reply while the agent works');
         if (mobile) await backToComments(page);
-        await expect(commentRows(page).getByRole('button', { name: 'Assigned to you, with Claude', exact: true })).toBeVisible();
+        await expect(commentRows(page).getByRole('button', { name: /^Assigned to you, with Claude, comment #\d+$/ })).toBeVisible();
         await call('clear_feedback_agent', {});
         await changed();
         await reviewChanged();
