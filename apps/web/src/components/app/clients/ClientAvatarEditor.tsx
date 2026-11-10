@@ -8,7 +8,7 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLegend, FieldSet 
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from '@/src/components/ui/popover';
 import { Spinner } from '@/src/components/ui/spinner';
 import { ToggleGroup, ToggleGroupItem } from '@/src/components/ui/toggle-group';
-import { EditablePicture, usePictureUpload } from '@/src/components/app/EditablePicture';
+import { dropTargetClassName, EditablePicture, usePictureUpload } from '@/src/components/app/EditablePicture';
 import { KnownPageLinks } from '@/src/knownPages';
 import { clientColors, clientIcons, type ClientColor, type ClientIcon } from '@/src/lib/app/clientAppearance';
 import type { ClientSummary } from '@/src/lib/app/clients';
@@ -19,7 +19,10 @@ const LETTER = 'letter';
 const INK = 'ink';
 const pickerItemClassName = 'size-11 p-0 data-pressed:border-foreground data-pressed:bg-transparent';
 
-/** Logo changes save at once; icon and colour remain part of the edit dialog's draft. */
+/**
+ * Logo changes save at once; icon and colour remain part of the edit dialog's draft. A logo can also be
+ * dropped on the avatar or the open popover, or pasted while the focus is in either.
+ */
 export function ClientAvatarEditor({ client, workspaceId, onIconChange, onColorChange, onPendingChange, disabled }: {
     client: ClientSummary;
     workspaceId: string;
@@ -32,12 +35,17 @@ export function ClientAvatarEditor({ client, workspaceId, onIconChange, onColorC
     const [logoUrl, setLogoUrl] = useState(client.logoUrl);
     const [status, setStatus] = useState('');
     const router = useRouter();
-    const { pending, error, fileInput, choose, remove } = usePictureUpload({
+    const { pending, error, fileInput, dropTarget, choose, remove } = usePictureUpload({
         endpoint: KnownPageLinks.clientLogoUpload(workspaceId, client.id),
         fileLabel: 'Client logo file',
         failed: 'The logo could not be saved.',
+        disabled,
         onPendingChange: (next) => {
-            if (next) setStatus('');
+            if (next) {
+                setStatus('');
+                // A logo dropped on the closed avatar opens the popover, which shows its progress and result
+                setOpen(true);
+            }
             onPendingChange(next);
         },
         onSaved: async (method, response) => {
@@ -49,10 +57,10 @@ export function ClientAvatarEditor({ client, workspaceId, onIconChange, onColorC
     });
     return (
         <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger render={<EditablePicture aria-label="Edit client avatar" disabled={disabled} className="size-12 rounded-xl" badgeClassName="-right-1.5 -bottom-1.5 size-5" />}>
+            <PopoverTrigger render={<EditablePicture aria-label="Edit client avatar" disabled={disabled} className="size-12 rounded-xl" badgeClassName="-right-1.5 -bottom-1.5 size-5" {...dropTarget} />}>
                 <ClientMark client={{ ...client, logoUrl }} className="size-12 rounded-xl text-lg" />
             </PopoverTrigger>
-            <PopoverContent align="start" className="max-h-[min(32rem,80svh)] w-80 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl">
+            <PopoverContent align="start" className={cn('max-h-[min(32rem,80svh)] w-80 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl', dropTargetClassName)} {...dropTarget}>
                 <PopoverTitle>Client avatar</PopoverTitle>
                 <FieldGroup>
                     <Field data-invalid={error ? true : undefined}>
@@ -64,7 +72,7 @@ export function ClientAvatarEditor({ client, workspaceId, onIconChange, onColorC
                             {logoUrl && <Button variant="ghost" className="pointer-coarse:min-h-11" disabled={pending} onClick={remove}>Remove logo</Button>}
                         </div>
                         {fileInput}
-                        <FieldDescription>PNG, JPEG, WebP or GIF, cropped to a square. Logo changes save immediately.</FieldDescription>
+                        <FieldDescription>PNG, JPEG, WebP or GIF, cropped to a square. Drop or paste one here too. Logo changes save immediately.</FieldDescription>
                         {error && <FieldError>{error}</FieldError>}
                         <p role="status" className="text-sm text-muted-foreground">{status}</p>
                     </Field>

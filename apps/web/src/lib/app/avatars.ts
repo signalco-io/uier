@@ -4,7 +4,7 @@ import { KnownPageLinks } from '../../knownPages';
 import { getAppStore, type AppMutation } from './store';
 import { avatarDocId, userPk, type AvatarSource, type DbUser, type DbUserAvatar } from './model';
 import { getUser } from './users';
-import { AVATAR_SIZE, avatarInputTypes, MAX_AVATAR_UPLOAD_BYTES } from './avatarLimits';
+import { AVATAR_SIZE, AVATAR_TYPE_ERROR, avatarInputTypes, MAX_AVATAR_UPLOAD_BYTES } from './avatarLimits';
 
 export { AVATAR_SIZE, avatarInputTypes, MAX_AVATAR_UPLOAD_BYTES };
 /** Pictures fetched from a sign-in provider */
@@ -22,7 +22,7 @@ const versionPattern = /^[A-Za-z0-9_-]{21}$/;
 export const avatarErrors = {
     empty: 'Choose an image.',
     tooLarge: (bytes: number) => `Use an image up to ${Math.floor(bytes / (1024 * 1024))} MB.`,
-    type: 'Use a PNG, JPEG, WebP or GIF image.',
+    type: AVATAR_TYPE_ERROR,
     unreadable: 'This image could not be read. Try another one.'
 } as const;
 

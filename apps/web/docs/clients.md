@@ -31,7 +31,8 @@
 - **Client avatar editor**: the avatar in `ClientEditDialog` is an `EditablePicture` (the shared editable picture
   of [profile pictures](account.md): the picture is the button, a pencil badge on its corner) and opens a popover
   with Icon and Colour (saved with the form) and Upload/Change/Remove logo (saved immediately through the shared
-  `usePictureUpload`, like profile pictures).
+  `usePictureUpload`, like profile pictures). A logo can also be dropped on the avatar or the open popover, or pasted
+  while the focus is in it; a drop on the closed avatar opens the popover to show its progress and result.
   The optional description has no visibility hint beneath it.
   Uploads and refreshes preserve the unsaved name, description, icon and colour. A logo takes precedence;
   removing it restores the icon/letter and colour. Controls have 44 px touch targets.

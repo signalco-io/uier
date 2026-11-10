@@ -14,7 +14,13 @@
   note under the row) with a pencil badge on its corner; its menu has Upload picture (Upload a new picture once
   there is one) and Remove picture. There is no separate upload button. Every place that uploads a picture uses the
   same `EditablePicture` and `usePictureUpload` (`components/app/EditablePicture.tsx`): today the profile picture
-  and client logos ([clients](clients.md)). Each change saves at once through `POST`/`DELETE /api/account/avatar`
+  and client logos ([clients](clients.md)). Besides the file chooser, the hook's `dropTarget` takes an image dropped on
+  the picture or its open menu/popover, or pasted while the focus is in either (never a page-wide clipboard
+  listener; text pastes pass through). Both pickers spread it on the trigger and the popup with
+  `dropTargetClassName` (a ring while a file is over it). A file of another type gets the server's message
+  (`AVATAR_TYPE_ERROR`) before anything is sent; an empty type is left to the server. A drop or paste on the
+  profile picture's open menu closes it; one on the closed client avatar opens its popover to show the result.
+  Each change saves at once through `POST`/`DELETE /api/account/avatar`
   (a route, not an action: a multipart body, a same-origin `Origin` check, then the session; the page calls
   `router.refresh()`). The shared
   upload parser (`avatarUpload.ts`) and browser downsizing helper (`fitAvatarUpload.ts`) also serve client logos.
