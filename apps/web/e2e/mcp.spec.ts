@@ -17,6 +17,16 @@ test('a person grants selected feedback access, connects a compatible client, an
     await apps.getByRole('link', { name: 'Connect a coding tool' }).click();
     await expect(page).toHaveURL(/#connect$/);
     await expect(section.getByRole('region', { name: 'Connect a coding tool' })).toBeInViewport();
+    const plugins = section.getByRole('region', { name: 'Install the uier plugin' });
+    await expect(plugins).toContainText('/plugin marketplace add signalco-io/uier');
+    await expect(plugins).toContainText('/plugin install uier@uier');
+    await expect(plugins).toContainText('/uier:uier-monitor');
+    await plugins.getByRole('tab', { name: 'Codex plugin', exact: true }).click();
+    const codexPlugin = plugins.getByRole('tabpanel', { name: 'Codex plugin', exact: true });
+    await expect(codexPlugin).toContainText('codex plugin marketplace add signalco-io/uier');
+    await expect(codexPlugin).toContainText('codex plugin add uier@uier');
+    await expect(codexPlugin.getByRole('link', { name: 'Codex plugin documentation' })).toHaveAttribute('href', /^https:/);
+    await expect(plugins).toContainText('Installing it starts no monitor.');
     // Access tokens (for environments without a browser) are collapsed by default.
     await expect(section.getByLabel('Token label')).toHaveCount(0);
     await section.getByRole('button', { name: 'Show access tokens' }).click();
@@ -32,6 +42,7 @@ test('a person grants selected feedback access, connects a compatible client, an
     const code = section.locator('code').filter({ hasText: /^uier_mcp\./ });
     await expect(code).toBeVisible();
     const token = (await code.textContent())!;
+    await expect(plugins).not.toContainText(token);
     // Check every setup while the newly created secret is still visible elsewhere.
     const skill = section.getByRole('region', { name: 'Prompts and agent skill' });
     await expect(skill.getByRole('list', { name: 'Prompts' })).toContainText('report-back');

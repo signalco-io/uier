@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "uier": {
+      "type": "http",
+      "url": "https://uier.io/api/mcp"
+    }
+  }
+}

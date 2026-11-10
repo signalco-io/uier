@@ -28,6 +28,8 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 - [Google sign-in](google-sign-in.md): Sign in with Google, account linking rules, what is stored and creating the Google OAuth client.
 - [Microsoft sign-in](microsoft-sign-in.md): Microsoft login, inbox confirmation, tenant identity and Entra app registration.
 - [Coding tool access (MCP)](mcp.md): OAuth sign-in and consent, connected apps, access tokens, client setup, tools, prompts and retry contracts.
+- [Coding agent plugins](agent-plugins.md): Claude Code and Codex marketplace installation, single-sourced skills and package validation.
+- [Agent plugin submissions](agent-plugin-submissions.md): prepared OpenAI directory material and the Claude public-listing hold.
 - [MCP OAuth plan](mcp-oauth-plan.md): the design record for coding tool sign-in, the decisions taken and where the implementation differs.
 - [Feedback context](feedback-context.md): the shared export packet used by Copy issue and MCP.
 - [Connected services](integrations.md): Notion pages, GitHub and Linear issues, Azure DevOps work items, Slack notifications and the shared delivery protocol.

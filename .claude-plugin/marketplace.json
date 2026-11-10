@@ -1,0 +1,15 @@
+{
+  "name": "uier",
+  "description": "Connect website feedback to your coding agent, with skills to monitor a uier project and carry fixes through review and deployment.",
+  "owner": {
+    "name": "signalco",
+    "email": "contact@signalco.io",
+    "url": "https://signalco.io"
+  },
+  "plugins": [
+    {
+      "name": "uier",
+      "source": "./plugins/uier"
+    }
+  ]
+}
