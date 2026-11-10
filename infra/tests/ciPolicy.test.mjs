@@ -13,7 +13,7 @@ test('all external workflow actions have immutable commit pins and version comme
         if (!/\.ya?ml$/.test(name)) continue;
         const contents = readFileSync(join(root, '.github/workflows', name), 'utf8');
         const uses = [...contents.matchAll(/\buses:\s*([^\n]+)/g)].map(match => match[1].trim());
-        assert.ok(uses.length, `${name} contains no actions`);
+        assert.ok(uses.length || /^\s+run:/m.test(contents), `${name} contains no runnable steps`);
         for (const reference of uses) {
             if (reference.startsWith('./')) continue;
             assert.match(reference, /^[\w.-]+\/[\w./-]+@[a-f0-9]{40}\s+#\s+v\d[\w.-]*$/, `${name}: ${reference}`);
@@ -78,11 +78,17 @@ test('builds have no deployment secrets and deployment jobs never execute checko
 test('production builds overlap infrastructure but publishing waits for both', () => {
     const workflow = readFileSync(join(root, '.github/workflows/deploy.yml'), 'utf8');
     const job = name => workflow.split(`\n  ${name}:\n`)[1]?.split(/\n  [\w-]+:\n/)[0];
+    assert.match(job('current'), /uses: \.\/\.github\/workflows\/deploy-current_reusable\.yml/);
     assert.match(job('build'), /uses: \.\/\.github\/workflows\/vercel-build_reusable\.yml/);
-    assert.doesNotMatch(job('build'), /needs:|secrets:/);
-    assert.doesNotMatch(job('infra'), /needs:/);
-    assert.match(job('web'), /needs: \[infra, build\]/);
-    assert.doesNotMatch(job('web'), /^    if:/m);
+    assert.doesNotMatch(job('build'), /secrets:/);
+    for (const name of ['build', 'infra']) {
+        assert.match(job(name), /^    needs: current$/m);
+        assert.match(job(name), /if: needs\.current\.outputs\.current == 'true'/);
+    }
+    assert.match(job('publish-current'), /needs: \[infra, build\]/);
+    assert.match(job('publish-current'), /uses: \.\/\.github\/workflows\/deploy-current_reusable\.yml/);
+    assert.match(job('web'), /^    needs: publish-current$/m);
+    assert.match(job('web'), /if: needs\.publish-current\.outputs\.current == 'true'/);
     assert.match(job('web'), /uses: \.\/\.github\/workflows\/vercel-deploy_reusable\.yml/);
     assert.match(job('indexnow'), /needs: \[web, build\]/);
     assert.match(job('indexnow'), /needs\.build\.outputs\.public-pages-changed/);
@@ -94,6 +100,13 @@ test('production builds overlap infrastructure but publishing waits for both', (
     const build = readFileSync(join(root, '.github/workflows/vercel-build_reusable.yml'), 'utf8');
     assert.match(build, /UIER_TOOLBAR_RETAIN_FROM: https:\/\/uier\.io/);
     assert.match(build, /TURBO_FORCE: "true"/);
+});
+
+test('production freshness checks need no checkout, deployment secrets or environment', () => {
+    const workflow = readFileSync(join(root, '.github/workflows/deploy-current_reusable.yml'), 'utf8');
+    assert.match(workflow, /actions: read/);
+    assert.doesNotMatch(workflow, /secrets[.:]|environment:|uses:|contents: write|actions: write/);
+    assert.match(workflow, /actions\/workflows\/deploy\.yml\/runs\?branch=main&per_page=1/);
 });
 
 // GitHub requires callers to reference each allowed secret for environment resolution.
