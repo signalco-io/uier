@@ -56,6 +56,7 @@ import type { TransferPreview, TransferTarget } from '../../../lib/app/projectTr
 import { projectAiTitleModes, type ProjectAiTitleMode } from '../../../lib/titles/settings';
 import type { ProjectSetting, ProjectSettingMode } from '../../../lib/app/inheritedSettings';
 import { ProjectRewriteInstructionsFields } from './ProjectRewriteInstructionsFields';
+import { toolbarLanguageLabel, toolbarLanguages, type ToolbarLanguage } from '@uier/toolbar/languages';
 
 /** React resets a form after its action; the fields here are controlled, so keep what they show */
 const keepValues = (event: FormEvent) => {
@@ -142,10 +143,17 @@ export function ProjectGeneralForm({ projectId, name, clientName, clients, aiTit
     );
 }
 
-/** Review: who can comment, the brief and, under Advanced, the page state; one save */
-export function ProjectReviewForm({ projectId, access, brief, policy, suggestions, guestLinks, feedbackTypes, workspaceTypes }: {
+/** A project's toolbar language: the workspace's (nothing stored) or its own */
+type ProjectToolbarLanguage = 'workspace' | ToolbarLanguage;
+
+/** Review: who can comment, the toolbar's language, the brief and, under Advanced, the page state; one save */
+export function ProjectReviewForm({ projectId, access, brief, policy, suggestions, guestLinks, feedbackTypes, workspaceTypes, toolbarLanguage, workspaceToolbarLanguage }: {
     projectId: string;
     access: ProjectAccess;
+    /** The project's own toolbar language, or the workspace's */
+    toolbarLanguage: ProjectToolbarLanguage;
+    /** The workspace's default, which `workspace` follows */
+    workspaceToolbarLanguage: ToolbarLanguage;
     /** The saved access's guest links, shown under Who can comment while it stays chosen */
     guestLinks?: ReactNode;
     brief?: string;
@@ -159,6 +167,7 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
     const saved = pageStatePolicy(policy);
     const { draft, dirty, update, discard } = useSettingsDraft({
         access,
+        toolbarLanguage,
         brief: brief ?? '',
         feedbackTypesMode: feedbackTypes ? 'replace' as const : 'workspace' as const,
         feedbackTypes: feedbackTypes?.value ?? workspaceTypes,
@@ -169,6 +178,10 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
     const available = suggestions.filter(suggestion => !entered.includes(suggestion.key));
     // Open while the page state is set up, so what applies is in sight
     const [advanced, setAdvanced] = useState(saved.queryParameters.length > 0 || saved.hashRouting);
+    const languageOptions = [
+        { value: 'workspace', label: `Workspace default (${toolbarLanguageLabel(workspaceToolbarLanguage)})` },
+        ...toolbarLanguages.map(language => ({ value: language, label: toolbarLanguageLabel(language) }))
+    ] satisfies { value: ProjectToolbarLanguage; label: string }[];
 
     return (
         <Section
@@ -180,6 +193,7 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
                 <input type="hidden" name="projectId" value={projectId} />
                 <input type="hidden" name="feedbackTypes" value={draft.feedbackTypesMode === 'workspace' ? 'workspace' : JSON.stringify({ mode: 'replace', value: draft.feedbackTypes })} />
                 <input type="hidden" name="access" value={draft.access} />
+                <input type="hidden" name="toolbarLanguage" value={draft.toolbarLanguage} />
                 <input type="hidden" name="queryParameters" value={draft.queryParameters} />
                 <input type="hidden" name="hashRouting" value={String(draft.hashRouting)} />
                 <FieldGroup>
@@ -200,6 +214,24 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
                         </RadioGroup>
                         {guestLinks && draft.access === 'guests' && guestLinks}
                     </FieldSet>
+                    <FieldSeparator />
+                    <Field>
+                        <FieldLabel htmlFor={`${formId}-toolbar-language`}>Toolbar language</FieldLabel>
+                        <Select value={draft.toolbarLanguage} items={languageOptions}
+                            onValueChange={value => update(current => ({ ...current, toolbarLanguage: languageOptions.find(option => option.value === value)?.value ?? 'workspace' }))}>
+                            <SelectTrigger id={`${formId}-toolbar-language`} className="w-full max-w-md">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectGroup>
+                                    {languageOptions.map(option => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                                </SelectGroup>
+                            </SelectContent>
+                        </Select>
+                        <FieldDescription>
+                            What reviewers see the toolbar in. People who choose their own language in the toolbar&apos;s Options keep it. Change the workspace default in <Link href={KnownPages.AppSettings} className="underline underline-offset-4 hover:text-foreground">Workspace settings</Link>.
+                        </FieldDescription>
+                    </Field>
                     <FieldSeparator />
                     <Field>
                         <FieldLabel htmlFor={`${formId}-brief`}>Review brief</FieldLabel>

@@ -24,6 +24,7 @@ import { sectionDefinitions } from './sections';
 import { PageLayerContext, SectionsContext, sectionsAttention, useSectionsStore } from './sections/sections';
 import { GuestNameProvider, useGuestNameGate } from './GuestName';
 import { useIssueComment } from './useIssueComment';
+import { messages } from '../../i18n';
 
 export type ChecksPanelId = 'accessibility' | 'seo';
 export type ShownComment = Extract<PostedComment, { status: 'posted' }>;
@@ -96,7 +97,7 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentio
         if (own) return own;
         const reported = reportedComment(issue, pageComments, path, commentAnchors,
             issue.check.type === 'accessibility' ? anchor => !anchor || !otherList(issue)?.has(anchor) : undefined);
-        return reported && { status: 'posted', commentId: reported.id, page: reported.position.type === 'page', number: reported.number, label: 'Reported' };
+        return reported && { status: 'posted', commentId: reported.id, page: reported.position.type === 'page', number: reported.number, label: messages().checks.reported };
     };
     const nameGate = useGuestNameGate();
 
@@ -249,7 +250,7 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentio
             const element = pageAnchorElement(issue.element) ?? undefined;
             const target = issue.element?.isConnected && isRendered(issue.element) ? issue.element : element;
             if (!target || !isRendered(target)) {
-                announce('This element is not visible on the page.');
+                announce(messages().checks.notVisible);
                 return;
             }
             target.scrollIntoView({ block: 'center', behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
@@ -275,13 +276,13 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentio
             if (!identity) return;
             if (highlighted?.key === issue.key) setHighlighted(undefined);
             setDismissed(writeDismissed(identity, Date.now()));
-            announce('Marked as not an issue in this browser.');
+            announce(messages().checks.dismissedDone);
         },
         restore: (issue: PageIssue) => {
             const identity = dismissedIdentity(issue);
             if (!identity) return;
             setDismissed(writeDismissed(identity, undefined));
-            announce('Restored.');
+            announce(messages().checks.restored);
         }
     };
     /** Posts `issue` (one of `issues`, or one comment for all of them), marking each of them */
@@ -296,7 +297,7 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentio
         mark({ status: 'sending' });
         postIssue(issue).then(({ comment, page, label }) => {
             mark({ status: 'posted', commentId: comment.id, page, number: comment.number, label });
-            announce(issues.length > 1 ? `${label} for ${issues.length} elements` : label);
+            announce(issues.length > 1 ? messages().checks.postedForMany(label, issues.length) : label);
         }, () => mark(undefined)); // The toast says it was not posted
     }
 

@@ -4,6 +4,7 @@ import { Script } from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import browserslist from 'browserslist';
 import { defineConfig } from 'tsup';
+import { toolbarLanguages } from './src/languages';
 
 // Share the rolling browser policy with Next.js. A Safari/iOS version can be a range;
 // esbuild needs its earliest version, and calls Browserslist's ios_saf engine "ios".
@@ -11,6 +12,9 @@ const browserTargets = [...new Set(browserslist(undefined, { path: fileURLToPath
     const [engine, versions] = browser.split(' ');
     return `${engine === 'ios_saf' ? 'ios' : engine}${versions!.split('-')[0]}`;
 }))];
+
+// The toolbar's languages but English (src/languages.ts), each built to `language-<code>.js`
+const languageEntries = Object.fromEntries(toolbarLanguages.filter(code => code !== 'en').map(code => [`language-${code}`, `./src/i18n/assets/${code}.ts`]));
 
 export default defineConfig(({ env }) => {
     // The watch build (`pnpm dev`) writes to dist-dev/, never to the production output in dist/:
@@ -22,7 +26,9 @@ export default defineConfig(({ env }) => {
     return [{
         // `audit` is axe-core for the Accessibility panel: a separate asset the review bundle loads only
         // when the panel runs a check (src/checks/axeLoader.ts), never part of its first load.
-        entry: { index: './src/index.ts', review: './src/runtime.tsx', audit: './src/checks/auditEntry.ts' },
+        // Each language but English is its own asset too (src/i18n/languageHandoff.ts), loaded only when the
+        // toolbar shows that language.
+        entry: { index: './src/index.ts', review: './src/runtime.tsx', audit: './src/checks/auditEntry.ts', ...languageEntries },
         outDir,
         // The bundle is embedded with a classic <script> tag (it reads `document.currentScript`,
         // see src/config.ts), so it is wrapped in an IIFE to keep its variables out of the page's
@@ -51,6 +57,7 @@ export default defineConfig(({ env }) => {
             __UIER_REVIEW_INTEGRITY__: JSON.stringify('__uier_review_integrity__'),
             __UIER_AUDIT_PATH__: JSON.stringify('__uier_audit_path__'),
             __UIER_AUDIT_INTEGRITY__: JSON.stringify('__uier_audit_integrity__'),
+            __UIER_LANGUAGE_ASSETS__: JSON.stringify('__uier_language_assets__'),
         },
         onSuccess: async () => {
             // Replace the entire literal: esbuild may choose either quote style while minifying.
@@ -60,13 +67,25 @@ export default defineConfig(({ env }) => {
             new Script(audit.toString());
             const auditHash = createHash('sha256').update(audit).digest('hex');
             const auditIntegrity = `sha384-${createHash('sha384').update(audit).digest('base64')}`;
+            // Likewise each language asset: its path and SRI, as an object literal in place of the placeholder.
+            const languageAssets = Object.fromEntries(Object.keys(languageEntries).map(name => {
+                const asset = readFileSync(`./${outDir}/${name}.js`);
+                new Script(asset.toString());
+                const assetHash = createHash('sha256').update(asset).digest('hex');
+                return [name.slice('language-'.length), {
+                    path: development ? `./${name}.js` : `/toolbar/${assetHash}.js`,
+                    integrity: development ? '' : `sha384-${createHash('sha384').update(asset).digest('base64')}`
+                }];
+            }));
             const js = readFileSync(`./${outDir}/review.js`).toString()
                 .replace(/(["'])__uier_audit_path__\1/g, () => JSON.stringify(development ? './audit.js' : `/toolbar/${auditHash}.js`))
-                .replace(/(["'])__uier_audit_integrity__\1/g, () => JSON.stringify(development ? '' : auditIntegrity));
+                .replace(/(["'])__uier_audit_integrity__\1/g, () => JSON.stringify(development ? '' : auditIntegrity))
+                .replace(/(["'])__uier_language_assets__\1/g, () => `(${JSON.stringify(languageAssets)})`);
             if (!js.includes('__uier_toolbar_css__')) {
                 throw new Error(`CSS placeholder __uier_toolbar_css__ not found in ${outDir}/review.js`);
             }
             if (js.includes('__uier_audit_')) throw new Error('Audit placeholder is not a JavaScript string literal');
+            if (js.includes('__uier_language_assets__') || !js.includes(JSON.stringify(languageAssets))) throw new Error('Language placeholder is not a JavaScript string literal');
             // Function replacer so `$` sequences in CSS are not treated as replacement patterns
             const injected = js.replace(/(["'])__uier_toolbar_css__\1/g, () => JSON.stringify(css));
             if (injected === js) throw new Error('CSS placeholder is not a JavaScript string literal');
@@ -99,7 +118,7 @@ export default defineConfig(({ env }) => {
         banner: { js: '\'use client\';' }
     }, {
         // Pure browser/server page identity contract; no React client boundary.
-        entry: { feedbackTypes: './src/feedbackTypes.ts', realtime: './src/realtime.ts', verification: './src/verification.ts', extensionContract: './src/extensionContract.ts', triage: './src/triage.ts', agents: './src/agents.ts', devices: './src/devices.ts', pageState: './src/pageState.ts', screenshotPolicy: './src/screenshotPolicy.ts', mentions: './src/mentions.ts', markdown: './src/markdown.ts', draftStorage: './src/hooks/draftStorage.ts', feedbackContext: './src/feedbackContext.ts', keyboard: './src/keyboard.ts' },
+        entry: { languages: './src/languages.ts', feedbackTypes: './src/feedbackTypes.ts', realtime: './src/realtime.ts', verification: './src/verification.ts', extensionContract: './src/extensionContract.ts', triage: './src/triage.ts', agents: './src/agents.ts', devices: './src/devices.ts', pageState: './src/pageState.ts', screenshotPolicy: './src/screenshotPolicy.ts', mentions: './src/mentions.ts', markdown: './src/markdown.ts', draftStorage: './src/hooks/draftStorage.ts', feedbackContext: './src/feedbackContext.ts', keyboard: './src/keyboard.ts' },
         outDir,
         format: ['esm'],
         platform: 'neutral'

@@ -221,23 +221,24 @@ test('the profile shows the guest name; signing out forgets it', async ({ browse
     await page.keyboard.press('Escape');
     await expect(profile).toBeHidden();
     // Nothing to sign out of yet, and the landing page has no review to exit: Options links to
-    // uier.io, with the keyboard shortcut's switch where there is a keyboard and the page's checks on a phone
+    // uier.io, with the keyboard shortcut's switch where there is a keyboard, the toolbar's language and the
+    // page's checks on a phone
     await page.getByRole('button', { name: 'Options', exact: true }).click();
     await expect(options(page).getByRole('link', { name: 'Powered by uier' })).toHaveAttribute('href', 'https://uier.io');
-    if (testInfo.project.use.hasTouch) await expect(options(page).locator('button')).toHaveText(['Accessibility', 'SEO']);
+    if (testInfo.project.use.hasTouch) await expect(options(page).locator('button')).toHaveText([/^Language/, 'Accessibility', 'SEO']);
     else {
         // The switch in its own group first, with a separator from the actions
         await expect(options(page).getByRole('switch', { name: 'Shortcuts', exact: true })).toBeChecked();
-        await expect(options(page).locator('button')).toHaveText(['Shortcuts', /^Keyboard shortcuts/]);
+        await expect(options(page).locator('button')).toHaveText(['Shortcuts', /^Keyboard shortcuts/, /^Language/]);
         await expect(options(page).getByRole('separator')).toHaveCount(2);
         // Every action has an icon, in one column with the mark in "Powered by uier" (the switch shows its state instead)
         const icons = await options(page).locator('a, button:not([role="switch"])').evaluateAll(rows => rows.map(row => {
             const icon = row.querySelector('svg')?.getBoundingClientRect();
             return icon && { left: Math.round(icon.left), width: Math.round(icon.width) };
         }));
-        expect(icons).toHaveLength(2);
+        expect(icons).toHaveLength(3);
         expect(icons[0]).toBeTruthy();
-        expect(icons[1]).toEqual(icons[0]);
+        for (const icon of icons.slice(1)) expect(icon).toEqual(icons[0]);
     }
     await page.keyboard.press('Escape');
     await expect(options(page)).toBeHidden();

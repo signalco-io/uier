@@ -1,5 +1,6 @@
 import { foundLine, isToolbarNode, oneLine, writtenAddress } from '../pageElements';
 import type { CheckState, PageCheck, PageIssue } from '../types';
+import { words as lt } from './locale';
 import { pageCheck, pageIssue, type SectionContext, type SectionReport } from './api';
 
 // AI search (packages/toolbar/docs/page-checks-ai-search.md): what an AI reads of the page (its main
@@ -31,7 +32,6 @@ const littleText = 100;
 /** An `article` element this long makes the page article-like */
 const articleWords = 200;
 
-const count = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString('en')} ${n === 1 ? one : many}`;
 
 // --- Reading the document
 
@@ -434,7 +434,7 @@ const day = 24 * 60 * 60 * 1000;
 const shortDate = (value: string) => /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : value;
 
 function listed(parts: string[]) {
-    return parts.length < 2 ? parts.join('') : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`;
+    return parts.length < 2 ? parts.join('') : `${parts.slice(0, -1).join(', ')} ${lt().aiSearch.and} ${parts.at(-1)}`;
 }
 
 function facts(root: Element, path: string): PageCheck[] {
@@ -442,35 +442,36 @@ function facts(root: Element, path: string): PageCheck[] {
     const ogType = meta('og:type')?.toLowerCase();
     const article = largestArticle();
     const articleLength = article ? words(article.element.textContent ?? '') : 0;
-    const why = ogType === 'article' ? 'Its og:type is article.'
-        : ld.article ? `Its structured data has the type ${oneLine(ld.article, 40)}.`
-            : articleLength >= articleWords ? `It has an article element of ${count(articleLength, 'word')}.` : undefined;
+    const { aiSearch: t, found } = lt();
+    const why = ogType === 'article' ? t.ogArticle
+        : ld.article ? t.ldArticle(oneLine(ld.article, 40))
+            : articleLength >= articleWords ? t.articleElement(articleLength) : undefined;
     const articleLike = why !== undefined;
     // On a page that is not article-like, every row is a note
     const state = (found: boolean): CheckState => !articleLike ? 'none' : found ? 'pass' : 'warn';
     const issueAbout = (id: string, element: Element | undefined, summary: string, comment: string): PageIssue[] =>
         articleLike ? [pageIssue(path, { type: 'seo', id }, element, summary, comment)] : [];
 
-    const type = pageCheck('ai-article', 'Page type', 'none', why ?? 'No og:type of article, no Article type in its structured data and no long article element. The rows below are notes.',
-        { value: articleLike ? 'Article' : 'Not an article' });
+    const type = pageCheck('ai-article', t.pageType, 'none', why ?? t.notArticleLike,
+        { value: articleLike ? t.article : t.notArticle });
 
     // Who wrote it
     const pageAuthors: { source: string; name: string }[] = [];
     const metaAuthor = meta('author');
-    if (metaAuthor) pageAuthors.push({ source: 'the author meta tag', name: metaAuthor });
+    if (metaAuthor) pageAuthors.push({ source: t.sources.authorMeta, name: metaAuthor });
     const relAuthor = pageElements('a[rel~="author" i], link[rel~="author" i]')[0];
-    if (relAuthor) pageAuthors.push({ source: 'a rel="author" link', name: relAuthor.localName === 'a' ? line(relAuthor.textContent ?? '') : '' });
+    if (relAuthor) pageAuthors.push({ source: t.sources.relAuthor, name: relAuthor.localName === 'a' ? line(relAuthor.textContent ?? '') : '' });
     const itemAuthor = pageElements('[itemprop~="author"]')[0];
     if (itemAuthor) {
         const name = itemAuthor.querySelector('[itemprop~="name"]')?.textContent ?? (itemAuthor.localName === 'meta' ? itemAuthor.getAttribute('content') : itemAuthor.textContent);
-        pageAuthors.push({ source: 'itemprop="author"', name: oneLine(name, 80) });
+        pageAuthors.push({ source: t.sources.itemprop, name: oneLine(name, 80) });
     }
-    const authorSources = [...ld.authors.length ? ['the structured data'] : [], ...pageAuthors.map(found => found.source)];
+    const authorSources = [...ld.authors.length ? [t.sources.structuredData] : [], ...pageAuthors.map(found => found.source)];
     const authorName = ld.authors.join(', ') || pageAuthors.find(found => found.name)?.name;
     const author = authorSources.length
-        ? pageCheck('ai-author', 'Author', state(true), `Named in ${listed(authorSources)}.`, { value: authorName || undefined })
-        : pageCheck('ai-author', 'Author', state(false), 'No author named in the page or its structured data.', {
-            issues: issueAbout('ai-author', undefined, 'No author named.', 'SEO: No author is named in the page or its structured data (JSON-LD `author`, `meta name="author"`, `rel="author"` or `itemprop="author"`).')
+        ? pageCheck('ai-author', t.author, state(true), t.namedIn(listed(authorSources)), { value: authorName || undefined })
+        : pageCheck('ai-author', t.author, state(false), t.noAuthor, {
+            issues: issueAbout('ai-author', undefined, t.noAuthorSummary, t.noAuthorComment)
         });
 
     // When
@@ -482,33 +483,33 @@ function facts(root: Element, path: string): PageCheck[] {
     const shownValue = shown && oneLine(shown.getAttribute('datetime'), 40);
     const shownTime = dateValue(shownValue);
     const structured = [published, modified].filter((value): value is string => dateValue(value) !== undefined);
-    const dateSources = [...ld.published || ld.modified ? ['the structured data'] : [],
-        ...!ld.published && !ld.modified && (published || modified) ? ['the article meta tags'] : [], ...shownValue ? ['a time element'] : []];
+    const dateSources = [...ld.published || ld.modified ? [t.sources.structuredData] : [],
+        ...!ld.published && !ld.modified && (published || modified) ? [t.sources.articleMeta] : [], ...shownValue ? [t.sources.time] : []];
     let dates: PageCheck;
     if (shownTime !== undefined && structured.length && structured.every(value => Math.abs(dateValue(value)! - shownTime) > day)) {
         const other = structured[0]!;
-        const reason = 'The date the page shows and the date in its structured data are more than a day apart.';
-        dates = pageCheck('ai-dates', 'Dates', articleLike ? 'warn' : 'none', reason, {
-            value: `Shown ${shortDate(shownValue!)}, structured data ${shortDate(other)}`,
+        const reason = t.datesApart;
+        dates = pageCheck('ai-dates', t.dates, articleLike ? 'warn' : 'none', reason, {
+            value: t.shownVersus(shortDate(shownValue!), shortDate(other)),
             issues: issueAbout('ai-dates', shown, reason,
-                `SEO: ${reason}${foundLine('Shown', `${line(shown!.textContent ?? '')} (${shownValue})`)}${foundLine('Structured data', other)}`)
+                `SEO: ${reason}${foundLine(found.shown, `${line(shown!.textContent ?? '')} (${shownValue})`)}${foundLine(found.structuredData, other)}`)
         });
     } else if (dateSources.length) {
-        const value = [published && `Published ${shortDate(published)}`, modified && `${published ? 'modified' : 'Modified'} ${shortDate(modified)}`]
-            .filter(Boolean).join(', ') || `Shown ${shortDate(shownValue!)}`;
-        dates = pageCheck('ai-dates', 'Dates', state(true), `In ${listed(dateSources)}.`, { value });
+        const value = [published && t.published(shortDate(published)), modified && t.modified(shortDate(modified), !published)]
+            .filter(Boolean).join(', ') || t.shownDate(shortDate(shownValue!));
+        dates = pageCheck('ai-dates', t.dates, state(true), t.datesIn(listed(dateSources)), { value });
     } else {
-        dates = pageCheck('ai-dates', 'Dates', state(false), 'No published or modified date in the page or its structured data.', {
-            issues: issueAbout('ai-dates', undefined, 'No date.', 'SEO: No published or modified date in the page or its structured data (JSON-LD `datePublished`/`dateModified`, `article:published_time` or a `time` element with `datetime`).')
+        dates = pageCheck('ai-dates', t.dates, state(false), t.noDates, {
+            issues: issueAbout('ai-dates', undefined, t.noDatesSummary, t.noDatesComment)
         });
     }
 
     // Who publishes it
     const siteName = meta('og:site_name');
     const publisher = ld.publisher
-        ? pageCheck('ai-publisher', 'Publisher', state(true), 'Named in the structured data.', { value: ld.publisher })
-        : siteName ? pageCheck('ai-publisher', 'Publisher', state(true), 'The site name in og:site_name.', { value: siteName })
-            : pageCheck('ai-publisher', 'Publisher', 'none', 'No publisher or site name in the page or its structured data.');
+        ? pageCheck('ai-publisher', t.publisher, state(true), t.publisherLd, { value: ld.publisher })
+        : siteName ? pageCheck('ai-publisher', t.publisher, state(true), t.publisherSite, { value: siteName })
+            : pageCheck('ai-publisher', t.publisher, 'none', t.noPublisher);
 
     // What it cites
     const hosts = new Set<string>();
@@ -521,8 +522,8 @@ function facts(root: Element, path: string): PageCheck[] {
         hosts.add(url.hostname.replace(/^www\./, ''));
     }
     const sources = links
-        ? pageCheck('ai-sources', 'Sources', state(true), `${links === 1 ? '1 link to another site' : `${count(links, 'link')} to other sites`} in the main content.`, { value: [...hosts].slice(0, 3).join(', ') + (hosts.size > 3 ? ', ...' : '') })
-        : pageCheck('ai-sources', 'Sources', 'none', 'No links to other sites in the main content.');
+        ? pageCheck('ai-sources', t.sourcesLabel, state(true), t.links(links), { value: [...hosts].slice(0, 3).join(', ') + (hosts.size > 3 ? ', ...' : '') })
+        : pageCheck('ai-sources', t.sourcesLabel, 'none', t.noLinks);
 
     return [type, author, dates, publisher, sources];
 }
@@ -539,31 +540,30 @@ export function readPage({ path, signal }: SectionContext): AiSearchReport {
     if (markdown.length > markdownLimit) markdown = markdown.slice(0, markdownLimit).replace(/\n[^\n]*$/, '');
     const wordCount = words(markdown.replace(/\]\([^)]*\)/g, ']'));
 
-    const where = root === 'main' ? 'The main landmark' : root === 'article' ? 'The largest article element' : 'The body, without navigation, header, footer, aside and forms';
+    const t = lt().aiSearch;
+    const where = t.where[root === 'main' ? 'main' : root === 'article' ? 'article' : 'body'];
     const content = root === 'main'
-        ? pageCheck('ai-content', 'Main content', 'pass', 'The page marks its main content with a main landmark.', { value: where })
-        : pageCheck('ai-content', 'Main content', 'warn', `No main landmark. Read from ${root === 'article' ? 'the largest article element' : 'the body without its chrome'}.`, {
+        ? pageCheck('ai-content', t.mainContent, 'pass', t.mainOk, { value: where })
+        : pageCheck('ai-content', t.mainContent, 'warn', t.noMain(root === 'article'), {
             value: where,
-            issues: [pageIssue(path, { type: 'seo', id: 'ai-content' }, undefined, 'No main landmark.',
-                'SEO: The page has no main landmark (a `main` element or `role="main"`). Wrap the page\'s main content in a `main` element.')]
+            issues: [pageIssue(path, { type: 'seo', id: 'ai-content' }, undefined, t.noMainSummary, t.noMainComment)]
         });
 
-    const rendered = 'From the page as rendered in this browser.';
-    const text = pageCheck('ai-text', 'Text', wordCount < littleText ? 'none' : 'pass',
-        `${wordCount < littleText ? 'Very little text in the main content. ' : ''}${truncated ? `Cut at ${count(markdownLimit, 'character')} or ${count(elementLimit, 'element')}. ` : ''}${rendered}`, {
-            value: `${count(wordCount, 'word')}, ${count(walk.headings, 'heading')}`,
-            measure: `about ${count(tokens(markdown), 'token')}`
+    const text = pageCheck('ai-text', t.text, wordCount < littleText ? 'none' : 'pass',
+        `${wordCount < littleText ? t.littleText : ''}${truncated ? t.cut(markdownLimit, elementLimit) : ''}${t.rendered}`, {
+            value: t.wordsAndHeadings(wordCount, walk.headings),
+            measure: t.tokens(tokens(markdown))
         });
 
     const outside = [
-        walk.imagesWithoutAlt && count(walk.imagesWithoutAlt, 'image') + ' without alt text',
-        walk.frames && count(walk.frames, 'frame'),
-        walk.canvases && count(walk.canvases, 'canvas', 'canvases'),
-        walk.hiddenBlocks && `${count(walk.hiddenBlocks, 'hidden block')} of text`
+        walk.imagesWithoutAlt && t.imagesWithoutAlt(walk.imagesWithoutAlt),
+        walk.frames && t.frames(walk.frames),
+        walk.canvases && t.canvases(walk.canvases),
+        walk.hiddenBlocks && t.hiddenBlocks(walk.hiddenBlocks)
     ].filter((part): part is string => Boolean(part));
     const leftOut = outside.length
-        ? pageCheck('ai-left-out', 'Not in the text', 'none', 'What they show or hold is not in the text. Hidden blocks are text the page hides right now, such as closed tabs and accordions.', { value: listed(outside) })
-        : pageCheck('ai-left-out', 'Not in the text', 'pass', 'No images without alt text, frames, canvases or hidden blocks of text.');
+        ? pageCheck('ai-left-out', t.notInText, 'none', t.leftOut, { value: listed(outside) })
+        : pageCheck('ai-left-out', t.notInText, 'pass', t.nothingLeftOut);
 
     return {
         checks: [content, text, leftOut, ...facts(element, path)],

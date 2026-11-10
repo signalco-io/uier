@@ -34,6 +34,29 @@ test('the accessibility audit (axe-core) is its own pinned, integrity-checked as
     expect(Buffer.compare(await served.body(), audit)).toBe(0);
 });
 
+test('each language but English is its own pinned, integrity-checked asset, never in the review script or the audit', async ({ request }) => {
+    const dist = new URL('../../../packages/toolbar/dist/', import.meta.url);
+    const review = (await readFile(new URL('review.js', dist))).toString();
+    const audit = (await readFile(new URL('audit.js', dist))).toString();
+    // English is part of the review script; the toolbar's and the checks' strings of the others are in their asset
+    expect(review).toContain('Your choice stays in this browser.');
+    const samples = { de: ['Ihre Auswahl bleibt in diesem Browser.', 'Keine Bilder auf dieser Seite.'], fr: ['Votre choix reste dans ce navigateur.', 'Aucune image sur cette page.'],
+        es: ['se queda en este navegador.'], it: ['La tua scelta resta in questo browser.'], hr: ['ostaje u ovom pregledniku.'] };
+    for (const [language, strings] of Object.entries(samples)) {
+        const asset = await readFile(new URL(`language-${language}.js`, dist));
+        const path = `/toolbar/${createHash('sha256').update(asset).digest('hex')}.js`;
+        expect(review).toContain(`"${language}":{"path":"${path}","integrity":"sha384-${createHash('sha384').update(asset).digest('base64')}"}`);
+        for (const text of strings) {
+            expect(asset.toString(), language).toContain(text);
+            for (const script of [review, audit]) expect(script, language).not.toContain(text);
+        }
+        const served = await request.get(path);
+        expect(served.status()).toBe(200);
+        expect(served.headers()['access-control-allow-origin']).toBe('*');
+        expect(Buffer.compare(await served.body(), asset)).toBe(0);
+    }
+});
+
 test('pins survive a clean deployment, hashes are verified, and only expired pins are pruned', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'uier-pins-'));
     const source = join(directory, 'source.js');

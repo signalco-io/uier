@@ -7,6 +7,7 @@ import { apiRequest, commentsQueryKeyPrefix } from '../hooks/api';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
 import type { CommentItem } from './@types/Comments';
 import { useAnnounce } from './Announcer';
+import { messages, useMessages } from '../i18n';
 
 const quietButtonClassName = '-ml-2 font-normal text-muted-foreground hover:text-foreground';
 
@@ -25,11 +26,11 @@ export function useThreadNotificationActions(comment: CommentItem) {
     const state = comment.notifications;
     const follow = useMutation({
         mutationFn: async (following: boolean) => apiRequest(followUrl(comment), { method: 'POST', body: { following } }),
-        onSuccess: async (_result, following) => { announce(following ? 'You follow this thread now' : 'You no longer follow this thread'); await client.invalidateQueries({ queryKey: commentsQueryKeyPrefix }); }
+        onSuccess: async (_result, following) => { announce(following ? messages().notifications.followed : messages().notifications.unfollowed); await client.invalidateQueries({ queryKey: commentsQueryKeyPrefix }); }
     });
     const mute = useMutation({
         mutationFn: async () => apiRequest(`${toolbarConfig.apiUrl}/api/review/${toolbarConfig.project}/notifications`, { method: 'POST', body: { muted: !state?.muted } }),
-        onSuccess: async () => { announce(state?.muted ? 'Project emails unmuted' : 'Project emails muted'); await client.invalidateQueries({ queryKey: commentsQueryKeyPrefix }); }
+        onSuccess: async () => { announce(state?.muted ? messages().notifications.unmuted : messages().notifications.muted); await client.invalidateQueries({ queryKey: commentsQueryKeyPrefix }); }
     });
     if (!toolbarConfig.project || !state?.eligible || !state.member) return { error: follow.error ?? mute.error };
     return {
@@ -42,6 +43,7 @@ export function useThreadNotificationActions(comment: CommentItem) {
 /** Email about this thread for a guest after posting: Email me replies, once an address is confirmed. Never a comment requirement. */
 export function ThreadNotifications({ comment }: { comment: CommentItem }) {
     const client = useQueryClient();
+    const t = useMessages();
     const [email, setEmail] = useState('');
     const [editing, setEditing] = useState(false);
     const [verificationUrl, setVerificationUrl] = useState<string>();
@@ -56,15 +58,15 @@ export function ThreadNotifications({ comment }: { comment: CommentItem }) {
             <Button size="xs" variant="plain" className={quietButtonClassName} disabled={follow.isPending} onClick={() => {
                 if (!state.following) setEditing(!editing);
                 else follow.mutate(false);
-            }}>{state.following ? 'Unfollow thread' : 'Email me replies'}</Button>
+            }}>{state.following ? t.thread.unfollow : t.notifications.emailMeReplies}</Button>
         </div>
         {editing && <form className="flex flex-col gap-2" onSubmit={event => { event.preventDefault(); follow.mutate(true); }}>
-            <Input label="Email for replies" type="email" required autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} />
-            <p>Optional. Confirm your address to get replies and status changes. You can unsubscribe at any time.</p>
-            <Button size="sm" type="submit" disabled={follow.isPending}>Send verification link</Button>
+            <Input label={t.notifications.emailLabel} type="email" required autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} />
+            <p>{t.notifications.emailHelp}</p>
+            <Button size="sm" type="submit" disabled={follow.isPending}>{t.notifications.sendLink}</Button>
         </form>}
-        {state.pending && <p role="status">Check your email to confirm reply notifications.</p>}
-        {verificationUrl && <a href={verificationUrl} target="_blank" rel="noreferrer" className="underline">Open verification link</a>}
+        {state.pending && <p role="status">{t.notifications.checkEmail}</p>}
+        {verificationUrl && <a href={verificationUrl} target="_blank" rel="noreferrer" className="underline">{t.notifications.openLink}</a>}
         <CommentsErrorMessage error={follow.error} />
     </div>;
 }

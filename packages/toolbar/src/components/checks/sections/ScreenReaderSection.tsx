@@ -8,6 +8,7 @@ import type { OutlineItem } from '../../../checks/lazy/screenReader';
 import { IconTooltip } from '../../IconTooltip';
 import { ChecksContext } from '../ChecksParts';
 import { defineSection, ReportSection, useSection, type SectionDefinition } from './sections';
+import { useMessages } from '../../../i18n';
 
 // The Accessibility panel's Screen reader section (packages/toolbar/docs/page-checks-keyboard.md):
 // landmarks, headings and controls in reading order with their roles, names and states, from
@@ -28,17 +29,18 @@ const firstItems = 50;
 /** One landmark, heading or control: its role (or heading level) in mono, its name and states, and Highlight */
 function OutlineEntry({ item }: { item: OutlineItem }) {
     const { highlighted, highlight } = useContext(ChecksContext);
+    const t = useMessages();
     const id = useId();
     const pressed = highlighted === item.key;
     return (
         <li className="flex min-w-0 items-center gap-2 text-sm" style={{ paddingLeft: `${item.depth * 12}px` }}>
             <span id={id} className="min-w-0 flex-1 break-words">
                 <span className="font-mono text-xs text-muted-foreground">{item.level ? `h${item.level}` : item.role}</span>{' '}
-                <span className={item.name ? 'text-secondary-foreground' : 'italic text-muted-foreground'}>{item.name || 'No name'}</span>
+                <span className={item.name ? 'text-secondary-foreground' : 'italic text-muted-foreground'}>{item.name || t.sections.screenReader.noName}</span>
                 {item.states.length > 0 && <span className="text-xs text-muted-foreground">, {item.states.join(', ')}</span>}
             </span>
-            <IconTooltip label="Highlight">
-                <IconButton size="xs" variant="plain" aria-label="Highlight" aria-pressed={pressed} aria-describedby={id}
+            <IconTooltip label={t.checks.highlight}>
+                <IconButton size="xs" variant="plain" aria-label={t.checks.highlight} aria-pressed={pressed} aria-describedby={id}
                     className={cx('shrink-0 text-muted-foreground hover:text-foreground pointer-coarse:size-11', pressed && 'bg-accent text-foreground')}
                     onClick={() => highlight({ key: item.key, element: item.element, summary: item.name, comment: '', check: { type: 'accessibility', id: 'sr-outline' } })}>
                     <MyLocation size={14} aria-hidden="true" />
@@ -51,6 +53,7 @@ function OutlineEntry({ item }: { item: OutlineItem }) {
 /** A folded list, like the SEO panel's heading outline, the first items and then all of them */
 function OutlineList({ label, items }: { label: string; items: readonly OutlineItem[] }) {
     const [all, setAll] = useState(false);
+    const t = useMessages();
     if (!items.length) return null;
     const shown = all ? items : items.slice(0, firstItems);
     return (
@@ -65,7 +68,7 @@ function OutlineList({ label, items }: { label: string; items: readonly OutlineI
                 </ol>
                 {items.length > shown.length && (
                     <Button size="xs" variant="plain" className="mb-2 ml-5 text-muted-foreground hover:text-foreground pointer-coarse:min-h-11" onClick={() => setAll(true)}>
-                        Show all {items.length}
+                        {t.checks.showAll(items.length)}
                     </Button>
                 )}
             </details>
@@ -76,11 +79,12 @@ function OutlineList({ label, items }: { label: string; items: readonly OutlineI
 export function ScreenReaderSection() {
     const section = useSection(screenReaderSection);
     const details = section.report?.details;
+    const t = useMessages().sections.screenReader;
     return (
-        <ReportSection id={screenReaderSection.id} title="Screen reader" section={section}>
+        <ReportSection id={screenReaderSection.id} title={t.title} section={section}>
             {details && <>
-                <OutlineList label="Landmarks and headings" items={details.structure} />
-                <OutlineList label="Controls" items={details.controls} />
+                <OutlineList label={t.structure} items={details.structure} />
+                <OutlineList label={t.controls} items={details.controls} />
             </>}
         </ReportSection>
     );

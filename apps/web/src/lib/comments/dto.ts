@@ -63,6 +63,8 @@ export type VisitorDto = {
     member?: boolean;
     /** Current account name, or the guest name (`Guest XXXX`); `null` before a guest's first write */
     name: string | null;
+    /** The toolbar's language: the project's default and, for a signed-in account, its own choice */
+    language?: import('@uier/toolbar/languages').ToolbarLanguageInfo;
 };
 
 const deviceSizes: readonly DbDeviceSize[] = ['desktop', 'tablet', 'mobile'];

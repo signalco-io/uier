@@ -1,6 +1,7 @@
 import { elementLabel, foundLine, isToolbarNode, oneLine } from '../pageElements';
 import type { PageIssue } from '../types';
 import { pageCheck, pageIssue, type SectionContext, type SectionReport } from './api';
+import { words } from './locale';
 
 // Zoom and text spacing (packages/toolbar/docs/page-checks-content.md): reflow (WCAG 1.4.10) at the
 // window's width, and text spacing (WCAG 1.4.12) applied to the page while the reviewer looks.
@@ -12,10 +13,11 @@ const listed = 20;
 
 /** What was measured, and how a reviewer gets to the width WCAG asks for */
 function checkedAt(width: number) {
-    if (width <= reflowWidth) return `Checked at ${width} px, within the ${reflowWidth} px WCAG 1.4.10 asks for.`;
+    const t = words().reflow;
+    if (width <= reflowWidth) return t.checkedWithin(width, reflowWidth);
     // A phone or tablet cannot narrow its window
-    if (matchMedia('(pointer: coarse)').matches && !matchMedia('(hover: hover)').matches) return `Checked at ${width} px, this screen's width. WCAG 1.4.10 asks for ${reflowWidth} px.`;
-    return `Checked at ${width} px. WCAG 1.4.10 asks for ${reflowWidth} px (1280 px at 400% zoom): narrow the window or zoom in, then check again.`;
+    if (matchMedia('(pointer: coarse)').matches && !matchMedia('(hover: hover)').matches) return t.checkedScreen(width, reflowWidth);
+    return t.checkedWider(width, reflowWidth);
 }
 
 /** Whether the element clips or scrolls what overflows it sideways (a table, code or a carousel in a scroll box) */
@@ -66,26 +68,27 @@ export function checkReflow({ path }: SectionContext): SectionReport {
         found.push({ element, by: Math.round(right - width) });
         skipped = element;
     }
-    const asks = `WCAG 1.4.10 (Reflow) asks for no sideways scrolling at ${reflowWidth} px.`;
+    const { reflow: t, found: names } = words();
+    const asks = t.asks(reflowWidth);
     const issues: PageIssue[] = found.slice(0, listed).map(({ element, by }) => pageIssue(path, { type: 'accessibility', id: 'reflow' }, element,
-        `Sticks out by ${by} px.`,
-        `Accessibility: At ${width} px wide, this element sticks out ${by} px past the page's edge, so ${scrolls ? 'the page scrolls sideways' : 'it is cut off'}. ${asks}${foundLine('Element', elementLabel(element))}`));
+        t.sticksOut(by),
+        `${t.sticksOutComment(width, by, scrolls, asks)}${foundLine(names.element, elementLabel(element))}`));
     const reason = checkedAt(width);
     const measure = `${width} px`;
     if (!found.length && !scrolls) {
         // A pass only at the width WCAG asks for; wider, a note of what was measured
-        return { checks: [pageCheck('reflow', 'Reflow', width <= reflowWidth ? 'pass' : 'none', reason, { measure, value: 'Nothing sticks out, and the page does not scroll sideways.' })] };
+        return { checks: [pageCheck('reflow', t.label, width <= reflowWidth ? 'pass' : 'none', reason, { measure, value: t.fits })] };
     }
     // One element says by how much here: its row then shows only its name
-    const elements = found.length === 1 ? `1 element sticks out by ${found[0]!.by} px`
-        : found.length ? `${found.length} elements stick out${found.length > listed ? ` (the first ${listed} listed)` : ''}` : '';
-    const value = scrolls ? `The page scrolls sideways.${elements ? ` ${elements}.` : ''}` : `${elements} and ${found.length === 1 ? 'is' : 'are'} cut off.`;
+    const elements = found.length === 1 ? t.oneSticksOut(found[0]!.by)
+        : found.length ? t.manySticksOut(found.length, found.length > listed ? listed : undefined) : '';
+    const value = scrolls ? `${t.scrolls}${elements ? ` ${elements}.` : ''}` : t.cutOff(elements, found.length === 1);
     if (!found.length) {
         // Scrolls, but nothing the check can name (an element in a shadow root, a negative margin): about the page
-        issues.push(pageIssue(path, { type: 'accessibility', id: 'reflow' }, undefined, 'The page scrolls sideways.',
-            `Accessibility: At ${width} px wide, the page scrolls sideways: its content is ${root.scrollWidth} px wide. ${asks}`));
+        issues.push(pageIssue(path, { type: 'accessibility', id: 'reflow' }, undefined, t.scrolls,
+            t.scrollsComment(width, root.scrollWidth, asks)));
     }
-    return { checks: [pageCheck('reflow', 'Reflow', 'warn', reason, { measure, value, issues })] };
+    return { checks: [pageCheck('reflow', t.label, 'warn', reason, { measure, value, issues })] };
 }
 
 /**
@@ -150,7 +153,6 @@ function contentLeaves(element: HTMLElement) {
     return content.right > right + 1 || content.bottom > bottom + 1;
 }
 
-const spacingValues = 'line height 1.5, paragraph spacing 2 em, letter spacing 0.12 em, word spacing 0.16 em';
 
 /**
  * Text spacing (WCAG 1.4.12) as a mode: applies the criterion's values to the page with a
@@ -186,17 +188,18 @@ export async function applyTextSpacing({ path, signal }: SectionContext): Promis
             return scrollable || !text || style.visibility === 'hidden' || !contentLeaves(element) ? []
                 : [{ element, text, clips: /hidden|clip/.test(style.overflowX + style.overflowY) }];
         });
+        const { reflow: t, found: names } = words();
         const issues = found.slice(0, listed).map(({ element, text, clips }) => pageIssue(path, { type: 'accessibility', id: 'text-spacing' }, element,
-            `${clips ? 'Cut off' : 'Spills out'}: "${oneLine(text, 60)}"`,
-            `Accessibility: With WCAG 1.4.12 text spacing (${spacingValues}), this element's text no longer fits: it ${clips ? 'is cut off' : 'spills out of its box'}. It fits without it. Let the box grow with its text instead of a fixed height or width.${foundLine('Element', elementLabel(element))}${foundLine('Text', text, 120)}`));
-        const reason = `Measured with ${spacingValues}. Look at the page too: overlapping text is found only where a box overflows.`;
+            clips ? t.clipped(oneLine(text, 60)) : t.spills(oneLine(text, 60)),
+            `${t.spacingComment(t.spacingValues, clips)}${foundLine(names.element, elementLabel(element))}${foundLine(names.text, text, 120)}`));
+        const reason = t.measured(t.spacingValues);
         return {
             checks: [found.length
-                ? pageCheck('text-spacing', 'Text spacing', 'warn', reason, {
-                    issues, value: found.length === 1 ? `1 element no longer fits its text. ${issues[0]!.summary}`
-                        : `${found.length} elements no longer fit their text${found.length > listed ? ` (the first ${listed} listed)` : ''}.`
+                ? pageCheck('text-spacing', t.spacing, 'warn', reason, {
+                    issues, value: found.length === 1 ? t.oneNoLongerFits(issues[0]!.summary)
+                        : t.manyNoLongerFit(found.length, found.length > listed ? listed : undefined)
                 })
-                : pageCheck('text-spacing', 'Text spacing', 'pass', reason, { value: 'No text is newly cut off.' })]
+                : pageCheck('text-spacing', t.spacing, 'pass', reason, { value: t.nothingCut })]
         };
     } catch (error) {
         // Cancelled (a newer check, Check again, the page left) or failed: nothing is left on the page

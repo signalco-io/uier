@@ -5,6 +5,8 @@ import { apiRequest, clearReviewerCache, commentsQueryKeyPrefix, projectViewerQu
 import { activityQueryKey } from './useComments';
 import { forgetProjectReviewer, getGuestName } from '../project/projectSession';
 import { usePagePath } from './usePagePath';
+import { applyLanguageInfo, forgetAccountLanguage } from '../i18n';
+import type { ToolbarLanguageInfo } from '../languages';
 
 const visitorApiUrl = `${toolbarConfig.apiUrl}/api/visitor`;
 
@@ -16,18 +18,22 @@ export type Visitor = {
     privateAppFeedback?: boolean;
     /** A project's member, signed in to uier (their account name) */
     member?: boolean;
+    /** The toolbar's language: the default and, signed in, the account's own choice (applied by `getVisitor`) */
+    language?: ToolbarLanguageInfo;
 };
 
 async function getVisitor(path: string): Promise<Visitor> {
     // A project's reviewer: a member (review token) or a guest with the name they gave
     if (toolbarConfig.project) {
-        const info = await apiRequest<{ viewer?: { kind?: string; name?: string } }>(`${toolbarConfig.apiUrl}/api/review/${toolbarConfig.project}`);
+        const info = await apiRequest<{ viewer?: { kind?: string; name?: string }; language?: unknown }>(`${toolbarConfig.apiUrl}/api/review/${toolbarConfig.project}`);
+        applyLanguageInfo(info?.language);
         return info?.viewer?.kind === 'member'
             ? { name: info.viewer.name ?? null, member: true }
             : { name: getGuestName() ?? null };
     }
 
     const visitor = await apiRequest<Visitor>(`${visitorApiUrl}?path=${encodeURIComponent(path)}`);
+    applyLanguageInfo(visitor?.language);
     return { privateAppFeedback: visitor?.privateAppFeedback, draftScope: visitor?.draftScope, name: typeof visitor?.name === 'string' ? visitor.name : null, member: visitor?.member };
 }
 
@@ -63,6 +69,8 @@ export function useVisitor({ onSignedOut }: { onSignedOut?: () => void } = {}): 
         mutationFn: signOut,
         onSuccess: async () => {
             onSignedOut?.();
+            // A guest's choice in this browser applies again until the API answers
+            forgetAccountLanguage();
             clearReviewerCache(client);
             client.invalidateQueries({ queryKey: activityQueryKey });
             client.setQueryData<Visitor>(visitorQueryKey, { name: null });

@@ -8,6 +8,7 @@ import * as aiSearch from './aiSearch';
 import * as altText from './altText';
 import * as crawler from './crawler';
 import * as keyboard from './keyboard';
+import * as locale from './locale';
 import * as motion from './motion';
 import * as pageExtras from './pageExtras';
 import * as reflow from './reflow';
@@ -15,5 +16,5 @@ import * as screenReader from './screenReader';
 import * as sharing from './sharing';
 import * as structuredData from './structuredData';
 
-export const lazyChecks = { accessibilityReport, aiSearch, altText, crawler, keyboard, motion, pageExtras, reflow, screenReader, sharing, structuredData };
+export const lazyChecks = { accessibilityReport, aiSearch, altText, crawler, keyboard, locale, motion, pageExtras, reflow, screenReader, sharing, structuredData };
 export type LazyChecks = typeof lazyChecks;

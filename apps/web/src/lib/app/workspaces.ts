@@ -7,6 +7,7 @@ import { UserFacingError } from './actionErrors';
 import { MAX_CREATED_WORKSPACES, MAX_WORKSPACE_NAME_LENGTH } from './limits';
 import { assertMutableWorkspace } from '../comments/publicProjectPolicy';
 import { rewriteInstructionsSchema } from '../rewrite/settings';
+import { toolbarLanguageSchema } from './toolbarLanguage';
 
 /** One line in the workspace menu: repeated whitespace and line breaks are not part of the name */
 export const workspaceNameSchema = z.string()
@@ -44,6 +45,21 @@ export async function setWorkspaceAiTitles(workspaceId: string, userId: string, 
     if ((await getMember(workspaceId, userId))?.role !== 'admin')
         throw new UserFacingError('Only admins can do this.');
     const updated = await updateDoc<DbWorkspace>(workspacePk(workspaceId), workspaceId, workspace => ({ ...workspace, aiTitles: parsed }));
+    if (!updated)
+        throw new UserFacingError('This workspace is unavailable or your access changed.');
+    return updated;
+}
+
+/**
+ * The default toolbar language of the workspace's projects (each project can override it, each person can
+ * choose their own), for one of its admins. Only this setting changes.
+ */
+export async function setWorkspaceToolbarLanguage(workspaceId: string, userId: string, language: unknown) {
+    assertMutableWorkspace(workspaceId);
+    const parsed = toolbarLanguageSchema.parse(language);
+    if ((await getMember(workspaceId, userId))?.role !== 'admin')
+        throw new UserFacingError('Only admins can do this.');
+    const updated = await updateDoc<DbWorkspace>(workspacePk(workspaceId), workspaceId, workspace => ({ ...workspace, toolbarLanguage: parsed }));
     if (!updated)
         throw new UserFacingError('This workspace is unavailable or your access changed.');
     return updated;

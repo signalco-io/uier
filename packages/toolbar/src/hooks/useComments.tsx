@@ -11,7 +11,8 @@ import { apiImage, apiRequest, commentsQueryKeyPrefix, required, visitorQueryKey
 import { newCommentDraftKey, newRewriteDraftKey, feedbackDraftKey, useDrafts } from './useDrafts';
 import type { Visitor } from './useVisitor';
 import { getGuestName } from '../project/projectSession';
-import { getCommentsErrorMessage, usageAction } from '../components/CommentsErrorMessage';
+import { errorKeepsText, getCommentsErrorMessage, usageAction } from '../components/CommentsErrorMessage';
+import { messages } from '../i18n';
 import { showErrorToast } from '../components/Toaster';
 import { pageQueryKeys, pagePath, sourcePagePath, type PageStatePolicy } from '../pageState';
 import { getToolbarHost } from '../mount';
@@ -133,17 +134,11 @@ function replacePending(comments: CommentItem[], localId: string, saved: Comment
         : comment.id === saved.id ? [mergeReadCursor(saved, comment.activity?.readSequence)] : [comment]);
 }
 
-const notSent: Partial<Record<CommentKind | 'reply', string>> = {
-    comment: 'Your comment wasn\'t posted',
-    rewrite: 'Your suggestion wasn\'t posted',
-    feedback: 'Your feedback wasn\'t sent',
-    bug: 'Your bug report wasn\'t sent',
-    reply: 'Your reply wasn\'t posted'
-};
-
 function toastNotSent(kind: CommentKind | 'reply', error: unknown) {
+    const t = messages();
     const reason = getCommentsErrorMessage(error);
-    showErrorToast(notSent[kind] ?? notSent.feedback!, /kept/.test(reason) ? reason : `${reason} Your text is kept.`, usageAction(error));
+    const notSent: Partial<Record<CommentKind | 'reply', string>> = t.errors.notSent;
+    showErrorToast(notSent[kind] ?? t.errors.notSent.feedback, errorKeepsText(error) ? reason : `${reason} ${t.errors.textKept}`, usageAction(error));
 }
 
 async function getComments(path: string, client: QueryClient, environment?: string) {
@@ -311,7 +306,7 @@ export function useComments(refreshOnMount = false): {
     };
 
     // The visitor's name on what they just wrote, until the API returns it
-    const authorName = () => client.getQueryData<Visitor>(pageVisitorQueryKey(path))?.name ?? guestAuthorName() ?? 'You';
+    const authorName = () => client.getQueryData<Visitor>(pageVisitorQueryKey(path))?.name ?? guestAuthorName() ?? messages().thread.you;
 
     const create = useMutation({
         mutationFn: (input: CreateCommentInput) => {

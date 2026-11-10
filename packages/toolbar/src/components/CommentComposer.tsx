@@ -19,6 +19,7 @@ import { commentTextMaxLength, destructiveTextClassName, inputFocusRingClassName
 import { useProjectViewer } from '../project/ProjectGate';
 import { getGuestName, setGuestName } from '../project/projectSession';
 import { ComposerFooter } from './ComposerFooter';
+import { messages, useMessages } from '../i18n';
 import { useKeyboardLikely } from '../shortcuts';
 
 /** Longest guest name the review API accepts */
@@ -110,6 +111,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
     const draftId = useId();
     const drafts = useDrafts();
     const announce = useAnnounce();
+    const t = useMessages();
     const text = useSyncExternalStore(
         listener => drafts.subscribe(draftKey, listener),
         () => drafts.get(draftKey) ?? initialText ?? '');
@@ -221,7 +223,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
         const current = thresholdIndex(text.length);
         if (current > lastThreshold.current) {
             const left = commentTextMaxLength - text.length;
-            announce(left > 0 ? `${left} characters left` : 'Character limit reached');
+            announce(left > 0 ? messages().composer.charactersLeft(left) : messages().composer.limitReached);
         }
         lastThreshold.current = current;
     }, [text.length, announce]);
@@ -294,7 +296,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
         setSuggestionsDismissed(true);
         const next = query.start + label.length + 1;
         requestAnimationFrame(() => { textareaRef.current?.focus(); textareaRef.current?.setSelectionRange(next, next); setCaret(next); });
-        announce(`Mentioned ${person.name}`);
+        announce(t.composer.mentioned(person.name));
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -328,7 +330,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                 {askName && (
                     <>
                         <Input
-                            label="Your name"
+                            label={t.composer.yourName}
                             name="authorName"
                             value={name}
                             onChange={(e) => {
@@ -338,11 +340,11 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                             }}
                             maxLength={guestNameMaxLength}
                             autoComplete="name"
-                            placeholder="Shown with your comments"
+                            placeholder={t.composer.namePlaceholder}
                             className={inputFocusRingClassName}
                             fullWidth />
                         {nameMissing && (
-                            <p role="alert" className={cx('m-0 text-sm', destructiveTextClassName)}>Enter your name to comment.</p>
+                            <p role="alert" className={cx('m-0 text-sm', destructiveTextClassName)}>{t.composer.enterName}</p>
                         )}
                     </>
                 )}
@@ -388,18 +390,18 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                         {showCounter ? (
                             <>
                                 {text.length}/{commentTextMaxLength}
-                                <span className="sr-only"> characters</span>
+                                <span className="sr-only">{t.composer.characters}</span>
                             </>
                         ) : isMember && (
                             <>
-                                <span aria-hidden="true" title="Type @ to mention someone with access.">@ to mention</span>
-                                <span className="sr-only">Type @ to mention someone with access.</span>
+                                <span aria-hidden="true" title={t.composer.mentionHelp}>{t.composer.mentionHint}</span>
+                                <span className="sr-only">{t.composer.mentionHelp}</span>
                             </>
                         )}
                     </span>
                     </Row>
                     <Row spacing={0.5} className="shrink-0">
-                        {onCancel && <Button variant="plain" size="xs" type="button" disabled={busy} onClick={onCancel}>Cancel</Button>}
+                        {onCancel && <Button variant="plain" size="xs" type="button" disabled={busy} onClick={onCancel}>{t.common.cancel}</Button>}
                         {!onCancel && text.length > 0 && (
                             <Button
                                 variant="plain"
@@ -407,7 +409,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                                 type="button"
                                 disabled={busy}
                                 onClick={handleDiscard}>
-                                Discard
+                                {t.composer.discard}
                             </Button>
                         )}
                         {onCancel ? (
@@ -425,20 +427,20 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                 </Row>
                 </div>
                 <ComposerFooter keysId={keysId} draftId={draftId} keyboard={keyboard} submitVerb={onCancel ? 'save' : 'send'} draftSaved={draftSaved} />
-                {showSuggestions && <div id={listId} role="listbox" aria-label="Mention people" className="max-h-48 overflow-y-auto rounded-xl border p-1">
+                {showSuggestions && <div id={listId} role="listbox" aria-label={t.composer.mentionPeople} className="max-h-48 overflow-y-auto rounded-xl border p-1">
                     {suggestions.map((person, index) => <Button key={person.id} id={`${listId}-${index}`} role="option" aria-selected={index === selectedIndex}
                         variant="plain" size="sm" className={cx('min-h-11 w-full justify-start', index === selectedIndex && 'bg-muted')}
                         onMouseDown={e => e.preventDefault()} onClick={() => selectMention(person)}>
                         {person.name}<span className="ml-2 font-mono text-xs text-secondary-foreground">{person.id.slice(-6)}</span>
                     </Button>)}
                 </div>}
-                {query && participants.error && <p role="status" className="m-0 text-xs text-muted-foreground">People could not be loaded. You can still post without a mention.</p>}
+                {query && participants.error && <p role="status" className="m-0 text-xs text-muted-foreground">{t.composer.peopleNotLoaded}</p>}
                 <CommentsErrorMessage error={error} />
-                {!storageAvailable && text.length > 0 && <p role="status" className="m-0 text-xs text-muted-foreground">Browser storage is unavailable. Keep this page open to keep your draft.</p>}
-                {error != null && <p className="m-0 text-xs text-muted-foreground">Your draft is kept. Try sending again.</p>}
-                {recoveries > 0 && <div className="text-xs text-muted-foreground"><p role="status">Earlier unsent text is kept separately because both drafts exceed the character limit.</p>
-                    <Button variant="plain" size="sm" disabled={sharedPending} onClick={() => drafts.restore(draftKey)}>Restore unsent text</Button></div>}
-                {(busy || sharedPending) && <p role="status" className="m-0 text-xs text-muted-foreground">{instant ? 'Sending...' : 'Saving...'}</p>}
+                {!storageAvailable && text.length > 0 && <p role="status" className="m-0 text-xs text-muted-foreground">{t.composer.storageUnavailable}</p>}
+                {error != null && <p className="m-0 text-xs text-muted-foreground">{t.composer.draftKept}</p>}
+                {recoveries > 0 && <div className="text-xs text-muted-foreground"><p role="status">{t.composer.recoveryKept}</p>
+                    <Button variant="plain" size="sm" disabled={sharedPending} onClick={() => drafts.restore(draftKey)}>{t.composer.restoreUnsent}</Button></div>}
+                {(busy || sharedPending) && <p role="status" className="m-0 text-xs text-muted-foreground">{instant ? t.composer.sending : t.composer.saving}</p>}
             </Stack>
         </form>
     );

@@ -4,6 +4,7 @@ import { cx } from '@signalco/ui-primitives/cx';
 import { useProjectViewer } from '../../project/ProjectGate';
 import { getGuestName, setGuestName } from '../../project/projectSession';
 import { destructiveTextClassName, inputFocusRingClassName } from '../@types/Comments';
+import { useMessages } from '../../i18n';
 
 /** Longest guest name the review API accepts (as in the comment form) */
 const guestNameMaxLength = 80;
@@ -66,11 +67,12 @@ export function useGuestNameGate() {
 /** The name field, above a panel's issues while the name is not known */
 export function GuestNameField() {
     const state = useContext(GuestNameContext);
+    const t = useMessages();
     if (!state?.needed) return null;
     return (
         <div ref={state.fieldRef} className="flex flex-col gap-1">
             <Input
-                label="Your name"
+                label={t.composer.yourName}
                 name="authorName"
                 value={state.name}
                 onChange={event => {
@@ -79,10 +81,10 @@ export function GuestNameField() {
                 }}
                 maxLength={guestNameMaxLength}
                 autoComplete="name"
-                placeholder="Shown with your comments"
+                placeholder={t.composer.namePlaceholder}
                 className={inputFocusRingClassName}
                 fullWidth />
-            {state.missing && <p role="alert" className={cx('m-0 text-sm', destructiveTextClassName)}>Enter your name to comment.</p>}
+            {state.missing && <p role="alert" className={cx('m-0 text-sm', destructiveTextClassName)}>{t.composer.enterName}</p>}
         </div>
     );
 }

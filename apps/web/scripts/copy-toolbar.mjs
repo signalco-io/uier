@@ -1,13 +1,13 @@
 import './copy-fonts.mjs';
 // Copies the production build of the uier toolbar (`@uier/toolbar`, packages/toolbar) to
-// public/toolbar.js and public/toolbar/<sha256>.js (the loader, the review script and the
-// accessibility audit), with a retention manifest (headers in next.config.ts). The landing page embeds the default like a customer site would.
+// public/toolbar.js and public/toolbar/<sha256>.js (the loader, the review script, the
+// accessibility audit and the languages), with a retention manifest (headers in next.config.ts). The landing page embeds the default like a customer site would.
 //
 // Runs as the first step of `pnpm build`. Turborepo builds `@uier/toolbar` before this app
 // (`^build`), and Vercel builds through Turborepo too (vercel.json `buildCommand`).
 // The copy is generated: it is gitignored and a Turborepo build output.
 
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -38,7 +38,9 @@ if (/http:\/\/localhost:\d+/.test(readFileSync(source, 'utf8'))) {
 
 const pinned = await publishToolbar(source, dirname(target), {
     retainFrom: process.env.UIER_TOOLBAR_RETAIN_FROM,
-    // The review script, and the accessibility audit (axe-core) it loads when its panel runs a check
-    dependencies: [join(dirname(source), 'review.js'), join(dirname(source), 'audit.js')]
+    // The review script, the accessibility audit (axe-core) it loads when its panel runs a check, and
+    // the languages but English it loads when it shows one (`language-<code>.js`)
+    dependencies: [join(dirname(source), 'review.js'), join(dirname(source), 'audit.js'),
+        ...readdirSync(dirname(source)).filter(name => /^language-[a-z]{2}\.js$/.test(name)).sort().map(name => join(dirname(source), name))]
 });
 console.log(`[copy-toolbar] ${relative(appDir, source)} -> ${relative(appDir, target)} and ${pinned.path}`);

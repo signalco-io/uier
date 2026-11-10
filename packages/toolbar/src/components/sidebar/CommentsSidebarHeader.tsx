@@ -16,40 +16,33 @@ import { floatingShadowClassName } from '../@types/Comments';
 import { toolbarSurface } from '../../toolbarReview';
 import { PanelHandle } from '../DockablePanel';
 import { moveFocusInMenu, useRovingFocus } from '../../focusKeys';
+import { useMessages } from '../../i18n';
 
 /** The inbox's title row: the handle that moves it, its name and Close (with the focus when it opens, unless `autoFocus` is false) */
 export function CommentsSidebarHeader({ onClose, autoFocus = true }: { onClose: () => void; autoFocus?: boolean }) {
     const { brief } = useProjectViewer();
+    const t = useMessages();
     const [briefOpen, setBriefOpen] = useState(false);
     return (
         <div>
             <Row justifyContent="space-between">
                 <Row spacing={0.5} className="min-w-0">
                     <PanelHandle />
-                    <Typography component="h2" level="body1" semiBold className="text-foreground">Comments</Typography>
+                    <Typography component="h2" level="body1" semiBold className="text-foreground">{t.inbox.label}</Typography>
                 </Row>
                 <Row>
-                    {brief && <Button size="sm" variant="plain" aria-expanded={briefOpen} onClick={() => setBriefOpen(!briefOpen)}>Review brief</Button>}
-                    <IconTooltip label="Close sidebar">
-                        <IconButton onClick={onClose} variant="plain" aria-label="Close sidebar" autoFocus={autoFocus}>
+                    {brief && <Button size="sm" variant="plain" aria-expanded={briefOpen} onClick={() => setBriefOpen(!briefOpen)}>{t.inbox.reviewBrief}</Button>}
+                    <IconTooltip label={t.inbox.close}>
+                        <IconButton onClick={onClose} variant="plain" aria-label={t.inbox.close} autoFocus={autoFocus} data-uier-close-inbox="">
                             <PanelRightClose />
                         </IconButton>
                     </IconTooltip>
                 </Row>
             </Row>
-            {brief && briefOpen && <section aria-label="Review brief" className="mt-3 whitespace-pre-wrap break-words text-sm text-foreground">{brief}</section>}
+            {brief && briefOpen && <section aria-label={t.inbox.reviewBrief} className="mt-3 whitespace-pre-wrap break-words text-sm text-foreground">{brief}</section>}
         </div>
     );
 }
-
-const statusLabels: Record<CommentsStatusFilter, string> = {
-    unresolved: 'Active',
-    open: 'Open',
-    'in-progress': 'In progress',
-    ready: 'Ready to verify',
-    resolved: 'Done',
-    all: 'All'
-};
 
 const tabClassName = 'gap-1.5 rounded-none border-b-2 px-0.5 hover:bg-transparent active:bg-transparent pointer-coarse:h-11 pointer-coarse:min-w-11';
 const tabStateClassName = (pressed: boolean) => pressed ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground';
@@ -66,14 +59,16 @@ export function CommentsStatusTabs({ status, counts, onStatusChange }: {
     counts: Record<CommentsStatusFilter, number>;
     onStatusChange: (status: CommentsStatusFilter) => void;
 }) {
+    const t = useMessages();
+    const statusLabels: Record<CommentsStatusFilter, string> = t.inbox.filters;
     // One tab stop, like tabs: the chosen one; ← and → move between them, Enter or Space chooses
     const ref = useRef<HTMLDivElement>(null);
     const roving = useRovingFocus(ref, { orientation: 'horizontal', preferred: () => ref.current?.querySelector<HTMLElement>('[aria-pressed="true"]') });
     const activeShown = isActiveStatusFilter(status);
     const activeValue = activeShown ? status : 'unresolved';
-    const activeLabel = activeValue === 'unresolved' ? statusLabels.unresolved : `${statusLabels.unresolved}: ${statusLabels[activeValue]}`;
+    const activeLabel = activeValue === 'unresolved' ? statusLabels.unresolved : t.inbox.activeOne(statusLabels[activeValue]);
     return (
-        <Row ref={ref} role="group" aria-label="Show comments" spacing={2} className="flex-wrap border-b" onFocus={roving.onFocus} onKeyDown={roving.onKeyDown}>
+        <Row ref={ref} role="group" aria-label={t.inbox.showComments} data-uier-status-tabs="" spacing={2} className="flex-wrap border-b" onFocus={roving.onFocus} onKeyDown={roving.onKeyDown}>
             <Row className="-mb-px">
                 <Button size="sm" variant="plain" aria-pressed={activeShown}
                     className={cx(tabClassName, tabStateClassName(activeShown))}
@@ -101,10 +96,12 @@ function ActiveStatusesMenu({ status, counts, onStatusChange }: {
     onStatusChange: (status: CommentsStatusFilter) => void;
 }) {
     const { rootElement } = useContext(CommentsBootstrapperContext);
+    const t = useMessages();
+    const statusLabels: Record<CommentsStatusFilter, string> = t.inbox.filters;
     const [open, setOpen] = useState(false);
     const currentRef = useRef<HTMLButtonElement>(null);
     const firstRef = useRef<HTMLButtonElement>(null);
-    const { triggerProps, tooltip } = useIconTooltip('Active statuses');
+    const { triggerProps, tooltip } = useIconTooltip(t.inbox.activeStatuses);
     const choose = (value: CommentsStatusFilter) => {
         setOpen(false);
         onStatusChange(value);
@@ -115,7 +112,7 @@ function ActiveStatusesMenu({ status, counts, onStatusChange }: {
             open={open}
             onOpenChange={setOpen}
             align="start"
-            aria-label="Active statuses"
+            aria-label={t.inbox.activeStatuses}
             // Like a menu: ↑ and ↓ move between its choices. Escape closes only the menu, not the inbox
             onKeyDown={event => { if (event.key === 'Escape') event.stopPropagation(); else moveFocusInMenu(event); }}
             {...toolbarSurface('uier-status-filter-menu', cx('z-[70] w-52 max-w-[calc(100vw-1rem)] rounded-xl p-1', floatingShadowClassName))}
@@ -126,13 +123,13 @@ function ActiveStatusesMenu({ status, counts, onStatusChange }: {
                 }
             }}
             trigger={(
-                <IconButton size="sm" variant="plain" aria-label="Active statuses" data-roving-skip="" {...triggerProps}
+                <IconButton size="sm" variant="plain" aria-label={t.inbox.activeStatuses} data-roving-skip="" {...triggerProps}
                     className={cx('h-8 w-5 min-w-5 rounded-none border-b-2 border-transparent px-0 text-muted-foreground hover:bg-transparent hover:text-foreground active:bg-transparent pointer-coarse:h-11 pointer-coarse:min-w-8',
                         open && 'text-foreground')}>
                     <ExpandDown aria-hidden="true" size={14} />
                 </IconButton>
             )}>
-            <Stack role="group" aria-label="Active statuses">
+            <Stack role="group" aria-label={t.inbox.activeStatuses}>
                 {(['unresolved', ...activeStatusFilters] as const).map((value, index) => {
                     const current = value === status;
                     return (

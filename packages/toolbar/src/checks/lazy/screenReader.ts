@@ -5,6 +5,7 @@
 import type { AxeApi } from '../auditHandoff';
 import { elementKey, foundLine, isToolbarNode, oneLine, writtenAddress } from '../pageElements';
 import type { PageCheck, PageIssue } from '../types';
+import { words } from './locale';
 import { pageCheck, pageIssue, type SectionContext, type SectionReport } from './api';
 
 export type OutlineItem = {
@@ -43,27 +44,26 @@ const controlRoles = ['link', 'button', 'textbox', 'searchbox', 'combobox', 'lis
     'spinbutton', 'tab', 'menuitem', 'menuitemcheckbox', 'menuitemradio'];
 const checkable = ['checkbox', 'radio', 'switch', 'menuitemcheckbox', 'menuitemradio'];
 
-const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-
-/** What a screen reader says about a control's state */
+/** What a screen reader says about a control's state, in the toolbar's language */
 function statesOf(element: Element, role: string) {
+    const said = words().screenReader.states;
     const states: string[] = [];
     const aria = (name: string) => element.getAttribute(`aria-${name}`);
     const details = element.localName === 'summary' ? element.parentElement : null;
     const expanded = aria('expanded') ?? (details instanceof HTMLDetailsElement ? String(details.open) : null);
-    if (expanded === 'true' || expanded === 'false') states.push(expanded === 'true' ? 'expanded' : 'collapsed');
+    if (expanded === 'true' || expanded === 'false') states.push(expanded === 'true' ? said.expanded : said.collapsed);
     const pressed = aria('pressed');
-    if (pressed === 'true' || pressed === 'mixed') states.push(pressed === 'true' ? 'pressed' : 'partly pressed');
-    else if (pressed === 'false') states.push('not pressed');
+    if (pressed === 'true' || pressed === 'mixed') states.push(pressed === 'true' ? said.pressed : said.partlyPressed);
+    else if (pressed === 'false') states.push(said.notPressed);
     if (checkable.includes(role)) {
         const input = element instanceof HTMLInputElement && /^(checkbox|radio)$/.test(element.type) ? element : undefined;
         const checked = input ? input.indeterminate ? 'mixed' : String(input.checked) : aria('checked') ?? 'false';
-        states.push(checked === 'true' ? 'checked' : checked === 'mixed' ? 'partly checked' : 'not checked');
+        states.push(checked === 'true' ? said.checked : checked === 'mixed' ? said.partlyChecked : said.notChecked);
     }
-    if ((/^(input|select|textarea)$/.test(element.localName) && element.hasAttribute('required')) || aria('required') === 'true') states.push('required');
+    if ((/^(input|select|textarea)$/.test(element.localName) && element.hasAttribute('required')) || aria('required') === 'true') states.push(said.required);
     const invalid = aria('invalid');
-    if (invalid && invalid !== 'false') states.push('invalid');
-    if (element.matches(':disabled') || aria('disabled') === 'true') states.push('disabled');
+    if (invalid && invalid !== 'false') states.push(said.invalid);
+    if (element.matches(':disabled') || aria('disabled') === 'true') states.push(said.disabled);
     return states;
 }
 
@@ -110,20 +110,20 @@ function sameNameCheck(path: string, controls: OutlineItem[]): PageCheck {
         const ends = new Set(known.map(item => link ? destination(item.element) : target(item.element)));
         return ends.size > 1 ? [{ link, items: known }] : [];
     });
+    const { screenReader: t, found: names } = words();
     if (!found.length) {
-        return pageCheck('sr-same-name', 'Links and buttons with one name', 'pass', shared.length
-            ? 'Links and buttons that share a name lead to the same place.' : 'Every link and button has a name of its own.');
+        return pageCheck('sr-same-name', t.sameName, 'pass', shared.length ? t.sameNameShared : t.sameNameOwn);
     }
     const issues: PageIssue[] = found.flatMap(({ link, items }) => items.map(item => {
         const address = writtenAddress(item.element.getAttribute('href'));
-        return pageIssue(path, { type: 'accessibility', id: 'sr-same-name' }, item.element, link ? `Named "${item.name}", goes to ${address}` : `Named "${item.name}"`,
-            `Accessibility: ${items.length} ${link ? 'links' : 'buttons'} on this page share this name but ${link ? 'go to different addresses' : 'act on different things (their list items, rows or controlled elements differ)'}. Listed by name, as screen readers offer them, they cannot be told apart. Give each a name that says ${link ? 'where it goes' : 'what it does'}.`
-            + `${foundLine(link ? 'Link text' : 'Button text', item.name)}${link ? foundLine('Address', address) : ''}`);
+        return pageIssue(path, { type: 'accessibility', id: 'sr-same-name' }, item.element, link ? t.namedLink(item.name, address) : t.named(item.name),
+            t.sameNameComment(items.length, link)
+            + `${foundLine(link ? names.linkText : names.buttonText, item.name)}${link ? foundLine(names.address, address) : ''}`);
     }));
     const [first] = found;
-    const more = found.length > 1 ? ` ${count(found.length - 1, 'more name')} ${found.length > 2 ? 'are' : 'is'} shared the same way.` : '';
-    return pageCheck('sr-same-name', 'Links and buttons with one name', 'warn',
-        `${first!.items.length} ${first!.link ? 'links are' : 'buttons are'} named "${first!.items[0]!.name}" but ${first!.link ? 'go to different addresses' : 'act on different things'}.${more}`, { issues });
+    const more = found.length > 1 ? t.moreShared(found.length - 1) : '';
+    return pageCheck('sr-same-name', t.sameName, 'warn',
+        `${t.sameNameFound(first!.items.length, first!.link, first!.items[0]!.name)}${more}`, { issues });
 }
 
 /**
@@ -179,14 +179,15 @@ export function screenReaderOutline(axe: AxeApi, { path }: SectionContext): Sect
     const levels = headings.map(item => item.level!);
     const links = controls.filter(item => item.role === 'link').length;
     const buttons = controls.filter(item => item.role === 'button').length;
+    const t = words().screenReader;
     const checks = [
-        pageCheck('sr-landmarks', 'Landmarks', 'none', roles.length ? `${roles.join(', ')}.` : 'None on this page.', { measure: String(landmarkItems.length) }),
-        pageCheck('sr-headings', 'Headings', 'none', levels.length
-            ? `Levels ${Math.min(...levels)} to ${Math.max(...levels)}.`.replace(/Levels (\d) to \1\./, 'Level $1.') : 'None on this page.', { measure: String(levels.length) }),
-        pageCheck('sr-controls', 'Controls', 'none', controls.length
-            ? `${count(links, 'link')}, ${count(buttons, 'button')} and ${count(controls.length - links - buttons, 'other control')} (form fields, tabs, menu items).`
-            : 'None on this page.', { measure: String(controls.length) }),
+        pageCheck('sr-landmarks', t.landmarks, 'none', roles.length ? `${roles.join(', ')}.` : t.none, { measure: String(landmarkItems.length) }),
+        pageCheck('sr-headings', t.headings, 'none', levels.length
+            ? t.levels(Math.min(...levels), Math.max(...levels)) : t.none, { measure: String(levels.length) }),
+        pageCheck('sr-controls', t.controls, 'none', controls.length
+            ? t.controlCounts(links, buttons, controls.length - links - buttons)
+            : t.none, { measure: String(controls.length) }),
         sameNameCheck(path, controls)
     ];
-    return { checks, note: 'In reading order', details: { structure, controls } };
+    return { checks, note: t.note, details: { structure, controls } };
 }

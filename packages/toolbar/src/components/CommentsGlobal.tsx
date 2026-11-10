@@ -1,4 +1,5 @@
-import { ReattachContext, describeAnchor, anchorStateText } from './CommentAnchorDetails';
+import { ReattachContext, describeAnchor } from './CommentAnchorDetails';
+import { messages, useMessages, useToolbarLanguage } from '../i18n';
 import { DockablePanel } from './DockablePanel';
 import { CommentsApiError } from '../hooks/api';
 import { useCallback, useEffect, useEffectEvent, useId, useMemo, useRef, useState } from 'react';
@@ -192,6 +193,9 @@ export function CommentsGlobal({
     const [sidebarFilter, setSidebarFilter] = useState<CommentsFilter>(() => readInboxFilter() ?? { status: 'unresolved' });
     useEffect(() => rememberInboxFilter(sidebarFilter), [sidebarFilter]);
     const announce = useAnnounce();
+    const t = useMessages();
+    // The page checks' reports are written in a language: a new one checks the page again
+    const language = useToolbarLanguage();
     const hintId = useId();
     const addButtonRef = useRef<HTMLButtonElement>(null);
     const inboxButtonRef = useRef<HTMLButtonElement>(null);
@@ -230,11 +234,11 @@ export function CommentsGlobal({
         try {
             await reattach.mutateAsync({ commentId: reattaching.comment.id, path, position: reattaching.candidate,
                 expectedRevision: reattaching.comment.anchorContext?.revision ?? null });
-            announce('Comment reattached. Original evidence is unchanged.');
+            announce(messages().page.reattached);
             finishReattach();
         } catch (error) {
             if (error instanceof CommentsApiError && [401, 403, 404].includes(error.status)) {
-                announce('This comment is no longer available to edit.');
+                announce(messages().page.noLongerEditable);
                 finishReattach();
             }
         }
@@ -658,7 +662,7 @@ export function CommentsGlobal({
             // Not this page's (any more): all pages, narrowed to its public id
             setSidebarFilter({ status: linked.resolved ? 'resolved' : 'unresolved', page: 'all', keywords: linked.number !== undefined ? `#${linked.number}` : undefined });
             setSidebarOpen(true);
-            announce('This comment uses an earlier page-state setting. Its saved details are in the inbox.');
+            announce(messages().page.earlierPageState);
             return;
         }
         if (linked.resolved || linked.position.type === 'page') {
@@ -681,7 +685,7 @@ export function CommentsGlobal({
             setOpenComment(undefined);
             if (openComment.fromInbox) {
                 setSidebarOpen(true);
-                announce('This comment\'s place is not on the page right now.');
+                announce(messages().page.notOnPage);
             } else {
                 showInSidebar('unresolved');
             }
@@ -799,7 +803,7 @@ export function CommentsGlobal({
             {!collapsed && <InlineCommentThreads key={path} comments={pinnedComments} />}
             {/* A failing comment (e.g. a stored selector this page can't resolve) renders nothing, the rest keeps working */}
             {!collapsed && pinnedComments.length > 0 && (
-                <section aria-label="Comments on this page">
+                <section aria-label={t.page.comments}>
                     {pinnedComments.map((commentItem) => (
                         <CommentErrorBoundary key={`${path}:${commentKey(commentItem)}`} commentId={commentItem.id}>
                             <CommentBubble
@@ -844,39 +848,39 @@ export function CommentsGlobal({
                 {reattaching.candidate?.type === 'text' && <CommentSelectionHighlight commentSelection={reattaching.candidate} />}
                 {isCommentArea(reattaching.candidate) && candidatePlacement?.rects[0] && <CommentAreaHighlight rect={candidatePlacement.rects[0]} active />}
                 <InkScope>
-                    {reattaching.mode ? <div className="fixed top-4 left-1/2 z-[60] w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-xl border bg-background p-3 text-sm text-foreground" role="region" aria-label="Choose new anchor">
-                        <p role="status" className="m-0">{reattaching.mode === 'point' ? 'Click an element or drag over an area. With the keyboard, focus an element and press Enter.' : 'Select text on the page, then use the selection.'}</p>
+                    {reattaching.mode ? <div className="fixed top-4 left-1/2 z-[60] w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-xl border bg-background p-3 text-sm text-foreground" role="region" aria-label={t.page.chooseAnchor}>
+                        <p role="status" className="m-0">{reattaching.mode === 'point' ? t.page.chooseElementHelp : t.page.chooseTextHelp}</p>
                         <div className="mt-2 flex gap-2">
-                            {reattaching.mode === 'text' && <Button size="sm" className="min-h-11" disabled={!reattaching.candidate} onClick={() => setReattaching({ ...reattaching, mode: undefined })}>Use selected text</Button>}
-                            <Button size="sm" variant="plain" className="min-h-11" onClick={finishReattach}>Cancel</Button>
+                            {reattaching.mode === 'text' && <Button size="sm" className="min-h-11" disabled={!reattaching.candidate} onClick={() => setReattaching({ ...reattaching, mode: undefined })}>{t.page.useSelectedText}</Button>}
+                            <Button size="sm" variant="plain" className="min-h-11" onClick={finishReattach}>{t.common.cancel}</Button>
                         </div>
-                    </div> : <DockablePanel id="inbox" label="Reattach comment" onKeyDown={event => {
+                    </div> : <DockablePanel id="inbox" label={t.thread.reattach} onKeyDown={event => {
                         if (event.key === 'Escape' && !reattach.isPending) { event.stopPropagation(); finishReattach(); }
                     }}>
                         <div className="h-full overflow-y-auto p-4 text-sm">
-                            <h2 className="m-0 text-base font-semibold">Reattach comment</h2>
-                            <p>Choose an element or an area, or select text on this page. Confirm to move the anchor. Messages and saved evidence stay the same.</p>
+                            <h2 className="m-0 text-base font-semibold">{t.thread.reattach}</h2>
+                            <p>{t.page.reattachHelp}</p>
                             <div className="flex flex-wrap gap-2">
                                 <Button autoFocus size="sm" variant="outlined" className="min-h-11" disabled={reattach.isPending}
-                                    onClick={() => setReattaching({ ...reattaching, mode: 'point', candidate: undefined })}>Choose element</Button>
+                                    onClick={() => setReattaching({ ...reattaching, mode: 'point', candidate: undefined })}>{t.page.chooseElement}</Button>
                                 <Button size="sm" variant="outlined" className="min-h-11" disabled={reattach.isPending}
-                                    onClick={() => { window.getSelection()?.removeAllRanges(); setReattaching({ ...reattaching, mode: 'text', candidate: undefined }); }}>Choose text</Button>
+                                    onClick={() => { window.getSelection()?.removeAllRanges(); setReattaching({ ...reattaching, mode: 'text', candidate: undefined }); }}>{t.page.chooseText}</Button>
                             </div>
-                            <p role="status">{reattaching.candidate ? 'Review the new anchor, then confirm.' : 'Choose how to select the new target.'}</p>
+                            <p role="status">{reattaching.candidate ? t.page.reviewAnchor : t.page.chooseHow}</p>
                             {reattaching.candidate && <>
-                                <p className="break-words" data-uier-anchor-candidate="">{describeAnchor(reattaching.candidate)}</p>
-                                <p>{candidatePlacement && anchorStateText[candidatePlacement.state]}</p>
+                                <p className="break-words" data-uier-anchor-candidate="">{describeAnchor(reattaching.candidate, t)}</p>
+                                <p>{candidatePlacement && t.anchor.state[candidatePlacement.state]}</p>
                             </>}
                             {reattach.error instanceof CommentsApiError && reattach.error.status === 409
-                                ? <p role="alert" className="text-sm">The anchor changed. Start again to review the latest anchor.</p>
+                                ? <p role="alert" className="text-sm">{t.page.anchorChanged}</p>
                                 : <CommentsErrorMessage error={reattach.error} />}
                             {reattach.error instanceof CommentsApiError && reattach.error.status === 409 && <Button variant="outlined" size="sm" className="min-h-11" onClick={() => {
                                 const latest = allComments?.find(comment => comment.id === reattaching.comment.id);
                                 if (latest) requestReattach(latest);
-                            }}>Start again</Button>}
+                            }}>{t.page.startAgain}</Button>}
                             <div className="mt-4 flex gap-2">
-                                <Button size="sm" className="min-h-11" disabled={reattach.isPending || !candidatePlacement?.rects.length || candidatePlacement.state !== 'exact'} onClick={() => void saveAnchor()}>Confirm anchor</Button>
-                                <Button size="sm" variant="plain" className="min-h-11" disabled={reattach.isPending} onClick={finishReattach}>Cancel</Button>
+                                <Button size="sm" className="min-h-11" disabled={reattach.isPending || !candidatePlacement?.rects.length || candidatePlacement.state !== 'exact'} onClick={() => void saveAnchor()}>{t.page.confirmAnchor}</Button>
+                                <Button size="sm" variant="plain" className="min-h-11" disabled={reattach.isPending} onClick={finishReattach}>{t.common.cancel}</Button>
                             </div>
                         </div>
                     </DockablePanel>}
@@ -894,7 +898,7 @@ export function CommentsGlobal({
                         onShowOnPage={handleShowOnPage}
                         focusRequest={inboxFocus} />
                 )}
-                <PageChecks key={path}
+                <PageChecks key={`${path}:${language}`}
                     panel={checksPanel}
                     collapsed={collapsed}
                     onClose={closeChecks}
@@ -958,14 +962,15 @@ export function CommentsGlobal({
 /** Beside the pill, wherever it was moved: never over it */
 function CommentsLoadError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
     const notice = useToolbarNotice<HTMLDivElement>();
+    const t = useMessages();
     return (
         <InkScope>
             <div ref={notice.ref} style={notice.style} className="fixed z-[51] flex w-max max-w-[calc(100vw-2rem)] items-center gap-3 rounded-xl border bg-background p-3 text-foreground">
                 <div>
-                    <p className="m-0 text-sm">Comments could not be loaded.</p>
+                    <p className="m-0 text-sm">{t.page.notLoaded}</p>
                     <CommentsErrorMessage error={error} />
                 </div>
-                <Button variant="outlined" size="sm" onClick={onRetry}>Try again</Button>
+                <Button variant="outlined" size="sm" onClick={onRetry}>{t.common.retry}</Button>
             </div>
         </InkScope>
     );

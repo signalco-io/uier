@@ -4,6 +4,7 @@ import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Close, ExternalLink } from '@signalco/ui-icons';
 import { cx } from '@signalco/ui-primitives/cx';
 import { destructiveTextClassName } from './@types/Comments';
+import { useMessages } from '../i18n';
 import { InkScope } from './InkScope';
 import { useToolbarNotice } from '../hooks/useReviewMovement';
 
@@ -60,9 +61,10 @@ export function Toaster() {
 function ToastList({ items }: { items: Toast[] }) {
     // Beside the pill, wherever it was moved: never over it
     const notice = useToolbarNotice<HTMLElement>();
+    const t = useMessages();
     return (
         <InkScope>
-            <section ref={notice.ref} style={notice.style} aria-label="uier notifications" className="fixed z-[53] flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2">
+            <section ref={notice.ref} style={notice.style} aria-label={t.toasts.label} className="fixed z-[53] flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2">
                 {items.map(toast => (
                     <div
                         key={toast.id}
@@ -89,7 +91,7 @@ function ToastList({ items }: { items: Toast[] }) {
                                 </Button>
                             )}
                         </div>
-                        <IconButton size="xs" variant="plain" title="Dismiss" aria-label="Dismiss" onClick={() => dismiss(toast.id)}>
+                        <IconButton size="xs" variant="plain" title={t.hint.dismiss} aria-label={t.hint.dismiss} onClick={() => dismiss(toast.id)}>
                             <Close size={14} />
                         </IconButton>
                     </div>

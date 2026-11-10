@@ -64,7 +64,7 @@ export const apiErrors = {
     unsupportedMediaType: () => new ApiError(415, 'unsupported_media_type', 'Request body must be sent as application/json.'),
     rateLimited: (message: string, retryAfterSeconds: number, reason: RateLimitReason, usage?: string) => new ApiError(429, 'rate_limited', message, retryAfterSeconds, reason, usage),
     commentsDisabled: () => new ApiError(403, 'comments_disabled', 'Comments are turned off for this project.'),
-    signInRequired: () => new ApiError(401, 'sign_in_required', 'Sign in to see and leave comments on this project.'),
+    signInRequired: (message = 'Sign in to see and leave comments on this project.') => new ApiError(401, 'sign_in_required', message),
     unavailable: (message: string) => new ApiError(503, 'unavailable', message)
 };
 

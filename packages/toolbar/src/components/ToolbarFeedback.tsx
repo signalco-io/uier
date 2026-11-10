@@ -24,6 +24,8 @@ import { getDeviceInfo } from './info/getDeviceInfo';
 import { cancelCommentScreenshot, captureCommentScreenshot } from '../screenshot';
 import { floatingShadowClassName } from './@types/Comments';
 import { toolbarSurface } from '../toolbarReview';
+import { messages, useMessages } from '../i18n';
+import { feedbackTypeText } from '../i18n/format';
 
 /**
  * The toolbar's feedback button: the project's enabled feedback types about the page,
@@ -41,7 +43,9 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
     const container = useInkContainer() ?? rootElement;
     const { create } = useComments();
     const { feedbackTypes = defaultFeedbackTypes } = useProjectViewer();
-    const kinds = feedbackTypes.filter(type => type.enabled);
+    const t = useMessages();
+    // The built-in types' names and hints in the toolbar's language, unless an admin renamed them
+    const kinds = feedbackTypes.filter(type => type.enabled).map(type => ({ ...type, ...feedbackTypeText(type, t) }));
     const drafts = useDrafts();
     const announce = useAnnounce();
     const [open, setOpen] = useState(false);
@@ -54,7 +58,7 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
     // Per feedback: back to the automatic screenshot once it is sent
     const [omitScreenshot, setOmitScreenshot] = useState(false);
     // The reviewer's own image, sent instead of the screenshot; also per feedback
-    const attachment = useAttachedImage();
+    const attachment = useAttachedImage(undefined, { pastedName: t.attachments.pastedImage });
     const device = useRef<ReturnType<typeof getDeviceInfo>>(undefined);
     const [selectedKind, setKind] = useState<FeedbackTypeId>(() => kinds.reduce<(typeof kinds)[number] | undefined>((latest, type) =>
         (drafts.details(`${feedbackDraftKey}:${type.id}`)?.updatedAt ?? 0) > (drafts.details(`${feedbackDraftKey}:${latest?.id}`)?.updatedAt ?? 0) ? type : latest, kinds[0])?.id ?? 'feedback');
@@ -85,7 +89,7 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
 
     const openOnRequest = useEffectEvent(() => {
         if (!selected) {
-            announce('Feedback types are turned off for this project. You can still leave a pinned comment.');
+            announce(messages().feedback.typesOff);
         } else if (!open) {
             handleOpenChange(true);
         }
@@ -124,17 +128,17 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
             }
             throw error;
         }
-        announce(kind === 'bug' ? 'Bug report sent' : kind === 'feedback' ? 'Feedback sent' : `${selected.label} sent`);
+        announce(kind === 'bug' ? t.feedback.bugSent : kind === 'feedback' ? t.feedback.feedbackSent : t.feedback.typeSent(selected.label));
     };
 
-    const tip = useIconTooltip('Send feedback');
+    const tip = useIconTooltip(t.feedback.send);
     if (!selected) return null;
     // A pasted image file is attached instead of the screenshot
     const form = (
         <div className="contents" onPaste={attachment.handlePaste}>
             <ComposerAttachmentsHeader
                 page
-                title={<Typography component="h2" level="body2" semiBold className="text-foreground">Send feedback</Typography>}
+                title={<Typography component="h2" level="body2" semiBold className="text-foreground">{t.feedback.send}</Typography>}
                 screenshot={screenshot}
                 omitted={omitScreenshot}
                 onOmittedChange={handleOmittedChange}
@@ -142,7 +146,7 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
                 actions={<ExpandComposerButton expanded={expanded} onExpandedChange={setExpanded} />} />
             <div className="bg-card px-3 pt-2">
                 {/* Enabled types wrap in pairs, with the same pressed state as the inbox switch */}
-                <Row role="group" aria-label="Type" className="flex-wrap rounded-md bg-muted p-0.5">
+                <Row role="group" aria-label={t.feedback.type} className="flex-wrap rounded-md bg-muted p-0.5">
                     {kinds.map((k) => (
                         <Button
                             key={k.id}
@@ -164,7 +168,7 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
                 key={kind}
                 label={selected.label}
                 placeholder={selected.placeholder}
-                submitLabel={kind === 'bug' ? 'Send bug report' : 'Send feedback'}
+                submitLabel={kind === 'bug' ? t.feedback.sendBug : t.feedback.send}
                 draftKey={`${feedbackDraftKey}:${kind}`}
                 autoFocus
                 tall={expanded}
@@ -176,7 +180,7 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
     );
     return (
         <>{tip.tooltip}{open && expanded && (
-            <ComposerModal container={container} label="Send feedback" onCollapse={() => setExpanded(false)}>
+            <ComposerModal container={container} label={t.feedback.send} onCollapse={() => setExpanded(false)}>
                 {form}
             </ComposerModal>
         )}<Popper
@@ -186,7 +190,7 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
             onOpenChange={next => { if (next || !expandedRef.current) handleOpenChange(next); }}
             side="top"
             sideOffset={12}
-            aria-label="Send feedback"
+            aria-label={t.feedback.send}
             {...toolbarSurface('uier-feedback', cx('flex max-h-[var(--radix-popover-content-available-height)] w-80 max-w-[calc(100vw-1rem)] flex-col overflow-y-auto rounded-xl p-0', floatingShadowClassName,
                 // Expanding: gone at once, the modal is there
                 expanded && 'data-[state=closed]:animate-none!'))}
@@ -195,7 +199,7 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
                     variant="plain"
                     className="rounded-full"
                     {...tip.triggerProps}
-                    aria-label="Send feedback">
+                    aria-label={t.feedback.send}>
                     <Megaphone />
                 </IconButton>
             )}>

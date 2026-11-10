@@ -6,6 +6,7 @@ import type { CapturedScreenshot } from '../../toolbar/src/screenshot';
 import type { ToolbarConfig } from '../../toolbar/src/config';
 import { getToolbarHost } from '../../toolbar/src/mount';
 import { auditHandoffKey, type AuditAsset, type AuditWorld } from '../../toolbar/src/checks/auditHandoff';
+import { loadPackagedLanguage } from '../../toolbar/src/i18n/packaged';
 
 /**
  * The audit asset (axe-core and the on-demand page checks) is `audit.js`, a file of this package. It
@@ -97,7 +98,9 @@ if (!global[key]) {
                         return captured;
                     },
                     async signOut() { await message({ type: 'sign-out' }); records.clear(); clearDraftMemory(); unmount?.(); mounted = false; },
-                    loadAudit: loadPackagedAudit
+                    loadAudit: loadPackagedAudit,
+                    // Languages but English are part of this package, never loaded from the network
+                    loadLanguage: loadPackagedLanguage
                 });
                 configured = true;
             }

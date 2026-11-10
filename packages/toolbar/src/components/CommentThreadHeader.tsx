@@ -1,6 +1,6 @@
 'use client';
 
-import { feedbackStage, feedbackStageLabels, feedbackStages, type FeedbackStage } from '../verification';
+import { feedbackStage, feedbackStages, type FeedbackStage } from '../verification';
 import { useContext, useEffect, useRef, useState, type RefObject } from 'react';
 import { Row } from '@signalco/ui-primitives/Row';
 import { Stack } from '@signalco/ui-primitives/Stack';
@@ -10,7 +10,7 @@ import { Check, ExpandDown } from '@signalco/ui-icons';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Button } from '@signalco/ui-primitives/Button';
 import { newLocalId, useComments, useReadComment, useUnreadComment } from '../hooks/useComments';
-import { commentPriority, priorityLabels, type CommentPriority as CommentPriorityValue } from '../triage';
+import { commentPriority, type CommentPriority as CommentPriorityValue } from '../triage';
 import { commentLink } from '../review';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
@@ -25,6 +25,7 @@ import { useShortcutsEnabled } from '../shortcuts';
 import { assignShortcutEvent } from '../threadShortcuts';
 import { keepMovedFocus, toolbarSurface } from '../toolbarReview';
 import { moveFocusInMenu } from '../focusKeys';
+import { useMessages, type Messages } from '../i18n';
 
 /** Each status's dot (BRAND.md, "Status"): Open an ink ring (outlined), In progress sky, Ready to verify violet, Done green. The app's `StateDot`. */
 const stageDotColors: Record<FeedbackStage, string> = {
@@ -40,11 +41,12 @@ export function StatusDot({ stage }: { stage: FeedbackStage }) {
 
 /** "Open", "In progress", "Ready to verify" or "Done", with the status dot in its colour. The app's `StateBadge`. */
 export function CommentStatusBadge({ stage }: { stage: FeedbackStage }) {
+    const t = useMessages();
     return (
         <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium text-foreground">
             <StatusDot stage={stage} />
-            <span className="sr-only">Status: </span>
-            {feedbackStageLabels[stage]}
+            <span className="sr-only">{t.thread.statusPrefix}</span>
+            {t.status[stage]}
         </span>
     );
 }
@@ -63,11 +65,12 @@ function CommentStatusMenu({ stage, allowed, pending, shortcut, onChange }: {
     onChange: (stage: FeedbackStage) => void;
 }) {
     const { rootElement } = useContext(CommentsBootstrapperContext);
+    const t = useMessages();
     const [open, setOpen] = useState(false);
     const currentRef = useRef<HTMLButtonElement>(null);
     // Ready to verify waits for the menu to close: its form then takes the focus
     const requesting = useRef(false);
-    const label = feedbackStageLabels[stage];
+    const label = t.status[stage];
     const choose = (option: FeedbackStage) => {
         setOpen(false);
         if (option === 'ready') requesting.current = true;
@@ -95,7 +98,7 @@ function CommentStatusMenu({ stage, allowed, pending, shortcut, onChange }: {
             open={open}
             onOpenChange={setOpen}
             align="start"
-            aria-label="Status"
+            aria-label={t.thread.statusLabel}
             // Like a menu: ↑ and ↓ move between its statuses. Escape closes only the menu (React
             // events bubble out of the portal to the thread, whose inbox would close too)
             onKeyDown={event => { if (event.key === 'Escape') event.stopPropagation(); else moveFocusInMenu(event); }}
@@ -105,17 +108,17 @@ function CommentStatusMenu({ stage, allowed, pending, shortcut, onChange }: {
                     variant="outlined"
                     size="xs"
                     className="h-6 shrink-0 gap-1.5 rounded-full px-2 text-xs font-medium"
-                    aria-label={`Status: ${label}. Change status`}
+                    aria-label={t.thread.changeStatus(label)}
                     aria-keyshortcuts={shortcut ? 'S' : undefined}
                     data-uier-status="">
                     <StatusDot stage={stage} />
-                    <span className="sr-only">Status: </span>
+                    <span className="sr-only">{t.thread.statusPrefix}</span>
                     {label}
                     <ExpandDown aria-hidden="true" size={12} className="text-muted-foreground" />
                 </Button>
             )}
             {...contentProps}>
-            <Stack role="group" aria-label="Set status">
+            <Stack role="group" aria-label={t.thread.setStatus}>
                 {feedbackStages.map(option => {
                     const current = option === stage;
                     // The current status only acts for Ready to verify: a new check
@@ -126,7 +129,7 @@ function CommentStatusMenu({ stage, allowed, pending, shortcut, onChange }: {
                             startDecorator={<StatusDot stage={option} />}
                             endDecorator={current ? <Check size={14} className="ml-auto" /> : undefined}
                             onClick={() => acts ? choose(option) : setOpen(false)}>
-                            {option === 'done' && stage === 'ready' ? 'Done without verification' : feedbackStageLabels[option]}
+                            {option === 'done' && stage === 'ready' ? t.thread.doneWithoutVerification : t.status[option]}
                         </Button>
                     );
                 })}
@@ -140,13 +143,14 @@ function CommentStatusMenu({ stage, allowed, pending, shortcut, onChange }: {
  * It is the Mark as read button; Mark as unread is in the thread's options.
  */
 export function UnreadDot({ className, disabled, onRead }: { className?: string; disabled?: boolean; onRead: () => void }) {
+    const t = useMessages();
     return (
-        <IconTooltip label="Mark as read">
+        <IconTooltip label={t.thread.markAsRead}>
             <IconButton
                 size="xs"
                 variant="plain"
                 className={cx('-mx-1.5 size-6 shrink-0', className)}
-                aria-label="Unread. Mark as read"
+                aria-label={t.thread.unreadMarkAsRead}
                 disabled={disabled}
                 onClick={onRead}>
                 <span aria-hidden="true" className="size-2 rounded-full bg-[hsl(var(--brand-accent))]" />
@@ -156,8 +160,8 @@ export function UnreadDot({ className, disabled, onRead }: { className?: string;
 }
 
 /** Where the thread came from: "Production · https://example.com", as in the app's comment card */
-export function sourceText(source: NonNullable<CommentItem['source']>) {
-    return `${source.label}${source.origin && source.origin !== source.label ? ` · ${source.origin}` : ''}${!source.available ? ' · Original source unavailable' : ''}`;
+export function sourceText(source: NonNullable<CommentItem['source']>, t: Messages) {
+    return `${source.label}${source.origin && source.origin !== source.label ? ` · ${source.origin}` : ''}${!source.available ? ` · ${t.thread.sourceUnavailable}` : ''}`;
 }
 
 /** The thread's quiet icon actions; the tooltip names them, so does the label for assistive technologies */
@@ -165,11 +169,12 @@ export const threadActionClassName = 'size-7 text-muted-foreground hover:text-fo
 
 /** A priority other than Normal, beside the status (Normal says nothing) */
 function PriorityBadge({ comment }: { comment: CommentItem }) {
+    const t = useMessages();
     const priority = commentPriority(comment.priority);
     if (priority === 'normal') return null;
     return (
         <span className="inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-xs text-foreground">
-            <span className="sr-only">Priority: </span>{priorityLabels[priority]}
+            <span className="sr-only">{t.thread.priorityPrefix}</span>{t.priority[priority]}
         </span>
     );
 }
@@ -192,6 +197,7 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
     optionsRef?: RefObject<HTMLButtonElement | null>;
 }) {
     const { review } = useContext(CommentsBootstrapperContext);
+    const t = useMessages();
     const { resolve, progress, prioritize, verification: verificationMutation } = useComments();
     const read = useReadComment();
     const unreadMutation = useUnreadComment();
@@ -258,7 +264,7 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
             } else {
                 await progress.mutateAsync({ commentId: comment.id, status: next });
             }
-            announce(next === 'done' ? 'Marked as done' : stage === 'done' && next === 'open' ? 'Reopened' : `Marked as ${feedbackStageLabels[next].toLowerCase()}`);
+            announce(next === 'done' ? t.thread.markedDone : stage === 'done' && next === 'open' ? t.thread.reopened : t.thread.markedAs(t.status[next]));
         } catch {
             // Shown below
         }
@@ -268,7 +274,7 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
         onMarkedUnread?.();
         try {
             await unreadMutation.mutateAsync(comment);
-            announce('Marked as unread');
+            announce(t.thread.markedUnread);
         } catch {
             // Shown below
         }
@@ -279,7 +285,7 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
         try {
             await prioritize.mutateAsync({ commentId: comment.id, priority: value, idempotencyKey: priorityAttempt.current.key });
             priorityAttempt.current = null;
-            announce(`Priority set to ${priorityLabels[value]}`);
+            announce(t.thread.prioritySet(t.priority[value]));
         } catch { /* Keep the intended value and key for retry; shown below */ }
         optionsRef?.current?.focus();
     };
@@ -290,7 +296,7 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
         try {
             await navigator.clipboard.writeText(link);
             setUncopiedLink(undefined);
-            announce('Link copied');
+            announce(t.thread.linkCopied);
         } catch {
             // No clipboard access (e.g. not a secure context): show the link to copy by hand
             setUncopiedLink(link);
@@ -310,7 +316,7 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
                     {/* The public id, numbered per site */}
                     {comment.number !== undefined && (
                         <span className="truncate font-mono text-xs tabular-nums text-muted-foreground">
-                            <span className="sr-only">Comment </span>#{comment.number}
+                            <span className="sr-only">{t.thread.commentNumberPrefix}</span>#{comment.number}
                         </span>
                     )}
                     {unread && <UnreadDot disabled={read.isPending} onRead={() => read.mutate(comment)} />}
@@ -322,10 +328,10 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
                     <Row className="-mr-1.5 shrink-0">
                         <CopyMenu state={issue} className={threadActionClassName} linkAvailable={comment.source?.available !== false} onCopyLink={handleCopyLink} />
                         <CommentThreadMenu className={threadActionClassName} triggerRef={optionsRef} actions={{
-                            assign: comment.permissions?.assign ? { label: assignedText(comment), onAssign: () => setAssigning('menu') } : undefined,
+                            assign: comment.permissions?.assign ? { label: assignedText(comment, t), onAssign: () => setAssigning('menu') } : undefined,
                             priority: comment.permissions?.priority ? { value: comment.priority, pending: prioritize.isPending, onChange: handlePriority } : undefined,
                             verify: verification?.request && onRequestVerification
-                                ? { label: comment.verification?.outcome === 'pending' && !comment.resolved ? 'Request a new check' : 'Request verification', onRequest: onRequestVerification }
+                                ? { label: comment.verification?.outcome === 'pending' && !comment.resolved ? t.thread.requestNewCheck : t.thread.requestVerification, onRequest: onRequestVerification }
                                 : undefined,
                             follow: notifications.follow,
                             mute: notifications.mute,
@@ -341,7 +347,7 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
             <CommentsErrorMessage error={resolve.error ?? progress.error ?? verificationMutation.error ?? read.error ?? unreadMutation.error ?? prioritize.error ?? notifications.error} />
             {uncopiedLink && (
                 <label className="flex flex-col gap-1 text-sm">
-                    <span className={destructiveTextClassName}>The link could not be copied. Copy it from here:</span>
+                    <span className={destructiveTextClassName}>{t.thread.linkNotCopied}</span>
                     <input
                         readOnly
                         value={uncopiedLink}

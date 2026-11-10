@@ -10,14 +10,9 @@ import { CommentTime } from '../CommentTime';
 import { floatingShadowClassName } from '../@types/Comments';
 import { useHoverPopover } from '../../hooks/useHoverPopover';
 import { BrowserMark, OsMark } from './DeviceMark';
-import { deviceSettings } from '../../devices';
+import { useMessages } from '../../i18n';
+import { deviceSettingsText } from '../../i18n/format';
 import { toolbarSurface } from '../../toolbarReview';
-
-const sizeLabels: Record<CommentDeviceSize, string> = {
-    desktop: 'Desktop',
-    tablet: 'Tablet',
-    mobile: 'Mobile'
-};
 
 const sizeIcons: Record<CommentDeviceSize, typeof Desktop> = {
     desktop: Desktop,
@@ -44,6 +39,7 @@ function DeviceRow({ icon, title, description, mono }: { icon: ReactNode; title:
 /** Copy reproduction details, with the text to select by hand when the clipboard is not available */
 function CopyReproduction({ text }: { text: string }) {
     const announce = useAnnounce();
+    const t = useMessages();
     const [copied, setCopied] = useState(false);
     const [copyFailed, setCopyFailed] = useState(false);
     useEffect(() => {
@@ -54,11 +50,11 @@ function CopyReproduction({ text }: { text: string }) {
 
     return <>
         <Button variant="outlined" size="sm" startDecorator={copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />} onClick={async () => {
-            try { await navigator.clipboard.writeText(text); setCopyFailed(false); setCopied(true); announce('Reproduction details copied'); }
+            try { await navigator.clipboard.writeText(text); setCopyFailed(false); setCopied(true); announce(t.device.copied); }
             catch { setCopyFailed(true); }
-        }}>Copy reproduction details</Button>
+        }}>{t.device.copy}</Button>
         {copyFailed && <>
-            <p role="alert" className="m-0 text-xs text-muted-foreground">Couldn&rsquo;t copy. Select the details and copy them instead.</p>
+            <p role="alert" className="m-0 text-xs text-muted-foreground">{t.device.notCopied}</p>
             <pre className="m-0 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-lg border p-2 font-mono text-xs">{text}</pre>
         </>}
     </>;
@@ -75,19 +71,20 @@ function CopyReproduction({ text }: { text: string }) {
 export function CommentDevice({ device, reproduction }: DeviceProps) {
     const { rootElement } = useContext(CommentsBootstrapperContext);
     const popover = useHoverPopover();
+    const t = useMessages();
     if (!device?.size && !reproduction) {
         return null;
     }
 
     const SizeIcon = sizeIcons[device?.size ?? 'desktop'];
-    const screen = device?.size ? sizeLabels[device.size] : 'Unknown screen';
+    const screen = device?.size ? t.device.sizes[device.size] : t.device.unknownScreen;
     const windowSize = reproduction?.windowSize ?? device?.windowSize;
     const viewport = [windowSize && `${windowSize[0]}×${windowSize[1]} CSS px`, reproduction?.pixelRatio && `${reproduction.pixelRatio}x`].filter(Boolean).join(' · ');
-    const browser = reproduction?.browser ?? 'Unknown browser';
-    const os = reproduction?.os ?? 'Unknown OS';
-    const settings = reproduction ? deviceSettings(reproduction) : [];
+    const browser = reproduction?.browser ?? t.device.unknownBrowser;
+    const os = reproduction?.os ?? t.device.unknownOs;
+    const settings = reproduction ? deviceSettingsText(reproduction, t) : [];
     // "Device: Desktop · 1280×720 px · Firefox (131) · macOS"; guests get the screen only
-    const name = `Device: ${[screen, windowSize && `${windowSize[0]}×${windowSize[1]} px`, ...(reproduction ? [browser, os] : [])].filter(Boolean).join(' · ')}`;
+    const name = t.device.name([screen, windowSize && `${windowSize[0]}×${windowSize[1]} px`, ...(reproduction ? [browser, os] : [])].filter(Boolean).join(' · '));
     const capturedAt = reproduction?.capturedAt ? new Date(reproduction.capturedAt) : undefined;
     const captured = capturedAt && !Number.isNaN(capturedAt.valueOf()) ? capturedAt : undefined;
 
@@ -96,7 +93,7 @@ export function CommentDevice({ device, reproduction }: DeviceProps) {
             container={rootElement}
             {...popover.root}
             align="start"
-            aria-label={reproduction ? 'Device and browser' : 'Device'}
+            aria-label={reproduction ? t.device.deviceAndBrowser : t.device.device}
             {...toolbarSurface('uier-device', cx('z-[70] flex w-72 flex-col gap-3 rounded-xl p-3', floatingShadowClassName))}
             trigger={(
                 <Button
@@ -112,7 +109,7 @@ export function CommentDevice({ device, reproduction }: DeviceProps) {
             )}
             {...popover.content}>
             <div className="flex flex-col gap-1">
-                <DeviceRow icon={<SizeIcon size={16} />} title={screen} description={viewport || 'Viewport unavailable'} mono />
+                <DeviceRow icon={<SizeIcon size={16} />} title={screen} description={viewport || t.device.viewportUnavailable} mono />
                 {reproduction && <DeviceRow icon={<BrowserMark name={reproduction.browser} />} title={browser} description={<><OsMark name={reproduction.os} size={14} />{os}</>} />}
             </div>
             {settings.length > 0 && (
@@ -127,10 +124,10 @@ export function CommentDevice({ device, reproduction }: DeviceProps) {
             )}
             {(captured || reproduction?.url) && (
                 <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                    {captured && <span>Captured <CommentTime date={captured} /></span>}
+                    {captured && <span>{t.device.captured}<CommentTime date={captured} /></span>}
                     {reproduction?.url && (
                         <a href={reproduction.url} target="_blank" rel="noopener" className="inline-flex items-center gap-0.5 underline underline-offset-2 hover:text-foreground">
-                            Reviewed page
+                            {t.device.reviewedPage}
                             <ArrowUpRight size={12} aria-hidden="true" />
                         </a>
                     )}

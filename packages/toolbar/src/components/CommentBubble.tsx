@@ -4,7 +4,8 @@ import { useContext, useEffect, useRef, useState } from 'react';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Divider } from '@signalco/ui-primitives/Divider';
 import { cx } from '@signalco/ui-primitives/cx';
-import { Pin, pinLabel } from '@uier/brand';
+import { Pin } from '@uier/brand';
+import { useMessages } from '../i18n';
 import { newLocalId, useComments } from '../hooks/useComments';
 import { lowestRect, resolveAnchorElement, useCommentPlacement } from '../hooks/useCommentItemRects';
 import { cancelCommentScreenshot, captureCommentScreenshot } from '../screenshot';
@@ -164,7 +165,8 @@ export function CommentBubble(props: CommentBubbleProps) {
     const rewriting = props.draft?.kind === 'rewrite';
     const selectedText = props.draft?.position.type === 'text' ? props.draft.position.text : undefined;
     const draftKey = commentItem ? commentItem.id : (rewriting ? newRewriteDraftKey : newCommentDraftKey);
-    const newLabel = rewriting ? 'New rewrite suggestion' : 'New comment';
+    const t = useMessages();
+    const newLabel = rewriting ? t.pin.newRewrite : t.pin.newComment;
     // Picking a suggestion replaces the text in the text box (as if typed, so it can be undone)
     const composerRef = useRef<CommentComposerHandle>(null);
     // The instruction and suggestions belong to the form, so they go on in the modal and back
@@ -189,7 +191,7 @@ export function CommentBubble(props: CommentBubbleProps) {
     }, [creating, position, rootElement, props.draft]);
     const [omitScreenshot, setOmitScreenshot] = useState(props.draft?.omitScreenshot ?? false);
     // The reviewer's own image, sent instead of the automatic screenshot
-    const attachment = useAttachedImage(props.draft?.image);
+    const attachment = useAttachedImage(props.draft?.image, { pastedName: t.attachments.pastedImage });
     // Omitted while it is taken: its work stops. Attached after all: a new one is taken.
     const handleOmittedChange = (omitted: boolean) => {
         setOmitScreenshot(omitted);
@@ -214,7 +216,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                 if (sentImage) attachment.restore(sentImage);
                 throw error;
             }
-            announce('Reply posted');
+            announce(t.thread.replyPosted);
             return;
         }
 
@@ -243,7 +245,7 @@ export function CommentBubble(props: CommentBubbleProps) {
             window.setTimeout(() => onSendFailed?.(error, { omitScreenshot, image: attachment.image }), 0);
             throw error;
         }
-        announce(rewriting ? 'Suggestion posted' : 'Comment posted');
+        announce(rewriting ? t.pin.suggestionPosted : t.pin.commentPosted);
     };
 
     const [open, setOpen] = useState(creating ? !props.initiallyClosed : continuesDraft);
@@ -375,9 +377,9 @@ export function CommentBubble(props: CommentBubbleProps) {
             <CommentComposer
                 commentId={commentItem?.id}
                 ref={composerRef}
-                label={rewriting ? 'Suggested text' : (creating ? 'Comment' : 'Reply')}
-                placeholder={rewriting ? 'Your version of the text...' : (creating ? 'Leave feedback...' : 'Reply...')}
-                submitLabel={rewriting ? 'Post suggestion' : (creating ? 'Post comment' : 'Post reply')}
+                label={rewriting ? t.pin.suggestedText : (creating ? t.pin.comment : t.pin.reply)}
+                placeholder={rewriting ? t.pin.suggestionPlaceholder : (creating ? t.pin.commentPlaceholder : t.thread.replyPlaceholder)}
+                submitLabel={rewriting ? t.pin.postSuggestion : (creating ? t.pin.postComment : t.thread.postReply)}
                 draftKey={draftKey}
                 quote={selectedText}
                 // Not when it appears in a thread that is closing (its comment was saved after
@@ -433,8 +435,8 @@ export function CommentBubble(props: CommentBubbleProps) {
                         aria-label={creating
                             ? newLabel
                             : sending
-                                ? 'Comment, sending'
-                                : pinLabel({ number: commentItem.number, messages: messagesCount, done: commentItem.resolved })}
+                                ? t.pin.commentSending
+                                : t.pin.label(commentItem.number, messagesCount, commentItem.resolved)}
                         onFocus={handleFocus}
                         className={cx(
                             'group fixed cursor-pointer rounded-full pointer-coarse:p-1.5',
@@ -461,7 +463,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                             className="group-hover:scale-110 group-hover:brightness-75" />
                     </button>
                 )}
-                aria-label={creating ? newLabel : sending ? 'Sending comment' : 'Comment thread'}
+                aria-label={creating ? newLabel : sending ? t.pin.sendingComment : t.pin.thread}
                 {...holdsLayers}
                 // A saved thread is a part of the toolbar that can be reviewed on uier's own pages; the
                 // comment being written is not
@@ -484,7 +486,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                         <div
                             ref={messagesRef}
                             tabIndex={0}
-                            aria-label="Messages"
+                            aria-label={t.pin.messages}
                             role="group"
                             className="min-h-0 flex-1 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
                             <CommentThread commentItem={commentItem} reading={open} onPage />

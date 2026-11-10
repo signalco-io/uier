@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { actionResult, type ActionState } from '@/src/lib/app/actionResult';
 import { appContextOrThrow } from '@/src/lib/app/context';
-import { renameWorkspace, setWorkspaceAiTitles, setWorkspaceRewriteInstructions, setWorkspaceFeedbackTypes } from '@/src/lib/app/workspaces';
+import { renameWorkspace, setWorkspaceAiTitles, setWorkspaceRewriteInstructions, setWorkspaceFeedbackTypes, setWorkspaceToolbarLanguage } from '@/src/lib/app/workspaces';
 
 export async function renameWorkspaceAction(_: ActionState, formData: FormData): Promise<ActionState> {
     return await actionResult(async () => {
@@ -37,4 +37,13 @@ export async function setWorkspaceFeedbackTypesAction(_: ActionState, formData: 
         await setWorkspaceFeedbackTypes(context.workspace.id, context.user.id, JSON.parse(String(formData.get('feedbackTypes') ?? 'null')));
         revalidatePath('/app', 'layout');
     }, 'Saved. Projects using workspace defaults get these feedback types on their next page load.');
+}
+
+/** The default toolbar language of the workspace's projects; projects and people can choose their own */
+export async function setWorkspaceToolbarLanguageAction(_: ActionState, formData: FormData): Promise<ActionState> {
+    return await actionResult(async () => {
+        const context = await appContextOrThrow({ admin: true });
+        await setWorkspaceToolbarLanguage(context.workspace.id, context.user.id, formData.get('toolbarLanguage'));
+        revalidatePath('/app', 'layout');
+    }, 'Saved. Toolbars use the new language on their next page load.');
 }

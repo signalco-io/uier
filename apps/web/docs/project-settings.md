@@ -50,6 +50,29 @@
   use time: workspace edits affect inheriting/appending projects immediately, including after transfer.
   Do not store computed effective values or put private settings into reviewer DTOs.
 
+### Toolbar language
+
+The review toolbar's language ([toolbar note](../../../packages/toolbar/docs/localization.md)): English, German,
+French, Spanish, Italian or Croatian (`toolbarLanguages` in `@uier/toolbar/languages`). Which one a reviewer sees:
+their own choice, else the project's, else the workspace's, else English.
+
+- **Workspace default:** Workspace settings → Toolbar language (`WorkspaceToolbarLanguageForm`,
+  `setWorkspaceToolbarLanguageAction` → `setWorkspaceToolbarLanguage`), admins only. Existing workspaces have no
+  value, which is English.
+- **Project:** Review settings → Toolbar language, in the Review form's one save (`updateProjectReviewAction`,
+  admins only, parsed with `projectToolbarLanguageModeSchema` before any write). Workspace default
+  (`workspace`) removes the project's value, so a later workspace change applies; the option names the current
+  workspace language.
+- **Each person:** Account → Toolbar language ([account](account.md)) or the toolbar's Options → Language. Project
+  default (`null`) clears it. A guest's choice stays in their browser and is never sent.
+
+Unlike the settings with additions above, this is one value: a missing or unknown project value follows the
+workspace, resolved at use time (`toolbarLanguageInfo` in `src/lib/app/toolbarLanguage.ts`). Languages are not
+private: `GET /api/review/<code>` and `GET /api/visitor` send the project's language to every reviewer, and a
+signed-in account's own choice only to that account ([API](../../../docs/api.md#review-api-a-projects-toolbar)).
+The language changes only the toolbar: comments, names and what the server writes (exports, activity, email) stay
+as written. `toolbar-language.api.spec.ts` and `toolbar-language.spec.ts` cover it.
+
 ### Rewrite instructions
 
 Workspace settings → Rewrite suggestions (`WorkspaceRewriteInstructionsForm`) has an admin-only

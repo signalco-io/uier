@@ -12,6 +12,8 @@ import { WorkspaceNameForm } from './WorkspaceNameForm';
 import { WorkspaceDomainsSection } from './WorkspaceDomainsSection';
 import { workspaceRewriteInstructions } from '@/src/lib/rewrite/settings';
 import { WorkspaceRewriteInstructionsForm } from './WorkspaceRewriteInstructionsForm';
+import { workspaceToolbarLanguage } from '@/src/lib/app/toolbarLanguage';
+import { WorkspaceToolbarLanguageForm } from './WorkspaceToolbarLanguageForm';
 
 export const metadata: Metadata = {
     title: 'Workspace settings'
@@ -28,6 +30,7 @@ export default async function WorkspaceSettingsPage() {
             <WorkspaceTabHeader description="Settings for everyone in this workspace." />
             <div className="flex flex-col gap-6">
                 <WorkspaceNameForm name={context.workspace.name} />
+                <WorkspaceToolbarLanguageForm language={workspaceToolbarLanguage(context.workspace)} />
                 <WorkspaceAiTitlesForm enabled={workspaceAiTitles(context.workspace)} />
                 <WorkspaceRewriteInstructionsForm instructions={workspaceRewriteInstructions(context.workspace)} />
                 <WorkspaceFeedbackTypesForm types={workspaceFeedbackTypes(context.workspace)} />

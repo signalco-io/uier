@@ -1,5 +1,6 @@
 import { foundLine, isToolbarNode, oneLine } from '../pageElements';
 import type { CheckState, PageCheck, PageIssue } from '../types';
+import { words } from './locale';
 import { pageCheck, pageIssue, type SectionContext, type SectionReport } from './api';
 
 // Structured data: the page's JSON-LD (every `script[type="application/ld+json"]`), its parse errors,
@@ -84,9 +85,8 @@ function collect(value: unknown, block: number, top: boolean, parent: string[] |
 
 const present = (value: unknown) => value !== undefined && value !== null && value !== '' && !(Array.isArray(value) && !value.length);
 
-const orList = (names: string[]) => names.length > 1 ? `${names.slice(0, -1).join(', ')} or ${names.at(-1)}` : names[0] ?? '';
-const andList = (parts: string[]) => parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : parts[0] ?? '';
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const orList = (names: string[]) => names.length > 1 ? `${names.slice(0, -1).join(', ')} ${words().structuredData.or} ${names.at(-1)}` : names[0] ?? '';
+const andList = (parts: string[]) => parts.length > 1 ? `${parts.slice(0, -1).join(', ')} ${words().structuredData.and} ${parts.at(-1)}` : parts[0] ?? '';
 
 /** What an item is known by in the panel and in a comment: its name or headline */
 const itemName = (node: Record<string, unknown>) => {
@@ -95,36 +95,36 @@ const itemName = (node: Record<string, unknown>) => {
 };
 
 /** Where an item is: "Block 2", "Block 2, under Product" */
-const where = (item: Item) => `Block ${item.block}${item.parent ? `, under ${item.parent[0]}` : ''}`;
+const where = (item: Item) => `${words().structuredData.block(item.block)}${item.parent ? words().structuredData.under(item.parent[0]!) : ''}`;
 
 /** The properties an item lacks, as written in a sentence: "no name and no offers, review or aggregateRating" */
-const lacking = (missing: string[][]) => andList(missing.map(names => `no ${orList(names)}`));
+const lacking = (missing: string[][]) => andList(missing.map(names => words().structuredData.no(orList(names))));
 
 /** "Google's product snippet documentation requires it", "... one of them", "... them" */
 function rule(expectation: Expectation, missing: string[][]) {
-    const verb = expectation.level === 'required' ? 'requires' : 'recommends';
-    const what = missing.length > 1 ? 'them' : missing[0]!.length > 1 ? 'one of them' : 'it';
-    return `Google's ${expectation.feature} documentation ${verb} ${what}.`;
+    const what = missing.length > 1 ? 'them' : missing[0]!.length > 1 ? 'one' : 'it';
+    return words().structuredData.rule(expectation.feature, expectation.level === 'required', what);
 }
 
 /** One row per judged type: its items, and what those lack */
 function typeCheck(type: string, expectation: Expectation, items: Item[], path: string): PageCheck {
     const lacks = items.map(item => ({ item, missing: expectation.properties.filter(names => !names.some(name => present(item.node[name]))) }))
         .filter(({ missing }) => missing.length);
+    const t = words().structuredData;
     const required = expectation.level === 'required';
-    const measure = items.length > 1 ? plural(items.length, 'item') : undefined;
+    const measure = items.length > 1 ? t.items(items.length) : undefined;
     const value = items.length === 1 ? itemName(items[0]!.node) || undefined : undefined;
     const id = `schema-${type.toLowerCase()}`;
-    if (!lacks.length) return pageCheck(id, type, 'pass', `Has what Google's ${expectation.feature} documentation ${required ? 'requires' : 'recommends'}.`, { measure, value });
+    if (!lacks.length) return pageCheck(id, type, 'pass', t.hasWhat(expectation.feature, required), { measure, value });
     const issues: PageIssue[] = required ? lacks.map(({ item, missing }) => pageIssue(path, { type: 'seo', id: `${id}-${item.block}-${items.indexOf(item) + 1}` }, undefined,
-        `${where(item)}${itemName(item.node) ? ` (${itemName(item.node)})` : ''}: ${lacking(missing)}.`,
-        `SEO: The ${type} in the page's structured data (JSON-LD block ${item.block}${item.parent ? `, under ${item.parent[0]}` : ''}) has ${lacking(missing)}. ${rule(expectation, missing)} ${expectation.url}${foundLine('Name', itemName(item.node))}`)) : [];
+        t.lackSummary(where(item), itemName(item.node), lacking(missing)),
+        `${t.lackComment(type, item.block, item.parent ? t.under(item.parent[0]!) : '', lacking(missing), rule(expectation, missing), expectation.url)}${foundLine(words().found.name, itemName(item.node))}`)) : [];
     const state: CheckState = required ? 'warn' : 'none';
     if (lacks.length === 1 && items.length === 1) {
         const [{ item, missing }] = lacks as [typeof lacks[number]];
-        return pageCheck(id, type, state, `${where(item)} has ${lacking(missing)}. ${rule(expectation, missing)}`, { measure, value, issues });
+        return pageCheck(id, type, state, t.oneLacks(where(item), lacking(missing), rule(expectation, missing)), { measure, value, issues });
     }
-    return pageCheck(id, type, state, `${lacks.length} of ${plural(items.length, 'item')} lack what Google's ${expectation.feature} documentation ${required ? 'requires' : 'recommends'}.`, {
+    return pageCheck(id, type, state, t.manyLack(lacks.length, t.items(items.length), expectation.feature, required), {
         measure, issues,
         // Notes have no issues: what each lacks is said here
         value: required ? undefined : oneLine(lacks.map(({ item, missing }) => `${where(item)}: ${andList(missing.map(orList))}`).join('; '), 300)
@@ -150,6 +150,8 @@ export function checkStructuredData(context: SectionContext): SectionReport {
     const { path } = context;
     const scripts = [...document.querySelectorAll('script[type="application/ld+json" i]')].filter(script => !isToolbarNode(script));
     const errors: PageIssue[] = [];
+    /** Each invalid block with the browser's message, for the check's line when it is one */
+    const errorMessages: [number, string][] = [];
     const contexts: number[] = [];
     const items: Item[] = [];
     let skipped = 0;
@@ -170,8 +172,9 @@ export function checkStructuredData(context: SectionContext): SectionReport {
             data = JSON.parse(text);
         } catch (error) {
             const message = oneLine(error instanceof Error ? error.message : String(error), 160);
-            errors.push(pageIssue(path, { type: 'seo', id: `schema-parse-${block}` }, undefined, `Block ${block}: ${message}`,
-                `SEO: The page's structured data block ${block} (script type="application/ld+json") is not valid JSON, so its data cannot be read.${foundLine('Error', message)}`));
+            errors.push(pageIssue(path, { type: 'seo', id: `schema-parse-${block}` }, undefined, words().structuredData.parseSummary(block, message),
+                `${words().structuredData.parseComment(block)}${foundLine(words().found.error, message)}`));
+            errorMessages.push([block, message]);
             return;
         }
         const roots = Array.isArray(data) ? data : [data];
@@ -179,29 +182,30 @@ export function checkStructuredData(context: SectionContext): SectionReport {
         collect(data, block, true, undefined, items);
     });
 
+    const t = words().structuredData;
     const top = items.filter(item => item.top);
     const types = [...new Set(top.flatMap(item => item.types))];
     const limits = [
-        scripts.length > maxBlocks ? `Only the first ${maxBlocks} blocks were read.` : '',
-        skipped ? `${plural(skipped, 'block')} too large to read here.` : '',
-        items.length >= maxItems ? `Only the first ${maxItems} items were read.` : ''
+        scripts.length > maxBlocks ? t.firstBlocks(maxBlocks) : '',
+        skipped ? t.tooLarge(skipped) : '',
+        items.length >= maxItems ? t.firstItems(maxItems) : ''
     ].filter(Boolean).join(' ');
     const other = otherSyntaxes();
     const checks: PageCheck[] = [];
 
     if (!blocks) {
-        checks.push(pageCheck('schema-found', 'Found', 'none', other.microdata || other.rdfa ? 'No JSON-LD.' : 'No structured data. Not every page needs it.'));
+        checks.push(pageCheck('schema-found', t.found, 'none', other.microdata || other.rdfa ? t.noJsonLd : t.none));
     } else {
         checks.push(top.length
-            ? pageCheck('schema-found', 'Found', 'pass', `${plural(top.length, 'item')} in ${plural(blocks, 'JSON-LD block')}.${limits ? ` ${limits}` : ''}`, { value: oneLine(types.join(', '), 300) })
-            : pageCheck('schema-found', 'Found', 'none', `${plural(blocks, 'JSON-LD block')}, no items read.${limits ? ` ${limits}` : ''}`));
-        checks.push(!errors.length ? pageCheck('schema-parse', 'Parse errors', 'pass', 'Every block is valid JSON.')
-            : pageCheck('schema-parse', 'Parse errors', 'warn', errors.length === 1 ? `${errors[0]!.summary.replace(/^Block (\d+):/, 'Block $1 is not valid JSON:')}`
-                : `${plural(errors.length, 'block')} not valid JSON.`, { issues: errors }));
+            ? pageCheck('schema-found', t.found, 'pass', `${t.itemsIn(top.length, blocks)}${limits ? ` ${limits}` : ''}`, { value: oneLine(types.join(', '), 300) })
+            : pageCheck('schema-found', t.found, 'none', `${t.noItems(blocks)}${limits ? ` ${limits}` : ''}`));
+        checks.push(!errors.length ? pageCheck('schema-parse', t.parseErrors, 'pass', t.allValid)
+            : pageCheck('schema-parse', t.parseErrors, 'warn', errors.length === 1 ? t.oneInvalid(...errorMessages[0]!)
+                : t.manyInvalid(errors.length), { issues: errors }));
         if (contexts.length) {
-            checks.push(pageCheck('schema-context', 'Vocabulary', 'warn', `${contexts.length === 1 ? `Block ${contexts[0]} has` : `Blocks ${andList(contexts.map(String))} have`} no schema.org @context, so their types are not schema.org's.`, {
-                issues: contexts.map(block => pageIssue(path, { type: 'seo', id: `schema-context-${block}` }, undefined, `Block ${block} has no schema.org @context.`,
-                    `SEO: The page's structured data block ${block} (JSON-LD) has no "@context": "https://schema.org", so its types and properties are not read as schema.org's.`))
+            checks.push(pageCheck('schema-context', t.vocabulary, 'warn', t.noContext(contexts.length === 1 ? String(contexts[0]) : andList(contexts.map(String)), contexts.length === 1), {
+                issues: contexts.map(block => pageIssue(path, { type: 'seo', id: `schema-context-${block}` }, undefined, t.noContextSummary(block),
+                    t.noContextComment(block)))
             }));
         }
         // The common types, in the order the page has them
@@ -213,8 +217,8 @@ export function checkStructuredData(context: SectionContext): SectionReport {
         for (const [type, list] of judged) checks.push(typeCheck(type, expectations[type]!, list, path));
     }
     if (other.microdata || other.rdfa) {
-        checks.push(pageCheck('schema-microdata', 'Microdata and RDFa', 'none',
-            `${andList([other.microdata ? plural(other.microdata, 'microdata item') : '', other.rdfa ? plural(other.rdfa, 'RDFa element') : ''].filter(Boolean))}. Counted, not checked.`,
+        checks.push(pageCheck('schema-microdata', t.otherSyntaxes, 'none',
+            t.counted(andList([other.microdata ? t.microdata(other.microdata) : '', other.rdfa ? t.rdfa(other.rdfa) : ''].filter(Boolean))),
             { value: oneLine(other.types.join(', '), 300) || undefined }));
     }
     return { checks, count: top.length || undefined };

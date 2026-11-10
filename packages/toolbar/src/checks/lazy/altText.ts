@@ -1,5 +1,6 @@
 import { elementKey, elementLabel, foundLine, isRendered, isToolbarNode, oneLine, writtenAddress } from '../pageElements';
 import type { PageCheck, PageIssue } from '../types';
+import { words } from './locale';
 import { pageCheck, pageIssue, type SectionContext, type SectionReport } from './api';
 
 // Alt text review (packages/toolbar/docs/page-checks-content.md): every image beside the text a
@@ -109,35 +110,21 @@ export function pageImages(): AltTextImage[] {
     return images;
 }
 
-const some = (count: number, one: string, many: string) => count === 1 ? `An alt text ${one}` : `${count} alt texts ${many}`;
-
-/** Each flag's check: its row, its reason and what its comment says */
-const flagChecks: Record<AltTextFlag, { label: string; reason: (count: number) => string; comment: string }> = {
-    'file-name': {
-        label: 'File names as alt text',
-        reason: count => `${some(count, 'looks', 'look')} like a file name. Screen readers read file names out as written.`,
-        comment: 'looks like a file name. Screen readers read it out as written: describe what the image shows, or leave the alt empty if it is decoration.'
-    },
-    prefix: {
-        label: 'Alt text starting with "image of"',
-        reason: count => `${some(count, 'starts', 'start')} with words like "image of". Screen readers already say it is an image.`,
-        comment: 'starts with words like "image of". Screen readers already say it is an image: start with what it shows.'
-    },
-    placeholder: {
-        label: 'Placeholder alt text',
-        reason: count => `${some(count, 'is a placeholder', 'are placeholders')}, like "image" or "untitled". Alt text says what the image shows.`,
-        comment: 'is a placeholder that says nothing about the image: describe what it shows, or leave the alt empty if it is decoration.'
-    },
-    long: {
-        label: 'Long alt text',
-        reason: count => `${some(count, 'is', 'are')} over ${longAltText} characters. A long description reads better in the page's text or a caption.`,
-        comment: `is over ${longAltText} characters. Keep alt text short, and put a longer description in the page's text or a caption.`
-    }
-};
+/** Each flag's check, in the toolbar's language: its row, its reason and what its comment says */
+function flagChecks(): Record<AltTextFlag, { label: string; reason: (count: number) => string; comment: string }> {
+    const { flags } = words().altText;
+    return {
+        'file-name': flags['file-name'],
+        prefix: flags.prefix,
+        placeholder: flags.placeholder,
+        long: { label: flags.long.label, reason: count => flags.long.reason(count, longAltText), comment: flags.long.comment(longAltText) }
+    };
+}
 
 /** What the comment calls the element */
 function kind(element: Element) {
-    return element instanceof HTMLInputElement ? 'image button' : element instanceof HTMLAreaElement ? 'image map area' : 'image';
+    const { kinds } = words().altText;
+    return element instanceof HTMLInputElement ? kinds.input : element instanceof HTMLAreaElement ? kinds.area : kinds.image;
 }
 
 /**
@@ -145,14 +132,16 @@ function kind(element: Element) {
  * wrong (an issue on each image). A few milliseconds of string work: it may run in the background.
  */
 export function checkAltText({ path }: SectionContext): SectionReport<AltTextDetails> {
+    const { altText: t, found } = words();
     const images = pageImages();
-    if (!images.length) return { checks: [pageCheck('alt-text-images', 'Images', 'none', 'No images on this page.')], count: 0, details: { images } };
+    if (!images.length) return { checks: [pageCheck('alt-text-images', t.images, 'none', t.noImages)], count: 0, details: { images } };
     const checks: PageCheck[] = [];
-    for (const flag of Object.keys(flagChecks) as AltTextFlag[]) {
-        const { label, reason, comment } = flagChecks[flag];
+    const all = flagChecks();
+    for (const flag of Object.keys(all) as AltTextFlag[]) {
+        const { label, reason, comment } = all[flag];
         const issues: PageIssue[] = images.filter(image => image.flags.includes(flag)).map(image => {
             const issue = pageIssue(path, { type: 'accessibility', id: `alt-text-${flag}` }, image.element, `"${oneLine(image.alt, 80)}"`,
-                `Accessibility: This ${kind(image.element)}'s alt text ${comment}${foundLine('Alt text', image.alt)}${foundLine('Image', writtenAddress(image.src))}`);
+                `${t.commentStart(kind(image.element))} ${comment}${foundLine(found.altText, image.alt)}${foundLine(found.image, writtenAddress(image.src))}`);
             // A map's area is outlined and pinned on its image; its key and name stay its own
             return image.target === image.element ? issue : { ...issue, element: image.target };
         });
@@ -161,8 +150,7 @@ export function checkAltText({ path }: SectionContext): SectionReport<AltTextDet
         if (issues.length) checks.push(pageCheck(`alt-text-${flag}`, label, 'warn', reason(issues.length), { issues, value: shared }));
     }
     if (!checks.length && images.some(image => image.state === 'text')) {
-        checks.push(pageCheck('alt-text-wording', 'Alt text wording', 'pass',
-            `No alt text looks like a file name or a placeholder, starts with "image of" or runs over ${longAltText} characters.`));
+        checks.push(pageCheck('alt-text-wording', t.wording, 'pass', t.wordingOk(longAltText)));
     }
     return { checks, count: images.length, details: { images } };
 }

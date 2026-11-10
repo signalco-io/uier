@@ -3,6 +3,7 @@ import { commentTextMaxLength } from '../components/@types/Comments';
 import { commentCheckCountMax } from '../feedbackTypes';
 import { oneLine, pageAnchorElement } from './pageElements';
 import type { IssueGroup, PageIssue } from './types';
+import { messages } from '../i18n';
 
 // One comment for several elements of a check or rule ("Comment on all" in the panels' lists,
 // packages/toolbar/docs/page-checks-report.md): pinned to the first element, its text lists them all
@@ -27,7 +28,9 @@ function issueSelector(issue: PageIssue) {
 /** What else the issue's comment says it found on the element ("Heading: `Plans`"), on one line; axe-core's are long failure lines */
 function foundDetails(issue: PageIssue) {
     if (issue.check.type === 'accessibility') return '';
-    const details = issue.comment.split('\n').slice(1).filter(line => /^[^:`\n]{1,40}: `.*`$/.test(line) && !line.startsWith('Element:')).join(', ');
+    // The element is on the list already: its line ("Element: `...`", in the language the comment was written in) is left out
+    const element = `${messages().found.element}:`;
+    const details = issue.comment.split('\n').slice(1).filter(line => /^[^:`\n]{1,40}: `.*`$/.test(line) && !line.startsWith(element)).join(', ');
     return details.length <= 300 ? details : '';
 }
 
@@ -38,10 +41,11 @@ function foundDetails(issue: PageIssue) {
  * many the list has, when some of them were reported before.
  */
 export function groupIssue(issues: readonly PageIssue[], group: IssueGroup, of = issues.length): PageIssue {
+    const t = messages().checks.group;
     const first = issues[0]!;
     const shared = sharedSummary(issues);
     const head = `${group.head}${shared && !group.summarized && !group.head.includes(shared) ? `\n${shared}` : ''}\n${issues.length < of
-        ? `${issues.length} of its ${of} elements, not reported before:` : `${issues.length} elements:`}`;
+        ? t.notReported(issues.length, of) : t.elements(issues.length)}`;
     const foot = group.foot ? `\n\n${group.foot}` : '';
     let text = head;
     for (const [index, issue] of issues.entries()) {
@@ -49,15 +53,15 @@ export function groupIssue(issues: readonly PageIssue[], group: IssueGroup, of =
         const line = `\n- ${issueSelector(issue)}${shared ? '' : `: ${issue.summary}`}${details ? ` ${details}` : ''}`;
         const left = issues.length - index - 1;
         // Room is kept for the line that says how many more there are
-        if (text.length + line.length + (left ? `\n- and ${left} more`.length : 0) + foot.length > commentTextMaxLength) {
-            text += `\n- and ${issues.length - index} more`;
+        if (text.length + line.length + (left ? `\n- ${t.more(left)}`.length : 0) + foot.length > commentTextMaxLength) {
+            text += `\n- ${t.more(issues.length - index)}`;
             break;
         }
         text += line;
     }
     return {
         key: `${first.key}+${issues.length}`,
-        summary: `${issues.length} elements`,
+        summary: t.summary(issues.length),
         comment: `${text}${foot}`,
         path: first.path,
         check: { ...first.check, count: Math.min(issues.length, commentCheckCountMax) },

@@ -1,6 +1,8 @@
 import { SVGProps } from 'react';
 import { AI, Bookmark, Bug, Comment, Info, Lightning, Replace, Rocket } from '@signalco/ui-icons';
-import { commentKindIcon, commentKindLabel, type FeedbackTypeSnapshot } from '../feedbackTypes';
+import { commentKindIcon, type FeedbackTypeSnapshot } from '../feedbackTypes';
+import { useMessages } from '../i18n';
+import { commentKindText } from '../i18n/format';
 import type { CommentKind } from './@types/Comments';
 
 /** Lucide's heart (the UI kit has no heart icon), drawn like the kit's icons next to it */
@@ -33,9 +35,10 @@ export function CommentKindIcon({ kind, feedbackType, size = 16 }: { kind: Exclu
 
 /** The saved type above a thread's first message. Plain comments have no chip. */
 export function CommentKindLabel({ kind, feedbackType }: { kind: CommentKind; feedbackType?: FeedbackTypeSnapshot }) {
+    const t = useMessages();
     if (kind === 'comment') return null;
     return <span className="inline-flex items-center gap-1 text-xs font-medium text-secondary-foreground">
         <CommentKindIcon kind={kind} feedbackType={feedbackType} size={14} />
-        {commentKindLabel(kind, feedbackType)}
+        {commentKindText(kind, feedbackType, t)}
     </span>;
 }

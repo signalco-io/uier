@@ -10,9 +10,10 @@ import { Check, MoreHorizontal } from '@signalco/ui-icons';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { floatingShadowClassName } from './@types/Comments';
 import { useIconTooltip } from './IconTooltip';
-import { commentPriority, priorities, priorityLabels, type CommentPriority } from '../triage';
+import { commentPriority, priorities, type CommentPriority } from '../triage';
 import { toolbarSurface } from '../toolbarReview';
 import { moveFocusInMenu } from '../focusKeys';
+import { useMessages } from '../i18n';
 
 export type ThreadMenuActions = {
     /** "Unassigned" / "Assigned to Ana": opens the people under the header */
@@ -42,10 +43,11 @@ function MenuButton({ icon, buttonRef, onClick, disabled, label, children }: { i
  */
 export function CommentThreadMenu({ className, actions, triggerRef }: { className?: string; actions: ThreadMenuActions; triggerRef?: Ref<HTMLButtonElement> }) {
     const { rootElement } = useContext(CommentsBootstrapperContext);
+    const t = useMessages();
     const [open, setOpen] = useState(false);
     const [choosingPriority, setChoosingPriority] = useState(false);
     const firstRef = useRef<HTMLButtonElement>(null);
-    const { triggerProps, tooltip } = useIconTooltip('Thread options');
+    const { triggerProps, tooltip } = useIconTooltip(t.thread.options);
     const { assign, priority, verify, follow, mute, markUnread } = actions;
     if (!assign && !priority && !verify && !follow && !mute && !markUnread) return null;
     const run = (action: () => void) => { setOpen(false); setChoosingPriority(false); action(); };
@@ -67,7 +69,7 @@ export function CommentThreadMenu({ className, actions, triggerRef }: { classNam
             open={open}
             onOpenChange={next => { setOpen(next); if (!next) setChoosingPriority(false); }}
             align="end"
-            aria-label="Thread options"
+            aria-label={t.thread.options}
             // Like a menu: ↑ and ↓ move between its buttons
             onKeyDown={moveFocusInMenu}
             {...toolbarSurface('uier-thread-menu', cx('z-[70] w-60 max-w-[calc(100vw-1rem)] rounded-xl p-1', floatingShadowClassName))}
@@ -77,7 +79,7 @@ export function CommentThreadMenu({ className, actions, triggerRef }: { classNam
                     size="xs"
                     variant="plain"
                     className={className}
-                    aria-label="Thread options"
+                    aria-label={t.thread.options}
                     {...triggerProps}>
                     <MoreHorizontal size={16} />
                 </IconButton>
@@ -86,25 +88,25 @@ export function CommentThreadMenu({ className, actions, triggerRef }: { classNam
             <Stack>
                 {assign && (
                     // The visible words are part of the name: "Assigned to you. Change assignee"
-                    <MenuButton buttonRef={takeFirst()} label={`${assign.label}. Change assignee`} onClick={() => run(assign.onAssign)}>
+                    <MenuButton buttonRef={takeFirst()} label={t.thread.changeAssignee(assign.label)} onClick={() => run(assign.onAssign)}>
                         <span className="flex w-full items-baseline justify-between gap-2">
                             <span>{assign.label}</span>{' '}
-                            <span className="text-xs font-normal text-muted-foreground">Change</span>
+                            <span className="text-xs font-normal text-muted-foreground">{t.thread.change}</span>
                         </span>
                     </MenuButton>
                 )}
                 {priority && <>
-                    <MenuButton buttonRef={takeFirst()} label={`Priority: ${priorityLabels[current]}. Change priority`} disabled={priority.pending}
+                    <MenuButton buttonRef={takeFirst()} label={t.thread.priorityChange(t.priority[current])} disabled={priority.pending}
                         onClick={() => setChoosingPriority(!choosingPriority)}>
-                        Priority: {priorityLabels[current]}
+                        {t.thread.priorityValue(t.priority[current])}
                     </MenuButton>
                     {choosingPriority && (
-                        <div role="group" aria-label="Set priority" className="flex flex-col pl-6">
+                        <div role="group" aria-label={t.thread.setPriority} className="flex flex-col pl-6">
                             {priorities.map(value => (
                                 <Button key={value} variant="plain" size="sm" fullWidth className="justify-start" aria-pressed={value === current}
                                     disabled={priority.pending} endDecorator={value === current ? <Check size={14} /> : undefined}
                                     onClick={() => run(() => priority.onChange(value))}>
-                                    {priorityLabels[value]}
+                                    {t.priority[value]}
                                 </Button>
                             ))}
                         </div>
@@ -115,17 +117,17 @@ export function CommentThreadMenu({ className, actions, triggerRef }: { classNam
                 )}
                 {follow && (
                     <MenuButton buttonRef={takeFirst()} disabled={follow.pending} onClick={() => run(follow.onToggle)}>
-                        {follow.following ? 'Unfollow thread' : 'Follow thread'}
+                        {follow.following ? t.thread.unfollow : t.thread.follow}
                     </MenuButton>
                 )}
                 {mute && (
                     <MenuButton buttonRef={takeFirst()} disabled={mute.pending} onClick={() => run(mute.onToggle)}>
-                        {mute.muted ? 'Unmute project emails' : 'Mute project emails'}
+                        {mute.muted ? t.thread.unmute : t.thread.mute}
                     </MenuButton>
                 )}
                 {markUnread && (
                     <MenuButton buttonRef={takeFirst()} disabled={markUnread.pending} onClick={() => run(markUnread.onMarkUnread)}>
-                        Mark as unread
+                        {t.thread.markUnread}
                     </MenuButton>
                 )}
             </Stack>

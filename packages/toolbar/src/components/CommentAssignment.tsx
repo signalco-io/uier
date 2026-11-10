@@ -12,23 +12,25 @@ import { CommentsErrorMessage } from './CommentsErrorMessage';
 import { avatarText } from './CommentThreadItem';
 import type { CommentAssignee as Assignee, CommentItem } from './@types/Comments';
 import { useIconTooltip } from './IconTooltip';
-import { assigneeAgents, commentAssignees, agentSessionLink, agentIsWorking, agentText, type AgentKind } from '../agents';
+import { assigneeAgents, commentAssignees, agentSessionLink, agentIsWorking, type AgentKind } from '../agents';
+import { useMessages, type Messages } from '../i18n';
+import { agentDescription } from '../i18n/format';
 import { useAgentWorking } from '../useAgentWorking';
 import { AgentMark } from './AgentMark';
 import { moveFocusInMenu } from '../focusKeys';
 
 /** "Unassigned" or "Assigned to Ana": the assignee's tooltip and name, the same words as the app's comment card */
-export function assignedText(comment: CommentItem) {
+export function assignedText(comment: CommentItem, t: Messages) {
     const people = commentAssignees(comment);
-    if (!people.length) return 'Unassigned';
-    return `Assigned to ${people.map(person => `${person.isMe ? 'you' : person.name}${person.unavailable ? ' (no access)' : ''}`).join(', ')}`;
+    if (!people.length) return t.assignment.unassigned;
+    return t.assignment.assignedTo(people.map(person => `${person.isMe ? t.assignment.you : person.name}${person.unavailable ? t.assignment.noAccess : ''}`).join(', '));
 }
 
 /** "Assigned to Ana, with Claude": the header avatar's tooltip, with the AI agent working under the assignee */
-export function workingText(comment: CommentItem) {
+export function workingText(comment: CommentItem, t: Messages) {
     const people = commentAssignees(comment);
-    if (!people.length) return 'Unassigned';
-    return `Assigned to ${people.map(person => `${person.isMe ? 'you' : person.name}${assigneeAgents(person).map(agent => `, with ${agentText(agent)}${agentIsWorking(agent.workingUntil) ? ', working now' : ''}`).join('')}`).join('; ')}`;
+    if (!people.length) return t.assignment.unassigned;
+    return t.assignment.assignedTo(people.map(person => `${person.isMe ? t.assignment.you : person.name}${assigneeAgents(person).map(agent => `${t.assignment.withAgent(agentDescription(agent, t))}${agentIsWorking(agent.workingUntil) ? t.assignment.workingNow : ''}`).join('')}`).join('; '));
 }
 
 /** The agent's one-colour mark on a bordered circle, as in the app (`@uier/toolbar/agents`) */
@@ -68,9 +70,10 @@ function OverflowCount({ count, workingUntil, compact = false }: { count: number
  */
 export function CommentAssignee({ comment, className }: { comment: CommentItem; className?: string }) {
     const { rootElement } = useContext(CommentsBootstrapperContext);
+    const t = useMessages();
     const people = commentAssignees(comment);
     useAgentWorking(people.flatMap(person => assigneeAgents(person).map(agent => agent.workingUntil)));
-    const assigned = workingText(comment);
+    const assigned = workingText(comment, t);
     const { triggerProps, tooltip } = useIconTooltip(assigned);
     if (!people.length) return null;
     const avatars = <>
@@ -82,17 +85,17 @@ export function CommentAssignee({ comment, className }: { comment: CommentItem; 
     </>;
     // Agents are projected only for members. Older attachments without a link keep their tooltip.
     if (!people.some(person => assigneeAgents(person).some(agent => agentSessionLink(agent.sessionUrl)))) return avatars;
-    return <Popper container={rootElement} side="bottom" sideOffset={8} aria-label="Assignee details"
+    return <Popper container={rootElement} side="bottom" sideOffset={8} aria-label={t.assignment.details}
         className={cx('max-h-[min(32rem,80dvh)] w-64 overflow-y-auto rounded-xl p-3 text-xs', floatingShadowClassName)}
-        trigger={<Button variant="plain" size="sm" aria-label="Assignee details" className="rounded-full p-0">{avatars}</Button>}>
+        trigger={<Button variant="plain" size="sm" aria-label={t.assignment.details} className="rounded-full p-0">{avatars}</Button>}>
         <div className="flex flex-col gap-3">
             {people.map((person, index) => <div key={person.id ?? index} className="flex min-w-0 flex-col gap-1">
-                <span className="truncate font-medium">{person.isMe ? 'You' : person.name}</span>
+                <span className="truncate font-medium">{person.isMe ? t.thread.you : person.name}</span>
                 {assigneeAgents(person).map((agent, index) => {
                     const link = agentSessionLink(agent.sessionUrl);
                     return <div key={agent.id ?? index} className="ml-2 flex min-w-0 flex-col gap-1 border-l pl-2">
-                        <span className="break-words">{agentText(agent)}</span>
-                        {link && <a href={link.url} className="inline-flex min-h-8 items-center self-start rounded-sm text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring pointer-coarse:min-h-11">Open in {link.app}</a>}
+                        <span className="break-words">{agentDescription(agent, t)}</span>
+                        {link && <a href={link.url} className="inline-flex min-h-8 items-center self-start rounded-sm text-primary underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring pointer-coarse:min-h-11">{t.assignment.openIn(link.app)}</a>}
                     </div>;
                 })}
             </div>)}
@@ -104,16 +107,17 @@ export function CommentAssignee({ comment, className }: { comment: CommentItem; 
 export function CommentAssigneeOptions({ comment, autoFocus = false, onAssigned }: { comment: CommentItem; autoFocus?: boolean; onAssigned: () => void }) {
     const participants = useParticipants(comment.id);
     const { assign } = useComments();
+    const t = useMessages();
 
     // Like a menu: ↑ and ↓ move between the people; opened with A, the first has the focus
-    return <div className="flex flex-col rounded-lg border p-1 text-xs text-muted-foreground" role="group" aria-label="Assign thread" onKeyDown={moveFocusInMenu}>
-        {participants.isPending && <span role="status" className="px-2 py-1.5">Loading people...</span>}
+    return <div className="flex flex-col rounded-lg border p-1 text-xs text-muted-foreground" role="group" aria-label={t.assignment.assignThread} onKeyDown={moveFocusInMenu}>
+        {participants.isPending && <span role="status" className="px-2 py-1.5">{t.assignment.loadingPeople}</span>}
         <CommentsErrorMessage error={participants.error ?? assign.error} />
         <Button variant="plain" size="sm" className="justify-start" disabled={assign.isPending} autoFocus={autoFocus}
             onClick={async () => {
                 try { await assign.mutateAsync({ commentId: comment.id, assigneeId: null }); onAssigned(); }
                 catch { /* Keep the error available. */ }
-            }}>Unassign</Button>
+            }}>{t.assignment.unassign}</Button>
         {(participants.data ?? []).map(person => {
             const checked = commentAssignees(comment).some(assignee => assignee.id === person.id);
             return <Button key={person.id} variant="plain" size="sm" className="justify-start gap-2" aria-pressed={checked} disabled={assign.isPending}
@@ -124,6 +128,6 @@ export function CommentAssigneeOptions({ comment, autoFocus = false, onAssigned 
                 {checked && <Check size={16} aria-hidden="true" />}{person.name}
             </Button>;
         })}
-        <Button variant="plain" size="sm" className="justify-start" onClick={onAssigned}>Done</Button>
+        <Button variant="plain" size="sm" className="justify-start" onClick={onAssigned}>{t.common.done}</Button>
     </div>;
 }

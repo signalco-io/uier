@@ -6,9 +6,9 @@ import { cx } from '@signalco/ui-primitives/cx';
 import { Check, Disabled, Down, Info, MapPin, MyLocation, Undo, Warning } from '@signalco/ui-icons';
 import { sharedSummary } from '../../checks/issueGroup';
 import type { CheckState, IssueGroup, PageCheck, PageIssue } from '../../checks/types';
-import { commentCheckLabels } from '../../feedbackTypes';
 import { CommentIcon } from '../CommentIcon';
 import { IconTooltip } from '../IconTooltip';
+import { useMessages } from '../../i18n';
 
 export { sharedSummary };
 
@@ -64,13 +64,14 @@ function moveFocus(from: HTMLElement, attribute: 'data-uier-dismiss' | 'data-uie
 /** Highlight (an issue with an element), "Not an issue" and the comment quick action, or the comment it became */
 export function IssueActions({ issue, describedBy, className }: { issue: PageIssue; describedBy?: string; className?: string }) {
     const { reportOf, highlighted, comment, highlight, show, dismiss } = useContext(ChecksContext);
+    const t = useMessages();
     const state = reportOf(issue);
     return (
         <Row spacing={0.5} className={cx('flex-wrap', className)}>
             {/* An icon with its name in a tooltip, so an element's row keeps its actions on one line */}
             {issue.element && (
-                <IconTooltip key="highlight" label="Highlight">
-                    <IconButton size="xs" variant="plain" aria-label="Highlight" aria-pressed={highlighted === issue.key} aria-describedby={describedBy}
+                <IconTooltip key="highlight" label={t.checks.highlight}>
+                    <IconButton size="xs" variant="plain" aria-label={t.checks.highlight} aria-pressed={highlighted === issue.key} aria-describedby={describedBy}
                         className={cx(iconActionClassName, highlighted === issue.key && 'bg-accent text-foreground')}
                         onClick={() => highlight(issue)}>
                         <MyLocation size={14} aria-hidden="true" />
@@ -79,8 +80,8 @@ export function IssueActions({ issue, describedBy, className }: { issue: PageIss
             )}
             {/* A finding of the page as it was checked (not a live measurement), not reported: hidden in this browser */}
             {dismiss && !state && issue.path !== undefined && (
-                <IconTooltip key="dismiss" label="Not an issue">
-                    <IconButton size="xs" variant="plain" aria-label="Not an issue" aria-describedby={describedBy} data-uier-dismiss=""
+                <IconTooltip key="dismiss" label={t.checks.notAnIssue}>
+                    <IconButton size="xs" variant="plain" aria-label={t.checks.notAnIssue} aria-describedby={describedBy} data-uier-dismiss=""
                         className={iconActionClassName}
                         onClick={event => {
                             moveFocus(event.currentTarget, 'data-uier-dismiss');
@@ -93,7 +94,7 @@ export function IssueActions({ issue, describedBy, className }: { issue: PageIss
             {state?.status === 'posted' && (
                 <span key="posted" className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                     <Check size={14} aria-hidden="true" className="text-[hsl(var(--brand-success))]" />
-                    {state.label}{state.number !== undefined ? ` as #${state.number}` : ''}
+                    {t.checks.postedAs(state.label, state.number)}
                 </span>
             )}
             {/* One button for Comment, Posting and Show (the same element by its key), so the focus stays on it */}
@@ -105,7 +106,7 @@ export function IssueActions({ issue, describedBy, className }: { issue: PageIss
                     if (state?.status === 'posted') show(state);
                     else if (!state) comment(issue);
                 }}>
-                {state?.status === 'posted' ? 'Show' : state?.status === 'sending' ? 'Posting...' : 'Comment'}
+                {state?.status === 'posted' ? t.checks.show : state?.status === 'sending' ? t.checks.posting : t.checks.comment}
             </Button>
         </Row>
     );
@@ -137,6 +138,7 @@ function IssueItem({ issue, showSummary }: { issue: PageIssue; showSummary: bool
 function DismissedItem({ issue }: { issue: PageIssue }) {
     const id = useId();
     const { restore } = useContext(ChecksContext);
+    const t = useMessages();
     return (
         <li className="flex min-w-0 flex-wrap items-center gap-x-2 rounded-lg border border-dashed py-1 pl-2.5 pr-1">
             <IssueText id={id} issue={issue} showSummary />
@@ -146,7 +148,7 @@ function DismissedItem({ issue }: { issue: PageIssue }) {
                     moveFocus(event.currentTarget, 'data-uier-restore');
                     restore?.(issue);
                 }}>
-                Restore
+                {t.checks.restore}
             </Button>
         </li>
     );
@@ -154,14 +156,15 @@ function DismissedItem({ issue }: { issue: PageIssue }) {
 
 /** The issues marked "Not an issue" in this browser, folded under their list, each with Restore */
 function DismissedList({ issues, label }: { issues: PageIssue[]; label: string }) {
+    const t = useMessages();
     return (
         <details className="group/dismissed">
             <summary data-uier-dismissed="" className="-mx-1 flex min-h-8 w-fit cursor-pointer list-none items-center gap-1.5 rounded-md px-1 text-xs text-muted-foreground transition-colors duration-[120ms] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11 [&::-webkit-details-marker]:hidden">
                 <Down size={14} aria-hidden="true" className="-rotate-90 transition-transform duration-150 ease-out group-open/dismissed:rotate-0 motion-reduce:transition-none" />
-                Dismissed <span className="tabular-nums">{issues.length}</span>
+                {t.checks.dismissed} <span className="tabular-nums">{issues.length}</span>
             </summary>
-            <p className="m-0 pb-1 text-xs text-muted-foreground">Not counted. Hidden in this browser only.</p>
-            <ul aria-label={`Dismissed: ${label}`} className="m-0 flex list-none flex-col gap-1 p-0">
+            <p className="m-0 pb-1 text-xs text-muted-foreground">{t.checks.dismissedNote}</p>
+            <ul aria-label={t.checks.dismissedList(label)} className="m-0 flex list-none flex-col gap-1 p-0">
                 {issues.map(issue => <DismissedItem key={issue.key} issue={issue} />)}
             </ul>
         </details>
@@ -182,6 +185,7 @@ export function IssueList({ issues, label, showSummary = true, group, dismissed 
     dismissed?: PageIssue[];
 }) {
     const { reportOf, show, commentAll, isDismissed } = useContext(ChecksContext);
+    const t = useMessages();
     const id = useId();
     const [all, setAll] = useState(false);
     // The first issue of the comment this list posted for several, and how many
@@ -204,13 +208,13 @@ export function IssueList({ issues, label, showSummary = true, group, dismissed 
                 <Row spacing={0.5} className="flex-wrap">
                     {active.length > shown.length && (
                         <Button size="xs" variant="plain" className={actionClassName} onClick={() => setAll(true)}>
-                            Show all {active.length}
+                            {t.checks.showAll(active.length)}
                         </Button>
                     )}
                     {groupState?.status === 'posted' && (
                         <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                             <Check size={14} aria-hidden="true" className="text-[hsl(var(--brand-success))]" />
-                            {groupState.label} for {grouped!.count} elements{groupState.number !== undefined ? ` as #${groupState.number}` : ''}
+                            {t.checks.postedFor(groupState.label, grouped!.count, groupState.number)}
                         </span>
                     )}
                     {commentAll && (open.length > 1 || groupState) && (
@@ -222,10 +226,10 @@ export function IssueList({ issues, label, showSummary = true, group, dismissed 
                                 if (groupState?.status === 'posted') show(groupState);
                                 else if (!groupState) {
                                     setGrouped({ key: open[0]!.key, count: open.length });
-                                    commentAll(open, group ?? { head: `${commentCheckLabels[open[0]!.check.type]}: ${label}.` }, active.length);
+                                    commentAll(open, group ?? { head: t.checks.group.head(t.checks.kinds[open[0]!.check.type], label) }, active.length);
                                 }
                             }}>
-                            {groupState?.status === 'posted' ? 'Show' : groupState?.status === 'sending' ? 'Posting...' : `Comment on all ${open.length}`}
+                            {groupState?.status === 'posted' ? t.checks.show : groupState?.status === 'sending' ? t.checks.posting : t.checks.commentOnAll(open.length)}
                         </Button>
                     )}
                     <span id={id} hidden>{label}</span>
@@ -237,15 +241,16 @@ export function IssueList({ issues, label, showSummary = true, group, dismissed 
 }
 
 /** Each state's shape and colour: pass a green check, worth a look an amber warning, a note muted (not measured, not needed) */
-export const checkStates: Record<CheckState, { icon: ChecksIcon; tone: string; word: string }> = {
-    pass: { icon: Check, tone: 'text-[hsl(var(--brand-success))]', word: 'Pass' },
-    warn: { icon: Warning, tone: 'text-[hsl(var(--brand-warning))]', word: 'Warning' },
-    none: { icon: Info, tone: 'text-muted-foreground', word: 'Note' }
+export const checkStates: Record<CheckState, { icon: ChecksIcon; tone: string }> = {
+    pass: { icon: Check, tone: 'text-[hsl(var(--brand-success))]' },
+    warn: { icon: Warning, tone: 'text-[hsl(var(--brand-warning))]' },
+    none: { icon: Info, tone: 'text-muted-foreground' }
 };
 
 /** A check's state: its shape, its colour and its word for screen readers */
 export function CheckStateIcon({ state }: { state: CheckState }) {
-    const { icon: Icon, tone, word } = checkStates[state];
+    const { icon: Icon, tone } = checkStates[state];
+    const word = useMessages().checks.states[state];
     return (
         <span className="mt-0.5 flex shrink-0">
             <Icon size={16} aria-hidden="true" className={tone} />
@@ -262,6 +267,7 @@ export function CheckStateIcon({ state }: { state: CheckState }) {
 export function CheckItem({ check, children }: { check: PageCheck; children?: ReactNode }) {
     const id = useId();
     const { isDismissed } = useContext(ChecksContext);
+    const t = useMessages();
     const pageIssue = check.issues.length === 1 && !check.issues[0]!.element && !isDismissed?.(check.issues[0]!) ? check.issues[0] : undefined;
     return (
         <li className="flex min-w-0 flex-col gap-1.5 px-3 py-2" data-uier-check={check.id} data-uier-check-state={check.state}>
@@ -282,7 +288,7 @@ export function CheckItem({ check, children }: { check: PageCheck; children?: Re
                     <div className="pl-6">
                         {/* The check's reason already says what they share */}
                         <IssueList issues={check.issues} label={check.label} showSummary={!sharedSummary(check.issues)} dismissed={check.dismissed}
-                            group={{ head: `${commentCheckLabels[(check.issues[0] ?? check.dismissed![0]!).check.type]} (${check.label}): ${check.reason}`, summarized: true }} />
+                            group={{ head: t.checks.group.checkHead(t.checks.kinds[(check.issues[0] ?? check.dismissed![0]!).check.type], check.label, check.reason), summarized: true }} />
                     </div>
                 )}
             {children}
@@ -348,9 +354,10 @@ export function ChecksSummary({ tiles, children }: { tiles: SummaryTile[]; child
 
 /** A report of another page (after a client-side navigation) says so */
 export function OtherPageNote({ path }: { path: string }) {
+    const t = useMessages();
     return (
         <p className="m-0 rounded-xl border p-2.5 text-xs text-muted-foreground">
-            These results are for <span className="font-mono">{path}</span>. Check again for this page.
+            {t.checks.otherPageBefore}<span className="font-mono">{path}</span>{t.checks.otherPageAfter}
         </p>
     );
 }

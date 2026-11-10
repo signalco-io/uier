@@ -36,7 +36,9 @@ for (const [name, entry] of Object.entries(entries)) {
         define: { 'process.env.NODE_ENV': '"production"', 'process.env': '{}', __UIER_API_URL__: JSON.stringify(api), __UIER_DEV__: 'false', __EXTENSION_API__: JSON.stringify(api), __EXTENSION_BROWSER__: JSON.stringify(browser),
             // No remote scripts in packaged clients: no published audit path. The toolbar loads the
             // packaged audit.js through its adapter, and the asset hands over in the isolated world.
-            __UIER_AUDIT_PATH__: '""', __UIER_AUDIT_INTEGRITY__: '""' },
+            __UIER_AUDIT_PATH__: '""', __UIER_AUDIT_INTEGRITY__: '""',
+            // Nor published languages: the content script packages them (`loadPackagedLanguage`).
+            __UIER_LANGUAGE_ASSETS__: '{}' },
         plugins: [{ name: 'packaged-css', setup(b) {
             // The embed runtime imports CSS for tsup; packaged clients use its compiled sheet.
             b.onLoad({ filter: /\.css$/ }, () => ({ contents: '', loader: 'js' }));

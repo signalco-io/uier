@@ -16,6 +16,7 @@ import { IconTooltip } from '../../IconTooltip';
 import { destructiveTextClassName } from '../../@types/Comments';
 import { CheckItem, CheckSection, IssueActions } from '../ChecksParts';
 import { defineSection, ReportSection, useSection, type SectionDefinition } from './sections';
+import { messages, useMessages } from '../../../i18n';
 
 // The SEO panel's AI search section (packages/toolbar/docs/page-checks-ai-search.md): what an AI reads
 // of the page (its main content as Markdown, with Copy), its citable facts, and AI suggestions that send
@@ -30,18 +31,19 @@ export const aiSearchSections: readonly SectionDefinition[] = [aiSearchSection];
 const contentChecks = ['ai-content', 'ai-text', 'ai-left-out'];
 
 export function AiSearchSection() {
+    const t = useMessages().sections.aiSearch;
     const section = useSection(aiSearchSection);
     const { report, path = '' } = section;
     const details = report?.details;
     return <>
-        <ReportSection id={aiSearchSection.id} title="AI search" note="As rendered in this browser"
+        <ReportSection id={aiSearchSection.id} title={t.title} note={t.note}
             section={{ ...section, report: report && { ...report, checks: report.checks.filter(check => contentChecks.includes(check.id)) } }}>
             {details && <MarkdownPreview markdown={details.markdown} />}
             {/* Packaged clients talk to uier through a closed route contract without this route */}
             {details?.markdown.trim() && !runtimeAdapters() && <PageSuggestions details={details} path={path} />}
         </ReportSection>
         {report && (
-            <CheckSection title="Citable facts" data-uier-section="aiSearch-facts">
+            <CheckSection title={t.facts} data-uier-section="aiSearch-facts">
                 {report.checks.filter(check => !contentChecks.includes(check.id)).map(check => <CheckItem key={check.id} check={check} />)}
             </CheckSection>
         )}
@@ -63,7 +65,7 @@ function useCopy(done: string) {
             return false;
         }
     };
-    return { copy, failed: failed && <p role="alert" className="m-0 text-xs text-muted-foreground">Couldn&rsquo;t copy. Select the text and copy it instead.</p> };
+    return { copy, failed: failed && <p role="alert" className="m-0 text-xs text-muted-foreground">{messages().sections.aiSearch.notCopied}</p> };
 }
 
 const quietButton = 'text-muted-foreground hover:text-foreground pointer-coarse:min-h-11';
@@ -72,24 +74,25 @@ const quietButton = 'text-muted-foreground hover:text-foreground pointer-coarse:
 function MarkdownPreview({ markdown }: { markdown: string }) {
     const id = useId();
     const [open, setOpen] = useState(false);
-    const { copy, failed } = useCopy('Markdown copied');
+    const t = useMessages().sections.aiSearch;
+    const { copy, failed } = useCopy(t.markdownCopied);
     return (
         <li className="flex min-w-0 flex-col gap-1.5 px-3 py-2">
             <div className="flex min-w-0 flex-wrap items-center justify-between gap-1">
                 <Button size="xs" variant="plain" aria-expanded={open} aria-controls={id} className={cx('-ml-1', quietButton)}
                     startDecorator={<Down size={16} aria-hidden="true" className={open ? undefined : '-rotate-90'} />}
                     onClick={() => setOpen(current => !current)}>
-                    Markdown
+                    {t.markdown}
                 </Button>
                 <Button size="xs" variant="plain" className={quietButton} startDecorator={<Copy size={14} aria-hidden="true" />}
                     onClick={async () => { if (!await copy(markdown)) setOpen(true); }}>
-                    Copy as Markdown
+                    {t.copyMarkdown}
                 </Button>
             </div>
             {failed}
             <div id={id} hidden={!open}>
                 {open && (
-                    <textarea readOnly value={markdown} spellCheck={false} aria-label="Main content as Markdown"
+                    <textarea readOnly value={markdown} spellCheck={false} aria-label={t.mainContent}
                         className="block h-56 w-full resize-none rounded-lg border bg-background p-2 font-mono text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
                 )}
             </div>
@@ -100,11 +103,7 @@ function MarkdownPreview({ markdown }: { markdown: string }) {
 type SuggestionKind = 'title' | 'description' | 'questions';
 
 /** Each kind's button and list; a title and a description can become a comment naming their SEO check */
-const kinds: { kind: SuggestionKind; button: string; list: string }[] = [
-    { kind: 'title', button: 'Suggest a title', list: 'Suggested titles' },
-    { kind: 'description', button: 'Suggest a meta description', list: 'Suggested meta descriptions' },
-    { kind: 'questions', button: 'Questions this page answers', list: 'Questions this page answers' }
-];
+const kinds: { kind: SuggestionKind }[] = [{ kind: 'title' }, { kind: 'description' }, { kind: 'questions' }];
 
 const suggestionsUrl = toolbarConfig.project
     ? `${toolbarConfig.apiUrl}/api/review/${toolbarConfig.project}/page-suggestions`
@@ -137,7 +136,7 @@ function useSuggestions(kind: SuggestionKind, details: AiSearchDetails, path: st
             const suggestions = Array.isArray(result.suggestions) ? result.suggestions.filter((item): item is string => typeof item === 'string').slice(0, 3) : [];
             kept.set(key, suggestions);
             setState({ suggestions });
-            announce(suggestions.length ? `${suggestions.length} ${suggestions.length === 1 ? 'suggestion' : 'suggestions'}` : 'No suggestions for this page');
+            announce(suggestions.length ? messages().sections.aiSearch.suggestions(suggestions.length) : messages().sections.aiSearch.noSuggestions);
         } catch (error) {
             setState(current => ({ ...current, pending: false, error }));
         }
@@ -154,45 +153,48 @@ function useSuggestions(kind: SuggestionKind, details: AiSearchDetails, path: st
 function PageSuggestions({ details, path }: { details: AiSearchDetails; path: string }) {
     const lists = [useSuggestions('title', details, path), useSuggestions('description', details, path), useSuggestions('questions', details, path)];
     const noteId = useId();
+    const t = useMessages().sections.aiSearch;
     return (
         <li className="flex min-w-0 flex-col gap-2 px-3 py-2" data-uier-ai-suggestions="">
-            <div role="group" aria-label="AI suggestions" className="flex flex-wrap gap-1">
+            <div role="group" aria-label={t.aiSuggestions} className="flex flex-wrap gap-1">
                 {kinds.map((kind, index) => (
                     // Busy, not disabled, so the focus stays on the button while it asks
                     <Button key={kind.kind} size="xs" variant="outlined" aria-describedby={noteId} className="pointer-coarse:min-h-11"
                         aria-disabled={lists[index]!.state.pending} aria-busy={lists[index]!.state.pending}
                         startDecorator={lists[index]!.state.pending && <LoaderSpinner size={14} aria-hidden="true" className="motion-safe:animate-spin" />}
                         onClick={() => void lists[index]!.ask()}>
-                        {kind.button}
+                        {t.kinds[kind.kind].button}
                     </Button>
                 ))}
             </div>
-            <p id={noteId} className="m-0 text-xs text-muted-foreground">Sends this page&rsquo;s main text to uier.</p>
+            <p id={noteId} className="m-0 text-xs text-muted-foreground">{t.sendsText}</p>
             {kinds.map((kind, index) => <SuggestionList key={kind.kind} {...kind} state={lists[index]!.state} details={details} path={path} />)}
         </li>
     );
 }
 
-function SuggestionList({ kind, list, state, details, path }: (typeof kinds)[number] & { state: SuggestionsState; details: AiSearchDetails; path: string }) {
-    const { copy, failed } = useCopy('Copied');
+function SuggestionList({ kind, state, details, path }: (typeof kinds)[number] & { state: SuggestionsState; details: AiSearchDetails; path: string }) {
+    const t = useMessages().sections.aiSearch;
+    const list = t.kinds[kind].list;
+    const { copy, failed } = useCopy(t.copied);
     const { error, suggestions } = state;
     if (error) {
         const limited = error instanceof CommentsApiError && error.code === 'rate_limited';
         return (
             <p role="alert" className={cx('m-0 text-sm', destructiveTextClassName)}>
-                {limited ? `No more suggestions for now. Try again ${retryAfterText(error.retryAfter)}.` : getCommentsErrorMessage(error)}
+                {limited ? t.limited(retryAfterText(error.retryAfter)) : getCommentsErrorMessage(error)}
                 <UsageLink error={error} />
             </p>
         );
     }
     if (!suggestions) return null;
-    if (!suggestions.length) return <p className="m-0 text-sm text-muted-foreground">No {list.toLowerCase()} for this page.</p>;
+    if (!suggestions.length) return <p className="m-0 text-sm text-muted-foreground">{t.kinds[kind].none}</p>;
     // A comment about the page from the title or description check: like that check's issue, one open
     // thread per page (the panel then says "Reported as #12" with Show, here and on the check's row)
     const noun = kind === 'title' ? 'title' : 'description';
     const issueOf = (text: string): PageIssue | undefined => kind === 'questions' ? undefined : {
-        ...pageIssue(path, { type: 'seo', id: kind }, undefined, `Suggested ${noun}`,
-            `SEO: Suggested ${kind === 'title' ? 'title' : 'meta description'} for this page, from AI suggestions.${foundLine(`Suggested ${noun}`, text)}${foundLine(`Current ${noun}`, details[noun])}`),
+        ...pageIssue(path, { type: 'seo', id: kind }, undefined, t.suggested[noun],
+            `${t.comment[noun]}${foundLine(t.suggested[noun], text)}${foundLine(t.current[noun], details[noun])}`),
         key: `seo:${kind}:suggestion:${text}@${path}`
     };
     return <>
@@ -205,13 +207,14 @@ function SuggestionList({ kind, list, state, details, path }: (typeof kinds)[num
 
 function SuggestionItem({ text, issue, onCopy }: { text: string; issue?: PageIssue; onCopy: () => void }) {
     const id = useId();
+    const t = useMessages().sections.aiSearch;
     return (
         <li className="flex min-w-0 flex-wrap items-center gap-x-2 rounded-lg bg-muted py-1 pl-2.5 pr-1">
             {/* Plain text: what the model wrote is never read as markup */}
             <p id={id} className="m-0 min-w-0 flex-1 basis-40 select-text break-words py-1 text-sm text-foreground">{text}</p>
             <div className="ml-auto flex items-center gap-0.5">
-                <IconTooltip label="Copy">
-                    <IconButton size="xs" variant="plain" aria-label="Copy" aria-describedby={id} className="text-muted-foreground hover:text-foreground pointer-coarse:size-11" onClick={onCopy}>
+                <IconTooltip label={t.copy}>
+                    <IconButton size="xs" variant="plain" aria-label={t.copy} aria-describedby={id} className="text-muted-foreground hover:text-foreground pointer-coarse:size-11" onClick={onCopy}>
                         <Copy size={14} aria-hidden="true" />
                     </IconButton>
                 </IconTooltip>

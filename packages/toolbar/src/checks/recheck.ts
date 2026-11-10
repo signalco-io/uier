@@ -9,6 +9,7 @@ import { isRendered, oneLine, pageAnchorElement } from './pageElements';
 import { checkSeo } from './seo';
 import type { CheckState, PageCheck } from './types';
 import { vitalCheck, vitalTargets, type VitalName, type WebVitals } from './webVitals';
+import { messages } from '../i18n';
 
 // A comment posted from a page check (`CommentItem.check`) runs that one check again, here and now,
 // on the comment's element (packages/toolbar/docs/page-checks-verify.md). Evidence for whoever
@@ -46,12 +47,12 @@ export function canRecheck(comment: CommentItem, vitals?: WebVitals): boolean {
     return comment.position.type === 'page' || severalElements(check) || resolveAnchorElement(comment.position) !== null;
 }
 
-const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-const stillFound = (reason?: string): Recheck => ({ state: 'warn', text: 'Still found on this page.', reason });
-const gone: Recheck = { state: 'pass', text: 'No longer found on this page.' };
-const elementsFound = (n: number, what: string): Recheck => n
-    ? { state: 'warn', text: `${count(n, 'element still fails', 'elements still fail')} this ${what}.` }
-    : gone;
+// In the toolbar's language, as the check runs again
+const stillFound = (reason?: string): Recheck => ({ state: 'warn', text: messages().checks.recheck.stillFound, reason });
+const gone = (): Recheck => ({ state: 'pass', text: messages().checks.recheck.gone });
+const elementsFound = (n: number, what: 'check' | 'rule'): Recheck => n
+    ? { state: 'warn', text: what === 'check' ? messages().checks.recheck.elementsCheck(n) : messages().checks.recheck.elementsRule(n) }
+    : gone();
 const sentence = (text: string | undefined) => text && /[.!?]$/.test(text) ? text : text && `${text}.`;
 
 /** A check's rows of a report (the SEO panel's, a section's): the check found again, or nothing when this report does not have it */
@@ -63,10 +64,10 @@ function judge(rows: readonly PageCheck[], check: CommentCheck, target: Target):
     if (target.several) return elementsFound(issues.length, 'check');
     const warning = matched.find(row => row.state === 'warn');
     // About the page: whether the check is still worth a look
-    if (!target.element) return warning ? stillFound(warning.reason) : gone;
+    if (!target.element) return warning ? stillFound(warning.reason) : gone();
     const found = issues.find(issue => pageAnchorElement(issue.element) === target.element)
         ?? (target.content && warning ? issues.find(issue => !issue.element) : undefined);
-    return found ? stillFound(sentence(found.summary)) : gone;
+    return found ? stillFound(sentence(found.summary)) : gone();
 }
 
 /** The first line of axe-core's failure summary ("Element does not have an alt attribute") */
@@ -102,7 +103,7 @@ function recheckRule(id: string, target: Target, signal: AbortSignal): Promise<R
                 return anchor === element || (target.content && !anchor);
             })
             : nodes[0];
-        return found ? stillFound(failureLine(found)) : gone;
+        return found ? stillFound(failureLine(found)) : gone();
     }, signal);
 }
 
@@ -137,11 +138,11 @@ function recheckVital(id: string, vitals: WebVitals): Recheck | undefined {
     if (!name || !vital?.supported) return undefined;
     const row = vitalCheck(name, vital);
     if (vital.value === undefined) {
-        return row.state === 'pass' ? { state: 'pass', text: 'In this visit, every interaction so far took under 104 ms.' }
-            : { state: 'none', text: 'Not measured yet in this visit.' };
+        return row.state === 'pass' ? { state: 'pass', text: messages().checks.recheck.allFast }
+            : { state: 'none', text: messages().checks.recheck.notMeasured };
     }
     const target = vitalTargets[name];
-    return { state: row.state, text: `${target.text(vital.value)} in this visit, ${row.state === 'warn' ? 'over' : 'within'} the ${target.text(target.good)} target.` };
+    return { state: row.state, text: messages().checks.recheck.vital(target.text(vital.value), row.state === 'warn', target.text(target.good)) };
 }
 
 async function run(comment: CommentItem, path: string, signal: AbortSignal, vitals?: WebVitals): Promise<Recheck | undefined> {

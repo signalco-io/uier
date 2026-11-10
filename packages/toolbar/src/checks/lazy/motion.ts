@@ -1,6 +1,7 @@
 import { elementLabel, foundLine, isRendered, isToolbarNode, writtenAddress } from '../pageElements';
 import type { PageCheck, PageIssue } from '../types';
 import { pageCheck, pageIssue, type SectionContext, type SectionReport } from './api';
+import { words } from './locale';
 
 // Motion (packages/toolbar/docs/page-checks-content.md): what moves on its own for more than five
 // seconds (WCAG 2.2.2), when the panel checks. The toolbar cannot tell whether the page offers a way
@@ -10,10 +11,8 @@ import { pageCheck, pageIssue, type SectionContext, type SectionReport } from '.
 /** WCAG 2.2.2: motion that starts on its own and lasts longer than this needs a way to pause it */
 const limit = 5000;
 
-const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 /** The line every issue shares (one issue's), as the check's value: the rows then show only their elements */
 const shared = (issues: readonly PageIssue[]) => issues.every(issue => issue.summary === issues[0]?.summary) ? issues[0]?.summary : undefined;
-const asks = 'WCAG 2.2.2 asks for a way to pause, stop or hide';
 
 /** An animation's name as the page wrote it: a CSS animation's, a transition's property, or a script's id */
 function animationName(animation: Animation) {
@@ -77,9 +76,10 @@ function reducedMotionRule() {
 
 /** A media element's length, in words */
 function mediaLength(media: HTMLMediaElement) {
-    if (media.loop) return 'in a loop';
-    if (media.duration === Infinity) return 'without end';
-    return Number.isFinite(media.duration) ? `for ${Math.round(media.duration)} s` : 'for an unknown length';
+    const { length } = words().motion;
+    if (media.loop) return length.loop;
+    if (media.duration === Infinity) return length.endless;
+    return Number.isFinite(media.duration) ? length.seconds(Math.round(media.duration)) : length.unknown;
 }
 
 /** Whether an image's address is a GIF, by its file name or its `data:` type (not by its content) */
@@ -92,31 +92,30 @@ const gif = (address: string) => /^data:image\/gif[;,]/i.test(address) || /\.gif
  * animates, whether its readable stylesheets respond to `prefers-reduced-motion`.
  */
 export function checkMotion({ path }: SectionContext): SectionReport {
+    const { motion: t, found } = words();
     const animations = runningAnimations();
     const checks: PageCheck[] = [];
     const animated = animations.long.map(({ element, endless, seconds, names }) => {
-        const summary = endless ? 'Animates without end' : `Animates for ${seconds} s`;
+        const summary = endless ? t.animatesEndless : t.animatesFor(seconds);
         return pageIssue(path, { type: 'accessibility', id: 'motion-animation' }, element, summary,
-            `Accessibility: This element ${summary.toLowerCase()}. ${asks} motion that starts on its own and lasts more than five seconds: check that the page offers one, or stop it within five seconds.${foundLine('Animation', [...names].join(', '))}${foundLine('Element', elementLabel(element))}`);
+            `${t.animationComment(summary)}${foundLine(found.animation, [...names].join(', '))}${foundLine(found.element, elementLabel(element))}`);
     });
-    const one = animated.length === 1;
     checks.push(animated.length
-        ? pageCheck('motion-animation', 'Animations', 'warn', `${count(animated.length, 'element')} ${one ? 'animates' : 'animate'} for more than five seconds. Check that the page offers a way to pause ${one ? 'it' : 'them'}.`,
+        ? pageCheck('motion-animation', t.animations, 'warn', t.animated(animated.length),
             { issues: animated, value: shared(animated) })
-        : pageCheck('motion-animation', 'Animations', 'pass', 'Nothing animates for more than five seconds right now. Motion that starts later, on scroll or hover, is not in this check.'));
+        : pageCheck('motion-animation', t.animations, 'pass', t.noAnimation));
 
     const players = [...document.querySelectorAll<HTMLMediaElement>('video, audio')].filter(media => !isToolbarNode(media) && !media.controls
         && (media.autoplay || !media.paused) && (media.loop || !(media.duration <= limit / 1000)));
     if (players.length) {
         const issues = players.map(media => {
-            const kind = media instanceof HTMLVideoElement ? 'video' : 'audio';
-            const sound = media.muted ? '' : ' For sound, WCAG 1.4.2 asks for a way to pause or stop it after three seconds.';
+            const video = media instanceof HTMLVideoElement;
+            const sound = media.muted ? '' : t.sound;
             // Audio without controls takes no room on the page: its comment is about the page
-            return pageIssue(path, { type: 'accessibility', id: 'motion-media' }, isRendered(media) ? media : undefined, `${kind === 'video' ? 'Video' : 'Audio'} plays on its own ${mediaLength(media)}`,
-                `Accessibility: This ${kind} plays on its own ${mediaLength(media)}, without controls. ${asks} it when it lasts more than five seconds.${sound}${foundLine(kind === 'video' ? 'Video' : 'Audio', writtenAddress(media.currentSrc || media.getAttribute('src')))}`);
+            return pageIssue(path, { type: 'accessibility', id: 'motion-media' }, isRendered(media) ? media : undefined, t.mediaSummary(video, mediaLength(media)),
+                `${t.mediaComment(video, mediaLength(media))}${sound}${foundLine(video ? found.video : found.audio, writtenAddress(media.currentSrc || media.getAttribute('src')))}`);
         });
-        const one = players.length === 1;
-        checks.push(pageCheck('motion-media', 'Video and audio', 'warn', `${count(players.length, 'player')} ${one ? 'plays' : 'play'} on ${one ? 'its' : 'their'} own without controls. Check that the page offers a way to pause ${one ? 'it' : 'them'}.`,
+        checks.push(pageCheck('motion-media', t.media, 'warn', t.players(players.length),
             { issues, value: shared(issues) }));
     }
 
@@ -129,17 +128,15 @@ export function checkMotion({ path }: SectionContext): SectionReport {
         if (!first || (!isRendered(first) && isRendered(image))) gifs.set(address, image);
     }
     if (gifs.size) {
-        const issues: PageIssue[] = [...gifs].map(([address, image]) => pageIssue(path, { type: 'accessibility', id: 'motion-gif' }, isRendered(image) ? image : undefined, 'A GIF image',
-            `Accessibility: This GIF image may animate. If it moves for more than five seconds, ${asks} it.${foundLine('Image', writtenAddress(address))}`));
-        checks.push(pageCheck('motion-gif', 'GIF images', 'none', `${count(gifs.size, 'GIF image')}, by address. A GIF may animate; this check cannot tell. Look at ${gifs.size === 1 ? 'it' : 'them'}.`, { issues }));
+        const issues: PageIssue[] = [...gifs].map(([address, image]) => pageIssue(path, { type: 'accessibility', id: 'motion-gif' }, isRendered(image) ? image : undefined, t.gifSummary,
+            `${t.gifComment}${foundLine(found.image, writtenAddress(address))}`));
+        checks.push(pageCheck('motion-gif', t.gifs, 'none', t.gifNote(gifs.size), { issues }));
     }
 
     // Only where something moves: a running animation, a player or a marquee
     if (animations.any || players.length || document.querySelector('marquee')) {
-        const browser = matchMedia('(prefers-reduced-motion: reduce)').matches ? ' Your browser asks for reduced motion now, so the page may move less here than for others.' : '';
-        checks.push(pageCheck('motion-reduced', 'Reduced motion', 'none', reducedMotionRule()
-            ? `The page's stylesheets have a prefers-reduced-motion rule. Turn on reduced motion in the system to see what it changes.${browser}`
-            : `No prefers-reduced-motion rule found in the stylesheets this page lets us read.${browser}`));
+        const browser = matchMedia('(prefers-reduced-motion: reduce)').matches ? t.browserReduces : '';
+        checks.push(pageCheck('motion-reduced', t.reduced, 'none', reducedMotionRule() ? t.reducedRule(browser) : t.noReducedRule(browser)));
     }
     return { checks };
 }

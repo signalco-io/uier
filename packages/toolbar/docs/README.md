@@ -27,3 +27,4 @@ Read the note for the area you change, and update it in the same pull request. A
   - [Page checks across the site](page-checks-site.md): the summary a member's toolbar sends for the app's Page checks view.
 
 - [Account switching](account-switching.md): foreground sign-in follows the app account while retaining blocked-cookie fallback.
+- [Toolbar languages](localization.md): the six languages, which one shows, the catalogs and language assets, and how to write strings.

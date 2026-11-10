@@ -1,4 +1,5 @@
 import { defineSection, ReportSection, useSection, type SectionDefinition } from './sections';
+import { useMessages } from '../../../i18n';
 
 // The SEO panel's Structured data section: the page's JSON-LD, its parse errors, types and the properties
 // their documentation requires; microdata and RDFa counted (src/checks/lazy/structuredData.ts,
@@ -13,5 +14,5 @@ export const structuredDataSection = defineSection({
 export const structuredDataSections: readonly SectionDefinition[] = [structuredDataSection];
 
 export function StructuredDataSection() {
-    return <ReportSection id={structuredDataSection.id} title="Structured data" section={useSection(structuredDataSection)} />;
+    return <ReportSection id={structuredDataSection.id} title={useMessages().sections.structuredData.title} section={useSection(structuredDataSection)} />;
 }

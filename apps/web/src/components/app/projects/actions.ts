@@ -37,6 +37,7 @@ import { deleteProject } from '../../../lib/app/projectDeletion';
 import { transferProject } from '../../../lib/app/projectTransfer';
 import { selectWorkspace } from '../../../lib/app/workspaceCookie';
 import { projectAiTitleMode, projectAiTitleModes } from '../../../lib/titles/settings';
+import { projectToolbarLanguageMode, projectToolbarLanguageModeSchema } from '../../../lib/app/toolbarLanguage';
 import { projectRewriteInstructions, projectRewriteInstructionsInput } from '../../../lib/rewrite/settings';
 
 /** One origin's environment: a label, and the group of addresses it shares feedback with */
@@ -122,7 +123,7 @@ export async function updateProjectGeneralAction(_: ActionState, formData: FormD
 const accessSchema = z.enum(projectAccessModes as [ProjectAccess, ...ProjectAccess[]], 'Choose who can comment.');
 const aiTitlesSchema = z.enum(projectAiTitleModes, 'Choose whether threads get titles.');
 
-/** Review: who can comment, the brief and the page state, one save; only what changed is written */
+/** Review: who can comment, the toolbar's language, the brief and the page state, one save; only what changed is written */
 export async function updateProjectReviewAction(_: ActionState, formData: FormData): Promise<ActionState> {
     return await actionResult(async () => {
         const { context, project } = await adminProject(formData.get('projectId'));
@@ -131,6 +132,8 @@ export async function updateProjectReviewAction(_: ActionState, formData: FormDa
             ? formData.get('feedbackTypes') === 'workspace' ? undefined : projectFeedbackTypesSchema.parse(JSON.parse(String(formData.get('feedbackTypes'))))
             : undefined;
         const access = accessSchema.parse(formData.get('access'));
+        // Forms loaded before this setting existed leave it untouched
+        const toolbarLanguage = formData.has('toolbarLanguage') ? projectToolbarLanguageModeSchema.parse(formData.get('toolbarLanguage')) : undefined;
         const brief = projectBriefSchema.parse(formData.get('brief') ?? '');
         const pageState = projectPageStateSchema.parse({
             queryParameters: String(formData.get('queryParameters') ?? '').split(/[,\s]+/).filter(Boolean),
@@ -141,6 +144,8 @@ export async function updateProjectReviewAction(_: ActionState, formData: FormDa
             update.feedbackTypes = feedbackTypes;
         if (access !== project.access)
             update.access = access;
+        if (toolbarLanguage !== undefined && toolbarLanguage !== projectToolbarLanguageMode(project))
+            update.toolbarLanguage = toolbarLanguage === 'workspace' ? undefined : toolbarLanguage;
         if (brief !== (project.brief || undefined))
             update.brief = brief;
         if (JSON.stringify(pageState) !== JSON.stringify(pageStatePolicy(project.pageState)))

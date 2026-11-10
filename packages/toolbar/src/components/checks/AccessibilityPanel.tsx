@@ -12,6 +12,7 @@ import { KeyboardSection } from './sections/KeyboardSection';
 import { MotionSection } from './sections/MotionSection';
 import { ReflowSection } from './sections/ReflowSection';
 import { ScreenReaderSection } from './sections/ScreenReaderSection';
+import { useMessages } from '../../i18n';
 
 export type AccessibilityState = { report?: AccessibilityReport; checking: boolean; error?: boolean };
 
@@ -19,17 +20,15 @@ export type AccessibilityState = { report?: AccessibilityReport; checking: boole
  * Each impact's name, shape and colour, from the priority colours (packages/brand/BRAND.md,
  * "Accessibility impact"): a shape of its own, so colour is never the only signal.
  */
-const impactStyles: Record<Impact, { name: string; icon: ChecksIcon; tone: string }> = {
-    critical: { name: 'Critical', icon: OctagonAlertIcon, tone: 'text-[hsl(var(--destructive))]' },
-    serious: { name: 'Serious', icon: Warning, tone: 'text-[hsl(var(--brand-warning))]' },
-    moderate: { name: 'Moderate', icon: CircleAlertIcon, tone: 'text-foreground' },
-    minor: { name: 'Minor', icon: Info, tone: 'text-muted-foreground' }
+const impactStyles: Record<Impact, { icon: ChecksIcon; tone: string }> = {
+    critical: { icon: OctagonAlertIcon, tone: 'text-[hsl(var(--destructive))]' },
+    serious: { icon: Warning, tone: 'text-[hsl(var(--brand-warning))]' },
+    moderate: { icon: CircleAlertIcon, tone: 'text-foreground' },
+    minor: { icon: Info, tone: 'text-muted-foreground' }
 };
 
-const issuesText = (count: number) => `${count} ${count === 1 ? 'issue' : 'issues'}`;
-
 /** What axe-core could not decide: not an issue's impact, a closer look */
-const reviewStyle = { name: 'To review', icon: Search, tone: 'text-muted-foreground' };
+const reviewStyle = { icon: Search, tone: 'text-muted-foreground' };
 
 /**
  * A rule on one row: its impact's icon (a closer look for one to review), what it asks for, its id
@@ -38,7 +37,9 @@ const reviewStyle = { name: 'To review', icon: Search, tone: 'text-muted-foregro
  */
 function RuleItem({ rule }: { rule: AccessibilityRule }) {
     const id = useId();
-    const { name, icon: Icon, tone } = rule.review ? reviewStyle : impactStyles[rule.impact];
+    const t = useMessages();
+    const { icon: Icon, tone } = rule.review ? reviewStyle : impactStyles[rule.impact];
+    const name = rule.review ? t.checks.accessibility.toReview : t.checks.accessibility.impacts[rule.impact];
     // A line every element shares is said once, under the title
     const shared = sharedSummary(rule.issues.length ? rule.issues : rule.dismissed ?? []);
     return (
@@ -56,11 +57,11 @@ function RuleItem({ rule }: { rule: AccessibilityRule }) {
                     {shared && shared !== rule.help && <p className="m-0 break-words text-xs text-secondary-foreground">{shared}</p>}
                     <p className="m-0 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
                         <span className="font-mono">{rule.id}</span>
-                        {rule.standard && <span>{rule.standard}</span>}
+                        {rule.standard && <span>{rule.standard === 'Best practice' ? t.checks.accessibility.bestPractice : rule.standard}</span>}
                         {rule.helpUrl && (
                             <a href={rule.helpUrl} target="_blank" rel="noopener noreferrer"
                                 className="inline-flex items-center gap-1 rounded-sm text-[hsl(var(--brand-accent-text))] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11">
-                                How to fix<span className="sr-only"> {rule.help} (opens in a new tab)</span>
+                                {t.checks.accessibility.howToFix}<span className="sr-only">{t.checks.accessibility.opensNewTab(rule.help)}</span>
                                 <ExternalLink size={12} aria-hidden="true" />
                             </a>
                         )}
@@ -68,7 +69,7 @@ function RuleItem({ rule }: { rule: AccessibilityRule }) {
                 </div>
             </div>
             <div className="pl-6">
-                <IssueList issues={rule.issues} label={`Elements: ${rule.help}`} showSummary={!shared} group={rule.group} dismissed={rule.dismissed} />
+                <IssueList issues={rule.issues} label={t.checks.accessibility.elements(rule.help)} showSummary={!shared} group={rule.group} dismissed={rule.dismissed} />
             </div>
         </li>
     );
@@ -90,13 +91,15 @@ export function AccessibilityPanel({ state, path, onCheck, onClose }: {
     onClose: () => void;
 }) {
     const { report, checking, error } = state;
+    const t = useMessages();
+    const a = t.checks.accessibility;
     const shown = !checking ? report : undefined;
-    const status = checking ? 'Checking this page...'
-        : error ? 'The accessibility check could not run.'
-            : report ? (report.count ? `${issuesText(report.count)} found.` : 'No issues found.') : '';
+    const status = checking ? a.checkingPage
+        : error ? a.couldNotRun
+            : report ? (report.count ? a.found(a.issues(report.count)) : a.noIssues) : '';
     const counts = Object.fromEntries(impacts.map(impact => [impact, elementCount(shown?.rules.filter(rule => rule.impact === impact) ?? [])])) as Record<Impact, number>;
     return (
-        <ChecksPanel id="accessibility" title="Accessibility" checking={checking} onCheckAgain={onCheck} onClose={onClose}>
+        <ChecksPanel id="accessibility" title={a.title} checking={checking} onCheckAgain={onCheck} onClose={onClose}>
             <div className="flex flex-col gap-2">
                 <p role="status" className="m-0 flex items-center gap-2 px-1 text-sm text-foreground">
                     {checking && <LoaderSpinner size={16} aria-hidden="true" className="motion-safe:animate-spin" />}
@@ -104,13 +107,13 @@ export function AccessibilityPanel({ state, path, onCheck, onClose }: {
                     {status}
                 </p>
                 {shown && shown.count > 0 && (
-                    <ChecksSummary tiles={impacts.map(impact => ({ key: impact, label: impactStyles[impact].name, count: counts[impact], icon: impactStyles[impact].icon, tone: impactStyles[impact].tone }))} />
+                    <ChecksSummary tiles={impacts.map(impact => ({ key: impact, label: a.impacts[impact], count: counts[impact], icon: impactStyles[impact].icon, tone: impactStyles[impact].tone }))} />
                 )}
                 {shown && (
                     <p className="m-0 px-1 text-xs text-muted-foreground">
                         <CheckedAt time={shown.checkedAt} by="axe-core" />
                         {/* Without issues, what automated checks cannot tell */}
-                        {!shown.count && ' Automated checks find only some issues. Also try a keyboard and a screen reader.'}
+                        {!shown.count && a.automatedNote}
                     </p>
                 )}
             </div>
@@ -118,22 +121,22 @@ export function AccessibilityPanel({ state, path, onCheck, onClose }: {
             <GuestNameField />
             {error && !checking && (
                 <div className="flex flex-col items-start gap-2 px-1 text-sm">
-                    <p className="m-0 text-xs text-muted-foreground">The site&apos;s Content-Security-Policy or the connection may block its script.</p>
-                    <Button size="sm" variant="outlined" onClick={onCheck}>Try again</Button>
+                    <p className="m-0 text-xs text-muted-foreground">{a.blocked}</p>
+                    <Button size="sm" variant="outlined" onClick={onCheck}>{t.common.retry}</Button>
                 </div>
             )}
             {shown && impacts.map(impact => {
                 const rules = shown.rules.filter(rule => rule.impact === impact);
                 if (!rules.length) return null;
                 return (
-                    <CheckSection key={impact} title={impactStyles[impact].name} count={counts[impact]} data-uier-impact={impact}>
+                    <CheckSection key={impact} title={a.impacts[impact]} count={counts[impact]} data-uier-impact={impact}>
                         {rules.map(rule => <RuleItem key={rule.id} rule={rule} />)}
                     </CheckSection>
                 );
             })}
             {/* What axe-core could not decide: for a person to judge, not counted as issues */}
             {!!shown?.review?.length && (
-                <CheckSection title="To review" count={elementCount(shown.review)} note="axe-core could not decide. Not counted." data-uier-review="">
+                <CheckSection title={a.toReview} count={elementCount(shown.review)} note={a.undecided} data-uier-review="">
                     {shown.review.map(rule => <RuleItem key={rule.id} rule={rule} />)}
                 </CheckSection>
             )}
