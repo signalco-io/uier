@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { agentSessionLink, inferAgentKind } from '@uier/toolbar/agents';
 import { feedbackStage } from '@uier/toolbar/verification';
 import { feedbackMarkdown } from '@uier/toolbar/feedback-context';

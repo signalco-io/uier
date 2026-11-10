@@ -109,22 +109,25 @@ export async function exchangeCode(form: URLSearchParams, issuer: string, attemp
         throw new OAuthError('invalid_target', 'The resource must be the uier MCP endpoint.');
 
     const now = Date.now();
+    const replaced = record.replaceGrantId ? await getGrant(userId, record.replaceGrantId) : null;
+    // The same client asking again (for another operation, or after a reconnect) updates its
+    // connection: the id stays, so retry receipts, attached agents, event subscriptions and the
+    // tokens it created stay with it. Another client's connection is replaced by a new one.
+    const kept = replaced && replaced.doc.clientId === clientId ? replaced : null;
     const grant: McpGrant = {
-        type: 'mcp-grant', id: `grant_${randomToken().slice(0, 24)}`, pk: userPk(userId), userId, clientId,
+        type: 'mcp-grant', id: kept?.doc.id ?? `grant_${randomToken().slice(0, 24)}`, pk: userPk(userId), userId, clientId,
         client: record.client, name: record.name, access: record.access, ...(record.accounts ? { accounts: record.accounts } : {}), scopes: record.scopes, resource: record.resource,
-        createdAt: new Date(now).toISOString(), updatedAt: new Date(now).toISOString(),
+        createdAt: kept?.doc.createdAt ?? new Date(now).toISOString(), updatedAt: new Date(now).toISOString(),
         idleExpiresAt: iso(OAUTH_LIFETIMES.idleSeconds, now), absoluteExpiresAt: iso(OAUTH_LIFETIMES.absoluteSeconds, now),
         ttl: OAUTH_LIFETIMES.idleSeconds + 86400
     };
     const { access, refresh, response } = newPair(grant, undefined, now);
     const operations: AppMutation[] = [
         { kind: 'replace', doc: { ...record, consumedAt: new Date(now).toISOString(), grantId: grant.id }, etag: stored.etag },
-        { kind: 'create', doc: grant }, { kind: 'create', doc: access }, { kind: 'create', doc: refresh }
+        kept ? { kind: 'replace', doc: grant, etag: kept.etag } : { kind: 'create', doc: grant },
+        { kind: 'create', doc: access }, { kind: 'create', doc: refresh }
     ];
-    if (record.replaceGrantId) {
-        const replaced = await getGrant(userId, record.replaceGrantId);
-        if (replaced) operations.push({ kind: 'delete', pk: replaced.doc.pk, id: replaced.doc.id, etag: replaced.etag });
-    }
+    if (replaced && !kept) operations.push({ kind: 'delete', pk: replaced.doc.pk, id: replaced.doc.id, etag: replaced.etag });
     if (await store.transact(operations)) return response;
     // The replaced connection changed (for example its last use was recorded): read everything again once.
     if (attempt === 0) return await exchangeCode(form, issuer, 1);

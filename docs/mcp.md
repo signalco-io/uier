@@ -1,9 +1,10 @@
 # Coding tool access (MCP)
 
 Connect a coding tool to the feedback you choose. The endpoint is `https://uier.io/api/mcp` (use your
-local or preview origin while testing). It uses the
-[official TypeScript SDK's Streamable HTTP transport](https://ts.sdk.modelcontextprotocol.io/server)
-with stateless JSON responses; [events](#events-webhooks-and-polling) reach a coding tool as signed webhooks or
+local or preview origin while testing). It is built on the
+[official TypeScript SDK](https://ts.sdk.modelcontextprotocol.io/v2/) and keeps no sessions: it serves protocol
+revision `2026-07-28` and the earlier revisions that begin with `initialize` ([protocol revisions](#protocol-revisions)).
+[Events](#events-webhooks-streams-and-polling) reach a coding tool as signed webhooks, over a push stream or
 by polling. For
 the shared feedback packet, see [Feedback context](feedback-context.md).
 The public overview of what an agent can do is [uier.io/features/ai](https://uier.io/features/ai).
@@ -90,8 +91,10 @@ out. Only that random request id passes through sign-in. The page shows:
   **Select all operations** picks all six. Operations apply to the whole connection, not per workspace.
 - **Connection name.** Prefilled from the tool's name, 1–60 characters. Replies, status changes and
   assignments made through the connection show this name.
-- **Replace.** When you already have a connection from the same tool or with the same name, you can
-  replace it instead of adding another.
+- **Update or replace.** When the same tool asks again, the page starts from its connection as it
+  is (name, accounts, projects, operations) with what the tool asked for added, and **Update** keeps
+  that connection: its history, its retries and its place in threads stay. A connection of another
+  tool with the same name can be replaced instead of adding another.
 
 **Use another account** adds a signed-in account and returns to the same request, preserving the other
 accounts in this browser. Select every account you want to include before allowing access. Write
@@ -133,8 +136,10 @@ access token is checked against its connection on each request. A tool can end i
 through the [revocation endpoint](#endpoints) with its refresh token; revoking an access token ends only
 that token. Revocation cannot retract data the client already received.
 
-You cannot edit a connection's access yet. To change it, connect again from the tool and replace the
-existing connection. Add or remove an account this way too; an existing connection never gains an
+You cannot edit a connection's access in Account yet. To change it, connect again from the tool: the
+consent page starts from the connection as it is, and **Update** changes that connection in place
+(a tool that only needs [another operation](#asking-for-another-operation) asks for it itself). Add
+or remove an account this way too; an existing connection never gains an
 account merely because you sign in to it. Deleting a project removes it from every connection and access token that
 selected it; one left with nothing selected is revoked ([project deletion](project-deletion.md)).
 Transferring a project to another workspace does the same, and ends its event subscriptions: connect
@@ -240,6 +245,8 @@ deleted.
 | `/api/oauth/token` | `POST` | Code exchange and refresh |
 | `/api/oauth/register` | `POST` | Dynamic client registration ([RFC 7591](https://datatracker.ietf.org/doc/html/rfc7591)) |
 | `/api/oauth/revoke` | `POST` | Token revocation ([RFC 7009](https://datatracker.ietf.org/doc/html/rfc7009)) |
+| `/api/mcp/server-card` | `GET` | The [Server Card](#server-card): what the endpoint is, without a connection |
+| `/.well-known/ai-catalog.json` | `GET` | An AI Catalog with one entry, the Server Card |
 
 uier is its own authorization server, for this endpoint only. The issuer is the app origin
 (`https://uier.io` in production, the preview or local origin elsewhere), so the issuer, the endpoints
@@ -377,6 +384,28 @@ Tokens are opaque: `uier_at.<userId>.<random>` and `uier_rt.<userId>.<random>`, 
 tokens. The user id only selects a storage partition and grants nothing. Only SHA-256 hashes are
 stored. Tokens, codes, verifiers, `state` and request bodies are never logged.
 
+### Asking for another operation
+
+A tool that calls something its connection may not do, such as a reply with read access only, does
+not have to be reconnected by hand. The endpoint answers `403` with
+
+```http
+WWW-Authenticate: Bearer realm="uier MCP", error="insufficient_scope", scope="feedback:read feedback:reply",
+    resource_metadata="https://uier.io/.well-known/oauth-protected-resource/api/mcp",
+    error_description="This connection needs feedback:reply."
+```
+
+`scope` is everything to ask for: what the connection has and what the call needs. The tool starts
+a sign-in with it, the person sees the [consent page](#what-consent-asks) with the operation added
+and allows it, and the tool repeats the call. The connection stays the same one. Nothing was changed
+by the refused call: the check is the first thing every tool does.
+
+This is the step-up flow of the MCP authorization chapter since revision `2025-11-25`, so only a
+request that names that revision or a later one in `MCP-Protocol-Version` is challenged, and only on
+a signed-in connection. An earlier client, and every access token (its operations are fixed when it
+is created), gets the tool error as before: `forbidden`, `This connection needs feedback:reply.`
+Creating access tokens is never pre-selected on the consent page, also when a tool asks for it.
+
 ### Lifetimes
 
 | What | Lifetime |
@@ -395,6 +424,46 @@ stored. Tokens, codes, verifiers, `state` and request bodies are never logged.
 `UIER_MCP_OAUTH=off` in the server environment turns OAuth off. The discovery documents and every
 `/api/oauth/*` route answer 404, and the 401 challenge returns to `Bearer realm="uier MCP"`. Access
 tokens already issued stop working on their next request. Access tokens from Account are not affected. OAuth is on in every other case.
+
+## Protocol revisions
+
+One server definition answers two generations of the protocol, chosen per request. Nothing is kept
+between requests in either.
+
+| | `2026-07-28` | `2025-11-25` and earlier |
+| --- | --- | --- |
+| How a client starts | No handshake. `server/discover` returns the supported revisions, capabilities and instructions; a client may skip it | `initialize`, then `notifications/initialized` |
+| What a request carries | `_meta` with the revision, the client's name and its capabilities, and the headers `MCP-Protocol-Version`, `Mcp-Method` and, where a request names something, `Mcp-Name` | The JSON-RPC body; `MCP-Protocol-Version` after the handshake |
+| Results | `resultType: "complete"`, the server's name in `_meta`, and for `server/discover` and the tool, prompt and resource template lists `ttlMs: 300000` with `cacheScope: "private"` | The plain result |
+| Removed there | `initialize` and `ping` (`404`, `-32601`), sessions | — |
+
+- A `2026-07-28` request whose headers and body disagree is `400` with `-32020` (HeaderMismatch): a
+  missing `MCP-Protocol-Version` or `Mcp-Method`, or an `Mcp-Name` that is missing or names something
+  else than `params.name` (`tools/call`, `prompts/get`, the [event methods](#events-webhooks-streams-and-polling))
+  or `params.uri` (`resources/read`). A revision the server does not have is `400` with `-32022`.
+- The tools, prompts and resources are fixed for a connection, so every `listChanged` capability is
+  `false`. `subscriptions/listen` is acknowledged with an empty filter and closed at once.
+- Both answer with one JSON body. The only response that stays open is a [push stream](#push-streams).
+- A tool the server does not have is a JSON-RPC error (`-32602`); arguments a tool rejects are a tool
+  result with `isError`.
+- The endpoint offers no logging, sampling, elicitation, tasks or resource subscriptions.
+
+Which one a request is follows from the request itself: a body with the per-request `_meta` is
+`2026-07-28`, anything else is the earlier generation. Older clients are unaffected.
+
+### Server Card
+
+`GET /api/mcp/server-card` returns the endpoint's
+[Server Card](https://github.com/modelcontextprotocol/ext-server-card) (`application/mcp-server-card+json`),
+at the location that extension reserves for it, and `/.well-known/ai-catalog.json` lists it
+(`application/ai-catalog+json`), so a client or directory can find the server from the domain alone.
+Both are public, readable from any origin, cacheable for an hour and answer `304` to a matching
+`If-None-Match`. The card has the name `io.uier/uier`, a description, the repository, icons and one
+remote: the endpoint's address, the protocol revisions it speaks and, under
+`extensions["io.modelcontextprotocol/events"].webhooks.signingKeys`, the public key of the
+[server signature](#events-webhooks-streams-and-polling) on event webhooks. It holds nothing secret
+and grants nothing: the endpoint still asks for sign-in, and a client checks what the card says
+against the live connection.
 
 ## Tools
 
@@ -477,8 +546,9 @@ invalid ids produce an `invalid_request` tool error before participant reads or 
 resources report expected API errors with their code/message as MCP `InvalidParams`, malformed
 resource arguments with fixed `InvalidParams` text, and unexpected failures as `InternalError`
 with `The operation failed.` Storage details never appear in resource errors.
-Transport handling has a 25-second deadline within the route's 30-second platform limit. Deadline
-and request cancellation return JSON-RPC errors and close the server.
+An answer has a 25-second deadline. The route's platform limit is 300 seconds, which only an open
+[push stream](#push-streams) uses. Deadline and request cancellation return JSON-RPC errors and close
+the server.
 
 Responses mark feedback as `contentTrust: "untrusted"`; server instructions also identify text,
 anchors, names and images as untrusted content. Clients must treat them as data and keep changes
@@ -510,6 +580,15 @@ use the tools’ identifier schemas; project grants and current membership are c
 retrieval. Prompts contain instructions and validated identifiers, never feedback text: every
 feedback read still goes through an authorized tool.
 
+**Skills over the connection.** The connector also serves the skills of the
+[uier plugin](agent-plugins.md), `uier-monitor` and `uier-monitor-script`, through the MCP Skills
+extension (`capabilities.extensions["io.modelcontextprotocol/skills"]`): `skills/list` and
+`skills/get` describe them, and each file, scripts included, is a `skill://` resource
+(`resources/read`) with its size and SHA-256 digest. A client that supports the extension gets them
+from the connection it already has, without installing the plugin; they are the same files, read
+from `plugins/uier/skills` in the deployment. Any authenticated connection can read them. They hold
+instructions only, and a skill never widens what the connection may do.
+
 In **Prompts and agent skill**, copy or download `SKILL.md` and save it as
 `uier-feedback/SKILL.md` in your client’s skills directory (see
 [Codex skills](https://learn.chatgpt.com/docs/extend/skills) or
@@ -519,23 +598,37 @@ untrusted and requires approval before every write, including assignments. It co
 token. `apps/web/src/lib/mcp/workflows.ts` generates both the prompt instructions and the
 skill; update that source together with any tool contract changes.
 
-## Events (webhooks and polling)
+## Events (webhooks, streams and polling)
 
-A coding tool can follow a project's feedback activity in two ways:
+A coding tool can follow a project's feedback activity in three ways:
 
 - **Webhooks**: it subscribes once and uier POSTs each event, signed, to a public HTTPS endpoint it
   controls. ChatGPT uses this.
+- **Push streams**: it keeps one `events/stream` request open per subscription and uier writes each
+  event to it within a few seconds ([push streams](#push-streams)).
 - **Polling**: it asks for everything since its last cursor, either with the `events/poll` method or
   with the [`list_feedback_events`](#polling) tool, which any client can call. Claude Code, Codex and
   Cursor use the tool, for example from a looping or scheduled task.
 
-uier implements the [MCP Events draft](https://github.com/modelcontextprotocol/experimental-ext-triggers-events/blob/main/docs/design-sketch-proposal.md)
-the way [ChatGPT consumes it](https://developers.openai.com/plugins/build/mcp-events): `initialize`
-advertises a top-level `events: {}` capability, and the same authenticated endpoint answers
-`events/list`, `events/subscribe`, `events/unsubscribe` and `events/poll`. Push delivery
-(`events/stream`) and the `gap` and `terminated` notifications are not offered. The extension is
-proposed for MCP as [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/3415),
-not yet accepted; expect changes when it is.
+uier implements MCP Events as [SEP-3415](https://github.com/modelcontextprotocol/modelcontextprotocol/pull/3415)
+describes it, a draft extension that is not yet accepted; expect changes when it is. The server declares
+it as `capabilities.extensions["io.modelcontextprotocol/events"]: {}`, in `server/discover` and in
+`initialize`, and also as the top-level `events: {}` of the earlier [design sketch](https://github.com/modelcontextprotocol/experimental-ext-triggers-events/blob/main/docs/design-sketch-proposal.md),
+which [ChatGPT reads](https://developers.openai.com/plugins/build/mcp-events). The same authenticated
+endpoint answers `events/list`, `events/poll`, `events/stream`, `events/subscribe` and
+`events/unsubscribe`, and every result carries `resultType: "complete"`. `listChanged` is not declared:
+the events are the same for every connection and change only with a deployment.
+
+The SEP is defined for revision `2026-07-28`; uier answers the same methods on earlier revisions too
+(ChatGPT connects with `initialize`). On a `2026-07-28` request, `events/poll`, `events/stream`,
+`events/subscribe` and `events/unsubscribe` name their event in the `Mcp-Name` header as well as in
+`params.name` (as it is, or as `=?base64?…?=`). A missing or different header is `400` with `-32020`
+(HeaderMismatch); the answer never repeats what was sent. `events/list` names no event and needs no
+such header.
+
+All three modes use one cursor: an opaque position in the project's events. A cursor from one mode
+resumes in another, for example a stream opened with the cursor of the last poll. A position is kept
+for seven days; an older one starts at the limit and says `truncated: true`.
 
 | Event | Arguments | Fires when |
 | --- | --- | --- |
@@ -547,31 +640,59 @@ not yet accepted; expect changes when it is.
 | `feedback.mentioned` | `projectId` | Someone mentions the account of the connection |
 
 Priority, text edits and deletions have no event. `events/list` returns each event's `inputSchema`
-and `payloadSchema` as JSON Schema and `delivery: ["webhook", "poll"]`; the schemas only gain optional
+and `payloadSchema` as JSON Schema and `delivery: ["webhook", "push", "poll"]`; the schemas only gain optional
 fields, never lose or rename them.
 
 **Subscribing.** `events/subscribe` takes `name`, `arguments`, `delivery: { mode: "webhook", url,
-secret }` and an optional `ttlMs`. It needs `feedback:read` and a project the connection reaches; any
+secret }` and optional `ttlMs`, `cursor` and `maxAgeMs`. It needs `feedback:read` and a project the connection reaches; any
 other project is `Forbidden`, without saying whether it exists. The URL must be public HTTPS on the
 default port, without credentials, a fragment or an IP address. The secret is a
 [Standard Webhooks](https://github.com/standard-webhooks/standard-webhooks/blob/main/spec/standard-webhooks.md)
 secret: `whsec_` and the base64 of 24–64 random bytes, supplied by the client.
 
-Before a connection's first subscription to a URL, uier POSTs a signed
+Before a connection's first subscription to a URL, uier confirms that the endpoint wants deliveries.
+It first reads `/.well-known/mcp-webhook-receiver.json` from the callback's origin: when that
+document lists a path prefix the callback is under (`{"receivers": ["/hooks/"]}`), the origin has
+consented and nothing more is asked. Otherwise uier POSTs a signed
 `{"type":"verification","challenge":"..."}` and activates the subscription only when a `2xx` response
-echoes `{"challenge":"..."}` (compared in constant time). A verification covers that connection and
-URL for a day; at most 30 verifications per callback host and hour are sent.
+echoes `{"challenge":"..."}` (compared in constant time). Either way the verification covers that
+connection and URL for a day; at most 30 verifications per callback host and hour are made.
 
 A subscription is keyed by connection, URL, event and canonical arguments, so the same call again
 refreshes the same `id` (`sub_` and 32 hex digits). A refresh may replace the secret; the previous one
 also signs deliveries for five minutes. The grant, `refreshBefore`, defaults to a day and is between
-five minutes and seven days; `ttlMs: null` (no expiry) also gets seven days. The client refreshes
-before it ends. The result is `{ id, refreshBefore, cursor: null, truncated: false }`, and a refresh
-adds `deliveryStatus` (`active`, `lastDeliveryAt`, `lastError`, `failedSince`). A connection holds at
-most 25 subscriptions and a project 100. Only events after the subscription are delivered.
+five minutes and seven days; `ttlMs: null` (no expiry) also gets seven days. Any `ttlMs` is clamped
+to that range, never refused. The client refreshes before it ends. The result is
+`{ resultType: "complete", id, refreshBefore, cursor, truncated }`, and a refresh adds
+`deliveryStatus` (`active`, `lastDeliveryAt`, `lastError`, `failedSince`). A connection holds at most 25
+subscriptions and a project 100.
+
+**Suspension.** When an endpoint has done nothing but fail for an hour, over ten attempts or more,
+uier suspends the subscription: events are still recorded for it, but nothing is sent and waiting
+uses up none of an event's attempts. The next refresh ends the suspension. Its answer says
+`deliveryStatus.active: false` once, and what waited is delivered. A client that never refreshes
+loses the subscription when it expires.
+
+**Position and replay.** `cursor` is the subscription's position: every event at or before it was
+acknowledged by the endpoint or given up on. Every delivery carries the position too, and a refresh
+returns it, so it moves on while nothing happens; keep the latest. A new subscription starts from the
+`cursor` it brings (also one that lapsed or was removed): uier looks up the events after that position
+and delivers them, seven days back at most, or less with `maxAgeMs`. When a limit cut the replay
+short, the result says `truncated: true`. Without a cursor, or with `null`, it starts from now. A
+refresh of a live subscription ignores its cursor. An event that subscription already got within the
+last seven days is not sent again. A cursor uier did not issue is `InvalidParams`.
+
+**Gaps.** When an event had to be given up (its five attempts failed, the receiver answered `413`, or it
+was too large to send), the subscription is marked. Once the endpoint acknowledges a delivery again,
+it gets a signed `{"type":"gap","cursor":"..."}` envelope (`webhook-id`: `msg_gap_` and a random id)
+with the position to continue from. If that has not happened by the next refresh, the refresh says
+`truncated: true`, once. Read the current state with `list_feedback` then. A `410` is the receiver's
+own choice and marks nothing.
 
 `events/unsubscribe` takes the same `name`, `arguments` and `delivery.url`, removes the subscription at
-once and always returns `{}`. Revoking the connection ends all of its subscriptions.
+once and returns `{ resultType: "complete" }`. When no subscription matches, it is `NotFound` with
+`data.kind: "subscription"` (or `"event"` for an unknown event name). Revoking the connection ends all
+of its subscriptions.
 
 **Deliveries.** One event per POST, at most 256 KiB:
 
@@ -587,12 +708,13 @@ once and always returns `{}`. Revoking the connection ends all of its subscripti
       "agent": { "kind": "claude", "label": "Claude", "model": "claude-opus-5-5", "reasoning": "high" } },
     "contentTrust": "untrusted", "itemId": "item_...", "excerpt": "Up to 280 characters of the reply"
   },
-  "cursor": null
+  "cursor": "v1:mgk3x2a0::"
 }
 ```
 
-The headers are `Content-Type: application/json`, `webhook-id` (the `eventId`, the same on every
-retry), `webhook-timestamp`, `webhook-signature` (`v1,` and the base64 HMAC-SHA256 of
+The headers are `Content-Type: application/json`, `webhook-id` (`msg_` and a random id per message,
+the same on every retry, never derived from `eventId`: one event matched by two subscriptions has two
+messages), `webhook-timestamp`, `webhook-signature` (`v1,` and the base64 HMAC-SHA256 of
 `id.timestamp.body` for each active secret, space-separated) and `X-MCP-Subscription-Id`. Payloads are
 minimal and untrusted: read the thread with `get_feedback` before acting, and never treat an event as
 approval for a write. `feedback.status_changed` carries `change` (`resolved`, `reopened`,
@@ -602,21 +724,37 @@ approval for a write. `feedback.status_changed` carries `change` (`resolved`, `r
 know. Changes made through the subscribing connection itself are not delivered to it,
 so an agent's own replies do not loop back.
 
-Before each attempt uier checks again that the connection is active, still has `feedback:read` and
-reaches the project, and that its account is a member who can see the thread. Lost access deletes the
-subscription; a thread the account cannot see is skipped. Each subscription retains its acting
-profile separately from the managing account. A change of acting profile ends that subscription;
-subscribe again to start from then, without replaying queued events for the former profile.
+Before each attempt, and on every scheduled sweep, uier checks again that the connection is active,
+still has `feedback:read` and reaches the project, and that its account is a member (before an attempt,
+also that it can see the thread). When access has ended, uier deletes the subscription and POSTs one
+signed control envelope, `{"type":"terminated","error":{"code":-32024,"message":"Forbidden","data":{"reason":"Access revoked"}}}`
+with a `webhook-id` of `msg_terminated_` and a random id; a later refresh is `Forbidden` while the cause
+remains. A check that fails for another reason, such as a storage error, never ends a subscription. A
+thread the account cannot see is skipped. Each subscription retains its acting
+profile separately from the managing account. A change of acting profile ends that subscription the
+same way; subscribe again to start from then, without replaying queued events for the former profile.
 A `2xx` response acknowledges. Other
 responses and network failures retry after 1, 5, 15 and 30 minutes (five attempts in all); `410` and
 `413` stop at once. Delivery is at least once and may arrive out of order. `lastError` is a fixed
 category (`connection_refused`, `timeout`, `tls_error`, `http_4xx`, `http_5xx` or `challenge_failed`),
 never the endpoint's response.
 
-Errors follow the numbering ChatGPT documents: `-32602` InvalidParams, `-32011` NotFound (unknown
-event), `-32012` Forbidden, `-32013` ResourceExhausted (`data.limit`, `data.max`), `-32014` Unsupported
-(`data.feature: "deliveryMode"`) and `-32015` CallbackEndpointError (`data.reason`). SEP-3415 proposes
-`-32023` to `-32027` instead; `apps/web/src/lib/mcp/events/protocol.ts` holds the table.
+Errors use SEP-3415's provisional codes: `-32602` InvalidParams, `-32023` NotFound (`data.kind`:
+`event` or `subscription`), `-32024` Forbidden, `-32025` ResourceExhausted (`data.limit`, `data.max`),
+`-32026` Unsupported (`data.feature: "deliveryMode"`) and `-32027` CallbackEndpointError
+(`data.reason`). ChatGPT's page still names `-32015` for CallbackEndpointError, the earlier design sketch's
+number. `apps/web/src/lib/mcp/events/subscriptions.ts` holds the table.
+
+**Server signature.** After the HMAC signatures, `webhook-signature` carries one more value: `v1a,`
+and the base64 ed25519 signature of the same `id.timestamp.body`, on every request (events,
+verification and control envelopes). The HMAC proves a request belongs to a subscription the endpoint
+made; this one proves which server sent it. Verify it with the key on the [Server Card](#server-card),
+never with a key from a request; an endpoint that does not check it ignores it. The key is derived
+from the server secret and changes only with it.
+
+Of the parts the SEP leaves optional, uier does not offer `events/list` change notifications (the
+events change only with a deployment) or published egress ranges (deliveries come from changing
+addresses).
 
 **How it runs.** Each thread already records its activity in `notificationEvents` (the email
 notification outbox), so events add no write path. After a change, the request delivers its
@@ -625,7 +763,11 @@ project's events once the response is sent (Next.js `after()`, registered in
 five minutes) sweeps every project with a live subscription: it retries due deliveries and delivers
 changes made outside a request, such as imported integration replies. Discovery reads the threads
 written since a per-project cursor, with a minute of overlap, and creates one delivery record per
-subscription and event; the deterministic record id makes overlapping scans harmless. Preview
+subscription and event; the deterministic record id makes overlapping scans harmless. A subscription
+that began from a cursor has its own scan for the events before it existed, so no other subscription
+sees an old event twice; it starts after the subscribe answer and the worker continues it. A
+subscription's position is computed, not stored: the time up to which discovery has finished, held
+back by its oldest delivery that still waits. Preview
 deployments deliver only right after a change, because the worker serves production.
 
 Records live in the `app` container: subscriptions, one discovery cursor and delivery records (ids
@@ -637,6 +779,38 @@ stores its secret again.
 
 Local test runs accept `http://localhost` and `http://127.0.0.1` callbacks on any port when
 `UIER_MCP_EVENTS_TEST_HTTP_CALLBACKS=1` is set in local runtime; never set it on a deployment.
+
+### Push streams
+
+`events/stream` takes `name`, `arguments` (as for `events/subscribe`), `cursor` and optional
+`maxAgeMs`: one subscription per request, with the same access rules as a webhook. The answer is an
+SSE stream of JSON-RPC messages. Each carries the request's id in
+`_meta["io.modelcontextprotocol/subscriptionId"]`, so a client with several streams can tell them apart.
+
+| Message | When |
+| --- | --- |
+| `notifications/events/active` `{ cursor, truncated }` | First: the position the stream starts from. Again with `truncated: true` when events were skipped |
+| `notifications/events/event` `{ eventId, name, timestamp, data, cursor }` | Each event, with the same `data` as a webhook; `cursor` is the position after it |
+| `notifications/events/heartbeat` `{ cursor }` | Every 25 seconds, so the client knows the stream is alive and its position keeps moving while nothing happens |
+| `notifications/events/error` `{ error }` | One read failed (`-32603`, `UpstreamError`); the stream continues from the same position |
+| `notifications/events/terminated` `{ error }` | Access ended, or the connection now acts as another profile in the project (`-32024`, `Forbidden`): the subscription is over |
+| The result, `{ resultType: "complete" }` | uier ends the stream |
+
+A stream looks for new events every three seconds. With a cursor it first sends what happened since
+(seven days back at most, less with `maxAgeMs`), 50 events at a time. It ends itself after four
+minutes with the empty result, inside the platform's five-minute limit. That does not end the
+subscription: open the stream again with the last cursor, and nothing is lost or repeated. Close the
+request to stop.
+
+A request that cannot be served is refused with a JSON-RPC error before the stream opens: an unknown
+event, arguments or cursor, a project the connection does not reach, or the limit of 12 open streams
+per connection (`ResourceExhausted`, `data.limit: "streams"`). Opening a stream is one request toward
+the 120 per minute. Before every look for new events uier checks again that the connection is active
+and reaches the project; only threads its account can see are sent, and its own changes are left out.
+
+A stream keeps nothing but one record that it is open, for the limit, in
+`mcp-events-stream:<connectionId>`; it is removed when the stream ends and expires within 90 seconds
+otherwise. Streams of one project on the same server instance share their reads.
 
 ### Polling
 
@@ -658,9 +832,9 @@ chosen events. In Claude Code, for example:
 feedback and replies, and propose fixes for new bugs. Don't reply or change status without asking me.
 ```
 
-`events/poll` follows the draft: `name`, `arguments` (as for `events/subscribe`), `cursor`, optional
-`maxEvents` (1–50, default 20) and `maxAgeMs`. It returns `{ events, cursor, truncated, hasMore,
-nextPollMs }`, one event name per request.
+`events/poll` follows SEP-3415: `name`, `arguments` (as for `events/subscribe`), `cursor`, optional
+`maxEvents` (default 20; more than 50 is clamped to 50) and `maxAgeMs`. It returns
+`{ resultType: "complete", events, cursor, truncated, hasMore, nextPollMs }`, one event name per request.
 
 - `hasMore: true`: more events are waiting; ask again at once with the new cursor.
 - `nextPollMs` is 30 seconds, a suggestion. Requests count toward the limit of 120 per minute.
@@ -684,8 +858,8 @@ to 16 KiB and 120 per user per minute across all connections and access tokens. 
 30-per-connection, per-project hourly limit and consume the owner's 300-per-project hourly member
 budget. Public feedback commenters retain their 30-reply visitor budget and shared IP limit. Exhausted
 connections do not consume more of the owner's reply budget. Thread/image sizes retain existing review
-validation limits. No server sessions or long-running streams are retained; events are delivered by
-webhook (see [Events](#events-webhooks-and-polling) for their limits).
+validation limits. No server sessions are kept. The only response that stays open is a push stream, for
+four minutes at most and 12 per connection (see [Events](#events-webhooks-streams-and-polling) for their limits).
 
 The OAuth routes count requests per hour:
 
@@ -740,11 +914,12 @@ The request part has the HTTP method and status, the duration, and an `outcome`:
 | `outcome` | `error` |
 | --- | --- |
 | `handled` | none; the calls say how each message went |
-| `rejected` | `sign_in_required` (with `authentication`: `missing` or `invalid`), `forbidden` (before authentication: the Origin check), `rate_limited`, `method_not_allowed`, `invalid_request`, `too_large`, `transport_error` (the SDK refused the request, for example a missing `Accept`) |
+| `rejected` | `sign_in_required` (with `authentication`: `missing` or `invalid`), `forbidden` (before authentication: the Origin check), `rate_limited`, `method_not_allowed`, `invalid_request`, `too_large`, `transport_error` (the SDK refused the request, for example a missing `Accept`); `insufficient_scope` (a [scope challenge](#asking-for-another-operation); the call says which operation, `missingScope`); for a `2026-07-28` request the SDK refused: `header_mismatch`, `unsupported_protocol_version`, `missing_client_capability`, `method_not_found`, `invalid_params` |
 | `interrupted` | `timeout` or `cancelled` |
 | `failed` | `server_error`, with `failure` |
 
-It also has the protocol version, the client's own `name` and `version` (only on `initialize`) and,
+It also has the protocol version, the client's own `name` and `version` (on `initialize`, and on every
+`2026-07-28` request, which has no handshake) and,
 once a connection is authenticated, its `kind`, granted `scopes`, `access` (`all` or `selected`) and
 two keyed references: `ref` for the connection and `user` for the account. They are 16 hex digits of
 an HMAC with the server secret, so requests of one connection can be followed across events, and
@@ -752,8 +927,9 @@ an operator who knows a connection id can find its requests, without the id in t
 
 `calls` has one entry per JSON-RPC message (at most 10; `omittedCalls` counts the rest):
 
-- `method` and, for `tools/call`, `prompts/get`, `resources/read`, `events/subscribe`,
-  `events/unsubscribe` and `events/poll`, the registered `name` (an event name for the last three), or `unknown` with
+- `method` (the skills methods `skills/list`, `skills/get` and `resources/directory/read` included;
+  a skill file read is a `resources/read` named `io.modelcontextprotocol_skills`) and, for `tools/call`, `prompts/get`, `resources/read`, `events/subscribe`,
+  `events/unsubscribe`, `events/poll` and `events/stream`, the registered `name` (an event name for the last four), or `unknown` with
   `requestedName` when the client asked for a name we do not offer. Event calls log no arguments:
   never the callback URL, secret or filters;
 - `outcome`: `success`, `tool_error` (an `isError` tool result), `error` (a JSON-RPC error, with
@@ -770,7 +946,8 @@ an operator who knows a connection id can find its requests, without the id in t
   `priority`, `assignee: "me"`) are kept; every other value is only its type and length;
 - `result`: `bytes` of the answer and, where the tool returns them, `items`, `more` (a `nextCursor`
   follows, or `hasMore` for event polling), `remaining` (batch ids to retry), `truncated` and
-  `itemErrors` (per-thread batch errors); `events/poll` records `items`, `more` and `truncated`;
+  `itemErrors` (per-thread batch errors); `events/poll` records `items`, `more` and `truncated`, and
+  `events/stream` the number of events it sent as `items` (its event is written when the stream ends);
 - `failure` for unexpected errors: the error class, a status code if the error has one and up to five
   code locations, never its message.
 
@@ -800,7 +977,8 @@ The environment is `production`, `preview`, `local` or `unknown`. The JSON repor
   (p50, p95 and max) and the total of `omittedCalls`;
 - `connections`: how many distinct connection `ref` and account `user` references made requests, and
   connection references by `kind`. The references themselves are not in the report;
-- `clients`: the client `name` and `version` pairs from `initialize`, most frequent first;
+- `clients`: the client `name` and `version` pairs, most frequent first (one per `initialize`, and one per
+  request of a `2026-07-28` client);
 - `calls`: one entry per `method` and `name` (the tool, prompt or resource, `null` for methods without
   one, `unknown` for names we do not offer) with the call count, counts by `outcome`, `error` and
   `missingScope`, the most frequent validation `issues` (`path` and `code`) and, when answers had a
@@ -826,12 +1004,15 @@ maps the error for the client. `e2e/mcpTelemetry.api.spec.ts` covers the events.
 ## Tests
 
 `e2e/mcp.api.spec.ts` uses the official SDK client for the read/fix/reply/status path and adversarial
-isolation, image, expiry, revocation, membership and retry checks. `e2e/mcp.spec.ts` connects that
+isolation, image, expiry, revocation, membership and retry checks, and once as a `2026-07-28` client
+(`server/discover`, no handshake, standard headers); it also checks the Server Card, the AI Catalog
+and the skills served over the connection. `e2e/mcp.spec.ts` connects that
 client to a token created in the real Account UI, verifies light/dark accessibility and revokes
 access on the existing connection. `e2e/mcpOauth.api.spec.ts` covers OAuth: discovery and the off
 switch, registration and metadata documents, authorization errors, consent, code exchange, refresh
 rotation, expiry, revocation, access across workspaces, coexistence with access tokens, and the
-official SDK client signing in, refreshing and losing access after revocation.
+official SDK client signing in, refreshing, stepping up for a missing operation (as the same connection)
+and losing access after revocation.
 `e2e/mcpOauth.spec.ts` (main journey tagged `@smoke`) starts the SDK client's OAuth flow with dynamic registration and a loopback listener, signs in through the
 authorization URL, chooses two workspaces and a write operation on the consent page, approves,
 exchanges the code, lists projects (including one created after approval) and replies, then
@@ -841,13 +1022,17 @@ access after browser account switching and sign-out, expired parked-account appr
 a 375 px layout and light/dark axe checks. `e2e/mcpOauthAccounts.api.spec.ts` covers account proof,
 per-profile access, refresh, attribution, token creation, live permissions, overlapping profiles,
 event filters and pruning deleted projects from account selections.
-`e2e/mcpTelemetry.api.spec.ts` checks the request log: successful and failed calls, rejected and
-interrupted requests, unexpected failures and a failing log sink, and that no content or id is logged.
+`e2e/mcpTelemetry.api.spec.ts` checks the request log: successful and failed calls, requests of a
+`2026-07-28` client, rejected and interrupted requests, unexpected failures and a failing log sink, and that no content or id is logged.
 `e2e/mcpEvents.api.spec.ts` runs event subscriptions against a local webhook receiver: the capability
 and catalog, verification, Standard Webhooks signatures, filters, loop prevention, private threads,
-refresh and secret rotation, unsubscribe, retries, `410`, revocation, error codes and what is logged,
-plus polling: starting from now, each event once, a late commit, paging, visibility, the
-`list_feedback_events` tool, invalid and expired cursors.
+refresh and secret rotation, unsubscribe, retries, `410`, revocation, error codes and what is logged;
+positions, replay from a cursor, gaps, suspension, the receiver document, the server signature and the
+`terminated` envelope; polling: starting from now, each
+event once, a late commit, paging, visibility, the `list_feedback_events` tool, invalid and expired
+cursors; push streams on both revisions: confirmation, events with their positions, heartbeats, the
+end of a stream, resuming, the stream limit and `terminated`; and the `2026-07-28` wire: `server/discover`,
+`resultType` and the `Mcp-Name` header.
 `e2e/assignee-agent.api.spec.ts` covers agents: only the assignee sets or clears one (other members,
 admins and guests cannot), a new assignment or a private thread removes it, it is never emailed, and
 the MCP tools attach a connection only under its owner (`assignToMe` only for unassigned feedback),
@@ -856,7 +1041,8 @@ replay retries, and appear in `list_feedback`, packets and `feedback.agent_chang
 it matches, what the connection gives otherwise, no mark on app and toolbar replies or from text, the
 author's unchanged permissions, and the mark in app views, the toolbar's DTO, packets, emails and events.
 `e2e/mcpEvents.spec.ts` creates a token in Account, subscribes, posts feedback to the running app and
-expects the webhook right after the request, without the worker.
+expects the webhook right after the request, without the worker; it also holds a push stream open
+over HTTP and expects the feedback on it.
 `e2e/mcp-report.api.spec.ts` checks the daily report on fixture events: raw and Vercel lines,
 skipped, invalid and duplicate records, every aggregate, the command's output and errors, and that no
 content, id or reference reaches the report.

@@ -494,7 +494,8 @@ export default function PrivacyPolicyPage() {
                 the signing secret it supplies (encrypted), when the subscription ends and the latest delivery
                 outcome. Delivery records hold only event, thread and subscription identifiers and the delivery
                 state. Before the first delivery we confirm the callback address with a signed request that
-                carries nothing about you.
+                carries nothing about you. A subscription that continues from an earlier position also gets the
+                events since then, at most seven days back.
             </p>
             <p>
                 Each event goes to that callback address: project and feedback ids, the page path, a link to the
@@ -503,9 +504,10 @@ export default function PrivacyPolicyPage() {
                 and check the connection&rsquo;s access and the feedback&rsquo;s visibility again before each delivery.
             </p>
             <p>
-                A coding tool can also ask for the same events itself, since the last position it kept. We
-                store nothing for that: the position stays with the tool and contains only times and short
-                event references.
+                A coding tool can also ask for the same events itself, since the last position it kept, or keep
+                a request open and receive them on it as they happen. The position stays with the tool and
+                contains only times and short event references. For an open request we store only that it is
+                open, with the connection&rsquo;s id, until it ends.
             </p>
             <p>
                 Replies and activity record your identity and the connection&rsquo;s name and id, so other reviewers
@@ -672,7 +674,7 @@ export default function PrivacyPolicyPage() {
                 <li>Screenshots: as long as their comment, and on {brand.domain} at most 90 days after they were taken. Deleting a comment, or its text, removes access to its screenshot and deletes the stored image. Failed image deletes are retried by a scheduled sweep once an unreferenced image is over an hour old. Legacy public-feedback copies are removed when the migrated thread is deleted or its screenshot is replaced. Cleanup intents contain only thread identifiers and expire one day after successful cleanup.</li>
                 <li>Coding tool connections: until you revoke them, 30 days after the tool last renewed its access, or one year after you allowed them, whichever comes first. A tool&rsquo;s access tokens last one hour; its refresh tokens are replaced on each use and last at most 30 days, and the hash of a used one is kept for a day to detect reuse. Pending sign-in requests: 10 minutes. Sign-in codes: valid for 60 seconds, their hashes kept for 10 minutes. Descriptions of tools that registered themselves: 30 days after their last sign-in; published descriptions: cached for up to 24 hours. Expired records are deleted automatically. Attribution stays with the feedback.</li>
                 <li>Coding tool access tokens: until revoked, at most 90 days through the credential service (30 days in the app and through MCP). Expired hashes and grant metadata are deleted automatically. MCP token-creation audits and retry receipts: 30 days, without secrets. Attribution stays with the feedback.</li>
-                <li>Coding tool event subscriptions: until the tool unsubscribes, the connection loses access, or the subscription period ends without renewal (at most seven days). Delivery records: seven days. Confirmed callback addresses: one day.</li>
+                <li>Coding tool event subscriptions: until the tool unsubscribes, the connection loses access, or the subscription period ends without renewal (at most seven days). Delivery records: seven days. Confirmed callback addresses: one day. The record of an open event request: until the request ends, at most 90 seconds longer.</li>
                 <li>Moderation author-filter references: 24 hours.</li>
                 <li>Submission receipts: 30 days. Unsent drafts: seven days in the app or reviewed site’s browser storage, removed on next use after expiry.</li>
                 <li>Project deletion markers: up to 30 days, with identifiers and a deletion version, without feedback text, images or author details.</li>

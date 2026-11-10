@@ -1,5 +1,4 @@
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { ErrorCode, McpError, type GetPromptResult } from '@modelcontextprotocol/sdk/types.js';
+import { ProtocolError, ProtocolErrorCode, type GetPromptResult, type McpServer } from '@modelcontextprotocol/server';
 import { mcpProject, type McpIdentity } from './credentials';
 import { ApiError } from '../comments/http';
 import { projectId, thread } from './schemas';
@@ -18,8 +17,8 @@ export function registerFeedbackPrompts(server: McpServer, identity: McpIdentity
             try { await mcpProject(identity, input.projectId); }
             catch (error) {
                 noteMcpError(error);
-                if (error instanceof ApiError) throw new McpError(ErrorCode.InvalidParams, `${error.code}: ${error.message}`);
-                throw new McpError(ErrorCode.InternalError, 'The operation failed.');
+                if (error instanceof ApiError) throw new ProtocolError(ProtocolErrorCode.InvalidParams, `${error.code}: ${error.message}`);
+                throw new ProtocolError(ProtocolErrorCode.InternalError, 'The operation failed.');
             }
             return { messages: [{ role: 'user', content: { type: 'text', text: `${workflow.instructions}
 

@@ -19,6 +19,9 @@ const nextConfig: NextConfig = {
         UIER_TOOLBAR_DEV_ORIGIN: toolbarDevOrigin
     },
     reactCompiler: true,
+    // The MCP endpoint serves the plugin's skills from their files (src/lib/mcp/skills.ts): they are read at
+    // run time, so the deployment has to carry them.
+    outputFileTracingIncludes: { '/api/mcp': ['../../plugins/uier/skills/**/*'] },
     // @uier/brand ships TypeScript sources (tokens, Mark, Logo); Next compiles them like app code.
     transpilePackages: ['@uier/brand'],
     images: {
@@ -90,7 +93,9 @@ const nextConfig: NextConfig = {
         // resource document exists: a root document would describe another resource (RFC 9728).
         const rewrites = [
             { source: '/.well-known/oauth-protected-resource/api/mcp', destination: '/api/oauth/metadata/protected-resource' },
-            { source: '/.well-known/oauth-authorization-server', destination: '/api/oauth/metadata/authorization-server' }
+            { source: '/.well-known/oauth-authorization-server', destination: '/api/oauth/metadata/authorization-server' },
+            // Discovery of the MCP server (src/lib/mcp/serverCard.ts): the catalog points to /api/mcp/server-card.
+            { source: '/.well-known/ai-catalog.json', destination: '/api/mcp/catalog' }
         ];
         if (process.env.NODE_ENV !== 'development')
             return rewrites;

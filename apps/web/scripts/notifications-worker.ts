@@ -86,7 +86,7 @@ if (process.env.UIER_WORKER_VERIFY_ONLY !== '1') {
     // unreachable endpoint is its own problem: only an unexpected worker error fails the run.
     try {
         const events = await runMcpEventWorker(baseUrl, { deadline: Date.now() + 60_000 });
-        console.info(`[mcp-events] ${events.projects} projects: ${events.discovered} new deliveries, ${events.delivered} delivered, ${events.retrying} retrying, ${events.failed} failed, ${events.skipped} skipped; ${events.deferred} projects deferred.`);
+        console.info(`[mcp-events] ${events.projects} projects: ${events.discovered} new deliveries, ${events.delivered} delivered, ${events.retrying} retrying, ${events.failed} failed, ${events.skipped} skipped, ${events.terminated} subscriptions ended; ${events.deferred} projects deferred.`);
     } catch (error) {
         console.error(`[mcp-events] Event delivery needs retry (${error instanceof Error ? error.name : 'Error'}).`);
         process.exitCode = 1;

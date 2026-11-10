@@ -33,7 +33,7 @@ does, and the rules that apply only to it, live in [`docs/`](docs/README.md), on
 | `src/lib/email/` | email through Azure Communication Services and the templates |
 | `proxy.ts` | exact-path page security headers, request nonces and signed-out `/app/*` redirects (`?next=`) |
 | `app/api/comments/route.ts` | comments API (Cosmos DB through `src/lib/db` and `src/lib/repo`) |
-| `app/api/mcp/`, `src/lib/mcp/` | the MCP connector: authentication (`credentials.ts`), tools (`server.ts`), prompts, event webhooks (`events/`), client setup blocks ([MCP connector](docs/mcp-connector.md)) |
+| `app/api/mcp/`, `src/lib/mcp/` | the MCP connector on the MCP SDK v2: the entry for both protocol generations (`http.ts`), authentication (`credentials.ts`), tools (`server.ts`), prompts, events by webhook, push stream and poll (`events/`), client setup blocks ([MCP connector](docs/mcp-connector.md)) |
 | `instrumentation.ts` | runs once per Node.js server: registers Next.js `after()` for library code (`src/lib/afterResponse.ts`: MCP event delivery after a change, AI thread titles), so `src/lib` never imports `next/server` |
 | `app/api/oauth/`, `src/lib/mcp/oauth/` | uier's OAuth authorization server for `/api/mcp` only: authorize, token, register, revoke and the metadata routes that `next.config.ts` rewrites from `/.well-known/`; consent is `/app/connect/<requestId>` |
 | `app/api/status/route.ts`, `src/lib/status/` | live service checks for `/status` and monitors ([status reference](../../docs/operations.md#status)) |

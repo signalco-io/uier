@@ -35,7 +35,7 @@ identity but does not unsubscribe an already verified address; use its email uns
   progress kinds go to followers; the digest line is "moved #12 (/path) to In progress" or
   "moved #12 (/path) back to Open". `agent` events are thread activity and MCP events only:
   `eligibleEvents` never emails them.
-- [MCP events](mcp.md#events-webhooks-and-polling), delivered by webhook or polled, read the same
+- [MCP events](mcp.md#events-webhooks-streams-and-polling), delivered by webhook, over a push stream or polled, read the same
   events after the write (they add no write path); a change to an event's fields or kinds changes
   those payloads too.
   Targeted events may include server-validated `user:<userId>` recipients. Their producer must

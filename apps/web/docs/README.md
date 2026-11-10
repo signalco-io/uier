@@ -60,7 +60,7 @@ Product contracts, API references and runbooks stay in the repository's [`docs/`
 ## Integrations, MCP and services
 
 - [Integration foundation](integrations.md): outbox, delivery, status and reply sync, provider notes.
-- [Authenticated MCP connector](mcp-connector.md): authentication, OAuth, tools, events and client setup.
+- [Authenticated MCP connector](mcp-connector.md): authentication, OAuth, protocol revisions and transport, tools, events and client setup.
 - [Review notifications](notifications.md): events, digests, the scheduled worker and email reports.
 - [Browser extension runtime](browser-extension.md): extension sessions, installation and the public pages.
 - [Rewrite accounting](rewrite-accounting.md): rewrite usage telemetry and cost reports.

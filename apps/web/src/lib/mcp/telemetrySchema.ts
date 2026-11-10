@@ -7,11 +7,12 @@ import { mcpScopes } from './scopes';
  */
 
 export const MAX_CALLS = 10;
-export const methods = ['initialize', 'ping', 'tools/list', 'tools/call', 'prompts/list', 'prompts/get', 'resources/list',
-    'resources/templates/list', 'resources/read', 'resources/subscribe', 'resources/unsubscribe', 'completion/complete',
+export const methods = ['initialize', 'server/discover', 'subscriptions/listen', 'ping', 'tools/list', 'tools/call', 'prompts/list', 'prompts/get', 'resources/list',
+    'resources/templates/list', 'resources/read', 'resources/directory/read', 'resources/subscribe', 'resources/unsubscribe', 'skills/list', 'skills/get',
+    'completion/complete',
     'logging/setLevel', 'tasks/get', 'tasks/list', 'tasks/result', 'tasks/cancel', 'notifications/initialized',
     'notifications/cancelled', 'notifications/progress', 'notifications/roots/list_changed',
-    'events/list', 'events/subscribe', 'events/unsubscribe', 'events/poll'] as const;
+    'events/list', 'events/subscribe', 'events/unsubscribe', 'events/poll', 'events/stream'] as const;
 export const codePattern = /^[a-z][a-z_]{0,39}$/;
 export const identifierPattern = /^[A-Za-z_][A-Za-z0-9_]{0,39}$/;
 export const requestedNamePattern = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/;
@@ -50,7 +51,7 @@ export const mcpRequestEventSchema = z.object({
     authentication: z.enum(['missing', 'invalid']).optional(),
     failure: failureSchema.optional(),
     protocolVersion: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-    /** Only on `initialize`, as the client describes itself */
+    /** As the client describes itself: on `initialize`, and on every 2026-07-28 request (they have no handshake) */
     client: z.object({ name: z.string().max(64), version: z.string().max(32).optional() }).strict().optional(),
     /** Keyed hashes: the same connection and account match across events, without their ids */
     connection: z.object({ kind: z.enum(['oauth', 'credential']), ref, user: ref, scopes: z.array(z.enum(mcpScopes)),

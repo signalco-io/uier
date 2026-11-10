@@ -41,9 +41,15 @@ export default async function ConnectPage({ params }: PageProps<'/app/connect/[r
     const sameName = apps.find(app => app.name === pending.client.name);
     const replace: ConsentReplace | null = apps.length >= MAX_CONNECTED_APPS
         ? { mode: 'required', apps: apps.map(({ id, name }) => ({ id, name })), defaultId: sameClient?.id, limit: MAX_CONNECTED_APPS }
-        : sameClient ? { mode: 'optional', app: { id: sameClient.id, name: sameClient.name }, checked: true }
+        : sameClient ? { mode: 'optional', app: { id: sameClient.id, name: sameClient.name }, checked: true, update: true }
             : sameName ? { mode: 'optional', app: { id: sameName.id, name: sameName.name }, checked: false }
                 : null;
+
+    // The tool asks again (for another operation, or to reconnect): the form starts from what its
+    // connection has now. Only profiles signed in to this browser are shown, as in Connected apps.
+    const current = sameClient ? { name: sameClient.name, scopes: sameClient.scopes,
+        accounts: (sameClient.accounts ?? [{ userId: sameClient.userId, access: sameClient.access }])
+            .filter(account => browserAccounts.some(candidate => candidate.id === account.userId)) } : undefined;
 
     return (
         <ConnectConsent requestId={requestId} request={{
@@ -52,6 +58,7 @@ export default async function ConnectPage({ params }: PageProps<'/app/connect/[r
             client: pending.client,
             requestedScopes: pending.scopes,
             replace,
+            current,
             accounts
         }} />
     );

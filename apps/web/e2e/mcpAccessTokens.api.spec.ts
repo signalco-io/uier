@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { handleMcp } from '../src/lib/mcp/http';
 import { authenticateMcp, createMcpCredential, listMcpCredentials, revokeMcpCredential, type McpCredentialCreation } from '../src/lib/mcp/credentials';
 import { tokenScopes } from '../src/lib/mcp/scopes';

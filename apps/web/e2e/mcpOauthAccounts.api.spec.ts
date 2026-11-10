@@ -1,7 +1,6 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import type { AppContext } from '../src/lib/app/context';
 import { memberId, workspacePk, type DbMember, type DbUser, type DbWorkspace } from '../src/lib/app/model';
 import { createProject } from '../src/lib/app/projects';
