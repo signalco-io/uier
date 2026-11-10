@@ -124,7 +124,7 @@ function ActiveStatusesMenu({ status, counts, onStatusChange }: {
             }}
             trigger={(
                 <IconButton size="sm" variant="plain" aria-label={t.inbox.activeStatuses} data-roving-skip="" {...triggerProps}
-                    className={cx('h-8 w-5 min-w-5 rounded-none border-b-2 border-transparent px-0 text-muted-foreground hover:bg-transparent hover:text-foreground active:bg-transparent pointer-coarse:h-11 pointer-coarse:min-w-8',
+                    className={cx('h-8 w-6 min-w-6 rounded-none border-b-2 border-transparent px-0 text-muted-foreground hover:bg-transparent hover:text-foreground active:bg-transparent pointer-coarse:h-11 pointer-coarse:min-w-8',
                         open && 'text-foreground')}>
                     <ExpandDown aria-hidden="true" size={14} />
                 </IconButton>
