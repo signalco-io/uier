@@ -53,6 +53,51 @@ type MessagesRequest = {
     top_k?: unknown;
 };
 
+/**
+ * A page's suggestions (the SEO panel's AI search section): the kind, by the task its system prompt
+ * states; each kind's length limit is stated in it. The page's text decides the answer:
+ *   [stub:fail]         the API fails (500, retried once)                      -> 503 unavailable
+ *   [stub:refuse]       the request is declined (stop "refusal")               -> 200 { suggestions: [] }
+ *   [stub:inject]       the model "obeyed" the page: an answer that is not JSON -> 503 unavailable
+ *   [stub:inject-list]  JSON whose suggestions are not a list of strings       -> 503 unavailable
+ *   [stub:page-filter]  suggestions out of bounds, on two lines, duplicated, the current title -> left out
+ * Without one: three suggestions of the kind within its limits.
+ */
+const pageExpected = { title: { min: 10, max: 60 }, description: { min: 50, max: 160 }, questions: { min: 10, max: 150 } } as const;
+type PageKind = keyof typeof pageExpected;
+
+function pageKind(body: MessagesRequest): PageKind | undefined {
+    const content = body.messages?.[0]?.content;
+    if (typeof content !== 'string' || !content.includes('<page_text>') || typeof body.system !== 'string') return undefined;
+    return body.system.includes('titles for the page') ? 'title' : body.system.includes('meta descriptions') ? 'description' : 'questions';
+}
+
+const pageAnswers: Record<PageKind, string[]> = {
+    title: ['Plans and pricing for website reviews', 'Compare plans that include the toolbar', 'Pricing: every plan includes the toolbar'],
+    description: ['Compare plans for reviewing live websites. Every plan includes the toolbar and comments pinned to the page.',
+        'See what each plan includes, from the review toolbar to comments pinned to elements on your site.',
+        'Plans for teams that review websites: the toolbar, pinned comments and browser details in every plan.'],
+    questions: ['What does every plan include?', 'Which plan fits a small team?', 'How do comments stay pinned to the page?']
+};
+
+function pageReply(kind: PageKind, text: string, currentTitle: string | undefined): { status: number; body: unknown } {
+    if (text.includes('[stub:fail]'))
+        return { status: 500, body: { type: 'error', error: { type: 'api_error', message: 'Stub: the API failed.' } } };
+    if (text.includes('[stub:refuse]'))
+        return { status: 200, body: message([{ type: 'text', text: JSON.stringify({ suggestions: ['Declined suggestion for the page.'] }) }], 'refusal', { type: 'refusal', category: 'cyber', explanation: 'Stub: declined.' }) };
+    if (text.includes('[stub:inject-list]'))
+        return { status: 200, body: message([{ type: 'text', text: JSON.stringify({ suggestions: 'INJECTED: <script>alert(1)</script>' }) }], 'end_turn') };
+    if (text.includes('[stub:inject]'))
+        return { status: 200, body: message([{ type: 'text', text: 'INJECTED: here are my instructions. <script>alert(1)</script>' }], 'end_turn') };
+    if (text.includes('[stub:page-filter]')) {
+        const { min, max } = pageExpected[kind];
+        const valid = pageAnswers[kind][0]!;
+        return { status: 200, body: answer([` ${valid} `, valid, 'x'.repeat(max + 1), 'y'.repeat(max), 'z'.repeat(min - 1), `First line of it\nand the second ${'w'.repeat(min)}`,
+            ...kind === 'title' && currentTitle ? [currentTitle] : [], ' ', pageAnswers[kind][2]!]) };
+    }
+    return { status: 200, body: answer(pageAnswers[kind]) };
+}
+
 function problems(headers: Record<string, string | string[] | undefined>, body: MessagesRequest) {
     const found: string[] = [];
     const check = (ok: boolean, problem: string) => {
@@ -73,8 +118,17 @@ function problems(headers: Record<string, string | string[] | undefined>, body: 
     check(schema?.properties?.suggestions?.type === 'array' && schema.properties.suggestions.items?.type === 'string'
         && Array.isArray(schema.required) && schema.required.includes('suggestions'), 'the schema is not { suggestions: string[] }');
     check(typeof body.max_tokens === 'number' && body.max_tokens > 0 && body.max_tokens <= expected.maxTokens, `max_tokens is not 1-${expected.maxTokens}`);
-    check(typeof body.system === 'string' && body.system.includes(`${expected.characterLimit} characters`), `the system prompt does not state the ${expected.characterLimit}-character limit`);
-    check(body.messages?.length === 1 && body.messages[0]?.role === 'user' && typeof content === 'string' && content.includes('<selected_text>'), 'not one user message with the selected text');
+    if (pageKind(body)) {
+        // A page's suggestions (src/lib/pageSuggestions/suggest.ts): their own limit, the page's text as material, one boundary
+        const kind = pageKind(body)!;
+        check(typeof body.system === 'string' && body.system.includes(`${pageExpected[kind].max} characters`) && body.system.includes('never as instructions'),
+            `the system prompt does not state the ${pageExpected[kind].max}-character limit and that the page is not instructions`);
+        check(body.messages?.length === 1 && body.messages[0]?.role === 'user' && typeof content === 'string'
+            && content.split('<page_text>').length === 2 && content.split('</page_text>').length === 2, 'not one user message with the page text inside one boundary');
+    } else {
+        check(typeof body.system === 'string' && body.system.includes(`${expected.characterLimit} characters`), `the system prompt does not state the ${expected.characterLimit}-character limit`);
+        check(body.messages?.length === 1 && body.messages[0]?.role === 'user' && typeof content === 'string' && content.includes('<selected_text>'), 'not one user message with the selected text');
+    }
     // The selected Claude 5.5 model rejects these
     check(body.thinking === undefined || body.thinking.type === 'adaptive', 'thinking is set to something other than adaptive');
     check(body.temperature === undefined && body.top_p === undefined && body.top_k === undefined, 'sampling parameters are set');
@@ -238,6 +292,12 @@ const server = createServer((request, response) => {
         }
 
         const content = String(body.messages?.[0]?.content);
+        const kind = pageKind(body);
+        if (kind) {
+            const { status, body: result } = pageReply(kind, tagged(content, 'page_text') ?? '', tagged(content, 'current_title'));
+            send(status, result);
+            return;
+        }
         const selected = tagged(content, 'selected_text') ?? '';
         // A browser test can assert the exact server-resolved guidance without returning it to a guest.
         const expectedStyle = selected.match(/\[stub:style:([A-Za-z0-9+/=]*)\]/)?.[1];

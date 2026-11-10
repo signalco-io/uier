@@ -56,7 +56,7 @@ function withoutBidiControls(text: string) {
 }
 
 /** Trimmed text without bidirectional overrides, with at least one visible character */
-function textOf(maxLength: number) {
+export function textOf(maxLength: number) {
     return z.string()
         .transform(withoutBidiControls)
         .pipe(z.string()

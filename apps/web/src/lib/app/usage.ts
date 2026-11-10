@@ -32,6 +32,9 @@ export type UsageMeter = {
 
 export type ProjectUsage = { project: DbProject; meters: UsageMeter[] };
 
+/** Page suggestions (the toolbar's SEO panel) share the rewrite suggestions' limits and counters */
+const pageSuggestionsCounted = 'Including AI suggestions for a page in the SEO panel';
+
 async function meter(partition: string, limit: Limit, label: string, description?: string): Promise<UsageMeter> {
     const { used } = await usedOf(getCommentsStore(), partition, limit);
     return { label, ...(description ? { description } : {}), used, limit: limit.limit };
@@ -65,7 +68,7 @@ async function personalProjectUsage(project: DbProject, userId: string, ipBucket
     return await Promise.all([
         meter(partition, authorCommentsLimit(authorId, member, !member), 'New comments'),
         meter(partition, authorRepliesLimit(authorId, member), 'Replies', 'Yours, and those your coding agents write for you'),
-        meter(partition, authorRewritesLimit(authorId), 'Rewrite suggestions'),
+        meter(partition, authorRewritesLimit(authorId), 'Rewrite suggestions', pageSuggestionsCounted),
         // Members are not counted by address
         ...(!member && ipBucket ? [meter(partition, networkWritesLimit(ipBucket), 'From your network',
             'New comments and replies from everyone on your internet connection')] : [])
@@ -110,7 +113,7 @@ export async function sharedProjectUsage(project: DbProject): Promise<UsageMeter
     const partition = projectPartition(project.id);
     return await Promise.all([
         meter(partition, siteScreenshotsLimit, 'Screenshots', 'New comments past the limit are saved without one'),
-        meter(partition, siteRewritesLimit, 'Rewrite suggestions')
+        meter(partition, siteRewritesLimit, 'Rewrite suggestions', pageSuggestionsCounted)
     ]);
 }
 

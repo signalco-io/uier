@@ -17,6 +17,8 @@ export const rewriteEventSchema = z.object({
     usage: z.array(tokensSchema).max(8), pricingVersion: z.string().regex(/^\d{4}-\d{2}-\d{2}\.\d+$/), currency: z.literal('USD'),
     estimatedUsd: z.number().finite().nonnegative().nullable(), accounting: z.enum(['known', 'partial', 'unknown']),
     limitations: z.array(z.enum(['missing_usage', 'unknown_rates_or_cache', 'sdk_retry_usage_unavailable', 'fallback_usage_incomplete', 'fallback_billing_adjustments', 'refusal_billing_unknown', 'unsupported_pricing', 'unsupported_iterations'])),
+    /** A page's suggestions (the SEO panel); rewrite suggestions leave it out */
+    feature: z.literal('page_suggestions').optional(),
 });
 export type RewriteEvent = z.infer<typeof rewriteEventSchema>;
 type ObjectValue = Record<string, unknown>;
@@ -33,6 +35,7 @@ function tokens(value: ObjectValue, model: unknown): TokenUsage {
 /** Exactly one event for a logical service call, including calls with no usable output. */
 export function rewriteEvent(input: {
     requestedModel: string; response?: unknown; outcome: RewriteOutcome; suggestionCount: number; durationMs: number; sdkAttempts: number;
+    feature?: RewriteEvent['feature'];
 }): RewriteEvent {
     const response = object(input.response), usage = object(response.usage);
     const iterations = Array.isArray(usage.iterations) ? usage.iterations : [];
@@ -87,7 +90,7 @@ export function rewriteEvent(input: {
             ? response.stop_reason as 'end_turn' | 'refusal' | 'max_tokens' : input.response ? 'other' : 'unavailable',
         outcome: input.outcome, suggestionCount: input.suggestionCount, usage: records.map(record => ({ ...record, model: knownModel(record.model) })),
         pricingVersion: REWRITE_PRICING.version, currency: 'USD', estimatedUsd: priced ? estimate : null,
-        accounting: known ? 'known' : priced ? 'partial' : 'unknown', limitations };
+        accounting: known ? 'known' : priced ? 'partial' : 'unknown', limitations, ...input.feature ? { feature: input.feature } : {} };
 }
 
 /** Logging is best effort and must never change the request's result. No payload/error logging. */

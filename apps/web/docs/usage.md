@@ -7,7 +7,7 @@ Two pages show it, and the toolbar links to them when a signed-in member reaches
   project they can see, in all their workspaces (the open one first, a workspace heading only when there is
   more than one), so a toolbar link finds its project whichever workspace is open. Each project's item has the id
   `projectUsageAnchor(<public id>)`: new comments, replies (MCP replies count against the owner's), rewrite
-  suggestions, and on uier's feedback project the per-address writes ("From your network"). A last card shows
+  suggestions (with the SEO panel's page suggestions, which share their counters; the meter's description says so), and on uier's feedback project the per-address writes ("From your network"). A last card shows
   the per-address rewrite suggestions on every site. Address rows come from this page request's IP bucket
   (`rateLimitIpBucket`) and are missing locally on loopback; the page never shows an address.
 - **Workspace → Usage** (`workspace/(tabs)/usage/`, a tab for everyone, `KnownPageLinks.workspaceUsage`): what each
