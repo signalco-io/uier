@@ -41,7 +41,10 @@ handler): it listens on the document in the bubble phase, after React's handlers
 
 - They never act with Ctrl, ⌘ or Alt, when held, while typing, in a menu, a list of options or a dialog
   (`ownsKeys`; the board's thread sheet is marked `data-shortcuts`, so the thread's keys work in it), or in the
-  review toolbar (`#uier-toolbar`: its keys are its own), and never on a key the page already handled.
+  review toolbar (`#uier-toolbar`: its keys are its own). The guard follows the event's composed path, so this
+  also holds for fields and dialogs inside shadow roots. Editable and typeahead widgets use the same
+  `isLetterKeyTarget` guard as the toolbar (`@uier/toolbar/keyboard`); shortcuts never compete across the app
+  and toolbar. They never act on a key the page already handled.
 - The key after G is taken in the capture phase, before the focused control's own handling of the letter.
 - The controls they press name them with `aria-keyshortcuts` (`useKeyShortcutLabel`: only while they are on).
 - Single-key shortcuts can be turned off (WCAG 2.1.4): the switch in the dialog sets `uier:shortcuts-off`
@@ -62,3 +65,4 @@ signalco container is disabled there so screen readers do not find duplicate not
 the list's J and K from the thread, R, S, A, `/`, `?`, the switch and the account menu; the switch turned off
 in the app's dialog stops the toolbar's letters on the page and the other way round; the sidebar, My work and
 the workspace tabs, and G with I, B, M and P. `e2e/comment-keyboard.spec.ts` covers the list's arrows.
+The app/toolbar switch case also covers feedback typing and nested shadow-root textareas and contenteditable controls while shortcuts are enabled.

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useEffectEvent, useState, useSyncExternalStore, type FocusEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react';
-import { rovingIndex, shortcutLetter, shortcutsEnabled, subscribeShortcutsEnabled, type FocusOrientation } from '@uier/toolbar/keyboard';
+import { isLetterKeyTarget, rovingIndex, shortcutLetter, shortcutsEnabled, subscribeShortcutsEnabled, type FocusOrientation } from '@uier/toolbar/keyboard';
 
 /**
  * Typing, or a popup that owns its keys: a menu, a list of options or a dialog. A dialog marked
@@ -17,9 +17,15 @@ export function ownsKeys(element: Element) {
  * own review toolbar (its shadow root's events reach the page from its host, and its keys are its own).
  */
 export function isShortcutTarget(event: KeyboardEvent) {
-    const { target } = event;
-    if (!(target instanceof Element)) return true;
-    return !target.closest('#uier-toolbar') && !ownsKeys(target);
+    if (isLetterKeyTarget(event)) return false;
+    // `target` is retargeted to the toolbar host for events from its shadow root.
+    // Check the composed path so app shortcuts never compete with toolbar fields,
+    // dialogs or toolbar-owned controls.
+    for (const node of event.composedPath()) {
+        if (!(node instanceof Element)) continue;
+        if (node.id === 'uier-toolbar' || ownsKeys(node)) return false;
+    }
+    return true;
 }
 
 /** Whether single-key shortcuts are on in this browser (the help dialog and the toolbar's Options turn them off) */

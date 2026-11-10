@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { getToolbarHost } from './mount';
-import { shortcutLetter, shortcutsEnabled, subscribeShortcutsEnabled } from './keyboard';
+import { isLetterKeyTarget as isSharedLetterKeyTarget, shortcutLetter, shortcutsEnabled, subscribeShortcutsEnabled } from './keyboard';
 import type { Messages } from './i18n';
 
 export { setShortcutsEnabled } from './keyboard';
@@ -38,12 +38,6 @@ export const toolbarShortcuts: { label: keyof Messages['shortcutList']; keys: Sh
     { label: 'close', keys: ['Esc'] }
 ];
 
-/** Inputs that take no text: a letter on them does nothing */
-const nonTextInputTypes = new Set(['button', 'checkbox', 'color', 'file', 'image', 'radio', 'range', 'reset', 'submit']);
-
-/** Widgets whose letter keys type or choose an item (typeahead) */
-const letterKeyRoles = new Set(['application', 'combobox', 'grid', 'listbox', 'menu', 'menubar', 'searchbox', 'slider', 'spinbutton', 'textbox', 'tree', 'treegrid']);
-
 /** Whether the key is the Add comment shortcut, pressed alone and not already handled by the page */
 export function isAddCommentShortcut(event: KeyboardEvent) {
     return shortcutLetter(event) === 'c';
@@ -51,20 +45,7 @@ export function isAddCommentShortcut(event: KeyboardEvent) {
 
 /** Whether the key went to a text field or a widget that uses letters, on the page or in the toolbar */
 export function isLetterKeyTarget(event: KeyboardEvent) {
-    const host = getToolbarHost();
-    for (const node of event.composedPath()) {
-        // A key in the toolbar did not go to the page's menu or dialog that its host is in (modalLayer.ts)
-        if (host && node === host) return false;
-        if (!(node instanceof HTMLElement)) continue;
-        if (node.isContentEditable || node instanceof HTMLTextAreaElement || node instanceof HTMLSelectElement) return true;
-        if (node instanceof HTMLInputElement) {
-            if (nonTextInputTypes.has(node.type)) continue;
-            return true;
-        }
-        const role = node.getAttribute('role');
-        if (role !== null && letterKeyRoles.has(role)) return true;
-    }
-    return false;
+    return isSharedLetterKeyTarget(event, getToolbarHost());
 }
 
 /** Whether the keyboard shortcuts are on (they are unless the reviewer turned them off in Options) */

@@ -151,3 +151,26 @@ export function rovingIndex(key: string, index: number, count: number, { orienta
     if (loop) return (next + count) % count;
     return Math.min(count - 1, Math.max(0, next));
 }
+
+/** Inputs that take no text: a letter on them does nothing */
+const nonTextInputTypes = new Set(['button', 'checkbox', 'color', 'file', 'image', 'radio', 'range', 'reset', 'submit']);
+
+/** Widgets whose letter keys type or choose an item (typeahead) */
+const letterKeyRoles = new Set(['application', 'combobox', 'grid', 'listbox', 'menu', 'menubar', 'searchbox', 'slider', 'spinbutton', 'textbox', 'tree', 'treegrid']);
+
+/**
+ * Whether letters belong to a field or a typeahead widget. Follow the composed path because a
+ * document/window listener sees a shadow host as `target`, hiding the actual editable control.
+ * The toolbar stops at its own host so a containing page menu cannot claim the toolbar's keys.
+ */
+export function isLetterKeyTarget(event: KeyboardEvent, boundary?: Element) {
+    for (const node of event.composedPath()) {
+        if (node === boundary) break;
+        if (!(node instanceof HTMLElement)) continue;
+        if (node.isContentEditable || node instanceof HTMLTextAreaElement || node instanceof HTMLSelectElement) return true;
+        if (node instanceof HTMLInputElement && !nonTextInputTypes.has(node.type)) return true;
+        const role = node.getAttribute('role');
+        if (role !== null && letterKeyRoles.has(role)) return true;
+    }
+    return false;
+}

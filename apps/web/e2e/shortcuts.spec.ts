@@ -74,6 +74,42 @@ test('C starts and ends point mode, but not while typing or when the page handle
     await context.close();
 });
 
+test('feedback typing stays inside the shadow root when the page has a C shortcut', async ({ browser }, info) => {
+    const { context, page } = await newVisitor(browser, info);
+    await openLanding(page, isolatedOrigin(info), { dismissHint: true });
+    // A common host-page guard cannot see the textarea: target is the shadow host.
+    await page.evaluate(() => {
+        document.addEventListener('keydown', event => {
+            if (event.key !== 'c' || (event.target as Element).matches('input, textarea')) return;
+            event.preventDefault();
+            document.body.dataset.pageShortcut = 'handled';
+        });
+    });
+    await toolbar(page).getByRole('button', { name: 'Send feedback', exact: true }).click();
+    const feedback = page.getByRole('dialog', { name: 'Send feedback', exact: true });
+    const text = feedback.getByRole('textbox', { name: 'Feedback', exact: true });
+    await text.focus();
+    await page.keyboard.type('Clear copy c');
+    await expect(text).toHaveValue('Clear copy c');
+    await expect(page.locator('body')).not.toHaveAttribute('data-page-shortcut');
+    await expect(instruction(page)).toHaveCount(0);
+    await feedback.getByRole('button', { name: 'Expand', exact: true }).click();
+    await text.focus();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' c');
+    await expect(text).toHaveValue('Clear copy c c');
+    await expect(page.locator('body')).not.toHaveAttribute('data-page-shortcut');
+    // Escape collapses first, then closes the feedback popover.
+    await page.keyboard.press('Escape');
+    await expect(feedback.getByRole('button', { name: 'Expand', exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(feedback).toBeHidden();
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press('c');
+    await expect(page.locator('body')).toHaveAttribute('data-page-shortcut', 'handled');
+    await context.close();
+});
+
 test('C comments on selected text', async ({ browser }, info) => {
     const { context, page } = await newVisitor(browser, info);
     await openLanding(page, isolatedOrigin(info), { dismissHint: true });
