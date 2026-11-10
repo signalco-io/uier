@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Down } from '@signalco/ui-icons';
+import { auditAvailable } from '../../checks/axeLoader';
 import type { SeoReport } from '../../checks/seo';
 import type { CheckState, PageCheck } from '../../checks/types';
 import { useWebVitals, vitalCheck, type VitalName, type WebVitals } from '../../checks/webVitals';
@@ -7,15 +8,21 @@ import { ChecksPanel } from './ChecksPanel';
 import { GuestNameField } from './GuestName';
 import { CheckFilterContext, CheckItem, CheckSection, ChecksSummary, checkStates, OtherPageNote } from './ChecksParts';
 import { CheckedAt } from './CheckedAt';
-import { AiSearchSection } from './sections/AiSearchSection';
-import { CrawlerSection } from './sections/CrawlerSection';
-import { HreflangRows, ImageRows, LinkStatusRows } from './sections/pageExtras';
-import { SharingSection } from './sections/SharingSection';
-import { StructuredDataSection } from './sections/StructuredDataSection';
-import { usePanelSectionChecks } from './sections/sections';
+import { ChecksTabs, type ChecksTab } from './ChecksTabs';
+import { AiSearchSection, aiSearchSections } from './sections/AiSearchSection';
+import { CrawlerSection, crawlerSections } from './sections/CrawlerSection';
+import { HreflangRows, hreflangSection, ImageRows, imagesSection, LinkStatusRows, linkStatusSection } from './sections/pageExtras';
+import { SharingSection, sharingSections } from './sections/SharingSection';
+import { StructuredDataSection, structuredDataSections } from './sections/StructuredDataSection';
+import { usePanelSectionChecks, useSectionsAttention } from './sections/sections';
 import { useMessages } from '../../i18n';
 
 const vitalNames: readonly VitalName[] = ['LCP', 'CLS', 'INP'];
+
+// The on-demand sections of each tab, for its dot (Page and Content add their own checks)
+const pageTab = [hreflangSection];
+const contentTab = [imagesSection, linkStatusSection];
+const searchTab = [...crawlerSections, ...structuredDataSections, ...aiSearchSections];
 
 /** The page's headings in order, indented by level, behind a disclosure so the checks stay in view */
 function HeadingsOutline({ outline }: { outline: SeoReport['headings']['outline'] }) {
@@ -57,11 +64,12 @@ export function seoChecks(report: SeoReport | undefined, vitals: readonly PageCh
 }
 
 /**
- * The SEO panel: a summary of what passed and what is worth a look first, then the page's indexing,
- * title, meta description, canonical link, viewport, language and hreflang tags, its headings (the
- * outline folded), links (with Check links) and images, and Core Web Vitals measured in this browser
- * (updated while the page is used). Every check is one compact row with its state and a one-line
- * reason; the on-demand ones (`sections/pageExtras.tsx`) show in the same sections.
+ * The SEO panel: a summary of what passed and what is worth a look first, then tabs: Page (indexing,
+ * title, meta description, canonical link, viewport, language and hreflang tags, and Core Web Vitals
+ * measured in this browser, updated while the page is used), Content (headings with the outline
+ * folded, links with Check links, images), Sharing, and Search (crawlers, structured data, AI search).
+ * Every check is one compact row with its state and a one-line reason; the on-demand ones
+ * (`sections/pageExtras.tsx`) show in the same sections.
  */
 export function SeoPanel({ report, path, onCheck, onClose }: {
     report?: SeoReport;
@@ -78,6 +86,54 @@ export function SeoPanel({ report, path, onCheck, onClose }: {
     const [selected, setFilter] = useState<'warn' | 'pass'>();
     // One that no longer counts anything (Check again, Not an issue) filters nothing
     const filter = selected && tally(checks, selected) ? selected : undefined;
+    const pageAttention = tally([...report?.page ?? [], ...vitals], 'warn') + useSectionsAttention('seo', pageTab);
+    const contentAttention = tally(report ? [...report.headings.checks, ...report.links.checks, ...report.images.checks] : [], 'warn') + useSectionsAttention('seo', contentTab);
+    const sharingAttention = useSectionsAttention('seo', sharingSections);
+    const searchAttention = useSectionsAttention('seo', searchTab);
+    const tabs: ChecksTab[] = [
+        {
+            id: 'page', label: p.tabs.page, attention: pageAttention,
+            content: report && <>
+                <CheckSection title={p.page}>
+                    {report.page.map(check => <CheckItem key={check.id} check={check} />)}
+                    <HreflangRows />
+                </CheckSection>
+                <CheckSection title={p.vitals} note={p.measuredHere}>
+                    {vitals.map(check => <CheckItem key={check.id} check={check} />)}
+                </CheckSection>
+            </>
+        },
+        {
+            id: 'content', label: p.tabs.content, attention: contentAttention,
+            content: report && <>
+                <CheckSection title={p.headings} count={report.headings.outline.length}>
+                    {report.headings.checks.map(check => <CheckItem key={check.id} check={check} />)}
+                    <HeadingsOutline outline={report.headings.outline} />
+                </CheckSection>
+                <CheckSection title={p.links} count={report.links.total}
+                    note={report.links.total ? p.linksNote(report.links.internal, report.links.external) : undefined}>
+                    {report.links.checks.map(check => <CheckItem key={check.id} check={check} />)}
+                    {report.links.total > 0 && <LinkStatusRows />}
+                </CheckSection>
+                <CheckSection title={p.images} count={report.images.total}>
+                    {report.images.checks.map(check => <CheckItem key={check.id} check={check} />)}
+                    <ImageRows />
+                </CheckSection>
+            </>
+        },
+        // Only the on-demand checks: without the audit asset (a client without it) they have nothing to show
+        ...auditAvailable() ? [
+            { id: 'sharing', label: p.tabs.sharing, attention: sharingAttention, content: report && <SharingSection /> },
+            {
+                id: 'search', label: p.tabs.search, attention: searchAttention,
+                content: report && <>
+                    <CrawlerSection />
+                    <StructuredDataSection />
+                    <AiSearchSection />
+                </>
+            }
+        ] : []
+    ];
     return (
         <ChecksPanel id="seo" title={p.title} onCheckAgain={onCheck} onClose={onClose}>
             {report && <>
@@ -91,34 +147,8 @@ export function SeoPanel({ report, path, onCheck, onClose }: {
             </>}
             <GuestNameField />
             <CheckFilterContext.Provider value={filter}>
-                {report && <>
-                    <CheckSection title={p.page}>
-                        {report.page.map(check => <CheckItem key={check.id} check={check} />)}
-                        <HreflangRows />
-                    </CheckSection>
-                    <SharingSection />
-                    <StructuredDataSection />
-                    <CheckSection title={p.headings} count={report.headings.outline.length}>
-                        {report.headings.checks.map(check => <CheckItem key={check.id} check={check} />)}
-                        <HeadingsOutline outline={report.headings.outline} />
-                    </CheckSection>
-                    <CheckSection title={p.links} count={report.links.total}
-                        note={report.links.total ? p.linksNote(report.links.internal, report.links.external) : undefined}>
-                        {report.links.checks.map(check => <CheckItem key={check.id} check={check} />)}
-                        {report.links.total > 0 && <LinkStatusRows />}
-                    </CheckSection>
-                    <CheckSection title={p.images} count={report.images.total}>
-                        {report.images.checks.map(check => <CheckItem key={check.id} check={check} />)}
-                        <ImageRows />
-                    </CheckSection>
-                </>}
-                <CheckSection title={p.vitals} note={p.measuredHere}>
-                    {vitals.map(check => <CheckItem key={check.id} check={check} />)}
-                </CheckSection>
-                {report && <>
-                    <CrawlerSection />
-                    <AiSearchSection />
-                </>}
+                {/* Only with the report: shown before it, Core Web Vitals would move down when the summary comes in */}
+                {report && <ChecksTabs panel="seo" label={p.title} filtered={!!filter} tabs={tabs} />}
             </CheckFilterContext.Provider>
         </ChecksPanel>
     );

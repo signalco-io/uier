@@ -3,7 +3,7 @@ import { expectNoAxeViolations } from './accessibility';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
 import { verifiedReviewHeaders } from './support/reviewVerification';
-import { animationsFinished, commentBubble, openThread, threadOptions, toolbar } from './support/toolbar';
+import { animationsFinished, commentBubble, openThread, showChecksTab, threadOptions, toolbar } from './support/toolbar';
 
 // A comment posted from a page check runs that check again in its thread, on the page it was posted
 // on (packages/toolbar/docs/page-checks-verify.md). The page is `fixtures/verify.ts`: an image
@@ -42,6 +42,7 @@ test('a finding posted from a panel is checked again in its thread: still found,
     await toolbar(page).getByRole('button', { name: /^SEO/ }).click();
     const seo = page.getByRole('complementary', { name: 'SEO' });
     await expect(seo.getByRole('button', { name: 'Close SEO panel' })).toBeFocused();
+    await showChecksTab(seo, 'content');
     const link = seo.locator('[data-uier-check="link-address"]');
     await link.getByRole('button', { name: 'Comment' }).click();
     await expect(link).toContainText(/Comment posted as #2/);

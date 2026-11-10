@@ -760,7 +760,6 @@ export const hr: Messages = {
         otherPageAfter: '. Ponovno provjerite ovu stranicu.',
         checkedAtBefore: 'Provjereno u ',
         checkedAtAfter: '',
-        checkedWith: (by: string) => ` alatom ${by}`,
         checkAgain: 'Provjeri ponovno',
         closePanel: 'Zatvori ploču',
         closeNamed: (title: string) => `Zatvori ploču ${title}`,
@@ -806,7 +805,8 @@ export const hr: Messages = {
             noIssues: 'Nema pronađenih problema.',
             automatedNote: ' Automatske provjere pronalaze samo dio problema. Isprobajte i tipkovnicu i čitač zaslona.',
             blocked: 'Content-Security-Policy stranice ili veza možda blokiraju njezinu skriptu.',
-            undecided: 'axe-core nije mogao odlučiti. Ne broji se.'
+            undecided: 'axe-core nije mogao odlučiti. Ne broji se.',
+            tabs: { issues: 'Problemi', keyboard: 'Tipkovnica', screenReader: 'Čitač zaslona', visual: 'Prikaz' }
         },
         seoPanel: {
             title: 'SEO',
@@ -821,7 +821,8 @@ export const hr: Messages = {
             linksNote: (internal: number, external: number) => `${internal} na ovoj stranici, ${external} na druge stranice`,
             images: 'Slike',
             vitals: 'Core Web Vitals',
-            measuredHere: 'Izmjereno u ovom pregledniku'
+            measuredHere: 'Izmjereno u ovom pregledniku',
+            tabs: { page: 'Stranica', content: 'Sadržaj', sharing: 'Dijeljenje', search: 'Pretraživanje' }
         },
         vitals: {
             names: { LCP: 'Largest Contentful Paint', CLS: 'Cumulative Layout Shift', INP: 'Interaction to Next Paint' },

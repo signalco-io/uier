@@ -1,6 +1,6 @@
 # SEO panel: Crawlers
 
-The SEO panel's Crawlers section (last but one) says what a crawler gets from the page, which the
+The SEO panel's Crawlers section (first in its Search tab) says what a crawler gets from the page, which the
 document alone cannot tell: the response to a request without cookies, the HTML the server sends
 against the rendered page, robots.txt for search and AI crawlers, the sitemap and llms.txt. It is a
 section of the [page checks](page-checks.md#sections): the logic is `src/checks/lazy/crawler.ts` (in

@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page, type Request } from '@playwright
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, toolbar } from './support/toolbar';
+import { animationsFinished, showChecksTab, toolbar } from './support/toolbar';
 
 // The Accessibility panel's Keyboard and Screen reader sections (packages/toolbar/docs/page-checks-keyboard.md)
 // on a project's site on another origin (`fixture-keyboard`, e2e/support/fixtures/keyboard.ts): the tab
@@ -36,6 +36,7 @@ async function openPanel(page: Page, label: string) {
     const panel = page.getByRole('complementary', { name: 'Accessibility' });
     const keyboard = panel.locator('[data-uier-section="keyboard"]');
     await expect(keyboard).toHaveAttribute('data-uier-section-status', 'done', { timeout: 20_000 });
+    await showChecksTab(panel, 'keyboard');
     return { project, panel, keyboard };
 }
 
@@ -221,6 +222,7 @@ test('the Screen reader section lists landmarks, headings and controls with thei
     const { project, panel } = await openPanel(page, 'screen-reader');
     const reader = panel.locator('[data-uier-section="screenReader"]');
     await expect(reader).toHaveAttribute('data-uier-section-status', 'done');
+    await showChecksTab(panel, 'screenReader');
 
     await expect(check(reader, 'sr-landmarks')).toContainText('banner, navigation, main, region, contentinfo.');
     await expect(check(reader, 'sr-headings')).toContainText('Levels 1 to 4.');

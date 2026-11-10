@@ -7,11 +7,13 @@ import { GuestNameField } from './GuestName';
 import { CheckSection, ChecksSummary, IssueList, OtherPageNote, sharedSummary, type ChecksIcon } from './ChecksParts';
 import { CheckedAt } from './CheckedAt';
 import { CircleAlertIcon, OctagonAlertIcon } from './ChecksIcons';
-import { AltTextSection } from './sections/AltTextSection';
-import { KeyboardSection } from './sections/KeyboardSection';
-import { MotionSection } from './sections/MotionSection';
-import { ReflowSection } from './sections/ReflowSection';
-import { ScreenReaderSection } from './sections/ScreenReaderSection';
+import { ChecksTabs } from './ChecksTabs';
+import { AltTextSection, altTextSections } from './sections/AltTextSection';
+import { KeyboardSection, keyboardSections } from './sections/KeyboardSection';
+import { MotionSection, motionSections } from './sections/MotionSection';
+import { ReflowSection, reflowSections } from './sections/ReflowSection';
+import { ScreenReaderSection, screenReaderSections } from './sections/ScreenReaderSection';
+import { useSectionsAttention } from './sections/sections';
 import { useMessages } from '../../i18n';
 
 export type AccessibilityState = { report?: AccessibilityReport; checking: boolean; error?: boolean };
@@ -78,10 +80,15 @@ function RuleItem({ rule }: { rule: AccessibilityRule }) {
 /** The elements of rules, without the ones marked "Not an issue" */
 const elementCount = (rules: readonly AccessibilityRule[]) => rules.reduce((total, rule) => total + rule.issues.length, 0);
 
+// The on-demand sections of each tab but Issues, for their tab's dot
+const screenReaderTab = [...screenReaderSections, ...altTextSections];
+const visualTab = [...reflowSections, ...motionSections];
+
 /**
  * The Accessibility panel: axe-core's audit of the page (the lazy audit asset). A summary of its
- * issues by impact first, then each impact's rules, every rule marked with its impact's icon, with
- * its help link and the elements that fail it.
+ * issues by impact first, then tabs: Issues, each impact's rules (every rule marked with its impact's
+ * icon, with its help link and the elements that fail it) and what to review; Keyboard; Screen
+ * reader (with Alt text); Visual (zoom, text spacing and motion).
  */
 export function AccessibilityPanel({ state, path, onCheck, onClose }: {
     state: AccessibilityState;
@@ -97,15 +104,20 @@ export function AccessibilityPanel({ state, path, onCheck, onClose }: {
     const status = checking ? a.checkingPage
         : error ? a.couldNotRun
             : report ? (report.count ? a.found(a.issues(report.count)) : a.noIssues) : '';
+    // With issues, the tiles show how many: the status is read out only
+    const statusShown = checking || error || !shown?.count;
     // A summary tile pressed: only its impact's rules, without the sections to review or check by hand
     const [selected, setFilter] = useState<Impact>();
     const counts = Object.fromEntries(impacts.map(impact => [impact, elementCount(shown?.rules.filter(rule => rule.impact === impact) ?? [])])) as Record<Impact, number>;
     // One that no longer counts anything (Check again, Not an issue) filters nothing
     const filter = selected && counts[selected] ? selected : undefined;
+    const keyboardAttention = useSectionsAttention('accessibility', keyboardSections);
+    const screenReaderAttention = useSectionsAttention('accessibility', screenReaderTab);
+    const visualAttention = useSectionsAttention('accessibility', visualTab);
     return (
         <ChecksPanel id="accessibility" title={a.title} checking={checking} onCheckAgain={onCheck} onClose={onClose}>
             <div className="flex flex-col gap-2">
-                <p role="status" className="m-0 flex items-center gap-2 px-1 text-sm text-foreground">
+                <p role="status" className={statusShown ? 'm-0 flex items-center gap-2 px-1 text-sm text-foreground' : 'sr-only'}>
                     {checking && <LoaderSpinner size={16} aria-hidden="true" className="motion-safe:animate-spin" />}
                     {shown && !error && !shown.count && <Check size={16} aria-hidden="true" className="text-[hsl(var(--brand-success))]" />}
                     {status}
@@ -116,7 +128,7 @@ export function AccessibilityPanel({ state, path, onCheck, onClose }: {
                 )}
                 {shown && (
                     <p className="m-0 px-1 text-xs text-muted-foreground">
-                        <CheckedAt time={shown.checkedAt} by="axe-core" />
+                        <CheckedAt time={shown.checkedAt} />
                         {/* Without issues, what automated checks cannot tell */}
                         {!shown.count && a.automatedNote}
                     </p>
@@ -130,29 +142,32 @@ export function AccessibilityPanel({ state, path, onCheck, onClose }: {
                     <Button size="sm" variant="outlined" onClick={onCheck}>{t.common.retry}</Button>
                 </div>
             )}
-            {shown && impacts.map(impact => {
-                const rules = shown.rules.filter(rule => rule.impact === impact);
-                if (!rules.length || (filter && filter !== impact)) return null;
-                return (
-                    <CheckSection key={impact} title={a.impacts[impact]} count={counts[impact]} data-uier-impact={impact}>
-                        {rules.map(rule => <RuleItem key={rule.id} rule={rule} />)}
-                    </CheckSection>
-                );
-            })}
-            {/* What axe-core could not decide: for a person to judge, not counted as issues */}
-            {!filter && !!shown?.review?.length && (
-                <CheckSection title={a.toReview} count={elementCount(shown.review)} note={a.undecided} data-uier-review="">
-                    {shown.review.map(rule => <RuleItem key={rule.id} rule={rule} />)}
-                </CheckSection>
-            )}
-            {/* What the audit cannot judge: the on-demand sections, each with its own report */}
-            {!filter && <>
-                <KeyboardSection />
-                <ScreenReaderSection />
-                <AltTextSection />
-                <ReflowSection />
-                <MotionSection />
-            </>}
+            <ChecksTabs panel="accessibility" label={a.title} filtered={!!filter} tabs={[
+                {
+                    id: 'issues', label: a.tabs.issues, attention: impacts.reduce((total, impact) => total + counts[impact], 0),
+                    content: <>
+                        {shown && impacts.map(impact => {
+                            const rules = shown.rules.filter(rule => rule.impact === impact);
+                            if (!rules.length || (filter && filter !== impact)) return null;
+                            return (
+                                <CheckSection key={impact} title={a.impacts[impact]} count={counts[impact]} data-uier-impact={impact}>
+                                    {rules.map(rule => <RuleItem key={rule.id} rule={rule} />)}
+                                </CheckSection>
+                            );
+                        })}
+                        {/* What axe-core could not decide: for a person to judge, not counted as issues */}
+                        {!filter && !!shown?.review?.length && (
+                            <CheckSection title={a.toReview} count={elementCount(shown.review)} note={a.undecided} data-uier-review="">
+                                {shown.review.map(rule => <RuleItem key={rule.id} rule={rule} />)}
+                            </CheckSection>
+                        )}
+                    </>
+                },
+                // What the audit cannot judge: the on-demand sections, each with its own report (not while a tile filters)
+                { id: 'keyboard', label: a.tabs.keyboard, attention: keyboardAttention, content: !filter && <KeyboardSection /> },
+                { id: 'screenReader', label: a.tabs.screenReader, attention: screenReaderAttention, content: !filter && <><ScreenReaderSection /><AltTextSection /></> },
+                { id: 'visual', label: a.tabs.visual, attention: visualAttention, content: !filter && <><ReflowSection /><MotionSection /></> }
+            ]} />
         </ChecksPanel>
     );
 }

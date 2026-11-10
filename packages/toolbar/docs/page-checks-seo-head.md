@@ -1,6 +1,6 @@
 # SEO panel: Sharing and Structured data
 
-Two sections of the SEO panel, right after its Page section, on the sections framework of
+Two sections of the SEO panel, Sharing in its Sharing tab and Structured data in its Search tab (after Crawlers), on the sections framework of
 [page checks](page-checks.md#sections). The logic is in the audit asset (`src/checks/lazy/sharing.ts`,
 `structuredData.ts`), the views in `components/checks/sections/SharingSection.tsx` and
 `StructuredDataSection.tsx`. Check ids start with `share-` and `schema-` (type `seo`).

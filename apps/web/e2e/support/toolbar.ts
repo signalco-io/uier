@@ -19,6 +19,16 @@ export async function animationsFinished(locator: Locator) {
     });
 }
 
+/**
+ * Shows a tab of a checks panel (Accessibility: issues, keyboard, screenReader, visual; SEO: page,
+ * content, sharing, search), whose sections are hidden while another tab is shown
+ */
+export async function showChecksTab(panel: Locator, tab: string) {
+    const button = panel.locator(`[role="tab"][data-uier-tab="${tab}"]`);
+    await button.click();
+    await expect(button).toHaveAttribute('aria-selected', 'true');
+}
+
 /** The toolbar shown for selected page text */
 export const selectionToolbar = (page: Page) => page.getByRole('toolbar', { name: 'Selected text' });
 /** Comment thread popover (only one is open at a time); not the Copy and Thread options menus in its header */

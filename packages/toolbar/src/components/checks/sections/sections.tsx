@@ -190,11 +190,11 @@ function defaultAttention(panel: ChecksPanelId, report: AnySectionReport) {
     return panel === 'seo' ? warnings.length : warnings.reduce((total, check) => total + Math.max(1, check.issues.length), 0);
 }
 
-/** A panel's sections that have a report of this page */
-function reported(store: Pick<SectionsStore, 'path' | 'definitions' | 'states'>, panel: ChecksPanelId) {
+/** A panel's sections that have a report of this page (`only`: of these sections, a tab's) */
+function reported(store: Pick<SectionsStore, 'path' | 'definitions' | 'states'>, panel: ChecksPanelId, only?: readonly SectionDefinition[]) {
     return store.definitions.flatMap(definition => {
         const state = store.states.get(definition.id);
-        return definition.panel === panel && state?.report && state.path === store.path ? [{ definition, report: state.report }] : [];
+        return definition.panel === panel && (!only || only.includes(definition)) && state?.report && state.path === store.path ? [{ definition, report: state.report }] : [];
     });
 }
 
@@ -203,9 +203,15 @@ export function sectionChecks(store: Pick<SectionsStore, 'path' | 'definitions' 
     return reported(store, panel).flatMap(({ report }) => report.checks);
 }
 
-/** What a panel's sections found to act on in this page, for its button's dot and name */
-export function sectionsAttention(store: Pick<SectionsStore, 'path' | 'definitions' | 'states'>, panel: ChecksPanelId): number {
-    return reported(store, panel).reduce((total, { definition, report }) => total + (definition.attention?.(report) ?? defaultAttention(panel, report)), 0);
+/** What a panel's sections found to act on in this page, for its button's dot and name (`only`: of these sections, for a tab's) */
+export function sectionsAttention(store: Pick<SectionsStore, 'path' | 'definitions' | 'states'>, panel: ChecksPanelId, only?: readonly SectionDefinition[]): number {
+    return reported(store, panel, only).reduce((total, { definition, report }) => total + (definition.attention?.(report) ?? defaultAttention(panel, report)), 0);
+}
+
+/** What some of the open panel's sections found to act on in this page, for their tab's dot and name */
+export function useSectionsAttention(panel: ChecksPanelId, only: readonly SectionDefinition[]): number {
+    const store = useContext(SectionsContext);
+    return store ? sectionsAttention(store, panel, only) : 0;
 }
 
 /** The checks of the open panel's sections, for its summary */

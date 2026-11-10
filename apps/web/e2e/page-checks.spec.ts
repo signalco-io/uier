@@ -3,7 +3,7 @@ import { expectNoAxeViolations } from './accessibility';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { auditAssetPath, auditRuns, observeAuditRuns } from './support/auditRuns';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, chooseInboxPages, commentBubble, inboxPages, openThread, setThreadStatus, toolbar } from './support/toolbar';
+import { animationsFinished, chooseInboxPages, commentBubble, inboxPages, openThread, setThreadStatus, showChecksTab, toolbar } from './support/toolbar';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 
 // The toolbar's Accessibility and SEO panels (packages/toolbar/docs/page-checks.md) on a project's
@@ -85,6 +85,30 @@ test('the Accessibility panel audits the page in the background without the tool
     await expect(panel.locator('[data-uier-impact="serious"]')).toHaveCount(0);
     await page.keyboard.press('Enter');
     await expect(panel.locator('[data-uier-impact="serious"]')).toBeVisible();
+    // The sections in a few tabs, Issues first: a tab with something to act on has a dot and says so
+    const tabs = panel.getByRole('tablist', { name: 'Accessibility' });
+    const issuesTab = tabs.getByRole('tab', { name: /^Issues/ });
+    await expect(tabs.getByRole('tab')).toHaveText(['Issues', 'Keyboard', 'Screen reader', 'Visual']);
+    await expect(issuesTab).toHaveAttribute('aria-selected', 'true');
+    await expect(issuesTab).toHaveAccessibleName(/^Issues, \d+ issues? found$/);
+    await expect(issuesTab.locator('[data-uier-tab-attention]')).toBeVisible();
+    // One tab stop: the arrow keys move and show the tab they reach
+    await issuesTab.focus();
+    await page.keyboard.press('ArrowRight');
+    const keyboardTab = tabs.getByRole('tab', { name: /^Keyboard/ });
+    await expect(keyboardTab).toBeFocused();
+    await expect(keyboardTab).toHaveAttribute('aria-selected', 'true');
+    await expect(panel.getByRole('tabpanel')).toHaveAttribute('data-uier-tab-panel', 'keyboard');
+    await expect(panel.locator('[data-uier-impact="critical"]')).toBeHidden();
+    // A tile shows its results from every tab, without the tabs; cleared, the tab that was open is back
+    await critical.click();
+    await expect(tabs).toHaveCount(0);
+    await expect(panel.locator('[data-uier-impact="critical"]')).toBeVisible();
+    await critical.click();
+    await expect(keyboardTab).toHaveAttribute('aria-selected', 'true');
+    await keyboardTab.focus();
+    await page.keyboard.press('ArrowLeft');
+    await expect(issuesTab).toHaveAttribute('aria-selected', 'true');
     // A line every element of a rule shares is said once, under its title, not on the element
     await expect(imageRule).toContainText('Element does not have an alt attribute');
     // The rule's row names the success criterion it tests
@@ -155,7 +179,8 @@ test('the SEO panel reports the head, headings, links, images and Core Web Vital
     await expect(check('h1')).toHaveAttribute('data-uier-check-state', 'pass');
     await expect(check('levels')).toHaveAttribute('data-uier-check-state', 'warn');
     await expect(check('levels')).toContainText('An h3 after an h1, skipping a level.');
-    // The outline is folded until asked for
+    // The outline is folded until asked for (in the Content tab)
+    await showChecksTab(panel, 'content');
     await expect(panel.getByRole('list', { name: 'Headings outline' })).toBeHidden();
     await panel.locator('summary', { hasText: 'Outline' }).click();
     await expect(panel.getByRole('list', { name: 'Headings outline' })).toContainText('Plans in detail');
@@ -184,9 +209,12 @@ test('the SEO panel reports the head, headings, links, images and Core Web Vital
     await expect(panel.locator('[data-uier-check-state="warn"]')).toHaveCount(warnings);
     await warnTile.click();
     await expect(warnTile).toHaveAttribute('aria-pressed', 'false');
-    await expect(panel.locator('[data-uier-check-state="pass"]').first()).toBeVisible();
+    await expect(panel.getByRole('tablist', { name: 'SEO' }).getByRole('tab')).toHaveText(['Page', 'Content', 'Sharing', 'Search']);
+    await expect(panel.getByRole('tab', { name: /^Content, \d+ to look at$/ }).locator('[data-uier-tab-attention]')).toBeVisible();
+    await expect(panel.locator('[data-uier-check-state="pass"]').first()).toBeAttached();
 
     // A page issue needs the guest's name first, then is page feedback (a bug report)
+    await showChecksTab(panel, 'page');
     await check('description').getByRole('button', { name: 'Comment' }).click();
     await expect(panel.getByRole('alert')).toHaveText('Enter your name to comment.');
     await expect(panel.getByRole('textbox', { name: 'Your name' })).toBeFocused();
@@ -202,6 +230,7 @@ test('the SEO panel reports the head, headings, links, images and Core Web Vital
     await expect(panel.getByRole('textbox', { name: 'Your name' })).toBeHidden();
 
     // An element's issue is pinned to it; with the keyboard the focus stays on the action, now Show
+    await showChecksTab(panel, 'content');
     created = nextCreate(page, project);
     await check('levels').getByRole('button', { name: 'Comment' }).focus();
     await page.keyboard.press('Enter');
@@ -223,6 +252,7 @@ test('the SEO panel reports the head, headings, links, images and Core Web Vital
     await expectNoAxeViolations(page, { include: ['#uier-toolbar'] });
 
     // Show for page feedback opens the inbox on it
+    await showChecksTab(panel, 'page');
     await check('description').getByRole('button', { name: 'Show' }).click();
     const inbox = page.getByRole('complementary', { name: 'Comments' });
     await expect(inbox).toBeVisible();
@@ -252,6 +282,7 @@ test('the SEO panel reports the head, headings, links, images and Core Web Vital
         document.getElementById('missing-anchor')?.setAttribute('href', 'javascript:void(0)');
     });
     await panel.getByRole('button', { name: 'Check again' }).click();
+    await showChecksTab(panel, 'content');
     await expect(check('link-address')).toContainText('2 links look broken. It runs a script instead of opening a page.');
     await expect(check('link-address').getByRole('listitem')).toHaveCount(2);
     await expect(check('link-address').getByRole('listitem').filter({ hasText: 'It runs a script' })).toHaveCount(0);
@@ -271,6 +302,7 @@ test('a finding that is already reported stays marked after a reload, until its 
     await check('description').getByRole('button', { name: 'Comment' }).click();
     expect((await created).postDataJSON().check).toEqual({ type: 'seo', id: 'description' });
     await expect(check('description')).toContainText(/Bug report sent as #1/);
+    await showChecksTab(panel, 'content');
     created = nextCreate(page, project);
     await check('levels').getByRole('button', { name: 'Comment' }).click();
     await created;
@@ -278,12 +310,13 @@ test('a finding that is already reported stays marked after a reload, until its 
 
     // After a reload the panel knows them from the page's threads: no second comment for the same finding
     await page.reload();
-    await expect(check('levels')).toContainText('Reported as #2');
-    await expect(check('levels').getByRole('button', { name: 'Comment' })).toHaveCount(0);
     await expect(check('description')).toContainText('Reported as #1');
     await expect(check('description').getByRole('button', { name: 'Comment' })).toHaveCount(0);
     // A finding nobody reported still offers its comment
     await expect(check('canonical').getByRole('button', { name: 'Comment' })).toBeVisible();
+    await showChecksTab(panel, 'content');
+    await expect(check('levels')).toContainText('Reported as #2');
+    await expect(check('levels').getByRole('button', { name: 'Comment' })).toHaveCount(0);
     await expect(check('link-text').getByRole('button', { name: 'Comment' })).toBeVisible();
     await animationsFinished(panel);
     await expectNoAxeViolations(page, { include: ['#uier-toolbar'] });
@@ -490,6 +523,7 @@ test('on a phone the panels open from Options, keep the pill as wide as before, 
     expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     const created = nextCreate(page, project);
+    await seo.locator('[role="tab"][data-uier-tab="content"]').tap();
     await seo.locator('[data-uier-check="alt"]').getByRole('button', { name: 'Comment' }).tap();
     expect((await created).postDataJSON().position.selector).toContain('plan-chart');
     await expect(seo.locator('[data-uier-check="alt"]')).toContainText(/Comment posted as #1/);

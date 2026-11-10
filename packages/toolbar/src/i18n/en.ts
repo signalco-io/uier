@@ -779,10 +779,9 @@ export const en = {
         /** "These results are for /about. Check again for this page.": the path goes between */
         otherPageBefore: 'These results are for ',
         otherPageAfter: '. Check again for this page.',
-        /** "Checked at 14:32 with axe-core.": the time goes between */
+        /** "Checked at 14:32.": the time goes between */
         checkedAtBefore: 'Checked at ',
         checkedAtAfter: '',
-        checkedWith: (by: string) => ` with ${by}`,
         checkAgain: 'Check again',
         closePanel: 'Close panel',
         closeNamed: (title: string) => `Close ${title} panel`,
@@ -831,7 +830,9 @@ export const en = {
             noIssues: 'No issues found.',
             automatedNote: ' Automated checks find only some issues. Also try a keyboard and a screen reader.',
             blocked: "The site's Content-Security-Policy or the connection may block its script.",
-            undecided: 'axe-core could not decide. Not counted.'
+            undecided: 'axe-core could not decide. Not counted.',
+            /** The panel's tabs: axe-core's results, then what it cannot judge */
+            tabs: { issues: 'Issues', keyboard: 'Keyboard', screenReader: 'Screen reader', visual: 'Visual' }
         },
         seoPanel: {
             title: 'SEO',
@@ -846,7 +847,9 @@ export const en = {
             linksNote: (internal: number, external: number) => `${internal} on this site, ${external} to other sites`,
             images: 'Images',
             vitals: 'Core Web Vitals',
-            measuredHere: 'Measured in this browser'
+            measuredHere: 'Measured in this browser',
+            /** The panel's tabs */
+            tabs: { page: 'Page', content: 'Content', sharing: 'Sharing', search: 'Search' }
         },
         vitals: {
             names: { LCP: 'Largest Contentful Paint', CLS: 'Cumulative Layout Shift', INP: 'Interaction to Next Paint' },

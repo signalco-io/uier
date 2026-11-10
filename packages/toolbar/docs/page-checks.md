@@ -93,7 +93,26 @@ Both panels share one layout (`components/checks/ChecksParts.tsx`), so they read
   filters by state through `CheckFilterContext`: `CheckItem` renders only checks in that state, and a
   `CheckSection` hides its other rows (the outline, Check links, previews) and itself without a check
   left. The filter is the open panel's own state: it is gone on another page or when the panel closes.
-  The count is `[data-uier-summary-count]` in tests.
+  The count is `[data-uier-summary-count]` in tests. While a tile filters, the tabs (below) give way to
+  every tab's matching results in one list, in the tabs' order; Show all results brings back the tab that was open.
+- **Tabs** (`ChecksTabs`), under the summary, so a long report is not one long scroll
+  ([uier #223](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_mY3MB3_7kCIlcwKhFLecK),
+  [uier #225](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_YOlokHEtM9pDYrCLijzKc)):
+  a few groups of sections, not one tab per section. Accessibility: **Issues** (the impacts and To review),
+  **Keyboard**, **Screen reader** (with Alt text) and **Visual** (zoom and text spacing, motion). SEO:
+  **Page** (Page and Core Web Vitals), **Content** (headings, links, images), **Sharing** and **Search**
+  (Crawlers, Structured data, AI search); Sharing and Search only where the audit asset is. They look like
+  the inbox's status tabs (underlined) and are ARIA tabs: one tab stop, ← and → move and show the tab they
+  reach (`useRovingFocus`, not the UI kit's Radix tabs, whose arrow keys fail in a shadow root). A tab whose
+  sections found something to act on has the button's amber dot (`data-uier-tab-attention`) and a name that
+  says what ("Keyboard, 2 issues found", "Content, 3 to look at"), counted as the button counts
+  (`useSectionsAttention` for the on-demand sections of a tab). Every tab's sections stay rendered, hidden,
+  so Show all, an open outline or a tab order drawn on the page stay while another tab is open. The SEO
+  tabs show once its report is there: Core Web Vitals shown alone before it would move down when the
+  summary comes in, a layout shift its CLS check would count (a shadow root's shift sources are `null`). The open tab
+  is kept in module memory per panel: it stays on the next page (a client-side navigation) and when the
+  panel opens again; a full page load starts at the first. Tests
+  choose one with `showChecksTab` (`e2e/support/toolbar.ts`).
 - **Sections** (`CheckSection`): a heading with its count and a short note on the right, over one
   bordered card whose rows are divided by lines.
 - **Rows** (`CheckItem`): one compact row per check: the state icon, the name, a short measurement on
@@ -150,8 +169,10 @@ An open inbox, Accessibility or SEO panel stays open on the next page and shows 
   report are in the audit asset (`lazy/accessibilityReport.ts`); `accessibility.ts` is the queue in the
   review bundle. The panel lists only what axe-core finds
   ([uier #198](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fbrand&comment=comment_fCCTyY6zuzO3K_Kr-DALq)):
-  the status ("3 issues found."), a summary tile per impact with its elements' count, when it was checked,
-  then a section per impact (critical, serious, moderate, minor). Each rule is a row marked with its
+  the status ("3 issues found.", read out only: the tiles show the counts, [uier #226](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_rBu2-JZLowGgsaVmjl9o-);
+  "Checking this page...", a failure and "No issues found." show), a summary tile per impact with its
+  elements' count, when it was checked (not with what: the checks change, [uier #227](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_Im2uENyTKFmnJbPng8NWD)),
+  then, in the Issues tab, a section per impact (critical, serious, moderate, minor). Each rule is a row marked with its
   impact's icon in its colour (`impactStyles`: the priority colours, a shape each, see `BRAND.md`,
   "Accessibility impact"), its help text, id, the standard it tests (`ruleStandard`, from axe-core's tags: "WCAG 1.4.3 (AA)",
   or "Best practice") and **How to fix** link (Deque University, without its tracking query); each element is a row with its short name (`img#hero.logo`). axe-core's first failure
@@ -159,8 +180,7 @@ An open inbox, Accessibility or SEO panel stays open on the next page and shows 
   at most (the whole line is its `title`, and screen readers read all of it). Without issues the panel
   says so in one line, with a reminder to also try a keyboard and a screen reader.
 - **To review**: what axe-core could not decide (its incomplete results: contrast over an image or a
-  gradient, a target it cannot measure) is a section of its own after the impacts and before the
-  on-demand sections, each rule with a search icon, its elements and the reason axe-core gave (the
+  gradient, a target it cannot measure) is a section of its own after the impacts, in the Issues tab, each rule with a search icon, its elements and the reason axe-core gave (the
   messages of its undecided checks), with Highlight and Comment. They are not issues: they are in no
   count, tile or dot ([page-checks-report.md](page-checks-report.md)).
 - **Not an issue** hides a finding in this browser: it leaves the counts, the tiles and the button's
@@ -231,7 +251,8 @@ panel. The review bundle (858 KB of the 1 MB a published bundle may be) gets onl
   `defineSection({ id, panel, when, run, attention? })`, the area's list of definitions
   (`crawlerSections`), and a component that reads its state with `useSection(definition)` and shows it,
   usually with `ReportSection` (the checks as compact rows, then the section's own rows).
-  `sections/index.ts` lists every area, and the panels render the components in their order.
+  `sections/index.ts` lists every area, and the panels render the components in their order, each in its
+  tab ([Layout](#layout)); a new section joins the tab it fits and counts toward its dot.
 - **When it runs** (`when`): `background` with the background checks, one section at a time when the
   browser is idle, only where the audit asset is loaded unasked (not with `Save-Data`, not over 1,500
   elements) and only for work of a few milliseconds without requests; `panel` when its panel opens and
@@ -320,6 +341,7 @@ and names before a panel opens, the panel opening with that report and no new re
 screenshot, details, failure lines, standard and check, Show, focus back on Close, the impact tiles' counts and a rule's shared line said once (Desktop Chrome); the SEO checks, the summary's counts,
 the folded outline, Core Web Vitals not counting the toolbar's presses, a guest's name, page feedback, an
 element's comment with what was found and its check, findings marked as reported after a reload (with Show) until their thread is done, a noindex page (its Indexing note, no canonical needed) and broken links sharing one reason (Desktop Chrome);
+the tabs (the sections of the shown one, a tab's dot and name, ← and →, a filter listing every tab's results) (Desktop Chrome);
 the panels from Options on a phone, their rows marked by the background checks, fitting the screen (Mobile Chrome); the SEO panel and the inbox
 staying open across a client-side navigation, a same-site full load and a reload, and not on a page
 opened anew; an Accessibility panel left open while the previous page's audit still runs (a slow

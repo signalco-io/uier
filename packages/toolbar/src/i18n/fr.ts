@@ -759,7 +759,6 @@ export const fr: Messages = {
         otherPageAfter: '. Vérifiez à nouveau pour cette page.',
         checkedAtBefore: 'Vérifié à ',
         checkedAtAfter: '',
-        checkedWith: (by: string) => ` avec ${by}`,
         checkAgain: 'Vérifier à nouveau',
         closePanel: 'Fermer le panneau',
         closeNamed: (title: string) => `Fermer le panneau ${title}`,
@@ -805,7 +804,8 @@ export const fr: Messages = {
             noIssues: 'Aucun problème trouvé.',
             automatedNote: ' Les vérifications automatiques ne trouvent qu’une partie des problèmes. Essayez aussi au clavier et avec un lecteur d’écran.',
             blocked: 'La Content-Security-Policy du site ou la connexion bloque peut-être son script.',
-            undecided: 'axe-core n’a pas pu trancher. Non compté.'
+            undecided: 'axe-core n’a pas pu trancher. Non compté.',
+            tabs: { issues: 'Problèmes', keyboard: 'Clavier', screenReader: 'Lecteur d’écran', visual: 'Affichage' }
         },
         seoPanel: {
             title: 'SEO',
@@ -820,7 +820,8 @@ export const fr: Messages = {
             linksNote: (internal: number, external: number) => `${internal} sur ce site, ${external} vers d’autres sites`,
             images: 'Images',
             vitals: 'Core Web Vitals',
-            measuredHere: 'Mesuré dans ce navigateur'
+            measuredHere: 'Mesuré dans ce navigateur',
+            tabs: { page: 'Page', content: 'Contenu', sharing: 'Partage', search: 'Recherche' }
         },
         vitals: {
             names: { LCP: 'Largest Contentful Paint', CLS: 'Cumulative Layout Shift', INP: 'Interaction to Next Paint' },

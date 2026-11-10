@@ -3,7 +3,7 @@ import { expectNoAxeViolations } from './accessibility';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { linkRequests, mostAtOnce } from './support/fixtures/seoPage';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, toolbar } from './support/toolbar';
+import { animationsFinished, showChecksTab, toolbar } from './support/toolbar';
 
 // More of the SEO panel's own Page, Links and Images checks (packages/toolbar/docs/page-checks-seo-page.md)
 // on the reviewed site's `fixture-seo-page` origin (e2e/support/fixtures/seoPage.ts): the viewport,
@@ -61,7 +61,8 @@ test('the SEO panel checks the viewport, language, hreflang, generic link text a
         /Not a language code: "en_US"\./, /Not a full address: "\/de\/plans"\./, /More than one tag for "fr"\./, /None points to this page\./
     ]);
 
-    // Links: generic text, with what they share said once; a link with a label of its own is left out
+    // Links: generic text, with what they share said once; a link with a label of its own is left out (Content tab)
+    await showChecksTab(panel, 'content');
     const generic = check('link-generic');
     await expect(generic).toHaveAttribute('data-uier-check-state', 'warn');
     await expect(generic).toContainText('2 links say nothing out of context.');
@@ -141,7 +142,8 @@ test('Check links requests at most 100 addresses, a few at a time, and Stop keep
     test.skip(testInfo.project.use.isMobile === true, 'Desktop layout');
     test.setTimeout(90_000);
     const project = await memberReview(page, 'seo-page-links', 'many-links');
-    const { check, links } = await openSeo(page);
+    const { panel, check, links } = await openSeo(page);
+    await showChecksTab(panel, 'content');
 
     await links.getByRole('button', { name: 'Check links' }).click();
     await expect(links.getByRole('status')).toHaveText(/^Checked [1-9]\d? of 100$/);
@@ -207,7 +209,9 @@ test('a page without a viewport or language, a page in German, valid and canonic
 
     // The site's CSP does not allow requests to its own origin: one note, nothing requested
     let links: Locator;
-    ({ check, links } = await open('blocked-links'));
+    let panel: Locator;
+    ({ check, links, panel } = await open('blocked-links'));
+    await showChecksTab(panel, 'content');
     await links.getByRole('button', { name: 'Check links' }).click();
     await expect(links.getByRole('status')).toHaveText('Not checked.');
     await expect(check('link-status')).toHaveAttribute('data-uier-check-state', 'none');

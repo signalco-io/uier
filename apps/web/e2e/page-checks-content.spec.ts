@@ -3,7 +3,7 @@ import { expectNoAxeViolations } from './accessibility';
 import { createProject, signIn, uniqueEmail } from './support/app';
 import { longAlt } from './support/fixtures/content';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, toolbar } from './support/toolbar';
+import { animationsFinished, showChecksTab, toolbar } from './support/toolbar';
 
 // The Accessibility panel's Alt text, Zoom and text spacing, and Motion sections
 // (packages/toolbar/docs/page-checks-content.md) on the reviewed site's `fixture-content` origin
@@ -82,6 +82,7 @@ test('the Alt text section lists every image with its alt text and flags the one
     const button = toolbar(page).getByRole('button', { name: /^Accessibility/ });
     await expect(button).toHaveAccessibleName(/^Accessibility, \d+ issues? found$/, { timeout: 20_000 });
     const panel = await openAccessibility(page);
+    await showChecksTab(panel, 'screenReader');
     const section = panel.locator('[data-uier-section="altText"]');
     const check = (id: string) => section.locator(`[data-uier-check="${id}"]`);
 
@@ -167,6 +168,7 @@ test('reflow names what sticks out at this width, and text spacing stays on unti
     test.setTimeout(120_000);
     const project = await memberReview(page, 'reflow');
     let panel = await openAccessibility(page);
+    await showChecksTab(panel, 'visual');
     const section = panel.locator('[data-uier-section="reflow"]');
     const reflow = section.locator('[data-uier-check="reflow"]');
 
@@ -273,6 +275,7 @@ test('the Motion section lists what moves for more than five seconds, without th
     test.setTimeout(90_000);
     const project = await memberReview(page, 'motion');
     const panel = await openAccessibility(page);
+    await showChecksTab(panel, 'visual');
     const section = panel.locator('[data-uier-section="motion"]');
     const check = (id: string) => section.locator(`[data-uier-check="${id}"]`);
 
@@ -286,8 +289,10 @@ test('the Motion section lists what moves for more than five seconds, without th
     await expect(animated.nth(1)).toContainText('Animates for 30 s');
     await expect(section).not.toContainText('motion-fade');
     await expect(section).not.toContainText('marquee');
-    // The marquee is the audit's own rule
+    // The marquee is the audit's own rule, in the Issues tab
+    await showChecksTab(panel, 'issues');
     await expect(panel.locator('[data-uier-rule="marquee"]')).toBeVisible();
+    await showChecksTab(panel, 'visual');
 
     // Players that start on their own without controls: the video on its element, the audio about the page
     await expect(check('motion-media')).toContainText('2 players play on their own without controls.');
@@ -327,6 +332,7 @@ test('on a phone the reflow row says it was checked at the screen\'s width', asy
     // The page clips what sticks out: a page that scrolls sideways widens a phone's layout viewport, and the toolbar's fixed controls with it
     await memberReview(page, 'reflow-mobile', '?clip');
     const panel = await openAccessibility(page);
+    await showChecksTab(panel, 'visual');
     const width = await page.evaluate(() => document.documentElement.clientWidth);
     expect(width).toBe(page.viewportSize()!.width);
     const by = await page.evaluate(() => Math.round(document.getElementById('content-wide')!.getBoundingClientRect().right + scrollX - document.documentElement.clientWidth));
