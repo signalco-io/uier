@@ -140,6 +140,14 @@ export function AccessibilityPanel({ state, path, onCheck, onClose }: {
                 {
                     id: 'issues', label: a.tabs.issues, attention: impacts.reduce((total, impact) => total + counts[impact], 0),
                     content: <>
+                        {/* Nothing to fix and nothing to review: a placeholder, like the empty inbox (over any
+                            rule left only with issues marked "Not an issue") */}
+                        {shown && !shown.count && !shown.review?.length && (
+                            <div data-uier-issues-empty="" className="flex flex-col items-center gap-2 rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+                                <Check size={20} aria-hidden="true" className="text-[hsl(var(--brand-success))]" />
+                                <p className="m-0">{a.issuesEmpty}</p>
+                            </div>
+                        )}
                         {shown && impacts.map(impact => {
                             const rules = shown.rules.filter(rule => rule.impact === impact);
                             if (!rules.length || (filter && filter !== impact)) return null;
