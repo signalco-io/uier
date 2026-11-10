@@ -1,4 +1,4 @@
-import { createContext, useContext, useId, useState, type ComponentProps, type ComponentType, type ReactNode } from 'react';
+import { createContext, useContext, useId, useRef, useState, type ComponentProps, type ComponentType, type ReactNode } from 'react';
 import { Button } from '@signalco/ui-primitives/Button';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Row } from '@signalco/ui-primitives/Row';
@@ -267,7 +267,9 @@ export function CheckStateIcon({ state }: { state: CheckState }) {
 export function CheckItem({ check, children }: { check: PageCheck; children?: ReactNode }) {
     const id = useId();
     const { isDismissed } = useContext(ChecksContext);
+    const filter = useContext(CheckFilterContext);
     const t = useMessages();
+    if (filter && check.state !== filter) return null;
     const pageIssue = check.issues.length === 1 && !check.issues[0]!.element && !isDismissed?.(check.issues[0]!) ? check.issues[0] : undefined;
     return (
         <li className="flex min-w-0 flex-col gap-1.5 px-3 py-2" data-uier-check={check.id} data-uier-check-state={check.state}>
@@ -303,15 +305,17 @@ export function CheckSection({ title, count, note, children, ...rest }: Omit<Com
     note?: ReactNode;
 }) {
     const id = useId();
+    // Filtered, a section shows only its checks (no other rows), and none at all without one
+    const filtered = useContext(CheckFilterContext) !== undefined;
     return (
-        <section aria-labelledby={id} className="flex min-w-0 flex-col gap-1.5" {...rest}>
+        <section aria-labelledby={id} className={cx('flex min-w-0 flex-col gap-1.5', filtered && '[&:not(:has(>ul>li[data-uier-check]))]:hidden')} {...rest}>
             <div className="flex min-w-0 items-baseline justify-between gap-3 px-1">
                 <h3 id={id} className="m-0 shrink-0 text-sm font-semibold text-foreground">
                     {title}{count !== undefined && <> <span className="font-normal tabular-nums text-muted-foreground">{count}</span></>}
                 </h3>
                 {note && <p className="m-0 min-w-0 text-right text-xs text-muted-foreground">{note}</p>}
             </div>
-            <ul className="m-0 flex list-none flex-col divide-y overflow-hidden rounded-xl border bg-card p-0">{children}</ul>
+            <ul className={cx('m-0 flex list-none flex-col divide-y overflow-hidden rounded-xl border bg-card p-0', filtered && '[&>li:not([data-uier-check])]:hidden')}>{children}</ul>
         </section>
     );
 }
@@ -330,27 +334,81 @@ export type SummaryTile = {
 
 /**
  * The panel's summary first: a tile for each kind of result with its count (coloured only when
- * it counts something), and a line under them
+ * it counts something), and a line under them. With `onSelect` each tile is a toggle that shows only
+ * its results (`selected`, pressed); pressed again, or "Show all results", shows them all.
  */
-export function ChecksSummary({ tiles, children }: { tiles: SummaryTile[]; children?: ReactNode }) {
+export function ChecksSummary({ tiles, selected, onSelect, children }: {
+    tiles: SummaryTile[];
+    selected?: string;
+    onSelect?: (key: string | undefined) => void;
+    children?: ReactNode;
+}) {
+    const t = useMessages();
+    const tilesRef = useRef<HTMLDivElement>(null);
+    const many = tiles.length > 2;
+    const tileClassName = cx('flex min-w-0 flex-col-reverse rounded-xl border bg-card py-2 text-left', many ? 'px-2.5' : 'px-3');
+    const selectedTile = tiles.find(tile => tile.key === selected);
+    const count = (Icon: ChecksIcon, value: number, tone: string) => (
+        <>
+            <Icon size={16} aria-hidden="true" className={value ? tone : 'text-muted-foreground'} />
+            {value}
+        </>
+    );
     return (
         <div className="flex flex-col gap-2">
-            <dl className={cx('m-0 grid gap-2', tiles.length > 2 ? 'grid-cols-4' : 'grid-cols-2')}>
-                {tiles.map(({ key, label, count, icon: Icon, tone }) => (
-                    // The count above its name; read name first
-                    <div key={key} data-uier-summary={key} className={cx('flex min-w-0 flex-col-reverse rounded-xl border bg-card py-2', tiles.length > 2 ? 'px-2.5' : 'px-3')}>
-                        <dt className="truncate text-xs text-muted-foreground">{label}</dt>
-                        <dd className="m-0 flex items-center gap-1.5 text-lg font-semibold tabular-nums text-foreground">
-                            <Icon size={16} aria-hidden="true" className={count ? tone : 'text-muted-foreground'} />
-                            {count}
-                        </dd>
-                    </div>
-                ))}
-            </dl>
+            {onSelect ? (
+                <div ref={tilesRef} role="group" aria-label={t.checks.filterResults} className={cx('grid gap-2', many ? 'grid-cols-4' : 'grid-cols-2')}>
+                    {tiles.map(({ key, label, count: value, icon, tone }) => {
+                        const pressed = key === selected;
+                        return (
+                            // A toggle: its name, then its count; nothing to show at 0 unless it is the filter
+                            <button key={key} type="button" data-uier-summary={key} aria-pressed={pressed}
+                                disabled={!value && !pressed}
+                                className={cx(tileClassName,
+                                    'cursor-pointer transition-colors duration-[120ms] hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:hover:bg-card',
+                                    pressed && 'border-foreground bg-accent')}
+                                onClick={() => onSelect(pressed ? undefined : key)}>
+                                <span className="truncate text-xs text-muted-foreground">{label}</span>
+                                <span data-uier-summary-count="" className="flex items-center gap-1.5 text-lg font-semibold tabular-nums text-foreground">
+                                    {count(icon, value, tone)}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+            ) : (
+                <dl className={cx('m-0 grid gap-2', many ? 'grid-cols-4' : 'grid-cols-2')}>
+                    {tiles.map(({ key, label, count: value, icon, tone }) => (
+                        // The count above its name; read name first
+                        <div key={key} data-uier-summary={key} className={tileClassName}>
+                            <dt className="truncate text-xs text-muted-foreground">{label}</dt>
+                            <dd data-uier-summary-count="" className="m-0 flex items-center gap-1.5 text-lg font-semibold tabular-nums text-foreground">
+                                {count(icon, value, tone)}
+                            </dd>
+                        </div>
+                    ))}
+                </dl>
+            )}
+            {onSelect && selectedTile && (
+                <p className="m-0 flex flex-wrap items-center gap-x-2 px-1 text-xs text-muted-foreground" data-uier-summary-filter="">
+                    {t.checks.filtered(selectedTile.label)}
+                    <Button size="xs" variant="plain" className={actionClassName}
+                        onClick={() => {
+                            // The button leaves with the filter: the focus goes to the tile that was pressed
+                            tilesRef.current?.querySelector<HTMLElement>(`[data-uier-summary="${selectedTile.key}"]`)?.focus();
+                            onSelect(undefined);
+                        }}>
+                        {t.checks.clearFilter}
+                    </Button>
+                </p>
+            )}
             {children}
         </div>
     );
 }
+
+/** While a summary tile filters an SEO panel: the state of the checks it shows */
+export const CheckFilterContext = createContext<CheckState | undefined>(undefined);
 
 /** A report of another page (after a client-side navigation) says so */
 export function OtherPageNote({ path }: { path: string }) {

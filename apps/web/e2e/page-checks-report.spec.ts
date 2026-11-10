@@ -67,7 +67,7 @@ test('target size is checked by the background audit as by Check again, and what
     const contrast = review.locator('[data-uier-rule="color-contrast"]');
     await expect(contrast).toContainText('p#gradient-note.report-gradient');
     await expect(contrast).toContainText('Element\'s background color could not be determined due to a background gradient');
-    const tiles = await Promise.all(['critical', 'serious', 'moderate', 'minor'].map(impact => panel.locator(`[data-uier-summary="${impact}"] dd`).innerText()));
+    const tiles = await Promise.all(['critical', 'serious', 'moderate', 'minor'].map(impact => panel.locator(`[data-uier-summary="${impact}"] [data-uier-summary-count]`).innerText()));
     expect(tiles.reduce((total, count) => total + Number(count), 0)).toBe(8);
     const backgroundReview = await labels(review);
 
@@ -213,7 +213,7 @@ test('Not an issue leaves the counts and the dot in this browser, is kept after 
     await expect(row(images, 'img#gallery-2')).toHaveCount(0);
     await expect(row(images, 'img#gallery-3').getByRole('button', { name: 'Not an issue' })).toBeFocused();
     await expect(panel.getByRole('status')).toHaveText(`${issues - 1} issues found.`);
-    await expect(panel.locator('[data-uier-summary="critical"] dd')).toHaveText('2');
+    await expect(panel.locator('[data-uier-summary="critical"] [data-uier-summary-count]')).toHaveText('2');
     await expect(button).toHaveAccessibleName(`Accessibility, ${issues - 1} issues found`);
     await expect(button.locator('[data-uier-attention="accessibility"]')).toBeVisible();
     // Folded under its list, said to be this browser's only
@@ -225,13 +225,13 @@ test('Not an issue leaves the counts and the dot in this browser, is kept after 
     await toolbar(page).getByRole('button', { name: /^SEO/ }).click();
     const seo = seoPanel(page);
     const seoButton = toolbar(page).getByRole('button', { name: /^SEO/ });
-    const toLook = Number(await seo.locator('[data-uier-summary="warn"] dd').innerText());
+    const toLook = Number(await seo.locator('[data-uier-summary="warn"] [data-uier-summary-count]').innerText());
     await expect(seoButton).toHaveAccessibleName(`SEO, ${toLook} to look at`);
     const description = seo.locator('[data-uier-check="description"]');
     await description.getByRole('button', { name: 'Not an issue' }).click();
     await expect(description).toHaveAttribute('data-uier-check-state', 'none');
     await expect(description.locator('summary', { hasText: 'Dismissed' })).toBeFocused();
-    await expect(seo.locator('[data-uier-summary="warn"] dd')).toHaveText(String(toLook - 1));
+    await expect(seo.locator('[data-uier-summary="warn"] [data-uier-summary-count]')).toHaveText(String(toLook - 1));
     await expect(seoButton).toHaveAccessibleName(`SEO, ${toLook - 1} to look at`);
 
     // Kept in this browser: the next page load counts without them

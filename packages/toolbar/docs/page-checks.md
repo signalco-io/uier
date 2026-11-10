@@ -83,6 +83,17 @@ Both panels share one layout (`components/checks/ChecksParts.tsx`), so they read
 
 - **The summary first** (`ChecksSummary`): a tile for each kind of result with its count, its icon in
   the result's colour only while it counts something (muted at 0), then one line with when it was checked.
+  Each tile is a toggle button (`aria-pressed`, in a group named "Filter results") that shows only its
+  results ([uier #222](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_VUQdIFLJjsqv25EgSXjz_),
+  [uier #224](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_6WFy0-xb48chE7HJW_Rif)):
+  pressed it has a border and the accent background, and a line under the tiles says "Filtered: Serious."
+  with **Show all results**, which clears it and gives the focus back to the tile. Pressing it again clears
+  it too; a tile at 0 is disabled, and a filter whose count drops to 0 filters nothing. Accessibility
+  filters by impact: only that impact's section, without To review and the on-demand sections. SEO
+  filters by state through `CheckFilterContext`: `CheckItem` renders only checks in that state, and a
+  `CheckSection` hides its other rows (the outline, Check links, previews) and itself without a check
+  left. The filter is the open panel's own state: it is gone on another page or when the panel closes.
+  The count is `[data-uier-summary-count]` in tests.
 - **Sections** (`CheckSection`): a heading with its count and a short note on the right, over one
   bordered card whose rows are divided by lines.
 - **Rows** (`CheckItem`): one compact row per check: the state icon, the name, a short measurement on

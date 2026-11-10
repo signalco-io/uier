@@ -770,6 +770,11 @@ export const en = {
         showAll: (count: number) => `Show all ${count}`,
         postedFor: (label: string, count: number, number: number | undefined) => `${label} for ${count} elements${number !== undefined ? ` as #${number}` : ''}`,
         commentOnAll: (count: number) => `Comment on all ${count}`,
+        /** The summary's tiles, which filter the results by their kind */
+        filterResults: 'Filter results',
+        /** "Filtered: Serious." under the summary while a tile filters the results */
+        filtered: (label: string) => `Filtered: ${label}.`,
+        clearFilter: 'Show all results',
         states: { pass: 'Pass', warn: 'Warning', none: 'Note' },
         /** "These results are for /about. Check again for this page.": the path goes between */
         otherPageBefore: 'These results are for ',

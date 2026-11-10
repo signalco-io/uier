@@ -165,7 +165,7 @@ test('the Crawlers section compares the served HTML, reads X-Robots-Tag and robo
     await expect(check('crawl-served-links')).toContainText('0 of 3');
     // The section's warnings count in the panel's summary and its button
     const panel = page.getByRole('complementary', { name: 'SEO' });
-    await expect(panel.locator('[data-uier-summary="warn"] dd')).toHaveText(String(await panel.locator('[data-uier-check-state="warn"]').count()));
+    await expect(panel.locator('[data-uier-summary="warn"] [data-uier-summary-count]')).toHaveText(String(await panel.locator('[data-uier-check-state="warn"]').count()));
 
     // Its comment says what was requested and what came back
     let created = nextCreate(page, project);

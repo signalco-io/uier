@@ -122,7 +122,7 @@ test('the sections report broken sharing tags and structured data, count them an
 
     // The summary and the button count the sections' warnings with the panel's own
     const warnings = await panel.locator('[data-uier-check-state="warn"]').count();
-    await expect(panel.locator('[data-uier-summary="warn"] dd')).toHaveText(String(warnings));
+    await expect(panel.locator('[data-uier-summary="warn"] [data-uier-summary-count]')).toHaveText(String(warnings));
     await expect(button).toHaveAccessibleName(`SEO, ${warnings} to look at`);
 
     // A finding about the page names the block and the property, and the documentation it comes from

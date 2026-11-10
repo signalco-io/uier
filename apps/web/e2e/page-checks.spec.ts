@@ -68,8 +68,23 @@ test('the Accessibility panel audits the page in the background without the tool
     // The summary first, a tile for each impact with its elements' count
     const elementCount = (impact: string) => panel.locator(`[data-uier-impact="${impact}"] [data-uier-rule] li`).count();
     await expect(panel.locator('[data-uier-summary="critical"]')).toContainText('Critical');
-    await expect(panel.locator('[data-uier-summary="critical"] dd')).toHaveText(String(await elementCount('critical')));
-    await expect(panel.locator('[data-uier-summary="serious"] dd')).toHaveText(String(await elementCount('serious')));
+    await expect(panel.locator('[data-uier-summary="critical"] [data-uier-summary-count]')).toHaveText(String(await elementCount('critical')));
+    await expect(panel.locator('[data-uier-summary="serious"] [data-uier-summary-count]')).toHaveText(String(await elementCount('serious')));
+    // A tile filters the results by its impact; pressed again, or Show all results, shows them all
+    const critical = panel.locator('[data-uier-summary="critical"]');
+    await critical.click();
+    await expect(critical).toHaveAttribute('aria-pressed', 'true');
+    await expect(panel.locator('[data-uier-impact]')).toHaveCount(1);
+    await expect(panel.locator('[data-uier-impact="critical"]')).toBeVisible();
+    await expect(panel.locator('[data-uier-summary-filter]')).toContainText('Filtered: Critical.');
+    await panel.getByRole('button', { name: 'Show all results' }).click();
+    await expect(critical).toBeFocused();
+    await expect(critical).toHaveAttribute('aria-pressed', 'false');
+    await expect(panel.locator('[data-uier-impact="serious"]')).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(panel.locator('[data-uier-impact="serious"]')).toHaveCount(0);
+    await page.keyboard.press('Enter');
+    await expect(panel.locator('[data-uier-impact="serious"]')).toBeVisible();
     // A line every element of a rule shares is said once, under its title, not on the element
     await expect(imageRule).toContainText('Element does not have an alt attribute');
     // The rule's row names the success criterion it tests
@@ -158,8 +173,18 @@ test('the SEO panel reports the head, headings, links, images and Core Web Vital
     await expect(check('vital-INP')).toContainText('No interactions yet.');
     // The summary first: what is worth a look and what passed
     await expect(panel.locator('[data-uier-summary="warn"]')).toContainText('To look at');
-    await expect(panel.locator('[data-uier-summary="warn"] dd')).toHaveText(String(await panel.locator('[data-uier-check-state="warn"]').count()));
-    await expect(panel.locator('[data-uier-summary="pass"] dd')).toHaveText(String(await panel.locator('[data-uier-check-state="pass"]').count()));
+    await expect(panel.locator('[data-uier-summary="warn"] [data-uier-summary-count]')).toHaveText(String(await panel.locator('[data-uier-check-state="warn"]').count()));
+    await expect(panel.locator('[data-uier-summary="pass"] [data-uier-summary-count]')).toHaveText(String(await panel.locator('[data-uier-check-state="pass"]').count()));
+    // A tile shows only the checks in its state, in every section
+    const warnings = await panel.locator('[data-uier-check-state="warn"]').count();
+    const warnTile = panel.locator('[data-uier-summary="warn"]');
+    await warnTile.click();
+    await expect(warnTile).toHaveAttribute('aria-pressed', 'true');
+    await expect(panel.locator('[data-uier-check-state="pass"]')).toHaveCount(0);
+    await expect(panel.locator('[data-uier-check-state="warn"]')).toHaveCount(warnings);
+    await warnTile.click();
+    await expect(warnTile).toHaveAttribute('aria-pressed', 'false');
+    await expect(panel.locator('[data-uier-check-state="pass"]').first()).toBeVisible();
 
     // A page issue needs the guest's name first, then is page feedback (a bug report)
     await check('description').getByRole('button', { name: 'Comment' }).click();

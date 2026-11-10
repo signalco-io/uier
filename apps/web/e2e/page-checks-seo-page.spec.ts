@@ -84,7 +84,7 @@ test('the SEO panel checks the viewport, language, hreflang, generic link text a
     await expect(check('image-weight')).toContainText(/1 image file is over 500 KB\. 7\d\d KB\./);
     await expect(check('image-weight').getByRole('listitem')).toHaveText([/img#heavy/]);
     // The summary counts them with the panel's own checks
-    await expect(panel.locator('[data-uier-summary="warn"] dd')).toHaveText(String(await panel.locator('[data-uier-check-state="warn"]').count()));
+    await expect(panel.locator('[data-uier-summary="warn"] [data-uier-summary-count]')).toHaveText(String(await panel.locator('[data-uier-check-state="warn"]').count()));
 
     // Nothing is requested until Check links is pressed
     await expect(links.getByRole('status')).toHaveText('Requests the links to this site\'s pages to find the ones that answer with an error.');

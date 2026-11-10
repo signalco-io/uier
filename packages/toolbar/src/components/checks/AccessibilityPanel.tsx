@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Check, ExternalLink, Info, LoaderSpinner, Search, Warning } from '@signalco/ui-icons';
 import { impacts, type AccessibilityReport, type AccessibilityRule, type Impact } from '../../checks/accessibility';
@@ -97,7 +97,11 @@ export function AccessibilityPanel({ state, path, onCheck, onClose }: {
     const status = checking ? a.checkingPage
         : error ? a.couldNotRun
             : report ? (report.count ? a.found(a.issues(report.count)) : a.noIssues) : '';
+    // A summary tile pressed: only its impact's rules, without the sections to review or check by hand
+    const [selected, setFilter] = useState<Impact>();
     const counts = Object.fromEntries(impacts.map(impact => [impact, elementCount(shown?.rules.filter(rule => rule.impact === impact) ?? [])])) as Record<Impact, number>;
+    // One that no longer counts anything (Check again, Not an issue) filters nothing
+    const filter = selected && counts[selected] ? selected : undefined;
     return (
         <ChecksPanel id="accessibility" title={a.title} checking={checking} onCheckAgain={onCheck} onClose={onClose}>
             <div className="flex flex-col gap-2">
@@ -107,7 +111,8 @@ export function AccessibilityPanel({ state, path, onCheck, onClose }: {
                     {status}
                 </p>
                 {shown && shown.count > 0 && (
-                    <ChecksSummary tiles={impacts.map(impact => ({ key: impact, label: a.impacts[impact], count: counts[impact], icon: impactStyles[impact].icon, tone: impactStyles[impact].tone }))} />
+                    <ChecksSummary tiles={impacts.map(impact => ({ key: impact, label: a.impacts[impact], count: counts[impact], icon: impactStyles[impact].icon, tone: impactStyles[impact].tone }))}
+                        selected={filter} onSelect={key => setFilter(key as Impact | undefined)} />
                 )}
                 {shown && (
                     <p className="m-0 px-1 text-xs text-muted-foreground">
@@ -127,7 +132,7 @@ export function AccessibilityPanel({ state, path, onCheck, onClose }: {
             )}
             {shown && impacts.map(impact => {
                 const rules = shown.rules.filter(rule => rule.impact === impact);
-                if (!rules.length) return null;
+                if (!rules.length || (filter && filter !== impact)) return null;
                 return (
                     <CheckSection key={impact} title={a.impacts[impact]} count={counts[impact]} data-uier-impact={impact}>
                         {rules.map(rule => <RuleItem key={rule.id} rule={rule} />)}
@@ -135,17 +140,19 @@ export function AccessibilityPanel({ state, path, onCheck, onClose }: {
                 );
             })}
             {/* What axe-core could not decide: for a person to judge, not counted as issues */}
-            {!!shown?.review?.length && (
+            {!filter && !!shown?.review?.length && (
                 <CheckSection title={a.toReview} count={elementCount(shown.review)} note={a.undecided} data-uier-review="">
                     {shown.review.map(rule => <RuleItem key={rule.id} rule={rule} />)}
                 </CheckSection>
             )}
             {/* What the audit cannot judge: the on-demand sections, each with its own report */}
-            <KeyboardSection />
-            <ScreenReaderSection />
-            <AltTextSection />
-            <ReflowSection />
-            <MotionSection />
+            {!filter && <>
+                <KeyboardSection />
+                <ScreenReaderSection />
+                <AltTextSection />
+                <ReflowSection />
+                <MotionSection />
+            </>}
         </ChecksPanel>
     );
 }

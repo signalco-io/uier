@@ -1,10 +1,11 @@
+import { useState } from 'react';
 import { Down } from '@signalco/ui-icons';
 import type { SeoReport } from '../../checks/seo';
 import type { CheckState, PageCheck } from '../../checks/types';
 import { useWebVitals, vitalCheck, type VitalName, type WebVitals } from '../../checks/webVitals';
 import { ChecksPanel } from './ChecksPanel';
 import { GuestNameField } from './GuestName';
-import { CheckItem, CheckSection, ChecksSummary, checkStates, OtherPageNote } from './ChecksParts';
+import { CheckFilterContext, CheckItem, CheckSection, ChecksSummary, checkStates, OtherPageNote } from './ChecksParts';
 import { CheckedAt } from './CheckedAt';
 import { AiSearchSection } from './sections/AiSearchSection';
 import { CrawlerSection } from './sections/CrawlerSection';
@@ -73,46 +74,52 @@ export function SeoPanel({ report, path, onCheck, onClose }: {
     const vitals = vitalChecks(useWebVitals());
     // The summary counts every check the panel lists: its own, Core Web Vitals and its on-demand sections'
     const checks = [...seoChecks(report, vitals), ...usePanelSectionChecks('seo')];
+    // A summary tile pressed: only the checks in its state, in every section (`CheckFilterContext`)
+    const [selected, setFilter] = useState<'warn' | 'pass'>();
+    // One that no longer counts anything (Check again, Not an issue) filters nothing
+    const filter = selected && tally(checks, selected) ? selected : undefined;
     return (
         <ChecksPanel id="seo" title={p.title} onCheckAgain={onCheck} onClose={onClose}>
             {report && <>
                 <ChecksSummary tiles={[
                     { key: 'warn', label: p.toLookAt, count: tally(checks, 'warn'), icon: checkStates.warn.icon, tone: checkStates.warn.tone },
                     { key: 'pass', label: p.passed, count: tally(checks, 'pass'), icon: checkStates.pass.icon, tone: checkStates.pass.tone }
-                ]}>
+                ]} selected={filter} onSelect={key => setFilter(key as typeof filter)}>
                     <p className="m-0 px-1 text-xs text-muted-foreground"><CheckedAt time={report.checkedAt} /></p>
                 </ChecksSummary>
                 {report.path !== path && <OtherPageNote path={report.path} />}
             </>}
             <GuestNameField />
-            {report && <>
-                <CheckSection title={p.page}>
-                    {report.page.map(check => <CheckItem key={check.id} check={check} />)}
-                    <HreflangRows />
+            <CheckFilterContext.Provider value={filter}>
+                {report && <>
+                    <CheckSection title={p.page}>
+                        {report.page.map(check => <CheckItem key={check.id} check={check} />)}
+                        <HreflangRows />
+                    </CheckSection>
+                    <SharingSection />
+                    <StructuredDataSection />
+                    <CheckSection title={p.headings} count={report.headings.outline.length}>
+                        {report.headings.checks.map(check => <CheckItem key={check.id} check={check} />)}
+                        <HeadingsOutline outline={report.headings.outline} />
+                    </CheckSection>
+                    <CheckSection title={p.links} count={report.links.total}
+                        note={report.links.total ? p.linksNote(report.links.internal, report.links.external) : undefined}>
+                        {report.links.checks.map(check => <CheckItem key={check.id} check={check} />)}
+                        {report.links.total > 0 && <LinkStatusRows />}
+                    </CheckSection>
+                    <CheckSection title={p.images} count={report.images.total}>
+                        {report.images.checks.map(check => <CheckItem key={check.id} check={check} />)}
+                        <ImageRows />
+                    </CheckSection>
+                </>}
+                <CheckSection title={p.vitals} note={p.measuredHere}>
+                    {vitals.map(check => <CheckItem key={check.id} check={check} />)}
                 </CheckSection>
-                <SharingSection />
-                <StructuredDataSection />
-                <CheckSection title={p.headings} count={report.headings.outline.length}>
-                    {report.headings.checks.map(check => <CheckItem key={check.id} check={check} />)}
-                    <HeadingsOutline outline={report.headings.outline} />
-                </CheckSection>
-                <CheckSection title={p.links} count={report.links.total}
-                    note={report.links.total ? p.linksNote(report.links.internal, report.links.external) : undefined}>
-                    {report.links.checks.map(check => <CheckItem key={check.id} check={check} />)}
-                    {report.links.total > 0 && <LinkStatusRows />}
-                </CheckSection>
-                <CheckSection title={p.images} count={report.images.total}>
-                    {report.images.checks.map(check => <CheckItem key={check.id} check={check} />)}
-                    <ImageRows />
-                </CheckSection>
-            </>}
-            <CheckSection title={p.vitals} note={p.measuredHere}>
-                {vitals.map(check => <CheckItem key={check.id} check={check} />)}
-            </CheckSection>
-            {report && <>
-                <CrawlerSection />
-                <AiSearchSection />
-            </>}
+                {report && <>
+                    <CrawlerSection />
+                    <AiSearchSection />
+                </>}
+            </CheckFilterContext.Provider>
         </ChecksPanel>
     );
 }
