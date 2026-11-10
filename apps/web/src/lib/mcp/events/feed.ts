@@ -60,7 +60,7 @@ export type FeedPage = { events: FeedEvent[]; cursor: string; truncated: boolean
 export type FeedRequest = {
     identity: McpIdentity;
     project: DbProject;
-    /** The connection owner's current member actor (from `mcpProject`) */
+    /** The selected account's current member actor (from `mcpProject`) */
     actor: ProjectActor;
     names: readonly McpEventName[];
     args: Omit<McpEventArguments, 'projectId'>;
@@ -101,7 +101,8 @@ export async function pollProjectEvents(request: FeedRequest): Promise<FeedPage>
             // Never echo the connection's own changes: an agent would loop on its replies.
             if (!(at > floor) || (cursor.from !== undefined && at < cursor.from) || event.agent?.credentialId === request.identity.connection.id) continue;
             for (const name of request.names) {
-                if (!eventMatches(name, { projectId: request.project.id, ...request.args }, event, comment.id, request.identity.user.id)) continue;
+                if (!eventMatches(name, { projectId: request.project.id, ...request.args }, event, comment.id,
+                    request.actor.kind === 'member' ? request.actor.userId : request.identity.user.id)) continue;
                 const eventId = mcpEventId(request.project.id, comment.id, event, name);
                 if (!seen.has(shortId(eventId))) candidates.push({ eventId, at, name, comment, event });
             }

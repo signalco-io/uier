@@ -108,11 +108,15 @@ function ConnectedAppRow({ app }: { app: ConnectedAppView }) {
                             </CollapsibleTrigger>
                         </p>
                         <CollapsibleContent>
-                            <ul className="m-0 mt-2 flex list-none flex-col gap-1 border-l pl-3 text-muted-foreground">
-                                {app.access.workspaces.map((workspace, index) => <li key={index} className="break-words">
-                                    <span className="text-foreground">{workspace.name}</span>{workspace.projects && `: ${workspace.projects}`}
-                                </li>)}
-                            </ul>
+                            {app.access.accounts
+                                ? <ul className="m-0 mt-2 flex list-none flex-col gap-3 border-l pl-3 text-muted-foreground">
+                                    {app.access.accounts.map((account, index) => <li key={index} className="break-words">
+                                        <span className="font-mono text-[13px] text-foreground break-all">{account.label}</span>
+                                        <p className="m-0">{account.summary}</p>
+                                        {!account.all && <WorkspaceAccessDetails workspaces={account.workspaces} />}
+                                    </li>)}
+                                </ul>
+                                : <WorkspaceAccessDetails workspaces={app.access.workspaces} />}
                         </CollapsibleContent>
                     </Collapsible>}
             </ConnectionReach>
@@ -123,5 +127,15 @@ function ConnectedAppRow({ app }: { app: ConnectedAppView }) {
                 <span>Expires <RelativeTime value={app.expiresAt} /></span>
             </p>
         </ConnectionItem>
+    );
+}
+
+function WorkspaceAccessDetails({ workspaces }: { workspaces: ConnectedAppView['access']['workspaces'] }) {
+    return (
+        <ul className="m-0 mt-2 flex list-none flex-col gap-1 border-l pl-3 text-muted-foreground">
+            {workspaces.map((workspace, index) => <li key={index} className="break-words">
+                <span className="text-foreground">{workspace.name}</span>{workspace.projects && `: ${workspace.projects}`}
+            </li>)}
+        </ul>
     );
 }
