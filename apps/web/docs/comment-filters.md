@@ -12,7 +12,7 @@
   filters in effect) and List/Board, then the status tabs
   (list only, `StatusTabs`: Active, Done and All, with counts. Active, the default with no `?status=`, is every status
   but Done; `statusMatches` in `commentLabels.ts`). Open, In progress and Ready to verify fold under Active
-  (`activeStatusFilters`) to keep the tabs narrow: the "Active statuses" button beside the Active tab opens a menu of
+  (`activeStatusFilters`) to keep the tabs narrow: the "Active statuses" button beside the Active tab (24px wide, the WCAG 2.5.8 minimum; wider on touch) opens a menu of
   Active and the three, each with its count, and a choice closes it. The Active tab then names the choice ("Active: In
   progress 4") and stays pressed; pressing it again goes back to every active status. `?status=open`, `in-progress` and
   `ready` links still open on that status. The tabs have no `StateDot`, so Done never reads as a

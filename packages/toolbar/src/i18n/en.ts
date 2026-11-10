@@ -464,6 +464,8 @@ export const en = {
     },
     screenshot: {
         alt: 'Screenshot of the commented part of the page',
+        /** What the thumbnail shows, without "Screenshot of": screen readers already announce an image */
+        imageAlt: 'Commented part of the page',
         replyImageAlt: 'Image attached to reply',
         limits: 'PNG, JPEG or WebP. Up to 512 KB and 4096 pixels on each side.',
         replaced: 'Screenshot replaced.',

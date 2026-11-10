@@ -228,7 +228,7 @@ function StatusTabs({ status, counts, onStatus }: {
                 <DropdownMenu>
                     <Tooltip>
                         <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon-xs" aria-label="Active statuses"
-                            className={cn(segmentedItem, '-ml-0.5 w-5 min-w-5 px-0 data-popup-open:text-foreground pointer-coarse:min-w-8')} />} />}>
+                            className={cn(segmentedItem, '-ml-0.5 w-6 min-w-6 px-0 data-popup-open:text-foreground pointer-coarse:min-w-8')} />} />}>
                             <ChevronDownIcon />
                         </TooltipTrigger>
                         <TooltipContent>Active statuses</TooltipContent>

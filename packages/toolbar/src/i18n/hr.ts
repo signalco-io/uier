@@ -455,6 +455,7 @@ export const hr: Messages = {
     },
     screenshot: {
         alt: 'Snimka zaslona komentiranog dijela stranice',
+        imageAlt: 'Komentirani dio stranice',
         replyImageAlt: 'Slika priložena odgovoru',
         limits: 'PNG, JPEG ili WebP. Do 512 KB i 4096 piksela po stranici.',
         replaced: 'Snimka zaslona je zamijenjena.',
