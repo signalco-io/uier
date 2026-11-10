@@ -293,6 +293,8 @@ error boundary, so one bad comment never breaks the toolbar.
   dropping; canceled drags keep the old side. The panel slides in from its side (it only fades with reduced
   motion). Each panel saves its own side (`uier:panel-side:v1:<id>`). Moving keeps content, filters and scroll
   state; narrow screens use a full-width inset panel and retain the preferred side for wider screens.
+  Panels on different sides (the inbox, Accessibility, SEO) stay open together from 688px; moving one onto
+  the side of another open panel swaps their sides ([page checks](docs/page-checks.md)).
 - **Mark all as read** appears beside Unread when listed threads include unread activity. It covers
   only the selected environment, pages, status, search, Unread and Assigned to me filters, including
   only listed threads when the site list is capped. Successful receipts refresh the badge and counts;

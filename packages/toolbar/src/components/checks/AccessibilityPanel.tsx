@@ -129,7 +129,7 @@ export function AccessibilityPanel({ state, path, onCheck, onClose }: {
                 {shown && !shown.count && <p className="m-0 px-1 text-xs text-muted-foreground">{a.automatedNote}</p>}
             </div>
             {shown && shown.path !== path && <OtherPageNote path={shown.path} />}
-            <GuestNameField />
+            <GuestNameField panel="accessibility" />
             {error && !checking && (
                 <div className="flex flex-col items-start gap-2 px-1 text-sm">
                     <p className="m-0 text-xs text-muted-foreground">{a.blocked}</p>

@@ -47,7 +47,7 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
     const inbox = useInboxComments(filter);
     const [hidding, setHidding] = useState<boolean>(false);
     // Open on the previous page: it stays without sliding in or taking the focus
-    const restored = useContext(RestoredPanelContext) === 'inbox';
+    const restored = useContext(RestoredPanelContext).includes('inbox');
     const contentRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
         if (!focusRequest) return;

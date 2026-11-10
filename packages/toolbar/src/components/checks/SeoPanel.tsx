@@ -142,7 +142,7 @@ export function SeoPanel({ report, path, onCheck, onClose }: {
                 ]} selected={filter} onSelect={key => setFilter(key as typeof filter)} />
                 {report.path !== path && <OtherPageNote path={report.path} />}
             </>}
-            <GuestNameField />
+            <GuestNameField panel="seo" />
             <CheckFilterContext.Provider value={filter}>
                 {/* Only with the report: shown before it, Core Web Vitals would move down when the summary comes in */}
                 {report && <ChecksTabs panel="seo" label={p.title} filtered={!!filter} tabs={tabs} />}
