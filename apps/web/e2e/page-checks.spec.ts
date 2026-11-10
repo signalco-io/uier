@@ -471,6 +471,54 @@ test('panels docked on different sides stay open together, highlight their butto
     await expect(accessibility).toBeVisible();
 });
 
+test('a guest with both checks panels open is asked for the name in the panel they comment from, also after the other closes', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.use.isMobile === true, 'Desktop layout');
+    test.setTimeout(90_000);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signIn(page, uniqueEmail('two-panels-guest'));
+    const project = await createProject(page, { urls: [site.origin()] });
+    await setProjectAccess(page, project, 'Anyone with the link');
+    await page.context().clearCookies();
+    await page.goto(`${site.origin()}/${project}/pricing?review=true&page-checks`);
+    const seo = page.getByRole('complementary', { name: 'SEO' });
+    const accessibility = page.getByRole('complementary', { name: 'Accessibility' });
+    await toolbar(page).getByRole('button', { name: /^SEO/ }).click();
+    await seo.getByRole('button', { name: 'Move SEO panel' }).press('ArrowLeft');
+    await expect(seo).toHaveAttribute('data-side', 'left');
+    await toolbar(page).getByRole('button', { name: /^Accessibility/ }).click();
+    await expect(accessibility).toHaveAttribute('data-side', 'right');
+    await expect(seo).toBeVisible();
+    const seoName = seo.getByRole('textbox', { name: 'Your name' });
+    const accessibilityName = accessibility.getByRole('textbox', { name: 'Your name' });
+    await expect(seoName).toBeVisible();
+    await expect(accessibilityName).toBeVisible();
+    const imageIssue = accessibility.locator('[data-uier-rule="image-alt"]').getByRole('listitem').filter({ hasText: 'img#plan-chart' });
+    const descriptionCheck = seo.locator('[data-uier-check="description"]');
+
+    // Each panel asks in its own field
+    await imageIssue.getByRole('button', { name: 'Comment' }).click();
+    await expect(accessibilityName).toBeFocused();
+    await expect(accessibility.getByRole('alert')).toHaveText('Enter your name to comment.');
+    await expect(seo.getByRole('alert')).toHaveCount(0);
+    await descriptionCheck.getByRole('button', { name: 'Comment' }).click();
+    await expect(seoName).toBeFocused();
+    await expect(seo.getByRole('alert')).toHaveText('Enter your name to comment.');
+    await expect(accessibility.getByRole('alert')).toHaveCount(0);
+
+    // With the SEO panel closed, the Accessibility panel still asks in its field
+    await seo.getByRole('button', { name: 'Close SEO panel' }).click();
+    await expect(seo).toBeHidden();
+    await imageIssue.getByRole('button', { name: 'Comment' }).click();
+    await expect(accessibilityName).toBeFocused();
+    await expect(accessibility.getByRole('alert')).toHaveText('Enter your name to comment.');
+    await page.keyboard.type('Two panels reviewer');
+    const created = nextCreate(page, project);
+    await imageIssue.getByRole('button', { name: 'Comment' }).click();
+    expect((await created).postDataJSON()).toMatchObject({ authorName: 'Two panels reviewer' });
+    await expect(imageIssue).toContainText(/Comment posted as #1/);
+    await expect(accessibilityName).toBeHidden();
+});
+
 test('a panel that stays open shows the page it reached, never the previous one, and not in a window opened from it', async ({ page, request }, testInfo) => {
     test.skip(testInfo.project.use.isMobile === true, 'Desktop layout');
     test.setTimeout(90_000);

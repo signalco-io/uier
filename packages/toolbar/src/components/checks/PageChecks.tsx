@@ -287,13 +287,13 @@ function PageChecksPanels({ panels, collapsed, onClose, onShowComment, onAttenti
             setHighlighted({ key: issue.key, element: target, panel });
         },
         comment: (issue: PageIssue) => {
-            if (reportOf(issue) || !nameGate()) return;
+            if (reportOf(issue) || !nameGate(panel)) return;
             post([issue], issue);
         },
         // One request for all of them (the API limits how fast and how many comments a page gets): each is marked by it
         commentAll: (issues: PageIssue[], group: IssueGroup, of: number) => {
             const open = issues.filter(issue => !reportOf(issue));
-            if (open.length < 2 || !nameGate()) return;
+            if (open.length < 2 || !nameGate(panel)) return;
             post(open, groupIssue(open, group, of));
         },
         show: (comment: ShownComment) => {

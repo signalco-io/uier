@@ -348,7 +348,9 @@ panel. The review bundle (858 KB of the 1 MB a published bundle may be) gets onl
   as "Dismissed" with **Restore**; a check whose every issue is dismissed is a note
   ([page-checks-report.md](page-checks-report.md)).
 - A project's guest without a saved name gets the comment form's name field above the issues; a quick
-  action asks for it first and saves it like the form does.
+  action asks for it first and saves it like the form does. One name for both panels, but each open panel
+  has its own field (`GuestNameField panel`, kept by panel in `GuestNameProvider`): a quick action focuses
+  and marks the field of the panel it was pressed in, also after the other panel closes.
 
 ## Bundle and loading
 
@@ -371,7 +373,7 @@ web-accessible resource, and the page's CSP does not apply to it. The rules abov
 (`?page-checks` in `e2e/support/reviewedSite.ts`): one audit request in the background, the buttons' dots
 and names before a panel opens, the panel opening with that report and no new request, rules by impact without the toolbar, Highlight, a comment posted on the element with its
 screenshot, details, failure lines, standard and check, Show, focus back on Close, the impact tiles' counts and a rule's shared line said once (Desktop Chrome); the SEO checks, the summary's counts,
-the folded outline, Core Web Vitals not counting the toolbar's presses, a guest's name, page feedback, an
+the folded outline, Core Web Vitals not counting the toolbar's presses, a guest's name (also asked in the panel commented from with both panels open, and after one closes), page feedback, an
 element's comment with what was found and its check, findings marked as reported after a reload (with Show) until their thread is done, a noindex page (its Indexing note, no canonical needed) and broken links sharing one reason (Desktop Chrome);
 the tabs (the sections of the shown one, a tab's dot and name, ← and →, a filter listing every tab's results) (Desktop Chrome);
 the panels from Options on a phone, their rows marked by the background checks, fitting the screen (Mobile Chrome); the SEO panel and the inbox
