@@ -29,9 +29,16 @@ function levels(path: string) {
 /**
  * The items as a hierarchy of their addresses, in the order they come. A level that is not a page
  * and holds one level only is merged into it (`/destinations/coolinarika/daily-menus`), so a chain of
- * empty levels takes one line. An address that is not a path (no leading slash) stays at the top.
+ * empty levels takes one line. `checkedItems` supplies checked ancestor pages outside this finding;
+ * it must contain only pages from the same environment. It never adds unrelated branches.
+ * An address that is not a path (no leading slash) stays at the top.
  */
-export function pathTree<T>(items: readonly T[], pathOf: (item: T) => string): PathNode<T>[] {
+export function pathTree<T>(items: readonly T[], pathOf: (item: T) => string, checkedItems: readonly T[] = items): PathNode<T>[] {
+    const checked = new Map<string, T>();
+    for (const item of checkedItems) {
+        const path = pathOf(item);
+        if (!checked.has(path)) checked.set(path, item);
+    }
     const roots: PathNode<T>[] = [];
     const nodes = new Map<string, PathNode<T>>();
     for (const item of items) {
@@ -42,7 +49,7 @@ export function pathTree<T>(items: readonly T[], pathOf: (item: T) => string): P
         for (const key of keys) {
             let node = nodes.get(key);
             if (!node) {
-                node = { path: key, base, children: [] };
+                node = { path: key, base, item: checked.get(key), children: [] };
                 nodes.set(key, node);
                 siblings.push(node);
             }
