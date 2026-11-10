@@ -36,7 +36,7 @@ export const themeOptions = [
 ] as const;
 
 /** The signed-in person at the bottom of the sidebar: account, theme, keyboard shortcuts and sign out */
-export function AccountMenu({ name, email, avatarUrl, accounts }: { name: string; email: string; avatarUrl?: string; accounts: BrowserAccount[] }) {
+export function AccountMenu({ name, avatarUrl, accounts }: { name: string; avatarUrl?: string; accounts: BrowserAccount[] }) {
     const { isMobile } = useSidebar();
     const { theme, setTheme } = useTheme();
     const [pending, startTransition] = useTransition();
@@ -47,24 +47,13 @@ export function AccountMenu({ name, email, avatarUrl, accounts }: { name: string
         try { await changeAccount(input); } catch (error) { toast.error(error instanceof Error ? error.message : 'Could not change accounts.'); }
     });
 
-    // The menu's header: the person with their email
-    const person = (
-        <>
-            <PersonAvatar name={name} avatarUrl={avatarUrl} aria-hidden="true" />
-            <span className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{name}</span>
-                <span className="truncate text-xs text-muted-foreground">{email}</span>
-            </span>
-        </>
-    );
-
     return (
         <SidebarMenu>
             <SidebarMenuItem>
                 <DropdownMenu>
                     {/* A row like Give feedback and the navigation above it: the avatar is centred in their 16px
                         icon column (spilling over its box, not widening it), so names line up with their labels,
-                        expanded and collapsed; the email is in the menu */}
+                        expanded and collapsed; the email is in the menu's account list */}
                     <DropdownMenuTrigger render={<SidebarMenuButton disabled={pending} className="data-popup-open:bg-sidebar-accent data-popup-open:text-sidebar-accent-foreground" />}>
                         <span className="sr-only">Account: </span>
                         <span className="flex size-4 shrink-0 items-center justify-center">
@@ -78,13 +67,7 @@ export function AccountMenu({ name, email, avatarUrl, accounts }: { name: string
                         side={isMobile ? 'bottom' : 'right'}
                         align="end"
                         sideOffset={4}>
-                        {/* Base UI's group label needs a group */}
-                        <DropdownMenuGroup>
-                            <DropdownMenuLabel className="p-0 font-normal">
-                                <span className="flex items-center gap-2 px-1.5 py-1.5 text-left text-sm">{person}</span>
-                            </DropdownMenuLabel>
-                        </DropdownMenuGroup>
-                        <DropdownMenuSeparator />
+                        {/* No header with the active person: the list marks them (uier #248) */}
                         <DropdownMenuGroup>
                             <DropdownMenuLabel>Signed-in accounts</DropdownMenuLabel>
                             {accounts.map(account => (
