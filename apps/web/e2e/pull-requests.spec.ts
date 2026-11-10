@@ -82,7 +82,7 @@ test('thread details collect PRs from messages and replies, with one quiet mark 
     // Pull requests in different states leave the row's mark uncoloured
     await expect(commentRows(page).locator('[data-pull-request-mark]')).not.toHaveAttribute('data-pull-request-color');
     // Hovering the mark (a tap on touch screens) lists the pull requests with their provider and state
-    const mark = commentRows(page).getByRole('button', { name: 'Linked pull request', exact: true });
+    const mark = commentRows(page).getByRole('button', { name: /^Linked pull request, comment #\d+$/ });
     const card = page.getByRole('dialog', { name: 'Pull requests', exact: true });
     if (testInfo.project.name.startsWith('Mobile')) await mark.tap();
     // The list may still settle after the reply, moving the row from under the pointer: hover again until it shows

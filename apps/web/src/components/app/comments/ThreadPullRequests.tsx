@@ -16,6 +16,7 @@ import { threadPullRequestLinks, type PullRequestLink, type PullRequestState, ty
 import type { ProjectCommentView } from '@/src/lib/app/projectComments';
 import { integrationLogos } from '../integrations/IntegrationLogo';
 import { hoverPopoverTrigger } from '../hoverPopover';
+import { withSubject } from './AssigneeCard';
 import { unsetValueClass } from './unsetValue';
 
 export const commentPullRequestLinks = (comment: Pick<ProjectCommentView, 'text' | 'deleted' | 'replies' | 'pullRequests'>) =>
@@ -275,8 +276,10 @@ function PullRequestCardList({ projectId, commentId, links, revision }: {
  * still opens the thread (`onPress`, the row's link); the keyboard (Enter on the focused mark) and a tap open the card.
  * Provider titles are never read (see integrations.md), so none shows.
  */
-export function PullRequestCard({ projectId, comment, links, tabbable = true, onPress }: {
+export function PullRequestCard({ projectId, comment, links, subject, tabbable = true, onPress }: {
     projectId: string;
+    /** Which thread the mark belongs to, after its name ("comment #12"): every row has one, so the names tell them apart */
+    subject?: string;
     comment: Pick<ProjectCommentView, 'id' | 'revision'>;
     links: PullRequestLink[];
     tabbable?: boolean;
@@ -288,7 +291,7 @@ export function PullRequestCard({ projectId, comment, links, tabbable = true, on
     const state = useKnownState(statesKey(projectId, comment.id, comment.revision, links), links);
     return (
         <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger {...hoverPopoverTrigger} delay={200} data-pull-request-mark="" aria-label="Linked pull request" tabIndex={tabbable ? undefined : -1}
+            <PopoverTrigger {...hoverPopoverTrigger} delay={200} data-pull-request-mark="" aria-label={withSubject('Linked pull request', subject)} tabIndex={tabbable ? undefined : -1}
                 onPointerDown={event => { pointer.current = event.pointerType; }}
                 onClick={event => {
                     // Keyboard clicks have no detail; a tap has no hover to show the card

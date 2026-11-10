@@ -27,7 +27,7 @@ test('the assignee picks the agent working with them, edits its session, model a
     const mobile = testInfo.project.name.startsWith('Mobile');
     const expectRowAvatar = async (label: string) => {
         if (mobile) await backToComments(page);
-        await expect(commentRows(page).getByRole('button', { name: label, exact: true })).toBeVisible();
+        await expect(commentRows(page).getByRole('button', { name: new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}, comment #\\d+$`) })).toBeVisible();
         if (mobile) thread = await openComment(page, 'Checkout button fails');
     };
 
@@ -97,7 +97,7 @@ test('the assignee picks the agent working with them, edits its session, model a
     await page.screenshot({ path: testInfo.outputPath('agent-thread.png') });
     if (mobile) await backToComments(page);
     await page.getByRole('button', { name: 'Board', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Assigned to you, with Claude Opus 5.5 (xhigh reasoning)', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Assigned to you, with Claude Opus 5\.5 \(xhigh reasoning\), comment #\d+$/ })).toBeVisible();
     await page.getByRole('button', { name: 'List', exact: true }).click();
     if (mobile) await backToComments(page);
 
@@ -173,7 +173,7 @@ test('the avatars on a row show the assignee and their agent on hover, focus or 
     // A fresh list: no thread chosen yet
     await page.goto(`/app/projects/${project}`);
     const row = commentRows(page).filter({ hasText: 'Price table wraps' });
-    const avatars = row.getByRole('button', { name: 'Assigned to you, with Claude Opus 5.5 (high reasoning)', exact: true });
+    const avatars = row.getByRole('button', { name: /^Assigned to you, with Claude Opus 5\.5 \(high reasoning\), comment #\d+$/ });
     const card = page.getByRole('dialog', { name: 'Assignee details', exact: true });
     const session = card.locator('[data-agent-session]');
     const tooltip = page.locator('[data-slot="tooltip-content"]');

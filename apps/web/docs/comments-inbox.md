@@ -36,7 +36,9 @@ rows with the status filter it waits for their entrance motion to settle before 
   history entry is replaced, so Back still closes it). R, S and A reply, open the status menu and the assignee menu
   of the thread on screen ([keyboard](keyboard.md)). Only the current row's link and selection box (where it shows) are in the Tab order (a roving
   tab stop: the row last focused or opened), so Tab goes on to the thread. The assignee's avatars are a button above
-  the row's link that follows the same tab stop (one more stop in the current row only, after the link and the selection box): Enter
+  the row's link that follows the same tab stop (one more stop in the current row only, after the link and the selection box). These
+  buttons repeat on every row, so their names end with the row's thread: "Assigned to you, with Claude, comment #12"
+  (`CommentRow`'s `subject`; My work adds "in <project>", and a thread without a number uses its quoted title). Enter
   opens their card, Escape gives the focus back, ↓/↑ still move between rows. A mouse click on the avatars opens the
   thread like the rest of the row (the click goes to the row's link, modifier keys too); a tap on a touch screen
   opens the card instead (44 px target), and the rest of the row opens the thread. The board and My work have the same
@@ -114,7 +116,7 @@ preserve it. Reopening and completing again records a new time. Optimistic moves
 first in Done (in its default sort, [below](#board-column-sorts)), including the drag placeholder; realtime snapshots use the persisted time and the
 existing layout motion.
 
-Rows and board cards show one small outlined pull request mark, named "Linked pull request", when a
+Rows and board cards show one small outlined pull request mark, named "Linked pull request, comment #12", when a
 current message or reply links to a supported provider PR. It is `PullRequestCard` (`ThreadPullRequests.tsx`),
 which works like the assignee card: hovering it, Enter on it (it shares the row's tab stop rule) or a tap
 opens a popover listing each pull request with its provider's mark, repository and number as an external link,
