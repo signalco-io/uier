@@ -175,8 +175,11 @@ test('the SEO panel reports the head, headings, links, images and Core Web Vital
     await expect(check('title')).toContainText('Reviewed site');
     await expect(check('description')).toHaveAttribute('data-uier-check-state', 'warn');
     await expect(check('description')).toContainText('No meta description.');
-    // Why a check passed or is worth a look: an info button's tooltip by its name, read with the button
-    const about = check('description').getByRole('button', { name: /^About / });
+    // Why a check is worth a look: on its own line, no info button
+    await expect(check('description').getByRole('button', { name: /^About / })).toHaveCount(0);
+    await expect(check('description').getByText('No meta description. Search results may show any text from the page.')).toBeVisible();
+    // Why it passed: an info button's tooltip by its name, read with the button
+    const about = check('title').getByRole('button', { name: /^About / });
     const reason = (await page.locator(`[id="${await about.getAttribute('aria-describedby')}"]`).textContent())!;
     expect(reason).not.toBe('');
     await expect(about).toHaveAccessibleDescription(reason);
@@ -653,8 +656,8 @@ test('on a phone the panels open from Options, keep the pill as wide as before, 
     expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     const created = nextCreate(page, project);
-    // A check's reason shows with a tap on its info button, and hides with another
-    const about = seo.locator('[data-uier-check="alt"]').getByRole('button', { name: /^About / });
+    // A passed check's reason shows with a tap on its info button, and hides with another
+    const about = seo.locator('[data-uier-check="h1"]').getByRole('button', { name: /^About / });
     await seo.locator('[role="tab"][data-uier-tab="content"]').tap();
     await about.tap();
     await expect(page.locator('[data-uier-tooltip]')).toBeVisible();

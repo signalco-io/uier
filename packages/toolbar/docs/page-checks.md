@@ -140,9 +140,12 @@ Both panels share one layout (`components/checks/ChecksParts.tsx`), so they read
   choose one with `showChecksTab` (`e2e/support/toolbar.ts`).
 - **Sections** (`CheckSection`): a heading with its count and a short note on the right, over one
   bordered card whose rows are divided by lines.
-- **Rows** (`CheckItem`): one compact row per check: the state icon, the name with a small info button,
+- **Rows** (`CheckItem`): one compact row per check: the state icon, the name (with a small info button but on a warning),
   a short measurement on the right (`measure`, Core Web Vitals), then what was found on its own line
-  (`value`). Why it passed or is worth a look (`reason`) is the info button's tooltip
+  (`value`). Why a warning is worth a look (`reason`) is its own muted line under that, so what to fix
+  shows without a hover
+  ([uier #252](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_zIgm0UQrFHouWK9tOyS4T)),
+  and the row has no info button. Why a check passed, or a note, is the info button's tooltip
   ([uier #244](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_r_U5YjZFgfWaCDFTBsmDH)):
   shown on hover, on keyboard focus and on a tap (a second tap, a tap elsewhere or a scroll hides it;
   `useIconTooltip`'s `tap`), and read with the button and the row's actions through `aria-describedby`
