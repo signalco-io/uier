@@ -4,6 +4,7 @@ import { authenticateMcp, McpAuthenticationError } from '@/src/lib/mcp/credentia
 import { mcpOauthEnabled } from '@/src/lib/mcp/oauth/config';
 import { bearerChallenge } from '@/src/lib/mcp/oauth/metadata';
 import { createFeedbackMcpServer } from '@/src/lib/mcp/server';
+import { feedbackSkills } from '@/src/lib/mcp/skills';
 import { eventNameHeaderRejection, isEventStreamRequest } from '@/src/lib/mcp/events/protocol';
 import type { StreamOptions } from '@/src/lib/mcp/events/stream';
 import { McpRequestLog, type McpRequestEvent } from '@/src/lib/mcp/telemetry';
@@ -92,7 +93,7 @@ async function respond(request: Request, allowedOrigin: string, deadlineMs: numb
         const parsedBody = await parseJsonBody(request, z.unknown(), 16_384);
         log.received(parsedBody);
         // Registers the tools and prompts, so a rejected request below still names what it called.
-        const server = createFeedbackMcpServer(identity, request, allowedOrigin, log, { stream });
+        const server = createFeedbackMcpServer(identity, request, allowedOrigin, log, { stream, skills: await feedbackSkills() });
         // SDK record validation reports arbitrary argument keys in its diagnostics. Reject
         // non-string prompt arguments here without reflecting any submitted content.
         const messages = Array.isArray(parsedBody) ? parsedBody : [parsedBody];

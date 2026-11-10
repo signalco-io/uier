@@ -113,6 +113,14 @@ hand-wired 2025 path with the entry's default fallback: it answers every request
   prefix any more). A tool that does not exist is a JSON-RPC `-32602`, not a tool result.
 - The SDK checks `Mcp-Name` for its own methods only. `eventNameHeaderRejection` (`events/protocol.ts`)
   does it for the event methods, before the entry is called, because the answer must be an HTTP 400.
+- `serverCard.ts` is discovery without a connection: the Server Card at `/api/mcp/server-card` (the
+  extension's reserved location) and the AI Catalog that `next.config.ts` rewrites from
+  `/.well-known/ai-catalog.json`. Public and unauthenticated: never put anything there that is not
+  already public. It also names the server (`mcpServerInfo`) and publishes the webhook signing key.
+- `skills.ts` serves the plugin's skills (`plugins/uier/skills`) through the SDK's Skills extension
+  (`skills/list`, `skills/get`, `skill://` resources). The files are read at run time from the
+  repository layout, so `next.config.ts` traces them into the deployment (`outputFileTracingIncludes`);
+  when they are missing the endpoint works without skills. Edit the skills in the plugin, never a copy.
 - The only response that stays open is `events/stream`. For it the 2025 transport is created without
   JSON mode, and `handleMcp` closes the server and writes the request log when the body has been sent
   (`whenSent`), not when the response object is returned.
@@ -225,13 +233,17 @@ draft) with all three delivery modes ([docs/mcp.md](../../../docs/mcp.md#events-
 - `catalog.ts` has the event names, argument/payload schemas (additive only) and the mapping from a
   thread's `notificationEvents`.
 - `subscriptions.ts`: deterministic subscription ids, TTL grants (clamped, never refused), limits,
-  endpoint verification, encrypted `whsec_` secrets, and where a new subscription starts (`startPosition`:
-  now, or its cursor within the replay limits). `currentEventAccess` is the one access recheck for
+  endpoint verification (the origin's `/.well-known/mcp-webhook-receiver.json` when it covers the path,
+  otherwise the challenge), encrypted `whsec_` secrets, and where a new subscription starts
+  (`startPosition`: now, or its cursor within the replay limits). A refresh ends a suspension. `currentEventAccess` is the one access recheck for
   deliveries, sweeps and streams: only a definite answer (no connection, or a 403/404 from
   `mcpProject`) ends anything, never a storage error.
 - `watermark.ts`: a webhook subscription's position (the safe-to-persist watermark), computed from the
   project's discovery cursor and the subscription's deliveries that still wait; never stored. It also
   holds the cursor and delivery record types.
+- `identity.ts`: the server's ed25519 signature (`v1a,`) on every webhook request, with a key derived
+  from the server secret (the app and the worker both have it; nothing is stored). Its public key goes
+  on the Server Card only: a key taken from a request would prove nothing.
 - `webhook.ts`: Standard Webhooks signing and the POST, which goes only to public HTTPS on the default
   port through `publicNetwork.ts` (the same connection-time address check as OAuth metadata fetches),
   never follows redirects and reports fixed failure categories only.
@@ -242,7 +254,9 @@ draft) with all three delivery modes ([docs/mcp.md](../../../docs/mcp.md#events-
   with `replay` gets its own scan (`replaySubscription`) for the events before it existed: never rewind
   the project cursor for it, other subscriptions' expired records would be created again. An event
   given up (retries exhausted, 413, too large; not 410) marks the subscription `gap`: the endpoint gets
-  a `gap` envelope after its next acknowledged delivery, or the next refresh says `truncated`. Ending
+  a `gap` envelope after its next acknowledged delivery, or the next refresh says `truncated`. An
+  endpoint that only failed for an hour (ten attempts or more) suspends its subscription: deliveries
+  wait without using attempts until a refresh, which answers `active: false` once. Ending
   a subscription for lost access sends one signed `terminated` envelope.
 
 `feedback.assignment_changed` with `assignee: "me"` matches only additions of the connection owner,

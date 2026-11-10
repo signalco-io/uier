@@ -24,7 +24,8 @@ export type { McpEventDelivery } from './watermark';
  * `webhook-id` (SEP-3415: never derived from `eventId`), kept across retries, and carries the
  * subscription's position as `cursor` (`watermark.ts`). A subscription that began from a cursor has
  * its earlier events looked up by its own scan (replay). When an event had to be given up, the
- * subscription is marked and its endpoint gets a signed `gap` envelope once it answers again. A
+ * subscription is marked and its endpoint gets a signed `gap` envelope once it answers again. An
+ * endpoint that fails for an hour suspends its subscription until the next refresh. A
  * subscription whose access ended gets a signed `terminated` envelope and is removed.
  */
 
@@ -39,6 +40,11 @@ const DELIVERY_TTL_SECONDS = 7 * 24 * 60 * 60;
 /** Delay before the 2nd, 3rd, 4th and 5th attempt; then the delivery fails. */
 const RETRY_DELAYS_MS = [60_000, 5 * 60_000, 15 * 60_000, 30 * 60_000];
 const MAX_DUE_PER_DISPATCH = 50;
+/** An endpoint that only failed for this long, over at least this many attempts, is suspended until its client refreshes the subscription. */
+const SUSPEND_AFTER_MS = 60 * 60_000;
+const SUSPEND_MIN_FAILURES = 10;
+/** A suspended subscription's deliveries wait and are looked at again this often; waiting uses up none of their attempts. */
+const SUSPENDED_RECHECK_MS = 15 * 60_000;
 
 export type DispatchOptions = {
     /** Base URL for thread links; links are omitted without one */
@@ -218,15 +224,22 @@ async function sendGap(context: Context, subscription: McpEventSubscription) {
     await updateDoc<McpEventSubscription>(subscription.pk, subscription.id, current => { const { gap: _gap, ...rest } = current; return rest; }, store).catch(() => undefined);
 }
 
-/** The subscription remembers only the latest outcome, written when it changes or at most once a minute. */
+/**
+ * The subscription remembers the latest outcome (a success at most once a minute) and how long its
+ * endpoint has only failed. After an hour of nothing but failures, over ten attempts or more, it is
+ * suspended: its deliveries wait instead of failing, until the client's next refresh.
+ */
 async function noteOutcome(context: Context, subscription: McpEventSubscription, failure: CallbackFailure | null) {
     const now = context.options.now();
-    if (!failure && !subscription.lastError && subscription.lastDeliveryAt && now - Date.parse(subscription.lastDeliveryAt) < 60_000) return;
-    if (failure && subscription.lastError === failure) return;
+    if (!failure && !subscription.lastError && !subscription.failures && subscription.lastDeliveryAt && now - Date.parse(subscription.lastDeliveryAt) < 60_000) return;
     await updateDoc<McpEventSubscription>(subscription.pk, subscription.id, current => {
         const next = { ...current };
-        if (failure) { next.lastError = failure; next.failedSince ??= iso(now); }
-        else { next.lastDeliveryAt = iso(now); delete next.lastError; delete next.failedSince; }
+        if (failure) {
+            next.lastError = failure;
+            next.failedSince ??= iso(now);
+            next.failures = (current.failures ?? 0) + 1;
+            if (!next.suspendedAt && next.failures >= SUSPEND_MIN_FAILURES && now - Date.parse(next.failedSince) >= SUSPEND_AFTER_MS) next.suspendedAt = iso(now);
+        } else { next.lastDeliveryAt = iso(now); delete next.lastError; delete next.failedSince; delete next.failures; delete next.suspendedAt; }
         return next;
     }, context.options.store).catch(() => undefined);
 }
@@ -272,6 +285,8 @@ async function deliver(context: Context, candidate: McpEventDelivery): Promise<'
 
     const subscription = (await store.get<McpEventSubscription>(delivery.pk, delivery.subscriptionId))?.doc;
     if (!subscription || !isSubscriptionActive(subscription, now())) return skip();
+    // Suspended: the delivery waits for the client's refresh. Nothing is sent and no attempt is used up.
+    if (subscription.suspendedAt) { await finish(context, delivery, lease.id, { nextAttemptAt: iso(now() + SUSPENDED_RECHECK_MS) }); return null; }
     let actor;
     try { actor = await subscriberActor(context, subscription); }
     // Access could not be checked now: release the lease and try again on a later dispatch.

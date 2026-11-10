@@ -8,7 +8,8 @@ import { mcpScopes } from './scopes';
 
 export const MAX_CALLS = 10;
 export const methods = ['initialize', 'server/discover', 'subscriptions/listen', 'ping', 'tools/list', 'tools/call', 'prompts/list', 'prompts/get', 'resources/list',
-    'resources/templates/list', 'resources/read', 'resources/subscribe', 'resources/unsubscribe', 'completion/complete',
+    'resources/templates/list', 'resources/read', 'resources/directory/read', 'resources/subscribe', 'resources/unsubscribe', 'skills/list', 'skills/get',
+    'completion/complete',
     'logging/setLevel', 'tasks/get', 'tasks/list', 'tasks/result', 'tasks/cancel', 'notifications/initialized',
     'notifications/cancelled', 'notifications/progress', 'notifications/roots/list_changed',
     'events/list', 'events/subscribe', 'events/unsubscribe', 'events/poll', 'events/stream'] as const;

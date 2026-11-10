@@ -5,6 +5,9 @@ It bundles the remote MCP connector at `https://uier.io/api/mcp`, `uier-monitor`
 `uier-monitor-script`. The catalogs become available from `signalco-io/uier` when this change
 reaches `main`; a repository marketplace is separate from a public directory listing.
 
+A client that supports the MCP Skills extension does not need the plugin for the skills: the
+connector serves the same files over the connection ([Skills over the connection](mcp.md#prompts-and-agent-skill)).
+
 ## Install in Claude Code
 
 In a Claude Code session:

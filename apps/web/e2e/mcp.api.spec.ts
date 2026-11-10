@@ -1,10 +1,12 @@
 import { defaultFeedbackTypes } from '@uier/toolbar/feedback-types';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { z } from 'zod';
 import { test, expect } from '@playwright/test';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { McpServer, ProtocolErrorCode as ErrorCode, WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/server';
 import { handleMcp } from '../src/lib/mcp/http';
-import { mcpRequestEventSchema } from '../src/lib/mcp/telemetry';
+import { mcpRequestEventSchema, type McpRequestEvent } from '../src/lib/mcp/telemetry';
+import { aiCatalog, discoveryResponse, serverCard } from '../src/lib/mcp/serverCard';
 import { feedbackSkill } from '../src/lib/mcp/workflows';
 import { createMcpCredential, revokeMcpCredential, authenticateMcp, mcpProject, mcpScopes, type McpCredential } from '../src/lib/mcp/credentials';
 import { getAppStore } from '../src/lib/app/store';
@@ -146,6 +148,68 @@ test('a 2026-07-28 client finds the server with server/discover and uses it with
         expect(seen.every(entry => entry.version === '2026-07-28' && entry.status === 200 && entry.type === 'application/json')).toBe(true);
         expect(seen.filter(entry => entry.method === 'tools/call').map(entry => entry.name)).toEqual(expect.arrayContaining(['get_feedback', 'reply_to_feedback']));
     } finally { await client.close(); }
+});
+
+test('the Server Card and the AI Catalog describe the endpoint to anyone, without a connection', async () => {
+    // The routes (/api/mcp/server-card and /.well-known/ai-catalog.json, checked over HTTP in mcp.spec.ts) answer with exactly this.
+    const cardResponse = (headers: Record<string, string> = {}) => discoveryResponse(new Request(`${base}/api/mcp/server-card`, { headers }), serverCard(base), 'application/mcp-server-card+json');
+    const response = cardResponse({ Accept: 'application/mcp-server-card+json' });
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('application/mcp-server-card+json');
+    expect(response.headers.get('access-control-allow-origin')).toBe('*');
+    expect(response.headers.get('access-control-expose-headers')).toBe('ETag');
+    expect(response.headers.get('cache-control')).toBe('public, max-age=3600');
+    const card = await response.json() as Record<string, any>;
+    expect(card).toMatchObject({ $schema: 'https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json', name: 'io.uier/uier', version: '1.0.0',
+        title: 'uier', websiteUrl: 'https://uier.io', repository: { url: 'https://github.com/signalco-io/uier', source: 'github' },
+        remotes: [{ type: 'streamable-http', url: `${base}/api/mcp`, supportedProtocolVersions: expect.arrayContaining(['2026-07-28', '2025-11-25', '2025-03-26']),
+            extensions: { 'io.modelcontextprotocol/events': { webhooks: { signingKeys: { keys: [expect.objectContaining({ kty: 'OKP', crv: 'Ed25519' })] } } } } }] });
+    // The card's own limits, and nothing secret: a public key has no `d`.
+    expect(card.name).toMatch(/^[a-zA-Z0-9.-]+\/[a-zA-Z0-9._-]+$/);
+    expect(card.description.length).toBeLessThanOrEqual(100);
+    expect(JSON.stringify(card)).not.toMatch(/"d":|whsec_|Bearer/);
+    // An unchanged card is not sent again.
+    const etag = response.headers.get('etag')!;
+    const again = cardResponse({ 'If-None-Match': etag });
+    expect(again.status).toBe(304);
+    expect(await again.text()).toBe('');
+
+    const catalog = discoveryResponse(new Request(`${base}/.well-known/ai-catalog.json`), aiCatalog(base), 'application/ai-catalog+json');
+    expect(catalog.headers.get('content-type')).toBe('application/ai-catalog+json');
+    expect(await catalog.json()).toEqual({ specVersion: '1.0', entries: [{ identifier: 'urn:air:uier.io:mcp:uier', type: 'application/mcp-server-card+json', url: `${base}/api/mcp/server-card` }] });
+});
+
+test('the connector serves the plugin skills with their files to clients that read skills from a connection', async () => {
+    const f = await fixture();
+    const { token } = await createMcpCredential(f.context, { name: 'Skills', projectIds: [f.project.id], scopes: ['feedback:read'], days: 7 });
+    const logged: McpRequestEvent[] = [];
+    const client = await connect(token, request => handleMcp(request, base, { emit: event => { logged.push(event); } }));
+    const loose = z.object({}).loose();
+    try {
+        expect(client.getServerCapabilities()).toMatchObject({ extensions: { 'io.modelcontextprotocol/skills': { directoryRead: true }, 'io.modelcontextprotocol/events': {} },
+            resources: { listChanged: false } });
+        const listed = await client.request({ method: 'skills/list' as never } as never, loose) as { skills: { uri: string; frontmatter: { name: string; description: string }; resources: { uri: string; digest: string; size: number }[] }[] };
+        expect(listed.skills.map(skill => skill.frontmatter.name).sort()).toEqual(['uier-monitor', 'uier-monitor-script']);
+        const monitor = listed.skills.find(skill => skill.frontmatter.name === 'uier-monitor')!;
+        expect(monitor.uri).toBe('skill://uier-monitor/SKILL.md');
+        expect(monitor.resources.map(resource => resource.uri)).toEqual(expect.arrayContaining(['skill://uier-monitor/SKILL.md', 'skill://uier-monitor/scripts/monitor.mjs']));
+        // The same files the plugin installs: the content matches the published digest.
+        const script = monitor.resources.find(resource => resource.uri.endsWith('/monitor.mjs'))!;
+        const read = await client.readResource({ uri: script.uri });
+        const text = (read.contents[0] as { text: string }).text;
+        expect(`sha256:${createHash('sha256').update(text).digest('hex')}`).toBe(script.digest);
+        expect(Buffer.byteLength(text)).toBe(script.size);
+        expect((await client.readResource({ uri: monitor.uri })).contents[0]).toMatchObject({ mimeType: 'text/markdown', text: expect.stringContaining('name: uier-monitor') });
+        expect((await client.listResources()).resources.map(resource => resource.uri)).toEqual(expect.arrayContaining(['skill://uier-monitor/SKILL.md', 'skill://uier-monitor-script/SKILL.md']));
+        // Nothing outside the catalog, and the screenshot resource is still there.
+        await expect(client.readResource({ uri: 'skill://uier-monitor/../../../package.json' })).rejects.toMatchObject({ code: ErrorCode.InvalidParams });
+        expect((await client.listResourceTemplates()).resourceTemplates.map(template => template.uriTemplate)).toEqual(expect.arrayContaining(['skill://{+path}', 'uier://projects/{projectId}/feedback/{commentId}/screenshot']));
+    } finally { await client.close(); }
+    for (const event of logged) expect(mcpRequestEventSchema.safeParse(event).success).toBe(true);
+    const calls = logged.flatMap(event => event.calls);
+    expect(calls.find(call => call.method === 'skills/list')).toMatchObject({ outcome: 'success' });
+    expect(calls.filter(call => call.method === 'resources/read').map(call => [call.name, call.outcome])).toEqual([
+        ['io.modelcontextprotocol_skills', 'success'], ['io.modelcontextprotocol_skills', 'success'], ['io.modelcontextprotocol_skills', 'error']]);
 });
 
 test('MCP transport deadlines and request cancellation return JSON-RPC errors and always close the server', async () => {

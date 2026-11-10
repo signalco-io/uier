@@ -226,7 +226,8 @@ export class McpRequestLog {
         }) as unknown as McpServer['registerPrompt'];
         const registerResource = server.registerResource.bind(server);
         server.registerResource = ((name: string, target: string | ResourceTemplate, config: unknown, callback: Callback) => {
-            this.resources.set(name, typeof target === 'string' ? uri => uri === target : uri => Boolean(target.uriTemplate.match(uri)));
+            // An extension names its template by its id (`io.modelcontextprotocol/skills`); the log keeps to its own name pattern.
+            this.resources.set(name.toLowerCase().replace(/[^a-z0-9_.-]/g, '_').slice(0, 64), typeof target === 'string' ? uri => uri === target : uri => Boolean(target.uriTemplate.match(uri)));
             return registerResource(name, target as never, config as never, inContext(callback) as never);
         }) as unknown as McpServer['registerResource'];
     }

@@ -220,6 +220,8 @@ deleted.
 | `/api/oauth/token` | `POST` | Code exchange and refresh |
 | `/api/oauth/register` | `POST` | Dynamic client registration ([RFC 7591](https://datatracker.ietf.org/doc/html/rfc7591)) |
 | `/api/oauth/revoke` | `POST` | Token revocation ([RFC 7009](https://datatracker.ietf.org/doc/html/rfc7009)) |
+| `/api/mcp/server-card` | `GET` | The [Server Card](#server-card): what the endpoint is, without a connection |
+| `/.well-known/ai-catalog.json` | `GET` | An AI Catalog with one entry, the Server Card |
 
 uier is its own authorization server, for this endpoint only. The issuer is the app origin
 (`https://uier.io` in production, the preview or local origin elsewhere), so the issuer, the endpoints
@@ -402,6 +404,20 @@ between requests in either.
 Which one a request is follows from the request itself: a body with the per-request `_meta` is
 `2026-07-28`, anything else is the earlier generation. Older clients are unaffected.
 
+### Server Card
+
+`GET /api/mcp/server-card` returns the endpoint's
+[Server Card](https://github.com/modelcontextprotocol/ext-server-card) (`application/mcp-server-card+json`),
+at the location that extension reserves for it, and `/.well-known/ai-catalog.json` lists it
+(`application/ai-catalog+json`), so a client or directory can find the server from the domain alone.
+Both are public, readable from any origin, cacheable for an hour and answer `304` to a matching
+`If-None-Match`. The card has the name `io.uier/uier`, a description, the repository, icons and one
+remote: the endpoint's address, the protocol revisions it speaks and, under
+`extensions["io.modelcontextprotocol/events"].webhooks.signingKeys`, the public key of the
+[server signature](#events-webhooks-streams-and-polling) on event webhooks. It holds nothing secret
+and grants nothing: the endpoint still asks for sign-in, and a client checks what the card says
+against the live connection.
+
 ## Tools
 
 | Tool | Scope | Behavior |
@@ -514,6 +530,15 @@ use the tools’ identifier schemas; project grants and current membership are c
 retrieval. Prompts contain instructions and validated identifiers, never feedback text: every
 feedback read still goes through an authorized tool.
 
+**Skills over the connection.** The connector also serves the skills of the
+[uier plugin](agent-plugins.md), `uier-monitor` and `uier-monitor-script`, through the MCP Skills
+extension (`capabilities.extensions["io.modelcontextprotocol/skills"]`): `skills/list` and
+`skills/get` describe them, and each file, scripts included, is a `skill://` resource
+(`resources/read`) with its size and SHA-256 digest. A client that supports the extension gets them
+from the connection it already has, without installing the plugin; they are the same files, read
+from `plugins/uier/skills` in the deployment. Any authenticated connection can read them. They hold
+instructions only, and a skill never widens what the connection may do.
+
 In **Prompts and agent skill**, copy or download `SKILL.md` and save it as
 `uier-feedback/SKILL.md` in your client’s skills directory (see
 [Codex skills](https://learn.chatgpt.com/docs/extend/skills) or
@@ -575,10 +600,13 @@ default port, without credentials, a fragment or an IP address. The secret is a
 [Standard Webhooks](https://github.com/standard-webhooks/standard-webhooks/blob/main/spec/standard-webhooks.md)
 secret: `whsec_` and the base64 of 24–64 random bytes, supplied by the client.
 
-Before a connection's first subscription to a URL, uier POSTs a signed
+Before a connection's first subscription to a URL, uier confirms that the endpoint wants deliveries.
+It first reads `/.well-known/mcp-webhook-receiver.json` from the callback's origin: when that
+document lists a path prefix the callback is under (`{"receivers": ["/hooks/"]}`), the origin has
+consented and nothing more is asked. Otherwise uier POSTs a signed
 `{"type":"verification","challenge":"..."}` and activates the subscription only when a `2xx` response
-echoes `{"challenge":"..."}` (compared in constant time). A verification covers that connection and
-URL for a day; at most 30 verifications per callback host and hour are sent.
+echoes `{"challenge":"..."}` (compared in constant time). Either way the verification covers that
+connection and URL for a day; at most 30 verifications per callback host and hour are made.
 
 A subscription is keyed by connection, URL, event and canonical arguments, so the same call again
 refreshes the same `id` (`sub_` and 32 hex digits). A refresh may replace the secret; the previous one
@@ -586,8 +614,14 @@ also signs deliveries for five minutes. The grant, `refreshBefore`, defaults to 
 five minutes and seven days; `ttlMs: null` (no expiry) also gets seven days. Any `ttlMs` is clamped
 to that range, never refused. The client refreshes before it ends. The result is
 `{ resultType: "complete", id, refreshBefore, cursor, truncated }`, and a refresh adds
-`deliveryStatus` (`active`, `lastDeliveryAt`, `lastError`, `failedSince`). uier never suspends a
-subscription, so `active` is always `true`. A connection holds at most 25 subscriptions and a project 100.
+`deliveryStatus` (`active`, `lastDeliveryAt`, `lastError`, `failedSince`). A connection holds at most 25
+subscriptions and a project 100.
+
+**Suspension.** When an endpoint has done nothing but fail for an hour, over ten attempts or more,
+uier suspends the subscription: events are still recorded for it, but nothing is sent and waiting
+uses up none of an event's attempts. The next refresh ends the suspension. Its answer says
+`deliveryStatus.active: false` once, and what waited is delivered. A client that never refreshes
+loses the subscription when it expires.
 
 **Position and replay.** `cursor` is the subscription's position: every event at or before it was
 acknowledged by the endpoint or given up on. Every delivery carries the position too, and a refresh
@@ -658,9 +692,16 @@ Errors use SEP-3415's provisional codes: `-32602` InvalidParams, `-32023` NotFou
 (`data.reason`). ChatGPT's page still names `-32015` for CallbackEndpointError, the earlier design sketch's
 number. `apps/web/src/lib/mcp/events/subscriptions.ts` holds the table.
 
-Of the parts the SEP leaves optional, uier does not offer: verification of an endpoint through its
-`/.well-known/mcp-webhook-receiver.json` (the challenge covers every endpoint), a server signature
-(`v1a`) beside the HMAC, suspension of a failing subscription, and `events/list` change notifications.
+**Server signature.** After the HMAC signatures, `webhook-signature` carries one more value: `v1a,`
+and the base64 ed25519 signature of the same `id.timestamp.body`, on every request (events,
+verification and control envelopes). The HMAC proves a request belongs to a subscription the endpoint
+made; this one proves which server sent it. Verify it with the key on the [Server Card](#server-card),
+never with a key from a request; an endpoint that does not check it ignores it. The key is derived
+from the server secret and changes only with it.
+
+Of the parts the SEP leaves optional, uier does not offer `events/list` change notifications (the
+events change only with a deployment) or published egress ranges (deliveries come from changing
+addresses).
 
 **How it runs.** Each thread already records its activity in `notificationEvents` (the email
 notification outbox), so events add no write path. After a change, the request delivers its
@@ -833,7 +874,8 @@ an operator who knows a connection id can find its requests, without the id in t
 
 `calls` has one entry per JSON-RPC message (at most 10; `omittedCalls` counts the rest):
 
-- `method` and, for `tools/call`, `prompts/get`, `resources/read`, `events/subscribe`,
+- `method` (the skills methods `skills/list`, `skills/get` and `resources/directory/read` included;
+  a skill file read is a `resources/read` named `io.modelcontextprotocol_skills`) and, for `tools/call`, `prompts/get`, `resources/read`, `events/subscribe`,
   `events/unsubscribe`, `events/poll` and `events/stream`, the registered `name` (an event name for the last four), or `unknown` with
   `requestedName` when the client asked for a name we do not offer. Event calls log no arguments:
   never the callback URL, secret or filters;
@@ -910,7 +952,8 @@ maps the error for the client. `e2e/mcpTelemetry.api.spec.ts` covers the events.
 
 `e2e/mcp.api.spec.ts` uses the official SDK client for the read/fix/reply/status path and adversarial
 isolation, image, expiry, revocation, membership and retry checks, and once as a `2026-07-28` client
-(`server/discover`, no handshake, standard headers). `e2e/mcp.spec.ts` connects that
+(`server/discover`, no handshake, standard headers); it also checks the Server Card, the AI Catalog
+and the skills served over the connection. `e2e/mcp.spec.ts` connects that
 client to a token created in the real Account UI, verifies light/dark accessibility and revokes
 access on the existing connection. `e2e/mcpOauth.api.spec.ts` covers OAuth: discovery and the off
 switch, registration and metadata documents, authorization errors, consent, code exchange, refresh
@@ -926,7 +969,8 @@ a consumed request, Use another account, the error page, a 375 px layout and lig
 `e2e/mcpEvents.api.spec.ts` runs event subscriptions against a local webhook receiver: the capability
 and catalog, verification, Standard Webhooks signatures, filters, loop prevention, private threads,
 refresh and secret rotation, unsubscribe, retries, `410`, revocation, error codes and what is logged;
-positions, replay from a cursor, gaps and the `terminated` envelope; polling: starting from now, each
+positions, replay from a cursor, gaps, suspension, the receiver document, the server signature and the
+`terminated` envelope; polling: starting from now, each
 event once, a late commit, paging, visibility, the `list_feedback_events` tool, invalid and expired
 cursors; push streams on both revisions: confirmation, events with their positions, heartbeats, the
 end of a stream, resuming, the stream limit and `terminated`; and the `2026-07-28` wire: `server/discover`,

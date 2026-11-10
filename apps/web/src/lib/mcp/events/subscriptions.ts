@@ -9,8 +9,8 @@ import { currentMcpConnection, mcpProject, type McpIdentity } from '../credentia
 import { isMcpEventName, parseMcpEventArguments, type McpEventArguments, type McpEventName } from './catalog';
 import { decodeFeedCursor, REPLAY_LIMIT_MS, watermarkCursor } from './feed';
 import { queueMcpEventDelivery } from './trigger';
-import { loadSubscriptionPosition, subscriptionWatermark } from './watermark';
-import { callbackUrl, postWebhook, verifyCallback, webhookSecretBytes, type CallbackFailure, type WebhookPost } from './webhook';
+import { loadSubscriptionPosition, resumeWaitingDeliveries, subscriptionWatermark } from './watermark';
+import { callbackUrl, postWebhook, receiverDocument, verifyCallback, webhookSecretBytes, type CallbackFailure, type WebhookPost } from './webhook';
 
 /*
  * Webhook subscriptions (SEP-3415). A subscription is keyed by the connection, callback
@@ -59,6 +59,10 @@ export type McpEventSubscription = AppDoc & {
     lastDeliveryAt?: string;
     lastError?: CallbackFailure;
     failedSince?: string;
+    /** Failed attempts since `failedSince`, without a success in between */
+    failures?: number;
+    /** Set when the endpoint only failed for too long: deliveries wait until the next refresh clears it (`delivery.ts`) */
+    suspendedAt?: string;
 };
 
 /** A verified (connection, callback URL) pair; verification covers every subscription of it for a day. */
@@ -161,8 +165,12 @@ async function verifyEndpoint(store: AppStore, post: WebhookPost, connectionId: 
     if (!await getCommentsStore().incrementCounter('$mcp', `counter_${keyedHash('mcp-event-verification', `${url.hostname}:${window}`)}`,
         MAX_VERIFICATIONS_PER_HOST, 3600))
         throw new McpEventsError('resource_exhausted', 'Too many callback verifications for this host. Try again within the hour.', { limit: 'verifications', max: MAX_VERIFICATIONS_PER_HOST });
-    const failure = await verifyCallback(post, url.href, id, secret);
-    if (failure) throw new McpEventsError('callback', 'The callback endpoint did not verify.', { reason: failure });
+    // An origin that publishes this path as a webhook receiver has consented already; any other endpoint answers a challenge.
+    const published = await receiverDocument(url);
+    if (!published?.some(prefix => url.pathname.startsWith(prefix))) {
+        const failure = await verifyCallback(post, url.href, id, secret);
+        if (failure) throw new McpEventsError('callback', 'The callback endpoint did not verify.', { reason: failure });
+    }
     const doc: McpEventEndpoint = { type: 'mcp-event-endpoint', pk: endpointPk(connectionId), id: createHash('sha256').update(url.href).digest('hex'),
         verifiedAt: new Date().toISOString(), ttl: VERIFIED_ENDPOINT_SECONDS };
     // A concurrent verification of the same endpoint already wrote the record.
@@ -250,7 +258,11 @@ export async function subscribeToMcpEvent(identity: McpIdentity, input: Subscrib
         // An expired record is replaced as a new subscription: its old delivery state does not carry over.
         if (stored && !existing) {
             delete doc.lastDeliveryAt; delete doc.lastError; delete doc.failedSince; delete doc.replay; delete doc.gap;
+            delete doc.failures; delete doc.suspendedAt;
         }
+        // A refresh is the client's sign of life: it ends a suspension, and the answer says there was one.
+        const suspended = Boolean(existing?.doc.suspendedAt);
+        if (suspended) { delete doc.suspendedAt; delete doc.failures; delete doc.failedSince; }
         // Earlier events are looked up after the answer, from the write time they could first have been stored at.
         const replays = !existing && Date.parse(doc.since) < now;
         if (replays) doc.replay = { floor: Date.parse(doc.since) - REPLAY_SETTLE_MS };
@@ -259,11 +271,12 @@ export async function subscribeToMcpEvent(identity: McpIdentity, input: Subscrib
         delete doc.gap;
         const saved = stored ? await store.replace(doc, stored.etag) === 'ok' : await store.create(doc);
         if (!saved) continue;
-        if (replays) queueMcpEventDelivery(project.id);
+        if (suspended) await resumeWaitingDeliveries(store, doc, now);
+        if (replays || suspended) queueMcpEventDelivery(project.id);
         const watermark = existing ? subscriptionWatermark(doc, await loadSubscriptionPosition(store, doc)) : Date.parse(doc.since) - 1;
         return {
             id, refreshBefore: doc.refreshBefore, cursor: watermarkCursor(watermark), truncated: existing ? gap : start.truncated,
-            ...(existing ? { deliveryStatus: { active: true, lastDeliveryAt: existing.doc.lastDeliveryAt ?? null, lastError: existing.doc.lastError ?? null,
+            ...(existing ? { deliveryStatus: { active: !suspended, lastDeliveryAt: existing.doc.lastDeliveryAt ?? null, lastError: existing.doc.lastError ?? null,
                 ...(existing.doc.failedSince ? { failedSince: existing.doc.failedSince } : {}) } } : {})
         };
     }

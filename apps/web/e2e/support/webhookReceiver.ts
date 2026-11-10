@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, randomUUID } from 'node:crypto';
+import { createHmac, createPublicKey, randomBytes, randomUUID, verify } from 'node:crypto';
 import { createServer, type IncomingHttpHeaders, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
@@ -18,11 +18,22 @@ export class WebhookReceiver {
     status = 200;
     /** Whether verification challenges are echoed */
     echo = true;
+    /** Path prefixes published in `/.well-known/mcp-webhook-receiver.json`; none: the document is not served */
+    receivers?: string[];
+    /** How often that document was asked for */
+    documentRequests = 0;
     url = '';
     private server?: Server;
 
     async start() {
         this.server = createServer((request, response) => {
+            if (request.method === 'GET') {
+                if (request.url === '/.well-known/mcp-webhook-receiver.json') this.documentRequests++;
+                const published = request.url === '/.well-known/mcp-webhook-receiver.json' && this.receivers;
+                response.writeHead(published ? 200 : 404, { 'Content-Type': 'application/json' });
+                response.end(published ? JSON.stringify({ receivers: this.receivers }) : '{}');
+                return;
+            }
             const chunks: Buffer[] = [];
             request.on('data', chunk => chunks.push(chunk));
             request.on('end', () => {
@@ -44,6 +55,14 @@ export class WebhookReceiver {
     }
 
     stop() { return new Promise(resolve => this.server ? this.server.close(resolve) : resolve(undefined)); }
+
+    /** Whether the request carries the server's own `v1a,` signature for this public key (a JWK from the Server Card) */
+    signedBy(entry: ReceivedWebhook, jwk: Record<string, unknown>) {
+        const signature = String(entry.headers['webhook-signature']).split(' ').find(value => value.startsWith('v1a,'));
+        if (!signature) return false;
+        const signed = Buffer.from(`${String(entry.headers['webhook-id'])}.${String(entry.headers['webhook-timestamp'])}.${entry.body}`);
+        return verify(null, signed, createPublicKey({ key: jwk as never, format: 'jwk' }), Buffer.from(signature.slice(4), 'base64'));
+    }
 
     /** The registered secrets whose signature this request carries */
     verifiedBy(entry: ReceivedWebhook) {

@@ -9,6 +9,7 @@ import { dispatchProjectEvents, type McpEventDelivery } from '../src/lib/mcp/eve
 import { eventsPk, type McpEventSubscription } from '../src/lib/mcp/events/subscriptions';
 import { decodeFeedCursor } from '../src/lib/mcp/events/feed';
 import { MAX_STREAMS_PER_CONNECTION } from '../src/lib/mcp/events/stream';
+import { serverCard } from '../src/lib/mcp/serverCard';
 import { subscriptionWatermark, type McpEventCursor } from '../src/lib/mcp/events/watermark';
 import { callbackUrl, webhookSecretBytes } from '../src/lib/mcp/events/webhook';
 import { getAppStore, updateDoc } from '../src/lib/app/store';
@@ -850,6 +851,102 @@ test('an event given up after its retries marks a gap: the endpoint is told when
         await f.create('Refused by the receiver');
         expect(await dispatch(f.project.id, () => clock)).toMatchObject({ failed: 1 });
         expect((await stored(subscribed.id)).gap).toBeUndefined();
+    } finally { await client.close(); await receiver.stop(); }
+});
+
+test('an endpoint that only fails for an hour suspends its subscription until the next refresh', async () => {
+    const f = await fixture();
+    const receiver = await new WebhookReceiver().start();
+    const client = await connect(f.token);
+    const secret = newWebhookSecret();
+    receiver.secrets.add(secret);
+    const params = { name: 'feedback.created', arguments: { projectId: f.project.id }, delivery: { mode: 'webhook', url: receiver.url, secret } };
+    const stored = async (id: string) => (await getAppStore().get<McpEventSubscription>(eventsPk(f.project.id), id))!.doc;
+    try {
+        const subscribed = await subscribe(client, params);
+        receiver.status = 503;
+        for (const text of ['One', 'Two', 'Three']) await f.create(text);
+        let clock = Date.now() + 1000;
+        await dispatch(f.project.id, () => clock);
+        for (const delay of [61_000, 301_000, 901_000, 1_801_000]) { clock += delay; await dispatch(f.project.id, () => clock); }
+        // Fifteen failed attempts in 51 minutes: every event is given up, but that is not yet an hour of nothing but failures.
+        expect(await stored(subscribed.id)).toMatchObject({ failures: 15, lastError: 'http_5xx', gap: true });
+        expect((await stored(subscribed.id)).suspendedAt).toBeUndefined();
+
+        clock += 10 * 60_000;
+        const waiting = await f.create('Waits for the refresh');
+        expect(await dispatch(f.project.id, () => clock)).toMatchObject({ retrying: 1 });
+        expect((await stored(subscribed.id)).suspendedAt).toEqual(expect.any(String));
+        // Suspended: the delivery is due, but nothing is sent and none of its attempts is used up.
+        const sent = receiver.received.length;
+        clock += 61_000;
+        expect(await dispatch(f.project.id, () => clock)).toMatchObject({ delivered: 0, retrying: 0, failed: 0 });
+        expect(receiver.received).toHaveLength(sent);
+        const [held] = (await getAppStore().query<McpEventDelivery>({ type: 'mcp-event-delivery', pk: eventsPk(f.project.id), where: { active: true } }));
+        expect(held).toMatchObject({ threadId: waiting.id, attempts: 1, status: 'queued' });
+
+        // The endpoint is back. The refresh says delivery was suspended, ends the suspension, and what waited goes out.
+        receiver.status = 200;
+        expect((await subscribe(client, params)).deliveryStatus).toMatchObject({ active: false, lastError: 'http_5xx', failedSince: expect.any(String) });
+        expect((await stored(subscribed.id)).suspendedAt).toBeUndefined();
+        expect(await dispatch(f.project.id, () => clock)).toMatchObject({ delivered: 1 });
+        expect(receiver.deliveries().at(-1)!.json.data.commentId).toBe(waiting.id);
+        expect((await subscribe(client, params)).deliveryStatus).toMatchObject({ active: true, lastError: null });
+    } finally { await client.close(); await receiver.stop(); }
+});
+
+test('an origin that publishes its receiver paths needs no challenge; any other path still answers one', async () => {
+    const f = await fixture();
+    const receiver = await new WebhookReceiver().start();
+    const other = await new WebhookReceiver().start();
+    const client = await connect(f.token);
+    const secret = newWebhookSecret();
+    receiver.secrets.add(secret);
+    other.secrets.add(secret);
+    try {
+        // /.well-known/mcp-webhook-receiver.json covers the callback path: the origin has consented already.
+        receiver.receivers = ['/hooks/'];
+        await subscribe(client, { name: 'feedback.created', arguments: { projectId: f.project.id }, delivery: { mode: 'webhook', url: receiver.url, secret } });
+        expect(receiver.documentRequests).toBe(1);
+        expect(receiver.received).toHaveLength(0);
+        await f.create('Delivered without a challenge');
+        expect(await dispatch(f.project.id)).toMatchObject({ delivered: 1 });
+        expect(receiver.verifiedBy(receiver.deliveries()[0]!)).toEqual([secret]);
+        // The verification is kept for the connection and URL like a challenge's: no second look.
+        await subscribe(client, { name: 'feedback.replied', arguments: { projectId: f.project.id }, delivery: { mode: 'webhook', url: receiver.url, secret } });
+        expect(receiver.documentRequests).toBe(1);
+
+        // A document that names other paths does not cover this one.
+        other.receivers = ['/elsewhere/', 42 as never];
+        await subscribe(client, { name: 'feedback.created', arguments: { projectId: f.project.id }, delivery: { mode: 'webhook', url: other.url, secret } });
+        expect(other.documentRequests).toBe(1);
+        expect(other.received.map(entry => entry.json.type)).toEqual(['verification']);
+    } finally { await client.close(); await receiver.stop(); await other.stop(); }
+});
+
+test('every webhook request also carries the server signature, which the Server Card key verifies', async () => {
+    const f = await fixture();
+    const receiver = await new WebhookReceiver().start();
+    const client = await connect(f.token);
+    const secret = newWebhookSecret();
+    receiver.secrets.add(secret);
+    try {
+        await subscribe(client, { name: 'feedback.created', arguments: { projectId: f.project.id }, delivery: { mode: 'webhook', url: receiver.url, secret } });
+        await f.create('Signed twice');
+        await dispatch(f.project.id);
+        await revokeMcpCredential(f.user.id, f.credential.id);
+        await dispatchProjectEvents(f.project.id, { baseUrl: base, deadline: Date.now() + 15_000, recheckAccess: true });
+        expect(receiver.received.map(entry => entry.json.type ?? 'event')).toEqual(['verification', 'event', 'terminated']);
+
+        const keys = serverCard(base).remotes[0]!.extensions['io.modelcontextprotocol/events'].webhooks.signingKeys.keys;
+        expect(keys).toEqual([{ kty: 'OKP', crv: 'Ed25519', x: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/), kid: expect.stringMatching(/^[A-Za-z0-9_-]{16}$/), use: 'sig', alg: 'EdDSA' }]);
+        for (const entry of receiver.received) {
+            // The subscription's HMAC first, then the server's own signature: an endpoint that knows only one still verifies.
+            expect(String(entry.headers['webhook-signature'])).toMatch(/^v1,[A-Za-z0-9+/=]+ v1a,[A-Za-z0-9+/=]+$/);
+            expect(receiver.verifiedBy(entry)).toEqual([secret]);
+            expect(receiver.signedBy(entry, keys[0]!)).toBe(true);
+            expect(receiver.signedBy({ ...entry, body: `${entry.body} ` }, keys[0]!)).toBe(false);
+        }
     } finally { await client.close(); await receiver.stop(); }
 });
 

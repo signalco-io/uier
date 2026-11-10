@@ -1,5 +1,5 @@
 import type { AppDoc } from '../../app/model';
-import type { AppStore } from '../../app/store';
+import { updateDoc, type AppStore } from '../../app/store';
 import type { NotificationEvent } from '../../notifications/delivery';
 import type { McpEventName } from './catalog';
 import type { McpEventSubscription } from './subscriptions';
@@ -55,6 +55,13 @@ export async function loadSubscriptionPosition(store: AppStore, subscription: Mc
         store.query<McpEventDelivery>({ type: 'mcp-event-delivery', pk: subscription.pk, where: { subscriptionId: subscription.id, active: true }, limit: MAX_WAITING })]);
     return { discoveredTo: cursor ? Math.min(cursor.doc.floor, cursor.doc.eventFloor ?? cursor.doc.floor) : 0,
         waiting: new Map(waiting.map(delivery => [delivery.id, Date.parse(delivery.eventAt)])), unknown: waiting.length >= MAX_WAITING };
+}
+
+/** After a suspension ends: the subscription's waiting deliveries (one dispatch's worth; the rest follow within minutes) are due at once. */
+export async function resumeWaitingDeliveries(store: AppStore, subscription: McpEventSubscription, now: number) {
+    const waiting = await store.query<McpEventDelivery>({ type: 'mcp-event-delivery', pk: subscription.pk, where: { subscriptionId: subscription.id, active: true }, limit: 50 });
+    await Promise.all(waiting.filter(delivery => Date.parse(delivery.nextAttemptAt) > now).map(delivery =>
+        updateDoc<McpEventDelivery>(delivery.pk, delivery.id, current => current.active ? { ...current, nextAttemptAt: new Date(now).toISOString() } : current, store).catch(() => undefined)));
 }
 
 /** The event time (ms) up to which nothing is left to deliver: never before the subscription's own start. */

@@ -4,10 +4,12 @@ import { request as httpsRequest } from 'node:https';
 import { isIP } from 'node:net';
 import { isLocalRuntime } from '../../comments/environment';
 import { publicLookup } from '../publicNetwork';
+import { serverSignature } from './identity';
 
 /*
- * MCP event webhooks: Standard Webhooks signatures (`v1,` HMAC-SHA256 over `id.timestamp.body`)
- * plus `X-MCP-Subscription-Id`. Requests go only to public HTTPS addresses on the default port,
+ * MCP event webhooks: Standard Webhooks signatures (`v1,` HMAC-SHA256 over `id.timestamp.body` for
+ * each of the subscription's secrets, then the server's own `v1a,` signature, `identity.ts`) plus
+ * `X-MCP-Subscription-Id`. Requests go only to public HTTPS addresses on the default port,
  * checked on each connection's own DNS lookup, never follow redirects and read at most 4 KiB.
  */
 
@@ -79,7 +81,7 @@ export const postWebhook: WebhookPost = request => new Promise(resolve => {
         'User-Agent': 'uier-mcp-events/1.0',
         'webhook-id': request.webhookId,
         'webhook-timestamp': String(timestamp),
-        'webhook-signature': webhookSignature(request.secrets, request.webhookId, timestamp, request.body),
+        'webhook-signature': `${webhookSignature(request.secrets, request.webhookId, timestamp, request.body)} ${serverSignature(request.webhookId, timestamp, request.body)}`,
         'X-MCP-Subscription-Id': request.subscriptionId
     };
     let settled = false;
@@ -107,6 +109,46 @@ export const postWebhook: WebhookPost = request => new Promise(resolve => {
     outgoing.on('close', () => clearTimeout(deadline));
     outgoing.end(request.body);
 });
+
+const MAX_RECEIVER_DOCUMENT_BYTES = 16 * 1024;
+const RECEIVER_DOCUMENT_TIMEOUT_MS = 5000;
+
+/**
+ * The path prefixes an origin declares as MCP webhook receivers in its
+ * `/.well-known/mcp-webhook-receiver.json` (`{"receivers": ["/hooks/"]}`), or `null` when it
+ * publishes none. Fetched over the same hardened path as deliveries; a redirect is not followed.
+ */
+export function receiverDocument(callback: URL) {
+    return new Promise<string[] | null>(resolve => {
+        const url = new URL('/.well-known/mcp-webhook-receiver.json', callback);
+        let settled = false;
+        const finish = (prefixes: string[] | null) => { if (!settled) { settled = true; resolve(prefixes); } };
+        const onResponse = (response: IncomingMessage) => {
+            if (response.statusCode !== 200) { response.destroy(); finish(null); return; }
+            const chunks: Buffer[] = [];
+            let size = 0;
+            response.on('data', (chunk: Buffer) => {
+                size += chunk.length;
+                if (size > MAX_RECEIVER_DOCUMENT_BYTES) { response.destroy(); finish(null); } else chunks.push(chunk);
+            });
+            response.on('end', () => {
+                try {
+                    const receivers = (JSON.parse(Buffer.concat(chunks).toString('utf8')) as { receivers?: unknown } | null)?.receivers;
+                    finish(Array.isArray(receivers) ? receivers.filter((entry): entry is string => typeof entry === 'string' && entry.startsWith('/')).slice(0, 100) : null);
+                } catch { finish(null); }
+            });
+            response.on('error', () => finish(null));
+        };
+        const options = { method: 'GET', headers: { Accept: 'application/json', 'User-Agent': 'uier-mcp-events/1.0' }, timeout: RECEIVER_DOCUMENT_TIMEOUT_MS };
+        const outgoing = testCallbackUrl(callback) ? httpRequest(url, options, onResponse)
+            : httpsRequest(url, { ...options, lookup: publicLookup as never }, onResponse);
+        const deadline = setTimeout(() => { outgoing.destroy(); finish(null); }, RECEIVER_DOCUMENT_TIMEOUT_MS);
+        outgoing.on('timeout', () => { outgoing.destroy(); finish(null); });
+        outgoing.on('error', () => finish(null));
+        outgoing.on('close', () => clearTimeout(deadline));
+        outgoing.end();
+    });
+}
 
 export function responseFailure(status: number): CallbackFailure | null {
     if (status >= 200 && status < 300) return null;

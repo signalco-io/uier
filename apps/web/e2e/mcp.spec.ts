@@ -82,6 +82,10 @@ test('a person grants selected feedback access, connects a compatible client, an
     try {
         const projects = (await client.callTool({ name: 'list_projects', arguments: {} })).structuredContent;
         expect(projects).toMatchObject({ items: [{ id: projectId, name: 'Client review' }] });
+        // The running app serves the plugin's skills from its deployment files.
+        const skills = (await client.listResources()).resources.map(resource => resource.uri);
+        expect(skills).toEqual(expect.arrayContaining(['skill://uier-monitor/SKILL.md', 'skill://uier-monitor-script/SKILL.md']));
+        expect((await client.readResource({ uri: 'skill://uier-monitor/scripts/monitor.mjs' })).contents).toHaveLength(1);
         for (const theme of ['light', 'dark'] as const) {
             await page.emulateMedia({ colorScheme: theme });
             await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${theme}\\b`));
@@ -160,4 +164,23 @@ test('feedback on a customer project page exports its uier owner and needs a gra
         expect(resolved.isError).not.toBe(true);
         expect((await (await page.request.get(`/api/comments/${saved.id}/context`)).json()).context.status).toBe('done');
     } finally { await uier.close(); }
+});
+
+test('the Server Card and the AI Catalog are public and point to the endpoint', async ({ request, baseURL }) => {
+    const origin = new URL(baseURL!).origin;
+    const catalog = await request.get('/.well-known/ai-catalog.json');
+    expect(catalog.status()).toBe(200);
+    expect(catalog.headers()['content-type']).toBe('application/ai-catalog+json');
+    const [entry] = (await catalog.json() as { entries: { type: string; url: string }[] }).entries;
+    expect(entry).toMatchObject({ type: 'application/mcp-server-card+json', url: `${origin}/api/mcp/server-card` });
+
+    const card = await request.get(entry!.url, { headers: { Accept: 'application/mcp-server-card+json' } });
+    expect(card.status()).toBe(200);
+    expect(card.headers()['content-type']).toBe('application/mcp-server-card+json');
+    expect(card.headers()['access-control-allow-origin']).toBe('*');
+    expect(await card.json()).toMatchObject({ name: 'io.uier/uier', remotes: [{ type: 'streamable-http', url: `${origin}/api/mcp`,
+        supportedProtocolVersions: expect.arrayContaining(['2026-07-28']) }] });
+    expect((await request.get(entry!.url, { headers: { 'If-None-Match': card.headers().etag! } })).status()).toBe(304);
+    // The endpoint itself still asks for sign-in.
+    expect((await request.post('/api/mcp', { data: { jsonrpc: '2.0', id: 1, method: 'tools/list' } })).status()).toBe(401);
 });
