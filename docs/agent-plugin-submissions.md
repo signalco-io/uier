@@ -7,9 +7,9 @@ installation is covered in [the setup guide](agent-plugins.md).
 Local evidence: the portable plugin and MCP files pass the published Agent Plugins 1.0.0
 JSON schemas; both skills pass frontmatter validation. Claude Code 2.1.319 passes strict plugin,
 marketplace and directory-profile checks and installs `uier@uier` from a local marketplace in a
-temporary configuration. Codex CLI 0.167.0 discovers `uier@uier` version 0.1.0 with the intended
-install/auth policies using a command-scoped local marketplace override. This verifies discovery,
-not Codex installation or live OAuth. The isolated package/helper tests pass, and the Coding
+temporary configuration. Codex CLI 0.167.0 adds the marketplace and installs `uier@uier` version 0.1.0 in a temporary
+`CODEX_HOME`; `codex mcp list` shows `uier` with OAuth and both skills load. Live OAuth sign-in was
+not tested. The isolated package/helper tests pass, and the Coding
 agents journey passes on Desktop Chrome and Mobile Chrome (including light/dark accessibility).
 
 ## Status and owner handoff

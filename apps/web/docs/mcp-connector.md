@@ -72,9 +72,9 @@ OAuth rules (`src/lib/mcp/oauth/`, `app/api/oauth/`):
 
 Account → Coding agents (`src/components/app/mcp/CodingAgents.tsx`, one region named Coding agents) is five
 `Section` cards: **Connected apps** (one row per OAuth grant, an allowlisted `connectedAppView`, Revoke through an
-`AlertDialog`; with none, an `Empty` state links to the setup card at `#connect`), **Connect a coding tool** (the
-endpoint, then numbered steps in a tab per client, each tab with its agent's mark, and Other clients),
-**Install the uier plugin** (separate Claude Code/Codex plugin tabs with marketplace and install commands), collapsed
+`AlertDialog`; with none, an `Empty` state links to the setup card at `#connect`), **Install the uier plugin**
+(separate Claude Code/Codex plugin tabs with marketplace and install commands), **Connect a coding tool** (the
+endpoint, then numbered steps in a tab per client, each tab with its agent's mark, and Other clients), collapsed
 **Access tokens** (the shadcn `Field` form; its state lives above the collapsible, so a secret shown once stays on
 screen when the card is closed and opened again) and **Prompts and agent skill**. Connected apps and access tokens
 share one row, `ConnectionItem` in `ConnectionSummary.tsx`: the agent's `AgentAvatar`, the name and where it comes
