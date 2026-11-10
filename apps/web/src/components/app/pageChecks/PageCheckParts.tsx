@@ -44,17 +44,29 @@ export type PageEnvironment = { origin: string; label: string };
 
 /**
  * The page's address (mono: a machine wrote it), which opens it in review in a new tab, signed in;
- * an address no longer among the project's is only text
+ * an address no longer among the project's is only text. Under a level of a hierarchy (`base`, like
+ * `/cms`) it shows the rest of the address (`/articles`), and the whole address stays its name.
  */
-export function PageLink({ projectId, page, environments }: { projectId: string; page: PageCheckRow; environments: readonly PageEnvironment[] }) {
+export function PageLink({ projectId, page, environments, base }: {
+    projectId: string;
+    page: PageCheckRow;
+    environments: readonly PageEnvironment[];
+    base?: string;
+}) {
     const shown = page.sourcePath ?? page.path;
+    const above = base && shown.startsWith(base) && shown.length > base.length ? base : '';
+    const address = (
+        <span className="truncate font-mono text-xs" title={above ? shown : undefined}>
+            {above && <span className="sr-only">{above}</span>}{shown.slice(above.length)}
+        </span>
+    );
     if (!environments.some(item => item.origin === page.origin))
-        return <span className="truncate font-mono text-xs">{shown}</span>;
+        return address;
     return (
         <a href={KnownPageLinks.projectReview(projectId, `${page.origin}${shown}`)} target="_blank" rel="noopener"
             className="-mx-1 inline-flex w-fit max-w-full min-w-0 items-center gap-1 rounded-md px-1 underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none pointer-coarse:min-h-11">
             <span className="sr-only">Open in review: </span>
-            <span className="truncate font-mono text-xs">{shown}</span>
+            {address}
             <ArrowUpRightIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
         </a>
     );

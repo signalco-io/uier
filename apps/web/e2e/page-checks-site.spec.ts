@@ -1,4 +1,6 @@
 import { expect, test, type Page, type Request } from '@playwright/test';
+import { filterPageChecks } from '../src/lib/pageChecks/insights';
+import type { PageCheckRow } from '../src/lib/pageChecks/model';
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, signIn, uniqueEmail } from './support/app';
 import { auditRuns, observeAuditRuns } from './support/auditRuns';
@@ -100,12 +102,34 @@ test('a member reviews two pages with the same title, and the project\'s Page ch
         await expect(row.getByRole('cell').nth(2)).toContainText(`${summary.seo.pass} passed`);
         await expect(row.getByRole('cell').nth(4)).toContainText('First check');
     }
+    // Each finding's pages are closed until asked for (uier #219), then listed under their common path
     const sharedTitles = page.getByRole('region', { name: 'Shared titles' });
+    await expect(sharedTitles.getByRole('link')).toHaveCount(0);
+    await sharedTitles.getByRole('button', { name: 'Show 2 pages' }).click();
+    await expect(sharedTitles.getByRole('button', { name: 'Hide pages' })).toHaveAttribute('aria-expanded', 'true');
     await expect(sharedTitles).toContainText('Reviewed site');
     await expect(sharedTitles.getByRole('link')).toHaveText([`Open in review: /${project}/plans`, `Open in review: /${project}/pricing`]);
-    await expect(page.getByRole('region', { name: 'Shared descriptions' }).getByRole('link')).toHaveCount(2);
+    // No page at /<project> itself: a level of the addresses, with the two pages under it
+    await expect(sharedTitles.locator(`span[title="/${project}"]`)).toHaveText(`/${project}`);
+    const sharedDescriptions = page.getByRole('region', { name: 'Shared descriptions' });
+    await sharedDescriptions.getByRole('button', { name: 'Show 2 pages' }).click();
+    await expect(sharedDescriptions.getByRole('link')).toHaveCount(2);
     await expect(page.getByRole('region', { name: 'Not indexed' })).toContainText('No page asks not to be indexed.');
     await expect(page.getByText('in members’ browsers at the time of each visit')).toBeVisible();
+
+    // Only the pages that need attention (uier #221), kept in the address; the heading says how many of all
+    const rows = [pricing, plans].map(summary => ({ ...summary, id: summary.path, origin, checkedAt: '' }) as PageCheckRow);
+    const attention = filterPageChecks(rows, 'attention').map(row => row.path);
+    await page.getByRole('combobox', { name: 'Show pages' }).click();
+    await page.getByRole('option', { name: `Needs attention ${attention.length} pages` }).click();
+    await expect(page).toHaveURL(/[?&]show=attention/);
+    await expect(page.getByRole('heading', { name: `Pages ${attention.length} of 2` })).toBeVisible();
+    if (attention.length) await expect(table.locator('[data-page-check]')).toHaveCount(attention.length);
+    else await expect(page.locator('[data-page-checks-filtered]')).toContainText('No checked page has anything to look at.');
+    await page.getByRole('combobox', { name: 'Show pages' }).click();
+    await page.getByRole('option', { name: /^All pages/ }).click();
+    await expect(page).not.toHaveURL(/[?&]show=/);
+    await expect(table.locator('[data-page-check]')).toHaveCount(2);
 
     // Sorted by what needs most attention by default; Page sorts by the address and says so on its column
     await page.getByRole('combobox', { name: 'Sort pages' }).click();
@@ -144,7 +168,9 @@ test('on a narrow screen each page is a card', async ({ page }, testInfo) => {
     await expect(card.getByRole('link', { name: `Open in review: /${project}/private` })).toBeVisible();
     await expect(card).toContainText('Accessibility');
     await expect(card).toContainText('Checked');
-    await expect(page.getByRole('region', { name: 'Not indexed' }).getByRole('link')).toHaveText(new RegExp(`/${project}/private`));
+    const notIndexed = page.getByRole('region', { name: 'Not indexed' });
+    await notIndexed.getByRole('button', { name: 'Show the page' }).click();
+    await expect(notIndexed.getByRole('link')).toHaveText(new RegExp(`/${project}/private`));
     const width = await page.evaluate(() => document.documentElement.scrollWidth);
     expect(width).toBeLessThanOrEqual(page.viewportSize()!.width);
     await expectNoAxeViolations(page);

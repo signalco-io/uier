@@ -15,7 +15,8 @@ import { POST, OPTIONS } from '../app/api/review/[projectId]/page-checks/route';
 import { listPageChecks, pageCheckId, savePageCheck } from '../src/lib/pageChecks/store';
 import { PAGE_CHECKS_PER_MEMBER_PER_HOUR, PAGE_CHECKS_PER_PROJECT_PER_DAY, projectPageChecksLimit } from '../src/lib/pageChecks/limits';
 import { PAGE_CHECKS_MAX_PAGES, PAGE_CHECKS_TTL_SECONDS, pageChecksPk, pageCheckRow, type PageCheckRow } from '../src/lib/pageChecks/model';
-import { pageCheckChange, pageCheckInsights, sortPageChecks } from '../src/lib/pageChecks/insights';
+import { filterPageChecks, isPageCheckFilter, pageCheckChange, pageCheckFilters, pageCheckInsights, sortPageChecks } from '../src/lib/pageChecks/insights';
+import { pathTree, type PathNode } from '../src/lib/pageChecks/pathTree';
 
 // `POST /api/review/<code>/page-checks` and the store behind the app's Page checks view
 // (apps/web/docs/page-checks.md): members only, strict validation, the latest summary per page with
@@ -249,4 +250,64 @@ test('across pages: shared titles and descriptions per site address, pages witho
     // The view never receives the check states
     const full = { ...pages[0]!, checks: { 'seo:title': 'pass' as const } };
     expect(pageCheckRow(full)).not.toHaveProperty('checks');
+});
+
+test('across pages: addresses as a hierarchy of path segments, a query under its path, empty single levels merged (uier #219)', async () => {
+    const paths = ['/', '/cms', '/cms/articles', '/cms/articles/new', '/cms/destinations/coolinarika/daily-menus',
+        '/cms/products?lang=', '/cms/products?lang=sq-AL', '/cms/users', '/?preview=1', 'not-a-path'];
+    const tree = pathTree(paths, path => path);
+    type Shown = { label: string; page: boolean; children?: Shown[] };
+    const shown = (nodes: PathNode<string>[]): Shown[] => nodes.map(node => ({
+        label: node.path.slice(node.base.length), page: node.item !== undefined,
+        ...(node.children.length ? { children: shown(node.children) } : {})
+    }));
+    expect(shown(tree)).toEqual([
+        { label: '/', page: true, children: [{ label: '?preview=1', page: true }] },
+        { label: '/cms', page: true, children: [
+            { label: '/articles', page: true, children: [{ label: '/new', page: true }] },
+            // No page at /cms/destinations or /cms/destinations/coolinarika: one line
+            { label: '/destinations/coolinarika/daily-menus', page: true },
+            // No page at /cms/products: a level with its two queries
+            { label: '/products', page: false, children: [{ label: '?lang=', page: true }, { label: '?lang=sq-AL', page: true }] },
+            { label: '/users', page: true }
+        ] },
+        { label: 'not-a-path', page: true }
+    ]);
+    // Every level's address starts with the one above it
+    const bases = (nodes: PathNode<string>[]): boolean => nodes.every(node => node.path.startsWith(node.base) && bases(node.children));
+    expect(bases(tree)).toBe(true);
+    // Distinct empty path segments and query variants retain every page link
+    const unusual = ['/a/b', '/a//b', '/a//b?q=1', '//a/b', '/a/b/'];
+    const leaves = (nodes: PathNode<string>[]): string[] => nodes.flatMap(node => [...(node.item === undefined ? [] : [node.item]), ...leaves(node.children)]);
+    expect(leaves(pathTree(unusual, path => path)).sort()).toEqual([...unusual].sort());
+    // A flat list stays flat
+    expect(shown(pathTree(['/a', '/b'], path => path))).toEqual([{ label: '/a', page: true }, { label: '/b', page: true }]);
+});
+
+test('the pages a filter shows: needing attention in any check or in one, passing all categories or incomplete (uier #221)', async () => {
+    const row = (path: string, overrides: Partial<PageCheckRow> = {}): PageCheckRow => ({
+        id: path, origin: site, path, noindex: false, seo: { warn: 0, pass: 5 }, checkedAt: '2026-11-01T00:00:00.000Z',
+        accessibility: { critical: 0, serious: 0, moderate: 0, minor: 0 }, ...overrides
+    });
+    const pages = [
+        row('/a11y', { accessibility: { critical: 0, serious: 0, moderate: 0, minor: 1 } }),
+        row('/seo', { seo: { warn: 2, pass: 3 } }),
+        row('/slow', { vitals: { lcp: 4000, cls: 0.01 } }),
+        row('/clean', { vitals: { lcp: 900, cls: 0.01, inp: 40 } }),
+        // Missing results cannot establish that all checks passed
+        row('/unaudited', { accessibility: undefined, vitals: { lcp: 900, cls: 0.01, inp: 40 } }),
+        row('/no-vitals'),
+        row('/partial-vitals', { vitals: { lcp: 900, cls: 0.01 } }),
+        row('/no-seo', { seo: { pass: 0, warn: 0 }, vitals: { lcp: 900, cls: 0.01, inp: 40 } })
+    ];
+    const shown = (filter: typeof pageCheckFilters[number]) => filterPageChecks(pages, filter).map(page => page.path);
+    expect(shown('all')).toEqual(pages.map(page => page.path));
+    expect(shown('attention')).toEqual(['/a11y', '/seo', '/slow']);
+    expect(shown('accessibility')).toEqual(['/a11y']);
+    expect(shown('seo')).toEqual(['/seo']);
+    expect(shown('vitals')).toEqual(['/slow']);
+    expect(shown('passing')).toEqual(['/clean']);
+    expect(shown('incomplete')).toEqual(['/a11y', '/seo', '/slow', '/unaudited', '/no-vitals', '/partial-vitals', '/no-seo']);
+    expect(pageCheckFilters.every(isPageCheckFilter)).toBe(true);
+    expect(isPageCheckFilter('everything')).toBe(false);
 });
