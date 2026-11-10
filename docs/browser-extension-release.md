@@ -2,10 +2,14 @@
 
 Version 0.1.2 is published publicly. Native Chrome and Edge automatically upgraded from 0.1.1
 and passed post-update acceptance. The production installation link is live, and the deployed
-allowlist contains only the stable store client. Version 0.1.5 is prepared: it adds the popup's
+Chromium allowlist contains only the stable store client. Version 0.1.5 was
+[submitted for Chrome Web Store review](https://github.com/signalco-io/uier/actions/runs/42719693358): it adds the popup's
 [update notice](browser-extension.md#updates) and carries the unsubmitted 0.1.3/0.1.4 changes (the
 popup, verification helper and icon redesign, and the shared Firefox build). Their tags exist, but
-their Chrome submissions were cancelled. Repeat the hosted helper check before submitting it.
+their Chrome submissions were cancelled. Its submission receipt does not establish store approval
+or automatic-update acceptance of 0.1.5. The matching Firefox package passed native hosted acceptance
+and was [submitted to Mozilla](browser-extension-firefox-release.md#submission-receipt--10-november-2026),
+where it is awaiting review.
 Read [the runtime design and hosted gate](browser-extension.md) first. This runbook covers the
 Chrome Web Store. [Firefox release automation](browser-extension-firefox-release.md)
 covers its protected environment, source builds, validation, submission and recovery.

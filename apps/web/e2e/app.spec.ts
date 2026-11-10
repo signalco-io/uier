@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { seedEmailBounce } from './support/emailReports';
 import { expect, test } from '@playwright/test';
+import { extensionRelease, firefoxExtensionRelease } from '../src/lib/extension/release';
 import { expectNoAxeViolations } from './accessibility';
 import { projectPublicId, appNavigation, closeAppNavigation, createProject, hydrated, openEmailSignIn, openProjectInvite, requestSignInEmail, setProjectAccess, signIn, uniqueEmail, backToComments, commentRowLink, inBackground, openComment, openCommentFilters } from './support/app';
 import { pngImage } from './support/images';
@@ -372,16 +373,18 @@ test('onboarding creates a project with its addresses and sets up reviews one st
     await expect(progress).toHaveCount(0);
     await expect(reviewerStep).toHaveCount(0);
     // Installation methods are keyboard accessible; checking the embed is script-specific. Until the
-    // extension is in the store, its tab is one line and the setup guide.
+    // configured store link is available, the tab keeps its status and the setup guide.
     const scriptTab = page.getByRole('tab', { name: 'Install the script', exact: true });
     await scriptTab.focus(); await page.keyboard.press('ArrowRight');
     const extensionTab = page.getByRole('tab', { name: 'Use browser extension', exact: true });
     await expect(extensionTab).toBeFocused(); await page.keyboard.press('Enter');
     const extensionGuide = page.getByRole('region', { name: 'Browser extension setup' });
     await expect(extensionGuide).toContainText('The browser extension is not available yet. Use the script to review your site.');
-    await expect(extensionGuide.locator('p, li')).toHaveCount(1);
+    await expect(extensionGuide).toContainText(firefoxExtensionRelease.availabilityMessage);
+    await expect(extensionGuide.locator('p, li')).toHaveCount(2);
     await expect(extensionGuide.getByRole('link', { name: 'Read the extension setup guide' })).toHaveAttribute('href', '/guides/browser-extension');
-    await expect(page.getByRole('link', { name: 'Get the browser extension' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: extensionRelease.storeLabel })).toHaveCount(0);
+    await expect(extensionGuide.locator('a[href*="addons.mozilla.org"]')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Check installation', exact: true })).toBeHidden();
     await expectNoAxeViolations(page);
     await extensionTab.focus(); await page.keyboard.press('ArrowLeft'); await page.keyboard.press('Enter');

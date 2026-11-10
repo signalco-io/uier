@@ -1,10 +1,12 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 import { actionResult, UserFacingError } from '../../app/actionResult';
 import { appContextOrThrow } from '../../app/context';
+import { browserSessions } from '../../app/browserAccounts';
 import { parseActionInput } from '../../app/validation';
 import { authorizationApprovalActionSchema, authorizationRequestActionSchema, connectedAppActionSchema } from './actionSchemas';
 import { approveAuthorization, denyAuthorization } from './authorize';
@@ -24,7 +26,8 @@ export async function approveConnectionAction(requestId: string, expectedUserId:
         if (context.user.id !== input.expectedUserId)
             throw new UserFacingError('Your active account changed. Reload this page and try again.');
         try {
-            return { url: await approveAuthorization(context.user, input.requestId, approval, await oauthIssuer()) };
+            const sessions = await browserSessions(await cookies());
+            return { url: await approveAuthorization(context.user, input.requestId, approval, await oauthIssuer(), sessions.map(session => session.user)) };
         } catch (error) {
             if (error instanceof OAuthError) throw new UserFacingError(error.description);
             throw error;

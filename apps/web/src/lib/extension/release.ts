@@ -12,7 +12,8 @@ export const extensionRelease = {
      * static and deploys build without hosted settings, so they name it here.
      */
     storeId: 'kplfcfnpeljpkbcjgpaefpmggipfpemj',
-    /** Labels in the extension popup (apps/extension/src/popup.tsx) */
+    storeLabel: 'Get for Chrome or Edge',
+    /** Labels in the shared extension popup (packages/extension/src/popup.tsx) */
     labels: {
         signIn: 'Sign in to uier',
         start: 'Start review',
@@ -27,6 +28,12 @@ export const extensionRelease = {
     shortcut: 'Alt+Shift+U',
     /** `minimum_chrome_version` of the manifest; Edge shares the Chromium version number */
     minimumBrowserVersion: 120
+} as const;
+
+/** Native Firefox acceptance passed; Mozilla review and signed-store rollout remain pending. */
+export const firefoxExtensionRelease = {
+    minimumBrowserVersion: 153,
+    availabilityMessage: 'Firefox support is awaiting Mozilla review. Public installation is not available yet.'
 } as const;
 
 /**

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 import { getAppContext } from '@/src/lib/app/context';
+import { getBrowserAccounts } from '@/src/lib/app/session';
 import { PUBLIC_PROJECT_ID } from '@/src/lib/comments/publicProjectPolicy';
 import { getPendingAuthorization } from '@/src/lib/mcp/oauth/authorize';
 import { MAX_CONNECTED_APPS, mcpOauthEnabled } from '@/src/lib/mcp/oauth/config';
@@ -24,7 +25,18 @@ export default async function ConnectPage({ params }: PageProps<'/app/connect/[r
         return <ConnectConsent requestId={requestId} request={null} />;
 
     const { user } = context;
-    const [{ workspaces, truncated }, apps] = await Promise.all([listAccessibleWorkspaces(user.id, user.email), listConnectedApps(user.id)]);
+    const [browserAccounts, apps] = await Promise.all([getBrowserAccounts(), listConnectedApps(user.id)]);
+    const accounts = await Promise.all(browserAccounts.map(async account => {
+        const { workspaces, truncated } = await listAccessibleWorkspaces(account.id, account.email);
+        return {
+            id: account.id, name: account.name, email: account.email, avatarUrl: account.avatarUrl, truncated,
+            workspaces: workspaces.map(({ workspace, projects }) => ({
+                id: workspace.id,
+                name: workspace.name,
+                projects: projects.map(project => ({ id: project.id, name: project.name, guests: project.access === 'guests' || project.id === PUBLIC_PROJECT_ID }))
+            }))
+        };
+    }));
     const sameClient = apps.find(app => app.clientId === pending.clientId);
     const sameName = apps.find(app => app.name === pending.client.name);
     const replace: ConsentReplace | null = apps.length >= MAX_CONNECTED_APPS
@@ -39,13 +51,8 @@ export default async function ConnectPage({ params }: PageProps<'/app/connect/[r
             email: user.email,
             client: pending.client,
             requestedScopes: pending.scopes,
-            truncated,
             replace,
-            workspaces: workspaces.map(({ workspace, projects }) => ({
-                id: workspace.id,
-                name: workspace.name,
-                projects: projects.map(project => ({ id: project.id, name: project.name, guests: project.access === 'guests' || project.id === PUBLIC_PROJECT_ID }))
-            }))
+            accounts
         }} />
     );
 }

@@ -20,6 +20,33 @@ These checks do not replace native Firefox hosted acceptance.
 Release artifacts include deterministic ZIPs, checksums and source receipts. The Firefox job also
 retains [rebuildable source](browser-extension-source.md) from the exact Git commit.
 
+## Submission receipt — 10 November 2026
+
+Version **0.1.5** was submitted successfully and Developer Hub shows **Awaiting Review**. Mozilla
+version ID: `6687544`. The [protected publication run](https://github.com/signalco-io/uier/actions/runs/42741438848)
+passed and retained the unchanged production ZIP, reviewer source archive and durable store receipt.
+The uier icon, native Firefox screenshot, privacy policy and AGPL license are supplied. This is a
+submission receipt, not publication approval; the listing is not publicly installable yet.
+
+[Native hosted acceptance](https://github.com/signalco-io/uier/pull/566) used Firefox 159.0.1 on macOS
+with all cross-site cookies blocked, the production API and an isolated project on the fictional
+`https://uier.io/extension-demo.html` page. Project selection, comments with viewport screenshots,
+reload and screenshot retrieval, replies, resolve/reopen, proof renewal after background-script
+termination and cross-origin navigation cleanup passed. All 16 packaged resources matched a clean
+rebuild of the attached source. The ZIP SHA-256 is
+`d06e5013f82c9e21747ec58d2467aad5f37306505685a76926dad30a6f9bdd0c`.
+
+Publishing is enabled with owner review in `extension-firefox-production`; its existing Mozilla
+secrets are configured. The [publisher recovery fix](https://github.com/signalco-io/uier/pull/575)
+resumed the confirmed original upload without uploading a second package. Native acceptance,
+reconciliation evidence, store receipt and listing screenshots are retained on the draft
+`extension-v0.1.5` GitHub release.
+
+The website and app installation guide show Firefox as awaiting review. Once Mozilla approves the
+[listing](https://addons.mozilla.org/en-US/firefox/addon/uier/), verify native signed-store installation
+and record the remaining update/rollout gates before enabling its download link. Temporary add-on
+acceptance does not establish store installation or automatic updates.
+
 ## Firefox setup
 
 Use environment `extension-firefox-production`, with owner review, the `main` branch and protected

@@ -111,7 +111,7 @@ export async function exchangeCode(form: URLSearchParams, issuer: string, attemp
     const now = Date.now();
     const grant: McpGrant = {
         type: 'mcp-grant', id: `grant_${randomToken().slice(0, 24)}`, pk: userPk(userId), userId, clientId,
-        client: record.client, name: record.name, access: record.access, scopes: record.scopes, resource: record.resource,
+        client: record.client, name: record.name, access: record.access, ...(record.accounts ? { accounts: record.accounts } : {}), scopes: record.scopes, resource: record.resource,
         createdAt: new Date(now).toISOString(), updatedAt: new Date(now).toISOString(),
         idleExpiresAt: iso(OAUTH_LIFETIMES.idleSeconds, now), absoluteExpiresAt: iso(OAUTH_LIFETIMES.absoluteSeconds, now),
         ttl: OAUTH_LIFETIMES.idleSeconds + 86400

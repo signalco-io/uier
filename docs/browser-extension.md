@@ -1,11 +1,16 @@
 # Browser extension
 
 The desktop Manifest V3 extension is an additional installation path for signed-in project members,
-tracked in [#268](https://github.com/signalco-io/uier/issues/268). Version 0.1.2 is published in the
+tracked in [#268](https://github.com/signalco-io/uier/issues/268). Chrome and Edge install from the
 [Chrome Web Store](https://chromewebstore.google.com/detail/uier/kplfcfnpeljpkbcjgpaefpmggipfpemj).
-Both native browsers automatically upgraded from the installed 0.1.1 baseline and passed
+Both native browsers automatically upgraded from the installed 0.1.1 baseline to 0.1.2 and passed
 post-update acceptance. Public visibility and the app's installation link are live;
 see [the latest receipt](browser-extension-release.md#automatic-upgrade-receipt--3-november-2026).
+
+The shared Firefox target requires desktop Firefox 153 or later. Version 0.1.5 passed native hosted
+acceptance and was submitted to Mozilla on 10 November 2026. It is awaiting review, with public
+installation and signed-store checks still pending. See the
+[Firefox submission receipt](browser-extension-firefox-release.md#submission-receipt--10-november-2026).
 
 ## Design record
 
@@ -138,9 +143,9 @@ private from content scripts. Native private `storage.session` still owns access
 drafts and bindings; nothing falls back to persistent storage. Chrome/Firefox use native identity
 sign-in with shared state/PKCE validation.
 
-A Firefox build is not a store publication. Its release gates require native hosted BotID,
-screenshot, navigation and installed-update receipts. Chrome/Edge receipts below apply to those
-published versions only.
+A Firefox build is not a store publication. Native hosted BotID, screenshot and navigation checks
+passed for the exact 0.1.5 CI ZIP. Mozilla approval, signed-store installation and a later automatic
+update remain separate gates. Chrome/Edge receipts below apply to those published versions only.
 
 ## Updates
 
@@ -230,18 +235,25 @@ the hosted and publication gates. Feedback activity is labelled as feedback, nev
 
 The public [`/browser-extension`](https://uier.io/browser-extension) page and the
 [`/guides/browser-extension`](https://uier.io/guides/browser-extension) setup guide (#308) describe
-the published 0.1.2 release in the words of the app's setup tab and the [listing worksheet](browser-extension-listing.md),
-claiming only what the receipts above record. The footer, the `/guides` index, the homepage's
+the shared runtime and each browser's release status in the words of the app's setup tab and the
+[listing worksheet](browser-extension-listing.md), claiming only what the receipts above record.
+The footer, the `/guides` index, the homepage's
 get-started card and two FAQ answers link them. They are static, and deploys build without the
-hosted settings, so `apps/web/src/lib/extension/release.ts` names the published store ID and the
-popup labels; the store button uses the same `chromeWebStoreUrl` as the app. When a release changes
+hosted settings, so `apps/web/src/lib/extension/release.ts` names the published Chrome store ID,
+store button label, popup labels and Firefox availability notice. The homepage, FAQ, extension
+pages and app installation guide share that notice. The current store button says **Get for Chrome
+or Edge** and uses the same `chromeWebStoreUrl` as the app. Firefox is described as awaiting Mozilla
+review, with its minimum version and future store setup steps; no Firefox download is offered yet.
+After approval and the store acceptance gates, update this shared release data and both public and
+app distribution links together. When a release changes
 the store item, labels, permissions, sign-in or capture, update both pages and the privacy policy,
 cookie policy and security page's extension sections together; changed legal wording needs owner
 review and a new effective date. The setup guide lives with the other guides until the docs hub
 (#293) exists.
 
-Native Edge Add-ons distribution, Firefox store rollout, mobile and anonymous extension access
-remain separate follow-ups. The Firefox source target is described above.
+Native Edge Add-ons distribution, Firefox approval and signed-store rollout, mobile and anonymous
+extension access remain separate follow-ups. Safari has no extension target; Safari and mobile
+reviewers use the script.
 Extension API contract v1 must remain compatible for one year after its last supported release.
 A bad store release requires a higher numeric version containing a fix; installed versions cannot
 be rolled back by decreasing the version.

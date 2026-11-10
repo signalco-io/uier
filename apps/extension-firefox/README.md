@@ -3,7 +3,11 @@
 Desktop Firefox target for the shared [uier extension runtime](../../packages/extension).
 The popup, toolbar, sign-in, API broker and build tools come from local workspace packages.
 This target requires Firefox 153 or later to preserve document-bound review activation.
-It has not been published to Firefox Add-ons.
+Version 0.1.5 was submitted to Mozilla on 10 November 2026 and is awaiting review. Native hosted
+acceptance passed; public installation and signed-store checks remain pending. See the
+[submission receipt](../../docs/browser-extension-firefox-release.md#submission-receipt--10-november-2026).
+The [user setup guide](https://uier.io/guides/browser-extension) explains availability and the shared
+sign-in/review steps. The temporary loading steps below are for development, not normal installation.
 
 Use Node 26 and the repository's pinned Corepack pnpm. From the repository root:
 

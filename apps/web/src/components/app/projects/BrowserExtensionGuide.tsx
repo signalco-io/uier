@@ -1,5 +1,6 @@
 import { buttonVariants } from '@/src/components/ui/button';
 import { extensionDistribution } from '@/src/lib/extension/distribution';
+import { extensionRelease, firefoxExtensionRelease } from '@/src/lib/extension/release';
 import { guides } from '@/src/lib/guides';
 
 const guideLinkClassName = 'self-start text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground';
@@ -13,13 +14,15 @@ export function BrowserExtensionGuide() {
     if (!storeUrl) {
         return <section aria-label="Browser extension setup" className="flex flex-col gap-2">
             <p className="m-0 text-sm text-muted-foreground">The browser extension is not available yet. Use the script to review your site.</p>
+            <p className="m-0 text-sm text-muted-foreground">{firefoxExtensionRelease.availabilityMessage}</p>
             <a href={guides.browserExtension.path} target="_blank" rel="noopener noreferrer" className={guideLinkClassName}>Read the extension setup guide</a>
         </section>;
     }
     return <section aria-label="Browser extension setup" className="flex flex-col gap-4">
         <h2 className="m-0 text-base font-semibold">Review without adding a script</h2>
         <p className="m-0 text-sm text-muted-foreground">The desktop extension is for signed-in project members, including invited reviewers. Each reviewer needs it in their own Chrome or Edge browser.</p>
-        <a href={storeUrl} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: 'outline', className: 'self-start' })}>Get the browser extension</a>
+        <a href={storeUrl} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: 'outline', className: 'self-start' })}>{extensionRelease.storeLabel}</a>
+        <p className="m-0 text-sm text-muted-foreground">{firefoxExtensionRelease.availabilityMessage}</p>
         <ol className="m-0 flex list-decimal flex-col gap-2 pl-5 text-sm">
             <li>Sign in to uier from the extension. Ask a project admin to invite you if needed.</li>
             <li>Open one of this project’s configured site addresses, including staging or localhost. Sign in to the site as you normally would.</li>

@@ -456,8 +456,9 @@ export default function PrivacyPolicyPage() {
             <p>
                 A coding tool can connect to {brand.name} as your account in two ways: it signs in through your
                 browser and you allow it access, or you create a named access token in Account. Either way it
-                reaches only the workspaces, projects and operations you chose for it, subject to your current
-                membership and private feedback permissions.
+                reaches only the accounts, workspaces, projects and operations you chose for it, subject to each account&rsquo;s current
+                membership and private feedback permissions. Browser sign-in lets you include several accounts already
+                signed in on that browser. The account that allows the connection manages and revokes it in Account.
             </p>
             <p>When a coding tool signs in, we store in Cosmos DB:</p>
             <ul>
@@ -469,7 +470,8 @@ export default function PrivacyPolicyPage() {
                 </li>
                 <li>the pending sign-in request: the tool, its return address, the operations it asked for and the values it needs to finish sign-in;</li>
                 <li>
-                    each connection you allow: the tool, the connection name, the access and operations you chose,
+                    each connection you allow: the tool, the connection name, the managing account id, the selected account ids,
+                    the access you chose for each account and the operations you allowed,
                     when it was created and last used, and when it ends;
                 </li>
                 <li>hashes of its sign-in codes, access tokens and refresh tokens, never the codes or tokens themselves.</li>
@@ -482,13 +484,13 @@ export default function PrivacyPolicyPage() {
                 If you grant Create access tokens, the connection can create named tokens for scripts and
                 watchers within its own projects and operations, for up to 30 days. It receives the secret
                 once. These tokens cannot create more tokens. We store which connection created each token
-                and keep a creation audit and retry receipt, without its secret, for 30 days. A counter
+                and the account it acts as, and keep a creation audit and retry receipt, without its secret, for 30 days. A counter
                 serializes token creation and revocation and expires 90 days after its last update. You can see
                 and revoke these tokens in Account, independently of the connection that created them.
             </p>
             <p>
                 A coding tool can subscribe to feedback events, such as new feedback, replies and status changes.
-                For each subscription we store the event and its filters, the callback address the tool gives,
+                For each subscription we store the event and its filters, the managing and acting account ids, the callback address the tool gives,
                 the signing secret it supplies (encrypted), when the subscription ends and the latest delivery
                 outcome. Delivery records hold only event, thread and subscription identifiers and the delivery
                 state. Before the first delivery we confirm the callback address with a signed request that

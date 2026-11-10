@@ -136,7 +136,7 @@ async function discoverThread(project: DbProject, comment: DbComment, subscripti
         for (const subscription of subscriptions) {
             // Never echo a connection's own actions back to it: that loops an agent on its replies.
             if (at < Date.parse(subscription.since) || !isSubscriptionActive(subscription, now) || event.agent?.credentialId === subscription.connectionId
-                || !eventMatches(subscription.name, subscription.arguments, event, comment.id, subscription.userId)) continue;
+                || !eventMatches(subscription.name, subscription.arguments, event, comment.id, subscription.actorUserId ?? subscription.userId)) continue;
             const eventId = mcpEventId(project.id, comment.id, event, subscription.name);
             const delivery: McpEventDelivery = {
                 type: 'mcp-event-delivery', pk: eventsPk(project.id), id: deliveryId(subscription.id, eventId), projectId: project.id,
@@ -202,12 +202,16 @@ async function deliver(context: Context, candidate: McpEventDelivery): Promise<'
     let actor;
     try { actor = identity ? (await mcpProject(identity, subscription.projectId)).actor : null; }
     catch { actor = null; }
-    if (!identity || !actor) { await terminate(context, subscription); return skip(); }
+    if (!identity || !actor || actor.userId !== (subscription.actorUserId ?? subscription.userId)) {
+        await terminate(context, subscription);
+        return skip();
+    }
     const comment = (await comments.get(projectPartition(context.project.id), delivery.threadId))?.comment;
     const event = comment?.notificationEvents?.find(entry => entry.sequence === delivery.sequence && entry.kind === delivery.eventKind && entry.at === delivery.eventAt
         && (entry.agentId ?? undefined) === delivery.agentId);
     // A deleted thread, or one the account can no longer see, is not delivered.
-    if (!comment || !event || !canSeeComment(comment, actor)) return skip();
+    if (!comment || !event || !canSeeComment(comment, actor) || Date.parse(event.at) < Date.parse(subscription.since)
+        || !eventMatches(subscription.name, subscription.arguments, event, comment.id, actor.userId)) return skip();
 
     context.participants ??= participantNames(context.project);
     const body = JSON.stringify({ eventId: delivery.eventId, name: delivery.name, timestamp: event.at,

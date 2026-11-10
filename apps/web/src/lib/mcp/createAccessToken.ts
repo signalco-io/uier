@@ -28,15 +28,20 @@ export async function createAccessToken(identity: McpIdentity, value: unknown) {
     const input = createAccessTokenSchema.parse(value);
     if (input.scopes.some(scope => !identity.scopes.includes(scope)))
         throw apiErrors.forbidden('Choose only operations this connection has.');
+    let actingUserId: string | undefined;
     for (const projectId of input.projectIds) {
-        const { project } = await mcpProject(identity, projectId);
+        const { project, user } = await mcpProject(identity, projectId);
         if (project.workspaceId !== input.workspaceId)
             throw apiErrors.invalidRequest('Choose projects in one workspace.');
+        if (actingUserId && actingUserId !== user.id)
+            throw apiErrors.invalidRequest('Choose projects this connection can open under one account.');
+        actingUserId = user.id;
     }
     const pk = `mcp-user:${identity.user.id}`;
     const id = `credential-creation_${sha256Hex(`${identity.connection.id}:${input.idempotencyKey}`)}`;
     const { idempotencyKey: _key, ...choice } = input;
-    const inputHash = sha256Hex(JSON.stringify({ ...choice, projectIds: [...input.projectIds].sort(), scopes: [...input.scopes].sort() }));
+    const actingAccount = actingUserId !== identity.user.id ? { actingUserId } : {};
+    const inputHash = sha256Hex(JSON.stringify({ ...choice, ...actingAccount, projectIds: [...input.projectIds].sort(), scopes: [...input.scopes].sort() }));
     const previous = (await getAppStore().get<McpCredentialCreation>(pk, id))?.doc;
     if (previous && (previous.type !== 'mcp-credential-creation' || previous.inputHash !== inputHash)) throw apiErrors.conflict();
     if (previous) return replay(previous);
@@ -53,6 +58,7 @@ export async function createAccessToken(identity: McpIdentity, value: unknown) {
     const credential: McpCredential = {
         type: 'mcp-credential', id: sha256Hex(token), pk, userId: identity.user.id,
         workspaceId: input.workspaceId, name: input.name, projectIds: input.projectIds, scopes: input.scopes,
+        ...actingAccount,
         createdAt: new Date(now).toISOString(), expiresAt: new Date(expiresAt).toISOString(),
         ttl: Math.max(1, Math.ceil((expiresAt - now) / 1000)), createdBy: { ...identity.connection }
     };

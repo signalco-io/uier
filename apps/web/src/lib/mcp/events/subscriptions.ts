@@ -30,7 +30,10 @@ export type McpEventSubscription = AppDoc & {
     type: 'mcp-event-subscription';
     projectId: string;
     workspaceId: string;
+    /** The stable connection owner, used to resolve the credential or grant. */
     userId: string;
+    /** Selected profile for this project's events; absent on older, single-account subscriptions. */
+    actorUserId?: string;
     connectionId: string;
     connectionKind: McpIdentity['connection']['kind'];
     name: McpEventName;
@@ -149,7 +152,7 @@ export async function subscribeToMcpEvent(identity: McpIdentity, input: Subscrib
     if (!url) throw new McpEventsError('invalid', 'Use a public HTTPS callback URL on the default port, without credentials or a fragment.');
     if (!webhookSecretBytes(input.delivery.secret)) throw new McpEventsError('invalid', 'The secret must be whsec_ followed by the base64 of 24–64 random bytes.');
     const secret = input.delivery.secret as string;
-    const { project } = await mcpEventProject(identity, args.projectId);
+    const { project, actor } = await mcpEventProject(identity, args.projectId);
     const id = subscriptionId(identity.connection.id, url.href, input.name, args);
     const pk = eventsPk(project.id);
     const grant = grantedTtl(input.ttlMs);
@@ -157,7 +160,9 @@ export async function subscribeToMcpEvent(identity: McpIdentity, input: Subscrib
     for (let attempt = 0; attempt < 5; attempt++) {
         const stored = await store.get<McpEventSubscription>(pk, id);
         const now = Date.now();
-        const existing = stored && stored.doc.type === 'mcp-event-subscription' && isSubscriptionActive(stored.doc, now) ? stored : null;
+        const actorUserId = actor.userId;
+        const existing = stored && stored.doc.type === 'mcp-event-subscription' && isSubscriptionActive(stored.doc, now)
+            && (stored.doc.actorUserId ?? stored.doc.userId) === actorUserId ? stored : null;
         if (!existing) {
             const [ownCount, projectCount] = await Promise.all([
                 store.count<McpEventSubscription>({ type: 'mcp-event-subscription', where: { connectionId: identity.connection.id } }),
@@ -176,6 +181,7 @@ export async function subscribeToMcpEvent(identity: McpIdentity, input: Subscrib
             previousSecret = { value: existing.doc.secret, until: new Date(now + ROTATION_GRACE_MS).toISOString() };
         const doc: McpEventSubscription = {
             ...(existing?.doc ?? {}), ...base, type: 'mcp-event-subscription',
+            actorUserId,
             connectionId: identity.connection.id, connectionKind: identity.connection.kind,
             name: input.name, arguments: args, url: url.href, secret: encrypted,
             since: existing?.doc.since ?? new Date(now).toISOString(),

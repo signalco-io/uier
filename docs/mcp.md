@@ -17,7 +17,9 @@ A coding tool connects in one of two ways:
   SSH sessions, containers and CI, and for clients not yet offered with OAuth. See
   [Access tokens](#access-tokens).
 
-Either way, the connection acts as your account and never exceeds what you can currently do in the app.
+An OAuth connection can include several accounts you are signed in to. Each project operation acts as
+one selected profile and never exceeds what that profile can currently do in the app. An access token
+acts as the profile it was created for.
 Removal from a workspace, a lost team grant or a private thread applies on the next request. Public
 project codes, guest ids, review links and app cookies cannot authorize MCP.
 
@@ -76,9 +78,11 @@ out. Only that random request id passes through sign-in. The page shows:
   metadata document) or **Unverified** when the tool registered itself, and where it sends you back: a
   host, or this computer for a loopback address. A name is never verified identity. Only continue if you
   just started sign-in from a coding tool.
-- **Access.** "All my workspaces and projects, including new ones" (the default), or "Choose workspaces
-  and projects", where each workspace gets all its projects, including new ones, or the projects you
-  pick. Only workspaces and projects you can access are listed.
+- **Accounts and access.** Choose one or more of the accounts signed in to this browser. Only the
+  active account starts selected. Each included account has its own "All my workspaces and projects,
+  including new ones" (the default), or "Choose workspaces and projects", where each workspace gets
+  all its projects, including new ones, or the projects you pick. Only that profile's accessible
+  workspaces and projects are listed. New accounts are never added to an existing connection automatically.
 - **Operations.** Read feedback (always included), Read screenshots, Reply to feedback, Change status and
   Assign feedback (which also lets the tool link pull requests to threads and show itself as the [agent working on feedback assigned to
   you](#agents-working-on-feedback)). The operations the tool asked for are preselected; Claude Code asks for Read feedback.
@@ -89,35 +93,49 @@ out. Only that random request id passes through sign-in. The page shows:
 - **Replace.** When you already have a connection from the same tool or with the same name, you can
   replace it instead of adding another.
 
-**Use another account** signs you out and returns to the same request after sign-in. Write operations
-combined with several workspaces, all of them, or projects where guests can comment add a warning.
+**Use another account** adds a signed-in account and returns to the same request, preserving the other
+accounts in this browser. Select every account you want to include before allowing access. Write
+operations combined with several accounts or workspaces, all projects, or projects where guests can
+comment add a warning.
 
 **Allow access** returns the browser to the tool with a single-use code: the page shows "Returning to
 <tool>. You can close this tab." with a link, and navigates there itself. **Cancel** returns
 `access_denied`. An unknown, expired or used request asks you to start again from the tool. Consent is
 shown every time, also when the same tool reconnects.
 
-"All my workspaces and projects" also reaches workspaces you join later, for example as an external
+"All my workspaces and projects" also reaches workspaces the selected account joins later, for example as an external
 reviewer of a client, and the shared uier workspace that every account joins, where anyone can leave
 feedback. Feedback is untrusted content in every case: approve each reply, status change and assignment
 in your coding tool.
+
+Switching profiles or workspaces, signing out of the browser, and refreshing a token keep the approved
+account selections. `list_projects` identifies the profile used for each project. When several selected
+accounts can open a project, the managing account takes precedence if included, followed by the order
+approved at consent. Permissions and private thread visibility always come from that one profile;
+permissions from different accounts are never combined. To use a different profile for a shared
+project, reconnect and select that project only under the profile you want to use.
 
 ## Connected apps
 
 **Account → Coding agents → Connected apps** lists your OAuth connections: the name with the tool's mark
 (Claude, Codex, ChatGPT or Cursor when the tool's name says so, a generic agent otherwise), the tool, its
 access, its operations as chips, and when it connected, was last used and expires. With none yet, the list
-points to **Connect a coding tool** below it. Connections belong to your account, so every workspace shows the same list. You can have
+points to **Connect a coding tool** below it. The active account at approval manages the connection,
+even if it was not selected for project access, and every workspace shows the same list. Its access
+details show the included accounts; account emails and workspace/project names are shown only while
+that profile is also signed in to this browser. You can have
 up to 20 active connected apps, separate from your access tokens; at the limit, replace or revoke one
 before connecting another.
 
-**Revoke** ends a connection on the next request, also for a client that is connected right now: every
+**Revoke**, from the managing account, ends the connection for every included profile on the next
+request, also for a client that is connected right now: every
 access token is checked against its connection on each request. A tool can end its own connection
 through the [revocation endpoint](#endpoints) with its refresh token; revoking an access token ends only
 that token. Revocation cannot retract data the client already received.
 
 You cannot edit a connection's access yet. To change it, connect again from the tool and replace the
-existing connection. Deleting a project removes it from every connection and access token that
+existing connection. Add or remove an account this way too; an existing connection never gains an
+account merely because you sign in to it. Deleting a project removes it from every connection and access token that
 selected it; one left with nothing selected is revoked ([project deletion](project-deletion.md)).
 Transferring a project to another workspace does the same, and ends its event subscriptions: connect
 again and choose it in the new workspace ([project transfer](project-transfer.md)).
@@ -135,9 +153,12 @@ in which it was created, and its selected projects never expand when new project
 A connection granted **Create access tokens** (`tokens:create`) can call `create_access_token` with
 `name` (1–60 characters), `workspaceId`, `projectIds` (1–20 distinct projects in that workspace),
 `scopes`, `days` (integer 1–30) and an `idempotencyKey`. Projects must be in its own selection and
-still accessible to its owner. Operations must be a subset of the authenticating connection's
+still accessible under the same selected profile. The token retains that acting profile, while the
+connection's managing account owns its record and revocation controls. Operations must be a subset of the authenticating connection's
 operations; `tokens:create` can never be included. There are no all/future-project selections.
 The token is listed here as **Created by <connection>** and can be revoked like a hand-made token.
+For another profile it also shows **Acts as <account>**; the email and project names are shown only
+while that profile is signed in to the browser.
 Its expiry is capped at the creating Account token’s expiry or the OAuth grant’s hard expiry.
 The connection revoke dialog counts active created tokens and offers to revoke them too, checked
 by default. Uncheck it to keep them until their own expiry or revocation. Live membership and
@@ -380,7 +401,7 @@ tokens already issued stop working on their next request. Access tokens from Acc
 | Tool | Scope | Behavior |
 | --- | --- | --- |
 | `create_access_token` | `tokens:create` | Create a named, one-workspace token for 1–30 days within this connection’s projects and operations; return its secret only once |
-| `list_projects` | `feedback:read` | Projects the connection can reach that the owner can still access, with their workspace; optional `workspaceId` filter |
+| `list_projects` | `feedback:read` | Projects the selected accounts can still access, with the acting account and workspace; optional `workspaceId` filter |
 | `list_feedback` | `feedback:read` | Routing summaries with page, environment, anchor, assignment, author kind, unread and screenshot filters within a 1000-thread window |
 | `get_feedback` | `feedback:read` | Thread, anchor, original reproduction context and authorized screenshot reference |
 | `get_feedback_batch` | `feedback:read` | The same full packets for 1–10 distinct thread ids, in request order, within 256 KiB |
@@ -399,14 +420,17 @@ tool error ("This connection needs `<scope>`."); there is no step-up sign-in yet
 
 Every result includes `actingAs: { userId, name, credential, connection: { kind } }`. `credential` is
 the connection name (kept for compatibility); `connection.kind` is `oauth` for a connected app and
-`credential` for an access token from Account.
+`credential` for an access token from Account. Project tools report the selected acting profile;
+project discovery reports the managing profile and identifies each project's acting account in its item.
 
 `list_projects` takes `limit`, `cursor` and an optional `workspaceId`, and returns
 `{ actingAs, contentTrust, access, items, nextCursor }`. Each item is
-`{ id, name, status, workspace: { id, name } }`, ordered by how long you have been a member of the
-workspace, then by project name. `access` is `"all"` for a connection with all workspaces and projects,
-otherwise `{ workspaces: <count> }` (always 1 for an access token). The listing scans at most 50
-workspaces and 1000 projects; beyond that it adds `truncated: true` and a message to filter by
+`{ id, name, status, workspace: { id, name }, account: { id, name, email } }`. Selected accounts follow
+the acting-profile priority described above, then membership age and project name within each account.
+Shared projects appear once, under their acting profile. `access` is `{ accounts: <count> }` for several
+accounts; for one account it is `"all"` or `{ workspaces: <count> }` (always 1 for an access token).
+The listing scans at most 50 workspaces and 1000 projects per account; beyond that it adds
+`truncated: true` and a message to filter by
 `workspaceId`. Project ids are globally unique, so every other tool, prompt and resource takes the
 `projectId` alone; uier resolves its workspace and checks it against the connection on each call.
 
@@ -580,7 +604,10 @@ so an agent's own replies do not loop back.
 
 Before each attempt uier checks again that the connection is active, still has `feedback:read` and
 reaches the project, and that its account is a member who can see the thread. Lost access deletes the
-subscription; a thread the account cannot see is skipped. A `2xx` response acknowledges. Other
+subscription; a thread the account cannot see is skipped. Each subscription retains its acting
+profile separately from the managing account. A change of acting profile ends that subscription;
+subscribe again to start from then, without replaying queued events for the former profile.
+A `2xx` response acknowledges. Other
 responses and network failures retry after 1, 5, 15 and 30 minutes (five attempts in all); `410` and
 `413` stop at once. Delivery is at least once and may arrive out of order. `lastError` is a fixed
 category (`connection_refused`, `timeout`, `tls_error`, `http_4xx`, `http_5xx` or `challenge_failed`),
@@ -809,7 +836,11 @@ official SDK client signing in, refreshing and losing access after revocation.
 authorization URL, chooses two workspaces and a write operation on the consent page, approves,
 exchanges the code, lists projects (including one created after approval) and replies, then
 revokes the app in Account and expects 401. The full suite adds cancel (`access_denied`), reuse of
-a consumed request, Use another account, the error page, a 375 px layout and light/dark axe checks.
+a consumed request, Use another account, several selected profiles with separate project choices,
+access after browser account switching and sign-out, expired parked-account approval, the error page,
+a 375 px layout and light/dark axe checks. `e2e/mcpOauthAccounts.api.spec.ts` covers account proof,
+per-profile access, refresh, attribution, token creation, live permissions, overlapping profiles,
+event filters and pruning deleted projects from account selections.
 `e2e/mcpTelemetry.api.spec.ts` checks the request log: successful and failed calls, rejected and
 interrupted requests, unexpected failures and a failing log sink, and that no content or id is logged.
 `e2e/mcpEvents.api.spec.ts` runs event subscriptions against a local webhook receiver: the capability
