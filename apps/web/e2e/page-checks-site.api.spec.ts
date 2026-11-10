@@ -15,7 +15,7 @@ import { POST, OPTIONS } from '../app/api/review/[projectId]/page-checks/route';
 import { listPageChecks, pageCheckId, savePageCheck } from '../src/lib/pageChecks/store';
 import { PAGE_CHECKS_PER_MEMBER_PER_HOUR, PAGE_CHECKS_PER_PROJECT_PER_DAY, projectPageChecksLimit } from '../src/lib/pageChecks/limits';
 import { PAGE_CHECKS_MAX_PAGES, PAGE_CHECKS_TTL_SECONDS, pageChecksPk, pageCheckRow, type PageCheckRow } from '../src/lib/pageChecks/model';
-import { pageCheckChange, pageCheckInsights, sortPageChecks } from '../src/lib/pageChecks/insights';
+import { filterPageChecks, isPageCheckFilter, pageCheckChange, pageCheckFilters, pageCheckInsights, sortPageChecks } from '../src/lib/pageChecks/insights';
 import { pathTree, type PathNode } from '../src/lib/pageChecks/pathTree';
 
 // `POST /api/review/<code>/page-checks` and the store behind the app's Page checks view
@@ -278,4 +278,30 @@ test('across pages: addresses as a hierarchy of path segments, a query under its
     expect(bases(tree)).toBe(true);
     // A flat list stays flat
     expect(shown(pathTree(['/a', '/b'], path => path))).toEqual([{ label: '/a', page: true }, { label: '/b', page: true }]);
+});
+
+test('the pages a filter shows: needing attention in any check or in one, or nothing to look at (uier #221)', async () => {
+    const row = (path: string, overrides: Partial<PageCheckRow> = {}): PageCheckRow => ({
+        id: path, origin: site, path, noindex: false, seo: { warn: 0, pass: 5 }, checkedAt: '2026-11-01T00:00:00.000Z',
+        accessibility: { critical: 0, serious: 0, moderate: 0, minor: 0 }, ...overrides
+    });
+    const pages = [
+        row('/a11y', { accessibility: { critical: 0, serious: 0, moderate: 0, minor: 1 } }),
+        row('/seo', { seo: { warn: 2, pass: 3 } }),
+        row('/slow', { vitals: { lcp: 4000, cls: 0.01 } }),
+        row('/clean', { vitals: { lcp: 900, cls: 0.01, inp: 40 } }),
+        // The audit did not run: counted by the checks that did
+        row('/unaudited', { accessibility: undefined })
+    ];
+    const shown = (filter: typeof pageCheckFilters[number]) => filterPageChecks(pages, filter).map(page => page.path);
+    expect(shown('all')).toEqual(pages.map(page => page.path));
+    expect(shown('attention')).toEqual(['/a11y', '/seo', '/slow']);
+    expect(shown('accessibility')).toEqual(['/a11y']);
+    expect(shown('seo')).toEqual(['/seo']);
+    expect(shown('vitals')).toEqual(['/slow']);
+    expect(shown('passing')).toEqual(['/clean', '/unaudited']);
+    // Every page is either needing attention or not
+    expect(shown('attention').length + shown('passing').length).toBe(pages.length);
+    expect(pageCheckFilters.every(isPageCheckFilter)).toBe(true);
+    expect(isPageCheckFilter('everything')).toBe(false);
 });

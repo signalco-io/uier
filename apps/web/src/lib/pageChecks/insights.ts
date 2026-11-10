@@ -23,6 +23,43 @@ export function vitalsOverTarget(page: Pick<PageCheckRow, 'vitals'>) {
     return vitalNames.filter(name => page.vitals?.[name] !== undefined && vitalOverTarget(name, page.vitals[name]!)).length;
 }
 
+/**
+ * The pages the view lists (`?show=`, uier #221): every page, the ones with something to look at (in
+ * any check, or in one), or the ones with nothing to look at. A check that did not run (the audit, a
+ * vital not measured) finds nothing, so a page counts by the checks that ran.
+ */
+export const pageCheckFilters = ['all', 'attention', 'accessibility', 'seo', 'vitals', 'passing'] as const;
+export type PageCheckFilter = typeof pageCheckFilters[number];
+export const pageCheckFilterLabels: Record<PageCheckFilter, string> = {
+    all: 'All pages',
+    attention: 'Needs attention',
+    accessibility: 'Accessibility issues',
+    seo: 'SEO to look at',
+    vitals: 'Core Web Vitals over target',
+    passing: 'Nothing to look at'
+};
+
+export function isPageCheckFilter(value: unknown): value is PageCheckFilter {
+    return typeof value === 'string' && (pageCheckFilters as readonly string[]).includes(value);
+}
+
+const needs: Record<Exclude<PageCheckFilter, 'all' | 'attention' | 'passing'>, (page: PageCheckRow) => boolean> = {
+    accessibility: page => accessibilityTotal(page.accessibility) > 0,
+    seo: page => page.seo.warn > 0,
+    vitals: page => vitalsOverTarget(page) > 0
+};
+const needsAttention = (page: PageCheckRow) => Object.values(needs).some(check => check(page));
+
+/** Whether the page is among the ones a filter shows */
+export function pageCheckShown(page: PageCheckRow, filter: PageCheckFilter) {
+    return filter === 'all' ? true : filter === 'attention' ? needsAttention(page) : filter === 'passing' ? !needsAttention(page) : needs[filter](page);
+}
+
+/** The pages a filter shows, in the order they come */
+export function filterPageChecks(pages: readonly PageCheckRow[], filter: PageCheckFilter): PageCheckRow[] {
+    return pages.filter(page => pageCheckShown(page, filter));
+}
+
 const byPage = (a: PageCheckRow, b: PageCheckRow) =>
     a.path < b.path ? -1 : a.path > b.path ? 1 : a.origin < b.origin ? -1 : a.origin > b.origin ? 1 : 0;
 

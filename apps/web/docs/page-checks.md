@@ -65,6 +65,11 @@ pass); a transfer keeps it, since it is keyed by the project.
 - **Order** (`?sort=`, `setUrlSearchParams`, no server request): Needs attention first by default (critical,
   then serious, then all accessibility issues, then SEO to look at, then Core Web Vitals over target),
   Accessibility issues, SEO to look at, Last checked or Page. A column the order follows has `aria-sort`.
+- **Show** (`?show=`, uier #221, `filterPageChecks` in `insights.ts`): All pages by default, Needs attention
+  (accessibility issues, SEO to look at or a Core Web Vital over target), each of those three alone, or Nothing
+  to look at (the rest). A check that did not run finds nothing, so a page counts by the checks that ran. Each
+  option shows its count; the heading says "Pages 3 of 21", and a filter that shows none says so with Show all
+  pages.
 - Empty: "No pages checked yet", how pages get here, and that reviews in the browser extension are not
   included yet (packaged clients do not send summaries).
 
@@ -75,8 +80,8 @@ The tab is always in the project's header (`ProjectTabs`), after Comments.
 `e2e/page-checks-site.api.spec.ts` (API): members only (guests, public viewers, other tokens and other sites
 refused, the site's verification proof), strict validation and the largest summary, replacement with the kept
 previous counts and the page state, the 200-page cap, the member and project rate limits (validation first),
-deletion with the project, the across-pages and ordering rules, and the address hierarchy.
+deletion with the project, the across-pages, ordering and filter rules, and the address hierarchy.
 `e2e/page-checks-site.spec.ts` (full suite): a member reviews two pages of the `fixture-site` site with the same
 title; the toolbar sends one summary each (not again for an unchanged reload), and the view lists both with
-their counts, the shared title and description (closed until opened, under their common path), sorts by page and passes axe (Desktop Chrome); a `noindex`
+their counts, the shared title and description (closed until opened, under their common path), shows only the pages needing attention, sorts by page and passes axe (Desktop Chrome); a `noindex`
 page as a card on a phone, without a sideways scroll (Mobile Chrome).

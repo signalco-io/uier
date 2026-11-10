@@ -1,4 +1,6 @@
 import { expect, test, type Page, type Request } from '@playwright/test';
+import { filterPageChecks } from '../src/lib/pageChecks/insights';
+import type { PageCheckRow } from '../src/lib/pageChecks/model';
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, signIn, uniqueEmail } from './support/app';
 import { auditRuns, observeAuditRuns } from './support/auditRuns';
@@ -114,6 +116,20 @@ test('a member reviews two pages with the same title, and the project\'s Page ch
     await expect(sharedDescriptions.getByRole('link')).toHaveCount(2);
     await expect(page.getByRole('region', { name: 'Not indexed' })).toContainText('No page asks not to be indexed.');
     await expect(page.getByText('in members’ browsers at the time of each visit')).toBeVisible();
+
+    // Only the pages that need attention (uier #221), kept in the address; the heading says how many of all
+    const rows = [pricing, plans].map(summary => ({ ...summary, id: summary.path, origin, checkedAt: '' }) as PageCheckRow);
+    const attention = filterPageChecks(rows, 'attention').map(row => row.path);
+    await page.getByRole('combobox', { name: 'Show pages' }).click();
+    await page.getByRole('option', { name: `Needs attention ${attention.length} pages` }).click();
+    await expect(page).toHaveURL(/[?&]show=attention/);
+    await expect(page.getByRole('heading', { name: `Pages ${attention.length} of 2` })).toBeVisible();
+    if (attention.length) await expect(table.locator('[data-page-check]')).toHaveCount(attention.length);
+    else await expect(page.locator('[data-page-checks-filtered]')).toContainText('No checked page has anything to look at.');
+    await page.getByRole('combobox', { name: 'Show pages' }).click();
+    await page.getByRole('option', { name: /^All pages/ }).click();
+    await expect(page).not.toHaveURL(/[?&]show=/);
+    await expect(table.locator('[data-page-check]')).toHaveCount(2);
 
     // Sorted by what needs most attention by default; Page sorts by the address and says so on its column
     await page.getByRole('combobox', { name: 'Sort pages' }).click();
