@@ -261,7 +261,8 @@ header from the section's `data-board-archive` (`--board-width-collapsed` / `--b
 - Expanded is saved on the project (`DbProject.boardArchiveExpanded`, missing when collapsed), like the sorts:
   everyone who opens the board sees it, and the same people change it (`saveProjectBoardArchive`,
   `setBoardArchiveAction`, `canSortProjectBoard`), optimistically with an error toast. Others can still expand it
-  for themselves until the page is opened again.
+  for themselves until the page is opened again. The action schema and `saveProjectBoardArchive` both accept only
+  a boolean, so a string such as `"false"` or `null` is refused before any write.
 - `e2e/archive.spec.ts` covers collapsed and expanded, archiving and restoring from the board, the focus, a reload
-  and light/dark axe; `e2e/board-sort.api.spec.ts` the order and the saved state; `e2e/comment-board.spec.ts` its
+  and light/dark axe; `e2e/board-sort.api.spec.ts` the order, the saved state and invalid inputs; `e2e/comment-board.spec.ts` its
   place in the layout and during a drag.

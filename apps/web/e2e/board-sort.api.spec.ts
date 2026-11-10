@@ -162,6 +162,18 @@ test('members expand the board\'s Archive column on the project, and collapsed l
     await saveProjectBoardArchive(await reload(), commenter, false);
     expect(await reload()).not.toHaveProperty('boardArchiveExpanded');
 
+    // Anything but a boolean is refused before a write, whether expanded or collapsed now
+    for (const invalid of ['false', 'true', null, undefined, 0, 1, {}]) {
+        await expect(saveProjectBoardArchive(await reload(), appActor(admin), invalid as unknown as boolean)).rejects.toThrow('Choose to expand or collapse the archive.');
+        expect(await reload()).not.toHaveProperty('boardArchiveExpanded');
+    }
+    await saveProjectBoardArchive(await reload(), appActor(admin), true);
+    for (const invalid of ['false', null, 0]) {
+        await expect(saveProjectBoardArchive(await reload(), appActor(admin), invalid as unknown as boolean)).rejects.toThrow('Choose to expand or collapse the archive.');
+        expect((await reload()).boardArchiveExpanded).toBe(true);
+    }
+    await saveProjectBoardArchive(await reload(), appActor(admin), false);
+
     const guest: ProjectActor = { kind: 'guest', visitorId: randomUUID() };
     await expect(saveProjectBoardArchive(await reload(), guest, true)).rejects.toThrow('You can’t change how this board is shown.');
     expect(await reload()).not.toHaveProperty('boardArchiveExpanded');
