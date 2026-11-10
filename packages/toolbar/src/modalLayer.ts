@@ -1,4 +1,5 @@
 import { getToolbarHost } from './mount';
+import { isLetterKeyTarget } from './keyboard';
 
 // The review host follows the page's topmost open layer: a native modal dialog, an open popover,
 // the popup of an expanded menu or select button, or a script dialog (`aria-modal`). It moves into
@@ -47,8 +48,8 @@ export function isInActiveModal(element: Element) {
 }
 
 /**
- * Listens to keys on the window, including the review layer's own while the host is in a page
- * layer and keeps them from the window. Returns the cleanup.
+ * Listens to keys on the window, including the review layer's own when its host keeps editing
+ * events or events inside a page layer from the window. Returns the cleanup.
  */
 export function listenToWindowKeydown(listener: (event: KeyboardEvent) => void, options?: { capture?: boolean }) {
     const host = getToolbarHost();
@@ -382,9 +383,12 @@ export function followPageLayers(host: HTMLElement) {
     host.shadowRoot?.addEventListener('focusin', trackFocus);
     host.shadowRoot?.addEventListener('focusout', forgetFocus);
 
-    // In a page layer the review layer's keys, input and clicks stay in it (see the top)
+    // Page shortcut handlers see the shadow host as the target, hiding editable controls.
+    // Keep their keyboard events inside even without a page layer; toolbar window listeners
+    // still receive them through listenToWindowKeydown. Other controls keep normal shortcuts.
     const keep = (event: Event) => {
-        if (!activePageLayer()) return;
+        const editing = event instanceof KeyboardEvent && isLetterKeyTarget(event, host);
+        if (!activePageLayer() && !editing) return;
         keptEvents.add(event);
         event.stopPropagation();
     };

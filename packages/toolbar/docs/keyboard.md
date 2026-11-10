@@ -19,6 +19,9 @@ app share:
 - Which key a press is: `isShortcutPress` (not handled already, not held, not composing, no Ctrl, ⌘ or Alt),
   `shortcutLetter` (the letter on Latin layouts, else the key in its place; no Shift), `isShortcutsHelpKey`
   (`?`), `isSearchKey` (`/`) and `sequenceTimeoutMs` (G, then the next key).
+- `isLetterKeyTarget`: the composed event path identifies editable controls and letter-key widgets across
+  shadow roots. The toolbar stops at its own host, before any containing page menu; the app uses the same
+  guard along with its dialog and toolbar ownership checks.
 - `rovingIndex`: where ↑ ↓ ← →, Home and End move the focus among a composite's items. It stops at the ends.
 
 ## Composites
@@ -54,6 +57,11 @@ a key keeps it), while the toolbar is expanded and the shortcuts are on. `toolba
 
 The list also has the keys of every text box: Enter sends (saves an edit), Shift+Enter adds a line.
 
+Keyboard events from the toolbar's editable controls and letter-key widgets stop at its host, even when
+it is outside a page layer (`modalLayer.ts`). Host-page shortcuts otherwise see the shadow host instead of
+the field and may cancel typing, including C in feedback. `listenToWindowKeydown` still receives these
+events inside the boundary; non-editable controls and page shortcuts keep their normal behavior.
+
 None act while typing or in a widget whose letters choose an item (`isLetterKeyTarget`), in the toolbar's
 dialogs (Options, feedback, an expanded form; a thread's popover keeps the thread keys), while choosing an anchor, or, except
 C, in point mode. `src/threadShortcuts.ts` finds the thread: the one with the focus
@@ -82,4 +90,5 @@ labelled and uses the plain button variant; on touch input it has a 44px minimum
 ## Tests
 
 `apps/web/e2e/shortcuts.spec.ts` (desktop): C, the Shortcuts switch in Options (↓ in the menu, toggled in place), the pill's tab stop
-and arrows, `?`, G then I, `/`, the status tabs, J and K between inbox cards, R and S (the status menu).
+and arrows, feedback typing alongside a host-page C handler (popover and expanded modal), `?`, G then I,
+`/`, the status tabs, J and K between inbox cards, R and S (the status menu).

@@ -227,10 +227,33 @@ test('one switch for the app and its toolbar: turned off on either side, the oth
     await expect(pointMode).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(pointMode).toHaveCount(0);
+    // App guards must inspect the original path, including nested shadow-root editors.
+    await page.evaluate(() => {
+        const host = document.createElement('div');
+        const nested = document.createElement('div');
+        host.attachShadow({ mode: 'open' }).append(nested);
+        const root = nested.attachShadow({ mode: 'open' });
+        root.innerHTML = '<textarea aria-label="Shadow feedback"></textarea><div contenteditable="true" aria-label="Shadow editor"></div>';
+        document.querySelector('main')!.prepend(host);
+    });
+    const shadowText = page.getByRole('textbox', { name: 'Shadow feedback' });
+    await shadowText.focus();
+    await page.keyboard.type('Clear copy c');
+    await expect(shadowText).toHaveValue('Clear copy c');
+    const shadowEditor = page.getByLabel('Shadow editor');
+    await shadowEditor.focus();
+    await page.keyboard.type('copy c');
+    await expect(shadowEditor).toHaveText('copy c');
+    await expect(pointMode).toHaveCount(0);
     // Give feedback keeps opening the feedback form
     await giveFeedback.click();
     const feedback = page.getByRole('dialog', { name: 'Send feedback' });
     await expect(feedback).toBeVisible();
+    const feedbackText = feedback.getByRole('textbox', { name: 'Feedback', exact: true });
+    await feedbackText.focus();
+    await page.keyboard.type('Clear copy c');
+    await expect(feedbackText).toHaveValue('Clear copy c');
+    await expect(pointMode).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(feedback).toBeHidden();
     const add = toolbar(page).getByRole('button', { name: 'Add comment', exact: true });
