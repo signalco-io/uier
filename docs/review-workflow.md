@@ -474,12 +474,12 @@ by signing in. Account sign-out remains in the app's account menu.
 
 Every new element/text comment, rewrite, feedback and bug report starts a screenshot automatically
 ([#81](https://github.com/signalco-io/uier/issues/81)). There is no capture button or image preview in the composer.
-In the form's header, `ComposerAttachmentsHeader` has a compact screen icon button with a tooltip. Its
+In the form's header, `ComposerAttachmentsHeader` has a compact camera icon button ([uier #239](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2F5uauxu25b2es&comment=comment_gSOfyys4qR6CVHQEaaf4q)) with a tooltip. Its
 tooltip and read-out status (its description) say what will happen: "Taking a screenshot...", then "A screenshot of this
 part of the page will be attached." ("of the visible page" for feedback and bug reports), or "The screenshot could not
 be taken. Only the text will be sent." Its **Omit screenshot** toggle ([#323](https://github.com/signalco-io/uier/issues/323),
 a button with `aria-pressed`) sends that one comment without the `screenshot` field, so the API stores no image;
-the icon shows a crossed-out screen and the status reads "No screenshot will be attached." The choice is per comment: it
+the icon shows a crossed-out camera and the status reads "No screenshot will be attached." The choice is per comment: it
 stays with an open or returned (failed send) draft in memory, and the next comment, a reload or sent feedback start with
 the automatic screenshot again. **Attach image**, in the bottom-left corner of the text box ([uier #155](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2F7z6v9829ezdc%2Fsettings&comment=comment_zoNUoCT0BH5rPguGnKI4t)) so it reads as a part of the comment,
 or an image file pasted into the form without text, sends the reviewer's own image as `screenshot` instead of the
