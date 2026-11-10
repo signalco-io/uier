@@ -47,6 +47,7 @@ jobs:
               - ".nvmrc"
               - ".github/workflows/ci.yml"
               - ".github/workflows/deploy.yml"
+              - ".github/workflows/deploy-current_reusable.yml"
               - ".github/workflows/vercel-*_reusable.yml"
               - ".github/workflows/notifications.yml"
               - ".github/vercel-project.json"
@@ -138,7 +139,7 @@ jobs:
         if: matrix.suite == 'checks'
         run: |
           python3 .github/scripts/test_prebuilt.py
-          node --test .github/scripts/package_prebuilt.test.mjs .github/scripts/search-index.test.mjs
+          node --test .github/scripts/package_prebuilt.test.mjs .github/scripts/search-index.test.mjs .github/scripts/deployment-current.test.mjs
 
       - name: Package the standalone worker
         if: matrix.suite == 'checks'

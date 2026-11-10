@@ -27,7 +27,8 @@ on:
 
 # One deploy at a time; never cancel a running deploy.
 # A newer push replaces a deploy that is still waiting; infra and web always deploy in full,
-# so the newest commit carries everything the replaced one would have deployed.
+# so the newest commit carries everything the replaced one would have deployed. Freshness checks
+# skip superseded work before building/applying and before uploading, without interrupting an apply.
 concurrency:
   group: deploy-${{ github.ref }}
   cancel-in-progress: false
@@ -35,9 +36,17 @@ concurrency:
 permissions: {}
 
 jobs:
+  current:
+    name: "Before production work"
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      actions: read
+    uses: ./.github/workflows/deploy-current_reusable.yml
+
   build:
     name: "Web (production build)"
-    if: github.ref == 'refs/heads/main'
+    needs: current
+    if: needs.current.outputs.current == 'true'
     permissions:
       contents: read
     uses: ./.github/workflows/vercel-build_reusable.yml
@@ -46,7 +55,8 @@ jobs:
 
   infra:
     name: "Infra (pulumi up)"
-    if: github.ref == 'refs/heads/main'
+    needs: current
+    if: needs.current.outputs.current == 'true'
     permissions:
       contents: read
       id-token: write
@@ -64,9 +74,17 @@ jobs:
     with:
       command: up
 
+  publish-current:
+    name: "Before production upload"
+    needs: [infra, build]
+    permissions:
+      actions: read
+    uses: ./.github/workflows/deploy-current_reusable.yml
+
   web:
     name: "Web (Vercel deploy)"
-    needs: [infra, build]
+    needs: publish-current
+    if: needs.publish-current.outputs.current == 'true'
     permissions:
       contents: read
     uses: ./.github/workflows/vercel-deploy_reusable.yml
