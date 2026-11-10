@@ -61,7 +61,11 @@ Manual pull request additions/removals record URL-free history entries in the co
 Connector writes use a separate server-only activity identity per account. A reply through MCP
 (or another authenticated connector) is therefore unread for its human owner too, even without
 `writtenBy`. Real authorship, permissions, history and notification recipients keep the account id.
-The same rule applies to connector status, verification, assignment, agent attachment, priority,
+MCP status and person-assignment changes instead use the human account activity identity: they
+remain read for that account and unread for other members, without acknowledging any earlier
+unseen replies or other-member activity. Notification and history connection attribution is
+unchanged. This also applies to the legacy resolved-status write.
+The connector identity still applies to verification, agent attachment, priority,
 mention and manual PR-link changes that already advance activity, and to imported integration
 status changes attributed to the connecting account. Imported replies already have external actor
 identities. No-op writes, receipt replays and working-presence leases still add no activity.

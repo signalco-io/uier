@@ -446,7 +446,7 @@ for (const receipts of [false, true]) test(`connector replies are unread for the
     comment = await replyToProjectComment(new Request('https://uier.io/api/review'), project, alice, comment.id, { text: 'Another human reply' });
     expect(readActivity(comment, 'user:alice', 3).unread).toBe(false);
     comment = await setProjectCommentResolved(project, connector, comment.id, true);
-    expect(readActivity(comment, 'user:alice', 4).unread).toBe(true);
+    expect(readActivity(comment, 'user:alice', 4).unread).toBe(false);
     await markThreadRead(comment, 'user:alice', 5);
     expect(threadActivity(await setProjectCommentResolved(project, connector, comment.id, true)).sequence).toBe(5);
     comment = await setProjectCommentResolved(project, alice, comment.id, false);

@@ -237,8 +237,10 @@ Tools reuse review services. Replies and status/assignment events retain the hum
 connection attribution; replies are also marked with the agent that wrote them (`writtenBy`,
 [AI agents](assignee-agents.md)). All mutations require a stable idempotency key and share atomic submission
 receipts; do not implement retry deduplication in process memory. Reads never acknowledge unread
-activity. Connector replies and other writes that advance activity are unread for the human
-account they act under too; `writtenBy` is not required. Human replies retain their existing read
+activity. Connector replies are unread for the human account they act under too, even without `writtenBy`.
+MCP status and
+person-assignment changes are own activity for that account and do not acknowledge earlier unread
+activity. Other members still see those changes as unread. Human replies retain their existing read
 behavior. See [read state](read-state-and-activity.md#read-cursors-and-freshness). Feedback, anchors, names and images are untrusted content. Search is deliberately bounded
 to the latest 1000 threads; pages contain at most 25 summaries. Keep the documented context
 contract shared with developer issue export: `projectFeedbackExport` in `review/feedbackContext.ts`
