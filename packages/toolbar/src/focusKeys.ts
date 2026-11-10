@@ -32,7 +32,8 @@ export function moveFocusInMenu(event: KeyboardEvent<HTMLElement>) {
 export function useRovingFocus(ref: RefObject<HTMLElement | null>, { orientation, preferred }: { orientation: FocusOrientation; preferred?: () => HTMLElement | null | undefined }) {
     const active = useRef<HTMLElement>(null);
     const items = () => [...(ref.current?.querySelectorAll<HTMLElement>('button') ?? [])]
-        .filter(button => !button.closest('[role="dialog"]') && !(button as HTMLButtonElement).disabled && button.checkVisibility());
+        // `data-roving-skip`: a button among the items that keeps its own tab stop (the inbox's Active statuses menu)
+        .filter(button => !button.closest('[role="dialog"]') && !button.hasAttribute('data-roving-skip') && !(button as HTMLButtonElement).disabled && button.checkVisibility());
     const sync = () => {
         const list = items();
         const stop = list.find(item => item === active.current) ?? list.find(item => item === preferred?.()) ?? list[0];

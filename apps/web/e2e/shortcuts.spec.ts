@@ -185,15 +185,29 @@ test('the pill is one tab stop, ? lists the shortcuts, and G then I, /, J, K, R 
     await expect(inbox.getByRole('searchbox', { name: 'Search comments' })).toBeFocused();
     await expect(inbox.getByRole('searchbox', { name: 'Search comments' })).toHaveValue('');
 
-    // The status tabs: one tab stop, ← and → move, Enter chooses
+    // The status tabs: one tab stop, ← and → move between the tabs (past the Active statuses menu, which Tab reaches), Enter chooses
     const tabs = inbox.getByRole('group', { name: 'Show comments' });
-    await expect(tabs.locator('button:not([tabindex="-1"])')).toHaveCount(1);
-    const open = tabs.getByRole('button', { name: /^Open/ });
-    await open.focus();
+    const statuses = tabs.getByRole('button', { name: 'Active statuses', exact: true });
+    await expect(tabs.locator('button:not([tabindex="-1"])')).toHaveCount(2);
+    const active = tabs.getByRole('button', { name: /^Active \d/ });
+    await active.focus();
+    await page.keyboard.press('Tab');
+    await expect(statuses).toBeFocused();
+    await active.focus();
     await page.keyboard.press('ArrowRight');
-    const inProgress = tabs.getByRole('button', { name: /^In progress/ });
-    await expect(inProgress).toBeFocused();
-    await expect(open).toHaveAttribute('aria-pressed', 'true');
+    const done = tabs.getByRole('button', { name: /^Done/ });
+    await expect(done).toBeFocused();
+    await expect(active).toHaveAttribute('aria-pressed', 'true');
+    // The menu: ↓ moves between Active and its statuses, Escape closes only the menu
+    await statuses.focus();
+    await page.keyboard.press('Enter');
+    const statusesMenu = page.getByRole('dialog', { name: 'Active statuses' });
+    await expect(statusesMenu.getByRole('button', { name: /^Active/ })).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await expect(statusesMenu.getByRole('button', { name: /^Open/ })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(statusesMenu).toBeHidden();
+    await expect(inbox).toBeVisible();
 
     // J and K go from card to card; R opens the reply box of the one with the focus, S goes to its status menu
     const cards = inbox.getByRole('article');

@@ -28,7 +28,8 @@ export const toolbarParts = {
     'uier-feedback': 'feedback form',
     'uier-profile': 'profile',
     'uier-options': 'options',
-    'uier-locations': 'location filter'
+    'uier-locations': 'location filter',
+    'uier-status-filter-menu': 'status filter'
 } as const;
 
 export type ToolbarPart = keyof typeof toolbarParts;
