@@ -7,6 +7,16 @@ and the landmark rules stay with the audit above them. Logic: `src/checks/lazy/k
 `lazy/screenReader.ts` (in the audit asset); views: `components/checks/sections/KeyboardSection.tsx`
 and `ScreenReaderSection.tsx`.
 
+## Tools
+
+**Show tab order** and **Check focus indicators** are two buttons with icons (Lucide's list-ordered
+and focus, drawn in `ChecksIcons.tsx`) above the Keyboard section's card, in the Keyboard tab
+([uier #228](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_wJf6YX8AiP9Go6faFCjO2)):
+`[data-uier-keyboard-tools]`, one bordered card each, side by side and stacked when narrow. Each card
+keeps its description under its button, also once the tool ran; the focus check's status is in its
+card and its findings are rows of the Keyboard section. They show once the section has a report
+(Show tab order only with a stop). The focus button shows a spinner while the check runs.
+
 ## Tab order
 
 `tabOrder()` computes the sequential focus order (`when: 'panel'`): focusable elements (links and
@@ -98,7 +108,7 @@ shadow roots in place) in reading order, skipping `head` and the toolbar, and us
 ## Tests
 
 `apps/web/e2e/page-checks-keyboard.spec.ts` (Desktop Chrome) on `fixture-keyboard`
-(`e2e/support/fixtures/keyboard.ts`): the tab order's checks and the overlay's numbers at their
+(`e2e/support/fixtures/keyboard.ts`): the tools above the section, with their descriptions; the tab order's checks and the overlay's numbers at their
 elements in order (positive tabindex first, the skip link off screen and unnumbered, one radio stop,
 the shadow root's button), following the scroll, hidden while collapsed and gone with the panel, and
 a comment's text and check; the focus check from the keyboard and from a click (Chromium honours
