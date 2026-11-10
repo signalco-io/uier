@@ -41,7 +41,7 @@ export default async function ProjectLayout({ children, params }: LayoutProps<'/
     return (
         // On the comments page the header is as wide as the comments' header under it (ProjectComments marks it with
         // data-header-wide): the list with its thread, or the board's columns up to the panel's width less the gutters,
-        // so it stays put when the board scrolls. Other project pages keep the reading width.
+        // so it stays put when the board scrolls. Page checks marks itself as list width too; other project pages keep the reading width.
         <div className="group/project @container/project flex flex-col" style={{ '--board-width': boardWidth } as React.CSSProperties}>
             <PageHeader
                 className={cn('min-w-0',

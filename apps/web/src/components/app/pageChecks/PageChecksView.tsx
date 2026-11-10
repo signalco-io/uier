@@ -57,7 +57,10 @@ export function PageChecksView({ projectId, pages, environments }: {
     const ariaSort = (column: string) => sortedBy?.column === column ? sortedBy.direction : undefined;
 
     return (
-        <section aria-labelledby="page-checks-title" className="flex flex-col gap-6">
+        // Full width like the comments (uier #214): the panel's width less the gutters (`page-wide`, app-shell.md), capped
+        // at 96rem; data-header-wide gives the project header above the same width
+        <section aria-labelledby="page-checks-title" data-page-width="wide" data-header-wide="list"
+            className="flex w-[min(var(--page-wide),96rem)] flex-col gap-6 mx-[calc((100%-min(var(--page-wide),96rem))/2)]">
             <div className="flex flex-wrap items-end justify-between gap-3">
                 <div className="flex max-w-prose min-w-0 flex-col gap-1">
                     <h2 id="page-checks-title" className="m-0 text-base font-semibold tracking-[-0.01em]">Page checks</h2>
