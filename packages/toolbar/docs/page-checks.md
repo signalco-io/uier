@@ -152,13 +152,18 @@ An open inbox, Accessibility or SEO panel stays open on the next page and shows 
 ## SEO
 
 `src/checks/seo.ts` reads the page's own document when the panel opens (the toolbar's shadow root and
-inline threads are never in `document.querySelectorAll`). Each check is pass, warning or a note (not
-measured, not needed), with a one-line reason. The summary counts what is worth a look (warnings,
+inline threads are never in `document.querySelectorAll`); the hreflang, image and link-status checks run
+in the audit asset and show in the same sections ([more Page, Links and Images checks](page-checks-seo-page.md)).
+Each check is pass, warning or a note (not measured, not needed), with a one-line reason. The summary
+counts what is worth a look (warnings,
 amber) and what passed (green); notes are not counted. The heading outline is folded under the heading
 checks (a `details` row, "Outline").
 
-- **Page**: indexing, the title (10 to 60 characters), the meta description (one, 50 to 160 characters)
-  and the canonical link (one, valid, pointing to this page's origin and path). Indexing reads the
+- **Page**: indexing, the title (10 to 60 characters), the meta description (one, 50 to 160 characters),
+  the canonical link (one, valid, pointing to this page's origin and path), the viewport
+  (`width=device-width`, else phones show the page zoomed out), the language (`html[lang]`, a note when
+  missing) and, on a page with hreflang tags, their values, addresses, duplicates, this page among them
+  and the canonical address ([more](page-checks-seo-page.md#page)). Indexing reads the
   `robots` and `googlebot` meta tags: `noindex` (or `none`) is a note that the page asks search engines
   (or Google) not to index it, and on such a page a missing canonical link is a note, "Not needed",
   not a warning ([uier #195](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_1hEpNjurDgh70vdAEO8Tn)).
@@ -169,9 +174,14 @@ checks (a `details` row, "Outline").
 - **Links**: the count (this site and other sites), links without text (text, `aria-label`,
   `aria-labelledby`, `title` or an image's alt text), and addresses that look broken: empty, `#` alone,
   `javascript:`, not valid, containing `undefined`/`null`/`NaN`, `http` on an `https` page, or a `#id` on
-  this page that is not there (hash routes and `#top` excepted).
+  this page that is not there (hash routes and `#top` excepted). Generic link text ("read more", "click
+  here"; English, so not on a page in another language). **Check links** requests the page's links to its
+  own site only when pressed (at most 100, a few at a time, never one that looks like an action) and
+  reports the ones that answer with an error ([more](page-checks-seo-page.md#links)).
 - **Images**: `img` elements without `alt`, unless marked as decoration (`role="presentation"`/`none`,
-  inside `aria-hidden="true"`).
+  inside `aria-hidden="true"`). When the panel opens: images without dimensions, files over twice the
+  size they are shown at, `loading="lazy"` where the visitor looks first, and files over 500 KB
+  ([more](page-checks-seo-page.md#images)).
 - **Core Web Vitals** (`src/checks/webVitals.ts`), measured in this browser with the Performance Timeline
   and updated while the panel is open: LCP (buffered `largest-contentful-paint`, from a prerender's
   activation), CLS (the largest session window of `layout-shift` entries without recent input) and INP

@@ -179,6 +179,11 @@ export function useWebVitals(): WebVitals {
     return useSyncExternalStore(subscribe, () => vitals);
 }
 
+/** The page's largest contentful element so far (none before measuring, or in a browser without it), for the checks in the audit asset */
+export function largestPaintElement(): Element | undefined {
+    return vitals.LCP.element?.isConnected ? vitals.LCP.element : undefined;
+}
+
 /** The targets, and the reviewed page's measurement in words: "2.1 s", "0.04", "180 ms" */
 export const vitalTargets: Record<VitalName, { name: string; good: number; text: (value: number) => string }> = {
     LCP: { name: 'Largest Contentful Paint', good: 2500, text: value => `${(value / 1000).toFixed(1)} s` },
