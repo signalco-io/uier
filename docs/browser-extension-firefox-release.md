@@ -57,6 +57,15 @@ A lost response leaves a `*-started` phase, which blocks another write. Never de
 or blindly repeat the write. Reconcile the upload/version in Developer Hub, then correct the
 durable receipt with evidence. Polling timeouts after a confirmed upload safely resume polling
 the retained upload ID. Package/source hashes and source commit must match on every rerun.
+Mozilla upload IDs can use compact 32-character hexadecimal or hyphenated UUID form. Retain the
+returned value unchanged. If an older client stopped after receiving a compact ID, preserve the
+original receipt and the successful upload response evidence, then resume validation of that
+confirmed ID instead of uploading the package again.
+Retained binary downloads allow up to 64 MiB so source archives larger than Node's default 1 MiB
+child-process buffer can be compared on a rerun. Manual Firefox releases execute the reviewed
+publisher at the workflow's main commit. The ZIP, source archive, listing metadata and license
+remain pinned to the protected release tag, and the publisher rechecks that commit and ancestry.
+This lets an operational publisher fix resume an existing release without changing its package.
 
 Keep `FIREFOX_PUBLISHING_ENABLED` false until native Firefox hosted acceptance is recorded. Keep
 its public installation link disabled until the actual listing and installed/update acceptance
