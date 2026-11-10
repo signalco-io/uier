@@ -617,17 +617,19 @@ test('admins rename the workspace from its menu; commenters have no workspace se
     await page.reload();
     await expect(page.getByLabel('Workspace name')).toHaveValue('Acme studio');
 
+    // The menu always lists the current workspace, checked, also when it is the only one (uier #257).
     // Everyone joins uier's workspace to send feedback on the app: the menu keeps it apart from their own
     // workspaces, under its own name. There it has no settings link, and the page is not there.
     await appNavigation(page);
     await page.getByRole('button', { name: /^Workspace:/ }).click();
-    await expect(page.getByRole('menuitem', { name: /Acme studio.*Admin/ })).toHaveCount(0);
+    await expect(page.getByRole('menuitem', { name: /Acme studio.*Admin.*current/ })).toBeVisible();
     await page.getByRole('menuitem', { name: /^Feedback on uier/ }).click();
     await expect(page).toHaveURL(/\/app\/projects$/);
     const commenterNavigation = await appNavigation(page);
     await expect(commenterNavigation.getByRole('link', { name: 'Workspace', exact: true })).toHaveCount(0);
     await page.getByRole('button', { name: /^Workspace:/ }).click();
     await expect(page.getByRole('menuitem', { name: /Acme studio.*Admin/ })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: /^Feedback on uier.*current/ })).toBeVisible();
     await expect(page.getByRole('menuitem', { name: 'Workspace settings' })).toHaveCount(0);
     await page.keyboard.press('Escape');
     // The old address of the settings goes to the area, which sends commenters to the projects

@@ -5,8 +5,8 @@
   keep it. Both containers otherwise expose the same "Notifications alt+T" region, even when empty.
   `e2e/app.spec.ts` checks one notification region and axe `landmark-unique` on the project, projects
   list and account pages. This rule is outside the WCAG tags used by the general accessibility scan.
-- **Layout.** `(shell)/layout.tsx` is the sidebar (`AppSidebar`: workspace switcher (its menu switches
-  workspaces, creates one (`createWorkspaceAction`, a dialog for the name) and, for admins, opens Workspace
+- **Layout.** `(shell)/layout.tsx` is the sidebar (`AppSidebar`: workspace switcher (its menu lists the
+  person's workspaces to switch between, the current one checked, also when it is the only one (uier #257), creates one (`createWorkspaceAction`, a dialog for the name) and, for admins, opens Workspace
   settings), Projects (the projects index; the person's own work goes beside it), active projects (every project when grouped by status) with a
   Create project icon link and a Sort and Group menu (`ProjectOrderMenu`) in their header, then at the bottom Workspace (admins; for everyone else only when a
   visible project has a client), Give feedback and the account menu: rows like the navigation's, 4px apart like them (uier #165: the Workspace group has no bottom padding and the footer `gap-1 pt-1`), the person's avatar centred in their 16px icon column so

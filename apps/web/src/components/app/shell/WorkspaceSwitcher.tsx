@@ -90,7 +90,8 @@ function CreateWorkspaceForm() {
 }
 
 /**
- * The current workspace at the top of the sidebar. Its menu switches workspaces, creates a new one,
+ * The current workspace at the top of the sidebar. Its menu lists the person's workspaces (the current one
+ * checked, also when it is the only one) to switch between, creates a new one,
  * opens the workspace settings for admins (`canManage`) and, apart from the person's workspaces, the
  * feedback they sent on uier (`feedback`).
  */
@@ -108,8 +109,6 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, canManage = 
 
     const own = workspaces.filter(workspace => !workspace.feedback);
     const feedback = workspaces.find(workspace => workspace.feedback);
-    // From the feedback workspace the list is the way back to the person's own
-    const canSwitch = own.length > 1 || (current.feedback && own.length > 0);
     const switchTo = (workspaceId: string) => startTransition(() => switchWorkspaceAction(workspaceId));
     return (
         <SidebarMenu>
@@ -126,17 +125,18 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, canManage = 
                         align="start"
                         side={isMobile ? 'bottom' : 'right'}
                         sideOffset={4}>
-                        {canSwitch && (
+                        {/* Always the person's workspaces, the current one checked, also when it is the only one (uier #257) */}
+                        {own.length > 0 && (
                             <>
                                 <DropdownMenuGroup>
                                     <DropdownMenuLabel className="text-xs text-muted-foreground">Workspaces</DropdownMenuLabel>
                                     {own.map(workspace => (
-                                        <DropdownMenuItem key={workspace.id} onClick={() => switchTo(workspace.id)}>
+                                        <DropdownMenuItem key={workspace.id} onClick={() => workspace.id !== current.id && switchTo(workspace.id)}>
                                             <span className="flex min-w-0 flex-1 flex-col">
                                                 <span className="truncate">{workspace.name}</span>
                                                 <span className="text-xs text-muted-foreground">{workspace.role}</span>
                                             </span>
-                                            {workspace.id === current.id && <CheckIcon className="ml-auto" />}
+                                            {workspace.id === current.id && <><CheckIcon aria-hidden="true" className="ml-auto" /><span className="sr-only">current</span></>}
                                         </DropdownMenuItem>
                                     ))}
                                 </DropdownMenuGroup>
@@ -165,7 +165,7 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, canManage = 
                                             <span className="truncate">{feedback.name}</span>
                                             <span className="text-xs text-muted-foreground">{feedback.role}</span>
                                         </span>
-                                        {feedback.id === current.id && <CheckIcon className="ml-auto" />}
+                                        {feedback.id === current.id && <><CheckIcon aria-hidden="true" className="ml-auto" /><span className="sr-only">current</span></>}
                                     </DropdownMenuItem>
                                 </DropdownMenuGroup>
                             </>
