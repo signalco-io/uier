@@ -763,6 +763,7 @@ export const hr: Messages = {
         filterResults: 'Filtriraj rezultate',
         filtered: (label: string) => `Filtrirano: ${label}.`,
         clearFilter: 'Prikaži sve rezultate',
+        aboutCheck: (label: string) => `O provjeri: ${label}`,
         states: { pass: 'Prolazi', warn: 'Upozorenje', none: 'Napomena' },
         otherPageBefore: 'Ovi se rezultati odnose na ',
         otherPageAfter: '. Ponovno provjerite ovu stranicu.',

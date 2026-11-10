@@ -7,7 +7,7 @@ import { Check, Disabled, Down, Info, MapPin, MyLocation, Undo, Warning } from '
 import { sharedSummary } from '../../checks/issueGroup';
 import type { CheckState, IssueGroup, PageCheck, PageIssue } from '../../checks/types';
 import { CommentIcon } from '../CommentIcon';
-import { IconTooltip } from '../IconTooltip';
+import { IconTooltip, useIconTooltip } from '../IconTooltip';
 import { useMessages } from '../../i18n';
 
 export { sharedSummary };
@@ -260,12 +260,31 @@ export function CheckStateIcon({ state }: { state: CheckState }) {
 }
 
 /**
- * A check on one compact row: its state, name and measurement, what was found, why it passed or is
- * worth a look, then its issues (an issue about the page has only its action) and the ones marked
+ * Why a check passed or is worth a look, behind a small info button by its name: shown on hover, on
+ * keyboard focus and on a tap, and read with the button (`aria-describedby`, `reasonId`)
+ */
+function CheckReason({ check, reasonId }: { check: PageCheck; reasonId: string }) {
+    const t = useMessages();
+    const { triggerProps, tooltip } = useIconTooltip(check.reason, undefined, { tap: true, prose: true });
+    return <>
+        <IconButton size="xs" variant="plain" aria-label={t.checks.aboutCheck(check.label)} aria-describedby={reasonId} data-uier-check-reason=""
+            className="-my-1 size-6 shrink-0 text-muted-foreground hover:text-foreground pointer-coarse:-my-3 pointer-coarse:size-11"
+            {...triggerProps}>
+            <Info size={14} aria-hidden="true" />
+        </IconButton>
+        {tooltip}
+        <span id={reasonId} hidden>{check.reason}</span>
+    </>;
+}
+
+/**
+ * A check on one compact row: its state, name (with why it passed or is worth a look in a tooltip) and
+ * measurement, what was found, then its issues (an issue about the page has only its action) and the ones marked
  * "Not an issue" in this browser
  */
 export function CheckItem({ check, children }: { check: PageCheck; children?: ReactNode }) {
     const id = useId();
+    const reasonId = useId();
     const { isDismissed } = useContext(ChecksContext);
     const filter = useContext(CheckFilterContext);
     const t = useMessages();
@@ -277,15 +296,17 @@ export function CheckItem({ check, children }: { check: PageCheck; children?: Re
                 <CheckStateIcon state={check.state} />
                 <div id={id} className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-baseline justify-between gap-3">
-                        <p className="m-0 min-w-0 text-sm font-medium text-foreground">{check.label}</p>
+                        <div className="flex min-w-0 items-center gap-0.5">
+                            <p className="m-0 min-w-0 text-sm font-medium text-foreground">{check.label}</p>
+                            <CheckReason check={check} reasonId={reasonId} />
+                        </div>
                         {check.measure && <p className="m-0 shrink-0 text-sm tabular-nums text-foreground">{check.measure}</p>}
                     </div>
                     {check.value && <p className="m-0 break-words text-sm text-secondary-foreground">{check.value}</p>}
-                    <p className="m-0 text-xs text-muted-foreground">{check.reason}</p>
                 </div>
             </div>
             {/* The buttons' icons line up with the text above them */}
-            {pageIssue ? <IssueActions issue={pageIssue} describedBy={id} className="ml-4" />
+            {pageIssue ? <IssueActions issue={pageIssue} describedBy={`${id} ${reasonId}`} className="ml-4" />
                 : (check.issues.length > 0 || !!check.dismissed?.length) && (
                     <div className="pl-6">
                         {/* The check's reason already says what they share */}

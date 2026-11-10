@@ -131,8 +131,13 @@ Both panels share one layout (`components/checks/ChecksParts.tsx`), so they read
   choose one with `showChecksTab` (`e2e/support/toolbar.ts`).
 - **Sections** (`CheckSection`): a heading with its count and a short note on the right, over one
   bordered card whose rows are divided by lines.
-- **Rows** (`CheckItem`): one compact row per check: the state icon, the name, a short measurement on
-  the right (`measure`, Core Web Vitals), what was found on its own line (`value`), then a one-line reason.
+- **Rows** (`CheckItem`): one compact row per check: the state icon, the name with a small info button,
+  a short measurement on the right (`measure`, Core Web Vitals), then what was found on its own line
+  (`value`). Why it passed or is worth a look (`reason`) is the info button's tooltip
+  ([uier #244](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_r_U5YjZFgfWaCDFTBsmDH)):
+  shown on hover, on keyboard focus and on a tap (a second tap, a tap elsewhere or a scroll hides it;
+  `useIconTooltip`'s `tap`), and read with the button and the row's actions through `aria-describedby`
+  (a hidden element in the row, so the row's text still has it). The button is named "About <check>".
 - **Issues** (`IssueList`): one muted row per element, its short name with Highlight and Comment on the
   right. A line every issue of a list shares is said once (by the check's reason, or under the rule's
   title), not on every element (`sharedSummary`); a single SEO issue's detail is in its check's reason.

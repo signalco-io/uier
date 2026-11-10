@@ -784,6 +784,8 @@ export const en = {
         /** "Filtered: Serious." under the summary while a tile filters the results */
         filtered: (label: string) => `Filtered: ${label}.`,
         clearFilter: 'Show all results',
+        /** A check's info button, whose tooltip says why it passed or is worth a look ("About Title") */
+        aboutCheck: (label: string) => `About ${label}`,
         states: { pass: 'Pass', warn: 'Warning', none: 'Note' },
         /** "These results are for /about. Check again for this page.": the path goes between */
         otherPageBefore: 'These results are for ',

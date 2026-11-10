@@ -762,6 +762,7 @@ export const de: Messages = {
         filterResults: 'Ergebnisse filtern',
         filtered: (label: string) => `Gefiltert: ${label}.`,
         clearFilter: 'Alle Ergebnisse zeigen',
+        aboutCheck: (label: string) => `Über ${label}`,
         states: { pass: 'Bestanden', warn: 'Warnung', none: 'Hinweis' },
         otherPageBefore: 'Diese Ergebnisse gelten für ',
         otherPageAfter: '. Prüfen Sie diese Seite erneut.',

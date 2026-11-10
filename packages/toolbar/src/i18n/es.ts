@@ -763,6 +763,7 @@ export const es: Messages = {
         filterResults: 'Filtrar resultados',
         filtered: (label: string) => `Filtrado: ${label}.`,
         clearFilter: 'Mostrar todos los resultados',
+        aboutCheck: (label: string) => `Acerca de ${label}`,
         states: { pass: 'Correcto', warn: 'Aviso', none: 'Nota' },
         otherPageBefore: 'Estos resultados son de ',
         otherPageAfter: '. Vuelve a comprobar esta página.',
