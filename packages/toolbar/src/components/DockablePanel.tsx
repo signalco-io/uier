@@ -1,4 +1,4 @@
-import { createContext, useContext, useRef, useState, type PropsWithChildren, type KeyboardEvent, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type PropsWithChildren, type KeyboardEvent, type ReactNode } from 'react';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Drag } from '@signalco/ui-icons';
@@ -6,13 +6,64 @@ import { readPreference, savePreference, useReviewDrag, useReviewViewport } from
 import { useAnnounce } from './Announcer';
 import { useMessages } from '../i18n';
 
-type Side = 'left' | 'right';
+export type PanelSide = 'left' | 'right';
+type Side = PanelSide;
 const isSide = (value: unknown): value is Side => value === 'left' || value === 'right';
 
 /** Docked beside the page from 640px; wider from 1280px, where the page has the room */
 export function panelWidth(viewWidth: number) {
     return viewWidth >= 1280 ? 400 : viewWidth >= 640 ? 320 : Math.max(0, viewWidth - 32);
 }
+
+/** Two panels, one on each side, where both fit beside each other with their margins (688px and wider) */
+export function panelsSideBySide(viewWidth: number) {
+    return viewWidth >= 640 && 2 * panelWidth(viewWidth) + 48 <= viewWidth;
+}
+
+function subscribeViewport(listener: () => void) {
+    window.addEventListener('resize', listener);
+    window.visualViewport?.addEventListener('resize', listener);
+    return () => {
+        window.removeEventListener('resize', listener);
+        window.visualViewport?.removeEventListener('resize', listener);
+    };
+}
+export const panelsSideBySideNow = () => panelsSideBySide(window.visualViewport?.width ?? window.innerWidth);
+/** Whether two panels fit side by side now: changes only when that does, not with every resize */
+export function usePanelsSideBySide() {
+    return useSyncExternalStore(subscribeViewport, panelsSideBySideNow);
+}
+
+// The side each panel docks on (a browser-local preference), shared: whether two panels can be open
+// together depends on their sides (`fitPanels` in openPanel.ts)
+const sideKey = (id: string) => `uier:panel-side:v1:${id}`;
+const sides = new Map<string, Side>();
+const sideListeners = new Set<() => void>();
+let sidesVersion = 0;
+export function panelSide(id: string): Side {
+    let side = sides.get(id);
+    if (!side) {
+        side = readPreference(sideKey(id), isSide) ?? 'right';
+        sides.set(id, side);
+    }
+    return side;
+}
+function setPanelSide(id: string, side: Side) {
+    sides.set(id, side);
+    savePreference(sideKey(id), side);
+    sidesVersion += 1;
+    sideListeners.forEach(listener => listener());
+}
+function subscribeSides(listener: () => void) {
+    sideListeners.add(listener);
+    return () => { sideListeners.delete(listener); };
+}
+/** Changes when a panel moves to the other side */
+export function usePanelSidesVersion() {
+    return useSyncExternalStore(subscribeSides, () => sidesVersion);
+}
+// The panels on the page now (id and label): one moved onto another's side swaps sides with it
+const docked = new Map<string, string>();
 
 const PanelHandleContext = createContext<ReactNode>(null);
 
@@ -21,12 +72,15 @@ export function PanelHandle() {
     return useContext(PanelHandleContext);
 }
 
-/** Shared docking shell: changing sides never remounts the panel's content or loses its scroll/drafts. */
+/**
+ * Shared docking shell: changing sides never remounts the panel's content or loses its scroll/drafts.
+ * Moved onto the side of another open panel, the two swap sides, so both stay open.
+ */
 export function DockablePanel({ id, label, children, className, onKeyDown }: PropsWithChildren<{
     id: string; label: string; className?: string; onKeyDown?: (event: KeyboardEvent<HTMLElement>) => void;
 }>) {
-    const key = `uier:panel-side:v1:${id}`;
-    const [side, setSide] = useState<Side>(() => readPreference(key, isSide) ?? 'right');
+    usePanelSidesVersion();
+    const side = panelSide(id);
     const [destination, setDestination] = useState<Side>();
     const target = useRef<Side>(side);
     const view = useReviewViewport();
@@ -34,7 +88,17 @@ export function DockablePanel({ id, label, children, className, onKeyDown }: Pro
     const t = useMessages();
     const wide = view.width >= 640;
     const width = panelWidth(view.width);
-    const moveTo = (next: Side) => { setSide(next); savePreference(key, next); announce(t.panel.moved(label, next)); };
+    useEffect(() => {
+        docked.set(id, label);
+        return () => { docked.delete(id); };
+    }, [id, label]);
+    const moveTo = (next: Side) => {
+        const other: Side = next === 'left' ? 'right' : 'left';
+        const swapped = next === side ? [] : [...docked].filter(([panel]) => panel !== id && panelSide(panel) === next);
+        setPanelSide(id, next);
+        swapped.forEach(([panel]) => setPanelSide(panel, other));
+        announce([t.panel.moved(label, next), ...swapped.map(([, name]) => t.panel.moved(name, other))].join(' '));
+    };
     const drag = useReviewDrag({
         onStart: () => { target.current = side; setDestination(side); },
         onMove: point => { target.current = point.x < view.left + view.width / 2 ? 'left' : 'right'; setDestination(target.current); },

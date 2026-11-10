@@ -27,7 +27,7 @@ export function ChecksPanel({ id, title, checking, onCheckAgain, onClose, childr
 }) {
     const [hiding, setHiding] = useState(false);
     const t = useMessages();
-    const restored = useContext(RestoredPanelContext) === id;
+    const restored = useContext(RestoredPanelContext).includes(id);
     const close = () => {
         setHiding(true);
         window.setTimeout(onClose, 150);

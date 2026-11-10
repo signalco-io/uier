@@ -398,6 +398,79 @@ test('an open panel stays open on the next page and shows that page', async ({ p
     await expect(panel).toBeHidden();
 });
 
+test('panels docked on different sides stay open together, highlight their buttons and stay open on the next page', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.use.isMobile === true, 'Desktop layout');
+    test.setTimeout(90_000);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await memberReview(page, 'two-panels');
+    const inboxButton = toolbar(page).getByRole('button', { name: /^Inbox/ });
+    const seoButton = toolbar(page).getByRole('button', { name: /^SEO/ });
+    const accessibilityButton = toolbar(page).getByRole('button', { name: /^Accessibility/ });
+    const inbox = page.getByRole('complementary', { name: 'Comments' });
+    const seo = page.getByRole('complementary', { name: 'SEO' });
+    const accessibility = page.getByRole('complementary', { name: 'Accessibility' });
+    const background = (button: typeof seoButton) => button.evaluate(element => getComputedStyle(element).backgroundColor);
+    const plain = await background(seoButton);
+
+    // An open panel's button is highlighted, and says it is expanded
+    await seoButton.click();
+    await expect(seo).toBeVisible();
+    await expect(seoButton).toHaveAttribute('aria-expanded', 'true');
+    await expect.poll(() => background(seoButton)).not.toBe(plain);
+    await expect.poll(() => background(inboxButton)).toBe(plain);
+
+    // Both on the right: the inbox takes the SEO panel's place
+    await inboxButton.click();
+    await expect(inbox).toBeVisible();
+    await expect(seo).toBeHidden();
+    await expect(seoButton).toHaveAttribute('aria-expanded', 'false');
+    await expect.poll(() => background(inboxButton)).not.toBe(plain);
+    await expect.poll(() => background(seoButton)).toBe(plain);
+
+    // On the left, the inbox stays open beside the SEO panel
+    await inbox.getByRole('button', { name: 'Move comments panel' }).press('ArrowLeft');
+    await expect(inbox).toHaveAttribute('data-side', 'left');
+    await seoButton.click();
+    await expect(seo).toHaveAttribute('data-side', 'right');
+    await expect(inbox).toBeVisible();
+    await expect(inboxButton).toHaveAttribute('aria-expanded', 'true');
+    await expect(seoButton).toHaveAttribute('aria-expanded', 'true');
+    await expect.poll(() => background(inboxButton)).not.toBe(plain);
+    await expect.poll(() => background(seoButton)).not.toBe(plain);
+
+    // The Accessibility panel replaces only the one on its side
+    await accessibilityButton.click();
+    await expect(accessibility).toBeVisible();
+    await expect(seo).toBeHidden();
+    await expect(inbox).toBeVisible();
+
+    // Moved onto the inbox's side, the two swap sides and both stay open
+    await accessibility.getByRole('button', { name: 'Move accessibility panel' }).press('ArrowLeft');
+    await expect(accessibility).toHaveAttribute('data-side', 'left');
+    await expect(inbox).toHaveAttribute('data-side', 'right');
+    await expect(inbox).toBeVisible();
+
+    // Both stay open on the next page, after a client-side navigation and a reload
+    await page.evaluate(() => history.pushState({}, '', `${location.pathname}/annual${location.search}`));
+    await expect(accessibility).toBeVisible();
+    await expect(inbox).toBeVisible();
+    await page.reload();
+    await expect(accessibility).toBeVisible();
+    await expect(inbox).toBeVisible();
+    await expect(accessibilityButton).toHaveAttribute('aria-expanded', 'true');
+    await expect(inboxButton).toHaveAttribute('aria-expanded', 'true');
+
+    // Where two do not fit side by side, the one opened last stays
+    await page.setViewportSize({ width: 660, height: 800 });
+    await expect(accessibility).toBeVisible();
+    await expect(inbox).toBeHidden();
+    await expect(inboxButton).toHaveAttribute('aria-expanded', 'false');
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await inboxButton.click();
+    await expect(inbox).toBeVisible();
+    await expect(accessibility).toBeVisible();
+});
+
 test('a panel that stays open shows the page it reached, never the previous one, and not in a window opened from it', async ({ page, request }, testInfo) => {
     test.skip(testInfo.project.use.isMobile === true, 'Desktop layout');
     test.setTimeout(90_000);

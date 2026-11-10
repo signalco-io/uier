@@ -37,7 +37,7 @@ function prefersReducedMotion() {
 }
 
 /**
- * The Accessibility and SEO panels, one open at a time (`panel`), and what they keep while closed:
+ * The Accessibility and SEO panels, open (`panels`) alone or together, each docked on its own side, and what they keep while closed:
  * the last reports, the comments their quick actions posted and the highlighted element. Both check
  * the page in the background once it has loaded and the browser is idle (while the toolbar is
  * expanded), so a panel opens with its report; a panel opened before that checks the page then, and
@@ -45,21 +45,22 @@ function prefersReducedMotion() {
  * it has rendered.
  */
 export function PageChecks(props: {
-    panel?: ChecksPanelId;
+    /** The open checks panels */
+    panels: readonly ChecksPanelId[];
     /** The toolbar is collapsed: nothing is outlined on the page */
     collapsed: boolean;
-    onClose: () => void;
-    /** "Show": the posted comment's thread (or the inbox, for one about the page) */
-    onShowComment: (comment: ShownComment) => void;
+    onClose: (panel: ChecksPanelId) => void;
+    /** "Show" in `panel`: the posted comment's thread (or the inbox, for one about the page) */
+    onShowComment: (comment: ShownComment, panel: ChecksPanelId) => void;
     /** What the reports of this page found to act on, for the pill's indicators */
     onAttentionChange?: (attention: ChecksAttention) => void;
 }) {
     const features = useToolbarFeatures();
     if (!features.includes('accessibility') && !features.includes('seo')) return null;
-    return <GuestNameProvider><PageChecksPanels {...props} panel={props.panel && features.includes(props.panel) ? props.panel : undefined} /></GuestNameProvider>;
+    return <GuestNameProvider><PageChecksPanels {...props} panels={props.panels.filter(panel => features.includes(panel))} /></GuestNameProvider>;
 }
 
-function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentionChange }: Parameters<typeof PageChecks>[0]) {
+function PageChecksPanels({ panels, collapsed, onClose, onShowComment, onAttentionChange }: Parameters<typeof PageChecks>[0]) {
     // Measured from the review layer's start, so interactions before a panel opens count too; stopped when it leaves
     const features = useToolbarFeatures();
     const accessibilityAvailable = features.includes('accessibility') && auditAvailable();
@@ -68,8 +69,10 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentio
     const path = usePagePath();
     const pathRef = useRef(path);
     pathRef.current = path;
-    const panelRef = useRef(panel);
-    panelRef.current = panel;
+    const panelsRef = useRef(panels);
+    panelsRef.current = panels;
+    const accessibilityOpen = panels.includes('accessibility');
+    const seoOpen = panels.includes('seo');
     const announce = useAnnounce();
     const [accessibility, setAccessibility] = useState<AccessibilityState>({ checking: false });
     const [seo, setSeo] = useState<SeoReport>();
@@ -77,11 +80,17 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentio
     const enabledSections = useMemo(() => sectionDefinitions.filter(definition => definition.panel === 'seo' ? seoAvailable : accessibilityAvailable), [seoAvailable, accessibilityAvailable]);
     const sections = useSectionsStore(path, enabledSections);
     const [posted, setPosted] = useState<ReadonlyMap<string, PostedComment>>(() => new Map());
-    const [highlighted, setHighlighted] = useState<{ key: string; element: Element }>();
+    // The element outlined from a panel's issue, while that panel is open
+    const [highlighted, setHighlighted] = useState<{ key: string; element: Element; panel: ChecksPanelId }>();
     // Open on the previous page: this page can still be rendering, so its check waits for it to settle
     const restored = useContext(RestoredPanelContext);
-    const [settling, setSettling] = useState(() => !!panel && restored === panel);
-    const stopSettling = useRef<() => void>(undefined);
+    const [settling, setSettling] = useState(() => panels.some(panel => restored.includes(panel)));
+    // The panels waiting for it (two restored panels wait together)
+    const settle = useRef<{ wait: ReturnType<typeof pageSettled>; panels: Set<ChecksPanelId> }>(undefined);
+    useEffect(() => () => {
+        settle.current?.wait.cancel();
+        settle.current = undefined;
+    }, []);
     const postIssue = useIssueComment();
     const pageComments = useComments().query.data;
     // Findings marked "Not an issue" in this browser: they leave every count, folded under their list
@@ -160,7 +169,7 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentio
         };
         // An open panel waits for the background audit: it goes on without waiting for idle moments
         const report = background
-            ? checkAccessibility(pathRef.current, { signal: controller.signal, background: { hurry: () => panelRef.current === 'accessibility' } })
+            ? checkAccessibility(pathRef.current, { signal: controller.signal, background: { hurry: () => panelsRef.current.includes('accessibility') } })
             : checkAccessibility(pathRef.current, { signal: controller.signal });
         report.then(report => {
             ended();
@@ -172,7 +181,7 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentio
             // Too large a page or too slow a device to check unasked: the panel checks it when it opens (or now, if open)
             auditedPath.current = undefined;
             setAccessibility(current => ({ ...current, checking: false }));
-            if (panelRef.current === 'accessibility') runAccessibility();
+            if (panelsRef.current.includes('accessibility')) runAccessibility();
         }, error => {
             ended();
             if (audit !== latestAudit.current) return;
@@ -184,7 +193,7 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentio
             }
             console.warn('uier-toolbar: The accessibility check could not run', error);
             // In the background it fails quietly (the panel checks again when it opens), unless the panel is open meanwhile
-            setAccessibility(current => ({ ...current, checking: false, error: !background || panelRef.current === 'accessibility' }));
+            setAccessibility(current => ({ ...current, checking: false, error: !background || panelsRef.current.includes('accessibility') }));
         });
     };
     const runSeo = ({ background = false } = {}) => {
@@ -211,44 +220,58 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentio
             ready.cancel();
             sections.cancelBackground();
             // An open Accessibility panel (it stays open while collapsed) still waits for it
-            if (auditControl.current?.background && panelRef.current !== 'accessibility') auditControl.current.controller.abort();
+            if (auditControl.current?.background && !panelsRef.current.includes('accessibility')) auditControl.current.controller.abort();
         };
     }, [collapsed]);
 
     // Opening a panel checks the page unless it has (or is checking) this page's report
-    useEffect(() => {
-        if (!panel) {
-            setHighlighted(undefined);
-            setSettling(false);
+    const check = (panel: ChecksPanelId) => {
+        if (panel === 'accessibility' && auditedPath.current !== pathRef.current) runAccessibility();
+        if (panel === 'seo' && seoPath.current !== pathRef.current) runSeo();
+        sections.runPanel(panel);
+    };
+    const opened = (panel: ChecksPanelId, open: boolean) => {
+        if (!open) {
+            settle.current?.panels.delete(panel);
+            setHighlighted(current => current?.panel === panel ? undefined : current);
+            if (!panelsRef.current.length) stopSettling();
             return;
         }
-        const check = () => {
-            if (panel === 'accessibility' && auditedPath.current !== pathRef.current) runAccessibility();
-            if (panel === 'seo' && seoPath.current !== pathRef.current) runSeo();
-            sections.runPanel(panel);
-        };
         if (!settling) {
-            check();
+            check(panel);
             return;
         }
-        const settled = pageSettled();
-        stopSettling.current = settled.cancel;
-        settled.promise.then(() => {
-            setSettling(false);
-            check();
-        });
-        return settled.cancel;
-    }, [panel]);
-    // Check again before the page settled checks it now, once
-    const checkNow = (run: () => void) => () => {
-        stopSettling.current?.();
+        if (!settle.current) {
+            const wait = pageSettled();
+            const waiting = settle.current = { wait, panels: new Set<ChecksPanelId>() };
+            wait.promise.then(() => {
+                if (settle.current !== waiting) return;
+                settle.current = undefined;
+                setSettling(false);
+                waiting.panels.forEach(check);
+            });
+        }
+        settle.current.panels.add(panel);
+    };
+    useEffect(() => opened('accessibility', accessibilityOpen), [accessibilityOpen]);
+    useEffect(() => opened('seo', seoOpen), [seoOpen]);
+    /** Stops waiting for the page to settle: the panels waiting check it now, except `except` (it checks it itself) */
+    function stopSettling(except?: ChecksPanelId) {
+        const waiting = settle.current;
+        settle.current = undefined;
+        waiting?.wait.cancel();
         setSettling(false);
+        waiting?.panels.forEach(panel => { if (panel !== except && panelsRef.current.includes(panel)) check(panel); });
+    }
+    // Check again before the page settled checks it now, once (and another panel waiting with it)
+    const checkNow = (panel: ChecksPanelId, run: () => void) => () => {
+        stopSettling(panel);
         run();
     };
 
-    const actions = {
+    const actions = (panel: ChecksPanelId) => ({
         reportOf,
-        highlighted: highlighted?.key,
+        highlighted: highlighted?.panel === panel ? highlighted.key : undefined,
         highlight: (issue: PageIssue) => {
             if (highlighted?.key === issue.key) {
                 setHighlighted(undefined);
@@ -261,7 +284,7 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentio
                 return;
             }
             target.scrollIntoView({ block: 'center', behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
-            setHighlighted({ key: issue.key, element: target });
+            setHighlighted({ key: issue.key, element: target, panel });
         },
         comment: (issue: PageIssue) => {
             if (reportOf(issue) || !nameGate()) return;
@@ -275,7 +298,7 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentio
         },
         show: (comment: ShownComment) => {
             setHighlighted(undefined);
-            onShowComment(comment);
+            onShowComment(comment, panel);
         },
         isDismissed,
         dismiss: (issue: PageIssue) => {
@@ -291,7 +314,7 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentio
             setDismissed(writeDismissed(identity, undefined));
             announce(messages().checks.restored);
         }
-    };
+    });
     /** Posts `issue` (one of `issues`, or one comment for all of them), marking each of them */
     function post(issues: PageIssue[], issue: PageIssue) {
         const mark = (state?: PostedComment) => setPosted(current => {
@@ -311,20 +334,23 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentio
     return (
         <SectionsContext value={shownSections}>
         <PageLayerContext value={!collapsed}>
-        <ChecksContext value={actions}>
-            {panel === 'accessibility' && (
-                <AccessibilityPanel state={settling ? { ...shownAccessibility, checking: true } : shownAccessibility} path={path} onClose={onClose}
-                    onCheck={checkNow(() => {
-                        runAccessibility();
-                        sections.runPanel('accessibility', { again: true });
-                    })} />
+            {accessibilityOpen && (
+                <ChecksContext value={actions('accessibility')}>
+                    <AccessibilityPanel state={settling ? { ...shownAccessibility, checking: true } : shownAccessibility} path={path} onClose={() => onClose('accessibility')}
+                        onCheck={checkNow('accessibility', () => {
+                            runAccessibility();
+                            sections.runPanel('accessibility', { again: true });
+                        })} />
+                </ChecksContext>
             )}
-            {panel === 'seo' && (
-                <SeoPanel report={shownSeo} path={path} onClose={onClose}
-                    onCheck={checkNow(() => {
-                        runSeo();
-                        sections.runPanel('seo', { again: true });
-                    })} />
+            {seoOpen && (
+                <ChecksContext value={actions('seo')}>
+                    <SeoPanel report={shownSeo} path={path} onClose={() => onClose('seo')}
+                        onCheck={checkNow('seo', () => {
+                            runSeo();
+                            sections.runPanel('seo', { again: true });
+                        })} />
+                </ChecksContext>
             )}
             {/* What was marked "Not an issue" in this browser is not counted */}
             {onAttentionChange && (
@@ -338,8 +364,7 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentio
             <PageSummaryReporter path={path}
                 accessibility={accessibility.report?.path === path ? accessibility.report : undefined}
                 seo={seo?.path === path ? seo : undefined} />
-            {panel && !collapsed && highlighted && <ElementHighlight element={highlighted.element} />}
-        </ChecksContext>
+            {!collapsed && highlighted && panels.includes(highlighted.panel) && <ElementHighlight element={highlighted.element} />}
         </PageLayerContext>
         </SectionsContext>
     );

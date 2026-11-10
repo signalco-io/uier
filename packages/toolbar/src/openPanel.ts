@@ -1,15 +1,30 @@
 import { createContext } from 'react';
 import type { CommentsFilter } from './components/sidebar/CommentsFilter';
+import { panelSide } from './components/DockablePanel';
 
-/** The docked panel that is open: the inbox, or the Accessibility or SEO panel (one at a time) */
+/** A docked panel: the inbox, the Accessibility or the SEO panel */
 export type DockPanelId = 'inbox' | 'accessibility' | 'seo';
 
 const storageKey = 'uier:toolbar-panel';
 const isDockPanel = (value: unknown): value is DockPanelId => value === 'inbox' || value === 'accessibility' || value === 'seo';
 
+/**
+ * The open panels that can stay open together, oldest first: one on each side where two fit side by
+ * side (`sideBySide`), else one. The newest stays; an older one on its side closes.
+ */
+export function fitPanels(panels: readonly DockPanelId[], sideBySide: boolean): DockPanelId[] {
+    const kept: DockPanelId[] = [];
+    for (const panel of [...panels].reverse()) {
+        if (kept.includes(panel)) continue;
+        if (kept.length && (!sideBySide || kept.some(other => panelSide(other) === panelSide(panel)))) continue;
+        kept.unshift(panel);
+    }
+    return kept.length === panels.length && kept.every((panel, index) => panel === panels[index]) ? panels as DockPanelId[] : kept;
+}
+
 // The review layer remounts for every page (`CommentsGlobal` is keyed by the path), so what stays
 // open lives here for client-side navigation and in `sessionStorage` for a full page load
-let memory: { panel?: DockPanelId; filter?: CommentsFilter } = {};
+let memory: { panels?: DockPanelId[]; filter?: CommentsFilter } = {};
 let documentRead = false;
 
 /**
@@ -29,26 +44,28 @@ function fromThisSite() {
 }
 
 /**
- * The panel open on the previous page, if any: after a client-side navigation always, after a full
- * page load only when it came from this site (not a page opened anew, such as a review link)
+ * The panels open on the previous page (two when they were docked on different sides), oldest first:
+ * after a client-side navigation always, after a full page load only when it came from this site
+ * (not a page opened anew, such as a review link)
  */
-export function readOpenPanel(): DockPanelId | undefined {
+export function readOpenPanels(): DockPanelId[] {
     if (!documentRead) {
         documentRead = true;
         try {
-            const saved = window.sessionStorage.getItem(storageKey);
-            memory.panel = isDockPanel(saved) && fromThisSite() ? saved : undefined;
+            // "inbox,seo"; a single panel was saved as its id before
+            const saved = window.sessionStorage.getItem(storageKey)?.split(',').filter(isDockPanel) ?? [];
+            memory.panels = saved.length && fromThisSite() ? [...new Set(saved)].slice(-2) : undefined;
         } catch {
             // Not kept across full page loads
         }
     }
-    return memory.panel;
+    return memory.panels ?? [];
 }
 
-export function rememberOpenPanel(panel: DockPanelId | undefined) {
-    memory.panel = panel;
+export function rememberOpenPanels(panels: readonly DockPanelId[]) {
+    memory.panels = [...panels];
     try {
-        if (panel) window.sessionStorage.setItem(storageKey, panel);
+        if (panels.length) window.sessionStorage.setItem(storageKey, panels.join(','));
         else window.sessionStorage.removeItem(storageKey);
     } catch {
         // Kept for client-side navigation only
@@ -70,11 +87,11 @@ export function rememberInboxFilter(filter: CommentsFilter) {
 /** "Exit review": the next review starts without a panel */
 export function forgetOpenPanel() {
     memory = {};
-    rememberOpenPanel(undefined);
+    rememberOpenPanels([]);
 }
 
 /**
- * The panel that was open on the previous page and stays open on this one: it neither slides in
- * nor takes the focus, so the page keeps it after a link. Opening a panel again clears it.
+ * The panels that were open on the previous page and stay open on this one: they neither slide in
+ * nor take the focus, so the page keeps them after a link. Closing a panel takes it out.
  */
-export const RestoredPanelContext = createContext<DockPanelId | undefined>(undefined);
+export const RestoredPanelContext = createContext<readonly DockPanelId[]>([]);

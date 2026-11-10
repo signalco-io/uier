@@ -22,10 +22,19 @@ all optional tools hidden, and the absent audit download.
   beside the page). Narrower, the pill keeps its width and both are the first rows of Options; closing a
   panel gives the focus back to the button that opened it (Options there).
 - Each panel is a `DockablePanel` (`uier-panel-accessibility`, `uier-panel-seo`): ink, docked on its own
-  side, Close has the focus when it opens, Escape closes it. The inbox and the checks panels share the
-  dock, so one of them is open at a time (`CommentsGlobal`: opening the inbox or Reattach closes a
-  checks panel). Their buttons name the open panel in `aria-controls`, and on uier's own pages both
-  panels are reviewable parts (`toolbarParts.ts`, "accessibility panel", "SEO panel").
+  side, Close has the focus when it opens, Escape closes it. On uier's own pages both panels are
+  reviewable parts (`toolbarParts.ts`, "accessibility panel", "SEO panel").
+- **Two at once** ([uier #247](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_0noiz5-nVbRxXdaqpC2sH)): the inbox and the checks panels share the dock, one panel
+  on each side. `CommentsGlobal` keeps the open panels oldest first (`openPanels`) and `fitPanels`
+  (`src/openPanel.ts`) keeps what fits: opening a panel closes only an open one on its side, so two
+  panels docked on different sides stay open together. Moving a panel onto the side of another open one
+  swaps their sides (`DockablePanel`, both are announced), so both stay open. Two fit side by side from
+  688 px (two 320 px panels with their margins, `panelsSideBySide`); narrower, one is open at a time and
+  the newest stays (also when the window narrows). Reattach still closes the checks panels.
+- While its panel is open, a button (Inbox, Accessibility, SEO) is highlighted: the UI kit's `soft`
+  variant, as About's hint, on the ink pill in both colour schemes. It says so with `aria-expanded` and names
+  its panel in `aria-controls` (a disclosure, so no `aria-pressed` beside it). The Options rows on a phone
+  have no state: one panel is open there and it covers the page.
 - `components/checks/PageChecks.tsx` owns what the panels keep while closed: the last report of each,
   the comments their quick actions posted (by issue key; keys end with the checked page's path, so after a
   client-side navigation the same finding on another page can be commented again) and the highlighted element. Both
@@ -150,8 +159,9 @@ An open inbox, Accessibility or SEO panel stays open on the next page and shows 
 ([uier #196](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fbrand&comment=comment_5qyBH-wrDYC5Vim0dgff-)).
 
 - `CommentsGlobal` remounts for every page (keyed by the path), so `src/openPanel.ts` keeps the open
-  panel in module memory for client-side navigation and in `sessionStorage` (`uier:toolbar-panel`) for
-  a full page load. A full load restores it only when it continues the tab on the site (a same-origin
+  panels (one, or two on different sides) in module memory for client-side navigation and in
+  `sessionStorage` (`uier:toolbar-panel`, comma-separated, oldest first) for a full page load, fitted
+  again to the window and the panels' sides when restored. A full load restores it only when it continues the tab on the site (a same-origin
   referrer with history before it, back or forward, a reload); a page opened anew, such as from a
   review link, starts without one. So does a window opened from the site: it gets a copy of the
   opener's `sessionStorage` and its referrer, but no history of its own (`history.length` 1). Exit
@@ -159,12 +169,13 @@ An open inbox, Accessibility or SEO panel stays open on the next page and shows 
 - The inbox keeps its filter (status, pages, search) across client-side navigation only, in memory: its
   search is never written to the site's storage. "This page" then lists the new page, and a page chosen
   in the picker that the inbox then reaches is "This page" too (`useInboxComments`), with its comments.
-- A restored panel (`RestoredPanelContext`) neither slides in nor takes the focus, so a link click
-  leaves the focus on the page; the showcase hint stays closed. Opening a panel again behaves as usual.
+- A restored panel (`RestoredPanelContext`, the restored panels still open) neither slides in nor takes
+  the focus, so a link click leaves the focus on the page; the showcase hint stays closed. One closed
+  and opened again behaves as usual, and opening a panel on the other side leaves a restored one as it is.
 - A restored checks panel checks the new page once it has rendered (`src/checks/pageSettled.ts`: no
   added, removed or edited nodes for 300 ms, at most 3 s), since a client-side router can change the
-  address before the page. The Accessibility panel shows "Checking this page..." meanwhile; Check again
-  checks at once. An audit still running from the previous page is not reused: the new one waits for
+  address before the page. Two restored checks panels wait together. The Accessibility panel shows
+  "Checking this page..." meanwhile; Check again checks at once (and the other panel waiting with it). An audit still running from the previous page is not reused: the new one waits for
   it and checks this page.
 
 ## Accessibility

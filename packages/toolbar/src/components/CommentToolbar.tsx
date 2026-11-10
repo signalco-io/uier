@@ -53,9 +53,9 @@ type CommentToolbarProps = {
     /** Whether the inbox sidebar is open (the Inbox button opens and closes it) */
     sidebarOpen?: boolean;
     onToggleSidebar: () => void;
-    /** The Accessibility or SEO panel, while one is open (its button opens and closes it) */
-    checksPanel?: ChecksPanelId;
-    onChecksPanelChange: (panel: ChecksPanelId | undefined) => void;
+    /** The open Accessibility and SEO panels (each button opens and closes its own) */
+    checksPanels?: readonly ChecksPanelId[];
+    onChecksPanelChange: (panel: ChecksPanelId, open: boolean) => void;
     /** Whether the accessibility audit can load here (not in packaged clients) */
     accessibilityAvailable?: boolean;
     /** What the background checks of this page found to act on: a dot on their buttons (Options rows on a narrow screen) */
@@ -99,7 +99,7 @@ function countText(count: number, capped: boolean) {
 export function CommentToolbar({
     mode, creatingPointComment, collapsed, commentsCount = 0, commentsCountCapped = false, hintOpen, showAbout = true, hintId, projectUrl,
     addButtonRef, inboxButtonRef, hintButtonRef, sidebarOpen = false, onAddPointComment, onCancelPointComment, onResumeDraft, onToggleSidebar, onFeedbackOpen,
-    checksPanel, onChecksPanelChange, accessibilityAvailable = false, checksAttention, accessibilityButtonRef, seoButtonRef, optionsButtonRef,
+    checksPanels = [], onChecksPanelChange, accessibilityAvailable = false, checksAttention, accessibilityButtonRef, seoButtonRef, optionsButtonRef,
     feedbackRequested = false, onFeedbackRequestHandled, onMoveStart, onToggleHint, onCollapsedChange, onExitReview,
     shortcutsRequested = false, onShortcutsRequestHandled
 }: CommentToolbarProps) {
@@ -119,7 +119,9 @@ export function CommentToolbar({
     const shortcut = useShortcutsEnabled() ? addCommentShortcut : undefined;
     // A phone's pill keeps its width: the panels open from Options there
     const roomy = useSyncExternalStore(subscribeRoomy, isRoomy);
-    const toggleChecks = (panel: ChecksPanelId) => onChecksPanelChange(checksPanel === panel ? undefined : panel);
+    const toggleChecks = (panel: ChecksPanelId) => onChecksPanelChange(panel, !checksPanels.includes(panel));
+    const accessibilityOpen = checksPanels.includes('accessibility');
+    const seoOpen = checksPanels.includes('seo');
     const capped = commentsCountCapped;
     const badgeText = commentsCount > 99 && !capped ? '99+' : countText(commentsCount, capped);
     const commentsLabel = commentsCount ? t.toolbar.unread(badgeText, commentsCount, capped) : undefined;
@@ -247,7 +249,8 @@ export function CommentToolbar({
                                 ref={inboxButtonRef}
                                 // Found by this, not by its name (in the toolbar's language)
                                 data-uier-inbox-button=""
-                                variant="plain"
+                                // Highlighted while its panel is open (as are Accessibility and SEO), like About's hint
+                                variant={sidebarOpen ? 'soft' : 'plain'}
                                 className="relative rounded-full"
                                 aria-expanded={sidebarOpen}
                                 // The inbox is the `DockablePanel` "inbox"; a comment on it saves this button as its opener
@@ -263,11 +266,11 @@ export function CommentToolbar({
                                 <IconTooltip label={t.toolbar.accessibility}>
                                 <IconButton
                                     ref={accessibilityButtonRef}
-                                    variant="plain"
+                                    variant={accessibilityOpen ? 'soft' : 'plain'}
                                     className="relative rounded-full"
                                     aria-label={checksButtonLabel('accessibility', checksAttention)}
-                                    aria-expanded={checksPanel === 'accessibility'}
-                                    aria-controls={checksPanel === 'accessibility' ? 'uier-panel-accessibility' : undefined}
+                                    aria-expanded={accessibilityOpen}
+                                    aria-controls={accessibilityOpen ? 'uier-panel-accessibility' : undefined}
                                     onClick={() => toggleChecks('accessibility')}>
                                     <AccessibilityIcon />
                                     <AttentionDot panel="accessibility" attention={checksAttention} className="absolute right-1.5 top-1.5" />
@@ -278,11 +281,11 @@ export function CommentToolbar({
                             <IconTooltip label={t.toolbar.seo}>
                             <IconButton
                                 ref={seoButtonRef}
-                                variant="plain"
+                                variant={seoOpen ? 'soft' : 'plain'}
                                 className="relative rounded-full"
                                 aria-label={checksButtonLabel('seo', checksAttention)}
-                                aria-expanded={checksPanel === 'seo'}
-                                aria-controls={checksPanel === 'seo' ? 'uier-panel-seo' : undefined}
+                                aria-expanded={seoOpen}
+                                aria-controls={seoOpen ? 'uier-panel-seo' : undefined}
                                 onClick={() => toggleChecks('seo')}>
                                 <SeoIcon />
                                 <AttentionDot panel="seo" attention={checksAttention} className="absolute right-1.5 top-1.5" />
@@ -307,7 +310,7 @@ export function CommentToolbar({
                             <ToolbarProfile />
                             <ToolbarOptions projectUrl={projectUrl} onExitReview={onExitReview} onResetPosition={movement.custom ? resetPosition : undefined}
                                 triggerRef={optionsButtonRef}
-                                pageChecks={roomy ? undefined : { accessibility: accessibilityAvailable && features.includes('accessibility'), seo: features.includes('seo'), attention: checksAttention, onOpen: onChecksPanelChange }}
+                                pageChecks={roomy ? undefined : { accessibility: accessibilityAvailable && features.includes('accessibility'), seo: features.includes('seo'), attention: checksAttention, onOpen: panel => onChecksPanelChange(panel, true) }}
                                 shortcutsRequested={shortcutsRequested} onShortcutsRequestHandled={onShortcutsRequestHandled} />
                             <IconTooltip label={t.toolbar.collapse}>
                             <IconButton

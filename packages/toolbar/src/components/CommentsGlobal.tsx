@@ -1,7 +1,7 @@
 import { useToolbarFeatures } from '../hooks/useToolbarFeatures';
 import { ReattachContext, describeAnchor } from './CommentAnchorDetails';
 import { messages, useMessages, useToolbarLanguage } from '../i18n';
-import { DockablePanel } from './DockablePanel';
+import { DockablePanel, panelsSideBySideNow, usePanelsSideBySide, usePanelSidesVersion } from './DockablePanel';
 import { CommentsApiError } from '../hooks/api';
 import { useCallback, useEffect, useEffectEvent, useId, useMemo, useRef, useState } from 'react';
 import { anchorSelector } from '../anchorSelector';
@@ -30,7 +30,7 @@ import { isShowcaseHintDismissed, rememberShowcaseHintDismissed, ShowcaseHint } 
 import { toolbarConfig } from '../config';
 import { usePagePath } from '../hooks/usePagePath';
 import { takeLinkedCommentId } from '../review';
-import { readInboxFilter, readOpenPanel, rememberInboxFilter, rememberOpenPanel, RestoredPanelContext, type DockPanelId } from '../openPanel';
+import { fitPanels, readInboxFilter, readOpenPanels, rememberInboxFilter, rememberOpenPanels, RestoredPanelContext, type DockPanelId } from '../openPanel';
 import { openFeedbackEvent, startCommentEvent, takeToolbarRequest } from '../openFeedback';
 import { captureCommentScreenshot } from '../screenshot';
 import { activeModalDialog, isInActiveModal, listenToWindowKeydown } from '../modalLayer';
@@ -166,23 +166,34 @@ export function CommentsGlobal({
     }, []);
     // What `feedback` mode mounted for: the feedback form, or a new comment (`startCommentEvent`)
     const [mountRequest] = useState(takeToolbarRequest);
-    // The panel open on the previous page stays open on this one (client-side navigation or a full load)
-    const [restoredPanel, setRestoredPanel] = useState<DockPanelId | undefined>(() => {
-        const panel = mountRequest ? undefined : readOpenPanel();
-        return panel && panel !== 'inbox' && (!features.includes(panel) || (panel === 'accessibility' && !auditAvailable())) ? undefined : panel;
-    });
-    const [sidebarOpen, setSidebarOpen] = useState(restoredPanel === 'inbox');
-    // The Accessibility or SEO panel: docked like the inbox, so one of them is open at a time
-    const [checksPanel, setChecksPanel] = useState<ChecksPanelId | undefined>(restoredPanel === 'inbox' ? undefined : restoredPanel);
+    // The panels open on the previous page stay open on this one (client-side navigation or a full load)
+    const [restoredPanels, setRestoredPanels] = useState<readonly DockPanelId[]>(() => mountRequest ? [] : fitPanels(readOpenPanels()
+        .filter(panel => panel === 'inbox' || (features.includes(panel) && (panel !== 'accessibility' || auditAvailable()))), panelsSideBySideNow()));
+    // The open docked panels (the inbox, the Accessibility and SEO panels), oldest first: one on each
+    // side where two fit side by side, else one (`fitPanels`). Opening one closes only the one on its side.
+    const [openPanels, setOpenPanels] = useState<readonly DockPanelId[]>(restoredPanels);
+    const sideBySide = usePanelsSideBySide();
+    const sideBySideRef = useRef(sideBySide);
+    sideBySideRef.current = sideBySide;
+    const showPanel = useCallback((panel: DockPanelId, open: boolean) => setOpenPanels(current => open
+        ? fitPanels([...current.filter(other => other !== panel), panel], sideBySideRef.current)
+        : current.includes(panel) ? current.filter(other => other !== panel) : current), []);
+    // Narrower, where two no longer fit, the newest stays
+    const sidesVersion = usePanelSidesVersion();
+    useEffect(() => setOpenPanels(current => fitPanels(current, sideBySide)), [sideBySide, sidesVersion]);
+    const sidebarOpen = openPanels.includes('inbox');
+    const setSidebarOpen = useCallback((open: boolean) => showPanel('inbox', open), [showPanel]);
+    const checksPanels = useMemo(() => openPanels.filter((panel): panel is ChecksPanelId => panel !== 'inbox'), [openPanels]);
     useEffect(() => {
-        if (checksPanel && !features.includes(checksPanel)) setChecksPanel(undefined);
-    }, [checksPanel, features]);
+        const hidden = checksPanels.filter(panel => !features.includes(panel));
+        if (hidden.length) setOpenPanels(current => current.filter(panel => !hidden.includes(panel as ChecksPanelId)));
+    }, [checksPanels, features]);
     // What the checks of this page (run in the background) found to act on: a dot on their buttons
     const [checksAttention, setChecksAttention] = useState<ChecksAttention>({});
     // The page asked to give feedback (`openFeedbackEvent`, or `feedback` mode mounting for it)
     const [feedbackRequested, setFeedbackRequested] = useState(mountRequest === 'feedback');
     const [collapsed, setCollapsed] = useState(() => !mountRequest && readCollapsed());
-    const [hintOpen, setHintOpen] = useState(() => !mountRequest && !restoredPanel && mode !== 'feedback' && !isShowcaseHintDismissed());
+    const [hintOpen, setHintOpen] = useState(() => !mountRequest && !restoredPanels.length && mode !== 'feedback' && !isShowcaseHintDismissed());
     // "About uier" and its hint introduce uier on uier.io's landing page (the showcase without a
     // project); its other pages, its app, reviews and embeds do without them
     const pagePath = usePagePath();
@@ -704,34 +715,33 @@ export function CommentsGlobal({
         inboxButtonRef.current?.focus();
     };
 
-    // The inbox (however it opens) and a new anchor's panel take the checks panel's place
+    // A new anchor's panel takes the checks panels' place (the inbox's own is closed for it)
     useEffect(() => {
-        if (sidebarOpen || reattaching) setChecksPanel(undefined);
-    }, [sidebarOpen, reattaching]);
-    // Remembered for the next page; a panel opened (or closed) here is no longer the restored one
-    const openPanel: DockPanelId | undefined = sidebarOpen ? 'inbox' : checksPanel;
+        if (reattaching) setOpenPanels(current => current.filter(panel => panel === 'inbox'));
+    }, [reattaching]);
+    // Remembered for the next page; a panel closed here is no longer a restored one
     useEffect(() => {
-        rememberOpenPanel(openPanel);
-        if (openPanel !== restoredPanel) setRestoredPanel(undefined);
-    }, [openPanel]);
-    const changeChecksPanel = (panel: ChecksPanelId | undefined) => {
-        if (reattaching || (panel && !features.includes(panel))) return;
-        if (!panel) {
-            closeChecks();
+        rememberOpenPanels(openPanels);
+        setRestoredPanels(current => current.every(panel => openPanels.includes(panel)) ? current : current.filter(panel => openPanels.includes(panel)));
+    }, [openPanels]);
+    const changeChecksPanel = (panel: ChecksPanelId, open: boolean) => {
+        if (reattaching || !features.includes(panel)) return;
+        if (!open) {
+            closeChecks(panel);
             return;
         }
         setHintOpen(false);
-        setSidebarOpen(false);
-        setChecksPanel(panel);
+        showPanel(panel, true);
     };
     // The focus goes back to the panel's button (Options on a narrow screen)
-    const closeChecks = () => {
-        ((checksPanel === 'seo' ? seoButtonRef : accessibilityButtonRef).current ?? optionsButtonRef.current)?.focus();
-        setChecksPanel(undefined);
+    const closeChecks = (panel: ChecksPanelId) => {
+        ((panel === 'seo' ? seoButtonRef : accessibilityButtonRef).current ?? optionsButtonRef.current)?.focus();
+        showPanel(panel, false);
     };
-    // "Show" after a panel's quick action: the comment's thread on its pin, or the inbox for one about the page
-    const handleShowCheckComment = (comment: ShownComment) => {
-        setChecksPanel(undefined);
+    // "Show" after a panel's quick action: the comment's thread on its pin, or the inbox for one about
+    // the page. The panel it was in closes; one on the other side stays.
+    const handleShowCheckComment = (comment: ShownComment, panel: ChecksPanelId) => {
+        showPanel(panel, false);
         handleCollapsedChange(false);
         if (comment.page) {
             setSidebarFilter({ status: 'unresolved', keywords: comment.number !== undefined ? `#${comment.number}` : undefined });
@@ -798,7 +808,7 @@ export function CommentsGlobal({
         setLinkedCommentId(takeLinkedCommentId());
         linkHandledRef.current = false;
         lastPageFocusRef.current = null;
-        setRestoredPanel(openPanel);
+        setRestoredPanels(openPanels);
     }
 
     const candidatePlacement = reattaching?.candidate ? getCommentPlacement(reattaching.candidate) : undefined;
@@ -896,7 +906,7 @@ export function CommentsGlobal({
             {!collapsed && creatingCommentPoint && (
                 <CommentPointOverlay onPoint={handleCreateCommentPoint} />
             )}
-            <RestoredPanelContext value={restoredPanel}>
+            <RestoredPanelContext value={restoredPanels}>
                 {sidebarOpen && (
                     <CommentsSidebar
                         filter={sidebarFilter}
@@ -906,7 +916,7 @@ export function CommentsGlobal({
                         focusRequest={inboxFocus} />
                 )}
                 <PageChecks key={`${path}:${language}:${features.join(',')}`}
-                    panel={checksPanel}
+                    panels={checksPanels}
                     collapsed={collapsed}
                     onClose={closeChecks}
                     onShowComment={handleShowCheckComment}
@@ -929,7 +939,7 @@ export function CommentsGlobal({
                 onResumeDraft={resumableDraft && !sidebarOpen && !reattaching ? resumeDraft : undefined}
                 onCancelPointComment={() => { setCreatingCommentPoint(false); addButtonRef.current?.focus(); }}
                 sidebarOpen={sidebarOpen}
-                checksPanel={checksPanel}
+                checksPanels={checksPanels}
                 onChecksPanelChange={changeChecksPanel}
                 accessibilityAvailable={auditAvailable()}
                 checksAttention={checksAttention}
