@@ -1,3 +1,4 @@
+import { useToolbarFeatures } from '../../hooks/useToolbarFeatures';
 import { useContext, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { runtimeAdapters } from '../../adapters';
 import { backgroundElementLimit, type AccessibilityReport } from '../../checks/accessibility';
@@ -51,6 +52,7 @@ function MemberSummaryReporter({ accessibility, seo }: Parameters<typeof PageSum
     // The page as its comments know it: the project's page state applies
     const { path } = useContext(CommentsBootstrapperContext);
     const { pageState } = useProjectViewer();
+    const accessibilityAvailable = useToolbarFeatures().includes('accessibility');
     const layerVisible = usePageLayerVisible();
     const tabVisible = useSyncExternalStore(subscribeVisibility, () => document.visibilityState === 'visible', () => false);
     const active = layerVisible && tabVisible;
@@ -59,7 +61,7 @@ function MemberSummaryReporter({ accessibility, seo }: Parameters<typeof PageSum
     const accessibilitySections = usePanelSectionChecks('accessibility');
     const [auditOverdue, setAuditOverdue] = useState(false);
 
-    const summary = seo && pageSummary({
+    const summary = (seo || accessibility) && pageSummary({
         path,
         sourcePath: (() => {
             const current = `${location.pathname}${location.search}${location.hash}`;
@@ -67,7 +69,7 @@ function MemberSummaryReporter({ accessibility, seo }: Parameters<typeof PageSum
         })(),
         accessibility,
         seo,
-        seoChecks: [...seoChecks(seo, vitalChecks(vitals)), ...seoSections],
+        seoChecks: seo ? [...seoChecks(seo, vitalChecks(vitals)), ...seoSections] : [],
         accessibilityChecks: accessibilitySections,
         vitals
     });
@@ -78,7 +80,7 @@ function MemberSummaryReporter({ accessibility, seo }: Parameters<typeof PageSum
     // checked): its report is worth waiting for
     const smallPage = useRef<boolean>(undefined);
     if (seo && smallPage.current === undefined) smallPage.current = document.getElementsByTagName('*').length <= backgroundElementLimit;
-    const awaitingAudit = !accessibility && !auditOverdue && auditAvailable() && !savesData() && smallPage.current === true;
+    const awaitingAudit = !accessibility && !auditOverdue && accessibilityAvailable && auditAvailable() && !savesData() && smallPage.current === true;
 
     useEffect(() => {
         if (!active || !seo || !awaitingAudit) return;

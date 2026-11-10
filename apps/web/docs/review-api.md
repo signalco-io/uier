@@ -1,5 +1,13 @@
 # Review API and comment records
 
+- `GET /api/review/<code>` includes `project.toolbarFeatures` only when the reviewer can comment:
+  the effective optional tool IDs (`accessibility`, `seo`, `rewrite`). Missing project settings enable
+  every current tool. Members get the project's list; signed-out reviewers get its intersection with
+  the signed-out list. Only the effective array is projected, never either stored audience's settings.
+  The server derives membership through the existing actor resolution, and comments-off and invited-only
+  gates still apply. This is toolbar visibility, not an authorization claim: existing endpoint permissions
+  and feedback type validation remain authoritative ([settings](project-settings.md#toolbar-features)).
+
 - Toolbar point anchors can use the single `#uier-toolbar>>>` boundary on uier's own pages, in the
   anchor, in `layer.opener` (a thread's pin or a button of the pill) and in `layer.nested` (the
   toolbar buttons that open nested toolbar layers, outside in; only with a toolbar opener, up to 7). `comments/validation.ts`

@@ -118,7 +118,7 @@ export default defineConfig(({ env }) => {
         banner: { js: '\'use client\';' }
     }, {
         // Pure browser/server page identity contract; no React client boundary.
-        entry: { languages: './src/languages.ts', feedbackTypes: './src/feedbackTypes.ts', realtime: './src/realtime.ts', verification: './src/verification.ts', extensionContract: './src/extensionContract.ts', triage: './src/triage.ts', agents: './src/agents.ts', devices: './src/devices.ts', pageState: './src/pageState.ts', screenshotPolicy: './src/screenshotPolicy.ts', mentions: './src/mentions.ts', markdown: './src/markdown.ts', draftStorage: './src/hooks/draftStorage.ts', feedbackContext: './src/feedbackContext.ts', keyboard: './src/keyboard.ts' },
+        entry: { toolbarFeatures: './src/toolbarFeatures.ts', languages: './src/languages.ts', feedbackTypes: './src/feedbackTypes.ts', realtime: './src/realtime.ts', verification: './src/verification.ts', extensionContract: './src/extensionContract.ts', triage: './src/triage.ts', agents: './src/agents.ts', devices: './src/devices.ts', pageState: './src/pageState.ts', screenshotPolicy: './src/screenshotPolicy.ts', mentions: './src/mentions.ts', markdown: './src/markdown.ts', draftStorage: './src/hooks/draftStorage.ts', feedbackContext: './src/feedbackContext.ts', keyboard: './src/keyboard.ts' },
         outDir,
         format: ['esm'],
         platform: 'neutral'

@@ -10,7 +10,9 @@ project's pages together ([the view](../../../apps/web/docs/page-checks.md)). It
 - Only for a **signed-in project member** in `review` mode with `data-uier-project` (`useProjectViewer().isMember`):
   never for guests, public viewers, `showcase` or `feedback` mode. Not in packaged clients for now: the
   extension's route contract is closed, so nothing is sent when `runtimeAdapters()` is set.
-- After the reports settle: once this page's SEO report is there, and the audit's too when one is on its way
+- After the enabled reports settle: either Accessibility or SEO can send a summary independently. With SEO
+  disabled, the summary has no SEO check states or title/description and its SEO counts are zero. With
+  Accessibility disabled, it never waits for an audit. Otherwise it waits for the audit when one is on its way
   (the asset is loaded unasked: `auditAvailable()`, no `Save-Data`, up to 1,500 elements; after 30 seconds of
   the review layer showing without it, the summary goes without the audit's counts), 3 seconds after the last
   change of what it would send. Never while the toolbar is collapsed (`usePageLayerVisible`) or the tab is
@@ -49,4 +51,6 @@ origin the request came from.
 `apps/web/e2e/page-checks-site.spec.ts` on `fixture-site` (`e2e/support/fixtures/site.ts`: every page has the
 reviewed site's title, `/pricing` and `/plans` share a description, `/private` is `noindex`): a member's review
 sends one summary per page with only these fields, nothing again for an unchanged reload, and the app lists
-both pages. `apps/web/e2e/page-checks-site.api.spec.ts` covers the route and its store.
+both pages. `apps/web/e2e/toolbar-features.spec.ts` checks that Accessibility-only projects still save
+summaries after a reload, without SEO check states, on desktop and mobile.
+`apps/web/e2e/page-checks-site.api.spec.ts` covers the route and its store.
