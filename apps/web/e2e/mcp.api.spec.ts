@@ -501,6 +501,66 @@ test('official HTTP client reads context and image, then records approved reply/
     } finally { await client.close(); }
 });
 
+test('MCP status and assignment stay read for the owner, preserving unseen replies and other-member activity', async () => {
+    const f = await fixture();
+    const colleague = await findOrCreateUser(`unread-${randomUUID()}@example.com`);
+    await getAppStore().create<DbMember>({ ...f.context.member, id: memberId(colleague.id), userId: colleague.id,
+        email: colleague.email, role: 'commenter', projects: [f.project.id] });
+    const other = (await memberActor(f.project, colleague.id))!;
+    const ownerId = `user:${f.user.id}`, otherId = `user:${colleague.id}`;
+    const { token, credential } = await createMcpCredential(f.context, { name: 'Unread regression', projectIds: [f.project.id],
+        scopes: ['feedback:read', 'feedback:reply', 'feedback:status', 'feedback:assign'], days: 7 });
+    const client = await connect(token);
+    const load = async () => (await getCommentsStore().get(f.comment.domain, f.comment.id))!.comment;
+    const call = async (name: string, input: Record<string, unknown>) => {
+        const args = { projectId: f.project.id, commentId: f.comment.id, idempotencyKey: idempotencyKey(), ...input };
+        expect((await client.callTool({ name, arguments: args })).isError).not.toBe(true);
+        return args;
+    };
+    try {
+        // Start from a read thread. Both status forms and person assignment operations advance
+        // activity for other people, while preserving the owner's actual read cursor.
+        await markThreadRead(f.comment, ownerId, 1);
+        await markThreadRead(f.comment, otherId, 1);
+        const changes: [string, Record<string, unknown>][] = [
+            ['set_feedback_status', { status: 'in-progress' }],
+            ['set_feedback_status', { resolved: true }],
+            ['set_feedback_status', { status: 'open' }],
+            ['assign_feedback', { assigneeId: f.user.id }],
+            ['assign_feedback', { assigneeIds: [colleague.id], mode: 'add' }],
+            ['assign_feedback', { assigneeIds: [colleague.id], mode: 'remove' }],
+            ['assign_feedback', { assigneeId: null }]
+        ];
+        for (const [name, input] of changes) {
+            const before = threadActivity(await load()).sequence;
+            const args = await call(name, input);
+            const saved = await load();
+            expect(readActivity(saved, ownerId, 1)).toMatchObject({ sequence: before + 1, unread: false });
+            expect(readActivity(saved, otherId, before)).toMatchObject({ lastOtherSequence: before + 1, unread: true });
+            expect(await getReadSequence(saved.domain, ownerId, saved.id)).toBe(1);
+            expect(saved.notificationEvents?.at(-1)?.agent?.credentialId).toBe(credential.id);
+            expect((await client.callTool({ name, arguments: args })).isError).not.toBe(true);
+            await call(name, input); // fresh-key no-op
+            expect(threadActivity(await load()).sequence).toBe(before + 1);
+        }
+        const listed = async () => data(await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id } })).items[0];
+        expect((await listed()).unread).toBe(false);
+        await call('reply_to_feedback', { text: 'Connector reply' });
+        const replySequence = threadActivity(await load()).sequence;
+        await call('set_feedback_status', { status: 'done' });
+        await call('assign_feedback', { assigneeId: f.user.id });
+        expect(readActivity(await load(), ownerId, 1)).toMatchObject({ lastOtherSequence: replySequence, unread: true });
+        expect((await listed()).unread).toBe(true);
+        expect(await getReadSequence(f.comment.domain, ownerId, f.comment.id)).toBe(1);
+        const read = await load();
+        await markThreadRead(read, ownerId, threadActivity(read).sequence);
+        await replyToProjectComment(new Request(base), f.project, other, f.comment.id, { text: 'Another member reply' });
+        await call('set_feedback_status', { status: 'open' });
+        await call('assign_feedback', { assigneeId: null });
+        expect((await listed()).unread).toBe(true);
+    } finally { await client.close(); }
+});
+
 test('scopes, project boundaries, private threads/images, membership loss, expiry and revocation are enforced after connection', async () => {
     const f = await fixture();
     const colleague = await findOrCreateUser(`colleague-${randomUUID()}@example.com`);

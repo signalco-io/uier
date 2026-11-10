@@ -433,12 +433,13 @@ export async function setProjectCommentPriority(project: DbProject, actor: Proje
         submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { operation: 'priority', id, priority, ...guardFingerprint(guard) }), guard, store);
 }
 
+/** Status changes are own activity, including MCP; connection attribution stays on events. */
 export async function setProjectCommentResolved(project: DbProject, actor: ProjectActor, id: string, resolved: boolean, idempotencyKey?: string, guard?: CommentChangeGuard, store?: CommentsStore) {
     resolved = z.boolean().parse(resolved);
     return await changeComment(project, actor, id,
         comment => canResolveComment(comment, actor),
         comment => Boolean(comment.resolved) === resolved && !(!resolved && comment.verification?.outcome === 'pending') ? comment : withNotificationEvent(
-            { ...ordinaryVerificationStatus(withThreadActivity(comment, actorAuthorId(actor)!, actor.kind === 'member' && Boolean(actor.agent)), resolved, true) }, actorAuthorId(actor)!, resolved ? 'resolved' : 'reopened', nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined),
+            { ...ordinaryVerificationStatus(withThreadActivity(comment, actorAuthorId(actor)!), resolved, true) }, actorAuthorId(actor)!, resolved ? 'resolved' : 'reopened', nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined),
         submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { operation: 'status', id, resolved, ...guardFingerprint(guard) }), guard, store);
 }
 
@@ -458,7 +459,7 @@ export async function setProjectCommentStatus(project: DbProject, actor: Project
             if (from === status) return comment;
             const actorId = actorAuthorId(actor)!;
             const kind = status === 'done' ? 'resolved' : status === 'in-progress' ? 'progress-started' : from === 'in-progress' ? 'progress-stopped' : 'reopened';
-            return withNotificationEvent(withOrdinaryStage(withThreadActivity(comment, actorId, actor.kind === 'member' && Boolean(actor.agent)), status), actorId, kind, nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined);
+            return withNotificationEvent(withOrdinaryStage(withThreadActivity(comment, actorId), status), actorId, kind, nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined);
         },
         submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { operation: 'status', id, status, ...guardFingerprint(guard) }), guard, store);
 }
@@ -503,7 +504,8 @@ function assignmentChange(comment: DbComment, ids: string[], actor: ProjectActor
     const changed = [...new Set([...previous, ...ids])].filter(id => previous.includes(id) !== ids.includes(id));
     const actorId = actorAuthorId(actor)!;
     const connector = actor.kind === 'member' ? actor.agent : undefined;
-    let updated = withNotificationEvent(withAssignments(withThreadActivity(comment, actorId, actor.kind === 'member' && Boolean(actor.agent)), ids), actorId, 'assignment', at,
+    // Assignment is own activity even via MCP; never acknowledge earlier unseen replies.
+    let updated = withNotificationEvent(withAssignments(withThreadActivity(comment, actorId), ids), actorId, 'assignment', at,
         changed.map(id => `user:${id}`), connector, { assigneeId: ids[0] ?? null, assigneeIds: ids, previousAssigneeIds: previous });
     for (const agent of assignedAgents(comment).filter(agent => !ids.includes(agent.assigneeId)))
         updated = withNotificationEvent(updated, actorId, 'agent', at, undefined, connector, { assigneeId: agent.assigneeId, agentId: agent.id, assigneeAgent: null });
