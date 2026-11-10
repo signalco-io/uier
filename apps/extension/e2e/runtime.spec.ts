@@ -21,8 +21,9 @@ const server = createServer((req, res) => {
     }
     res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'none'; connect-src 'none'; frame-src 'none'; img-src 'none'; font-src 'none'; style-src 'none'");
     if (req.url?.startsWith('/checks')) {
-        // Accessibility issues on a page of over 1,500 elements, where nothing checks it unasked
-        res.end(`<!doctype html><html lang="en"><title>Strict CSP checks</title><main><h1>Check this page</h1><img id="chart" src="/chart.png"><button id="empty-button"></button>${'<p>A paragraph to check.</p>'.repeat(1_600)}</main></html>`);
+        // Accessibility issues; on a page of over 1,500 elements nothing checks them unasked
+        const paragraphs = req.url.includes('small') ? 3 : 1_600;
+        res.end(`<!doctype html><html lang="en"><title>Strict CSP checks</title><main><h1>Check this page</h1><img id="chart" src="/chart.png"><button id="empty-button"></button>${'<p>A paragraph to check.</p>'.repeat(paragraphs)}</main></html>`);
         return;
     }
     res.end('<!doctype html><html lang="en"><title>Strict CSP</title><main><h1>Review this page</h1><p>No embed or page scripts.</p><a href="/next">Next page</a></main></html>');
@@ -312,9 +313,14 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     expect(pageRequests.filter(url => /audit|\/toolbar(?:\.js|\/)/.test(url))).toEqual([]);
     if (proxy) expect(proxy.requests.slice(proxied).filter(request => request.path.startsWith('/toolbar'))).toEqual([]);
     await animationsFinished(checksPanel);
+    await reviewed.screenshot({ path: info.outputPath('accessibility-panel.png') });
     await expectNoAxeViolations(reviewed, { include: ['#uier-toolbar'] });
     await reviewed.keyboard.press('Escape');
     await expect(checksPanel).toBeHidden();
+    // A smaller page is audited in the background once the toolbar loaded: the button says what it found
+    await reviewed.goto(`${origin}/checks?small`);
+    await expect(pill.getByRole('button', { name: /^Accessibility, \d+ issues? found$/ })).toBeVisible({ timeout: 30_000 });
+    await expect(pill.locator('[data-uier-attention="accessibility"]')).toBeVisible();
     // A live embed yields to the extension; a late embed also sees the public ownership probe.
     publicId = otherPublicId; // Existing embed intentionally belongs to another project.
     await reviewed.goto(`${origin}/embedded`);

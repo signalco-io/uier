@@ -268,7 +268,7 @@ embed coexistence with a different project, text/area anchors, screenshot redact
 capture failure, omitted API cookies, light/dark popup accessibility, and the Accessibility panel on a
 strict-CSP page of over 1,500 elements: `audit.js` is parsed in the document only once the panel opens,
 once for Check again too, the panel lists the page's issues, and the page has no `axe`, handoff or script
-element and requested nothing for it.
+element and requested nothing for it; a smaller page gets its button's issue count from the background audit.
 The closed typed worker envelope and shared route contract reject arbitrary URLs/operations,
 credential/header injection and malformed payloads. API tests retain current membership, origin,
 privacy, comments-off, handoff/PKCE and idempotency coverage. App setup has desktop/mobile keyboard
