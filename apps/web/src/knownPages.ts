@@ -13,6 +13,7 @@ export const KnownPages = {
     Integrations: '/integrations',
     FixVerification: '/features/fix-verification',
     Ai: '/features/ai',
+    PageChecks: '/features/page-checks',
     BrowserExtension: '/browser-extension',
     OpenSource: '/open-source',
     Security: '/security',

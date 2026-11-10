@@ -11,13 +11,14 @@ import { LandingPricing } from '../../../src/components/marketing/LandingPricing
 import { LandingFaq } from '../../../src/components/marketing/LandingFaq';
 import { AgentSpecimen } from '../../../src/components/marketing/AiSpecimens';
 import {
+    BoardSpecimen,
     ContextSpecimen,
-    EnvironmentsSpecimen,
-    HandoffSpecimen,
     InboxSpecimen,
+    IntegrationsSpecimen,
     PinnedSpecimen,
     ThreadSpecimen
 } from '../../../src/components/marketing/LandingSpecimens';
+import { ChecksSpecimen } from '../../../src/components/marketing/ChecksSpecimens';
 import { KnownPages } from '../../../src/knownPages';
 import { firefoxExtensionRelease } from '../../../src/lib/extension/release';
 
@@ -32,53 +33,67 @@ export const metadata = {
 
 const features: { title: string; text: ReactNode; visual: ReactNode; wide?: boolean }[] = [
     {
-        title: 'Pinned to the element, or to the words',
-        text: 'Click anything to pin a comment to it, or select a sentence and comment on just that. Pins follow the element when the page scrolls, resizes or reloads.',
+        title: 'Pinned to the element, an area or the words',
+        text: 'Click anything, drag over an area or select a sentence, and pin a comment there. Pins follow the element when the page scrolls, resizes or reloads.',
         visual: <PinnedSpecimen />,
         wide: true
     },
     {
         title: 'The context comes with it',
-        text: 'A new comment captures a screenshot of the spot, with the page, the browser, the operating system and the window size it was left from.',
+        text: 'A new comment captures a screenshot of the spot, with the page, the window size, the browser and the operating system. Or attach your own image.',
         visual: <ContextSpecimen />
     },
     {
         title: 'Talk it through in the thread',
-        text: 'Reply, mention a teammate and assign the thread to whoever fixes it. People who follow a thread get the replies by email.',
+        text: 'Reply with Markdown and images, mention a teammate and assign the people who fix it. People who follow a thread get the replies by email.',
         visual: <ThreadSpecimen />
     },
     {
         title: 'One inbox for the whole site',
-        text: 'Every thread on this page and on the rest of the site, open or done. Filter, search and see what is new since you last looked.',
+        text: 'Every thread on this page and on the rest of the site. Search, pick a page or an environment such as staging, and see what is unread or assigned to you.',
         visual: <InboxSpecimen />,
         wide: true
     },
     {
-        title: 'Let your coding agent fix it',
-        text: <>Connect Claude Code, Codex or Cursor through the MCP connector. Your agent reads each thread with its page, anchor and screenshot, and replies or marks it done when you approve. More on <InlineLink href={KnownPages.Ai}>AI in {brand.name}</InlineLink>.</>,
-        visual: <AgentSpecimen />,
+        title: 'From open to done',
+        text: <>Follow each thread from Open through In progress to Done, in a list or on a board. <InlineLink href={KnownPages.FixVerification}>Fix verification</InlineLink> asks the reviewer to confirm a fix first.</>,
+        visual: <BoardSpecimen />,
         wide: true
     },
     {
-        title: 'Hand it to a developer',
-        text: 'Copy a thread as a Markdown issue with the page, the anchor and the browser details, ready for your issue tracker.',
-        visual: <HandoffSpecimen />
+        title: 'Accessibility and SEO checks',
+        text: <>Each page you review is checked for accessibility and SEO issues. Highlight what was found, then post it as a comment in one click. More on <InlineLink href={KnownPages.PageChecks}>page checks</InlineLink>.</>,
+        visual: <ChecksSpecimen />
     },
     {
-        title: 'Staging and production apart',
-        text: 'Label each address of a project and filter feedback by environment, so notes on staging stay out of production.',
-        visual: <EnvironmentsSpecimen />
+        title: 'Send it where your team works',
+        text: <>Send shared threads to GitHub, Linear, Notion, Azure DevOps or Slack with their page context, or copy one as a Markdown issue. More on <InlineLink href={KnownPages.Integrations}>integrations</InlineLink>.</>,
+        visual: <IntegrationsSpecimen />
+    },
+    {
+        title: 'Let your coding agent fix it',
+        text: <>Connect Claude Code, Codex or Cursor through the MCP connector. Your agent reads each thread with its page, anchor and screenshot, links its pull request and reports back when you approve. More on <InlineLink href={KnownPages.Ai}>AI in {brand.name}</InlineLink>.</>,
+        visual: <AgentSpecimen />,
+        wide: true
     }
 ];
 
 const details: ReactNode[] = [
     <>Search, priority and <InlineLink href={KnownPages.FeedbackTriage}>bulk triage</InlineLink> in the app</>,
     <><InlineLink href={`${KnownPages.Ai}#rewrite-suggestions`}>AI rewrite suggestions</InlineLink> for selected text</>,
-    'Feedback and bug reports without a pin',
+    'Short AI titles for threads in lists',
+    'Feedback, bug reports and types of your own, without a pin',
+    'Staging and production apart, by environment',
+    'Pull requests linked to their threads',
     'Replace a screenshot or cover private details',
     'Drafts kept in your browser for seven days',
     'Reattach a comment when its element is gone',
-    'Works with a keyboard and screen readers'
+    'A history of each thread’s changes',
+    'Clients and teams to organize projects and access',
+    'Join a workspace through your email domain',
+    'Sign in with an email code, Google, Microsoft or a passkey',
+    'Keyboard shortcuts in the app and the toolbar',
+    'Works with screen readers'
 ];
 
 // The install guide's tabs (src/components/app/projects/InstallGuide.tsx)
@@ -121,7 +136,7 @@ export default function LandingPage() {
                 <SectionHeading
                     id="features"
                     title="What it does"
-                    lead="Pins, threads, screenshots and the inbox are in the toolbar at the bottom of this window, so you can try them right here." />
+                    lead="Pins, threads, screenshots, the inbox and the page checks are in the toolbar at the bottom of this window, so you can try them right here. The board, assignments and integrations are in your projects." />
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {features.map(feature => (
                         <div key={feature.title} className={cx('flex flex-col overflow-hidden rounded-2xl border', feature.wide && 'md:col-span-2')}>
@@ -132,9 +147,9 @@ export default function LandingPage() {
                             </div>
                         </div>
                     ))}
-                    <div className="flex flex-col gap-5 rounded-2xl border p-6 md:col-span-2">
+                    <div className="flex flex-col gap-5 rounded-2xl border p-6 md:col-span-2 lg:col-span-3">
                         <h3 className="text-base font-semibold">And the details</h3>
-                        <CheckList items={details} columns={2} />
+                        <CheckList items={details} columns={3} />
                     </div>
                 </div>
             </section>
@@ -161,7 +176,7 @@ export default function LandingPage() {
                         <div className="flex flex-col gap-2">
                             <h3 className="text-xl font-semibold tracking-[-0.015em]">Review your own site</h3>
                             <p className="text-base leading-relaxed text-muted-foreground">
-                                Sign in with your email, create a project and invite your team. The install guide in the
+                                Sign in with your email, Google, Microsoft or a passkey, create a project and invite your team. The install guide in the
                                 app has the steps for your site:
                             </p>
                         </div>

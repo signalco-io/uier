@@ -1,10 +1,11 @@
 import { cx } from '@signalco/ui-primitives/cx';
 import { Pin } from '@uier/brand/Pin';
-import { Avatar, floating } from './LandingSpecimens';
+import { AssigneeAvatar, floating, Message, ThreadHeader } from './LandingSpecimens';
 
 // A static picture of a thread waiting for its reviewer, for /features/fix-verification. Like the
 // landing's specimens it is hidden from assistive technologies, the example content is an imaginary
-// restaurant site, and the labels are the ones the thread shows (packages/toolbar CommentVerification).
+// restaurant site, and the labels are the ones the thread shows (packages/toolbar CommentThreadHeader,
+// CommentVerification).
 
 /** The fixed spot on the example page, and its thread: Ready to verify, with the reviewer's two choices */
 export function FixVerificationSpecimen() {
@@ -25,20 +26,10 @@ export function FixVerificationSpecimen() {
                     </div>
                 </div>
                 <div className={cx('flex w-full max-w-[290px] shrink-0 flex-col rounded-xl border bg-popover text-popover-foreground', floating)}>
-                    <div className="flex items-center gap-2 px-3.5 pt-3">
-                        <span className="inline-flex h-6 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium">
-                            <span className="size-1.5 rounded-full bg-[hsl(var(--brand-accent))]" />
-                            Ready to verify
-                        </span>
-                        <span className="font-mono text-xs text-muted-foreground">#21</span>
-                    </div>
-                    <div className="flex flex-col gap-2 px-3.5 py-3">
-                        <div className="flex items-center gap-2">
-                            <Avatar initials="MI" />
-                            <span className="text-[13px] font-medium">Mia</span>
-                            <span className="font-mono text-[11px] text-muted-foreground">2d</span>
-                        </div>
-                        <span className="text-[13px] leading-5">We open on Sundays since May. Can this say 12–22?</span>
+                    {/* Ready to verify in its violet (BRAND.md, "Status"), the status menu for the people who may change it */}
+                    <ThreadHeader stage="ready" number={21} assignees={<AssigneeAvatar initials="LE" />} />
+                    <div className="px-3.5 py-3">
+                        <Message initials="MI" name="Mia" time="2 days ago">We open on Sundays since May. Can this say 12–22?</Message>
                     </div>
                     <div className="flex flex-col gap-2.5 border-t px-3.5 py-3 text-[13px] leading-5">
                         <span className="text-muted-foreground">Ready to verify. Requested by Leo for Mia at 6 May 2026, 14:05 UTC.</span>

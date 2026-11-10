@@ -14,7 +14,7 @@ export type Question = { question: string; answer: ReactNode };
 const questions: Question[] = [
     {
         question: `What is ${brand.name}?`,
-        answer: <>A way to review a live website on the page itself. A toolbar sits at the bottom of the page: pin a comment to an element or to selected text, reply in the thread and resolve it when it is done. Projects bring it to your own sites, with your team and review links.</>
+        answer: <>A way to review a live website on the page itself. A toolbar sits at the bottom of the page: pin a comment to an element, an area or selected text, reply in the thread and mark it done when it is fixed. Projects bring it to your own sites, with your team, review links, a board and page checks.</>
     },
     {
         question: `Can I use ${brand.name} on my own website?`,
@@ -26,11 +26,19 @@ const questions: Question[] = [
     },
     {
         question: 'How do I sort through a lot of feedback?',
-        answer: <>In the app, search a project&rsquo;s feedback and filter it by status, priority, people, page or environment. Select up to 50 threads to assign them, set their priority, mark them as done or reopen them at once. <InlineLink href={KnownPages.FeedbackTriage}>Feedback triage</InlineLink> explains how it works and its limits.</>
+        answer: <>In the app, search a project&rsquo;s feedback, filter it by status, priority, people, page or environment, and work through it as a list or on a board. Select up to 50 threads to assign them, set their priority, mark them as done or reopen them at once. <InlineLink href={KnownPages.FeedbackTriage}>Feedback triage</InlineLink> explains how it works and its limits.</>
+    },
+    {
+        question: 'What do the accessibility and SEO checks look at?',
+        answer: <>The Accessibility panel runs axe-core&rsquo;s WCAG A and AA rules and best practices, plus WCAG 2.2&rsquo;s target size. The SEO panel reads the title, description, canonical link, headings, links, images, sharing tags and structured data, and measures Core Web Vitals in your browser. Both check each page as you review it, and every finding can become a comment in one click. <InlineLink href={KnownPages.PageChecks}>Page checks</InlineLink> explains what they cover and what they cannot tell.</>
+    },
+    {
+        question: 'Does it connect to my issue tracker?',
+        answer: <>Yes, in a project. A workspace admin connects GitHub, Linear, Notion or Azure DevOps, and each shared thread becomes an issue, a page or a work item with its page context. Slack gets a message for each new thread. Private feedback stays in {brand.name}. <InlineLink href={KnownPages.Integrations}>Integrations</InlineLink> has the setup for each service.</>
     },
     {
         question: 'Can developers and AI agents use the feedback?',
-        answer: <>Yes. Copy issue turns a thread into Markdown with the page, the anchor, the priority, the browser details and the discussion, to paste into your issue tracker. AI agents connect through the MCP connector. Claude Code signs in through your browser; other tools use an access token from your account settings. Each connection is read-only unless you allow more, reaches only what you choose, and can be revoked at any time. <InlineLink href={KnownPages.Ai}>AI features</InlineLink> explains the setup and what an agent can do.</>
+        answer: <>Yes. Copy issue turns a thread into Markdown with the page, the anchor, the priority, the browser details and the discussion, to paste anywhere. AI agents connect through the MCP connector: Claude Code signs in through your browser, other tools use an access token from your account settings. An agent can show that it is working on a thread and link its pull request. Each connection is read-only unless you allow more, reaches only what you choose, and can be revoked at any time. <InlineLink href={KnownPages.Ai}>AI features</InlineLink> explains the setup and what an agent can do.</>
     },
     {
         question: 'Can the reviewer confirm that a fix works?',
@@ -38,7 +46,7 @@ const questions: Question[] = [
     },
     {
         question: 'Do I need an account?',
-        answer: <>Not on this page: here you comment as a guest. Your first comment sets a cookie that lets you resolve and delete your own comments, and only yours. To review your own site you sign in with your email; there is no password.</>
+        answer: <>Not on this page: here you comment as a guest. Your first comment sets a cookie that lets you resolve and delete your own comments, and only yours. To review your own site you sign in with a code sent to your email, with Google or Microsoft, or with a passkey. There is no password.</>
     },
     {
         question: 'Who can see my comments?',
@@ -46,7 +54,7 @@ const questions: Question[] = [
     },
     {
         question: 'What is saved with a comment?',
-        answer: <>The text, the page and where on it the comment is pinned, the time, and the device it came from: its size, window size, browser and operating system. The <InlineLink href={KnownPages.LegalPrivacyPolicy}>privacy policy</InlineLink> has the details.</>
+        answer: <>The text, the page and where on it the comment is pinned, the time, a screenshot of the spot when capture works, and the device it came from: its size, the window size, the browser, the operating system and settings such as touch input or a dark colour scheme. Not the browser&rsquo;s user-agent string or your IP address. The <InlineLink href={KnownPages.LegalPrivacyPolicy}>privacy policy</InlineLink> has the details.</>
     },
     {
         question: 'How long are comments kept?',
@@ -62,7 +70,7 @@ const questions: Question[] = [
     },
     {
         question: 'Does it work with a keyboard?',
-        answer: <>Yes. Focus an element on the page, Tab to + in the toolbar and press Enter to comment on that element. New comments and replies are announced to screen readers.</>
+        answer: <>Yes. Press C to start a comment and ? to list the other shortcuts; you can turn them off in the toolbar&rsquo;s options. Or focus an element on the page, Tab to + in the toolbar and press Enter to comment on that element. The app has shortcuts of its own, and new comments and replies are announced to screen readers.</>
     }
 ];
 
