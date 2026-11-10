@@ -43,10 +43,13 @@ scheduled cleanup retries failed deletes once unreferenced images are older than
 [screenshot storage](docs/screenshot-storage.md) for the storage and cleanup contract.
 
 The [desktop browser extension](docs/browser-extension.md) lets signed-in members review sites
-without an embed. Version 0.1.2 is available in the Chrome Web Store and passed automatic-upgrade and
-post-update acceptance in Chrome and Edge. See the [release receipts](docs/browser-extension-release.md)
-for public visibility and the app installation-link rollout. The Firefox target reuses the
-same [local extension package](packages/extension); see its [build and loading instructions](docs/browser-extension.md#browser-targets).
+without an embed. Install the published extension in Chrome or Edge from the Chrome Web Store;
+the [release receipts](docs/browser-extension-release.md) record automatic-upgrade and post-update
+acceptance. Firefox 153 or later uses the same [local extension package](packages/extension).
+Version 0.1.5 passed native Firefox hosted acceptance and was submitted to Mozilla on 10 November
+2026; public installation is awaiting review. See the [Firefox release status](docs/browser-extension-firefox-release.md#submission-receipt--10-november-2026),
+[user setup guide](https://uier.io/guides/browser-extension), and
+[developer build and loading instructions](docs/browser-extension.md#browser-targets).
 
 ## Run locally
 

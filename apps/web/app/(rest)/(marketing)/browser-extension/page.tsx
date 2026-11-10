@@ -1,16 +1,16 @@
 import { Button } from '@signalco/ui-primitives/Button';
 import { brand } from '@uier/brand';
 import { CheckList, Chip, InlineLink, PageHeader, PageSection, Panel, Tile } from '../../../../src/components/marketing/ContentPage';
-import { ExtensionStoreButton, extensionPage } from '../../../../src/components/marketing/BrowserExtension';
+import { ExtensionStoreButton, FirefoxExtensionNotice, extensionPage } from '../../../../src/components/marketing/BrowserExtension';
 import { ExtensionSpecimens } from '../../../../src/components/marketing/ExtensionSpecimens';
 import { KnownPages } from '../../../../src/knownPages';
-import { extensionRelease } from '../../../../src/lib/extension/release';
+import { extensionRelease, firefoxExtensionRelease } from '../../../../src/lib/extension/release';
 import { guides } from '../../../../src/lib/guides';
 import { publicPageMetadata } from '../../../../src/lib/metadata';
 
 // The published extension as docs/browser-extension.md and its receipts record it, in the words of
 // the app's setup tab (BrowserExtensionGuide) and docs/browser-extension-listing.md: signed-in members
-// and invited reviewers, exact project origins, desktop Chrome and Edge. Recheck every line when a
+// and invited reviewers, exact project origins, and each browser's release status. Recheck every line when a
 // release changes the extension; promise nothing it does not do.
 
 export const metadata = publicPageMetadata(extensionPage.path, extensionPage);
@@ -30,6 +30,7 @@ export default function BrowserExtensionPage() {
                     <ExtensionStoreButton />
                     <Button variant="outlined" size="lg" href={guides.browserExtension.path}>Read the setup guide</Button>
                 </div>
+                <FirefoxExtensionNotice />
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted-foreground">
                     <span id="supported-browsers">Supported browsers, on desktop:</span>
                     <ul aria-labelledby="supported-browsers" className="flex flex-wrap gap-2">
@@ -63,11 +64,12 @@ export default function BrowserExtensionPage() {
             <PageSection id="requirements" title="Where it works" lead="Only where the project already allows a review.">
                 <CheckList items={[
                     `Chrome or Microsoft Edge ${minimumBrowserVersion} or later, on a desktop computer. Edge installs it from the Chrome Web Store.`,
+                    `The Firefox build requires desktop Firefox ${firefoxExtensionRelease.minimumBrowserVersion} or later.`,
                     'A site whose exact address, scheme and port included, is one of the project’s site addresses.',
                     'A signed-in project member or invited reviewer, with comments on for the project.',
                     'Strict Content-Security-Policy and blocked third-party cookies are fine.'
                 ]} />
-                <p className="text-sm leading-relaxed text-muted-foreground">Not supported: Firefox, Safari and mobile browsers; browser pages, extension stores and local files; frames from other sites; and anonymous guests, who use the script.</p>
+                <p className="text-sm leading-relaxed text-muted-foreground">Not supported: Safari and mobile browsers; browser pages, extension stores and local files; frames from other sites; and anonymous guests, who use the script.</p>
             </PageSection>
 
             <PageSection id="privacy" title="Permissions and privacy" lead="Only what a review on the current tab needs.">

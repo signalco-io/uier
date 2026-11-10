@@ -19,6 +19,7 @@ import {
     ThreadSpecimen
 } from '../../../src/components/marketing/LandingSpecimens';
 import { KnownPages } from '../../../src/knownPages';
+import { firefoxExtensionRelease } from '../../../src/lib/extension/release';
 
 export const metadata = {
     ...publicPageMetadata('/'),
@@ -170,7 +171,7 @@ export default function LandingPage() {
                             ))}
                         </ul>
                         <p className="text-sm leading-relaxed text-muted-foreground">
-                            Cannot change the site? Signed-in reviewers can use the <InlineLink href={KnownPages.BrowserExtension}>browser extension</InlineLink> in desktop Chrome or Edge.
+                            Cannot change the site? Signed-in reviewers can use the <InlineLink href={KnownPages.BrowserExtension}>browser extension</InlineLink> in desktop Chrome or Edge. {firefoxExtensionRelease.availabilityMessage}
                         </p>
                         <Button variant="solid" href={KnownPages.App} className="mt-auto self-start">Create a project</Button>
                     </div>
