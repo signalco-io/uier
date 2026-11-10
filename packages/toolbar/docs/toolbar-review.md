@@ -69,7 +69,10 @@ only trusted presses, so these clicks (and a page script's) never pin a comment.
   (`CommentBubble`'s auto-open), waits for its layer to render and presses the next closed one, then
   opens the thread on the part. Each is pressed once; only collapsed toolbar buttons that open a
   layer (`aria-expanded="false"`, `pressableToolbarOpener`) are pressed, never any other control a
-  saved selector names. Page openers are never clicked.
+  saved selector names. Page openers are never clicked. A comment whose pin has no place within a second
+  is shown in the inbox instead (`CommentsGlobal`); every opener pressed starts that second again
+  (`onAutoOpenStep`), since each layer has to render first, and on a busy page two layers took longer
+  than one second together.
 - Reviewed page layers use the same saved outer opener and closed-pin behaviour, but page openers
   are never pressed automatically. Their selectors skip framework-generated ids and keep bounded
   semantic alternatives; native invokers and the trigger observed opening a script dialog count even

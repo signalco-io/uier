@@ -32,6 +32,7 @@
     "./build": "./scripts/build.mjs",
     "./validate": "./scripts/validate.mjs",
     "./package": "./scripts/package.mjs",
+    "./audit-asset": "./scripts/audit-asset.mjs",
     "./protocol": "./src/protocol.ts",
     "./release": "./scripts/release.mjs"
   },

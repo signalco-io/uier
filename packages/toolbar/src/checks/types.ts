@@ -17,7 +17,18 @@ export type PageIssue = {
     element?: Element;
     /** The element's short name in the panel (`img#hero.logo`) */
     label?: string;
+    /** How a comment names the element when it is one of several (axe-core's selector); else its first anchor selector */
+    selector?: string;
+    /** Something a person has to judge (what axe-core could not decide): listed, never counted as an issue */
+    review?: boolean;
 };
+
+/**
+ * The words of one comment about several elements of a check or rule ("Comment on all"): the first
+ * line, and the last (the standard and the rule's page). The elements are listed between them, after
+ * the line they all share unless the first line says it (`summarized`: a check's reason).
+ */
+export type IssueGroup = { head: string; foot?: string; summarized?: boolean };
 
 /** One line of a panel: a check with its state, value and one-line reason */
 export type PageCheck = {
@@ -30,4 +41,6 @@ export type PageCheck = {
     measure?: string;
     reason: string;
     issues: PageIssue[];
+    /** Its issues marked "Not an issue" in this browser, out of `issues` (set by `PageChecks`; a check with only these is a note) */
+    dismissed?: PageIssue[];
 };

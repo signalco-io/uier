@@ -22,8 +22,10 @@ unknown; independent quality review and provider-charge reconciliation remain fo
 
 ## Operational events
 
-Both rewrite routes call `src/lib/rewrite/suggest.ts`. After a configured call completes, its
-`finally` block emits **one** JSON `rewrite_usage` v1 event through existing server logs. Events
+Both rewrite routes call `src/lib/rewrite/suggest.ts`, and so do both page suggestion routes
+([page suggestions](api.md#page-suggestions), through the same `createSuggestionCall`). After a configured call completes, its
+`finally` block emits **one** JSON `rewrite_usage` v1 event through existing server logs; a page
+suggestion's event adds `feature: "page_suggestions"`, so daily reports include both and can tell them apart. Events
 carry a random call id solely for deduplicating repeated log exports, UTC timestamp, deployment
 environment, allowlisted requested/returned model, fallback flag, observed SDK HTTP-attempt count,
 duration, bounded stop reason, retained suggestion count, outcome, token counters and versioned estimate.

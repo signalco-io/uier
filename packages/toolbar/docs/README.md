@@ -15,6 +15,15 @@ Read the note for the area you change, and update it in the same pull request. A
 - [Keyboard](keyboard.md): the shortcuts, the switch that turns them off, and the composites with one tab stop.
 - [Realtime subscription](realtime.md): socket reconciliation reasons shared by the toolbar and app.
 - [New comment and feedback popovers](composer-popovers.md): where a pin and its popover go at the window's edges, the form (and a rewrite's), posting into the thread in one popover, expanding to a modal.
-- [Accessibility and SEO panels](page-checks.md): the page's checks from the pill, their shared layout (summary, sections, compact rows), axe-core as a lazy pinned asset, Core Web Vitals, and one-click comments for issues.
+- [Accessibility and SEO panels](page-checks.md): the page's checks from the pill, their shared layout (summary, sections, compact rows), axe-core and the on-demand sections in a lazy pinned asset, Core Web Vitals, and one-click comments for issues.
+  - [Target size, To review, Comment on all and Not an issue](page-checks-report.md): WCAG 2.2's target size, what axe-core could not decide, one comment for a rule's elements, and findings dismissed in this browser.
+  - [Keyboard and screen reader](page-checks-keyboard.md): the tab order on the page, the focus indicator check, and the outline of landmarks, headings and controls.
+  - [Alt text, zoom and text spacing, motion](page-checks-content.md): the alt text review, reflow at this width, the text spacing mode, and animations and media that move on their own.
+  - [Sharing and structured data](page-checks-seo-head.md): Open Graph and X card tags with their previews, and the JSON-LD checks with their sources.
+  - [More Page, Links and Images checks](page-checks-seo-page.md): viewport, language and hreflang, generic link text, Check links, and image weight.
+  - [Crawlers](page-checks-crawler.md): the page's response, the served HTML against the rendered page, robots.txt for search and AI crawlers, the sitemap and llms.txt.
+  - [AI search](page-checks-ai-search.md): what an AI reads of the page, citable facts, and AI suggestions.
+  - [A finding checked again in its thread](page-checks-verify.md): Check again on a comment posted from a page check.
+  - [Page checks across the site](page-checks-site.md): the summary a member's toolbar sends for the app's Page checks view.
 
 - [Account switching](account-switching.md): foreground sign-in follows the app account while retaining blocked-cookie fallback.

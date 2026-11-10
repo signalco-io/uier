@@ -46,13 +46,25 @@ export function commentKindIcon(kind: CommentKind, snapshot?: FeedbackTypeSnapsh
  */
 export const commentCheckTypes = ['accessibility', 'seo', 'web-vitals'] as const;
 export type CommentCheckType = typeof commentCheckTypes[number];
-export type CommentCheck = { type: CommentCheckType; id: string };
+/**
+ * `count`: one comment for several elements of the check on its page (the panels' "Comment on all"),
+ * how many; missing on a comment about one element or the page (and on every older comment)
+ */
+export type CommentCheck = { type: CommentCheckType; id: string; count?: number };
 export const commentCheckIdPattern = /^[a-z0-9][a-z0-9-]{0,63}$/;
+/** The most elements one comment says it covers; a larger group is sent as this many */
+export const commentCheckCountMax = 10_000;
 export const commentCheckLabels: Record<CommentCheckType, string> = { accessibility: 'Accessibility', seo: 'SEO', 'web-vitals': 'Core Web Vitals' };
 
-/** Only the two known fields of a stored or received check, or nothing */
+/** Whether a check's `count` is one this version keeps: a whole number of elements from 2 */
+export function isCommentCheckCount(value: unknown): value is number {
+    return typeof value === 'number' && Number.isInteger(value) && value >= 2 && value <= commentCheckCountMax;
+}
+
+/** Only the known fields of a stored or received check, or nothing; a `count` that is not one is left out */
 export function commentCheck(value: unknown): CommentCheck | undefined {
     if (!value || typeof value !== 'object') return undefined;
-    const { type, id } = value as Partial<CommentCheck>;
-    return commentCheckTypes.includes(type!) && typeof id === 'string' && commentCheckIdPattern.test(id) ? { type: type!, id } : undefined;
+    const { type, id, count } = value as Partial<CommentCheck>;
+    return commentCheckTypes.includes(type!) && typeof id === 'string' && commentCheckIdPattern.test(id)
+        ? { type: type!, id, ...isCommentCheckCount(count) ? { count } : {} } : undefined;
 }

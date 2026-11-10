@@ -9,6 +9,6 @@
   "privacy_policy": { "en-US": "Privacy policy: https://uier.io/legal/privacy-policy" },
   "version": {
     "compatibility": ["firefox"],
-    "approval_notes": "Build from the attached source using Node 26, Corepack and pnpm install --frozen-lockfile, then pnpm --filter @uier/extension-firefox... build. See docs/browser-extension-source.md. Reviewers can create their own account and isolated project at https://uier.io/app and configure https://uier.io/extension-demo.html. Sign in from the extension popup, choose the project and Start review. No shared account or customer data is required. Minified JavaScript is bundled from the attached TypeScript source."
+    "approval_notes": "Build from the attached source using Node 26, Corepack and pnpm install --frozen-lockfile, then pnpm --filter @uier/extension-firefox... build. See docs/browser-extension-source.md. Reviewers can create their own account and isolated project at https://uier.io/app and configure https://uier.io/extension-demo.html. Sign in from the extension popup, choose the project and Start review. No shared account or customer data is required. Minified JavaScript is bundled from the attached TypeScript source. audit.js bundles the open-source axe-core library (MPL-2.0, the version pinned in packages/toolbar/package.json, its notice kept) with the toolbar's page checks; the background script injects it into the reviewed tab's content-script world only when the toolbar checks the page."
   }
 }

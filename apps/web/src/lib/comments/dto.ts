@@ -43,7 +43,7 @@ export type CommentDto = {
     screenshot?: { width: number; height: number; revision?: string };
     kind: DbCommentKind;
     feedbackType?: import('@uier/toolbar/feedback-types').FeedbackTypeSnapshot;
-    /** The page check it was posted from; missing on every other comment */
+    /** The page check it was posted from (`count`: how many of its elements one comment covers); missing on every other comment */
     check?: import('@uier/toolbar/feedback-types').CommentCheck;
     thread: { items: CommentThreadItemDto[] };
     /** The coarse size and the viewport (width, height in CSS pixels) the comment was left from */

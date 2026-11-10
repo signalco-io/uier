@@ -6,6 +6,12 @@ import { ChecksPanel } from './ChecksPanel';
 import { GuestNameField } from './GuestName';
 import { CheckItem, CheckSection, ChecksSummary, checkStates, OtherPageNote } from './ChecksParts';
 import { CheckedAt } from './CheckedAt';
+import { AiSearchSection } from './sections/AiSearchSection';
+import { CrawlerSection } from './sections/CrawlerSection';
+import { HreflangRows, ImageRows, LinkStatusRows } from './sections/pageExtras';
+import { SharingSection } from './sections/SharingSection';
+import { StructuredDataSection } from './sections/StructuredDataSection';
+import { usePanelSectionChecks } from './sections/sections';
 
 const vitalNames: readonly VitalName[] = ['LCP', 'CLS', 'INP'];
 
@@ -49,9 +55,10 @@ export function seoChecks(report: SeoReport | undefined, vitals: readonly PageCh
 
 /**
  * The SEO panel: a summary of what passed and what is worth a look first, then the page's indexing,
- * title, meta description and canonical link, its headings (the outline folded), links and images,
- * and Core Web Vitals measured in this browser (updated while the page is used). Every check is one
- * compact row with its state and a one-line reason.
+ * title, meta description, canonical link, viewport, language and hreflang tags, its headings (the
+ * outline folded), links (with Check links) and images, and Core Web Vitals measured in this browser
+ * (updated while the page is used). Every check is one compact row with its state and a one-line
+ * reason; the on-demand ones (`sections/pageExtras.tsx`) show in the same sections.
  */
 export function SeoPanel({ report, path, onCheck, onClose }: {
     report?: SeoReport;
@@ -60,7 +67,8 @@ export function SeoPanel({ report, path, onCheck, onClose }: {
     onClose: () => void;
 }) {
     const vitals = vitalChecks(useWebVitals());
-    const checks = seoChecks(report, vitals);
+    // The summary counts every check the panel lists: its own, Core Web Vitals and its on-demand sections'
+    const checks = [...seoChecks(report, vitals), ...usePanelSectionChecks('seo')];
     return (
         <ChecksPanel id="seo" title="SEO" onCheckAgain={onCheck} onClose={onClose}>
             {report && <>
@@ -76,7 +84,10 @@ export function SeoPanel({ report, path, onCheck, onClose }: {
             {report && <>
                 <CheckSection title="Page">
                     {report.page.map(check => <CheckItem key={check.id} check={check} />)}
+                    <HreflangRows />
                 </CheckSection>
+                <SharingSection />
+                <StructuredDataSection />
                 <CheckSection title="Headings" count={report.headings.outline.length}>
                     {report.headings.checks.map(check => <CheckItem key={check.id} check={check} />)}
                     <HeadingsOutline outline={report.headings.outline} />
@@ -84,14 +95,20 @@ export function SeoPanel({ report, path, onCheck, onClose }: {
                 <CheckSection title="Links" count={report.links.total}
                     note={report.links.total ? `${report.links.internal} on this site, ${report.links.external} to other sites` : undefined}>
                     {report.links.checks.map(check => <CheckItem key={check.id} check={check} />)}
+                    {report.links.total > 0 && <LinkStatusRows />}
                 </CheckSection>
                 <CheckSection title="Images" count={report.images.total}>
                     {report.images.checks.map(check => <CheckItem key={check.id} check={check} />)}
+                    <ImageRows />
                 </CheckSection>
             </>}
             <CheckSection title="Core Web Vitals" note="Measured in this browser">
                 {vitals.map(check => <CheckItem key={check.id} check={check} />)}
             </CheckSection>
+            {report && <>
+                <CrawlerSection />
+                <AiSearchSection />
+            </>}
         </ChecksPanel>
     );
 }

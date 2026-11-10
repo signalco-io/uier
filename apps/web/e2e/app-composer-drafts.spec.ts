@@ -101,16 +101,20 @@ test('same-build refresh retains app and toolbar composers; deployment skew relo
 
     // Substitute only the response build identity. Next's real refresh reducer must take its MPA fallback.
     let skewed = false;
-    await page.route(`**/app/projects/${project}?*`, async route => {
-        if (skewed || route.request().headers().rsc !== '1') return route.continue();
+    // Only the project page's own refresh. A prefetch of one of its tabs is another address under it
+    // (Page checks, Settings) or the page itself (the Comments tab), and would take the one skewed
+    // response without reloading anything.
+    await page.route(url => url.pathname === `/app/projects/${project}`, async route => {
+        const headers = route.request().headers();
+        if (skewed || headers.rsc !== '1' || headers['next-router-prefetch']) return route.continue();
         skewed = true;
         const response = await route.fetch();
         await route.fulfill({ response, headers: { ...response.headers(), 'x-nextjs-deployment-id': 'a-new-deployment' } });
     });
-    const navigation = page.waitForEvent('framenavigated', frame => frame === page.mainFrame());
     appSocket.send('{"type":"comments.changed"}');
-    await navigation;
-    expect(await page.evaluate(() => 'draftDocument' in window)).toBe(false);
+    // The reload gives the page a new document. A `framenavigated` alone is not proof of one: the
+    // router's own history updates are navigations of the same document.
+    await expect.poll(() => page.evaluate(() => 'draftDocument' in window).catch(() => true), { timeout: 15_000 }).toBe(false);
     await hydrated(card.getByRole('button', { name: 'Reply', exact: true }));
     await card.getByRole('button', { name: 'Reply', exact: true }).click();
     await expect(reply).toHaveValue('App reply before a deployment');

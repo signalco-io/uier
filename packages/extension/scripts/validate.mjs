@@ -24,10 +24,13 @@ export async function validate(directory, { root, browser = 'chrome' }) {
         }
     }
     await visit(directory);
-    const required = ['worker.js', 'content.js', 'popup.js', 'helper.js', 'popup.html', 'helper.html', 'popup.css', 'LICENSE', ...Object.values(manifest.icons)];
+    const required = ['worker.js', 'content.js', 'audit.js', 'popup.js', 'helper.js', 'popup.html', 'helper.html', 'popup.css', 'LICENSE', ...Object.values(manifest.icons)];
     for (const file of required) assert(files.includes(file), `Missing packaged file ${file}`);
     for (const file of files.filter(f => /\.(js|html|css)$/.test(f))) {
         const text = await readFile(join(directory, file), 'utf8');
+        // axe-core keeps its MPL notice, so it marks its code: only in the audit asset, which the worker
+        // runs on use, never in the content script's first payload or another resource.
+        assert.equal(text.includes('Deque Systems'), file === 'audit.js', file === 'audit.js' ? 'audit.js is missing axe-core and its notice' : `axe-core outside audit.js: ${file}`);
         assert(!/__uier_toolbar_css__|__EXTENSION_API__|__UIER_API_URL__|__EXTENSION_BROWSER__/.test(text), `Unresolved build marker: ${file}`);
         assert(!/(?:https?:\/\/)(?:localhost|127\.0\.0\.1)(?::4004)?(?:["'/])/.test(text), `Development API in ${file}`);
         assert(!/-----BEGIN (?:RSA |EC )?PRIVATE KEY-----|(?:ghp_|github_pat_|AKIA)[A-Za-z0-9_]{20,}/.test(text), `Possible secret in ${file}`);

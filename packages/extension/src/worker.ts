@@ -232,6 +232,16 @@ async function inject(binding: Binding) {
     const mounted = await browser.tabs.sendMessage(binding.tabId, { type: 'mount', config: { apiUrl: apiOrigin, project: binding.publicId, mode: 'review' } }, { documentId: binding.documentId });
     if (!mounted?.ok) throw new Error(mounted?.error || 'The review could not start.');
 }
+/**
+ * The audit asset (axe-core and the on-demand page checks), `audit.js` in this package. Only the bound
+ * document's content runtime asks for it, when its toolbar checks the page, and it runs in that
+ * document's isolated world like content.js: never a page script, never from the network, and with
+ * the review's own activeTab and scripting access. A replaced document gets no checks.
+ */
+async function injectAudit(binding: Binding) {
+    const [result] = await browser.scripting.executeScript({ target: { tabId: binding.tabId, frameIds: [0] }, world: 'ISOLATED', files: ['audit.js'] });
+    if (!result?.documentId || result.documentId !== binding.documentId) throw new Error('This review document is no longer active.');
+}
 async function start(tabId: number, projectId: string, publicId: string) {
     const tab = await browser.tabs.get(tabId);
     if (!tab.active || !reviewable(tab.url)) throw new Error('Open a website to start a review. Browser pages and extension stores cannot be reviewed.');
@@ -321,6 +331,7 @@ async function handle(input: unknown, sender: chrome.runtime.MessageSender) {
         return write;
     }
     if (msg.type === 'capture') return capture(binding, msg.region);
+    if (msg.type === 'audit') return injectAudit(binding);
     if (msg.type === 'request' || msg.type === 'image') {
         const method = msg.type === 'image' ? 'GET' : msg.method ?? 'GET';
         const { path, query } = extensionOperation(msg.url, apiOrigin, binding.publicId, method);

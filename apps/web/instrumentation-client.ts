@@ -10,6 +10,7 @@ initBotId({
         { path: '/api/comments/*', method: 'PATCH' },
         { path: '/api/comments/*', method: 'DELETE' },
         { path: '/api/rewrite', method: 'POST' },
+        { path: '/api/page-suggestions', method: 'POST' },
         { path: '/api/review/*', method: 'POST' },
         { path: '/api/review/*', method: 'PATCH' },
         { path: '/api/review/*', method: 'DELETE' }

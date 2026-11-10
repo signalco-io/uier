@@ -33,12 +33,14 @@ person's way
   `src/checks/pageIdle.ts`.
 - **In short steps** ([review of #568](https://github.com/signalco-io/uier/pull/568)). One axe-core run
   does all its rules in one task (800 ms on a 1,000-paragraph page at 4× slower CPU), so the unasked audit
-  never makes one (`auditInSteps` in `src/checks/accessibility.ts`). It runs the rules axe-core runs by
-  default (`getRules()`, enabled), each step its own `axe.run` when the browser is idle (`nextIdle`): groups
-  of rules on the whole document, then the two rules whose work grows with every element (`color-contrast`,
-  `link-in-text-block`, which have no page-wide `after` step) on parts of it: disjoint subtrees in document
-  order, and the larger elements above them on their own where they have text of their own (or are a
-  link). A step aims at 50 ms: the next takes fewer rules or elements when one took longer, at most twice
+  never makes one (`auditInSteps` in `src/checks/lazy/accessibilityReport.ts`, in the audit asset). It runs
+  the rules axe-core runs by default (`getRules()`, enabled) and `target-size`, each step its own `axe.run`
+  when the browser is idle (`nextIdle`): groups of rules on the whole document, then the rules whose work
+  grows with every element (`color-contrast` and `link-in-text-block`, which have no page-wide `after` step,
+  and `target-size`, which measures neighbours in axe-core's grid of the whole page whatever the run's
+  context) on parts of it: disjoint subtrees in document order, and the larger elements above them on
+  their own where they have text of their own, are a link, or are a control (`target-size` only). Every
+  step keeps what axe-core could not decide too (To review). A step aims at 50 ms: the next takes fewer rules or elements when one took longer, at most twice
   as many when it took less, never under 50 elements (each run also reads the whole page). The steps find
   what one run finds; the elements of a parted rule are put back in document order, and rules of the same
   impact and count keep axe-core's order, so Check again lists the same report.
@@ -128,11 +130,14 @@ An open inbox, Accessibility or SEO panel stays open on the next page and shows 
   page global: `auditPrelude.ts` saves the page's `axe` and `define` before axe-core initializes, hides
   an AMD `define`, and puts both back.
 - `src/checks/accessibility.ts` runs every rule axe-core runs by default (WCAG A and AA, best practices)
-  on the document, excluding the toolbar's host and inline thread slots by reference, without frames
+  and WCAG 2.2's target size (`target-size`, 2.5.8 AA, off by default in axe-core) on the document,
+  excluding the toolbar's host and inline thread slots by reference, without frames
   (`iframes: false`). One audit runs at a time: one asked for while another runs waits for it, then
   checks the page as it is then (never sharing the running one's report), and the panel shows only its
   latest audit; a newer audit cancels the previous one ([above](#in-the-background)). Asked for (the panel,
-  Check again), it is one `axe.run` of the whole page; in the background, short steps. The panel lists only what axe-core finds
+  Check again), it is one `axe.run` of the whole page; in the background, short steps. The run and its
+  report are in the audit asset (`lazy/accessibilityReport.ts`); `accessibility.ts` is the queue in the
+  review bundle. The panel lists only what axe-core finds
   ([uier #198](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fbrand&comment=comment_fCCTyY6zuzO3K_Kr-DALq)):
   the status ("3 issues found."), a summary tile per impact with its elements' count, when it was checked,
   then a section per impact (critical, serious, moderate, minor). Each rule is a row marked with its
@@ -142,32 +147,53 @@ An open inbox, Accessibility or SEO panel stays open on the next page and shows 
   line is said once under the rule's title when every element shares it, else on each element, two lines
   at most (the whole line is its `title`, and screen readers read all of it). Without issues the panel
   says so in one line, with a reminder to also try a keyboard and a screen reader.
-- Packaged clients (the browser extension) never inject a remote script: there the Accessibility button
-  is absent (`auditAvailable()`), and the SEO panel works as everywhere.
+- **To review**: what axe-core could not decide (its incomplete results: contrast over an image or a
+  gradient, a target it cannot measure) is a section of its own after the impacts and before the
+  on-demand sections, each rule with a search icon, its elements and the reason axe-core gave (the
+  messages of its undecided checks), with Highlight and Comment. They are not issues: they are in no
+  count, tile or dot ([page-checks-report.md](page-checks-report.md)).
+- **Not an issue** hides a finding in this browser: it leaves the counts, the tiles and the button's
+  dot, and is listed folded under its rule as "Dismissed" with Restore ([page-checks-report.md](page-checks-report.md)).
+- Packaged clients (the browser extension) never inject a remote script: they package the audit asset,
+  built from the same `auditEntry.ts` without a published path, and their adapter runs it in the toolbar's
+  isolated world when a check runs (`ToolbarAdapters.loadAudit`, [the extension adapter](extension-adapter.md#the-audit-asset)).
+  There it hands over through that world's own global, which the page's scripts never see, instead of a
+  script element. So `auditAvailable()` is true there, and the Accessibility button, the background audit
+  with its bounds and every section behave as on the web. A client without `loadAudit` has no audit.
 
 ## SEO
 
 `src/checks/seo.ts` reads the page's own document when the panel opens (the toolbar's shadow root and
-inline threads are never in `document.querySelectorAll`). Each check is pass, warning or a note (not
-measured, not needed), with a one-line reason. The summary counts what is worth a look (warnings,
+inline threads are never in `document.querySelectorAll`); the hreflang, image and link-status checks run
+in the audit asset and show in the same sections ([more Page, Links and Images checks](page-checks-seo-page.md)).
+Each check is pass, warning or a note (not measured, not needed), with a one-line reason. The summary
+counts what is worth a look (warnings,
 amber) and what passed (green); notes are not counted. The heading outline is folded under the heading
 checks (a `details` row, "Outline").
 
-- **Page**: indexing, the title (10 to 60 characters), the meta description (one, 50 to 160 characters)
-  and the canonical link (one, valid, pointing to this page's origin and path). Indexing reads the
+- **Page**: indexing, the title (10 to 60 characters), the meta description (one, 50 to 160 characters),
+  the canonical link (one, valid, pointing to this page's origin and path), the viewport
+  (`width=device-width`, else phones show the page zoomed out), the language (`html[lang]`, a note when
+  missing) and, on a page with hreflang tags, their values, addresses, duplicates, this page among them
+  and the canonical address ([more](page-checks-seo-page.md#page)). Indexing reads the
   `robots` and `googlebot` meta tags: `noindex` (or `none`) is a note that the page asks search engines
   (or Google) not to index it, and on such a page a missing canonical link is a note, "Not needed",
   not a warning ([uier #195](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_1hEpNjurDgh70vdAEO8Tn)).
   The uier app's pages declare `noindex` on purpose ([search indexing](../../../apps/web/docs/search-indexing.md)).
-  A canonical that is there is still checked. The `X-Robots-Tag` response header is not in the document
-  and is not read.
+  A canonical that is there is still checked. The `X-Robots-Tag` response header is not in the document:
+  the Crawlers section reads it from the page's response ([crawlers](page-checks-crawler.md)).
 - **Headings**: one h1, no skipped levels (an h3 right after an h1), no empty headings, and the outline.
 - **Links**: the count (this site and other sites), links without text (text, `aria-label`,
   `aria-labelledby`, `title` or an image's alt text), and addresses that look broken: empty, `#` alone,
   `javascript:`, not valid, containing `undefined`/`null`/`NaN`, `http` on an `https` page, or a `#id` on
-  this page that is not there (hash routes and `#top` excepted).
+  this page that is not there (hash routes and `#top` excepted). Generic link text ("read more", "click
+  here"; English, so not on a page in another language). **Check links** requests the page's links to its
+  own site only when pressed (at most 100, a few at a time, never one that looks like an action) and
+  reports the ones that answer with an error ([more](page-checks-seo-page.md#links)).
 - **Images**: `img` elements without `alt`, unless marked as decoration (`role="presentation"`/`none`,
-  inside `aria-hidden="true"`).
+  inside `aria-hidden="true"`). When the panel opens: images without dimensions, files over twice the
+  size they are shown at, `loading="lazy"` where the visitor looks first, and files over 500 KB
+  ([more](page-checks-seo-page.md#images)).
 - **Core Web Vitals** (`src/checks/webVitals.ts`), measured in this browser with the Performance Timeline
   and updated while the panel is open: LCP (buffered `largest-contentful-paint`, from a prerender's
   activation), CLS (the largest session window of `layout-shift` entries without recent input) and INP
@@ -177,6 +203,39 @@ checks (a `details` row, "Outline").
   known by their target or by their events' time stamps (a press that removes its button reports no
   target). Targets: 2.5 s, 0.1 and 200 ms; a browser without an entry type says "Not measured in this
   browser", and INP without slow interactions passes as "Every interaction so far took under 104 ms".
+
+## Sections
+
+Checks added after the first two panels run on demand, in the audit asset, and show as sections of a
+panel. The review bundle (858 KB of the 1 MB a published bundle may be) gets only their views.
+
+- **The logic** is one module per area in `src/checks/lazy/` (`crawler.ts`, `sharing.ts`, ...), bundled
+  into `dist/audit.js` beside axe-core and handed over with it (`auditEntry.ts`, `auditHandoff.ts`;
+  `loadChecks()` in `axeLoader.ts`). Whatever a module exports is its part of `LazyChecks`
+  (`lazy/index.ts`). These modules read the page and return plain data and page elements: no React, UI
+  kit, hooks or components, since those would be bundled a second time. `lazy/api.ts` has what they
+  share: `SectionContext` (the path, an abort signal), `SectionReport` (checks, a count, a note, the
+  section's own `details`) and the builders `pageCheck` and `pageIssue`.
+- **A section** is a definition and a component, one file per area in `components/checks/sections/`:
+  `defineSection({ id, panel, when, run, attention? })`, the area's list of definitions
+  (`crawlerSections`), and a component that reads its state with `useSection(definition)` and shows it,
+  usually with `ReportSection` (the checks as compact rows, then the section's own rows).
+  `sections/index.ts` lists every area, and the panels render the components in their order.
+- **When it runs** (`when`): `background` with the background checks, one section at a time when the
+  browser is idle, only where the audit asset is loaded unasked (not with `Save-Data`, not over 1,500
+  elements) and only for work of a few milliseconds without requests; `panel` when its panel opens and
+  on Check again; `manual` only when its own control asks (`useSection(...).run`), for work that takes
+  long, sends requests or changes the page while it runs. Check again drops a `manual` report.
+- **Its state** is kept by `PageChecks` like the two reports (`useSectionsStore`): `idle`, `checking`,
+  `done` with the report, `failed` (said in the section and the console) or `unavailable` (no audit asset:
+  a packaged client without it, where the section renders nothing). A newer check of a section replaces
+  a running one, and leaving the page cancels them (`SectionContext.signal`).
+- **The indicators** count them: the SEO summary and the SEO button count the sections' checks worth
+  a look, the Accessibility button the issues of their `warn` checks (a definition's `attention` says
+  otherwise).
+- **Tests** get their own page without changing the shared server: `site.origin('fixture-<name>')` is
+  the reviewed site with the additions of `apps/web/e2e/support/fixtures/<name>.ts` (head, body, CSS,
+  headers, CSP, other addresses).
 
 ## Quick actions
 
@@ -194,6 +253,8 @@ checks (a `details` row, "Outline").
     failure lines for that element as a list under its "Fix any of the following:" headings (the measured
     contrast ratio, the missing attribute), then `WCAG 1.1.1 (A). Rule image-alt: <link>`. Failure lines
     that would pass the API's 1000 characters are left out (`commentText`); the rule's page has them all.
+    One to review is `Accessibility (to review): <help>.`, its reasons under "axe-core could not decide:",
+    then "A person needs to check this." before the standard.
   - SEO: the sentence, then what was found on a line of its own: the title or description, a heading's
     text, a link's text and address, an image's address (`foundLine`). Core Web Vitals name the element.
   - Text from the page is a code span, so it is never read as Markdown. Addresses are written without
@@ -212,6 +273,16 @@ checks (a `details` row, "Outline").
 - After posting, the row says "Comment posted as #12" (or "Bug report sent") with **Show**:
   the thread on its pin, or the inbox narrowed to it for page feedback. A failed post shows the usual
   toast and the action comes back.
+- **Comment on all** (under every list, `IssueList`: a rule's, an SEO check's, a section's) posts one
+  comment for the list's elements not reported yet, at least two of one check: pinned to the first,
+  its text lists their selectors as far as 1000 characters go ("and 4 more"), and its check has their
+  `count`. One request, so the API's limits (`too_fast`, `page_full`) and a failure are as for one
+  comment. Every element it covers is marked by it, after a reload and for every reviewer too
+  ([page-checks-report.md](page-checks-report.md)).
+- **Not an issue** (an icon on every row of a finding of the page as checked; not on Core Web Vitals,
+  which are measured live, nor on a reported one) hides it in this browser only, folded under its list
+  as "Dismissed" with **Restore**; a check whose every issue is dismissed is a note
+  ([page-checks-report.md](page-checks-report.md)).
 - A project's guest without a saved name gets the comment form's name field above the issues; a quick
   action asks for it first and saves it like the form does.
 
@@ -223,6 +294,12 @@ The panels' code is in the review bundle (about 32 KB minified, no new dependenc
 CPU locally). Nothing here runs for ordinary visitors of a project's site: the review bundle itself loads
 only for reviewers. uier.io's own public pages show the toolbar to everyone (`showcase` mode), so there the
 background checks run for every visitor whose browser does not ask to save data.
+
+The browser extension ships the same asset as `audit.js` in its package (about 680 KB, about 190 KB of
+the ZIP), never in its content script, which holds the review bundle. On a document's first check the
+content runtime asks the worker, which runs the file in the reviewed tab's isolated world
+(`scripting.executeScript`, the review's own activeTab access): no download, no new permission, no
+web-accessible resource, and the page's CSP does not apply to it. The rules above are the same there.
 
 ## Tests
 

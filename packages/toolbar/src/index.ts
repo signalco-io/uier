@@ -29,11 +29,11 @@ function loadToolbar(): Promise<MountToolbar> {
         script.onload = () => {
             script.remove();
             if (runtimeContext.mount) resolve(runtimeContext.mount);
-            else reject(new Error('The review script did not initialize.'));
+            else reject(new Error('Review script did not start'));
         };
         script.onerror = () => {
             script.remove();
-            reject(new Error('The review script could not be loaded.'));
+            reject(new Error('Review script did not load'));
         };
         document.head.appendChild(script);
     });

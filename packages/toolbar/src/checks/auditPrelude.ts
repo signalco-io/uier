@@ -2,6 +2,10 @@
 // axe-core assigns `window.axe` and registers with a page's AMD loader (`define`). Both are the page's
 // globals: they are saved here, `define` is hidden while axe-core initializes, and both are put back.
 // Nothing else runs in between, so the page never sees the change.
+//
+// In a packaged client the asset runs in the toolbar's isolated world (`auditEntry.ts`), whose `window`
+// is that world's own global object: the page's `axe` and `define` are not on it and never change, it
+// has no `define`, and the `axe` that axe-core assigns there is removed again, so no global keeps it.
 
 type PageGlobals = Window & { axe?: unknown; define?: unknown };
 

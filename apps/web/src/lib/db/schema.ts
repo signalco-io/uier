@@ -215,7 +215,11 @@ export type DbComment = {
     kind?: DbCommentKind;
     /** Server-captured custom type display, retained even after settings change. */
     feedbackType?: import('@uier/toolbar/feedback-types').FeedbackTypeSnapshot;
-    /** The page check it was posted from (the toolbar's Accessibility and SEO panels), as the browser sent it; read through `commentCheck` */
+    /**
+     * The page check it was posted from (the toolbar's Accessibility and SEO panels), as the browser
+     * sent it: `{ type, id }`, and `count` for one comment about several of the check's elements
+     * (added later: older documents have none). Read through `commentCheck`
+     */
     check?: import('@uier/toolbar/feedback-types').CommentCheck;
     thread: { items: DbThreadItem[] };
     /**

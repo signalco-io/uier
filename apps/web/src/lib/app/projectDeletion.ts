@@ -29,6 +29,7 @@ import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { deleteProjectThread, projectPartition } from '../review/comments';
 import { notificationPk } from '../notifications/preferences';
 import { removeProjectFromMcpAccess } from '../mcp/credentials';
+import { deleteProjectPageChecks } from '../pageChecks/store';
 
 /**
  * Identifier-only intent, saved before anything is deleted. A pending intent never expires: the
@@ -196,6 +197,7 @@ async function deleteProjectRecords(intent: ProjectDeletion, app: AppStore) {
     await deleteProjectMcpEvents(intent.id, app);
     for (const doc of await app.query({ type: 'review-read', where: { domain: projectPartition(intent.id) } })) await app.delete(doc.pk, doc.id);
     for (const doc of await app.query({ type: 'review-code', where: { projectId: intent.id } })) await app.delete(doc.pk, doc.id);
+    await deleteProjectPageChecks(intent.id, app);
     await deleteProjectWorkspaceRecords(intent.id, intent.workspaceId, app);
     await deleteProjectIntegrationRecords(intent.id, intent.workspaceId, app);
 }

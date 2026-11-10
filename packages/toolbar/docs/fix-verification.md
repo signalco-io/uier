@@ -5,6 +5,8 @@
 Request verification form opens from Thread options or the status menu's Ready to verify, and Thread
 options' button gets the focus back),
 reviewer/admin permission flags and stable retry keys. Guest actor hashes never enter this model.
+For a comment posted from a page check, its `evidence` (between the request and the answers) is that
+check run again on the page ([a finding's check, run again](page-checks-verify.md)); it never decides.
 The status badge reads `feedbackStage`'s label: In progress for a thread in progress and Ready
 to verify for pending unresolved requests, its dot in the status's colour (Open an outlined ink ring, In progress
 `--brand-in-progress`, Ready to verify `--brand-ready`, Done `--brand-success`, as the app's `StateDot`;

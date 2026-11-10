@@ -10,22 +10,22 @@ export function isInstallPage(pathname: string, projectId: string) {
 }
 
 /**
- * A project's pages under its header: the comments and, until the site sends its first comment, the
- * install guide (Settings → Installation, and the onboarding's install step). With only the comments
- * left there is nothing to switch between, so there are no tabs. Settings is the cog in the header
+ * A project's pages under its header: the comments, the page checks (what the toolbar's checks found on
+ * each page members reviewed) and, until the site sends its first comment, the install guide (Settings →
+ * Installation, and the onboarding's install step). Settings is the cog in the header
  * (`ProjectSettingsButton`).
  */
 export function ProjectTabs({ projectId, install }: { projectId: string; install: boolean }) {
     const pathname = usePathname();
-    if (!install)
-        return null;
     const comments = KnownPageLinks.project(projectId);
+    const pageChecks = KnownPageLinks.projectPageChecks(projectId);
     return (
         <LinkTabs
             label="Project"
             tabs={[
                 { href: comments, label: 'Comments', current: pathname === comments },
-                { href: KnownPageLinks.projectInstall(projectId), label: 'Install', current: isInstallPage(pathname, projectId) }
+                { href: pageChecks, label: 'Page checks', current: pathname === pageChecks },
+                ...install ? [{ href: KnownPageLinks.projectInstall(projectId), label: 'Install', current: isInstallPage(pathname, projectId) }] : []
             ]} />
     );
 }

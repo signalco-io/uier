@@ -55,7 +55,7 @@ const common = {
     number: z.number().int().optional().describe('The thread number in the project (#12).'),
     kind: kindSchema,
     feedbackType: z.object({ id: feedbackTypeIdSchema, label: z.string().max(MAX_FEEDBACK_TYPE_LABEL), icon: z.enum(feedbackTypeIcons) }).strict().optional(),
-    check: checkSchema.optional().describe('The page check the thread was posted from (the toolbar\'s Accessibility and SEO panels): the kind of check and its rule or check id.'),
+    check: checkSchema.optional().describe('The page check the thread was posted from (the toolbar\'s Accessibility and SEO panels): the kind of check and its rule or check id, and count when one thread covers several of its elements on the page.'),
     path: z.string().describe('Canonical page path.'),
     url: z.string().optional().describe('The thread in uier.'),
     actor,

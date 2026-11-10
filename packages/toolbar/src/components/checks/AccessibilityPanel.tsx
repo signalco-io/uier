@@ -1,12 +1,17 @@
 import { useId } from 'react';
 import { Button } from '@signalco/ui-primitives/Button';
-import { Check, ExternalLink, Info, LoaderSpinner, Warning } from '@signalco/ui-icons';
+import { Check, ExternalLink, Info, LoaderSpinner, Search, Warning } from '@signalco/ui-icons';
 import { impacts, type AccessibilityReport, type AccessibilityRule, type Impact } from '../../checks/accessibility';
 import { ChecksPanel } from './ChecksPanel';
 import { GuestNameField } from './GuestName';
 import { CheckSection, ChecksSummary, IssueList, OtherPageNote, sharedSummary, type ChecksIcon } from './ChecksParts';
 import { CheckedAt } from './CheckedAt';
 import { CircleAlertIcon, OctagonAlertIcon } from './ChecksIcons';
+import { AltTextSection } from './sections/AltTextSection';
+import { KeyboardSection } from './sections/KeyboardSection';
+import { MotionSection } from './sections/MotionSection';
+import { ReflowSection } from './sections/ReflowSection';
+import { ScreenReaderSection } from './sections/ScreenReaderSection';
 
 export type AccessibilityState = { report?: AccessibilityReport; checking: boolean; error?: boolean };
 
@@ -23,12 +28,19 @@ const impactStyles: Record<Impact, { name: string; icon: ChecksIcon; tone: strin
 
 const issuesText = (count: number) => `${count} ${count === 1 ? 'issue' : 'issues'}`;
 
-/** A rule on one row: its impact's icon, what it asks for, its id and help link, then the elements that fail it */
+/** What axe-core could not decide: not an issue's impact, a closer look */
+const reviewStyle = { name: 'To review', icon: Search, tone: 'text-muted-foreground' };
+
+/**
+ * A rule on one row: its impact's icon (a closer look for one to review), what it asks for, its id
+ * and help link, then the elements that fail it, one comment for all of them, and the ones marked
+ * "Not an issue"
+ */
 function RuleItem({ rule }: { rule: AccessibilityRule }) {
     const id = useId();
-    const { name, icon: Icon, tone } = impactStyles[rule.impact];
+    const { name, icon: Icon, tone } = rule.review ? reviewStyle : impactStyles[rule.impact];
     // A line every element shares is said once, under the title
-    const shared = sharedSummary(rule.issues);
+    const shared = sharedSummary(rule.issues.length ? rule.issues : rule.dismissed ?? []);
     return (
         <li className="flex min-w-0 flex-col gap-1.5 px-3 py-2" data-uier-rule={rule.id}>
             <div className="flex min-w-0 items-start gap-2">
@@ -56,11 +68,14 @@ function RuleItem({ rule }: { rule: AccessibilityRule }) {
                 </div>
             </div>
             <div className="pl-6">
-                <IssueList issues={rule.issues} label={`Elements: ${rule.help}`} showSummary={!shared} />
+                <IssueList issues={rule.issues} label={`Elements: ${rule.help}`} showSummary={!shared} group={rule.group} dismissed={rule.dismissed} />
             </div>
         </li>
     );
 }
+
+/** The elements of rules, without the ones marked "Not an issue" */
+const elementCount = (rules: readonly AccessibilityRule[]) => rules.reduce((total, rule) => total + rule.issues.length, 0);
 
 /**
  * The Accessibility panel: axe-core's audit of the page (the lazy audit asset). A summary of its
@@ -79,8 +94,7 @@ export function AccessibilityPanel({ state, path, onCheck, onClose }: {
     const status = checking ? 'Checking this page...'
         : error ? 'The accessibility check could not run.'
             : report ? (report.count ? `${issuesText(report.count)} found.` : 'No issues found.') : '';
-    const counts = Object.fromEntries(impacts.map(impact => [impact,
-        shown?.rules.filter(rule => rule.impact === impact).reduce((total, rule) => total + rule.issues.length, 0) ?? 0])) as Record<Impact, number>;
+    const counts = Object.fromEntries(impacts.map(impact => [impact, elementCount(shown?.rules.filter(rule => rule.impact === impact) ?? [])])) as Record<Impact, number>;
     return (
         <ChecksPanel id="accessibility" title="Accessibility" checking={checking} onCheckAgain={onCheck} onClose={onClose}>
             <div className="flex flex-col gap-2">
@@ -117,6 +131,18 @@ export function AccessibilityPanel({ state, path, onCheck, onClose }: {
                     </CheckSection>
                 );
             })}
+            {/* What axe-core could not decide: for a person to judge, not counted as issues */}
+            {!!shown?.review?.length && (
+                <CheckSection title="To review" count={elementCount(shown.review)} note="axe-core could not decide. Not counted." data-uier-review="">
+                    {shown.review.map(rule => <RuleItem key={rule.id} rule={rule} />)}
+                </CheckSection>
+            )}
+            {/* What the audit cannot judge: the on-demand sections, each with its own report */}
+            <KeyboardSection />
+            <ScreenReaderSection />
+            <AltTextSection />
+            <ReflowSection />
+            <MotionSection />
         </ChecksPanel>
     );
 }

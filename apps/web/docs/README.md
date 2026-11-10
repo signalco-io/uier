@@ -26,6 +26,7 @@ Product contracts, API references and runbooks stay in the repository's [`docs/`
 - [App shell](app-shell.md): sidebar, sidebar project order, workspace area, project header, `ProjectMark`, projects list, My work.
 - [Project settings](project-settings.md): settings sections, one save per page, notification settings.
 - [Environments](environments.md): the site addresses table and environment filters.
+- [Page checks](page-checks.md): the project's page check summaries from members' toolbars, their store and view.
 - [Account](account.md): account sections and profile pictures.
 - [Usage](usage.md): the account's and the workspace's Usage pages, and the toolbar's links to them.
 - [First run, onboarding and installation](onboarding.md): welcome step, onboarding steps, installation check, snippets.

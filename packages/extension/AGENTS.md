@@ -12,6 +12,10 @@ Read ../../docs/browser-extension-release.md before touching publishing.
 Build bundles shared toolbar source through @uier/toolbar/extension. Configure adapters before
 loading runtime; never inject a remote script or use page globals for credentials. Main-world code
 is forbidden. The only cross-world protocol is secret-free toolbar coexistence.
+The audit asset (axe-core and the on-demand page checks) is the packaged audit.js, built from the
+toolbar's checks/auditEntry.ts and never bundled into another entry (build.mjs fails on it). The
+worker runs it in the bound document's isolated world on the content runtime's `audit` message; it
+hands over through that world's global only, never a script element, DOM event or web-accessible resource.
 
 worker.ts is the sole credential owner. Chromium storage.session and local access stay TRUSTED_CONTEXTS.
 Firefox session storage stays private by default; persistent refresh credentials use extension-origin

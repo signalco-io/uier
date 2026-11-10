@@ -637,6 +637,9 @@ export function CommentsGlobal({
         setCreatingComments(current => current.some(other => other.kind === kind) ? current : [...current, restored]);
     };
     const handleAutoOpened = useCallback(() => setOpenComment(undefined), []);
+    // Each layer a pin opens on its way (a thread, a menu) gives its thread another second to open
+    const [autoOpenStep, setAutoOpenStep] = useState(0);
+    const handleAutoOpenStep = useCallback(() => setAutoOpenStep(step => step + 1), []);
     const handleShortcutsRequestHandled = useCallback(() => setShortcutsRequested(false), []);
 
     // A comment link opens the thread on its pin; done threads and feedback have no pin, the
@@ -666,7 +669,10 @@ export function CommentsGlobal({
     }, [allComments, linkedCommentId, linkedSite.data, linkedSite.isSuccess, path, announce]);
 
     // When the thread's pin can't be placed on this page (the element is gone or hidden), the inbox
-    // shows it. "Show on page" goes back to the inbox as it was and says why.
+    // shows it. "Show on page" goes back to the inbox as it was and says why. A pin in a closed layer
+    // of the toolbar opens that layer first: the second starts again with every layer it opens, since
+    // each one has to render before the pin has its place (a busy page took longer than one second
+    // for both, and the inbox opened instead of the comment).
     useEffect(() => {
         if (!openComment || collapsed) {
             return;
@@ -681,7 +687,7 @@ export function CommentsGlobal({
             }
         }, 1000);
         return () => window.clearTimeout(timeout);
-    }, [openComment, collapsed]);
+    }, [openComment, collapsed, autoOpenStep]);
 
     const handleCloseSidebar = () => {
         setSidebarOpen(false);
@@ -802,7 +808,8 @@ export function CommentsGlobal({
                                 autoOpen={openCommentId === commentItem.id}
                                 continuesDraft={continuedThread === commentKey(commentItem)}
                                 autoOpenReading={openComment?.reading}
-                                onAutoOpened={handleAutoOpened} />
+                                onAutoOpened={handleAutoOpened}
+                                onAutoOpenStep={handleAutoOpenStep} />
                         </CommentErrorBoundary>
                     ))}
                 </section>

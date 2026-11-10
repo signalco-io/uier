@@ -1,6 +1,9 @@
 # Rewrite accounting
 
-`src/lib/rewrite/suggest.ts` is the shared showcase/project model boundary. Emit exactly one bounded
+`src/lib/rewrite/suggest.ts` is the shared showcase/project model boundary, for rewrites and for a page's
+suggestions (`src/lib/pageSuggestions/`, the SEO panel's AI search section): `createSuggestionCall` makes the
+call, each feature brings its prompt and its output filter, and page suggestions mark their event with
+`feature: "page_suggestions"` and share the rewrite limits ([page suggestions](../../../docs/api.md#page-suggestions)). Emit exactly one bounded
 `rewrite_usage` event per configured service call via `telemetry.ts`; record usage before output is
 refused, truncated or rejected. Keep content, identifiers and raw errors out of logs, including SDK
 payload logs. Telemetry must not fail a rewrite. `pricing.ts` owns versioned source/date/USD rates;

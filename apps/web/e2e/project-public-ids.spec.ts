@@ -35,8 +35,8 @@ test('public ids work in embeds, guest writes, verification and member review re
         expect(created.status()).toBe(201);
         await page.reload();
         await expect(commentRowLink(page, 'Feedback via public id')).toBeVisible();
-        // The site sends feedback: no Install tab, so no tabs at all; Settings stays the header's cog
-        await expect(page.getByRole('navigation', { name: 'Project' })).toHaveCount(0);
+        // The site sends feedback: no Install tab, the comments and page checks stay; Settings stays the header's cog
+        await expect(page.getByRole('navigation', { name: 'Project' }).getByRole('link')).toHaveText(['Comments', 'Page checks']);
         await expect(page.getByRole('link', { name: 'Settings', exact: true })).toHaveAttribute('href', `/app/projects/${id}/settings`);
         const target = `${site.origin()}/${publicId}/pricing`;
         await page.goto(`/app/review/${id}?url=${encodeURIComponent(target)}`);

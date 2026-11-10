@@ -14,6 +14,7 @@ Use Node 26 and the repository's pinned Corepack pnpm. From the repository root:
 - `pnpm build` builds the shared dependencies and all browser targets.
 - `pnpm -C apps/extension-firefox validate` checks the production manifest and resources.
 - `pnpm -C apps/extension-firefox package` produces a deterministic ZIP, checksum and source receipt in `release/`.
+- `pnpm -C apps/extension-firefox test` runs the Mozilla submission tests and checks the packaged audit asset (build first).
 - `pnpm -C apps/extension-firefox build:test` creates `dist-test/` for the local API. Set `PORT` to choose its port.
 - `pnpm -C apps/extension-firefox build:hosted-test` creates `dist-hosted-test/` for hosted acceptance.
 

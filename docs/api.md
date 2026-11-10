@@ -59,6 +59,8 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
 | `PATCH /api/review/<code>/comments/<id>/anchor` | reattach with `{ path, position, expectedRevision }`; author/admin, saved page and original allowed origin only |
 | `POST /api/review/<code>/comments/<id>/screenshot` | supply or replace saved evidence, with `{ screenshot, expectedRevision }`; author or workspace admin only |
 | `POST /api/review/<code>/rewrite` | `{ text, instruction? }`: rewrite suggestions, as `POST /api/rewrite`, for reviewers who can comment (limited per reviewer and per project, and app-wide like `POST /api/rewrite`) |
+| `POST /api/review/<code>/page-checks` | a page's [page check summary](#page-checks), from project members only; `204` |
+| `POST /api/review/<code>/page-suggestions` | `{ kind, text, title?, description? }`: a page's AI suggestions, as `POST /api/page-suggestions`, for reviewers who can comment (counted with rewrite suggestions; see [Page suggestions](#page-suggestions)) |
 
 - **Who**: a member with access, by the review token (`Authorization: Bearer`), or a guest, by a random
   visitor id (`X-Uier-Visitor`) and the name they give. Comment requests use headers, without cookies;
@@ -114,6 +116,7 @@ Data lives in the Cosmos DB container `app` (`app-preview` on previews), partiti
 | `project-ref` (internal id -> workspace) | `project:<id>` | the internal project id |
 | `project-public-ref` (public id -> project and workspace) | `project-public:<publicId>` | the public id |
 | `review-code` (single-use code of a review link, `ttl` 10 min) | `review-code:<hash>` | SHA-256 of the code |
+| `page-check` (a page's [page check summary](#page-checks), `ttl` 90 days from its last check; at most 200 per project) | `page-checks:<projectId>` | `page_<SHA-256 of origin and page, 40 hex>` |
 | `integration-discovery-cursor` (bounded source-outbox scan) | `integrations:worker` | `pending` |
 
 Project feedback carries server-only synchronization versions, pending markers and indexed source
@@ -294,7 +297,7 @@ find the thread in either. `sourcePath` is the same page as it was addressed, fo
 | --- | --- | --- |
 | `GET /api/comments?path=/x` | | `200` comments of the page, newest first (max. 200 and 1 MB), resolved ones included (`resolved: true`) |
 | `GET /api/comments?scope=site` | | `200` comments of every page of the domain, newest first, with the same limits (the toolbar's inbox) |
-| `POST /api/comments` | `{ path, sourcePath?, position, kind?, text, quotedText?, check?, device?, screenshot? }` | `201` the new comment, with `screenshot: { width, height }` when it has one (see [Screenshots](review-workflow.md#screenshots)). `kind` is `comment` (default; `position` is a point, an area or a text selection: a point is `{ "type": "point", selector, xNormal, yNormal }`, fractions of the element's box, and an area adds `widthNormal` and `heightNormal`, both above 0 and within the element, with the point as its top-left corner; a point or a text selection in a menu, popover or dialog may add `layer: { opener, label? }`, the selector of the page element that opens it and that element's name, up to 120 characters), `rewrite` (a suggested replacement for selected text: `position` is a text selection, `text` the suggested text, `quotedText` the original), or `feedback` / `bug` with `position: { "type": "page" }` (about the page, no pin). `check` is the page check a comment was posted from, `{ type, id }`: `type` is `accessibility`, `seo` or `web-vitals`, `id` the rule or check (`image-alt`, `canonical`, `lcp`; lowercase letters, digits and hyphens, up to 64). It is saved as sent, returned with the comment and never changes |
+| `POST /api/comments` | `{ path, sourcePath?, position, kind?, text, quotedText?, check?, device?, screenshot? }` | `201` the new comment, with `screenshot: { width, height }` when it has one (see [Screenshots](review-workflow.md#screenshots)). `kind` is `comment` (default; `position` is a point, an area or a text selection: a point is `{ "type": "point", selector, xNormal, yNormal }`, fractions of the element's box, and an area adds `widthNormal` and `heightNormal`, both above 0 and within the element, with the point as its top-left corner; a point or a text selection in a menu, popover or dialog may add `layer: { opener, label? }`, the selector of the page element that opens it and that element's name, up to 120 characters), `rewrite` (a suggested replacement for selected text: `position` is a text selection, `text` the suggested text, `quotedText` the original), or `feedback` / `bug` with `position: { "type": "page" }` (about the page, no pin). `check` is the page check a comment was posted from, `{ type, id, count? }`: `type` is `accessibility`, `seo` or `web-vitals`, `id` the rule or check (`image-alt`, `canonical`, `lcp`; lowercase letters, digits and hyphens, up to 64), and `count`, only on one comment for several of the check's elements on the page (the panels' "Comment on all"), how many it covers (a whole number from 2 to 10,000; nothing else is accepted beside these three). It is saved as sent, returned with the comment and never changes; comments without `count` are about one element or the page |
 | `POST /api/comments/{id}/replies` | `{ text, screenshot?, idempotencyKey? }` | `201` the updated comment; anyone may reply |
 | `PATCH /api/comments/{id}/replies/{itemId}` | `{ text, expectedText }` | `200` the updated thread; the message's author only. Includes the first message. A stale edit gets `409` and does not overwrite newer text |
 | `PATCH /api/comments/{id}/anchor` | `{ path, position, expectedRevision }` | `200` updated thread; author only, exact saved page and validated element/text selector. `expectedRevision` is `anchorContext.revision` or `null`; stale anchors return `409` |
@@ -307,6 +310,7 @@ find the thread in either. `sourcePath` is the same page as it was addressed, fo
 | `GET /api/visitor` | | `200` `{ name }`: the visitor's guest name, `null` before their first write (the toolbar's profile) |
 | `DELETE /api/visitor` | | `204`; signs out: removes the `__Host-uier_visitor` cookie (never creates one) |
 | `POST /api/rewrite` | `{ text, instruction? }` | `200` `{ suggestions }`: up to 3 rewrites of selected page text, none when the model declines (see [Rewrite suggestions](#rewrite-suggestions)); `503 unavailable` without an API key or when the model can't be reached; never sets the visitor cookie |
+| `POST /api/page-suggestions` | `{ kind, text, title?, description? }` | `200` `{ suggestions }`: up to 3 titles, meta descriptions or questions the page answers (`kind`: `title`, `description` or `questions`), none when the model declines (see [Page suggestions](#page-suggestions)); `503 unavailable` without an API key, when the model can't be reached or answers with something other than a list; never sets the visitor cookie |
 
 **Public ids.** Every new comment gets a `number`, counted per domain (per project for a project's comments)
 from 1 and shown as `#12` in the toolbar and the app. One sequence document per partition (`type: 'sequence'`,
@@ -335,7 +339,7 @@ author, or a cross-site request), `403 bot_detected`, `404 not_found`, `409 conf
 `415 unsupported_media_type` (writes must be `application/json`), `429 rate_limited` (with `Retry-After` in
 seconds and `reason`: `too_fast` or `page_full`; for a signed-in project member also `usage`, the app path of the
 page that shows the limit: `/app/account/usage#project-<code>` for their own limits,
-`/app/workspace/usage?project=<code>#project-<code>` for what the project shares), `500 server_error` and `503 unavailable` (rewrite suggestions only). Writes are accepted only from the API's
+`/app/workspace/usage?project=<code>#project-<code>` for what the project shares), `500 server_error` and `503 unavailable` (rewrite and page suggestions only). Writes are accepted only from the API's
 own origin (a cross-site `Origin` or `Sec-Fetch-Site: cross-site` gets `403`). Unknown fields are ignored; ids,
 authors and message timestamps are always set by the server (the capture-start time is explicitly from the reviewer's browser). Selectors must have the form the toolbar creates
 (`#id` or `tag.class:nth-of-type(n)` joined by `>`), so a stored comment can't break `querySelector` in
@@ -422,11 +426,12 @@ carry no IP-derived data:
 | Replies per MCP connection (access token or connected app) | 30 per project per hour, also counted against the owner's member budget |
 | Writes per IP (an IPv4 address or an IPv6 /64) | 30 per domain or project per hour for guests and uier's feedback commenters; project members do not consume it. The anonymous `/api/comments` API keeps this limit for every writer |
 | New comments per page | 100 per day (`reason: page_full`) |
-| Rewrite suggestions | 20 per visitor (with the cookie) or project reviewer per hour, 300 per domain or project per day; app-wide, whatever the site: 40 per IP per hour and 1000 per day; selected text and each suggestion up to 1000 characters (what a rewrite comment holds), instruction up to 300 |
+| Rewrite suggestions | 20 per visitor (with the cookie) or project reviewer per hour, 300 per domain or project per day; app-wide, whatever the site: 40 per IP per hour and 1000 per day; selected text and each suggestion up to 1000 characters (what a rewrite comment holds), instruction up to 300. Page suggestions count against the same limits |
+| Page suggestions | page text 1-4000 characters, title up to 200, description up to 500; a suggested title 10-60 characters, a description 50-160, a question up to 150 on one line |
 
 **Bot protection: [Vercel BotID](https://vercel.com/docs/botid)** (basic mode, no captcha).
 [`instrumentation-client.ts`](../apps/web/instrumentation-client.ts) attaches the BotID challenge to the page's
-same-origin `POST`/`PATCH`/`DELETE` requests to `/api/comments*` (and `POST /api/rewrite`), and every write handler calls `checkBotId()`
+same-origin `POST`/`PATCH`/`DELETE` requests to `/api/comments*` (and `POST /api/rewrite`, `POST /api/page-suggestions`), and every write handler calls `checkBotId()`
 first (`403 bot_detected` for bots). `withBotId` in `next.config.ts` proxies BotID's scripts through this origin,
 so the CSP needs no changes. BotID verifies every write except when the app runs locally: `next dev`, or
 `UIER_LOCAL=1` (set by `playwright.config.ts` for `next start`; never set it on a deployment). Locally every
@@ -463,6 +468,41 @@ renaming the Vercel team or project, or switching the project to the global issu
 
 `COSMOSDB_COMMENTS_CONTAINER` selects the container (default `comments`). All of these variables are managed by
 Pulumi (see [Infrastructure](operations.md#infrastructure)).
+
+## Page checks
+
+A project member's toolbar checks every page they review in the background, then saves a small summary of
+what it found to the project ([the reporter](../packages/toolbar/docs/page-checks-site.md)); the project's
+**Page checks** view in the app lists the pages together ([the view](../apps/web/docs/page-checks.md)).
+
+`POST /api/review/<code>/page-checks` ([`src/lib/pageChecks`](../apps/web/src/lib/pageChecks)) takes one
+page's summary, a strict JSON object (unknown fields are refused, `400 invalid_request`):
+
+| Field | What |
+| --- | --- |
+| `path` | the canonical page key, as for a comment; the project's page-state policy applies again |
+| `sourcePath` | optional: the page with its trailing slash, for links; kept only when it is the same page |
+| `title`, `description` | optional: the page's title (up to 200 characters) and meta description (up to 300), one line of plain text without control characters |
+| `noindex` | whether the page asks search engines not to index it |
+| `accessibility` | optional: axe-core's issues by impact, `{ critical, serious, moderate, minor }` |
+| `seo` | the SEO checks to look at and passed, `{ warn, pass }` |
+| `checks` | each check's state (`pass`, `warn` or `none`) by `seo:<id>` or `accessibility:<id>`, the id of lowercase letters, digits and hyphens (up to 64); at most 150 |
+| `vitals` | optional: `lcp` and `inp` in milliseconds (up to 600,000), `cls` (up to 100), each only when measured |
+
+Counts are whole numbers from 0 to 100,000. The body is at most 16 KB. The answer is `204`.
+
+- **Who**: project members only, through the review API's identity, CORS, origin and BotID verification
+  (above): a guest or a public viewer gets `403 forbidden`, anyone but a member of an invited project `401
+  sign_in_required`. Writes from the project's sites need the verification proof like every review write.
+- **Storage**: one `page-check` document per page and environment in the `app` container's
+  `page-checks:<projectId>` partition, keyed by the site's origin the request came from and the canonical
+  page. The latest summary replaces the page's previous one, whose counts and time it keeps as `previous`.
+  At most 200 pages per project: a new page beyond that removes the least recently checked ones. A page not
+  checked again for 90 days expires. Deleting the project deletes them; a transfer keeps them. No element,
+  page text beyond the title and description, or reviewer is stored.
+- **Limits**: 120 summaries per member per hour and 2,000 per project per day (`429 rate_limited`, reason
+  `too_fast`, with `Retry-After`), counted after validation.
+- **Read**: only the app's Page checks page, for people who can see the project; there is no read route.
 
 ## Rewrite suggestions
 
@@ -509,6 +549,45 @@ response of the request that created or changed a thread, never in its path. See
 [AI thread title costs](ai-title-costs.md).
 See [rewrite usage and costs](rewrite-costs.md) for daily reports, versioned pricing, retry/fallback gaps and the
 current model evaluation. Estimates are not provider invoices.
+
+## Page suggestions
+
+The toolbar's SEO panel (its AI search section, [the note](../packages/toolbar/docs/page-checks-ai-search.md)) can ask
+for a page's suggestions: `POST /api/page-suggestions` (a project's toolbar: `POST /api/review/<code>/page-suggestions`,
+for reviewers who can comment), implemented in [`src/lib/pageSuggestions`](../apps/web/src/lib/pageSuggestions). The body
+is a strict object (other fields are `400`): `kind` (`title`, `description` or `questions`), `text` (the page's main text
+as Markdown, the first 4000 characters the toolbar read), and the current `title` and `description` (up to 200 and 500).
+The toolbar sends it only when the reviewer presses a button, and says so ("Sends this page's main text to uier.").
+
+- **The same call as rewrite suggestions** (`createSuggestionCall` in [`src/lib/rewrite/suggest.ts`](../apps/web/src/lib/rewrite/suggest.ts)):
+  the same model, `low` effort, `{ suggestions: string[] }` schema, refusal fallback, `max_tokens`, 45-second deadline, key
+  and `503 unavailable` without one (checked before the limits count the request). Its own fixed system prompt per kind
+  states the length as a hard limit.
+- **The page is untrusted content.** The text, title and description are escaped (`&`, `<`, `>`) inside their own tags
+  (`<page_text>`, `<current_title>`, `<current_description>`) in the one user message, after the system rules, which say
+  they are material to describe, never instructions, and that nothing the page does not say may be added.
+- **The answer is bounded on the server.** An answer that is not JSON with a list of strings is `503 unavailable` (its
+  content never reaches the response). Each suggestion is trimmed, loses bidirectional overrides, and is dropped (never
+  cut) unless it is one line with a visible character within its kind's length: a title 10 to 60 characters and a
+  description 50 to 160 (the SEO panel's own ranges), a question up to 150. Duplicates and the page's current title or
+  description are left out; at most three are kept. A declined request gives none (`200`, `[]`).
+- **Limits**: counted with rewrite suggestions, on the same counters (per visitor with the cookie or project reviewer, per
+  site or project, and app-wide per IP and per day; [above](#comments-api)), so the app's daily budget for paid
+  suggestion calls stays one. The usage pages' "Rewrite suggestions" meters include them.
+- **Workspace settings**: a project's effective rewrite instructions (Workspace settings → Rewrite suggestions, and the
+  project's) apply as the same escaped style guidance. No other setting governs them.
+- **Bot protection** like `POST /api/rewrite`: BotID on uier's origin (`instrumentation-client.ts` attaches it to
+  `POST /api/page-suggestions`), the review API's verification proof on a project's site. No cookie is set.
+- **Accounting**: one `rewrite_usage` v1 event per model call, like rewrites, with `feature: "page_suggestions"` (rewrite
+  events leave the field out); no page text, title, description, suggestion or identifier enters it.
+- **Packaged clients**: the extension's closed route contract (`extensionContract.ts`) does not include these routes, and
+  its toolbar shows no suggestion buttons.
+
+Request and response content is not stored. A suggestion the reviewer posts is an ordinary comment about the page
+with the check `{ type: "seo", id: "title" }` or `"description"`.
+The e2e stand-in ([`e2e/support/anthropicStub.ts`](../apps/web/e2e/support/anthropicStub.ts)) checks these requests too
+(one `page_text` boundary, the kind's stated limit); `page-suggestions.api.spec.ts` covers validation, bounds, the shared
+limits, a prompt injection in the page text, the project route's prompt and usage event, and the not-configured answer.
 
 ## Linked pull request state
 

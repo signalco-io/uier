@@ -22,6 +22,7 @@ Everything keyed by the project, not by its workspace, stays where it is and so 
   state and screenshots (the `project:<id>` partition and its image blobs).
 - Read state (`review-read`), notification preferences, follows and pending deliveries
   (`notifications:<id>`).
+- Page check summaries (`page-checks:<id>`, [page checks](api.md#page-checks)).
 - The project's internal id, its public id and every review link and embed that uses either.
 
 The project document is the one thing in the workspace's partition, so it is copied. The copy keeps

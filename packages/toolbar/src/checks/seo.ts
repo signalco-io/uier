@@ -84,7 +84,8 @@ const directives = (tag: Element) => (tag.getAttribute('content') ?? '').toLower
 /**
  * What the page's robots meta tags (`robots`, and `googlebot` for Google) ask of search engines.
  * `noindex` (or `none`) keeps the page out of search results, so it needs no canonical link. The
- * `X-Robots-Tag` response header is not in the document and is not read.
+ * `X-Robots-Tag` response header is not in the document: the Crawlers section reads it from the
+ * page's response (`lazy/crawler.ts`).
  */
 function robotsCheck(): { check: PageCheck; noindex: boolean } {
     const tags = [...document.querySelectorAll('meta[name="robots" i], meta[name="googlebot" i]')];
@@ -126,6 +127,27 @@ function canonicalCheck(noindex: boolean): PageCheck {
             [issue('canonical', undefined, 'The canonical link points to another page.', `SEO: The canonical link points to another page, ${target.href}. Search engines may show that one instead.`)]);
     }
     return check('canonical', 'Canonical', 'pass', 'Points to this page.', target.href);
+}
+
+/**
+ * The viewport meta tag (the last one counts): without `width=device-width` phones lay the page out
+ * as wide as a desktop screen and show it zoomed out. Zoom blocking is the Accessibility panel's
+ * (axe-core's `meta-viewport`).
+ */
+function viewportCheck(): PageCheck {
+    const content = oneLine([...document.querySelectorAll('meta[name="viewport" i]')].at(-1)?.getAttribute('content'));
+    if (/(?:^|[,;\s])width\s*=\s*device-width(?:$|[,;\s])/i.test(content)) return check('viewport', 'Viewport', 'pass', 'Fits the screen\'s width (width=device-width).', content);
+    const reason = `${content ? 'No width=device-width in the viewport meta tag' : 'No viewport meta tag'}. Phones show the page zoomed out.`;
+    return check('viewport', 'Viewport', 'warn', reason, content || undefined,
+        [issue('viewport', undefined, reason, `SEO: ${reason} A tag such as \`<meta name="viewport" content="width=device-width, initial-scale=1">\` fits it to the screen.${foundLine('Viewport', content)}`)]);
+}
+
+/** The page's language (`html[lang]`): a note when missing. Whether its value is valid is the Accessibility panel's */
+function languageCheck(): PageCheck {
+    const lang = oneLine(document.documentElement.getAttribute('lang'), 40);
+    return lang ? check('lang', 'Language', 'pass', 'The page says which language it is in.', lang)
+        : check('lang', 'Language', 'none', 'No lang attribute on html. Screen readers and translation tools guess the language.', undefined,
+            [issue('lang', undefined, 'The page does not say its language.', 'SEO: The page does not say its language: the html element has no lang attribute. Screen readers and translation tools then guess it.')]);
 }
 
 /** The text a heading or link is known by: its text, else its label or an image's alt text */
@@ -193,6 +215,35 @@ function brokenReason(link: HTMLAnchorElement | HTMLAreaElement): string | undef
     return undefined;
 }
 
+/** Link text that says nothing out of context, in English: the whole text, lowercase, without trailing punctuation or arrows */
+const genericPhrases = new Set(['click', 'click here', 'click this', 'tap here', 'here', 'right here', 'go', 'go here', 'this', 'this link',
+    'this page', 'link', 'more', 'read more', 'learn more', 'see more', 'view more', 'find out more', 'more info', 'more information',
+    'information', 'info', 'details', 'more details', 'see details', 'continue', 'continue reading', 'start']);
+const genericText = (text: string) => {
+    const phrase = text.toLowerCase().replace(/^[\s«‹←<]+|[\s.:!?…»›→>]+$/gu, '');
+    return genericPhrases.has(phrase) ? phrase : undefined;
+};
+
+/**
+ * Links whose whole text is a phrase that says nothing out of context ("read more", "click here").
+ * The list is English: on a page in another language (`html[lang]`), not checked. A link with a label
+ * of its own (`aria-label`, `aria-labelledby`) that is not generic is left out.
+ */
+function genericLinkCheck(links: (HTMLAnchorElement | HTMLAreaElement)[]): PageCheck {
+    const lang = document.documentElement.lang.trim();
+    if (lang && !/^en(?:-|$)/i.test(lang)) return check('link-generic', 'Generic link text', 'none', `Not checked: the phrases checked are English, and the page is in ${oneLine(lang, 20)}.`);
+    const generic = links.flatMap(link => {
+        const text = oneLine(link.textContent);
+        const labelledBy = link.getAttribute('aria-labelledby')?.split(/\s+/).map(id => id && document.getElementById(id)?.textContent).join(' ');
+        const label = oneLine(link.getAttribute('aria-label')) || oneLine(labelledBy);
+        return text && genericText(text) && !(label && !genericText(label))
+            ? [issue('link-generic', link, `Its text is only "${text}".`, `SEO: This link's whole text is a generic phrase. Out of context it does not say where the link goes.${foundLine('Link text', text)}${foundLine('Address', writtenAddress(link.getAttribute('href')))}`)]
+            : [];
+    });
+    return !generic.length ? check('link-generic', 'Generic link text', 'pass', 'No link text like "read more" or "click here" alone.')
+        : check('link-generic', 'Generic link text', 'warn', `${count(generic.length, 'link says', 'links say')} nothing out of context.${alike(generic) ? ` ${generic[0]!.summary}` : ''}`, undefined, generic);
+}
+
 function linkChecks(): SeoReport['links'] {
     const links = [...document.querySelectorAll<HTMLAnchorElement | HTMLAreaElement>('a[href], area[href]')];
     let internal = 0;
@@ -218,7 +269,8 @@ function linkChecks(): SeoReport['links'] {
             // Why goes in the reason when every link shares it, since the rows then show only the links
             broken.length ? check('link-address', 'Link addresses', 'warn', broken.length === 1 ? `1 link looks broken. ${broken[0]!.summary}`
                 : `${count(broken.length, 'link')} look broken.${alike(broken) ? ` ${broken[0]!.summary}` : ''}`, undefined, broken)
-                : check('link-address', 'Link addresses', 'pass', 'No broken-looking links.')
+                : check('link-address', 'Link addresses', 'pass', 'No broken-looking links.'),
+            genericLinkCheck(links)
         ]
     };
 }
@@ -237,14 +289,17 @@ function imageChecks(): SeoReport['images'] {
     };
 }
 
-/** Reads the page now: its head, headings, links and images */
+/**
+ * Reads the page now: its head (with the viewport and language), headings, links and images. More of
+ * the Page, Links and Images sections run on demand in the audit asset (`lazy/pageExtras.ts`).
+ */
 export function checkSeo(path: string): SeoReport {
     checkedPath = path;
     const robots = robotsCheck();
     return {
         path,
         checkedAt: Date.now(),
-        page: [robots.check, titleCheck(), descriptionCheck(), canonicalCheck(robots.noindex)],
+        page: [robots.check, titleCheck(), descriptionCheck(), canonicalCheck(robots.noindex), viewportCheck(), languageCheck()],
         headings: headingChecks(),
         links: linkChecks(),
         images: imageChecks()
