@@ -36,14 +36,20 @@ export default async function ProjectLayout({ children, params }: LayoutProps<'/
     // Those who configure the project (settingsContext's rule) change who can comment from the label
     const canConfigure = context.isAdmin && project.workspaceId !== PUBLIC_WORKSPACE_ID;
 
-    // The board's columns and gaps (20rem a column), the width the comments header and this header take in Board
-    const boardWidth = `calc(${feedbackStages.length} * 20rem + ${feedbackStages.length - 1}rem)`;
+    // The board's columns and gaps (20rem a column), the width the comments header and this header take in Board:
+    // the statuses, then Archive, a 3rem strip while collapsed and a column like the others when expanded
+    const columns = feedbackStages.length;
+    const boardWidths = {
+        '--board-width-collapsed': `calc(${columns} * 20rem + ${columns}rem + 3rem)`,
+        '--board-width-expanded': `calc(${columns + 1} * 20rem + ${columns}rem)`
+    };
 
     return (
         // On the comments page the header is as wide as the comments' header under it (ProjectComments marks it with
         // data-header-wide): the list with its thread, or the board's columns up to the panel's width less the gutters,
         // so it stays put when the board scrolls. Page checks marks itself as list width too; other project pages keep the reading width.
-        <div className="group/project @container/project flex flex-col" style={{ '--board-width': boardWidth } as React.CSSProperties}>
+        <div className="group/project @container/project flex flex-col [--board-width:var(--board-width-collapsed)] has-[[data-board-archive=expanded]]:[--board-width:var(--board-width-expanded)]"
+            style={boardWidths as React.CSSProperties}>
             <PageHeader
                 className={cn('min-w-0',
                     'group-has-[[data-header-wide=list]]/project:@3xl/project:w-[min(var(--page-wide),96rem)] group-has-[[data-header-wide=list]]/project:@3xl/project:mx-[calc((100%-min(var(--page-wide),96rem))/2)]',

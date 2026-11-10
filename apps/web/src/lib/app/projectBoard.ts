@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { FeedbackStage } from '@uier/toolbar/verification';
 import { canTriageProject } from '../review/comments';
 import type { ProjectActor } from '../review/actor';
@@ -30,6 +31,28 @@ export async function saveProjectBoardSort(project: DbProject, actor: ProjectAct
     if (JSON.stringify(withBoardSort(project, column, choice).boardSorts) === JSON.stringify(project.boardSorts))
         return project;
     const saved = await updateDoc<DbProject>(project.pk, project.id, current => withBoardSort(current, column, choice), store);
+    if (!saved)
+        throw new UserFacingError('This project no longer exists.');
+    return saved;
+}
+
+/**
+ * Expands or collapses the board's Archive column on the project, for everyone who opens its board, like a
+ * column's sort (the same people, `canSortProjectBoard`). The choice is validated again here: anything but a
+ * boolean is refused before a write. Collapsed is the default and leaves no field.
+ */
+export async function saveProjectBoardArchive(project: DbProject, actor: ProjectActor, expanded: boolean, store: AppStore = getAppStore()) {
+    const input = z.boolean().safeParse(expanded);
+    if (!input.success)
+        throw new UserFacingError('Choose to expand or collapse the archive.');
+    if (!canSortProjectBoard(project, actor))
+        throw new UserFacingError('You can’t change how this board is shown.');
+    if (Boolean(project.boardArchiveExpanded) === input.data)
+        return project;
+    const saved = await updateDoc<DbProject>(project.pk, project.id, current => {
+        const { boardArchiveExpanded: _previous, ...rest } = current;
+        return input.data ? { ...rest, boardArchiveExpanded: true } : rest;
+    }, store);
     if (!saved)
         throw new UserFacingError('This project no longer exists.');
     return saved;

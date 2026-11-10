@@ -63,11 +63,66 @@ test('app archive stays separate from Done and All, reloads and restores the pri
     card = await openComment(page, 1);
     await expect(card).toContainText('Keep this feedback for later');
     await expect(card.getByRole('button', { name: /^Status: Done/ })).toBeVisible();
-    // Archive remains reachable from the board, with no archived cards in its workflow columns.
-    await backToComments(page);
-    await page.getByRole('button', { name: 'Board', exact: true }).click();
-    await page.getByRole('button', { name: 'Archive 0', exact: true }).click();
-    await expect(page.getByText('Nothing archived', { exact: true })).toBeVisible();
+});
+
+test('the board shows Archive as its last column, collapsed until someone expands it for the project', async ({ page }) => {
+    const f = await fixture(page);
+    await page.goto(`/app/projects/${f.projectId}?view=board`);
+    const column = (name: string) => page.getByRole('region', { name: `${name} comments`, exact: true });
+    const archive = column('Archived');
+    await expect(column('Open').getByRole('listitem')).toHaveCount(1);
+    // Collapsed: its name and count, no cards; the filters have no Archive button of their own
+    const expand = archive.getByRole('button', { name: 'Archive 0', exact: true });
+    await expect(expand).toHaveAttribute('aria-expanded', 'false');
+    await expect(archive.getByRole('listitem')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Archive \d+$/ })).toHaveCount(1);
+    // Last, after Done
+    const regions = page.locator('[data-board-scroll] > section');
+    await expect(regions.last()).toHaveAttribute('aria-label', 'Archived comments');
+
+    // Archiving from the board's sheet moves the card out of its column; the count follows
+    let thread = await openComment(page, 1);
+    await thread.getByRole('button', { name: /^More actions for the comment/ }).click();
+    await page.getByRole('menuitem', { name: 'Archive comment', exact: true }).click();
+    await expect(thread.getByText('Archived', { exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(column('Open').getByRole('listitem')).toHaveCount(0);
+    await expect(archive.getByRole('button', { name: 'Archive 1', exact: true })).toBeVisible();
+
+    // Expanded: a column of its cards, which don't move; the focus goes to its Collapse button
+    const saved = page.waitForResponse(response => response.request().method() === 'POST' && response.request().headers()['next-action'] !== undefined);
+    await archive.getByRole('button', { name: 'Archive 1', exact: true }).click();
+    expect((await saved).ok()).toBe(true);
+    const collapse = archive.getByRole('button', { name: 'Collapse Archive', exact: true });
+    await expect(collapse).toBeFocused();
+    await expect(collapse).toHaveAttribute('aria-expanded', 'true');
+    const archivedCard = archive.getByRole('listitem').filter({ hasText: 'Keep this feedback for later' });
+    await expect(archivedCard).toBeVisible();
+    await expect(archivedCard.getByRole('button', { name: /^Move / })).toHaveCount(0);
+    for (const colorScheme of ['light', 'dark'] as const) {
+        await page.emulateMedia({ colorScheme });
+        await animationsFinished(page.locator('body'));
+        await expectNoAxeViolations(page);
+    }
+
+    // Saved on the project: still expanded after a reload
+    await page.reload();
+    await expect(archive.getByRole('listitem')).toHaveCount(1);
+    // Restore from its thread returns it to its column
+    thread = await openComment(page, 1);
+    await thread.getByRole('button', { name: /^More actions for the comment/ }).click();
+    await page.getByRole('menuitem', { name: 'Restore comment', exact: true }).click();
+    await page.keyboard.press('Escape');
+    await expect(column('Open').getByRole('listitem')).toHaveCount(1);
+    await expect(archive.getByText('Nothing archived.', { exact: true })).toBeVisible();
+
+    // Collapsed again, for the next load too; the focus goes back to the strip
+    const collapsed = page.waitForResponse(response => response.request().method() === 'POST' && response.request().headers()['next-action'] !== undefined);
+    await archive.getByRole('button', { name: 'Collapse Archive', exact: true }).click();
+    await collapsed;
+    await expect(archive.getByRole('button', { name: 'Archive 0', exact: true })).toBeFocused();
+    await page.reload();
+    await expect(archive.getByRole('button', { name: 'Archive 0', exact: true })).toHaveAttribute('aria-expanded', 'false');
 });
 
 test('toolbar archive removes the pin, restores from Archive and rolls back a failed save', async ({ page }) => {

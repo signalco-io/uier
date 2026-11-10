@@ -49,7 +49,8 @@ rows with the status filter it waits for their entrance motion to settle before 
   the sheet they open the next one there. `e2e/comment-keyboard.spec.ts` covers the list's keys,
   `e2e/app-keyboard.spec.ts` the board's and My work's. `CommentBoard.tsx` shows
   Open, In progress, Ready to verify and Done as compact cards, one column per `commentStatuses` entry (keep the
-  column set data-driven: that list and `commentStatusLabels`), from `md` (tablets too) in one row of equal columns however many
+  column set data-driven: that list and `commentStatusLabels`), then Archive, collapsed unless expanded
+  ([Board archive column](#board-archive-column)), from `md` (tablets too) in one row of equal columns however many
   there are, each 18rem to 20rem and centred beyond that; when they don't fit, the board scrolls sideways
   (`data-board-scroll`, `justify-center-safe`; a swipe on a touch screen) rather than squeezing them. The scroller runs
   edge to edge of the panel, padded by the page gutter (`page-bleed`, `--page-gutter`), so the first and last columns
@@ -227,8 +228,9 @@ responses. A full five-minute shell safety refresh keeps unrelated sidebar chang
 ## Archive
 
 Archive is an explicit fourth list tab (`?status=archived`), separate from Active, Done and All. The
-ordinary tabs, workflow board columns and My work exclude archived threads. The board offers an
-Archive button that opens the archive list; choosing Board again returns to workflow columns.
+ordinary tabs, workflow board columns and My work exclude archived threads. On the board, Archive is
+the last column, after Done ([below](#board-archive-column)); `?status=archived` with Board shows the
+list's Archive tab, and choosing Board from there returns to the columns.
 Counts follow the selected search, people, page, priority, environment and author scopes. The app
 loads independent bounded ordinary and archive windows, with the archive filter applied in storage
 before each limit. My work loads only the ordinary window. Presentation filtering remains local.
@@ -240,3 +242,27 @@ failure; they do not delete content or mark it read. The archive detail carries 
 The toolbar uses the same actions in Thread options and an Archive tab; archived threads have no pins,
 highlights, inline slots or Show on page action until restored. `e2e/archive.spec.ts` covers both
 surfaces, reload, restore, failed saves, mobile and light/dark accessibility.
+
+### Board archive column
+
+[uier #243](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_ell0Rb7O9hDp71RsDToUS):
+`ArchiveColumn` in `CommentBoard.tsx` comes after the status columns, collapsed by default: a 3rem strip
+(its name runs down it from `md`, a full-width row on a phone) that is one button, "Archive 3", with
+`aria-expanded`. Expanded, it is a column like the others (18rem to 20rem) whose header ends with
+Collapse Archive (`FoldHorizontalIcon`, a tooltip); the focus moves to the other toggle either way. The grid's
+tracks come from `--board-columns` (the statuses, then the strip or a column), and the project layout widens its
+header from the section's `data-board-archive` (`--board-width-collapsed` / `--board-width-expanded`).
+- Order: like Done but by archive time (`compareArchivedOrder`: `archivedAt`, newest first, then the update and
+  creation times, ties in the list's order). It has no sort menu.
+- Its cards open their thread in the sheet like the others (the board's scope includes archived threads, so
+  archiving from the sheet keeps it open with the Archived label) but don't drag and have no Move; Restore comment
+  returns one to its column. It is not a drop target and is dimmed (`data-drop="refused"`) while a card is dragged.
+  While expanded its cards are in the keys' lanes (← → reach it, J and K go through it) and in the selection.
+- Expanded is saved on the project (`DbProject.boardArchiveExpanded`, missing when collapsed), like the sorts:
+  everyone who opens the board sees it, and the same people change it (`saveProjectBoardArchive`,
+  `setBoardArchiveAction`, `canSortProjectBoard`), optimistically with an error toast. Others can still expand it
+  for themselves until the page is opened again. The action schema and `saveProjectBoardArchive` both accept only
+  a boolean, so a string such as `"false"` or `null` is refused before any write.
+- `e2e/archive.spec.ts` covers collapsed and expanded, archiving and restoring from the board, the focus, a reload
+  and light/dark axe; `e2e/board-sort.api.spec.ts` the order, the saved state and invalid inputs; `e2e/comment-board.spec.ts` its
+  place in the layout and during a drag.

@@ -23,7 +23,7 @@ export async function loadAppCommentsSnapshot(context: AppContext, project: DbPr
     const snapshot = {
         environments: environmentOptions(project), projectId: project.id, access: project.access, isAdmin: context.isAdmin,
         comments, searchWindowCapped, query, authorFilter: author?.filter, userId: context.user.id,
-        boardSorts: boardSortsOf(project.boardSorts), canSortBoard: canSortProjectBoard(project, appActor(context)),
+        boardSorts: boardSortsOf(project.boardSorts), boardArchiveExpanded: Boolean(project.boardArchiveExpanded), canSortBoard: canSortProjectBoard(project, appActor(context)),
         assignees: members.map(({ member, name, avatarUrl }) => ({ userId: member.userId, name, avatarUrl }))
     };
     // Presentation filters change locally. Only the authorized environment/author scope belongs

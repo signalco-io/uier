@@ -36,3 +36,5 @@ export const priorityCommentActionSchema = commentActionSchema.extend({ priority
 export const agentCommentActionSchema = commentActionSchema.extend({ agent: assigneeAgentInputSchema.nullable(), idempotencyKey: idempotencyKeySchema, agentId: agentIdSchema.optional(), add: z.boolean().optional() });
 /** A board column's sort: the column and one of the choices it offers (`boardSortOptions`) */
 export const boardSortActionSchema = z.object({ projectId: projectIdSchema }).and(boardSortInputSchema);
+/** Whether the board's Archive column is expanded */
+export const boardArchiveActionSchema = z.object({ projectId: projectIdSchema, expanded: z.boolean() });

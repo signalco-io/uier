@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
-import { sortBoardColumn } from '../src/components/app/comments/commentOrder';
-import { boardSortActionSchema } from '../src/components/app/comments/actionSchemas';
+import { compareArchivedOrder, sortBoardColumn } from '../src/components/app/comments/commentOrder';
+import { boardArchiveActionSchema, boardSortActionSchema } from '../src/components/app/comments/actionSchemas';
 import { boardSort, boardSortInputSchema, boardSortOptions, boardSortsOf, defaultBoardSort, withBoardSort } from '../src/lib/app/boardSort';
-import { canSortProjectBoard, saveProjectBoardSort } from '../src/lib/app/projectBoard';
+import { canSortProjectBoard, saveProjectBoardArchive, saveProjectBoardSort } from '../src/lib/app/projectBoard';
 import { findOrCreateUser } from '../src/lib/app/users';
 import { ensureOwnWorkspace, getWorkspace } from '../src/lib/app/workspaces';
 import { createProject, getProject } from '../src/lib/app/projects';
@@ -57,6 +57,19 @@ test('each sort orders a column, a copy, and ties keep the given order', () => {
     expect(sortBoardColumn(updated, 'updated').map(thread => thread.id)).toEqual(['high', 'low']);
 });
 
+test('Archive orders by when each thread was archived, newest first, like Done by completion', () => {
+    const archived = [
+        { id: 'early', number: 9, priority: 'urgent' as const, archivedAt: '2026-03-01', completedAt: '2026-09-01' },
+        { id: 'late', number: 1, priority: 'low' as const, archivedAt: '2026-06-01' },
+        // The same time: the usual order (priority, then number)
+        { id: 'tie-normal', number: 5, archivedAt: '2026-04-01' },
+        { id: 'tie-high', number: 2, priority: 'high' as const, archivedAt: '2026-04-01' },
+        // No readable time: its last update
+        { id: 'legacy', number: 3, archivedAt: 'not a time', updatedAt: '2026-05-01' }
+    ];
+    expect([...archived].sort(compareArchivedOrder).map(thread => thread.id)).toEqual(['late', 'legacy', 'tie-high', 'tie-normal', 'early']);
+});
+
 test('columns offer their own sorts, and a saved value a column does not offer reads as its default', () => {
     expect(boardSortOptions('open')).toEqual(['priority', 'newest', 'oldest', 'updated']);
     expect(boardSortOptions('in-progress')).toEqual(boardSortOptions('open'));
@@ -80,6 +93,9 @@ test('columns offer their own sorts, and a saved value a column does not offer r
     expect(parseActionInput(boardSortActionSchema, { projectId, status: 'done', sort: 'oldest' })).toEqual({ projectId, status: 'done', sort: 'oldest' });
     expect(() => parseActionInput(boardSortActionSchema, { projectId, status: 'in-progress', sort: 'completed' })).toThrow(UserFacingError);
     expect(() => parseActionInput(boardSortActionSchema, { projectId: '../x', status: 'open', sort: 'newest' })).toThrow(UserFacingError);
+    expect(parseActionInput(boardArchiveActionSchema, { projectId, expanded: true })).toEqual({ projectId, expanded: true });
+    expect(() => parseActionInput(boardArchiveActionSchema, { projectId, expanded: 'yes' })).toThrow(UserFacingError);
+    expect(() => parseActionInput(boardArchiveActionSchema, { projectId: '../x', expanded: false })).toThrow(UserFacingError);
 });
 
 test('only choices other than a column\'s default are kept on the project', () => {
@@ -126,6 +142,49 @@ test('members save a column\'s sort on the project, for everyone who opens its b
     expect(canSortProjectBoard(created, guest)).toBe(false);
     await expect(saveProjectBoardSort(await reload(), guest, 'open', 'newest')).rejects.toThrow('You can’t change how this board is sorted.');
     expect(await reload()).not.toHaveProperty('boardSorts');
+});
+
+test('members expand the board\'s Archive column on the project, and collapsed leaves no field', async () => {
+    const admin = await adminContext('board-archive');
+    const created = await createProject(admin, { name: 'Board archive', urls: ['https://board-archive.example.com'] });
+    const reload = async () => (await getProject(admin.workspace.id, created.id))!;
+    expect(created).not.toHaveProperty('boardArchiveExpanded');
+
+    await saveProjectBoardArchive(await reload(), appActor(admin), true);
+    expect((await reload()).boardArchiveExpanded).toBe(true);
+    // The same choice again writes nothing; the sorts are untouched
+    await saveProjectBoardArchive(await reload(), appActor(admin), true);
+    expect((await reload()).boardArchiveExpanded).toBe(true);
+    expect(await reload()).not.toHaveProperty('boardSorts');
+
+    // A commenter of the project may sort it, so they may collapse it too
+    const commenter: ProjectActor = { kind: 'member', userId: `user-${randomUUID()}`, name: 'Commenter', isAdmin: false };
+    await saveProjectBoardArchive(await reload(), commenter, false);
+    expect(await reload()).not.toHaveProperty('boardArchiveExpanded');
+
+    // Anything but a boolean is refused before a write, whether expanded or collapsed now
+    for (const invalid of ['false', 'true', null, undefined, 0, 1, {}]) {
+        await expect(saveProjectBoardArchive(await reload(), appActor(admin), invalid as unknown as boolean)).rejects.toThrow('Choose to expand or collapse the archive.');
+        expect(await reload()).not.toHaveProperty('boardArchiveExpanded');
+    }
+    await saveProjectBoardArchive(await reload(), appActor(admin), true);
+    for (const invalid of ['false', null, 0]) {
+        await expect(saveProjectBoardArchive(await reload(), appActor(admin), invalid as unknown as boolean)).rejects.toThrow('Choose to expand or collapse the archive.');
+        expect((await reload()).boardArchiveExpanded).toBe(true);
+    }
+    await saveProjectBoardArchive(await reload(), appActor(admin), false);
+
+    const guest: ProjectActor = { kind: 'guest', visitorId: randomUUID() };
+    await expect(saveProjectBoardArchive(await reload(), guest, true)).rejects.toThrow('You can’t change how this board is shown.');
+    expect(await reload()).not.toHaveProperty('boardArchiveExpanded');
+
+    // uier's user feedback project: its staff only, as for its sorts
+    const app = getAppStore();
+    const read = async () => (await app.get<DbProject>(workspacePk(PUBLIC_WORKSPACE_ID), USER_FEEDBACK_PROJECT_ID))!.doc;
+    await provisionPublicProject(app, getMemoryCommentsStore());
+    const account: ProjectActor = { kind: 'member', userId: `user-${randomUUID()}`, name: 'Account', isAdmin: false };
+    await expect(saveProjectBoardArchive(await read(), account, true)).rejects.toThrow('You can’t change how this board is shown.');
+    expect(await read()).not.toHaveProperty('boardArchiveExpanded');
 });
 
 test('uier\'s user feedback project takes a sort from its staff only, and provisioning keeps it', async () => {
