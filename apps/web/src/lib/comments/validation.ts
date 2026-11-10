@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { feedbackTypeIdSchema } from '../app/feedbackTypeSchema';
 import { maxPageKeyLength } from '@uier/toolbar/page-state';
-import { commentCheckIdPattern, commentCheckTypes } from '@uier/toolbar/feedback-types';
+import { commentCheckCountMax, commentCheckIdPattern, commentCheckTypes } from '@uier/toolbar/feedback-types';
 import { feedbackStatusTargets } from '@uier/toolbar/verification';
 import { pageLanguagePattern } from '@uier/toolbar/devices';
 import { MAX_SCREENSHOT_DATA_URL_LENGTH, parseScreenshot, sanitizeScreenshot } from './screenshot';
@@ -169,8 +169,15 @@ export type ReattachAnchorInput = z.infer<typeof reattachAnchorSchema>;
  */
 export const kindSchema = z.union([z.enum(['comment', 'rewrite']), feedbackTypeIdSchema]);
 
-/** The page check a comment was posted from: a known kind of check and its rule or check id, nothing else */
-export const checkSchema = z.object({ type: z.enum(commentCheckTypes), id: z.string().regex(commentCheckIdPattern) }).strict();
+/**
+ * The page check a comment was posted from: a known kind of check and its rule or check id, and for
+ * one comment about several of its elements, how many (2 to `commentCheckCountMax`); nothing else
+ */
+export const checkSchema = z.object({
+    type: z.enum(commentCheckTypes),
+    id: z.string().regex(commentCheckIdPattern),
+    count: z.int().min(2).max(commentCheckCountMax).optional()
+}).strict();
 
 const windowDimensionSchema = z.int().min(0).max(MAX_WINDOW_DIMENSION);
 // Control and format characters (zero-width, bidirectional) never belong in a browser or model name

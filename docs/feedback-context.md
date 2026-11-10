@@ -108,8 +108,10 @@ settings are not exported. Existing built-in kinds and their packet formatting a
 
 A thread posted from the toolbar's Accessibility or SEO panel carries `check: { type, id }`: `type`
 is `accessibility`, `seo` or `web-vitals`, `id` the axe-core rule or the check (`image-alt`,
-`canonical`, `lcp`). The browser sends it with the comment and the API keeps only those two fields
-(`commentCheck` in `@uier/toolbar/feedback-types`). Markdown adds one line after the priority,
-`Page check: Accessibility (image-alt)`, with the id as a literal inline value. Other threads and
-older packets have no `check`, and their Markdown is unchanged. The thread's text holds what was
-found; `check` is for grouping and matching, such as finding the same rule again.
+`canonical`, `lcp`). One thread for several elements of a check (the panels' "Comment on all") adds
+`count`, how many elements it covers (2 to 10,000). The browser sends it with the comment and the API
+keeps only those fields (`commentCheck` in `@uier/toolbar/feedback-types`). Markdown adds one line
+after the priority, `Page check: Accessibility (image-alt)`, with the id as a literal inline value,
+and `· 5 elements` after it for a thread with a `count`. Other threads and older packets have no
+`check` (or no `count`), and their Markdown is unchanged. The thread's text holds what was found and
+lists the elements; `check` is for grouping and matching, such as finding the same rule again.
