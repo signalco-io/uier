@@ -5,7 +5,7 @@ authentication, scopes and tools; `src/lib/mcp/oauth/` is uier's own OAuth 2.1 a
 for this endpoint only. The contract is [docs/mcp.md](../../../docs/mcp.md); the design record and its
 decisions are [docs/mcp-oauth-plan.md](../../../docs/mcp-oauth-plan.md). Two kinds of connection resolve
 to one `McpIdentity` in `credentials.ts` (user, `connection: { id, kind, name, clientId? }`, scopes,
-`AgentAccess`):
+`AgentAccess`, and optional explicitly selected account identities):
 
 - **Connected apps (OAuth).** `uier_at.` access tokens backed by an `mcp-grant`, created through
   consent at `/app/connect/<requestId>` and listed under Account → Coding agents → Connected apps.
@@ -17,9 +17,13 @@ to one `McpIdentity` in `credentials.ts` (user, `connection: { id, kind, name, c
 Never accept cookies, review tokens, project codes or guest ids as MCP authentication.
 
 **Grants are evaluated live.** A grant stores a selection (`AgentAccess`: `all`, or chosen workspaces
-each with `'all'` or project ids) and scopes, never a permission snapshot. `mcpProject` resolves the
-project's workspace (`grantedWorkspaceOf`, else `findProject`), checks `accessCovers`, then
-`memberActor` for current membership, team grants and the staff allowlist, on every tool call and
+each with `'all'` or project ids) per explicitly approved account and shared scopes, never a permission
+snapshot. `accounts` is authoritative when present; older grants fall back to the managing `userId`
+and `access`. `mcpProject` resolves the project's workspace (`grantedWorkspaceOf`, else `findProject`),
+checks each account's `accessCovers`, then `memberActor` for current membership, team grants and the
+staff allowlist. The managing profile takes precedence when selected, followed by consent order;
+exactly one actor supplies permissions, private visibility, attribution and the meaning of `me`.
+These checks happen on every tool call and
 screenshot resource read; the review services recheck private visibility. "Including new ones" is the
 stored `all`, resolved at request time. Never cache a positive decision, copy access into a grant or
 widen a stored selection on the person's behalf. `list_projects` uses `listAccessibleWorkspaces`
@@ -61,8 +65,13 @@ OAuth rules (`src/lib/mcp/oauth/`, `app/api/oauth/`):
   same client) on every request, so deleting the grant revokes everything at once. Never log tokens,
   codes, verifiers, `state` or request bodies.
 - Consent (`actions.ts`, `authorize.ts`): approval compares the active session with the user id shown on the
-  consent page before issuing a code, validates every chosen workspace and
-  project with `validateAccessChoice`, enforces 20 active connected apps per user unless replacing one,
+  consent page before issuing a code, then revalidates every selected profile with
+  `browserSessions(cookies())`. Only this explicit consent uses parked session credentials; normal
+  app requests still authorize the active account alone. Up to five distinct accounts can be selected,
+  each with its own `validateAccessChoice` workspace/project check. Only the active account starts
+  checked. Account selections never change browser cookies, and accounts added later are never
+  implicitly included. The active account manages the grant and its token partition even if not
+  selected for project access. Approval enforces 20 active connected apps per managing user unless replacing one,
   and consumes the stored request with a conditional delete before creating a code. Consent is always
   shown; `prompt=none` fails with `interaction_required`.
 - Attribution and idempotency keys use `connection.id` (grant id or credential id), never the access
@@ -93,6 +102,22 @@ boundary and reloads the consent URL on an account change; stale approval action
 server-side even before that reload. `account-consent.api.spec.ts` covers stale approvals. Both share
 `ClientDetails` (Unverified, Published at, Sends you back to) and `scopes.ts` labels.
 
+The consent page lists all verified signed-in profiles with their own access controls. Use another
+account adds a sign-in and returns to the pending request. One approval and token refresh chain retain
+all selected profiles independently of later browser account/workspace switching or sign-out.
+Connected apps remain managed under the active account at approval; Revoke ends the shared grant
+for all profiles. `connectedAppView` receives only profile presentations validated through current
+browser sessions, so secondary email/workspace/project names are hidden once that profile is signed
+out. Changing included accounts requires reconnecting and replacing the connection.
+`list_projects` returns each project's acting `account: { id, name, email }` and workspace, deduplicates
+shared projects in the same actor order, and accepts continuation offsets beyond a single account's
+1000-project scan window. Each returned multi-account page resolves its acting profiles with
+`mcpProject`, so a discovery scan cap cannot change the profile used for a shared project.
+Project tools report that profile in `actingAs`; `me`, agent attachments,
+replies and unread state use it. Event subscriptions retain the managing `userId` for grant lookup
+and a separate `actorUserId` for filters. Delivery rechecks the same actor and subscription start
+time; changed actors require a new subscription and queued events from the old profile are skipped.
+
 The route has `maxDuration = 30`; `handleMcp` races transport handling against a 25-second deadline
 (overridable by API specs) and the request abort signal, returns a JSON-RPC error on interruption
 and always closes the server. Screenshot resources map `ApiError` to `InvalidParams` with its
@@ -111,7 +136,10 @@ describes these records: change it with what they contain. The event contract,
 `mcpRequestEventSchema`, lives in `mcp/telemetrySchema.ts` (zod and scope names only) so
 `scripts/mcp-report.mjs` and `mcp/report.ts` can validate exported events without loading the server;
 `e2e/mcp-report.api.spec.ts` covers the [daily report](../../../docs/mcp.md#daily-report).
-Access tokens remain bound to one workspace; connected apps reach the workspaces chosen at consent.
+Access tokens remain bound to one workspace and one acting profile; connected apps reach the
+accounts and workspaces chosen at consent. A token created through a multi-account connection keeps
+the chosen project's acting profile while its managing account retains the creation receipt, guard
+and revocation controls. Token refresh preserves account choices and narrowed scopes.
 
 **Creating access tokens through MCP.** `tokens:create` ("Create access tokens") is an explicit
 operation in consent and Account's operations list. Consent leaves it off even when requested;
@@ -133,7 +161,10 @@ expires after 30 days, also when the token was revoked sooner. No secret is stor
 or later retries with the same key return metadata only (`alreadyCreated: true`); changed input
 conflicts. Only the winning response contains `token`. A lost first response requires revoking that
 token before deliberately requesting a replacement. Account receives only the creator's display name
-and labels the token "Created by <connection>". Request telemetry records tool outcome and shapes,
+and labels the token "Created by <connection>". A token acting under a different selected profile also
+shows "Acts as <account>"; its email and project names come only from that profile's currently verified
+browser session, otherwise the account is "Another account" and projects use their ids. This never
+adds projects to the current workspace's manual token form. Request telemetry records tool outcome and shapes,
 never the secret or name. `e2e/mcpAccessTokens.api.spec.ts` covers validation, authorization, live
 access, limits, atomicity, retries and secret-free audit/logs; OAuth API coverage includes narrowed
 scopes and refresh. The OAuth browser journey proves opt-in, account provenance and revocation.

@@ -86,7 +86,7 @@ function ClientSetup({ endpoint }: { endpoint: string }) {
     const clients = mcpClientConfigurations(endpoint);
     return (
         <Section id="connect" title="Connect a coding tool"
-            description="It works with feedback as your account. A tool that signs in with your browser opens uier, where you choose the workspaces, projects and operations it can use.">
+            description="A tool that signs in with your browser opens uier, where you choose the accounts, workspaces, projects and operations it can use. Each profile's current permissions apply.">
             <div className="flex flex-col gap-6 text-sm">
                 <div className="flex flex-col gap-2">
                     <p className="m-0 text-muted-foreground">Add this Streamable HTTP endpoint to your coding tool:</p>

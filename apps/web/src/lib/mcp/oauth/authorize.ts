@@ -6,7 +6,7 @@ import type { McpScope } from '../scopes';
 import { isMcpResource, MAX_CONNECTED_APPS, mcpResource, OAUTH_LIFETIMES, parseScopes } from './config';
 import { clientPresentation, resolveClient, touchClient } from './clients';
 import { OAuthError, type OAuthErrorCode } from './errors';
-import { agentAccessSchema, connectionNameSchema, grantScopesSchema, getGrant, listConnectedApps, userPk, validateAccessChoice, type AgentAccess, type ClientPresentation } from './grants';
+import { agentAccessSchema, connectionNameSchema, grantScopesSchema, getGrant, listConnectedApps, mcpAccountsSchema, userPk, validateAccessChoice, type AgentAccess, type ClientPresentation, type McpAccountAccess } from './grants';
 import { isLoopbackRedirect, redirectUriMatches } from './redirects';
 import { limitByKey } from './http';
 
@@ -32,6 +32,7 @@ export type McpAuthorizationCode = AppDoc & {
     codeChallenge: string;
     resource: string;
     access: AgentAccess;
+    accounts?: McpAccountAccess[];
     scopes: McpScope[];
     name: string;
     replaceGrantId?: string;
@@ -121,26 +122,37 @@ export async function getPendingAuthorization(requestId: string) {
 }
 export type PendingAuthorization = NonNullable<Awaited<ReturnType<typeof getPendingAuthorization>>>;
 
-export const approvalSchema = z.object({
-    access: agentAccessSchema,
+const approvalFields = {
     scopes: grantScopesSchema,
     name: connectionNameSchema,
     /** An existing connected app to replace once the client exchanges the code */
     replaceGrantId: z.string().regex(/^grant_[A-Za-z0-9_-]{1,64}$/).optional()
-}).strict();
+};
+export const approvalSchema = z.union([
+    z.object({ ...approvalFields, access: agentAccessSchema }).strict(),
+    z.object({ ...approvalFields, accounts: mcpAccountsSchema }).strict()
+]);
 export type Approval = z.input<typeof approvalSchema>;
 
 /**
  * The signed-in person approved the request: consumes it and returns the client's callback URL
  * with a single-use code. Every chosen workspace and project is checked against current access.
  */
-export async function approveAuthorization(user: Pick<DbUser, 'id' | 'email'>, requestId: string, value: unknown, issuer: string) {
+export async function approveAuthorization(user: Pick<DbUser, 'id' | 'email'>, requestId: string, value: unknown, issuer: string,
+    signedInUsers: readonly Pick<DbUser, 'id' | 'email'>[] = [user]) {
     const input = approvalSchema.parse(value);
     await limitByKey('approve', user.id, 30);
     const stored = await loadRequest(requestId);
     if (!stored) throw new OAuthError('invalid_request', 'This sign-in request expired. Start again from your coding tool.');
-    if (!await validateAccessChoice(user.id, user.email, input.access as AgentAccess))
-        throw new OAuthError('access_denied', 'Choose workspaces and projects you can access.');
+    const accounts: McpAccountAccess[] = 'accounts' in input ? input.accounts : [{ userId: user.id, access: input.access }];
+    for (const account of accounts) {
+        const signedIn = signedInUsers.find(candidate => candidate.id === account.userId);
+        if (!signedIn)
+            throw new OAuthError('access_denied', 'An account is no longer signed in. Reload this page and try again.');
+        if (!await validateAccessChoice(signedIn.id, signedIn.email, account.access))
+            throw new OAuthError('access_denied', 'Choose workspaces and projects each account can access.');
+    }
+    const access: AgentAccess = accounts.find(account => account.userId === user.id)?.access ?? { kind: 'selected', workspaces: [] };
     if (input.replaceGrantId && !await getGrant(user.id, input.replaceGrantId))
         throw new OAuthError('invalid_request', 'The connection to replace no longer exists.');
     if (!input.replaceGrantId && (await listConnectedApps(user.id)).length >= MAX_CONNECTED_APPS)
@@ -156,7 +168,7 @@ export async function approveAuthorization(user: Pick<DbUser, 'id' | 'email'>, r
     const doc: McpAuthorizationCode = {
         type: 'mcp-code', id: sha256Hex(code), pk: userPk(user.id), userId: user.id,
         clientId: request.clientId, client: request.client, redirectUri: request.redirectUri, codeChallenge: request.codeChallenge,
-        resource: request.resource, access: input.access as AgentAccess, scopes: input.scopes, name: input.name,
+        resource: request.resource, access, ...('accounts' in input ? { accounts } : {}), scopes: input.scopes, name: input.name,
         replaceGrantId: input.replaceGrantId, expiresAt: new Date(now + OAUTH_LIFETIMES.codeSeconds * 1000).toISOString(),
         ttl: OAUTH_LIFETIMES.codeRecordSeconds
     };

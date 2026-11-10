@@ -22,18 +22,20 @@ export const credentialSchema = z.object({
 
 export type McpCredential = AppDoc & {
     type: 'mcp-credential'; userId: string; workspaceId: string; name: string;
+    /** A derived token may act under another explicitly authorized account; userId still owns it. */
+    actingUserId?: string;
     projectIds: string[]; scopes: McpScope[]; createdAt: string; expiresAt: string; ttl: number;
     createdBy?: McpIdentity['connection'];
 };
-export type McpCredentialView = Pick<McpCredential, 'id' | 'name' | 'workspaceId' | 'projectIds' | 'scopes' | 'createdAt' | 'expiresAt' | 'createdBy'>;
+export type McpCredentialView = Pick<McpCredential, 'id' | 'name' | 'workspaceId' | 'projectIds' | 'scopes' | 'createdAt' | 'expiresAt' | 'createdBy' | 'actingUserId'>;
 /** Atomic creation receipt and audit, retained for 30 days; never contains the bearer secret. */
 export type McpCredentialCreation = AppDoc & {
     type: 'mcp-credential-creation'; inputHash: string; credential: McpCredentialView; ttl: number;
 };
 const credentialPk = (userId: string) => `mcp-user:${userId}`;
 
-export function mcpCredentialView({ id, name, workspaceId, projectIds, scopes, createdAt, expiresAt, createdBy }: McpCredential): McpCredentialView {
-    return { id, name, workspaceId, projectIds, scopes, createdAt, expiresAt, ...(createdBy ? { createdBy } : {}) };
+export function mcpCredentialView({ id, name, workspaceId, projectIds, scopes, createdAt, expiresAt, createdBy, actingUserId }: McpCredential): McpCredentialView {
+    return { id, name, workspaceId, projectIds, scopes, createdAt, expiresAt, ...(createdBy ? { createdBy } : {}), ...(actingUserId ? { actingUserId } : {}) };
 }
 
 /** Serialize all credential creation for an account, including hand-made tokens, at the 20-token cap. */
@@ -133,20 +135,31 @@ export async function removeProjectFromMcpAccess(workspaceId: string, projectId:
         });
     }
     // Selections are nested, so every grant is read; deletions are rare
+    const removeAccess = (access: AgentAccess): AgentAccess | null => {
+        if (access.kind !== 'selected') return access;
+        const workspaces = access.workspaces.flatMap(entry => {
+            if (entry.workspaceId !== workspaceId || !Array.isArray(entry.projects)) return [entry];
+            const projects = entry.projects.filter(id => id !== projectId);
+            return projects.length ? [{ ...entry, projects }] : [];
+        });
+        if (JSON.stringify(workspaces) === JSON.stringify(access.workspaces)) return access;
+        return workspaces.length ? { kind: 'selected', workspaces } : null;
+    };
     for (const grant of await store.query<McpGrant>({ type: 'mcp-grant' })) {
-        if (grant.access.kind !== 'selected' || !grant.access.workspaces.some(entry => entry.workspaceId === workspaceId
-            && Array.isArray(entry.projects) && entry.projects.includes(projectId))) continue;
+        if (!(grant.accounts ?? [{ userId: grant.userId, access: grant.access }]).some(account => removeAccess(account.access) !== account.access)) continue;
         await save<McpGrant>(grant, doc => {
-            if (doc.access.kind !== 'selected') return doc;
-            const workspaces = doc.access.workspaces.flatMap(entry => {
-                if (entry.workspaceId !== workspaceId || !Array.isArray(entry.projects)) return [entry];
-                const projects = entry.projects.filter(id => id !== projectId);
-                return projects.length ? [{ ...entry, projects }] : [];
-            });
-            if (JSON.stringify(workspaces) === JSON.stringify(doc.access.workspaces)) return doc;
-            return workspaces.length
-                ? { ...doc, access: { kind: 'selected', workspaces }, ttl: remainingSeconds(doc.idleExpiresAt, 86400) }
-                : null;
+            if (doc.accounts) {
+                const accounts = doc.accounts.flatMap(account => {
+                    const access = removeAccess(account.access);
+                    return access ? [{ ...account, access }] : [];
+                });
+                if (JSON.stringify(accounts) === JSON.stringify(doc.accounts)) return doc;
+                if (!accounts.length) return null;
+                return { ...doc, accounts, access: accounts.find(account => account.userId === doc.userId)?.access ?? { kind: 'selected', workspaces: [] },
+                    ttl: remainingSeconds(doc.idleExpiresAt, 86400) };
+            }
+            const access = removeAccess(doc.access);
+            return access === doc.access ? doc : access ? { ...doc, access, ttl: remainingSeconds(doc.idleExpiresAt, 86400) } : null;
         });
     }
 }
@@ -157,7 +170,32 @@ export type McpIdentity = {
     connection: { id: string; kind: 'credential' | 'oauth'; name: string; clientId?: string };
     scopes: McpScope[];
     access: AgentAccess;
+    /** Authoritative when present. The top-level user owns the connection and its stored tokens. */
+    accounts?: Array<{ user: DbUser; access: AgentAccess }>;
 };
+
+/** Stable actor priority: the owning account first when included, then consent order. */
+export function mcpAccounts(identity: McpIdentity) {
+    const accounts = identity.accounts ?? [{ user: identity.user, access: identity.access }];
+    return [...accounts.filter(account => account.user.id === identity.user.id), ...accounts.filter(account => account.user.id !== identity.user.id)];
+}
+
+async function grantIdentity(user: DbUser, grant: McpGrant, scopes: McpScope[]): Promise<McpIdentity> {
+    const accounts = grant.accounts ? (await Promise.all(grant.accounts.map(async account => {
+        const accountUser = account.userId === user.id ? user : await getUser(account.userId);
+        return accountUser ? { user: accountUser, access: account.access } : null;
+    }))).filter((account): account is NonNullable<typeof account> => account !== null) : undefined;
+    return { user, connection: { id: grant.id, kind: 'oauth', name: grant.name, clientId: grant.clientId }, scopes, access: grant.access,
+        ...(accounts ? { accounts } : {}) };
+}
+
+async function credentialIdentity(user: DbUser, credential: McpCredential): Promise<McpIdentity | null> {
+    const access: AgentAccess = { kind: 'selected', workspaces: [{ workspaceId: credential.workspaceId, projects: credential.projectIds }] };
+    const actingUser = credential.actingUserId ? (credential.actingUserId === user.id ? user : await getUser(credential.actingUserId)) : user;
+    if (!actingUser) return null;
+    return { user, connection: { id: credential.id, kind: 'credential', name: credential.name }, scopes: credential.scopes, access,
+        ...(credential.actingUserId ? { accounts: [{ user: actingUser, access }] } : {}) };
+}
 
 export class McpAuthenticationError extends ApiError {
     constructor(readonly tokenPresented: boolean) {
@@ -180,14 +218,15 @@ export async function authenticateMcp(request: Request, issuer = new URL(request
         const result = mcpOauthEnabled() ? await authenticateAccessToken(token, issuer) : null;
         const user = result ? await getUser(result.grant.userId) : null;
         if (!result || !user) throw new McpAuthenticationError(true);
-        return { user, connection: { id: result.grant.id, kind: 'oauth', name: result.grant.name, clientId: result.grant.clientId }, scopes: result.scopes, access: result.grant.access };
+        return await grantIdentity(user, result.grant, result.scopes);
     }
     const match = /^(uier_mcp\.([A-Za-z0-9_-]{1,128})\.[A-Za-z0-9_-]{32,128})$/.exec(token);
     const credential = match ? (await getAppStore().get<McpCredential>(credentialPk(match[2]!), sha256Hex(match[1]!)))?.doc : null;
     const user = credential && credential.type === 'mcp-credential' && Date.parse(credential.expiresAt) > Date.now() ? await getUser(credential.userId) : null;
     if (!credential || !user) throw new McpAuthenticationError(true);
-    return { user, connection: { id: credential.id, kind: 'credential', name: credential.name }, scopes: credential.scopes,
-        access: { kind: 'selected', workspaces: [{ workspaceId: credential.workspaceId, projects: credential.projectIds }] } };
+    const identity = await credentialIdentity(user, credential);
+    if (!identity) throw new McpAuthenticationError(true);
+    return identity;
 }
 
 /**
@@ -201,12 +240,11 @@ export async function currentMcpConnection(userId: string, connectionId: string,
     if (kind === 'oauth') {
         if (doc.type !== 'mcp-grant' || !mcpOauthEnabled() || !isGrantActive(doc)) return null;
         const user = await getUser(userId);
-        return user ? { user, connection: { id: doc.id, kind: 'oauth', name: doc.name, clientId: doc.clientId }, scopes: doc.scopes, access: doc.access } : null;
+        return user ? await grantIdentity(user, doc, doc.scopes) : null;
     }
     if (doc.type !== 'mcp-credential' || Date.parse(doc.expiresAt) <= Date.now()) return null;
     const user = await getUser(userId);
-    return user ? { user, connection: { id: doc.id, kind: 'credential', name: doc.name }, scopes: doc.scopes,
-        access: { kind: 'selected', workspaces: [{ workspaceId: doc.workspaceId, projects: doc.projectIds }] } } : null;
+    return user ? await credentialIdentity(user, doc) : null;
 }
 
 /** A `forbidden` tool error that also tells the request log which operation was missing */
@@ -222,11 +260,16 @@ export function requireMcpScope(identity: McpIdentity, scope: McpScope) {
 
 export async function mcpProject(identity: McpIdentity, projectId: string, scope: McpScope = 'feedback:read') {
     requireMcpScope(identity, scope);
-    const workspaceId = grantedWorkspaceOf(identity.access, projectId);
+    const accounts = mcpAccounts(identity);
+    const workspaceId = accounts.length === 1 ? grantedWorkspaceOf(accounts[0]!.access, projectId) : undefined;
     const project = workspaceId ? await getProject(workspaceId, projectId) : await findProject(projectId);
-    const covered = project && project.id === projectId && accessCovers(identity.access, project.workspaceId, project.id);
-    const actor = covered ? await memberActor(project, identity.user.id) : null;
-    if (!project || !covered || !actor || actor.kind !== 'member')
-        throw apiErrors.notFound('Project not found. Check list_projects for the projects this connection can reach.');
-    return { project, actor: { ...actor, agent: { credentialId: identity.connection.id, name: identity.connection.name, kind: identity.connection.kind } } };
+    if (project && project.id === projectId) {
+        for (const account of accounts) {
+            if (!accessCovers(account.access, project.workspaceId, project.id)) continue;
+            const actor = await memberActor(project, account.user.id);
+            if (actor?.kind !== 'member') continue;
+            return { project, user: account.user, actor: { ...actor, agent: { credentialId: identity.connection.id, name: identity.connection.name, kind: identity.connection.kind } } };
+        }
+    }
+    throw apiErrors.notFound('Project not found. Check list_projects for the projects this connection can reach.');
 }

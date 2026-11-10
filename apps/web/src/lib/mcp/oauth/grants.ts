@@ -9,6 +9,8 @@ import { getWorkspace, listUserMemberships } from '../../app/workspaces';
 import { publicProjectMember } from '../../comments/publicProjectPolicy';
 import { mcpScopes, type McpScope } from '../scopes';
 import { MAX_CONNECTION_NAME_LENGTH } from './config';
+import { MAX_BROWSER_ACCOUNTS } from '../../app/browserAccountLimits';
+import { userIdSchema } from '../../app/validation';
 
 /** What a connection may reach. Access is evaluated live against current membership on every request. */
 export type AgentAccess =
@@ -27,6 +29,12 @@ export const agentAccessSchema = z.discriminatedUnion('kind', [
             .refine(entries => new Set(entries.map(entry => entry.workspaceId)).size === entries.length, 'Choose each workspace once.')
     }).strict()
 ]);
+
+/** Each account keeps its own selection; selections never combine membership or project roles. */
+export type McpAccountAccess = { userId: string; access: AgentAccess };
+export const mcpAccountsSchema = z.array(z.object({ userId: userIdSchema, access: agentAccessSchema }).strict())
+    .min(1, 'Choose at least one account.').max(MAX_BROWSER_ACCOUNTS)
+    .refine(accounts => new Set(accounts.map(account => account.userId)).size === accounts.length, 'Choose each account once.');
 
 export const connectionNameSchema = z.string().trim().min(1, 'Enter a connection name.').max(MAX_CONNECTION_NAME_LENGTH, `Use at most ${MAX_CONNECTION_NAME_LENGTH} characters.`);
 export const grantScopesSchema = z.array(z.enum(mcpScopes)).min(1).max(mcpScopes.length)
@@ -51,6 +59,8 @@ export type McpGrant = AppDoc & {
     /** The label replies and status changes carry */
     name: string;
     access: AgentAccess;
+    /** Authoritative when present. Accounts added to the browser later are never included automatically. */
+    accounts?: McpAccountAccess[];
     scopes: McpScope[];
     resource: string;
     createdAt: string;

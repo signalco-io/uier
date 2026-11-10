@@ -18,7 +18,12 @@ import { createMcpCredentialAction, revokeMcpCredentialAction } from '@/src/lib/
 import { ConnectionAvatar, ConnectionItem, ConnectionReach, ScopeBadges } from './ConnectionSummary';
 import { scopeOptions } from './scopes';
 
-export type AccessToken = { id: string; name: string; projectIds: string[]; scopes: string[]; expiresAt: string; createdBy?: { name: string } };
+export type AccessToken = {
+    id: string; name: string; projectIds: string[]; scopes: string[]; expiresAt: string;
+    createdBy?: { name: string };
+    actingAccount?: string;
+    projectNames?: string[];
+};
 
 /**
  * Hand-made and connection-created credentials: one workspace, chosen projects, up to 30 days.
@@ -115,11 +120,14 @@ function CreateToken({ projects, form }: { projects: { id: string; name: string 
 function AccessTokenRow({ credential, projects }: { credential: AccessToken; projects: { id: string; name: string }[] }) {
     return (
         <ConnectionItem avatar={<ConnectionAvatar hints={[credential.name]} />} title={credential.name}
-            description={credential.createdBy && <span>Created by {credential.createdBy.name}</span>}
+            description={(credential.createdBy || credential.actingAccount) && <>
+                {credential.createdBy && <span>Created by {credential.createdBy.name}</span>}
+                {credential.actingAccount && <span>Acts as <span className="break-all">{credential.actingAccount}</span></span>}
+            </>}
             actions={<form action={revokeMcpCredentialAction.bind(null, credential.id)}><RevokeToken name={credential.name} /></form>}>
             <ConnectionReach>
                 <span className="sr-only">Projects: </span>
-                {credential.projectIds.map(id => projects.find(project => project.id === id)?.name ?? id).join(', ')}
+                {(credential.projectNames ?? credential.projectIds.map(id => projects.find(project => project.id === id)?.name ?? id)).join(', ')}
             </ConnectionReach>
             <ScopeBadges scopes={credential.scopes} />
             <p className="m-0 text-xs text-muted-foreground">Expires <RelativeTime value={credential.expiresAt} /></p>

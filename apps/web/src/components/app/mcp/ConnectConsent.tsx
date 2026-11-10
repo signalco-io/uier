@@ -17,6 +17,7 @@ import type { McpScope } from '@/src/lib/mcp/scopes';
 import { approveConnectionAction, cancelConnectionAction, switchConnectionAccountAction } from '@/src/lib/mcp/oauth/actions';
 import { ChoiceCard } from '../ChoiceCard';
 import { FormMessage } from '../FormMessage';
+import { PersonAvatar } from '../PersonAvatar';
 import { ClientHosts, ClientName, ClientNotices } from './ClientDetails';
 import { scopeOptions } from './scopes';
 
@@ -33,6 +34,16 @@ export type ConsentReplace =
     | { mode: 'required'; apps: { id: string; name: string }[]; defaultId?: string; limit: number };
 
 type Selection = Record<string, 'all' | string[]>;
+type AccountSelection = { included: boolean; kind: 'all' | 'selected'; workspaces: Selection };
+
+export type ConsentAccount = {
+    id: string;
+    name: string;
+    email: string;
+    avatarUrl?: string;
+    workspaces: ConsentWorkspace[];
+    truncated: boolean;
+};
 
 /** What the consent page needs from a pending request (docs/mcp-oauth-plan.md §8) */
 export type ConsentRequest = {
@@ -40,8 +51,7 @@ export type ConsentRequest = {
     email: string;
     client: ClientPresentation;
     requestedScopes: McpScope[];
-    workspaces: ConsentWorkspace[];
-    truncated: boolean;
+    accounts: ConsentAccount[];
     replace: ConsentReplace | null;
 };
 
@@ -79,26 +89,25 @@ export function ConnectConsent({ requestId, request }: { requestId: string; requ
     return <ConsentForm requestId={requestId} request={request} onOutcome={setOutcome} />;
 }
 
-function ConsentForm({ requestId, request: { userId, email, client, requestedScopes, workspaces, truncated, replace }, onOutcome }: {
+function ConsentForm({ requestId, request: { userId, email, client, requestedScopes, accounts, replace }, onOutcome }: {
     requestId: string;
     request: ConsentRequest;
     onOutcome: (outcome: Outcome) => void;
 }) {
-    const [accessKind, setAccessKind] = useState<'all' | 'selected'>('all');
-    const [selection, setSelection] = useState<Selection>({});
+    const [selections, setSelections] = useState<Record<string, AccountSelection>>(() => Object.fromEntries<AccountSelection>(accounts.map(account => [account.id, {
+        included: account.id === userId, kind: 'all', workspaces: {}
+    }])));
     const [scopes, setScopes] = useState<McpScope[]>(() => [...new Set<McpScope>(['feedback:read', ...requestedScopes.filter(scope => scope !== 'tokens:create')])]);
     const [name, setName] = useState(client.name);
     const [replaceChecked, setReplaceChecked] = useState(replace?.mode === 'optional' ? replace.checked : false);
     const [replaceId, setReplaceId] = useState(replace?.mode === 'required' ? replace.defaultId ?? '' : '');
 
-    const chosen = workspaces.filter(workspace => selection[workspace.id] === 'all' || (selection[workspace.id]?.length ?? 0) > 0);
-    const access: AgentAccess = accessKind === 'all'
-        ? { kind: 'all' }
-        : { kind: 'selected', workspaces: chosen.map(workspace => ({ workspaceId: workspace.id, projects: selection[workspace.id]! })) };
+    const selectedAccounts = accounts.filter(account => selections[account.id]?.included);
+    const choices = selectedAccounts.map(account => ({ userId: account.id, access: accountAccess(account, selections[account.id]!) }));
     const replaceGrantId = replace?.mode === 'optional' ? (replaceChecked ? replace.app.id : undefined) : (replaceId || undefined);
 
     const [approval, approve, approving] = useActionState(async () => {
-        const result = await approveConnectionAction(requestId, userId, { access, scopes, name, ...(replaceGrantId ? { replaceGrantId } : {}) });
+        const result = await approveConnectionAction(requestId, userId, { accounts: choices, scopes, name, ...(replaceGrantId ? { replaceGrantId } : {}) });
         if (result?.ok) onOutcome({ approved: true, url: result.data.url });
         return result;
     }, null);
@@ -109,25 +118,14 @@ function ConsentForm({ requestId, request: { userId, email, client, requestedSco
     }, null);
 
     const writes = scopes.some(scope => scopeOptions.some(option => option.scope === scope && option.write));
-    const guestProjects = chosen.some(workspace => workspace.projects.some(project =>
-        project.guests && (selection[workspace.id] === 'all' || (selection[workspace.id] as string[]).includes(project.id))));
-    const broad = accessKind === 'all' || chosen.length > 1 || guestProjects;
+    const broad = selectedAccounts.length > 1 || selectedAccounts.some(account => {
+        const choice = selections[account.id]!;
+        const chosen = account.workspaces.filter(workspace => choice.workspaces[workspace.id] === 'all' || (choice.workspaces[workspace.id]?.length ?? 0) > 0);
+        return choice.kind === 'all' || chosen.length > 1 || chosen.some(workspace => workspace.projects.some(project =>
+            project.guests && (choice.workspaces[workspace.id] === 'all' || (choice.workspaces[workspace.id] as string[]).includes(project.id))));
+    });
     const pending = approving || cancelling;
-
-    const setWorkspace = (workspaceId: string, projects: 'all' | string[] | undefined) =>
-        setSelection(previous => {
-            const next = { ...previous };
-            if (projects === undefined || (Array.isArray(projects) && !projects.length))
-                delete next[workspaceId];
-            else
-                next[workspaceId] = projects;
-            return next;
-        });
-    const toggleProject = (workspaceId: string, projectId: string, checked: boolean) => {
-        const current = selection[workspaceId];
-        const list = Array.isArray(current) ? current : [];
-        setWorkspace(workspaceId, checked ? [...list, projectId] : list.filter(id => id !== projectId));
-    };
+    const validChoices = choices.length > 0 && choices.every(choice => choice.access.kind === 'all' || choice.access.workspaces.length > 0);
 
     return (
         <>
@@ -156,39 +154,10 @@ function ConsentForm({ requestId, request: { userId, email, client, requestedSco
                     <FieldGroup>
                         <FieldSet>
                             <FieldLegend>What it can reach</FieldLegend>
-                            <FieldDescription>Your current access in uier always applies. Removing you from a workspace or project removes it here too.</FieldDescription>
-                            <RadioGroup value={accessKind} onValueChange={value => setAccessKind(value as 'all' | 'selected')} aria-label="What it can reach">
-                                <ChoiceCard id="access-all" value="all" title="All my workspaces and projects, including new ones"
-                                    description="Every workspace and project you can open in uier, now and later." />
-                                <ChoiceCard id="access-selected" value="selected" title="Choose workspaces and projects"
-                                    description="Only the workspaces and projects you pick below." />
-                            </RadioGroup>
-                            {accessKind === 'selected' && <div className="flex flex-col gap-4">
-                                {workspaces.map(workspace => {
-                                    const value = selection[workspace.id];
-                                    return (
-                                        <div key={workspace.id} className="rounded-lg border p-4">
-                                            <FieldSet className="gap-3">
-                                                <FieldLegend variant="label" className="break-words">{workspace.name}</FieldLegend>
-                                                <Field orientation="horizontal">
-                                                    <Checkbox id={`workspace-${workspace.id}`} checked={value === 'all'}
-                                                        onCheckedChange={checked => setWorkspace(workspace.id, checked === true ? 'all' : undefined)} />
-                                                    <FieldLabel htmlFor={`workspace-${workspace.id}`} className="font-normal">All projects, including new ones</FieldLabel>
-                                                </Field>
-                                                {value !== 'all' && workspace.projects.map(project => (
-                                                    <Field key={project.id} orientation="horizontal">
-                                                        <Checkbox id={`project-${project.id}`} checked={Array.isArray(value) && value.includes(project.id)}
-                                                            onCheckedChange={checked => toggleProject(workspace.id, project.id, checked === true)} />
-                                                        <FieldLabel htmlFor={`project-${project.id}`} className="font-normal break-words">{project.name}</FieldLabel>
-                                                    </Field>
-                                                ))}
-                                                {!workspace.projects.length && <FieldDescription>No projects you can open yet.</FieldDescription>}
-                                            </FieldSet>
-                                        </div>
-                                    );
-                                })}
-                                {truncated && <FieldDescription>Some workspaces are not listed here. Choose all workspaces and projects to include them.</FieldDescription>}
-                            </div>}
+                            <FieldDescription>Choose the accounts to include, then what each account can reach. Your current permissions always apply.</FieldDescription>
+                            <FieldDescription>This connection is managed from <span className="font-mono text-[13px] break-all">{email}</span>. Switching accounts or signing out in this browser keeps the connection active.</FieldDescription>
+                            {accounts.map(account => <AccountAccessChoice key={account.id} account={account} value={selections[account.id]!}
+                                onChange={value => setSelections(previous => ({ ...previous, [account.id]: value }))} />)}
                         </FieldSet>
                         <FieldSet className="gap-4">
                             <FieldLegend>What it can do</FieldLegend>
@@ -254,13 +223,85 @@ function ConsentForm({ requestId, request: { userId, email, client, requestedSco
                         {cancelling && <Spinner data-icon="inline-start" />}
                         Cancel
                     </Button>
-                    <Button type="submit" disabled={pending}>
+                    <Button type="submit" disabled={pending || !validChoices}>
                         {approving && <Spinner data-icon="inline-start" />}
                         Allow access
                     </Button>
                 </CardFooter>
             </form>
         </>
+    );
+}
+
+function accountAccess(account: ConsentAccount, choice: AccountSelection): AgentAccess {
+    return choice.kind === 'all'
+        ? { kind: 'all' }
+        : { kind: 'selected', workspaces: account.workspaces.filter(workspace => choice.workspaces[workspace.id] === 'all'
+            || (choice.workspaces[workspace.id]?.length ?? 0) > 0)
+            .map(workspace => ({ workspaceId: workspace.id, projects: choice.workspaces[workspace.id]! })) };
+}
+
+/** Each selected profile has its own scope; selecting it never changes the browser's active account. */
+function AccountAccessChoice({ account, value, onChange }: {
+    account: ConsentAccount;
+    value: AccountSelection;
+    onChange: (value: AccountSelection) => void;
+}) {
+    const setWorkspace = (workspaceId: string, projects: 'all' | string[] | undefined) => {
+        const workspaces = { ...value.workspaces };
+        if (projects === undefined || (Array.isArray(projects) && !projects.length)) delete workspaces[workspaceId];
+        else workspaces[workspaceId] = projects;
+        onChange({ ...value, workspaces });
+    };
+    const toggleProject = (workspaceId: string, projectId: string, checked: boolean) => {
+        const current = value.workspaces[workspaceId];
+        const list = Array.isArray(current) ? current : [];
+        setWorkspace(workspaceId, checked ? [...list, projectId] : list.filter(id => id !== projectId));
+    };
+    return (
+        <FieldSet aria-label={account.email} className="rounded-lg border p-4">
+            <Field orientation="horizontal">
+                <Checkbox id={`account-${account.id}`} aria-label={`Include ${account.email}`} checked={value.included}
+                    onCheckedChange={included => onChange({ ...value, included: included === true })} />
+                <PersonAvatar name={account.name} avatarUrl={account.avatarUrl} className="size-8" />
+                <FieldContent>
+                    <FieldLabel htmlFor={`account-${account.id}`} className="break-words">{account.name}</FieldLabel>
+                    <FieldDescription className="font-mono text-[13px] break-all">{account.email}</FieldDescription>
+                </FieldContent>
+            </Field>
+            {value.included && <>
+                <RadioGroup value={value.kind} onValueChange={kind => onChange({ ...value, kind: kind as 'all' | 'selected' })} aria-label="What it can reach">
+                    <ChoiceCard id={`access-all-${account.id}`} value="all" title="All my workspaces and projects, including new ones"
+                        description="Every workspace and project this account can open in uier, now and later." />
+                    <ChoiceCard id={`access-selected-${account.id}`} value="selected" title="Choose workspaces and projects"
+                        description="Only the workspaces and projects you pick below." />
+                </RadioGroup>
+                {value.kind === 'selected' && <FieldGroup className="gap-4">
+                    {account.workspaces.map(workspace => {
+                        const projects = value.workspaces[workspace.id];
+                        return (
+                            <FieldSet key={workspace.id} className="gap-3 rounded-lg border p-4">
+                                <FieldLegend variant="label" className="break-words">{workspace.name}</FieldLegend>
+                                <Field orientation="horizontal">
+                                    <Checkbox id={`workspace-${account.id}-${workspace.id}`} checked={projects === 'all'}
+                                        onCheckedChange={checked => setWorkspace(workspace.id, checked === true ? 'all' : undefined)} />
+                                    <FieldLabel htmlFor={`workspace-${account.id}-${workspace.id}`} className="font-normal">All projects, including new ones</FieldLabel>
+                                </Field>
+                                {projects !== 'all' && workspace.projects.map(project => (
+                                    <Field key={project.id} orientation="horizontal">
+                                        <Checkbox id={`project-${account.id}-${project.id}`} checked={Array.isArray(projects) && projects.includes(project.id)}
+                                            onCheckedChange={checked => toggleProject(workspace.id, project.id, checked === true)} />
+                                        <FieldLabel htmlFor={`project-${account.id}-${project.id}`} className="font-normal break-words">{project.name}</FieldLabel>
+                                    </Field>
+                                ))}
+                                {!workspace.projects.length && <FieldDescription>No projects you can open yet.</FieldDescription>}
+                            </FieldSet>
+                        );
+                    })}
+                    {account.truncated && <FieldDescription>Some workspaces are not listed here. Choose all workspaces and projects for this account to include them.</FieldDescription>}
+                </FieldGroup>}
+            </>}
+        </FieldSet>
     );
 }
 
