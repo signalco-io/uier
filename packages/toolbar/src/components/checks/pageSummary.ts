@@ -33,7 +33,7 @@ export function pageSummary({ path, sourcePath, accessibility, seo, seoChecks, a
     path: string;
     sourcePath?: string;
     accessibility?: AccessibilityReport;
-    seo: SeoReport;
+    seo?: SeoReport;
     /** Every check the SEO panel counts: its own, Core Web Vitals and its sections' */
     seoChecks: readonly PageCheck[];
     /** The Accessibility panel's sections' checks */
@@ -47,7 +47,7 @@ export function pageSummary({ path, sourcePath, accessibility, seo, seoChecks, a
     for (const check of seoChecks) add('seo', check.id, check.state);
     for (const rule of accessibility?.rules ?? []) add('accessibility', rule.id, 'warn');
     for (const check of accessibilityChecks) add('accessibility', check.id, check.state);
-    const page = (id: string) => seo.page.find(check => check.id === id);
+    const page = (id: string) => seo?.page.find(check => check.id === id);
     // Only what was measured: milliseconds, and the layout shift score to three places
     const measured = Object.fromEntries(([['lcp', vitals.LCP.value, 1], ['cls', vitals.CLS.value, 1000], ['inp', vitals.INP.value, 1]] as const)
         .flatMap(([name, value, scale]) => value === undefined || !Number.isFinite(value) ? [] : [[name, Math.round(value * scale) / scale]]));

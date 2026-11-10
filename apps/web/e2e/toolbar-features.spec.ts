@@ -168,8 +168,16 @@ test('custom project tools apply to mobile options, selection actions and rememb
         for (const feature of ['SEO', 'Text rewrites']) await projectTools(settingsPage).getByRole('checkbox', { name: feature, exact: true }).uncheck();
         await save(settingsPage);
     } finally { await settingsPage.close(); }
+    const accessibilitySummary = page.waitForResponse(response => response.request().method() === 'POST' &&
+        new URL(response.url()).pathname.endsWith('/page-checks'), { timeout: 45_000 });
     await page.reload();
     await hasTools(page, mobile, true, false);
+    const savedSummary = await accessibilitySummary;
+    expect(savedSummary.status()).toBe(204);
+    const summary = savedSummary.request().postDataJSON();
+    expect(summary.accessibility).toEqual({ critical: expect.any(Number), serious: expect.any(Number), moderate: expect.any(Number), minor: expect.any(Number) });
+    expect(summary.seo).toEqual({ warn: 0, pass: 0 });
+    expect(Object.keys(summary.checks).some(key => key.startsWith('seo:'))).toBe(false);
     await expect(page.getByRole('complementary', { name: 'SEO', exact: true })).toHaveCount(0);
     await selectText(page, await page.getByRole('heading', { level: 1 }).innerText());
     await expect(selectionToolbar(page).getByRole('button', { name: 'Add comment', exact: true })).toBeVisible();

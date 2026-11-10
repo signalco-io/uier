@@ -61,7 +61,7 @@ function MemberSummaryReporter({ accessibility, seo }: Parameters<typeof PageSum
     const accessibilitySections = usePanelSectionChecks('accessibility');
     const [auditOverdue, setAuditOverdue] = useState(false);
 
-    const summary = seo && pageSummary({
+    const summary = (seo || accessibility) && pageSummary({
         path,
         sourcePath: (() => {
             const current = `${location.pathname}${location.search}${location.hash}`;
@@ -69,7 +69,7 @@ function MemberSummaryReporter({ accessibility, seo }: Parameters<typeof PageSum
         })(),
         accessibility,
         seo,
-        seoChecks: [...seoChecks(seo, vitalChecks(vitals)), ...seoSections],
+        seoChecks: seo ? [...seoChecks(seo, vitalChecks(vitals)), ...seoSections] : [],
         accessibilityChecks: accessibilitySections,
         vitals
     });
