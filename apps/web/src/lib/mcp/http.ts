@@ -2,7 +2,8 @@ import { classifyInboundRequest, createMcpHandler, ProtocolErrorCode, WebStandar
 import { z } from 'zod';
 import { authenticateMcp, McpAuthenticationError } from '@/src/lib/mcp/credentials';
 import { mcpOauthEnabled } from '@/src/lib/mcp/oauth/config';
-import { bearerChallenge } from '@/src/lib/mcp/oauth/metadata';
+import { bearerChallenge, scopeChallenge } from '@/src/lib/mcp/oauth/metadata';
+import { mcpScopes } from '@/src/lib/mcp/scopes';
 import { createFeedbackMcpServer } from '@/src/lib/mcp/server';
 import { feedbackSkills } from '@/src/lib/mcp/skills';
 import { eventNameHeaderRejection, isEventStreamRequest } from '@/src/lib/mcp/events/protocol';
@@ -47,6 +48,9 @@ function modernEntry() {
         onerror: error => { if (!error.message.startsWith('Rejected ')) console.error('[mcp] Protocol entry failed', error.name); }
     });
 }
+
+/** The first protocol revision whose authorization chapter has step-up: a client that speaks it can act on a scope challenge. */
+const STEP_UP_SINCE = '2025-11-25';
 
 const isStream = (response: Response) => Boolean(response.body) && (response.headers.get('content-type') ?? '').startsWith('text/event-stream');
 
@@ -147,6 +151,19 @@ async function respond(request: Request, allowedOrigin: string, deadlineMs: numb
                 request.signal.removeEventListener('abort', onAbort);
                 await server.close();
             }
+        }
+        // Step-up authorization: a signed-in tool that called something its connection may not do is
+        // told which operation is missing, so it can ask the person for it and repeat the request. The
+        // handler has run and refused (the check is its first step), so nothing was changed. Access
+        // tokens cannot gain operations, and older clients keep the tool error that says what to do.
+        const missing = log.missingScopes;
+        if (missing.length && !streaming && !Array.isArray(parsedBody) && identity.connection.kind === 'oauth'
+            && (request.headers.get('mcp-protocol-version') ?? '') >= STEP_UP_SINCE) {
+            const wanted = mcpScopes.filter(scope => identity.scopes.includes(scope) || missing.includes(scope));
+            const message = `This connection needs ${missing.join(' and ')}. Allow it when your coding tool asks, or reconnect and choose it.`;
+            log.refused('insufficient_scope');
+            response = Response.json({ error: 'insufficient_scope', message }, { status: 403,
+                headers: { 'WWW-Authenticate': scopeChallenge(allowedOrigin, wanted, `This connection needs ${missing.join(' and ')}.`) } });
         }
         if (streaming) held.push(() => { request.signal.removeEventListener('abort', onAbort); close(); });
         // The 2026-07-28 entry refuses a request it cannot serve with an HTTP error and a JSON-RPC error body.

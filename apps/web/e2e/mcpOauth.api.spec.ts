@@ -13,6 +13,7 @@ import { GET as protectedResourceRoute } from '../app/api/oauth/metadata/protect
 import { GET as authorizationServerRoute } from '../app/api/oauth/metadata/authorization-server/route';
 import { handleMcp } from '../src/lib/mcp/http';
 import { authenticateMcp, createMcpCredential, mcpProject, mcpScopes, type McpScope } from '../src/lib/mcp/credentials';
+import type { McpRequestEvent } from '../src/lib/mcp/telemetry';
 import { approveAuthorization, denyAuthorization, getPendingAuthorization, type McpAuthorizationCode, type McpAuthorizationRequest } from '../src/lib/mcp/oauth/authorize';
 import { isMetadataClientId, isPublicAddress, resolveClient } from '../src/lib/mcp/oauth/clients';
 import { getGrant, listConnectedApps, revokeConnectedApp, userPk as connectionPk, type AgentAccess, type McpGrant } from '../src/lib/mcp/oauth/grants';
@@ -1017,7 +1018,8 @@ test('OAuth token creation honors selected and all-project grants, narrowed acce
         } finally { await narrowed.close(); }
         const readOnly = await refresh(app.clientId, rotated.body.refresh_token, { scope: 'feedback:read' });
         const readClient = await connectMcp(readOnly.body.access_token);
-        try { expect(await callTool(readClient, 'create_access_token', input)).toMatchObject({ error: 'forbidden' }); }
+        // A token without the operation is challenged (step-up); this client has no sign-in to answer it with.
+        try { await expect(callTool(readClient, 'create_access_token', input)).rejects.toThrow('Insufficient scope: required "feedback:read tokens:create"'); }
         finally { await readClient.close(); }
     } finally { await client.close(); }
     for (const access of [{ kind: 'all' }, { kind: 'selected', workspaces: [{ workspaceId: a.workspaceId, projects: 'all' }] }] as AgentAccess[]) {
@@ -1176,6 +1178,97 @@ test('the official SDK client discovers, registers, signs in, refreshes and lose
     } finally { await client.close(); }
 });
 
+
+test('a signed-in tool that lacks an operation is challenged, asks the person for it, and continues as the same connection', async () => {
+    const a = await person('oauth-step-up');
+    const reviewed = await project(a.context, 'Step-up project');
+    const actor = (await memberActor(reviewed, a.user.id))!;
+    const thread = await createProjectComment(new Request(base), reviewed, actor, { origin: reviewed.urls[0]!, path: '/', kind: 'feedback', position: { type: 'page' }, text: 'Needs an answer' });
+    const reply = { projectId: reviewed.id, commentId: thread.id, text: 'On it.', idempotencyKey: randomUUID() };
+    const access: AgentAccess = { kind: 'selected', workspaces: [{ workspaceId: a.workspaceId, projects: [reviewed.id] }] };
+    const replies = async () => (await getCommentsStore().get(`project:${reviewed.id}`, thread.id))!.comment.thread.items.length - 1;
+
+    // Sign-in with reading only, the way the SDK client does it.
+    let scopes: McpScope[] = ['feedback:read'];
+    let replaceGrantId: string | undefined;
+    let callbackParams: URLSearchParams | undefined;
+    const requested: (string | null)[] = [];
+    const provider = new TestOAuthProvider('http://127.0.0.1:47998/callback', async url => {
+        requested.push(url.searchParams.get('scope'));
+        const requestId = consentId(new URL((await authorizeRoute(new Request(url))).headers.get('location')!));
+        callbackParams = new URL(await approveAuthorization(a.user, requestId, { access, scopes, name: 'Laptop agent', ...(replaceGrantId ? { replaceGrantId } : {}) }, base)).searchParams;
+    });
+    const events: McpRequestEvent[] = [];
+    const transport = () => new StreamableHTTPClientTransport(new URL(resource), { authProvider: provider, fetch: async (input, init) => {
+        const request = new Request(input, init);
+        return new URL(request.url).pathname === '/api/mcp' ? handleMcp(request, base, { emit: event => { events.push(event); } }) : inProcessFetch(request);
+    } });
+    const first = transport();
+    await expect(new Client({ name: 'sdk-step-up', version: '1.0.0' }).connect(first)).rejects.toBeInstanceOf(UnauthorizedError);
+    await first.finishAuth(callbackParams!);
+    const active = transport();
+    const client = new Client({ name: 'sdk-step-up', version: '1.0.0' });
+    await client.connect(active);
+    try {
+        const grantId = (await authenticateMcp(bearer(provider.saved!.access_token), base)).connection.id;
+        expect((await callTool(client, 'list_projects')).items.map((item: { id: string }) => item.id)).toEqual([reviewed.id]);
+
+        // The reply needs an operation the connection does not have. The server says which (403, insufficient_scope),
+        // the client asks for it on top of what it has, and the person sees consent again.
+        scopes = ['feedback:read', 'feedback:reply'];
+        replaceGrantId = grantId;
+        events.length = 0;
+        await expect(client.callTool({ name: 'reply_to_feedback', arguments: reply })).rejects.toBeInstanceOf(UnauthorizedError);
+        expect(requested).toEqual(['feedback:read', 'feedback:read feedback:reply']);
+        expect(events.find(event => event.status === 403)).toMatchObject({ outcome: 'rejected', error: 'insufficient_scope',
+            calls: [{ method: 'tools/call', name: 'reply_to_feedback', outcome: 'tool_error', error: 'forbidden', missingScope: 'feedback:reply' }] });
+        expect(await replies()).toBe(0);
+
+        // Approved: the same connection has the operation now, and the repeated call goes through.
+        await active.finishAuth(callbackParams!);
+        expect(await callTool(client, 'reply_to_feedback', reply)).toMatchObject({ saved: true });
+        const identity = await authenticateMcp(bearer(provider.saved!.access_token), base);
+        expect(identity.connection).toMatchObject({ id: grantId, name: 'Laptop agent' });
+        expect(identity.scopes).toEqual(['feedback:read', 'feedback:reply']);
+        expect((await listConnectedApps(a.user.id)).map(app => app.id)).toEqual([grantId]);
+        // Its retry receipts stayed with it: the same key and input is the same reply.
+        expect(await callTool(client, 'reply_to_feedback', reply)).toMatchObject({ saved: true });
+        expect(await replies()).toBe(1);
+    } finally { await client.close(); }
+});
+
+test('only clients that can act on it get a scope challenge: older revisions and access tokens keep the tool error', async () => {
+    const a = await person('oauth-step-up-gate');
+    const reviewed = await project(a.context, 'Gate project');
+    const actor = (await memberActor(reviewed, a.user.id))!;
+    const thread = await createProjectComment(new Request(base), reviewed, actor, { origin: reviewed.urls[0]!, path: '/', kind: 'feedback', position: { type: 'page' }, text: 'Read only' });
+    const app = await connectApp(a.user, { scopes: ['feedback:read'] });
+    const { token: accessToken } = await createMcpCredential(a.context, { name: 'Read token', projectIds: [reviewed.id], scopes: ['feedback:read'], days: 7 });
+    const call = (authorization: string, version: string | null, name = 'reply_to_feedback', args: Record<string, unknown> = { projectId: reviewed.id, commentId: thread.id, text: 'No', idempotencyKey: randomUUID() }) =>
+        handleMcp(new Request(resource, { method: 'POST', headers: { Authorization: `Bearer ${authorization}`, 'Content-Type': 'application/json',
+            Accept: 'application/json, text/event-stream', ...(version ? { 'MCP-Protocol-Version': version } : {}) },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 7, method: 'tools/call', params: { name, arguments: args } }) }), base, { emit: quiet });
+    const toolError = async (response: Response) => {
+        expect(response.status).toBe(200);
+        expect((await response.json() as { result: Record<string, unknown> }).result).toMatchObject({ isError: true, structuredContent: { error: 'forbidden', message: 'This connection needs feedback:reply.' } });
+    };
+
+    const challenged = await call(app.tokens.access_token, '2025-11-25');
+    expect(challenged.status).toBe(403);
+    expect(challenged.headers.get('www-authenticate')).toBe('Bearer realm="uier MCP", error="insufficient_scope", scope="feedback:read feedback:reply", '
+        + `resource_metadata="${base}/.well-known/oauth-protected-resource/api/mcp", error_description="This connection needs feedback:reply."`);
+    expect(await challenged.json()).toEqual({ error: 'insufficient_scope', message: 'This connection needs feedback:reply. Allow it when your coding tool asks, or reconnect and choose it.' });
+    expect(challenged.headers.get('cache-control')).toBe('private, no-store');
+    // Revisions before step-up existed, and requests that name none: the answer the model can read.
+    await toolError(await call(app.tokens.access_token, '2025-06-18'));
+    await toolError(await call(app.tokens.access_token, null));
+    // An access token is fixed when it is created: there is nothing to ask for.
+    await toolError(await call(accessToken, '2025-11-25'));
+    // A call the connection may make is never challenged, also when it fails for another reason.
+    const missing = await call(app.tokens.access_token, '2025-11-25', 'get_feedback', { projectId: reviewed.id, commentId: 'comment_missing' });
+    expect(missing.status).toBe(200);
+    expect((await getCommentsStore().get(`project:${reviewed.id}`, thread.id))!.comment.thread.items).toHaveLength(1);
+});
 
 test('OAuth-created tokens respect hard expiry and connection revocation can revoke them atomically', async () => {
     const a = await person('oauth-expiry-revoke-tokens');

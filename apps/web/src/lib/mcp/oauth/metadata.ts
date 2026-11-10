@@ -36,6 +36,15 @@ export function bearerChallenge(issuer: string, tokenPresented: boolean) {
     return `Bearer realm="uier MCP", resource_metadata="${issuer}${protectedResourceMetadataPath}", scope="feedback:read"${tokenPresented ? ', error="invalid_token"' : ''}`;
 }
 
+/**
+ * The 403 challenge of step-up authorization (RFC 6750 §3.1, MCP authorization): the token is valid
+ * but lacks an operation. `scopes` is the complete set to ask for, what the connection has and what
+ * it needs, so a client that requests exactly this loses nothing.
+ */
+export function scopeChallenge(issuer: string, scopes: readonly string[], description: string) {
+    return `Bearer realm="uier MCP", error="insufficient_scope", scope="${scopes.join(' ')}", resource_metadata="${issuer}${protectedResourceMetadataPath}", error_description="${description.replace(/[^\x20-\x21\x23-\x5B\x5D-\x7E]/g, '')}"`;
+}
+
 export const publicMetadataHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Cache-Control': 'public, max-age=300',

@@ -154,10 +154,12 @@ test('a coding tool signs in with OAuth, reaches the chosen workspaces, and lose
                 projectId: USER_FEEDBACK_PROJECT_ID, commentId: saved.id, text: 'Fixed the header. Please check.', idempotencyKey: crypto.randomUUID()
             } });
             expect(reply.isError, JSON.stringify(reply)).not.toBe(true);
-            const status = await client.callTool({ name: 'set_feedback_status', arguments: {
+            // Changing status was not allowed. The client is told which operation is missing and starts a
+            // sign-in for it (step-up); nobody approves that here, and the connection goes on as it was.
+            await expect(client.callTool({ name: 'set_feedback_status', arguments: {
                 projectId: USER_FEEDBACK_PROJECT_ID, commentId: saved.id, resolved: true, idempotencyKey: crypto.randomUUID()
-            } });
-            expect(status.isError).toBe(true);
+            } })).rejects.toThrow('Unauthorized');
+            expect(flow.provider.authorizationUrl!.searchParams.get('scope')!.split(' ')).toEqual(expect.arrayContaining(['feedback:read', 'feedback:reply', 'feedback:status']));
 
             const created = await client.callTool({ name: 'create_access_token', arguments: {
                 name: 'Project watcher', workspaceId: projects.items.find(project => project.id === projectId)!.workspace.id,
@@ -293,7 +295,7 @@ test('one coding-tool connection includes selected accounts and projects after t
         expect(callback.searchParams.get('state')).toBe(flow.provider.stateValue);
         expect(await auth(flow.provider, {
             serverUrl: flow.serverUrl, resourceMetadataUrl: flow.resourceMetadataUrl, scope: flow.scope,
-            authorizationCode: callback.searchParams.get('code')!
+            authorizationCode: callback.searchParams.get('code')!, iss: callback.searchParams.get('iss')!
         })).toBe('AUTHORIZED');
         const client = new Client({ name: 'multi-profile-browser-regression', version: '1.0.0' });
         await client.connect(new StreamableHTTPClientTransport(flow.serverUrl, { authProvider: flow.provider }));
@@ -341,5 +343,61 @@ test('approval rechecks a parked account removed since the consent page opened',
         await expect(page.getByRole('checkbox', { name: `Include ${a}`, exact: true })).toHaveCount(0);
         await page.getByRole('button', { name: 'Cancel', exact: true }).click();
         expect((await flow.listener.received).searchParams.get('error')).toBe('access_denied');
+    } finally { await flow.listener.close(); }
+});
+
+test('a tool that needs another operation asks for it: consent starts from its connection, and the same connection continues', async ({ page, baseURL }) => {
+    test.setTimeout(60_000);
+    const email = uniqueEmail('mcp-step-up');
+    const flow = await startSignIn(baseURL, 'Step-up tool');
+    const options = { serverUrl: flow.serverUrl, resourceMetadataUrl: flow.resourceMetadataUrl };
+    try {
+        // Signed in with reading only, and a choice that is not the default.
+        await signIn(page, email, { from: flow.authorizationUrl });
+        await page.getByRole('radio', { name: 'Choose workspaces and projects' }).click();
+        await page.getByRole('group', { name: 'Personal', exact: true }).getByRole('checkbox', { name: 'All projects, including new ones' }).check();
+        await page.getByLabel('Connection name').fill('Laptop agent');
+        await page.getByRole('button', { name: 'Allow access' }).click();
+        const callback = await flow.listener.received;
+        await expect(page).toHaveURL(flow.listener.redirectUrl + callback.search);
+        expect(await auth(flow.provider, { ...options, scope: flow.scope, authorizationCode: callback.searchParams.get('code')!, iss: callback.searchParams.get('iss')! })).toBe('AUTHORIZED');
+        const projectId = await createProject(page, { name: 'Step-up project', urls: ['https://step-up.example'] });
+
+        // The tool calls something its connection may not do. A client of a revision that has step-up is told which operation is missing.
+        const reply = (token: string) => fetch(flow.serverUrl, { method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', 'MCP-Protocol-Version': '2025-11-25' },
+            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call',
+                params: { name: 'reply_to_feedback', arguments: { projectId, commentId: 'comment_missing', text: 'On it.', idempotencyKey: crypto.randomUUID() } } }) });
+        const challenged = await reply(flow.provider.saved!.access_token);
+        expect(challenged.status).toBe(403);
+        const { scope, resourceMetadataUrl } = extractWWWAuthenticateParams(challenged);
+        expect(scope).toBe('feedback:read feedback:reply');
+        expect(resourceMetadataUrl?.toString()).toBe(flow.resourceMetadataUrl!.toString());
+
+        // It asks for that; the person sees the connection as it is, with the operation added.
+        expect(await auth(flow.provider, { ...options, scope, forceReauthorization: true })).toBe('REDIRECT');
+        await page.goto(flow.provider.authorizationUrl!.toString());
+        await expect(page.getByRole('heading', { level: 1, name: 'Connect Step-up tool to uier' })).toBeVisible();
+        await expect(page.getByLabel('Connection name')).toHaveValue('Laptop agent');
+        await expect(page.getByRole('radio', { name: 'Choose workspaces and projects' })).toBeChecked();
+        await expect(page.getByRole('group', { name: 'Personal', exact: true }).getByRole('checkbox', { name: 'All projects, including new ones' })).toBeChecked();
+        await expect(page.getByRole('checkbox', { name: 'Reply to feedback' })).toBeChecked();
+        await expect(page.getByRole('checkbox', { name: 'Change status' })).not.toBeChecked();
+        const update = page.getByRole('checkbox', { name: 'Update Laptop agent' });
+        await expect(update).toBeChecked();
+        await expect(update).toHaveAccessibleDescription('The connection keeps its history and gets the access you allow here. Clear this to add a second connection.');
+        await page.getByRole('button', { name: 'Allow access' }).click();
+        await page.waitForURL(url => url.href.startsWith(flow.listener.redirectUrl));
+        const second = new URL(page.url()).searchParams;
+        expect(await auth(flow.provider, { ...options, scope, authorizationCode: second.get('code')!, iss: second.get('iss')! })).toBe('AUTHORIZED');
+
+        // The repeated call is no longer a matter of access: the thread does not exist, and that is the answer.
+        const allowed = await reply(flow.provider.saved!.access_token);
+        expect(allowed.status).toBe(200);
+        expect((await allowed.json() as { result: { structuredContent: { error: string } } }).result.structuredContent.error).toBe('not_found');
+        // Still one connection, with the operation added.
+        await page.goto('/app/account/coding-agents');
+        const apps = page.getByRole('region', { name: 'Coding agents' });
+        await expect(apps.getByText('Laptop agent', { exact: true })).toHaveCount(1);
     } finally { await flow.listener.close(); }
 });

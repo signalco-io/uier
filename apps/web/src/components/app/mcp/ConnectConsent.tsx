@@ -12,7 +12,7 @@ import { Item, ItemContent, ItemDescription, ItemTitle } from '@/src/components/
 import { RadioGroup } from '@/src/components/ui/radio-group';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { Spinner } from '@/src/components/ui/spinner';
-import type { AgentAccess, ClientPresentation } from '@/src/lib/mcp/oauth/grants';
+import type { AgentAccess, ClientPresentation, McpAccountAccess } from '@/src/lib/mcp/oauth/grants';
 import type { McpScope } from '@/src/lib/mcp/scopes';
 import { approveConnectionAction, cancelConnectionAction, switchConnectionAccountAction } from '@/src/lib/mcp/oauth/actions';
 import { ChoiceCard } from '../ChoiceCard';
@@ -28,9 +28,12 @@ export type ConsentWorkspace = {
     projects: { id: string; name: string; guests: boolean }[];
 };
 
-/** An existing connection to replace: offered for the same client, required at the connection limit */
+/**
+ * An existing connection to replace: offered for the same client, required at the connection limit.
+ * `update`: it is this client's own connection, which keeps its identity and gets what is allowed here.
+ */
 export type ConsentReplace =
-    | { mode: 'optional'; app: { id: string; name: string }; checked: boolean }
+    | { mode: 'optional'; app: { id: string; name: string }; checked: boolean; update?: boolean }
     | { mode: 'required'; apps: { id: string; name: string }[]; defaultId?: string; limit: number };
 
 type Selection = Record<string, 'all' | string[]>;
@@ -53,6 +56,11 @@ export type ConsentRequest = {
     requestedScopes: McpScope[];
     accounts: ConsentAccount[];
     replace: ConsentReplace | null;
+    /**
+     * What this client's connection has now, when it asks again (for another operation, or after a
+     * reconnect): the form starts from it, so allowing changes only what the tool asked for.
+     */
+    current?: { name: string; scopes: McpScope[]; accounts: McpAccountAccess[] };
 };
 
 type Outcome = { approved: boolean; url: string | null };
@@ -89,16 +97,33 @@ export function ConnectConsent({ requestId, request }: { requestId: string; requ
     return <ConsentForm requestId={requestId} request={request} onOutcome={setOutcome} />;
 }
 
-function ConsentForm({ requestId, request: { userId, email, client, requestedScopes, accounts, replace }, onOutcome }: {
+/** A profile's choice as the existing connection has it, without workspaces and projects it can no longer open. */
+function currentSelection(account: ConsentAccount, access: AgentAccess): AccountSelection {
+    if (access.kind === 'all') return { included: true, kind: 'all', workspaces: {} };
+    const workspaces: Selection = {};
+    for (const entry of access.workspaces) {
+        const workspace = account.workspaces.find(candidate => candidate.id === entry.workspaceId);
+        const projects = !workspace ? [] : entry.projects === 'all' ? 'all'
+            : entry.projects.filter(id => workspace.projects.some(project => project.id === id));
+        if (workspace && (projects === 'all' || projects.length)) workspaces[workspace.id] = projects;
+    }
+    return { included: true, kind: 'selected', workspaces };
+}
+
+function ConsentForm({ requestId, request: { userId, email, client, requestedScopes, accounts, replace, current }, onOutcome }: {
     requestId: string;
     request: ConsentRequest;
     onOutcome: (outcome: Outcome) => void;
 }) {
-    const [selections, setSelections] = useState<Record<string, AccountSelection>>(() => Object.fromEntries<AccountSelection>(accounts.map(account => [account.id, {
-        included: account.id === userId, kind: 'all', workspaces: {}
-    }])));
-    const [scopes, setScopes] = useState<McpScope[]>(() => [...new Set<McpScope>(['feedback:read', ...requestedScopes.filter(scope => scope !== 'tokens:create')])]);
-    const [name, setName] = useState(client.name);
+    const [selections, setSelections] = useState<Record<string, AccountSelection>>(() => Object.fromEntries<AccountSelection>(accounts.map(account => {
+        const existing = current?.accounts.find(entry => entry.userId === account.id);
+        return [account.id, existing ? currentSelection(account, existing.access)
+            : { included: current ? false : account.id === userId, kind: 'all', workspaces: {} }];
+    })));
+    // What the tool asked for, on top of what its connection already has. Creating access tokens is never pre-selected for a new one.
+    const [scopes, setScopes] = useState<McpScope[]>(() => [...new Set<McpScope>(['feedback:read', ...requestedScopes.filter(scope => scope !== 'tokens:create'),
+        ...(current?.scopes ?? [])])]);
+    const [name, setName] = useState(current?.name ?? client.name);
     const [replaceChecked, setReplaceChecked] = useState(replace?.mode === 'optional' ? replace.checked : false);
     const [replaceId, setReplaceId] = useState(replace?.mode === 'required' ? replace.defaultId ?? '' : '');
 
@@ -201,8 +226,10 @@ function ConsentForm({ requestId, request: { userId, email, client, requestedSco
                             <Checkbox id="replace" checked={replaceChecked} onCheckedChange={checked => setReplaceChecked(checked === true)}
                                 aria-describedby="replace-description" />
                             <FieldContent>
-                                <FieldLabel htmlFor="replace" className="break-words">Replace {replace.app.name}</FieldLabel>
-                                <FieldDescription id="replace-description">The earlier connection stops working when this one starts.</FieldDescription>
+                                <FieldLabel htmlFor="replace" className="break-words">{replace.update ? 'Update' : 'Replace'} {replace.app.name}</FieldLabel>
+                                <FieldDescription id="replace-description">{replace.update
+                                    ? 'The connection keeps its history and gets the access you allow here. Clear this to add a second connection.'
+                                    : 'The earlier connection stops working when this one starts.'}</FieldDescription>
                             </FieldContent>
                         </Field>}
                         {replace?.mode === 'required' && <Field>

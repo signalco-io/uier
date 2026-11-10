@@ -147,6 +147,13 @@ hand-wired 2025 path with the entry's default fallback: it answers every request
   (`skills/list`, `skills/get`, `skill://` resources). The files are read at run time from the
   repository layout, so `next.config.ts` traces them into the deployment (`outputFileTracingIncludes`);
   when they are missing the endpoint works without skills. Edit the skills in the plugin, never a copy.
+- Step-up authorization: a handler that finds an operation missing throws `McpScopeError` as before
+  (the check stays its first step, so a refused call changed nothing). `handleMcp` then turns the
+  answer into a `403` scope challenge (`scopeChallenge`, `oauth/metadata.ts`) when the connection is
+  OAuth and the request names revision `2025-11-25` or later; everyone else keeps the tool error.
+  The consent page starts from the same client's connection (`current`), and `exchangeCode` keeps
+  that grant's id when the same client replaces it, so receipts, agents and subscriptions stay.
+  Never challenge before the handler has refused: which operation a call needs is decided there only.
 - The only response that stays open is `events/stream`. For it the 2025 transport is created without
   JSON mode, and `handleMcp` closes the server and writes the request log when the body has been sent
   (`whenSent`), not when the response object is returned.

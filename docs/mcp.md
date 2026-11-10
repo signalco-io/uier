@@ -91,8 +91,10 @@ out. Only that random request id passes through sign-in. The page shows:
   **Select all operations** picks all six. Operations apply to the whole connection, not per workspace.
 - **Connection name.** Prefilled from the tool's name, 1–60 characters. Replies, status changes and
   assignments made through the connection show this name.
-- **Replace.** When you already have a connection from the same tool or with the same name, you can
-  replace it instead of adding another.
+- **Update or replace.** When the same tool asks again, the page starts from its connection as it
+  is (name, accounts, projects, operations) with what the tool asked for added, and **Update** keeps
+  that connection: its history, its retries and its place in threads stay. A connection of another
+  tool with the same name can be replaced instead of adding another.
 
 **Use another account** adds a signed-in account and returns to the same request, preserving the other
 accounts in this browser. Select every account you want to include before allowing access. Write
@@ -134,8 +136,10 @@ access token is checked against its connection on each request. A tool can end i
 through the [revocation endpoint](#endpoints) with its refresh token; revoking an access token ends only
 that token. Revocation cannot retract data the client already received.
 
-You cannot edit a connection's access yet. To change it, connect again from the tool and replace the
-existing connection. Add or remove an account this way too; an existing connection never gains an
+You cannot edit a connection's access in Account yet. To change it, connect again from the tool: the
+consent page starts from the connection as it is, and **Update** changes that connection in place
+(a tool that only needs [another operation](#asking-for-another-operation) asks for it itself). Add
+or remove an account this way too; an existing connection never gains an
 account merely because you sign in to it. Deleting a project removes it from every connection and access token that
 selected it; one left with nothing selected is revoked ([project deletion](project-deletion.md)).
 Transferring a project to another workspace does the same, and ends its event subscriptions: connect
@@ -379,6 +383,28 @@ tokens also get 200.
 Tokens are opaque: `uier_at.<userId>.<random>` and `uier_rt.<userId>.<random>`, like `uier_mcp.*` access
 tokens. The user id only selects a storage partition and grants nothing. Only SHA-256 hashes are
 stored. Tokens, codes, verifiers, `state` and request bodies are never logged.
+
+### Asking for another operation
+
+A tool that calls something its connection may not do, such as a reply with read access only, does
+not have to be reconnected by hand. The endpoint answers `403` with
+
+```http
+WWW-Authenticate: Bearer realm="uier MCP", error="insufficient_scope", scope="feedback:read feedback:reply",
+    resource_metadata="https://uier.io/.well-known/oauth-protected-resource/api/mcp",
+    error_description="This connection needs feedback:reply."
+```
+
+`scope` is everything to ask for: what the connection has and what the call needs. The tool starts
+a sign-in with it, the person sees the [consent page](#what-consent-asks) with the operation added
+and allows it, and the tool repeats the call. The connection stays the same one. Nothing was changed
+by the refused call: the check is the first thing every tool does.
+
+This is the step-up flow of the MCP authorization chapter since revision `2025-11-25`, so only a
+request that names that revision or a later one in `MCP-Protocol-Version` is challenged, and only on
+a signed-in connection. An earlier client, and every access token (its operations are fixed when it
+is created), gets the tool error as before: `forbidden`, `This connection needs feedback:reply.`
+Creating access tokens is never pre-selected on the consent page, also when a tool asks for it.
 
 ### Lifetimes
 
@@ -888,7 +914,7 @@ The request part has the HTTP method and status, the duration, and an `outcome`:
 | `outcome` | `error` |
 | --- | --- |
 | `handled` | none; the calls say how each message went |
-| `rejected` | `sign_in_required` (with `authentication`: `missing` or `invalid`), `forbidden` (before authentication: the Origin check), `rate_limited`, `method_not_allowed`, `invalid_request`, `too_large`, `transport_error` (the SDK refused the request, for example a missing `Accept`); for a `2026-07-28` request the SDK refused: `header_mismatch`, `unsupported_protocol_version`, `missing_client_capability`, `method_not_found`, `invalid_params` |
+| `rejected` | `sign_in_required` (with `authentication`: `missing` or `invalid`), `forbidden` (before authentication: the Origin check), `rate_limited`, `method_not_allowed`, `invalid_request`, `too_large`, `transport_error` (the SDK refused the request, for example a missing `Accept`); `insufficient_scope` (a [scope challenge](#asking-for-another-operation); the call says which operation, `missingScope`); for a `2026-07-28` request the SDK refused: `header_mismatch`, `unsupported_protocol_version`, `missing_client_capability`, `method_not_found`, `invalid_params` |
 | `interrupted` | `timeout` or `cancelled` |
 | `failed` | `server_error`, with `failure` |
 
@@ -985,7 +1011,8 @@ client to a token created in the real Account UI, verifies light/dark accessibil
 access on the existing connection. `e2e/mcpOauth.api.spec.ts` covers OAuth: discovery and the off
 switch, registration and metadata documents, authorization errors, consent, code exchange, refresh
 rotation, expiry, revocation, access across workspaces, coexistence with access tokens, and the
-official SDK client signing in, refreshing and losing access after revocation.
+official SDK client signing in, refreshing, stepping up for a missing operation (as the same connection)
+and losing access after revocation.
 `e2e/mcpOauth.spec.ts` (main journey tagged `@smoke`) starts the SDK client's OAuth flow with dynamic registration and a loopback listener, signs in through the
 authorization URL, chooses two workspaces and a write operation on the consent page, approves,
 exchanges the code, lists projects (including one created after approval) and replies, then

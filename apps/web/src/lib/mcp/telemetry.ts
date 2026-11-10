@@ -6,7 +6,7 @@ import { logEnvironment } from '../app/deployment';
 import { keyedHash } from '../comments/environment';
 import { ApiError } from '../comments/http';
 import { McpAuthenticationError, McpScopeError, type McpIdentity } from './credentials';
-import { mcpScopes } from './scopes';
+import { mcpScopes, type McpScope } from './scopes';
 import { codePattern, identifierPattern, MAX_CALLS, methods, requestedNamePattern, type Failure, type McpCall,
     type McpRequestEvent } from './telemetrySchema';
 
@@ -179,6 +179,8 @@ export class McpRequestLog {
     /** Events a push stream sent, by the request that opened it */
     private readonly streamed = new Map<RequestId, number>();
     private refusal?: string;
+    /** Operations a handler found missing on this connection (step-up authorization, `http.ts`) */
+    private readonly missing = new Set<McpScope>();
     private messages: unknown[] = [];
     private identity?: McpIdentity;
     private interruption?: 'timeout' | 'cancelled';
@@ -191,9 +193,14 @@ export class McpRequestLog {
     received(body: unknown) { this.messages = Array.isArray(body) ? body : [body]; }
     interrupted(reason: 'timeout' | 'cancelled') { this.interruption ??= reason; }
     rejected(error: unknown) { this.rejection ??= { error }; }
-    /** The protocol entry refused the request with this JSON-RPC error code before any handler ran. */
-    refused(code: unknown) { this.refusal ??= typeof code === 'number' ? refusals[code] ?? 'transport_error' : 'transport_error'; }
-    note(id: RequestId, error: unknown) { if (!this.done && !this.notes.has(id)) this.notes.set(id, describeError(error)); }
+    /** The request was refused: by the protocol entry with this JSON-RPC error code before any handler ran, or for the reason named. */
+    refused(code: unknown) { this.refusal ??= typeof code === 'string' ? code : typeof code === 'number' ? refusals[code] ?? 'transport_error' : 'transport_error'; }
+    note(id: RequestId, error: unknown) {
+        if (error instanceof McpScopeError) this.missing.add(error.scope);
+        if (!this.done && !this.notes.has(id)) this.notes.set(id, describeError(error));
+    }
+    /** The operations this request needed and the connection does not have */
+    get missingScopes() { return [...this.missing]; }
 
     /** Runs a request handler where `noteMcpError` can find the request it answers (its last argument, the context, carries the id). */
     inRequest<A extends unknown[], R>(callback: (...args: A) => R): (...args: A) => R {

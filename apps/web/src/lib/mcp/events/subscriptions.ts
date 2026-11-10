@@ -194,16 +194,22 @@ export type SubscribeInput = {
 /** A scan for replayed events starts this long before them: a write commits up to a minute after its event. */
 const REPLAY_SETTLE_MS = 60_000;
 
-/** Where a new subscription starts: now, or the cursor's position within the replay limits (`truncated` when they cut it). */
-function startPosition(input: Pick<SubscribeInput, 'cursor' | 'maxAgeMs'>, now: number) {
-    if (input.cursor === undefined || input.cursor === null) return { since: now, truncated: false };
+/** The cursor a subscription brings, or `null` to start from now. One this server never issued is a client error. */
+function startCursor(input: Pick<SubscribeInput, 'cursor'>) {
+    if (input.cursor === undefined || input.cursor === null) return null;
     const cursor = decodeFeedCursor(input.cursor);
     if (!cursor) throw new McpEventsError('invalid', 'Use a cursor this server returned, or null to start from now.');
+    return cursor;
+}
+
+/** Where a new subscription starts: now, or the cursor's position within the replay limits (`truncated` when they cut it). */
+function startPosition(cursor: ReturnType<typeof startCursor>, maxAgeMs: number | undefined, now: number) {
+    if (!cursor) return { since: now, truncated: false };
     // Events after the watermark, and not before the start time of a cursor that began from now.
     let floor = Math.max(cursor.watermark, cursor.from === undefined ? 0 : cursor.from - 1);
     let truncated = false;
     if (floor < now - REPLAY_LIMIT_MS) { floor = now - REPLAY_LIMIT_MS; truncated = true; }
-    if (input.maxAgeMs !== undefined && floor < now - input.maxAgeMs) { floor = now - input.maxAgeMs; truncated = true; }
+    if (maxAgeMs !== undefined && floor < now - maxAgeMs) { floor = now - maxAgeMs; truncated = true; }
     return { since: Math.min(now, floor + 1), truncated };
 }
 
@@ -224,8 +230,8 @@ export async function subscribeToMcpEvent(identity: McpIdentity, input: Subscrib
     const id = subscriptionId(identity.connection.id, url.href, input.name, args);
     const pk = eventsPk(project.id);
     const grant = grantedTtl(input.ttlMs);
-    // Checked even when a live subscription ignores it: a cursor this server never issued is a client error.
-    const start = startPosition(input, Date.now());
+    // Checked even when a live subscription ignores it, and before anything is asked of the endpoint.
+    const cursor = startCursor(input);
 
     for (let attempt = 0; attempt < 5; attempt++) {
         const stored = await store.get<McpEventSubscription>(pk, id);
@@ -243,6 +249,8 @@ export async function subscribeToMcpEvent(identity: McpIdentity, input: Subscrib
                 throw new McpEventsError('resource_exhausted', `A project can have ${MAX_SUBSCRIPTIONS_PER_PROJECT} subscriptions.`, { limit: 'project_subscriptions', max: MAX_SUBSCRIPTIONS_PER_PROJECT });
             if (!await verifiedEndpoint(store, identity.connection.id, url.href)) await verifyEndpoint(store, post, identity.connection.id, url, id, secret);
         }
+        // A new subscription starts at this moment: nothing from before it, unless its cursor asks.
+        const start = startPosition(cursor, input.maxAgeMs, now);
         const refreshBefore = Date.now() + grant;
         const base = { id, pk, projectId: project.id, workspaceId: project.workspaceId, userId: identity.user.id };
         const encrypted = encryptSecret(secret, secretContext(base), secretKey());
@@ -254,7 +262,7 @@ export async function subscribeToMcpEvent(identity: McpIdentity, input: Subscrib
             actorUserId,
             connectionId: identity.connection.id, connectionKind: identity.connection.kind,
             name: input.name, arguments: args, url: url.href, secret: encrypted,
-            since: existing?.doc.since ?? new Date(Math.min(now, start.since)).toISOString(),
+            since: existing?.doc.since ?? new Date(start.since).toISOString(),
             refreshBefore: new Date(refreshBefore).toISOString(),
             createdAt: existing?.doc.createdAt ?? new Date(now).toISOString(), updatedAt: new Date(now).toISOString(),
             ttl: recordTtl(refreshBefore, Date.now())
