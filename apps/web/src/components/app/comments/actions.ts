@@ -11,7 +11,7 @@ import { bulkTriageSchema } from '../../../lib/review/bulkTriageSchema';
 import { projectIdSchema } from '../../../lib/app/validation';
 import { agentCommentActionSchema, assignCommentsPeopleActionSchema, boardArchiveActionSchema, boardSortActionSchema, priorityCommentActionSchema } from './actionSchemas';
 import { saveProjectBoardArchive, saveProjectBoardSort } from '../../../lib/app/projectBoard';
-import type { BoardSort } from '../../../lib/app/boardSort';
+import type { BoardColumn, BoardSort } from '../../../lib/app/boardSort';
 import { setProjectCommentAgent } from '../../../lib/review/assigneeAgent';
 import type { AssigneeAgentInput } from '../../../lib/review/assigneeAgentModel';
 import { revalidatePath } from 'next/cache';
@@ -228,7 +228,7 @@ export async function setCommentPriorityAction(projectId: string, commentId: str
  * How one of the board's columns sorts, saved on the project for everyone who opens its board. The people who
  * triage the project may change it (checked again by the service, with the column's choices).
  */
-export async function setBoardSortAction(projectId: string, status: import('@uier/toolbar/verification').FeedbackStage, sort: BoardSort) {
+export async function setBoardSortAction(projectId: string, status: BoardColumn, sort: BoardSort) {
     return await actionResult(async () => {
         const input = parseActionInput(boardSortActionSchema, { projectId, status, sort });
         const { project, actor } = await commentContext(input.projectId);
