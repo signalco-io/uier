@@ -6,6 +6,11 @@ import { ChecksPanel } from './ChecksPanel';
 import { GuestNameField } from './GuestName';
 import { CheckItem, CheckSection, ChecksSummary, checkStates, OtherPageNote } from './ChecksParts';
 import { CheckedAt } from './CheckedAt';
+import { AiSearchSection } from './sections/AiSearchSection';
+import { CrawlerSection } from './sections/CrawlerSection';
+import { SharingSection } from './sections/SharingSection';
+import { StructuredDataSection } from './sections/StructuredDataSection';
+import { usePanelSectionChecks } from './sections/sections';
 
 const vitalNames: readonly VitalName[] = ['LCP', 'CLS', 'INP'];
 
@@ -60,7 +65,8 @@ export function SeoPanel({ report, path, onCheck, onClose }: {
     onClose: () => void;
 }) {
     const vitals = vitalChecks(useWebVitals());
-    const checks = seoChecks(report, vitals);
+    // The summary counts every check the panel lists: its own, Core Web Vitals and its on-demand sections'
+    const checks = [...seoChecks(report, vitals), ...usePanelSectionChecks('seo')];
     return (
         <ChecksPanel id="seo" title="SEO" onCheckAgain={onCheck} onClose={onClose}>
             {report && <>
@@ -77,6 +83,8 @@ export function SeoPanel({ report, path, onCheck, onClose }: {
                 <CheckSection title="Page">
                     {report.page.map(check => <CheckItem key={check.id} check={check} />)}
                 </CheckSection>
+                <SharingSection />
+                <StructuredDataSection />
                 <CheckSection title="Headings" count={report.headings.outline.length}>
                     {report.headings.checks.map(check => <CheckItem key={check.id} check={check} />)}
                     <HeadingsOutline outline={report.headings.outline} />
@@ -92,6 +100,10 @@ export function SeoPanel({ report, path, onCheck, onClose }: {
             <CheckSection title="Core Web Vitals" note="Measured in this browser">
                 {vitals.map(check => <CheckItem key={check.id} check={check} />)}
             </CheckSection>
+            {report && <>
+                <CrawlerSection />
+                <AiSearchSection />
+            </>}
         </ChecksPanel>
     );
 }

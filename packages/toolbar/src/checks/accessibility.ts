@@ -132,8 +132,7 @@ export function checkAccessibility(path: string, { signal, background }: { signa
         if (background && !background.hurry?.() && document.getElementsByTagName('*').length > backgroundElementLimit) return undefined;
         const axe = await loadAxe();
         signal?.throwIfAborted();
-        // The review layer is not the page: its host (wherever the page's layers moved it) and inline threads
-        const exclude = [getToolbarHost(), ...document.querySelectorAll('[data-uier-thread]')].filter(node => node instanceof Element);
+        const exclude = auditExcluded();
         const order = new Map(axe.getRules().map((rule, index) => [rule.ruleId, index]));
         let violations: Result[] | undefined;
         if (background && !background.hurry?.()) violations = await auditInSteps(axe, exclude, signal, background.hurry);
@@ -154,6 +153,28 @@ export function checkAccessibility(path: string, { signal, background }: { signa
         if (signal.aborted) reject(signal.reason);
         else signal.addEventListener('abort', () => reject(signal.reason), { once: true });
     })]);
+}
+
+/** The review layer is not the page: its host (wherever the page's layers moved it) and inline threads are left out of every audit */
+export function auditExcluded(): Element[] {
+    return [getToolbarHost(), ...document.querySelectorAll('[data-uier-thread]')].filter(node => node instanceof Element);
+}
+
+/**
+ * Runs `task` with axe-core once the audits asked for before it ended, and holds the ones asked for
+ * after it until it ends: axe-core does one thing at a time (`axe.run`, and `axe.setup` for its
+ * virtual tree, refuse to start while another runs). For work beside the panel's audit: one rule on
+ * one element, or a check that needs axe-core's own helpers. A cancelled task (`signal`) does not start.
+ */
+export function withAxe<T>(task: (axe: AxeApi) => Promise<T> | T, signal?: AbortSignal): Promise<T> {
+    const run = previous.catch(() => undefined).then(async () => {
+        signal?.throwIfAborted();
+        const axe = await loadAxe();
+        signal?.throwIfAborted();
+        return task(axe);
+    });
+    previous = run;
+    return run;
 }
 
 /** The audit nobody asked for yet: `hurry` says the panel waits for it now (no idle waits, no limits) */

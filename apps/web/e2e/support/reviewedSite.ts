@@ -4,6 +4,7 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { cspSources, embedScript } from '../../src/lib/app/integration';
+import { fixtures } from './fixtures';
 
 let reactApp: Promise<string> | undefined;
 
@@ -44,6 +45,9 @@ function buildReactApp() {
  * loopback origin, another site than the app on 127.0.0.1 (Chromium does not let a page fulfilled
  * by `page.route` or on a public address load scripts from loopback). With `?embed=react` the page
  * is a React app that adds the toolbar with its React component instead (`/react-app.js`).
+ * `http://fixture-<name>.localhost:<port>` is the same site with a test's own additions
+ * (`fixtures/<name>.ts`: head, body, headers, CSP, other addresses), so a spec adds a page without
+ * changing this server.
  */
 const layouts: Record<string, string> = {
     'html-scroll': 'html { overflow-y: scroll; } body { margin: 0 16px; }',
@@ -82,9 +86,12 @@ export async function startReviewedSite(apiBaseUrl: string) {
 
     const server = createServer((request, response) => {
         const url = new URL(request.url ?? '/', 'http://reviewed.localhost');
+        const fixture = fixtures[/^fixture-(.+)$/.exec(request.headers.host?.split('.')[0] ?? '')?.[1] ?? ''];
+        if (fixture?.route?.(url, request, response)) return;
         if (url.pathname === '/host.css') {
             response.writeHead(200, { 'Content-Type': 'text/css; charset=utf-8' });
             response.end(`${layouts[url.searchParams.get('layout') ?? ''] ?? ''}
+                ${fixture?.css ?? ''}
                 ${sectionCount(url) ? longPageCss : ''}
                 ${url.searchParams.has('host-dialog') ? `
                     dialog { transform: translateY(0); overflow: hidden; }
@@ -246,19 +253,26 @@ export async function startReviewedSite(apiBaseUrl: string) {
         const sections = sectionCount(url);
         const policy = label === 'blocked-connect' ? csp.replace(/connect-src [^;]+/, "connect-src 'self'")
             : label === 'blocked-frame' ? csp.replace(/frame-src [^;]+/, "frame-src 'self'") : csp;
-        response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Content-Security-Policy': policy });
+        response.writeHead(200, { ...fixture?.headers?.(url), 'Content-Type': 'text/html; charset=utf-8', 'Content-Security-Policy': fixture?.csp?.(policy, url) ?? policy });
+        const ownPage = fixture?.page?.(url, embed);
+        if (ownPage !== undefined) {
+            response.end(ownPage);
+            return;
+        }
         response.end(`<!doctype html>
 <html lang="en">
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Reviewed site</title>
     <link rel="stylesheet" href="/host.css?${url.searchParams.toString()}">
+    ${fixture?.head?.(url) ?? ''}
 </head>
 <body>
     ${sections ? '<header class="site-header"><strong>Reviewed site</strong><a href="#plans">Plans</a><a href="#docs">Docs</a></header>' : ''}
     <main>
         <h1>Pricing for ${pagePath.join('/') || 'home'}</h1>
         <p>A page on a site under review. Every plan includes the toolbar.</p>
+        ${fixture?.body?.(url) ?? ''}
         ${url.searchParams.has('host-probe') ? '<button id="host-probe" type="button">Host interaction</button><input aria-label="Host input"><script src="/host-probe.js" defer></script>' : ''}
         ${url.searchParams.has('host-anchors') ? '<div id="anchor-layers"></div><script src="/anchor-layers.js" defer></script>' : ''}
         ${url.searchParams.has('host-menus') ? `<div class="host-menus">

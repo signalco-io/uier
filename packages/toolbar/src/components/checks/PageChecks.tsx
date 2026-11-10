@@ -1,5 +1,5 @@
 import { useContext, useEffect, useRef, useState } from 'react';
-import { checkAccessibility } from '../../checks/accessibility';
+import { backgroundElementLimit, checkAccessibility } from '../../checks/accessibility';
 import { checkSeo, type SeoReport } from '../../checks/seo';
 import { startWebVitals, useWebVitals } from '../../checks/webVitals';
 import { pageSettled } from '../../checks/pageSettled';
@@ -17,6 +17,9 @@ import { AccessibilityPanel, type AccessibilityState } from './AccessibilityPane
 import { SeoPanel, seoChecks, tally, vitalChecks } from './SeoPanel';
 import { ChecksContext, type PostedComment } from './ChecksParts';
 import { ElementHighlight } from './ElementHighlight';
+import { PageSummaryReporter } from './PageSummaryReporter';
+import { sectionDefinitions } from './sections';
+import { PageLayerContext, SectionsContext, sectionsAttention, useSectionsStore } from './sections/sections';
 import { GuestNameProvider, useGuestNameGate } from './GuestName';
 import { useIssueComment } from './useIssueComment';
 
@@ -61,6 +64,8 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentio
     const announce = useAnnounce();
     const [accessibility, setAccessibility] = useState<AccessibilityState>({ checking: false });
     const [seo, setSeo] = useState<SeoReport>();
+    // The sections whose checks run on demand, in the audit asset: their reports, kept like the two above
+    const sections = useSectionsStore(path, sectionDefinitions);
     const [posted, setPosted] = useState<ReadonlyMap<string, PostedComment>>(() => new Map());
     const [highlighted, setHighlighted] = useState<{ key: string; element: Element }>();
     // Open on the previous page: this page can still be rendering, so its check waits for it to settle
@@ -146,9 +151,12 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentio
         ready.promise.then(() => {
             if (seoPath.current !== pathRef.current) runSeo({ background: true });
             if (auditAvailable() && !savesData() && auditedPath.current !== pathRef.current) runAccessibility({ background: true });
+            // The background sections need the audit asset too: where the audit is not run unasked (above, and a page too large for it), neither are they
+            if (auditAvailable() && !savesData() && document.getElementsByTagName('*').length <= backgroundElementLimit) sections.runBackground();
         });
         return () => {
             ready.cancel();
+            sections.cancelBackground();
             // An open Accessibility panel (it stays open while collapsed) still waits for it
             if (auditControl.current?.background && panelRef.current !== 'accessibility') auditControl.current.controller.abort();
         };
@@ -164,6 +172,7 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentio
         const check = () => {
             if (panel === 'accessibility' && auditedPath.current !== pathRef.current) runAccessibility();
             if (panel === 'seo' && seoPath.current !== pathRef.current) runSeo();
+            sections.runPanel(panel);
         };
         if (!settling) {
             check();
@@ -221,32 +230,58 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentio
     };
 
     return (
+        <SectionsContext value={sections}>
+        <PageLayerContext value={!collapsed}>
         <ChecksContext value={actions}>
-            {panel === 'accessibility' && <AccessibilityPanel state={settling ? { ...accessibility, checking: true } : accessibility} path={path} onCheck={checkNow(() => runAccessibility())} onClose={onClose} />}
-            {panel === 'seo' && <SeoPanel report={seo} path={path} onCheck={checkNow(() => runSeo())} onClose={onClose} />}
+            {panel === 'accessibility' && (
+                <AccessibilityPanel state={settling ? { ...accessibility, checking: true } : accessibility} path={path} onClose={onClose}
+                    onCheck={checkNow(() => {
+                        runAccessibility();
+                        sections.runPanel('accessibility', { again: true });
+                    })} />
+            )}
+            {panel === 'seo' && (
+                <SeoPanel report={seo} path={path} onClose={onClose}
+                    onCheck={checkNow(() => {
+                        runSeo();
+                        sections.runPanel('seo', { again: true });
+                    })} />
+            )}
             {onAttentionChange && (
                 <ChecksAttentionReporter
                     accessibility={accessibility.report?.path === path ? accessibility.report.count : undefined}
+                    accessibilitySections={sectionsAttention(sections, 'accessibility')}
                     seo={seo?.path === path ? seo : undefined}
+                    seoSections={sectionsAttention(sections, 'seo')}
                     onChange={onAttentionChange} />
             )}
+            <PageSummaryReporter path={path}
+                accessibility={accessibility.report?.path === path ? accessibility.report : undefined}
+                seo={seo?.path === path ? seo : undefined} />
             {panel && !collapsed && highlighted && <ElementHighlight element={highlighted.element} />}
         </ChecksContext>
+        </PageLayerContext>
+        </SectionsContext>
     );
 }
 
 /**
  * Tells the pill what this page's reports found to act on: the audit's issues, and the SEO checks
  * worth a look (Core Web Vitals included, as in the panel's summary, so it follows them as the page
- * is used). Its own component, so Core Web Vitals' updates re-render only it.
+ * is used), each with what its panel's on-demand sections found. Its own component, so Core Web
+ * Vitals' updates re-render only it.
  */
-function ChecksAttentionReporter({ accessibility, seo, onChange }: {
+function ChecksAttentionReporter({ accessibility, accessibilitySections, seo, seoSections, onChange }: {
     accessibility?: number;
+    accessibilitySections: number;
     seo?: SeoReport;
+    seoSections: number;
     onChange: (attention: ChecksAttention) => void;
 }) {
     const vitals = vitalChecks(useWebVitals());
-    const seoCount = seo ? tally(seoChecks(seo, vitals), 'warn') : undefined;
-    useEffect(() => onChange({ accessibility, seo: seoCount }), [accessibility, seoCount]);
+    const seoCount = seo ? tally(seoChecks(seo, vitals), 'warn') + seoSections : seoSections || undefined;
+    // Without the audit's report, only what the sections found (none: no dot and no count)
+    const accessibilityCount = accessibility === undefined ? accessibilitySections || undefined : accessibility + accessibilitySections;
+    useEffect(() => onChange({ accessibility: accessibilityCount, seo: seoCount }), [accessibilityCount, seoCount]);
     return null;
 }

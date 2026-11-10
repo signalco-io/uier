@@ -178,6 +178,39 @@ checks (a `details` row, "Outline").
   target). Targets: 2.5 s, 0.1 and 200 ms; a browser without an entry type says "Not measured in this
   browser", and INP without slow interactions passes as "Every interaction so far took under 104 ms".
 
+## Sections
+
+Checks added after the first two panels run on demand, in the audit asset, and show as sections of a
+panel. The review bundle (858 KB of the 1 MB a published bundle may be) gets only their views.
+
+- **The logic** is one module per area in `src/checks/lazy/` (`crawler.ts`, `sharing.ts`, ...), bundled
+  into `dist/audit.js` beside axe-core and handed over with it (`auditEntry.ts`, `auditHandoff.ts`;
+  `loadChecks()` in `axeLoader.ts`). Whatever a module exports is its part of `LazyChecks`
+  (`lazy/index.ts`). These modules read the page and return plain data and page elements: no React, UI
+  kit, hooks or components, since those would be bundled a second time. `lazy/api.ts` has what they
+  share: `SectionContext` (the path, an abort signal), `SectionReport` (checks, a count, a note, the
+  section's own `details`) and the builders `pageCheck` and `pageIssue`.
+- **A section** is a definition and a component, one file per area in `components/checks/sections/`:
+  `defineSection({ id, panel, when, run, attention? })`, the area's list of definitions
+  (`crawlerSections`), and a component that reads its state with `useSection(definition)` and shows it,
+  usually with `ReportSection` (the checks as compact rows, then the section's own rows).
+  `sections/index.ts` lists every area, and the panels render the components in their order.
+- **When it runs** (`when`): `background` with the background checks, one section at a time when the
+  browser is idle, only where the audit asset is loaded unasked (not with `Save-Data`, not over 1,500
+  elements) and only for work of a few milliseconds without requests; `panel` when its panel opens and
+  on Check again; `manual` only when its own control asks (`useSection(...).run`), for work that takes
+  long, sends requests or changes the page while it runs. Check again drops a `manual` report.
+- **Its state** is kept by `PageChecks` like the two reports (`useSectionsStore`): `idle`, `checking`,
+  `done` with the report, `failed` (said in the section and the console) or `unavailable` (no audit asset:
+  a packaged client without it, where the section renders nothing). A newer check of a section replaces
+  a running one, and leaving the page cancels them (`SectionContext.signal`).
+- **The indicators** count them: the SEO summary and the SEO button count the sections' checks worth
+  a look, the Accessibility button the issues of their `warn` checks (a definition's `attention` says
+  otherwise).
+- **Tests** get their own page without changing the shared server: `site.origin('fixture-<name>')` is
+  the reviewed site with the additions of `apps/web/e2e/support/fixtures/<name>.ts` (head, body, CSS,
+  headers, CSP, other addresses).
+
 ## Quick actions
 
 - **Highlight** (an issue with an element; an icon button named in its tooltip, so the row keeps one line) scrolls the element into view and outlines it

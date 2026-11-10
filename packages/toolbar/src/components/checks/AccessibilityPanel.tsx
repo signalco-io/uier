@@ -7,6 +7,11 @@ import { GuestNameField } from './GuestName';
 import { CheckSection, ChecksSummary, IssueList, OtherPageNote, sharedSummary, type ChecksIcon } from './ChecksParts';
 import { CheckedAt } from './CheckedAt';
 import { CircleAlertIcon, OctagonAlertIcon } from './ChecksIcons';
+import { AltTextSection } from './sections/AltTextSection';
+import { KeyboardSection } from './sections/KeyboardSection';
+import { MotionSection } from './sections/MotionSection';
+import { ReflowSection } from './sections/ReflowSection';
+import { ScreenReaderSection } from './sections/ScreenReaderSection';
 
 export type AccessibilityState = { report?: AccessibilityReport; checking: boolean; error?: boolean };
 
@@ -117,6 +122,12 @@ export function AccessibilityPanel({ state, path, onCheck, onClose }: {
                     </CheckSection>
                 );
             })}
+            {/* What the audit cannot judge: the on-demand sections, each with its own report */}
+            <KeyboardSection />
+            <ScreenReaderSection />
+            <AltTextSection />
+            <ReflowSection />
+            <MotionSection />
         </ChecksPanel>
     );
 }

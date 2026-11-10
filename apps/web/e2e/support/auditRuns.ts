@@ -20,17 +20,18 @@ export async function observeAuditRuns(page: Page) {
         type Axe = { run: (...args: unknown[]) => Promise<unknown> };
         Object.defineProperty(HTMLScriptElement.prototype, key, {
             configurable: true,
-            set(this: HTMLScriptElement, callback: (api: Axe) => void) {
+            set(this: HTMLScriptElement, callback: (api: Axe, ...rest: unknown[]) => void) {
                 Object.defineProperty(this, key, {
                     configurable: true,
                     writable: true,
-                    value: (api: Axe) => {
+                    value: (api: Axe, ...rest: unknown[]) => {
                         const run = api.run;
                         api.run = (...args: unknown[]) => {
                             const start = performance.now();
                             return run(...args).finally(() => performance.measure('axe-run', { start, end: performance.now() }));
                         };
-                        callback(api);
+                        // With whatever else the asset hands over (the on-demand checks)
+                        callback(api, ...rest);
                     }
                 });
             }

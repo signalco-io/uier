@@ -1,6 +1,7 @@
 import { runtimeAdapters } from '../adapters';
 import { toolbarConfig } from '../config';
-import { auditHandoffKey, type AuditScript, type AxeApi } from './auditHandoff';
+import { auditHandoffKey, type AuditAsset, type AuditScript, type AxeApi } from './auditHandoff';
+import type { LazyChecks } from './lazy';
 
 // The review script, read while it runs: the audit asset is published next to it, and gets its
 // nonce and referrer policy like the review script got the loader's (src/index.ts).
@@ -14,21 +15,21 @@ export function auditAvailable() {
     return !runtimeAdapters() && Boolean(__UIER_AUDIT_PATH__);
 }
 
-let pending: Promise<AxeApi> | undefined;
+let pending: Promise<AuditAsset> | undefined;
 
 /**
- * Loads axe-core, once: the content-addressed, integrity-checked audit asset, as a classic script
- * like the review script itself, so a site's CSP that allows the toolbar allows it too. A failed
- * load lets a later request try again.
+ * Loads the audit asset, once: axe-core and the on-demand page checks, content-addressed and
+ * integrity-checked, as a classic script like the review script itself, so a site's CSP that allows
+ * the toolbar allows it too. A failed load lets a later request try again.
  */
-export function loadAxe(): Promise<AxeApi> {
+export function loadAudit(): Promise<AuditAsset> {
     if (pending) return pending;
-    const attempt = new Promise<AxeApi>((resolve, reject) => {
+    const attempt = new Promise<AuditAsset>((resolve, reject) => {
         if (!auditAvailable()) {
             reject(new Error('Accessibility checks are not available here.'));
             return;
         }
-        let loaded: AxeApi | undefined;
+        let loaded: AuditAsset | undefined;
         const script: AuditScript = document.createElement('script');
         script.src = new URL(__UIER_AUDIT_PATH__, reviewScript?.src || `${toolbarConfig.apiUrl}/toolbar.js`).href;
         script.async = true;
@@ -36,7 +37,7 @@ export function loadAxe(): Promise<AxeApi> {
         if (script.integrity) script.crossOrigin = 'anonymous';
         if (reviewScript?.nonce) script.nonce = reviewScript.nonce;
         if (reviewScript?.referrerPolicy) script.referrerPolicy = reviewScript.referrerPolicy;
-        script[auditHandoffKey] = api => { loaded = api; };
+        script[auditHandoffKey] = (axe, checks) => { loaded = { axe, checks }; };
         script.onload = () => {
             script.remove();
             if (loaded) resolve(loaded);
@@ -53,4 +54,14 @@ export function loadAxe(): Promise<AxeApi> {
         if (pending === attempt) pending = undefined;
     });
     return attempt;
+}
+
+/** axe-core, from the audit asset */
+export function loadAxe(): Promise<AxeApi> {
+    return loadAudit().then(asset => asset.axe);
+}
+
+/** The page checks that run on demand (`lazy/index.ts`), from the audit asset */
+export function loadChecks(): Promise<LazyChecks> {
+    return loadAudit().then(asset => asset.checks);
 }
