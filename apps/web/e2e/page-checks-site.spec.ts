@@ -226,3 +226,48 @@ test('on a wide window the view and the project header take the width, like the 
     expect(settings.right).toBeCloseTo(view.right, 0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1674);
 });
+
+
+test('Across pages links checked ancestors in the same environment outside the finding (uier #254)', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.use.isMobile === true, 'Address hierarchy');
+    test.setTimeout(90_000);
+    await signIn(page, uniqueEmail('checked-ancestors'));
+    const origin = site.origin('fixture-site');
+    const other = site.origin();
+    const project = await createProject(page, { urls: [origin, other] });
+    const session = page.waitForResponse(response => response.request().method() === 'POST'
+        && new URL(response.url()).pathname === `/api/review/${project}/session`);
+    await page.goto(`/app/review/${project}?url=${encodeURIComponent(`${origin}/${project}/seed`)}`);
+    const { token: reviewToken } = await (await session).json() as { token: string };
+    const authorization = `Bearer ${reviewToken}`;
+    for (const [address, path, title] of [
+        [origin, '/cms', 'CMS home'],
+        [origin, '/cms/products', 'Products'],
+        [origin, '/cms/products/a', 'Shared title'],
+        [origin, '/cms/products/b', 'Shared title'],
+        [origin, '/cms/users/a', 'Shared title'],
+        [origin, '/cms/users/b', 'Shared title'],
+        [other, '/cms/users', 'Other environment']
+    ]) {
+        const verification = await page.request.post(`/api/review/${project}/verification`, {
+            headers: { Authorization: authorization }, data: { origin: address }
+        });
+        expect(verification.status()).toBe(200);
+        const { token } = await verification.json() as { token: string };
+        const response = await page.request.post(`/api/review/${project}/page-checks`, {
+            headers: { Origin: address!, Authorization: authorization, 'X-Uier-Verification': token },
+            data: { path, title, noindex: false, seo: { pass: 1, warn: 0 }, checks: {} }
+        });
+        expect(response.status()).toBe(204);
+    }
+    await page.goto(`/app/projects/${project}/page-checks`);
+    const titles = page.getByRole('region', { name: 'Shared titles' });
+    await titles.getByRole('button', { name: 'Show 4 pages' }).click();
+    for (const path of ['/cms', '/cms/products', '/cms/products/a', '/cms/products/b']) {
+        const href = `/app/review/${project}?url=${encodeURIComponent(`${origin}${path}`)}`;
+        await expect(titles.locator(`a[href="${href}"]`)).toBeVisible();
+    }
+    // A checked page in another environment never turns this grouping into a link.
+    await expect(titles.getByRole('link', { name: /^Open in review: \/cms\s*\/users$/ })).toHaveCount(0);
+    await expect(titles.locator('span[title="/cms/users"]')).toHaveText('/users');
+});

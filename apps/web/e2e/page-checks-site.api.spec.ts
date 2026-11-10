@@ -175,6 +175,23 @@ test('the latest summary replaces the page\'s previous one and keeps its counts;
     expect(third.id).toBe(pageCheckId(site, '/pricing'));
 });
 
+test('page checks keep only content-changing query parameters (uier #254)', async () => {
+    const f = await fixture();
+    for (const query of ['', '?lang=', '?lang=sq-AL&ignored=value']) {
+        expect((await post(f.project, summary({ path: `/cms/products${query}`, sourcePath: `/cms/products/${query}` }), bearer(f.reviewerToken))).status).toBe(204);
+    }
+    expect(await stored(f.project)).toMatchObject([{ path: '/cms/products', sourcePath: '/cms/products/' }]);
+    expect(await stored(f.project)).toHaveLength(1);
+    await updateDoc<DbProject>(f.project.pk, f.project.id, doc => ({ ...doc, pageState: { queryParameters: ['lang'], hashRouting: false } }));
+    for (const query of ['?lang=', '?lang=sq-AL&ignored=value']) {
+        expect((await post(f.project, summary({ path: `/cms/products${query}`, sourcePath: `/cms/products/${query}` }), bearer(f.reviewerToken))).status).toBe(204);
+    }
+    expect((await stored(f.project)).map(page => page.path)).toEqual(['/cms/products', '/cms/products?lang=', '/cms/products?lang=sq-AL']);
+    // Recorded keys remain usable after settings change; reading never silently merges their reports.
+    await updateDoc<DbProject>(f.project.pk, f.project.id, doc => ({ ...doc, pageState: { queryParameters: [], hashRouting: false } }));
+    expect((await stored(f.project)).map(page => page.path)).toEqual(['/cms/products', '/cms/products?lang=', '/cms/products?lang=sq-AL']);
+});
+
 test('a project keeps its most recently checked pages up to the cap', async () => {
     const f = await fixture();
     const start = Date.parse('2026-11-01T00:00:00Z');
@@ -282,6 +299,19 @@ test('across pages: addresses as a hierarchy of path segments, a query under its
     expect(leaves(pathTree(unusual, path => path)).sort()).toEqual([...unusual].sort());
     // A flat list stays flat
     expect(shown(pathTree(['/a', '/b'], path => path))).toEqual([{ label: '/a', page: true }, { label: '/b', page: true }]);
+});
+
+test('a finding links checked ancestors outside its own pages, keeping unchecked groups as text (uier #254)', () => {
+    const paths = ['/cms/products?lang=', '/cms/products?lang=sq-AL', '/cms/users/a', '/cms/users/b'];
+    const tree = pathTree(paths, path => path, [...paths, '/cms', '/cms/products', '/unrelated']);
+    expect(tree).toHaveLength(1);
+    expect(tree[0]).toMatchObject({ path: '/cms', item: '/cms' });
+    expect(tree[0]!.children[0]).toMatchObject({ path: '/cms/products', item: '/cms/products',
+        children: [{ item: '/cms/products?lang=' }, { item: '/cms/products?lang=sq-AL' }] });
+    expect(tree[0]!.children[1]).toMatchObject({ path: '/cms/users', children: [{ item: '/cms/users/a' }, { item: '/cms/users/b' }] });
+    expect(tree[0]!.children[1]!.item).toBeUndefined();
+    // An unchecked ancestor with only one child still collapses.
+    expect(pathTree(['/cms/products'], path => path, ['/cms/products'])[0]!.path).toBe('/cms/products');
 });
 
 test('the pages a filter shows: needing attention in any check or in one, passing all categories or incomplete (uier #221)', async () => {

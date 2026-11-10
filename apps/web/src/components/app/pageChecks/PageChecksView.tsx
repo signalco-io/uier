@@ -140,7 +140,7 @@ export function PageChecksView({ projectId, pages, environments }: {
                 </Empty>
             ) : (
                 <>
-                    <AcrossPages insights={pageCheckInsights(pages)} {...links} />
+                    <AcrossPages checkedPages={pages} insights={pageCheckInsights(pages)} {...links} />
                     <section aria-labelledby="checked-pages-title" className="@container/page-checks flex flex-col gap-3">
                         <h3 id="checked-pages-title" className="m-0 text-base font-semibold tracking-[-0.01em]">
                             Pages <span className="font-normal text-muted-foreground tabular-nums">

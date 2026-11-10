@@ -13,7 +13,7 @@ import { pathTree, type PathNode } from '@/src/lib/pageChecks/pathTree';
 import { cn } from '@/src/lib/utils';
 import { PageLink, type PageEnvironment } from './PageCheckParts';
 
-type Links = { projectId: string; environments: readonly PageEnvironment[] };
+type Links = { projectId: string; environments: readonly PageEnvironment[]; checkedPages: readonly PageCheckRow[] };
 
 /** A finding with more pages than this gets a search field */
 const SEARCH_FROM = 6;
@@ -99,13 +99,15 @@ function Levels({ nodes, label, links, nested }: { nodes: PathNode<PageCheckRow>
 /** The pages as a hierarchy of their addresses; under each environment's name when they are from several */
 function PageTree({ pages, label, links }: { pages: readonly PageCheckRow[]; label: string; links: Links }) {
     const origins = [...new Set(pages.map(page => page.origin))];
-    if (origins.length < 2) return <Levels nodes={pathTree(pages, page => page.path)} label={label} links={links} />;
+    const tree = (origin: string) => pathTree(pages.filter(page => page.origin === origin), page => page.path,
+        links.checkedPages.filter(page => page.origin === origin));
+    if (origins.length < 2) return <Levels nodes={tree(origins[0]!)} label={label} links={links} />;
     return (
         <ul aria-label={label} className="m-0 flex list-none flex-col gap-2 p-0">
             {origins.map(origin => (
                 <li key={origin} className="flex min-w-0 flex-col gap-0.5">
                     <span className="truncate text-xs text-muted-foreground">{links.environments.find(item => item.origin === origin)?.label ?? origin}</span>
-                    <Levels nodes={pathTree(pages.filter(page => page.origin === origin), page => page.path)} links={links} />
+                    <Levels nodes={tree(origin)} links={links} />
                 </li>
             ))}
         </ul>
