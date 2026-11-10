@@ -9,40 +9,46 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Field, FieldDescription, FieldError, FieldLabel } from '@/src/components/ui/field';
 import { Input } from '@/src/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/src/components/ui/toggle-group';
-import { EditablePicture, usePictureUpload } from '@/src/components/app/EditablePicture';
+import { dropTargetClassName, EditablePicture, usePictureUpload } from '@/src/components/app/EditablePicture';
 import { Section } from '@/src/components/app/PageHeader';
 import { PersonAvatar } from '@/src/components/app/PersonAvatar';
 import { SaveFooter, useSettingsDraft } from '@/src/components/app/SettingsSave';
 import { themeOptions } from '@/src/components/app/shell/AccountMenu';
 import { KnownPages } from '@/src/knownPages';
 import { MAX_NAME_LENGTH } from '@/src/lib/app/limits';
+import { cn } from '@/src/lib/utils';
 import { updateNameAction } from './actions';
 
 /**
  * The profile picture: the avatar is the button that opens Upload picture (and Remove picture once there
- * is one). Each change saves at once, like a switch; the name beside it saves with the form.
+ * is one); an image can also be dropped on it or pasted while it or its menu has focus. Each change saves
+ * at once, like a switch; the name beside it saves with the form.
  */
 function ProfilePicture({ name, avatarUrl, descriptionId }: { name: string; avatarUrl?: string; descriptionId: string }) {
     const router = useRouter();
-    const { pending, error, fileInput, choose, remove } = usePictureUpload({
+    // While a change saves, the menu stays closed but the avatar keeps the focus: a disabled trigger
+    // can't take it back from the closing menu, which would leave it on the page's body
+    const [open, setOpen] = useState(false);
+    const { pending, error, fileInput, dropTarget, choose, remove } = usePictureUpload({
         endpoint: KnownPages.AccountAvatar,
         fileLabel: 'Profile picture file',
         failed: 'Your picture could not be saved.',
+        // An image dropped or pasted into the open menu closes it, like choosing one of its items
+        onPendingChange: (next) => {
+            if (next) setOpen(false);
+        },
         onSaved: (method) => {
             toast(method === 'POST' ? 'Your picture is saved.' : 'Your picture is removed.');
             router.refresh();
         }
     });
-    // While a change saves, the menu stays closed but the avatar keeps the focus: a disabled trigger
-    // can't take it back from the closing menu, which would leave it on the page's body
-    const [open, setOpen] = useState(false);
     return (
         <>
             <DropdownMenu open={open} onOpenChange={next => setOpen(next && !pending)}>
-                <DropdownMenuTrigger render={<EditablePicture aria-label="Edit profile picture" aria-describedby={descriptionId} pending={pending} />}>
+                <DropdownMenuTrigger render={<EditablePicture aria-label="Edit profile picture" aria-describedby={descriptionId} pending={pending} {...dropTarget} />}>
                     <PersonAvatar name={name} avatarUrl={avatarUrl} aria-hidden="true" className="size-16" fallbackClassName="text-xl" />
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-auto">
+                <DropdownMenuContent className={cn('w-auto', dropTargetClassName)} {...dropTarget}>
                     <DropdownMenuItem onClick={choose}>
                         <ImageUpIcon />
                         {avatarUrl ? 'Upload a new picture' : 'Upload picture'}
@@ -90,7 +96,7 @@ export function AccountForm({ name, avatarUrl }: { name: string; avatarUrl?: str
                         </Field>
                     </form>
                 </div>
-                <FieldDescription id={`${formId}-picture`}>Your picture is shown beside your name. PNG, JPEG, WebP or GIF, cropped to a square.</FieldDescription>
+                <FieldDescription id={`${formId}-picture`}>Your picture is shown beside your name. PNG, JPEG, WebP or GIF, cropped to a square. Drop an image on it or paste one to change it.</FieldDescription>
             </div>
         </Section>
     );

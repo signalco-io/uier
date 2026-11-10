@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import sharp from 'sharp';
 import { expectNoAxeViolations } from './accessibility';
 import { appNavigation, closeAppNavigation, signIn, uniqueEmail } from './support/app';
+import { dropFile, pasteFile } from './support/images';
 
 // Account → General → Profile: upload, change and remove the profile picture (uier #30)
 
@@ -72,6 +73,34 @@ test('the profile picture is uploaded, shown beside the name, replaced and remov
     await expect.poll(() => profilePicture.evaluate((img: HTMLImageElement) => [img.naturalWidth, img.naturalHeight])).toEqual([120, 120]);
     // The replaced picture is gone
     expect((await page.request.get(first!)).status()).toBe(404);
+
+    // An image dropped on the avatar, or pasted while it has focus, saves the same way (uier #242)
+    let previous = await profilePicture.getAttribute('src');
+    await avatarButton.dispatchEvent('dragenter', { dataTransfer: await page.evaluateHandle(() => {
+        const data = new DataTransfer();
+        data.items.add(new File(['x'], 'drag.png', { type: 'image/png' }));
+        return data;
+    }) });
+    await expect(avatarButton).toHaveAttribute('data-drop-target');
+    await dropFile(avatarButton, await photo(200, 300));
+    await expect(avatarButton).not.toHaveAttribute('data-drop-target');
+    await expect(profilePicture).not.toHaveAttribute('src', previous!);
+    await expect.poll(() => profilePicture.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(200);
+    // A dropped file that is not an image gets the server's answer without being sent
+    await dropFile(avatarButton, { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('notes') });
+    await expect(profile.getByRole('alert')).toHaveText('Use a PNG, JPEG, WebP or GIF image.');
+    previous = await profilePicture.getAttribute('src');
+    await avatarButton.focus();
+    await pasteFile(page, await photo(90, 150));
+    await expect(profilePicture).not.toHaveAttribute('src', previous!);
+    await expect.poll(() => profilePicture.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(90);
+    await expect(profile.getByRole('alert')).toHaveCount(0);
+    // Pasting into the name field leaves the picture alone
+    previous = await profilePicture.getAttribute('src');
+    await profile.getByLabel('Name').focus();
+    await pasteFile(page, await photo(60, 60));
+    await expect(avatarButton).not.toHaveAttribute('aria-busy');
+    await expect(profilePicture).toHaveAttribute('src', previous!);
 
     // Removing with the keyboard (a tap on a phone) gives the focus back to the avatar, when it fails and when it works
     const keyboard = testInfo.project.use.isMobile !== true;

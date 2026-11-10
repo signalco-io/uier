@@ -2,6 +2,7 @@ import sharp from 'sharp';
 import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { appNavigation, closeAppNavigation, createProject, fillClientName, hydrated, signIn, uniqueEmail } from './support/app';
+import { dropFile, pasteFile } from './support/images';
 import { animationsFinished, newVisitor } from './support/toolbar';
 
 test('clients show in the sidebar and on their page, and new projects pick an existing one', async ({ page }, testInfo) => {
@@ -423,6 +424,22 @@ test('client logos save from the avatar picker and appear on every client mark, 
     await expect(picture).not.toHaveAttribute('src', first!);
     await expect.poll(() => picture.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(120);
     expect((await page.request.get(first!)).status()).toBe(404);
+    // A logo pasted while the popover has focus, or dropped on the closed avatar, saves the same way (uier #242)
+    let previous = await picture.getAttribute('src');
+    await avatar.getByRole('button', { name: 'Change logo' }).focus();
+    await pasteFile(page, await photo(160));
+    await expect(picture).not.toHaveAttribute('src', previous!);
+    await expect.poll(() => picture.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(160);
+    await expect(avatar.getByRole('status')).toHaveText('Logo saved.');
+    await avatar.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(avatar).toBeHidden();
+    previous = await picture.getAttribute('src');
+    await dropFile(dialog.getByRole('button', { name: 'Edit client avatar' }), await photo(200));
+    await expect(avatar).toBeVisible();
+    await expect(picture).not.toHaveAttribute('src', previous!);
+    await expect.poll(() => picture.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(200);
+    await expect(avatar.getByRole('status')).toHaveText('Logo saved.');
+    await expect(dialog.getByLabel('Description (optional)')).toHaveValue('Keep this draft.');
     const second = await picture.getAttribute('src');
     await avatar.getByRole('button', { name: 'Done', exact: true }).click();
     await dialog.getByRole('button', { name: 'Save', exact: true }).click();

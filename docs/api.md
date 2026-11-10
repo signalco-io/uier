@@ -622,7 +622,7 @@ can bring one too ([Google](google-sign-in.md#profile-picture), [Microsoft](micr
 - **Validation** reads the format from the file's first bytes, never its name or declared type: PNG, JPEG,
   WebP or GIF (first frame), at most 4 MB (`413`; a request body over the limit is cut off while it is read)
   and 25 million pixels (a 24 MP phone photo); anything else is `415` or `400` with a message for the Account page. The browser
-  scales down a larger photo before sending it. Sharp decodes the image and keeps only pixels: upright,
+  scales down a larger photo before sending it, whether it was chosen, dropped or pasted. Sharp decodes the image and keeps only pixels: upright,
   the centre square, at most 256 pixels (never scaled up), WebP without metadata.
 - **Storage**: a `user-avatar` document (`avatar_<version>`, base64; usually under 30 KB, at most 96 KB even for noise) in
   the person's own `user:<id>` partition, and `avatar: { version, source, updatedAt }` on their `user`
