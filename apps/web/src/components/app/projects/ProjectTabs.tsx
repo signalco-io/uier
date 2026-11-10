@@ -20,12 +20,18 @@ export function ProjectTabs({ projectId, install }: { projectId: string; install
     const comments = KnownPageLinks.project(projectId);
     const pageChecks = KnownPageLinks.projectPageChecks(projectId);
     return (
-        <LinkTabs
-            label="Project"
-            tabs={[
-                { href: comments, label: 'Comments', current: pathname === comments },
-                { href: pageChecks, label: 'Page checks', current: pathname === pageChecks },
-                ...install ? [{ href: KnownPageLinks.projectInstall(projectId), label: 'Install', current: isInstallPage(pathname, projectId) }] : []
-            ]} />
+        // The tabs' line runs to the panel's edges (uier #237), dividing the project's header from its page: a 1px
+        // line whose shadow is clipped to its own row, so it adds no scrolling and the panel's frame clips it. The
+        // tabs paint above it (a later positioned sibling), so the current tab's underline stays whole.
+        <div className="relative before:absolute before:inset-x-0 before:bottom-0 before:h-px before:bg-border before:shadow-[0_0_0_100vmax_hsl(var(--border))] before:[clip-path:inset(0_-100vmax)]">
+            <LinkTabs
+                label="Project"
+                className="relative"
+                tabs={[
+                    { href: comments, label: 'Comments', current: pathname === comments },
+                    { href: pageChecks, label: 'Page checks', current: pathname === pageChecks },
+                    ...install ? [{ href: KnownPageLinks.projectInstall(projectId), label: 'Install', current: isInstallPage(pathname, projectId) }] : []
+                ]} />
+        </div>
     );
 }

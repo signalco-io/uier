@@ -39,7 +39,9 @@
   review and the settings cog (`ProjectSettingsButton`, an icon link with a tooltip, current on the settings pages),
   then the `ProjectTabs`: Comments, [Page checks](page-checks.md) and Install (Settings → Installation and the onboarding
   install step) until a comment from one of the project's addresses arrives (`hasProjectFeedback`); after that Install is
-  gone); its pages render the comments, page checks, install guide or settings under it.
+  gone; the tabs' line runs to the inset panel's edges, a divider between the header and the page (uier #237): a 1px
+  line whose shadow `clip-path` keeps to its row, so it adds no sideways scrolling); its pages render the comments,
+  page checks, install guide or settings under it.
 - **Sidebar project order.** `ProjectOrderMenu` has two labelled radio groups: Sort (Recent activity, Recently
   created, Name) and Group (None, Client once an active project has one, Status). Only Group → Status lists the done
   projects too, under Active and Done, and the header then reads "All projects" (`listsProject`).
