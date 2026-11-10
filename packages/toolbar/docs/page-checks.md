@@ -168,8 +168,8 @@ checks (a `details` row, "Outline").
   (or Google) not to index it, and on such a page a missing canonical link is a note, "Not needed",
   not a warning ([uier #195](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_1hEpNjurDgh70vdAEO8Tn)).
   The uier app's pages declare `noindex` on purpose ([search indexing](../../../apps/web/docs/search-indexing.md)).
-  A canonical that is there is still checked. The `X-Robots-Tag` response header is not in the document
-  and is not read.
+  A canonical that is there is still checked. The `X-Robots-Tag` response header is not in the document:
+  the Crawlers section reads it from the page's response ([crawlers](page-checks-crawler.md)).
 - **Headings**: one h1, no skipped levels (an h3 right after an h1), no empty headings, and the outline.
 - **Links**: the count (this site and other sites), links without text (text, `aria-label`,
   `aria-labelledby`, `title` or an image's alt text), and addresses that look broken: empty, `#` alone,

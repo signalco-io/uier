@@ -84,7 +84,8 @@ const directives = (tag: Element) => (tag.getAttribute('content') ?? '').toLower
 /**
  * What the page's robots meta tags (`robots`, and `googlebot` for Google) ask of search engines.
  * `noindex` (or `none`) keeps the page out of search results, so it needs no canonical link. The
- * `X-Robots-Tag` response header is not in the document and is not read.
+ * `X-Robots-Tag` response header is not in the document: the Crawlers section reads it from the
+ * page's response (`lazy/crawler.ts`).
  */
 function robotsCheck(): { check: PageCheck; noindex: boolean } {
     const tags = [...document.querySelectorAll('meta[name="robots" i], meta[name="googlebot" i]')];
