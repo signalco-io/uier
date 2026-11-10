@@ -117,3 +117,52 @@ test('a member’s choice in the toolbar is saved to their account, shown in Acc
     await expect(page.getByRole('button', { name: 'Add comment' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Aggiungi commento' })).toHaveCount(0);
 });
+
+
+for (const fails of [false, true]) {
+    test(`account language choices wait for a delayed ${fails ? 'failed' : 'successful'} save`, async ({ page }) => {
+        await signIn(page, uniqueEmail('language-race'));
+        const projectId = await createProject(page, { urls: [site.origin()], name: 'Reviewed site' });
+        await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${site.origin()}/${projectId}/pricing`)}`);
+        await expect(page.getByRole('button', { name: 'Add comment' })).toBeVisible();
+        await openLanguages(page, 'Options', 'Language');
+        let release!: () => void;
+        const held = new Promise<void>(resolve => { release = resolve; });
+        let writes = 0;
+        await page.route(`**/api/review/${projectId}/language`, async route => {
+            writes++;
+            if (writes === 1) {
+                await held;
+                if (fails) {
+                    await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'save_failed' }) });
+                    return;
+                }
+            }
+            await route.continue();
+        });
+        try {
+            await page.getByRole('button', { name: 'Deutsch', exact: true }).click();
+            await expect.poll(() => writes).toBe(1);
+            const french = page.getByRole('button', { name: 'Français', exact: true });
+            await expect(french).toBeDisabled();
+            // A second choice cannot be sent while the first account write is outstanding.
+            await french.dispatchEvent('click');
+            expect(writes).toBe(1);
+            const firstSaved = page.waitForResponse(response => response.url().endsWith(`/api/review/${projectId}/language`));
+            release();
+            expect((await firstSaved).status()).toBe(fails ? 500 : 200);
+            await expect(french).toBeEnabled();
+            if (fails) await expect(page.getByRole('button', { name: 'Default (English)', exact: true })).toHaveAttribute('aria-pressed', 'true');
+            else await expect(page.getByRole('button', { name: 'Deutsch', exact: true })).toHaveAttribute('aria-pressed', 'true');
+            const secondSaved = page.waitForResponse(response => response.url().endsWith(`/api/review/${projectId}/language`));
+            await french.click();
+            expect((await secondSaved).status()).toBe(200);
+            await expect(page.getByRole('button', { name: 'Ajouter un commentaire', exact: true })).toBeVisible();
+            await page.goto('/app/account');
+            await expect(page.getByRole('region', { name: 'Toolbar language', exact: true }).getByRole('combobox', { name: 'Language' })).toContainText('French (Français)');
+            expect(writes).toBe(2);
+        } finally {
+            release();
+        }
+    });
+}

@@ -119,9 +119,9 @@ function OptionSwitch({ checked, onClick, children }: { checked: boolean; onClic
  * One language of the Language view: a check marks the chosen one (`aria-pressed`). `lang` names the
  * language of its label, so a screen reader reads "Deutsch" in German.
  */
-function LanguageOption({ selected, lang, onClick, children }: { selected: boolean; lang?: string; onClick: () => void; children: ReactNode }) {
+function LanguageOption({ selected, disabled, lang, onClick, children }: { selected: boolean; disabled?: boolean; lang?: string; onClick: () => void; children: ReactNode }) {
     return (
-        <OptionButton icon={selected ? <Check size={16} /> : null} aria-pressed={selected} onClick={onClick}>
+        <OptionButton icon={selected ? <Check size={16} /> : null} aria-pressed={selected} disabled={disabled} onClick={onClick}>
             <span lang={lang}>{children}</span>
         </OptionButton>
     );
@@ -288,11 +288,11 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
                     <h2 ref={languageHeadingRef} tabIndex={-1} className="m-0 rounded-md px-2 text-sm font-semibold text-foreground outline-none">{t.options.language}</h2>
                     {/* Default first: it follows the project (Account → Toolbar language has the same choice) */}
                     <Stack role="group" aria-label={t.options.language}>
-                        <LanguageOption selected={languages.state.preference === null} onClick={() => languages.choose(null)}>
+                        <LanguageOption disabled={languages.saving} selected={languages.state.preference === null} onClick={() => languages.choose(null)}>
                             {t.options.languageDefault(toolbarLanguageNames[languages.state.defaultLanguage])}
                         </LanguageOption>
                         {toolbarLanguages.map(language => (
-                            <LanguageOption key={language} lang={language} selected={languages.state.preference === language} onClick={() => languages.choose(language)}>
+                            <LanguageOption disabled={languages.saving} key={language} lang={language} selected={languages.state.preference === language} onClick={() => languages.choose(language)}>
                                 {toolbarLanguageNames[language]}
                             </LanguageOption>
                         ))}

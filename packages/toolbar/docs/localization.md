@@ -33,7 +33,8 @@ One store for the page, so the main root, inline threads and code outside React 
 - `applyLanguageInfo(info)` is called as the review info or visitor response arrives; `forgetAccountLanguage()` on
   sign-out (a guest choice in this browser applies again); `setLanguagePreference` from Options
   (`hooks/useLanguageChoice.ts`, which saves an account's choice optimistically and goes back to the previous one
-  when saving fails).
+  when saving fails). Account language choices are disabled until the save settles; a synchronous guard
+  also prevents a second choice before React renders, so saves and rollbacks cannot overtake a newer choice.
 - A language change re-keys the page checks (`CommentsGlobal`), so open reports show in the new language.
 
 ## Catalogs and assets

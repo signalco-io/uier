@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { toolbarConfig } from '../config';
 import type { ToolbarLanguage } from '../languages';
@@ -22,11 +23,15 @@ async function saveLanguage(language: ToolbarLanguage | null) {
  */
 export function useLanguageChoice() {
     const state = useLanguageState();
+    const saving = useRef(false);
     const save = useMutation({
         mutationFn: ({ language }: { language: ToolbarLanguage | null; previous: ToolbarLanguage | null }) => saveLanguage(language),
-        onError: (_error, { previous }) => setLanguagePreference(previous)
+        onError: (_error, { previous }) => setLanguagePreference(previous),
+        onSettled: () => { saving.current = false; }
     });
     const choose = (language: ToolbarLanguage | null) => {
+        // Keep a second choice from overtaking the account write, including before React re-renders.
+        if (saving.current) return;
         if (language === state.preference) {
             // The same choice again: load its language again if it could not load
             if (state.failed) retryLanguage();
@@ -35,7 +40,10 @@ export function useLanguageChoice() {
         const previous = state.preference;
         save.reset();
         setLanguagePreference(language);
-        if (state.account) save.mutate({ language, previous });
+        if (state.account) {
+            saving.current = true;
+            save.mutate({ language, previous });
+        }
     };
     return { state, choose, saving: save.isPending, failed: save.isError };
 }
