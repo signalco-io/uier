@@ -35,7 +35,7 @@ The single purpose is reviewing configured uier project sites by leaving on-page
 | Permission | Why it is used |
 | --- | --- |
 | `activeTab` | Temporary access after the reviewer explicitly opens the action; injects the review layer and captures only the reviewed visible tab. Same-origin continuation ends on Exit, tab closure or origin change. |
-| `scripting` | Injects the locally bundled toolbar into the top frame's isolated world. No remote executable code. |
+| `scripting` | Injects the locally bundled toolbar into the top frame's isolated world, and its locally bundled accessibility and page checks when the toolbar checks the page. No remote executable code. |
 | `storage` | Trusted local storage persists the separate refresh credential and pending renewal attempt. Access credentials, active bindings, verification proofs and bounded text/anchor drafts use trusted session storage and clear on browser restart. No images in drafts. |
 | `identity` | Explicit first-party sign-in and consent using the exact extension callback, state and PKCE. |
 | `https://uier.io/*` host | Worker API requests and the extension-owned first-party browser-verification frame. Does not grant access to every reviewed site. |

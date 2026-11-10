@@ -18,6 +18,20 @@ compiled from the toolbar's Tailwind setup and brand tokens, and Geist ships in 
 shows the active tab's site, the matching projects, an active review with Exit review, and Open uier
 and Sign out. The 16/32/48 px icons are the rounded app icon; the 128 px icon keeps 16 px padding.
 
+The toolbar's Accessibility and SEO panels work as on the web. Their audit asset (axe-core and the
+on-demand page checks, [page checks](../packages/toolbar/docs/page-checks.md)) is `audit.js`, a
+separate file of the package built from the toolbar's `checks/auditEntry.ts` (about 680 KB, 190 KB of
+the ZIP), never part of `content.js`. When the toolbar first checks a document (the background audit
+once the page is idle, or a panel), the content runtime sends the closed `audit` message. The worker
+checks the sender's live binding and document as for every content operation, runs the file with
+`scripting.executeScript({ files: ['audit.js'], world: 'ISOLATED' })` in that tab's top frame and
+confirms the returned document ID. The asset hands axe-core and the checks to the toolbar through a
+symbol on the isolated world's own global object, which page scripts cannot read, and axe-core's own
+`axe` global is removed again. It uses the review's activeTab and scripting access: no new
+permission, no `web_accessible_resources`, nothing downloaded, and the page's CSP does not apply.
+axe-core needs no `eval`. The panels draw in the toolbar's shadow root, so strict `img-src` and
+`style-src` do not affect them.
+
 Chrome/Firefox request activeTab, scripting, storage and identity. The sole persistent host permission
 is the uier API. No cookies, history, all-sites grant, header rewriting or offscreen permission.
 A temporary activeTab grant follows same-origin navigation. Bindings in trusted storage.session
@@ -235,7 +249,10 @@ be rolled back by decreasing the version.
 ## Validation and delivery
 
 PR CI validates production resources, packages a deterministic ZIP/checksum/source receipt and runs
-that unchanged ZIP in persistent Chromium. The local TLS fixture maps the production API hostname to
+that unchanged ZIP in persistent Chromium. The build refuses axe-core or the on-demand checks in any
+entry but `audit.js`; validation requires `audit.js` with axe-core's notice and refuses that notice
+in every other resource, and each browser app's tests run its `audit.js` in a fresh context to check
+the isolated-world handoff. The local TLS fixture maps the production API hostname to
 a disposable loopback proxy, including native identity windows; it never patches the manifest or
 bundle and does not contact the production API. The temporary certificate is trusted only by that
 browser process's SPKI flag. This verifies the production artifact with local BotID mode, **not real
@@ -248,7 +265,10 @@ activation/drafts, access renewal without cookies, committed-but-lost refresh re
 refresh/logout, draft recovery, committed-but-lost write retries,
 same-document project switching, Exit/restart, SPA history, cross-origin deactivation, sign-out,
 embed coexistence with a different project, text/area anchors, screenshot redaction, safe inactive-tab
-capture failure, omitted API cookies and light/dark popup accessibility.
+capture failure, omitted API cookies, light/dark popup accessibility, and the Accessibility panel on a
+strict-CSP page of over 1,500 elements: `audit.js` is parsed in the document only once the panel opens,
+once for Check again too, the panel lists the page's issues, and the page has no `axe`, handoff or script
+element and requested nothing for it.
 The closed typed worker envelope and shared route contract reject arbitrary URLs/operations,
 credential/header injection and malformed payloads. API tests retain current membership, origin,
 privacy, comments-off, handoff/PKCE and idempotency coverage. App setup has desktop/mobile keyboard

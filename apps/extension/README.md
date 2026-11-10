@@ -14,7 +14,7 @@ From the repository root, use Node 26 and the pinned Corepack pnpm:
 - `pnpm -C apps/extension build:hosted-test`: separately keyed hosted acceptance artifact; requires owner registration.
 - `pnpm -C apps/extension validate`: audit production manifest and resources.
 - `pnpm -C apps/extension package`: ZIP, SHA-256 and source metadata.
-- `pnpm -C apps/extension test`: broker, reproducibility and release-state tests (build first).
+- `pnpm -C apps/extension test`: broker, reproducibility, packaged audit asset and release-state tests (build first).
 - `pnpm -C apps/extension test:package`: unchanged production ZIP in persistent Chromium, local API.
 - `pnpm -C apps/extension test:browser`: separately built localhost development package.
 - `pnpm -C apps/extension store:assets`: brand store icon and promotional tile.

@@ -6,12 +6,13 @@ The toolbar and brand remain separate local packages, reused by the website and 
 
 | Location | Responsibility |
 | --- | --- |
-| `src/worker.ts`, `src/content.ts`, `src/protocol.ts` | Credential owner, document-bound activation, API broker, toolbar mounting and capture |
+| `src/worker.ts`, `src/content.ts`, `src/protocol.ts` | Credential owner, document-bound activation, API broker, toolbar mounting, capture and the packaged audit asset (`audit.js`, run on use) |
 | `src/popup.tsx`, `src/helper.ts`, `src/popup.css` | Shared popup and verification UI |
 | `src/update.ts` | Store update check against uier's version, and the popup's restart ([Updates](../../docs/browser-extension.md#updates)) |
 | `src/browser.ts`, `src/auth.ts`, `src/storage.ts` | Native Promise namespace, browser sign-in and private credential storage |
 | `scripts/manifest.mjs` | Permissions, background entry and Firefox registration/consent |
 | `scripts/build.mjs`, `validate.mjs`, `package.mjs` | Bundling, brand assets, production audit and deterministic ZIP receipts |
+| `scripts/audit-asset.mjs` | The browser apps' check of their packaged `audit.js` and its isolated-world handoff |
 | [Chrome/Edge app](../../apps/extension) | Chrome version, test fixtures, native Chromium acceptance and protected store publishing |
 | [Firefox app](../../apps/extension-firefox) | Firefox target/version and package commands |
 

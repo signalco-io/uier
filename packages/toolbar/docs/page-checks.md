@@ -142,8 +142,12 @@ An open inbox, Accessibility or SEO panel stays open on the next page and shows 
   line is said once under the rule's title when every element shares it, else on each element, two lines
   at most (the whole line is its `title`, and screen readers read all of it). Without issues the panel
   says so in one line, with a reminder to also try a keyboard and a screen reader.
-- Packaged clients (the browser extension) never inject a remote script: there the Accessibility button
-  is absent (`auditAvailable()`), and the SEO panel works as everywhere.
+- Packaged clients (the browser extension) never inject a remote script: they package the audit asset,
+  built from the same `auditEntry.ts` without a published path, and their adapter runs it in the toolbar's
+  isolated world when a check runs (`ToolbarAdapters.loadAudit`, [the extension adapter](extension-adapter.md#the-audit-asset)).
+  There it hands over through that world's own global, which the page's scripts never see, instead of a
+  script element. So `auditAvailable()` is true there, and the Accessibility button, the background audit
+  with its bounds and every section behave as on the web. A client without `loadAudit` has no audit.
 
 ## SEO
 
@@ -256,6 +260,12 @@ The panels' code is in the review bundle (about 32 KB minified, no new dependenc
 CPU locally). Nothing here runs for ordinary visitors of a project's site: the review bundle itself loads
 only for reviewers. uier.io's own public pages show the toolbar to everyone (`showcase` mode), so there the
 background checks run for every visitor whose browser does not ask to save data.
+
+The browser extension ships the same asset as `audit.js` in its package (about 680 KB, about 190 KB of
+the ZIP), never in its content script, which holds the review bundle. On a document's first check the
+content runtime asks the worker, which runs the file in the reviewed tab's isolated world
+(`scripting.executeScript`, the review's own activeTab access): no download, no new permission, no
+web-accessible resource, and the page's CSP does not apply to it. The rules above are the same there.
 
 ## Tests
 
