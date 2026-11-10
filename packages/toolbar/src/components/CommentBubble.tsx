@@ -133,6 +133,8 @@ type CommentBubbleProps = {
     /** Keep a recovered draft reachable beside saved pins on the same element. */
     draftPinOffset?: number;
     onAutoOpened?: () => void;
+    /** It pressed the opener of a closed layer its pin is in: its thread opens once that layer has rendered */
+    onAutoOpenStep?: () => void;
     /** With the comment's id, or a draft's key (see hooks/useDrafts.tsx) */
     onOpenStateChange?: (commentId: string, open: boolean) => void;
     /** The comment was sent: its temporary id, its pin shown at once (see hooks/useComments.tsx) */
@@ -154,7 +156,7 @@ type CommentBubbleProps = {
 );
 
 export function CommentBubble(props: CommentBubbleProps) {
-    const { autoOpen, autoOpenReading = false, continuesDraft = false, onAutoOpened, onCreated, onSendFailed, onCanceled, onOpenStateChange, className } = props;
+    const { autoOpen, autoOpenReading = false, continuesDraft = false, onAutoOpened, onAutoOpenStep, onCreated, onSendFailed, onCanceled, onOpenStateChange, className } = props;
     const commentItem = props.commentItem;
     const creating = !commentItem;
     const position = props.commentItem ? props.commentItem.position : props.draft.position;
@@ -312,6 +314,7 @@ export function CommentBubble(props: CommentBubbleProps) {
         if (opener && hasRect && !pressedOpenersRef.current.includes(opener)) {
             pressedOpenersRef.current.push(opener);
             opener.click();
+            onAutoOpenStep?.();
             return;
         }
         if (hasRect) {
@@ -323,7 +326,7 @@ export function CommentBubble(props: CommentBubbleProps) {
             setOpen(true);
             onAutoOpened?.();
         }
-    }, [autoOpen, autoOpenReading, hasRect, closedLayer, closedOpener, onToolbar, onAutoOpened, position]);
+    }, [autoOpen, autoOpenReading, hasRect, closedLayer, closedOpener, onToolbar, onAutoOpened, onAutoOpenStep, position]);
 
     // Bubbles are fixed to their anchor; when one gets the focus off-screen, scroll it into view
     const handleFocus = () => {
