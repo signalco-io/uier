@@ -35,7 +35,7 @@
   takes the list's width too (96rem at most, uier #214), and so does the project header above it. uier's own workspace, which every account joins for Give feedback, is a
   `feedback` option in the switcher for people who are not its admins: its own entry after Create workspace,
   named "Feedback on uier", never in the list of their workspaces. A project's header is
-  `projects/[projectId]/layout.tsx` (the favicon in `PageHeader`'s `media`, beside both the name and the row under it: client, then who can comment (`ProjectAccessInfo`: its popover has the guest links and Invite for admins; for those who configure the project the label is a link to Who can comment in Review settings, `KnownPageLinks.projectAccessSettings`, and the popover opens on hover only, so Who can comment there shows the guest links too), Open
+  `projects/[projectId]/layout.tsx` (the favicon in `PageHeader`'s `media`, beside both the name and the row under it: client (a link to the projects list filtered to it, `KnownPageLinks.clientProjects`, on the Done tab for a done project; uier #241), then who can comment (`ProjectAccessInfo`: its popover has the guest links and Invite for admins; for those who configure the project the label is a link to Who can comment in Review settings, `KnownPageLinks.projectAccessSettings`, and the popover opens on hover only, so Who can comment there shows the guest links too), Open
   review and the settings cog (`ProjectSettingsButton`, an icon link with a tooltip, current on the settings pages),
   then the `ProjectTabs`: Comments, [Page checks](page-checks.md) and Install (Settings → Installation and the onboarding
   install step) until a comment from one of the project's addresses arrives (`hasProjectFeedback`); after that Install is
