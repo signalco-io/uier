@@ -40,7 +40,7 @@ export async function submitFirefox({ client, artifact, source, metadata, receip
         const body = new FormData(); body.set('channel', 'listed'); body.set('upload', new Blob([artifact.bytes]), artifact.name);
         await save({ phase: 'upload-started' });
         const upload = await client.call('addons/upload/', { method: 'POST', body });
-        assert.match(upload.uuid ?? '', /^[a-f0-9-]{36}$/i);
+        assert.match(upload.uuid ?? '', /^(?:[a-f0-9]{32}|[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})$/i);
         await save({ phase: 'validating', uploadId: upload.uuid });
     }
     if (state.phase === 'validating') {

@@ -185,7 +185,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ needs.build.outputs.commit }}
+          # Manual releases use the reviewed publisher at the workflow's main commit.
+          # Package, source, listing metadata and license stay pinned to the release tag.
+          ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
@@ -207,6 +209,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          RELEASE_COMMIT: ${{ needs.build.outputs.commit }}
           RELEASE_REF_PROTECTED: ${{ github.ref_protected }}
           FIREFOX_PUBLISHING_ENABLED: ${{ vars.FIREFOX_PUBLISHING_ENABLED }}
           HOSTED_ACCEPTANCE_URL: ${{ vars.FIREFOX_HOSTED_ACCEPTANCE_URL }}
