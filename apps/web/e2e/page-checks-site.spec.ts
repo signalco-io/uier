@@ -102,6 +102,27 @@ test('a member reviews two pages with the same title, and the project\'s Page ch
         await expect(row.getByRole('cell').nth(2)).toContainText(`${summary.seo.pass} passed`);
         await expect(row.getByRole('cell').nth(4)).toContainText('First check');
     }
+    // A measured Core Web Vital shows its target and both states on hover and on keyboard focus (uier #220)
+    const measured = (['lcp', 'cls', 'inp'] as const).find(name => pricing.vitals?.[name] !== undefined);
+    expect(measured, 'Chrome measures at least one Core Web Vital on the reviewed page').toBeDefined();
+    const vital = table.locator(`[data-page-check="/${project}/pricing"] [data-vital="${measured}"]`);
+    const targets = page.getByRole('dialog', { name: `${{ lcp: 'Largest Contentful Paint', cls: 'Cumulative Layout Shift', inp: 'Interaction to Next Paint' }[measured!]} (${measured!.toUpperCase()})` });
+    await vital.hover();
+    await expect(targets.locator('[data-vital-state]')).toHaveCount(2);
+    await expect(targets.locator('[data-vital-state="within"]')).toContainText('Within target');
+    await expect(targets.locator('[data-vital-state="over"]')).toContainText('Over target');
+    await expect(targets.locator('[aria-current="true"]')).toHaveCount(1);
+    await page.mouse.move(0, 0);
+    await expect(targets).toBeHidden();
+    await vital.focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(targets).toBeVisible();
+    await expect(vital).toBeFocused();
+    // Escape closes it, and focus back on the trigger does not open it again
+    await page.keyboard.press('Escape');
+    await expect(targets).toBeHidden();
+    await expect(vital).toBeFocused();
     // Each finding's pages are closed until asked for (uier #219), then listed under their common path
     const sharedTitles = page.getByRole('region', { name: 'Shared titles' });
     await expect(sharedTitles.getByRole('link')).toHaveCount(0);
@@ -168,6 +189,11 @@ test('on a narrow screen each page is a card', async ({ page }, testInfo) => {
     await expect(card.getByRole('link', { name: `Open in review: /${project}/private` })).toBeVisible();
     await expect(card).toContainText('Accessibility');
     await expect(card).toContainText('Checked');
+    // A tap shows a measured Core Web Vital's target and states (uier #220)
+    await card.locator('[data-vital]').first().tap();
+    await expect(page.getByRole('dialog').locator('[data-vital-state]')).toHaveCount(2);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toBeHidden();
     const notIndexed = page.getByRole('region', { name: 'Not indexed' });
     await notIndexed.getByRole('button', { name: 'Show the page' }).click();
     await expect(notIndexed.getByRole('link')).toHaveText(new RegExp(`/${project}/private`));

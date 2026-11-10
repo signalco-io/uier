@@ -28,11 +28,15 @@ export type Vitals = { lcp?: number; cls?: number; inp?: number };
 export type VitalName = keyof Vitals;
 export const vitalNames: readonly VitalName[] = ['lcp', 'cls', 'inp'];
 
-/** The good targets the toolbar's SEO panel uses (packages/toolbar/src/checks/webVitals.ts) */
-export const vitalTargets: Record<VitalName, { label: string; name: string; good: number; text: (value: number) => string }> = {
-    lcp: { label: 'LCP', name: 'Largest Contentful Paint', good: 2500, text: value => `${(value / 1000).toFixed(1)} s` },
-    cls: { label: 'CLS', name: 'Cumulative Layout Shift', good: 0.1, text: value => value === 0 ? '0' : value.toFixed(2) },
-    inp: { label: 'INP', name: 'Interaction to Next Paint', good: 200, text: value => `${Math.round(value)} ms` }
+/**
+ * The good targets the toolbar's SEO panel uses (packages/toolbar/src/checks/webVitals.ts), and what
+ * a measure over its target means there (its `warnings`, packages/toolbar/src/i18n/en.ts). A measure has
+ * two states: within its target (at most `good`) or over it; there is no other level.
+ */
+export const vitalTargets: Record<VitalName, { label: string; name: string; good: number; over: string; text: (value: number) => string }> = {
+    lcp: { label: 'LCP', name: 'Largest Contentful Paint', good: 2500, over: 'The main content shows late.', text: value => `${(value / 1000).toFixed(1)} s` },
+    cls: { label: 'CLS', name: 'Cumulative Layout Shift', good: 0.1, over: 'Content moves while the page is used.', text: value => value === 0 ? '0' : value.toFixed(2) },
+    inp: { label: 'INP', name: 'Interaction to Next Paint', good: 200, over: 'The page responds slowly.', text: value => `${Math.round(value)} ms` }
 };
 
 /** What one check found: the counts the view compares with the check before */

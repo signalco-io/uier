@@ -7,11 +7,10 @@ import {
     impactLabels,
     impacts,
     vitalNames,
-    vitalOverTarget,
-    vitalTargets,
     type Impact,
     type PageCheckRow
 } from '@/src/lib/pageChecks/model';
+import { VitalResult } from './VitalResult';
 
 // The parts of a page's row in the Page checks view, shared by the table and the narrow cards. Each
 // result is an icon beside its words, so colour is never the only signal (BRAND.md, "Accessibility
@@ -107,23 +106,16 @@ export function SeoResult({ page }: { page: PageCheckRow }) {
     );
 }
 
-/** Core Web Vitals measured in the member's browser, each against its target */
+/** Core Web Vitals measured in the member's browser, each against its target (its states on hover, focus or a tap) */
 export function VitalsResult({ page }: { page: PageCheckRow }) {
     const measured = vitalNames.filter(name => page.vitals?.[name] !== undefined);
     if (!measured.length) return muted('Not measured');
     return (
         <span className="flex flex-col gap-0.5">
-            {measured.map(name => {
-                const value = page.vitals![name]!;
-                const target = vitalTargets[name];
-                const over = vitalOverTarget(name, value);
-                return (
-                    <Marked key={name} mark={over ? warnIcon : passIcon}>
-                        <abbr title={target.name} className="no-underline">{target.label}</abbr> <span className="font-mono text-xs tabular-nums">{target.text(value)}</span>
-                        <span className="sr-only">{over ? `, over the ${target.text(target.good)} target` : ', within target'}</span>
-                    </Marked>
-                );
-            })}
+            {measured.map(name => (
+                <VitalResult key={name} name={name} value={page.vitals![name]!}
+                    mark={(children, over) => <Marked mark={over ? warnIcon : passIcon}>{children}</Marked>} />
+            ))}
         </span>
     );
 }
