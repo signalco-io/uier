@@ -37,6 +37,7 @@ export function feedbackExport(dto: Omit<CommentDto, 'thread'> & { thread: { ite
     const summary = available ? first.text?.replace(/[\p{Cc}\p{Cf}\s]+/gu, ' ').trim().slice(0, 100) : first?.deleted ? 'Deleted feedback' : 'Unavailable feedback';
     const context: FeedbackContext = {
         schemaVersion: 1, contentTrust: 'untrusted',
+        ...(dto.archivedAt ? { archivedAt: dto.archivedAt } : {}),
         identity: { projectId: options.projectId, commentId: dto.id, number: dto.number, itemId: first?.id },
         title: `${dto.kind === 'rewrite' ? 'Suggested rewrite: ' : ''}${(available && options.title) || summary || 'Website feedback'}`,
         verification: dto.verification, priority: dto.priority, kind: dto.kind, ...(dto.feedbackType ? { feedbackType: dto.feedbackType } : {}), ...(dto.check ? { check: dto.check } : {}), status: dto.resolved ? 'done' : 'open', stage: feedbackStage(dto), feedback: first,

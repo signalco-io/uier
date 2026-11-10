@@ -1,3 +1,4 @@
+import { matchesArchive } from './archiveFilter';
 import { matchesOrigin } from './originFilter';
 import { matchesAuthor } from './authorFilter';
 import { matchesVisibility } from './visibilityFilter';
@@ -123,9 +124,9 @@ export function getMemoryCommentsStore(): CommentsStore {
             return [...state().domains.keys()].flatMap(domainComments)
                 .filter(comment => comment.notificationPending && comment.projectId).map(clone);
         },
-        async list(domain, path, limit, originFilter, authorId) {
+        async list(domain, path, limit, originFilter, authorId, archive) {
             return domainComments(domain)
-                .filter(comment => matchesOrigin(comment.origin, originFilter) && matchesAuthor(comment, authorId))
+                .filter(comment => matchesOrigin(comment.origin, originFilter) && matchesAuthor(comment, authorId) && matchesArchive(comment, archive))
                 .filter(comment => pathMatches(comment, path))
                 .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
                 .slice(0, limit)
@@ -141,9 +142,9 @@ export function getMemoryCommentsStore(): CommentsStore {
                 .slice(0, Math.max(1, Math.min(1000, Math.trunc(limit))))
                 .map(({ entry, comment }) => ({ comment: clone(comment), changedAt: Math.floor(entry.modifiedAt / 1000) * 1000 }));
         },
-        async listAll(domain, limit, originFilter, authorId) {
+        async listAll(domain, limit, originFilter, authorId, archive) {
             return domainComments(domain)
-                .filter(comment => matchesOrigin(comment.origin, originFilter) && matchesAuthor(comment, authorId))
+                .filter(comment => matchesOrigin(comment.origin, originFilter) && matchesAuthor(comment, authorId) && matchesArchive(comment, archive))
                 .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
                 .slice(0, limit)
                 .map(clone);
@@ -208,8 +209,8 @@ export function getMemoryCommentsStore(): CommentsStore {
             return [...domainEntries(domain).values()].flatMap(entry => {
                 const comment = commentOf(entry);
                 if (!comment) return [];
-                const { id, path, origin, private: isPrivate, authorId, resolved, inProgress, verification, createdAt, activity } = comment;
-                return [{ id, domain, path, origin, private: isPrivate, authorId, resolved, inProgress, verification: verification ? { outcome: verification.outcome } : undefined, createdAt, activity: clone(activity),
+                const { id, path, origin, private: isPrivate, authorId, resolved, inProgress, archivedAt, verification, createdAt, activity } = comment;
+                return [{ id, domain, path, origin, private: isPrivate, authorId, resolved, inProgress, archivedAt, verification: verification ? { outcome: verification.outcome } : undefined, createdAt, activity: clone(activity),
                     thread: { items: activity ? [] : comment.thread.items.map(item => ({ authorId: item.authorId, deletedAt: item.deletedAt })) } }];
             }).sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
         },

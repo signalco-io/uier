@@ -64,3 +64,20 @@
 Assignment eligibility lives in `review/participants.ts` and is rechecked inside optimistic
 comment mutations. Mentions store selected account ids with UTF-16 text ranges; review DTOs
 expose identity metadata only to members. App and toolbar must share these checks.
+
+## Comment archive
+
+Archive is a separate optional `DbComment.archivedAt` timestamp, not a workflow status. Missing means
+not archived; existing records need no migration. `PATCH .../comments/<id>` accepts exactly one of
+`{ archived: boolean }`, `{ status }` or legacy `{ resolved }`. Archive/restore uses status authority
+(members or the original guest author), visibility checks and conditional writes; it retains status,
+completion time, pending verification, content, evidence, assignment, TTL and read receipts. A stale
+status client does not restore a thread implicitly. Repeated writes and MCP receipt replays add no activity.
+
+Both comments APIs exclude archived threads from ordinary lists. `archive=only` selects the archive;
+`archive=all` opts into both. The archive filter runs in memory/Cosmos before list limits. Internal store
+reads remain inclusive for export, project deletion and other maintenance. Activity summaries expose a
+separate `archived` count and exclude the archive from ordinary unread, open, ready, progress, done and
+total counts, after the same visibility/environment rules. Direct authorized thread/image/export reads
+still work. `e2e/archive.api.spec.ts` covers persistence, permissions, scopes, counts, legacy writes,
+receipts, concurrent replies and export compatibility.

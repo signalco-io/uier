@@ -41,6 +41,7 @@ const emptyStatus: Record<StatusFilter, { title: string; description: string }> 
     'in-progress': { title: 'Nothing in progress', description: 'Comments someone is working on show here.' },
     ready: { title: 'No checks requested', description: 'Requested fix checks show here.' },
     done: { title: 'Nothing done yet', description: 'Comments marked as done show here.' },
+    archived: { title: 'Nothing archived', description: 'Archived comments stay here until you restore them.' },
     all: { title: 'Nothing here', description: 'No comments match these filters.' }
 };
 
@@ -132,11 +133,12 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
     });
     // An open thread that is not loaded (deleted, or outside a new author or environment scope) is
     // closed, so it cannot reopen later when the scope changes back
+    const scopeComments = comments.filter(comment => Boolean(comment.archivedAt) === (query.status === 'archived'));
     const openId = openComment.openId;
     useEffect(() => {
-        if (!openId || comments.some(comment => comment.id === openId)) return;
+        if (!openId || scopeComments.some(comment => comment.id === openId)) return;
         setUrlSearchParams({ comment: undefined });
-    }, [openId, comments]);
+    }, [openId, scopeComments]);
     const installText = query.environment === 'all'
         ? 'Set up reviews and open a review link to leave the first comment.'
         : 'This environment has no feedback. Choose another environment, or set up reviews and open a review link to leave the first comment.';
@@ -188,7 +190,7 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
     );
 
     // Each page with its number of comments, for the page search
-    const pages = [...comments.reduce((counts, comment) => counts.set(comment.path, (counts.get(comment.path) ?? 0) + 1), new Map<string, number>())]
+    const pages = [...scopeComments.reduce((counts, comment) => counts.set(comment.path, (counts.get(comment.path) ?? 0) + 1), new Map<string, number>())]
         .map(([path, count]) => ({ path, count }));
     // "Removed addresses" and "Source not recorded" show only when they have comments; known only with every environment loaded
     const historySources = query.environment === 'all' && !searchWindowCapped
@@ -196,11 +198,11 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
         : undefined;
     const filtered = applyFilters(comments, query, userId, openId);
     const statusCounts = Object.fromEntries((Object.keys(statusFilterLabels) as StatusFilter[])
-        .map(filter => [filter, filtered.filter(comment => statusMatches(filter, commentStatus(comment))).length])) as Record<StatusFilter, number>;
-    const board = query.view === 'board';
+        .map(filter => [filter, filtered.filter(comment => statusMatches(filter, commentStatus(comment), comment.archivedAt)).length])) as Record<StatusFilter, number>;
+    const board = query.view === 'board' && query.status !== 'archived';
     // Where the open thread takes the whole width, it takes the filters' place too
-    const threadOnly = Boolean(openComment.openId) && !board && comments.some(comment => comment.id === openComment.openId);
-    const shown = board ? filtered : filtered.filter(comment => statusMatches(query.status, commentStatus(comment)));
+    const threadOnly = Boolean(openComment.openId) && !board && scopeComments.some(comment => comment.id === openComment.openId);
+    const shown = board ? filtered.filter(comment => !comment.archivedAt) : filtered.filter(comment => statusMatches(query.status, commentStatus(comment), comment.archivedAt));
     // The board's columns, one per status in order (each thread in exactly one), each in the project's sort for it
     const columns = Object.fromEntries(commentStatuses.map(status => [status,
         sortBoardColumn(shown.filter(comment => commentStatus(comment) === status), boardSorts[status])])) as Record<CommentStatus, ProjectCommentView[]>;
@@ -224,7 +226,7 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
             and so does the count line under it. */}
         <div ref={containerRef} className="@container/comments flex flex-col gap-2">
             <div data-header-wide={headerWide} className={cn('flex min-w-0 flex-col gap-2', threadOnly && '@max-3xl/comments:hidden', wideClassName)}>
-            <CommentFilters search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} historySources={historySources} unread={Boolean(query.unread)} unreadCount={comments.filter(comment => comment.activity?.unread).length} view={query.view} status={query.status} statusCounts={statusCounts} people={query.people} page={query.page} pages={pages} />
+            <CommentFilters search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} historySources={historySources} unread={Boolean(query.unread)} unreadCount={scopeComments.filter(comment => comment.activity?.unread).length} view={board ? 'board' : 'list'} status={query.status} statusCounts={statusCounts} people={query.people} page={query.page} pages={pages} />
             {searchWindowCapped && <p className="m-0 text-sm text-muted-foreground">Search covers up to 1,000 recent threads in this environment and author scope. Narrow the environment or author to find older feedback.</p>}
             </div>
             <TriageSelection projectId={projectId} scope={selectionScope} shown={board ? commentStatuses.flatMap(status => columns[status]) : shown} assignees={assignees}
@@ -264,10 +266,10 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
                 </Empty>
             ) : board ? (
                 <CommentBoard projectId={projectId} columns={columns} sorts={boardSorts} onSort={canSortBoard ? changeSort : undefined}
-                    allComments={comments} assignees={assignees} userId={userId} openComment={openComment} />
+                    allComments={scopeComments} assignees={assignees} userId={userId} openComment={openComment} />
             ) : (
-                <CommentInbox projectId={projectId} comments={shown} allComments={comments} assignees={assignees} userId={userId} label="Comments"
-                    keeps={status => statusMatches(query.status, status)} readLeaves={Boolean(query.unread)} openComment={openComment} />
+                <CommentInbox projectId={projectId} comments={shown} allComments={scopeComments} assignees={assignees} userId={userId} label="Comments"
+                    keeps={status => statusMatches(query.status, status, query.status === 'archived' ? 'archived' : undefined)} readLeaves={Boolean(query.unread)} openComment={openComment} />
             )}
             </TriageSelection>
         </div>

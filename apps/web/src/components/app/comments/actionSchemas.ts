@@ -16,6 +16,7 @@ export const commentActionSchema = z.object({ projectId: projectIdSchema, commen
 export const pullRequestCommentActionSchema = commentActionSchema.extend({ url: pullRequestUrlSchema, remove: z.boolean() });
 /** Open, In progress or Done; Ready to verify is a fix check request (`verificationCommentAction`) */
 export const statusCommentActionSchema = commentActionSchema.extend({ status: z.enum(feedbackStatusTargets) });
+export const archiveCommentActionSchema = commentActionSchema.extend({ archived: z.boolean() });
 export const privateCommentActionSchema = commentActionSchema.extend({ isPrivate: z.boolean() });
 export const assignCommentActionSchema = commentActionSchema.extend({ assigneeId: userIdSchema.nullable() });
 export const assignCommentsPeopleActionSchema = commentActionSchema.extend({ assigneeIds: assigneeIdsSchema, mode: assignmentModeSchema });

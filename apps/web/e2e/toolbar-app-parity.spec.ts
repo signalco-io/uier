@@ -76,7 +76,7 @@ test('In progress set in the toolbar reads the same in the app, and back', async
     await page.getByRole('button', { name: /^Inbox/ }).click();
     const inbox = page.getByRole('complementary', { name: 'Comments' });
     const tabs = inbox.getByRole('group', { name: 'Show comments' });
-    await expect(tabs.getByRole('button')).toHaveText([/^Active/, '', /^Done/, /^All/]);
+    await expect(tabs.getByRole('button')).toHaveText([/^Active/, '', /^Done/, /^All/, /^Archive/]);
     await expect(tabs.getByRole('button', { name: 'Active 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await tabs.getByRole('button', { name: 'Active statuses', exact: true }).click();
     const statusMenu = page.getByRole('dialog', { name: 'Active statuses' });

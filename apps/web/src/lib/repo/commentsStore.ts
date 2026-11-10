@@ -1,3 +1,4 @@
+import type { ArchiveFilter } from './archiveFilter';
 import type { OriginFilter } from './originFilter';
 import type { RealtimeComment } from '../realtime/source';
 import type { DbComment, DbCommentActivity, DbScreenshot, DbSubmission, DbSyncTombstone, DbThreadItem } from '../db/schema';
@@ -40,9 +41,9 @@ export type CommentsStore = {
     /** Durable notification discovery, across projects, without the inbox's display cap. */
     listNotificationPending(): Promise<DbComment[]>;
     /** Canonical view, newest first. Only legacy records use a base-path query-string fallback. */
-    list(domain: string, path: string, limit: number, originFilter?: OriginFilter, authorId?: string): Promise<DbComment[]>;
+    list(domain: string, path: string, limit: number, originFilter?: OriginFilter, authorId?: string, archive?: ArchiveFilter): Promise<DbComment[]>;
     /** Every comment of the partition (all pages), newest first; author selection precedes limit. */
-    listAll(domain: string, limit: number, originFilter?: OriginFilter, authorId?: string): Promise<DbComment[]>;
+    listAll(domain: string, limit: number, originFilter?: OriginFilter, authorId?: string, archive?: ArchiveFilter): Promise<DbComment[]>;
     /** All thread activity, without message text or images; authoritative badge counts. */
     listActivity(domain: string): Promise<DbCommentActivity[]>;
     /**

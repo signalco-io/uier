@@ -200,6 +200,7 @@ export type CommentItem = {
     priority?: import('../../triage').CommentPriority;
     verification?: import('../../verification').VerificationDetails;
     verificationPermissions?: import('../../verification').VerificationPermissions;
+    archivedAt?: string;
     resolved: boolean;
     /** In progress, only when set; `feedbackStage` (`../../verification`) gives the status */
     inProgress?: boolean;

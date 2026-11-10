@@ -1,3 +1,4 @@
+import { archiveSql } from './archiveFilter';
 import { getScreenshotBlobStore, storeScreenshotBytes, type ScreenshotBlobStore } from '../screenshots/blobStore';
 import { originSql } from './originFilter';
 import { authorSql } from './authorFilter';
@@ -103,22 +104,22 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
             }), { operation: 'comments.notification-pending', container: getContainer().id, partition: 'cross' });
             return resources.map(resource => withoutSystemProperties<DbComment>(resource));
         },
-        async list(domain, path, limit, originFilter, authorId) {
+        async list(domain, path, limit, originFilter, authorId, archive) {
             const filter = originSql(originFilter);
             const author = authorSql(authorId);
             const resources = await queryAll<Record<string, unknown>>(
                 'list', domain,
-                `SELECT TOP @limit * FROM c WHERE c.domain = @domain AND ${pathFilter}${filter.clause}${author.clause} ORDER BY c.createdAt DESC`,
+                `SELECT TOP @limit * FROM c WHERE c.domain = @domain AND ${pathFilter}${filter.clause}${author.clause}${archiveSql(archive)} ORDER BY c.createdAt DESC`,
                 [...filter.parameters, ...author.parameters, ...pathParameters(path), { name: '@limit', value: limit }]);
             return resources.map(resource => withoutSystemProperties<DbComment>(resource));
         },
-        async listAll(domain, limit, originFilter, authorId) {
+        async listAll(domain, limit, originFilter, authorId, archive) {
             const filter = originSql(originFilter);
             const author = authorSql(authorId);
             // Rate-limit counters and the comment numbers' sequence share the partition; they have no `path`
             const resources = await queryAll<Record<string, unknown>>(
                 'listAll', domain,
-                `SELECT TOP @limit * FROM c WHERE c.domain = @domain AND IS_DEFINED(c.path)${filter.clause}${author.clause} ORDER BY c.createdAt DESC`,
+                `SELECT TOP @limit * FROM c WHERE c.domain = @domain AND IS_DEFINED(c.path)${filter.clause}${author.clause}${archiveSql(archive)} ORDER BY c.createdAt DESC`,
                 [...filter.parameters, ...author.parameters, { name: '@limit', value: limit }]);
             return resources.map(resource => withoutSystemProperties<DbComment>(resource));
         },
@@ -214,7 +215,7 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
             // No TOP: badge counts and unread selection must include threads outside the text list.
             // Modern records need only the compact activity map; legacy records need item authors.
             return await queryAll<DbCommentActivity>('activity', domain,
-                `SELECT c.id, c.domain, c.path, c.origin, c.private, c.authorId, c.resolved, c.inProgress, {"outcome": c.verification.outcome} AS verification, c.createdAt, c.activity,
+                `SELECT c.id, c.domain, c.path, c.origin, c.private, c.authorId, c.resolved, c.inProgress, c.archivedAt, {"outcome": c.verification.outcome} AS verification, c.createdAt, c.activity,
                     IIF(IS_DEFINED(c.activity), {"items": []}, {"items": ARRAY(SELECT VALUE {"authorId": i.authorId, "deletedAt": i.deletedAt} FROM i IN c.thread.items)}) AS thread
                  FROM c WHERE c.domain = @domain AND IS_STRING(c.path)`, []);
         },

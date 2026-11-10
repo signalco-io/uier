@@ -86,7 +86,9 @@ spike limitation to validate before designing a quieter production experience.
 
 The broker exposes a closed review route/method contract, not arbitrary fetch. Private image bytes
 also travel through it without signed-URL redirects. Priority writes use the allowlisted PATCH
-operation and the same membership, visibility and proof checks as the embedded toolbar. Credentials remain in trusted worker storage;
+operation and the same membership, visibility and proof checks as the embedded toolbar. Comment lists
+forward the archive filter through the closed query contract; archive/restore uses the existing
+comment PATCH operation, preserving workflow status and the strict-CSP reload path. Credentials remain in trusted worker storage;
 content scripts receive project configuration, review responses and draft records only. No bearer
 is written into the reviewed page, its storage or page-visible messages.
 

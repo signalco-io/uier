@@ -181,6 +181,14 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     await options.getByRole('button', { name: 'Priority: Normal. Change priority', exact: true }).click();
     await options.getByRole('group', { name: 'Set priority' }).getByRole('button', { name: 'High', exact: true }).click();
     await expect(inbox.getByRole('article')).toContainText('Priority: High');
+    // Archive uses the same closed worker transport as list reloads and workflow changes.
+    await (await threadOptions(reviewed, inbox.getByRole('article'))).getByRole('button', { name: 'Archive comment', exact: true }).click();
+    await expect(commentBubble(reviewed, 2)).toHaveCount(0);
+    await inbox.getByRole('button', { name: 'Archive 1', exact: true }).click();
+    await expect(inbox.getByRole('article')).toContainText('Strict CSP extension feedback');
+    await (await threadOptions(reviewed, inbox.getByRole('article'))).getByRole('button', { name: 'Restore comment', exact: true }).click();
+    await expect(commentBubble(reviewed, 2)).toBeVisible();
+    await inbox.getByRole('button', { name: /^Active \d/ }).click();
     await inbox.getByRole('button', { name: 'Close sidebar', exact: true }).click();
     await expect(inbox).toBeHidden();
     // Drafts recover across a real worker shutdown and page reload, with no image records.

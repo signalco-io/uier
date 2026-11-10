@@ -20,7 +20,7 @@ import { messageAgentView } from '../../review/messageAgent';
  * schemas only grow: add optional fields, never rename, remove or narrow them.
  */
 
-export const mcpEventNames = ['feedback.created', 'feedback.replied', 'feedback.status_changed', 'feedback.assignment_changed', 'feedback.agent_changed', 'feedback.mentioned'] as const;
+export const mcpEventNames = ['feedback.created', 'feedback.replied', 'feedback.status_changed', 'feedback.archive_changed', 'feedback.assignment_changed', 'feedback.agent_changed', 'feedback.mentioned'] as const;
 export type McpEventName = typeof mcpEventNames[number];
 export function isMcpEventName(value: unknown): value is McpEventName {
     return typeof value === 'string' && mcpEventNames.some(name => name === value);
@@ -32,6 +32,7 @@ const argumentSchemas = {
     'feedback.created': z.object({ projectId }).strict(),
     'feedback.replied': z.object({ projectId, commentId: thread.optional() }).strict(),
     'feedback.status_changed': z.object({ projectId, commentId: thread.optional() }).strict(),
+    'feedback.archive_changed': z.object({ projectId, commentId: thread.optional() }).strict(),
     'feedback.assignment_changed': z.object({ projectId, commentId: thread.optional(),
         assignee: z.enum(['me']).optional().describe('me: only feedback assigned to the account of this connection.') }).strict(),
     'feedback.agent_changed': z.object({ projectId, commentId: thread.optional(),
@@ -67,6 +68,7 @@ const payloadSchemas = {
     'feedback.created': z.object({ ...common, priority: z.enum(priorities), excerpt }).strict(),
     'feedback.replied': z.object({ ...common, itemId: z.string(), excerpt }).strict(),
     'feedback.status_changed': z.object({ ...common, change: z.enum(statusChanges), resolved: z.boolean() }).strict(),
+    'feedback.archive_changed': z.object({ ...common, archived: z.boolean() }).strict(),
     'feedback.assignment_changed': z.object({ ...common,
         assignees: z.array(z.object({ id: z.string(), name: z.string() }).strict()).optional(),
         previousAssigneeIds: z.array(z.string()).optional(), assignee: z.object({ id: z.string(), name: z.string() }).strict().nullable()
@@ -86,6 +88,7 @@ const descriptions: Record<McpEventName, string> = {
     'feedback.created': 'New feedback was posted in a project.',
     'feedback.replied': 'A reply was added to feedback in a project, optionally one thread.',
     'feedback.status_changed': 'Feedback was marked done or reopened, moved to In progress or back to Open, or its fix check was requested, confirmed, rejected or canceled.',
+    'feedback.archive_changed': 'Feedback was archived or restored. Its workflow status is unchanged.',
     'feedback.assignment_changed': 'Feedback was assigned or unassigned, optionally only when assigned to you.',
     'feedback.agent_changed': 'An AI agent started or stopped working on feedback under its assignee, optionally only under you.',
     'feedback.mentioned': 'Someone mentioned you (the account of this connection) in feedback.'
@@ -122,6 +125,7 @@ const statusKinds: Partial<Record<NotificationEvent['kind'], typeof statusChange
 export function eventMatches(name: McpEventName, args: McpEventArguments, event: NotificationEvent, threadId: string, subscriberUserId: string) {
     if (args.commentId !== undefined && args.commentId !== threadId) return false;
     switch (name) {
+        case 'feedback.archive_changed': return event.kind === 'archived' || event.kind === 'restored';
         case 'feedback.created': return event.kind === 'comment';
         case 'feedback.replied': return event.kind === 'reply';
         case 'feedback.status_changed': return statusKinds[event.kind] !== undefined;
@@ -169,6 +173,7 @@ export function mcpEventData(name: McpEventName, project: DbProject, comment: Db
         contentTrust: 'untrusted' as const
     };
     switch (name) {
+        case 'feedback.archive_changed': return { ...base, archived: event.kind === 'archived' };
         case 'feedback.created': {
             const text = excerptOf(comment, undefined);
             return { ...base, priority: commentPriority(comment.priority), ...(text ? { excerpt: text } : {}) };

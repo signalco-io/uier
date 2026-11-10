@@ -8,7 +8,7 @@ import { integrationLabels } from '../integrations/model';
 
 /** Separate from unread cursors and delivery outboxes. Oldest entries are discarded in the same write. */
 export const MAX_THREAD_HISTORY = 200;
-type HistoryAction = 'assigned' | 'unassigned' | 'status' | 'verification-requested' | 'verification-confirmed'
+type HistoryAction = 'archived' | 'restored' | 'assigned' | 'unassigned' | 'status' | 'verification-requested' | 'verification-confirmed'
     | 'verification-rejected' | 'verification-canceled' | 'priority' | 'title-written' | 'title-edited' | 'title-cleared'
     | 'pull-request-linked' | 'pull-request-removed'
     | 'agent-attached' | 'agent-updated' | 'agent-removed' | 'public' | 'private' | 'moved';
@@ -43,6 +43,7 @@ export function withThreadHistory(previous: DbComment, next: DbComment, actorId:
         const old = oldAgents.find(other => key(other) === key(agent));
         if (!old || details(old) !== details(agent)) add(old ? 'agent-updated' : 'agent-attached', { userId: agent.assigneeId, agentKind: agent.kind });
     }
+    if (Boolean(previous.archivedAt) !== Boolean(next.archivedAt)) add(next.archivedAt ? 'archived' : 'restored');
     if (feedbackStage(previous) !== feedbackStage(next)) add('status', { status: feedbackStage(next) });
     if (previous.verification?.revision !== next.verification?.revision && next.verification
         && ['pending', 'confirmed', 'needs-work', 'canceled'].includes(next.verification.outcome)) {
@@ -76,6 +77,7 @@ export function threadHistoryView(comment: DbComment, viewer: { member: boolean;
         const agent = entry.agentKind ? agentLabels[entry.agentKind] : 'an AI agent';
         const actions: Record<HistoryAction, string> = {
             'pull-request-linked': 'linked a pull request', 'pull-request-removed': 'removed a pull request link',
+            archived: 'archived the thread', restored: 'restored the thread',
             assigned: `assigned ${target}`, unassigned: `unassigned ${target}`,
             status: `changed status to ${entry.status ? feedbackStageLabels[entry.status] : 'Open'}`,
             'verification-requested': 'requested verification', 'verification-confirmed': 'confirmed the fix',

@@ -73,3 +73,10 @@ Human app/toolbar/extension replies remain own activity and never clear unseen c
 Existing persisted cursors are not rewritten; the distinction starts with new connector writes.
 `e2e/activity.api.spec.ts` covers both reply persistence paths, summary/toolbar projections,
 acknowledgements, mark unread, replay/no-op behavior and imported status changes.
+
+
+Archiving/restoring records `archived`/`restored` history with the same private-period filtering and
+human activity identity as ordinary status changes. It never writes a read receipt. The notification
+ledger feeds MCP `feedback.archive_changed` (an `archived` boolean); email delivery excludes these
+events. Ordinary unread/workflow totals exclude the archive, with a separate authorized `archived`
+count. Restoring reveals the thread's existing unread state plus activity by other people.

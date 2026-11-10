@@ -9,6 +9,8 @@ import { useCommitCommentsSearch } from './CommentsSearchNavigation';
 import { useEffect, useEffectEvent, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+    ArchiveIcon,
+    ArchiveRestoreIcon,
     ArrowLeftIcon,
     ArrowUpRightIcon,
     BellIcon,
@@ -87,6 +89,7 @@ import {
     filterCommentAuthorAction,
     editCommentAction,
     setCommentPrivateAction,
+    setCommentArchivedAction,
 } from './actions';
 
 export type AssigneeOption = { userId: string; name: string; avatarUrl?: string };
@@ -475,6 +478,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                 onRead={() => run(() => markCommentReadAction(projectId, comment.id, comment.activity!.sequence), undefined,
                                     { activity: { ...comment.activity!, readSequence: comment.activity!.sequence, unread: false } })} />
                         )}
+                        {comment.archivedAt && <Badge variant="outline" className="text-muted-foreground">Archived</Badge>}
                         {comment.private && (
                             <Tooltip>
                                 {/* No background, so it sits quietly beside the number; the lock and the tooltip carry it */}
@@ -518,6 +522,14 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                         }}>
                                             <MailIcon />
                                             Mark as unread
+                                        </DropdownMenuItem>
+                                    )}
+                                    {permissions.resolve && (
+                                        <DropdownMenuItem onClick={() => run(
+                                            () => setCommentArchivedAction(projectId, comment.id, !comment.archivedAt), undefined,
+                                            { archivedAt: comment.archivedAt ? undefined : new Date().toISOString() })}>
+                                            {comment.archivedAt ? <ArchiveRestoreIcon /> : <ArchiveIcon />}
+                                            {comment.archivedAt ? 'Restore comment' : 'Archive comment'}
                                         </DropdownMenuItem>
                                     )}
                                     {permissions.edit && (

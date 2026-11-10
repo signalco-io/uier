@@ -442,3 +442,13 @@ The app action shares the same strict validation and member projection. Supporte
 Claude Code/Cowork routes and official documentation are in
 [desktop session links](assignee-agents.md#desktop-session-links). Member lists and packets include
 it; guests and connected-service deliveries never do. Lease heartbeats do not change it.
+
+
+Archive is additive: `list_feedback.archive` is `exclude` by default, `only` for the archive, or `all`.
+This scope is applied before the storage window, alongside page/environment. Summaries and v1 context
+packets expose optional `archivedAt`; existing `resolved`, `status` and `stage` retain their meanings.
+`set_feedback_archived` requires `feedback:status`, accepts `archived: boolean` and the usual write ids
+and receipt key, and preserves workflow/content/verification. Authorized single/batch reads and
+screenshots remain available. `feedback.archive_changed` uses the durable notification ledger and
+existing webhook/push/poll privacy and connection filtering, without owner email. Old status tools do
+not restore archived feedback. `mcp.api.spec.ts` covers scopes, defaults, restore and receipt replay.

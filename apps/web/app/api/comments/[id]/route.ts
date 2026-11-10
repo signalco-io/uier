@@ -5,7 +5,7 @@ import { isValidId, updateCommentSchema } from '../../../../src/lib/comments/val
 
 type Params = { id: string };
 
-// PATCH /api/comments/{id} - { resolved: boolean }, author only
+// PATCH /api/comments/{id} - exactly one of { resolved }, { status } or { archived }, author only
 export const PATCH = commentsApiHandler<Params>(async (context, { id }) => {
     await assertNotBot();
     if (!isValidId(id))

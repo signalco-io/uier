@@ -7,7 +7,7 @@ import type { CommentItem } from '../@types/Comments';
  * `unresolved`: Active, everything not done (Open, In progress and Ready to verify), the default; `open`, `in-progress`
  * and `ready` are the statuses folded under Active, one each; `resolved` is Done. The app's `StatusFilter`.
  */
-export type CommentsStatusFilter = 'unresolved' | 'open' | 'in-progress' | 'ready' | 'resolved' | 'all';
+export type CommentsStatusFilter = 'unresolved' | 'open' | 'in-progress' | 'ready' | 'resolved' | 'all' | 'archived';
 
 /** The statuses folded under Active, each also a filter of its own */
 export const activeStatusFilters = ['open', 'in-progress', 'ready'] as const satisfies readonly CommentsStatusFilter[];
@@ -50,6 +50,8 @@ export function matchesFilter(comment: CommentItem, filter: CommentsFilter) {
 }
 
 export function matchesStatus(comment: CommentItem, status: CommentsStatusFilter) {
+    if (status === 'archived') return Boolean(comment.archivedAt);
+    if (comment.archivedAt) return false;
     if (status === 'all') return true;
     if (status === 'unresolved') return !comment.resolved;
     return feedbackStage(comment) === (status === 'resolved' ? 'done' : status);

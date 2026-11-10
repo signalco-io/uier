@@ -14,6 +14,12 @@ browser packaging, publication status and hosted gates.
 Packaged request adapter failures must become CommentsApiError(network_error), preserving the
 shared retry/draft recovery behavior. Keep HTTP status parsing outside that transport catch.
 
+Comment list queries allow `archive` alongside the existing page/site/environment filters. The shared
+runtime requests separate `archive=exclude` and `archive=only` windows in packaged clients too;
+the worker must forward both so reloads can load ordinary threads and the Archive view. Archive/restore PATCHes retain the existing comment route and
+server authority. `extension.api.spec.ts` checks the closed query contract; the unchanged-production-ZIP
+runtime suite checks comment reload, archive and restore under strict CSP.
+
 Reply images use the same brokered byte reads as original screenshots. The closed contract allows only
 `GET comments/<id>/replies/<itemId>/screenshot`; the broker dispatches it to the shared authorized image
 handler, while reply edits/deletes retain their existing methods. Uploads remain part of the reply POST.

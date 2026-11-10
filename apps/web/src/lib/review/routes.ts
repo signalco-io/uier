@@ -1,10 +1,10 @@
 import { resolveToolbarFeatures } from '@uier/toolbar/toolbar-features';
+import { updateCommentSchema } from '../comments/validation';
 import { defaultFeedbackTypes, type FeedbackType } from '@uier/toolbar/feedback-types';
 import { loadFeedbackTypes } from '../app/feedbackTypes';
 import { changeFixVerification } from './fixVerification';
 import { fixVerificationSchema } from './fixVerificationSchema';
 import { priorities } from '@uier/toolbar/triage';
-import { feedbackStatusTargets } from '@uier/toolbar/verification';
 import { idempotencyKeySchema } from '../comments/validation';
 import { screenshotUrlMediaType } from '../screenshots/blobStore';
 import { ensureProjectPublicId, type PublicProject } from '../app/projectPublicIds';
@@ -37,6 +37,7 @@ import {
     getProjectScreenshot,
     replyToProjectComment,
     setProjectCommentResolved,
+    setProjectCommentArchived,
     setProjectCommentStatus,
     setProjectCommentAssignee,
     setProjectCommentAssignees,
@@ -149,15 +150,16 @@ export async function replyToReviewComment(context: ReviewApiContext, { id }: { 
     return await commentResponse(context, comment, 201);
 }
 
-/** `resolved` (Done or Open, as before) or `status` (Open, In progress or Done), never both */
-const updateSchema = z.object({ resolved: z.boolean().optional(), status: z.enum(feedbackStatusTargets).optional() })
-    .refine(input => (input.resolved === undefined) !== (input.status === undefined), 'Send either resolved or status.');
+/** Share the legacy status contract and the additive archive operation with the public API. */
+const updateSchema = updateCommentSchema;
 
 export async function updateReviewComment(context: ReviewApiContext, { id }: { id: string }) {
     const { request, project, actor } = context;
     const input = await parseJsonBody(request, updateSchema);
     assertWriter(actor);
-    return await commentResponse(context, input.status !== undefined
+    return await commentResponse(context, input.archived !== undefined
+        ? await setProjectCommentArchived(project, actor, commentId(id), input.archived)
+        : input.status !== undefined
         ? await setProjectCommentStatus(project, actor, commentId(id), input.status)
         : await setProjectCommentResolved(project, actor, commentId(id), input.resolved!));
 }

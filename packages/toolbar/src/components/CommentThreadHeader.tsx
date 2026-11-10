@@ -198,7 +198,7 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
 }) {
     const { review } = useContext(CommentsBootstrapperContext);
     const t = useMessages();
-    const { resolve, progress, prioritize, verification: verificationMutation } = useComments();
+    const { resolve, progress, archive, prioritize, verification: verificationMutation } = useComments();
     const read = useReadComment();
     const unreadMutation = useUnreadComment();
     const announce = useAnnounce();
@@ -320,6 +320,7 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
                         </span>
                     )}
                     {unread && <UnreadDot disabled={read.isPending} onRead={() => read.mutate(comment)} />}
+                    {comment.archivedAt && <span className="text-xs text-muted-foreground">{t.thread.archivedLabel}</span>}
                     <PriorityBadge comment={comment} />
                     <CommentAssignee comment={comment} className={threadActionClassName} />
                 </Row>
@@ -333,6 +334,12 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
                             verify: verification?.request && onRequestVerification
                                 ? { label: comment.verification?.outcome === 'pending' && !comment.resolved ? t.thread.requestNewCheck : t.thread.requestVerification, onRequest: onRequestVerification }
                                 : undefined,
+                            archive: canResolve ? { archived: Boolean(comment.archivedAt), pending: archive.isPending, onToggle: async () => {
+                                try {
+                                    await archive.mutateAsync({ commentId: comment.id, archived: !comment.archivedAt });
+                                    announce(comment.archivedAt ? t.thread.restored : t.thread.archived);
+                                } catch { /* The mutation error is shown with the thread's other errors. */ }
+                            } } : undefined,
                             follow: notifications.follow,
                             mute: notifications.mute,
                             markUnread: canMarkUnread ? { pending: unreadMutation.isPending, onMarkUnread: handleMarkUnread } : undefined
@@ -344,7 +351,7 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
                 <CommentAssigneeOptions comment={comment} autoFocus={assigning === 'key'} onAssigned={() => { setAssigning(false); optionsRef?.current?.focus(); }} />
             )}
             <CopyIssueResult state={issue} />
-            <CommentsErrorMessage error={resolve.error ?? progress.error ?? verificationMutation.error ?? read.error ?? unreadMutation.error ?? prioritize.error ?? notifications.error} />
+            <CommentsErrorMessage error={archive.error ?? resolve.error ?? progress.error ?? verificationMutation.error ?? read.error ?? unreadMutation.error ?? prioritize.error ?? notifications.error} />
             {uncopiedLink && (
                 <label className="flex flex-col gap-1 text-sm">
                     <span className={destructiveTextClassName}>{t.thread.linkNotCopied}</span>
