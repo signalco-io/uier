@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type RefObject } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Input } from '@signalco/ui-primitives/Input';
 import { useComments, newLocalId } from '../hooks/useComments';
@@ -11,12 +11,14 @@ import { useAnnounce } from './Announcer';
 /**
  * The same workflow for pin popovers and inbox threads; guests see only their authorized actions.
  * The Request verification form opens from Thread options (`open`); focus goes back to `returnFocus`.
+ * `evidence` (a page check run again) goes between the request and the answers.
  */
-export function CommentVerification({ comment, open, onOpenChange, returnFocus }: {
+export function CommentVerification({ comment, open, onOpenChange, returnFocus, evidence }: {
     comment: CommentItem;
     open: boolean;
     onOpenChange: (open: boolean) => void;
     returnFocus?: RefObject<HTMLButtonElement | null>;
+    evidence?: ReactNode;
 }) {
     const p = comment.verificationPermissions;
     const v = displayedVerification(comment);
@@ -65,6 +67,7 @@ export function CommentVerification({ comment, open, onOpenChange, returnFocus }
             {v.summary && <p className="m-0 whitespace-pre-wrap break-words">{v.summary}</p>}
             {v.fixUrl && <a className="self-start underline underline-offset-2" href={v.fixUrl} target="_blank" rel="noopener noreferrer">Open fix link</a>}
         </>}
+        {evidence}
         {/* Request verification is in Thread options; here, the reviewer's and requester's answers */}
         {ready && (p?.respond || p?.override || p?.cancel) && <div className="flex flex-wrap gap-1">
             {ready && p?.respond && <><Button size="sm" disabled={verification.isPending} onClick={() => send('confirm')}>Confirm fix</Button><Button size="sm" variant="outlined" disabled={verification.isPending} onClick={() => send('reject')}>Still needs work</Button></>}

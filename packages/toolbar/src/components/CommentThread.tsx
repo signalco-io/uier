@@ -1,4 +1,6 @@
 import { CommentVerification } from './CommentVerification';
+import { CheckRecheck } from './checks/CheckRecheck';
+import { readyForReview } from '../verification';
 import { CommentActivity } from './CommentActivity';
 import { CommentAnchorDetails } from './CommentAnchorDetails';
 import { DraftsProvider } from '../hooks/useDrafts';
@@ -76,6 +78,9 @@ function ThreadContents({ commentItem, reading, onPage }: { commentItem: Comment
     // Like the pin: a deleted first item ("Comment deleted") is not a message
     const messagesCount = commentItem.thread.items.filter(item => !item.deleted).length;
     const source = commentItem.source && (!onPage || !commentItem.source.available) && <span className="min-w-0 break-words">{sourceText(commentItem.source)}</span>;
+    // A page check's finding run again: under the messages, or between a pending request and its answers
+    const recheck = commentItem.check && <CheckRecheck comment={commentItem} />;
+    const ready = readyForReview(commentItem);
 
     return (
         <Stack ref={threadRef} spacing={2} className="px-4 py-3">
@@ -117,7 +122,8 @@ function ThreadContents({ commentItem, reading, onPage }: { commentItem: Comment
                         threadItem={threadLastItem} />
                 )}
             </Stack>
-            <CommentVerification comment={commentItem} open={verifying} onOpenChange={setVerifying} returnFocus={optionsRef} />
+            {!ready && recheck}
+            <CommentVerification comment={commentItem} open={verifying} onOpenChange={setVerifying} returnFocus={optionsRef} evidence={ready && recheck} />
             <CommentAnchorDetails comment={commentItem} />
             <CommentActivity entries={commentItem.history} />
             {toolbarConfig.project && commentItem.notifications?.eligible && <ThreadNotifications comment={commentItem} />}
