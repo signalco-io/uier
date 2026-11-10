@@ -141,8 +141,15 @@ function toastNotSent(kind: CommentKind | 'reply', error: unknown) {
     showErrorToast(notSent[kind] ?? t.errors.notSent.feedback, errorKeepsText(error) ? reason : `${reason} ${t.errors.textKept}`, usageAction(error));
 }
 
+/** Separate server windows keep archived records from displacing ordinary feedback. */
+async function getCommentScopes(query: string) {
+    const lists = await Promise.all(['exclude', 'only'].map(archive =>
+        apiRequest<CommentItem[]>(`${commentsApiUrl}?${query}&archive=${archive}`)));
+    return lists.flatMap(comments => Array.isArray(comments) ? comments : []);
+}
+
 async function getComments(path: string, client: QueryClient, environment?: string) {
-    const comments = await apiRequest<CommentItem[]>(`${commentsApiUrl}?path=${encodeURIComponent(path)}&archive=all${environment ? `&environment=${encodeURIComponent(environment)}` : ''}`);
+    const comments = await getCommentScopes(`path=${encodeURIComponent(path)}${environment ? `&environment=${encodeURIComponent(environment)}` : ''}`);
     return withPending(reconcileReads(client, Array.isArray(comments) ? comments : []), comment => comment.path === path);
 }
 
@@ -218,7 +225,7 @@ async function editMessage({ commentId, itemId, text, expectedText, mentions }: 
 }
 
 async function getSiteComments(client: QueryClient, unreadOnly: boolean, environment?: string) {
-    const comments = await apiRequest<CommentItem[]>(`${commentsApiUrl}?scope=site&archive=all${unreadOnly ? '&unread=true' : ''}${environment ? `&environment=${encodeURIComponent(environment)}` : ''}`);
+    const comments = await getCommentScopes(`scope=site${unreadOnly ? '&unread=true' : ''}${environment ? `&environment=${encodeURIComponent(environment)}` : ''}`);
     return withPending(reconcileReads(client, Array.isArray(comments) ? comments : []), () => !unreadOnly);
 }
 

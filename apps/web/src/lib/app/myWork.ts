@@ -25,7 +25,7 @@ export async function loadMyWork(context: AppContext): Promise<MyWork> {
     const projects = await listVisibleProjects(context);
     let capped = false;
     const perProject = await Promise.all(projects.map(async project => {
-        const comments = await loadProjectComments(context, project, 'all', undefined, windowCapped => { capped ||= windowCapped; });
+        const comments = await loadProjectComments(context, project, 'all', undefined, windowCapped => { capped ||= windowCapped; }, undefined, 'exclude');
         return comments.map(comment => ({ projectId: project.id, projectName: project.name, comment }));
     }));
     const items = perProject.flat().filter(item => !item.comment.archivedAt).sort((a, b) => (b.comment.createdAt ?? '').localeCompare(a.comment.createdAt ?? ''));

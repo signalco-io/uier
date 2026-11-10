@@ -1,3 +1,8 @@
+import { loadProjectComments } from '../src/lib/app/projectComments';
+import { loadMyWork } from '../src/lib/app/myWork';
+import type { AppContext } from '../src/lib/app/context';
+import { getAppStore } from '../src/lib/app/store';
+import { memberId, userPk, type DbUser, type DbMember } from '../src/lib/app/model';
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { feedbackStage } from '@uier/toolbar/verification';
@@ -174,4 +179,32 @@ test('public comments API archives and restores only the author\'s thread', asyn
         expect((await request.patch(endpoint, { data: { archived: false } })).status()).toBe(200);
         expect(await (await request.get(`/api/comments?path=${encodeURIComponent(path)}`)).json()).toHaveLength(1);
     } finally { await other.dispose(); }
+});
+
+
+test('ordinary API, app and My work survive more than a full window of newer archived feedback', async () => {
+    const f = await fixture({ assigneeIds: [author.userId] });
+    for (let index = 0; index < 1001; index++)
+        await f.store.create({ ...f.comment, id: `comment_archived_${index}`, number: index + 2,
+            createdAt: '2026-11-10T00:00:00.000Z', archivedAt: '2026-11-10T00:00:00.000Z' });
+    // Inclusive repository reads keep their legacy contract, while explicit scopes filter before TOP.
+    expect(await f.store.listAll(f.comment.domain, 1000)).toHaveLength(1000);
+    expect((await f.store.list(f.comment.domain, '/checkout', 200, undefined, undefined, 'exclude')).map(c => c.id)).toEqual([f.comment.id]);
+    for (const query of ['path=/checkout', 'scope=site', 'scope=site&unread=true']) {
+        const context = { project: f.project, actor: member, siteOrigin: f.project.urls[0],
+            request: new Request(`https://uier.io/api/review/${f.project.id}/comments?${query}`) };
+        const ordinary = await (await listReviewComments(context)).json() as { id: string }[];
+        expect(ordinary.map((c: { id: string }) => c.id)).toEqual([f.comment.id]);
+        expect(await (await listReviewComments({ ...context, request: new Request(`${context.request.url}&archive=only`) })).json()).toHaveLength(200);
+    }
+    const app = getAppStore();
+    const context = { user: (await app.get<DbUser>(userPk(author.userId), author.userId))!.doc,
+        member: (await app.get<DbMember>(f.project.pk, memberId(author.userId)))!.doc, workspace: { id: f.project.workspaceId },
+        isAdmin: false, memberships: [] } as unknown as AppContext;
+    const comments = await loadProjectComments(context, f.project, 'all');
+    expect(comments.some(c => c.id === f.comment.id && !c.archivedAt)).toBe(true);
+    expect(comments.filter(c => c.archivedAt)).toHaveLength(1000);
+    const work = await loadMyWork(context);
+    expect(work.assigned.map(item => item.comment.id)).toEqual([f.comment.id]);
+    expect(work.capped).toBe(false);
 });

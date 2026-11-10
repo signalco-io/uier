@@ -1,3 +1,4 @@
+import type { CommentItem } from '../../../packages/toolbar/src/components/@types/Comments';
 import { expect, test, type Page } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { startReviewedSite } from './support/reviewedSite';
@@ -23,7 +24,7 @@ async function fixture(page: Page) {
     await composer.press('Enter');
     const response = await posted;
     expect(response.status()).toBe(201);
-    const comment = await response.json() as { id: string };
+    const comment = await response.json() as CommentItem;
     await expect(commentBubble(page, 1, 1)).toBeVisible();
     return { projectId, comment, reviewUrl };
 }
@@ -108,4 +109,29 @@ test('toolbar archive removes the pin, restores from Archive and rolls back a fa
     await expect(commentBubble(page, 1, 1)).toBeVisible();
     await expect(page.getByRole('alert').filter({ hasText: 'Something went wrong' }).first()).toBeVisible();
     await page.unroute(endpoint);
+});
+
+
+test('toolbar page and site windows retain active feedback behind 1001 newer archived threads', async ({ page }) => {
+    const f = await fixture(page);
+    const endpoint = `/api/review/${f.projectId}/comments`;
+    const ordinary = f.comment;
+    const records = [...Array.from({ length: 1001 }, (_, index) => ({ ...ordinary,
+        id: `comment_archived_${index}`, number: index + 2, archivedAt: '2026-11-10T00:00:00.000Z' })), ordinary];
+    const scopes = new Set<string>();
+    await page.route(`**${endpoint}?**`, async route => {
+        const query = new URL(route.request().url()).searchParams;
+        const archive = query.get('archive');
+        scopes.add(`${query.get('scope') ?? 'page'}:${archive}`);
+        const filtered = records.filter(comment => archive === 'only' ? comment.archivedAt : archive === 'exclude' ? !comment.archivedAt : true);
+        await route.fulfill({ json: filtered.slice(0, 200) });
+    });
+    await page.goto(f.reviewUrl);
+    await expect(commentBubble(page, 1, 1)).toBeVisible();
+    await page.getByRole('button', { name: /^Inbox/ }).click();
+    const inbox = page.getByRole('complementary', { name: 'Comments' });
+    await expect(inbox).toContainText('Keep this feedback for later');
+    await expect.poll(() => [...scopes].sort()).toEqual(['page:exclude', 'page:only', 'site:exclude', 'site:only']);
+    await inbox.getByRole('button', { name: /^Archive / }).click();
+    await expect(inbox.getByRole('article')).toHaveCount(200);
 });

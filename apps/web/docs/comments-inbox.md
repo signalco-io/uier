@@ -229,8 +229,9 @@ responses. A full five-minute shell safety refresh keeps unrelated sidebar chang
 Archive is an explicit fourth list tab (`?status=archived`), separate from Active, Done and All. The
 ordinary tabs, workflow board columns and My work exclude archived threads. The board offers an
 Archive button that opens the archive list; choosing Board again returns to workflow columns.
-Counts follow the selected search, people, page, priority, environment and author scopes. The app's
-bounded authorized snapshot includes archive metadata so presentation filtering remains local.
+Counts follow the selected search, people, page, priority, environment and author scopes. The app
+loads independent bounded ordinary and archive windows, with the archive filter applied in storage
+before each limit. My work loads only the ordinary window. Presentation filtering remains local.
 An archived or restored open thread leaves its previous scope, including its detail panel.
 
 More actions → Archive comment moves a thread into Archive; Restore comment returns it to its prior

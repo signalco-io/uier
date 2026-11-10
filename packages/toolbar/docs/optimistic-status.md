@@ -19,8 +19,8 @@ in `app-performance.spec.ts`; the menu in `toolbar-thread.spec.ts`, `verificatio
 
 
 Archive/restore uses the same reviewer-scoped pending machinery (`archive`, `archivedAt`) and cache
-invalidation. New toolbar list requests opt into `archive=all`; pins, highlights, inline slots and
-ordinary inbox status filters exclude archived threads. The explicit Archive tab lists them with
+invalidation. Toolbar page and site lists fetch `archive=exclude` and `archive=only` separately, each
+with its own server limit; pins, highlights, inline slots and ordinary inbox status filters exclude archived threads. The explicit Archive tab lists them with
 Restore comment in Thread options, using resolve authority; its preview has no Show on page action.
 Workflow status stays separate and unchanged. A failed archive rolls back every cached list and shows
 an error toast even when its optimistic removal unmounted the pin. All six catalogs include the archive

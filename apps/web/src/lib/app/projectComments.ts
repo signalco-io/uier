@@ -1,3 +1,4 @@
+import type { ArchiveFilter } from '../repo/archiveFilter';
 import { feedbackTypeSnapshot, isCommentKind } from '@uier/toolbar/feedback-types';
 import { verificationDetails, verificationPermissions } from '../review/fixVerificationDto';
 import { commentPriority, type CommentPriority } from '@uier/toolbar/triage';
@@ -297,10 +298,17 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
 }
 
 /** Every comment of the project the app user can see (all pages), newest first */
-export async function loadProjectComments(context: AppContext, project: DbProject, environment?: string, authorId?: string, onWindow?: (capped: boolean) => void, membersForRequest?: ReturnType<typeof listProjectMembers>) {
+export async function loadProjectComments(context: AppContext, project: DbProject, environment?: string, authorId?: string, onWindow?: (capped: boolean) => void, membersForRequest?: ReturnType<typeof listProjectMembers>, archive: ArchiveFilter = 'all') {
     const actor = appActor(context);
+    let windowCapped = false;
     const [comments, members, reads, subscriptions] = await Promise.all([
-        listProjectComments(project, actor, undefined, environment ? environmentFilter(project, environment) : undefined, authorId, onWindow),
+        Promise.all((archive === 'all' ? ['exclude', 'only'] as const : [archive]).map(scope =>
+            listProjectComments(project, actor, undefined, environment ? environmentFilter(project, environment) : undefined, authorId,
+                capped => { windowCapped ||= capped; }, scope)))
+            .then(lists => {
+                onWindow?.(windowCapped);
+                return lists.flat().sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
+            }),
         membersForRequest ?? listProjectMembers(project.workspaceId, project.id),
         loadReadSequences(`project:${project.id}`, `user:${context.user.id}`),
         getAppStore().query<NotificationSubscription>({ type: 'notification-subscription', pk: notificationPk(project.id), where: { actorId: `user:${context.user.id}` } })
