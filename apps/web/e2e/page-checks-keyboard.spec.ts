@@ -37,7 +37,9 @@ async function openPanel(page: Page, label: string) {
     const keyboard = panel.locator('[data-uier-section="keyboard"]');
     await expect(keyboard).toHaveAttribute('data-uier-section-status', 'done', { timeout: 20_000 });
     await showChecksTab(panel, 'keyboard');
-    return { project, panel, keyboard };
+    // Show tab order and Check focus indicators, above the section
+    const tools = panel.locator('[data-uier-keyboard-tools]');
+    return { project, panel, keyboard, tools };
 }
 
 const check = (section: Locator, id: string) => section.locator(`[data-uier-check="${id}"]`);
@@ -75,7 +77,7 @@ function misplacedMarkers(page: Page) {
 test('the Keyboard section reports the tab order and draws it on the page while the panel is open and the toolbar expanded', async ({ page }, testInfo) => {
     test.skip(testInfo.project.use.isMobile === true, 'Desktop layout');
     test.setTimeout(90_000);
-    const { project, panel, keyboard } = await openPanel(page, 'keyboard-order');
+    const { project, panel, keyboard, tools } = await openPanel(page, 'keyboard-order');
 
     // The order's size, the positive tabindex and the stop nobody can see; the skip link is left out of that
     await expect(check(keyboard, 'tab-stops')).toContainText(String(tabOrder.length));
@@ -91,8 +93,10 @@ test('the Keyboard section reports the tab order and draws it on the page while 
     await expect(hidden.getByRole('listitem')).toHaveCount(1);
     await expect(hidden.getByRole('listitem')).toContainText('a#ghost-link.ghost');
 
-    // The order on the page: numbered by its elements, following the scroll
-    const toggle = keyboard.getByRole('button', { name: 'Show tab order' });
+    // The order on the page: numbered by its elements, following the scroll. Its button is above the section's findings
+    const toggle = tools.getByRole('button', { name: 'Show tab order' });
+    expect((await tools.boundingBox())!.y).toBeLessThan((await keyboard.boundingBox())!.y);
+    await expect(tools).toContainText('Numbers each stop on the page, with a line to the next.');
     await expect(toggle).toHaveAttribute('aria-pressed', 'false');
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-pressed', 'true');
@@ -130,7 +134,7 @@ test('the Keyboard section reports the tab order and draws it on the page while 
     await expect(panel).toBeHidden();
     await expect(layer).toHaveCount(0);
     await toolbar(page).getByRole('button', { name: /^Accessibility/ }).click();
-    await expect(keyboard.getByRole('button', { name: 'Show tab order' })).toHaveAttribute('aria-pressed', 'false');
+    await expect(tools.getByRole('button', { name: 'Show tab order' })).toHaveAttribute('aria-pressed', 'false');
     await expect(layer).toHaveCount(0);
 });
 
@@ -152,8 +156,8 @@ async function expectFocusFindings(keyboard: Locator) {
 test('the focus check moves the focus through the page, by keyboard or by mouse, and puts the focus and the scroll back', async ({ page }, testInfo) => {
     test.skip(testInfo.project.use.isMobile === true, 'Desktop layout');
     test.setTimeout(90_000);
-    const { project, panel, keyboard } = await openPanel(page, 'keyboard-focus');
-    const start = keyboard.getByRole('button', { name: 'Check focus indicators' });
+    const { project, panel, keyboard, tools } = await openPanel(page, 'keyboard-focus');
+    const start = tools.getByRole('button', { name: 'Check focus indicators' });
     await expect(start).toHaveAccessibleDescription(/^Moves the focus through the page's controls/);
     // Not run when the panel opened: it changes the page while it runs
     await expect(check(keyboard, 'focus-indicator')).toHaveCount(0);
@@ -163,7 +167,9 @@ test('the focus check moves the focus through the page, by keyboard or by mouse,
     await start.focus();
     await page.keyboard.press('Enter');
     await expectFocusFindings(keyboard);
-    await expect(keyboard.getByRole('status')).toHaveText(`1 of ${tabOrder.length} stops showed no visible change when focused.`);
+    // Its description stays with the findings
+    await expect(tools).toContainText("Moves the focus through the page's controls");
+    await expect(tools.getByRole('status')).toHaveText(`1 of ${tabOrder.length} stops showed no visible change when focused.`);
     await expect(start).toBeFocused();
     expect(await page.evaluate(() => window.scrollY)).toBe(150);
     await expect(page.locator('#bold')).not.toBeFocused();
@@ -184,7 +190,7 @@ test('the focus check moves the focus through the page, by keyboard or by mouse,
     await expect(keyboard).toHaveAttribute('data-uier-section-status', 'done');
     // Posting scrolled the element into view for its screenshot
     await page.evaluate(() => window.scrollTo(0, 150));
-    await keyboard.getByRole('button', { name: 'Check focus indicators' }).click();
+    await tools.getByRole('button', { name: 'Check focus indicators' }).click();
     await expectFocusFindings(keyboard);
     await expect(start).toBeFocused();
     expect(await page.evaluate(() => window.scrollY)).toBe(150);
@@ -200,8 +206,8 @@ test('a focus check started by a click in a browser without focusVisible says it
             focus.call(this, { preventScroll: options?.preventScroll });
         };
     });
-    const { keyboard } = await openPanel(page, 'keyboard-click');
-    const start = keyboard.getByRole('button', { name: 'Check focus indicators' });
+    const { keyboard, tools } = await openPanel(page, 'keyboard-click');
+    const start = tools.getByRole('button', { name: 'Check focus indicators' });
     await start.click();
     const indicators = check(keyboard, 'focus-indicator');
     await expect(indicators).toHaveAttribute('data-uier-check-state', 'none', { timeout: 20_000 });

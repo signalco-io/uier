@@ -2,6 +2,7 @@ import { useContext, useEffect, useId, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@signalco/ui-primitives/Button';
 import { cx } from '@signalco/ui-primitives/cx';
+import { LoaderSpinner } from '@signalco/ui-icons';
 import type { LazyChecks } from '../../../checks/lazy';
 import type { SectionReport } from '../../../checks/lazy/api';
 import type { KeyboardDetails, TabStop } from '../../../checks/lazy/keyboard';
@@ -9,11 +10,13 @@ import { useLayoutVersion } from '../../../hooks/useLayoutVersion';
 import { CommentsBootstrapperContext } from '../../CommentsBootstrapperContext';
 import { InkScope } from '../../InkScope';
 import { CheckItem } from '../ChecksParts';
+import { FocusIcon, TabOrderIcon } from '../ChecksIcons';
 import { defineSection, ReportSection, usePageLayerVisible, useSection, type SectionDefinition } from './sections';
 import { useMessages } from '../../../i18n';
 
 // The Accessibility panel's Keyboard section (packages/toolbar/docs/page-checks-keyboard.md): the tab
-// order, drawn on the page on request, and the manual focus indicator check (src/checks/lazy/keyboard.ts).
+// order, drawn on the page on request, and the manual focus indicator check (src/checks/lazy/keyboard.ts),
+// as buttons above the section's findings.
 
 /** The on-demand checks, once the section ran: the overlay measures with them (`tabOrderLayout`) */
 let lazyChecks: LazyChecks | undefined;
@@ -79,10 +82,16 @@ function TabOrderLayer({ stops }: { stops: readonly TabStop[] }) {
     </>;
 }
 
-const rowClassName = 'flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 px-3 py-2';
-const noteClassName = 'm-0 min-w-0 flex-1 basis-40 text-xs text-muted-foreground';
-const buttonClassName = 'shrink-0 font-normal pointer-coarse:min-h-11';
+/** A tool's card: its button, then what it does (kept once it ran), then what it found */
+const toolClassName = 'flex min-w-0 flex-1 basis-44 flex-col items-start gap-1.5 rounded-xl border bg-card p-3';
+const noteClassName = 'm-0 text-xs text-muted-foreground';
+const buttonClassName = 'font-normal pointer-coarse:min-h-11';
 
+/**
+ * The tab order on the page and the focus check, as two buttons with icons above the Keyboard
+ * section's findings (each with its description), then the section with the focus check's findings
+ * ([uier #228](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_wJf6YX8AiP9Go6faFCjO2)).
+ */
 export function KeyboardSection() {
     const section = useSection(keyboardSection);
     const focus = useSection(focusSection);
@@ -93,38 +102,46 @@ export function KeyboardSection() {
     useEffect(() => () => focusCheck?.abort(), []);
     const stops = section.report?.details?.stops ?? [];
     const checking = focus.status === 'checking';
-    return (
-        <ReportSection id={keyboardSection.id} title={t.title} section={section}>
-            {stops.length > 0 && (
-                <li className={rowClassName}>
-                    <p className={noteClassName}>{t.orderNote}</p>
-                    <Button size="xs" variant="outlined" aria-pressed={showOrder} className={cx(buttonClassName, showOrder && 'bg-accent')}
-                        onClick={() => setShowOrder(!showOrder)}>
-                        {t.showOrder}
-                    </Button>
-                    {showOrder && <TabOrderLayer stops={stops} />}
-                </li>
-            )}
-            <li className={rowClassName}>
-                <p id={focusNote} className={noteClassName}>
-                    {t.focusNote}
-                </p>
-                <Button size="xs" variant="outlined" aria-describedby={focusNote} aria-disabled={checking || undefined} className={buttonClassName}
-                    onClick={event => {
-                        // So Enter can start it again from the keyboard (some browsers do not focus a clicked button)
-                        event.currentTarget.focus();
-                        if (!checking) focus.run();
-                    }}>
-                    {t.checkFocus}
-                </Button>
-                {focus.status !== 'idle' && (
-                    // Said when it changes; once done, the result's rows show the same
-                    <p role="status" className={cx('m-0 basis-full text-xs text-foreground', focus.status === 'done' && 'sr-only')}>
-                        {checking ? t.moving : focus.status === 'failed' ? t.focusFailed : focus.report?.checks[0]?.reason}
-                    </p>
+    return <>
+        {section.report && (
+            <div data-uier-keyboard-tools="" className="flex flex-wrap gap-2">
+                {stops.length > 0 && (
+                    <div className={toolClassName}>
+                        <Button size="xs" variant="outlined" aria-pressed={showOrder} className={cx(buttonClassName, showOrder && 'bg-accent')}
+                            startDecorator={<TabOrderIcon size={14} aria-hidden="true" />}
+                            onClick={() => setShowOrder(!showOrder)}>
+                            {t.showOrder}
+                        </Button>
+                        <p className={noteClassName}>{t.orderNote}</p>
+                        {showOrder && <TabOrderLayer stops={stops} />}
+                    </div>
                 )}
-            </li>
+                <div className={toolClassName}>
+                    <Button size="xs" variant="outlined" aria-describedby={focusNote} aria-disabled={checking || undefined} className={buttonClassName}
+                        startDecorator={checking
+                            ? <LoaderSpinner size={14} aria-hidden="true" className="motion-safe:animate-spin" />
+                            : <FocusIcon size={14} aria-hidden="true" />}
+                        onClick={event => {
+                            // So Enter can start it again from the keyboard (some browsers do not focus a clicked button)
+                            event.currentTarget.focus();
+                            if (!checking) focus.run();
+                        }}>
+                        {t.checkFocus}
+                    </Button>
+                    <p id={focusNote} className={noteClassName}>
+                        {t.focusNote}
+                    </p>
+                    {focus.status !== 'idle' && (
+                        // Said when it changes; once done, the result's rows show the same
+                        <p role="status" className={cx('m-0 text-xs text-foreground', focus.status === 'done' && 'sr-only')}>
+                            {checking ? t.moving : focus.status === 'failed' ? t.focusFailed : focus.report?.checks[0]?.reason}
+                        </p>
+                    )}
+                </div>
+            </div>
+        )}
+        <ReportSection id={keyboardSection.id} title={t.title} section={section}>
             {focus.report?.checks.map(check => <CheckItem key={check.id} check={check} />)}
         </ReportSection>
-    );
+    </>;
 }
