@@ -138,7 +138,8 @@ The orders above are the board's defaults. Each column can have its own sort ins
 browser or person, and not one setting for every project. `lib/app/boardSort.ts` (browser-safe) has
 the choices: active columns offer Priority (default, `compareCommentOrder`), Newest first and Oldest
 first (`createdAt`, then number) and Recently updated (`updatedAt`, then the usual order); Done offers
-Recently completed (default, `compareDoneOrder`) and the same four. Only choices other than a column's
+Recently completed (default, `compareDoneOrder`) and the same four; Archive ([below](#board-archive-column))
+offers Recently archived (default, `compareArchivedOrder`) and the same four, saved under `archive`. Only choices other than a column's
 default are stored, and a stored value a column does not offer reads as its default (`boardSort`).
 The list view keeps its order.
 
@@ -252,8 +253,10 @@ surfaces, reload, restore, failed saves, mobile and light/dark accessibility.
 Collapse Archive (`FoldHorizontalIcon`, a tooltip); the focus moves to the other toggle either way. The grid's
 tracks come from `--board-columns` (the statuses, then the strip or a column), and the project layout widens its
 header from the section's `data-board-archive` (`--board-width-collapsed` / `--board-width-expanded`).
-- Order: like Done but by archive time (`compareArchivedOrder`: `archivedAt`, newest first, then the update and
-  creation times, ties in the list's order). It has no sort menu.
+- Order: by default like Done but by archive time (`compareArchivedOrder`: `archivedAt`, newest first, then the update and
+  creation times, ties in the list's order). [uier #251](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_isE8wcqHfUDuHHI3xdXB9):
+  its expanded header has a sort menu like Done's (Recently archived instead of Recently completed), before Collapse
+  Archive, saved on the project like the other columns' sorts (`boardSorts.archive`, the same people and action).
 - Its cards open their thread in the sheet like the others (the board's scope includes archived threads, so
   archiving from the sheet keeps it open with the Archived label) but don't drag and have no Move; Restore comment
   returns one to its column. It is not a drop target and is dimmed (`data-drop="refused"`) while a card is dragged.
@@ -263,6 +266,6 @@ header from the section's `data-board-archive` (`--board-width-collapsed` / `--b
   `setBoardArchiveAction`, `canSortProjectBoard`), optimistically with an error toast. Others can still expand it
   for themselves until the page is opened again. The action schema and `saveProjectBoardArchive` both accept only
   a boolean, so a string such as `"false"` or `null` is refused before any write.
-- `e2e/archive.spec.ts` covers collapsed and expanded, archiving and restoring from the board, the focus, a reload
+- `e2e/archive.spec.ts` covers collapsed and expanded, archiving and restoring from the board, its sort, the focus, a reload
   and light/dark axe; `e2e/board-sort.api.spec.ts` the order, the saved state and invalid inputs; `e2e/comment-board.spec.ts` its
   place in the layout and during a drag.
