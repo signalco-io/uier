@@ -194,9 +194,9 @@ export function CommentFilters({ className, unread, unreadCount, view, status, s
                     ))}
                 </ToggleGroup>
             </div>
-            {/* Active (the default, every status but Done), Done and All; the board shows the statuses side by side.
+            {/* Active (the default, every status but Done), Done, All and Archive; the board shows the statuses side by side,
+                with Archive as its last column.
                 Open, In progress and Ready to verify fold under Active: its menu picks one, and the Active tab then names it. */}
-            {view === 'board' && <Button variant="ghost" size="sm" className="self-start pointer-coarse:min-h-11" onClick={() => go({ status: 'archived', view: undefined, comment: undefined })}>Archive <span className="tabular-nums text-muted-foreground">{statusCounts.archived}</span></Button>}
             {view === 'list' && <StatusTabs status={status} counts={statusCounts} onStatus={value => go({ status: value === 'active' ? undefined : value })} />}
         </div>
     );

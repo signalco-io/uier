@@ -1,17 +1,18 @@
 'use client';
 
-import { useEffect, useEffectEvent, useId, useRef, useState, useSyncExternalStore, type KeyboardEvent, type MouseEvent, type ReactNode, type SyntheticEvent } from 'react';
+import { useEffect, useEffectEvent, useId, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, type SyntheticEvent } from 'react';
 import { createPortal } from 'react-dom';
 import {
     DndContext, DragOverlay, MouseSensor, defaultDropAnimationSideEffects, pointerWithin, useDraggable, useDroppable, useSensor, useSensors,
     type Active, type Announcements, type DraggableSyntheticListeners, type DropAnimation, type Over
 } from '@dnd-kit/core';
-import { ArrowRightLeftIcon } from 'lucide-react';
+import { ArchiveIcon, ArrowRightLeftIcon, FoldHorizontalIcon } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { KnownPageLinks } from '../../../knownPages';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
 import { Button } from '@/src/components/ui/button';
 import { Sheet, SheetContent, SheetTitle } from '@/src/components/ui/sheet';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import { Spinner } from '@/src/components/ui/spinner';
 import { CommentCard, type AssigneeOption } from './CommentCard';
 import { CommentRow, commentRowId } from './CommentRow';
@@ -160,7 +161,8 @@ function BoardCard({ projectId, comment, href, opened, moving, tabbable, onOpen,
 }) {
     const status = commentStatus(comment);
     const allowed = allowedStatuses(comment);
-    const canMove = statuses.some(option => option !== status && allowed[option]);
+    // An archived card stays in Archive until Restore comment (in its thread) returns it to its status
+    const canMove = !comment.archivedAt && statuses.some(option => option !== status && allowed[option]);
     const { setNodeRef, listeners, isDragging } = useDraggable({ id: comment.id, data: { comment }, disabled: !canMove || moving });
     const shortcutId = useId();
     return (
@@ -225,6 +227,69 @@ function BoardColumn({ status, count, state, sort, onSort, children }: {
 }
 
 /**
+ * The board's last column: the archived threads, newest archived first. Collapsed (the default) it is a narrow strip
+ * with its name and count, which expands it; expanded it is a column of cards like the others, whose header collapses
+ * it again. The choice is the project's, like the columns' sorts (`onExpandedChange`). It is not a drop target and
+ * its cards don't move: Restore comment in the thread returns one to its status. While a card is dragged it is dimmed.
+ */
+function ArchiveColumn({ count, expanded, dimmed, onExpandedChange, children }: {
+    count: number;
+    expanded: boolean;
+    dimmed: boolean;
+    onExpandedChange: (expanded: boolean) => void;
+    children: ReactNode;
+}) {
+    // The toggle is another button in each state: the focus goes to the new one
+    const toggle = useRef<HTMLButtonElement>(null);
+    const toggled = useRef(false);
+    useEffect(() => {
+        if (!toggled.current) return;
+        toggled.current = false;
+        toggle.current?.focus({ preventScroll: true });
+    }, [expanded]);
+    const change = () => {
+        toggled.current = true;
+        onExpandedChange(!expanded);
+    };
+    return (
+        <section aria-label="Archived comments" data-board-archive={expanded ? 'expanded' : 'collapsed'} data-drop={dimmed ? 'refused' : undefined}
+            className={cn('flex flex-col rounded-2xl border bg-muted/50 transition-opacity duration-150 ease-out data-[drop=refused]:opacity-50',
+                expanded ? 'min-h-24 gap-2 p-2' : 'md:min-h-24 md:self-stretch')}>
+            {expanded ? (
+                <>
+                    <div className="flex items-center gap-2 px-2 pt-1">
+                        <h3 className="m-0 flex min-w-0 items-center gap-2 text-sm font-medium">
+                            <ArchiveIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+                            Archive
+                            <span className="font-normal tabular-nums text-muted-foreground">{count}</span>
+                        </h3>
+                        <Tooltip>
+                            <TooltipTrigger render={(
+                                // Takes no more height than the column's name; 44 px to tap on a touch screen
+                                <Button ref={toggle} variant="ghost" size="icon-xs" aria-label="Collapse Archive" aria-expanded="true" onClick={change}
+                                    className="relative -my-1 -mr-1.5 ml-auto text-muted-foreground hover:text-foreground after:absolute after:-inset-2.5 pointer-fine:after:hidden" />
+                            )}>
+                                <FoldHorizontalIcon />
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">Collapse Archive</TooltipContent>
+                        </Tooltip>
+                    </div>
+                    {children}
+                </>
+            ) : (
+                // The whole strip expands it; from md its name runs down the strip
+                <Button ref={toggle} variant="ghost" aria-expanded="false" onClick={change}
+                    className="h-auto min-h-11 w-full justify-start gap-2 rounded-2xl px-4 py-2.5 font-medium md:flex-1 md:flex-col md:px-0 md:py-3">
+                    <ArchiveIcon className="text-muted-foreground" />
+                    <span className="md:[writing-mode:vertical-rl]">Archive</span>{' '}
+                    <span className="font-normal tabular-nums text-muted-foreground">{count}</span>
+                </Button>
+            )}
+        </section>
+    );
+}
+
+/**
  * Open, In progress, Ready to verify and Done side by side, as compact cards, with one tab stop: the arrow keys move
  * between the cards and the columns, Enter opens a card's thread and J and K go to the next and the previous one.
  * A card opens its thread in a sheet
@@ -235,15 +300,18 @@ function BoardColumn({ status, count, state, sort, onSort, children }: {
  * arrive, leave or change column however it happens animate (`LayoutMotion`), except the dragged one,
  * which dnd-kit settles from where it was dropped. Each column is in the project's sort for it (`sorts`, already
  * applied to `columns`): drops, Move and the keys follow it, and the people who may change it (`onSort`) choose
- * it from the column's header.
+ * it from the column's header. Archive is the last column (`archive`), collapsed unless the project expands it.
  */
-export function CommentBoard({ projectId, columns, sorts, onSort, allComments, assignees, userId, openComment }: {
+export function CommentBoard({ projectId, columns, sorts, onSort, archive, allComments, assignees, userId, openComment }: {
     projectId: string;
     /** Each column's cards, in its sort */
     columns: Record<CommentStatus, ProjectCommentView[]>;
     sorts: Record<CommentStatus, BoardSort>;
     /** Changes a column's sort for everyone; missing for people who may not */
     onSort?: (status: CommentStatus, sort: BoardSort) => void;
+    /** The archived threads, newest archived first, and whether their column is expanded */
+    archive: { comments: ProjectCommentView[]; expanded: boolean; onExpandedChange: (expanded: boolean) => void };
+    /** Every thread the board's sheet can open, archived ones too */
     allComments: ProjectCommentView[];
     assignees: AssigneeOption[];
     userId: string;
@@ -255,7 +323,9 @@ export function CommentBoard({ projectId, columns, sorts, onSort, allComments, a
     // The board's one tab stop (a roving tab index, like the list's): the card last focused, else the open one,
     // else the first. The arrow keys move between the cards and the columns.
     const [focusId, setFocusId] = useState<string>();
-    const cards = statuses.flatMap(status => columns[status]);
+    // What the keys go through, column by column: the statuses, then Archive while it is expanded
+    const lanes = [...statuses.map(status => columns[status]), ...(archive.expanded ? [archive.comments] : [])];
+    const cards = lanes.flat();
     const listed = (id: string | undefined) => cards.find(comment => comment.id === id);
     const current = listed(focusId) ?? listed(openId);
     const tabStop = current ?? cards[0];
@@ -343,16 +413,16 @@ export function CommentBoard({ projectId, columns, sorts, onSort, allComments, a
             }
         } else {
             const id = target.closest<HTMLElement>('[data-board-card]')?.dataset.boardCard;
-            const column = statuses.findIndex(status => columns[status].some(comment => comment.id === id));
+            const column = lanes.findIndex(lane => lane.some(comment => comment.id === id));
             if (!id || column < 0 || !board.contains(target)) return;
-            const list = columns[statuses[column]!];
+            const list = lanes[column]!;
             const index = list.findIndex(comment => comment.id === id);
             if (key === 'ArrowDown' || key === 'ArrowUp') next = list[index + (key === 'ArrowDown' ? 1 : -1)];
             else if (key === 'Home' || key === 'End') next = list.at(key === 'Home' ? 0 : -1);
             else if (key === 'ArrowLeft' || key === 'ArrowRight') {
                 const step = key === 'ArrowRight' ? 1 : -1;
-                for (let other = column + step; other >= 0 && other < statuses.length && !next; other += step) {
-                    const beside = columns[statuses[other]!];
+                for (let other = column + step; other >= 0 && other < lanes.length && !next; other += step) {
+                    const beside = lanes[other]!;
                     next = beside[Math.min(index, beside.length - 1)];
                 }
             } else return;
@@ -433,14 +503,17 @@ export function CommentBoard({ projectId, columns, sorts, onSort, allComments, a
                     (`page-bleed`), so the first and last columns line up with the page at either end and the rest scroll under
                     the panel's edges; room for a column's drop ring above and below (`py-1`); not up and down
                     (`overflow-y-clip`), the page does that. A phone stacks the columns.
+                    Archive comes last: a 3rem strip while collapsed, a column like the others when expanded
+                    (`--board-columns`, so the statuses stay data-driven).
                     While a card is dragged every column is as tall as the longest, so any part of it takes the card. */}
                 <LayoutMotion container={grid} item="data-board-card" skip={settling}>
                 <div ref={grid} data-page-width="wide" data-board-scroll=""
+                    style={{ '--board-columns': `repeat(${statuses.length + (archive.expanded ? 1 : 0)}, minmax(18rem, 20rem))${archive.expanded ? '' : ' 3rem'}` } as CSSProperties}
                     onFocus={event => {
                         const id = event.target.closest<HTMLElement>('[data-board-card]')?.dataset.boardCard;
                         if (id && id !== focusId) setFocusId(id);
                     }}
-                    className={cn('relative grid grid-cols-1 items-start gap-4 md:page-bleed md:grid-flow-col md:grid-cols-none md:auto-cols-[minmax(18rem,20rem)] md:justify-center-safe md:overflow-x-auto md:overflow-y-clip md:overscroll-x-contain md:py-1', drag && 'md:items-stretch')}>
+                    className={cn('relative grid grid-cols-1 items-start gap-4 md:page-bleed md:grid-cols-(--board-columns) md:justify-center-safe md:overflow-x-auto md:overflow-y-clip md:overscroll-x-contain md:py-1', drag && 'md:items-stretch')}>
                     {statuses.map(status => {
                         const state = columnState(status);
                         const cards = columns[status];
@@ -467,6 +540,20 @@ export function CommentBoard({ projectId, columns, sorts, onSort, allComments, a
                             </BoardColumn>
                         );
                     })}
+                    <ArchiveColumn count={archive.comments.length} expanded={archive.expanded} dimmed={Boolean(drag)} onExpandedChange={archive.onExpandedChange}>
+                        {archive.comments.length ? (
+                            <ul aria-label="Archived comments list" className="m-0 flex list-none flex-col gap-2 p-0">
+                                {archive.comments.map(comment => (
+                                    <BoardCard key={comment.id} projectId={projectId} comment={comment} href={hrefFor(comment.id)} opened={comment.id === openId}
+                                        moving={false} tabbable={comment.id === tabStop?.id}
+                                        onOpen={event => open(comment.id, event, { replace: false })}
+                                        onMove={() => {}} />
+                                ))}
+                            </ul>
+                        ) : (
+                            <p data-empty-column="" className="m-0 flex flex-1 items-center px-2 text-sm text-muted-foreground">Nothing archived.</p>
+                        )}
+                    </ArchiveColumn>
                 </div>
                 </LayoutMotion>
                 {client && createPortal(

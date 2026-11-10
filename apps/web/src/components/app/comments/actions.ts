@@ -9,8 +9,8 @@ import { fixVerificationSchema } from '../../../lib/review/fixVerificationSchema
 import { triageProjectComments } from '../../../lib/review/bulkTriage';
 import { bulkTriageSchema } from '../../../lib/review/bulkTriageSchema';
 import { projectIdSchema } from '../../../lib/app/validation';
-import { agentCommentActionSchema, assignCommentsPeopleActionSchema, boardSortActionSchema, priorityCommentActionSchema } from './actionSchemas';
-import { saveProjectBoardSort } from '../../../lib/app/projectBoard';
+import { agentCommentActionSchema, assignCommentsPeopleActionSchema, boardArchiveActionSchema, boardSortActionSchema, priorityCommentActionSchema } from './actionSchemas';
+import { saveProjectBoardArchive, saveProjectBoardSort } from '../../../lib/app/projectBoard';
 import type { BoardSort } from '../../../lib/app/boardSort';
 import { setProjectCommentAgent } from '../../../lib/review/assigneeAgent';
 import type { AssigneeAgentInput } from '../../../lib/review/assigneeAgentModel';
@@ -233,6 +233,16 @@ export async function setBoardSortAction(projectId: string, status: import('@uie
         const input = parseActionInput(boardSortActionSchema, { projectId, status, sort });
         const { project, actor } = await commentContext(input.projectId);
         await saveProjectBoardSort(project, actor, input.status, input.sort);
+        revalidatePath(KnownPageLinks.project(input.projectId));
+    });
+}
+
+/** Expands or collapses the board's Archive column, saved on the project like the columns' sorts (the same people) */
+export async function setBoardArchiveAction(projectId: string, expanded: boolean) {
+    return await actionResult(async () => {
+        const input = parseActionInput(boardArchiveActionSchema, { projectId, expanded });
+        const { project, actor } = await commentContext(input.projectId);
+        await saveProjectBoardArchive(project, actor, input.expanded);
         revalidatePath(KnownPageLinks.project(input.projectId));
     });
 }

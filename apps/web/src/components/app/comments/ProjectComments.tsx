@@ -23,9 +23,9 @@ import { CommentBoard } from './CommentBoard';
 import { statusFilterLabels, statusMatches, type AuthorFilter, type StatusFilter } from './commentLabels';
 import { commentStatus, commentStatuses, type CommentStatus } from './CommentStatus';
 import { parseCommentsQuery, type CommentsQuery } from './commentsQuery';
-import { orderComments, sortBoardColumn } from './commentOrder';
+import { compareArchivedOrder, orderComments, sortBoardColumn } from './commentOrder';
 import type { BoardSort } from '../../../lib/app/boardSort';
-import { setBoardSortAction } from './actions';
+import { setBoardArchiveAction, setBoardSortAction } from './actions';
 import { CommentUpdatesProvider, type CommentUpdate } from './CommentUpdates';
 import { TriageSelection } from './TriageSelection';
 import { matchesFeedbackSearch } from '@uier/toolbar/triage';
@@ -64,12 +64,14 @@ function applyFilters(comments: ProjectCommentView[], query: CommentsQuery, user
 }
 
 /** The project's comments in a list (a status tab) or on a board (a column per status), filtered by people and page */
-export function ProjectComments({ projectId, revision, access, isAdmin, comments: savedComments, query: serverQuery, userId, assignees, installHref, environments, authorFilter, searchWindowCapped = false, boardSorts: savedSorts, canSortBoard }: {
+export function ProjectComments({ projectId, revision, access, isAdmin, comments: savedComments, query: serverQuery, userId, assignees, installHref, environments, authorFilter, searchWindowCapped = false, boardSorts: savedSorts, boardArchiveExpanded: savedArchiveExpanded = false, canSortBoard }: {
     revision: string;
     searchWindowCapped?: boolean;
     /** Each board column's sort, saved on the project for everyone (`lib/app/boardSort.ts`) */
     boardSorts: Record<CommentStatus, BoardSort>;
-    /** Whether this person may change them (`canSortProjectBoard`) */
+    /** Whether the board's Archive column is expanded, saved on the project for everyone like the sorts */
+    boardArchiveExpanded?: boolean;
+    /** Whether this person may change them, the sorts and Archive (`canSortProjectBoard`) */
     canSortBoard: boolean;
     authorFilter?: AuthorFilter;
     environments: import('../../../lib/app/environments').EnvironmentOption[];
@@ -131,9 +133,24 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
             .catch(() => ({ ok: false as const, error: 'Could not save the sort. Try again.' }));
         if (result && !result.ok) toast.error(result.error);
     });
+    // Archive expands and collapses at once. For the people who may sort the board it is saved on the project (and goes
+    // back with an error if that fails); for everyone else it lasts until the page is opened again.
+    const [savedArchive, showArchive] = useOptimistic(savedArchiveExpanded, (_current, expanded: boolean) => expanded);
+    const [ownArchive, setOwnArchive] = useState<boolean>();
+    const archiveExpanded = canSortBoard ? savedArchive : ownArchive ?? savedArchiveExpanded;
+    const changeArchive = (expanded: boolean) => {
+        if (!canSortBoard) return setOwnArchive(expanded);
+        startSorting(async () => {
+            showArchive(expanded);
+            const result = await setBoardArchiveAction(projectId, expanded)
+                .catch(() => ({ ok: false as const, error: 'Could not save the board. Try again.' }));
+            if (result && !result.ok) toast.error(result.error);
+        });
+    };
+    const board = query.view === 'board' && query.status !== 'archived';
     // An open thread that is not loaded (deleted, or outside a new author or environment scope) is
-    // closed, so it cannot reopen later when the scope changes back
-    const scopeComments = comments.filter(comment => Boolean(comment.archivedAt) === (query.status === 'archived'));
+    // closed, so it cannot reopen later when the scope changes back. The board has Archive as its last column.
+    const scopeComments = board ? comments : comments.filter(comment => Boolean(comment.archivedAt) === (query.status === 'archived'));
     const openId = openComment.openId;
     useEffect(() => {
         if (!openId || scopeComments.some(comment => comment.id === openId)) return;
@@ -199,19 +216,24 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
     const filtered = applyFilters(comments, query, userId, openId);
     const statusCounts = Object.fromEntries((Object.keys(statusFilterLabels) as StatusFilter[])
         .map(filter => [filter, filtered.filter(comment => statusMatches(filter, commentStatus(comment), comment.archivedAt)).length])) as Record<StatusFilter, number>;
-    const board = query.view === 'board' && query.status !== 'archived';
     // Where the open thread takes the whole width, it takes the filters' place too
     const threadOnly = Boolean(openComment.openId) && !board && scopeComments.some(comment => comment.id === openComment.openId);
     const shown = board ? filtered.filter(comment => !comment.archivedAt) : filtered.filter(comment => statusMatches(query.status, commentStatus(comment), comment.archivedAt));
     // The board's columns, one per status in order (each thread in exactly one), each in the project's sort for it
     const columns = Object.fromEntries(commentStatuses.map(status => [status,
         sortBoardColumn(shown.filter(comment => commentStatus(comment) === status), boardSorts[status])])) as Record<CommentStatus, ProjectCommentView[]>;
+    // The board's last column, like Done but by when each was archived (`compareArchivedOrder`, ties in the list's order)
+    const archived = board ? filtered.filter(comment => comment.archivedAt).sort(compareArchivedOrder) : [];
+    // What the board shows: its columns, and Archive's cards while it is expanded
+    const boardShown = [...commentStatuses.flatMap(status => columns[status]), ...(archiveExpanded ? archived : [])];
+    // Nothing to show: the board still shows its columns while only Archive has threads
+    const nothingShown = board ? !shown.length && !archived.length : !shown.length;
     // What the header takes the width of: the list with its thread beside it, or the board (see below)
-    const headerWide = !filtered.length || !shown.length ? undefined : board ? 'board' : 'list';
+    const headerWide = !filtered.length || nothingShown ? undefined : board ? 'board' : 'list';
     // The header's width, which the count line under it takes too (uier #187)
     const wideClassName = cn(headerWide === 'list' && '@3xl/comments:w-[min(var(--page-wide),96rem)] @3xl/comments:mx-[calc((100%-min(var(--page-wide),96rem))/2)]',
         headerWide === 'board' && 'md:w-[min(var(--page-wide),max(100%,var(--board-width)))] md:mx-[calc((100%-min(var(--page-wide),max(100%,var(--board-width))))/2)]');
-    const unreadShown = shown.filter(comment => comment.activity?.unread).length;
+    const unreadShown = (board ? boardShown : shown).filter(comment => comment.activity?.unread).length;
     // Keep matching cards mounted, including their independent reply drafts. Selection resets per scope.
     const selectionScope = JSON.stringify([projectId, query.environment, query.author, query.unread, query.people, query.page, query.status, query.q, query.priority, query.view]);
     return (
@@ -229,7 +251,7 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
             <CommentFilters search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} historySources={historySources} unread={Boolean(query.unread)} unreadCount={scopeComments.filter(comment => comment.activity?.unread).length} view={board ? 'board' : 'list'} status={query.status} statusCounts={statusCounts} people={query.people} page={query.page} pages={pages} />
             {searchWindowCapped && <p className="m-0 text-sm text-muted-foreground">Search covers up to 1,000 recent threads in this environment and author scope. Narrow the environment or author to find older feedback.</p>}
             </div>
-            <TriageSelection projectId={projectId} scope={selectionScope} shown={board ? commentStatuses.flatMap(status => columns[status]) : shown} assignees={assignees}
+            <TriageSelection projectId={projectId} scope={selectionScope} shown={board ? boardShown : shown} assignees={assignees}
                 barClassName={cn(threadOnly && '@max-3xl/comments:hidden', !comments.length && 'hidden')}
                 lineClassName={wideClassName}
                 // Only the unread count: the list's status tabs and the board's columns already count what is shown
@@ -242,7 +264,7 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
                         {`${unreadShown} unread`}
                     </Toggle>
                 )}
-                actions={unreadShown > 0 && <MarkAllRead projectId={projectId} threads={shown.flatMap(comment => comment.activity?.unread ? [{ id: comment.id, sequence: comment.activity.sequence }] : [])} />}>
+                actions={unreadShown > 0 && <MarkAllRead projectId={projectId} threads={(board ? boardShown : shown).flatMap(comment => comment.activity?.unread ? [{ id: comment.id, sequence: comment.activity.sequence }] : [])} />}>
             {!comments.length ? emptyState : !filtered.length ? (
                 <Empty className="border">
                     <EmptyHeader>
@@ -254,7 +276,7 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
                     </EmptyHeader>
                     <EmptyContent><Button variant="outline" className="pointer-coarse:min-h-11" onClick={clearFilters}>Clear filters</Button></EmptyContent>
                 </Empty>
-            ) : !shown.length ? (
+            ) : nothingShown ? (
                 <Empty className="border">
                     <EmptyHeader>
                         <EmptyMedia variant="icon">
@@ -266,6 +288,7 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
                 </Empty>
             ) : board ? (
                 <CommentBoard projectId={projectId} columns={columns} sorts={boardSorts} onSort={canSortBoard ? changeSort : undefined}
+                    archive={{ comments: archived, expanded: archiveExpanded, onExpandedChange: changeArchive }}
                     allComments={scopeComments} assignees={assignees} userId={userId} openComment={openComment} />
             ) : (
                 <CommentInbox projectId={projectId} comments={shown} allComments={scopeComments} assignees={assignees} userId={userId} label="Comments"

@@ -34,3 +34,21 @@ export async function saveProjectBoardSort(project: DbProject, actor: ProjectAct
         throw new UserFacingError('This project no longer exists.');
     return saved;
 }
+
+/**
+ * Expands or collapses the board's Archive column on the project, for everyone who opens its board, like a
+ * column's sort (the same people, `canSortProjectBoard`). Collapsed is the default and leaves no field.
+ */
+export async function saveProjectBoardArchive(project: DbProject, actor: ProjectActor, expanded: boolean, store: AppStore = getAppStore()) {
+    if (!canSortProjectBoard(project, actor))
+        throw new UserFacingError('You can’t change how this board is shown.');
+    if (Boolean(project.boardArchiveExpanded) === expanded)
+        return project;
+    const saved = await updateDoc<DbProject>(project.pk, project.id, current => {
+        const { boardArchiveExpanded: _previous, ...rest } = current;
+        return expanded ? { ...rest, boardArchiveExpanded: true } : rest;
+    }, store);
+    if (!saved)
+        throw new UserFacingError('This project no longer exists.');
+    return saved;
+}

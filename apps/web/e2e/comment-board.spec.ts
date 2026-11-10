@@ -205,7 +205,12 @@ test('the board widens on a wide window, the filters and project headers and the
     }
     expect(boxes[0]!.width).toBeGreaterThan(300);
     expect(boxes[0]!.width).toBeLessThanOrEqual(320);
-    await headerSpans(column('Open'), column('Done'));
+    // Archive comes last, a 3rem strip while collapsed; the headers end with it
+    const archive = column('Archived');
+    const strip = (await archive.boundingBox())!;
+    expect(strip.width).toBe(48);
+    expect(strip.x).toBeCloseTo(boxes.at(-1)!.x + boxes.at(-1)!.width + 16, 0);
+    await headerSpans(column('Open'), archive);
 
     // The list: the comments are where the board had them; the filters and project headers and the count line span
     // the list and the thread beside it
@@ -225,10 +230,10 @@ test('the board widens on a wide window, the filters and project headers and the
     await expect.poll(async () => (await placement(grid)).width).toBeGreaterThan(2000);
     const widest = await columns();
     for (const box of widest) expect(box.width).toBe(320);
-    const first = widest[0]!, last = widest.at(-1)!;
-    expect(first.room - first.left - last.right).toBe(4 * 320 + 3 * 16);
+    const first = widest[0]!, last = await placement(archive);
+    expect(first.room - first.left - last.right).toBe(4 * 320 + 4 * 16 + 48);
     expect(first.left).toBeCloseTo(last.right, 0);
-    await headerSpans(column('Open'), column('Done'));
+    await headerSpans(column('Open'), archive);
     const [, widestComments] = await pageParts(page);
     expect(widestComments!.width).toBe(1024 - 64);
     expect(widestComments!.left).toBeCloseTo(widestComments!.right, 0);
@@ -272,9 +277,20 @@ test('the board widens on a wide window, the filters and project headers and the
     expect((await placement(countLine)).right).toBeCloseTo(laptopComments!.right, 0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1280);
     await grid.evaluate(element => { element.scrollLeft = element.scrollWidth; });
-    await expect(column('Done')).toBeInViewport({ ratio: 1 });
-    expect((await placement(column('Done'))).right).toBeCloseTo(laptopComments!.right, 0);
+    await expect(archive).toBeInViewport({ ratio: 1 });
+    expect((await placement(archive)).right).toBeCloseTo(laptopComments!.right, 0);
     expect(await headers()).toEqual(laptopHeader);
+
+    // Expanded, Archive is a column like the others, and the headers end with it again
+    await page.setViewportSize({ width: 2560, height: 1440 });
+    await archive.getByRole('button', { name: 'Archive 0', exact: true }).click();
+    await expect(archive.getByText('Nothing archived.', { exact: true })).toBeVisible();
+    await expect.poll(async () => (await placement(archive)).width).toBe(320);
+    const expanded = await placement(column('Open'));
+    expect(expanded.room - expanded.left - (await placement(archive)).right).toBe(5 * 320 + 4 * 16);
+    await headerSpans(column('Open'), archive);
+    await archive.getByRole('button', { name: 'Collapse Archive', exact: true }).click();
+    await expect(archive.getByRole('button', { name: 'Archive 0', exact: true })).toBeVisible();
 });
 
 test('board cards are darker than their column on dark', async ({ page, request }) => {
@@ -374,6 +390,9 @@ test('on a phone the board stacks its columns without scrolling sideways', async
 
 test('board cards drag with the mouse between the columns they can move to', async ({ page, request }, testInfo) => {
     test.skip(testInfo.project.name.startsWith('Mobile'), 'The mouse; touch screens have their own test');
+    // Every column on screen: the drop points are measured before the drag, and a board that scrolls sideways
+    // would auto-scroll them away at its edge
+    await page.setViewportSize({ width: 1674, height: 900 });
     const { column, card } = await board(page, request);
     // The card shows it can be picked up
     await card('Open', 'Second board thread').hover();
@@ -388,6 +407,8 @@ test('board cards drag with the mouse between the columns they can move to', asy
     await expect(column('Ready to verify')).toHaveAttribute('data-drop', 'target');
     await expect(column('Ready to verify')).toContainText('Drop here.');
     await expect(column('Done')).toHaveAttribute('data-drop', 'over');
+    // Archive takes no drop: it is dimmed
+    await expect(column('Archived')).toHaveAttribute('data-drop', 'refused');
     await expect(placeholder(column('Done'))).toHaveCount(1);
     expect(Math.round((await placeholder(column('Done')).boundingBox())!.height)).toBe(Math.round(height));
     await expect(dragPreview(page)).toContainText('Second board thread');
@@ -432,7 +453,7 @@ test('board cards drag with the mouse between the columns they can move to', asy
 
 test('In progress is a column between Open and Ready to verify; cards move in and out of it', async ({ page, request }, testInfo) => {
     const { comments, column, card } = await board(page, request);
-    await expect(page.getByRole('region', { name: /comments$/ })).toHaveText([/^Open/, /^In progress/, /^Ready to verify/, /^Done/]);
+    await expect(page.getByRole('region', { name: /comments$/ })).toHaveText([/^Open/, /^In progress/, /^Ready to verify/, /^Done/, /^Archive/]);
     await expect(column('In progress')).toContainText('Nothing in progress.');
 
     // Move from the keyboard

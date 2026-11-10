@@ -216,6 +216,8 @@ export type DbProject = AppDoc & {
      * Only columns with a choice other than their default; missing means today's order everywhere.
      */
     boardSorts?: import('./boardSort').BoardSorts;
+    /** Whether the board's Archive column, its last, is expanded for everyone who opens it; missing means collapsed */
+    boardArchiveExpanded?: true;
     status: ProjectStatus;
     access: ProjectAccess;
     /**

@@ -39,6 +39,14 @@ export function compareDoneOrder(a: Timed, b: Timed) {
     return time(b) - time(a) || compareCommentOrder(a, b);
 }
 
+/**
+ * The board's Archive column: like Done, a history, by when each thread was archived, newest first; one without a
+ * readable time falls back to its last update, then creation, and ties keep the usual order.
+ */
+export function compareArchivedOrder(a: Timed & { archivedAt?: string }, b: Timed & { archivedAt?: string }) {
+    return compareValues(timeOf(a.archivedAt, a.updatedAt, a.createdAt), timeOf(b.archivedAt, b.updatedAt, b.createdAt), -1) || compareCommentOrder(a, b);
+}
+
 /** The first readable time, in milliseconds */
 function timeOf(...values: (string | undefined)[]) {
     for (const value of values) {
