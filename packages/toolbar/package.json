@@ -115,6 +115,11 @@
             "types": "./src/feedbackTypes.ts",
             "development": "./dist-dev/feedbackTypes.js",
             "default": "./dist/feedbackTypes.js"
+        },
+        "./toolbar-features": {
+            "types": "./src/toolbarFeatures.ts",
+            "development": "./dist-dev/toolbarFeatures.js",
+            "default": "./dist/toolbarFeatures.js"
         }
     },
     "scripts": {

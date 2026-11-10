@@ -40,7 +40,7 @@ type ToolbarOptionsProps = {
     onShortcutsRequestHandled?: () => void;
     triggerRef?: Ref<HTMLButtonElement>;
     /** A narrow screen: the Accessibility (where it can load) and SEO panels open from here, not from the pill */
-    pageChecks?: { accessibility: boolean; attention?: ChecksAttention; onOpen: (panel: ChecksPanelId) => void };
+    pageChecks?: { accessibility: boolean; seo: boolean; attention?: ChecksAttention; onOpen: (panel: ChecksPanelId) => void };
 };
 
 /** The keyboard shortcuts, by what they do (`toolbarShortcuts`); the single keys are marked off while they are */
@@ -345,7 +345,7 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
                         <span lang={languages.state.language} className="ml-auto pl-3 font-normal text-muted-foreground">{toolbarLanguageNames[languages.state.language]}</span>
                     </OptionButton>
                     <Divider role="separator" className="my-1" />
-                    {pageChecks && <>
+                    {pageChecks && (pageChecks.accessibility || pageChecks.seo) && <>
                         {pageChecks.accessibility && (
                             <OptionButton icon={<AccessibilityIcon size={16} />} onClick={() => handleOpenPanel('accessibility')}
                                 aria-label={checksButtonLabel('accessibility', pageChecks.attention)}>
@@ -353,11 +353,11 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
                                 <AttentionDot panel="accessibility" attention={pageChecks.attention} className="ml-auto ring-0" />
                             </OptionButton>
                         )}
-                        <OptionButton icon={<SeoIcon size={16} />} onClick={() => handleOpenPanel('seo')}
+                        {pageChecks.seo && <OptionButton icon={<SeoIcon size={16} />} onClick={() => handleOpenPanel('seo')}
                             aria-label={checksButtonLabel('seo', pageChecks.attention)}>
                             {t.toolbar.seo}
                             <AttentionDot panel="seo" attention={pageChecks.attention} className="ml-auto ring-0" />
-                        </OptionButton>
+                        </OptionButton>}
                         <Divider role="separator" className="my-1" />
                     </>}
                     {onResetPosition && (

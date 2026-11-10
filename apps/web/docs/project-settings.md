@@ -73,6 +73,29 @@ signed-in account's own choice only to that account ([API](../../../docs/api.md#
 The language changes only the toolbar: comments, names and what the server writes (exports, activity, email) stay
 as written. `toolbar-language.api.spec.ts` and `toolbar-language.spec.ts` cover it.
 
+### Toolbar features
+
+Review settings → Toolbar features lets project admins simplify the toolbar's optional tools:
+Accessibility, SEO and Text rewrites. Comments, page feedback (subject to the existing Feedback types
+setting), the inbox and account/options controls stay available. These choices share the Review page's
+Save/Discard draft and admin/project checks; they change visibility, not endpoint permissions.
+
+`DbProject.toolbarFeatures` stores independent optional `enabled` and `signedOut` allowlists, using the
+stable IDs in `@uier/toolbar/toolbar-features`. Missing lists include current and future tools; an
+explicit list, including an empty list or a list containing every current tool, never adds future tools.
+“Show all current and future tools” removes the project list. For projects allowing Anyone with the
+link, Signed-out reviewers can follow the project tools or choose a smaller list. That list intersects
+the project list, never enables a project-hidden tool, and is retained while guest access is off.
+Changing who can comment still uses the existing membership rules.
+
+The action and persistence service validate known, unique IDs before any write. Older Review forms
+without the field preserve the setting. The review bootstrap projects only the effective list for
+the authenticated reviewer; guest responses never contain the member list or the stored configuration.
+The toolbar applies it to the desktop pill, mobile Options, restored panels, selection actions and
+saved rewrite draft entry points. Hidden checks do not run in the background. Existing threads remain
+readable. `toolbar-features.api.spec.ts` and `toolbar-features.spec.ts` cover defaults, fixed lists,
+validation, authority, save/discard/reset, guest feedback and desktop/mobile entry points.
+
 ### Rewrite instructions
 
 Workspace settings → Rewrite suggestions (`WorkspaceRewriteInstructionsForm`) has an admin-only

@@ -6,6 +6,18 @@ Every issue they find has a quick action that posts it as a comment in one click
 
 ## Where they open
 
+Project admins can hide optional toolbar tools in Review settings → Toolbar features, with a separate
+signed-out selection on projects allowing guests ([settings](../../../apps/web/docs/project-settings.md#toolbar-features)).
+`ProjectGate` supplies the review API's effective `toolbarFeatures` list. Missing fields (older servers
+and the standalone showcase) keep all tools. A hidden panel has no desktop button or mobile Options
+row, cannot be opened through a restored panel or handler, and does no background work: no audit,
+sections or Web Vitals for that hidden tool. Hiding both checks panels mounts neither. SEO summaries
+do not wait for an Accessibility audit when that tool is hidden. Refreshing the configuration removes
+disabled panels and cancels their work; the inbox and all existing feedback remain available.
+Text rewrites use the same feature list on the selection toolbar and saved draft entry points.
+`toolbar-features.spec.ts` covers desktop/mobile controls, restored panels, guests leaving feedback with
+all optional tools hidden, and the absent audit download.
+
 - **Accessibility** and **SEO** are buttons in the pill after Inbox, from 640 px wide (where panels dock
   beside the page). Narrower, the pill keeps its width and both are the first rows of Options; closing a
   panel gives the focus back to the button that opened it (Options there).

@@ -1,3 +1,4 @@
+import type { ToolbarFeature } from '../toolbarFeatures';
 import type { FeedbackType } from '../feedbackTypes';
 import { createContext, type PropsWithChildren, useContext, useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -15,7 +16,7 @@ import type { ToolbarLanguageInfo } from '../languages';
 
 /** GET /api/review/<project> (apps/web/src/lib/review/routes.ts) */
 export type ReviewInfo = {
-    project: { id: string; name: string; access: 'invited' | 'guests' | 'disabled'; brief?: string; feedbackTypes?: FeedbackType[]; pageState?: PageStatePolicy; environments?: { origin: string; label: string; group?: string }[]; environmentOptions?: { id: string; label: string }[] };
+    project: { id: string; name: string; access: 'invited' | 'guests' | 'disabled'; brief?: string; feedbackTypes?: FeedbackType[]; toolbarFeatures?: ToolbarFeature[]; pageState?: PageStatePolicy; environments?: { origin: string; label: string; group?: string }[]; environmentOptions?: { id: string; label: string }[] };
     viewer: { kind: 'member' | 'guest' | 'anonymous'; name?: string; isAdmin?: boolean; draftScope?: string };
     canComment: boolean;
     /** Review link of the project on uier: signs in and comes back (add `url`) */
@@ -79,6 +80,7 @@ export type ProjectViewer = {
     access?: ReviewInfo['project']['access'];
     brief?: string;
     feedbackTypes?: FeedbackType[];
+    toolbarFeatures?: ToolbarFeature[];
     isMember?: boolean;
     environment?: string;
     currentEnvironment?: string;
@@ -229,6 +231,7 @@ function ProjectEnvironmentProvider({ info, children }: PropsWithChildren<{ info
     };
     return <ProjectViewerContext.Provider value={{
         publicId: info.project.id,
+        toolbarFeatures: info.project.toolbarFeatures,
         access: info.project.access, brief: info.project.brief, feedbackTypes: info.project.feedbackTypes,
         isMember: info.viewer.kind === 'member', draftScope: info.viewer.draftScope,
         needsName: info.viewer.kind !== 'member', pageState: info.project.pageState ?? defaultPageStatePolicy,

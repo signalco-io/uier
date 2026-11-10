@@ -25,6 +25,10 @@ own look. It never changes the thread's status: the reviewer still confirms or r
   browser does not measure, or the comment's element not on the page. Some of this is known only once it
   ran (a rule this axe-core no longer has, a check id no section reports, a hidden element): the line then
   goes away.
+- A project-hidden Accessibility or SEO tool also hides its thread re-check (Core Web Vitals follow
+  SEO), including the automatic Ready to verify check. The existing thread and its status/verification
+  controls stay available; this uses the same effective visibility list as the panels
+  ([toolbar features](../../../apps/web/docs/project-settings.md#toolbar-features)).
 
 ## When it runs
 

@@ -205,6 +205,8 @@ export type DbProject = AppDoc & {
     feedbackTypes?: import('./inheritedSettings').ProjectSetting<import('@uier/toolbar/feedback-types').FeedbackType[]>;
     /** Overrides the workspace's toolbar language. Missing means the workspace's (`lib/app/toolbarLanguage.ts`). */
     toolbarLanguage?: import('@uier/toolbar/languages').ToolbarLanguage;
+    /** Optional toolbar tools; missing lists show all current and future tools. */
+    toolbarFeatures?: import('@uier/toolbar/toolbar-features').ToolbarFeatureVisibility;
     /** Server-owned provider bindings. Secrets and provider settings live in separate records. */
     integrations?: Partial<Record<import('../integrations/model').IntegrationProviderId, import('../integrations/model').IntegrationBinding>>;
     /** Optional labels and explicit alias groups, keyed by configured origin. */

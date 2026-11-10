@@ -1,3 +1,4 @@
+import { useToolbarFeatures } from '../../hooks/useToolbarFeatures';
 import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { backgroundElementLimit, checkAccessibility } from '../../checks/accessibility';
 import { checkSeo, type SeoReport } from '../../checks/seo';
@@ -53,12 +54,17 @@ export function PageChecks(props: {
     /** What the reports of this page found to act on, for the pill's indicators */
     onAttentionChange?: (attention: ChecksAttention) => void;
 }) {
-    return <GuestNameProvider><PageChecksPanels {...props} /></GuestNameProvider>;
+    const features = useToolbarFeatures();
+    if (!features.includes('accessibility') && !features.includes('seo')) return null;
+    return <GuestNameProvider><PageChecksPanels {...props} panel={props.panel && features.includes(props.panel) ? props.panel : undefined} /></GuestNameProvider>;
 }
 
 function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentionChange }: Parameters<typeof PageChecks>[0]) {
     // Measured from the review layer's start, so interactions before a panel opens count too; stopped when it leaves
-    useEffect(() => startWebVitals(), []);
+    const features = useToolbarFeatures();
+    const accessibilityAvailable = features.includes('accessibility') && auditAvailable();
+    const seoAvailable = features.includes('seo');
+    useEffect(() => { if (seoAvailable) return startWebVitals(); }, [seoAvailable]);
     const path = usePagePath();
     const pathRef = useRef(path);
     pathRef.current = path;
@@ -68,7 +74,8 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentio
     const [accessibility, setAccessibility] = useState<AccessibilityState>({ checking: false });
     const [seo, setSeo] = useState<SeoReport>();
     // The sections whose checks run on demand, in the audit asset: their reports, kept like the two above
-    const sections = useSectionsStore(path, sectionDefinitions);
+    const enabledSections = useMemo(() => sectionDefinitions.filter(definition => definition.panel === 'seo' ? seoAvailable : accessibilityAvailable), [seoAvailable, accessibilityAvailable]);
+    const sections = useSectionsStore(path, enabledSections);
     const [posted, setPosted] = useState<ReadonlyMap<string, PostedComment>>(() => new Map());
     const [highlighted, setHighlighted] = useState<{ key: string; element: Element }>();
     // Open on the previous page: this page can still be rendering, so its check waits for it to settle
@@ -195,10 +202,10 @@ function PageChecksPanels({ panel, collapsed, onClose, onShowComment, onAttentio
         if (collapsed) return;
         const ready = pageIdle();
         ready.promise.then(() => {
-            if (seoPath.current !== pathRef.current) runSeo({ background: true });
-            if (auditAvailable() && !savesData() && auditedPath.current !== pathRef.current) runAccessibility({ background: true });
+            if (seoAvailable && seoPath.current !== pathRef.current) runSeo({ background: true });
+            if (accessibilityAvailable && !savesData() && auditedPath.current !== pathRef.current) runAccessibility({ background: true });
             // The background sections need the audit asset too: where the audit is not run unasked (above, and a page too large for it), neither are they
-            if (auditAvailable() && !savesData() && document.getElementsByTagName('*').length <= backgroundElementLimit) sections.runBackground();
+            if ((accessibilityAvailable || seoAvailable) && auditAvailable() && !savesData() && document.getElementsByTagName('*').length <= backgroundElementLimit) sections.runBackground();
         });
         return () => {
             ready.cancel();

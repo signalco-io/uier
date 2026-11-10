@@ -1,3 +1,4 @@
+import { resolveToolbarFeatures } from '@uier/toolbar/toolbar-features';
 import { defaultFeedbackTypes, type FeedbackType } from '@uier/toolbar/feedback-types';
 import { loadFeedbackTypes } from '../app/feedbackTypes';
 import { changeFixVerification } from './fixVerification';
@@ -75,8 +76,8 @@ function writerName(actor: ProjectActor, authorName: string | undefined) {
  * Only the enabled feedback types (what the form offers): a disabled type's name and placeholder stay with
  * the project's admins, and saved threads show their own type snapshot.
  */
-export function reviewProjectDto(project: PublicProject, canComment: boolean, feedbackTypes: readonly FeedbackType[] = defaultFeedbackTypes) {
-    return { id: project.publicId, name: project.name, access: project.access, pageState: pageStatePolicy(project.pageState), ...(canComment ? { brief: project.brief, feedbackTypes: feedbackTypes.filter(type => type.enabled), environments: configuredEnvironments(project), environmentOptions: environmentOptions(project) } : {}) };
+export function reviewProjectDto(project: PublicProject, canComment: boolean, feedbackTypes: readonly FeedbackType[] = defaultFeedbackTypes, isMember = false) {
+    return { id: project.publicId, name: project.name, access: project.access, pageState: pageStatePolicy(project.pageState), ...(canComment ? { toolbarFeatures: resolveToolbarFeatures(project.toolbarFeatures, isMember), brief: project.brief, feedbackTypes: feedbackTypes.filter(type => type.enabled), environments: configuredEnvironments(project), environmentOptions: environmentOptions(project) } : {}) };
 }
 
 /** GET /api/review/<code>: the project, the reviewer and whether they can comment */
@@ -86,7 +87,7 @@ export async function getReviewInfo({ project, actor }: ReviewApiContext) {
     const canComment = project.access === 'guests' || (project.access === 'invited' && actor.kind === 'member');
     const [workspace, user] = await Promise.all([getWorkspace(project.workspaceId), actor.kind === 'member' ? getUser(actor.userId) : null]);
     return Response.json({
-        project: reviewProjectDto(publicProject, canComment, canComment ? await loadFeedbackTypes(project) : []),
+        project: reviewProjectDto(publicProject, canComment, canComment ? await loadFeedbackTypes(project) : [], actor.kind === 'member'),
         viewer: { ...viewerDto(actor), draftScope: keyedHash('draft-scope', actorAuthorId(actor) ?? 'anonymous') },
         canComment,
         // Also before anyone can comment: the notices are in it too. A member's own choice comes with it.

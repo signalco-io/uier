@@ -7,6 +7,7 @@ import { useWebVitals, type WebVitals } from '../../checks/webVitals';
 import { useMessages } from '../../i18n';
 import { getDomVersion } from '../../hooks/useLayoutVersion';
 import { useProjectViewer } from '../../project/ProjectGate';
+import { useToolbarFeatures } from '../../hooks/useToolbarFeatures';
 import { readyForReview } from '../../verification';
 import type { CommentItem } from '../@types/Comments';
 import { CommentsBootstrapperContext } from '../CommentsBootstrapperContext';
@@ -23,8 +24,10 @@ type LineProps = { comment: CommentItem; path: string; vitals?: WebVitals };
 export function CheckRecheck({ comment }: { comment: CommentItem }) {
     const { path } = useContext(CommentsBootstrapperContext);
     const { currentEnvironment } = useProjectViewer();
+    const features = useToolbarFeatures();
     if (!comment.check || comment.pending || comment.thread.items[0]?.deleted
         || comment.path !== path || (comment.source && comment.source.environment !== currentEnvironment)) return null;
+    if (!features.includes(comment.check.type === 'accessibility' ? 'accessibility' : 'seo')) return null;
     // Another page (a client-side navigation) starts over
     return comment.check.type === 'web-vitals' ? <VitalRecheck key={path} comment={comment} path={path} /> : <RecheckLine key={path} comment={comment} path={path} />;
 }
