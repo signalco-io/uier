@@ -150,3 +150,27 @@ test('on a narrow screen each page is a card', async ({ page }, testInfo) => {
     await expectNoAxeViolations(page);
     await page.locator('section[aria-labelledby="page-checks-title"]').screenshot({ path: testInfo.outputPath('page-checks-phone.png') });
 });
+
+test('on a wide window the view and the project header take the width, like the comments', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.use.isMobile === true, 'Desktop windows');
+    // The window the feedback came from (uier #214)
+    await page.setViewportSize({ width: 1674, height: 1366 });
+    await signIn(page, uniqueEmail('page-checks-site-wide'));
+    const project = await createProject(page, { urls: [site.origin('fixture-site')] });
+    await page.goto(`/app/projects/${project}/page-checks`);
+    await expect(page.getByText('No pages checked yet')).toBeVisible();
+    const box = async (locator: ReturnType<Page['locator']>) => {
+        const found = (await locator.boundingBox())!;
+        return { left: found.x, right: found.x + found.width, width: found.width };
+    };
+    const view = await box(page.locator('section[aria-labelledby="page-checks-title"]'));
+    // Wider than the reading column (64rem less the 32 px gutters), at most 96rem
+    expect(view.width).toBeGreaterThan(1024 - 64);
+    expect(view.width).toBeLessThanOrEqual(1536);
+    // The project header spans it: its mark starts with the view, the settings button ends with it
+    const mark = await box(page.getByRole('heading', { level: 1 }).locator('xpath=../../*[1]'));
+    const settings = await box(page.getByRole('main').getByLabel('Settings', { exact: true }));
+    expect(mark.left).toBeCloseTo(view.left, 0);
+    expect(settings.right).toBeCloseTo(view.right, 0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1674);
+});
