@@ -59,6 +59,7 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
 | `PATCH /api/review/<code>/comments/<id>/anchor` | reattach with `{ path, position, expectedRevision }`; author/admin, saved page and original allowed origin only |
 | `POST /api/review/<code>/comments/<id>/screenshot` | supply or replace saved evidence, with `{ screenshot, expectedRevision }`; author or workspace admin only |
 | `POST /api/review/<code>/rewrite` | `{ text, instruction? }`: rewrite suggestions, as `POST /api/rewrite`, for reviewers who can comment (limited per reviewer and per project, and app-wide like `POST /api/rewrite`) |
+| `POST /api/review/<code>/page-checks` | a page's [page check summary](#page-checks), from project members only; `204` |
 
 - **Who**: a member with access, by the review token (`Authorization: Bearer`), or a guest, by a random
   visitor id (`X-Uier-Visitor`) and the name they give. Comment requests use headers, without cookies;
@@ -114,6 +115,7 @@ Data lives in the Cosmos DB container `app` (`app-preview` on previews), partiti
 | `project-ref` (internal id -> workspace) | `project:<id>` | the internal project id |
 | `project-public-ref` (public id -> project and workspace) | `project-public:<publicId>` | the public id |
 | `review-code` (single-use code of a review link, `ttl` 10 min) | `review-code:<hash>` | SHA-256 of the code |
+| `page-check` (a page's [page check summary](#page-checks), `ttl` 90 days from its last check; at most 200 per project) | `page-checks:<projectId>` | `page_<SHA-256 of origin and page, 40 hex>` |
 | `integration-discovery-cursor` (bounded source-outbox scan) | `integrations:worker` | `pending` |
 
 Project feedback carries server-only synchronization versions, pending markers and indexed source
@@ -463,6 +465,41 @@ renaming the Vercel team or project, or switching the project to the global issu
 
 `COSMOSDB_COMMENTS_CONTAINER` selects the container (default `comments`). All of these variables are managed by
 Pulumi (see [Infrastructure](operations.md#infrastructure)).
+
+## Page checks
+
+A project member's toolbar checks every page they review in the background, then saves a small summary of
+what it found to the project ([the reporter](../packages/toolbar/docs/page-checks-site.md)); the project's
+**Page checks** view in the app lists the pages together ([the view](../apps/web/docs/page-checks.md)).
+
+`POST /api/review/<code>/page-checks` ([`src/lib/pageChecks`](../apps/web/src/lib/pageChecks)) takes one
+page's summary, a strict JSON object (unknown fields are refused, `400 invalid_request`):
+
+| Field | What |
+| --- | --- |
+| `path` | the canonical page key, as for a comment; the project's page-state policy applies again |
+| `sourcePath` | optional: the page with its trailing slash, for links; kept only when it is the same page |
+| `title`, `description` | optional: the page's title (up to 200 characters) and meta description (up to 300), one line of plain text without control characters |
+| `noindex` | whether the page asks search engines not to index it |
+| `accessibility` | optional: axe-core's issues by impact, `{ critical, serious, moderate, minor }` |
+| `seo` | the SEO checks to look at and passed, `{ warn, pass }` |
+| `checks` | each check's state (`pass`, `warn` or `none`) by `seo:<id>` or `accessibility:<id>`, the id of lowercase letters, digits and hyphens (up to 64); at most 150 |
+| `vitals` | optional: `lcp` and `inp` in milliseconds (up to 600,000), `cls` (up to 100), each only when measured |
+
+Counts are whole numbers from 0 to 100,000. The body is at most 16 KB. The answer is `204`.
+
+- **Who**: project members only, through the review API's identity, CORS, origin and BotID verification
+  (above): a guest or a public viewer gets `403 forbidden`, anyone but a member of an invited project `401
+  sign_in_required`. Writes from the project's sites need the verification proof like every review write.
+- **Storage**: one `page-check` document per page and environment in the `app` container's
+  `page-checks:<projectId>` partition, keyed by the site's origin the request came from and the canonical
+  page. The latest summary replaces the page's previous one, whose counts and time it keeps as `previous`.
+  At most 200 pages per project: a new page beyond that removes the least recently checked ones. A page not
+  checked again for 90 days expires. Deleting the project deletes them; a transfer keeps them. No element,
+  page text beyond the title and description, or reviewer is stored.
+- **Limits**: 120 summaries per member per hour and 2,000 per project per day (`429 rate_limited`, reason
+  `too_fast`, with `Retry-After`), counted after validation.
+- **Read**: only the app's Page checks page, for people who can see the project; there is no read route.
 
 ## Rewrite suggestions
 

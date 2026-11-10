@@ -14,7 +14,7 @@ export const metadata = publicPageMetadata('/legal/privacy-policy', {
 
 export default function PrivacyPolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="9 November 2026">
+        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="10 November 2026">
             <p>
                 This policy explains what {brand.domain} collects, why, where it is stored and for how long.
                 {' '}{brand.name} is a {brand.parent.name} project: {brand.parent.name} runs {brand.domain} and is
@@ -311,8 +311,17 @@ export default function PrivacyPolicyPage() {
                 The <a href={KnownPages.LegalCookiePolicy}>cookie policy</a> describes these keys and controls.
             </p>
             <p>
+                While a signed-in project member reviews a site with the toolbar, it checks each page they open in their
+                browser and saves a summary to the project, which its members see as Page checks in the app: the page&rsquo;s
+                address as its comments record it, its title and meta description, whether it asks not to be indexed, how many
+                accessibility issues and SEO checks were found, each check&rsquo;s result, and its Core Web Vitals (load
+                and response times, layout shift) when they were measured. It does not include the page&rsquo;s other content or who sent it.
+                A newer summary of the page replaces it, a project keeps up to 200 pages, and a page not checked again
+                for 90 days is deleted. Guests and public viewers do not send summaries.
+            </p>
+            <p>
                 A workspace admin can delete a project in its settings after typing its name. We then delete its
-                settings, comments, replies, screenshots, notification preferences, subscriptions and delivery
+                settings, comments, replies, screenshots, page check summaries, notification preferences, subscriptions and delivery
                 records, read cursors, author filters, review codes, invitations that name only that project, its
                 place in team and member access and in coding tool connections, and its connected-service
                 settings, credentials and delivery records. A connection or access token that selected only that
@@ -324,7 +333,7 @@ export default function PrivacyPolicyPage() {
             </p>
             <p>
                 Someone who is an admin of two workspaces can transfer a project from one to the other after
-                typing its name. Its settings, comments, replies, screenshots, read cursors and notification
+                typing its name. Its settings, comments, replies, screenshots, page check summaries, read cursors and notification
                 preferences move with it, and its code, public id and review links stay the same. From then on the
                 new workspace&rsquo;s admins, and the people they give access, can see it; the old workspace&rsquo;s
                 members cannot. Its place in the old workspace&rsquo;s team, member and invitation access, its

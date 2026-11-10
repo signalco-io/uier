@@ -36,8 +36,8 @@ the action is `deleteProjectAction` in
    with its integration tombstone, the screenshot document and blob, and the thread's subscriptions,
    deliveries and read cursors. Eight threads are deleted at a time; passes repeat until the
    partition lists no comments. The comment number sequence is deleted last.
-7. **Records.** The `notifications:<id>` partition (preferences, subscriptions, deliveries),
-   `review-read` cursors, `review-code`s, `comment-author` filters, `slack-test` receipts, every
+7. **Records.** The `notifications:<id>` partition (preferences, subscriptions, deliveries), the
+   `page-checks:<id>` partition (the [page check summaries](api.md#page-checks)), `review-read` cursors, `review-code`s, `comment-author` filters, `slack-test` receipts, every
    `<provider>-sync` ledger, `<provider>-connection`, `<provider>-oauth-state`, `notion-grant`,
    `linear-selection`, `azure-devops-selection`, `azure-devops-grant` and `github-setup` record of the project.
 8. The intent is marked complete and expires one day later.
@@ -71,6 +71,7 @@ Locally there is no scheduled worker: a failed deletion stays pending in the mem
 
 `e2e/project-deletion.api.spec.ts` covers admin-only access by exact name, the public project refusal,
 removal of comments, images, public ids, grants, invitations, coding tool selections and integration
-records, the retained other project, tombstone discovery and the retry sweep.
+records, the retained other project, tombstone discovery and the retry sweep. `e2e/page-checks-site.api.spec.ts`
+covers the page check summaries.
 `e2e/project-deletion.spec.ts` (full suite, Desktop Chrome) covers the confirm dialog, cancel, the
 typed name, the redirect and toast, and that the code and public id stop resolving.
