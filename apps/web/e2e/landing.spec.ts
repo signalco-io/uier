@@ -157,7 +157,7 @@ test('landing page sections are reachable from the navigation', async ({ page })
 
     const sectionLinks = await page.getByRole('banner').locator('a[href^="/#"]')
         .evaluateAll(links => links.map(link => link.getAttribute('href')));
-    expect(sectionLinks).toEqual(['/#how-it-works', '/#features', '/#pricing', '/#faq']);
+    expect(sectionLinks).toEqual(['/#how-it-works', '/#features', '/#faq']);
 });
 
 test('section links land below the fixed site header', async ({ page, isMobile }) => {
@@ -177,7 +177,7 @@ test('section links land below the fixed site header', async ({ page, isMobile }
     // Following the header's links on the page (client-side navigation); on phones they are in the menu
     if (isMobile)
         return;
-    for (const [name, id] of [['FAQ', 'faq'], ['Features', 'features'], ['Pricing', 'pricing']] as const) {
+    for (const [name, id] of [['FAQ', 'faq'], ['Features', 'features']] as const) {
         const before = await page.evaluate(() => window.scrollY);
         await page.getByRole('banner').getByRole('link', { name, exact: true }).click();
         await expect(page).toHaveURL(new RegExp(`#${id}$`));

@@ -42,8 +42,7 @@ export async function SiteFooter() {
                     header: 'Contact',
                     ctas: [
                         { label: brand.contact.email, href: `mailto:${brand.contact.email}` },
-                        { label: 'Report an issue', href: brand.issues },
-                        { label: 'signalco on X', href: brand.social.x }
+                        { label: 'Report an issue', href: brand.issues }
                     ]
                 },
                 {

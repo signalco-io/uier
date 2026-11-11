@@ -1,4 +1,5 @@
 import { publicPageMetadata } from '@/src/lib/metadata';
+import { Bug, ListTodo, UserCircle } from '@signalco/ui-icons';
 import { Button } from '@signalco/ui-primitives/Button';
 import { brand } from '@uier/brand';
 import { CheckList, InlineLink, PageHeader, PageSection, Panel, Tile } from '../../../../../src/components/marketing/ContentPage';
@@ -50,14 +51,17 @@ const fixLinks = [
 
 const useCases = [
     {
+        icon: UserCircle,
         title: 'Client review',
         text: 'The client who asked for the change confirms it on the page, as a guest if they reviewed through a review link.'
     },
     {
+        icon: Bug,
         title: 'Bug reports',
         text: 'The person who reported the bug checks the fix where they found it, rather than the developer closing it unchecked.'
     },
     {
+        icon: ListTodo,
         title: 'Acceptance testing',
         text: 'Testers confirm the fixes for what they reported before a release. Each thread records its own decision; it is not a sign-off of the release.'
     }
@@ -207,7 +211,7 @@ export default function FixVerificationPage() {
                 lead="Anywhere the person who found a problem should be the one to say it is fixed.">
                 <Panel className="md:grid-cols-3">
                     {useCases.map(item => (
-                        <Tile key={item.title} title={item.title}>
+                        <Tile key={item.title} title={item.title} icon={<item.icon size={20} strokeWidth={1.75} />}>
                             <p>{item.text}</p>
                         </Tile>
                     ))}

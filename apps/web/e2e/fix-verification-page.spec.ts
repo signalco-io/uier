@@ -25,6 +25,10 @@ test('fix verification page explains who can confirm a fix', async ({ page }) =>
     await expect(row('Done without verification')).toContainText('Done without reviewer confirmation.');
     await expect(row('Reopen')).toContainText('history only');
 
+    const useCases = page.getByRole('region', { name: 'Where it helps', exact: true });
+    for (const name of ['Client review', 'Bug reports', 'Acceptance testing'])
+        await expect(useCases.getByRole('heading', { level: 3, name, exact: true }).locator('xpath=../..').locator('svg'), name).toBeVisible();
+
     const main = page.getByRole('main');
     await expect(main.getByRole('link', { name: 'Get started' })).toHaveAttribute('href', '/app');
     await expect(main.getByRole('link', { name: 'Create a project' })).toHaveAttribute('href', '/app');

@@ -67,9 +67,11 @@ export function Panel({ as: Component = 'div', className, children }: PropsWithC
 }
 
 /** A titled cell of a Panel, with an optional `label` chip beside the title */
-export function Tile({ title, label, children }: PropsWithChildren<{ title: string; label?: string; }>) {
+/** `icon` goes above the title: an outlined icon from `@signalco/ui-icons`, e.g. `<Bug size={20} strokeWidth={1.75} />` */
+export function Tile({ title, label, icon, children }: PropsWithChildren<{ title: string; label?: string; icon?: ReactNode; }>) {
     return (
         <div className="flex flex-col gap-2 p-6">
+            {icon && <span aria-hidden="true" className="mb-2 flex">{icon}</span>}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <h3 className="text-base font-semibold">{title}</h3>
                 {label && <Chip>{label}</Chip>}
