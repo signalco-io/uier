@@ -278,8 +278,8 @@ function CheckReason({ check, reasonId }: { check: PageCheck; reasonId: string }
 }
 
 /**
- * A check on one compact row: its state, name (with why it passed or is worth a look in a tooltip) and
- * measurement, what was found, then its issues (an issue about the page has only its action) and the ones marked
+ * A check on one compact row: its state, name and measurement, what was found, why it is worth a look
+ * (a warning, on its own line; why it passed or is a note: in a tooltip by its name), then its issues (an issue about the page has only its action) and the ones marked
  * "Not an issue" in this browser
  */
 export function CheckItem({ check, children }: { check: PageCheck; children?: ReactNode }) {
@@ -289,6 +289,8 @@ export function CheckItem({ check, children }: { check: PageCheck; children?: Re
     const filter = useContext(CheckFilterContext);
     const t = useMessages();
     if (filter && check.state !== filter) return null;
+    // What to fix is said in the row, not only behind the info button
+    const inlineReason = check.state === 'warn';
     const pageIssue = check.issues.length === 1 && !check.issues[0]!.element && !isDismissed?.(check.issues[0]!) ? check.issues[0] : undefined;
     return (
         <li className="flex min-w-0 flex-col gap-1.5 px-3 py-2" data-uier-check={check.id} data-uier-check-state={check.state}>
@@ -298,11 +300,12 @@ export function CheckItem({ check, children }: { check: PageCheck; children?: Re
                     <div className="flex min-w-0 items-baseline justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-0.5">
                             <p className="m-0 min-w-0 text-sm font-medium text-foreground">{check.label}</p>
-                            <CheckReason check={check} reasonId={reasonId} />
+                            {!inlineReason && <CheckReason check={check} reasonId={reasonId} />}
                         </div>
                         {check.measure && <p className="m-0 shrink-0 text-sm tabular-nums text-foreground">{check.measure}</p>}
                     </div>
                     {check.value && <p className="m-0 break-words text-sm text-secondary-foreground">{check.value}</p>}
+                    {inlineReason && <p id={reasonId} className="m-0 break-words text-xs text-muted-foreground">{check.reason}</p>}
                 </div>
             </div>
             {/* The buttons' icons line up with the text above them */}

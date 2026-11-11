@@ -2,7 +2,7 @@
 
 import { useActionState, useId, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { CheckIcon, ChevronsUpDownIcon, MegaphoneIcon, PlusIcon, SettingsIcon } from 'lucide-react';
+import { CheckIcon, ChevronsUpDownIcon, PlusIcon, SettingsIcon } from 'lucide-react';
 import { Mark } from '@uier/brand/Mark';
 import { Button } from '@/src/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/src/components/ui/dialog';
@@ -31,7 +31,7 @@ export type WorkspaceOption = {
     role: string;
     /**
      * uier's own workspace, which everyone joins to send feedback on the app: not a workspace the
-     * person works in, so the menu keeps it apart from theirs
+     * person works in, so the menu leaves it out (their sent feedback is in Give feedback's toolbar)
      */
     feedback?: boolean;
 };
@@ -90,9 +90,10 @@ function CreateWorkspaceForm() {
 }
 
 /**
- * The current workspace at the top of the sidebar. Its menu switches workspaces, creates a new one,
- * opens the workspace settings for admins (`canManage`) and, apart from the person's workspaces, the
- * feedback they sent on uier (`feedback`).
+ * The current workspace at the top of the sidebar. Its menu lists the person's workspaces (the current one
+ * checked, also when it is the only one) to switch between, creates a new one,
+ * opens the workspace settings for admins (`canManage`). uier's feedback workspace (`feedback`) is not
+ * listed (uier #257), unless a saved selection still has the person in it: then it is listed, checked, with their own to switch to.
  */
 export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, canManage = false }: {
     workspaces: WorkspaceOption[];
@@ -106,10 +107,8 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, canManage = 
     if (!current)
         return null;
 
-    const own = workspaces.filter(workspace => !workspace.feedback);
-    const feedback = workspaces.find(workspace => workspace.feedback);
-    // From the feedback workspace the list is the way back to the person's own
-    const canSwitch = own.length > 1 || (current.feedback && own.length > 0);
+    // The current workspace is always listed; uier's feedback workspace only while it is current
+    const listed = workspaces.filter(workspace => !workspace.feedback || workspace.id === current.id);
     const switchTo = (workspaceId: string) => startTransition(() => switchWorkspaceAction(workspaceId));
     return (
         <SidebarMenu>
@@ -126,23 +125,20 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, canManage = 
                         align="start"
                         side={isMobile ? 'bottom' : 'right'}
                         sideOffset={4}>
-                        {canSwitch && (
-                            <>
-                                <DropdownMenuGroup>
-                                    <DropdownMenuLabel className="text-xs text-muted-foreground">Workspaces</DropdownMenuLabel>
-                                    {own.map(workspace => (
-                                        <DropdownMenuItem key={workspace.id} onClick={() => switchTo(workspace.id)}>
-                                            <span className="flex min-w-0 flex-1 flex-col">
-                                                <span className="truncate">{workspace.name}</span>
-                                                <span className="text-xs text-muted-foreground">{workspace.role}</span>
-                                            </span>
-                                            {workspace.id === current.id && <CheckIcon className="ml-auto" />}
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuGroup>
-                                <DropdownMenuSeparator />
-                            </>
-                        )}
+                        {/* Always the person's workspaces, the current one checked, also when it is the only one (uier #257) */}
+                        <DropdownMenuGroup>
+                            <DropdownMenuLabel className="text-xs text-muted-foreground">Workspaces</DropdownMenuLabel>
+                            {listed.map(workspace => (
+                                <DropdownMenuItem key={workspace.id} onClick={() => workspace.id !== current.id && switchTo(workspace.id)}>
+                                    <span className="flex min-w-0 flex-1 flex-col">
+                                        <span className="truncate">{workspace.name}</span>
+                                        <span className="text-xs text-muted-foreground">{workspace.role}</span>
+                                    </span>
+                                    {workspace.id === current.id && <><CheckIcon aria-hidden="true" className="ml-auto" /><span className="sr-only">current</span></>}
+                                </DropdownMenuItem>
+                            ))}
+                        </DropdownMenuGroup>
+                        <DropdownMenuSeparator />
                         <DropdownMenuGroup>
                             {canManage && (
                                 <DropdownMenuItem render={<Link href={KnownPages.AppSettings} />}>
@@ -155,21 +151,6 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, canManage = 
                                 Create workspace
                             </DropdownMenuItem>
                         </DropdownMenuGroup>
-                        {feedback && (
-                            <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuGroup>
-                                    <DropdownMenuItem onClick={() => switchTo(feedback.id)}>
-                                        <MegaphoneIcon />
-                                        <span className="flex min-w-0 flex-1 flex-col">
-                                            <span className="truncate">{feedback.name}</span>
-                                            <span className="text-xs text-muted-foreground">{feedback.role}</span>
-                                        </span>
-                                        {feedback.id === current.id && <CheckIcon className="ml-auto" />}
-                                    </DropdownMenuItem>
-                                </DropdownMenuGroup>
-                            </>
-                        )}
                     </DropdownMenuContent>
                 </DropdownMenu>
                 <Dialog open={creating} onOpenChange={setCreating}>

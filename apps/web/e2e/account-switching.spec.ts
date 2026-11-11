@@ -96,6 +96,23 @@ for (const provider of ['Google', 'Microsoft'] as const) {
     });
 }
 
+test('the account menu shows three accounts and keeps the rest and Add account in a submenu', async ({ page }) => {
+    const emails = ['a', 'b', 'c', 'd'].map(key => uniqueEmail(`menu-${key}`));
+    await signIn(page, emails[0]!);
+    for (const email of emails.slice(1))
+        await signIn(page, email, { from: '/app/sign-in?add=1' });
+    const menu = await accountMenu(page);
+    const accountItems = menu.getByRole('menuitem', { name: /@/ });
+    await expect(accountItems).toHaveCount(3);
+    await expect(menu.getByRole('menuitem', { name: / active$/ })).toBeDisabled();
+    await expect(menu.getByRole('menuitem', { name: 'Add account', exact: true })).toHaveCount(0);
+    await menu.getByRole('menuitem', { name: '1 more account', exact: true }).click();
+    const more = page.getByRole('menu').last();
+    await expect(more.getByRole('menuitem', { name: /@/ })).toHaveCount(1);
+    await expect(more.getByRole('menuitem', { name: 'Add account', exact: true })).toBeVisible();
+    await expectNoAxeViolations(page);
+});
+
 test('Add account cancellation and a failed sign-in leave the original account signed in', async ({ page, context }) => {
     const email = uniqueEmail('cancel-add');
     await signIn(page, email);

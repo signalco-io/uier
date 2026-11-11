@@ -43,7 +43,8 @@ async function AppShellLayoutContent({ children }: PropsWithChildren) {
                     user={{ name: context.user.name, email: context.user.email, avatarUrl: avatarUrl(context.user) }}
                     currentWorkspaceId={context.workspace.id}
                     workspaces={context.memberships.map(({ workspace, member }) => {
-                        // Everyone joins uier's workspace to send feedback on the app; its admins (uier staff) work in it
+                        // Everyone joins uier's workspace to send feedback on the app; its admins (uier staff) work in it.
+                        // The switcher lists it for everyone else only while it is current (uier #257)
                         const feedback = workspace.id === PUBLIC_WORKSPACE_ID && member.role !== 'admin';
                         return {
                             id: workspace.id,

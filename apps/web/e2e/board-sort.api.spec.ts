@@ -68,6 +68,10 @@ test('Archive orders by when each thread was archived, newest first, like Done b
         { id: 'legacy', number: 3, archivedAt: 'not a time', updatedAt: '2026-05-01' }
     ];
     expect([...archived].sort(compareArchivedOrder).map(thread => thread.id)).toEqual(['late', 'legacy', 'tie-high', 'tie-normal', 'early']);
+    // Its default sort, and the ones it shares with Done
+    expect(sortBoardColumn(archived, 'archived').map(thread => thread.id)).toEqual(['late', 'legacy', 'tie-high', 'tie-normal', 'early']);
+    expect(sortBoardColumn(archived, 'priority').map(thread => thread.id)).toEqual(['early', 'tie-high', 'tie-normal', 'legacy', 'late']);
+    expect(sortBoardColumn(archived, 'updated').map(thread => thread.id)).toEqual(['legacy', 'early', 'tie-high', 'tie-normal', 'late']);
 });
 
 test('columns offer their own sorts, and a saved value a column does not offer reads as its default', () => {
@@ -77,15 +81,22 @@ test('columns offer their own sorts, and a saved value a column does not offer r
     expect(boardSortOptions('done')).toEqual(['completed', 'priority', 'newest', 'oldest', 'updated']);
     expect(defaultBoardSort('open')).toBe('priority');
     expect(defaultBoardSort('done')).toBe('completed');
+    // Archive: Done's choices, with Recently archived in Recently completed's place
+    expect(boardSortOptions('archive')).toEqual(['archived', 'priority', 'newest', 'oldest', 'updated']);
+    expect(defaultBoardSort('archive')).toBe('archived');
 
-    expect(boardSortsOf(undefined)).toEqual({ open: 'priority', 'in-progress': 'priority', ready: 'priority', done: 'completed' });
-    expect(boardSortsOf({ open: 'oldest', done: 'updated' })).toEqual({ open: 'oldest', 'in-progress': 'priority', ready: 'priority', done: 'updated' });
+    expect(boardSortsOf(undefined)).toEqual({ open: 'priority', 'in-progress': 'priority', ready: 'priority', done: 'completed', archive: 'archived' });
+    expect(boardSortsOf({ open: 'oldest', done: 'updated', archive: 'newest' })).toEqual({ open: 'oldest', 'in-progress': 'priority', ready: 'priority', done: 'updated', archive: 'newest' });
     expect(boardSort({ open: 'completed' }, 'open')).toBe('priority');
+    expect(boardSort({ archive: 'completed' }, 'archive')).toBe('archived');
+    expect(boardSort({ done: 'archived' }, 'done')).toBe('completed');
     expect(boardSort({ ready: 'sideways' as never }, 'ready')).toBe('priority');
 
     expect(boardSortInputSchema.safeParse({ status: 'done', sort: 'completed' }).success).toBe(true);
     expect(boardSortInputSchema.safeParse({ status: 'open', sort: 'newest' }).success).toBe(true);
-    for (const input of [{ status: 'open', sort: 'completed' }, { status: 'open', sort: 'random' }, { status: 'archived', sort: 'newest' }, { status: 'open' }])
+    expect(boardSortInputSchema.safeParse({ status: 'archive', sort: 'oldest' }).success).toBe(true);
+    for (const input of [{ status: 'open', sort: 'completed' }, { status: 'open', sort: 'random' }, { status: 'archived', sort: 'newest' }, { status: 'open' },
+        { status: 'archive', sort: 'completed' }, { status: 'done', sort: 'archived' }, { status: 'open', sort: 'archived' }])
         expect(boardSortInputSchema.safeParse(input).success).toBe(false);
 
     // The action parses the project too, before anything is read
@@ -104,6 +115,8 @@ test('only choices other than a column\'s default are kept on the project', () =
     expect(withBoardSort(project, 'open', 'priority')).toEqual({ id: 'p' });
     const unsorted: { id: string; boardSorts?: undefined } = { id: 'p' };
     expect(withBoardSort(unsorted, 'done', 'completed')).toEqual({ id: 'p' });
+    expect(withBoardSort(unsorted, 'archive', 'priority')).toEqual({ id: 'p', boardSorts: { archive: 'priority' } });
+    expect(withBoardSort({ id: 'p', boardSorts: { archive: 'priority' as const } }, 'archive', 'archived')).toEqual({ id: 'p' });
 });
 
 async function adminContext(prefix: string): Promise<AppContext> {
@@ -121,22 +134,24 @@ test('members save a column\'s sort on the project, for everyone who opens its b
 
     await saveProjectBoardSort(await reload(), appActor(admin), 'open', 'oldest');
     await saveProjectBoardSort(await reload(), appActor(admin), 'done', 'priority');
-    expect((await reload()).boardSorts).toEqual({ open: 'oldest', done: 'priority' });
-    expect(boardSortsOf((await reload()).boardSorts)).toEqual({ open: 'oldest', 'in-progress': 'priority', ready: 'priority', done: 'priority' });
+    await saveProjectBoardSort(await reload(), appActor(admin), 'archive', 'oldest');
+    expect((await reload()).boardSorts).toEqual({ open: 'oldest', done: 'priority', archive: 'oldest' });
+    expect(boardSortsOf((await reload()).boardSorts)).toEqual({ open: 'oldest', 'in-progress': 'priority', ready: 'priority', done: 'priority', archive: 'oldest' });
 
     // A commenter of the project moves its cards and triages it, so they may sort it too
     const commenter: ProjectActor = { kind: 'member', userId: `user-${randomUUID()}`, name: 'Commenter', isAdmin: false };
     expect(canSortProjectBoard(created, commenter)).toBe(true);
     await saveProjectBoardSort(await reload(), commenter, 'in-progress', 'updated');
-    expect((await reload()).boardSorts).toEqual({ open: 'oldest', 'in-progress': 'updated', done: 'priority' });
+    expect((await reload()).boardSorts).toEqual({ open: 'oldest', 'in-progress': 'updated', done: 'priority', archive: 'oldest' });
 
     // Back to the defaults: nothing is left on the project
-    for (const [status, sort] of [['open', 'priority'], ['in-progress', 'priority'], ['done', 'completed']] as const)
+    for (const [status, sort] of [['open', 'priority'], ['in-progress', 'priority'], ['done', 'completed'], ['archive', 'archived']] as const)
         await saveProjectBoardSort(await reload(), appActor(admin), status, sort);
     expect(await reload()).not.toHaveProperty('boardSorts');
 
     // The service checks the column's choices again, and guests can't sort
     await expect(saveProjectBoardSort(await reload(), appActor(admin), 'open', 'completed')).rejects.toThrow('Choose a sort this column offers.');
+    await expect(saveProjectBoardSort(await reload(), appActor(admin), 'archive', 'completed')).rejects.toThrow('Choose a sort this column offers.');
     await expect(saveProjectBoardSort(await reload(), appActor(admin), 'open', 'sideways' as never)).rejects.toThrow(UserFacingError);
     const guest: ProjectActor = { kind: 'guest', visitorId: randomUUID() };
     expect(canSortProjectBoard(created, guest)).toBe(false);

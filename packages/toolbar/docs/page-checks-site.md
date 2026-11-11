@@ -33,7 +33,10 @@ project's pages together ([the view](../../../apps/web/docs/page-checks.md)). It
 `POST /api/review/<project>/page-checks` ([API](../../../docs/api.md#page-checks)), `PageSummary`:
 
 - `path`: the page key the comments use (`CommentsBootstrapperContext`'s, under the project's page state),
-  and `sourcePath` with its trailing slash when it had one, never the address with its query;
+  and `sourcePath` with its trailing slash when it had one. Both keep only the project's selected
+  content-changing query parameters ([page state](../../../apps/web/docs/review-api.md)); unselected
+  query fields never create another summary. With `lang` selected, empty and `sq-AL` values are distinct;
+  without it both use the base page. The API filters the submitted key again with the current policy;
 - `title` and `description`: the SEO report's values, one line of plain text, capped at 200 and 300
   characters, and `noindex` (the Indexing check is a note);
 - `accessibility`: axe-core's issues by impact (every element of every rule), only with the audit's report;

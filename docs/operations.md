@@ -156,6 +156,7 @@ CI applies changes (`pulumi up`); do not run it locally. See [CI/CD](#cicd).
 | --- | --- | --- |
 | [`ci.yml`](../.github/workflows/ci.yml) | pull requests, manual | Web: parallel checks, API and browser jobs, plus a Vercel preview deployment (URL in the job summary). Extension: unit and packaged runtime checks. Infra: `pulumi preview` against `uier-production`, posted as a PR comment. `CI OK` aggregates all jobs. |
 | [`deploy.yml`](../.github/workflows/deploy.yml) | push to `main`, manual | Builds the website alongside `pulumi up`, then deploys to Vercel production (`uier.io`) only after both succeed. |
+| [`deploy-current_reusable.yml`](../.github/workflows/deploy-current_reusable.yml) | called | Checks for a newer eligible production workflow run, before building/applying and before uploading. |
 | [`pulumi_reusable.yml`](../.github/workflows/pulumi_reusable.yml) | called | Installs and builds `infra/`, logs into Azure (OIDC) and runs `pulumi preview` / `up`. |
 | [`vercel-build_reusable.yml`](../.github/workflows/vercel-build_reusable.yml) | called | Builds with public settings and no deployment credentials; uploads only the prebuilt output for this workflow run and attempt. |
 | [`vercel-deploy_reusable.yml`](../.github/workflows/vercel-deploy_reusable.yml) | called | Validates and deploys this run's prebuilt output in an environment-bound job, without checking out the repository. |
@@ -171,10 +172,20 @@ succeed because the Vercel project settings (root directory, environment variabl
 by Pulumi. Pull-request previews use the same build and upload workflows in sequence. Deployments are
 made by the Vercel CLI from GitHub Actions; the Vercel project is not connected to Vercel's Git integration.
 
-Concurrency: deploys run one at a time and are never cancelled; `pulumi up` runs are serialized; a new push
-to a pull request cancels its previous CI run. The production workflow keeps its lock while building so
-toolbar retention and search comparisons read the preceding completed release. Do not move builds
-outside that lock without refreshing these production-dependent inputs before publishing.
+Concurrency: one production workflow runs at a time, with only the newest pending run retained;
+`pulumi up` runs are serialized. A new push to a pull request cancels its previous CI run. Production
+checks for a newer eligible `Deploy` run before building/applying and again before uploading. A
+superseded run skips the remaining work and records its replacement in the job summary. These checks
+need only Actions read access and execute without a checkout or deployment credentials. They use
+workflow runs rather than main's HEAD, so a push excluded by `paths-ignore` does not suppress a needed
+release. Re-running an older run also skips it when a newer eligible run exists; retry the newest run
+to recover a failed release. A failed freshness lookup blocks release rather than assuming it is current.
+
+An already running apply or upload finishes, even if another merge arrives. A newer merge after the
+last check can therefore still result in two releases. The production workflow keeps its lock while
+building so toolbar retention and search comparisons read the preceding completed release. Do not
+move builds outside that lock without refreshing these production-dependent inputs before publishing.
+This reduces wasted production uploads during merge bursts; it does not shorten the PR's required CI.
 
 The web matrix separates typecheck/artifact/worker checks, all API tests, and all tagged desktop/mobile
 browser essentials. Test jobs use four workers each and retain separate `playwright-results-api` and

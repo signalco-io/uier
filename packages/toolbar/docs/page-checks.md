@@ -140,9 +140,12 @@ Both panels share one layout (`components/checks/ChecksParts.tsx`), so they read
   choose one with `showChecksTab` (`e2e/support/toolbar.ts`).
 - **Sections** (`CheckSection`): a heading with its count and a short note on the right, over one
   bordered card whose rows are divided by lines.
-- **Rows** (`CheckItem`): one compact row per check: the state icon, the name with a small info button,
+- **Rows** (`CheckItem`): one compact row per check: the state icon, the name (with a small info button but on a warning),
   a short measurement on the right (`measure`, Core Web Vitals), then what was found on its own line
-  (`value`). Why it passed or is worth a look (`reason`) is the info button's tooltip
+  (`value`). Why a warning is worth a look (`reason`) is its own muted line under that, so what to fix
+  shows without a hover
+  ([uier #252](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_zIgm0UQrFHouWK9tOyS4T)),
+  and the row has no info button. Why a check passed, or a note, is the info button's tooltip
   ([uier #244](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_r_U5YjZFgfWaCDFTBsmDH)):
   shown on hover, on keyboard focus and on a tap (a second tap, a tap elsewhere or a scroll hides it;
   `useIconTooltip`'s `tap`), and read with the button and the row's actions through `aria-describedby`
@@ -204,7 +207,10 @@ An open inbox, Accessibility or SEO panel stays open on the next page and shows 
   the status ("3 issues found.", read out only: the tiles show the counts, [uier #226](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_rBu2-JZLowGgsaVmjl9o-);
   "Checking this page...", a failure and "No issues found." show), a summary tile per impact with its
   elements' count, when it was checked (not with what: the checks change, [uier #227](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_Im2uENyTKFmnJbPng8NWD)),
-  then, in the Issues tab, a section per impact (critical, serious, moderate, minor). Each rule is a row marked with its
+  then, in the Issues tab, a section per impact (critical, serious, moderate, minor); with nothing to fix
+  or review, the tab has a placeholder instead, the empty inbox's dashed card with a green check
+  (`data-uier-issues-empty`, [uier #253](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_M17IoxbxT-BVD8dYars39)),
+  above any rule left only with issues marked "Not an issue". Each rule is a row marked with its
   impact's icon in its colour (`impactStyles`: the priority colours, a shape each, see `BRAND.md`,
   "Accessibility impact"), its help text, id, the standard it tests (`ruleStandard`, from axe-core's tags: "WCAG 1.4.3 (AA)",
   or "Best practice") and **How to fix** link (Deque University, without its tracking query); each element is a row with its short name (`img#hero.logo`). axe-core's first failure
@@ -372,7 +378,7 @@ web-accessible resource, and the page's CSP does not apply to it. The rules abov
 `apps/web/e2e/page-checks.spec.ts` on a project's site on another origin with the install guide's CSP
 (`?page-checks` in `e2e/support/reviewedSite.ts`): one audit request in the background, the buttons' dots
 and names before a panel opens, the panel opening with that report and no new request, rules by impact without the toolbar, Highlight, a comment posted on the element with its
-screenshot, details, failure lines, standard and check, Show, focus back on Close, the impact tiles' counts and a rule's shared line said once (Desktop Chrome); the SEO checks, the summary's counts,
+screenshot, details, failure lines, standard and check, Show, focus back on Close, the impact tiles' counts and a rule's shared line said once, the Issues tab's placeholder on a page without `?page-checks` (Desktop Chrome); the SEO checks, a warning's reason in its row and a pass's in its tooltip, the summary's counts,
 the folded outline, Core Web Vitals not counting the toolbar's presses, a guest's name (also asked in the panel commented from with both panels open, and after one closes), page feedback, an
 element's comment with what was found and its check, findings marked as reported after a reload (with Show) until their thread is done, a noindex page (its Indexing note, no canonical needed) and broken links sharing one reason (Desktop Chrome);
 the tabs (the sections of the shown one, a tab's dot and name, ← and →, a filter listing every tab's results) (Desktop Chrome);

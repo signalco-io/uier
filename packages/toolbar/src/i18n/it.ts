@@ -811,6 +811,7 @@ export const it: Messages = {
             couldNotRun: 'Non è stato possibile eseguire il controllo di accessibilità.',
             noIssues: 'Nessun problema trovato.',
             automatedNote: 'I controlli automatici trovano solo alcuni problemi. Prova anche con la tastiera e uno screen reader.',
+            issuesEmpty: 'Niente da correggere qui. Le altre schede coprono ciò che i controlli automatici non possono valutare.',
             blocked: 'La Content-Security-Policy del sito o la connessione potrebbero bloccare il suo script.',
             undecided: 'axe-core non ha potuto decidere. Non conteggiato.',
             tabs: { issues: 'Problemi', keyboard: 'Tastiera', screenReader: 'Screen reader', visual: 'Visivo' }

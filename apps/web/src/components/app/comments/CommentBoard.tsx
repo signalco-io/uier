@@ -18,7 +18,7 @@ import { CommentCard, type AssigneeOption } from './CommentCard';
 import { CommentRow, commentRowId } from './CommentRow';
 import { commentStatus, commentStatuses, commentStatusLabels, StateDot, StateMenu, type CommentStatus } from './CommentStatus';
 import { allowedStatuses, movedPatch, useStatusChanger } from './useStatusChange';
-import type { BoardSort } from '../../../lib/app/boardSort';
+import type { BoardColumn as BoardColumnKey, BoardSort } from '../../../lib/app/boardSort';
 import { BoardSortMenu } from './BoardSortMenu';
 import { sortBoardColumn } from './commentOrder';
 import type { useOpenComment } from './CommentInbox';
@@ -203,7 +203,7 @@ function BoardColumn({ status, count, state, sort, onSort, children }: {
     count: number;
     state: ColumnState;
     sort: BoardSort;
-    onSort?: (status: CommentStatus, sort: BoardSort) => void;
+    onSort?: (status: BoardColumnKey, sort: BoardSort) => void;
     children: ReactNode;
 }) {
     // A placeholder changes a column's height, and on narrow screens moves the columns below it
@@ -227,13 +227,16 @@ function BoardColumn({ status, count, state, sort, onSort, children }: {
 }
 
 /**
- * The board's last column: the archived threads, newest archived first. Collapsed (the default) it is a narrow strip
+ * The board's last column: the archived threads, in the project's sort for it (newest archived first by default),
+ * which its header offers like Done's to the people who may change it (`onSort`). Collapsed (the default) it is a narrow strip
  * with its name and count, which expands it; expanded it is a column of cards like the others, whose header collapses
  * it again. The choice is the project's, like the columns' sorts (`onExpandedChange`). It is not a drop target and
  * its cards don't move: Restore comment in the thread returns one to its status. While a card is dragged it is dimmed.
  */
-function ArchiveColumn({ count, expanded, dimmed, onExpandedChange, children }: {
+function ArchiveColumn({ count, sort, onSort, expanded, dimmed, onExpandedChange, children }: {
     count: number;
+    sort: BoardSort;
+    onSort?: (status: BoardColumnKey, sort: BoardSort) => void;
     expanded: boolean;
     dimmed: boolean;
     onExpandedChange: (expanded: boolean) => void;
@@ -263,11 +266,12 @@ function ArchiveColumn({ count, expanded, dimmed, onExpandedChange, children }: 
                             Archive
                             <span className="font-normal tabular-nums text-muted-foreground">{count}</span>
                         </h3>
+                        {onSort && <BoardSortMenu status="archive" sort={sort} onChange={next => onSort('archive', next)} className="mr-0" />}
                         <Tooltip>
                             <TooltipTrigger render={(
                                 // Takes no more height than the column's name; 44 px to tap on a touch screen
                                 <Button ref={toggle} variant="ghost" size="icon-xs" aria-label="Collapse Archive" aria-expanded="true" onClick={change}
-                                    className="relative -my-1 -mr-1.5 ml-auto text-muted-foreground hover:text-foreground after:absolute after:-inset-2.5 pointer-fine:after:hidden" />
+                                    className={cn('relative -my-1 -mr-1.5 text-muted-foreground hover:text-foreground after:absolute after:-inset-2.5 pointer-fine:after:hidden', !onSort && 'ml-auto')} />
                             )}>
                                 <FoldHorizontalIcon />
                             </TooltipTrigger>
@@ -306,10 +310,10 @@ export function CommentBoard({ projectId, columns, sorts, onSort, archive, allCo
     projectId: string;
     /** Each column's cards, in its sort */
     columns: Record<CommentStatus, ProjectCommentView[]>;
-    sorts: Record<CommentStatus, BoardSort>;
-    /** Changes a column's sort for everyone; missing for people who may not */
-    onSort?: (status: CommentStatus, sort: BoardSort) => void;
-    /** The archived threads, newest archived first, and whether their column is expanded */
+    sorts: Record<BoardColumnKey, BoardSort>;
+    /** Changes a column's sort (Archive's too) for everyone; missing for people who may not */
+    onSort?: (status: BoardColumnKey, sort: BoardSort) => void;
+    /** The archived threads, in Archive's sort, and whether their column is expanded */
     archive: { comments: ProjectCommentView[]; expanded: boolean; onExpandedChange: (expanded: boolean) => void };
     /** Every thread the board's sheet can open, archived ones too */
     allComments: ProjectCommentView[];
@@ -540,7 +544,7 @@ export function CommentBoard({ projectId, columns, sorts, onSort, archive, allCo
                             </BoardColumn>
                         );
                     })}
-                    <ArchiveColumn count={archive.comments.length} expanded={archive.expanded} dimmed={Boolean(drag)} onExpandedChange={archive.onExpandedChange}>
+                    <ArchiveColumn count={archive.comments.length} sort={sorts.archive} onSort={onSort} expanded={archive.expanded} dimmed={Boolean(drag)} onExpandedChange={archive.onExpandedChange}>
                         {archive.comments.length ? (
                             <ul aria-label="Archived comments list" className="m-0 flex list-none flex-col gap-2 p-0">
                                 {archive.comments.map(comment => (
