@@ -262,7 +262,7 @@ function ArchiveColumn({ count, sort, onSort, expanded, dimmed, onExpandedChange
     return (
         <section aria-label={t("Archived comments")} data-board-archive={expanded ? 'expanded' : 'collapsed'} data-drop={dimmed ? 'refused' : undefined}
             className={cn('flex flex-col rounded-2xl border bg-muted/50 transition-opacity duration-150 ease-out data-[drop=refused]:opacity-50',
-                expanded ? 'min-h-24 gap-2 p-2' : 'md:min-h-24 md:self-stretch')}>
+                expanded ? 'min-h-24 gap-2 p-2' : 'md:self-start')}>
             {expanded ? (
                 <>
                     <div className="flex items-center gap-2 px-2 pt-1">
@@ -286,12 +286,15 @@ function ArchiveColumn({ count, sort, onSort, expanded, dimmed, onExpandedChange
                     {children}
                 </>
             ) : (
-                // The whole strip expands it; from md its name runs down the strip
+                // The whole strip expands it. From md the strip is only as tall as its content, and the icon, the name
+                // and the count run down it together, turned like the name (the icon by `rotate-90`, as writing modes leave SVG upright)
                 <Button ref={toggle} variant="ghost" aria-expanded="false" onClick={change}
-                    className="h-auto min-h-11 w-full justify-start gap-2 rounded-2xl px-4 py-2.5 font-medium md:flex-1 md:flex-col md:px-0 md:py-3">
-                    <ArchiveIcon className="text-muted-foreground" />
-                    <span className="md:[writing-mode:vertical-rl]">{t("Archive")}</span>{' '}
-                    <span className="font-normal tabular-nums text-muted-foreground">{count}</span>
+                    className="h-auto min-h-11 w-full justify-start rounded-2xl px-4 py-2.5 font-medium md:justify-center md:px-0 md:py-3">
+                    <span className="flex items-center gap-2 md:[writing-mode:vertical-rl]">
+                        <ArchiveIcon className="text-muted-foreground md:rotate-90" />
+                        <span>{t("Archive")}</span>{' '}
+                        <span className="font-normal tabular-nums text-muted-foreground">{count}</span>
+                    </span>
                 </Button>
             )}
         </section>

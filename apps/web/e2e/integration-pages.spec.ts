@@ -46,6 +46,34 @@ for (const provider of ['notion', 'github', 'linear', 'azure-devops', 'slack']) 
     });
 }
 
+test('the integrations cover moves nothing around it and follows reduced motion', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/integrations');
+    await page.locator('[data-integrations-cover]').scrollIntoViewIfNeeded();
+    const heading = page.getByRole('heading', { name: 'Choose a service' });
+    const top = () => heading.evaluate(element => element.getBoundingClientRect().top + window.scrollY);
+    const caption = page.locator('[data-integrations-caption] p:not(.invisible)');
+    const start = await top();
+    // The caption changes with the phases; the section under the cover stays where it is
+    for (const text of ['With reply sync', 'Mark it done', 'Shared feedback becomes']) {
+        await expect(caption).toContainText(text, { timeout: 15_000 });
+        expect(await top()).toBe(start);
+    }
+    // Reduced motion turned on after load stops the loop on the still frame, and off again plays it
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect(caption).toHaveText('Shared feedback becomes a page, an issue, a work item or a message, and replies can come back.');
+    await expect(page.getByRole('button', { name: /^(Pause|Play) the animation$/ })).toHaveCount(0);
+    // Without Pause the caption is wider, so the row settles once; then the frame stays still
+    const still = await top();
+    await expect(caption).toHaveText(/replies can come back\.$/);
+    await page.waitForTimeout(3_000);
+    await expect(caption).toHaveText(/replies can come back\.$/);
+    expect(await top()).toBe(still);
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await expect(page.getByRole('button', { name: 'Pause the animation' })).toBeVisible();
+    await expect(caption).toContainText('Mark it done', { timeout: 15_000 });
+});
+
 test('the integrations index collects suggestions through the toolbar', async ({ page }) => {
     await page.goto('/integrations');
     await expect(toolbar(page)).toBeVisible();
