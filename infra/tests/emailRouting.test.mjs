@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import * as pulumi from '@pulumi/pulumi';
 
 const destination = { id: 'destination-id', email: 'destination@example.test', verified: '2026-01-01' };
@@ -81,4 +82,11 @@ test('runtime discovers IDs, imports without rewriting inputs and protects every
     }
     assert.equal(calls.find(item => item.token.includes('getEmailRoutingRules:')).inputs.enabled, undefined);
     assert.equal(calls.find(item => item.token.includes('getEmailRoutingAddresses:')).inputs.verified, true);
+});
+
+// Match the source-contract checks in ciPolicy.test.mjs without loading the production program.
+test('stack entrypoint returns routing completion instead of discarding its Output', () => {
+    const entrypoint = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8');
+    assert.match(entrypoint, /return emailRouting\(\);\s*};\s*export default up;/);
+    assert.equal([...entrypoint.matchAll(/emailRouting\(\)/g)].length, 1);
 });

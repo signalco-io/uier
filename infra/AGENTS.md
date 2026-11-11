@@ -146,7 +146,9 @@ Conflicting aliases, Worker-managed rules, enabled catch-all, incomplete discove
 routing stop adoption. Keep all new resources protected and every existing protection unchanged.
 CI must show no-change imports plus only missing alias creations, with no DNS changes; never
 run a local stack preview or update for this rollout. See the operations guide for import IDs,
-token permissions and acceptance. Destination addresses must already be verified; keep catch-all disabled.
+token permissions and acceptance. The stack entrypoint must return `emailRouting()` so its
+asynchronous discovery and registrations remain attached to stack completion. Destination addresses
+must already be verified; keep catch-all disabled.
 
 `src/email.ts` retains the protected root `uier.io` domain and its DNS records, and manages a
 separate protected `notify.uier.io` domain for all transactional mail: sign-in links, invitations,

@@ -61,8 +61,6 @@ const up = async () => {
     // The apex policy also applies to subdomains without their own CAA policy.
     caaRecord('vercel-uier-caa', '@', 'letsencrypt.org');
 
-    emailRouting();
-
     // Azure
     const resourceGroupName = `uier-${stack}`;
     const resourceGroup = new ResourceGroup(resourceGroupName, {}, { protect });
@@ -351,6 +349,8 @@ const up = async () => {
             sensitive: true,
         }, { ...envVarOptions, ...preservePreviewValue(existingEnvironment, 'ANTHROPIC_API_KEY', 'vercel-uier-env-anthropic') });
     }
+    // Keep asynchronous routing discovery and resource registration attached to the stack.
+    return emailRouting();
 };
 
 export default up;

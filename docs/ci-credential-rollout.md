@@ -151,6 +151,25 @@ creation summaries and token-list readback confirmed their scopes and Active sta
 copied directly into the corresponding encrypted GitHub environment secrets and removed from the
 clipboard afterwards. GitHub's API confirmed both secret names were present.
 
+That receipt records the original DNS-only scopes, not Email Routing readiness. Before #260
+can preview/deploy, the owner must extend each separate environment token as follows (dashboard
+Edit corresponds to API Write):
+
+| Token | `uier.io` zone only | Zone's DFNoise account only |
+| --- | --- | --- |
+| Preview (read-only) | DNS Read; Zone Read; Zone Settings Read; Email Routing Rules Read | Email Routing Addresses Read |
+| Production | DNS Edit; Zone Read; Zone Settings Read; Email Routing Rules Edit | Email Routing Addresses Read |
+
+Explicitly add the account as a token resource on **both** tokens: zone-only resources cannot
+read the account-scoped destination list or imported destination. Retain the separate zone
+restriction; do not include other accounts/zones. Settings are read/imported, so Zone Settings
+Read is required and Zone Settings Edit is unnecessary. The verified destination is only
+read/imported, so Email Routing Addresses Edit is unnecessary too. See the
+[endpoint permission matrix](operations.md#incoming-email-forwarding) for exact accepted API
+permission names and Cloudflare references (checked 11 November 2026).
+CI preview's 403 remains expected until the owner widens the tokens. This follow-up documents
+requirements only; it does not verify or change tokens or secret config.
+
 ### Stage 2 handoff
 
 Activation required an actual preview under the new subject, read-only state/key permissions,

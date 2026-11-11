@@ -80,14 +80,36 @@ secret config key or plaintext destination address is needed. The destination em
 and catch-all actions are wrapped as Pulumi secrets, including resource outputs. Do not publish
 unredacted Cloudflare responses, state or destination values in receipts.
 
-Before merging, check CI's Cloudflare token has **Zone → Email Routing Rules → Edit**
-(`Email Routing Rules Write`, including reads), **Account → Email Routing Addresses → Edit**
-(`Email Routing Addresses Write`, including reads) for the zone's account, and **Zone → Zone → Read**
-and **Zone → Zone Settings → Edit** for the zone/account/settings lookups and settings resource.
-Retain existing DNS permissions; do not broaden scopes to other accounts or zones.
-See the provider's [rule](https://www.pulumi.com/registry/packages/cloudflare/api-docs/emailroutingrule/),
-[address](https://www.pulumi.com/registry/packages/cloudflare/api-docs/emailroutingaddress/) and
-[settings](https://www.pulumi.com/registry/packages/cloudflare/api-docs/emailroutingsettings/) references.
+Before merging, the owner must widen the two separate `CLOUDFLARE_API_TOKEN` environment
+tokens. Preview stays read-only; production can create the missing rules. Required permissions:
+
+| Token | Zone permissions on `uier.io` only (dashboard names) | Account permissions on the zone's DFNoise account only |
+| --- | --- | --- |
+| `preview` | DNS Read; Zone Read; Zone Settings Read; Email Routing Rules Read | Email Routing Addresses Read |
+| `production` | DNS Edit; Zone Read; Zone Settings Read; Email Routing Rules Edit | Email Routing Addresses Read |
+
+**Add the account as a token resource for both tokens.** A zone-only resource restriction does
+not authorize `/accounts/.../email/routing/addresses`. Keep the zone restriction for zone
+permissions; do not include other zones or accounts. Dashboard **Edit** maps to API **Write**.
+The program only imports the existing verified destination and settings, so address/settings
+write access is unnecessary. Keep **Zone Settings Read**; remove **Zone Settings Edit**.
+
+Cloudflare API endpoint permissions checked against its documentation on 11 November 2026
+(each read accepts either the listed Read permission or its Write counterpart):
+
+| Endpoint used by discovery or resource refresh/import | Accepted API permission selected for preview / production |
+| --- | --- |
+| [`GET /zones/{zone_id}`](https://developers.cloudflare.com/api/resources/zones/methods/get/) (account discovery) | `Zone Read` / `Zone Read` (also accepts `DNS Read`, `DNS Write`, `Zone Settings Read` and other zone permissions) |
+| [`GET /zones/{zone_id}/email/routing`](https://developers.cloudflare.com/api/resources/email_routing/methods/get/) (settings invoke and resource read) | `Zone Settings Read` / `Zone Settings Read` |
+| [`GET /zones/{zone_id}/email/routing/rules`](https://developers.cloudflare.com/api/resources/email_routing/subresources/rules/methods/list/) and [`GET .../rules/{rule_id}`](https://developers.cloudflare.com/api/resources/email_routing/subresources/rules/methods/get/) | `Email Routing Rules Read` / `Email Routing Rules Write` |
+| [`GET /zones/{zone_id}/email/routing/rules/catch_all`](https://developers.cloudflare.com/api/resources/email_routing/subresources/rules/subresources/catch_alls/methods/get/) | `Email Routing Rules Read` / `Email Routing Rules Write` |
+| [`GET /accounts/{account_id}/email/routing/addresses?verified=true`](https://developers.cloudflare.com/api/resources/email_routing/subresources/addresses/methods/list/) and [`GET .../addresses/{destination_id}`](https://developers.cloudflare.com/api/resources/email_routing/subresources/addresses/methods/get/) | `Email Routing Addresses Read` / `Email Routing Addresses Read` |
+| [`POST /zones/{zone_id}/email/routing/rules`](https://developers.cloudflare.com/api/resources/email_routing/subresources/rules/methods/create/) (missing aliases, production only) | No preview writes / `Email Routing Rules Write` |
+
+Zone Read is explicit for account discovery; the existing DNS permission and required settings
+read also authorize that endpoint. No account-wide Zone read or settings write is needed.
+These are required scopes, not a credential rollout receipt. The current CI preview's 403 is
+expected until the owner updates both tokens; do not bypass discovery or permissions to pass CI.
 
 Review the PR's CI preview: adoption must show imports with no input changes, then at most three
 new alias rules. Reject replacement, deletion, DNS changes or changes to any existing resource.
@@ -161,7 +183,7 @@ on the key and `Contributor` on the uier resource group):
 az login --tenant c7837eb3-77ca-413b-8653-c97b08886678
 export AZURE_STORAGE_ACCOUNT=sastate2a61d506
 export VERCEL_API_TOKEN=<vercel token with access to the signalco team>
-export CLOUDFLARE_API_TOKEN=<cloudflare token with DNS edit on uier.io>
+export CLOUDFLARE_API_TOKEN=<production token with the zone and account scopes listed above>
 
 cd infra
 pnpm install
@@ -274,7 +296,7 @@ owner's unattended deployment policy. `AleksandarDev` remains administrator.
 | `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID` | uier tenant/subscription | Same identifiers | Same identifiers |
 | `AZURE_STORAGE_ACCOUNT` | Pulumi state account | Same account, read scope | Absent |
 | `VERCEL_TOKEN` | Separate uier-project token | Separate uier-project token | Absent |
-| `CLOUDFLARE_API_TOKEN` | DNS Edit on `uier.io` | DNS Read on `uier.io` | Absent |
+| `CLOUDFLARE_API_TOKEN` | Zone: DNS Edit, Zone Read, Zone Settings Read, Email Routing Rules Edit on `uier.io`; account: Email Routing Addresses Read | Zone: DNS Read, Zone Read, Zone Settings Read, Email Routing Rules Read on `uier.io`; account: Email Routing Addresses Read | Absent |
 | `UIER_INTEGRATION_ENV`, optional `ANTHROPIC_API_KEY` | Pulumi production variables | Absent | Absent |
 | `UIER_WORKER_SETTINGS` | Absent | Absent | Allowlisted data/transport/crypto settings only |
 
