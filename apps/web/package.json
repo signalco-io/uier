@@ -34,8 +34,6 @@
     "@signalco/ui-themes-minimal": "0.1.3",
     "@simplewebauthn/browser": "14.0.0",
     "@simplewebauthn/server": "14.1.0",
-    "@tanstack/react-query": "5.107.1",
-    "@tanstack/react-query-devtools": "5.107.1",
     "@uier/brand": "workspace:*",
     "@uier/comments-query": "workspace:*",
     "@vercel/analytics": "2.0.1",

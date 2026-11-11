@@ -18,7 +18,7 @@ import { Badge as AppBadge } from '../../../../src/components/ui/badge';
 import { Button as AppButton } from '../../../../src/components/ui/button';
 import { PriorityLabel } from '../../../../src/components/app/comments/PriorityFlag';
 import { StateBadge } from '../../../../src/components/app/comments/CommentStatus';
-import { PullRequestStateBadge } from '../../../../src/components/app/comments/ThreadPullRequests';
+import { PullRequestStateBadge } from '../../../../src/components/app/comments/PullRequestStateBadge';
 import { ToolbarIllustration } from '../../../../src/components/brand/ToolbarIllustration';
 import { ReviewThreadDemo } from '../../../../src/components/marketing/ReviewThreadDemo';
 import { InlineLink, PageSection, Panel, Tile } from '../../../../src/components/marketing/ContentPage';

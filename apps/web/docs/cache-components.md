@@ -69,3 +69,13 @@ The internal error entries deliberately throw `notFound()` before rendering. Nex
 instant validator reports that it cannot validate those entries when a denied request reaches them.
 This is an error-route diagnostic, not a deferred product route; their production prerender metadata
 and HTTP responses retain 404. No validation is disabled for the app.
+
+## Client bundle boundaries
+
+Keep client entry-point splits inside the existing server Suspense boundaries. Pages still resolve
+their request data inside their `PageContent` component; a narrower form import must not move those
+reads into the prerendered shell. `ClientProvider` keeps next-themes' inline initializer inert and
+wraps the development toolbar in Suspense while public notifications have their own entry point.
+The Board retains its synchronous client entry and server rendering inside the project page's
+request boundary. Its sort schema stays separate from browser choices and validates every board
+column, including Archive.

@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 /** The app's UI is shadcn/ui (src/components/ui): tooltips and toasts for every app page */
 export default function AppLayout({ children }: PropsWithChildren) {
     return (
-        <ClientProvider signalcoNotifications={false}>
+        <ClientProvider>
             <TooltipProvider delay={300}>
                 {children}
                 <Toaster position="bottom-right" />

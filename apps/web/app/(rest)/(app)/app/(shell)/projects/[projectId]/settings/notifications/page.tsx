@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { KnownPageLinks } from '@/src/knownPages';
 import { notificationPreference } from '@/src/lib/notifications/preferences';
 import { Section } from '@/src/components/app/PageHeader';
-import { ProjectEmailExcerptsSwitch, ProjectEmailsSwitch } from '@/src/components/app/projects/ProjectSettingsForms';
+import { ProjectEmailExcerptsSwitch } from '@/src/components/app/projects/ProjectEmailExcerptsSwitch';
+import { ProjectEmailsSwitch } from '@/src/components/app/projects/ProjectEmailsSwitch';
 import { projectSettingsContext } from '../settingsContext';
 
 export const metadata: Metadata = {

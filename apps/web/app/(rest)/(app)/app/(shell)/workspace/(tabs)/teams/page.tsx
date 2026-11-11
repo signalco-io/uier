@@ -13,7 +13,8 @@ import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, 
 import { WorkspaceTabHeader } from '@/src/components/app/workspace/WorkspaceTabHeader';
 import { LinkTabs } from '@/src/components/app/LinkTabs';
 import { ProjectMark } from '@/src/components/app/projects/ProjectMark';
-import { TeamEditor, CopyAccessToTeam } from '@/src/components/app/teams/AccessForms';
+import { TeamEditor } from '@/src/components/app/teams/TeamEditor';
+import { CopyAccessToTeam } from '@/src/components/app/teams/CopyAccessToTeam';
 import { requireTeamAdmin, managementData } from '@/src/components/app/teams/management';
 import { listTeams } from '@/src/lib/app/teams';
 import { listInvitations } from '@/src/lib/app/invitations';

@@ -2,7 +2,7 @@ import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { Section } from '@/src/components/app/PageHeader';
-import { DeleteProjectButton, ProjectStatusButton, TransferProjectButton } from '@/src/components/app/projects/ProjectSettingsForms';
+import { DeleteProjectButton, ProjectStatusButton, TransferProjectButton } from '@/src/components/app/projects/ProjectDangerZone';
 import { projectTransferPreview, projectTransferTargets } from '@/src/lib/app/projectTransfer';
 import { configurableProject } from '../settingsContext';
 

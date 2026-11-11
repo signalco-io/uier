@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { KnownPageLinks } from '@/src/knownPages';
 import { Section } from '@/src/components/app/PageHeader';
 import { ProjectMark } from '@/src/components/app/projects/ProjectMark';
-import { ProjectEmailsSwitch } from '@/src/components/app/projects/ProjectSettingsForms';
+import { ProjectEmailsSwitch } from '@/src/components/app/projects/ProjectEmailsSwitch';
 import { requireAppContext } from '@/src/lib/app/context';
 import { listVisibleProjects } from '@/src/lib/app/projects';
 import { notificationPreference } from '@/src/lib/notifications/preferences';

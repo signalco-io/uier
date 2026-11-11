@@ -1,7 +1,7 @@
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { ProjectSitesForm } from '@/src/components/app/projects/ProjectSettingsForms';
+import { ProjectSitesForm } from '@/src/components/app/projects/ProjectSitesForm';
 import { configurableProject } from '../settingsContext';
 
 export const metadata: Metadata = {
