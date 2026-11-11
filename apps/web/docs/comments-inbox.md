@@ -271,12 +271,3 @@ header from the section's `data-board-archive` (`--board-width-collapsed` / `--b
 - `e2e/archive.spec.ts` covers collapsed and expanded, archiving and restoring from the board, its sort, the focus, a reload
   and light/dark axe; `e2e/board-sort.api.spec.ts` the order, the saved state and invalid inputs; `e2e/comment-board.spec.ts` its
   place in the layout and during a drag.
-
-The Board and its drag-and-drop code load only when the Board branch is rendered. List visits
-keep them deferred; direct Board visits still render through server-capable Suspense. Loading and
-retry stay in the results region, so filters and switching back to List remain available.
-
-Direct Board visits use a top-level `next/dynamic` entry to register the server-rendered Board
-chunk for preload. Keep that path when changing the boundary; a plain lazy import delayed
-hydration of the already visible cards. `e2e/bundle-boundaries.spec.ts` covers List visits without
-a Board chunk request, delayed loading, search retention, direct-visit preload and failed-chunk retry.

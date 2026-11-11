@@ -144,7 +144,8 @@ test('toolbar archive removes the pin, restores from Archive and rolls back a fa
     expect((await archivedSave).status()).toBe(200);
     await page.reload();
     const inbox = page.getByRole('complementary', { name: 'Comments' });
-    if (!await inbox.isVisible()) await page.getByRole('button', { name: /^Inbox/ }).click();
+    if (await page.getByRole('button', { name: /^Inbox/ }).getAttribute('aria-expanded') !== 'true')
+        await page.getByRole('button', { name: /^Inbox/ }).click();
     const tabs = inbox.getByRole('group', { name: 'Show comments' });
     await expect(tabs.getByRole('button', { name: 'Active 0', exact: true })).toBeVisible();
     await tabs.getByRole('button', { name: 'All 0', exact: true }).click();

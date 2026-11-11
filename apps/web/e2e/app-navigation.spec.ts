@@ -8,7 +8,6 @@ test('app navigation preserves the document and feedback toolbar', async ({ page
     const first = await createProject(page, { urls: ['https://first.example.com'], name: 'First navigation site' });
     const second = await createProject(page, { urls: ['https://second.example.com'], name: 'Second navigation site' });
     await page.goto('/app/account/coding-agents');
-    await appNavigation(page);
     await page.getByRole('button', { name: 'Give feedback', exact: true }).click();
     await expect(toolbar(page)).toBeVisible();
     await page.getByRole('textbox', { name: 'Feedback', exact: true }).fill('Draft for coding agents');
@@ -34,7 +33,6 @@ test('app navigation preserves the document and feedback toolbar', async ({ page
         await expect(link).toHaveAttribute('aria-current', 'page');
         await preserved();
         if (section === 'General' || section === 'Coding agents') {
-            await appNavigation(page);
             await page.getByRole('button', { name: 'Give feedback', exact: true }).click();
             await expect(page.getByRole('textbox', { name: 'Feedback', exact: true }))
                 .toHaveValue(section === 'General' ? '' : 'Draft for coding agents');
@@ -43,7 +41,6 @@ test('app navigation preserves the document and feedback toolbar', async ({ page
     }
     const navigation = await appNavigation(page);
     for (const [name, id] of [['First navigation site', first], ['Second navigation site', second]]) {
-        await appNavigation(page);
         await navigation.getByRole('link', { name, exact: true }).click();
         await expect(page).toHaveURL(new RegExp(`/app/projects/${id}$`));
         await preserved();
@@ -59,11 +56,9 @@ test('app navigation preserves the document and feedback toolbar', async ({ page
         await expect(page).toHaveURL(new RegExp(`/app/projects/${id}/settings/installation$`));
         await preserved();
     }
-    await appNavigation(page);
     await navigation.getByRole('link', { name: 'Projects', exact: true }).click();
     await expect(page).toHaveURL(/\/app\/projects$/);
     await preserved();
-    await appNavigation(page);
     await navigation.getByRole('link', { name: 'Workspace', exact: true }).click();
     for (const section of ['Teams', 'Clients', 'Usage', 'Activity', 'Settings', 'Users']) {
         const link = page.getByRole('navigation', { name: 'Workspace', exact: true }).getByRole('link', { name: section, exact: true });

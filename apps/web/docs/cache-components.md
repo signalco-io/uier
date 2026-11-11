@@ -76,6 +76,6 @@ Keep client entry-point splits inside the existing server Suspense boundaries. P
 their request data inside their `PageContent` component; a narrower form import must not move those
 reads into the prerendered shell. `ClientProvider` keeps next-themes' inline initializer inert and
 wraps the development toolbar in Suspense while public notifications have their own entry point.
-The Board's client-side dynamic boundary preserves server rendering and its direct-visit script
-preload; it does not replace the project page's request boundary. Its sort schema stays separate
-from browser choices and validates every board column, including Archive.
+The Board retains its synchronous client entry and server rendering inside the project page's
+request boundary. Its sort schema stays separate from browser choices and validates every board
+column, including Archive.
