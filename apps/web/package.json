@@ -17,7 +17,7 @@
     "test": "playwright test"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "1.6.0",
+    "@anthropic-ai/sdk": "1.8.0",
     "@azure/communication-email": "1.1.0",
     "@azure/cosmos": "4.10.2",
     "@azure/identity": "4.14.1",
