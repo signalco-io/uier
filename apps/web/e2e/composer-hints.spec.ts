@@ -5,6 +5,7 @@ import { startReviewedSite } from './support/reviewedSite';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 
 const newLineHint = 'Shift+Enter for a new line';
+// No longer shown under any composer: the kept text is the cue (uier #295)
 const draftCue = 'Draft saved in this browser';
 
 async function startPoint(page: Page) {
@@ -76,7 +77,7 @@ test('toolbar composers keep Enter and Shift+Enter without a hint under the text
     await context.close();
 });
 
-test('a closed draft is saved in this browser and Resume draft reopens it after a reload', async ({ browser }, info) => {
+test('a closed draft is kept in this browser and Resume draft reopens it after a reload', async ({ browser }, info) => {
     const { context, page } = await newVisitor(browser, info);
     await openLanding(page, isolatedOrigin(info), { dismissHint: true });
     const resume = page.getByRole('button', { name: 'Resume draft', exact: true });
@@ -102,8 +103,7 @@ test('a closed draft is saved in this browser and Resume draft reopens it after 
     await expect(text).toHaveValue('Pick this up later');
     await expect(text).toBeFocused();
     await expect(pin).toBeInViewport();
-    await expect(draft.getByText(draftCue, { exact: true })).toBeVisible();
-    await expect(text).toHaveAccessibleDescription(new RegExp(draftCue));
+    await expect(draft.getByText(draftCue)).toHaveCount(0);
     await animationsFinished(draft);
     await expectNoAxeViolations(page);
     await page.screenshot({ path: info.outputPath('resumed-draft.png') });

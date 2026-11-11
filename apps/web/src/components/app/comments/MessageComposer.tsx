@@ -3,7 +3,7 @@
 import { useAppI18n } from '@/src/lib/i18n/client';
 
 import { useEffect, useId, useRef, useState, type ReactNode, type RefObject, type ClipboardEventHandler } from 'react';
-import { SendIcon } from 'lucide-react';
+import { SendIcon, XIcon } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Field, FieldDescription, FieldError, FieldLabel } from '@/src/components/ui/field';
 import { InputGroup, InputGroupAddon, InputGroupTextarea } from '@/src/components/ui/input-group';
@@ -105,7 +105,11 @@ export function MessageComposer({ label, formLabel = label, name, placeholder, v
                     </div>
                     <div className="flex shrink-0 items-center gap-0.5">
                         {onCancel && <Button variant="ghost" size="xs" className="pointer-coarse:min-h-11" onClick={onCancel}>{cancelLabel ?? t("Cancel")}</Button>}
-                        {onDiscard && value.length > 0 && <Button variant="ghost" size="xs" className="pointer-coarse:min-h-11" onClick={onDiscard}>{t("Discard")}</Button>}
+                        {onDiscard && value.length > 0 && <Tooltip>
+                            <TooltipTrigger render={<Button type="button" variant="ghost" size="icon-xs" aria-label={t("Discard")}
+                                className="size-7 rounded-md pointer-coarse:size-11" onClick={onDiscard} />}> <XIcon /> </TooltipTrigger>
+                            <TooltipContent>{t("Discard")}</TooltipContent>
+                        </Tooltip>}
                         {submitVerb === 'send'
                             ? <Tooltip>
                                 <TooltipTrigger render={<Button type="submit" variant="ghost" size="icon-xs" aria-label={submitLabel} disabled={!canSubmit}

@@ -10,8 +10,11 @@ posted comment's thread opens in the draft's place.
 Attach image (`ComposerAttachButton`) is in the bottom-left corner of the text box (`CommentComposer`'s
 `attachments`), so it reads as a part of the comment; once an image is attached, its name with a remove button
 takes that place and the screenshot toggle leaves the header (the image replaces the screenshot). Screenshot
-rules: [review workflow](../../../docs/review-workflow.md#screenshots). No line under the text box: what Enter and
-Shift+Enter do is in the keyboard shortcuts list ([keyboard](keyboard.md)).
+rules: [review workflow](../../../docs/review-workflow.md#screenshots). Discard (once there is text) and Send are
+icon buttons in the box's bottom-right corner, an X and a paper plane, each named by its tooltip (`IconTooltip`),
+like every icon button in the form ([uier #289](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_5pAm5RcV57oGHBohkQrzH)).
+Edits keep labeled Cancel and Save buttons. No line under the text box: what Enter and Shift+Enter do is in the
+keyboard shortcuts list ([keyboard](keyboard.md)).
 
 ### A rewrite
 
@@ -32,8 +35,8 @@ Every message composer already uses `CommentComposer`'s `draftKey` and the share
 `draftStorage.ts` store: anchored comments and rewrites retain their anchor, feedback has a key per type,
 replies use the thread id, and edits use `edit:<commentId>:<itemId>` with the original text snapshot.
 Typing writes immediately; reopening the same box after a reload or toolbar remount restores its text and
-mentions. Such a restored composer says "Draft saved in this browser" under its box, except the feedback form
-(`draftCue={false}` in `ToolbarFeedback`): there the kept text is enough of a cue ([uier #218](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_xQbZJy4bLvce3eONhs0J-)). Successful sends/saves and explicit Discard/Cancel clear the appropriate draft; failed or uncertain
+mentions. The kept text is the cue: no composer says "Draft saved in this browser" under its box ([uier #218](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_xQbZJy4bLvce3eONhs0J-),
+[uier #295](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fmy-work&comment=comment_kAQn2JJ3-PFQNEGtg3L2V)). Successful sends/saves and explicit Discard/Cancel clear the appropriate draft; failed or uncertain
 sends retain it. The authorized reviewer, API, project and canonical page scope never includes a build id.
 Screenshots, attached images and device details stay in memory. The app's own feedback-mode toolbar is
 loaded on demand again with Give feedback after a document reload; this reuses the same draft keys.
@@ -81,7 +84,9 @@ bottom edge, while the anchor's bottom is still in the window (an element or are
 edge, [uier #166](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_H_TrIieqwg6OA4Px0efJx)),
 the pin goes above that point upside down (`<Pin upsideDown />`, `data-uier-upside-down`), its sharp corner
 still on the point, inside the window and above the pill. An anchor below the window keeps its pin below
-it, off-screen until scrolled to.
+it, off-screen until scrolled to. The pin's button has the pin's shape (round, with no radius on the sharp
+corner: top-left, or bottom-left upside down), so its focus ring follows the pin, not a circle
+([uier #286](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_1z_xazrZorbfQTPCYKfJ2)).
 
 The popover, a thread or a new comment's form, opens beside its pin on the side with room (right, else left;
 `popoverPlacement`), down from the pin's top, or up from its bottom when the pin is upside down, and shifts up
