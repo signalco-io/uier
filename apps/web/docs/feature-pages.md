@@ -20,6 +20,8 @@ without reviewer confirmation" (`@uier/toolbar/verification` labels). It links t
 `/features/fix-verification` keeps a reviewer's confirmation apart from ordinary and bulk Done (it
 links to the triage page for the latter), a connected service's closure and MCP status; change it
 with the verification controls and `src/lib/review/fixVerification.ts`.
+Its "Where it helps" cards each carry an outlined `@signalco/ui-icons` icon through `Tile`'s `icon`
+(20 px, 1.75 stroke); other feature pages have no use-case section.
 `e2e/fix-verification-page.spec.ts` covers its copy, links, responsive layout and accessibility.
 
 `/features/ai` covers the MCP connector for coding tools and rewrite suggestions. It offers only the
