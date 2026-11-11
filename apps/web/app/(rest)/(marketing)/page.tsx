@@ -154,7 +154,7 @@ export default function LandingPage() {
                     <div className="mt-2 flex flex-wrap items-center gap-2.5">
                         {/* Like the navigation's Sign in: sign in, or straight into the app when signed in */}
                         <Button variant="solid" size="lg" href={KnownPages.App}>Get started</Button>
-                        <Button variant="outlined" size="lg" href={KnownPages.HowItWorks}>How it works</Button>
+                        <Button variant="outlined" size="lg" href={KnownPages.Features}>See features</Button>
                     </div>
                 </div>
                 <HowItWorks />

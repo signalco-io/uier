@@ -85,7 +85,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
         // Collapse during an unconfirmed choice cancels it and hides the candidate annotations.
         await reattachFromMenu();
         await panel.getByRole('button', { name: 'Choose element', exact: true }).click();
-        const pageLink = page.getByRole('main').getByRole('link', { name: 'How it works', exact: true });
+        const pageLink = page.getByRole('main').getByRole('link', { name: 'See features', exact: true });
         await pageLink.focus();
         await page.keyboard.press('Enter');
         await expect(panel.getByRole('button', { name: 'Confirm anchor' })).toBeEnabled();

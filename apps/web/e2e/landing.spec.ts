@@ -14,7 +14,8 @@ test('landing page renders', { tag: ['@smoke', '@mobile-smoke'] }, async ({ page
     await expect(getStarted.first()).toBeVisible();
     for (const link of await getStarted.all())
         await expect(link).toHaveAttribute('href', '/app');
-    await expect(page.getByRole('main').getByRole('link', { name: 'How it works' })).toHaveAttribute('href', '/#how-it-works');
+    // The secondary action moves down the page; the how-it-works scene is already beside the headline (uier #270)
+    await expect(page.getByRole('main').getByRole('link', { name: 'See features' })).toHaveAttribute('href', '/#features');
     // Sign in leads into the app: signed-out visitors land on sign in, signed-in people in the app
     await expect(page.getByRole('banner').getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/app');
     await expect(page.getByText(new RegExp(`© \\d{4} ${brand.name}`))).toBeVisible();
@@ -157,7 +158,7 @@ test('landing page sections are reachable from the navigation', async ({ page })
 
     const sectionLinks = await page.getByRole('banner').locator('a[href^="/#"]')
         .evaluateAll(links => links.map(link => link.getAttribute('href')));
-    expect(sectionLinks).toEqual(['/#how-it-works', '/#features', '/#faq']);
+    expect(sectionLinks).toEqual(['/#features', '/#faq']);
 });
 
 test('section links land below the fixed site header', async ({ page, isMobile }) => {

@@ -189,7 +189,7 @@ test('collapse hides page annotations, preserves reply text and restores current
 test('collapse preserves a new comment draft without posting it', async ({ browser }, testInfo) => {
     const { context, page } = await newVisitor(browser, testInfo);
     await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
-    await page.getByRole('main').getByRole('link', { name: 'How it works' }).focus();
+    await page.getByRole('main').getByRole('link', { name: 'See features' }).focus();
     await page.getByRole('button', { name: 'Add comment' }).focus();
     await page.keyboard.press('Enter');
     await openThread(page).getByRole('textbox', { name: 'Comment', exact: true }).fill('Keep this unsent comment');
@@ -244,7 +244,7 @@ test('the profile shows the guest name; signing out forgets it', async ({ browse
     await expect(options(page)).toBeHidden();
 
     // The first comment gives the visitor a guest name
-    await page.getByRole('main').getByRole('link', { name: 'How it works' }).focus();
+    await page.getByRole('main').getByRole('link', { name: 'See features' }).focus();
     await page.getByRole('button', { name: 'Add comment' }).focus();
     await page.keyboard.press('Enter');
     const composer = page.getByRole('textbox', { name: 'Comment', exact: true });
