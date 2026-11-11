@@ -7,7 +7,9 @@
   absent. Ordinary/deployment builds exclude the testing API. Turbo hashes and forwards these inputs.
 - RUN: `PORT=4404 pnpm -C apps/web exec playwright test --config=playwright.instant.config.ts`.
   All contracts on Desktop, Mobile and Tablet Chrome, zero retries. Base URL http://127.0.0.1:4404.
-  Regular Playwright excludes this dedicated suite. CI's disposable browser-test build includes it.
+  Regular Playwright excludes this dedicated suite. CI first runs browser essentials against an
+  ordinary production artifact, then builds the disposable testing artifact for this suite.
+  Next's test-only inline bootstrap is not part of the production CSP allowlist.
   The dedicated config checks the artifact's testing API flag and also opts in at server startup.
 - TEST USER: public/no auth for Status. Fresh email-code local accounts via support/app.ts for
   My work; welcome skipped, own Personal workspace, admin, English, empty/populated real projects.

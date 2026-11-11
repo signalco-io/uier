@@ -66,3 +66,8 @@ conditional test skipped without its account). The ordinary build records the te
 The production browser demonstration held both Status regions, then verified their live content after
 release. The integration 404 preflight explicitly preserves published illustration files and Next's
 generated metadata-image paths; the social-card API suite verifies those images still respond.
+
+CI runs security/browser essentials on the ordinary production artifact before building the
+dedicated navigation-test artifact. Next's testing bootstrap injects inline scripts, so using that
+artifact for the production CSP audit would test a different script inventory. Keep the strict CSP
+assertions and production allowlist unchanged; do not authorize test instrumentation in user builds.

@@ -133,9 +133,6 @@ jobs:
 
       - name: Build
         if: matrix.suite != 'checks'
-        env:
-          # Only the disposable browser-test artifact includes Next's navigation lock API.
-          UIER_INSTANT_TEST: ${{ matrix.suite == 'browser' && '1' || '' }}
         run: pnpm exec turbo run build --filter=@uier/web
 
       - name: Validate deployment artifact boundaries
@@ -166,6 +163,14 @@ jobs:
         if: matrix.suite == 'browser'
         timeout-minutes: 5
         run: pnpm -C apps/web exec playwright test --project="Desktop Chrome" --project="Mobile Chrome"
+
+      # Keep the ordinary artifact for the strict CSP audit above; Next's test-only bootstrap
+      # injects inline scripts that do not belong in the production allowlist.
+      - name: Build instant navigation artifact
+        if: matrix.suite == 'browser'
+        env:
+          UIER_INSTANT_TEST: '1'
+        run: pnpm exec turbo run build --filter=@uier/web
 
       - name: Instant navigation contracts
         if: matrix.suite == 'browser'
