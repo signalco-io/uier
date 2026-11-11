@@ -160,21 +160,22 @@ function Message({ author, agent, avatarName, avatarUrl, createdAt, meta, action
     children: ReactNode;
 }) {
     return (
-        <div className="flex gap-2.5">
-            <Avatar size="sm" aria-hidden="true" className="mt-0.5">
+        // The avatar is centred on the header row, however tall its actions make it (44px on touch; uier #281)
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-1">
+            <Avatar size="sm" aria-hidden="true" className="self-center">
                 {avatarUrl && <AvatarImage src={avatarUrl} alt="" />}
                 <AvatarFallback className="font-semibold text-foreground">{initials(avatarName)}</AvatarFallback>
             </Avatar>
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <div className="flex min-h-7 items-center justify-between gap-2">
-                    <div className="flex min-w-0 items-center gap-2 text-sm">
-                        <span className="truncate font-medium">{author}</span>
-                        {agent}
-                        <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums"><RelativeTime value={createdAt} /></span>
-                        {meta}
-                    </div>
-                    {actions}
+            <div className="flex min-h-7 items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2 text-sm">
+                    <span className="truncate font-medium">{author}</span>
+                    {agent}
+                    <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums"><RelativeTime value={createdAt} /></span>
+                    {meta}
                 </div>
+                {actions}
+            </div>
+            <div className="col-start-2 flex min-w-0 flex-col gap-1">
                 {children}
             </div>
         </div>
