@@ -323,7 +323,7 @@ test('the sidebar, the tabs and My work are one tab stop each; G then I, B, M or
     await expect(page.getByRole('region', { name: 'Open comments', exact: true })).toBeVisible();
     await page.keyboard.press('g');
     await page.keyboard.press('i');
-    await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBeNull();
+    await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('list');
     await expect(commentRows(page)).toHaveCount(2);
 
     // On a focused card, M after G goes to My work instead of opening the card's Move
