@@ -38,7 +38,8 @@
   "Open on ..."), Priority (`PriorityControl`: the flag and the name; for those who can triage a menu of the
   four, each with its flag, the current one checked) and Assignee (a 20px avatar, or a person icon while unassigned,
   and the name, together one menu button for those who can assign, with a chevron only while unassigned; then the AI agent working with the assignee, `AgentControl`: "with",
-  the agent's logo, Claude, its model by name and reasoning level ("Opus 5.5 · xhigh"), or Add agent for the assignee; an attached agent's button has no chevron), the verification, every message, Reply (its icon in line with the message text) and the quiet Open in ....
+  the agent's logo, Claude, its model by name and reasoning level ("Opus 5.5 · xhigh"), or Add agent for the assignee; an attached agent's button has no chevron; clicking it shows the agent's details as on the
+assignee card, with Open in T3 Code or another desktop session link, at the top of the assignee's menu or in a hover/click popover for others), the verification, every message, Reply (its icon in line with the message text) and the quiet Open in ....
   A message an AI agent wrote for its author through MCP reads "You via", the agent's logo and "Claude" after the
   author (`MessageAgent`, a ghost button whose hover or click popover says "Claude wrote this for you.", the model,
   reasoning level and connection; [AI agents](assignee-agents.md)). The first message's time is followed by
