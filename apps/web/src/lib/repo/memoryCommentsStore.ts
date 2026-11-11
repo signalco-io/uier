@@ -6,6 +6,8 @@ import { withThreadActivity } from '../comments/activity';
 import { withNotificationEvent } from '../notifications/events';
 import { commentSequenceId, isCommentDocument, screenshotDocumentId, syncTombstoneId, type DbComment, type DbCommentActivity, type DbScreenshot, type DbSequence, type DbSubmission, type DbSyncTombstone } from '../db/schema';
 import { syncPendingPageLimit, type AppendResult, type CommentsStore, type ConditionalWriteResult, type StoredComment } from './commentsStore';
+import { candidateBudget, CommentQueryBudgetError, throwIfQueryAborted, toCommentQueryCandidate, validateCandidatePredicate, type CommentQueryCandidate } from './commentQuerySource';
+import { withCommentQueryMetadata } from './queryMetadata';
 
 /** Safety net so a long-running dev/test server can't grow without bounds */
 const MAX_COMMENTS_PER_DOMAIN = 5000;
@@ -78,6 +80,27 @@ function pathMatches(comment: DbComment, path: string) {
 
 export function getMemoryCommentsStore(): CommentsStore {
     return {
+        async queryCandidates(domain, options = {}) {
+            validateCandidatePredicate(options.predicate);
+            const budget = candidateBudget(options);
+            const start = performance.now();
+            const candidates: CommentQueryCandidate[] = [];
+            let bytes = 0;
+            throwIfQueryAborted(options.signal);
+            for (const entry of domainEntries(domain).values()) {
+                throwIfQueryAborted(options.signal);
+                if (performance.now() - start > budget.durationMs) throw new CommentQueryBudgetError();
+                const comment = commentOf(entry);
+                if (!comment || typeof comment.path !== 'string' || !matchesVisibility(comment, options.visibility)
+                    || !matchesOrigin(comment.origin, options.origin) || !matchesArchive(comment, options.archive)) continue;
+                const candidate = toCommentQueryCandidate(comment, String(entry.version));
+                if (options.predicate && !options.predicate.test(candidate)) continue;
+                bytes += Buffer.byteLength(JSON.stringify(candidate));
+                candidates.push(candidate);
+                if (candidates.length > budget.candidates || bytes > budget.bytes) throw new CommentQueryBudgetError();
+            }
+            return candidates;
+        },
         async listRealtime(domain) {
             return [...domainEntries(domain).values()].flatMap(entry => {
                 const comment = commentOf(entry);
@@ -163,7 +186,7 @@ export function getMemoryCommentsStore(): CommentsStore {
             const previous = entries.get(comment.id);
             if (entries.has(receipt.id) || (etag ? !previous || String(previous.version) !== etag : previous)) return 'conflict';
             // No await between checking and applying: mirrors the Cosmos transaction.
-            for (const document of [receipt, comment, ...(screenshot ? [screenshot] : [])]) {
+            for (const document of [receipt, withCommentQueryMetadata(comment), ...(screenshot ? [screenshot] : [])]) {
                 entries.set(document.id, { document: clone(document), version: ++state().version, modifiedAt: Date.now() });
             }
             return 'ok';
@@ -181,7 +204,7 @@ export function getMemoryCommentsStore(): CommentsStore {
                 }
             }
 
-            entries.set(comment.id, { document: clone(comment), version: ++state().version, modifiedAt: Date.now() });
+            entries.set(comment.id, { document: clone(withCommentQueryMetadata(comment)), version: ++state().version, modifiedAt: Date.now() });
         },
         async replace(comment, etag): Promise<ConditionalWriteResult> {
             const entries = domainEntries(comment.domain);
@@ -191,7 +214,7 @@ export function getMemoryCommentsStore(): CommentsStore {
             if (String(entry.version) !== etag)
                 return 'conflict';
 
-            entries.set(comment.id, { document: clone(comment), version: ++state().version, modifiedAt: Date.now() });
+            entries.set(comment.id, { document: clone(withCommentQueryMetadata(comment)), version: ++state().version, modifiedAt: Date.now() });
             return 'ok';
         },
         async delete(domain, id, etag): Promise<ConditionalWriteResult> {
@@ -234,7 +257,7 @@ export function getMemoryCommentsStore(): CommentsStore {
                 thread: { ...current.thread, items: [...current.thread.items, clone(item)] },
                 updatedAt
             };
-            entries.set(id, { document: comment, version: ++state().version, modifiedAt: Date.now() });
+            entries.set(id, { document: withCommentQueryMetadata(comment), version: ++state().version, modifiedAt: Date.now() });
             return 'ok';
         },
         async listScreenshotsBefore(before, continuation) {
@@ -260,7 +283,7 @@ export function getMemoryCommentsStore(): CommentsStore {
             if (String(entry!.version) !== etag) return 'conflict';
             // No await between the check and both writes: the same transaction as Cosmos.
             const modifiedAt = Date.now();
-            const savedComment = clone(comment);
+            const savedComment = clone(withCommentQueryMetadata(comment));
             const savedImage = clone(screenshot);
             entries.set(comment.id, { document: savedComment, version: ++state().version, modifiedAt });
             entries.set(screenshot.id, { document: savedImage, version: ++state().version, modifiedAt });

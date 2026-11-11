@@ -1,0 +1,105 @@
+{
+  "retrievedAt": "2026-11-10T23:50:03.381270+00:00",
+  "scope": "Public retail consumption prices; West Europe; not a customer invoice",
+  "sources": {
+    "cosmos_serverless": {
+      "url": "https://prices.azure.com/api/retail/prices?currencyCode=EUR&%24filter=armRegionName+eq+%27westeurope%27+and+productName+eq+%27Azure+Cosmos+DB+serverless%27+and+priceType+eq+%27Consumption%27",
+      "items": [
+        {
+          "productName": "Azure Cosmos DB serverless",
+          "skuName": "RUs",
+          "meterName": "1M RUs",
+          "unitOfMeasure": "1M",
+          "retailPrice": 0.2738,
+          "currencyCode": "EUR",
+          "effectiveStartDate": "2021-07-01T00:00:00Z"
+        }
+      ]
+    },
+    "queue_v2_lrs": {
+      "url": "https://prices.azure.com/api/retail/prices?currencyCode=EUR&%24filter=armRegionName+eq+%27westeurope%27+and+productName+eq+%27Queues+v2%27+and+skuName+eq+%27Standard+LRS%27+and+priceType+eq+%27Consumption%27",
+      "items": [
+        {
+          "productName": "Queues v2",
+          "skuName": "Standard LRS",
+          "meterName": "Class 2 Operations",
+          "unitOfMeasure": "10K",
+          "retailPrice": 0.0036,
+          "currencyCode": "EUR",
+          "effectiveStartDate": "2017-11-01T00:00:00Z"
+        },
+        {
+          "productName": "Queues v2",
+          "skuName": "Standard LRS",
+          "meterName": "LRS Class 1 Additional IO",
+          "unitOfMeasure": "10K",
+          "retailPrice": 0.0036,
+          "currencyCode": "EUR",
+          "effectiveStartDate": "2018-01-01T00:00:00Z"
+        },
+        {
+          "productName": "Queues v2",
+          "skuName": "Standard LRS",
+          "meterName": "LRS Class 2 Additional IO",
+          "unitOfMeasure": "10K",
+          "retailPrice": 0.0036,
+          "currencyCode": "EUR",
+          "effectiveStartDate": "2018-01-01T00:00:00Z"
+        },
+        {
+          "productName": "Queues v2",
+          "skuName": "Standard LRS",
+          "meterName": "LRS Class 1 Operations",
+          "unitOfMeasure": "10K",
+          "retailPrice": 0.0036,
+          "currencyCode": "EUR",
+          "effectiveStartDate": "2017-11-01T00:00:00Z"
+        },
+        {
+          "productName": "Queues v2",
+          "skuName": "Standard LRS",
+          "meterName": "LRS Data Stored",
+          "unitOfMeasure": "1 GB/Month",
+          "retailPrice": 0.0404,
+          "currencyCode": "EUR",
+          "effectiveStartDate": "2017-11-01T00:00:00Z"
+        }
+      ]
+    },
+    "postgres_b1ms_compute": {
+      "url": "https://prices.azure.com/api/retail/prices?currencyCode=EUR&%24filter=armRegionName+eq+%27westeurope%27+and+serviceName+eq+%27Azure+Database+for+PostgreSQL%27+and+skuName+eq+%27B1MS%27+and+priceType+eq+%27Consumption%27",
+      "items": [
+        {
+          "productName": "Azure Database for PostgreSQL Flexible Server Burstable BS Series Compute",
+          "skuName": "B1MS",
+          "meterName": "B1MS",
+          "unitOfMeasure": "1 Hour",
+          "retailPrice": 0.0179,
+          "currencyCode": "EUR",
+          "effectiveStartDate": "2021-12-01T00:00:00Z"
+        }
+      ]
+    },
+    "neon_launch": {
+      "url": "https://neon.com/pricing",
+      "currency": "USD",
+      "computePerCuHour": 0.106,
+      "storagePerGbMonth": 0.35,
+      "minimumRunningCu": 0.25,
+      "method": "Rates read from official public pricing page"
+    },
+    "supabase_pro": {
+      "url": "https://supabase.com/pricing",
+      "currency": "USD",
+      "planStartingMonthly": 25,
+      "method": "Starting plan price read from official public pricing page"
+    }
+  },
+  "illustrations": {
+    "cosmos_100k_queries_50ru_eur": 1.369,
+    "queue_1m_operations_eur": 0.36,
+    "postgres_b1ms_730h_compute_eur": 13.067,
+    "neon_730h_025cu_1gb_usd": 19.695,
+    "disclaimer": "Illustrations only; workload and performance not measured; excludes unlisted meters and tax"
+  }
+}
