@@ -17,15 +17,14 @@ import { ReviewLinksMenu } from '@/src/components/app/projects/ReviewLinksMenu';
 import { InviteButton } from '@/src/components/app/users/InviteDialog';
 import { ProjectAccessInfo } from '@/src/components/app/projects/ProjectAccessInfo';
 import { GuestReviewLinks } from '@/src/components/app/projects/GuestReviewLinks';
-import { ProjectSettingsButton } from '@/src/components/app/projects/ProjectSettingsButton';
 import { hasProjectFeedback } from '@/src/lib/app/projectComments';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import { KnownPageLinks } from '@/src/knownPages';
 import { feedbackStages } from '@uier/toolbar/verification';
 
 /**
- * A project: its name, Open review (it lists every address) and the settings cog, then the tabs while the
- * install guide is one (until the site sends its first comment), above its comments, install guide or settings
+ * A project: its name and Open review (it lists every address), then its tabs with the settings cog at their right
+ * end, above its comments, install guide or settings
  */
 async function ProjectLayoutContent({ children, params }: LayoutProps<'/app/projects/[projectId]'>) {
     const { t } = await getAppI18n();
@@ -83,12 +82,7 @@ async function ProjectLayoutContent({ children, params }: LayoutProps<'/app/proj
                         )}
                     </span>
                 )}
-                actions={(
-                    <>
-                        <ReviewLinksMenu projectId={project.id} urls={project.urls} variant="default" visit />
-                        <ProjectSettingsButton projectId={project.id} installTab={!feedback} />
-                    </>
-                )}>
+                actions={<ReviewLinksMenu projectId={project.id} urls={project.urls} variant="default" visit />}>
                 <ProjectTabs projectId={project.id} install={!feedback} />
             </PageHeader>
             <div className="flex flex-col gap-6">

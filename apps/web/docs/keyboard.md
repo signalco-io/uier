@@ -53,7 +53,7 @@ handler): it listens on the document in the bubble phase, after React's handlers
   Ctrl or ⌘ keep working; the account menu still opens the dialog.
 - The dialog lists every shortcut by where it works (`groups` in `ShortcutsDialog.tsx`); keep it in step with the
   handlers. "The open thread" also has the shared composer's keys (Enter sends or saves, Shift+Enter adds a line, Esc
-  cancels an edit), which no hint under the text box repeats ([thread](comment-thread.md)). Keys print in Geist Mono (`Kbd`, BRAND.md: mono means machine); symbols have their names for screen
+  cancels an edit or closes an empty reply box), which no hint under the text box repeats ([thread](comment-thread.md)). Keys print in Geist Mono (`Kbd`, BRAND.md: mono means machine); symbols have their names for screen
   readers.
 
 The app has one notification region (Sonner), including its Alt+T focus shortcut; the shared

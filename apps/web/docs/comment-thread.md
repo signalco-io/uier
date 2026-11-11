@@ -112,19 +112,22 @@
   `e2e/editing.spec.ts` checks that missing client hints fall back to parsed browser and OS names,
   without sending the raw user-agent string or exposing reproduction details on public feedback.
 - Every place the app takes a message uses one composer, `comments/MessageComposer.tsx`, laid out as the toolbar's
-  `CommentComposer`: one box (shadcn `InputGroup`) with the text and, inside it under the text, the hint ("@ to mention",
-  or the character count from 900 of 1000) on the left and the buttons on the right (the surface's cancel, Discard while
+  `CommentComposer`: one box (shadcn `InputGroup`) with the text and, inside it under the text, the character count
+  (from 900 of 1000; no visible "@ to mention" hint, uier #287) on the left and the buttons on the right (the surface's cancel, Discard while
   there is text, then the send icon button with its tooltip or a Save text button); under the box the mention list,
   the error and notices. No visible keyboard hint ([uier #175](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_B5Zp66h_oPH67ZI1HAbRV)):
   the keyboard shortcuts dialog lists Enter, Shift+Enter and Esc under "The open thread", and the field is
   described to screen readers as "Type @ to mention someone with access. Enter to send. Shift+Enter for a new line."
   (save and Escape for editors). It takes the focus with the caret at the end. Surfaces switch features off through props
-  (`mentionsIn`, `onCancel`/`escapeCancels`, `onDiscard`); don't add another reply box or a variant layout. The
+  (`mentionsIn`, `onCancel`/`escapeCancels`, `onEscapeEmpty`, `onDiscard`); don't add another reply box or a variant layout. The
   Request verification form (`VerificationControl`) is a form of labelled fields, not a message, and stays one.
+- Each message (`Message` in `CommentCard.tsx`) is a two-column grid: the 24px avatar is centred on its header row
+  (name, via, time, device and the actions, 44px tall on touch screens), the text under the header (uier #281).
 - Under the messages, Reply is a quiet ghost button with the reply icon, aligned with the message text (R opens it).
   `comments/ReplyComposer.tsx` is the lazy inline reply form it opens in List, Board and the inbox: the shared composer
-  with mentions, Close reply, Discard and the Post reply send button (Enter sends, Shift+Enter adds a line, Escape is
-  left to the thread). It shares the toolbar's draft/mention logic and browser-only attachment reader. `replyCommentAction` validates the payload,
+  with mentions, Discard and the Post reply send button (Enter sends, Shift+Enter adds a line). It has no close button
+  (uier #288): Escape in the empty field closes it and gives the focus back to Reply (`onEscapeEmpty`); with text,
+  Escape is left to the thread and the draft is kept. It shares the toolbar's draft/mention logic and browser-only attachment reader. `replyCommentAction` validates the payload,
   resolves current app authority and forwards trusted request headers to `replyToProjectComment`;
   `commentParticipantsAction` rechecks the thread before returning names/opaque ids without email.
   Replies preserve status and unread state; `CommentUpdates` appends pending messages and action

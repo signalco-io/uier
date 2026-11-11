@@ -31,7 +31,7 @@ test('own replies are edited in place in the open thread, keeping mentions and n
         await expect(input).toHaveValue(`Please check @${name} first draft`);
         await input.press('Enter');
         await expect(card.getByRole('status').filter({ hasText: /^Reply posted$/ })).toHaveText('Reply posted');
-        await card.getByRole('button', { name: 'Close reply' }).click();
+        await input.press('Escape');
 
         // The reply's menu: Edit first, wide enough that no item wraps
         const actions = card.getByRole('button', { name: 'More actions for reply by you', exact: true });

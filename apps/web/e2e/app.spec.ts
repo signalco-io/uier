@@ -346,7 +346,7 @@ test('onboarding creates a project with its addresses and sets up reviews one st
     await expect(page.getByRole('heading', { level: 1, name: 'example.com' })).toBeVisible();
     await expect(page).toHaveTitle('example.com · uier');
     await expect(page.getByText('No comments yet')).toBeVisible();
-    // Until the site sends a comment, the tabs offer the install guide; Settings is the header's cog
+    // Until the site sends a comment, the tabs offer the install guide; Settings is the cog at the tabs' right end
     await expect(page.getByRole('navigation', { name: 'Project' }).getByRole('link')).toHaveText(['Comments', 'Page checks', 'Install']);
     await expect(page.getByRole('link', { name: 'Settings', exact: true })).toHaveAttribute('href', `/app/projects/${projectId}/settings`);
     const empty = page.locator('[data-slot="empty"]');
@@ -481,7 +481,7 @@ test('project settings sections save the name, comment access and addresses', as
     const projectId = await createProject(page, { urls: ['settings.example.com'] });
     await page.goto(`/app/projects/${projectId}/settings`);
     await expect(page.getByRole('heading', { level: 1, name: 'settings.example.com' })).toBeVisible();
-    // The header's Settings button is current (the breadcrumb ends at Settings too, as a disabled link)
+    // The tabs' Settings cog is current (the breadcrumb ends at Settings too, as a disabled link)
     const settingsButton = page.getByRole('link', { name: 'Settings', exact: true, disabled: false });
     await expect(settingsButton).toHaveAttribute('aria-current', 'page');
     // An icon (the cog), named by its label and a tooltip
@@ -1052,9 +1052,16 @@ test('reply from list and board with mentions, keyboard input and local drafts',
         await expect(input).toBeFocused();
         // The shared message composer: its hints and buttons in one box
         await expect(input).toHaveAccessibleDescription('Type @ to mention someone with access. Enter to send. Shift+Enter for a new line.');
+        // Mentions are said to screen readers only, with no visible hint (uier #287)
+        await expect(card.getByText('@ to mention', { exact: true })).toHaveCount(0);
         await expect(card.getByRole('form', { name: 'Reply to thread' }).getByRole('group').getByRole('button', { name: 'Post reply' })).toBeDisabled();
+        // No close button: Escape in the empty box closes it and gives the focus back to Reply (uier #288)
+        await expect(card.getByRole('button', { name: 'Close reply' })).toHaveCount(0);
+        await input.press('Escape');
+        await expect(input).toHaveCount(0);
+        await expect(card.getByRole('button', { name: 'Reply', exact: true })).toBeFocused();
+        await card.getByRole('button', { name: 'Reply', exact: true }).click();
         await input.fill('Keep this draft');
-        await card.getByRole('button', { name: 'Close reply' }).click();
         await backToComments(page);
         await page.getByRole('button', { name: 'Board', exact: true }).click();
         await openComment(page, 'Reply without finding a pin');

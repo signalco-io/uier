@@ -160,21 +160,22 @@ function Message({ author, agent, avatarName, avatarUrl, createdAt, meta, action
     children: ReactNode;
 }) {
     return (
-        <div className="flex gap-2.5">
-            <Avatar size="sm" aria-hidden="true" className="mt-0.5">
+        // The avatar is centred on the header row, however tall its actions make it (44px on touch; uier #281)
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-1">
+            <Avatar size="sm" aria-hidden="true" className="self-center">
                 {avatarUrl && <AvatarImage src={avatarUrl} alt="" />}
                 <AvatarFallback className="font-semibold text-foreground">{initials(avatarName)}</AvatarFallback>
             </Avatar>
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <div className="flex min-h-7 items-center justify-between gap-2">
-                    <div className="flex min-w-0 items-center gap-2 text-sm">
-                        <span className="truncate font-medium">{author}</span>
-                        {agent}
-                        <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums"><RelativeTime value={createdAt} /></span>
-                        {meta}
-                    </div>
-                    {actions}
+            <div className="flex min-h-7 items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2 text-sm">
+                    <span className="truncate font-medium">{author}</span>
+                    {agent}
+                    <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums"><RelativeTime value={createdAt} /></span>
+                    {meta}
                 </div>
+                {actions}
+            </div>
+            <div className="col-start-2 flex min-w-0 flex-col gap-1">
                 {children}
             </div>
         </div>
@@ -280,6 +281,14 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const assigneeTrigger = useRef<HTMLButtonElement>(null);
     // The reply box itself: an open message editor in the same card is another textarea
     const replyField = useRef<HTMLTextAreaElement>(null);
+    // Escape closes the empty reply box: the focus goes back to Reply, which takes its place
+    const replyButton = useRef<HTMLButtonElement>(null);
+    const focusReplyButton = useRef(false);
+    useEffect(() => {
+        if (replying || !focusReplyButton.current) return;
+        focusReplyButton.current = false;
+        replyButton.current?.focus();
+    }, [replying]);
     const shown = () => Boolean(cardRef.current?.checkVisibility());
     const openMenu = (trigger: HTMLButtonElement | null) => {
         if (!trigger || trigger.disabled || !shown()) return false;
@@ -643,8 +652,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
 
                 {/* Reply's icon lines up with the message text: past the 24px avatar and its 10px gap, less the button's 6px padding */}
                 {permissions.reply && (replying
-                    ? <ReplyComposer projectId={projectId} userId={userId} userName={assignees.find(person => person.userId === userId)?.name} comment={comment} textareaRef={replyField} onClose={() => setReplying(false)} />
-                    : <Button variant="ghost" size="sm" className="ml-7 self-start text-muted-foreground hover:text-foreground pointer-coarse:min-h-11" aria-keyshortcuts={replyShortcut} onClick={() => setReplying(true)}>
+                    ? <ReplyComposer projectId={projectId} userId={userId} userName={assignees.find(person => person.userId === userId)?.name} comment={comment} textareaRef={replyField} onClose={() => { focusReplyButton.current = true; setReplying(false); }} />
+                    : <Button ref={replyButton} variant="ghost" size="sm" className="ml-7 self-start text-muted-foreground hover:text-foreground pointer-coarse:min-h-11" aria-keyshortcuts={replyShortcut} onClick={() => setReplying(true)}>
                         <ReplyIcon data-icon="inline-start" />{t("Reply")}
                     </Button>)}
 
