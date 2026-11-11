@@ -89,8 +89,8 @@ pass); a transfer keeps it, since it is keyed by the project.
   lists pages missing any of those results, even when known results also need attention. Each
   option shows its count; the heading says "Pages 3 of 21", and a filter that shows none says so with Show all
   pages.
-- Empty: "No pages checked yet", how pages get here, and that reviews in the browser extension are not
-  included yet (packaged clients do not send summaries).
+- Empty: "No pages checked yet" and two short sentences (uier #274): pages appear as members review the site
+  with the toolbar, and extension reviews are not included yet (packaged clients do not send summaries).
 
 The tab is always in the project's header (`ProjectTabs`), after Comments.
 

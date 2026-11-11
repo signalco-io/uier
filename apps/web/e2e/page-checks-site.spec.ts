@@ -45,7 +45,7 @@ test('a member reviews two pages with the same title, and the project\'s Page ch
     await page.goto(`/app/projects/${project}/page-checks`);
     await expect(page.getByRole('navigation', { name: 'Project' }).getByRole('link', { name: 'Page checks' })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByText('No pages checked yet')).toBeVisible();
-    await expect(page.getByText('Pages appear here as project members review the site with the toolbar.')).toBeVisible();
+    await expect(page.getByText('Pages appear as members review the site with the toolbar.')).toBeVisible();
 
     // The first page: checked in the background, then its summary is saved once the reports settle
     const responses: number[] = [];

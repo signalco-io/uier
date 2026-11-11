@@ -93,8 +93,7 @@ export function PageChecksView({ projectId, pages, environments }: {
                         <EmptyMedia variant="icon"><ScanSearchIcon /></EmptyMedia>
                         <EmptyTitle>No pages checked yet</EmptyTitle>
                         <EmptyDescription>
-                            Pages appear here as project members review the site with the toolbar. Each page a member opens is checked in their browser.
-                            Reviews in the browser extension are not included yet.
+                            Pages appear as members review the site with the toolbar. Extension reviews are not included yet.
                         </EmptyDescription>
                     </EmptyHeader>
                 </Empty>
