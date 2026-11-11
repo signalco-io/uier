@@ -413,16 +413,16 @@ test('the List/Board choice is remembered and kept in the address; a view in the
     await page.goto(`/app/projects/${project}`);
     await expect.poll(view).toBe('board');
 
-    // Migrate an older localStorage-only preference before showing any rows in the wrong layout.
+    // Without the cookie the server paints the list, never a loading state; an older localStorage-only Board choice
+    // then switches once after hydration and moves into the cookie
     await page.context().clearCookies({ name: /uier_comments_view$/ });
     let release!: () => void;
     const hydration = new Promise<void>(resolve => { release = resolve; });
     await page.route('**/_next/static/**/*.js', async route => { await hydration; await route.continue(); });
     try {
         await page.goto(`/app/projects/${project}`, { waitUntil: 'commit' });
-        await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-        await expect(page.locator('#comments').getByRole('status', { name: 'Loading project', exact: true })).toBeVisible();
-        await expect(list).toHaveCount(0);
+        await expect(list).toBeVisible();
+        await expect(page.locator('#comments').getByRole('status', { name: 'Loading project', exact: true })).toHaveCount(0);
     } finally { release(); }
     await page.waitForLoadState('load');
     await page.unroute('**/_next/static/**/*.js');

@@ -71,9 +71,9 @@ rows with the status filter it waits for their entrance motion to settle before 
   remembered in this browser for every project (`commentsView.ts`, `localStorage`; blocked storage only loses the
   memory; My work remembers its own, [app shell](app-shell.md)). With no view in the address the remembered one opens and is written there in a layout effect: a page reached
   in the app paints in it. Project choices also write the one-year, browser-readable `__Host-uier_comments_view`
-  cookie (`uier_comments_view` on local HTTP), so a full load renders that view on the server. A browser with only the
-  older localStorage preference sees `PageLoading` until a layout effect resolves and migrates it, before rows mount;
-  it never paints a list and then replaces it with a board. Either store can retain the choice independently. A view in the address wins and is not
+  cookie (`uier_comments_view` on local HTTP), so a full load renders that view on the server. Without the cookie the
+  server paints the list, never a loading state: a browser with only the older localStorage preference switches once
+  after hydration, and the layout effect moves that choice into the cookie. Either store can retain the choice independently. A view in the address wins and is not
   remembered ([uier #291](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_d_oxAs9XP_GuQOZ0l9NND); `e2e/comment-board.spec.ts`). Cards move between columns with `@dnd-kit/core`: the whole card drags (its link shows
   the grab cursor; its selection box and Move keep their presses, as Base UI opens a menu on press), with the
   mouse after 6 px; on a touch screen a card held 250 ms is armed (`data-hold`) and lifts when the finger then moves more

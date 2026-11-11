@@ -27,7 +27,6 @@ import { commentStatus, commentStatuses, type CommentStatus } from './CommentSta
 import { parseCommentsQuery, type CommentsQuery } from './commentsQuery';
 import { rememberCommentsView, storedCommentsView } from './commentsView';
 import { parseCommentsView } from '@/src/lib/app/commentsViewPreference';
-import { PageLoading } from '../PageLoading';
 import type { CommentsView } from './commentLabels';
 import { orderComments, sortBoardColumn } from './commentOrder';
 import type { BoardColumn, BoardSort } from '../../../lib/app/boardSort';
@@ -100,8 +99,9 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
     const searchParams = useUrlSearchParams();
     const explicit = parseCommentsView(searchParams.get('view'));
     const [remembered, setRemembered] = useState(initialView);
-    // Resolve old localStorage-only preferences before mounting rows. Keep the inbox's own state
-    // mounted through URL changes, including optimistic writes that are still pending.
+    // With no cookie the server paints the list (never a loading state). An older localStorage-only choice then
+    // switches once here and moves into the cookie. Keep the inbox's own state mounted through URL changes,
+    // including optimistic writes that are still pending.
     useLayoutEffect(() => {
         if (explicit) return;
         const saved = storedCommentsView() ?? initialView;
@@ -251,7 +251,6 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
     const unreadShown = (board ? boardShown : shown).filter(comment => comment.activity?.unread).length;
     // Keep matching cards mounted, including their independent reply drafts. Selection resets per scope.
     const selectionScope = JSON.stringify([projectId, query.environment, query.author, query.unread, query.people, query.page, query.status, query.q, query.priority, query.view]);
-    if (!explicit && !remembered) return <PageLoading title="Loading project" />;
     return (
         <CommentUpdatesProvider value={updateComment}>
         <RealtimeComments projectId={projectId} revision={revision} environment={serverQuery.environment} author={serverQuery.author} />
