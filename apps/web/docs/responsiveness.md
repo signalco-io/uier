@@ -43,18 +43,16 @@ Whatever changes the shown threads, cards and rows move to their new places (`La
 follow and read changes for cards, counters and board columns. Failed actions revert through
 `useOptimistic`; bulk read keeps rendered cursors and partial-failure retry behavior. Actions already
 revalidate and return updated RSC data: do not add a second `router.refresh()` after those writes.
-`NavigationPending` gives settings links immediate feedback while their authorized destination loads.
-`LinkTabs` puts its spinner last, after any count: at the right end of a section link that fills its
-column, in space kept while hidden so nothing moves when it appears. A `line` or `segmented` tab keeps
-the same space before its label, so the label sits centred over its underline (or in its pill). A tab
-with `query` (the projects list's Active and Done, whose page already holds both lists) changes only
-the address, so it has no spinner and keeps no space for one; keep the spinner on tabs that load a page (settings sections,
-project tabs, the workspace area).
+`LinkTabs` (project tabs, settings sections, the workspace area) shows no loading spinner and keeps no
+space for one: app pages load fast enough that the current tab moves on the click (uier #272). A `line`
+tab has no padding, so the first label lines up with the page content and the gap is the only space
+between tabs. A tab with `query` (the projects list's Active and Done, whose page already holds both
+lists) changes only the address, without a server request.
 `e2e/app-performance.spec.ts` blocks filter round trips and holds mutation responses to verify
 immediate updates, rollback, persistence and background feedback submission on desktop and mobile,
 and that the open thread and the filters follow clicks and Back while a write is held; it also holds a
-settings section's page to check where that link's spinner sits, and refuses the projects list's round
-trips to check that Active and Done switch at once, with no spinner, through Back, Forward and reload.
+settings section's page to check that its link shows no spinner and nothing moves, and refuses the projects
+list's round trips to check that Active and Done switch at once, with no spinner, through Back, Forward and reload.
 
 Client navigation keeps the embedded toolbar pill mounted; only its page-specific review state
 resets. See [client navigation continuity](app-shell.md#client-navigation-continuity) for the

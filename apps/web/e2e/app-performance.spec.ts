@@ -286,27 +286,21 @@ test('new feedback appears and the composer closes while submission waits for th
     } finally { pending.release(); }
 });
 
-test('a settings section link shows its spinner at the end of the link while the section loads', async ({ page }) => {
+test('a settings section link shows no spinner and nothing moves while the section loads', async ({ page }) => {
     await signIn(page, uniqueEmail('pending-link'));
     const project = await createProject(page, { urls: ['pending.example.com'] });
     await page.goto(`/app/projects/${project}/settings`);
     const sections = page.getByRole('navigation', { name: 'Project settings' });
     await hydrated(sections);
     const link = sections.getByRole('link', { name: 'Integrations' });
-    const spinner = link.locator('[data-slot="spinner"]');
-    // Where the label and the (hidden, space-keeping) spinner are, relative to the link
+    // Where the label is, relative to the link
     const layout = () => link.evaluate(a => {
         const range = document.createRange();
         range.selectNodeContents(a.firstChild!);
         const box = a.getBoundingClientRect(), label = range.getBoundingClientRect();
-        const spinner = a.querySelector('[data-slot="spinner"]')!;
-        // A turned icon has a wider box than the one it is laid out in: measure it at the start of its turn
-        for (const animation of spinner.getAnimations()) animation.currentTime = 0;
-        const icon = spinner.getBoundingClientRect();
-        return { label: [label.left - box.left, label.top - box.top], width: box.width, iconLeft: icon.left - box.left, iconRight: box.right - icon.right };
+        return { label: [label.left - box.left, label.top - box.top], width: box.width };
     });
     const before = await layout();
-    await expect(spinner).toBeHidden();
     const pending = gate();
     await page.route(`**/app/projects/${project}/settings/integrations*`, async route => {
         await pending.wait;
@@ -314,17 +308,35 @@ test('a settings section link shows its spinner at the end of the link while the
     });
     try {
         await link.click();
-        await expect(spinner).toBeVisible();
-        // At the right end of the link (inside its padding), and nothing moved when it appeared
-        const during = await layout();
-        expect(during).toEqual(before);
-        expect(during.iconRight).toBeCloseTo(12, 0);
-        // A section link fills its column on wide screens, so the spinner sits well past the label
-        if (during.width > 150) expect(during.iconLeft).toBeGreaterThan(during.width / 2);
+        await expect(sections.locator('[data-slot="spinner"]')).toHaveCount(0);
+        expect(await layout()).toEqual(before);
         pending.release();
         await expect(link).toHaveAttribute('aria-current', 'page');
-        await expect(spinner).toBeHidden();
     } finally { pending.release(); }
+});
+
+test('the project tabs line up with the page content, evenly spaced, with no spinner', async ({ page }) => {
+    await signIn(page, uniqueEmail('project-tabs'));
+    const project = await createProject(page, { urls: ['tabs.example.com'] });
+    await page.goto(`/app/projects/${project}`);
+    const tabs = page.getByRole('navigation', { name: 'Project' });
+    await hydrated(tabs);
+    await expect(tabs.locator('[data-slot="spinner"]')).toHaveCount(0);
+    const edges = await tabs.evaluate(nav => [...nav.querySelectorAll('a')].map(a => {
+        const range = document.createRange();
+        range.selectNodeContents(a);
+        const box = a.getBoundingClientRect(), label = range.getBoundingClientRect();
+        return { left: box.left, right: box.right, labelLeft: label.left, labelRight: label.right, navLeft: nav.getBoundingClientRect().left };
+    }));
+    // The first label starts at the content edge, and each tab's underline is exactly its label
+    const [first] = edges;
+    expect(first && Math.round(first.labelLeft - first.navLeft)).toBe(0);
+    for (const tab of edges) {
+        expect(Math.round(tab.labelLeft - tab.left)).toBe(0);
+        expect(Math.round(tab.right - tab.labelRight)).toBe(0);
+    }
+    const gaps = edges.slice(1).map((tab, i) => Math.round(tab.left - edges[i]!.right));
+    expect(new Set(gaps).size).toBe(1);
 });
 
 test('Active and Done switch the projects list at once, with no spinner or space for one', async ({ page }) => {
