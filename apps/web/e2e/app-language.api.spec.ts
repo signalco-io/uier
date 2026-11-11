@@ -1,3 +1,4 @@
+import { describeAccess } from '../src/lib/mcp/oauth/grants';
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { appLanguages, browserAppLanguage, resolveAppLanguage } from '../src/lib/i18n/languages';
@@ -92,4 +93,15 @@ test('localized anchors and history keep original people and selected text', asy
     expect(translated).toContain('Ana');
     expect(translated).toContain('Luka');
     expect(translated).not.toContain('assigned');
+});
+
+
+test('English connected-app summaries preserve the existing wording', async () => {
+    const access = { kind: 'selected' as const, workspaces: [
+        { workspaceId: 'w_one', projects: 'all' as const },
+        { workspaceId: 'w_two', projects: ['project_two'] }
+    ] };
+    const english = { language: 'en' as const, t: createAppTranslator(await loadAppCatalog('en')) };
+    expect(describeAccess(access, english)).toBe('2 workspaces, all projects in one, 1 project');
+    expect(describeAccess(access, english)).toBe(describeAccess(access));
 });

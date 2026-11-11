@@ -117,11 +117,14 @@ test('a delayed language save disables further choices and a failed save keeps t
 });
 
 
-test('German integration settings preserve the original Notion field and status names', async ({ page, context, baseURL }) => {
+test('German integration settings preserve the original Notion field and status names', async ({ page, baseURL }) => {
+    test.setTimeout(60_000);
     const de = await translator('de');
     await signIn(page, uniqueEmail('localized-notion'));
     const projectId = await createProject(page, { urls: [baseURL!], name: 'Settings' });
-    await context.setExtraHTTPHeaders({ 'Accept-Language': 'de-DE' });
+    await page.goto('/app/account');
+    await choose(section(page), page, 'Deutsch', 'Save');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'de');
     await page.goto(`/app/projects/${projectId}/settings/integrations/notion`);
     const notion = page.getByRole('region', { name: 'Notion', exact: true });
     await notion.getByRole('link', { name: de('Connect Notion'), exact: true }).click();

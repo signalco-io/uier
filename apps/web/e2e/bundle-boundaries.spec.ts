@@ -56,7 +56,7 @@ async function featureGate(page: Page, feature: Feature) {
         async dispose(info: TestInfo) {
             hold = false;
             releasePending();
-            await page.unroute(pattern, handler);
+            await page.unrouteAll({ behavior: 'wait' });
             await info.attach(`${feature}-chunk-requests`, { body: JSON.stringify(attempts, null, 2), contentType: 'application/json' });
         }
     };

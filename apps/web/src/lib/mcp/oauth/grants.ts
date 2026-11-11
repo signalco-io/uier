@@ -173,7 +173,7 @@ export async function validateAccessChoice(userId: string, email: string, access
 
 /** A short summary for Account: "All workspaces and projects" or "2 workspaces, 5 projects" */
 export function describeAccess(access: AgentAccess, i18n?: AppI18n) {
-    if (i18n) {
+    if (i18n && i18n.language !== 'en') {
         const { t, language } = i18n;
         if (access.kind === 'all') return t('All workspaces and projects, including new ones');
         const workspaces = access.workspaces.length;
