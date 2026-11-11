@@ -48,6 +48,7 @@ export const hr: Messages = {
         accessibility: 'Pristupačnost',
         seo: 'SEO',
         about: 'O uieru',
+        draw: 'Crtaj po stranici',
         collapse: 'Sažmi traku'
     },
     profile: {
@@ -510,6 +511,44 @@ export const hr: Messages = {
     selection: {
         label: 'Označeni tekst',
         rewrite: 'Preoblikuj'
+    },
+    canvas: {
+        panel: 'Alati za crtanje',
+        surface: 'Crtež',
+        surfaceHelp: 'Crtajte pokazivačem. Tipkovnicom: odaberite alat i ovdje pritisnite Enter da ga dodate. Tab vodi do oblika; strelice pomiču oblik, a Alt i strelice mijenjaju mu veličinu.',
+        started: 'Crtate po stranici. Odaberite alat, crtajte, zatim Komentiraj.',
+        tools: { select: 'Odaberi', pen: 'Olovka', marker: 'Marker', brush: 'Kist', line: 'Linija', arrow: 'Strelica', rectangle: 'Pravokutnik', ellipse: 'Elipsa', diamond: 'Romb', text: 'Bilješka', blur: 'Zamućenje', eraser: 'Gumica' },
+        shapes: { pen: 'Potez olovkom', marker: 'Potez markerom', brush: 'Potez kistom', line: 'Linija', arrow: 'Strelica', rectangle: 'Pravokutnik', ellipse: 'Elipsa', diamond: 'Romb', text: 'Bilješka', blur: 'Zamućeno područje' },
+        /** A shape in the drawing, by its place: "Rectangle 2" */
+        shape: (name: string, number: number) => `${name} ${number}`,
+        style: 'Stil',
+        color: 'Boja',
+        background: 'Pozadina',
+        none: 'Bez',
+        fill: 'Ispuna pozadine',
+        fills: { semi: 'Prozirna', solid: 'Puna' },
+        outline: 'Obrub',
+        outlines: { solid: 'Puni', dashed: 'Isprekidani', dotted: 'Točkasti' },
+        width: 'Debljina',
+        widths: { s: 'Tanka', m: 'Srednja', l: 'Debela', xl: 'Vrlo debela' },
+        edges: 'Rubovi',
+        edgeStyles: { clean: 'Uredni', sketchy: 'Skicirani' },
+        colors: { ink: 'Tinta', white: 'Bijela', red: 'Crvena', amber: 'Jantarna', green: 'Zelena', blue: 'Plava', violet: 'Ljubičasta' },
+        undo: 'Poništi',
+        redo: 'Ponovi',
+        deleteShape: 'Izbriši oblik',
+        discard: 'Odbaci',
+        comment: 'Komentiraj',
+        textNote: 'Bilješka',
+        added: (name: string) => `Dodano: ${name}`,
+        deleted: (name: string) => `Izbrisano: ${name}`,
+        undone: 'Poništeno',
+        redone: 'Ponovljeno',
+        discarded: 'Crtež je odbačen',
+        full: 'Crtež je pun. Uklonite oblik da biste dodali drugi.',
+        tooLarge: 'Ovaj je crtež prevelik za spremanje. Uklonite nekoliko oblika.',
+        pointerOnly: 'Ovaj alat crta pokazivačem. Odaberite drugi alat da biste oblik dodali tipkovnicom.',
+        editDrawing: 'Uredi crtež'
     },
     hint: {
         title: 'Isprobajte uier na ovoj stranici',

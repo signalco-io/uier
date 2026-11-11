@@ -48,6 +48,7 @@ export const it: Messages = {
         accessibility: 'Accessibilità',
         seo: 'SEO',
         about: 'Informazioni su uier',
+        draw: 'Disegna sulla pagina',
         collapse: 'Comprimi la barra'
     },
     profile: {
@@ -510,6 +511,44 @@ export const it: Messages = {
     selection: {
         label: 'Testo selezionato',
         rewrite: 'Riscrivi'
+    },
+    canvas: {
+        panel: 'Strumenti di disegno',
+        surface: 'Disegno',
+        surfaceHelp: 'Disegna con un puntatore. Con la tastiera: scegli uno strumento e premi Invio qui per aggiungerlo. Tab porta alle forme; le frecce ne spostano una, Alt e le frecce la ridimensionano.',
+        started: 'Stai disegnando sulla pagina. Scegli uno strumento, disegna, poi Commenta.',
+        tools: { select: 'Seleziona', pen: 'Penna', marker: 'Evidenziatore', brush: 'Pennello', line: 'Linea', arrow: 'Freccia', rectangle: 'Rettangolo', ellipse: 'Ellisse', diamond: 'Rombo', text: 'Nota', blur: 'Sfocatura', eraser: 'Gomma' },
+        shapes: { pen: 'Tratto di penna', marker: 'Tratto di evidenziatore', brush: 'Tratto di pennello', line: 'Linea', arrow: 'Freccia', rectangle: 'Rettangolo', ellipse: 'Ellisse', diamond: 'Rombo', text: 'Nota', blur: 'Area sfocata' },
+        /** A shape in the drawing, by its place: "Rectangle 2" */
+        shape: (name: string, number: number) => `${name} ${number}`,
+        style: 'Stile',
+        color: 'Colore',
+        background: 'Sfondo',
+        none: 'Nessuno',
+        fill: 'Riempimento dello sfondo',
+        fills: { semi: 'Traslucido', solid: 'Pieno' },
+        outline: 'Contorno',
+        outlines: { solid: 'Continuo', dashed: 'Tratteggiato', dotted: 'Punteggiato' },
+        width: 'Spessore',
+        widths: { s: 'Sottile', m: 'Medio', l: 'Spesso', xl: 'Molto spesso' },
+        edges: 'Bordi',
+        edgeStyles: { clean: 'Netti', sketchy: 'A mano' },
+        colors: { ink: 'Inchiostro', white: 'Bianco', red: 'Rosso', amber: 'Ambra', green: 'Verde', blue: 'Blu', violet: 'Viola' },
+        undo: 'Annulla',
+        redo: 'Ripeti',
+        deleteShape: 'Elimina forma',
+        discard: 'Scarta',
+        comment: 'Commenta',
+        textNote: 'Nota',
+        added: (name: string) => `Aggiunto: ${name}`,
+        deleted: (name: string) => `Eliminato: ${name}`,
+        undone: 'Annullato',
+        redone: 'Ripetuto',
+        discarded: 'Disegno scartato',
+        full: 'Il disegno è pieno. Rimuovi una forma per aggiungerne un’altra.',
+        tooLarge: 'Questo disegno è troppo grande per essere salvato. Rimuovi alcune forme.',
+        pointerOnly: 'Questo strumento disegna con un puntatore. Scegli un altro strumento per aggiungere una forma con la tastiera.',
+        editDrawing: 'Modifica disegno'
     },
     hint: {
         title: 'Prova uier in questa pagina',

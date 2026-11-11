@@ -3,6 +3,7 @@ import { commentCheck, commentCheckLabels, type CommentCheck } from './feedbackT
 import { feedbackStageLabels } from './verification';
 import { deviceSettings } from './userAgent';
 import { toolbarPartLabel } from './toolbarParts';
+import { drawingSummary, type CommentDrawing } from './drawing';
 
 export { toolbarPartLabel } from './toolbarParts';
 /** Versioned handoff contract shared by copy/export and future authenticated integrations.
@@ -50,6 +51,12 @@ export type FeedbackContext = {
         /** The anchor is in a menu, popover or dialog that this page element opens (its saved selector and name) */
         opener?: { selector: string; label?: string };
     };
+    /**
+     * Shapes drawn on the page with the thread (the toolbar's canvas mode), described: how many, of which
+     * kinds, the size of their box and the text notes' text (untrusted). The saved screenshot shows them.
+     * Older packets and threads without a drawing omit it.
+     */
+    drawing?: FeedbackDrawing;
     source: { path: string; origin?: string; environment?: string };
     links: { page?: string; comment?: string };
     reproduction: {
@@ -73,6 +80,22 @@ export type FeedbackContext = {
 };
 
 export type FeedbackExport = { context: FeedbackContext; markdown: string };
+
+export type FeedbackDrawing = { shapes: number; summary: string; width: number; height: number; notes: string[] };
+
+/** A drawing as the packet describes it */
+export function feedbackDrawing(drawing: CommentDrawing): FeedbackDrawing {
+    const { shapes, text, notes } = drawingSummary(drawing);
+    return { shapes, summary: text, width: Math.round(drawing.width), height: Math.round(drawing.height), notes };
+}
+
+function drawingText(drawing: FeedbackDrawing | undefined) {
+    if (!drawing) return '';
+    return [
+        `Drawing on the page: ${drawing.shapes} ${drawing.shapes === 1 ? 'shape' : 'shapes'} (${drawing.summary}) in ${drawing.width}×${drawing.height} CSS px, drawn over the area. The saved screenshot includes it.`,
+        drawing.notes.length ? `Text notes in the drawing:\n\n${drawing.notes.map(literal).join('\n\n')}` : ''
+    ].filter(Boolean).join('\n\n');
+}
 
 /** Outbound destination links are separately projected for authorized member views. */
 export type ExternalFeedbackLink = { provider: string; url: string };
@@ -173,6 +196,7 @@ export function feedbackMarkdown(context: FeedbackContext): string {
         anchor.selector !== undefined ? `Saved selector (may no longer match):\n\n${literal(anchor.selector)}` : '',
         toolbarPartLabel(anchor.selector) ? 'This is a part of uier\'s own review toolbar, on uier\'s own pages: the selector after #uier-toolbar>>> is inside the toolbar\'s shadow root.' : '',
         anchor.area ? `Area within the element: ${areaText(anchor.area)}` : '',
+        drawingText(context.drawing),
         anchor.text !== undefined ? `Original selected text:\n\n${literal(anchor.text)}` : '',
         anchor.startOffset !== undefined ? `Text offsets: ${anchor.startOffset}–${anchor.endOffset ?? 'unknown'}` : '',
         anchor.endSelector ? `End selector:\n\n${literal(anchor.endSelector)}` : '',

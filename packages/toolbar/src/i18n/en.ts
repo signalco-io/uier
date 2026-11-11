@@ -49,6 +49,7 @@ export const en = {
         accessibility: 'Accessibility',
         seo: 'SEO',
         about: 'About uier',
+        draw: 'Draw on the page',
         collapse: 'Collapse toolbar'
     },
     profile: {
@@ -520,6 +521,44 @@ export const en = {
     selection: {
         label: 'Selected text',
         rewrite: 'Rewrite'
+    },
+    canvas: {
+        panel: 'Drawing tools',
+        surface: 'Drawing',
+        surfaceHelp: 'Draw with a pointer. With the keyboard: choose a tool, then press Enter here to add it. Tab goes to the shapes; the arrow keys move one, Alt and the arrow keys resize it.',
+        started: 'Drawing on the page. Choose a tool, draw, then Comment.',
+        tools: { select: 'Select', pen: 'Pen', marker: 'Marker', brush: 'Brush', line: 'Line', arrow: 'Arrow', rectangle: 'Rectangle', ellipse: 'Ellipse', diamond: 'Diamond', text: 'Text note', blur: 'Blur', eraser: 'Eraser' },
+        shapes: { pen: 'Pen line', marker: 'Marker line', brush: 'Brush line', line: 'Line', arrow: 'Arrow', rectangle: 'Rectangle', ellipse: 'Ellipse', diamond: 'Diamond', text: 'Text note', blur: 'Blurred area' },
+        /** A shape in the drawing, by its place: "Rectangle 2" */
+        shape: (name: string, number: number) => `${name} ${number}`,
+        style: 'Style',
+        color: 'Colour',
+        background: 'Background',
+        none: 'None',
+        fill: 'Background fill',
+        fills: { semi: 'Translucent', solid: 'Solid' },
+        outline: 'Outline',
+        outlines: { solid: 'Solid', dashed: 'Dashed', dotted: 'Dotted' },
+        width: 'Width',
+        widths: { s: 'Thin', m: 'Medium', l: 'Bold', xl: 'Extra bold' },
+        edges: 'Edges',
+        edgeStyles: { clean: 'Clean', sketchy: 'Sketchy' },
+        colors: { ink: 'Ink', white: 'White', red: 'Red', amber: 'Amber', green: 'Green', blue: 'Blue', violet: 'Violet' },
+        undo: 'Undo',
+        redo: 'Redo',
+        deleteShape: 'Delete shape',
+        discard: 'Discard',
+        comment: 'Comment',
+        textNote: 'Text note',
+        added: (name: string) => `${name} added`,
+        deleted: (name: string) => `${name} deleted`,
+        undone: 'Undone',
+        redone: 'Redone',
+        discarded: 'Drawing discarded',
+        full: 'The drawing is full. Remove a shape to add another.',
+        tooLarge: 'This drawing is too large to save. Remove some shapes.',
+        pointerOnly: 'This tool draws with a pointer. Choose another tool to add a shape with the keyboard.',
+        editDrawing: 'Edit drawing'
     },
     hint: {
         title: 'Try uier on this page',

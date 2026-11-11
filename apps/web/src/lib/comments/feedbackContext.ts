@@ -1,4 +1,4 @@
-import { feedbackMarkdown, type FeedbackContext, type FeedbackExport, type FeedbackMessage } from '@uier/toolbar/feedback-context';
+import { feedbackDrawing, feedbackMarkdown, type FeedbackContext, type FeedbackExport, type FeedbackMessage } from '@uier/toolbar/feedback-context';
 import { feedbackStage } from '@uier/toolbar/verification';
 import type { CommentDto } from './dto';
 import type { ReproductionContext } from './reproduction';
@@ -62,6 +62,7 @@ export function feedbackExport(dto: Omit<CommentDto, 'thread'> & { thread: { ite
                 ...opener(position.layer)
             }
             : { type: 'text', selector: position.startSelector, text: position.text, startOffset: position.startOffset, endOffset: position.endOffset, endSelector: position.endSelector, ...opener(position.layer) },
+        ...(available && dto.drawing ? { drawing: feedbackDrawing(dto.drawing) } : {}),
         source: { path: dto.path, ...(options.environment ? { environment: options.environment } : {}), ...(options.pageUrl ? { origin: new URL(options.pageUrl).origin } : {}) },
         links: { page: options.pageUrl, comment: options.commentUrl },
         reproduction: available ? {

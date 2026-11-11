@@ -69,6 +69,19 @@ C, in point mode. `src/threadShortcuts.ts` finds the thread: the one with the fo
 controls are marked `data-uier-thread-header`, `data-uier-status` (the status menu's badge) and `data-uier-reply`. On uier's own app
 pages the app takes a key first (its listeners run before the toolbar's) unless the focus is in the toolbar.
 
+## Canvas mode
+
+While drawing ([canvas mode](canvas-mode.md)) the toolbar's single keys rest and the canvas has its own,
+handled on the window like them: each tool's letter (V select, P pen, M marker, B brush, L line, A arrow,
+R rectangle, O ellipse, D diamond, T text note, X blur, E eraser; only with the shortcuts on, named in each
+tool's tooltip), Ctrl/⌘+Z undo, Ctrl/⌘+Shift+Z or Ctrl/⌘+Y redo, Delete or Backspace for the selected shape,
+and Esc (cancel the drag, then deselect, then leave when nothing is drawn). The drawing surface is a
+`role="application"` widget: its letters are the tools, though `isLetterKeyTarget` counts the role as a
+letter-key widget everywhere else. Enter on the surface adds the tool's shape in the middle of the window;
+every shape is a focusable button whose arrows move it (Shift: 10 px) and Alt+arrows resize it. The tool
+panel is a `role="toolbar"` with one tab stop (← →), and the Style popover's choices are radio groups
+(arrows).
+
 ## Switches in menus
 
 A menu row that turns something on or off (`OptionSwitch` in `ToolbarOptions.tsx`; the single-key

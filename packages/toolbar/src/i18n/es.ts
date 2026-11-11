@@ -48,6 +48,7 @@ export const es: Messages = {
         accessibility: 'Accesibilidad',
         seo: 'SEO',
         about: 'Acerca de uier',
+        draw: 'Dibujar en la página',
         collapse: 'Contraer la barra'
     },
     profile: {
@@ -510,6 +511,44 @@ export const es: Messages = {
     selection: {
         label: 'Texto seleccionado',
         rewrite: 'Reescribir'
+    },
+    canvas: {
+        panel: 'Herramientas de dibujo',
+        surface: 'Dibujo',
+        surfaceHelp: 'Dibuja con un puntero. Con el teclado: elige una herramienta y pulsa Intro aquí para añadirla. Tab va a las formas; las flechas mueven una, Alt y las flechas cambian su tamaño.',
+        started: 'Dibujando en la página. Elige una herramienta, dibuja y después Comentar.',
+        tools: { select: 'Seleccionar', pen: 'Bolígrafo', marker: 'Rotulador', brush: 'Pincel', line: 'Línea', arrow: 'Flecha', rectangle: 'Rectángulo', ellipse: 'Elipse', diamond: 'Rombo', text: 'Nota', blur: 'Desenfocar', eraser: 'Borrador' },
+        shapes: { pen: 'Trazo de bolígrafo', marker: 'Trazo de rotulador', brush: 'Trazo de pincel', line: 'Línea', arrow: 'Flecha', rectangle: 'Rectángulo', ellipse: 'Elipse', diamond: 'Rombo', text: 'Nota', blur: 'Zona desenfocada' },
+        /** A shape in the drawing, by its place: "Rectangle 2" */
+        shape: (name: string, number: number) => `${name} ${number}`,
+        style: 'Estilo',
+        color: 'Color',
+        background: 'Fondo',
+        none: 'Ninguno',
+        fill: 'Relleno del fondo',
+        fills: { semi: 'Translúcido', solid: 'Opaco' },
+        outline: 'Contorno',
+        outlines: { solid: 'Continuo', dashed: 'Discontinuo', dotted: 'Punteado' },
+        width: 'Grosor',
+        widths: { s: 'Fino', m: 'Medio', l: 'Grueso', xl: 'Muy grueso' },
+        edges: 'Bordes',
+        edgeStyles: { clean: 'Limpios', sketchy: 'A mano' },
+        colors: { ink: 'Tinta', white: 'Blanco', red: 'Rojo', amber: 'Ámbar', green: 'Verde', blue: 'Azul', violet: 'Violeta' },
+        undo: 'Deshacer',
+        redo: 'Rehacer',
+        deleteShape: 'Eliminar forma',
+        discard: 'Descartar',
+        comment: 'Comentar',
+        textNote: 'Nota',
+        added: (name: string) => `Añadido: ${name}`,
+        deleted: (name: string) => `Eliminado: ${name}`,
+        undone: 'Deshecho',
+        redone: 'Rehecho',
+        discarded: 'Dibujo descartado',
+        full: 'El dibujo está lleno. Quita una forma para añadir otra.',
+        tooLarge: 'Este dibujo es demasiado grande para guardarlo. Quita algunas formas.',
+        pointerOnly: 'Esta herramienta dibuja con un puntero. Elige otra herramienta para añadir una forma con el teclado.',
+        editDrawing: 'Editar dibujo'
     },
     hint: {
         title: 'Prueba uier en esta página',

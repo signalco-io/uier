@@ -111,6 +111,11 @@
             "development": "./dist-dev/languages.js",
             "default": "./dist/languages.js"
         },
+        "./drawing": {
+            "types": "./src/drawing.ts",
+            "development": "./dist-dev/drawing.js",
+            "default": "./dist/drawing.js"
+        },
         "./feedback-types": {
             "types": "./src/feedbackTypes.ts",
             "development": "./dist-dev/feedbackTypes.js",

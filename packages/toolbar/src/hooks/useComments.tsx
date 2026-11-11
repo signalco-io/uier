@@ -1,6 +1,7 @@
 import type { CommentPriority } from '../triage';
 
 import { isFeedbackTypeId } from '../feedbackTypes';
+import { drawingFingerprint } from '../drawing';
 import { useProjectViewer } from '../project/ProjectGate';
 import { useContext, useEffect } from 'react';
 import { QueryClient, UseMutationResult, UseQueryResult, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -8,7 +9,7 @@ import { toolbarConfig } from '../config';
 import { CommentsBootstrapperContext } from '../components/CommentsBootstrapperContext';
 import { CommentActivity, CommentDeviceInfo, CommentItem, CommentItemPosition, CommentItemThreadItem, CommentKind, Mention } from '../components/@types/Comments';
 import { apiImage, apiRequest, commentsQueryKeyPrefix, required, visitorQueryKey, pageVisitorQueryKey, projectViewerQueryKey, CommentsApiError, currentReviewerRevision, activityQueryKey } from './api';
-import { newCommentDraftKey, newRewriteDraftKey, feedbackDraftKey, useDrafts } from './useDrafts';
+import { newCommentDraftKey, newDrawingDraftKey, newRewriteDraftKey, feedbackDraftKey, useDrafts } from './useDrafts';
 import type { Visitor } from './useVisitor';
 import { getGuestName } from '../project/projectSession';
 import { errorKeepsText, getCommentsErrorMessage, usageAction } from '../components/CommentsErrorMessage';
@@ -53,6 +54,8 @@ export type CreateCommentInput = {
     quotedText?: string;
     /** The page check it was posted from (the Accessibility and SEO panels' quick action) */
     check?: import('../feedbackTypes').CommentCheck;
+    /** Shapes drawn on the page (canvas mode), with an area position */
+    drawing?: import('../drawing').CommentDrawing;
     device?: CommentDeviceInfo;
     /** A screenshot of the commented part of the page, a data URL (see src/screenshot.ts); awaited while sending */
     screenshot?: string | Promise<string | undefined>;
@@ -117,7 +120,7 @@ function optimisticComment(path: string, input: CreateCommentInput, authorName: 
     const createdAt = new Date().toISOString();
     const id = input.localId ?? newLocalId();
     return {
-        id, path, position: input.position, kind: input.kind ?? 'comment', feedbackType: input.feedbackType, check: input.check, pending: true,
+        id, path, position: input.position, kind: input.kind ?? 'comment', feedbackType: input.feedbackType, check: input.check, drawing: input.drawing, pending: true,
         thread: { items: [{ id: `${id}-0`, text: input.text, mentions: input.mentions, quotedText: input.quotedText, author: { name: authorName, isMe: true }, createdAt, canDelete: false, canEdit: false, pending: true }] },
         device: input.device && { size: input.device.size, windowSize: input.device.windowSize },
         resolved: false, isMine: true, createdAt,
@@ -169,10 +172,10 @@ function sourcePath(path: string, policy: PageStatePolicy) {
     return source !== path ? source : undefined;
 }
 
-async function createComment(path: string, policy: PageStatePolicy, { idempotencyKey, position, kind, text, mentions, quotedText, check, device, screenshot }: CreateCommentInput) {
+async function createComment(path: string, policy: PageStatePolicy, { idempotencyKey, position, kind, text, mentions, quotedText, check, drawing, device, screenshot }: CreateCommentInput) {
     return required(await apiRequest<CommentItem>(commentsApiUrl, {
         method: 'POST',
-        body: { idempotencyKey, path, sourcePath: sourcePath(path, policy), position, kind, text, mentions, quotedText, check, device: device && await completeDeviceInfo(device), screenshot: await screenshot, authorName: guestAuthorName(), queryKeys: queryKeys(path) }
+        body: { idempotencyKey, path, sourcePath: sourcePath(path, policy), position, kind, text, mentions, quotedText, check, drawing, device: device && await completeDeviceInfo(device), screenshot: await screenshot, authorName: guestAuthorName(), queryKeys: queryKeys(path) }
     }));
 }
 
@@ -318,10 +321,11 @@ export function useComments(refreshOnMount = false): {
 
     const create = useMutation({
         mutationFn: (input: CreateCommentInput) => {
-            const key = input.kind === 'rewrite' ? newRewriteDraftKey : isFeedbackTypeId(input.kind) ? `${feedbackDraftKey}:${input.kind}` : newCommentDraftKey;
-            // The same content is the same attempt (a retry the API can recognize), whatever its local id
-            const { device: _device, screenshot: _screenshot, idempotencyKey: _identity, localId: _local, feedbackType: _type, ...content } = input;
-            return createComment(path, pageState, { ...input, idempotencyKey: drafts.attempt(key, JSON.stringify({ path, ...content })) });
+            const key = input.drawing ? newDrawingDraftKey : input.kind === 'rewrite' ? newRewriteDraftKey : isFeedbackTypeId(input.kind) ? `${feedbackDraftKey}:${input.kind}` : newCommentDraftKey;
+            // The same content is the same attempt (a retry the API can recognize), whatever its local id.
+            // A drawing is in it by its fingerprint: the attempt is kept in the draft's small record.
+            const { device: _device, screenshot: _screenshot, idempotencyKey: _identity, localId: _local, feedbackType: _type, drawing, ...content } = input;
+            return createComment(path, pageState, { ...input, idempotencyKey: drafts.attempt(key, JSON.stringify({ path, ...content, ...(drawing ? { drawing: drawingFingerprint(drawing) } : {}) })) });
         },
         onMutate: (input: CreateCommentInput) => {
             const comment = optimisticComment(path, input, authorName());

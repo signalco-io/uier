@@ -47,6 +47,7 @@ export const de: Messages = {
         accessibility: 'Barrierefreiheit',
         seo: 'SEO',
         about: 'Über uier',
+        draw: 'Auf der Seite zeichnen',
         collapse: 'Leiste einklappen'
     },
     profile: {
@@ -509,6 +510,44 @@ export const de: Messages = {
     selection: {
         label: 'Markierter Text',
         rewrite: 'Umformulieren'
+    },
+    canvas: {
+        panel: 'Zeichenwerkzeuge',
+        surface: 'Zeichnung',
+        surfaceHelp: 'Zeichnen Sie mit einem Zeiger. Mit der Tastatur: Wählen Sie ein Werkzeug und drücken Sie hier die Eingabetaste, um es hinzuzufügen. Mit Tab erreichen Sie die Formen; die Pfeiltasten verschieben eine, Alt und die Pfeiltasten ändern ihre Größe.',
+        started: 'Sie zeichnen auf der Seite. Wählen Sie ein Werkzeug, zeichnen Sie, dann Kommentieren.',
+        tools: { select: 'Auswählen', pen: 'Stift', marker: 'Textmarker', brush: 'Pinsel', line: 'Linie', arrow: 'Pfeil', rectangle: 'Rechteck', ellipse: 'Ellipse', diamond: 'Raute', text: 'Textnotiz', blur: 'Unschärfe', eraser: 'Radierer' },
+        shapes: { pen: 'Stiftlinie', marker: 'Markerlinie', brush: 'Pinsellinie', line: 'Linie', arrow: 'Pfeil', rectangle: 'Rechteck', ellipse: 'Ellipse', diamond: 'Raute', text: 'Textnotiz', blur: 'Unscharfer Bereich' },
+        /** A shape in the drawing, by its place: "Rectangle 2" */
+        shape: (name: string, number: number) => `${name} ${number}`,
+        style: 'Stil',
+        color: 'Farbe',
+        background: 'Hintergrund',
+        none: 'Keiner',
+        fill: 'Hintergrundfüllung',
+        fills: { semi: 'Durchscheinend', solid: 'Deckend' },
+        outline: 'Kontur',
+        outlines: { solid: 'Durchgehend', dashed: 'Gestrichelt', dotted: 'Gepunktet' },
+        width: 'Stärke',
+        widths: { s: 'Dünn', m: 'Mittel', l: 'Kräftig', xl: 'Sehr kräftig' },
+        edges: 'Kanten',
+        edgeStyles: { clean: 'Exakt', sketchy: 'Skizziert' },
+        colors: { ink: 'Tinte', white: 'Weiß', red: 'Rot', amber: 'Bernstein', green: 'Grün', blue: 'Blau', violet: 'Violett' },
+        undo: 'Rückgängig',
+        redo: 'Wiederholen',
+        deleteShape: 'Form löschen',
+        discard: 'Verwerfen',
+        comment: 'Kommentieren',
+        textNote: 'Textnotiz',
+        added: (name: string) => `${name} hinzugefügt`,
+        deleted: (name: string) => `${name} gelöscht`,
+        undone: 'Rückgängig gemacht',
+        redone: 'Wiederholt',
+        discarded: 'Zeichnung verworfen',
+        full: 'Die Zeichnung ist voll. Entfernen Sie eine Form, um eine weitere hinzuzufügen.',
+        tooLarge: 'Diese Zeichnung ist zu groß zum Speichern. Entfernen Sie einige Formen.',
+        pointerOnly: 'Dieses Werkzeug zeichnet mit einem Zeiger. Wählen Sie ein anderes Werkzeug, um eine Form mit der Tastatur hinzuzufügen.',
+        editDrawing: 'Zeichnung bearbeiten'
     },
     hint: {
         title: 'Probieren Sie uier auf dieser Seite aus',

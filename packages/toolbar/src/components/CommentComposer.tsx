@@ -95,6 +95,8 @@ type CommentComposerProps = {
     onSubmit: (text: string, mentions?: Mention[]) => Promise<unknown>;
     /** Shows a "Discard" button while there is text (new comments) */
     onDiscard?: () => void;
+    /** Discard shows without text too (a drawing's comment: the drawing is something to discard) */
+    discardable?: boolean;
 };
 
 /**
@@ -102,7 +104,7 @@ type CommentComposerProps = {
  * textarea styled like the kit's `Input` (bordered, radius 8, blue focus ring).
  * Enter sends, Shift+Enter adds a new line.
  */
-export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, holdSubmit = false, waiting = false, attachments, beforeText, tall = false, error, onSubmit, onDiscard, initialText, initialMentions, commentId, onCancel }: CommentComposerProps) {
+export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, holdSubmit = false, waiting = false, attachments, beforeText, tall = false, error, onSubmit, onDiscard, discardable = false, initialText, initialMentions, commentId, onCancel }: CommentComposerProps) {
     const formRef = useRef<HTMLFormElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const inputId = useId();
@@ -394,7 +396,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                     </Row>
                     <Row spacing={0.5} className="shrink-0">
                         {onCancel && <Button variant="plain" size="xs" type="button" disabled={busy} onClick={onCancel}>{t.common.cancel}</Button>}
-                        {!onCancel && text.length > 0 && (
+                        {!onCancel && (text.length > 0 || (discardable && onDiscard)) && (
                             <IconTooltip label={t.composer.discard}><IconButton
                                 variant="plain"
                                 size="xs"

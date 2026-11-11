@@ -281,7 +281,8 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
     const store = getCommentsStore();
     const subject = rateLimitSubject(context);
     const attempt = submission(context.domain, subject.authorId, input.idempotencyKey, {
-        operation: 'create', path: input.path, position: input.position, kind: input.kind, text: input.text, quotedText: input.quotedText
+        operation: 'create', path: input.path, position: input.position, kind: input.kind, text: input.text, quotedText: input.quotedText,
+        ...(input.drawing ? { drawing: input.drawing } : {})
     });
     const recovered = await recoverSubmission(store, attempt);
     if (recovered) return toDto(recovered, context);
@@ -312,6 +313,7 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
         kind: input.kind,
         ...(feedbackType ? { feedbackType } : {}),
         ...(input.check ? { check: input.check } : {}),
+        ...(input.drawing ? { drawing: input.drawing } : {}),
         thread: { items: [firstItem] },
         device: compactDevice(input.device),
         resolved: false,

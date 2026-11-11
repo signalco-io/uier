@@ -10,6 +10,9 @@ work should reuse it. Coverage lives in `e2e/feedback-context{,.api}.spec.ts`.
 The formatter renders inline values (including titles and names) as literal code spans, suppressing
 tracker autolinks/mentions without changing the structured context. Only approved explicit links
 remain clickable.
+A comment's drawing ([canvas mode](../../../packages/toolbar/docs/canvas-mode.md)) is projected from the
+filtered DTO (`feedbackDrawing`) only when the feedback itself is available; deleted evidence drops it with the
+anchor details.
 Exports of uier's own feedback include `identity.projectId` (`uier00000001` or `uier00000002`), derived from the resolved
 partition even for legacy records. Isolated local host partitions have no project id. Never infer
 the owning project from the reviewed page path: `/app/projects/<id>` feedback belongs to uier.

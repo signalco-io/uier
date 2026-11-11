@@ -518,7 +518,7 @@ network result. Image revisions prevent stale replacements. These actions count 
 image budget. They cannot erase copies someone already downloaded.
 
 It is sent with `POST /api/comments` (or the review API) as `screenshot`, a data URL; the body of a new comment
-may then be up to about 700 KB. The server checks the image type and header dimensions, then decodes
+may then be up to about 700 KB (about 800 KB with a [drawing](../packages/toolbar/docs/canvas-mode.md)). The server checks the image type and header dimensions, then decodes
 with a 4096² pixel limit and re-encodes only the first frame without metadata or trailing bytes.
 Undecodable images are rejected. Newly encoded PNG, JPEG or WebP output must stay within 512 KB
 and 4096 px on a side; an oversized PNG is retried as WebP. Binary bytes live in private Azure Blob Storage,

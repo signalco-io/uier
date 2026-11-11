@@ -162,6 +162,7 @@ const messages = {
     "Direct projects": "Direct projects",
     "Done": "Done",
     "Done projects": "Done projects",
+    "Drawing on the page": "Drawing on the page",
     "Each page takes up to": "Each page takes up to",
     "Each person is saved separately. Review lost and retained access across every affected project. Direct grants stay. No invitation is sent.": "Each person is saved separately. Review lost and retained access across every affected project. Direct grants stay. No invitation is sent.",
     "Each project lists up to its 1,000 most recent threads here.": "Each project lists up to its 1,000 most recent threads here.",

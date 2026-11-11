@@ -14,8 +14,13 @@ export const MAX_BODY_BYTES = 16 * 1024;
  */
 import { MAX_SCREENSHOT_BYTES } from '@uier/toolbar/screenshot-policy';
 export { MAX_SCREENSHOT_BYTES, MAX_SCREENSHOT_DIMENSION } from '@uier/toolbar/screenshot-policy';
-/** Body of a new comment with a screenshot: the comment, and the screenshot as a base64 data URL */
+/** Body of a new comment or reply with a screenshot: the comment, and the screenshot as a base64 data URL */
 export const MAX_COMMENT_BODY_BYTES = MAX_BODY_BYTES + Math.ceil(MAX_SCREENSHOT_BYTES / 3) * 4 + 64;
+/** A comment's drawing (canvas mode) as JSON: its characters, up to three bytes each in UTF-8 */
+import { drawingLimits } from '@uier/toolbar/drawing';
+export const MAX_DRAWING_BYTES = drawingLimits.length * 3;
+/** Body of a new comment: a screenshot and a drawing (a reply has no drawing) */
+export const MAX_NEW_COMMENT_BODY_BYTES = MAX_COMMENT_BODY_BYTES + MAX_DRAWING_BYTES;
 
 /** Validation limits */
 export const MAX_TEXT_LENGTH = 1000;
