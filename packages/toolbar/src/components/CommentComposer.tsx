@@ -8,7 +8,7 @@ import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Input } from '@signalco/ui-primitives/Input';
 import { cx } from '@signalco/ui-primitives/cx';
-import { Send } from '@signalco/ui-icons';
+import { Close, Send } from '@signalco/ui-icons';
 import { useParticipants, type Participant } from '../hooks/useParticipants';
 import { mentionQuery, moveMentions } from '../mentions';
 import type { Mention } from './@types/Comments';
@@ -405,14 +405,16 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                     <Row spacing={0.5} className="shrink-0">
                         {onCancel && <Button variant="plain" size="xs" type="button" disabled={busy} onClick={onCancel}>{t.common.cancel}</Button>}
                         {!onCancel && text.length > 0 && (
-                            <Button
+                            <IconTooltip label={t.composer.discard}><IconButton
                                 variant="plain"
                                 size="xs"
                                 type="button"
+                                className="size-7 rounded-md pointer-coarse:size-11"
+                                aria-label={t.composer.discard}
                                 disabled={busy}
                                 onClick={handleDiscard}>
-                                {t.composer.discard}
-                            </Button>
+                                <Close size={14} />
+                            </IconButton></IconTooltip>
                         )}
                         {onCancel ? (
                             <Button type="submit" variant="plain" size="xs" className="pointer-coarse:min-h-11" disabled={!trimmedText.length || busy || holdSubmit}>{submitLabel}</Button>
