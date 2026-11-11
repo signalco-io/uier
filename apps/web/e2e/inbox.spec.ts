@@ -5,6 +5,7 @@ import {
     animationsFinished,
     chooseInboxPages,
     inboxPages,
+    inboxSearch,
     inboxPageOptions,
     isolatedOrigin,
     newVisitor,
@@ -39,7 +40,7 @@ test('bulk inbox read follows listed pages/search/status and retries the rendere
         await expect(inbox).toHaveAccessibleName('Inbox, 3 unread threads');
         await inbox.click();
         const sidebar = reader.page.getByRole('complementary', { name: 'Comments' });
-        await sidebar.getByRole('searchbox', { name: 'Search comments' }).fill('Selected');
+        await (await inboxSearch(sidebar)).fill('Selected');
         await expect(sidebar.getByRole('article')).toHaveCount(1);
         expect((await inboxPages(reader.page).boundingBox())!.width).toBeGreaterThanOrEqual(144);
         for (const colorScheme of ['light', 'dark'] as const) {
@@ -75,7 +76,7 @@ test('bulk inbox read follows listed pages/search/status and retries the rendere
         await expect(inbox).toHaveAccessibleName('Inbox, 1 unread thread');
         await sidebar.getByRole('button', { name: '1 unread', exact: true }).click();
         await expect(sidebar.getByRole('article')).toHaveCount(0); // Search still applies.
-        await sidebar.getByRole('searchbox', { name: 'Search comments' }).fill('');
+        await (await inboxSearch(sidebar)).fill('');
         await expect(sidebar.getByRole('article')).toHaveCount(1);
         await sidebar.getByRole('button', { name: 'Mark all as read', exact: true }).click();
         await expect(inbox).toHaveAccessibleName('Inbox');
@@ -254,7 +255,7 @@ test('inbox: this page by default, other pages from the picker, searched and fil
     }
 
     // Search on this page: "/security" is only in another page's path, which the empty list offers
-    const search = sidebar.getByRole('searchbox', { name: 'Search comments' });
+    const search = await inboxSearch(sidebar);
     await search.fill('/security');
     await expect(thisPage).toContainText('No matches on this page');
     await thisPage.getByRole('button', { name: 'Show 1 on other pages' }).click();

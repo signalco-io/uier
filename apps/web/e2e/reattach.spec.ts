@@ -1,6 +1,6 @@
 import type { CommentItem } from '../../../packages/toolbar/src/components/@types/Comments';
 import { expect, test } from '@playwright/test';
-import { isolatedOrigin, newVisitor, openLanding, selectText } from './support/toolbar';
+import { inboxSearch, isolatedOrigin, newVisitor, openLanding, selectText } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 import { pngImage } from './support/images';
 
@@ -26,7 +26,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
             await inbox.getByRole('button', { name: /^More options for (your|this) comment$/ }).click();
             await page.getByRole('dialog', { name: 'Comment options' }).getByRole('button', { name: 'Reattach comment', exact: true }).click();
         };
-        await inbox.getByRole('searchbox', { name: 'Search comments' }).fill('Recover this');
+        await (await inboxSearch(inbox)).fill('Recover this');
         await expect(inbox.getByText('Target is missing from this page.')).toBeVisible();
         await inbox.getByRole('button', { name: 'Move comments panel' }).focus();
         await page.keyboard.press('ArrowLeft');

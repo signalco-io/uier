@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
-import { addToolbarScript, isolatedOrigin, newVisitor, animationsFinished, commentBubbles, inboxPages, openThread, toolbar } from './support/toolbar';
+import { addToolbarScript, inboxSearch, isolatedOrigin, newVisitor, animationsFinished, commentBubbles, inboxPages, openThread, toolbar } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 import { startReviewedSite } from './support/reviewedSite';
 import { allCommentRowLinks, commentRowLink, commentRows, createProject, inBackground, openComment, setProjectAccess, signIn, uniqueEmail } from './support/app';
@@ -410,7 +410,7 @@ test('app bulk read follows environment, page and people filters in list and boa
         await inbox(page).click();
         const reviewInbox = page.getByRole('complementary', { name: 'Comments' });
         await reviewInbox.getByRole('button', { name: 'Assigned to me', exact: true }).click();
-        await reviewInbox.getByRole('searchbox', { name: 'Search comments' }).fill('Selected');
+        await (await inboxSearch(reviewInbox)).fill('Selected');
         await expect(reviewInbox.getByRole('article')).toHaveCount(1);
         await reviewInbox.getByRole('button', { name: 'Mark all as read', exact: true }).click();
         // The toolbar defaults to all environments, so the staging thread counts here too.
@@ -595,7 +595,7 @@ for (const mode of ['showcase', 'project'] as const) {
             await foreground(reviewer.page);
             await expect.poll(() => counts.activity).toBe(initial + 1);
             await counter.settle();
-            const search = reviewer.page.getByRole('searchbox', { name: 'Search comments' });
+            const search = reviewer.page.getByRole('complementary', { name: 'Comments' }).getByRole('button', { name: 'Search comments', exact: true });
             const sample = async (interact = false) => {
                 const start = { ...counts };
                 for (let i = 0; i < 8; i++) {
