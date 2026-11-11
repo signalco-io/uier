@@ -35,6 +35,10 @@ activity and both read routes share `comments/visibility.ts`, including legacy `
 without a private flag. Migration marks copied `/app` threads private. Guest comments are not
 automatically reassigned on sign-in.
 
+The app's workspace menu does not list the public workspace for commenters (uier #257): they reach
+their sent feedback from Give feedback's toolbar. The app opens it for them only from a saved workspace
+selection (a cookie), where the menu lists it as current with their own workspaces.
+
 The app's on-demand feedback toolbar keeps its host and pill across client navigation, including
 Account sections. Its page-specific composers reset while saved drafts remain scoped to their
 original page. See [client navigation continuity](app-shell.md#client-navigation-continuity).

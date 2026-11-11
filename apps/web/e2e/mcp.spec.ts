@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { test, expect } from '@playwright/test';
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
-import { signIn, uniqueEmail, createProject, appNavigation, closeAppNavigation } from './support/app';
+import { signIn, uniqueEmail, createProject, appNavigation, openFeedbackWorkspace, closeAppNavigation } from './support/app';
 import { USER_FEEDBACK_PROJECT_ID } from '../src/lib/comments/publicProject';
 import { expectNoAxeViolations } from './accessibility';
 
@@ -148,9 +148,8 @@ test('feedback on a customer project page exports its uier owner and needs a gra
         expect(wrong.isError).toBe(true);
     } finally { await customer.close(); }
 
+    await openFeedbackWorkspace(page);
     await appNavigation(page);
-    await page.getByRole('button', { name: /^Workspace:/ }).click();
-    await page.getByRole('menuitem', { name: /^Feedback on uier/ }).click();
     await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io user feedback', exact: true }))
         .toHaveAttribute('href', `/app/projects/${USER_FEEDBACK_PROJECT_ID}`);
     await closeAppNavigation(page);

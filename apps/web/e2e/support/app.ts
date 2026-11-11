@@ -160,6 +160,15 @@ export async function appNavigation(page: Page) {
     return navigation;
 }
 
+/**
+ * Opens uier's own workspace, where every account sends feedback on the app. The workspace menu leaves it out for
+ * people who are not uier staff (uier #257), so this selects it as a saved selection would and opens the projects.
+ */
+export async function openFeedbackWorkspace(page: Page) {
+    await page.context().addCookies([{ name: 'uier_workspace', value: 'w_uier_public', url: new URL('/', page.url()).href }]);
+    await page.goto('/app/projects');
+}
+
 /** Closes the sidebar sheet on small screens (links close it themselves) and waits until it is gone */
 export async function closeAppNavigation(page: Page) {
     const sheet = sidebarSheet(page);

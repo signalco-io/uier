@@ -3,7 +3,7 @@ import { seedEmailBounce } from './support/emailReports';
 import { expect, test } from '@playwright/test';
 import { extensionRelease, firefoxExtensionRelease } from '../src/lib/extension/release';
 import { expectNoAxeViolations } from './accessibility';
-import { projectPublicId, appNavigation, closeAppNavigation, createProject, hydrated, openEmailSignIn, openProjectInvite, requestSignInEmail, setProjectAccess, signIn, uniqueEmail, backToComments, commentRowLink, inBackground, openComment, openCommentFilters } from './support/app';
+import { projectPublicId, appNavigation, openFeedbackWorkspace, closeAppNavigation, createProject, hydrated, openEmailSignIn, openProjectInvite, requestSignInEmail, setProjectAccess, signIn, uniqueEmail, backToComments, commentRowLink, inBackground, openComment, openCommentFilters } from './support/app';
 import { pngImage } from './support/images';
 import { animationsFinished, newVisitor, showcaseHint, toolbar } from './support/toolbar';
 
@@ -618,23 +618,34 @@ test('admins rename the workspace from its menu; commenters have no workspace se
     await expect(page.getByLabel('Workspace name')).toHaveValue('Acme studio');
 
     // The menu always lists the current workspace, checked, also when it is the only one (uier #257).
-    // Everyone joins uier's workspace to send feedback on the app: the menu keeps it apart from their own
-    // workspaces, under its own name. There it has no settings link, and the page is not there.
+    // Everyone joins uier's workspace to send feedback on the app; the menu leaves it out (uier #257).
     await appNavigation(page);
     await page.getByRole('button', { name: /^Workspace:/ }).click();
     await expect(page.getByRole('menuitem', { name: /Acme studio.*Admin.*current/ })).toBeVisible();
-    await page.getByRole('menuitem', { name: /^Feedback on uier/ }).click();
-    await expect(page).toHaveURL(/\/app\/projects$/);
+    await expect(page.getByRole('menuitem', { name: /^Feedback on uier/ })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    // A saved selection can still have the person in it: listed then, checked, with their own workspace to
+    // switch back to. There it has no settings link, and the page is not there.
+    await openFeedbackWorkspace(page);
     const commenterNavigation = await appNavigation(page);
     await expect(commenterNavigation.getByRole('link', { name: 'Workspace', exact: true })).toHaveCount(0);
     await page.getByRole('button', { name: /^Workspace:/ }).click();
-    await expect(page.getByRole('menuitem', { name: /Acme studio.*Admin/ })).toBeVisible();
     await expect(page.getByRole('menuitem', { name: /^Feedback on uier.*current/ })).toBeVisible();
     await expect(page.getByRole('menuitem', { name: 'Workspace settings' })).toHaveCount(0);
     await page.keyboard.press('Escape');
     // The old address of the settings goes to the area, which sends commenters to the projects
     await page.goto('/app/settings');
     await expect(page).toHaveURL(/\/app\/projects$/);
+    await appNavigation(page);
+    await page.getByRole('button', { name: /^Workspace:/ }).click();
+    await page.getByRole('menuitem', { name: /Acme studio.*Admin/ }).click();
+    // Back in their own workspace, with its settings again (on small screens the sheet closes on the way)
+    await expect(async () => {
+        const navigation = await appNavigation(page);
+        await expect(page.getByRole('button', { name: /^Workspace:/ })).toContainText('Acme studio', { timeout: 1000 });
+        await expect(navigation.getByRole('link', { name: 'Workspace', exact: true })).toBeVisible({ timeout: 1000 });
+    }).toPass();
+    await closeAppNavigation(page);
 });
 
 test('anyone creates a workspace from its menu and lands on its first project', async ({ page }) => {
@@ -731,12 +742,9 @@ test('feedback on the app opens uier\'s toolbar and stays private', async ({ pag
     await giveFeedback.click();
     await expect(dialog).toBeVisible();
 
-    // All app users can switch to uier's user feedback project as commenters, and see their
-    // own feedback under the same identity used by the toolbar. A second account cannot see it.
-    await page.goto('/app/projects');
-    await appNavigation(page);
-    await page.getByRole('button', { name: /^Workspace:/ }).click();
-    await page.getByRole('menuitem', { name: /^Feedback on uier/ }).click();
+    // All app users are commenters in uier's user feedback project, and see their own feedback
+    // under the same identity used by the toolbar. A second account cannot see it.
+    await openFeedbackWorkspace(page);
     await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io user feedback' }))
         .toHaveAttribute('href', '/app/projects/uier00000002');
     await page.goto('/app/projects/uier00000002');
@@ -965,9 +973,7 @@ test('staff moderate public feedback with opaque author filters, single-reply de
     const commenter = await newVisitor(browser, testInfo);
     try {
         await signIn(commenter.page, uniqueEmail('no-author-filter'), { from: new URL('/app/sign-in', page.url()).href });
-        await appNavigation(commenter.page);
-        await commenter.page.getByRole('button', { name: /^Workspace:/ }).click();
-        await commenter.page.getByRole('menuitem', { name: /^Feedback on uier/ }).click();
+        await openFeedbackWorkspace(commenter.page);
         // Accounts see their own feedback in the user feedback project; the guests' public project is staff only
         const projects = commenter.page.getByRole('list', { name: 'Active projects' });
         await expect(projects.getByRole('link', { name: 'uier.io user feedback', exact: true })).toBeVisible();

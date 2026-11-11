@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { appNavigation, createProject, projectPublicId, setProjectAccess, signIn, uniqueEmail, commentRowLink } from './support/app';
+import { appNavigation, openFeedbackWorkspace, createProject, projectPublicId, setProjectAccess, signIn, uniqueEmail, commentRowLink } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
@@ -48,9 +48,8 @@ test('public ids work in embeds, guest writes, verification and member review re
 test('the predictable showcase id cannot be used as a public review code', async ({ page }) => {
     await signIn(page, uniqueEmail('showcase-public-id'));
     await page.goto('/app/projects');
+    await openFeedbackWorkspace(page);
     await appNavigation(page);
-    await page.getByRole('button', { name: /^Workspace:/ }).click();
-    await page.getByRole('menuitem', { name: /^Feedback on uier/ }).click();
     // An account's feedback project; the guests' public one (uier00000001) is staff only
     await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'uier.io user feedback' })).toBeVisible();
     await page.goto('/app/projects/uier00000002/install');
