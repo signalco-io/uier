@@ -9,8 +9,10 @@
 - The comments' filter bar (`CommentFilters.tsx`): search on the left, then at the right end of that row the filters in
   effect, one Filter button (a popover with Priority, Environment
   and page, People (Everyone, Assigned to me, Unassigned, Opened by me) and Only unread (plus the open thread); its badge counts the
-  filters in effect) and List/Board, then the status tabs
-  (list only, `StatusTabs`: Active, Done and All, with counts. Active, the default with no `?status=`, is every status
+  filters in effect) and List/Board (on a touch screen the search, Filter and the List/Board group are one height, 44 px:
+  the group's 3 px padding around 38 px tabs; uier #277), then the status tabs
+  (list only, `StatusTabs`: Active, Done and All, with counts; on a phone, below `sm`, the group fills the width and
+  the tabs share the room, uier #278. Active, the default with no `?status=`, is every status
   but Done; `statusMatches` in `commentLabels.ts`). Open, In progress and Ready to verify fold under Active
   (`activeStatusFilters`) to keep the tabs narrow: the "Active statuses" button beside the Active tab (24px wide, the WCAG 2.5.8 minimum; wider on touch) opens a menu of
   Active and the three, each with its count, and a choice closes it. The Active tab then names the choice ("Active: In
