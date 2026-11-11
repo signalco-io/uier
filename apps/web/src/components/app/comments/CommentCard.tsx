@@ -313,7 +313,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
         : t("{value0}{value1} · Original source unavailable", { value0: source.label, value1: source.origin && source.origin !== source.label ? ` · ${source.origin}` : '' });
 
 
-    const run = (action: () => Promise<ActionState>, success?: string, patch?: Partial<ProjectCommentView>) => startTransition(async () => {
+    const run = (action: () => Promise<ActionState>, success?: string, patch?: Partial<ProjectCommentView>, done?: () => void) => startTransition(async () => {
         if (patch) updateComment({ id: comment.id, patch });
         let result: ActionState;
         try { result = await action(); }
@@ -324,6 +324,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
         }
         if (success)
             toast.success(success);
+        done?.();
         // The server action already revalidates this page and returns its fresh snapshot.
     });
 
@@ -691,7 +692,9 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                             const itemId = confirmingReply;
                             setConfirmingDelete(false);
                             setConfirmingReply(undefined);
-                            run(() => itemId ? deleteCommentReplyAction(projectId, comment.id, itemId) : deleteCommentAction(projectId, comment.id), itemId ? t("Reply deleted.") : t("Comment deleted."));
+                            run(() => itemId ? deleteCommentReplyAction(projectId, comment.id, itemId) : deleteCommentAction(projectId, comment.id), itemId ? t("Reply deleted.") : t("Comment deleted."),
+                                // A deleted thread is gone from every list, My work's board too (it keeps threads changed there)
+                                undefined, itemId ? undefined : () => startTransition(() => updateComment({ id: comment.id, removed: true })));
                         }}>
                             {t("Delete")}
                         </AlertDialogAction>

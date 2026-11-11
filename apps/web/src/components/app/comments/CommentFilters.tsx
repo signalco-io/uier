@@ -5,7 +5,7 @@ import { useAppI18n } from '@/src/lib/i18n/client';
 import { priorities, priorityLabels, MAX_FEEDBACK_SEARCH, type CommentPriority } from '@uier/toolbar/triage';
 import { Fragment, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { ChevronDownIcon, KanbanIcon, ListFilterIcon, ListIcon, SearchIcon, UserIcon, XIcon } from 'lucide-react';
+import { ChevronDownIcon, ListFilterIcon, SearchIcon, UserIcon, XIcon } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { setUrlSearchParams, urlWith } from '@/src/hooks/use-url-search-params';
 import { Badge } from '@/src/components/ui/badge';
@@ -26,10 +26,8 @@ import { PriorityFlag } from './PriorityFlag';
 import { StateDot } from './CommentStatus';
 import { useKeyShortcutLabel } from '../keyboard/keys';
 import { rememberCommentsView } from './commentsView';
+import { CommentsViewToggle, segmentedGroup, segmentedItem } from './CommentsViewToggle';
 
-/** Tab-like toggles, as `LinkTabs`' segmented filter (the projects list's Active and Done) */
-const segmentedGroup = 'gap-0.5 rounded-lg bg-muted p-[3px]';
-const segmentedItem = 'h-[26px] min-w-[26px] shrink-0 rounded-md px-2.5 text-muted-foreground hover:bg-transparent hover:text-foreground data-pressed:bg-background data-pressed:text-foreground data-pressed:shadow-sm pointer-coarse:min-h-11';
 /** A status tab grows into the room a full-width group has on a phone */
 const statusTab = 'grow sm:grow-0';
 
@@ -187,26 +185,12 @@ export function CommentFilters({ className, unread, unreadCount, view, status, s
                         </FieldGroup>
                     </PopoverContent>
                 </Popover>
-                {/* Icon-only tabs; the tooltip and the accessible name say which. On a touch screen the group, not each tab,
-                    takes the 44 px of the search and Filter beside it (its 3 px padding around 38 px tabs; uier #277) */}
-                <ToggleGroup size="sm" spacing={0.5} aria-label={t("View")} className={cn(segmentedGroup, 'shrink-0')} value={[view]}
-                    // A new layout starts with no thread open (the board would open it in a sheet over itself). The choice is
-                    // remembered as the default and kept in the address, list too, so it wins over the remembered one there
-                    onValueChange={([value]) => {
-                        if (!value) return;
-                        const next = value === 'board' ? 'board' : 'list';
-                        rememberCommentsView(next);
-                        go({ view: next, comment: undefined, ...(status === 'archived' ? { status: undefined } : {}) });
-                    }}>
-                    {([['list', t("List"), ListIcon], ['board', t("Board"), KanbanIcon]] as const).map(([value, label, Icon]) => (
-                        <Tooltip key={value}>
-                            <TooltipTrigger render={<ToggleGroupItem value={value} aria-label={t(label)} className={cn(segmentedItem, 'px-0 pointer-coarse:min-h-[38px] pointer-coarse:min-w-11')} />}>
-                                <Icon />
-                            </TooltipTrigger>
-                            <TooltipContent>{t(label)}</TooltipContent>
-                        </Tooltip>
-                    ))}
-                </ToggleGroup>
+                {/* A new layout starts with no thread open (the board would open it in a sheet over itself). The choice is
+                    remembered as the default and kept in the address, list too, so it wins over the remembered one there */}
+                <CommentsViewToggle view={view} onChange={next => {
+                    rememberCommentsView(next);
+                    go({ view: next, comment: undefined, ...(status === 'archived' ? { status: undefined } : {}) });
+                }} />
             </div>
             {/* Active (the default, every status but Done), Done, All and Archive; the board shows the statuses side by side,
                 with Archive as its last column.

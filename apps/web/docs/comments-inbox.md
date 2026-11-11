@@ -69,7 +69,7 @@ rows with the status filter it waits for their entrance motion to settle before 
   dragging, `data-empty-column`) fills the room below the column's name and sits in its middle. A card opens its thread in a sheet over the board; the sheet scrolls the thread, which keeps its full height there (`shrink-0`: the card clips, so as the sheet's flex item it would shrink to the sheet and hide everything below the fold, [uier #201](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_UlwxhOaVoQ87SKArMx3B-); `e2e/comment-board.spec.ts` scrolls a long thread on a short window). Switching List/Board
   closes the open thread. The choice (the toggle, or G then I or B) is kept in the address, `?view=list` too, and
   remembered in this browser for every project (`commentsView.ts`, `localStorage`; blocked storage only loses the
-  memory). With no view in the address the remembered one opens and is written there in a layout effect: a page reached
+  memory; My work remembers its own, [app shell](app-shell.md)). With no view in the address the remembered one opens and is written there in a layout effect: a page reached
   in the app paints in it, a full load shows the server's list for a moment. A view in the address wins and is not
   remembered ([uier #291](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_d_oxAs9XP_GuQOZ0l9NND); `e2e/comment-board.spec.ts`). Cards move between columns with `@dnd-kit/core`: the whole card drags (its link shows
   the grab cursor; its selection box and Move keep their presses, as Base UI opens a menu on press), with the
@@ -279,6 +279,14 @@ header from the section's `data-board-archive` (`--board-width-collapsed` / `--b
 
 The Board stays directly imported by `ProjectComments`, so direct Board visits hydrate its
 keyboard controls with the rest of the view.
+
+### My work's board
+
+`CommentBoard` takes each card's project (`projectOf`: id, name, people to assign) instead of one project id, and
+`archive` is optional. A project's board passes its own project for every card; My work (`MyWorkBoard`, [uier #294](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fmy-work&comment=comment_UFce1oOdSATj5MRS9lRNt))
+passes each thread's, so the card names its project, a move is saved in that project with the thread's own permissions,
+and the sheet opens the thread with that project's people. My work has no Archive column and no sort menus. The List/Board
+toggle is one component (`CommentsViewToggle`) in both places. See [app shell](app-shell.md) for what My work's board shows.
 
 ## App language
 
