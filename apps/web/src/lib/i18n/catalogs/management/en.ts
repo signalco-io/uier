@@ -555,7 +555,6 @@ const messages = {
     "This version includes an integrity check. It gets fixes only when you update the snippet. Pinned production bundles work with the review API for one year after their last release as the current version.": "This version includes an integrity check. It gets fixes only when you update the snippet. Pinned production bundles work with the review API for one year after their last release as the current version.",
     "Thread titles": "Thread titles",
     "Threads assigned to you, threads that mention you and unread activity show here.": "Threads assigned to you, threads that mention you and unread activity show here.",
-    "Threads that need you in {value0}: assigned to you, mentioning you, or with activity you have not read.": "Threads that need you in {value0}: assigned to you, mentioning you, or with activity you have not read.",
     "Through the team {value0}": "Through the team {value0}",
     "To add": "To add",
     "Tone, preferred terms and writing style for AI copy suggestions. Only admins can see or change these settings.": "Tone, preferred terms and writing style for AI copy suggestions. Only admins can see or change these settings.",

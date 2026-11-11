@@ -556,7 +556,6 @@ const messages: Record<keyof typeof en, string> = {
     "This version includes an integrity check. It gets fixes only when you update the snippet. Pinned production bundles work with the review API for one year after their last release as the current version.": "Ova verzija uključuje provjeru integriteta. Dobiva popravke samo kada ažurirate isječak. Prikvačeni proizvodni paketi rade s API-jem za pregled godinu dana nakon posljednjeg izdanja kao trenutne verzije.",
     "Thread titles": "Naslovi rasprave",
     "Threads assigned to you, threads that mention you and unread activity show here.": "Ovdje se prikazuju rasprave koje su vam dodijeljene, rasprave koje vas spominju i nepročitane aktivnosti.",
-    "Threads that need you in {value0}: assigned to you, mentioning you, or with activity you have not read.": "Teme koje vas trebaju u {value0}: dodijeljene vama, spominju vas ili s aktivnostima koje niste pročitali.",
     "Through the team {value0}": "Kroz tim {value0}",
     "To add": "Za dodavanje",
     "Tone, preferred terms and writing style for AI copy suggestions. Only admins can see or change these settings.": "Ton, poželjni izrazi i stil pisanja za AI prijedloge teksta. Samo administratori mogu vidjeti ili promijeniti ove postavke.",
