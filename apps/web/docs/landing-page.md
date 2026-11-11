@@ -2,7 +2,9 @@
 
 Copy and structure follow `BRAND.md`, "Marketing and metadata": the tagline is the `h1`, the
 review layer is shown with persisted starter threads (the toolbar renders their pins and highlights), one solid
-"Get started" and one outlined secondary action, no badges above the headline. The cover beside the
+"Get started" and one outlined secondary action ("See features", to `#features`), no badges above the headline.
+The secondary action and the header's links go to sections lower on the page: a link to `#how-it-works` from
+the top of the page moves nothing on wide screens, where the scene is already in view, and reads as a bug. The cover beside the
 headline is the how-it-works scene (`HowItWorks`), and the description stays a direct child of the
 hero's first column (tests select it as `main>section>div>p`). "Try it on this page" points visitors
 to the real toolbar; it does not embed a thread.
@@ -10,8 +12,8 @@ to the real toolbar; it does not embed a thread.
 Sections, in order, each with an `h2` whose id has a `KnownPages` route:
 how it works (`#how-it-works`, the small heading over the cover scene), features (`#features`), get
 started (`#get-started`), pricing (`#pricing`, `LandingPricing`) and questions (`#faq`,
-`LandingFaq`, native `<details>`). The header navigation links how it works, features and FAQ, not
-pricing; the footer links pricing too. The site header is fixed and 64px tall: the marketing layout sets
+`LandingFaq`, native `<details>`). The header navigation links features, compare and FAQ, not
+how it works or pricing; the footer links both. The site header is fixed and 64px tall: the marketing layout sets
 `scroll-padding-top` on the document (80px), so every in-page link on the marketing pages, followed from
 the header or footer, or opened directly (`/#pricing`), lands with its heading below the header. Don't add
 `scroll-margin-top` to anchored sections or headings; it adds to the padding. Next.js scrolls to the hash
@@ -38,7 +40,10 @@ itself, so the global `:target` margin does not apply there and the layout turns
   `CommentFilters`). Recheck the pictures when one of those changes; the component comments name what each copies.
 - **Feature tiles alternate wide and narrow** (wide, narrow, narrow, wide, ...): at `lg` each row is one wide and
   one narrow tile, at `md` the narrow ones pair up and the wide ones take a row, so neither width leaves a gap.
-  "And the details" spans the full width under them. Add or remove tiles in pairs that keep the pattern.
+  Add or remove tiles in pairs that keep the pattern.
+- **"And the details"** follows the tiles: an `h3` over a `Panel` of six cells (icon, title, one sentence), three
+  columns at `lg` and two at `md`. Keep it to six, the strongest things the tiles do not show; swap one out
+  rather than add a seventh.
 - **Compare workflows** links from below the feature panel to `/compare`. Keep it a contextual
   link for people choosing a tool; the comparison hub carries the feature matrices and tradeoffs.
 - **One section moves.** The how-it-works scene is a timeline of phases (`phases` in

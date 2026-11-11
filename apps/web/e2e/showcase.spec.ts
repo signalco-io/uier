@@ -482,7 +482,7 @@ test('point comments: instructions, keyboard path, kept drafts', async ({ browse
     await expect(instruction).toHaveCount(0);
 
     // Keyboard: focus a page element, then Add comment pins the comment to it
-    await page.getByRole('main').getByRole('link', { name: 'How it works' }).focus();
+    await page.getByRole('main').getByRole('link', { name: 'See features' }).focus();
     await add.focus();
     await page.keyboard.press('Enter');
     const composer = page.getByRole('textbox', { name: 'Comment', exact: true });
@@ -514,7 +514,7 @@ test('point comments: instructions, keyboard path, kept drafts', async ({ browse
     expect(comments).toHaveLength(1);
     const [comment] = comments;
     expect(comment?.thread.items[0]?.text).toBe('Typed with the keyboard\nSecond line');
-    expect(await page.evaluate(selector => document.querySelector(selector)?.textContent, comment?.position.selector ?? '')).toBe('How it works');
+    expect(await page.evaluate(selector => document.querySelector(selector)?.textContent, comment?.position.selector ?? '')).toBe('See features');
 
     await expectNoAxeViolations(page);
     await context.close();
@@ -655,7 +655,7 @@ test('rate limit messages tell a full page from a fast visitor', async ({ browse
         });
     });
 
-    await page.getByRole('main').getByRole('link', { name: 'How it works' }).focus();
+    await page.getByRole('main').getByRole('link', { name: 'See features' }).focus();
     await page.getByRole('button', { name: 'Add comment' }).focus();
     await page.keyboard.press('Enter');
     const composer = page.getByRole('textbox', { name: 'Comment', exact: true });

@@ -3,9 +3,10 @@ import { SiteStructuredData } from '@/src/components/marketing/SiteStructuredDat
 import type { ReactNode } from 'react';
 import { Typography } from '@signalco/ui-primitives/Typography';
 import { Button } from '@signalco/ui-primitives/Button';
+import { Bug, Filter, Layers, Lock, MyLocation, UI } from '@signalco/ui-icons';
 import { cx } from '@signalco/ui-primitives/cx';
 import { brand } from '@uier/brand';
-import { CheckList, InlineLink, SectionHeading } from '../../../src/components/marketing/ContentPage';
+import { InlineLink, Panel, SectionHeading } from '../../../src/components/marketing/ContentPage';
 import { HowItWorks } from '../../../src/components/marketing/HowItWorks';
 import { LandingPricing } from '../../../src/components/marketing/LandingPricing';
 import { LandingFaq } from '../../../src/components/marketing/LandingFaq';
@@ -78,22 +79,39 @@ const features: { title: string; text: ReactNode; visual: ReactNode; wide?: bool
     }
 ];
 
-const details: ReactNode[] = [
-    <>Search, priority and <InlineLink href={KnownPages.FeedbackTriage}>bulk triage</InlineLink> in the app</>,
-    <><InlineLink href={`${KnownPages.Ai}#rewrite-suggestions`}>AI rewrite suggestions</InlineLink> for selected text</>,
-    'Short AI titles for threads in lists',
-    'Feedback, bug reports and types of your own, without a pin',
-    'Staging and production apart, by environment',
-    'Pull requests linked to their threads',
-    'Replace a screenshot or cover private details',
-    'Drafts kept in your browser for seven days',
-    'Reattach a comment when its element is gone',
-    'A history of each thread’s changes',
-    'Clients and teams to organize projects and access',
-    'Join a workspace through your email domain',
-    'Sign in with an email code, Google, Microsoft or a passkey',
-    'Keyboard shortcuts in the app and the toolbar',
-    'Works with screen readers'
+// Six details the feature tiles above do not show, each with an outlined icon from @signalco/ui-icons.
+// Keep it to six: two rows of three at lg, three of two at md.
+const details: { title: string; text: ReactNode; icon: ReactNode }[] = [
+    {
+        title: 'Bulk triage',
+        text: <>Search, set a priority and update many threads at once. More on <InlineLink href={KnownPages.FeedbackTriage}>triage</InlineLink>.</>,
+        icon: <Filter size={20} strokeWidth={1.75} />
+    },
+    {
+        title: 'Feedback without a pin',
+        text: 'Send feedback, bug reports and types of your own about the whole page.',
+        icon: <Bug size={20} strokeWidth={1.75} />
+    },
+    {
+        title: 'Staging and production apart',
+        text: 'Each comment knows its environment, so you can filter by one.',
+        icon: <Layers size={20} strokeWidth={1.75} />
+    },
+    {
+        title: 'Reattach a comment',
+        text: 'When its element is gone after a redesign, pin the comment to the new one.',
+        icon: <MyLocation size={20} strokeWidth={1.75} />
+    },
+    {
+        title: 'Private details covered',
+        text: 'Replace a screenshot, or cover what should not be in it.',
+        icon: <Lock size={20} strokeWidth={1.75} />
+    },
+    {
+        title: 'Keyboard and screen readers',
+        text: 'Shortcuts in the app and the toolbar, and both work with screen readers.',
+        icon: <UI size={20} strokeWidth={1.75} />
+    }
 ];
 
 // The install guide's tabs (src/components/app/projects/InstallGuide.tsx)
@@ -136,7 +154,7 @@ export default function LandingPage() {
                     <div className="mt-2 flex flex-wrap items-center gap-2.5">
                         {/* Like the navigation's Sign in: sign in, or straight into the app when signed in */}
                         <Button variant="solid" size="lg" href={KnownPages.App}>Get started</Button>
-                        <Button variant="outlined" size="lg" href={KnownPages.HowItWorks}>How it works</Button>
+                        <Button variant="outlined" size="lg" href={KnownPages.Features}>See features</Button>
                     </div>
                 </div>
                 <HowItWorks />
@@ -157,10 +175,18 @@ export default function LandingPage() {
                             </div>
                         </div>
                     ))}
-                    <div className="flex flex-col gap-5 rounded-2xl border p-6 md:col-span-2 lg:col-span-3">
-                        <h3 className="text-base font-semibold">And the details</h3>
-                        <CheckList items={details} columns={3} />
-                    </div>
+                </div>
+                <div className="flex flex-col gap-5">
+                    <h3 className="text-xl font-semibold tracking-[-0.015em]">And the details</h3>
+                    <Panel as="ul" className="md:grid-cols-2 lg:grid-cols-3">
+                        {details.map(detail => (
+                            <li key={detail.title} className="flex flex-col gap-2 p-6">
+                                <span aria-hidden="true" className="mb-2 flex size-9 items-center justify-center rounded-lg border text-muted-foreground">{detail.icon}</span>
+                                <h4 className="text-base font-semibold">{detail.title}</h4>
+                                <p className="text-sm leading-relaxed text-muted-foreground">{detail.text}</p>
+                            </li>
+                        ))}
+                    </Panel>
                 </div>
                 <p className="max-w-[720px] text-base leading-relaxed text-muted-foreground">
                     Choosing a tool for your team? <InlineLink href={KnownPages.Compare}>Compare website feedback tools</InlineLink> by review workflow, bug reporting and the features each one supports.
