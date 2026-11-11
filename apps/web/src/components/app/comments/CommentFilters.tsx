@@ -184,13 +184,14 @@ export function CommentFilters({ className, unread, unreadCount, view, status, s
                         </FieldGroup>
                     </PopoverContent>
                 </Popover>
-                {/* Icon-only tabs; the tooltip and the accessible name say which */}
+                {/* Icon-only tabs; the tooltip and the accessible name say which. On a touch screen the group, not each tab,
+                    takes the 44 px of the search and Filter beside it (its 3 px padding around 38 px tabs; uier #277) */}
                 <ToggleGroup size="sm" spacing={0.5} aria-label={t("View")} className={cn(segmentedGroup, 'shrink-0')} value={[view]}
                     // A new layout starts with no thread open (the board would open it in a sheet over itself)
                     onValueChange={([value]) => value && go({ view: value === 'board' ? 'board' : undefined, comment: undefined, ...(status === 'archived' ? { status: undefined } : {}) })}>
                     {([['list', t("List"), ListIcon], ['board', t("Board"), KanbanIcon]] as const).map(([value, label, Icon]) => (
                         <Tooltip key={value}>
-                            <TooltipTrigger render={<ToggleGroupItem value={value} aria-label={t(label)} className={cn(segmentedItem, 'px-0 pointer-coarse:min-w-11')} />}>
+                            <TooltipTrigger render={<ToggleGroupItem value={value} aria-label={t(label)} className={cn(segmentedItem, 'px-0 pointer-coarse:min-h-[38px] pointer-coarse:min-w-11')} />}>
                                 <Icon />
                             </TooltipTrigger>
                             <TooltipContent>{t(label)}</TooltipContent>
