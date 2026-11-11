@@ -426,7 +426,12 @@ export const en = {
         suggestionPlaceholder: 'Your version of the text...',
         commentPlaceholder: 'Leave feedback...',
         postSuggestion: 'Post suggestion',
-        postComment: 'Post comment'
+        postComment: 'Post comment',
+        /** The pin's description: the people in its thread, a list ("Ana, Ben and you") */
+        participants: (people: string) => `In this thread: ${people}`,
+        participantsYou: 'you',
+        /** The thread a mouse previews over its pin, read-only (uier #308) */
+        threadPreview: 'Comment thread preview'
     },
     feedback: {
         typesOff: 'Feedback types are turned off for this project. You can still leave a pinned comment.',

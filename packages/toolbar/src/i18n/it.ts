@@ -417,7 +417,10 @@ export const it: Messages = {
         suggestionPlaceholder: 'La tua versione del testo...',
         commentPlaceholder: 'Lascia un feedback...',
         postSuggestion: 'Pubblica suggerimento',
-        postComment: 'Pubblica commento'
+        postComment: 'Pubblica commento',
+        participants: (people: string) => `In questa discussione: ${people}`,
+        participantsYou: 'tu',
+        threadPreview: 'Anteprima della discussione'
     },
     feedback: {
         typesOff: 'I tipi di feedback sono disattivati per questo progetto. Puoi comunque lasciare un commento fissato.',

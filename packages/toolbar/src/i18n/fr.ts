@@ -416,7 +416,10 @@ export const fr: Messages = {
         suggestionPlaceholder: 'Votre version du texte...',
         commentPlaceholder: 'Laissez votre avis...',
         postSuggestion: 'Publier la suggestion',
-        postComment: 'Publier le commentaire'
+        postComment: 'Publier le commentaire',
+        participants: (people: string) => `Dans cette discussion : ${people}`,
+        participantsYou: 'vous',
+        threadPreview: 'Aperçu de la discussion'
     },
     feedback: {
         typesOff: 'Les types de retours sont désactivés pour ce projet. Vous pouvez toujours laisser un commentaire épinglé.',
