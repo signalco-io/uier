@@ -11,6 +11,10 @@ development hosts remain explicitly scoped. Inline event handlers are denied wit
 root layout emits the shared hash-authorized initializer before the page content. It skips both
 verification bridges without reading theme storage. Theme changes still use next-themes.
 App HTML and private data stay `no-store`; [Cache Components](cache-components.md) describes the shells.
+Session identity, recent-sign-in/email-proof checks and browser account menus wait for `connection()`
+before checking expiry or migration deadlines. A prefetched shell must not freeze those clock-based
+authorization decisions. Unknown public integration guides are rejected in Proxy before their URL-specific
+content streams, preserving HTTP 404; the page independently validates its provider for RSC navigation.
 The internal unavailable entries live under `(rest)/(app-errors)`, outside the app's request-language
 layout, so their synchronous `notFound()` fixes HTTP 404 before localized content streams. Proxy still
 uses the same paths and access preflight; pages/actions/APIs retain their own checks. The generic

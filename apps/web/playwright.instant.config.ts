@@ -10,12 +10,12 @@ if (artifact.config.experimental.exposeTestingApiInProductionBuild !== true)
 
 export default defineConfig({
     ...base,
-    testMatch: /instant-nav\.spec\.ts$/,
+    testMatch: /(?:instant-nav|partial-prefetching)\.spec\.ts$/,
     testIgnore: [],
     retries: 0,
     workers: 2,
     globalTimeout: 0,
-    // next start also loads next.config.ts; keep the measured server's opt-in consistent with its artifact.
+    // next start also loads next.config.ts; match the measured artifact's opt-in.
     webServer: (Array.isArray(base.webServer) ? base.webServer : []).map(server => ({
         ...server,
         env: { ...server.env, UIER_INSTANT_TEST: '1' },

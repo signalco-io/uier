@@ -37,7 +37,7 @@ Object.assign(process.env, unpacedProviders);
 const apiTests = /\.api\.spec\.ts$/;
 // Tablet layouts run in their own project only.
 const tabletTests = /tablet\.spec\.ts$/;
-const instantTests = /instant-nav\.spec\.ts$/;
+const instantTests = /(?:instant-nav|partial-prefetching)\.spec\.ts$/;
 
 export default defineConfig({
     // The required suite should expose failures immediately, without retrying a slow browser flow.
@@ -47,7 +47,7 @@ export default defineConfig({
     reporter: [['dot'], ['json', { outputFile: 'playwright-report/results.json' }]],
     timeout: 30 * 1000,
     testDir: join(dirname(fileURLToPath(import.meta.url)), 'e2e'),
-    // Dedicated opt-in production build: see playwright.instant.config.ts and instant-nav.rig.md.
+    // These require a dedicated build with Next's testing API enabled.
     testIgnore: instantTests,
     outputDir: 'test-results/',
     webServer: [

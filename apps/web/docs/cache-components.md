@@ -1,7 +1,8 @@
 # Cache Components
 
-`next.config.ts` enables Cache Components on Next.js 16.4. Partial Prefetching is explicitly off;
-its link and navigation migration is separate work. There are no `instant = false` exceptions.
+`next.config.ts` enables Cache Components and Partial Prefetching on Next.js 16.4.
+See [Partial Prefetching](partial-prefetching.md) for the link audit and navigation contracts.
+There are no `instant = false` exceptions.
 The version-matched migration and API docs ship in `node_modules/next/dist/docs/`.
 
 ## Rendering and data
@@ -99,7 +100,7 @@ force it off even if UIER_INSTANT_TEST is set. Turbo hashes those inputs. CI's b
 an ordinary artifact for browser/security essentials, then builds a separate disposable artifact with
 the flag immediately before this dedicated suite. Next's test-only inline bootstrap must not affect
 ordinary CSP verification; the production policy and security assertions remain unchanged.
-Regular `pnpm test`/`test:full` exclude the dedicated-build spec.
+Regular `pnpm test`/`test:full` exclude the dedicated-build specs.
 
 The optimizer differential changes only the two route entry files: moving their stable UI back behind
 the original server awaits makes all 12 optimized navigation/variant/viewport cases fail at the
@@ -111,7 +112,8 @@ This is a content-readiness guarantee, not a measured latency claim.
 Other reviewed candidates stay request-scoped: project/workspace headings and tabs depend on private
 names or permissions; My work reads fresh assignments; auth pages
 already expose their card and legal shell. No new shared cache was introduced. Partial Prefetching
-remains off; evaluating URL-specific prefetch value and server cost is separate follow-up work.
+is now enabled; [its navigation inventory](partial-prefetching.md) records the separate adoption
+and URL-specific prefetch decisions.
 
 The internal error entries deliberately throw `notFound()` before rendering. Next's dev-only
 instant validator reports that it cannot validate those entries when a denied request reaches them.

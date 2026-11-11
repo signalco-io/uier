@@ -164,6 +164,8 @@ jobs:
         timeout-minutes: 5
         run: pnpm -C apps/web exec playwright test --project="Desktop Chrome" --project="Mobile Chrome"
 
+      # Keep the ordinary artifact for the strict CSP audit above; Next's test-only bootstrap
+      # injects inline scripts that do not belong in the production allowlist.
       - name: Build instant navigation artifact
         if: matrix.suite == 'browser'
         env:

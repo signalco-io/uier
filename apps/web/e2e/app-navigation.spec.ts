@@ -2,14 +2,20 @@ import { expect, test } from '@playwright/test';
 import { appNavigation, createProject, hydrated, signIn, uniqueEmail } from './support/app';
 import { toolbar } from './support/toolbar';
 
-test('app navigation preserves the document and feedback toolbar', async ({ page }, testInfo) => {
+test('app navigation preserves the document and feedback toolbar', async ({ page, isMobile }) => {
     test.setTimeout(60_000);
+    const openFeedback = async () => {
+        await appNavigation(page);
+        const button = page.getByRole('button', { name: 'Give feedback', exact: true });
+        // With the toolbar mounted, use the mobile sheet's keyboard path; desktop retains its click.
+        if (isMobile) await button.press('Enter');
+        else await button.click();
+    };
     await signIn(page, uniqueEmail('client-navigation'));
     const first = await createProject(page, { urls: ['https://first.example.com'], name: 'First navigation site' });
     const second = await createProject(page, { urls: ['https://second.example.com'], name: 'Second navigation site' });
     await page.goto('/app/account/coding-agents');
-    await appNavigation(page);
-    await page.getByRole('button', { name: 'Give feedback', exact: true }).click();
+    await openFeedback();
     await expect(toolbar(page)).toBeVisible();
     await page.getByRole('textbox', { name: 'Feedback', exact: true }).fill('Draft for coding agents');
     await page.keyboard.press('Escape');
@@ -34,10 +40,7 @@ test('app navigation preserves the document and feedback toolbar', async ({ page
         await expect(link).toHaveAttribute('aria-current', 'page');
         await preserved();
         if (section === 'General' || section === 'Coding agents') {
-            await appNavigation(page);
-            const feedback = page.getByRole('button', { name: 'Give feedback', exact: true });
-            if (testInfo.project.name === 'Mobile Chrome') await feedback.press('Enter');
-            else await feedback.click();
+            await openFeedback();
             await expect(page.getByRole('textbox', { name: 'Feedback', exact: true }))
                 .toHaveValue(section === 'General' ? '' : 'Draft for coding agents');
             await page.keyboard.press('Escape');

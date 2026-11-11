@@ -15,6 +15,11 @@ privacy limits and directory status aligned with the adapters and `docs/integrat
 `e2e/integration-pages.spec.ts` covers the public guides, their features and settings, the logos, the suggestion
 form, support/setup links and accessibility.
 
+The provider parameter resolves below Suspense. The shared shell shows the Integrations header and
+loading status before the provider's guide resolves. Proxy rejects unknown public provider paths
+with the existing 404 page before streaming, while the page still checks the catalog itself for RSC
+navigations. The five catalog providers remain statically generated; no mutable data cache is added.
+
 The index's services are tiles in one panel, three to a row on wide screens and two on tablets: the logo, the
 name, the catalog's description, its optional features under "Optional" and "Set up <service>", whose link covers the
 tile. A sixth tile, "Another tool", links to the suggestion section below, so every row is full; keep the count a
