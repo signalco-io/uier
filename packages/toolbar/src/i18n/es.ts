@@ -417,7 +417,9 @@ export const es: Messages = {
         suggestionPlaceholder: 'Tu versión del texto...',
         commentPlaceholder: 'Deja tu opinión...',
         postSuggestion: 'Publicar sugerencia',
-        postComment: 'Publicar comentario'
+        postComment: 'Publicar comentario',
+        participants: (people: string) => `En esta conversación: ${people}`,
+        participantsYou: 'tú'
     },
     feedback: {
         typesOff: 'Los tipos de opinión están desactivados en este proyecto. Puedes seguir dejando un comentario fijado.',

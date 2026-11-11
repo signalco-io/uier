@@ -5,7 +5,7 @@ import { Popper } from '@signalco/ui-primitives/Popper';
 import { Divider } from '@signalco/ui-primitives/Divider';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Pin } from '@uier/brand';
-import { useMessages } from '../i18n';
+import { useMessages, useToolbarLanguage } from '../i18n';
 import { newLocalId, useComments } from '../hooks/useComments';
 import { lowestRect, resolveAnchorElement, useCommentPlacement } from '../hooks/useCommentItemRects';
 import { cancelCommentScreenshot, captureCommentScreenshot } from '../screenshot';
@@ -18,6 +18,7 @@ import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import { holdsLayersAttribute, isToolbarAnchor, pressableToolbarOpener, toolbarPinId, toolbarSurface } from '../toolbarReview';
+import { PinParticipants, participantsGap, participantsWidth, threadParticipants } from './PinParticipants';
 import { RewriteSuggestions, useRewriteSuggestionsState } from './RewriteSuggestions';
 import { ComposerAttachButton, ComposerAttachmentsHeader, composerIconButtonClassName, useAttachedImage, type AttachedImage } from './ComposerAttachments';
 import { ComposerModal, ExpandComposerButton } from './ComposerModal';
@@ -177,6 +178,7 @@ export function CommentBubble(props: CommentBubbleProps) {
     const drawing = useMemo(() => props.draft ? props.draft.drawing : commentDrawing(savedDrawing), [props.draft, savedDrawing]);
     const draftKey = commentItem ? commentItem.id : (rewriting ? newRewriteDraftKey : drawingDraft ? newDrawingDraftKey : newCommentDraftKey);
     const t = useMessages();
+    const language = useToolbarLanguage();
     const newLabel = rewriting ? t.pin.newRewrite : t.pin.newComment;
     // Picking a suggestion replaces the text in the text box (as if typed, so it can be undone)
     const composerRef = useRef<CommentComposerHandle>(null);
@@ -360,6 +362,13 @@ export function CommentBubble(props: CommentBubbleProps) {
     const pinLeft = bubbleLeft(lastRect);
     const { top: pinTop, upsideDown } = bubbleTop(lastRect, creating ? props.draftPinOffset ?? 0 : 0, pinLeft, rootElement);
     const placement = popoverPlacement(pinLeft, pinTop, upsideDown);
+    // Whose thread it is: the people in it beside the pin, on the side with room (uier #307)
+    const participants = commentItem && !sending ? threadParticipants(commentItem, t.common.guest) : [];
+    const participantsReach = Math.max(bubbleHalfSize + participantsGap, bubbleHalfHitArea()) + participantsWidth(participants);
+    const participantsSide = pinLeft + participantsReach <= document.documentElement.clientWidth - bubbleWindowMargin ? 'right' : 'left';
+    const participantsText = participants.length
+        ? t.pin.participants(new Intl.ListFormat(language, { type: 'conjunction' }).format(participants.map(person => person.isMe ? t.pin.participantsYou : person.name)))
+        : undefined;
 
     // Bounded by the space the window has left, so the reply box always stays visible
     const popoverClassName = cx(
@@ -476,6 +485,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                             : sending
                                 ? t.pin.commentSending
                                 : t.pin.label(commentItem.number, messagesCount, commentItem.resolved)}
+                        aria-description={participantsText}
                         onFocus={handleFocus}
                         className={cx(
                             // The pin's shape, so the focus ring follows it: round but for the sharp corner
@@ -503,6 +513,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                             upsideDown={upsideDown}
                             style={{ display: 'block' }}
                             className="group-hover:scale-110 group-hover:brightness-75" />
+                        <PinParticipants people={participants} side={participantsSide} />
                     </button>
                 )}
                 aria-label={creating ? newLabel : sending ? t.pin.sendingComment : t.pin.thread}

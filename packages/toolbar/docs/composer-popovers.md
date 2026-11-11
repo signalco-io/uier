@@ -103,6 +103,19 @@ or down to stay inside the window and clear of the pill. It never covers the pin
 either side (mobile) has it below the pin, or above it when there is more room there or the pin is upside
 down, shifted sideways to stay inside.
 
+## Who is in the thread
+
+A saved comment's pin shows the people in its thread beside it (`PinParticipants`,
+[uier #307](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_v2LlQN7fAUCaHNj3Et-BL)):
+the author, then everyone who replied, in the order they first wrote (`threadParticipants`: a message an AI agent
+wrote for someone counts as theirs; deleted and unsent messages do not count). A small overlapping stack of 20 px
+avatars with the same letters as the messages' avatars, ink (the dark tokens) like the pin; past three people, the
+first two and "+N". It sits 6 px right of the pin, past the message count badge, centred on it, or on its left when
+the window has no room on the right, so it never leaves the window. It is part of the pin's button (hovering and
+pressing it are the pin's) and decorative: the letters are generated content (`content: attr(...)`), so the pin's
+text and name stay its number and message count, and its description names the people ("In this thread: you,
+Ana, and Ben"). Drafts and comments still being sent have none.
+
 ## Posting: one popover
 
 Sending a new comment never closes one popover to open another. `handleCreated` in `CommentsGlobal` marks the
@@ -146,3 +159,5 @@ instruction and suggestions kept in the modal and back. `new-comment-after-threa
 animation, the same element once saved). `screenshots.spec.ts`: Attach image in the text box.
 `showcase.spec.ts` (desktop and mobile): a pin at the bottom and right edges is upside down, its thread inside
 the window, clear of the pill and the pin.
+`pin-preview.spec.ts`: the people beside a pin (the author first, "+N", its description, the left side at the
+right edge; desktop and mobile).
