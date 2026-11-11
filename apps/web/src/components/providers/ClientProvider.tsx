@@ -1,7 +1,7 @@
 'use client';
 
 import { DevReviewToolbarScript } from '../toolbar/DevReviewToolbarScript';
-import { PropsWithChildren, useEffect } from 'react';
+import { PropsWithChildren, Suspense, useEffect } from 'react';
 import { ThemeProvider, useTheme } from 'next-themes';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -36,15 +36,15 @@ function DocumentPolicyBoundary() {
     return null;
 }
 
-export function ClientProvider({children, nonce, signalcoNotifications = true}: PropsWithChildren<{ nonce?: string; signalcoNotifications?: boolean }>) {
+export function ClientProvider({children, signalcoNotifications = true}: PropsWithChildren<{ signalcoNotifications?: boolean }>) {
     return (
-        <ThemeProvider attribute="class" nonce={nonce}>
+        <ThemeProvider attribute="class" scriptProps={{ type: 'application/json' }}>
             <QueryClientProvider client={queryClient}>
                 <ReactQueryDevtools initialIsOpen={false} />
                 {signalcoNotifications && <ThemedNotificationsContainer />}
                 <DocumentPolicyBoundary />
                 {children}
-                {process.env.NODE_ENV === 'development' && <DevReviewToolbarScript />}
+                {process.env.NODE_ENV === 'development' && <Suspense><DevReviewToolbarScript /></Suspense>}
             </QueryClientProvider>
         </ThemeProvider>
     );

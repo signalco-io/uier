@@ -1,3 +1,5 @@
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { Section } from '@/src/components/app/PageHeader';
 import { requireAppContext } from '@/src/lib/app/context';
@@ -15,7 +17,7 @@ export const metadata: Metadata = {
 const relationshipLabels = { internal: 'Internal', external: 'External' } as const;
 
 /** General: the name, the theme, the toolbar's language and the person's access in the selected workspace */
-export default async function AccountPage() {
+async function AccountPageContent() {
     const context = await requireAppContext();
     const [projects, access] = await Promise.all([listVisibleProjects(context), loadWorkspaceAccess(context.workspace.id)]);
     const teams = access.teams.filter(team => context.member.teamIds?.includes(team.id)).map(team => team.name);
@@ -44,4 +46,8 @@ export default async function AccountPage() {
             </Section>
         </>
     );
+}
+
+export default function AccountPage() {
+    return <Suspense fallback={<PageLoading title="Loading account" />}><AccountPageContent /></Suspense>;
 }

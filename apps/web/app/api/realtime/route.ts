@@ -3,7 +3,6 @@ import { acceptRealtimeSocket } from '../../../src/lib/realtime/socket';
 import { realtimeApiOrigin } from '../../../src/lib/realtime/tickets';
 
 export const maxDuration = 300;
-export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
     if (request.headers.get('upgrade')?.toLowerCase() !== 'websocket')

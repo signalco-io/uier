@@ -2,7 +2,6 @@ import { KnownPageLinks } from '@/src/knownPages';
 import { startAuthorization } from '@/src/lib/mcp/oauth/authorize';
 import { ipBucket, limitByIp, oauthEndpoint, oauthIssuer } from '@/src/lib/mcp/oauth/http';
 
-export const dynamic = 'force-dynamic';
 
 /**
  * Validates the request and sends the browser to the consent page. Only the stored request id passes

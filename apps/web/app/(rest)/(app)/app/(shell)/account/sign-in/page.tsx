@@ -1,3 +1,5 @@
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { Section } from '@/src/components/app/PageHeader';
 import { requireAppContext } from '@/src/lib/app/context';
@@ -11,7 +13,7 @@ export const metadata: Metadata = {
 };
 
 /** How the person signs in: linked Google and Microsoft accounts, passkeys, and signing out of this browser */
-export default async function AccountSignInPage() {
+async function AccountSignInPageContent() {
     const { user } = await requireAppContext();
     return (
         <>
@@ -21,4 +23,8 @@ export default async function AccountSignInPage() {
             <Section id="session" title="Sign out" description="Sign out of uier on this browser." actions={<SignOutButton />} />
         </>
     );
+}
+
+export default function AccountSignInPage() {
+    return <Suspense fallback={<PageLoading title="Loading sign in" />}><AccountSignInPageContent /></Suspense>;
 }

@@ -1,3 +1,5 @@
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { KnownPageLinks } from '@/src/knownPages';
@@ -15,7 +17,7 @@ export async function generateMetadata({ params }: PageProps<'/app/projects/[pro
 }
 
 /** The project's comments (the first tab) */
-export default async function ProjectPage({ params, searchParams }: PageProps<'/app/projects/[projectId]'>) {
+async function ProjectPageContent({ params, searchParams }: PageProps<'/app/projects/[projectId]'>) {
     const { projectId } = await params;
     const context = await requireAppContext();
     const project = await getVisibleProject(context, projectId);
@@ -32,4 +34,8 @@ export default async function ProjectPage({ params, searchParams }: PageProps<'/
             </section>
         </>
     );
+}
+
+export default function ProjectPage(props: Parameters<typeof ProjectPageContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading project" />}><ProjectPageContent {...props} /></Suspense>;
 }

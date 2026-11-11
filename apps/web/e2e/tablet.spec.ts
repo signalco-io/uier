@@ -40,7 +40,7 @@ test('in portrait the sidebar is a sheet, and the page, its header and settings 
     const project = await projectWithThreads(page, request, ['Checkout total is wrong']);
     // The navigation waits in a sheet: the page has the window's width
     await expect(page.getByRole('navigation', { name: 'App' })).toBeHidden();
-    expect((await box(page.locator('main'))).width).toBe(portrait.width);
+    expect((await box(page.getByRole('main'))).width).toBe(portrait.width);
     const navigation = await appNavigation(page);
     await expect(navigation.getByRole('link', { name: 'My work', exact: true })).toBeVisible();
     await closeAppNavigation(page);
@@ -76,7 +76,7 @@ test('in portrait a tapped row opens its thread in the list\'s place, clear of t
     await expect(commentRows(page).first()).toBeHidden();
     const back = thread.getByRole('button', { name: 'Back to comments', exact: true });
     await expect(back).toBeInViewport({ ratio: 1 });
-    const bar = await box(page.locator('main > header'));
+    const bar = await box(page.getByRole('main').locator(':scope > header'));
     expect((await box(back)).y).toBeGreaterThanOrEqual(bar.y + bar.height);
     await back.tap();
     await expect(commentRows(page)).toHaveCount(texts.length);

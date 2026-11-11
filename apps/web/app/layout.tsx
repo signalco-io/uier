@@ -3,6 +3,7 @@ import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import { brand } from '@uier/brand';
 import { siteOpenGraph } from '@/src/lib/metadata';
+import { themeScript } from '@/src/lib/themeScript';
 import './global.css';
 export default function RootLayout({ children }: {
     children: React.ReactNode;
@@ -10,6 +11,7 @@ export default function RootLayout({ children }: {
     return (
         <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
             <body className={'font-sans antialiased'}>
+                <div hidden dangerouslySetInnerHTML={{ __html: `<script id="uier-theme">${themeScript}</script>` }} />
                 {children}
             </body>
         </html>

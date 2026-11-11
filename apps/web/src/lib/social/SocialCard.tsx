@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { CSSProperties, ReactNode } from 'react';
 import { ImageResponse } from 'next/og';
+import { cacheLife } from 'next/cache';
 import { brand, MARK_PATH, MARK_VIEWBOX, PIN_PATH, PIN_VIEWBOX } from '@uier/brand';
 import { integrationLogos } from '@/src/components/app/integrations/IntegrationLogo';
 import { socialCardSize, type LinkCard, type PageCard } from './cards';
@@ -25,15 +26,17 @@ async function geistFont(file: string) {
 
 /** Geist and Geist Mono for `ImageResponse` */
 export async function socialCardFonts() {
+    'use cache';
+    cacheLife('max');
     const [sansSemiBold, sansRegular, monoRegular] = await Promise.all([
         geistFont('geist-sans/Geist-SemiBold.ttf'),
         geistFont('geist-sans/Geist-Regular.ttf'),
         geistFont('geist-mono/GeistMono-Regular.ttf')
     ]);
     return [
-        { name: 'Geist', data: sansSemiBold, weight: 600 as const, style: 'normal' as const },
-        { name: 'Geist', data: sansRegular, weight: 400 as const, style: 'normal' as const },
-        { name: 'Geist Mono', data: monoRegular, weight: 400 as const, style: 'normal' as const }
+        { name: 'Geist', data: Uint8Array.from(sansSemiBold).buffer, weight: 600 as const, style: 'normal' as const },
+        { name: 'Geist', data: Uint8Array.from(sansRegular).buffer, weight: 400 as const, style: 'normal' as const },
+        { name: 'Geist Mono', data: Uint8Array.from(monoRegular).buffer, weight: 400 as const, style: 'normal' as const }
     ];
 }
 

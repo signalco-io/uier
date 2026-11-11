@@ -1,3 +1,5 @@
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -30,7 +32,7 @@ type IntegrationState = { configured: boolean; connected: boolean; status: strin
  * The services a project can connect: a grid of those not connected yet (Connect starts the provider's
  * sign-in), then the connected ones, each opening its own page with the destination and sync controls
  */
-export default async function ProjectIntegrationsSettingsPage({ params }: PageProps<'/app/projects/[projectId]/settings/integrations'>) {
+async function ProjectIntegrationsSettingsPageContent({ params }: PageProps<'/app/projects/[projectId]/settings/integrations'>) {
     const { projectId } = await params;
     const { context, project } = await configurableProject(projectId);
     if (isUierFeedbackProject(project.id))
@@ -110,4 +112,8 @@ export default async function ProjectIntegrationsSettingsPage({ params }: PagePr
             </section>}
         </>
     );
+}
+
+export default function ProjectIntegrationsSettingsPage(props: Parameters<typeof ProjectIntegrationsSettingsPageContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading integrations" />}><ProjectIntegrationsSettingsPageContent {...props} /></Suspense>;
 }

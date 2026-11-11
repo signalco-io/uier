@@ -1,3 +1,5 @@
+import { ShellLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { PropsWithChildren } from 'react';
 import { Separator } from '@/src/components/ui/separator';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/src/components/ui/sidebar';
@@ -16,7 +18,7 @@ import { InviteProvider } from '@/src/components/app/users/InviteDialog';
 import { AppShortcuts } from '@/src/components/app/keyboard/AppShortcuts';
 
 /** The signed-in app: the sidebar, a top bar with the breadcrumbs, and the page in an inset panel, with the keyboard shortcuts */
-export default async function AppShellLayout({ children }: PropsWithChildren) {
+async function AppShellLayoutContent({ children }: PropsWithChildren) {
     const context = await requireAppContext();
     const projectOrder = await getProjectOrder();
     const visibleProjects = listVisibleProjects(context);
@@ -82,4 +84,8 @@ export default async function AppShellLayout({ children }: PropsWithChildren) {
             </AppShortcuts>
         </SidebarProvider>
     );
+}
+
+export default function AppShellLayout(props: Parameters<typeof AppShellLayoutContent>[0]) {
+    return <Suspense fallback={<ShellLoading />}><AppShellLayoutContent {...props} /></Suspense>;
 }

@@ -8,7 +8,6 @@ import { apiErrors, errorResponse, parseJsonBody } from '@/src/lib/comments/http
 import { memberActor, REVIEW_TOKEN_TTL_SECONDS } from '@/src/lib/review/actor';
 import { signToken } from '@/src/lib/app/tokens';
 
-export const dynamic = 'force-dynamic';
 
 /** Only the uier frame calls this cookie endpoint. The reviewed site receives no app credential. */
 export async function POST(request: Request, { params }: RouteContext<'/api/review/[projectId]/sso'>) {

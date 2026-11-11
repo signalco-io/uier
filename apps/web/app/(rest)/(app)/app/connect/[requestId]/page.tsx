@@ -1,3 +1,5 @@
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
@@ -14,7 +16,7 @@ export const metadata: Metadata = {
 };
 
 /** Consent for a coding tool's OAuth sign-in to the MCP endpoint, reached through a stored request id */
-export default async function ConnectPage({ params }: PageProps<'/app/connect/[requestId]'>) {
+async function ConnectPageContent({ params }: PageProps<'/app/connect/[requestId]'>) {
     const { requestId } = await params;
     const context = await getAppContext();
     if (!context)
@@ -62,4 +64,8 @@ export default async function ConnectPage({ params }: PageProps<'/app/connect/[r
             accounts
         }} />
     );
+}
+
+export default function ConnectPage(props: Parameters<typeof ConnectPageContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading connection" />}><ConnectPageContent {...props} /></Suspense>;
 }

@@ -1,3 +1,5 @@
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { KnownPages } from '@/src/knownPages';
@@ -15,7 +17,7 @@ export const metadata: Metadata = {
 };
 
 /** Onboarding, step 1: the site (then step 2, the install page) */
-export default async function NewProjectPage() {
+async function NewProjectPageContent() {
     const context = await requireAdminContext();
     if (context.workspace.id === PUBLIC_WORKSPACE_ID) redirect(KnownPages.AppProjects);
     const projects = await listVisibleProjects(context);
@@ -32,4 +34,8 @@ export default async function NewProjectPage() {
             </Card>
         </div>
     );
+}
+
+export default function NewProjectPage() {
+    return <Suspense fallback={<PageLoading title="Loading new" />}><NewProjectPageContent /></Suspense>;
 }

@@ -1,3 +1,5 @@
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { KnownPages } from '@/src/knownPages';
@@ -16,7 +18,7 @@ export const metadata: Metadata = {
  * The first-run step of a new account (`/app` sends it here once): its name and, when the account got a
  * workspace of its own, that workspace's stored name (Personal for newly created workspaces).
  */
-export default async function WelcomePage() {
+async function WelcomePageContent() {
     const context = await requireAppContext();
     const { user } = context;
     if (!user.welcomePending)
@@ -32,4 +34,8 @@ export default async function WelcomePage() {
             <WelcomeForm name={name} workspaceName={workspaceName} />
         </AuthCard>
     );
+}
+
+export default function WelcomePage() {
+    return <Suspense fallback={<PageLoading title="Loading welcome" />}><WelcomePageContent /></Suspense>;
 }

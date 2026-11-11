@@ -411,6 +411,9 @@ test('review links open the project\'s own sites with the toolbar turned on', as
     };
 
     expect(await location('')).toBe(`https://example.com/?toolbar-code=${await projectPublicId(page, projectId)}`);
+    // Repeated keys arrive at the page as arrays, which it intentionally ignores.
+    expect(await location('?comment=comment_missing&comment=comment_other&url=https://staging.example.com/&url=https://example.com/'))
+        .toBe(`https://example.com/?toolbar-code=${await projectPublicId(page, projectId)}`);
     expect(await location(`?url=${encodeURIComponent('https://staging.example.com/pricing?plan=1')}`))
         .toBe(`https://staging.example.com/pricing?plan=1&toolbar-code=${await projectPublicId(page, projectId)}`);
     // A missing comment has no known original source and must not be retargeted to the main site.

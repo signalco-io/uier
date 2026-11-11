@@ -27,6 +27,20 @@ test('only the empty bridges are frameable and background sign-in loads no app r
         expect(response.headers()['content-security-policy']!.split(';').find(rule => rule.trim().startsWith('script-src '))).not.toContain("'unsafe-inline'");
         expect(response.headers()['cache-control']).toContain('no-store');
     }
+    for (const path of ['/review-verification', '/extension-verification']) {
+        const response = await request.get(path);
+        const policy = response.headers()['content-security-policy']!;
+        const nonce = policy.match(/'nonce-([^']+)'/)?.[1];
+        expect(nonce).toBeTruthy();
+        const document = await response.text();
+        // The Next client entry retains instrumentation-client.ts and BotID initialization.
+        expect(document).toContain('/_next/static/');
+        for (const [, attributes, text] of document.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)) {
+            if (!text || attributes!.includes('type="application/json"')) continue;
+            if (attributes!.includes(`nonce="${nonce}"`)) continue;
+            expect(policy).toContain(`'sha256-${createHash('sha256').update(text).digest('base64')}'`);
+        }
+    }
     const bridge = await request.get('/review-session');
     expect(await bridge.text()).not.toMatch(/_next|analytics|localStorage/);
     const script = (await bridge.text()).match(/<script>([\s\S]*?)<\/script>/)![1];

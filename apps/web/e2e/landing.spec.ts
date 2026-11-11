@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { createHash } from 'node:crypto';
 import { brand } from '@uier/brand';
 import { expectNoAxeViolations } from './accessibility';
 import { animationsFinished, showcaseHint, toolbar } from './support/toolbar';
@@ -31,7 +32,7 @@ test('landing page sends security headers', async ({ request }) => {
     expect(csp).not.toMatch(/vercel\.live|vercel\.com|pusher|vitals\.vercel-insights|vercel-scripts/);
 });
 
-test('app scripts use a fresh nonce, including the theme script, and reject injected inline scripts', { tag: '@smoke' }, async ({ page, request }) => {
+test('app shells authorize fixed scripts by hash and streamed scripts by fresh nonce, rejecting injected scripts', { tag: '@smoke' }, async ({ page, request }) => {
     const violations: string[] = [];
     page.on('console', message => { if (/Content Security Policy|violates.*directive/i.test(message.text())) violations.push(message.text()); });
     const response = await page.goto('/app/sign-in');
@@ -39,14 +40,19 @@ test('app scripts use a fresh nonce, including the theme script, and reject inje
     const nonce = csp.match(/'nonce-([^']+)'/)?.[1];
     expect(nonce).toBeTruthy();
     const scriptPolicy = csp.split(';').find(directive => directive.trim().startsWith('script-src '));
-    expect(scriptPolicy).toContain("'strict-dynamic'");
+    expect(scriptPolicy).toContain("'self'");
+    expect(scriptPolicy).toContain("'sha256-");
     expect(scriptPolicy).not.toContain("'unsafe-inline'");
     expect(response!.headers()['cache-control']).toContain('no-store');
     expect(response!.headers()['cross-origin-opener-policy']).toBe('same-origin-allow-popups');
     await expect(page.getByRole('link', { name: 'Sign in with email' })).toBeVisible();
-    const scripts = await page.locator('script').evaluateAll(nodes => nodes.map(script => ({ nonce: script.nonce, text: script.textContent })));
+    const scripts = await page.locator('script').evaluateAll(nodes => nodes.filter(script => script.getAttribute('type') !== 'application/json')
+        .map(script => ({ nonce: script.nonce, text: script.textContent })));
     expect(scripts.length).toBeGreaterThan(1);
-    expect(scripts.filter(script => script.text).every(script => script.nonce === nonce)).toBe(true);
+    for (const script of scripts.filter(script => script.text)) {
+        if (script.nonce === nonce) continue;
+        expect(scriptPolicy).toContain(`'sha256-${createHash('sha256').update(script.text!).digest('base64')}'`);
+    }
     expect(scripts.some(script => script.text?.includes('localStorage'))).toBe(true);
     const second = await request.get('/app/sign-in', { headers: { 'x-nonce': 'attacker', 'Content-Security-Policy': "script-src 'nonce-attacker'" } });
     expect(second.headers()['content-security-policy']).not.toContain(`'nonce-${nonce}'`);
@@ -70,7 +76,8 @@ test('public and app links load a new document with the destination security pol
         && new URL(response.url()).pathname === '/app/sign-in');
     await page.getByRole('banner').getByRole('link', { name: 'Sign in', exact: true }).click();
     const app = await appDocument;
-    expect(app.headers()['content-security-policy']).toContain("'strict-dynamic'");
+    expect(app.headers()['content-security-policy']).toContain("'sha256-");
+    expect(app.headers()['content-security-policy']).not.toContain("script-src 'self' 'unsafe-inline'");
     expect(app.headers()['cross-origin-opener-policy']).toBe('same-origin-allow-popups');
     await page.waitForLoadState();
     const publicDocument = page.waitForResponse(response => response.request().isNavigationRequest()
@@ -79,6 +86,29 @@ test('public and app links load a new document with the destination security pol
     const publicPage = await publicDocument;
     expect(publicPage.headers()['cross-origin-opener-policy']).toBe('same-origin');
     expect(publicPage.headers()['content-security-policy']).not.toContain("'strict-dynamic'");
+});
+
+test('the app shell applies the saved theme before hydration', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('theme', 'dark'));
+    await page.route('**/_next/static/**/*.js', route => route.abort());
+    await page.goto('/app/sign-in');
+    await expect(page.locator('html')).toHaveClass(/\bdark\b/);
+    expect(await page.locator('html').evaluate(element => element.style.colorScheme)).toBe('dark');
+});
+
+test('verification bridges do not read theme storage', async ({ page }) => {
+    await page.addInitScript(() => {
+        Reflect.set(window, '__uierThemeReads', 0);
+        const original = Storage.prototype.getItem;
+        Storage.prototype.getItem = function (key) {
+            if (key === 'theme') Reflect.set(window, '__uierThemeReads', Number(Reflect.get(window, '__uierThemeReads')) + 1);
+            return original.call(this, key);
+        };
+    });
+    for (const path of ['/review-verification', '/extension-verification']) {
+        await page.goto(path);
+        expect(await page.evaluate(() => Reflect.get(window, '__uierThemeReads'))).toBe(0);
+    }
 });
 
 test('landing page is accessible (with the showcase toolbar)', { tag: '@smoke' }, async ({ page }) => {
