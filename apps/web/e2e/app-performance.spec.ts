@@ -281,7 +281,7 @@ test('new feedback appears and the composer closes while submission waits for th
         pending.release();
         await expect(page.getByRole('status').filter({ hasText: 'Feedback sent' })).toBeAttached();
         await page.reload();
-        await toolbar(page).getByRole('button', { name: /^Inbox/ }).click();
+        if (!await inbox.isVisible()) await toolbar(page).getByRole('button', { name: /^Inbox/ }).click();
         await expect(inbox.getByText('Posted in the background', { exact: true })).toBeVisible();
     } finally { pending.release(); }
 });
