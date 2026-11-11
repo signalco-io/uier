@@ -4,10 +4,9 @@ import { getProject, listProjects } from '../app/projects';
 import { hasProjectAccess, loadWorkspaceAccess } from '../app/access';
 import { appActor } from '../app/projectComments';
 import { apiErrors, commentsApiHandler, errorResponse, parseJsonBody, type CommentsApiContext } from '../comments/http';
-import { keyedHash } from '../comments/environment';
 import { reviewApiHandler, reviewPreflight } from '../review/http';
 import { projectPartition } from '../review/comments';
-import { getCommentsStore } from '../repo/commentsStore';
+import { enforceQueryReadLimits } from './limits';
 import { capabilities, executeQuery, queryError, queryFacets, queryOptions, type QueryExecutionContext, type QuerySource } from './service';
 
 const inputSchema = z.object({
@@ -19,13 +18,7 @@ const inputSchema = z.object({
 type Operation = 'query' | 'counts' | 'options' | 'capabilities';
 async function run(request: Request, context: QueryExecutionContext, operation: Operation) {
     if (operation === 'capabilities') return Response.json({ ...capabilities(context.sources), scope: context.scope });
-    const source = context.sources[0];
-    // Durable counter shared across instances. Anonymous requests share a per-network bucket.
-    const identity = source?.actor.kind === 'member' ? `member:${source.actor.userId}` : source?.actor.kind === 'guest' ? source.actor.visitorId
-        : `network:${request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'anonymous'}`;
-    const minute = Math.floor(Date.now() / 60000);
-    if (!await getCommentsStore().incrementCounter(source?.domain ?? `query:${JSON.stringify(context.scope)}`,
-        `query-rate:${keyedHash('comment-query-rate', identity)}:${minute}`, 240, 120)) throw apiErrors.rateLimited('Wait a moment before searching again.', 60, 'too_fast');
+    await enforceQueryReadLimits(request, context.sources);
     const input = await parseJsonBody(request, inputSchema, 96 * 1024);
     const query = parseQuery(input.query);
     const execution = { ...context, signal: request.signal, currentPage: input.currentPage, currentEnvironment: input.currentEnvironment };
@@ -77,7 +70,7 @@ export function reviewQueryRoute(operation: Operation) {
 }
 export const queryPreflight = reviewPreflight('GET, POST');
 function publicSources(context: CommentsApiContext): QuerySource[] {
-    return [{ domain: context.domain, project: context.project, actor: context.actor ?? (context.visitor.authorId ? { kind: 'guest', visitorId: context.visitor.authorId } : { kind: 'anonymous' }) },
+    return [{ domain: context.domain, project: context.project, actor: (context.actor?.kind === 'member' ? { ...context.actor, isAdmin: false } : context.actor) ?? (context.visitor.authorId ? { kind: 'guest', visitorId: context.visitor.authorId } : { kind: 'anonymous' }) },
         ...(context.publicFeedback ? publicSources(context.publicFeedback) : [])];
 }
 export function publicQueryRoute(operation: Operation) {
@@ -87,3 +80,26 @@ export function publicQueryRoute(operation: Operation) {
     }, { createVisitor: false });
 }
 export type { QueryDocument };
+
+
+/** App detail uses the existing app view model and rechecks the selected workspace. */
+export async function appCommentDetail(request: Request, route: { params: Promise<{ projectId: string; id: string }> }) {
+    let response: Response;
+    try {
+        const site = request.headers.get('sec-fetch-site'), origin = request.headers.get('origin');
+        if (site && site !== 'same-origin' && site !== 'none' || origin && origin !== new URL(request.url).origin) throw apiErrors.forbidden('Cross-site requests are not allowed.');
+        const { getAppContext } = await import('../app/context');
+        const context = await getAppContext();
+        if (!context) throw apiErrors.signInRequired();
+        const { projectId, id } = await route.params;
+        const [project, access] = await Promise.all([getProject(context.workspace.id, projectId), loadWorkspaceAccess(context.workspace.id)]);
+        if (!project || !hasProjectAccess(access, context.member, project)) throw apiErrors.notFound();
+        const { loadProjectComment } = await import('../app/projectComments');
+        const comment = await loadProjectComment(context, project, id);
+        if (!comment) throw apiErrors.notFound();
+        response = Response.json(comment);
+    } catch (error) { response = errorResponse(error); }
+    response.headers.set('Cache-Control', 'private, no-store');
+    response.headers.set('Vary', 'Cookie');
+    return response;
+}

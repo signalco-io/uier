@@ -23,7 +23,7 @@ receipts. Saved-view writes retain the existing write verification. Cookie route
 cross-site requests. All responses, including errors, are private/no-store or no-store.
 
 Query input is `{ query, page?: { size, cursor }, currentPage?, currentEnvironment? }`. Counts
-accept `facets?: FieldId[]` (up to eight); options accept `field`, `search?`, `offset?`. The query
+accept `facets?: FieldId[]` (up to eight enum/set/boolean fields advertised in `facetable`); options accept `field`, `search?`, `offset?`. The query
 itself is limited to 64 KiB, 100 conditions, depth eight, 100 values per condition and 1,000
 search characters. The envelope allows 96 KiB including the cursor. Unknown fields, operators,
 properties and unavailable capabilities fail explicitly. Capabilities return the canonical scope
@@ -50,8 +50,11 @@ A minimal project request:
 
 Rows contain a bounded opener excerpt, valid visible title, workflow, source, dates, activity,
 flags and revision. They exclude full threads, screenshots, anchors, reproduction details,
-audit history and agent credentials. Open details using the existing authorized comment API.
-Counts/facets describe the complete current match, not just the page. Option values come only
+audit history and agent credentials. Open details with `GET /api/projects/:projectId/comments/:id` (app view model),
+`GET /api/review/:projectId/comments/:id` (review DTO), or `GET /api/comments/:id` (public DTO).
+Each performs a single canonical lookup and fresh visibility checks, independently of list caps.
+Counts/facets describe the complete current match, not just the page. Facets reject full-text/string bodies,
+values over 2 KiB, more than 1,000 distinct values per field or a payload over 1 MiB. Option values come only
 from authorized matching rows; they do not enumerate another project's directory. People use
 canonical `user:<id>` values and relative Me resolves on the server. Named author filtering and
 opened-by sorting require admin access. Reproduction fields are admin-only. Guest capabilities
@@ -66,7 +69,9 @@ The service re-evaluates the complete expression on every candidate before order
 A residual branch inside OR/NOT cannot be removed from a pushed predicate unless the resulting
 predicate is a proven superset. User input never becomes SQL syntax.
 
-Canonical writes atomically refresh `queryMetadata.version = 1`. Legacy documents remain
+Canonical writes atomically refresh `queryMetadata.version = 1`. This internal metadata is stripped
+from ordinary repository reads and excluded from content revisions, so existing mutation/replay
+responses and verification guards retain their behavior. Only the internal candidate API reads it. Legacy documents remain
 queryable without a migration or backfill; the evaluator uses canonical values. Metadata guards
 must retain legacy records. No PostgreSQL, queue, Table Storage, Blob index or new Cosmos
 container is needed. Existing Cosmos indexing covers filter paths; this first backend performs
@@ -76,8 +81,8 @@ Each source defaults to 100,000 candidates, 32 MiB, 10,000 RU and five seconds; 
 bounds the whole workspace operation to 100 sources, 100,000 candidates, 32 MiB and five seconds,
 and divides the 10,000 RU candidate-query allowance among its sources
 with fanout four. Exceeding a budget returns HTTP 422 `query_too_expensive`, never partial rows or
-partial counts. Cancellation stops Cosmos iteration. Reads have a durable 240/minute actor or
-anonymous-network rate limit. The endpoint currently recomputes the matching set for each read;
+partial counts. Cancellation stops Cosmos iteration. Reads have a durable 240/minute actor limit across scopes and a separate normalized
+600/minute network limit for guests/anonymous readers, so guest-token rotation cannot bypass it. The endpoint currently recomputes the matching set for each read;
 there is no result cache or production latency claim.
 
 Cursors are HMAC-signed, expire after 15 minutes, and bind the normalized query, authorized

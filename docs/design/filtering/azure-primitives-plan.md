@@ -3,7 +3,7 @@
 Current recommendation, 11 November 2026. Supersedes the PostgreSQL-first recommendation in
 the [alternative backend design](backend-plan.md) and its [alternative delivery sequence](implementation-plan.md).
 The [UI/component contracts](components-plan.md) remain applicable; a filtering interface does
-not require a particular database. Planning only: no resources or product code changed.
+not require a particular database. The implementation note below separates the first delivered backend from remaining performance gates.
 
 The first backend now has a [source-backed implementation note](../../../apps/web/docs/comment-query.md).
 It implements complete bounded candidate evaluation and live keyset paging; native indexed paging,

@@ -43,6 +43,10 @@ export function compileCandidatePredicate(query: QueryDocument, context: Evaluat
             case 'lessThan': case 'atMost': case 'greaterThan': case 'atLeast':
                 return `IIF(IS_NUMBER(${column}), ${column} ${{ lessThan: '<', atMost: '<=', greaterThan: '>', atLeast: '>=' }[condition.operator]} ${param(value as number)}, false)`;
             case 'between': return `IIF(IS_NUMBER(${column}), ${column} >= ${param((value as [number, number])[0])} AND ${column} <= ${param((value as [number, number])[1])}, false)`;
+            case 'inSection': {
+                const base = value as string;
+                return `IIF(IS_STRING(${column}), (${column} = ${param(base)} OR STARTSWITH(${column}, ${param(base === '/' ? '/' : `${base}/`)}) OR STARTSWITH(${column}, ${param(`${base}?`)}) OR STARTSWITH(${column}, ${param(`${base}#`)})), false)`;
+            }
             case 'isPage': return `IIF(IS_STRING(${column}), ${column} = ${param(value as string)}, false)`;
             // Unicode text matching and separator-aware paths remain residual.
             default: return undefined;
@@ -122,8 +126,12 @@ export function compileCandidatePredicate(query: QueryDocument, context: Evaluat
         const sql = leaf(expression);
         return sql === undefined ? metadataLeaf(expression) ?? residual : { sql, exact: true, test: record => evaluateExpression(record, expression, context, query.timezone) };
     };
-    if (!query.where) return undefined;
-    const compiled = compile(query.where);
+    const expressions: Expression[] = query.where ? [query.where] : [];
+    const page = query.location?.page;
+    const path = page?.kind === 'current' ? context.currentPage : page?.path;
+    if (page && path) expressions.push({ field: 'page', operator: page.kind === 'section' ? 'inSection' : 'isPage', value: path });
+    if (!expressions.length) return undefined;
+    const compiled = compile(expressions.length === 1 ? expressions[0]! : { all: expressions });
     if (compiled.sql === 'true') return undefined;
     // Memory applies the same conservative tree as Cosmos. The service always follows it
     // with the complete evaluator, so residual fields never change result correctness.

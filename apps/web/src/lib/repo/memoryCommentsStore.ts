@@ -62,8 +62,13 @@ function domainEntries(domain: string) {
 }
 
 /** The entry's comment; the sequence is not one */
-function commentOf(entry: MemoryEntry | undefined): DbComment | undefined {
-    return entry && isCommentDocument(entry.document) ? entry.document as DbComment : undefined;
+function commentOf(entry: MemoryEntry | undefined, includeQueryMetadata = false): DbComment | undefined {
+    if (!entry || !isCommentDocument(entry.document)) return undefined;
+    const comment = entry.document as DbComment;
+    if (includeQueryMetadata) return comment;
+    // Internal indexing fields must not change canonical mutation/replay payloads.
+    const { queryMetadata: _, ...canonical } = comment;
+    return canonical;
 }
 
 function domainComments(domain: string) {
@@ -90,7 +95,7 @@ export function getMemoryCommentsStore(): CommentsStore {
             for (const entry of domainEntries(domain).values()) {
                 throwIfQueryAborted(options.signal);
                 if (performance.now() - start > budget.durationMs) throw new CommentQueryBudgetError();
-                const comment = commentOf(entry);
+                const comment = commentOf(entry, true);
                 if (!comment || typeof comment.path !== 'string' || !matchesVisibility(comment, options.visibility)
                     || !matchesOrigin(comment.origin, options.origin) || !matchesArchive(comment, options.archive)) continue;
                 const candidate = toCommentQueryCandidate(comment, String(entry.version));
@@ -117,7 +122,8 @@ export function getMemoryCommentsStore(): CommentsStore {
                         || !('syncPending' in doc) || !doc.syncPending || !('projectId' in doc) || !doc.projectId) return [];
                     // Existing in-process fixtures can predate syncKey; production had no outbox.
                     const key = 'syncKey' in doc && typeof doc.syncKey === 'string' ? doc.syncKey : `${doc.domain}:${doc.id}`;
-                    return options.after && key <= options.after ? [] : [{ ...clone(doc as DbComment | DbSyncTombstone), syncKey: key }];
+                    const canonical = isCommentDocument(doc) ? commentOf(entry)! : doc as DbSyncTombstone;
+                    return options.after && key <= options.after ? [] : [{ ...clone(canonical), syncKey: key }];
                 })
                 .sort((a, b) => a.syncKey < b.syncKey ? -1 : a.syncKey > b.syncKey ? 1 : 0)
                 .slice(0, syncPendingPageLimit(options));

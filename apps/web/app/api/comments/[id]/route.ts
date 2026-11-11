@@ -1,9 +1,14 @@
 import { assertNotBot } from '../../../../src/lib/comments/botProtection';
 import { apiErrors, commentContext, commentsApiHandler, parseJsonBody } from '../../../../src/lib/comments/http';
-import { deleteComment, updateCommentResolved } from '../../../../src/lib/comments/service';
+import { deleteComment, getComment, updateCommentResolved } from '../../../../src/lib/comments/service';
 import { isValidId, updateCommentSchema } from '../../../../src/lib/comments/validation';
 
 type Params = { id: string };
+
+export const GET = commentsApiHandler<Params>(async (context, { id }) => {
+    if (!isValidId(id)) throw apiErrors.notFound();
+    return Response.json(await getComment(await commentContext(context, id), id));
+}, { createVisitor: false });
 
 // PATCH /api/comments/{id} - exactly one of { resolved }, { status } or { archived }, author only
 export const PATCH = commentsApiHandler<Params>(async (context, { id }) => {

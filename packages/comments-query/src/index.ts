@@ -250,7 +250,7 @@ export function parseQuery(input: unknown): QueryDocument {
         query.location = {};
         if (location.environmentIds !== undefined) {
             if (!Array.isArray(location.environmentIds) || !location.environmentIds.length || location.environmentIds.length > queryLimits.values) fail('location.environmentIds', 'Select between 1 and 100 environments.');
-            query.location.environmentIds = location.environmentIds.map((v, i) => id(v, `location.environmentIds.${i}`));
+            query.location.environmentIds = location.environmentIds.map((v, i) => string(v, `location.environmentIds.${i}`));
         }
         if (location.page !== undefined) {
             const page = object(location.page, 'location.page');
@@ -404,6 +404,21 @@ function same(a: unknown, b: unknown): boolean {
 export function inPageSection(base: string, path: string): boolean {
     return path === base || path.startsWith(base === '/' ? '/' : `${base}/`) || path.startsWith(`${base}?`) || path.startsWith(`${base}#`);
 }
+// A request reuses its evaluation context for every record. Resolving a local calendar day
+// involves timezone/DST work; cache only those derived bounds, never records or authorization.
+const evaluationDateRanges = new WeakMap<EvaluationContext, Map<string, { from: number; to: number }>>();
+function evaluationDateRange(condition: Condition, context: EvaluationContext, zone: string) {
+    const time = context.evaluationTime ?? new Date().toISOString();
+    const key = `${zone}\0${time}\0${stable(condition.value)}`;
+    let ranges = evaluationDateRanges.get(context);
+    if (!ranges) { ranges = new Map(); evaluationDateRanges.set(context, ranges); }
+    const cached = ranges.get(key);
+    if (cached) return cached;
+    const range = resolveDateRange(condition.value as string | RelativeDate | { from: string; to: string }, zone, time);
+    if (ranges.size >= 256) ranges.delete(ranges.keys().next().value!);
+    ranges.set(key, range);
+    return range;
+}
 export function evaluateCondition(record: QueryRecord, condition: Condition, context: EvaluationContext = {}, zone = 'UTC'): boolean {
     const actual = record.fields[condition.field], empty = isEmptyValue(actual), op = condition.operator;
     if (op === 'isEmpty') return empty;
@@ -435,7 +450,7 @@ export function evaluateCondition(record: QueryRecord, condition: Condition, con
         if (typeof actual !== 'string' && typeof actual !== 'number') return false;
         const instant = typeof actual === 'number' ? actual : Date.parse(actual);
         if (!Number.isFinite(instant)) return false;
-        const range = resolveDateRange(condition.value as string | RelativeDate | { from: string; to: string }, zone, context.evaluationTime ?? new Date().toISOString());
+        const range = evaluationDateRange(condition, context, zone);
         if (op === 'before') return instant < range.from;
         if (op === 'after') return instant >= (typeof condition.value === 'string' && !dateOnly.test(condition.value) ? range.from + 1 : range.to);
         return instant >= range.from && instant < range.to;

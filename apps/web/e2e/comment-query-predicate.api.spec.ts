@@ -118,3 +118,14 @@ test('metadata numeric and Boolean pushdowns remain inexact even when values exi
     // Link visibility is audience dependent; raw metadata must never hide a row.
     expect(compileCandidatePredicate(query({ field: 'fixLink', operator: 'is', value: false }), {})).toBeUndefined();
 });
+
+test('location selectors push exact pages and separator-aware sections before candidate collection', () => {
+    const exact = compileCandidatePredicate(parseQuery({ version: 1, scope: { kind: 'public' }, location: { page: { kind: 'current' } } }), { currentPage: '/a//b' })!;
+    expect(exact.clause).toContain('c.path = @q0');
+    expect(exact.test(candidate({ path: '/a//b' }))).toBe(true);
+    expect(exact.test(candidate({ path: '/a/b' }))).toBe(false);
+    const section = compileCandidatePredicate(parseQuery({ version: 1, scope: { kind: 'public' }, location: { page: { kind: 'section', path: '/a' } } }), {})!;
+    expect(section.clause).toContain('STARTSWITH');
+    for (const path of ['/a', '/a/b', '/a?x=1', '/a#tab']) expect(section.test(candidate({ path }))).toBe(true);
+    expect(section.test(candidate({ path: '/another' }))).toBe(false);
+});

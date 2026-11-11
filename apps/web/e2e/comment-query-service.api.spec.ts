@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { parseQuery, type QueryDocument } from '@uier/comments-query';
-import { executeQuery, queryFacets, type QueryExecutionContext } from '../src/lib/commentQuery/service';
+import { executeQuery, queryFacets, queryOptions, queryRow, capabilities, type QueryExecutionContext } from '../src/lib/commentQuery/service';
 import { markThreadRead } from '../src/lib/comments/readState';
 import type { DbComment } from '../src/lib/db/schema';
 import { getCommentsStore } from '../src/lib/repo/commentsStore';
@@ -117,9 +117,67 @@ test('query summaries and facet counts exclude private data and heavy server rec
         await store.create(record(domain, 'hidden', { private: true, priority: 'urgent' }));
         const response = await executeQuery(query(), context(domain));
         expect(response.total).toBe(1);
+        expect(capabilities(context(domain).sources).facetable).not.toContain('author');
+        expect(capabilities(context(domain).sources).facetable).not.toContain('openedBy');
         expect(response.items[0]).toMatchObject({ id: 'summary', excerpt: 'Visible excerpt', priority: 'high', screenshot: true });
         expect(JSON.stringify(response)).not.toMatch(/audit-secret|assignee-secret|session-secret|credential-secret|message-secret|author-secret|Sensitive device|999999|queryMetadata|"thread"|"device"/);
         expect((await queryFacets(query(), context(domain), ['priority'])).facets.priority).toEqual([{ value: 'high', count: 1 }]);
         await expect(queryFacets(query(), context(domain), ['browser'])).rejects.toThrow(/unavailable/);
+        await expect(queryFacets(query(), context(domain), ['text'])).rejects.toThrow(/unavailable/);
+        await expect(queryFacets(query(), context(domain), ['title'])).rejects.toThrow(/unavailable/);
+    } finally { await cleanup(domain); }
+});
+
+
+test('options search matches display labels and guest fix-link filters respect source visibility', async () => {
+    const domain = `service-query-${randomUUID()}`, store = getCommentsStore();
+    const project = { id: 'project-options', name: 'Checkout redesign', workspaceId: 'unused', urls: ['https://live.example', 'https://preview.example'], access: 'guests' } as import('../src/lib/app/model').DbProject;
+    try {
+        await store.create(record(domain, 'options', { origin: 'https://live.example', verification: { id: 'fix', revision: 'v1', requester: 'user:a', reviewer: 'user:b', requestedAt: '2026-01-01T00:00:00Z', outcome: 'pending', fixUrl: 'https://preview.example/fix' } }));
+        // Display labels for semantic enums are searchable even though they differ from IDs.
+        const request = query();
+        const options = await queryOptions(request, context(domain), 'status', 'Ready to verify');
+        expect(options.options).toEqual([{ value: 'ready', label: 'Ready to verify', count: 1 }]);
+        const projectContext = { ...context(domain), sources: [{ ...context(domain).sources[0]!, project }] };
+        expect((await queryOptions(request, projectContext, 'project', 'Checkout redesign')).options).toEqual([{ value: 'project-options', label: 'Checkout redesign', count: 1 }]);
+        const candidate = (await store.queryCandidates(domain))[0]!;
+        const guest = queryRow(candidate, { domain, project, actor: { kind: 'guest', visitorId: 'guest' } }, false, 0);
+        const member = queryRow(candidate, { domain, project, actor: { kind: 'member', userId: 'viewer', name: 'Viewer', isAdmin: false } }, false, 0);
+        expect(guest.record.fields.fixLink).toBe(false);
+        expect(member.record.fields.fixLink).toBe(true);
+        expect(guest.record.fields.kind).toBe('comment');
+    } finally { await cleanup(domain); }
+});
+
+
+test('rotating guest IDs cannot bypass the normalized network query budget', async () => {
+    const { enforceQueryReadLimits } = await import('../src/lib/commentQuery/limits');
+    const { rateLimitIpBucket, limitWindow } = await import('../src/lib/comments/rateLimits');
+    const { keyedHash } = await import('../src/lib/comments/environment');
+    const request = new Request('https://uier.io/api/comments/query', { headers: { 'x-forwarded-for': `2001:db8:${randomUUID().slice(0,4)}::1` } });
+    const bucket = rateLimitIpBucket(request)!;
+    // Pre-fill the durable bucket to its edge, independent of the spoofable guest identifier.
+    const limit = { key: `comment-query-network:${bucket}`, windowSeconds: 60 };
+    const counter = limitWindow(limit as Parameters<typeof limitWindow>[0]);
+    for (let i = 0; i < 600; i++) await getCommentsStore().incrementCounter('app', counter.id, 600, 360);
+    await expect(enforceQueryReadLimits(request, [{ domain: 'one', actor: { kind: 'guest', visitorId: keyedHash('test', randomUUID()) } }])).rejects.toThrow(/Wait a moment/);
+    await expect(enforceQueryReadLimits(request, [{ domain: 'another', actor: { kind: 'guest', visitorId: keyedHash('test', randomUUID()) } }])).rejects.toThrow(/Wait a moment/);
+});
+
+
+test('configured groups, removed origins and unknown sources retain exact environment matches', async () => {
+    const domain = `service-query-${randomUUID()}`, store = getCommentsStore();
+    const project = { id: 'env-project', workspaceId: 'unused', name: 'Environments', urls: ['https://live.example', 'https://preview.example'],
+        environments: [{ origin: 'https://live.example', label: 'Live', group: 'Production' }], access: 'guests' } as import('../src/lib/app/model').DbProject;
+    try {
+        for (const [id, origin] of [['live', 'https://live.example'], ['preview', 'https://preview.example'], ['removed', 'https://old.example'], ['unknown', undefined]] as const)
+            await store.create(record(domain, id, { origin }));
+        const execution = { ...context(domain), sources: [{ ...context(domain).sources[0]!, project }] };
+        const selected = await executeQuery(query({ location: { environmentIds: ['group:Production', 'removed'] } }), execution);
+        expect(selected.items.map(item => item.id).sort()).toEqual(['live', 'removed']);
+        const unknown = await executeQuery(query({ location: { environmentIds: ['unknown'] } }), execution);
+        expect(unknown.items.map(item => item.id)).toEqual(['unknown']);
+        const current = await executeQuery(query({ location: { environmentIds: ['current'] } }), { ...execution, currentEnvironment: 'origin:https://preview.example' });
+        expect(current.items.map(item => item.id)).toEqual(['preview']);
     } finally { await cleanup(domain); }
 });

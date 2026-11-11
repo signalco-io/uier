@@ -66,7 +66,9 @@ test('a comment stores only the parsed device fields, never the user-agent strin
     const userAgent = `Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36 Probe/${randomUUID()}`;
     const ip = `198.51.100.${randomInt(1, 255)}`;
     const ipv6 = `2001:db8:${randomInt(1, 0xffff).toString(16)}::${randomInt(1, 0xffff).toString(16)}`;
-    const headers = (address: string) => ({ 'user-agent': userAgent, 'x-forwarded-for': `${address}, 10.0.0.1`, 'x-real-ip': address, 'x-vercel-ip-country': 'HR', 'x-vercel-ip-city': 'Zagreb' });
+    // Unique probe: saved user queries can legitimately contain Europe/Zagreb.
+    const cityProbe = `GeoProbe-${randomUUID()}`;
+    const headers = (address: string) => ({ 'user-agent': userAgent, 'x-forwarded-for': `${address}, 10.0.0.1`, 'x-real-ip': address, 'x-vercel-ip-country': 'HR', 'x-vercel-ip-city': cityProbe });
     const input = await createCommentSchema.parseAsync({
         path: '/pricing', position: { type: 'point', selector: 'h1', xNormal: 0.5, yNormal: 0.5 }, text: 'Stored device', device: { ...device, userAgent, ip }
     });
@@ -88,7 +90,7 @@ test('a comment stores only the parsed device fields, never the user-agent strin
     }
     // Nowhere in the store, rate-limit counters included (they keep a keyed hash of the IP bucket)
     const everything = storedEverything();
-    for (const value of [userAgent, 'Probe/', ip, ipv6, ipv6.split('::')[0], 'Zagreb', '"HR"', 'userAgent', 'x-forwarded-for'])
+    for (const value of [userAgent, 'Probe/', ip, ipv6, ipv6.split('::')[0], cityProbe, '"HR"', 'userAgent', 'x-forwarded-for'])
         expect(everything, value).not.toContain(value);
 });
 

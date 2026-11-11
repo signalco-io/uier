@@ -129,3 +129,13 @@ test('Archive is independent of ordinary status expressions and project scope is
     expect(evaluateQuery(record('archived', { archived: '2026-01-01', status: 'open' }), base({ collection: 'archived' }))).toBe(true);
     expect(evaluateQuery(record('other', { project: 'other' }), base())).toBe(false);
 });
+
+
+test('text equality folds case while environment selectors preserve real configured IDs', () => {
+    const query = parseQuery(base({ location: { environmentIds: ['origin:https://app.example', 'group:Live sites'] },
+        where: { field: 'title', operator: 'equals', value: 'checkout' } }));
+    expect(evaluateQuery(record('match', { environment: 'origin:https://app.example', title: 'Checkout' }), query)).toBe(true);
+    expect(evaluateQuery(record('different-environment', { environment: 'origin:https://other.example', title: 'Checkout' }), query)).toBe(false);
+    const notEqual = parseQuery(base({ where: { field: 'text', operator: 'notEquals', value: 'checkout' } }));
+    expect(evaluateQuery(record('case', { text: 'Checkout' }), notEqual)).toBe(false);
+});

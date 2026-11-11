@@ -6,7 +6,7 @@ import { keyedHash } from '../comments/environment';
 import { apiErrors } from '../comments/http';
 import { readActivity } from '../comments/activity';
 import { loadReadSequences } from '../comments/readState';
-import { environmentOptions, feedbackSource } from '../app/environments';
+import { configuredEnvironments, environmentOptions, feedbackSource } from '../app/environments';
 import { actorAuthorId, type ProjectActor } from '../review/actor';
 import { commentVisibilityFilter } from '../review/comments';
 import { participantNames } from '../review/dto';
@@ -16,6 +16,7 @@ import { threadTitle } from '../titles/model';
 import { aiTitlesEnabled } from '../titles/settings';
 import type { DbComment } from '../db/schema';
 import { compileCandidatePredicate } from './predicate';
+import type { OriginFilter } from '../repo/originFilter';
 
 /** Built by route adapters only after fresh project/membership authorization. Never accept these from JSON. */
 export type QuerySource = { domain: string; project?: DbProject; actor: ProjectActor };
@@ -33,7 +34,7 @@ export function allowedQueryFields(sources: QuerySource[]): FieldId[] {
 }
 export function capabilities(sources: QuerySource[]) {
     return { ...queryCapabilities(allowedQueryFields(sources)), namedAuthors: admin(sources), pagination: 'live-keyset' as const,
-        totals: 'exact' as const, optionsPageSize: 100, pageSize: 100 };
+        totals: 'exact' as const, facetable: allowedQueryFields(sources).filter(field => ['enum', 'set', 'boolean'].includes(fieldRegistry[field].type) && (!['author', 'openedBy'].includes(field) || admin(sources))), optionsPageSize: 100, pageSize: 100 };
 }
 function conditions(expression: Expression | undefined): Condition[] {
     if (!expression) return [];
@@ -84,7 +85,7 @@ export function queryRow(candidate: CommentQueryCandidate, source: QuerySource, 
     const status = candidate.resolved ? 'done' : candidate.verification?.outcome === 'pending' ? 'ready' : candidate.inProgress ? 'in-progress' : 'open';
     const priority = ['urgent', 'high', 'low'].includes(candidate.priority ?? '') ? candidate.priority! : 'normal';
     const assignees = candidate.assigneeIds ?? (candidate.assigneeId ? [candidate.assigneeId] : []);
-    const environment = source.project ? feedbackSource(source.project, candidate.origin).environment : candidate.origin ?? 'unknown';
+    const environment = source.project ? feedbackSource(source.project, candidate.origin).environment : candidate.origin || 'unknown';
     const created = validTime(candidate.createdAt), updated = validTime(candidate.updatedAt, candidate.createdAt);
     const completed = validTime(candidate.completedAt, ...(candidate.resolved ? [candidate.updatedAt, candidate.createdAt] : []));
     const archived = candidate.archivedAt ? validTime(candidate.archivedAt, candidate.updatedAt, candidate.createdAt) : undefined;
@@ -133,6 +134,16 @@ function decodeCursor(token: string, expected: string): Cursor {
         return cursor;
     } catch { throw apiErrors.invalidRequest('The query cursor expired or belongs to a different query.'); }
 }
+/** Environment IDs describe configured groups, removed sources and unknown legacy sources. */
+function locationOriginFilter(query: QueryDocument, source: QuerySource, current?: string): OriginFilter | undefined {
+    if (!source.project || !query.location?.environmentIds?.length) return undefined;
+    const selected = query.location.environmentIds.map(id => id === 'current' ? current : id);
+    const configured = configuredEnvironments(source.project);
+    const wanted = configured.filter(item => selected.includes(feedbackSource(source.project!, item.origin).environment)).map(item => item.origin);
+    return selected.includes('removed')
+        ? { origins: configured.map(item => item.origin).filter(origin => !wanted.includes(origin)), exclude: true, unknown: selected.includes('unknown') }
+        : { origins: wanted, unknown: selected.includes('unknown') };
+}
 async function matchingRows(query: QueryDocument, context: QueryExecutionContext, evaluationTime: string) {
     assertQueryCapabilities(query, context);
     if (context.sources.length > 100) throw new CommentQueryBudgetError();
@@ -147,7 +158,7 @@ async function matchingRows(query: QueryDocument, context: QueryExecutionContext
             const viewerId = actorAuthorId(source.actor);
             const evaluation: EvaluationContext = { viewerId, evaluationTime, currentPage: context.currentPage, currentEnvironment: context.currentEnvironment };
             const [candidates, reads, workspace, names] = await Promise.all([
-                getCommentsStore().queryCandidates(source.domain, { visibility: commentVisibilityFilter(source.domain, source.actor),
+                getCommentsStore().queryCandidates(source.domain, { origin: locationOriginFilter(query, source, context.currentEnvironment), visibility: commentVisibilityFilter(source.domain, source.actor),
                     archive: query.collection === 'archived' ? 'only' : 'exclude', predicate: compileCandidatePredicate(query, evaluation),
                     maxRequestCharge: Math.max(1, Math.floor(10000 / Math.max(1, context.sources.length))), signal }),
                 loadReadSequences(source.domain, viewerId), source.project ? getWorkspace(source.project.workspaceId) : null,
@@ -158,6 +169,7 @@ async function matchingRows(query: QueryDocument, context: QueryExecutionContext
             if (candidatesSeen > 100000 || bytes > 32 * 1024 * 1024 || performance.now() - started > 5000) throw new CommentQueryBudgetError();
             for (const candidate of candidates) {
                 signal.throwIfAborted();
+                if (performance.now() - started > 5000) throw new CommentQueryBudgetError();
                 const row = queryRow(candidate, source, source.project ? aiTitlesEnabled(workspace, source.project) : false, reads.get(candidate.id) ?? 0, names);
                 if (evaluateQuery(row.record, query, evaluation)) rows.push(row);
             }
@@ -182,7 +194,7 @@ export async function executeQuery(query: QueryDocument, context: QueryExecution
 }
 export async function queryFacets(query: QueryDocument, context: QueryExecutionContext, fields: FieldId[]) {
     assertQueryCapabilities(query, context);
-    if (fields.length > 8 || fields.some(field => !allowedQueryFields(context.sources).includes(field) || ['author', 'openedBy'].includes(field) && !admin(context.sources)))
+    if (fields.length > 8 || fields.some(field => !allowedQueryFields(context.sources).includes(field) || !['enum', 'set', 'boolean'].includes(fieldRegistry[field].type) || ['author', 'openedBy'].includes(field) && !admin(context.sources)))
         throw apiErrors.forbidden('One or more facet fields are unavailable.');
     const evaluationTime = new Date().toISOString(), rows = await matchingRows(query, context, evaluationTime);
     const facets = Object.fromEntries(fields.map(field => {
@@ -190,9 +202,10 @@ export async function queryFacets(query: QueryDocument, context: QueryExecutionC
         for (const row of rows) for (const value of new Set(Array.isArray(row.record.fields[field]) ? row.record.fields[field] as unknown[] : [row.record.fields[field]])) {
             if (value !== undefined && value !== null && value !== '') counts.set(String(value), (counts.get(String(value)) ?? 0) + 1);
         }
-        if (counts.size > 1000) throw new CommentQueryBudgetError();
+        if (counts.size > 1000 || [...counts.keys()].some(value => Buffer.byteLength(value) > 2048)) throw new CommentQueryBudgetError();
         return [field, [...counts].sort(([a], [b]) => a.localeCompare(b)).map(([value, count]) => ({ value, count }))];
     }));
+    if (Buffer.byteLength(JSON.stringify(facets)) > 1024 * 1024) throw new CommentQueryBudgetError();
     return { version: 1, total: rows.length, evaluationTime, facets };
 }
 /** Options come from authorized matching rows; no cross-project directory or hidden values. */
@@ -200,7 +213,7 @@ export async function queryOptions(query: QueryDocument, context: QueryExecution
     if (!['enum', 'set'].includes(fieldRegistry[field]?.type) || search.length > 200 || !Number.isSafeInteger(offset) || offset < 0)
         throw apiErrors.invalidRequest('Invalid options request.');
     const result = await queryFacets(query, context, [field]);
-    const values = (result.facets[field] ?? []).filter(option => option.value.toLowerCase().includes(search.toLowerCase()));
+    const values = result.facets[field] ?? [];
     const labels = new Map<string, string>([['open', 'Open'], ['in-progress', 'In progress'], ['ready', 'Ready to verify'], ['done', 'Done'],
         ['urgent', 'Urgent'], ['high', 'High'], ['normal', 'Normal'], ['low', 'Low'], ['unknown', 'Source not recorded'], ['removed', 'Removed address']]);
     for (const source of context.sources) if (source.project) {
@@ -208,8 +221,11 @@ export async function queryOptions(query: QueryDocument, context: QueryExecution
         if (field === 'environment') for (const option of environmentOptions(source.project)) labels.set(option.id, option.label);
         if (['assignee', 'mentions', 'author', 'openedBy'].includes(field)) for (const [id, name] of await participantNames(source.project)) labels.set(person(id), name);
     }
-    return { version: 1, options: values.slice(offset, offset + 100).map(option => ({ ...option, label: labels.get(option.value)
-        ?? (['assignee', 'mentions', 'author', 'openedBy'].includes(field) ? option.value.startsWith('user:') ? 'Former member' : 'Guest' : option.value) })), nextOffset: values.length > offset + 100 ? offset + 100 : null, evaluationTime: result.evaluationTime };
+    const options = values.map(option => ({ ...option, label: labels.get(option.value)
+        ?? (['assignee', 'mentions', 'author', 'openedBy'].includes(field) ? option.value.startsWith('user:') ? 'Former member' : 'Guest' : option.value) }))
+        .filter(option => `${option.label}\n${option.value}`.toLowerCase().includes(search.toLowerCase()))
+        .sort((a, b) => a.label.localeCompare(b.label) || a.value.localeCompare(b.value));
+    return { version: 1, options: options.slice(offset, offset + 100), nextOffset: options.length > offset + 100 ? offset + 100 : null, evaluationTime: result.evaluationTime };
 }
 export function queryError(error: unknown): Response {
     if (error instanceof QueryValidationError) return Response.json({ error: error.code, issues: error.issues }, { status: 400 });

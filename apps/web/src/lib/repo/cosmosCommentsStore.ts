@@ -19,9 +19,9 @@ function errorCode(error: unknown): number | string | undefined {
         : typeof error === 'object' && error !== null && 'cause' in error ? errorCode(error.cause) : undefined;
 }
 
-/** Removes Cosmos system properties (`_rid`, `_self`, `_etag`, `_attachments`, `_ts`) */
+/** Canonical reads omit Cosmos system properties and internal query optimization fields. */
 function withoutSystemProperties<T = DbComment>(resource: Record<string, unknown>): T {
-    return Object.fromEntries(Object.entries(resource).filter(([key]) => !key.startsWith('_'))) as T;
+    return Object.fromEntries(Object.entries(resource).filter(([key]) => !key.startsWith('_') && key !== 'queryMetadata')) as T;
 }
 
 // Matches the normalized path and old documents whose path still contains the query string (e.g. `/x?review=true`)

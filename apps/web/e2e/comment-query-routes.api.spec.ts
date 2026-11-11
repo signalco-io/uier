@@ -15,7 +15,7 @@ test('public query HTTP routes return compact pages, exact counts and options wi
         const path = `/queries/${randomUUID()}`;
         const ids: string[] = [];
         for (let i = 0; i < 3; i++) {
-            const response = await visitor.post('/api/comments', { data: { path, position: { type: 'page' }, text: `Searchable heading ${i} ${'x'.repeat(300)}` } });
+            const response = await visitor.post('/api/comments', { data: { path, kind: 'feedback', position: { type: 'page' }, text: `Searchable heading ${i} ${'x'.repeat(300)}` } });
             expect(response.status(), await response.text()).toBe(201);
             ids.push((await response.json()).id);
         }
@@ -25,6 +25,9 @@ test('public query HTTP routes return compact pages, exact counts and options wi
         expect(result.total).toBe(3);
         expect(result.items.map((item: { id: string }) => item.id)).toEqual([...ids].reverse().slice(0, 2));
         expect(result.items[0].excerpt).toHaveLength(240);
+        const detail = await visitor.get(`/api/comments/${result.items[0].id}`);
+        expect(detail.status(), await detail.text()).toBe(200);
+        expect((await detail.json()).thread.items[0].text.length).toBeGreaterThan(240);
         for (const field of ['thread', 'position', 'history', 'assigneeAgent', 'device', 'authorId', 'queryMetadata']) expect(result.items[0]).not.toHaveProperty(field);
         const next = await visitor.post('/api/comments/query', { data: { query: query(path), page: { size: 2, cursor: result.nextCursor } } });
         expect(next.status(), await next.text()).toBe(200);
@@ -56,6 +59,7 @@ test('query HTTP boundaries reject forged scopes, hidden fields, malformed expre
     const unsigned = await request.post('/api/projects/abcdefghijkl/comments/query', { data: { query: base } });
     expect(unsigned.status()).toBe(401);
     expect(unsigned.headers()['cache-control']).toBe('private, no-store');
+    expect((await request.get('/api/projects/abcdefghijkl/comments/does-not-exist')).status()).toBe(401);
     const foreign = await request.post('/api/workspaces/abcdefghijkl/comments/query', { data: { query: base }, headers: { Origin: 'https://attacker.example', 'Sec-Fetch-Site': 'cross-site' } });
     expect(foreign.status()).toBe(403);
 });

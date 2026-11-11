@@ -103,6 +103,13 @@ async function toDto(comment: DbComment, context: CommentsApiContext): Promise<C
     return { ...dto, ...publicVerification(comment, context, names), activity: readActivity(comment, context.visitor.authorId, context.visitor.authorId ? await getReadSequence(context.domain, context.visitor.authorId, comment.id) : 0) };
 }
 
+/** Single visible thread, independent of the recent list window. */
+export async function getComment(context: CommentsApiContext, id: string) {
+    const stored = await getCommentsStore().get(context.domain, id);
+    if (!stored) throw apiErrors.notFound();
+    return toDto(stored.comment, context);
+}
+
 export function assertCommentAuthor(comment: DbComment, context: CommentsApiContext) {
     assertVisible(comment, context);
     if (!comment.authorId || comment.authorId !== context.visitor.authorId)

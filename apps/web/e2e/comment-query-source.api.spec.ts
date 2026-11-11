@@ -142,31 +142,57 @@ test('metadata normalizes legacy fields without indexing mutable names or stale 
 test('every memory canonical write refreshes metadata, including replies and atomic receipts and screenshots', async () => {
     const domain = `query-${randomUUID()}`, store = getMemoryCommentsStore();
     const record = comment(domain, 'canonical');
+    const metadata = async () => (await store.queryCandidates(domain)).find(row => row.id === record.id)?.queryMetadata;
     try {
         await store.create(record);
         let saved = (await store.get(domain, record.id))!;
-        expect(saved.comment.queryMetadata).toMatchObject({ version: 1, replyCount: 0, status: 'open' });
+        expect(saved.comment).not.toHaveProperty('queryMetadata');
+        expect(await metadata()).toMatchObject({ version: 1, replyCount: 0, status: 'open' });
         const changed = { ...saved.comment, priority: 'urgent' as const, resolved: true, completedAt: '2026-01-02T00:00:00Z',
-            queryMetadata: { ...saved.comment.queryMetadata!, priority: 'low' as const } };
+            queryMetadata: { ...(await metadata())!, priority: 'low' as const } };
         expect(await store.replace(changed, saved.etag)).toBe('ok');
         saved = (await store.get(domain, record.id))!;
-        expect(saved.comment.queryMetadata).toMatchObject({ priority: 'urgent', status: 'done', completedMissing: false });
+        expect(await metadata()).toMatchObject({ priority: 'urgent', status: 'done', completedMissing: false });
         expect(await store.appendThreadItem(domain, record.id, { id: 'reply', text: 'follow-up', authorId: 'reviewer',
             mentions: [{ userId: 'member', start: 0, end: 1 }] }, 100, '2026-01-03T00:00:00Z')).toBe('ok');
         saved = (await store.get(domain, record.id))!;
-        expect(saved.comment.queryMetadata).toMatchObject({ replyCount: 1, mentionIds: ['member'], authorIds: ['owner', 'reviewer'] });
-        expect(saved.comment.queryMetadata?.searchText).toContain('follow-up');
+        expect(await metadata()).toMatchObject({ replyCount: 1, mentionIds: ['member'], authorIds: ['owner', 'reviewer'] });
+        expect((await metadata())?.searchText).toContain('follow-up');
         const receipt = { id: 'receipt', domain, type: 'submission' } as DbSubmission;
         expect(await store.commitSubmission(receipt, { ...saved.comment, archivedAt: '2026-01-04T00:00:00Z' }, saved.etag)).toBe('ok');
         saved = (await store.get(domain, record.id))!;
-        expect(saved.comment.queryMetadata).toMatchObject({ archivedMissing: false, archived: '2026-01-04T00:00:00.000Z' });
+        expect(await metadata()).toMatchObject({ archivedMissing: false, archived: '2026-01-04T00:00:00.000Z' });
         const screenshot: DbScreenshot = { id: screenshotDocumentId(record.id), domain, commentId: record.id, type: 'screenshot',
             createdAt: '2026-01-05T00:00:00Z', contentType: 'image/png', width: 10, height: 20, bytes: 1, data: 'eA==' };
         expect(await store.replaceScreenshot({ ...saved.comment, screenshot }, saved.etag, screenshot)).toBe('ok');
-        expect((await store.get(domain, record.id))?.comment.queryMetadata?.hasScreenshot).toBe(true);
+        expect((await metadata())?.hasScreenshot).toBe(true);
     } finally {
         const saved = await store.get(domain, record.id); if (saved) await store.delete(domain, record.id, saved.etag);
         await store.deleteScreenshot(domain, record.id);
+    }
+});
+
+test('internal query metadata stays out of ordinary canonical and worker read payloads', async () => {
+    const domain = `query-${randomUUID()}`, memory = getMemoryCommentsStore();
+    const record = comment(domain, 'canonical-shape', { projectId: 'project', syncPending: true, notificationPending: true });
+    const persisted = { ...record, queryMetadata: commentQueryMetadata(record), _etag: 'etag' };
+    const container = { id: 'comments-preview', items: { query() {
+        let pending = true;
+        return { hasMoreResults: () => pending, async fetchNext() { pending = false; return { resources: [structuredClone(persisted)] }; } };
+    } }, item() { return { async read() { return { resource: structuredClone(persisted), etag: 'etag' }; } }; } } as unknown as Container;
+    try {
+        await memory.create(record);
+        for (const store of [memory, createCosmosCommentsStore(() => container)]) {
+            expect((await store.get(domain, record.id))?.comment).not.toHaveProperty('queryMetadata');
+            expect((await store.list(domain, '/page', 10))[0]).not.toHaveProperty('queryMetadata');
+            expect((await store.listAll(domain, 10))[0]).not.toHaveProperty('queryMetadata');
+            expect((await store.listChangedSince(domain, 0, 10))[0]?.comment).not.toHaveProperty('queryMetadata');
+            expect((await store.listSyncPending()).find(row => row.id === record.id)).not.toHaveProperty('queryMetadata');
+            expect((await store.listNotificationPending()).find(row => row.id === record.id)).not.toHaveProperty('queryMetadata');
+        }
+        expect((await memory.queryCandidates(domain))[0]?.queryMetadata).toMatchObject({ version: 1 });
+    } finally {
+        const current = await memory.get(domain, record.id); if (current) await memory.delete(domain, record.id, current.etag);
     }
 });
 
