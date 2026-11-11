@@ -70,7 +70,9 @@ export function StateMenu({ status, allowed, disabled, onChange, triggerRef, tri
         <DropdownMenu>
             {trigger ? <DropdownMenuTrigger render={trigger} disabled={disabled} /> : (
                 <DropdownMenuTrigger render={<Button ref={triggerRef} variant="outline" size="xs" disabled={disabled} aria-label={t("Status: {value0}. Change status", { value0: label })} aria-keyshortcuts={keyShortcut}
-                        className="h-5 gap-1.5 rounded-4xl pl-2 pointer-coarse:min-h-11" />}>
+                        // On a touch screen a 32 px pill with roomier sides (a 44 px one looked tall for its width, uier #280);
+                        // the hit area still reaches 44 px above and below it
+                        className="relative h-5 gap-1.5 rounded-4xl pl-2 after:absolute after:inset-x-0 after:-inset-y-1.5 pointer-fine:after:hidden pointer-coarse:h-8 pointer-coarse:pl-3 pointer-coarse:pr-2" />}>
                     <StateDot status={status} />
                     {label}
                     <ChevronDownIcon aria-hidden="true" data-icon="inline-end" className="text-muted-foreground" />

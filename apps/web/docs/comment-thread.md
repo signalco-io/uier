@@ -16,7 +16,7 @@
   state, `#number`, the unread dot (the Mark as read button, "Unread. Mark as read") and, on a private thread, the
   Private badge (a ghost badge with no background, muted lock and text; focusable; its tooltip says only workspace admins and the author see it, `canSeeComment`) on the first line with
   Copy and More actions at its right, on one line at any width. The state badge is the status menu ("Status:
-  Open. Change status") with Open, In progress, Ready to verify and Done, each enabled by the person's permissions
+  Open. Change status"; on a touch screen a 32 px pill with roomier sides whose hit area reaches 44 px, uier #280) with Open, In progress, Ready to verify and Done, each enabled by the person's permissions
   (`allowedStatuses`): Ready to verify opens the Request verification form (`VerificationControl`, whose submit has
   the same name), Open and In progress from Ready to verify cancel the check and land there, and Done there reads
   Done without verification. Copy is one menu with Copy
