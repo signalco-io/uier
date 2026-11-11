@@ -1,5 +1,6 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
 import { useActionState, useId } from 'react';
 import { flushSync } from 'react-dom';
 import { PlusIcon, XIcon } from 'lucide-react';
@@ -24,11 +25,12 @@ const siteColumns = '@xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1.25f
  * it shares feedback with; addresses on one origin are one site and share both. One save.
  */
 export function ProjectSitesForm({ projectId, urls, environments }: { projectId: string; urls: string[]; environments: ProjectEnvironment[] }) {
+    const { t } = useAppI18n();
     const formId = useId();
     const [state, formAction, pending] = useActionState(updateProjectSitesAction, null);
     const { draft: rows, dirty, update, discard } = useSettingsDraft(savedSiteRows(urls, environments), state);
     const setRow = (index: number, change: Partial<SiteRow>) => update(current => current.map((row, i) => i === index ? { ...row, ...change } : row));
-    const name = (row: SiteRow, index: number) => row.url.trim() ? displayUrl(row.url.trim()) : `address ${index + 1}`;
+    const name = (row: SiteRow, index: number) => row.url.trim() ? displayUrl(row.url.trim()) : t("address {number}", { number: index + 1 });
 
     const addRow = () => {
         // The new row is rendered at once, so focus can move into its address field
@@ -41,8 +43,8 @@ export function ProjectSitesForm({ projectId, urls, environments }: { projectId:
     return (
         <Section
             id="addresses"
-            title="Site addresses"
-            description="The toolbar works only on these addresses, the main site first. Each site keeps its own feedback unless it shares it."
+            title={t("Site addresses")}
+            description={t("The toolbar works only on these addresses, the main site first. Each site keeps its own feedback unless it shares it.")}
             stickyFooter
             footer={<SaveFooter formId={formId} state={state} pending={pending} dirty={dirty} onDiscard={discard} />}>
             <form id={formId} action={formAction} onResetCapture={keepValues} className="flex flex-col gap-4">
@@ -51,9 +53,9 @@ export function ProjectSitesForm({ projectId, urls, environments }: { projectId:
                 {/* A table where the card is wide enough, otherwise a card per address */}
                 <div className="@container flex flex-col gap-3">
                     <div aria-hidden="true" className={`hidden gap-2 text-sm font-medium @xl:grid ${siteColumns}`}>
-                        <span>Address</span>
-                        <span>Label</span>
-                        <span>Shares feedback with</span>
+                        <span>{t("Address")}</span>
+                        <span>{t("Label")}</span>
+                        <span>{t("Shares feedback with")}</span>
                     </div>
                     {rows.map((row, index) => {
                         const sameSite = sameSiteAs(rows, index);
@@ -61,16 +63,16 @@ export function ProjectSitesForm({ projectId, urls, environments }: { projectId:
                         const shared = sharedWith(rows, index);
                         // From the rows, not the Select's value: right after a row is removed that value can still be an old index
                         const sharedLabel = shared[0] === undefined
-                            ? 'No other address'
-                            : `${displayUrl(rows[shared[0]]!.url.trim())}${shared.length > 1 ? ` and ${shared.length - 1} more` : ''}`;
+                            ? t("No other address")
+                            : `${displayUrl(rows[shared[0]]!.url.trim())}${shared.length > 1 ? t(" and {value0} more", { value0: shared.length - 1 }) : ''}`;
                         return (
                             // Stacked on small screens, with the column names over the fields
                             <div key={index} className={`grid grid-cols-[minmax(0,1fr)_2.25rem] gap-x-2 gap-y-3 rounded-lg border p-3 @xl:items-center @xl:gap-y-0 @xl:rounded-none @xl:border-0 @xl:p-0 ${siteColumns}`}>
                                 <div className="flex min-w-0 flex-col gap-1.5">
-                                    <label htmlFor={`${formId}-url-${index}`} aria-hidden="true" className="text-xs text-muted-foreground @xl:hidden">Address</label>
+                                    <label htmlFor={`${formId}-url-${index}`} aria-hidden="true" className="text-xs text-muted-foreground @xl:hidden">{t("Address")}</label>
                                     <Input
                                         id={`${formId}-url-${index}`}
-                                        aria-label={index === 0 ? 'Main site address' : `Address ${index + 1}`}
+                                        aria-label={index === 0 ? t("Main site address") : t("Address {value0}", { value0: index + 1 })}
                                         value={row.url}
                                         onChange={event => setRow(index, { url: event.target.value })}
                                         required={index === 0}
@@ -82,37 +84,35 @@ export function ProjectSitesForm({ projectId, urls, environments }: { projectId:
                                 </div>
                                 <div className="col-start-2 row-start-1 self-end @xl:col-start-4">
                                     {index > 0
-                                        ? <Button variant="ghost" size="icon" aria-label={`Remove address ${index + 1}`} onClick={() => removeRow(index)}><XIcon /></Button>
+                                        ? <Button variant="ghost" size="icon" aria-label={t("Remove address {value0}", { value0: index + 1 })} onClick={() => removeRow(index)}><XIcon /></Button>
                                         : <span aria-hidden="true" className="block size-9" />}
                                 </div>
                                 {sameSite >= 0 ? (
-                                    <p className="col-span-2 m-0 text-sm text-muted-foreground @xl:col-span-2 @xl:col-start-2 @xl:row-start-1">
-                                        Same site as {displayUrl(rows[sameSite]!.url.trim())}, with its label and feedback.
-                                    </p>
+                                    <p className="col-span-2 m-0 text-sm text-muted-foreground @xl:col-span-2 @xl:col-start-2 @xl:row-start-1">{t("Same site as")}{' '}{displayUrl(rows[sameSite]!.url.trim())}{t(", with its label and feedback.")}</p>
                                 ) : (
                                     <>
                                         <div className="col-span-2 flex min-w-0 flex-col gap-1.5 @xl:col-span-1 @xl:col-start-2 @xl:row-start-1">
-                                            <label htmlFor={`${formId}-label-${index}`} aria-hidden="true" className="text-xs text-muted-foreground @xl:hidden">Label</label>
+                                            <label htmlFor={`${formId}-label-${index}`} aria-hidden="true" className="text-xs text-muted-foreground @xl:hidden">{t("Label")}</label>
                                             <Input
                                                 id={`${formId}-label-${index}`}
-                                                aria-label={`Label for ${name(row, index)}`}
+                                                aria-label={t("Label for {value0}", { value0: name(row, index) })}
                                                 value={row.label}
                                                 maxLength={60}
                                                 onChange={event => setRow(index, { label: event.target.value })}
-                                                placeholder={index === 0 ? 'Production' : 'Staging'} />
+                                                placeholder={index === 0 ? t("Production") : t("Staging")} />
                                         </div>
                                         <div className="col-span-2 flex min-w-0 flex-col gap-1.5 @xl:col-span-1 @xl:col-start-3 @xl:row-start-1">
-                                            <label htmlFor={`${formId}-share-${index}`} aria-hidden="true" className="text-xs text-muted-foreground @xl:hidden">Shares feedback with</label>
+                                            <label htmlFor={`${formId}-share-${index}`} aria-hidden="true" className="text-xs text-muted-foreground @xl:hidden">{t("Shares feedback with")}</label>
                                             <Select
                                                 value={shared[0] === undefined ? 'none' : String(shared[0])}
                                                 onValueChange={value => update(current => shareWith(current, index, value && value !== 'none' ? Number(value) : null))}
                                                 disabled={options.length === 0}>
-                                                <SelectTrigger id={`${formId}-share-${index}`} aria-label={`${name(row, index)} shares feedback with`} className="w-full">
+                                                <SelectTrigger id={`${formId}-share-${index}`} aria-label={t("{value0} shares feedback with", { value0: name(row, index) })} className="w-full">
                                                     <SelectValue>{sharedLabel}</SelectValue>
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectGroup>
-                                                        <SelectItem value="none">No other address</SelectItem>
+                                                        <SelectItem value="none">{t("No other address")}</SelectItem>
                                                         {options.map(({ row: option, other }) => (
                                                             <SelectItem key={other} value={String(other)}>{displayUrl(option.url.trim())}</SelectItem>
                                                         ))}
@@ -128,13 +128,11 @@ export function ProjectSitesForm({ projectId, urls, environments }: { projectId:
                 </div>
                 {rows.length < MAX_PROJECT_URLS && (
                     <Button variant="outline" size="sm" className="self-start" onClick={addRow}>
-                        <PlusIcon data-icon="inline-start" />
-                        Add address
-                    </Button>
+                        <PlusIcon data-icon="inline-start" />{t("Add address")}</Button>
                 )}
                 <div className="flex flex-col gap-1">
-                    {hasSchemelessLocal(rows) && <FieldDescription>Local addresses use HTTP by default. Include https:// for local HTTPS.</FieldDescription>}
-                    <FieldDescription>Share feedback only between copies of one site, such as example.com and www.example.com: their comments show on the same pages. Removing an address keeps its comments.</FieldDescription>
+                    {hasSchemelessLocal(rows) && <FieldDescription>{t("Local addresses use HTTP by default. Include https:// for local HTTPS.")}</FieldDescription>}
+                    <FieldDescription>{t("Share feedback only between copies of one site, such as example.com and www.example.com: their comments show on the same pages. Removing an address keeps its comments.")}</FieldDescription>
                 </div>
             </form>
         </Section>

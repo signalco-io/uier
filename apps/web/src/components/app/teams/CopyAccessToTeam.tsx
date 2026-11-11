@@ -1,5 +1,6 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
 import { useId, useState } from 'react';
 import Link from 'next/link';
 import { Field, FieldGroup, FieldLabel } from '@/src/components/ui/field';
@@ -12,6 +13,7 @@ import { CheckList } from './AccessFormFields';
 import { ConfirmAccess } from './ConfirmAccess';
 
 export function CopyAccessToTeam({ data }: { data: AccessData }) {
+    const { t } = useAppI18n();
     const id = useId(),
         [name, setName] = useState(''),
         [people, setPeople] = useState<string[]>([]),
@@ -21,7 +23,7 @@ export function CopyAccessToTeam({ data }: { data: AccessData }) {
         <div className="flex flex-col gap-4">
             <FieldGroup>
                 <Field>
-                    <FieldLabel htmlFor={id}>New team name</FieldLabel>
+                    <FieldLabel htmlFor={id}>{t("New team name")}</FieldLabel>
                     <Input
                         id={id}
                         value={name}
@@ -30,22 +32,22 @@ export function CopyAccessToTeam({ data }: { data: AccessData }) {
                     />
                 </Field>
                 <CheckList
-                    label="Copy selected people"
+                    label={t("Copy selected people")}
                     options={data.people.map((person) => ({ id: person.member.userId, name: person.name }))}
                     value={people}
                     onChange={setPeople}
                 />
                 <CheckList
-                    label="Copy selected projects"
+                    label={t("Copy selected projects")}
                     options={data.projects}
                     value={projects}
                     onChange={setProjects}
                 />
             </FieldGroup>
             <ConfirmAccess
-                label="Review new team"
-                title="Create a team from these people and projects?"
-                description="The new team grants the selected projects to every selected person. Existing direct grants stay. Any removal of direct grants is a separate confirmed change. Memberships save separately."
+                label={t("Review new team")}
+                title={t("Create a team from these people and projects?")}
+                description={t("The new team grants the selected projects to every selected person. Existing direct grants stay. Any removal of direct grants is a separate confirmed change. Memberships save separately.")}
                 disabled={!name.trim() || !people.length || people.length > MAX_BULK_PEOPLE}
                 action={async () => {
                     const outcome = await copyAccessToTeamAction(name, projects, people, data.revision);
@@ -53,32 +55,30 @@ export function CopyAccessToTeam({ data }: { data: AccessData }) {
                     return outcome;
                 }}
             >
-                <p className="text-sm">
-                    People:{' '}
+                <p className="text-sm">{t("People:")}{' '}
                     {data.people
                         .filter((person) => people.includes(person.member.userId))
                         .map(
                             (person) =>
-                                `${person.name}${person.member.relationship === 'external' ? ' (external)' : ''}`
+                                `${person.name}${person.member.relationship === 'external' ? t(" (external)") : ''}`
                         )
                         .join(', ')}
                 </p>
-                <p className="text-sm">
-                    Team projects:{' '}
+                <p className="text-sm">{t("Team projects:")}{' '}
                     {data.projects
                         .filter((project) => projects.includes(project.id))
                         .map((project) => project.name)
-                        .join(', ') || 'None'}
+                        .join(', ') || t("None")}
                 </p>
-                <p className="text-sm">Each selected person gains these project grants. Other current grants stay.</p>
+                <p className="text-sm">{t("Each selected person gains these project grants. Other current grants stay.")}</p>
             </ConfirmAccess>
             {result && (
                 <div role="status" className="text-sm">
-                    <Link href={KnownPageLinks.team(result.id)}>Open the new team</Link>
+                    <Link href={KnownPageLinks.team(result.id)}>{t("Open the new team")}</Link>
                     {result.results.map((item) => (
                         <p key={item.userId}>
                             {data.people.find((person) => person.member.userId === item.userId)?.name}:{' '}
-                            {item.ok ? 'Saved' : item.error}
+                            {item.ok ? t("Saved") : t(item.error ?? 'Something went wrong. Try again.')}
                         </p>
                     ))}
                 </div>

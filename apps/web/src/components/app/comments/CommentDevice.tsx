@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useState } from 'react';
 import { deviceSettings } from '@uier/toolbar/devices';
 import {
@@ -46,16 +48,17 @@ const tileValues: Record<string, Record<string, string>> = {
  * copy as text. Only authorized project members get this context (`reproduction.ts`).
  */
 export function CommentDevice({ device, context }: { device?: DbDeviceSize; context: ReproductionContext }) {
+    const { t } = useAppI18n();
     const [copied, setCopied] = useState(false);
     const { windowSize, pixelRatio } = context;
     const SizeIcon = device ? deviceIcons[device] : MonitorIcon;
-    const screen = device ? deviceLabels[device] : 'Unknown screen';
+    const screen = device ? t(deviceLabels[device]) : t("Unknown screen");
     const viewport = [windowSize && `${windowSize[0]}×${windowSize[1]} CSS px`, pixelRatio && `${pixelRatio}x`].filter(Boolean).join(' · ');
-    const browser = context.browser ?? 'Unknown browser';
-    const os = context.os ?? 'Unknown OS';
+    const browser = context.browser ?? t("Unknown browser");
+    const os = context.os ?? t("Unknown OS");
     const settings = deviceSettings(context);
     // "Device: Desktop · 1674×1318 px · Firefox (131) · macOS"
-    const name = `Device: ${[screen, windowSize && `${windowSize[0]}×${windowSize[1]} px`, browser, os].filter(Boolean).join(' · ')}`;
+    const name = t("Device: {value0}", { value0: [screen, windowSize && `${windowSize[0]}×${windowSize[1]} px`, browser, os].filter(Boolean).join(' · ') });
 
     const copy = async () => {
         try {
@@ -63,7 +66,7 @@ export function CommentDevice({ device, context }: { device?: DbDeviceSize; cont
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
         } catch {
-            toast.error('Couldn\'t copy. Select the details and copy them instead.');
+            toast.error(t("Couldn't copy. Select the details and copy them instead."));
         }
     };
 
@@ -75,13 +78,13 @@ export function CommentDevice({ device, context }: { device?: DbDeviceSize; cont
                 <BrowserMark name={context.browser} className="size-3.5" />
                 <span className="sr-only">{name}</span>
             </PopoverTrigger>
-            <PopoverContent align="start" aria-label="Device and browser" className="w-72 gap-3 p-3">
+            <PopoverContent align="start" aria-label={t("Device and browser")} className="w-72 gap-3 p-3">
                 <div className="flex flex-col gap-1">
                     <Item size="xs" variant="muted">
                         <ItemMedia variant="icon"><SizeIcon aria-hidden="true" /></ItemMedia>
                         <ItemContent>
                             <ItemTitle>{screen}</ItemTitle>
-                            <ItemDescription className="font-mono tabular-nums">{viewport || 'Viewport unavailable'}</ItemDescription>
+                            <ItemDescription className="font-mono tabular-nums">{viewport || t("Viewport unavailable")}</ItemDescription>
                         </ItemContent>
                     </Item>
                     <Item size="xs" variant="muted">
@@ -102,9 +105,9 @@ export function CommentDevice({ device, context }: { device?: DbDeviceSize; cont
                                 <div key={name} className="relative flex min-w-0 flex-col rounded-md bg-muted/50 py-2 pr-2.5 pl-8.5">
                                     <dt className="order-2 truncate text-xs text-muted-foreground">
                                         <Icon aria-hidden="true" className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-foreground" />
-                                        {tileLabels[name] ?? name}
+                                        {t(tileLabels[name] ?? name)}
                                     </dt>
-                                    <dd className="order-1 m-0 truncate text-sm leading-snug font-medium" title={value}>{tileValues[name]?.[value] ?? value}</dd>
+                                    <dd className="order-1 m-0 truncate text-sm leading-snug font-medium" title={value}>{name === 'Model' || name === 'Page language' ? value : t(tileValues[name]?.[value] ?? value)}</dd>
                                 </div>
                             );
                         })}
@@ -112,10 +115,10 @@ export function CommentDevice({ device, context }: { device?: DbDeviceSize; cont
                 )}
                 {(context.capturedAt || context.url) && (
                     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                        {context.capturedAt && <span>Captured <DateTime value={context.capturedAt} /></span>}
+                        {context.capturedAt && <span>{t("Captured ")}<DateTime value={context.capturedAt} /></span>}
                         {context.url && (
                             <a href={context.url} target="_blank" rel="noopener" className="inline-flex items-center gap-0.5 underline underline-offset-2 hover:text-foreground">
-                                Reviewed page
+                                {t("Reviewed page")}
                                 <ArrowUpRightIcon aria-hidden="true" className="size-3" />
                             </a>
                         )}
@@ -123,9 +126,9 @@ export function CommentDevice({ device, context }: { device?: DbDeviceSize; cont
                 )}
                 <Button variant="outline" size="sm" onClick={copy}>
                     {copied ? <CheckIcon data-icon="inline-start" /> : <CopyIcon data-icon="inline-start" />}
-                    Copy reproduction details
+                    {t("Copy reproduction details")}
                 </Button>
-                <span role="status" className="sr-only">{copied ? 'Copied' : ''}</span>
+                <span role="status" className="sr-only">{copied ? t("Copied") : ''}</span>
             </PopoverContent>
         </Popover>
     );

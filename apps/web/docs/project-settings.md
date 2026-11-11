@@ -154,3 +154,5 @@ Settings pages import their own client form entry modules. The email switches an
 controls are separate from General, Review and Environments, so an account email preference does not
 import every project editor. Keep these imports direct rather than adding a client barrel. The
 controlled forms share only `keepFormValues.ts` for suppressing React’s action reset.
+
+Project settings and installation copy use the app language from the account preference, then the browser, then English. Toolbar language remains a separate setting: changing the app language never changes a project’s review language. Built-in choices are translated where shown; addresses, environment labels, custom feedback types and project names stay as saved.

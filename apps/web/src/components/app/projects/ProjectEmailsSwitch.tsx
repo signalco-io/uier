@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useId, useOptimistic, useTransition } from 'react';
 import { toast } from 'sonner';
 import { Field, FieldLabel } from '@/src/components/ui/field';
@@ -11,6 +13,7 @@ import { setProjectEmailsMutedAction } from './actions';
  * not for threads they follow). Labelled by `label`, or named `ariaLabel` beside other text.
  */
 export function ProjectEmailsSwitch({ projectId, muted, label, ariaLabel }: { projectId: string; muted: boolean; label?: string; ariaLabel?: string }) {
+    const { t } = useAppI18n();
     const id = useId();
     const [optimisticMuted, setOptimisticMuted] = useOptimistic(muted);
     const [pending, startTransition] = useTransition();
@@ -20,7 +23,7 @@ export function ProjectEmailsSwitch({ projectId, muted, label, ariaLabel }: { pr
         setOptimisticMuted(!on);
         const result = await setProjectEmailsMutedAction(projectId, !on);
         if (result && !result.ok)
-            toast.error(result.error);
+            toast.error(t(result.error));
     });
 
     const control = <Switch id={id} checked={!optimisticMuted} onCheckedChange={handleChange} disabled={pending} aria-label={ariaLabel} />;

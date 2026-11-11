@@ -1,5 +1,6 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
 import { useOptimistic, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { urlWith } from '@/src/hooks/use-url-search-params';
@@ -22,10 +23,11 @@ function FilterMark({ client }: { client?: FilterClient }) {
  * Each client shows its `ClientMark`, in the menu and on the trigger.
  */
 export function ClientFilter({ clients, value }: { clients: FilterClient[]; value?: string }) {
+    const { t } = useAppI18n();
     const router = useRouter();
     const [, startTransition] = useTransition();
     const [shown, setShown] = useOptimistic(value ?? 'all');
-    const items = [{ value: 'all', label: 'All clients' }, { value: 'none', label: 'No client' }, ...clients.map(client => ({ value: client.id, label: client.name, client }))] as { value: string; label: string; client?: FilterClient }[];
+    const items = [{ value: 'all', label: t("All clients") }, { value: 'none', label: t("No client") }, ...clients.map(client => ({ value: client.id, label: client.name, client }))] as { value: string; label: string; client?: FilterClient }[];
     const itemOf = (selected: string | null) => items.find(item => item.value === selected);
     return (
         <Select items={items} value={shown} onValueChange={next => startTransition(() => {
@@ -34,7 +36,7 @@ export function ClientFilter({ clients, value }: { clients: FilterClient[]; valu
             setShown(next ?? 'all');
             router.push(`${pathname}${search}`);
         })}>
-            <SelectTrigger size="sm" aria-label="Client" className="w-56 max-w-full">
+            <SelectTrigger size="sm" aria-label={t("Client")} className="w-56 max-w-full">
                 <SelectValue>
                     {(selected: string | null) => {
                         const item = itemOf(selected);

@@ -1,5 +1,6 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
 import { useActionState, useId } from 'react';
 import Link from 'next/link';
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldSeparator } from '@/src/components/ui/field';
@@ -29,26 +30,27 @@ export function ProjectGeneralForm({ projectId, name, clientName, clients, aiTit
     rewriteInstructions?: ProjectSetting<string>;
     workspaceRewriteInstructions: string;
 }) {
+    const { t } = useAppI18n();
     const formId = useId();
     const [state, formAction, pending] = useActionState(updateProjectGeneralAction, null);
     const { draft, dirty, update, discard } = useSettingsDraft({ name, clientName: clientName ?? '', aiTitles,
         rewriteMode: (rewriteInstructions?.mode ?? 'workspace') as ProjectSettingMode, rewriteInstructions: rewriteInstructions?.value ?? '' }, state);
     const aiTitleOptions = [
-        { value: 'workspace', label: `Workspace setting (${workspaceAiTitles ? 'on' : 'off'})` },
-        { value: 'on', label: 'On' },
-        { value: 'off', label: 'Off' }
+        { value: 'workspace', label: workspaceAiTitles ? t("Workspace setting (on)") : t("Workspace setting (off)") },
+        { value: 'on', label: t("On") },
+        { value: 'off', label: t("Off") }
     ] satisfies { value: ProjectAiTitleMode; label: string }[];
     return (
         <Section
             id="general"
-            title="General"
+            title={t("General")}
             stickyFooter
             footer={<SaveFooter formId={formId} state={state} pending={pending} dirty={dirty} onDiscard={discard} />}>
             <form id={formId} action={formAction} onResetCapture={keepValues}>
                 <input type="hidden" name="projectId" value={projectId} />
                 <FieldGroup>
                     <Field>
-                        <FieldLabel htmlFor={`${formId}-name`}>Project name</FieldLabel>
+                        <FieldLabel htmlFor={`${formId}-name`}>{t("Project name")}</FieldLabel>
                         <Input
                             id={`${formId}-name`}
                             name="name"
@@ -57,32 +59,30 @@ export function ProjectGeneralForm({ projectId, name, clientName, clients, aiTit
                             required
                             maxLength={MAX_PROJECT_NAME_LENGTH}
                             className="max-w-md" />
-                        <FieldDescription>Shown in the app and in invitations.</FieldDescription>
+                        <FieldDescription>{t("Shown in the app and in invitations.")}</FieldDescription>
                     </Field>
                     <Field>
-                        <FieldLabel htmlFor={`${formId}-client`}>Client name (optional)</FieldLabel>
+                        <FieldLabel htmlFor={`${formId}-client`}>{t("Client name (optional)")}</FieldLabel>
                         <ClientNameInput id={`${formId}-client`} value={draft.clientName}
                             onValueChange={value => update(current => ({ ...current, clientName: value }))} clients={clients} className="max-w-md" />
-                        <FieldDescription>
-                            Who the project is for. Edit a client&apos;s name, icon and colour on <Link href={KnownPages.AppClients} className="underline underline-offset-4 hover:text-foreground">Clients</Link>.
+                        <FieldDescription>{t("Who the project is for. Edit a client's name, icon and colour on")}{' '}<Link href={KnownPages.AppClients} className="underline underline-offset-4 hover:text-foreground">{t("Clients")}</Link>.
                         </FieldDescription>
                     </Field>
                     <Field>
-                        <FieldLabel htmlFor={`${formId}-ai-titles`}>Thread titles</FieldLabel>
+                        <FieldLabel htmlFor={`${formId}-ai-titles`}>{t("Thread titles")}</FieldLabel>
                         <input type="hidden" name="aiTitles" value={draft.aiTitles} />
-                        <Select value={draft.aiTitles} items={aiTitleOptions}
+                        <Select value={draft.aiTitles} items={aiTitleOptions.map(option => ({ ...option, label: t(option.label) }))}
                             onValueChange={value => update(current => ({ ...current, aiTitles: projectAiTitleModes.find(mode => mode === value) ?? 'workspace' }))}>
                             <SelectTrigger id={`${formId}-ai-titles`} className="w-full max-w-md">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectGroup>
-                                    {aiTitleOptions.map(option => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                                    {aiTitleOptions.map(option => <SelectItem key={option.value} value={option.value}>{t(option.label)}</SelectItem>)}
                                 </SelectGroup>
                             </SelectContent>
                         </Select>
-                        <FieldDescription>
-                            A short title for each thread, written by Claude Haiku from its first message and shown in place of the first line. Change the workspace setting in <Link href={KnownPages.AppSettings} className="underline underline-offset-4 hover:text-foreground">Workspace settings</Link>.
+                        <FieldDescription>{t("A short title for each thread, written by Claude Haiku from its first message and shown in place of the first line. Change the workspace setting in")}{' '}<Link href={KnownPages.AppSettings} className="underline underline-offset-4 hover:text-foreground">{t("Workspace settings")}</Link>.
                         </FieldDescription>
                     </Field>
                     <FieldSeparator />

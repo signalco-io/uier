@@ -13,11 +13,11 @@ const stateDotColors: Record<PullRequestState, string> = {
 };
 
 /** A known state as the brand's badge: a 6 px dot in the state's colour beside its name. */
-export function PullRequestStateBadge({ state }: { state: PullRequestState }) {
+export function PullRequestStateBadge({ state, label }: { state: PullRequestState; label?: string }) {
     return (
         <Badge variant="outline" className="gap-1.5" data-pull-request-state={state}>
             <span aria-hidden="true" className={cn('size-1.5 shrink-0 rounded-full', stateDotColors[state])} />
-            {labels[state]}
+            {label ?? labels[state]}
         </Badge>
     );
 }

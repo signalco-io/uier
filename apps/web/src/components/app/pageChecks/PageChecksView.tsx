@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { ScanSearchIcon } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
@@ -47,10 +49,11 @@ const sortedColumn: Partial<Record<PageCheckOrder, { column: string; direction: 
 };
 
 function Checked({ page }: { page: PageCheckRow }) {
+    const { t } = useAppI18n();
     return (
         <span className="flex flex-col gap-0.5">
             <RelativeTime value={page.checkedAt} short />
-            <span className="text-muted-foreground">{changeText(page)}</span>
+            <span className="text-muted-foreground">{changeText(page, t)}</span>
         </span>
     );
 }
@@ -67,7 +70,10 @@ export function PageChecksView({ projectId, pages, environments }: {
     pages: PageCheckRow[];
     environments: PageEnvironment[];
 }) {
+    const { t } = useAppI18n();
     const params = useUrlSearchParams();
+    const translatedOrders = orderItems.map(item => ({ ...item, label: t(item.label) }));
+    const translatedFilters = filterItems.map(item => ({ ...item, label: t(item.label) }));
     const requested = params.get('sort');
     const order: PageCheckOrder = isPageCheckOrder(requested) ? requested : 'attention';
     // Which pages the list shows (uier #221): all by default, kept in the address as `?show=`
@@ -82,7 +88,7 @@ export function PageChecksView({ projectId, pages, environments }: {
     return (
         // Full width like the comments (uier #214): the panel's width less the gutters (`page-wide`, app-shell.md), capped
         // at 96rem; data-header-wide gives the project header above the same width
-        <section aria-label="Page checks" data-page-width="wide" data-header-wide="list"
+        <section aria-label={t("Page checks")} data-page-width="wide" data-header-wide="list"
             className="flex w-[min(var(--page-wide),96rem)] flex-col gap-6 mx-[calc((100%-min(var(--page-wide),96rem))/2)]">
             {/* No heading or intro of its own (uier #255, uier #273): the project's Page checks tab above names it, so its
                 sections are h2 under the project's h1 */}
@@ -91,9 +97,9 @@ export function PageChecksView({ projectId, pages, environments }: {
                 <Empty className="border">
                     <EmptyHeader>
                         <EmptyMedia variant="icon"><ScanSearchIcon /></EmptyMedia>
-                        <EmptyTitle>No pages checked yet</EmptyTitle>
+                        <EmptyTitle>{t("No pages checked yet")}</EmptyTitle>
                         <EmptyDescription>
-                            Pages appear as members review the site with the toolbar. Extension reviews are not included yet.
+                            {t("Pages appear as members review the site with the toolbar. Extension reviews are not included yet.")}
                         </EmptyDescription>
                     </EmptyHeader>
                 </Empty>
@@ -104,37 +110,37 @@ export function PageChecksView({ projectId, pages, environments }: {
                         {/* The filter and order sit with the list they change (uier #256) */}
                         <div className="flex flex-wrap items-center justify-between gap-3">
                             <h2 id="checked-pages-title" className="m-0 text-base font-semibold tracking-[-0.01em]">
-                                Pages <span className="font-normal text-muted-foreground tabular-nums">
-                                    {filter === 'all' ? pages.length : `${sorted.length} of ${pages.length}`}
+                                {t("Pages ")}<span className="font-normal text-muted-foreground tabular-nums">
+                                    {filter === 'all' ? pages.length : t("{shown} of {total}", { shown: sorted.length, total: pages.length })}
                                 </span>
                             </h2>
                             <div className="flex max-w-full flex-wrap gap-2">
-                                <Select items={filterItems} value={filter}
+                                <Select items={translatedFilters} value={filter}
                                     onValueChange={next => setUrlSearchParams({ show: next && next !== 'all' ? next : undefined })}>
-                                    <SelectTrigger size="sm" aria-label="Show pages" className="w-56 max-w-full">
+                                    <SelectTrigger size="sm" aria-label={t("Show pages")} className="w-56 max-w-full">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectGroup>
-                                            {filterItems.map(item => (
+                                            {translatedFilters.map(item => (
                                                 <SelectItem key={item.value} value={item.value}>
                                                     <span className="flex-1">{item.label}</span>{' '}
                                                     <span className="text-muted-foreground tabular-nums">
-                                                        {filterPageChecks(pages, item.value).length}<span className="sr-only"> pages</span>
+                                                        <span aria-hidden="true">{filterPageChecks(pages, item.value).length}</span><span className="sr-only">{filterPageChecks(pages, item.value).length === 1 ? t('1 page') : t('{count} pages', { count: filterPageChecks(pages, item.value).length })}</span>
                                                     </span>
                                                 </SelectItem>
                                             ))}
                                         </SelectGroup>
                                     </SelectContent>
                                 </Select>
-                                <Select items={orderItems} value={order}
+                                <Select items={translatedOrders} value={order}
                                     onValueChange={next => setUrlSearchParams({ sort: next && next !== 'attention' ? next : undefined })}>
-                                    <SelectTrigger size="sm" aria-label="Sort pages" className="w-48 max-w-full">
+                                    <SelectTrigger size="sm" aria-label={t("Sort pages")} className="w-48 max-w-full">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectGroup>
-                                            {orderItems.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+                                            {translatedOrders.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
                                         </SelectGroup>
                                     </SelectContent>
                                 </Select>
@@ -143,12 +149,12 @@ export function PageChecksView({ projectId, pages, environments }: {
                         {sorted.length === 0 && (
                             <Empty className="border" data-page-checks-filtered>
                                 <EmptyHeader>
-                                    <EmptyTitle>No pages to show</EmptyTitle>
+                                    <EmptyTitle>{t("No pages to show")}</EmptyTitle>
                                     <EmptyDescription>
-                                        {noneShown[filter]}
+                                        {t(noneShown[filter])}
                                     </EmptyDescription>
                                 </EmptyHeader>
-                                <Button variant="outline" size="sm" onClick={showAll}>Show all pages</Button>
+                                <Button variant="outline" size="sm" onClick={showAll}>{t("Show all pages")}</Button>
                             </Empty>
                         )}
                         {/* A table where the column is wide enough; a card per page under it */}
@@ -156,11 +162,11 @@ export function PageChecksView({ projectId, pages, environments }: {
                             <Table aria-labelledby="checked-pages-title" data-page-checks-table>
                                 <TableHeader>
                                     <TableRow className="hover:bg-transparent">
-                                        <TableHead scope="col" aria-sort={ariaSort('page')} className="pl-4">Page</TableHead>
-                                        <TableHead scope="col" aria-sort={ariaSort('accessibility')}>Accessibility</TableHead>
-                                        <TableHead scope="col" aria-sort={ariaSort('seo')}>SEO</TableHead>
-                                        <TableHead scope="col">Core Web Vitals</TableHead>
-                                        <TableHead scope="col" aria-sort={ariaSort('checked')} className="pr-4">Checked</TableHead>
+                                        <TableHead scope="col" aria-sort={ariaSort('page')} className="pl-4">{t("Page")}</TableHead>
+                                        <TableHead scope="col" aria-sort={ariaSort('accessibility')}>{t("Accessibility")}</TableHead>
+                                        <TableHead scope="col" aria-sort={ariaSort('seo')}>{t("SEO")}</TableHead>
+                                        <TableHead scope="col">{t("Core Web Vitals")}</TableHead>
+                                        <TableHead scope="col" aria-sort={ariaSort('checked')} className="pr-4">{t("Checked")}</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -183,10 +189,10 @@ export function PageChecksView({ projectId, pages, environments }: {
                                 <li key={page.id} data-page-check={page.path} className="flex flex-col gap-3 rounded-xl border p-4 text-sm">
                                     <PageCell page={page} {...links} />
                                     <dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-3">
-                                        {([['Accessibility', <AccessibilityResult key="a" page={page} />], ['SEO', <SeoResult key="s" page={page} />],
-                                            ['Core Web Vitals', <VitalsResult key="v" page={page} />], ['Checked', <Checked key="c" page={page} />]] as const).map(([label, value]) => (
+                                        {([[t("Accessibility"), <AccessibilityResult key="a" page={page} />], ['SEO', <SeoResult key="s" page={page} />],
+                                            [t("Core Web Vitals"), <VitalsResult key="v" page={page} />], [t("Checked"), <Checked key="c" page={page} />]] as const).map(([label, value]) => (
                                             <div key={label} className="flex min-w-0 flex-col gap-1">
-                                                <dt className="text-xs text-muted-foreground">{label}</dt>
+                                                <dt className="text-xs text-muted-foreground">{t(label)}</dt>
                                                 <dd className="m-0 min-w-0">{value}</dd>
                                             </div>
                                         ))}

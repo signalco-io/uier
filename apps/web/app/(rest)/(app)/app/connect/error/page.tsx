@@ -1,11 +1,15 @@
+import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { AuthCard } from '@/src/components/app/AuthCard';
 
-export const metadata: Metadata = {
-    title: 'Cannot connect'
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return {
+    title: t('Cannot connect')
 };
+}
 
 /**
  * An authorization request that cannot go back to its coding tool (GET /api/oauth/authorize).
@@ -28,11 +32,12 @@ const problems: Record<string, { title: string; description: string }> = {
 const fallback = { title: 'This sign-in cannot continue', description: 'Connect again from your coding tool.' };
 
 async function ConnectErrorPageContent({ searchParams }: PageProps<'/app/connect/error'>) {
+    const { t } = await getAppI18n();
     const { error } = await searchParams;
     const problem = (typeof error === 'string' && Object.hasOwn(problems, error) ? problems[error] : undefined) ?? fallback;
     return (
-        <AuthCard title={problem.title} description={problem.description}>
-            <p className="m-0 text-sm text-muted-foreground">You can close this tab.</p>
+        <AuthCard title={t(problem.title)} description={t(problem.description)}>
+            <p className="m-0 text-sm text-muted-foreground">{t("You can close this tab.")}</p>
         </AuthCard>
     );
 }

@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
@@ -17,9 +19,10 @@ import { listVisibleProjects } from '@/src/lib/app/projects';
 import { dailyResetSeconds, pageCommentsPerDay, projectInOtherWorkspace, sharedProjectUsage } from '@/src/lib/app/usage';
 import { openProjectWorkspaceUsageAction } from './actions';
 
-export const metadata: Metadata = {
-    title: 'Usage'
-};
+export async function generateMetadata(): Promise<Metadata> {
+    const { t, language } = await getAppI18n();
+    return { title: t("Usage") };
+}
 
 /**
  * What each project the person can see shares in a day, whoever sends it. A toolbar link names its
@@ -27,6 +30,7 @@ export const metadata: Metadata = {
  * offers to open it.
  */
 async function WorkspaceUsagePageContent({ searchParams }: PageProps<'/app/workspace/usage'>) {
+    const { t, language } = await getAppI18n();
     const context = await requireAppContext();
     const requested = (await searchParams).project;
     const code = typeof requested === 'string' ? requested : undefined;
@@ -39,18 +43,17 @@ async function WorkspaceUsagePageContent({ searchParams }: PageProps<'/app/works
     return (
         <>
             <WorkspaceTabHeader description={(
-                <>
-                    What each project shares in a day, whoever sends it. Counts start again at midnight UTC, {resetsIn(dailyResetSeconds())}.
-                    {' '}Your own limits are in <Link href={KnownPageLinks.accountUsage()} className="underline underline-offset-4 hover:text-foreground">your account</Link>.
+                <>{t("What each project shares in a day, whoever sends it. Counts start again at midnight UTC,")}{' '}{resetsIn(dailyResetSeconds(), t, language)}.
+                    {' '}{t("Your own limits are in")}{' '}<Link href={KnownPageLinks.accountUsage()} className="underline underline-offset-4 hover:text-foreground">{t("your account")}</Link>.
                 </>
             )} />
             {elsewhere && (
                 <Alert className="mb-6">
-                    <AlertTitle>{elsewhere.project.name} is in {elsewhere.workspace.name}</AlertTitle>
-                    <AlertDescription>Open that workspace to see its usage.</AlertDescription>
+                    <AlertTitle>{elsewhere.project.name}{' '}{t("is in")}{' '}{elsewhere.workspace.name}</AlertTitle>
+                    <AlertDescription>{t("Open that workspace to see its usage.")}</AlertDescription>
                     <AlertAction>
                         <form action={openProjectWorkspaceUsageAction.bind(null, code!)}>
-                            <Button type="submit" size="sm" variant="outline">Open workspace</Button>
+                            <Button type="submit" size="sm" variant="outline">{t("Open workspace")}</Button>
                         </form>
                     </AlertAction>
                 </Alert>
@@ -58,7 +61,7 @@ async function WorkspaceUsagePageContent({ searchParams }: PageProps<'/app/works
             {usage.length > 0
                 ? (
                     <Card className="gap-0 py-0">
-                        <ul className="m-0 flex list-none flex-col divide-y p-0" aria-label="Projects">
+                        <ul className="m-0 flex list-none flex-col divide-y p-0" aria-label={t("Projects")}>
                             {usage.map(({ project, meters }) => (
                                 <li key={project.id} id={projectUsageAnchor(project.publicId ?? project.id)} className="flex scroll-mt-6 flex-col gap-4 p-6">
                                     <div className="flex min-w-0 items-center gap-3">
@@ -68,9 +71,9 @@ async function WorkspaceUsagePageContent({ searchParams }: PageProps<'/app/works
                                         </h2>
                                     </div>
                                     <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
-                                        {meters.map(meter => <UsageMeter key={meter.label} {...meter} />)}
+                                        {meters.map(meter => <UsageMeter key={t(meter.label)} {...meter} />)}
                                     </div>
-                                    <p className="m-0 text-xs text-muted-foreground">Each page takes up to {pageCommentsPerDay} new comments a day.</p>
+                                    <p className="m-0 text-xs text-muted-foreground">{t("Each page takes up to")}{' '}{pageCommentsPerDay}{' '}{t("new comments a day.")}</p>
                                 </li>
                             ))}
                         </ul>
@@ -80,8 +83,8 @@ async function WorkspaceUsagePageContent({ searchParams }: PageProps<'/app/works
                     <Empty className="border">
                         <EmptyHeader>
                             <EmptyMedia variant="icon"><GaugeIcon /></EmptyMedia>
-                            <EmptyTitle>No projects yet</EmptyTitle>
-                            <EmptyDescription>Usage shows here once this workspace has a project.</EmptyDescription>
+                            <EmptyTitle>{t("No projects yet")}</EmptyTitle>
+                            <EmptyDescription>{t("Usage shows here once this workspace has a project.")}</EmptyDescription>
                         </EmptyHeader>
                     </Empty>
                 )}

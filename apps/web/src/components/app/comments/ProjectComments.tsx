@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { commentAssignees } from '@uier/toolbar/agents';
 import { useEffect, useOptimistic, useRef, useState, useTransition } from 'react';
 import { toast } from 'sonner';
@@ -85,6 +87,7 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
     /** The install guide, offered while there are no comments */
     installHref: string;
 }) {
+    const { t } = useAppI18n();
     // The presentation filters and the open thread change with the address at once, even while a
     // change waits for the server (`useUrlSearchParams`)
     const searchParams = useUrlSearchParams();
@@ -130,7 +133,7 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
     const changeSort = (status: BoardColumn, sort: BoardSort) => startSorting(async () => {
         showSort({ status, sort });
         const result = await setBoardSortAction(projectId, status, sort)
-            .catch(() => ({ ok: false as const, error: 'Could not save the sort. Try again.' }));
+            .catch(() => ({ ok: false as const, error: t("Could not save the sort. Try again.") }));
         if (result && !result.ok) toast.error(result.error);
     });
     // Archive expands and collapses at once. For the people who may sort the board it is saved on the project (and goes
@@ -143,7 +146,7 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
         startSorting(async () => {
             showArchive(expanded);
             const result = await setBoardArchiveAction(projectId, expanded)
-                .catch(() => ({ ok: false as const, error: 'Could not save the board. Try again.' }));
+                .catch(() => ({ ok: false as const, error: t("Could not save the board. Try again.") }));
             if (result && !result.ok) toast.error(result.error);
         });
     };
@@ -157,10 +160,10 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
         setUrlSearchParams({ comment: undefined });
     }, [openId, scopeComments]);
     const installText = query.environment === 'all'
-        ? 'Set up reviews and open a review link to leave the first comment.'
-        : 'This environment has no feedback. Choose another environment, or set up reviews and open a review link to leave the first comment.';
+        ? t("Set up reviews and open a review link to leave the first comment.")
+        : t("This environment has no feedback. Choose another environment, or set up reviews and open a review link to leave the first comment.");
     const installButton = (className?: string) => (
-        <Link href={installHref} className={cn(buttonVariants({ variant: 'outline' }), className)}>Set up reviews</Link>
+        <Link href={installHref} className={cn(buttonVariants({ variant: 'outline' }), className)}>{t("Set up reviews")}</Link>
     );
     // Invited projects take two steps, each with its button: the script, then the people
     const steps = access === 'invited' && isAdmin;
@@ -170,10 +173,10 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
                 <EmptyMedia variant="icon">
                     <MessageSquareDashedIcon />
                 </EmptyMedia>
-                <EmptyTitle>No comments yet</EmptyTitle>
+                <EmptyTitle>{t("No comments yet")}</EmptyTitle>
                 {!steps && (
                     <EmptyDescription>
-                        {access === 'disabled' ? `Comments are off. ${projectAccessLabels.disabled.description}` : installText}
+                        {access === 'disabled' ? t("Comments are off. {value0}", { value0: t(projectAccessLabels.disabled.description) }) : installText}
                     </EmptyDescription>
                 )}
             </EmptyHeader>
@@ -182,7 +185,7 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
                     <ol className="m-0 grid w-full list-none gap-3 p-0 sm:grid-cols-2">
                         {[
                             { text: installText, action: installButton('w-full') },
-                            { text: projectAccessLabels.invited.description, action: <InviteButton projectId={projectId} className="w-full" /> }
+                            { text: t(projectAccessLabels.invited.description), action: <InviteButton projectId={projectId} className="w-full" /> }
                         ].map((step, index) => (
                             <li key={index} className="flex flex-col items-center gap-3 px-2">
                                 <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-full border bg-background text-xs font-medium tabular-nums">{index + 1}</span>
@@ -197,7 +200,7 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
                     {/* One column: the buttons take the width of the widest */}
                     <div className="grid gap-2">
                         {access === 'disabled' && isAdmin && (
-                            <Link href={KnownPageLinks.projectSettings(projectId, 'review')} className={buttonVariants({ variant: 'outline' })}>Settings</Link>
+                            <Link href={KnownPageLinks.projectSettings(projectId, 'review')} className={buttonVariants({ variant: 'outline' })}>{t("Settings")}</Link>
                         )}
                         {installButton()}
                     </div>
@@ -250,7 +253,7 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
         <div ref={containerRef} className="@container/comments flex flex-col gap-2">
             <div data-header-wide={headerWide} className={cn('flex min-w-0 flex-col gap-2', threadOnly && '@max-3xl/comments:hidden', wideClassName)}>
             <CommentFilters search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} historySources={historySources} unread={Boolean(query.unread)} unreadCount={scopeComments.filter(comment => comment.activity?.unread).length} view={board ? 'board' : 'list'} status={query.status} statusCounts={statusCounts} people={query.people} page={query.page} pages={pages} />
-            {searchWindowCapped && <p className="m-0 text-sm text-muted-foreground">Search covers up to 1,000 recent threads in this environment and author scope. Narrow the environment or author to find older feedback.</p>}
+            {searchWindowCapped && <p className="m-0 text-sm text-muted-foreground">{t("Search covers up to 1,000 recent threads in this environment and author scope. Narrow the environment or author to find older feedback.")}</p>}
             </div>
             <TriageSelection projectId={projectId} scope={selectionScope} shown={board ? boardShown : shown} assignees={assignees}
                 barClassName={cn(threadOnly && '@max-3xl/comments:hidden', !comments.length && 'hidden')}
@@ -259,10 +262,10 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
                 // The count toggles Only unread (uier #193), like the toolbar's Unread toggle; while the filter is on it stays,
                 // at 0 too, so it can be turned off where it was turned on
                 summary={(unreadShown > 0 || query.unread) && (
-                    <Toggle size="sm" pressed={Boolean(query.unread)} aria-label={`${unreadShown} unread, show only unread`}
+                    <Toggle size="sm" pressed={Boolean(query.unread)} aria-label={t("{value0} unread, show only unread", { value0: unreadShown })}
                         onPressedChange={pressed => setUrlSearchParams({ q: search || undefined, unread: pressed ? 'true' : undefined }, { history: 'push' })}
                         className={cn('-mx-1.5 px-1.5 font-normal tabular-nums pointer-coarse:min-h-11', unreadShown > 0 ? 'text-[hsl(var(--brand-accent-text))] hover:text-[hsl(var(--brand-accent-text))]' : 'text-muted-foreground')}>
-                        {`${unreadShown} unread`}
+                        {t("{count} unread", { count: unreadShown })}
                     </Toggle>
                 )}
                 actions={unreadShown > 0 && <MarkAllRead projectId={projectId} threads={(board ? boardShown : shown).flatMap(comment => comment.activity?.unread ? [{ id: comment.id, sequence: comment.activity.sequence }] : [])} />}>
@@ -272,10 +275,10 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
                         <EmptyMedia variant="icon">
                             <SearchXIcon />
                         </EmptyMedia>
-                        <EmptyTitle>Nothing here</EmptyTitle>
-                        <EmptyDescription>No comments match these filters.</EmptyDescription>
+                        <EmptyTitle>{t("Nothing here")}</EmptyTitle>
+                        <EmptyDescription>{t("No comments match these filters.")}</EmptyDescription>
                     </EmptyHeader>
-                    <EmptyContent><Button variant="outline" className="pointer-coarse:min-h-11" onClick={clearFilters}>Clear filters</Button></EmptyContent>
+                    <EmptyContent><Button variant="outline" className="pointer-coarse:min-h-11" onClick={clearFilters}>{t("Clear filters")}</Button></EmptyContent>
                 </Empty>
             ) : nothingShown ? (
                 <Empty className="border">
@@ -283,8 +286,8 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
                         <EmptyMedia variant="icon">
                             {query.status === 'active' ? <CircleCheckIcon /> : <CircleDashedIcon />}
                         </EmptyMedia>
-                        <EmptyTitle>{emptyStatus[query.status].title}</EmptyTitle>
-                        <EmptyDescription>{emptyStatus[query.status].description}</EmptyDescription>
+                        <EmptyTitle>{t(emptyStatus[query.status].title)}</EmptyTitle>
+                        <EmptyDescription>{t(emptyStatus[query.status].description)}</EmptyDescription>
                     </EmptyHeader>
                 </Empty>
             ) : board ? (
@@ -292,7 +295,7 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
                     archive={{ comments: archived, expanded: archiveExpanded, onExpandedChange: changeArchive }}
                     allComments={scopeComments} assignees={assignees} userId={userId} openComment={openComment} />
             ) : (
-                <CommentInbox projectId={projectId} comments={shown} allComments={scopeComments} assignees={assignees} userId={userId} label="Comments"
+                <CommentInbox projectId={projectId} comments={shown} allComments={scopeComments} assignees={assignees} userId={userId} label={t("Comments")}
                     keeps={status => statusMatches(query.status, status, query.status === 'archived' ? 'archived' : undefined)} readLeaves={Boolean(query.unread)} openComment={openComment} />
             )}
             </TriageSelection>

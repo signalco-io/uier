@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
@@ -42,6 +44,7 @@ export function LinkTabs({ tabs, label, variant = 'line', match = 'url', classNa
     match?: 'url' | 'path';
     className?: string;
 }) {
+    const { t } = useAppI18n();
     const pathname = usePathname();
     const search = useSearchParams().toString();
     const here = match === 'path' ? pathname : `${pathname}${search ? `?${search}` : ''}`;
@@ -49,7 +52,7 @@ export function LinkTabs({ tabs, label, variant = 'line', match = 'url', classNa
     const isCurrent = (tab: LinkTab) => tab.current ?? (tab.href === here || (tab.nested === true && pathname.startsWith(`${tab.href}/`)));
     const roving = useRovingTabStop(tabs.map(tab => tab.href), {
         preferred: tabs.find(isCurrent)?.href,
-        orientation: variant === 'side' ? 'both' : 'horizontal'
+        orientation: variant === 'side' ? "both" : "horizontal"
     });
 
     // A row wider than the screen scrolls the current tab into the middle (only sideways: the page stays put)
@@ -64,7 +67,7 @@ export function LinkTabs({ tabs, label, variant = 'line', match = 'url', classNa
     return (
         <nav
             ref={navRef}
-            aria-label={label}
+            aria-label={t(label)}
             {...roving.containerProps}
             className={cn(
                 'flex items-center',
@@ -81,7 +84,7 @@ export function LinkTabs({ tabs, label, variant = 'line', match = 'url', classNa
                         key={tab.href}
                         href={tab.href}
                         {...roving.itemProps(tab.href)}
-                        aria-current={current ? 'page' : undefined}
+                        aria-current={current ? "page" : undefined}
                         // Nothing to load: the address changes during the click (Back and Forward follow it)
                         prefetch={query ? false : undefined}
                         onNavigate={query ? event => {
@@ -94,7 +97,7 @@ export function LinkTabs({ tabs, label, variant = 'line', match = 'url', classNa
                             variant === 'segmented' && 'h-7 rounded-md px-2.5 aria-[current=page]:bg-background aria-[current=page]:text-foreground aria-[current=page]:shadow-sm',
                             variant === 'side' && 'h-8 rounded-md px-3 hover:bg-muted aria-[current=page]:bg-muted aria-[current=page]:text-foreground'
                         )}>
-                        {tab.label}
+                        {t(tab.label)}
                         {tab.count !== undefined && <span className="font-normal tabular-nums text-muted-foreground">{tab.count}</span>}
                     </Link>
                 );

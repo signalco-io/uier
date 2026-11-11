@@ -105,3 +105,10 @@ environment while unchecked groups stay text; a member reviews two pages of the 
 title; the toolbar sends one summary each (not again for an unchanged reload), and the view lists both with
 their counts, the shared title and description (closed until opened, under their common path), shows only the pages needing attention, a vital's targets on hover and keyboard focus, sorts by page and passes axe (Desktop Chrome); a `noindex`
 page as a card on a phone, a vital's targets on a tap, without a sideways scroll (Mobile Chrome).
+
+## App language
+
+Page-check headings, filters, empty states, findings and result explanations follow the account's
+app language. Result counts, vital measurements and relative check times use that locale. Saved
+page titles and descriptions, paths, environment names and check data remain unchanged. English
+source labels in the shared model and insight helpers are translated at the app's render boundary.

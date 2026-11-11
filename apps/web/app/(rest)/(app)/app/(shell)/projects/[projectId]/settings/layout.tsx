@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
@@ -15,12 +17,13 @@ export const metadata: Metadata = {
  * their own project emails and sees the install guide; admins also set up the project.
  */
 async function ProjectSettingsLayoutContent({ children, params }: LayoutProps<'/app/projects/[projectId]/settings'>) {
+    const { t } = await getAppI18n();
     const { projectId } = await params;
     const { project, canConfigure } = await projectSettingsContext(projectId);
-    const sections = projectSettingsSections.filter(section => canConfigure || !section.configure);
+    const sections = projectSettingsSections.filter(section => canConfigure || !section.configure).map(section => ({ ...section, label: t(section.label) }));
 
     return (
-        <SettingsLayout tabs={settingsTabs(sections, section => KnownPageLinks.projectSettings(project.id, section))} label="Project settings" heading="Settings">
+        <SettingsLayout tabs={settingsTabs(sections, section => KnownPageLinks.projectSettings(project.id, section))} label={t("Project settings")} heading={t("Settings")}>
             {children}
         </SettingsLayout>
     );

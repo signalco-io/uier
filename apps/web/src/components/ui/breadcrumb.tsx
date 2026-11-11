@@ -1,5 +1,7 @@
 "use client"
 
+import { useAppI18n } from "@/src/lib/i18n/client"
+
 import * as React from "react"
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
@@ -7,9 +9,10 @@ import { cn } from "cn"
 import { ChevronRightIcon, MoreHorizontalIcon } from "lucide-react"
 
 function Breadcrumb({ className, ...props }: React.ComponentProps<"nav">) {
+  const { t } = useAppI18n()
   return (
     <nav
-      aria-label="Breadcrumb"
+      aria-label={t("Breadcrumb")}
       data-slot="breadcrumb"
       className={cn(className)}
       {...props}
@@ -97,6 +100,7 @@ function BreadcrumbEllipsis({
   className,
   ...props
 }: React.ComponentProps<"span">) {
+  const { t } = useAppI18n()
   return (
     <span
       data-slot="breadcrumb-ellipsis"
@@ -110,7 +114,7 @@ function BreadcrumbEllipsis({
     >
       <MoreHorizontalIcon
       />
-      <span className="sr-only">More</span>
+      <span className="sr-only">{t("More")}</span>
     </span>
   )
 }

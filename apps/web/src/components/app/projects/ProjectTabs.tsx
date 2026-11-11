@@ -1,5 +1,6 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
 import { usePathname } from 'next/navigation';
 import { KnownPageLinks } from '@/src/knownPages';
 import { LinkTabs } from '../LinkTabs';
@@ -16,6 +17,7 @@ export function isInstallPage(pathname: string, projectId: string) {
  * (`ProjectSettingsButton`).
  */
 export function ProjectTabs({ projectId, install }: { projectId: string; install: boolean }) {
+    const { t } = useAppI18n();
     const pathname = usePathname();
     const comments = KnownPageLinks.project(projectId);
     const pageChecks = KnownPageLinks.projectPageChecks(projectId);
@@ -25,12 +27,12 @@ export function ProjectTabs({ projectId, install }: { projectId: string; install
         // tabs paint above it (a later positioned sibling), so the current tab's underline stays whole.
         <div className="relative before:absolute before:inset-x-0 before:bottom-0 before:h-px before:bg-border before:shadow-[0_0_0_100vmax_hsl(var(--border))] before:[clip-path:inset(0_-100vmax)]">
             <LinkTabs
-                label="Project"
+                label={t("Project")}
                 className="relative"
                 tabs={[
-                    { href: comments, label: 'Comments', current: pathname === comments },
-                    { href: pageChecks, label: 'Page checks', current: pathname === pageChecks },
-                    ...install ? [{ href: KnownPageLinks.projectInstall(projectId), label: 'Install', current: isInstallPage(pathname, projectId) }] : []
+                    { href: comments, label: t("Comments"), current: pathname === comments },
+                    { href: pageChecks, label: t("Page checks"), current: pathname === pageChecks },
+                    ...install ? [{ href: KnownPageLinks.projectInstall(projectId), label: t("Install"), current: isInstallPage(pathname, projectId) }] : []
                 ]} />
         </div>
     );

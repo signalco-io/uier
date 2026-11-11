@@ -1,5 +1,6 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
 import { useActionState, useId, useState } from 'react';
 import { PlusIcon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -21,13 +22,12 @@ export type ClientProjectOption = { id: string; name: string; done: boolean; cli
  * A client shows through its projects, so it needs one; its icon and colour are in Edit afterwards.
  */
 export function ClientCreateDialog({ projects }: { projects: ClientProjectOption[] }) {
+    const { t } = useAppI18n();
     const [open, setOpen] = useState(false);
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger render={<Button />}>
-                <PlusIcon data-icon="inline-start" />
-                Add client
-            </DialogTrigger>
+                <PlusIcon data-icon="inline-start" />{t("Add client")}</DialogTrigger>
             <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto">
                 {/* The content unmounts when closed, so every opening starts empty */}
                 <ClientCreateForm projects={projects} onAdded={() => setOpen(false)} />
@@ -37,6 +37,7 @@ export function ClientCreateDialog({ projects }: { projects: ClientProjectOption
 }
 
 function ClientCreateForm({ projects, onAdded }: { projects: ClientProjectOption[]; onAdded: () => void }) {
+    const { t } = useAppI18n();
     const id = useId();
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
@@ -45,7 +46,7 @@ function ClientCreateForm({ projects, onAdded }: { projects: ClientProjectOption
     const [state, formAction, pending] = useActionState<Awaited<ReturnType<typeof createClientAction>>, FormData>(async (previous, formData) => {
         const result = await createClientAction(previous, formData);
         if (result?.ok) {
-            toast.success(`${result.data.name} is added.`);
+            toast.success(t("{value0} is added.", { value0: result.data.name }));
             onAdded();
         }
         return result;
@@ -56,13 +57,13 @@ function ClientCreateForm({ projects, onAdded }: { projects: ClientProjectOption
     return (
         <form action={formAction} className="flex flex-col gap-6">
             <DialogHeader>
-                <DialogTitle>Add client</DialogTitle>
-                <DialogDescription>Who the projects are for. Everyone who can open one of them sees the client.</DialogDescription>
+                <DialogTitle>{t("Add client")}</DialogTitle>
+                <DialogDescription>{t("Who the projects are for. Everyone who can open one of them sees the client.")}</DialogDescription>
             </DialogHeader>
             {selected.map(projectId => <input key={projectId} type="hidden" name="project" value={projectId} />)}
             <FieldGroup>
                 <Field>
-                    <FieldLabel htmlFor={`${id}-name`}>Client name</FieldLabel>
+                    <FieldLabel htmlFor={`${id}-name`}>{t("Client name")}</FieldLabel>
                     <Input
                         id={`${id}-name`}
                         name="name"
@@ -73,8 +74,8 @@ function ClientCreateForm({ projects, onAdded }: { projects: ClientProjectOption
                         maxLength={MAX_CLIENT_NAME_LENGTH} />
                 </Field>
                 <FieldSet>
-                    <FieldLegend variant="label">Projects</FieldLegend>
-                    <FieldDescription>A project moves to this client from any client it has now.</FieldDescription>
+                    <FieldLegend variant="label">{t("Projects")}</FieldLegend>
+                    <FieldDescription>{t("A project moves to this client from any client it has now.")}</FieldDescription>
                     <FieldGroup data-slot="checkbox-group" className="max-h-48 gap-3 overflow-y-auto rounded-lg border p-3">
                         {projects.map(project => (
                             <Field key={project.id} orientation="horizontal">
@@ -87,7 +88,7 @@ function ClientCreateForm({ projects, onAdded }: { projects: ClientProjectOption
                                     {(project.done || project.client) && ' '}
                                     {(project.done || project.client) && (
                                         <span className="text-muted-foreground">
-                                            {[project.done && 'Done', project.client && `Client: ${project.client}`].filter(Boolean).join(' · ')}
+                                            {[project.done && t("Done"), project.client && t("Client: {value0}", { value0: project.client })].filter(Boolean).join(' · ')}
                                         </span>
                                     )}
                                 </FieldLabel>
@@ -96,7 +97,7 @@ function ClientCreateForm({ projects, onAdded }: { projects: ClientProjectOption
                     </FieldGroup>
                 </FieldSet>
                 <Field>
-                    <FieldLabel htmlFor={`${id}-description`}>Description (optional)</FieldLabel>
+                    <FieldLabel htmlFor={`${id}-description`}>{t("Description (optional)")}</FieldLabel>
                     <Textarea
                         id={`${id}-description`}
                         name="description"
@@ -108,11 +109,9 @@ function ClientCreateForm({ projects, onAdded }: { projects: ClientProjectOption
             </FieldGroup>
             <FormMessage state={state} />
             <DialogFooter>
-                <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+                <DialogClose render={<Button type="button" variant="outline" />}>{t("Cancel")}</DialogClose>
                 <Button type="submit" disabled={pending || !selected.length}>
-                    {pending && <Spinner data-icon="inline-start" />}
-                    Add client
-                </Button>
+                    {pending && <Spinner data-icon="inline-start" />}{t("Add client")}</Button>
             </DialogFooter>
         </form>
     );

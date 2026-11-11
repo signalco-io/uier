@@ -37,6 +37,8 @@ export type DbUser = AppDoc & {
      * project's or workspace's language shows (`lib/app/toolbarLanguage.ts`).
      */
     toolbarLanguage?: import('@uier/toolbar/languages').ToolbarLanguage;
+    /** App language. Missing follows a supported browser language, then English. */
+    appLanguage?: import('../i18n/languages').AppLanguage;
     createdAt: string;
     updatedAt: string;
 };

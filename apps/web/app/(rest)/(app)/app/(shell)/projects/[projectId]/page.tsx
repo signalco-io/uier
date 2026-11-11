@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
@@ -13,23 +15,25 @@ export async function generateMetadata({ params }: PageProps<'/app/projects/[pro
     const { projectId } = await params;
     const context = await requireAppContext();
     const project = await getVisibleProject(context, projectId);
-    return { title: project?.name ?? 'Project' };
+    const { t } = await getAppI18n();
+    return { title: project?.name ?? t('Project') };
 }
 
 /** The project's comments (the first tab) */
 async function ProjectPageContent({ params, searchParams }: PageProps<'/app/projects/[projectId]'>) {
+    const { t } = await getAppI18n();
     const { projectId } = await params;
     const context = await requireAppContext();
     const project = await getVisibleProject(context, projectId);
     if (!project)
         notFound();
 
-    const snapshot = await loadAppCommentsSnapshot(context, project, parseCommentsQuery(await searchParams));
+    const snapshot = await loadAppCommentsSnapshot(context, project, parseCommentsQuery(await searchParams), undefined, t);
     if (!snapshot) notFound();
     return (
         <>
             <section id="comments" aria-labelledby="comments-title" className="flex scroll-mt-6 flex-col gap-4">
-                <h2 id="comments-title" className="sr-only">Comments</h2>
+                <h2 id="comments-title" className="sr-only">{t("Comments")}</h2>
                 <ProjectComments {...snapshot} installHref={KnownPageLinks.projectInstall(project.id)} />
             </section>
         </>

@@ -1,3 +1,4 @@
+import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
@@ -10,12 +11,16 @@ import { listVisibleProjects } from '@/src/lib/app/projects';
 import { appBaseUrl } from '@/src/lib/app/request';
 import { getBrowserAccounts } from '@/src/lib/app/session';
 
-export const metadata: Metadata = {
-    title: 'Coding agents · Account'
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return {
+    title: t('Coding agents · Account')
 };
+}
 
 /** Coding tools connected to feedback as this person, and their access tokens */
 async function AccountCodingAgentsPageContent() {
+    const i18n = await getAppI18n();
     const context = await requireAppContext();
     const { user } = context;
     const [credentials, projects, grants] = await Promise.all([listMcpCredentials(user.id), listVisibleProjects(context), listConnectedApps(user.id)]);
@@ -31,12 +36,12 @@ async function AccountCodingAgentsPageContent() {
                 ? (await listAccessibleWorkspaces(account.id, account.email)).workspaces : [] })));
     const accessible = accountPresentations.find(account => account.userId === user.id)?.workspaces ?? [];
     return (
-        <CodingAgents endpoint={`${await appBaseUrl()}/api/mcp`} apps={grants.map(grant => connectedAppView(grant, accessible, accountPresentations))}
+        <CodingAgents endpoint={`${await appBaseUrl()}/api/mcp`} apps={grants.map(grant => connectedAppView(grant, accessible, accountPresentations, i18n))}
             projects={projects.map(({ id, name }) => ({ id, name }))} credentials={credentials.map(({ id, name, projectIds, scopes, expiresAt, createdBy, actingUserId }) => {
                 const actor = actingUserId ? accountPresentations.find(account => account.userId === actingUserId) : undefined;
                 return { id, name, projectIds, scopes, expiresAt,
                     ...(createdBy ? { createdBy: { name: createdBy.name } } : {}),
-                    ...(actingUserId ? { actingAccount: actor?.email ?? 'Another account', projectNames: projectIds.map(projectId =>
+                    ...(actingUserId ? { actingAccount: actor?.email ?? i18n.t('Another account'), projectNames: projectIds.map(projectId =>
                         actor?.workspaces.flatMap(workspace => workspace.projects).find(project => project.id === projectId)?.name ?? projectId) } : {}) };
             })} />
     );

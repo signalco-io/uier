@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { mentionQuery, moveMentions } from '@uier/toolbar/mentions';
 import { Button } from '@/src/components/ui/button';
@@ -33,6 +35,7 @@ export function useMentionTextarea({ mentionsIn, value, mentions, maxLength, tex
     /** A person was mentioned, for the form's announcement */
     onMention?: (name: string) => void;
 }) {
+    const { t } = useAppI18n();
     const [caret, setCaret] = useState(0);
     const [dismissed, setDismissed] = useState(false);
     const [active, setActive] = useState(0);
@@ -111,14 +114,14 @@ export function useMentionTextarea({ mentionsIn, value, mentions, maxLength, tex
     };
 
     const list: ReactNode = <>
-        {suggestions.length > 0 && <div id={listId} role="listbox" aria-label="Mention people" className="max-h-48 overflow-y-auto rounded-xl border p-1">
+        {suggestions.length > 0 && <div id={listId} role="listbox" aria-label={t("Mention people")} className="max-h-48 overflow-y-auto rounded-xl border p-1">
             {suggestions.map((person, index) => <Button key={person.id} id={`${listId}-${index}`} role="option" aria-selected={index === selected}
                 variant={index === selected ? 'secondary' : 'ghost'} size="sm" className="min-h-11 w-full justify-start"
                 onMouseDown={event => event.preventDefault()} onClick={() => selectMention(person)}>
                 <span className="truncate">{person.name}</span><span className="ml-auto font-mono text-xs">{person.id.slice(-6)}</span>
             </Button>)}
         </div>}
-        {querying && peopleError && <FieldDescription role="status">People could not be loaded. You can still post without a mention.</FieldDescription>}
+        {querying && peopleError && <FieldDescription role="status">{t("People could not be loaded. You can still post without a mention.")}</FieldDescription>}
     </>;
 
     return { textareaProps, list };

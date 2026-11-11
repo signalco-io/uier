@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { createContext, useContext, useEffect, useEffectEvent, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { isSearchKey, isShortcutsHelpKey, sequenceTimeoutMs, shortcutLetter } from '@uier/toolbar/keyboard';
@@ -31,6 +33,7 @@ const modifierKeys = new Set(['Shift', 'Control', 'Alt', 'Meta', 'CapsLock']);
  * (WCAG 2.1.4) and never act while typing, in a menu or a dialog, or in the review toolbar.
  */
 export function AppShortcuts({ children }: { children: ReactNode }) {
+    const { t } = useAppI18n();
     const router = useRouter();
     const pathname = usePathname();
     const enabled = useShortcutsEnabled();
@@ -46,7 +49,7 @@ export function AppShortcuts({ children }: { children: ReactNode }) {
             const project = projectOf(pathname);
             if (!project) return false;
             const href = KnownPageLinks.project(project);
-            const view = letter === 'b' ? 'board' : undefined;
+            const view = letter === 'b' ? "board" : undefined;
             // On its comments the view changes in place, like the List and Board toggle, and keeps the filters
             if (pathname === href) setUrlSearchParams({ view, comment: undefined }, { history: 'push' });
             else router.push(`${href}${view ? '?view=board' : ''}#comments`);

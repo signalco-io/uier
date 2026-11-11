@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
@@ -17,9 +19,10 @@ import { projectAiTitleMode, workspaceAiTitles } from '@/src/lib/titles/settings
 import { projectRewriteInstructions, workspaceRewriteInstructions } from '@/src/lib/rewrite/settings';
 import { projectSettingsContext } from './settingsContext';
 
-export const metadata: Metadata = {
-    title: 'Project settings'
-};
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return { title: t("Project settings") };
+}
 
 /** General: the name, client and usage, for admins; everyone else starts at their own project emails */
 async function ProjectSettingsPageContent({ params }: PageProps<'/app/projects/[projectId]/settings'>) {
@@ -45,27 +48,28 @@ async function ProjectSettingsPageContent({ params }: PageProps<'/app/projects/[
 }
 
 async function ProjectUsageSection({ context, project }: { context: AppContext; project: DbProject }) {
+    const { t } = await getAppI18n();
     const [usage, members] = await Promise.all([loadProjectUsage(context, project), listProjectMembers(project.workspaceId, project.id)]);
     const usageRows = [
-        { label: 'Comments', value: usage.comments },
-        { label: 'Open', value: usage.open },
-        { label: 'Done', value: usage.done },
-        { label: 'Replies', value: usage.replies },
-        { label: 'Pages with comments', value: usage.pages },
-        { label: 'People with access', value: members.length }
+        { label: t("Comments"), value: usage.comments },
+        { label: t("Open"), value: usage.open },
+        { label: t("Done"), value: usage.done },
+        { label: t("Replies"), value: usage.replies },
+        { label: t("Pages with comments"), value: usage.pages },
+        { label: t("People with access"), value: members.length }
     ];
 
     return (
         <Section
             id="usage"
-            title="Usage"
+            title={t("Usage")}
             description={usage.lastCommentAt
-                ? <>Nothing here is limited by a plan. Last comment <DateTime value={usage.lastCommentAt} />.</>
-                : 'Nothing here is limited by a plan.'}>
+                ? <>{t("Nothing here is limited by a plan. Last comment")}{' '}<DateTime value={usage.lastCommentAt} />.</>
+                : t("Nothing here is limited by a plan.")}>
             <dl className="m-0 grid grid-cols-2 overflow-hidden rounded-lg border sm:grid-cols-3">
                 {usageRows.map(row => (
-                    <div key={row.label} className="-mr-px -mb-px flex flex-col gap-1 border-r border-b p-4">
-                        <dt className="text-sm text-muted-foreground">{row.label}</dt>
+                    <div key={t(row.label)} className="-mr-px -mb-px flex flex-col gap-1 border-r border-b p-4">
+                        <dt className="text-sm text-muted-foreground">{t(row.label)}</dt>
                         <dd className="m-0 text-2xl font-semibold tracking-[-0.02em] tabular-nums">{row.value}</dd>
                     </div>
                 ))}

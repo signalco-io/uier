@@ -1,6 +1,9 @@
 'use client';
 
-import { assigneeAgents, agentIsWorking, agentLabels, agentMarks, agentText, type AgentKind, type AssigneeAgentView } from '@uier/toolbar/agents';
+import { createAppTranslator } from '@/src/lib/i18n/translate';
+import { useAppI18n } from '@/src/lib/i18n/client';
+
+import { assigneeAgents, agentIsWorking, agentLabels, agentMarks, agentModelText, type AgentKind, type AssigneeAgentView } from '@uier/toolbar/agents';
 import { useAgentWorking } from '@uier/toolbar/agent-working';
 import { Spinner } from '@/src/components/ui/spinner';
 import { cn } from '@/src/lib/utils';
@@ -28,9 +31,10 @@ export function AgentMark({ kind, className }: { kind: AgentKind; className?: st
  * `className` scales it). Every mark is one colour, ink on light and paper on dark (BRAND.md).
  */
 export function AgentAvatar({ kind, workingUntil, className, compact = false }: { kind: AgentKind; workingUntil?: string; className?: string; compact?: boolean }) {
+    const { t } = useAppI18n();
     const working = useAgentWorking(workingUntil);
     return (
-        <span {...working ? { role: 'img', 'aria-label': `${agentLabels[kind]} is working now` } : { 'aria-hidden': true }} data-agent={kind}
+        <span {...working ? { role: 'img', 'aria-label': t("{value0} is working now", { value0: agentLabels[kind] }) } : { 'aria-hidden': true }} data-agent={kind}
             className={cn('relative flex size-5 shrink-0 items-center justify-center rounded-full border bg-background text-foreground', className)}>
             <AgentMark kind={kind} className="size-3/5" />
             {working && <span data-agent-working="" className={cn('absolute -right-1 -bottom-0.5 flex items-center justify-center rounded-full bg-background', compact ? 'size-2' : 'size-3')}>
@@ -43,10 +47,15 @@ export function AgentAvatar({ kind, workingUntil, className, compact = false }: 
 export type Assignee = { id: string; name: string; avatarUrl?: string; agent?: AssigneeAgentView; agents?: AssigneeAgentView[] };
 
 /** "Assigned to Ana" or "Assigned to you, with Claude Opus 5.5 (high reasoning)": the words of the avatars below */
-export function assignedLabel(assignee: Assignee | Assignee[] | undefined, userId?: string) {
+export function assignedLabel(assignee: Assignee | Assignee[] | undefined, userId?: string, t: import('@/src/lib/i18n/types').AppTranslator = createAppTranslator({})) {
     const people = Array.isArray(assignee) ? assignee : assignee ? [assignee] : [];
-    if (!people.length) return 'Unassigned';
-    return `Assigned to ${people.map(person => `${person.id === userId ? 'you' : person.name}${assigneeAgents(person).map(agent => `, with ${agentText(agent)}${agentIsWorking(agent.workingUntil) ? ', working now' : ''}`).join('')}`).join('; ')}`;
+    if (!people.length) return t("Unassigned");
+    return t("Assigned to {people}", { people: people.map(person => {
+        const name = person.id === userId ? t("you") : person.name;
+        return assigneeAgents(person).reduce((label, agent) => t("{person}, with {agent}{working}", {
+            person: label, agent: `${t(agent.label)}${agent.model ? ` ${agentModelText({ label: agent.label, model: agent.model })}` : ''}${agent.reasoning ? ` (${t("{level} reasoning", { level: agent.reasoning })})` : ''}`, working: agentIsWorking(agent.workingUntil) ? t(", working now") : ''
+        }), name);
+    }).join('; ') });
 }
 
 /**
@@ -55,10 +64,11 @@ export function assignedLabel(assignee: Assignee | Assignee[] | undefined, userI
  * `assignedLabel` (`decorative` inside a control that carries the name).
  */
 export function AssigneeAvatars({ assignee, assignees, userId, decorative, className }: { assignee?: Assignee; assignees?: Assignee[]; userId?: string; decorative?: boolean; className?: string }) {
+    const { t } = useAppI18n();
     const people = assignees ?? (assignee ? [assignee] : []);
     useAgentWorking(people.flatMap(person => assigneeAgents(person).map(agent => agent.workingUntil)));
     return (
-        <span role="img" {...decorative ? { 'aria-hidden': true } : { 'aria-label': assignedLabel(people, userId) }} className={cn('flex shrink-0 items-center gap-2', className)}>
+        <span role="img" {...decorative ? { 'aria-hidden': true } : { 'aria-label': assignedLabel(people, userId, t) }} className={cn('flex shrink-0 items-center gap-2', className)}>
             {people.slice(0, 3).map(person => {
                 const agents = assigneeAgents(person);
                 return <span key={person.id} data-assignee-avatar={person.id} className="flex shrink-0 items-center">

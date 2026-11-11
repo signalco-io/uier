@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useActionState, useId, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { CheckIcon, ChevronsUpDownIcon, PlusIcon, SettingsIcon } from 'lucide-react';
@@ -46,27 +48,29 @@ function AppIcon() {
 }
 
 function WorkspaceLabel({ workspace }: { workspace: WorkspaceOption }) {
+    const { t } = useAppI18n();
     return (
         <span className="grid flex-1 text-left text-sm leading-tight">
             <span className="truncate font-medium">{workspace.name}</span>
-            <span className="truncate text-xs text-muted-foreground">{workspace.role}</span>
+            <span className="truncate text-xs text-muted-foreground">{t(workspace.role)}</span>
         </span>
     );
 }
 
 /** The new workspace's name; a created workspace opens on its first project, so the dialog never closes on success */
 function CreateWorkspaceForm() {
+    const { t } = useAppI18n();
     const id = useId();
     const [name, setName] = useState('');
     const [state, formAction, pending] = useActionState(createWorkspaceAction, null);
     return (
         <form action={formAction} className="flex flex-col gap-6">
             <DialogHeader>
-                <DialogTitle>Create workspace</DialogTitle>
-                <DialogDescription>A separate place for its own projects and people. You are its admin.</DialogDescription>
+                <DialogTitle>{t("Create workspace")}</DialogTitle>
+                <DialogDescription>{t("A separate place for its own projects and people. You are its admin.")}</DialogDescription>
             </DialogHeader>
             <Field>
-                <FieldLabel htmlFor={`${id}-name`}>Workspace name</FieldLabel>
+                <FieldLabel htmlFor={`${id}-name`}>{t("Workspace name")}</FieldLabel>
                 <Input
                     id={`${id}-name`}
                     name="name"
@@ -75,15 +79,14 @@ function CreateWorkspaceForm() {
                     required
                     autoFocus
                     maxLength={MAX_WORKSPACE_NAME_LENGTH} />
-                <FieldDescription>Everyone in the workspace sees it in the workspace menu.</FieldDescription>
+                <FieldDescription>{t("Everyone in the workspace sees it in the workspace menu.")}</FieldDescription>
             </Field>
             <FormMessage state={state} />
             <DialogFooter>
-                <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+                <DialogClose render={<Button type="button" variant="outline" />}>{t("Cancel")}</DialogClose>
                 <Button type="submit" disabled={pending}>
                     {pending && <Spinner data-icon="inline-start" />}
-                    Create workspace
-                </Button>
+                    {t("Create workspace")}{' '}</Button>
             </DialogFooter>
         </form>
     );
@@ -100,6 +103,7 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, canManage = 
     currentWorkspaceId: string;
     canManage?: boolean;
 }) {
+    const { t } = useAppI18n();
     const { isMobile } = useSidebar();
     const [pending, startTransition] = useTransition();
     const [creating, setCreating] = useState(false);
@@ -116,25 +120,25 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, canManage = 
                 <DropdownMenu>
                     <DropdownMenuTrigger render={<SidebarMenuButton size="lg" disabled={pending} className="data-popup-open:bg-sidebar-accent data-popup-open:text-sidebar-accent-foreground" />}>
                         <AppIcon />
-                        <span className="sr-only">Workspace: </span>
+                        <span className="sr-only">{t("Workspace:")}{' '}</span>
                         <WorkspaceLabel workspace={current} />
                         <ChevronsUpDownIcon className="ml-auto" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                         className="w-(--anchor-width) min-w-56 rounded-xl"
                         align="start"
-                        side={isMobile ? 'bottom' : 'right'}
+                        side={isMobile ? "bottom" : "right"}
                         sideOffset={4}>
                         {/* Always the person's workspaces, the current one checked, also when it is the only one (uier #257) */}
                         <DropdownMenuGroup>
-                            <DropdownMenuLabel className="text-xs text-muted-foreground">Workspaces</DropdownMenuLabel>
+                            <DropdownMenuLabel className="text-xs text-muted-foreground">{t("Workspaces")}</DropdownMenuLabel>
                             {listed.map(workspace => (
                                 <DropdownMenuItem key={workspace.id} onClick={() => workspace.id !== current.id && switchTo(workspace.id)}>
                                     <span className="flex min-w-0 flex-1 flex-col">
                                         <span className="truncate">{workspace.name}</span>
-                                        <span className="text-xs text-muted-foreground">{workspace.role}</span>
+                                        <span className="text-xs text-muted-foreground">{t(workspace.role)}</span>
                                     </span>
-                                    {workspace.id === current.id && <><CheckIcon aria-hidden="true" className="ml-auto" /><span className="sr-only">current</span></>}
+                                    {workspace.id === current.id && <><CheckIcon aria-hidden="true" className="ml-auto" /><span className="sr-only">{t("current")}</span></>}
                                 </DropdownMenuItem>
                             ))}
                         </DropdownMenuGroup>
@@ -143,13 +147,11 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, canManage = 
                             {canManage && (
                                 <DropdownMenuItem render={<Link href={KnownPages.AppSettings} />}>
                                     <SettingsIcon />
-                                    Workspace settings
-                                </DropdownMenuItem>
+                                    {t("Workspace settings")}{' '}</DropdownMenuItem>
                             )}
                             <DropdownMenuItem onClick={() => setCreating(true)}>
                                 <PlusIcon />
-                                Create workspace
-                            </DropdownMenuItem>
+                                {t("Create workspace")}{' '}</DropdownMenuItem>
                         </DropdownMenuGroup>
                     </DropdownMenuContent>
                 </DropdownMenu>

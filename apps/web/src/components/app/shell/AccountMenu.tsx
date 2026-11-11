@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useTransition } from 'react';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
@@ -39,6 +41,7 @@ const VISIBLE_ACCOUNTS = 3;
 
 /** The signed-in person at the bottom of the sidebar: account, theme, keyboard shortcuts and sign out */
 export function AccountMenu({ name, avatarUrl, accounts }: { name: string; avatarUrl?: string; accounts: BrowserAccount[] }) {
+    const { t } = useAppI18n();
     const { isMobile } = useSidebar();
     const { theme, setTheme } = useTheme();
     const [pending, startTransition] = useTransition();
@@ -46,7 +49,7 @@ export function AccountMenu({ name, avatarUrl, accounts }: { name: string; avata
     const shortcutKey = useKeyShortcutLabel('?');
 
     const change = (input: Parameters<typeof changeAccount>[0]) => startTransition(async () => {
-        try { await changeAccount(input); } catch (error) { toast.error(error instanceof Error ? error.message : 'Could not change accounts.'); }
+        try { await changeAccount(input); } catch (error) { toast.error(error instanceof Error ? error.message : t("Could not change accounts.")); }
     });
 
     // At most three accounts in the menu, the active one always among them (in their order); the rest
@@ -66,15 +69,14 @@ export function AccountMenu({ name, avatarUrl, accounts }: { name: string; avata
                 <span className="truncate">{account.name}</span>
                 <span className="truncate text-xs text-muted-foreground">{account.email}</span>
             </span>
-            {account.active && <><CheckIcon aria-hidden="true" /><span className="sr-only">active</span></>}
+            {account.active && <><CheckIcon aria-hidden="true" /><span className="sr-only">{t("active")}</span></>}
         </DropdownMenuItem>
     );
     const addAccount = (
         <>
             <DropdownMenuItem disabled={pending || atCap} render={<a href={`${KnownPages.AppSignIn}?add=1`} />}>
-                <UserPlusIcon />Add account
-            </DropdownMenuItem>
-            {atCap && <DropdownMenuLabel className="font-normal text-muted-foreground">{MAX_BROWSER_ACCOUNTS} accounts. Sign out to add another.</DropdownMenuLabel>}
+                <UserPlusIcon />{t("Add account")}{' '}</DropdownMenuItem>
+            {atCap && <DropdownMenuLabel className="font-normal text-muted-foreground">{MAX_BROWSER_ACCOUNTS} {t("accounts. Sign out to add another.")}</DropdownMenuLabel>}
         </>
     );
 
@@ -86,7 +88,7 @@ export function AccountMenu({ name, avatarUrl, accounts }: { name: string; avata
                         icon column (spilling over its box, not widening it), so names line up with their labels,
                         expanded and collapsed; the email is in the menu's account list */}
                     <DropdownMenuTrigger render={<SidebarMenuButton disabled={pending} className="data-popup-open:bg-sidebar-accent data-popup-open:text-sidebar-accent-foreground" />}>
-                        <span className="sr-only">Account: </span>
+                        <span className="sr-only">{t("Account:")}{' '}</span>
                         <span className="flex size-4 shrink-0 items-center justify-center">
                             <PersonAvatar name={name} avatarUrl={avatarUrl} size="sm" aria-hidden="true" />
                         </span>
@@ -95,18 +97,18 @@ export function AccountMenu({ name, avatarUrl, accounts }: { name: string; avata
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
                         className="w-(--anchor-width) min-w-56 rounded-xl"
-                        side={isMobile ? 'bottom' : 'right'}
+                        side={isMobile ? "bottom" : "right"}
                         align="end"
                         sideOffset={4}>
                         {/* No header with the active person: the list marks them (uier #248) */}
                         <DropdownMenuGroup>
-                            <DropdownMenuLabel>Signed-in accounts</DropdownMenuLabel>
+                            <DropdownMenuLabel>{t("Signed-in accounts")}</DropdownMenuLabel>
                             {shown.map(accountItem)}
                             {more.length ? (
                                 <DropdownMenuSub>
                                     <DropdownMenuSubTrigger>
                                         <UsersIcon />
-                                        {more.length} more {more.length === 1 ? 'account' : 'accounts'}
+                                        {t(more.length === 1 ? '{count} more account' : '{count} more accounts', { count: more.length })}
                                     </DropdownMenuSubTrigger>
                                     <DropdownMenuSubContent className="min-w-56">
                                         <DropdownMenuGroup>
@@ -121,18 +123,16 @@ export function AccountMenu({ name, avatarUrl, accounts }: { name: string; avata
                         <DropdownMenuGroup>
                             <DropdownMenuItem render={<Link href={KnownPages.AppAccount} />}>
                                 <CircleUserIcon />
-                                Account
-                            </DropdownMenuItem>
+                                {t("Account")}{' '}</DropdownMenuItem>
                             <DropdownMenuSub>
                                 <DropdownMenuSubTrigger>
                                     <SunIcon />
-                                    Theme
-                                </DropdownMenuSubTrigger>
+                                    {t("Theme")}{' '}</DropdownMenuSubTrigger>
                                 <DropdownMenuSubContent>
                                     <DropdownMenuRadioGroup value={theme ?? 'system'} onValueChange={setTheme}>
                                         {themeOptions.map(option => (
                                             <DropdownMenuRadioItem key={option.value} value={option.value}>
-                                                {option.label}
+                                                {t(option.label)}
                                             </DropdownMenuRadioItem>
                                         ))}
                                     </DropdownMenuRadioGroup>
@@ -141,18 +141,15 @@ export function AccountMenu({ name, avatarUrl, accounts }: { name: string; avata
                             {/* Also for those who don't know `?`, or have the single-key shortcuts off */}
                             <DropdownMenuItem onClick={openShortcuts}>
                                 <KeyboardIcon />
-                                Keyboard shortcuts
-                                {shortcutKey && <DropdownMenuShortcut aria-hidden="true" className="font-mono tracking-normal">{shortcutKey}</DropdownMenuShortcut>}
+                                {t("Keyboard shortcuts")}{' '}{shortcutKey && <DropdownMenuShortcut aria-hidden="true" className="font-mono tracking-normal">{shortcutKey}</DropdownMenuShortcut>}
                             </DropdownMenuItem>
                         </DropdownMenuGroup>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem disabled={pending} onClick={() => change({ action: 'sign-out' })}>
                             <LogOutIcon />
-                            Sign out
-                        </DropdownMenuItem>
+                            {t("Sign out")}{' '}</DropdownMenuItem>
                         {accounts.length > 1 && <DropdownMenuItem disabled={pending} onClick={() => change({ action: 'sign-out-all' })}>
-                            <PowerIcon />Sign out of all accounts
-                        </DropdownMenuItem>}
+                            <PowerIcon />{t("Sign out of all accounts")}{' '}</DropdownMenuItem>}
                     </DropdownMenuContent>
                 </DropdownMenu>
             </SidebarMenuItem>

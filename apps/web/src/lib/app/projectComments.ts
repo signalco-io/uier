@@ -1,3 +1,5 @@
+import { englishAppTranslator } from '../i18n/translate';
+import type { AppTranslator } from '../i18n/types';
 import type { ArchiveFilter } from '../repo/archiveFilter';
 import { feedbackTypeSnapshot, isCommentKind } from '@uier/toolbar/feedback-types';
 import { verificationDetails, verificationPermissions } from '../review/fixVerificationDto';
@@ -174,8 +176,8 @@ function mentionText(item: import('../db/schema').DbThreadItem, participants: Ma
     return { text: text + item.text.slice(at), ...(mentions.length ? { mentions } : {}) };
 }
 
-function anchorView(comment: DbComment, first: import('../db/schema').DbThreadItem): CommentAnchorView {
-    const anchor = commentAnchor(comment.position, comment.kind, first.quotedText);
+function anchorView(comment: DbComment, first: import('../db/schema').DbThreadItem, t: AppTranslator): CommentAnchorView {
+    const anchor = commentAnchor(comment.position, comment.kind, first.quotedText, t);
     // A deleted comment keeps where it was, not the words it quoted
     return anchor.type === 'text' && first.deletedAt ? { ...anchor, text: '' } : anchor;
 }
@@ -212,7 +214,7 @@ function messageAuthor(item: import('../db/schema').DbThreadItem, names: Map<str
     };
 }
 
-function toView(comment: DbComment, project: DbProject, actor: ProjectActor, names: Map<string, string>, participants: Map<string, string>, members: Awaited<ReturnType<typeof listProjectMembers>>, readSequence = 0, avatars = memberAvatars(members), titles = false): ProjectCommentView | null {
+function toView(comment: DbComment, project: DbProject, actor: ProjectActor, names: Map<string, string>, participants: Map<string, string>, members: Awaited<ReturnType<typeof listProjectMembers>>, readSequence = 0, avatars = memberAvatars(members), titles = false, t: AppTranslator = englishAppTranslator): ProjectCommentView | null {
     const items = Array.isArray(comment.thread?.items) ? comment.thread.items : [];
     const [first, ...replies] = items;
     if (!first)
@@ -231,7 +233,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         revision: commentRevision(comment),
         source,
         activity,
-        history: threadHistoryView(comment, { member: actor.kind === 'member', authorId: myId, admin: actor.kind === 'member' && actor.isAdmin }, participants),
+        history: threadHistoryView(comment, { member: actor.kind === 'member', authorId: myId, admin: actor.kind === 'member' && actor.isAdmin }, participants, t),
         id: comment.id,
         url: `${origin}${commentSourcePath(comment)}`,
         path,
@@ -241,7 +243,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
             : undefined,
         kind: isCommentKind(comment.kind) ? comment.kind : 'comment',
         ...(feedbackTypeSnapshot(comment.feedbackType, comment.kind) ? { feedbackType: feedbackTypeSnapshot(comment.feedbackType, comment.kind) } : {}),
-        anchor: anchorView(comment, first),
+        anchor: anchorView(comment, first, t),
         device: size && deviceSizes.includes(size) ? size : undefined,
         reproduction: toReproductionContext(comment, projectOrigins(project)),
         createdAt: comment.createdAt,
@@ -314,7 +316,7 @@ export async function loadProjectComment(context: AppContext, project: DbProject
 }
 
 /** Every comment of the project the app user can see (all pages), newest first */
-export async function loadProjectComments(context: AppContext, project: DbProject, environment?: string, authorId?: string, onWindow?: (capped: boolean) => void, membersForRequest?: ReturnType<typeof listProjectMembers>, archive: ArchiveFilter = 'all') {
+export async function loadProjectComments(context: AppContext, project: DbProject, environment?: string, authorId?: string, onWindow?: (capped: boolean) => void, membersForRequest?: ReturnType<typeof listProjectMembers>, archive: ArchiveFilter = 'all', t: AppTranslator = englishAppTranslator) {
     const actor = appActor(context);
     let windowCapped = false;
     const [comments, members, reads, subscriptions] = await Promise.all([
@@ -335,7 +337,7 @@ export async function loadProjectComments(context: AppContext, project: DbProjec
     // Only threads this person can see (listProjectComments), so a title is never shown beyond its first message
     const titles = aiTitlesEnabled(context.workspace, project);
     const views = comments
-        .map(comment => toView(comment, project, actor, names, participants, members, reads.get(comment.id), avatars, titles))
+        .map(comment => toView(comment, project, actor, names, participants, members, reads.get(comment.id), avatars, titles, t))
         .filter((view): view is ProjectCommentView => Boolean(view));
     // Threads from before titles, or whose title was not made yet: a bounded batch, newest first, after the response
     queueAiTitles(project, comments, 'shown', { enabled: titles });

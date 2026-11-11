@@ -1,3 +1,4 @@
+import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
@@ -19,10 +20,12 @@ import { MicrosoftSignInButton, MicrosoftSignInProblem } from './MicrosoftSignIn
  */
 export async function generateMetadata({ searchParams }: PageProps<'/app/sign-in'>): Promise<Metadata> {
     const { next } = await searchParams;
-    return { title: 'Sign in', ...appLinkMetadata(describeAppLink(safeNextPath(next))) };
+    const { t } = await getAppI18n();
+    return { title: t('Sign in'), ...appLinkMetadata(describeAppLink(safeNextPath(next))) };
 }
 
 async function SignInPageContent({ searchParams }: PageProps<'/app/sign-in'>) {
+    const { t } = await getAppI18n();
     const { next, google, microsoft, with: method, add, accounts: accountProblem } = await searchParams;
     const nextPath = safeNextPath(next);
     if (add !== '1' && await getSessionUser())
@@ -35,7 +38,7 @@ async function SignInPageContent({ searchParams }: PageProps<'/app/sign-in'>) {
         <SignedInAccounts accounts={accounts} next={nextPath} />
         <SignInForm addingAccount={add === '1'} next={nextPath} withEmail={method === 'email'} lastUsed={lastUsed}
             problems={<>
-                {accountProblem === 'full' && <Alert role="alert"><AlertDescription>{ACCOUNT_LIMIT_MESSAGE}</AlertDescription></Alert>}
+                {accountProblem === 'full' && <Alert role="alert"><AlertDescription>{t(ACCOUNT_LIMIT_MESSAGE)}</AlertDescription></Alert>}
                 <GoogleSignInProblem outcome={google} />
                 <MicrosoftSignInProblem outcome={microsoft} />
             </>}

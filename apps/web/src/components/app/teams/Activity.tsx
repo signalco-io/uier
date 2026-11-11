@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import Link from 'next/link';
 import { HistoryIcon } from 'lucide-react';
 import { cn } from 'cn';
@@ -13,12 +15,13 @@ const sentence = (text: string) => `${text.charAt(0).toUpperCase()}${text.slice(
  * Access history as sentences, one change per row: who did what ("Maya invited client@example.com to
  * Acme shop"), the details of a changed grant under it, and when. Admins only; kept 180 days.
  */
-export function AccessActivity({ events, names, next }: {
+export async function AccessActivity({ events, names, next }: {
     events: DbAccessEvent[];
     names: ActivityNames;
     /** The page of later changes */
     next?: string;
 }) {
+    const { t, language } = await getAppI18n();
     if (!events.length) {
         return (
             <Empty className="border">
@@ -26,17 +29,17 @@ export function AccessActivity({ events, names, next }: {
                     <EmptyMedia variant="icon">
                         <HistoryIcon />
                     </EmptyMedia>
-                    <EmptyTitle>No access changes yet</EmptyTitle>
-                    <EmptyDescription>Invitations, removals and team changes show up here for 180 days.</EmptyDescription>
+                    <EmptyTitle>{t("No access changes yet")}</EmptyTitle>
+                    <EmptyDescription>{t("Invitations, removals and team changes show up here for 180 days.")}</EmptyDescription>
                 </EmptyHeader>
             </Empty>
         );
     }
     return (
         <div className="flex flex-col gap-3">
-            <ol aria-label="Access changes" className="m-0 list-none divide-y rounded-xl border p-0">
+            <ol aria-label={t("Access changes")} className="m-0 list-none divide-y rounded-xl border p-0">
                 {events.map(event => {
-                    const { actor, text, details } = describeAccessEvent(event, names);
+                    const { actor, text, details } = describeAccessEvent(event, names, t, language);
                     return (
                         <li key={event.id} className="flex flex-col gap-1 px-4 py-3 text-sm sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                             <div className="flex min-w-0 flex-col gap-0.5">
@@ -48,7 +51,7 @@ export function AccessActivity({ events, names, next }: {
                     );
                 })}
             </ol>
-            {next && <Link href={next} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'self-center')}>Later changes</Link>}
+            {next && <Link href={next} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'self-center')}>{t("Later changes")}</Link>}
         </div>
     );
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
 import { useTransition } from 'react';
 import { toast } from 'sonner';
 import type { FeedbackStatusTarget } from '@uier/toolbar/verification';
@@ -55,6 +56,7 @@ export function movedPatch(comment: ProjectCommentView, next: CommentStatus, now
  * `useStatusChange` binds it to one thread.
  */
 export function useStatusChanger(projectId: string) {
+    const { t } = useAppI18n();
     const updateComment = useCommentUpdate();
     const [pending, startTransition] = useTransition();
 
@@ -63,17 +65,17 @@ export function useStatusChanger(projectId: string) {
         // Start saving immediately, then move the card once its exit has played.
         try {
             const request = setCommentStatusAction(projectId, comment.id, status)
-                .catch(() => ({ ok: false as const, error: 'Could not save the change. Try again.' }));
+                .catch(() => ({ ok: false as const, error: t("Could not save the change. Try again.") }));
             if (exit) await exit.finished;
             startTransition(() => updateComment({ id: comment.id, patch: movedPatch(comment, status) }));
             const result = await request;
             if (result && !result.ok) {
                 exit?.cancel();
-                toast.error(result.error);
+                toast.error(t(result.error));
             }
         } catch {
             exit?.cancel();
-            toast.error('Could not save the change. Try again.');
+            toast.error(t("Could not save the change. Try again."));
         }
     });
 
@@ -84,10 +86,10 @@ export function useStatusChanger(projectId: string) {
             const result = await verificationCommentAction(projectId, comment.id, {
                 action: 'cancel', override: false, status, expectedRevision: comment.verification?.revision ?? null, idempotencyKey: crypto.randomUUID()
             });
-            if (result && !result.ok) toast.error(result.error);
-            else toast.success('Verification request canceled.');
+            if (result && !result.ok) toast.error(t(result.error));
+            else toast.success(t("Verification request canceled."));
         } catch {
-            toast.error('Could not save the change. Try again.');
+            toast.error(t("Could not save the change. Try again."));
         }
     });
 

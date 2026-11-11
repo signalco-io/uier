@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useActionState, useEffect, useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
@@ -25,56 +27,57 @@ import { updateNameAction } from './actions';
  * at once, like a switch; the name beside it saves with the form.
  */
 function ProfilePicture({ name, avatarUrl, descriptionId }: { name: string; avatarUrl?: string; descriptionId: string }) {
+    const { t } = useAppI18n();
     const router = useRouter();
     // While a change saves, the menu stays closed but the avatar keeps the focus: a disabled trigger
     // can't take it back from the closing menu, which would leave it on the page's body
     const [open, setOpen] = useState(false);
     const { pending, error, fileInput, dropTarget, choose, remove } = usePictureUpload({
         endpoint: KnownPages.AccountAvatar,
-        fileLabel: 'Profile picture file',
-        failed: 'Your picture could not be saved.',
+        fileLabel: t("Profile picture file"),
+        failed: t("Your picture could not be saved."),
         // An image dropped or pasted into the open menu closes it, like choosing one of its items
         onPendingChange: (next) => {
             if (next) setOpen(false);
         },
         onSaved: (method) => {
-            toast(method === 'POST' ? 'Your picture is saved.' : 'Your picture is removed.');
+            toast(method === 'POST' ? t("Your picture is saved.") : t("Your picture is removed."));
             router.refresh();
         }
     });
     return (
         <>
             <DropdownMenu open={open} onOpenChange={next => setOpen(next && !pending)}>
-                <DropdownMenuTrigger render={<EditablePicture aria-label="Edit profile picture" aria-describedby={descriptionId} pending={pending} {...dropTarget} />}>
+                <DropdownMenuTrigger render={<EditablePicture aria-label={t("Edit profile picture")} aria-describedby={descriptionId} pending={pending} {...dropTarget} />}>
                     <PersonAvatar name={name} avatarUrl={avatarUrl} aria-hidden="true" className="size-16" fallbackClassName="text-xl" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className={cn('w-auto', dropTargetClassName)} {...dropTarget}>
                     <DropdownMenuItem onClick={choose}>
                         <ImageUpIcon />
-                        {avatarUrl ? 'Upload a new picture' : 'Upload picture'}
+                        {avatarUrl ? t("Upload a new picture") : t("Upload picture")}
                     </DropdownMenuItem>
                     {avatarUrl && (
                         <DropdownMenuItem onClick={remove}>
                             <Trash2Icon />
-                            Remove picture
-                        </DropdownMenuItem>
+                            {t("Remove picture")}{' '}</DropdownMenuItem>
                     )}
                 </DropdownMenuContent>
             </DropdownMenu>
             {fileInput}
-            {error && <FieldError className="order-last basis-full">{error}</FieldError>}
+            {error && <FieldError className="order-last basis-full">{t(error)}</FieldError>}
         </>
     );
 }
 
 export function AccountForm({ name, avatarUrl }: { name: string; avatarUrl?: string }) {
+    const { t } = useAppI18n();
     const formId = useId();
     const [state, formAction, pending] = useActionState(updateNameAction, null);
     const { draft, dirty, update, discard } = useSettingsDraft(name, state);
     return (
         <Section
             id="profile"
-            title="Profile"
+            title={t("Profile")}
             footer={<SaveFooter formId={formId} state={state} pending={pending} dirty={dirty} onDiscard={discard} />}>
             <div className="flex flex-col gap-3">
                 {/* The picture on the left, the name on the right (the label's row is the avatar's top) */}
@@ -82,7 +85,7 @@ export function AccountForm({ name, avatarUrl }: { name: string; avatarUrl?: str
                     <ProfilePicture name={name} avatarUrl={avatarUrl} descriptionId={`${formId}-picture`} />
                     <form id={formId} action={formAction} className="min-w-0 flex-1">
                         <Field>
-                            <FieldLabel htmlFor={`${formId}-name`}>Name</FieldLabel>
+                            <FieldLabel htmlFor={`${formId}-name`}>{t("Name")}</FieldLabel>
                             <Input
                                 id={`${formId}-name`}
                                 name="name"
@@ -92,11 +95,11 @@ export function AccountForm({ name, avatarUrl }: { name: string; avatarUrl?: str
                                 maxLength={MAX_NAME_LENGTH}
                                 autoComplete="name"
                                 className="max-w-md" />
-                            <FieldDescription>Shown with your comments and to the people you work with.</FieldDescription>
+                            <FieldDescription>{t("Shown with your comments and to the people you work with.")}</FieldDescription>
                         </Field>
                     </form>
                 </div>
-                <FieldDescription id={`${formId}-picture`}>Your picture is shown beside your name. PNG, JPEG, WebP or GIF, cropped to a square. Drop an image on it or paste one to change it.</FieldDescription>
+                <FieldDescription id={`${formId}-picture`}>{t("Your picture is shown beside your name. PNG, JPEG, WebP or GIF, cropped to a square. Drop an image on it or paste one to change it.")}</FieldDescription>
             </div>
         </Section>
     );
@@ -104,22 +107,23 @@ export function AccountForm({ name, avatarUrl }: { name: string; avatarUrl?: str
 
 /** Light, dark or the system's theme for the app (and the site), kept in this browser */
 export function AppearanceSection() {
+    const { t } = useAppI18n();
     const { theme, setTheme } = useTheme();
     // next-themes only knows the theme on the client; show "system" until mounted
     const [mounted, setMounted] = useState(false);
     useEffect(() => setMounted(true), []);
 
     return (
-        <Section id="appearance" title="Appearance" description="How uier looks in this browser.">
+        <Section id="appearance" title={t("Appearance")} description={t("How uier looks in this browser.")}>
             <ToggleGroup
                 variant="outline"
-                aria-label="Theme"
-                value={[mounted ? (theme ?? 'system') : 'system']}
+                aria-label={t("Theme")}
+                value={[mounted ? (theme ?? 'system') : "system"]}
                 onValueChange={([next]) => next && setTheme(next)}>
                 {themeOptions.map(option => (
                     <ToggleGroupItem key={option.value} value={option.value} className="px-3">
                         <option.icon data-icon="inline-start" />
-                        {option.label}
+                        {t(option.label)}
                     </ToggleGroupItem>
                 ))}
             </ToggleGroup>

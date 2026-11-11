@@ -1,5 +1,6 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
 import type { DbProject, DbTeam } from '@/src/lib/app/model';
 import { projectTeamAction, removeProjectAccessAction } from './actions';
 import { type AccessData, currentUpdate, type AccessPerson } from './accessFormData';
@@ -8,6 +9,7 @@ import { Impact } from './AccessImpact';
 import { UnavailableButton } from './AccessFormFields';
 
 export function ProjectTeamButton({ team, project, data }: { team: DbTeam; project: DbProject; data: AccessData }) {
+    const { t } = useAppI18n();
     const add = !team.projectIds.includes(project.id);
     const nextAccess = {
         ...data.access,
@@ -24,11 +26,11 @@ export function ProjectTeamButton({ team, project, data }: { team: DbTeam; proje
     };
     return (
         <ConfirmAccess
-            label={add ? 'Share' : 'Remove'}
-            accessibleName={add ? `Share with ${team.name}` : `Remove ${team.name}`}
+            label={add ? t("Share") : t("Remove")}
+            accessibleName={add ? t("Share with {name}", { name: team.name }) : t("Remove {name}", { name: team.name })}
             size="sm"
-            title={`${add ? 'Share' : 'Remove'} ${project.name} ${add ? 'with' : 'from'} ${team.name}?`}
-            description="Team members follow the current team grant. Other sources can preserve member access. Guest links remain allowed where enabled."
+            title={add ? t("Share {project} with {team}?", { project: project.name, team: team.name }) : t("Remove {project} from {team}?", { project: project.name, team: team.name })}
+            description={t("Team members follow the current team grant. Other sources can preserve member access. Guest links remain allowed where enabled.")}
             action={() => projectTeamAction(team.id, project.id, add, data.revision)}
         >
             {data.people
@@ -55,21 +57,22 @@ export function RemoveProjectAccess({
     project: DbProject;
     data: AccessData;
 }) {
-    const accessibleName = `Remove ${person.name}'s access`;
+    const { t } = useAppI18n();
+    const accessibleName = t("Remove {value0}'s access", { value0: person.name });
     if (person.member.role === 'admin')
         return (
             <UnavailableButton
-                label="Remove"
+                label={t("Remove")}
                 accessibleName={accessibleName}
-                reason="Workspace admins can review every project."
+                reason={t("Workspace admins can review every project.")}
             />
         );
     if (person.member.projects === 'all')
         return (
             <UnavailableButton
-                label="Remove"
+                label={t("Remove")}
                 accessibleName={accessibleName}
-                reason="They have access to all projects. Change that on their page first."
+                reason={t("They have access to all projects. Change that on their page first.")}
             />
         );
     const removed = data.access.teams.filter((team) => team.projectIds.includes(project.id)).map((team) => team.id);
@@ -80,11 +83,11 @@ export function RemoveProjectAccess({
     };
     return (
         <ConfirmAccess
-            label="Remove"
+            label={t("Remove")}
             accessibleName={accessibleName}
             size="sm"
-            title={`Remove ${person.name}'s member access to ${project.name}?`}
-            description="This removes this direct grant and every team membership granting this project. Removing those memberships can also remove other projects listed below. Guest links remain allowed where enabled."
+            title={t("Remove {value0}'s member access to {value1}?", { value0: person.name, value1: project.name })}
+            description={t("This removes this direct grant and every team membership granting this project. Removing those memberships can also remove other projects listed below. Guest links remain allowed where enabled.")}
             action={() => removeProjectAccessAction(person.member.userId, project.id, data.revision)}
         >
             <Impact data={data} person={person} next={next} />

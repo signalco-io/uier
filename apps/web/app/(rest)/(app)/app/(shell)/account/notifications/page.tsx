@@ -1,3 +1,4 @@
+import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
@@ -10,12 +11,16 @@ import { requireAppContext } from '@/src/lib/app/context';
 import { listVisibleProjects } from '@/src/lib/app/projects';
 import { notificationPreference } from '@/src/lib/notifications/preferences';
 
-export const metadata: Metadata = {
-    title: 'Notifications · Account'
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return {
+    title: t('Notifications · Account')
 };
+}
 
 /** The person's emails from every project they can see in the selected workspace, each on or off */
 async function AccountNotificationsPageContent() {
+    const { t } = await getAppI18n();
     const context = await requireAppContext();
     const projects = await listVisibleProjects(context);
     const preferences = await Promise.all(projects.map(project => notificationPreference(project.id, `user:${context.user.id}`)));
@@ -23,11 +28,11 @@ async function AccountNotificationsPageContent() {
     return (
         <Section
             id="project-emails"
-            title="Project emails"
-            description={`Your emails from each project in ${context.workspace.name}. Off stops every email from that project, also for threads you follow.`}>
+            title={t("Project emails")}
+            description={t("Your emails from each project in {value1}. Off stops every email from that project, also for threads you follow.", { value1: context.workspace.name })}>
             {projects.length > 0
                 ? (
-                    <ul className="m-0 flex list-none flex-col divide-y p-0" aria-label="Projects">
+                    <ul className="m-0 flex list-none flex-col divide-y p-0" aria-label={t("Projects")}>
                         {projects.map((project, index) => (
                             <li key={project.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
                                 <ProjectMark name={project.name} projectId={project.id} url={project.urls[0]} />
@@ -39,7 +44,7 @@ async function AccountNotificationsPageContent() {
                         ))}
                     </ul>
                 )
-                : <p className="m-0 text-sm text-muted-foreground">No projects here yet.</p>}
+                : <p className="m-0 text-sm text-muted-foreground">{t("No projects here yet.")}</p>}
         </Section>
     );
 }

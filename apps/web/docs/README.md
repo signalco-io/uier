@@ -25,6 +25,8 @@ Product contracts, API references and runbooks stay in the repository's [`docs/`
 
 ## The app
 
+- [App languages](localization.md): supported languages, browser defaults, profile preference and catalogs.
+
 - [App shell](app-shell.md): sidebar, sidebar project order, workspace area, project header, `ProjectMark`, projects list, My work.
 - [Project settings](project-settings.md): settings sections, one save per page, notification settings.
 - [Environments](environments.md): the site addresses table and environment filters.

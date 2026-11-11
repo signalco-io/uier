@@ -1,5 +1,6 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
 import { useId } from 'react';
 import { Button } from '@/src/components/ui/button';
 import { Checkbox } from '@/src/components/ui/checkbox';
@@ -20,6 +21,7 @@ export function CheckList({
     onChange: (ids: string[]) => void;
     description?: string;
 }) {
+    const { t } = useAppI18n();
     const prefix = useId();
     return (
         <FieldSet>
@@ -46,7 +48,7 @@ export function CheckList({
                         </Field>
                     ))
                 ) : (
-                    <FieldDescription>No choices yet.</FieldDescription>
+                    <FieldDescription>{t("No choices yet.")}</FieldDescription>
                 )}
             </FieldGroup>
         </FieldSet>
@@ -64,11 +66,12 @@ export function Choice({
     options: { value: string; label: string }[];
     onChange: (value: string) => void;
 }) {
+    const { t } = useAppI18n();
     const id = useId();
     return (
         <Field>
             <FieldLabel htmlFor={id}>{label}</FieldLabel>
-            <Select items={options} value={value} onValueChange={next => next !== null && onChange(next)}>
+            <Select items={options.map(option => ({ ...option, label: t(option.label) }))} value={value} onValueChange={next => next !== null && onChange(next)}>
                 <SelectTrigger id={id}>
                     <SelectValue />
                 </SelectTrigger>
@@ -76,7 +79,7 @@ export function Choice({
                     <SelectGroup>
                         {options.map((option) => (
                             <SelectItem key={option.value} value={option.value}>
-                                {option.label}
+                                {t(option.label)}
                             </SelectItem>
                         ))}
                     </SelectGroup>

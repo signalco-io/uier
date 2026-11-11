@@ -1,5 +1,6 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
 import { useEffect, useRef, useState } from 'react';
 import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
@@ -31,6 +32,7 @@ export function InstallationCheck({ projectId, publicId, urls, bare = false, onR
     bare?: boolean;
     onResultChange?: (result: InstallationResult | undefined) => void;
 }) {
+    const { t } = useAppI18n();
     const [address, setAddress] = useState(urls[0] ?? '');
     const [result, setStoredResult] = useState<Result>();
     const setResult = (next: Result | undefined) => {
@@ -50,31 +52,31 @@ export function InstallationCheck({ projectId, publicId, urls, bare = false, onR
         target.searchParams.set('uier-check', nonce);
         const review = new URL(`/app/review/${projectId}`, location.origin);
         review.searchParams.set('url', target.href);
-        const popup = window.open('about:blank', '_blank');
-        if (!popup) { setResult({ kind: 'inconclusive', message: 'The check window was blocked. Allow popups for uier and retry.' }); return; }
+        const popup = window.open('about:blank', "_blank");
+        if (!popup) { setResult({ kind: 'inconclusive', message: t("The check window was blocked. Allow popups for uier and retry.") }); return; }
         // Disown the popup's opener while retaining the reference used to check message sources.
         popup.opener = null;
         popupRef.current = popup;
-        setResult({ kind: 'checking', message: 'Opening the site and waiting for its toolbar.' });
+        setResult({ kind: 'checking', message: t("Opening the site and waiting for its toolbar.") });
         const receive = (event: MessageEvent) => {
             const data = event.data;
             if (event.source !== popup || event.origin !== target.origin || data?.type !== 'uier:installation' || data.nonce !== nonce) return;
-            if (data.project !== publicId && data.project !== projectId) { stop({ kind: 'failure', message: 'This page loads a toolbar for a different project. Replace its script with this project’s snippet.' }); return; }
-            if (data.apiOrigin !== location.origin) { stop({ kind: 'failure', message: 'The toolbar points to a different uier API. Copy the script from this install guide and retry.' }); return; }
-            if (data.stage === 'ready') stop({ kind: 'success', message: 'Installation confirmed. The correct toolbar, review API and browser verification work on this page.' });
+            if (data.project !== publicId && data.project !== projectId) { stop({ kind: 'failure', message: t("This page loads a toolbar for a different project. Replace its script with this project’s snippet.") }); return; }
+            if (data.apiOrigin !== location.origin) { stop({ kind: 'failure', message: t("The toolbar points to a different uier API. Copy the script from this install guide and retry.") }); return; }
+            if (data.stage === 'ready') stop({ kind: 'success', message: t("Installation confirmed. The correct toolbar, review API and browser verification work on this page.") });
             else if (data.stage === 'failed') stop((typeof data.code === 'string' && Object.hasOwn(failures, data.code) ? failures[data.code] : undefined)
-                ?? { kind: 'inconclusive', message: 'The check could not finish. Check the script and security headers, then retry.' });
-            else if (data.stage === 'api') setResult({ kind: 'checking', message: 'The toolbar and API responded. Checking browser verification.' });
+                ?? { kind: 'inconclusive', message: t("The check could not finish. Check the script and security headers, then retry.") });
+            else if (data.stage === 'api') setResult({ kind: 'checking', message: t("The toolbar and API responded. Checking browser verification.") });
         };
         window.addEventListener('message', receive);
         const ping = () => {
-            if (popup.closed) { stop({ kind: 'inconclusive', message: 'The check window closed or disconnected before confirmation. Retry and leave it open.' }); return; }
+            if (popup.closed) { stop({ kind: 'inconclusive', message: t("The check window closed or disconnected before confirmation. Retry and leave it open.") }); return; }
             try { popup.postMessage({ type: 'uier:installation-ping', nonce }, target.origin); }
-            catch { stop({ kind: 'inconclusive', message: 'The check window disconnected. Retry and leave it open.' }); }
+            catch { stop({ kind: 'inconclusive', message: t("The check window disconnected. Retry and leave it open.") }); }
         };
         const interval = window.setInterval(ping, 400);
         window.addEventListener('focus', ping);
-        const timeout = window.setTimeout(() => stop({ kind: 'inconclusive', message: 'No complete confirmation arrived. The site may be private, unreachable, missing the script or blocking it. Check the snippet and security headers, then retry.' }), 30_000);
+        const timeout = window.setTimeout(() => stop({ kind: 'inconclusive', message: t("No complete confirmation arrived. The site may be private, unreachable, missing the script or blocking it. Check the snippet and security headers, then retry.") }), 30_000);
         cleanup.current = () => { clearInterval(interval); clearTimeout(timeout); window.removeEventListener('message', receive); window.removeEventListener('focus', ping); };
         popup.location.href = review.href;
     };
@@ -82,7 +84,7 @@ export function InstallationCheck({ projectId, publicId, urls, bare = false, onR
     reviewLink.searchParams.set('toolbar-code', publicId);
     const content = <>
         <Field>
-            <FieldLabel htmlFor={`installation-${projectId}`}>Site to check</FieldLabel>
+            <FieldLabel htmlFor={`installation-${projectId}`}>{t("Site to check")}</FieldLabel>
             <Select value={address} onValueChange={next => { if (next === null) return; cleanup.current(); setAddress(next); setResult(undefined); }} disabled={checking}>
                 <SelectTrigger id={`installation-${projectId}`} className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectGroup>{urls.map(url => <SelectItem key={url} value={url}>{url}</SelectItem>)}</SelectGroup></SelectContent>
@@ -90,23 +92,23 @@ export function InstallationCheck({ projectId, publicId, urls, bare = false, onR
         </Field>
         <div className="flex flex-wrap gap-2">
             {/* Once confirmed, checking again is no longer the main thing to do */}
-            <Button type="button" variant={result?.kind === 'success' ? 'outline' : 'default'} onClick={start} disabled={checking}>{checking && <Spinner data-icon="inline-start" />}{checking ? 'Checking installation...' : result ? 'Retry installation check' : 'Check installation'}</Button>
+            <Button type="button" variant={result?.kind === 'success' ? 'outline' : 'default'} onClick={start} disabled={checking}>{checking && <Spinner data-icon="inline-start" />}{checking ? t("Checking installation...") : result ? t("Retry installation check") : t("Check installation")}</Button>
             {checking && <Button type="button" variant="outline" onClick={() => {
-                popupRef.current?.close(); stop({ kind: 'inconclusive', message: 'Check canceled. Retry when the site is ready.' });
-            }}>Cancel check</Button>}
+                popupRef.current?.close(); stop({ kind: 'inconclusive', message: t("Check canceled. Retry when the site is ready.") });
+            }}>{t("Cancel check")}</Button>}
         </div>
-        {result && <p role="status" aria-label="Installation result" data-result={result.kind} className="m-0 text-sm">{result.message}</p>}
+        {result && <p role="status" aria-label={t("Installation result")} data-result={result.kind} className="m-0 text-sm">{t(result.message)}</p>}
         {result?.kind === 'success' && <>
-            <a href={reviewLink.href} target="_blank" rel="noopener" className={buttonVariants({ variant: 'outline', className: 'self-start' })}>Open checked review</a>
-            <CopyBlock value={reviewLink.href} label="Copy checked review link" />
+            <a href={reviewLink.href} target="_blank" rel="noopener" className={buttonVariants({ variant: 'outline', className: 'self-start' })}>{t("Open checked review")}</a>
+            <CopyBlock value={reviewLink.href} label={t("Copy checked review link")} />
         </>}
     </>;
     if (bare)
         return <div className="flex flex-col gap-3">{content}</div>;
     return (
-        <section aria-label="Check installation" className="flex flex-col gap-3 rounded-xl border p-4">
-            <h3 className="m-0 text-sm font-medium">Check installation</h3>
-            <p className="m-0 text-sm text-muted-foreground">Open the actual site to check its toolbar and connection. Owners install the script once. Reviewers need no extension.</p>
+        <section aria-label={t("Check installation")} className="flex flex-col gap-3 rounded-xl border p-4">
+            <h3 className="m-0 text-sm font-medium">{t("Check installation")}</h3>
+            <p className="m-0 text-sm text-muted-foreground">{t("Open the actual site to check its toolbar and connection. Owners install the script once. Reviewers need no extension.")}</p>
             {content}
         </section>
     );

@@ -272,3 +272,14 @@ header from the section's `data-board-archive` (`--board-width-collapsed` / `--b
 - `e2e/archive.spec.ts` covers collapsed and expanded, archiving and restoring from the board, its sort, the focus, a reload
   and light/dark axe; `e2e/board-sort.api.spec.ts` the order, the saved state and invalid inputs; `e2e/comment-board.spec.ts` its
   place in the layout and during a drag.
+
+The Board stays directly imported by `ProjectComments`, so direct Board visits hydrate its
+keyboard controls with the rest of the view.
+
+## App language
+
+The app's selected language applies to the inbox, board, filters, thread controls and their
+accessible names. `src/lib/i18n/catalogs/comments` holds the six complete catalogs. Shared machine
+values and browser-safe label records stay stable; components translate their display labels.
+Custom feedback type names, comments, project names and other member content remain as written.
+Relative times use the app language and the existing shared clock.

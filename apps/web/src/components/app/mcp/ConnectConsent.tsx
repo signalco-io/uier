@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useActionState, useEffect, useState } from 'react';
 import { TriangleAlertIcon } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/src/components/ui/alert';
@@ -71,7 +73,8 @@ type Outcome = { approved: boolean; url: string | null };
  * that follows a server action (the request is consumed by then) and the page can send the person back.
  */
 export function ConnectConsent({ requestId, request }: { requestId: string; request: ConsentRequest | null }) {
-    const [clientName] = useState(request?.client.name ?? 'your coding tool');
+    const { t } = useAppI18n();
+    const [clientName] = useState(request?.client.name ?? t('your coding tool'));
     const [outcome, setOutcome] = useState<Outcome | null>(null);
     useEffect(() => {
         // Not a redirect from the form post: `form-action 'self'` would block the client's callback.
@@ -82,14 +85,14 @@ export function ConnectConsent({ requestId, request }: { requestId: string; requ
     if (outcome?.url)
         return <>
             <CardHeader>
-                <h1 className="m-0 text-xl leading-7 font-semibold tracking-[-0.015em] break-words">Returning to {clientName}</h1>
-                <CardDescription role="status">{outcome.approved ? 'Access allowed.' : 'Access not allowed.'} You can close this tab.</CardDescription>
+                <h1 className="m-0 text-xl leading-7 font-semibold tracking-[-0.015em] break-words">{t("Returning to")}{' '}{clientName}</h1>
+                <CardDescription role="status">{outcome.approved ? t("Access allowed.") : t("Access not allowed.")} {t("You can close this tab.")}</CardDescription>
             </CardHeader>
             <CardContent>
-                <p className="m-0 text-sm text-muted-foreground">If nothing happens, use this link.</p>
+                <p className="m-0 text-sm text-muted-foreground">{t("If nothing happens, use this link.")}</p>
             </CardContent>
             <CardFooter>
-                <a href={outcome.url} className={buttonVariants({ variant: 'outline' })}>Return to {clientName}</a>
+                <a href={outcome.url} className={buttonVariants({ variant: 'outline' })}>{t("Return to")}{' '}{clientName}</a>
             </CardFooter>
         </>;
     if (outcome || !request)
@@ -115,6 +118,7 @@ function ConsentForm({ requestId, request: { userId, email, client, requestedSco
     request: ConsentRequest;
     onOutcome: (outcome: Outcome) => void;
 }) {
+    const { t } = useAppI18n();
     const [selections, setSelections] = useState<Record<string, AccountSelection>>(() => Object.fromEntries<AccountSelection>(accounts.map(account => {
         const existing = current?.accounts.find(entry => entry.userId === account.id);
         return [account.id, existing ? currentSelection(account, existing.access)
@@ -155,12 +159,12 @@ function ConsentForm({ requestId, request: { userId, email, client, requestedSco
     return (
         <>
             <CardHeader>
-                <h1 className="m-0 text-xl leading-7 font-semibold tracking-[-0.015em] break-words">Connect {client.name} to uier</h1>
+                <h1 className="m-0 text-xl leading-7 font-semibold tracking-[-0.015em] break-words">{t("Connect")}{' '}{client.name} {t("to uier")}</h1>
                 <CardDescription>
                     <span className="flex flex-wrap items-center gap-x-2">
-                        <span>Signed in as <span className="font-mono text-[13px] break-all">{email}</span>.</span>
+                        <span>{t("Signed in as")}{' '}<span className="font-mono text-[13px] break-all">{email}</span>.</span>
                         <form action={switchConnectionAccountAction.bind(null, requestId)}>
-                            <Button type="submit" variant="link" className="h-auto p-0 underline">Use another account</Button>
+                            <Button type="submit" variant="link" className="h-auto p-0 underline">{t("Use another account")}</Button>
                         </form>
                     </span>
                 </CardDescription>
@@ -168,7 +172,7 @@ function ConsentForm({ requestId, request: { userId, email, client, requestedSco
             <form action={approve} className="contents">
                 <CardContent className="gap-6">
                     <div className="flex flex-col gap-3">
-                        <Item variant="outline" role="group" aria-label="App">
+                        <Item variant="outline" role="group" aria-label={t("App")}>
                             <ItemContent>
                                 <ItemTitle className="line-clamp-none"><ClientName client={client} /></ItemTitle>
                                 <ItemDescription className="line-clamp-none"><ClientHosts client={client} /></ItemDescription>
@@ -178,18 +182,18 @@ function ConsentForm({ requestId, request: { userId, email, client, requestedSco
                     </div>
                     <FieldGroup>
                         <FieldSet>
-                            <FieldLegend>What it can reach</FieldLegend>
-                            <FieldDescription>Choose the accounts to include, then what each account can reach. Your current permissions always apply.</FieldDescription>
-                            <FieldDescription>This connection is managed from <span className="font-mono text-[13px] break-all">{email}</span>. Switching accounts or signing out in this browser keeps the connection active.</FieldDescription>
+                            <FieldLegend>{t("What it can reach")}</FieldLegend>
+                            <FieldDescription>{t("Choose the accounts to include, then what each account can reach. Your current permissions always apply.")}</FieldDescription>
+                            <FieldDescription>{t("This connection is managed from")}{' '}<span className="font-mono text-[13px] break-all">{email}</span>{t(". Switching accounts or signing out in this browser keeps the connection active.")}</FieldDescription>
                             {accounts.map(account => <AccountAccessChoice key={account.id} account={account} value={selections[account.id]!}
                                 onChange={value => setSelections(previous => ({ ...previous, [account.id]: value }))} />)}
                         </FieldSet>
                         <FieldSet className="gap-4">
-                            <FieldLegend>What it can do</FieldLegend>
+                            <FieldLegend>{t("What it can do")}</FieldLegend>
                             <div className="-mt-1.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                                <FieldDescription>{client.name} asked for the operations selected here. Create access tokens is off by default, even when requested.</FieldDescription>
+                                <FieldDescription>{client.name} {t("asked for the operations selected here. Create access tokens is off by default, even when requested.")}</FieldDescription>
                                 <Button type="button" variant="outline" size="sm" disabled={scopes.length === scopeOptions.length}
-                                    onClick={() => setScopes(scopeOptions.map(option => option.scope))}>Select all operations</Button>
+                                    onClick={() => setScopes(scopeOptions.map(option => option.scope))}>{t("Select all operations")}</Button>
                             </div>
                             <FieldGroup className="gap-3">
                                 {scopeOptions.map(option => {
@@ -201,9 +205,9 @@ function ConsentForm({ requestId, request: { userId, email, client, requestedSco
                                                 onCheckedChange={checked => setScopes(previous => checked === true
                                                     ? [...previous, option.scope] : previous.filter(scope => scope !== option.scope))} />
                                             <FieldContent>
-                                                <FieldLabel htmlFor={`scope-${option.scope}`}>{option.label}</FieldLabel>
+                                                <FieldLabel htmlFor={`scope-${option.scope}`}>{t(option.label)}</FieldLabel>
                                                 <FieldDescription id={`scope-${option.scope}-description`}>
-                                                    {option.description}{required ? ' Always included.' : ''}
+                                                    {t(option.description)}{required ? t(" Always included.") : ''}
                                                 </FieldDescription>
                                             </FieldContent>
                                         </Field>
@@ -213,34 +217,34 @@ function ConsentForm({ requestId, request: { userId, email, client, requestedSco
                         </FieldSet>
                         {writes && broad && <Alert>
                             <TriangleAlertIcon />
-                            <AlertTitle>Feedback can contain instructions from people outside your team.</AlertTitle>
-                            <AlertDescription>Approve every reply, status change and assignment in your coding tool.</AlertDescription>
+                            <AlertTitle>{t("Feedback can contain instructions from people outside your team.")}</AlertTitle>
+                            <AlertDescription>{t("Approve every reply, status change and assignment in your coding tool.")}</AlertDescription>
                         </Alert>}
                         <Field>
-                            <FieldLabel htmlFor="connection-name">Connection name</FieldLabel>
+                            <FieldLabel htmlFor="connection-name">{t("Connection name")}</FieldLabel>
                             <Input id="connection-name" value={name} onChange={event => setName(event.target.value)} required maxLength={60}
                                 autoComplete="off" aria-describedby="connection-name-description" />
-                            <FieldDescription id="connection-name-description">Replies and status changes from this app show this name.</FieldDescription>
+                            <FieldDescription id="connection-name-description">{t("Replies and status changes from this app show this name.")}</FieldDescription>
                         </Field>
                         {replace?.mode === 'optional' && <Field orientation="horizontal">
                             <Checkbox id="replace" checked={replaceChecked} onCheckedChange={checked => setReplaceChecked(checked === true)}
                                 aria-describedby="replace-description" />
                             <FieldContent>
-                                <FieldLabel htmlFor="replace" className="break-words">{replace.update ? 'Update' : 'Replace'} {replace.app.name}</FieldLabel>
+                                <FieldLabel htmlFor="replace" className="break-words">{replace.update ? t("Update") : t("Replace")} {replace.app.name}</FieldLabel>
                                 <FieldDescription id="replace-description">{replace.update
-                                    ? 'The connection keeps its history and gets the access you allow here. Clear this to add a second connection.'
-                                    : 'The earlier connection stops working when this one starts.'}</FieldDescription>
+                                    ? t("The connection keeps its history and gets the access you allow here. Clear this to add a second connection.")
+                                    : t("The earlier connection stops working when this one starts.")}</FieldDescription>
                             </FieldContent>
                         </Field>}
                         {replace?.mode === 'required' && <Field>
-                            <FieldLabel htmlFor="replace">Connection to replace</FieldLabel>
+                            <FieldLabel htmlFor="replace">{t("Connection to replace")}</FieldLabel>
                             <Select items={replace.apps.map(app => ({ value: app.id, label: app.name }))} value={replaceId} onValueChange={value => value !== null && setReplaceId(value)}>
-                                <SelectTrigger id="replace" aria-describedby="replace-description"><SelectValue placeholder="Choose a connection" /></SelectTrigger>
+                                <SelectTrigger id="replace" aria-describedby="replace-description"><SelectValue placeholder={t("Choose a connection")} /></SelectTrigger>
                                 <SelectContent><SelectGroup>
                                     {replace.apps.map(app => <SelectItem key={app.id} value={app.id}>{app.name}</SelectItem>)}
                                 </SelectGroup></SelectContent>
                             </Select>
-                            <FieldDescription id="replace-description">You have {replace.limit} connected apps, the most uier allows. Choose one to replace, or revoke one in Account first.</FieldDescription>
+                            <FieldDescription id="replace-description">{t("You have")}{' '}{replace.limit} {t("connected apps, the most uier allows. Choose one to replace, or revoke one in Account first.")}</FieldDescription>
                         </Field>}
                         <FormMessage state={approval ?? cancellation} />
                     </FieldGroup>
@@ -248,12 +252,10 @@ function ConsentForm({ requestId, request: { userId, email, client, requestedSco
                 <CardFooter className="flex-wrap justify-end gap-3 border-t">
                     <Button type="submit" variant="outline" formAction={cancel} formNoValidate disabled={pending}>
                         {cancelling && <Spinner data-icon="inline-start" />}
-                        Cancel
-                    </Button>
+                        {t("Cancel")}{' '}</Button>
                     <Button type="submit" disabled={pending || !validChoices}>
                         {approving && <Spinner data-icon="inline-start" />}
-                        Allow access
-                    </Button>
+                        {t("Allow access")}{' '}</Button>
                 </CardFooter>
             </form>
         </>
@@ -274,6 +276,7 @@ function AccountAccessChoice({ account, value, onChange }: {
     value: AccountSelection;
     onChange: (value: AccountSelection) => void;
 }) {
+    const { t } = useAppI18n();
     const setWorkspace = (workspaceId: string, projects: 'all' | string[] | undefined) => {
         const workspaces = { ...value.workspaces };
         if (projects === undefined || (Array.isArray(projects) && !projects.length)) delete workspaces[workspaceId];
@@ -288,7 +291,7 @@ function AccountAccessChoice({ account, value, onChange }: {
     return (
         <FieldSet aria-label={account.email} className="rounded-lg border p-4">
             <Field orientation="horizontal">
-                <Checkbox id={`account-${account.id}`} aria-label={`Include ${account.email}`} checked={value.included}
+                <Checkbox id={`account-${account.id}`} aria-label={t("Include {value1}", { value1: account.email })} checked={value.included}
                     onCheckedChange={included => onChange({ ...value, included: included === true })} />
                 <PersonAvatar name={account.name} avatarUrl={account.avatarUrl} className="size-8" />
                 <FieldContent>
@@ -297,11 +300,11 @@ function AccountAccessChoice({ account, value, onChange }: {
                 </FieldContent>
             </Field>
             {value.included && <>
-                <RadioGroup value={value.kind} onValueChange={kind => onChange({ ...value, kind: kind as 'all' | 'selected' })} aria-label="What it can reach">
-                    <ChoiceCard id={`access-all-${account.id}`} value="all" title="All my workspaces and projects, including new ones"
-                        description="Every workspace and project this account can open in uier, now and later." />
-                    <ChoiceCard id={`access-selected-${account.id}`} value="selected" title="Choose workspaces and projects"
-                        description="Only the workspaces and projects you pick below." />
+                <RadioGroup value={value.kind} onValueChange={kind => onChange({ ...value, kind: kind as 'all' | 'selected' })} aria-label={t("What it can reach")}>
+                    <ChoiceCard id={`access-all-${account.id}`} value="all" title={t("All my workspaces and projects, including new ones")}
+                        description={t("Every workspace and project this account can open in uier, now and later.")} />
+                    <ChoiceCard id={`access-selected-${account.id}`} value="selected" title={t("Choose workspaces and projects")}
+                        description={t("Only the workspaces and projects you pick below.")} />
                 </RadioGroup>
                 {value.kind === 'selected' && <FieldGroup className="gap-4">
                     {account.workspaces.map(workspace => {
@@ -312,7 +315,7 @@ function AccountAccessChoice({ account, value, onChange }: {
                                 <Field orientation="horizontal">
                                     <Checkbox id={`workspace-${account.id}-${workspace.id}`} checked={projects === 'all'}
                                         onCheckedChange={checked => setWorkspace(workspace.id, checked === true ? 'all' : undefined)} />
-                                    <FieldLabel htmlFor={`workspace-${account.id}-${workspace.id}`} className="font-normal">All projects, including new ones</FieldLabel>
+                                    <FieldLabel htmlFor={`workspace-${account.id}-${workspace.id}`} className="font-normal">{t("All projects, including new ones")}</FieldLabel>
                                 </Field>
                                 {projects !== 'all' && workspace.projects.map(project => (
                                     <Field key={project.id} orientation="horizontal">
@@ -321,11 +324,11 @@ function AccountAccessChoice({ account, value, onChange }: {
                                         <FieldLabel htmlFor={`project-${account.id}-${project.id}`} className="font-normal break-words">{project.name}</FieldLabel>
                                     </Field>
                                 ))}
-                                {!workspace.projects.length && <FieldDescription>No projects you can open yet.</FieldDescription>}
+                                {!workspace.projects.length && <FieldDescription>{t("No projects you can open yet.")}</FieldDescription>}
                             </FieldSet>
                         );
                     })}
-                    {account.truncated && <FieldDescription>Some workspaces are not listed here. Choose all workspaces and projects for this account to include them.</FieldDescription>}
+                    {account.truncated && <FieldDescription>{t("Some workspaces are not listed here. Choose all workspaces and projects for this account to include them.")}</FieldDescription>}
                 </FieldGroup>}
             </>}
         </FieldSet>
@@ -334,10 +337,11 @@ function AccountAccessChoice({ account, value, onChange }: {
 
 /** An unknown, expired or used request: the coding tool has to start a new one */
 export function ExpiredRequest() {
+    const { t } = useAppI18n();
     return (
         <CardHeader>
-            <h1 className="m-0 text-xl leading-7 font-semibold tracking-[-0.015em]">Start again from your coding tool</h1>
-            <CardDescription>This sign-in request has expired or was already used. Requests last 10 minutes. Connect again from your coding tool to get a new one.</CardDescription>
+            <h1 className="m-0 text-xl leading-7 font-semibold tracking-[-0.015em]">{t("Start again from your coding tool")}</h1>
+            <CardDescription>{t("This sign-in request has expired or was already used. Requests last 10 minutes. Connect again from your coding tool to get a new one.")}</CardDescription>
         </CardHeader>
     );
 }

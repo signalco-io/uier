@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Popover, PopoverContent, PopoverDescription, PopoverHeader, PopoverTitle, PopoverTrigger } from '@/src/components/ui/popover';
@@ -13,6 +15,7 @@ import { AccessIcon, projectAccessLabels } from './projectLabels';
  * without, a click opens the same info.
  */
 export function ProjectAccessInfo({ access, settingsHref, children }: { access: ProjectAccess; settingsHref?: string; children?: ReactNode }) {
+    const { t } = useAppI18n();
     const { label, description } = projectAccessLabels[access];
     const [open, setOpen] = useState(false);
 
@@ -26,12 +29,12 @@ export function ProjectAccessInfo({ access, settingsHref, children }: { access: 
                 {...(settingsHref ? { render: <Link href={settingsHref} />, nativeButton: false, role: 'link' } : {})}
                 {...hoverPopoverTrigger}>
                 <AccessIcon access={access} className="size-4" aria-hidden="true" />
-                {label}
+                {t(label)}
             </PopoverTrigger>
-            <PopoverContent align="start" aria-label={label} className="w-80">
+            <PopoverContent align="start" aria-label={t(label)} className="w-80">
                 <PopoverHeader>
-                    <PopoverTitle>{label}</PopoverTitle>
-                    <PopoverDescription>{description}</PopoverDescription>
+                    <PopoverTitle>{t(label)}</PopoverTitle>
+                    <PopoverDescription>{t(description)}</PopoverDescription>
                 </PopoverHeader>
                 {children}
             </PopoverContent>

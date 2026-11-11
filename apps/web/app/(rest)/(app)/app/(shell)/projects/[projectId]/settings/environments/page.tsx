@@ -1,12 +1,15 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { ProjectSitesForm } from '@/src/components/app/projects/ProjectSitesForm';
 import { configurableProject } from '../settingsContext';
 
-export const metadata: Metadata = {
-    title: 'Environments · Project settings'
-};
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return { title: t("Environments · Project settings") };
+}
 
 /** The site's addresses, each with its label and the addresses it shares feedback with */
 async function ProjectEnvironmentsSettingsPageContent({ params }: PageProps<'/app/projects/[projectId]/settings/environments'>) {

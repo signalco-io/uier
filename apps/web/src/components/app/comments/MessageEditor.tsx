@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useState, useSyncExternalStore } from 'react';
 import type { appCommentDrafts } from './replyDrafts';
 import { FieldDescription } from '@/src/components/ui/field';
@@ -28,6 +30,7 @@ export function MessageEditor({ drafts, draftKey, mentionsIn, label, text: initi
     onCancel: () => void;
     onSave: (text: string, mentions: MessageMention[]) => void;
 }) {
+    const { t } = useAppI18n();
     const text = useSyncExternalStore(listener => drafts.subscribe(draftKey, listener), () => drafts.get(draftKey) ?? initialText, () => initialText);
     const mentions = useSyncExternalStore(listener => drafts.subscribe(draftKey, listener), () => drafts.details(draftKey)?.mentions ?? initialMentions, () => initialMentions);
     const sharedPending = useSyncExternalStore(listener => drafts.subscribe(draftKey, listener), () => drafts.pending(draftKey), () => false);
@@ -35,7 +38,7 @@ export function MessageEditor({ drafts, draftKey, mentionsIn, label, text: initi
 
     return <MessageComposer label={label} name="message" value={text} mentions={mentions} mentionsIn={mentionsIn}
         onValueChange={(value, next) => { drafts.set(draftKey, value); drafts.setDetails(draftKey, { mentions: next }); setStorageAvailable(drafts.available()); }}
-        submitLabel="Save" submitVerb="save" onSubmit={() => onSave(text, mentions)} pending={pending || sharedPending}
+        submitLabel={t("Save")} submitVerb="save" onSubmit={() => onSave(text, mentions)} pending={pending || sharedPending}
         onCancel={onCancel} escapeCancels error={error}
-        notices={!storageAvailable && <FieldDescription role="status">Browser storage is unavailable. Keep this page open to keep your draft.</FieldDescription>} />;
+        notices={!storageAvailable && <FieldDescription role="status">{t("Browser storage is unavailable. Keep this page open to keep your draft.")}</FieldDescription>} />;
 }

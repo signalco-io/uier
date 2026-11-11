@@ -1,6 +1,8 @@
 'use client';
 
 import { useSyncExternalStore } from 'react';
+import { useAppI18n } from '@/src/lib/i18n/client';
+import type { AppLanguage } from '@/src/lib/i18n/languages';
 
 const subscribe = () => () => undefined;
 
@@ -16,8 +18,8 @@ function parse(value: string | undefined) {
     return Number.isNaN(date.valueOf()) ? null : date;
 }
 
-function formatDateTime(date: Date, local: boolean) {
-    return new Intl.DateTimeFormat('en-GB', {
+function formatDateTime(date: Date, local: boolean, language: AppLanguage) {
+    return new Intl.DateTimeFormat(language === 'en' ? 'en-GB' : language, {
         day: 'numeric',
         month: 'short',
         year: 'numeric',
@@ -30,11 +32,12 @@ function formatDateTime(date: Date, local: boolean) {
 
 /** A date and time (mono: a machine wrote it) */
 export function DateTime({ value }: { value: string | undefined }) {
+    const { language } = useAppI18n();
     const local = useLocal();
     const date = parse(value);
     if (!date)
         return null;
-    return <time dateTime={value} className="font-mono tabular-nums">{formatDateTime(date, local)}</time>;
+    return <time dateTime={value} className="font-mono tabular-nums">{formatDateTime(date, local, language)}</time>;
 }
 
 const units: [Intl.RelativeTimeFormatUnit, number][] = [
@@ -46,18 +49,27 @@ const units: [Intl.RelativeTimeFormatUnit, number][] = [
     ['minute', 60]
 ];
 
-const long = new Intl.RelativeTimeFormat('en-GB', { numeric: 'auto' });
-// Short units ("3 min ago", "2 hr ago", "2 wk ago"); "yesterday" stays a word, but not "last wk" or "last yr"
-const short = new Intl.RelativeTimeFormat('en-GB', { numeric: 'always', style: 'short' });
-const shortDay = new Intl.RelativeTimeFormat('en-GB', { numeric: 'auto', style: 'short' });
+const relativeFormats = new Map<AppLanguage, { long: Intl.RelativeTimeFormat; short: Intl.RelativeTimeFormat; day: Intl.RelativeTimeFormat }>();
+function formats(language: AppLanguage) {
+    let format = relativeFormats.get(language);
+    if (!format) {
+        const locale = language === 'en' ? 'en-GB' : language;
+        format = {
+            long: new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }),
+            short: new Intl.RelativeTimeFormat(locale, { numeric: 'always', style: 'short' }),
+            day: new Intl.RelativeTimeFormat(locale, { numeric: 'auto', style: 'short' })
+        };
+        relativeFormats.set(language, format);
+    }
+    return format;
+}
 
-function relativeText(date: Date, now: number, compact: boolean) {
+function relativeText(date: Date, now: number, compact: boolean, language: AppLanguage, justNow: string) {
     const seconds = (date.valueOf() - now) / 1000;
     const match = units.find(([, size]) => Math.abs(seconds) >= size);
-    if (!match)
-        return 'just now';
-    const format = !compact ? long : match[0] === 'day' ? shortDay : short;
-    return format.format(Math.round(seconds / match[1]), match[0]);
+    if (!match) return justNow;
+    const format = formats(language);
+    return (!compact ? format.long : match[0] === 'day' ? format.day : format.short).format(Math.round(seconds / match[1]), match[0]);
 }
 
 /**
@@ -109,13 +121,14 @@ function subscribeClock(listener: () => void) {
  * `short` abbreviates the units for compact rows and cards ("3 min ago"); sentences (a thread's messages, its activity) keep them whole.
  */
 export function RelativeTime({ value, short: compact = false }: { value: string | undefined; short?: boolean }) {
+    const { language, t } = useAppI18n();
     const local = useLocal();
     const date = parse(value);
     const text = useSyncExternalStore(subscribeClock,
-        () => date && relativeText(date, currentNow(), compact),
-        () => date && relativeText(date, Date.now(), compact));
+        () => date && relativeText(date, currentNow(), compact, language, t("just now")),
+        () => date && relativeText(date, Date.now(), compact, language, t("just now")));
     if (!date || !text)
         return null;
     // Relative to now, so the server's and the browser's text can differ by a unit at a boundary
-    return <time dateTime={value} title={formatDateTime(date, local)} suppressHydrationWarning>{text}</time>;
+    return <time dateTime={value} title={formatDateTime(date, local, language)} suppressHydrationWarning>{text}</time>;
 }

@@ -1,5 +1,8 @@
 'use client';
 
+import { createAppTranslator } from '@/src/lib/i18n/translate';
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import type { MouseEvent } from 'react';
 import { UserIcon } from 'lucide-react';
 import { Mark } from '@uier/brand/Mark';
@@ -11,10 +14,10 @@ import { initials } from '../initials';
 import { AgentAvatar } from './AgentAvatar';
 
 /** "You", "Ana", "Ana via Claude", "Guest 3F2A", "uier": who wrote a comment, as its avatar's tooltip says */
-export function authorText(author: ProjectCommentAuthor, deleted = false) {
-    if (deleted || author.kind === 'deleted') return 'Deleted';
-    const name = author.isMe ? 'You' : author.name;
-    return author.agent ? `${name} via ${author.agent.label}` : name;
+export function authorText(author: ProjectCommentAuthor, deleted = false, t: import('@/src/lib/i18n/types').AppTranslator = createAppTranslator({})) {
+    if (deleted || author.kind === 'deleted') return t("Deleted");
+    const name = author.isMe ? t("You") : author.name;
+    return author.agent ? t("{name} via {agent}", { name, agent: author.agent.label }) : name;
 }
 
 /** The avatar of one author kind, 20px like the assignee's */
@@ -50,8 +53,9 @@ export function AuthorAvatar({ author, deleted = false, onPress }: {
     /** Opens the row's thread, as a click anywhere else on the row does */
     onPress?: (event: MouseEvent<HTMLElement>) => void;
 }) {
-    const text = authorText(author, deleted);
-    const label = deleted || author.kind === 'deleted' ? 'Author deleted' : `By ${author.isMe ? 'you' : author.name}${author.agent ? ` via ${author.agent.label}` : ''}`;
+    const { t } = useAppI18n();
+    const text = authorText(author, deleted, t);
+    const label = deleted || author.kind === 'deleted' ? t("Author deleted") : t("By {author}", { author: author.agent ? t("{name} via {agent}", { name: author.isMe ? t("you") : author.name, agent: author.agent.label }) : author.isMe ? t("you") : author.name });
     return (
         <Tooltip>
             <TooltipTrigger onClick={event => { event.preventDefault(); onPress?.(event); }}

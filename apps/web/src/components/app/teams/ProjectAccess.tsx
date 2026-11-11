@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import Link from 'next/link';
 import { CheckIcon, FolderIcon, FoldersIcon, ShieldIcon, UserIcon, UsersIcon, type LucideIcon } from 'lucide-react';
 import type { AppContext } from '@/src/lib/app/context';
@@ -42,32 +44,27 @@ function EmptyRow({ icon: Icon, children }: { icon: LucideIcon; children: string
  * Why someone can review the project, by where the grant lives: the workspace (admin, every project),
  * this project or a team. Icons, not tiles: a letter inside a chip reads as part of its label.
  */
-function GrantBadge({ grant, project, workspace }: { grant: ProjectAccessGrant; project: DbProject; workspace: string }) {
+async function GrantBadge({ grant, project, workspace }: { grant: ProjectAccessGrant; project: DbProject; workspace: string }) {
+    const { t } = await getAppI18n();
     switch (grant.kind) {
         case 'admin':
             return (
-                <Badge variant="outline" title={`Admin of ${workspace}`}>
-                    <ShieldIcon data-icon="inline-start" aria-hidden="true" />
-                    Admin
-                </Badge>
+                <Badge variant="outline" title={t("Admin of {value0}", { value0: workspace })}>
+                    <ShieldIcon data-icon="inline-start" aria-hidden="true" />{t("Admin")}</Badge>
             );
         case 'all':
             return (
-                <Badge variant="outline" title="Every project, including future ones">
-                    <FoldersIcon data-icon="inline-start" aria-hidden="true" />
-                    All projects
-                </Badge>
+                <Badge variant="outline" title={t("Every project, including future ones")}>
+                    <FoldersIcon data-icon="inline-start" aria-hidden="true" />{t("All projects")}</Badge>
             );
         case 'direct':
             return (
-                <Badge variant="outline" title={`Added to ${project.name}`}>
-                    <FolderIcon data-icon="inline-start" aria-hidden="true" />
-                    Direct
-                </Badge>
+                <Badge variant="outline" title={t("Added to {value0}", { value0: project.name })}>
+                    <FolderIcon data-icon="inline-start" aria-hidden="true" />{t("Direct")}</Badge>
             );
         case 'team':
             return (
-                <Badge variant="outline" render={<Link href={KnownPageLinks.team(grant.team.id)} title={`Through the team ${grant.team.name}`} />}>
+                <Badge variant="outline" render={<Link href={KnownPageLinks.team(grant.team.id)} title={t("Through the team {value0}", { value0: grant.team.name })} />}>
                     <UsersIcon data-icon="inline-start" aria-hidden="true" />
                     {grant.team.name}
                 </Badge>
@@ -76,6 +73,7 @@ function GrantBadge({ grant, project, workspace }: { grant: ProjectAccessGrant; 
 }
 
 export async function ProjectPeopleAndTeams({ context, project }: { context: AppContext; project: DbProject }) {
+    const { t } = await getAppI18n();
     const data = await managementData(context);
     const people = data.people.flatMap((person) => {
         const grants = projectAccessGrants(data.access, person.member, project);
@@ -84,20 +82,20 @@ export async function ProjectPeopleAndTeams({ context, project }: { context: App
     return (
         <Section
             id="people-and-teams"
-            title="People and teams"
+            title={t("People and teams")}
             actions={(
                 // Invite starts with this project chosen. Teams and people are managed for the whole workspace
                 // in its area; icons only on phones, so the title keeps its line
                 <div className="flex gap-2">
-                    <Link href={KnownPages.AppTeams} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'max-sm:px-2!')}><UsersIcon data-icon="inline-start" aria-hidden="true" /><span className="max-sm:sr-only">Manage teams</span></Link>
-                    <Link href={KnownPages.AppUsers} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'max-sm:px-2!')}><UserIcon data-icon="inline-start" aria-hidden="true" /><span className="max-sm:sr-only">Manage users</span></Link>
+                    <Link href={KnownPages.AppTeams} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'max-sm:px-2!')}><UsersIcon data-icon="inline-start" aria-hidden="true" /><span className="max-sm:sr-only">{t("Manage teams")}</span></Link>
+                    <Link href={KnownPages.AppUsers} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'max-sm:px-2!')}><UserIcon data-icon="inline-start" aria-hidden="true" /><span className="max-sm:sr-only">{t("Manage users")}</span></Link>
                     <InviteButton projectId={project.id} size="sm" />
                 </div>
             )}
         >
             <div className="flex flex-col gap-6">
                 <div className="flex flex-col gap-3">
-                    <ListHeading id="project-teams-title" icon={UsersIcon} title="Teams" count={data.access.teams.length} />
+                    <ListHeading id="project-teams-title" icon={UsersIcon} title={t("Teams")} count={data.access.teams.length} />
                     {data.access.teams.length ? (
                         <ItemGroup aria-labelledby="project-teams-title" className="gap-0 divide-y rounded-lg border has-data-[size=sm]:gap-0">
                             {data.access.teams.map((team) => {
@@ -116,15 +114,13 @@ export async function ProjectPeopleAndTeams({ context, project }: { context: App
                                             <ItemDescription className="flex items-center gap-1.5 tabular-nums">
                                                 <UserIcon aria-hidden="true" className="size-3.5 shrink-0" />
                                                 {members.length} {members.length === 1 ? 'person' : 'people'}
-                                                {external > 0 && ` · ${external} external`}
+                                                {external > 0 && t(" · {value0} external", { value0: external })}
                                             </ItemDescription>
                                         </ItemContent>
                                         <ItemActions className="ml-auto">
                                             {shared && (
                                                 <Badge variant="secondary">
-                                                    <CheckIcon data-icon="inline-start" aria-hidden="true" />
-                                                    Shared
-                                                </Badge>
+                                                    <CheckIcon data-icon="inline-start" aria-hidden="true" />{t("Shared")}</Badge>
                                             )}
                                             <ProjectTeamButton team={team} project={project} data={data} />
                                         </ItemActions>
@@ -133,11 +129,11 @@ export async function ProjectPeopleAndTeams({ context, project }: { context: App
                             })}
                         </ItemGroup>
                     ) : (
-                        <EmptyRow icon={UsersIcon}>No teams yet</EmptyRow>
+                        <EmptyRow icon={UsersIcon}>{t("No teams yet")}</EmptyRow>
                     )}
                 </div>
                 <div className="flex flex-col gap-3">
-                    <ListHeading id="project-people-title" icon={UserIcon} title="People with access" count={people.length} />
+                    <ListHeading id="project-people-title" icon={UserIcon} title={t("People with access")} count={people.length} />
                     {people.length ? (
                         <ItemGroup aria-labelledby="project-people-title" className="gap-0 divide-y rounded-lg border has-data-[size=sm]:gap-0">
                             {people.map(({ person, grants }) => (
@@ -148,7 +144,7 @@ export async function ProjectPeopleAndTeams({ context, project }: { context: App
                                     <ItemContent className="min-w-40">
                                         <ItemTitle>
                                             <Link href={KnownPageLinks.member(person.member.userId)} className="underline-offset-4 hover:underline">{person.name}</Link>
-                                            {person.member.userId === context.user.id && <span className="font-normal text-muted-foreground">(you)</span>}
+                                            {person.member.userId === context.user.id && <span className="font-normal text-muted-foreground">{t("(you)")}</span>}
                                         </ItemTitle>
                                         {/* Two people can share a name: the address tells them apart */}
                                         <ItemDescription className="truncate font-mono text-[13px]">{person.member.email}</ItemDescription>
@@ -173,7 +169,7 @@ export async function ProjectPeopleAndTeams({ context, project }: { context: App
                             ))}
                         </ItemGroup>
                     ) : (
-                        <EmptyRow icon={UserIcon}>No one has member access yet</EmptyRow>
+                        <EmptyRow icon={UserIcon}>{t("No one has member access yet")}</EmptyRow>
                     )}
                 </div>
             </div>
