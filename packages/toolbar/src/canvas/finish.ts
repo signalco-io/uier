@@ -52,13 +52,18 @@ function isPageScroller(element: Element) {
     return element === document.scrollingElement || element === document.documentElement || element === document.body;
 }
 
-/** The scrolled element under the point that holds the page's content there, else the page */
-export function frameAt(x: number, y: number): CanvasFrame {
-    for (let element: Element | null = pageElementsAt(x, y)[0] ?? null; element; element = parentOf(element)) {
-        if (isPageScroller(element)) return null;
-        if (scrolls(element, 'y') || scrolls(element, 'x')) return element;
+/** The scrolled element that holds an element's content: itself or its nearest scrolled ancestor, else the page */
+export function frameOf(element: Element | null | undefined): CanvasFrame {
+    for (let node = element ?? null; node; node = parentOf(node)) {
+        if (isPageScroller(node)) return null;
+        if (scrolls(node, 'y') || scrolls(node, 'x')) return node;
     }
     return null;
+}
+
+/** The scrolled element under the point that holds the page's content there, else the page */
+export function frameAt(x: number, y: number): CanvasFrame {
+    return frameOf(pageElementsAt(x, y)[0]);
 }
 
 /**
@@ -166,8 +171,11 @@ export function finishDrawing(shapes: readonly DrawingShape[], frame: CanvasFram
     };
 }
 
-/** A saved drawing's shapes in the page's coordinates again, from its area's place in the window (Edit drawing) */
-export function shapesOnPage(drawing: CommentDrawing, area: Pick<DOMRect, 'left' | 'top'>): DrawingShape[] {
-    const offset = frameOffset(null);
+/**
+ * A drawing's shapes to draw on again (Edit drawing), from its area's place in the window: in the content
+ * coordinates of the frame its area is in, so they stay on that content as it scrolls
+ */
+export function shapesInFrame(drawing: CommentDrawing, area: Pick<DOMRect, 'left' | 'top'>, frame: CanvasFrame): DrawingShape[] {
+    const offset = frameOffset(frame);
     return drawing.shapes.map(shape => moveShape(shape, area.left - offset.x, area.top - offset.y));
 }

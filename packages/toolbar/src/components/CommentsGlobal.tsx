@@ -10,7 +10,7 @@ import { Button } from '@signalco/ui-primitives/Button';
 import { commentKey, useComments, useSiteComments, useCommentsRefresh, useActivitySummary } from '../hooks/useComments';
 import { newCommentDraftKey, newDrawingDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
 import { CanvasMode } from './canvas/CanvasMode';
-import { finishDrawing, shapesOnPage, type CanvasFrame } from '../canvas/finish';
+import { finishDrawing, frameOf, shapesInFrame, type CanvasFrame } from '../canvas/finish';
 import type { CommentDrawing, DrawingShape } from '../drawing';
 import { getCommentPlacement, resolveAnchorElement, selectionTextMaxLength, textOffsetWithin, useCommentItemRects } from '../hooks/useCommentItemRects';
 import { CommentsSidebar } from './sidebar/CommentsSidebar';
@@ -284,8 +284,8 @@ export function CommentsGlobal({
     const [creatingCommentPoint, setCreatingCommentPoint] = useState(mountRequest === 'comment');
     const shortcutsEnabled = useShortcutsEnabled();
     // Canvas mode (docs/canvas-mode.md): drawing on the page, then one comment with the drawing.
-    // `initialShapes`: a drawing's draft drawn on again (Edit drawing), in the page's coordinates.
-    const [canvas, setCanvas] = useState<{ key: number; initialShapes?: DrawingShape[] }>();
+    // `initialShapes`: a drawing's draft drawn on again (Edit drawing), on the content of `initialFrame`.
+    const [canvas, setCanvas] = useState<{ key: number; initialShapes?: DrawingShape[]; initialFrame?: CanvasFrame }>();
     const drawButtonRef = useRef<HTMLButtonElement>(null);
 
     /** The visitor found the feature: the first-run hint is not needed anymore */
@@ -325,6 +325,23 @@ export function CommentsGlobal({
         });
     };
 
+    /**
+     * A drawing's draft drawn on again: canvas mode with its shapes, on the content of the scroll container
+     * its area is in (so they scroll with it); the draft's text stays for the comment. `false` when its area
+     * is not on the page as it was drawn (missing, or in a closed menu, popover or dialog).
+     */
+    const resumeDrawing = (draft: CommentDraftState) => {
+        if (!draft.drawing || draft.position.type !== 'point') return false;
+        const placement = getCommentPlacement(draft.position);
+        const area = placement.state === 'exact' ? placement.rects[0] : undefined;
+        if (!area) return false;
+        const frame = frameOf(resolveAnchorElement(draft.position));
+        removeCreatingComment(draft.key);
+        draftKeyRef.current += 1;
+        setCanvas({ key: draftKeyRef.current, initialShapes: shapesInFrame(draft.drawing, area, frame), initialFrame: frame });
+        return true;
+    };
+
     /** Draw on the page (the pill's button): canvas mode starts; pressed again with nothing drawn, it ends */
     const toggleCanvas = () => {
         if (reattaching || !features.includes('draw')) return;
@@ -341,6 +358,16 @@ export function CommentsGlobal({
         setCreatingCommentSelection(undefined);
         window.getSelection()?.removeAllRanges();
         setOpenComment(undefined);
+        // One session, one comment: an unsent drawing's comment is drawn on again, never replaced by a new one.
+        // Its area off the page: its form opens instead, like Resume draft.
+        const unsent = creatingComments.find(draft => draft.kind === 'drawing' && draft.drawing && !draft.sentAs);
+        if (unsent && !resumeDrawing(unsent)) {
+            draftKeyRef.current += 1;
+            setCreatingComment({ kind: unsent.kind, position: unsent.position, drawing: unsent.drawing, key: draftKeyRef.current, initiallyClosed: true });
+            setResumingDraft(draftKeyRef.current);
+            return;
+        }
+        if (unsent) return;
         draftKeyRef.current += 1;
         setCanvas({ key: draftKeyRef.current });
     };
@@ -354,13 +381,6 @@ export function CommentsGlobal({
         if (typeof finished === 'string') return finished;
         setCanvas(undefined);
         startDraft(finished.position, 'drawing', finished.element, finished.drawing);
-    };
-    /** Edit drawing in a drawing's form: canvas mode again with its shapes; its text stays in the draft */
-    const editDrawing = (draft: CommentDraftState, area: DOMRect) => {
-        if (!draft.drawing) return;
-        removeCreatingComment(draft.key);
-        draftKeyRef.current += 1;
-        setCanvas({ key: draftKeyRef.current, initialShapes: shapesOnPage(draft.drawing, area) });
     };
 
     /** Keyboard path: pin a new comment to the focused page element (or the main content) */
@@ -903,7 +923,7 @@ export function CommentsGlobal({
                         draftPinOffset={pinnedComments.some(comment => resolveAnchorElement(comment.position) === resolveAnchorElement(creatingComment.position)) ? 36 : 0}
                         onCreated={localId => { if (activePath.current === path) handleCreated(localId, creatingComment.key); }}
                         onSendFailed={(error, choice) => { if (activePath.current === path) restoreCreatingComment(creatingComment.kind, error, choice); }}
-                        onEditDrawing={creatingComment.kind === 'drawing' && !canvas ? area => editDrawing(creatingComment, area) : undefined}
+                        onEditDrawing={creatingComment.kind === 'drawing' && !canvas ? () => resumeDrawing(creatingComment) : undefined}
                         onCanceled={() => removeCreatingComment(creatingComment.key)} />
                 </CommentErrorBoundary>
             ))}
@@ -966,7 +986,7 @@ export function CommentsGlobal({
             )}
             {!collapsed && canvas && features.includes('draw') && (
                 <CommentErrorBoundary>
-                    <CanvasMode key={canvas.key} initialShapes={canvas.initialShapes} onDiscard={discardCanvas} onComment={commentOnDrawing} />
+                    <CanvasMode key={canvas.key} initialShapes={canvas.initialShapes} initialFrame={canvas.initialFrame} onDiscard={discardCanvas} onComment={commentOnDrawing} />
                 </CommentErrorBoundary>
             )}
             <RestoredPanelContext value={restoredPanels}>

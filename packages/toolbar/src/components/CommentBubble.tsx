@@ -154,7 +154,7 @@ type CommentBubbleProps = {
     onSendFailed?: (error: unknown, choice: { omitScreenshot: boolean; image?: AttachedImage; drawing?: CommentDrawing }) => void;
     onCanceled?: () => void;
     /** A drawing's draft: back to canvas mode with its shapes (Edit drawing) */
-    onEditDrawing?: (area: DOMRect) => void;
+    onEditDrawing?: () => void;
     className?: string;
 } & (
     /** A saved comment */
@@ -386,7 +386,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                     onOmittedChange={handleOmittedChange}
                     attachment={attachment}
                     actions={<>
-                        {drawingDraft && onEditDrawing && lastRect && (
+                        {drawingDraft && onEditDrawing && placementState === 'exact' && (
                             <IconTooltip label={t.canvas.editDrawing}>
                                 <IconButton
                                     variant="plain"
@@ -395,7 +395,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                                     data-uier-edit-drawing=""
                                     aria-label={t.canvas.editDrawing}
                                     className={composerIconButtonClassName}
-                                    onClick={() => onEditDrawing(lastRect)}>
+                                    onClick={onEditDrawing}>
                                     <DrawIcon size={16} />
                                 </IconButton>
                             </IconTooltip>

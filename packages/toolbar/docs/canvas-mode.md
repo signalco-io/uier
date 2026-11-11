@@ -48,8 +48,9 @@ take it.
 
 - Shapes are kept in the content coordinates of one scroll container, the session's frame
   (`canvas/finish.ts`): the page, or the scrolled element the first shape is drawn over (an app whose main
-  column scrolls). They stay on what they were drawn over when it scrolls. A wheel or two-finger move on
-  the surface scrolls what is under it (`scrollTargetAt`).
+  column scrolls). They stay on what they were drawn over when it scrolls. A drawing drawn on again (below)
+  goes on in the frame its comment's area is in (`frameOf` its anchor element, `shapesInFrame`). A wheel or
+  two-finger move on the surface scrolls what is under it (`scrollTargetAt`).
 - Select picks the topmost shape; drag moves it, its handles resize it. Clicking a shape with another tool
   draws a new one. The eraser removes what it passes over.
 - Undo and Redo go back and forward through every change (100 steps), in the session only.
@@ -66,6 +67,10 @@ on it, like a point's. A drawing beyond the limits stays in canvas mode with a m
 **Discard**, or Esc with nothing drawn, leaves without a comment; the pill's button again moves the
 focus to Comment instead of losing the shapes. Collapsing the toolbar or leaving the page ends canvas
 mode.
+
+One session, one comment: while a drawing's comment is unsent (its form open or closed), the pill's button
+goes on with that drawing (`resumeDrawing`, like Edit drawing) instead of starting another that would replace
+it. When its area is not on the page as it was drawn, its form opens instead, like Resume draft.
 
 ## Keys
 
@@ -94,8 +99,9 @@ A drawing's draft is its own kind (`'drawing'`, `newDrawingDraftKey`), beside a 
 Its text and anchor are kept like theirs; the drawing is kept in memory only (not in browser storage), so
 after a reload the text comes back with the next drawing. Closing its popover without text keeps it,
 since there is a drawing to lose; the form shows **Discard** for it. **Edit drawing** (`data-uier-edit-drawing`)
-in the form goes back to canvas mode with the shapes where they are on the page; Comment then opens the
-form again with the text. The submission key covers a fingerprint of the drawing (`drawingFingerprint`),
+in the form goes back to canvas mode with the shapes on the content they were drawn on, in their scroll
+container; Comment then opens the form again with the text. It is offered only while the area is on the
+page (not on the opener of a closed menu, popover or dialog). The submission key covers a fingerprint of the drawing (`drawingFingerprint`),
 not the drawing itself.
 
 The screenshot (`captureCommentScreenshot` with the drawing; `src/screenshot.ts`) paints the drawing onto
@@ -116,4 +122,5 @@ untrusted and fenced like messages ([feedback context](../../../docs/feedback-co
   every refusal (not an area, unknown shape or colour, limits).
 - `apps/web/e2e/canvas-mode.spec.ts`: drawing shapes and a note, undo and redo, style, Comment, the drawing in
   the screenshot and on the page after a reload and scroll (full suite); the keyboard path; Edit drawing
-  (`@mobile-smoke`).
+  (`@mobile-smoke`); the pill's button going on with an unsent drawing, and Edit drawing in a scrolled
+  panel keeping the shapes on its content (full suite).

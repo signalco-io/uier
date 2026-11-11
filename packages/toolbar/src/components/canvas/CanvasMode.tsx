@@ -18,8 +18,10 @@ import { CanvasPanel, canvasTools, toolKeys, type CanvasTool } from './CanvasPan
 import { drawColor, DrawingLayer } from './DrawingLayer';
 
 type CanvasModeProps = {
-    /** The shapes to go on with (Edit drawing), in the page's coordinates */
+    /** The shapes to go on with (Edit drawing), in the content coordinates of `initialFrame` */
     initialShapes?: DrawingShape[];
+    /** The scroll container `initialShapes` are on (`null`: the page) */
+    initialFrame?: CanvasFrame;
     onDiscard: () => void;
     /** Done drawing: `tooLarge` when the drawing can't be saved */
     onComment: (shapes: DrawingShape[], frame: CanvasFrame) => 'tooLarge' | 'empty' | void;
@@ -83,7 +85,7 @@ function pointsOf(shapes: readonly DrawingShape[]) {
  * pointer (a finger draws; two fingers, the wheel and the keyboard scroll), the shapes stay on the
  * content they were drawn over, and Comment makes them one comment's drawing.
  */
-export function CanvasMode({ initialShapes, onDiscard, onComment }: CanvasModeProps) {
+export function CanvasMode({ initialShapes, initialFrame = null, onDiscard, onComment }: CanvasModeProps) {
     const t = useMessages();
     const announce = useAnnounce();
     const shortcuts = useShortcutsEnabled();
@@ -103,9 +105,9 @@ export function CanvasMode({ initialShapes, onDiscard, onComment }: CanvasModePr
     const [editing, setEditing] = useState<TextEditing>();
     const finishedEditsRef = useRef(new WeakSet<TextEditing>());
     const [error, setError] = useState<string>();
-    // Shapes from Edit drawing are on the page; a new drawing's frame is chosen by its first shape
-    const frameRef = useRef<CanvasFrame>(null);
-    const [offset, setOffset] = useState<Point>(() => frameOffset(null));
+    // Shapes from Edit drawing come with their frame; a new drawing's frame is chosen by its first shape
+    const frameRef = useRef<CanvasFrame>(initialFrame);
+    const [offset, setOffset] = useState<Point>(() => frameOffset(initialFrame));
     const gestureRef = useRef<Gesture>(undefined);
     const pointersRef = useRef(new Map<number, Point>());
     const surfaceRef = useRef<HTMLDivElement>(null);

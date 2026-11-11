@@ -201,3 +201,74 @@ test('canvas mode: Edit drawing goes back to the shapes with the comment text ke
     await expect(page.locator('[data-uier-drawing-comment]')).toHaveCount(0);
     await context.close();
 });
+
+test('canvas mode: Draw on the page with a drawing\'s comment unsent goes on with that drawing', async ({ browser }, testInfo) => {
+    const { context, page } = await newVisitor(browser, testInfo);
+    await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
+    await toolbar(page).getByRole('button', { name: 'Draw on the page' }).click();
+    await surface(page).focus();
+    await page.keyboard.press('o');
+    await page.keyboard.press('Enter');
+    await panel(page).getByRole('button', { name: 'Comment' }).click();
+    const draft = page.getByRole('dialog', { name: 'New comment' });
+    await draft.getByRole('textbox', { name: 'Comment' }).fill('Both drawings.');
+
+    // A new session takes the unsent drawing's shapes: one session, one comment, nothing lost
+    await toolbar(page).getByRole('button', { name: 'Draw on the page' }).click();
+    await expect(surface(page).getByRole('button', { name: 'Ellipse 1' })).toBeAttached();
+    await surface(page).focus();
+    await page.keyboard.press('r');
+    await page.keyboard.press('Enter');
+    await expect(surface(page).locator('[data-uier-canvas-shape]')).toHaveCount(2);
+    await panel(page).getByRole('button', { name: 'Comment' }).click();
+    await expect(draft.getByRole('textbox', { name: 'Comment' })).toHaveValue('Both drawings.');
+    await draft.getByRole('button', { name: 'Post comment' }).click();
+    await expect(openThread(page).getByText('Both drawings.')).toBeVisible();
+    await expect.poll(async () => (await savedComment(page, 'Both drawings.'))?.drawing?.shapes.map(shape => shape.type)).toEqual(['ellipse', 'rectangle']);
+    await context.close();
+});
+
+test('canvas mode: Edit drawing keeps the shapes on the scrolled content they were drawn on', async ({ browser }, testInfo) => {
+    const { context, page } = await newVisitor(browser, testInfo);
+    await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
+    // A panel of its own that scrolls (an app's main column), styled through the CSSOM for the page's CSP;
+    // below the drawing tools, which take the top of a phone's window
+    await page.evaluate(() => {
+        const scroller = document.createElement('div');
+        scroller.id = 'canvas-scroller';
+        Object.assign(scroller.style, { position: 'fixed', left: '24px', top: '260px', width: '300px', height: '240px', overflow: 'auto', zIndex: '5', background: 'white' });
+        const content = document.createElement('div');
+        content.style.height = '1200px';
+        const target = document.createElement('p');
+        target.id = 'canvas-scroller-target';
+        target.textContent = 'Scrolled content';
+        Object.assign(target.style, { margin: '40px 20px', height: '120px' });
+        content.append(target);
+        scroller.append(content);
+        document.body.append(scroller);
+    });
+    const target = page.locator('#canvas-scroller-target');
+    const box = (await target.boundingBox())!;
+
+    await toolbar(page).getByRole('button', { name: 'Draw on the page' }).click();
+    await panel(page).getByRole('button', { name: 'Rectangle' }).click();
+    await drag(page, { x: box.x + 20, y: box.y + 20 }, { x: box.x + 200, y: box.y + 90 });
+    await panel(page).getByRole('button', { name: 'Comment' }).click();
+    const draft = page.getByRole('dialog', { name: 'New comment' });
+    await draft.getByRole('textbox', { name: 'Comment' }).fill('On the scrolled content.');
+    await draft.getByRole('button', { name: 'Edit drawing' }).click();
+
+    // The shape stays where it is on the content as the panel scrolls
+    const rectangle = surface(page).getByRole('button', { name: 'Rectangle 1' });
+    const fromTarget = async () => {
+        const [shape, content] = [(await rectangle.boundingBox())!, (await target.boundingBox())!];
+        return { x: Math.round(shape.x - content.x), y: Math.round(shape.y - content.y) };
+    };
+    const before = await fromTarget();
+    await page.locator('#canvas-scroller').evaluate(element => { element.scrollTop = 60; });
+    await expect.poll(async () => (await target.boundingBox())!.y).toBeLessThan(box.y - 50);
+    await expect.poll(fromTarget).toEqual(before);
+    await panel(page).getByRole('button', { name: 'Comment' }).click();
+    await expect(draft.getByRole('textbox', { name: 'Comment' })).toHaveValue('On the scrolled content.');
+    await context.close();
+});
