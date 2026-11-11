@@ -14,7 +14,7 @@ import { setTwoWaySyncAction } from './actions';
 export function TwoWaySync({ projectId, provider, enabled, canEnable, needsMapping }: {
     projectId: string; provider: IntegrationProviderId; enabled: boolean; canEnable: boolean; needsMapping: boolean;
 }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const id = useId();
     const [checked, setChecked] = useState(enabled);
     const [state, save, pending] = useActionState(setTwoWaySyncAction, null);

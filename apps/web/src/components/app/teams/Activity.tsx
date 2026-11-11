@@ -21,7 +21,7 @@ export async function AccessActivity({ events, names, next }: {
     /** The page of later changes */
     next?: string;
 }) {
-    const { t } = await getAppI18n();
+    const { t, language } = await getAppI18n();
     if (!events.length) {
         return (
             <Empty className="border">
@@ -39,7 +39,7 @@ export async function AccessActivity({ events, names, next }: {
         <div className="flex flex-col gap-3">
             <ol aria-label={t("Access changes")} className="m-0 list-none divide-y rounded-xl border p-0">
                 {events.map(event => {
-                    const { actor, text, details } = describeAccessEvent(event, names);
+                    const { actor, text, details } = describeAccessEvent(event, names, t, language);
                     return (
                         <li key={event.id} className="flex flex-col gap-1 px-4 py-3 text-sm sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                             <div className="flex min-w-0 flex-col gap-0.5">

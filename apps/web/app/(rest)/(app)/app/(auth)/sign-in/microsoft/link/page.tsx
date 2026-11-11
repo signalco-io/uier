@@ -1,4 +1,3 @@
-
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
@@ -13,10 +12,13 @@ import { MICROSOFT_SIGN_IN_COOKIE_NAME } from '@/src/lib/app/microsoft/cookie';
 import { getMicrosoftLink } from '@/src/lib/app/microsoft/link';
 import { MicrosoftLinkForm } from './MicrosoftLinkForm';
 
-export const metadata: Metadata = { title: 'Confirm your email' };
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return { title: t('Confirm your email') };
+}
 
 async function MicrosoftLinkPageContent() {
-    const { t, language } = await getAppI18n();
+    const { t } = await getAppI18n();
     const link = await getMicrosoftLink((await cookies()).get(MICROSOFT_SIGN_IN_COOKIE_NAME)?.value);
     if (!link) return (
         <AuthCard title={t("This sign-in has expired")} description={t("Start again with Microsoft, or sign in with your email.")}>

@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { useActionState, useId } from 'react';
 import { flushSync } from 'react-dom';
 import { PlusIcon, XIcon } from 'lucide-react';
@@ -31,7 +30,7 @@ export function ProjectSitesForm({ projectId, urls, environments }: { projectId:
     const [state, formAction, pending] = useActionState(updateProjectSitesAction, null);
     const { draft: rows, dirty, update, discard } = useSettingsDraft(savedSiteRows(urls, environments), state);
     const setRow = (index: number, change: Partial<SiteRow>) => update(current => current.map((row, i) => i === index ? { ...row, ...change } : row));
-    const name = (row: SiteRow, index: number) => row.url.trim() ? displayUrl(row.url.trim()) : `address ${index + 1}`;
+    const name = (row: SiteRow, index: number) => row.url.trim() ? displayUrl(row.url.trim()) : t("address {number}", { number: index + 1 });
 
     const addRow = () => {
         // The new row is rendered at once, so focus can move into its address field
@@ -97,10 +96,10 @@ export function ProjectSitesForm({ projectId, urls, environments }: { projectId:
                                             <Input
                                                 id={`${formId}-label-${index}`}
                                                 aria-label={t("Label for {value0}", { value0: name(row, index) })}
-                                                value={t(row.label)}
+                                                value={row.label}
                                                 maxLength={60}
                                                 onChange={event => setRow(index, { label: event.target.value })}
-                                                placeholder={index === 0 ? 'Production' : 'Staging'} />
+                                                placeholder={index === 0 ? t("Production") : t("Staging")} />
                                         </div>
                                         <div className="col-span-2 flex min-w-0 flex-col gap-1.5 @xl:col-span-1 @xl:col-start-3 @xl:row-start-1">
                                             <label htmlFor={`${formId}-share-${index}`} aria-hidden="true" className="text-xs text-muted-foreground @xl:hidden">{t("Shares feedback with")}</label>

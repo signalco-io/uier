@@ -10,7 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/too
 
 /** Code (mono, machine-written) with a copy button */
 export function CopyBlock({ value, label }: { value: string; label: string }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const [copied, setCopied] = useState(false);
 
     const copy = async () => {

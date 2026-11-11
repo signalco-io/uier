@@ -1,4 +1,3 @@
-
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
@@ -12,16 +11,19 @@ import { AuthCard } from '@/src/components/app/AuthCard';
 import { WelcomeForm } from './WelcomeForm';
 import { welcomeWorkspace } from './welcomeWorkspace';
 
-export const metadata: Metadata = {
-    title: 'Welcome'
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return {
+    title: t('Welcome')
 };
+}
 
 /**
  * The first-run step of a new account (`/app` sends it here once): its name and, when the account got a
  * workspace of its own, that workspace's stored name (Personal for newly created workspaces).
  */
 async function WelcomePageContent() {
-    const { t, language } = await getAppI18n();
+    const { t } = await getAppI18n();
     const context = await requireAppContext();
     const { user } = context;
     if (!user.welcomePending)

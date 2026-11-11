@@ -1,4 +1,3 @@
-
 import { getAppI18n } from '@/src/lib/i18n/server';
 import Link from 'next/link';
 import { buttonVariants } from '@/src/components/ui/button';
@@ -12,7 +11,7 @@ import { AnotherAccountLink } from './AnotherAccountLink';
  * removed, or the person has no access. Says which account is signed in, since another one may have access.
  */
 export default async function ReviewLinkUnavailable() {
-    const { t, language } = await getAppI18n();
+    const { t } = await getAppI18n();
     const user = await getSessionUser();
     return (
         <StatusPage
@@ -26,7 +25,7 @@ export default async function ReviewLinkUnavailable() {
             )}
             actions={(
                 <>
-                    <Link href={KnownPages.AppProjects} className={buttonVariants({ size: 'lg' })}>{"Open your projects"}</Link>
+                    <Link href={KnownPages.AppProjects} className={buttonVariants({ size: 'lg' })}>{t("Open your projects")}</Link>
                     <AnotherAccountLink />
                 </>
             )} />

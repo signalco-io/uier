@@ -40,7 +40,7 @@ const problems: Record<string, string> = {
 };
 
 export function NotionSection({ projectId, settings, outcome }: { projectId: string; settings: NotionSettingsView; outcome?: string }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const connected = settings.status !== 'not_connected';
     const notice = outcome && Object.hasOwn(outcomes, outcome) && (outcome !== 'connected' || connected) ? outcomes[outcome] : undefined;
     const problem = settings.statusCode && Object.hasOwn(problems, settings.statusCode) ? problems[settings.statusCode] : undefined;
@@ -72,7 +72,7 @@ export function NotionSection({ projectId, settings, outcome }: { projectId: str
 }
 
 function NotionDestination({ projectId, settings }: { projectId: string; settings: NotionSettingsView }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const id = useId();
     const [, startLoad] = useTransition();
     const [sources, loadSources, loadingSources] = useActionState(loadNotionDataSourcesAction, null);
@@ -131,7 +131,7 @@ function initialMapping(options: SchemaOptions, settings: NotionSettingsView) {
     return result;
 }
 function NotionMappingForm({ projectId, settings, options }: { projectId: string; settings: NotionSettingsView; options: SchemaOptions }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const id = useId(); const form = useRef<HTMLFormElement>(null); const confirmed = useRef(false);
     const [state, save, pending] = useActionState(saveNotionMappingAction, null);
     const [mapping, setMapping] = useState(() => initialMapping(options, settings));
@@ -189,21 +189,21 @@ function NotionMappingForm({ projectId, settings, options }: { projectId: string
 function PropertyChoice({ id, label, schema, types, value, onChange, required = false, disabled, invalid }: {
     id: string; label: string; schema: NotionSchema; types: string[]; value: string; onChange: (value: string) => void; required?: boolean; disabled: boolean; invalid?: boolean;
 }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const choices = Object.entries(schema).filter(([, field]) => types.includes(field.type));
     const items = [{ value: 'none', label: required ? t("Choose a field") : t("Not mapped") }, ...choices.map(([key, field]) => ({ value: key, label: field.name }))];
     return <Field data-disabled={disabled} data-invalid={invalid}>
         <FieldLabel htmlFor={id}>{label}</FieldLabel>
         <Select items={items} value={value || 'none'} onValueChange={next => next !== null && onChange(next)} disabled={disabled || !choices.length}>
             <SelectTrigger id={id} aria-invalid={invalid}><SelectValue placeholder={t("Choose a field")} /></SelectTrigger>
-            <SelectContent><SelectGroup>{items.map(item => <SelectItem key={item.value} value={item.value}>{t(item.label)}</SelectItem>)}</SelectGroup></SelectContent>
+            <SelectContent><SelectGroup>{items.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup></SelectContent>
         </Select>
         {!choices.length && <FieldDescription>{t("No")}{' '}{types.join(' or ')} {t("fields are available.")}</FieldDescription>}
     </Field>;
 }
 
 function NotionManagement({ projectId, settings }: { projectId: string; settings: NotionSettingsView }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const router = useRouter(); const [state, setState] = useState<ActionState<{ message: string }>>(null);
     const [pending, startTransition] = useTransition(); const [confirming, setConfirming] = useState(false);
     const change = (operation: 'enable' | 'disable' | 'disconnect' | 'backfill') => startTransition(async () => {

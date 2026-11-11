@@ -50,7 +50,7 @@ async function PersonPageContent({ params }: PageProps<'/app/workspace/users/[us
                     <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
                         <span className="font-mono text-[13px]">{member.email}</span>
                         <Badge variant={member.role === 'admin' ? 'default' : 'secondary'}>{member.role === 'admin' ? t("Admin") : t("Commenter")}</Badge>
-                        {member.relationship && relationshipLabels[member.relationship] && <Badge variant="outline">{relationshipLabels[member.relationship]}</Badge>}
+                        {member.relationship && relationshipLabels[member.relationship] && <Badge variant="outline">{t(relationshipLabels[member.relationship])}</Badge>}
                         <span>{t("Joined")}{' '}<RelativeTime value={member.createdAt} /></span>
                     </span>
                 )} />

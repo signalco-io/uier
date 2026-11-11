@@ -30,7 +30,7 @@ const outcomes: Record<string, string> = { connected: 'Slack is connected. Invit
     unavailable: 'Slack is unavailable right now. Try again later.' };
 
 export function SlackSection({ projectId, settings, outcome }: { projectId: string; settings: Settings; outcome?: string }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const connection = settings.connection;
     const status = slackStatus(settings);
     return <Section id="slack" title={<IntegrationTitle provider="slack" name="Slack" />} description={t("Send shared feedback to one Slack channel. Existing messages stay current. Optional summaries cover new replies and status changes.")}
@@ -58,7 +58,7 @@ export function SlackSection({ projectId, settings, outcome }: { projectId: stri
 }
 
 function SlackDestination({ projectId, settings }: { projectId: string; settings: Settings }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const id = useId();
     const [channels, load, loading] = useActionState(loadSlackChannelsAction, null);
     const [state, save, saving] = useActionState(saveSlackDestinationAction, null);
@@ -83,7 +83,7 @@ function SlackDestination({ projectId, settings }: { projectId: string; settings
                     <FieldLabel htmlFor={`${id}-channel`}>{t("Channel")}</FieldLabel>
                     <Select items={channelItems} value={channelId} onValueChange={value => value !== null && setChannelId(value)} disabled={saving}>
                         <SelectTrigger id={`${id}-channel`}><SelectValue placeholder={t("Choose a channel")} /></SelectTrigger>
-                        <SelectContent><SelectGroup>{channelItems.map(item => <SelectItem key={item.value} value={item.value}>{t(item.label)}</SelectItem>)}</SelectGroup></SelectContent>
+                        <SelectContent><SelectGroup>{channelItems.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup></SelectContent>
                     </Select>
                     {channels.data.truncated && <FieldDescription>{t("The channel list is capped. Choices outside this list cannot be selected here.")}</FieldDescription>}
                 </Field>
@@ -110,7 +110,7 @@ function SlackDestination({ projectId, settings }: { projectId: string; settings
 }
 
 function SlackManagement({ projectId, settings }: { projectId: string; settings: Settings }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const router = useRouter();
     const [pending, start] = useTransition();
     const [result, setResult] = useState<ActionState<{ message: string }>>(null);

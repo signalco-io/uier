@@ -44,7 +44,7 @@ export function SaveFooter({ formId, state, pending, dirty, onDiscard }: {
     dirty: boolean;
     onDiscard: () => void;
 }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     return (
         <>
             {/* A failed save keeps the changes, so its error shows while they do; Discard clears both */}

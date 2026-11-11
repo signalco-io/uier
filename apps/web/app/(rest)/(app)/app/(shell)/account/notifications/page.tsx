@@ -1,4 +1,3 @@
-
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
@@ -12,13 +11,16 @@ import { requireAppContext } from '@/src/lib/app/context';
 import { listVisibleProjects } from '@/src/lib/app/projects';
 import { notificationPreference } from '@/src/lib/notifications/preferences';
 
-export const metadata: Metadata = {
-    title: 'Notifications · Account'
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return {
+    title: t('Notifications · Account')
 };
+}
 
 /** The person's emails from every project they can see in the selected workspace, each on or off */
 async function AccountNotificationsPageContent() {
-    const { t, language } = await getAppI18n();
+    const { t } = await getAppI18n();
     const context = await requireAppContext();
     const projects = await listVisibleProjects(context);
     const preferences = await Promise.all(projects.map(project => notificationPreference(project.id, `user:${context.user.id}`)));

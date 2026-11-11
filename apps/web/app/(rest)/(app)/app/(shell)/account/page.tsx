@@ -1,4 +1,3 @@
-
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
@@ -14,24 +13,27 @@ import { userAppLanguage } from '@/src/lib/app/appLanguage';
 import { ToolbarLanguageForm } from './ToolbarLanguageForm';
 import { userToolbarLanguage } from '@/src/lib/app/toolbarLanguage';
 
-export const metadata: Metadata = {
-    title: 'Account'
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return {
+    title: t('Account')
 };
+}
 
 const relationshipLabels = { internal: 'Internal', external: 'External' } as const;
 
 /** General: the name, the theme, the toolbar's language and the person's access in the selected workspace */
 async function AccountPageContent() {
-    const { t, language } = await getAppI18n();
+    const { t } = await getAppI18n();
     const context = await requireAppContext();
     const [projects, access] = await Promise.all([listVisibleProjects(context), loadWorkspaceAccess(context.workspace.id)]);
     const teams = access.teams.filter(team => context.member.teamIds?.includes(team.id)).map(team => team.name);
     // Only what is set: no relationship or teams leave their rows out
     const rows = [
         { label: t("Role"), value: context.member.role === 'admin' ? t("Workspace admin") : t("Commenter") },
-        { label: t("Relationship"), value: context.member.relationship ? relationshipLabels[context.member.relationship] : undefined },
+        { label: t("Relationship"), value: context.member.relationship ? t(relationshipLabels[context.member.relationship]) : undefined },
         { label: t("Teams"), value: teams.join(', ') || undefined },
-        { label: t("Projects"), value: projects.map(project => project.name).join(', ') || 'None yet' }
+        { label: t("Projects"), value: projects.map(project => project.name).join(', ') || t('None yet') }
     ].filter((row): row is { label: string; value: string } => Boolean(row.value));
 
     return (

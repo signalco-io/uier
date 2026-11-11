@@ -13,7 +13,7 @@ import { SignInCodeForm } from '../../SignInForm';
 
 /** Microsoft's email claim is an editable suggestion; the code proves the chosen inbox. */
 export function MicrosoftLinkForm({ email: suggestedEmail, next }: { email: string; next?: string }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const id = useId();
     const [email, setEmail] = useState(suggestedEmail);
     const [state, formAction, pending] = useActionState(requestSignInAction, null);

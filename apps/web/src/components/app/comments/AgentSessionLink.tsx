@@ -1,6 +1,5 @@
-
-import { useAppI18n } from '@/src/lib/i18n/client';
 'use client';
+import { useAppI18n } from '@/src/lib/i18n/client';
 
 import { agentSessionLink } from '@uier/toolbar/agents';
 import { buttonVariants } from '@/src/components/ui/button';

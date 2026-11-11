@@ -34,7 +34,7 @@ function signInHref(next: string | undefined, email: boolean, addingAccount = fa
  * "Check your email" status; the sign-in page's {@link SignInCodeStep} says that in the card's header.
  */
 export function SignInCodeForm({ sent, next, announce = true, addingAccount = false }: { sent: SignInLinkSent; next?: string; announce?: boolean; addingAccount?: boolean }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const id = useId();
     const [state, formAction, pending] = useActionState(confirmSignInCodeAction, null);
     const [code, setCode] = useState('');
@@ -86,14 +86,14 @@ export function SignInCodeForm({ sent, next, announce = true, addingAccount = fa
 
 /** Where the code and link went, and for how long they work */
 function SentTo({ sent }: { sent: SignInLinkSent }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     return <>
         {t("We sent a code and a sign-in link to")}{' '}<span className="font-medium text-foreground">{sent.email}</span>{t(". They work once and expire in 15 minutes.")}{' '}</>;
 }
 
 /** The sign-in card once the email is sent: its own header, then the code field (focused) */
 function SignInCodeStep({ sent, next, addingAccount }: { sent: SignInLinkSent; next?: string; addingAccount?: boolean }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     return (
         <AuthCard title={t("Check your email")} description={<span role="status"><SentTo sent={sent} /></span>}>
             <SignInCodeForm addingAccount={addingAccount} sent={sent} next={next} announce={false} />
@@ -111,7 +111,7 @@ function SignInCodeStep({ sent, next, addingAccount }: { sent: SignInLinkSent; n
 export function SignInForm({ next, alternatives, problems, withEmail = false, lastUsed, addingAccount = false }: {
     next?: string; alternatives?: ReactNode; problems?: ReactNode; withEmail?: boolean; lastUsed?: SignInMethod; addingAccount?: boolean;
 }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const id = useId();
     const [state, formAction, pending] = useActionState(requestSignInAction, null);
     const [emailOpen, setEmailOpen] = useState(withEmail);

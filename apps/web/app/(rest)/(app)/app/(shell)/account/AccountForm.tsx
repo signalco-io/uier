@@ -27,7 +27,7 @@ import { updateNameAction } from './actions';
  * at once, like a switch; the name beside it saves with the form.
  */
 function ProfilePicture({ name, avatarUrl, descriptionId }: { name: string; avatarUrl?: string; descriptionId: string }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const router = useRouter();
     // While a change saves, the menu stays closed but the avatar keeps the focus: a disabled trigger
     // can't take it back from the closing menu, which would leave it on the page's body
@@ -70,7 +70,7 @@ function ProfilePicture({ name, avatarUrl, descriptionId }: { name: string; avat
 }
 
 export function AccountForm({ name, avatarUrl }: { name: string; avatarUrl?: string }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const formId = useId();
     const [state, formAction, pending] = useActionState(updateNameAction, null);
     const { draft, dirty, update, discard } = useSettingsDraft(name, state);
@@ -107,7 +107,7 @@ export function AccountForm({ name, avatarUrl }: { name: string; avatarUrl?: str
 
 /** Light, dark or the system's theme for the app (and the site), kept in this browser */
 export function AppearanceSection() {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const { theme, setTheme } = useTheme();
     // next-themes only knows the theme on the client; show "system" until mounted
     const [mounted, setMounted] = useState(false);

@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { projectAccessSources, type AccessSnapshot } from '@/src/lib/app/accessRules';
 import type { MemberAccessUpdate } from '@/src/lib/app/teams';
 import { type AccessData, type AccessPerson } from './accessFormData';
@@ -24,8 +23,8 @@ export function Impact({
             <p className="m-0 text-sm font-medium">{person.name}</p>
             <ul className="m-0 flex list-none flex-col gap-2 p-0">
                 {data.projects.flatMap((project) => {
-                    const before = projectAccessSources(data.access, person.member, project),
-                        after = projectAccessSources(nextAccess, { ...person.member, ...next }, project);
+                    const before = projectAccessSources(data.access, person.member, project, t),
+                        after = projectAccessSources(nextAccess, { ...person.member, ...next }, project, t);
                     if (!before.length && !after.length) return [];
                     const state = !after.length ? t("Loses access") : !before.length ? t("Gains access") : t("Keeps access");
                     return [

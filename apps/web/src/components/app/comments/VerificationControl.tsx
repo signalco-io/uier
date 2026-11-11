@@ -4,7 +4,8 @@ import { useAppI18n } from '@/src/lib/i18n/client';
 
 import { useEffect, useId, useRef, useState, useTransition, type RefObject } from 'react';
 import type { ProjectCommentView } from '@/src/lib/app/projectComments';
-import { displayedVerification, readyForReview, verificationDescription } from '@uier/toolbar/verification';
+import { displayedVerification, readyForReview } from '@uier/toolbar/verification';
+import { verificationText } from './verificationText';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
 import { Textarea } from '@/src/components/ui/textarea';
@@ -27,7 +28,7 @@ export function VerificationControl({ projectId, userId, comment, formOpen, onFo
     onFormOpenChange: (open: boolean) => void;
     returnFocus?: RefObject<HTMLElement | null>;
 }) {
-    const { t } = useAppI18n();
+    const { t, language } = useAppI18n();
     const p = comment.verificationPermissions;
     const v = displayedVerification(comment);
     const ready = readyForReview(comment);
@@ -82,7 +83,7 @@ export function VerificationControl({ projectId, userId, comment, formOpen, onFo
     const noReviewers = people !== undefined && !options.length;
     return <section aria-label={t("Fix verification")} className="flex flex-col gap-2">
         {v && <div className="flex flex-col gap-1 text-sm">
-            <p className="m-0 whitespace-pre-wrap break-words">{verificationDescription(v)}</p>
+            <p className="m-0 whitespace-pre-wrap break-words">{verificationText(v, t, language)}</p>
             {v.summary && <p className="m-0 whitespace-pre-wrap break-words">{v.summary}</p>}
             {v.fixUrl && <a href={v.fixUrl} target="_blank" rel="noopener noreferrer" className="self-start underline underline-offset-2">{t("Open fix link")}</a>}
         </div>}

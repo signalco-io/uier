@@ -1,4 +1,6 @@
 
+import { pluralText } from '@/src/components/app/teams/pluralText';
+import type { AppTranslator } from '@/src/lib/i18n/types';
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
@@ -28,17 +30,17 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /** "3 people, 1 invited, 2 projects" */
-function countsText(people: number, invited: number, projects: number) {
+function countsText(people: number, invited: number, projects: number, t: AppTranslator, language: string) {
     return [
-        `${people} ${people === 1 ? 'person' : 'people'}`,
-        invited && `${invited} invited`,
-        `${projects} ${projects === 1 ? 'project' : 'projects'}`
+        pluralText(t, language, people, '{count} person', '{count} people'),
+        invited && t('{count} invited', { count: invited }),
+        pluralText(t, language, projects, '{count} project', '{count} projects')
     ].filter(Boolean).join(', ');
 }
 
 /** The workspace's teams (active or archived, searchable) and creating one; the access history is the Activity tab */
 async function TeamsPageContent({ searchParams }: PageProps<'/app/workspace/teams'>) {
-    const { t } = await getAppI18n();
+    const { t, language } = await getAppI18n();
     const context = await requireTeamAdmin(),
         query = await searchParams;
     const text = (key: string) => (typeof query[key] === 'string' ? (query[key] as string) : undefined);
@@ -82,8 +84,8 @@ async function TeamsPageContent({ searchParams }: PageProps<'/app/workspace/team
                         label={t("Team status")}
                         variant="segmented"
                         tabs={[
-                            { href: stateHref('active'), label: 'Active', current: state === 'active' },
-                            { href: stateHref('archived'), label: 'Archived', current: state === 'archived' }
+                            { href: stateHref('active'), label: t("Active"), current: state === 'active' },
+                            { href: stateHref('archived'), label: t("Archived"), current: state === 'archived' }
                         ]} />
                     {/* Searches the selected tab; Enter submits */}
                     <form role="search" className="w-full sm:w-64">
@@ -116,7 +118,7 @@ async function TeamsPageContent({ searchParams }: PageProps<'/app/workspace/team
                                                     {team.description && <ItemDescription className="truncate">{t(team.description)}</ItemDescription>}
                                                 </ItemContent>
                                                 <ItemActions className="ml-auto text-sm text-muted-foreground tabular-nums">
-                                                    {countsText(people, invited, team.projectIds.length)}
+                                                    {countsText(people, invited, team.projectIds.length, t, language)}
                                                     <ChevronRightIcon aria-hidden="true" className="size-4" />
                                                 </ItemActions>
                                             </Item>

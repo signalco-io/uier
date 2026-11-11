@@ -1,4 +1,3 @@
-
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
@@ -17,13 +16,16 @@ import { appLinkMetadata, invitationLink } from '@/src/lib/metadata';
 import { AcceptInvitationForm } from './AcceptInvitationForm';
 
 // The preview never names the workspace, project or inviter: it is fetched without the person
-export const metadata: Metadata = {
-    title: 'Invitation',
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return {
+    title: t('Invitation'),
     ...appLinkMetadata(invitationLink)
 };
+}
 
 async function InvitationPageContent({ searchParams }: PageProps<'/app/invitation'>) {
-    const { t, language } = await getAppI18n();
+    const { t } = await getAppI18n();
     const { token } = await searchParams;
     const pending = await getInvitation(token);
 

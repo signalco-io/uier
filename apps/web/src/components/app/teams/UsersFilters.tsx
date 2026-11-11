@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { useOptimistic, useTransition } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
@@ -28,20 +27,20 @@ export function UsersFilters({ teams, show }: { teams: { id: string; name: strin
             key: 'relationship',
             label: t("Relationship"),
             options: [
-                { id: 'all', name: 'All relationships' },
-                { id: 'internal', name: 'Internal' },
-                { id: 'external', name: 'External' },
-                { id: 'unspecified', name: 'Unspecified' }
+                { id: 'all', name: t("All relationships") },
+                { id: 'internal', name: t("Internal") },
+                { id: 'external', name: t("External") },
+                { id: 'unspecified', name: t("Unspecified") }
             ]
         },
-        { key: 'team', label: t("Team"), options: [{ id: 'all', name: 'All teams' }, ...teams] },
+        { key: 'team', label: t("Team"), options: [{ id: 'all', name: t("All teams") }, ...teams] },
         {
             key: 'state',
             label: t("Invitation state"),
             options: [
-                { id: 'all', name: 'People and invitations' },
-                { id: 'accepted', name: 'Accepted people' },
-                { id: 'pending', name: 'Pending invitations' }
+                { id: 'all', name: t("People and invitations") },
+                { id: 'accepted', name: t("Accepted people") },
+                { id: 'pending', name: t("Pending invitations") }
             ]
         }
     ];

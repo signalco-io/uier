@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { startTransition, useActionState, useId, useOptimistic } from 'react';
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel } from '@/src/components/ui/field';
 import { Switch } from '@/src/components/ui/switch';
@@ -18,8 +17,8 @@ export function ProjectEmailExcerptsSwitch({ projectId, enabled }: { projectId: 
     const handleChange = (on: boolean) => startTransition(() => {
         setOptimistic(on);
         const formData = new FormData();
-        formData.set(t("projectId"), projectId);
-        formData.set(t("emailCommentExcerpts"), String(on));
+        formData.set("projectId", projectId);
+        formData.set("emailCommentExcerpts", String(on));
         action(formData);
     });
 

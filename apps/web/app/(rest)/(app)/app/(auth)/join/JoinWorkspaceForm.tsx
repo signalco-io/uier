@@ -23,7 +23,7 @@ export function JoinWorkspaceForm({ workspaceId, workspaceName, next, primary }:
     /** The only offer: a full-width button under it */
     primary: boolean;
 }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const [state, formAction, pending] = useActionState(joinWorkspaceAction, null);
     if (state?.ok === false && state.error === DOMAIN_JOIN_SIGN_IN_AGAIN)
         return (

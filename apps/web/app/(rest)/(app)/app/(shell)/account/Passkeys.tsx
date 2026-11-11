@@ -26,7 +26,7 @@ import { addPasskeyAction, passkeyRegistrationOptionsAction, removePasskeyAction
 const subscribe = () => () => undefined;
 
 export function Passkeys({ passkeys, recentSignIn }: { passkeys: PasskeyView[]; recentSignIn: boolean }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     // Rendered on the server as supported (nearly every browser is); hidden after hydration otherwise.
     const supported = useSyncExternalStore(subscribe, browserSupportsWebAuthn, () => true);
     const [state, setState] = useState<ActionState<unknown>>(null);
@@ -65,7 +65,7 @@ export function Passkeys({ passkeys, recentSignIn }: { passkeys: PasskeyView[]; 
             actions={supported && !signInAgain ? (
                 <Button variant="outline" disabled={pending} onClick={() => void add()}>
                     {pending ? <Spinner data-icon="inline-start" /> : <PlusIcon data-icon="inline-start" />}
-                    {"Add a passkey"}{' '}</Button>
+                    {t("Add a passkey")}{' '}</Button>
             ) : undefined}>
             <div className="flex flex-col gap-4">
                 {passkeys.length
@@ -91,7 +91,7 @@ export function Passkeys({ passkeys, recentSignIn }: { passkeys: PasskeyView[]; 
 }
 
 function PasskeyRow({ passkey }: { passkey: PasskeyView }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     return (
         <Item variant="outline" role="listitem" className="items-start">
             <ItemMedia variant="icon"><KeyRoundIcon /></ItemMedia>
@@ -114,7 +114,7 @@ function PasskeyRow({ passkey }: { passkey: PasskeyView }) {
 }
 
 function RenamePasskey({ passkey }: { passkey: PasskeyView }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const [open, setOpen] = useState(false);
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -130,7 +130,7 @@ function RenamePasskey({ passkey }: { passkey: PasskeyView }) {
 }
 
 function RenameForm({ passkey, onSaved }: { passkey: PasskeyView; onSaved: () => void }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const id = useId();
     const [name, setName] = useState(passkey.name);
     const [state, setState] = useState<ActionState>(null);
@@ -168,7 +168,7 @@ function RenameForm({ passkey, onSaved }: { passkey: PasskeyView; onSaved: () =>
 }
 
 function RemovePasskey({ passkey }: { passkey: PasskeyView }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const [confirming, setConfirming] = useState(false);
     const [state, setState] = useState<ActionState>(null);
     const [pending, startTransition] = useTransition();

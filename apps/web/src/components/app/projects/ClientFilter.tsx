@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { useOptimistic, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { urlWith } from '@/src/hooks/use-url-search-params';
@@ -28,7 +27,7 @@ export function ClientFilter({ clients, value }: { clients: FilterClient[]; valu
     const router = useRouter();
     const [, startTransition] = useTransition();
     const [shown, setShown] = useOptimistic(value ?? 'all');
-    const items = [{ value: 'all', label: 'All clients' }, { value: 'none', label: 'No client' }, ...clients.map(client => ({ value: client.id, label: client.name, client }))] as { value: string; label: string; client?: FilterClient }[];
+    const items = [{ value: 'all', label: t("All clients") }, { value: 'none', label: t("No client") }, ...clients.map(client => ({ value: client.id, label: client.name, client }))] as { value: string; label: string; client?: FilterClient }[];
     const itemOf = (selected: string | null) => items.find(item => item.value === selected);
     return (
         <Select items={items} value={shown} onValueChange={next => startTransition(() => {
@@ -41,7 +40,7 @@ export function ClientFilter({ clients, value }: { clients: FilterClient[]; valu
                 <SelectValue>
                     {(selected: string | null) => {
                         const item = itemOf(selected);
-                        return item && <><FilterMark client={item.client} />{t(item.label)}</>;
+                        return item && <><FilterMark client={item.client} />{item.label}</>;
                     }}
                 </SelectValue>
             </SelectTrigger>
@@ -50,7 +49,7 @@ export function ClientFilter({ clients, value }: { clients: FilterClient[]; valu
                     {items.map(item => (
                         <SelectItem key={item.value} value={item.value}>
                             <FilterMark client={item.client} />
-                            {t(item.label)}
+                            {item.label}
                         </SelectItem>
                     ))}
                 </SelectGroup>

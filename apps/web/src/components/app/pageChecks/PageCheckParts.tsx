@@ -1,7 +1,7 @@
-
-import { useAppI18n } from '@/src/lib/i18n/client';
 'use client';
+import { useAppI18n } from '@/src/lib/i18n/client';
 
+import type { AppTranslator } from '@/src/lib/i18n/types';
 import { ArrowUpRightIcon, CircleAlertIcon, CircleCheckIcon, InfoIcon, OctagonAlertIcon, TriangleAlertIcon, type LucideIcon } from 'lucide-react';
 import { KnownPageLinks } from '@/src/knownPages';
 import { cn } from '@/src/lib/utils';
@@ -97,7 +97,7 @@ export function AccessibilityResult({ page }: { page: PageCheckRow }) {
     return (
         <span className="flex flex-col gap-0.5">
             {impacts.filter(impact => page.accessibility![impact] > 0).map(impact => (
-                <Marked key={impact} mark={impactIcons[impact]}>{page.accessibility![impact]} {t(impactLabels[impact]).toLowerCase()}</Marked>
+                <Marked key={impact} mark={impactIcons[impact]}>{page.accessibility![impact]} {t(impactLabels[impact]).toLocaleLowerCase()}</Marked>
             ))}
         </span>
     );
@@ -108,8 +108,8 @@ export function SeoResult({ page }: { page: PageCheckRow }) {
     const { t } = useAppI18n();
     return (
         <span className="flex flex-col gap-0.5">
-            {page.seo.warn > 0 ? <Marked mark={warnIcon}>{page.seo.warn}{t(" to look at")}</Marked> : <Marked mark={passIcon}>{t("None to look at")}</Marked>}
-            {muted(`${page.seo.pass} passed`)}
+            {page.seo.warn > 0 ? <Marked mark={warnIcon}>{t("{count} to look at", { count: page.seo.warn })}</Marked> : <Marked mark={passIcon}>{t("None to look at")}</Marked>}
+            {muted(t("{count} passed", { count: page.seo.pass }))}
         </span>
     );
 }
@@ -130,12 +130,15 @@ export function VitalsResult({ page }: { page: PageCheckRow }) {
 }
 
 /** What changed since the check before, in counts */
-export function changeText(page: PageCheckRow) {
+export function changeText(page: PageCheckRow, t: AppTranslator) {
     const change = pageCheckChange(page);
-    if (!change) return 'First check';
+    if (!change) return t('First check');
+    const issues = Math.abs(change.accessibility ?? 0);
     const parts = [
-        change.accessibility ? `${Math.abs(change.accessibility)} ${change.accessibility < 0 ? 'fewer' : 'more'} ${Math.abs(change.accessibility) === 1 ? 'issue' : 'issues'}` : undefined,
-        change.seo ? `${Math.abs(change.seo)} ${change.seo < 0 ? 'fewer' : 'more'} to look at` : undefined
+        change.accessibility ? change.accessibility < 0
+            ? issues === 1 ? t('1 fewer issue') : t('{count} fewer issues', { count: issues }) : issues === 1 ? t('1 more issue') : t('{count} more issues', { count: issues }) : undefined,
+        change.seo ? change.seo < 0
+            ? t('{count} fewer to look at', { count: Math.abs(change.seo) }) : t('{count} more to look at', { count: change.seo }) : undefined
     ].filter(Boolean);
-    return parts.length ? parts.join(', ') : 'No change';
+    return parts.length ? parts.join(', ') : t('No change');
 }

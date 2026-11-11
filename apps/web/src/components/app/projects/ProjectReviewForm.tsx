@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { ToolbarFeaturesFields } from './ToolbarFeaturesFields';
 import type { ToolbarFeatureVisibility } from '@uier/toolbar/toolbar-features';
 import type { FeedbackType } from '@uier/toolbar/feedback-types';
@@ -70,7 +69,7 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
     // Open while the page state is set up, so what applies is in sight
     const [advanced, setAdvanced] = useState(saved.queryParameters.length > 0 || saved.hashRouting);
     const languageOptions = [
-        { value: 'workspace', label: `Workspace default (${toolbarLanguageLabel(workspaceToolbarLanguage)})` },
+        { value: 'workspace', label: t("Workspace default ({name})", { name: toolbarLanguageLabel(workspaceToolbarLanguage) }) },
         ...toolbarLanguages.map(language => ({ value: language, label: toolbarLanguageLabel(language) }))
     ] satisfies { value: ProjectToolbarLanguage; label: string }[];
 
@@ -134,8 +133,7 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
                             {draft.access === 'disabled'
                                 ? t("Hidden while comments are off.")
                                 : draft.access === 'invited' ? t("Invited people read it in the toolbar.") : t("Anyone with the review link reads it in the toolbar.")}
-                            {' '}{t("Plain text, up to")}{' '}{MAX_PROJECT_BRIEF_LENGTH} characters.
-                        </FieldDescription>
+                            {' '}{t("Plain text, up to")}{' '}{MAX_PROJECT_BRIEF_LENGTH}{' '}{t("characters.")}{' '}</FieldDescription>
                     </Field>
                     <FieldSeparator />
                     <FieldSet>
@@ -144,7 +142,7 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
                         <FieldGroup>
                             <Field>
                                 <FieldLabel htmlFor={`${formId}-feedback-types`}>{t("Feedback type defaults")}</FieldLabel>
-                                <Select value={draft.feedbackTypesMode} items={[{ value: 'workspace', label: 'Workspace defaults' }, { value: 'replace', label: 'Project override' }]}
+                                <Select value={draft.feedbackTypesMode} items={[{ value: 'workspace', label: t("Workspace defaults") }, { value: 'replace', label: t("Project override") }]}
                                     onValueChange={mode => { if (mode) update(current => ({ ...current, feedbackTypesMode: mode })); }}>
                                     <SelectTrigger id={`${formId}-feedback-types`} className="w-full max-w-md"><SelectValue /></SelectTrigger>
                                     <SelectContent><SelectGroup>
@@ -170,7 +168,7 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
                                     <Field>
                                         <FieldLabel htmlFor={`${formId}-query`}>{t("Meaningful query fields")}</FieldLabel>
                                         <Input id={`${formId}-query`} value={draft.queryParameters} onChange={event => update(current => ({ ...current, queryParameters: event.target.value }))}
-                                            placeholder={t("category, sort, tab")} className="font-mono text-[13px] md:text-[13px]" />
+                                            placeholder={"category, sort, tab"} className="font-mono text-[13px] md:text-[13px]" />
                                         <FieldDescription>{t("Up to 12 names, separated by commas. Tracking, identity and credential fields are left out, and so are values that look like emails, URLs or tokens.")}</FieldDescription>
                                         {available.length > 0 && <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("Query fields seen in recent comments")}>
                                             <span className="text-sm text-muted-foreground">{t("Seen in recent comments:")}</span>

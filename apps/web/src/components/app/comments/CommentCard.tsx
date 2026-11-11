@@ -132,6 +132,7 @@ const detailValueClass = 'm-0 flex min-h-8 min-w-0 flex-wrap items-center pointe
 
 /** "Feedback", "Bug report" or "Suggested rewrite" above the first message, as in the toolbar */
 function KindLabel({ kind, feedbackType }: { kind: DbCommentKind; feedbackType?: FeedbackTypeSnapshot }) {
+    const { t } = useAppI18n();
     if (kind === 'comment')
         return null;
     return (
@@ -491,7 +492,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                 <TooltipTrigger render={<Badge variant="ghost" tabIndex={0} className="cursor-default text-muted-foreground outline-none hover:bg-transparent dark:hover:bg-transparent" />}>
                                     <LockIcon aria-hidden="true" data-icon="inline-start" />
                                     {t("Private")}
-                                    <span className="sr-only">. {privateHint}</span>
+                                    <span className="sr-only">. {t(privateHint)}</span>
                                 </TooltipTrigger>
                                 <TooltipContent className="max-w-64">{t(privateHint)}</TooltipContent>
                             </Tooltip>
@@ -671,7 +672,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                         <AlertDialogTitle>{confirmingReply ? t("Delete this reply?") : t("Delete this comment?")}</AlertDialogTitle>
                         <AlertDialogDescription>
                             {confirmingReply ? t("The reply is deleted for everyone. An empty thread is removed too.") : comment.replies.length
-                                ? t("The comment and its {value0} {value1} deleted for everyone.", { value0: comment.replies.length, value1: comment.replies.length === 1 ? 'reply are' : 'replies are' })
+                                ? comment.replies.length === 1 ? t("The comment and its reply are deleted for everyone.") : t("The comment and its {count} replies are deleted for everyone.", { count: comment.replies.length })
                                 : t("The comment is deleted for everyone.")}
                         </AlertDialogDescription>
                     </AlertDialogHeader>

@@ -38,7 +38,7 @@ const outcomes: Record<string, string> = {
 };
 
 export function AzureDevOpsSection({ projectId, settings, outcome }: { projectId: string; settings: Settings; outcome?: string }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const notice = outcome && Object.hasOwn(outcomes, outcome) ? outcomes[outcome] : undefined;
     const status = azureDevOpsStatus(settings);
     return <Section id="azure-devops" title={<IntegrationTitle provider="azure-devops" name="Azure DevOps" />} description={t("Create one Azure Boards work item for each shared feedback thread. uier keeps its description, discussion and state up to date.")}
@@ -83,7 +83,7 @@ export function AzureDevOpsSection({ projectId, settings, outcome }: { projectId
 }
 
 function AzureDevOpsDestination({ projectId, settings }: { projectId: string; settings: Settings }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const formId = useId();
     const [, startLoad] = useTransition();
     const [organizations, loadOrganizations, loadingOrganizations] = useActionState(loadAzureDevOpsOrganizationsAction, null);
@@ -162,7 +162,7 @@ function AzureDevOpsDestination({ projectId, settings }: { projectId: string; se
 }
 
 function AzureDevOpsDestinationForm({ projectId, settings, options }: { projectId: string; settings: Settings; options: AzureDevOpsProjectOptions }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const id = useId();
     const [state, save, pending] = useActionState(saveAzureDevOpsDestinationAction, null);
     const sameProject = settings.organization === options.organization && settings.azureProjectId === options.projectId;
@@ -199,7 +199,7 @@ function AzureDevOpsDestinationForm({ projectId, settings, options }: { projectI
                 <FieldLabel htmlFor={`${id}-area`}>{t("Area path (optional)")}</FieldLabel>
                 <Select items={areaItems} value={area} onValueChange={value => value !== null && setArea(value)} disabled={pending}>
                     <SelectTrigger id={`${id}-area`}><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectGroup>{areaItems.map(item => <SelectItem key={item.value} value={item.value}>{t(item.label)}</SelectItem>)}</SelectGroup></SelectContent>
+                    <SelectContent><SelectGroup>{areaItems.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup></SelectContent>
                 </Select>
                 <FieldDescription>{t("A team’s board shows work items in its own area paths.")}</FieldDescription>
             </Field>
@@ -226,7 +226,7 @@ function Choice({ id, label, placeholder, choices, value, onChange, disabled }: 
 }
 
 function AzureDevOpsManagement({ projectId, settings }: { projectId: string; settings: Settings }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const router = useRouter();
     const [state, setState] = useState<ActionState<{ message: string }>>(null);
     const [pending, startTransition] = useTransition();

@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { createContext, use, useState, type PropsWithChildren } from 'react';
 import { UserPlusIcon } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';

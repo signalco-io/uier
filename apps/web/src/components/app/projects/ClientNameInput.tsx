@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { PlusIcon } from 'lucide-react';
 import { Autocomplete, AutocompleteContent, AutocompleteEmpty, AutocompleteInput, AutocompleteItem, AutocompleteList } from '@/src/components/ui/autocomplete';
 import { Input } from '@/src/components/ui/input';

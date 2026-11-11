@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -46,12 +45,12 @@ export function RemoveMemberButton({ userId, name }: { userId: string; name: str
             <AlertDialog open={confirming} onOpenChange={setConfirming}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>{t("Remove")}{' '}{name}?</AlertDialogTitle>
+                        <AlertDialogTitle>{t("Remove {name}?", { name })}</AlertDialogTitle>
                         <AlertDialogDescription>{t("They lose access to every project in this workspace. Their comments stay. Guest links remain allowed where enabled; member removal does not revoke a public review link.")}</AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>{t("Cancel")}</AlertDialogCancel>
-                        <AlertDialogAction variant="destructive" onClick={() => { setConfirming(false); run(() => removeMemberAction(userId), `${name} was removed.`); }}>{t("Remove")}</AlertDialogAction>
+                        <AlertDialogAction variant="destructive" onClick={() => { setConfirming(false); run(() => removeMemberAction(userId), t("{name} was removed.", { name })); }}>{t("Remove")}</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
@@ -68,7 +67,7 @@ export function RevokeInvitationButton({ invitationId, email }: { invitationId: 
             size="sm"
             disabled={pending}
             aria-label={t("Revoke the invitation for {value0}", { value0: email })}
-            onClick={() => run(() => revokeInvitationAction(invitationId), 'Invitation revoked.')}>{t("Revoke")}</Button>
+            onClick={() => run(() => revokeInvitationAction(invitationId), t("Invitation revoked."))}>{t("Revoke")}</Button>
     );
 }
 
@@ -78,7 +77,7 @@ export function ResendInvitationButton({ invitationId, email }: { invitationId: 
     const router = useRouter();
     return <div className="flex flex-col gap-1"><Button variant="ghost" size="sm" disabled={pending} aria-label={t("Resend the invitation for {value0}", { value0: email })} onClick={() => startTransition(async () => {
         const result = await resendInvitationAction(invitationId);
-        if (result?.ok) { setLink(result.data.devLink); toast.success('Invitation resent.'); router.refresh(); }
+        if (result?.ok) { setLink(result.data.devLink); toast.success(t("Invitation resent.")); router.refresh(); }
         else if (result) toast.error(result.error);
     })}>{t("Resend")}</Button>{link && <Link href={link} className="text-xs">{t("Open invitation")}</Link>}</div>;
 }

@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { useActionState, useId } from 'react';
 import type { FeedbackType } from '@uier/toolbar/feedback-types';
 import { Section } from '@/src/components/app/PageHeader';

@@ -59,7 +59,7 @@ async function TeamPageContent({ params, searchParams }: PageProps<'/app/workspa
                         {members.map((person) => (
                             <li className="p-4 text-sm" key={person.member.id}>
                                 <Link href={KnownPageLinks.member(person.member.userId)}>{person.name}</Link> ·{' '}
-                                {person.member.relationship ?? t("Unspecified")} · {person.member.role}
+                                {person.member.relationship === 'internal' ? t('Internal') : person.member.relationship === 'external' ? t('External') : t('Unspecified')} · {person.member.role === 'admin' ? t('Admin') : t('Commenter')}
                             </li>
                         ))}
                     </ul>

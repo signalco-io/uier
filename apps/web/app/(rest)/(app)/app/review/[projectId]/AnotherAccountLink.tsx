@@ -12,7 +12,7 @@ import { KnownPages } from '@/src/knownPages';
  * gets no props, so the link is read from the address bar.
  */
 export function AnotherAccountLink() {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const pathname = usePathname();
     const search = useSearchParams().toString();
     const next = `${pathname}${search ? `?${search}` : ''}`;

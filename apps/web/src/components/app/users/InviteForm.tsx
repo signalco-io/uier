@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { useActionState, useId, useState } from 'react';
 import Link from 'next/link';
 import { ChevronRightIcon, MailCheckIcon } from 'lucide-react';
@@ -110,7 +109,7 @@ export function InviteForm({ projects, teams = [], fromTeamId, fromProjectId, on
                         onChange={(event) => setEmail(event.target.value)}
                         required
                         autoComplete="off"
-                        placeholder={t("name@example.com")} />
+                        placeholder={"name@example.com"} />
                 </Field>
                 <FieldSet>
                     <FieldLegend variant="label">{t("Role")}</FieldLegend>
@@ -186,7 +185,7 @@ export function InviteForm({ projects, teams = [], fromTeamId, fromProjectId, on
                     <CollapsibleContent>
                         <Field>
                             <FieldLabel htmlFor={`${id}-relationship`}>{t("Relationship")}</FieldLabel>
-                            <Select items={relationships} value={relationship} onValueChange={value => value !== null && setRelationship(value)}>
+                            <Select items={relationships.map(item => ({ ...item, label: t(item.label) }))} value={relationship} onValueChange={value => value !== null && setRelationship(value)}>
                                 <SelectTrigger id={`${id}-relationship`} className="w-40"><SelectValue /></SelectTrigger>
                                 <SelectContent><SelectGroup>{relationships.map(item => <SelectItem key={item.value} value={item.value}>{t(item.label)}</SelectItem>)}</SelectGroup></SelectContent>
                             </Select>

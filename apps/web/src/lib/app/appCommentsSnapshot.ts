@@ -1,3 +1,5 @@
+import { englishAppTranslator } from '../i18n/translate';
+import type { AppTranslator } from '../i18n/types';
 import { keyedHash } from '../comments/environment';
 import { appActor, loadProjectComments } from './projectComments';
 import { environmentOptions, isEnvironmentSelection } from './environments';
@@ -10,14 +12,14 @@ import type { DbProject } from './model';
 import type { CommentsQuery } from '../../components/app/comments/commentsQuery';
 
 /** Use the same authorized view for a page render and its cheap-to-transfer idle check. */
-export async function loadAppCommentsSnapshot(context: AppContext, project: DbProject, input: CommentsQuery, loadRequestMembers?: () => ReturnType<typeof listProjectMembers>) {
+export async function loadAppCommentsSnapshot(context: AppContext, project: DbProject, input: CommentsQuery, loadRequestMembers?: () => ReturnType<typeof listProjectMembers>, t: AppTranslator = englishAppTranslator) {
     const author = input.author ? await resolveCommentAuthorFilter(context, project, input.author) : undefined;
     if (input.author && !author) return null;
     const query = { ...input, environment: isEnvironmentSelection(project, input.environment) ? input.environment : 'all' };
     let searchWindowCapped = false;
     const membersForRequest = loadRequestMembers?.() ?? listProjectMembers(context.workspace.id, project.id);
     const [comments, members] = await Promise.all([
-        loadProjectComments(context, project, query.environment, author?.authorId, capped => { searchWindowCapped = capped; }, membersForRequest),
+        loadProjectComments(context, project, query.environment, author?.authorId, capped => { searchWindowCapped = capped; }, membersForRequest, 'all', t),
         membersForRequest
     ]);
     const snapshot = {

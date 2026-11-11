@@ -1,4 +1,3 @@
-
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { Section } from '@/src/components/app/PageHeader';
 import { MicrosoftLogo } from '@/src/components/app/SignInProviderLogos';
@@ -10,7 +9,7 @@ import { MicrosoftAccountControls } from './MicrosoftAccountControls';
 
 /** The linked Microsoft account. Hidden where Microsoft sign-in is off, unless one is linked (unlinking always works). */
 export async function MicrosoftAccount({ userId }: { userId: string }) {
-    const { t, language } = await getAppI18n();
+    const { t } = await getAppI18n();
     const [account, session] = await Promise.all([getMicrosoftAccount(userId), getSessionSignIn()]);
     const configured = isMicrosoftSignInConfigured();
     if (!account && !configured)

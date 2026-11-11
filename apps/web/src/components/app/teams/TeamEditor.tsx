@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { useActionState, useId, useState } from 'react';
 import Link from 'next/link';
 import { Button, buttonVariants } from '@/src/components/ui/button';

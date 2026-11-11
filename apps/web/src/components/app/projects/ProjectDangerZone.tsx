@@ -1,7 +1,8 @@
 'use client';
+
+import { pluralText } from '../teams/pluralText';
+import type { AppTranslator } from '@/src/lib/i18n/types';
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { useId, useRef, useState, useTransition, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -93,19 +94,19 @@ export function DeleteProjectButton({ projectId, name }: { projectId: string; na
     );
 }
 
-/** "a", "a and b", "a, b and c" */
-const listText = (items: string[]) => items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
+const english: AppTranslator = (message, values) => message.replace(/\{(\w+)\}/g, (match, key: string) => String(values?.[key] ?? match));
 
-const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-
-/** What a transfer leaves in this workspace, one sentence each */
-export function transferStaysBehind({ integrations, people, teams, invitations }: TransferPreview) {
+/** What a transfer leaves in this workspace, with names kept in the language they were written. */
+export function transferStaysBehind({ integrations, people, teams, invitations }: TransferPreview, t: AppTranslator = english, language = 'en') {
+    const integrationsList = new Intl.ListFormat(language, { style: 'long', type: 'conjunction' }).format(integrations);
     return [
-        integrations.length ? `${listText(integrations)} ${integrations.length === 1 ? 'is' : 'are'} disconnected. Connect again in the new workspace; items already sent stay where they are.` : '',
-        people ? `${count(people, 'other person', 'other people')} here lose access, unless they also have it in the new workspace.` : '',
-        teams ? `${count(teams, 'team', 'teams')} here no longer ${teams === 1 ? 'includes' : 'include'} it.` : '',
-        invitations ? `${count(invitations, 'pending invitation no longer includes', 'pending invitations no longer include')} it.` : '',
-        'Access tokens and connected apps of this workspace lose access to it.'
+        integrations.length ? t(integrations.length === 1
+            ? '{items} is disconnected. Connect again in the new workspace; items already sent stay where they are.'
+            : '{items} are disconnected. Connect again in the new workspace; items already sent stay where they are.', { items: integrationsList }) : '',
+        people ? pluralText(t, language, people, '{count} other person here loses access, unless they also have it in the new workspace.', '{count} other people here lose access, unless they also have it in the new workspace.') : '',
+        teams ? pluralText(t, language, teams, '{count} team here no longer includes it.', '{count} teams here no longer include it.') : '',
+        invitations ? pluralText(t, language, invitations, '{count} pending invitation no longer includes it.', '{count} pending invitations no longer include it.') : '',
+        t('Access tokens and connected apps of this workspace lose access to it.')
     ].filter(Boolean);
 }
 
@@ -114,7 +115,7 @@ export function transferStaysBehind({ integrations, people, teams, invitations }
  * checks both roles and the name again. Afterwards the app opens the project in that workspace.
  */
 export function TransferProjectButton({ projectId, name, targets, preview }: { projectId: string; name: string; targets: TransferTarget[]; preview: TransferPreview }) {
-    const { t } = useAppI18n();
+    const { t, language } = useAppI18n();
     const router = useRouter();
     const formId = useId();
     const input = useRef<HTMLInputElement>(null);
@@ -171,7 +172,7 @@ export function TransferProjectButton({ projectId, name, targets, preview }: { p
                         <div className="flex flex-col gap-1.5">
                             <h3 id={`${formId}-behind`} className="m-0 text-sm font-medium">{t("Stays in this workspace")}</h3>
                             <ul aria-labelledby={`${formId}-behind`} className="m-0 flex list-disc flex-col gap-1 pl-5 text-sm text-muted-foreground">
-                                {transferStaysBehind(preview).map(line => <li key={line}>{line}</li>)}
+                                {transferStaysBehind(preview, t, language).map(line => <li key={line}>{line}</li>)}
                             </ul>
                         </div>
                         <Field>

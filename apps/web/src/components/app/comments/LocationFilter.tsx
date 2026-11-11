@@ -30,6 +30,7 @@ function Option({ selected, icon, label, detail, title, onSelect }: {
     title?: string;
     onSelect: () => void;
 }) {
+    const { t } = useAppI18n();
     return (
         <button
             type="button"
@@ -142,7 +143,7 @@ export function LocationFilter({ environment, environments, historySources, page
                     <Option selected={!environment || environment === 'all'} icon={<GlobeIcon aria-hidden="true" />} label={t("All environments")}
                         onSelect={() => chooseEnvironment(undefined)} />
                     {environments.map(item => (
-                        <Option key={item.id} selected={environment === item.id} label={t(item.label)} title={t(item.label)} onSelect={() => chooseEnvironment(item.id)} />
+                        <Option key={item.id} selected={environment === item.id} label={item.label} title={item.label} onSelect={() => chooseEnvironment(item.id)} />
                     ))}
                     {historyEnvironments.filter(item => !historySources || historySources.includes(item.id) || environment === item.id).map(item => (
                         <Option key={item.id} selected={environment === item.id} label={<span className="text-muted-foreground">{t(item.label)}</span>} title={t(item.label)}

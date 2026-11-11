@@ -11,7 +11,7 @@ import { SignInCodeForm } from '../../SignInForm';
 
 /** The usual sign-in email for the account's address; this browser's waiting Google account rides along. */
 export function GoogleLinkForm({ email, next }: { email: string; next?: string }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const [state, formAction, pending] = useActionState(requestSignInAction, null);
 
     if (state?.ok)

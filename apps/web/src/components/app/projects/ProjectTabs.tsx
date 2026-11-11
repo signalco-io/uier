@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { usePathname } from 'next/navigation';
 import { KnownPageLinks } from '@/src/knownPages';
 import { LinkTabs } from '../LinkTabs';
@@ -31,9 +30,9 @@ export function ProjectTabs({ projectId, install }: { projectId: string; install
                 label={t("Project")}
                 className="relative"
                 tabs={[
-                    { href: comments, label: 'Comments', current: pathname === comments },
-                    { href: pageChecks, label: 'Page checks', current: pathname === pageChecks },
-                    ...install ? [{ href: KnownPageLinks.projectInstall(projectId), label: 'Install', current: isInstallPage(pathname, projectId) }] : []
+                    { href: comments, label: t("Comments"), current: pathname === comments },
+                    { href: pageChecks, label: t("Page checks"), current: pathname === pageChecks },
+                    ...install ? [{ href: KnownPageLinks.projectInstall(projectId), label: t("Install"), current: isInstallPage(pathname, projectId) }] : []
                 ]} />
         </div>
     );

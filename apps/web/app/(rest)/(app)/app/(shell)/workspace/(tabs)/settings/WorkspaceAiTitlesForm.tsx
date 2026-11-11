@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { startTransition, useActionState, useId, useOptimistic } from 'react';
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel } from '@/src/components/ui/field';
 import { Switch } from '@/src/components/ui/switch';
@@ -19,7 +18,7 @@ export function WorkspaceAiTitlesForm({ enabled }: { enabled: boolean }) {
     const handleChange = (on: boolean) => startTransition(() => {
         setOptimistic(on);
         const formData = new FormData();
-        formData.set(t("aiTitles"), String(on));
+        formData.set("aiTitles", String(on));
         action(formData);
     });
 

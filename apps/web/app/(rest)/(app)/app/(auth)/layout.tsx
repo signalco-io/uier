@@ -1,4 +1,3 @@
-
 import { getAppI18n } from '@/src/lib/i18n/server';
 import type { PropsWithChildren } from 'react';
 import Link from 'next/link';
@@ -8,7 +7,7 @@ import { KnownPages } from '@/src/knownPages';
 
 /** Pages outside the app shell (sign in, invitations, the browser extension's sign-in): one card in the middle of the page */
 export default async function AuthLayout({ children }: PropsWithChildren) {
-    const { t, language } = await getAppI18n();
+    const { t } = await getAppI18n();
     return (
         <main className="flex min-h-svh flex-col items-center bg-muted/40 px-4 py-16 md:justify-center md:py-10">
             <div className="flex w-full max-w-sm flex-col items-center gap-8">

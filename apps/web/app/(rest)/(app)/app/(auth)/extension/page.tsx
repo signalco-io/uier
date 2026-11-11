@@ -1,4 +1,3 @@
-
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
@@ -10,11 +9,14 @@ import { AuthCard } from '@/src/components/app/AuthCard';
 import { ExtensionConsentForm } from '@/src/components/app/extension/ExtensionConsentForm';
 import { AccountSessionBoundary } from '@/src/components/app/shell/AccountSessionBoundary';
 
-export const metadata: Metadata = { title: 'Extension sign-in' };
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return { title: t('Extension sign-in') };
+}
 
 /** The browser extension's sign-in (`identity.launchWebAuthFlow`): one card, like signing in to the app */
 async function ExtensionConsentContent({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-    const { t, language } = await getAppI18n();
+    const { t } = await getAppI18n();
     const context = await requireAppContext();
     let input: Authorization;
     try { input = validateAuthorization(await searchParams); }

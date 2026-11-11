@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { useActionState, useId, useState } from 'react';
 import { PlusIcon } from 'lucide-react';
 import { toast } from 'sonner';

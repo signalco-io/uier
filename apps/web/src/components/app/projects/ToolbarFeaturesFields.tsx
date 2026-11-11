@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { useId } from 'react';
 import { toolbarFeatures, type ToolbarFeatureVisibility } from '@uier/toolbar/toolbar-features';
 import { Checkbox } from '@/src/components/ui/checkbox';
@@ -18,7 +17,7 @@ export function ToolbarFeaturesFields({ value, onChange, guests, disabled }: {
     const { t } = useAppI18n();
     const id = useId();
     const choices = (signedOut: boolean) => {
-        const key = signedOut ? t("signedOut") : 'enabled';
+        const key = signedOut ? "signedOut" : 'enabled';
         const selected = value[key];
         const allId = `${id}-${key}`;
         return <FieldSet className="gap-3" disabled={disabled}>
@@ -40,7 +39,7 @@ export function ToolbarFeaturesFields({ value, onChange, guests, disabled }: {
                     <Checkbox id={`${allId}-${feature}`} checked={selected.includes(feature) && (!signedOut || value.enabled === undefined || value.enabled.includes(feature))}
                         disabled={disabled || (signedOut && value.enabled !== undefined && !value.enabled.includes(feature))}
                         onCheckedChange={checked => onChange({ ...value, [key]: toolbarFeatures.filter(item => item === feature ? checked : selected.includes(item)) })} />
-                    <FieldLabel htmlFor={`${allId}-${feature}`}>{labels[feature]}</FieldLabel>
+                    <FieldLabel htmlFor={`${allId}-${feature}`}>{t(labels[feature])}</FieldLabel>
                 </Field>)}
             </FieldGroup>}
         </FieldSet>;

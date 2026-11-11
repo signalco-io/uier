@@ -15,7 +15,8 @@ export async function generateMetadata({ params }: PageProps<'/app/projects/[pro
     const { projectId } = await params;
     const context = await requireAppContext();
     const project = await getVisibleProject(context, projectId);
-    return { title: project?.name ?? 'Project' };
+    const { t } = await getAppI18n();
+    return { title: project?.name ?? t('Project') };
 }
 
 /** The project's comments (the first tab) */
@@ -27,7 +28,7 @@ async function ProjectPageContent({ params, searchParams }: PageProps<'/app/proj
     if (!project)
         notFound();
 
-    const snapshot = await loadAppCommentsSnapshot(context, project, parseCommentsQuery(await searchParams));
+    const snapshot = await loadAppCommentsSnapshot(context, project, parseCommentsQuery(await searchParams), undefined, t);
     if (!snapshot) notFound();
     return (
         <>

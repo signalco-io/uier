@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { useState } from 'react';
 import type { DbTeam } from '@/src/lib/app/model';
 import { teamProjectsAction } from './actions';
@@ -26,7 +25,7 @@ export function TeamProjectForm({ team, data }: { team: DbTeam; data: AccessData
                 onChange={setSelected}
                 options={data.projects.map((project) => ({
                     id: project.id,
-                    name: `${project.name} · ${project.access === 'guests' ? 'Anyone with the link' : project.access === 'disabled' ? 'Comments off' : 'Invited people'}`
+                    name: `${project.name} · ${project.access === 'guests' ? t("Anyone with the link") : project.access === 'disabled' ? t("Comments off") : t("Invited people")}`
                 }))}
                 description={t("Only selected projects are shared. Future projects are never added automatically.")}
             />

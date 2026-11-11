@@ -34,7 +34,7 @@ const outcomes: Record<string, string> = {
 };
 
 export function GitHubSection({ projectId, settings, outcome }: { projectId: string; settings: Settings; outcome?: string }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const connection = settings.connection;
     const publicConfirmationRequired = connection?.statusCode === 'public_confirmation_required';
     const notice = outcome && Object.hasOwn(outcomes, outcome) ? outcomes[outcome] : undefined;
@@ -84,7 +84,7 @@ export function GitHubSection({ projectId, settings, outcome }: { projectId: str
 }
 
 function GitHubRepositoryPicker({ projectId, settings }: { projectId: string; settings: Settings }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const id = useId();
     const setup = settings.setup!;
     const [loaded, load, loading] = useActionState(loadGitHubRepositoriesAction, null);
@@ -118,7 +118,7 @@ function GitHubRepositoryPicker({ projectId, settings }: { projectId: string; se
                     <FieldLabel htmlFor={`${id}-repository`}>{t("Repository")}</FieldLabel>
                     <Select items={repositoryItems} value={repositoryId} onValueChange={value => { if (value === null) return; setRepositoryId(value); setPublicConfirmed(false); }} disabled={saving}>
                         <SelectTrigger id={`${id}-repository`}><SelectValue placeholder={t("Choose a repository")} /></SelectTrigger>
-                        <SelectContent><SelectGroup>{repositoryItems.map(item => <SelectItem key={item.value} value={item.value}>{t(item.label)}</SelectItem>)}</SelectGroup></SelectContent>
+                        <SelectContent><SelectGroup>{repositoryItems.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup></SelectContent>
                     </Select>
                 </Field>
                 {repository && !repository.private && <>
@@ -148,7 +148,7 @@ function GitHubRepositoryPicker({ projectId, settings }: { projectId: string; se
 }
 
 function GitHubManagement({ projectId, settings }: { projectId: string; settings: Settings }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const router = useRouter();
     const connection = settings.connection!;
     const [result, setResult] = useState<ActionState<{ message: string }>>(null);

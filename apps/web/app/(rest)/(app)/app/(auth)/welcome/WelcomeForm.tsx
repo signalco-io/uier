@@ -16,7 +16,7 @@ import { completeWelcomeAction, skipWelcomeAction } from './actions';
  * this account (`workspaceName`, none for someone who joined by invitation). Skip keeps both as they are.
  */
 export function WelcomeForm({ name: suggestedName, workspaceName: suggestedWorkspaceName }: { name: string; workspaceName?: string }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const id = useId();
     const [state, formAction, pending] = useActionState(completeWelcomeAction, null);
     const [skipState, skipAction, skipping] = useActionState(skipWelcomeAction, null);

@@ -1,4 +1,3 @@
-
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
@@ -12,7 +11,7 @@ import { AccountSessionBoundary } from '@/src/components/app/shell/AccountSessio
 
 /** A coding tool's sign-in (consent and its errors): one focused card, without the app sidebar */
 async function ConnectLayoutContent({ children }: PropsWithChildren) {
-    const { t, language } = await getAppI18n();
+    const { t } = await getAppI18n();
     const user = await getSessionUser();
     return (
         <main className="flex min-h-svh flex-col items-center bg-muted/40 px-4 py-10 md:justify-center">

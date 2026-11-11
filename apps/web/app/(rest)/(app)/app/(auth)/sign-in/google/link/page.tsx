@@ -1,4 +1,3 @@
-
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
@@ -13,9 +12,12 @@ import { GOOGLE_SIGN_IN_COOKIE_NAME } from '@/src/lib/app/google/cookie';
 import { getGoogleLink } from '@/src/lib/app/google/link';
 import { GoogleLinkForm } from './GoogleLinkForm';
 
-export const metadata: Metadata = {
-    title: 'Confirm your email'
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return {
+    title: t('Confirm your email')
 };
+}
 
 /**
  * Google is not authoritative for this address (not Gmail, not a Workspace domain), so the person
@@ -23,7 +25,7 @@ export const metadata: Metadata = {
  * account already uses the address.
  */
 async function GoogleLinkPageContent() {
-    const { t, language } = await getAppI18n();
+    const { t } = await getAppI18n();
     const link = await getGoogleLink((await cookies()).get(GOOGLE_SIGN_IN_COOKIE_NAME)?.value);
 
     if (!link) {

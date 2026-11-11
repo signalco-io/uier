@@ -31,10 +31,10 @@ export async function InviteReviewerStep({ projectId, publicId, access, urls, is
             title={t("Invite a reviewer")}
             description={access === 'disabled'
                 ? t("Comments are off. {value0}", { value0: projectAccessLabels.disabled.description })
-                : projectAccessLabels[access].description}
+                : t(projectAccessLabels[access].description)}
             back={back}
             // Inviting is the step's primary action; Finish is for once it is done
-            next={{ href: KnownPageLinks.project(projectId), label: 'Finish', primary: !invites }}>
+            next={{ href: KnownPageLinks.project(projectId), label: t("Finish"), primary: !invites }}>
             {access === 'invited' && <InvitedReviewerPath />}
             {invites && <InviteButton projectId={projectId} className="self-start" />}
             {access === 'guests' && <GuestReviewLinks publicId={publicId} urls={urls} />}

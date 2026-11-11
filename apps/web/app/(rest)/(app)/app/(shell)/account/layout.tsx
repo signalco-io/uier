@@ -1,4 +1,3 @@
-
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
@@ -10,7 +9,7 @@ import { requireAppContext } from '@/src/lib/app/context';
 
 /** The account: its sections beside the chosen one (above it on small screens), like a project's settings */
 async function AccountLayoutContent({ children }: LayoutProps<'/app/account'>) {
-    const { t, language } = await getAppI18n();
+    const { t } = await getAppI18n();
     const { user } = await requireAppContext();
     return (
         <>

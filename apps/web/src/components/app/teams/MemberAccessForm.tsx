@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { useState } from 'react';
 import Link from 'next/link';
 import { InfoIcon } from 'lucide-react';
@@ -51,9 +50,9 @@ export function MemberAccessForm({ person, data }: { person: AccessPerson; data:
                     value={relationship}
                     onChange={setRelationship}
                     options={[
-                        { value: 'unspecified', label: 'Unspecified' },
-                        { value: 'internal', label: 'Internal' },
-                        { value: 'external', label: 'External' }
+                        { value: 'unspecified', label: t("Unspecified") },
+                        { value: 'internal', label: t("Internal") },
+                        { value: 'external', label: t("External") }
                     ]}
                 />
                 {data.access.teams.length ? (
@@ -73,8 +72,8 @@ export function MemberAccessForm({ person, data }: { person: AccessPerson; data:
                         value={projects === 'all' ? 'all' : 'selected'}
                         onChange={(value) => setProjects(value === 'all' ? 'all' : [])}
                         options={[
-                            { value: 'selected', label: 'Selected projects' },
-                            { value: 'all', label: 'All projects (including future projects)' }
+                            { value: 'selected', label: t("Selected projects") },
+                            { value: 'all', label: t("All projects (including future projects)") }
                         ]}
                     />
                     {/* A note, not an error: what these choices cannot narrow */}

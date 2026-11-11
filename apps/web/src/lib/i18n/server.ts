@@ -11,7 +11,11 @@ export const getAppLanguage = cache(async () => {
     return resolveAppLanguage(user?.appLanguage, requestHeaders.get('accept-language'));
 });
 
-export const getAppCatalog = cache(async () => loadAppCatalog(await getAppLanguage()));
+export const getAppCatalog = cache(async () => {
+    const language = await getAppLanguage();
+    // English source phrases are already in the UI. Send no redundant English dictionary.
+    return language === 'en' ? {} : loadAppCatalog(language);
+});
 
 export const getAppI18n = cache(async () => {
     const [language, catalog] = await Promise.all([getAppLanguage(), getAppCatalog()]);

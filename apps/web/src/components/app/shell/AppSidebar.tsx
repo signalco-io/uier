@@ -58,7 +58,7 @@ function GroupLinkAction({ href, label, children }: { href: string; label: strin
 
 /** A top-level page of the app: its icon and name, current on it and the pages below it */
 function NavItem({ href, label, icon: Icon, current, roving }: { href: string; label: string; icon: LucideIcon; current: boolean; roving: RovingProps }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     return (
         <SidebarMenuItem>
             <SidebarMenuButton {...roving} isActive={current} tooltip={label} render={<Link href={href} aria-current={current ? "page" : undefined} />}>
@@ -71,7 +71,7 @@ function NavItem({ href, label, icon: Icon, current, roving }: { href: string; l
 
 /** An active project's entry: its favicon and name, current on its pages */
 function ProjectItem({ project, current, roving }: { project: SidebarProject; current: boolean; roving: RovingProps }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     return (
         <SidebarMenuItem>
             <SidebarMenuButton {...roving} isActive={current} tooltip={project.name} render={<Link href={KnownPageLinks.project(project.id)} aria-current={current ? "page" : undefined} />}>
@@ -106,7 +106,7 @@ export function AppSidebar({ isAdmin, user, accounts, workspaces, currentWorkspa
     /** Whether a project the person can see has a client (the workspace area shows its clients then) */
     hasClients: boolean;
 }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const pathname = usePathname();
     const groupId = useId();
     // Applied at once. Saving sets the cookie, so Next renders the layout again: after switching to Recent activity
@@ -192,7 +192,7 @@ export function AppSidebar({ isAdmin, user, accounts, workspaces, currentWorkspa
                                     <div key={group.client?.id ?? group.status ?? 'none'} className="flex flex-col not-first:mt-2">
                                         <SidebarGroupLabel id={labelId} className="gap-2 font-normal">
                                             {group.client && <ClientMark client={group.client} />}
-                                            <span className="truncate">{group.client?.name ?? (group.status ? statusLabels[group.status] : t("No client"))}</span>
+                                            <span className="truncate">{group.client?.name ?? (group.status ? t(statusLabels[group.status]) : t("No client"))}</span>
                                         </SidebarGroupLabel>
                                         <SidebarMenu aria-labelledby={labelId}>
                                             {group.projects.map(project => (

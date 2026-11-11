@@ -1,4 +1,5 @@
 
+import type { AppTranslator } from '@/src/lib/i18n/types';
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
@@ -25,8 +26,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /** "2 active, 1 done" */
-function statusText(active: number, done: number) {
-    return [active && `${active} active`, done && `${done} done`].filter(Boolean).join(', ');
+function statusText(active: number, done: number, t: AppTranslator) {
+    return [active && t('{count} active', { count: active }), done && t('{count} done', { count: done })].filter(Boolean).join(', ');
 }
 
 /** The clients of the projects the person can see, each opening the projects list filtered to it */
@@ -79,7 +80,7 @@ async function ClientsPageContent() {
                                             </ItemDescription>
                                         </ItemContent>
                                         <ItemActions className="ml-auto text-sm text-muted-foreground tabular-nums">
-                                            {statusText(active, done)}
+                                            {statusText(active, done, t)}
                                             {canEdit && <ClientEditDialog client={summary} workspaceId={context.workspace.id} className="relative z-10" />}
                                             <ChevronRightIcon aria-hidden="true" className="size-4" />
                                         </ItemActions>

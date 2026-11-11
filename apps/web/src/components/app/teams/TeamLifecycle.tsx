@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { useRouter } from 'next/navigation';
 import type { DbTeam } from '@/src/lib/app/model';
 import { KnownPages } from '@/src/knownPages';

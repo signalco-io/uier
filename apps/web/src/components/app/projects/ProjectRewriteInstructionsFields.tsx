@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { useId } from 'react';
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/src/components/ui/field';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
@@ -20,7 +19,7 @@ export function ProjectRewriteInstructionsFields({ mode, value, workspace, onMod
     mode: ProjectSettingMode; value: string; workspace: string; disabled: boolean;
     onModeChange: (mode: ProjectSettingMode) => void; onValueChange: (value: string) => void;
 }) {
-    const { t } = useAppI18n();
+    const { t, language } = useAppI18n();
     const id = useId();
     const effective = effectiveRewriteInstructions({ rewriteInstructions: workspace }, {
         rewriteInstructions: mode === 'workspace' ? undefined : { mode, value }
@@ -48,7 +47,7 @@ export function ProjectRewriteInstructionsFields({ mode, value, workspace, onMod
                     <Textarea id={`${id}-instructions`} value={value} onChange={event => onValueChange(event.target.value)}
                         maxLength={MAX_REWRITE_INSTRUCTIONS_LENGTH} rows={5} disabled={disabled} aria-describedby={`${id}-limit`}
                         placeholder={t("Use short sentences. Call people members, not users.")} />
-                    <FieldDescription id={`${id}-limit`}>{t("Up to")}{' '}{MAX_REWRITE_INSTRUCTIONS_LENGTH.toLocaleString('en')}{' '}{t("characters. Style guidance cannot change the model's rules or response format.")}</FieldDescription>
+                    <FieldDescription id={`${id}-limit`}>{t("Up to")}{' '}{MAX_REWRITE_INSTRUCTIONS_LENGTH.toLocaleString(language)}{' '}{t("characters. Style guidance cannot change the model's rules or response format.")}</FieldDescription>
                 </Field>}
                 <div className="min-w-0 text-sm">
                     <p className="m-0 font-medium">{t("Effective instructions")}</p>

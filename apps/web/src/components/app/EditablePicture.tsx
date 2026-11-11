@@ -65,7 +65,7 @@ export function usePictureUpload({ endpoint, fileLabel, failed, onSaved, onPendi
     /** Drops and pastes are ignored (the picker's trigger is disabled) */
     disabled?: boolean;
 }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const input = useRef<HTMLInputElement>(null);
     const [pending, startTransition] = useTransition();
     const [error, setError] = useState<string>();
@@ -87,7 +87,7 @@ export function usePictureUpload({ endpoint, fileLabel, failed, onSaved, onPendi
                 const response = await fetch(endpoint, { method, body });
                 if (!response.ok) {
                     const result = await response.json().catch(() => null) as { message?: unknown } | null;
-                    setError(typeof result?.message === 'string' ? result.message : t("{failed} Try again.", { failed: failed }));
+                    setError(typeof result?.message === 'string' ? t(result.message) : t("{failed} Try again.", { failed: failed }));
                     return;
                 }
                 await onSaved(method, response);
@@ -106,7 +106,7 @@ export function usePictureUpload({ endpoint, fileLabel, failed, onSaved, onPendi
         if (!file) return;
         // An empty type is left to the server, which reads the format from the file itself
         if (file.type && !acceptedTypes.includes(file.type)) {
-            setError(AVATAR_TYPE_ERROR);
+            setError(t(AVATAR_TYPE_ERROR));
             return;
         }
         send('POST', file);

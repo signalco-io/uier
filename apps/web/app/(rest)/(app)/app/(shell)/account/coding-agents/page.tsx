@@ -1,4 +1,4 @@
-
+import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
@@ -11,9 +11,12 @@ import { listVisibleProjects } from '@/src/lib/app/projects';
 import { appBaseUrl } from '@/src/lib/app/request';
 import { getBrowserAccounts } from '@/src/lib/app/session';
 
-export const metadata: Metadata = {
-    title: 'Coding agents · Account'
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return {
+    title: t('Coding agents · Account')
 };
+}
 
 /** Coding tools connected to feedback as this person, and their access tokens */
 async function AccountCodingAgentsPageContent() {

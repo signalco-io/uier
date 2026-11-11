@@ -32,7 +32,7 @@ export type AccessToken = {
  * Secrets from this form are shown once. Collapsed by default under Coding agents.
  */
 export function AccessTokens({ projects, credentials }: { projects: { id: string; name: string }[]; credentials: AccessToken[] }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const [open, setOpen] = useState(false);
     // Kept here, so a token that was just created stays on screen when the card is closed and opened again
     const form = useCreateTokenForm();
@@ -67,7 +67,7 @@ function useCreateTokenForm() {
 }
 
 function CreateToken({ projects, form }: { projects: { id: string; name: string }[]; form: ReturnType<typeof useCreateTokenForm> }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const { state, action, pending, name, setName, selectedProjects, setSelectedProjects, selectedScopes, setSelectedScopes, hiddenToken, setHiddenToken } = form;
     const token = state?.ok ? state.data.token : undefined;
     return (
@@ -122,7 +122,7 @@ function CreateToken({ projects, form }: { projects: { id: string; name: string 
 }
 
 function AccessTokenRow({ credential, projects }: { credential: AccessToken; projects: { id: string; name: string }[] }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     return (
         <ConnectionItem avatar={<ConnectionAvatar hints={[credential.name]} />} title={credential.name}
             description={(credential.createdBy || credential.actingAccount) && <>
@@ -141,7 +141,7 @@ function AccessTokenRow({ credential, projects }: { credential: AccessToken; pro
 }
 
 function RevokeToken({ name }: { name: string }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const { pending } = useFormStatus();
     return (
         <Button type="submit" variant="ghost" size="sm" disabled={pending} aria-label={t("Revoke {name}", { name: name })}>

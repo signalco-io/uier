@@ -74,7 +74,7 @@ async function ProjectsPageContent({ searchParams }: PageProps<'/app/projects'>)
         <ProjectStatusPanel status={listStatus}>
             {shown.length ? (
                 // As many 18rem columns as the page's width holds (the sidebar takes part of a window), up to three
-                <ul aria-label={`${listStatus === 'done' ? t("Done") : t("Active")} projects`} className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(min(18rem,100%),1fr))] gap-4 p-0">
+                <ul aria-label={listStatus === 'done' ? t("Done projects") : t("Active projects")} className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(min(18rem,100%),1fr))] gap-4 p-0">
                     {shown.map(project => {
                         const open = openCounts.get(project.id) ?? 0;
                         const access = projectAccessLabels[project.access];

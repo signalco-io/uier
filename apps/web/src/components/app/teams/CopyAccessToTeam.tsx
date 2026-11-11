@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { useId, useState } from 'react';
 import Link from 'next/link';
 import { Field, FieldGroup, FieldLabel } from '@/src/components/ui/field';

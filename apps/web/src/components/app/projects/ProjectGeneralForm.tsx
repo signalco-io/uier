@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { useActionState, useId } from 'react';
 import Link from 'next/link';
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldSeparator } from '@/src/components/ui/field';
@@ -37,9 +36,9 @@ export function ProjectGeneralForm({ projectId, name, clientName, clients, aiTit
     const { draft, dirty, update, discard } = useSettingsDraft({ name, clientName: clientName ?? '', aiTitles,
         rewriteMode: (rewriteInstructions?.mode ?? 'workspace') as ProjectSettingMode, rewriteInstructions: rewriteInstructions?.value ?? '' }, state);
     const aiTitleOptions = [
-        { value: 'workspace', label: `Workspace setting (${workspaceAiTitles ? 'on' : 'off'})` },
-        { value: 'on', label: 'On' },
-        { value: 'off', label: 'Off' }
+        { value: 'workspace', label: workspaceAiTitles ? t("Workspace setting (on)") : t("Workspace setting (off)") },
+        { value: 'on', label: t("On") },
+        { value: 'off', label: t("Off") }
     ] satisfies { value: ProjectAiTitleMode; label: string }[];
     return (
         <Section

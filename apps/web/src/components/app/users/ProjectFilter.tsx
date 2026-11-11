@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { useOptimistic, useTransition } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { FolderIcon } from 'lucide-react';
@@ -34,7 +33,7 @@ export function ProjectFilter({ projects, value }: { projects: { id: string; nam
             </SelectTrigger>
             <SelectContent>
                 <SelectGroup>
-                    {items.map(item => <SelectItem key={item.value} value={item.value}>{t(item.label)}</SelectItem>)}
+                    {items.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
                 </SelectGroup>
             </SelectContent>
         </Select>

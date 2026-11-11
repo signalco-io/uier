@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { useId } from 'react';
 import { Button } from '@/src/components/ui/button';
 import { Checkbox } from '@/src/components/ui/checkbox';
@@ -72,7 +71,7 @@ export function Choice({
     return (
         <Field>
             <FieldLabel htmlFor={id}>{label}</FieldLabel>
-            <Select items={options} value={value} onValueChange={next => next !== null && onChange(next)}>
+            <Select items={options.map(option => ({ ...option, label: t(option.label) }))} value={value} onValueChange={next => next !== null && onChange(next)}>
                 <SelectTrigger id={id}>
                     <SelectValue />
                 </SelectTrigger>

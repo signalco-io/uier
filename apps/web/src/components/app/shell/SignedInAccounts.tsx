@@ -11,7 +11,7 @@ import { changeAccount } from './accountSessions';
 
 /** Also usable when the primary credential expired but another account is still signed in. */
 export function SignedInAccounts({ accounts, next }: { accounts: BrowserAccount[]; next?: string }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const [pending, startTransition] = useTransition();
     if (!accounts.length) return null;
     return <section aria-label={t("Signed-in accounts")} className="flex w-full flex-col gap-3 border-b p-4">

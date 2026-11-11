@@ -25,7 +25,7 @@ const outcomes: Record<string, string> = {
 };
 
 export function GoogleAccountControls({ linkedEmail, configured, recentSignIn }: { linkedEmail: string | null; configured: boolean; recentSignIn: boolean }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const [state, formAction, pending] = useActionState(unlinkGoogleAction, null);
     const outcome = useSearchParams().get('google');
     const linked = linkedEmail !== null;

@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { useEffect, useRef, useState } from 'react';
 import { Button, buttonVariants } from '@/src/components/ui/button';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
@@ -51,9 +50,9 @@ export function InstallationCheck({ projectId, publicId, urls, bare = false, onR
         const target = new URL(address);
         const nonce = crypto.randomUUID();
         target.searchParams.set('uier-check', nonce);
-        const review = new URL(t("/app/review/{value0}", { value0: projectId }), location.origin);
+        const review = new URL(`/app/review/${projectId}`, location.origin);
         review.searchParams.set('url', target.href);
-        const popup = window.open('about:blank', t("_blank"));
+        const popup = window.open('about:blank', "_blank");
         if (!popup) { setResult({ kind: 'inconclusive', message: t("The check window was blocked. Allow popups for uier and retry.") }); return; }
         // Disown the popup's opener while retaining the reference used to check message sources.
         popup.opener = null;
@@ -95,10 +94,10 @@ export function InstallationCheck({ projectId, publicId, urls, bare = false, onR
             {/* Once confirmed, checking again is no longer the main thing to do */}
             <Button type="button" variant={result?.kind === 'success' ? 'outline' : 'default'} onClick={start} disabled={checking}>{checking && <Spinner data-icon="inline-start" />}{checking ? t("Checking installation...") : result ? t("Retry installation check") : t("Check installation")}</Button>
             {checking && <Button type="button" variant="outline" onClick={() => {
-                popupRef.current?.close(); stop({ kind: 'inconclusive', message: 'Check canceled. Retry when the site is ready.' });
+                popupRef.current?.close(); stop({ kind: 'inconclusive', message: t("Check canceled. Retry when the site is ready.") });
             }}>{t("Cancel check")}</Button>}
         </div>
-        {result && <p role="status" aria-label={t("Installation result")} data-result={result.kind} className="m-0 text-sm">{result.message}</p>}
+        {result && <p role="status" aria-label={t("Installation result")} data-result={result.kind} className="m-0 text-sm">{t(result.message)}</p>}
         {result?.kind === 'success' && <>
             <a href={reviewLink.href} target="_blank" rel="noopener" className={buttonVariants({ variant: 'outline', className: 'self-start' })}>{t("Open checked review")}</a>
             <CopyBlock value={reviewLink.href} label={t("Copy checked review link")} />

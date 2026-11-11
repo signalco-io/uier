@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { SettingsIcon } from 'lucide-react';

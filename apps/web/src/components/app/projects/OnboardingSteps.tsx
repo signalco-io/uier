@@ -36,8 +36,8 @@ export async function OnboardingSteps({ current, hrefs = {}, className }: {
                         {done ? <CheckIcon className="size-3.5" /> : number}
                     </span>
                     <span className={cn('min-w-0 truncate text-sm font-medium', !done && !active && 'text-muted-foreground', !active && '@max-[40rem]:sr-only')}>
-                        <span className="sr-only">{t("Step")}{' '}{number} of {onboardingStepLabels.length}: </span>
-                        {label}
+                        <span className="sr-only">{t("Step {number} of {total}:", { number, total: onboardingStepLabels.length })}{' '}</span>
+                        {t(label)}
                         {done && <span className="sr-only">{' '}{t("(done)")}</span>}
                     </span>
                 </>;

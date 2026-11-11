@@ -25,7 +25,7 @@ const outcomes: Record<string, string> = {
 };
 
 export function MicrosoftAccountControls({ linkedEmail, configured, recentSignIn }: { linkedEmail: string | null; configured: boolean; recentSignIn: boolean }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const [state, formAction, pending] = useActionState(unlinkMicrosoftAction, null);
     const outcome = useSearchParams().get('microsoft');
     const linked = linkedEmail !== null;

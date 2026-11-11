@@ -9,7 +9,7 @@ import { Button } from '@/src/components/ui/button';
 import { FormMessage } from '../FormMessage';
 
 export function ExtensionConsentForm({ userId, authorization }: { userId: string; authorization: Authorization }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const [state, approve, pending] = useActionState(async () => approveExtensionAction(userId, authorization), null);
     return (
         <form action={approve} className="flex flex-col gap-4">

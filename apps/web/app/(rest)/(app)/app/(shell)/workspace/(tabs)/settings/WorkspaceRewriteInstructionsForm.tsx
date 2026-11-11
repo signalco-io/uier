@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { useActionState, useId } from 'react';
 import { Field, FieldDescription, FieldLabel } from '@/src/components/ui/field';
 import { Textarea } from '@/src/components/ui/textarea';
@@ -11,7 +10,7 @@ import { MAX_REWRITE_INSTRUCTIONS_LENGTH } from '@/src/lib/rewrite/settings';
 import { setWorkspaceRewriteInstructionsAction } from './actions';
 
 export function WorkspaceRewriteInstructionsForm({ instructions }: { instructions: string }) {
-    const { t } = useAppI18n();
+    const { t, language } = useAppI18n();
     const id = useId();
     const [state, action, pending] = useActionState(setWorkspaceRewriteInstructionsAction, null);
     const { draft, dirty, update, discard } = useSettingsDraft({ instructions }, state);
@@ -26,7 +25,7 @@ export function WorkspaceRewriteInstructionsForm({ instructions }: { instruction
                         onChange={event => update(() => ({ instructions: event.target.value }))} rows={5}
                         maxLength={MAX_REWRITE_INSTRUCTIONS_LENGTH} disabled={pending} aria-describedby={`${id}-description`}
                         placeholder={t("Use short sentences. Call people members, not users.")} />
-                    <FieldDescription id={`${id}-description`}>{t("Up to")}{' '}{MAX_REWRITE_INSTRUCTIONS_LENGTH.toLocaleString('en')}{' '}{t("characters. Only admins can see or change these settings. Sent to Anthropic with each rewrite request. Leave empty for no additional style guidance.")}</FieldDescription>
+                    <FieldDescription id={`${id}-description`}>{t("Up to")}{' '}{MAX_REWRITE_INSTRUCTIONS_LENGTH.toLocaleString(language)}{' '}{t("characters. Only admins can see or change these settings. Sent to Anthropic with each rewrite request. Leave empty for no additional style guidance.")}</FieldDescription>
                 </Field>
             </form>
         </Section>

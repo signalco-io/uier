@@ -40,7 +40,7 @@ export function ReplyComposer({ projectId, userId, userName, comment, textareaRe
     const [announcement, setAnnouncement] = useState('');
     const [, startTransition] = useTransition();
     const update = useCommentUpdate();
-    const attachment = useAttachedImage();
+    const attachment = useAttachedImage(undefined, { pastedName: t("Pasted image") });
 
     const setText = (value: string, nextMentions: MessageMention[]) => {
         drafts.set(key, value);
@@ -85,13 +85,13 @@ export function ReplyComposer({ projectId, userId, userName, comment, textareaRe
         });
     };
 
-    return <MessageComposer label={t("Reply")} formLabel="Reply to thread" name="reply" placeholder={t("Reply...")}
+    return <MessageComposer label={t("Reply")} formLabel={t("Reply to thread")} name="reply" placeholder={t("Reply...")}
         value={text} mentions={mentions} onValueChange={setText} mentionsIn={{ projectId, commentId: comment.id }} maxLength={maxLength} textareaRef={textareaRef}
         attachments={<ReplyAttachment attachment={attachment} />} onPaste={attachment.handlePaste} holdSubmit={attachment.reading}
         submitLabel={t("Post reply")} submitVerb="send" onSubmit={submit} pending={pending}
         cancelLabel={t("Close reply")} onCancel={onClose}
         onDiscard={() => { attachment.remove(); drafts.delete(key); setError(undefined); setAnnouncement(t("Draft discarded")); }}
-        error={attachment.error || (error && t("{value0} Your draft is kept. Try sending again.", { value0: error }))} announcement={announcement}
+        error={(attachment.error && t(attachment.error)) || (error && t("{value0} Your draft is kept. Try sending again.", { value0: error }))} announcement={announcement}
         notices={<>
             {!storageAvailable && <FieldDescription role="status">{t("Browser storage is unavailable. Keep this page open to keep your draft.")}</FieldDescription>}
             {recoveries > 0 && <FieldDescription role="status">{t("Earlier unsent text is kept separately because both drafts exceed the character limit.")}

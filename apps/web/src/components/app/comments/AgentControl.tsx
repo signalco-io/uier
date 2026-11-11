@@ -151,7 +151,7 @@ function SingleAgentControl({ projectId, comment, assignee, agent, editable, add
             <DropdownMenu>
                 <DropdownMenuTrigger ref={trigger} render={<Button variant="ghost" size="sm" disabled={pending}
                     aria-label={agent ? t("Agent: {value0}. Change agent", { value0: agent.label }) : undefined}
-                    aria-description={working ? t("{value0} is working now", { value0: agent?.label }) : undefined}
+                    aria-description={working && agent ? t("{value0} is working now", { value0: agent.label }) : undefined}
                     className={agent ? 'h-7 min-w-0 max-w-full gap-1.5 px-1.5 font-normal pointer-coarse:min-h-11' : 'h-7 gap-1 px-1.5 font-normal text-muted-foreground hover:text-foreground pointer-coarse:min-h-11'} />}>
                     {agent ? <>
                         <AgentAvatar kind={agent.kind} workingUntil={agent.workingUntil} className="size-4" />

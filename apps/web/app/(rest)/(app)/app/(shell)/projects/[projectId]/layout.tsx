@@ -45,8 +45,8 @@ async function ProjectLayoutContent({ children, params }: LayoutProps<'/app/proj
     // the statuses, then Archive, a 3rem strip while collapsed and a column like the others when expanded
     const columns = feedbackStages.length;
     const boardWidths = {
-        t("--board-width-collapsed"): `calc(${columns} * 20rem + ${columns}rem + 3rem)`,
-        t("--board-width-expanded"): `calc(${columns + 1} * 20rem + ${columns}rem)`
+        "--board-width-collapsed": `calc(${columns} * 20rem + ${columns}rem + 3rem)`,
+        "--board-width-expanded": `calc(${columns + 1} * 20rem + ${columns}rem)`
     };
 
     return (

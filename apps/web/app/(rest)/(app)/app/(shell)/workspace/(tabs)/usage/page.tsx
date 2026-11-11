@@ -20,7 +20,7 @@ import { dailyResetSeconds, pageCommentsPerDay, projectInOtherWorkspace, sharedP
 import { openProjectWorkspaceUsageAction } from './actions';
 
 export async function generateMetadata(): Promise<Metadata> {
-    const { t } = await getAppI18n();
+    const { t, language } = await getAppI18n();
     return { title: t("Usage") };
 }
 
@@ -30,7 +30,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * offers to open it.
  */
 async function WorkspaceUsagePageContent({ searchParams }: PageProps<'/app/workspace/usage'>) {
-    const { t } = await getAppI18n();
+    const { t, language } = await getAppI18n();
     const context = await requireAppContext();
     const requested = (await searchParams).project;
     const code = typeof requested === 'string' ? requested : undefined;
@@ -43,7 +43,7 @@ async function WorkspaceUsagePageContent({ searchParams }: PageProps<'/app/works
     return (
         <>
             <WorkspaceTabHeader description={(
-                <>{t("What each project shares in a day, whoever sends it. Counts start again at midnight UTC,")}{' '}{resetsIn(dailyResetSeconds())}.
+                <>{t("What each project shares in a day, whoever sends it. Counts start again at midnight UTC,")}{' '}{resetsIn(dailyResetSeconds(), t, language)}.
                     {' '}{t("Your own limits are in")}{' '}<Link href={KnownPageLinks.accountUsage()} className="underline underline-offset-4 hover:text-foreground">{t("your account")}</Link>.
                 </>
             )} />

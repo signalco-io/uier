@@ -1,4 +1,3 @@
-
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
@@ -18,9 +17,12 @@ import { joinNextPath } from '@/src/lib/app/signInDestination';
 import { domainJoinOffers, emailDomain } from '@/src/lib/app/workspaceDomains';
 import { JoinWorkspaceForm } from './JoinWorkspaceForm';
 
-export const metadata: Metadata = {
-    title: 'Join your team'
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return {
+    title: t('Join your team')
 };
+}
 
 /**
  * After a sign-in that proved the account's email, when workspaces are open to its domain (`workspaceDomains.ts`):
@@ -30,7 +32,7 @@ export const metadata: Metadata = {
  * workspace matches.
  */
 async function JoinPageContent({ searchParams }: PageProps<'/app/join'>) {
-    const { t, language } = await getAppI18n();
+    const { t } = await getAppI18n();
     const user = await getSessionUser();
     const { next } = await searchParams;
     const destination = joinNextPath(next);

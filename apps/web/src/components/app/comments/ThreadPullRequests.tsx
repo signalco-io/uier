@@ -24,6 +24,8 @@ import { PullRequestStateBadge } from './PullRequestStateBadge';
 export const commentPullRequestLinks = (comment: Pick<ProjectCommentView, 'text' | 'deleted' | 'replies' | 'pullRequests'>) =>
     threadPullRequestLinks([{ text: comment.text, deleted: comment.deleted }, ...comment.replies], comment.pullRequests);
 
+const pullRequestLabels: Record<PullRequestState, string> = { open: 'Open', merged: 'Merged', closed: 'Closed', draft: 'Draft' };
+
 const providers = { github: 'GitHub', gitlab: 'GitLab', 'azure-devops': 'Azure DevOps' };
 /** The same colours for the pull request's icon once its state is known (at least 3:1 on its surface) */
 const stateIconColors: Record<PullRequestState, string> = {
@@ -122,6 +124,7 @@ function usePullRequestStates(element: RefObject<HTMLElement | null>, projectId:
 function PullRequestValues({ projectId, commentId, links, revision, comment }: {
     projectId: string; commentId: string; links: PullRequestLink[]; revision: string; comment: ProjectCommentView;
 }) {
+    const { t } = useAppI18n();
     const value = useRef<HTMLElement>(null);
     const states = usePullRequestStates(value, projectId, commentId, links, revision);
     return (
@@ -138,7 +141,7 @@ function PullRequestValues({ projectId, commentId, links, revision, comment }: {
                             <span className="truncate">{pullRequestName(link)}</span>
                             <ArrowUpRightIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                         </a>
-                        {state && <PullRequestStateBadge state={state} />}
+                        {state && <PullRequestStateBadge state={state} label={t(pullRequestLabels[state])} />}
                         {comment.pullRequests?.some(saved => saved.url.toLowerCase() === link.url.toLowerCase() && saved.canRemove) &&
                             <RemovePullRequest projectId={projectId} commentId={commentId} url={link.url} name={pullRequestName(link)} />}
                     </div>
@@ -229,6 +232,7 @@ function RemovePullRequest({ projectId, commentId, url, name }: { projectId: str
 function PullRequestCardList({ projectId, commentId, links, revision }: {
     projectId: string; commentId: string; links: PullRequestLink[]; revision: string;
 }) {
+    const { t } = useAppI18n();
     const list = useRef<HTMLUListElement>(null);
     const states = usePullRequestStates(list, projectId, commentId, links, revision);
     return (
@@ -244,7 +248,7 @@ function PullRequestCardList({ projectId, commentId, links, revision }: {
                                 <ItemTitle className={cn('block max-w-full truncate', state && stateTextColors[state])} data-pull-request-color={state}
                                     title={pullRequestName(link)}>{pullRequestName(link)}</ItemTitle>
                             </ItemContent>
-                            {state && <PullRequestStateBadge state={state} />}
+                            {state && <PullRequestStateBadge state={state} label={t(pullRequestLabels[state])} />}
                             <ArrowUpRightIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                         </Item>
                     </li>

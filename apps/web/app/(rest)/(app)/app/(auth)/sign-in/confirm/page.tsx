@@ -1,4 +1,3 @@
-
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
@@ -11,12 +10,15 @@ import { getSignInRequest } from '@/src/lib/app/signIn';
 import { AuthCard } from '@/src/components/app/AuthCard';
 import { ConfirmSignInForm } from './ConfirmSignInForm';
 
-export const metadata: Metadata = {
-    title: 'Sign in'
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return {
+    title: t('Sign in')
 };
+}
 
 async function ConfirmSignInPageContent({ searchParams }: PageProps<'/app/sign-in/confirm'>) {
-    const { t, language } = await getAppI18n();
+    const { t } = await getAppI18n();
     const { token } = await searchParams;
     const request = await getSignInRequest(token);
 

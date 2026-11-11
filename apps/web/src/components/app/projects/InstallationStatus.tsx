@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { useState, type ReactNode } from 'react';
 import { ChevronDownIcon } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';

@@ -1,4 +1,3 @@
-
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { CircleAlertIcon } from 'lucide-react';
 import { Alert, AlertDescription } from '@/src/components/ui/alert';
@@ -21,7 +20,8 @@ const problems: Record<string, string> = {
 };
 
 /** Why the last Google attempt did not sign in, at the top of the card */
-export function GoogleSignInProblem({ outcome }: { outcome?: string | string[] }) {
+export async function GoogleSignInProblem({ outcome }: { outcome?: string | string[] }) {
+    const { t } = await getAppI18n();
     const problem = typeof outcome === 'string' && Object.hasOwn(problems, outcome) ? problems[outcome] : undefined;
     if (!problem)
         return null;
@@ -29,14 +29,14 @@ export function GoogleSignInProblem({ outcome }: { outcome?: string | string[] }
         // The card content adds 12 px between its children: 24 px above the email field
         <Alert role="alert" className="mb-3">
             <CircleAlertIcon />
-            <AlertDescription>{problem}</AlertDescription>
+            <AlertDescription>{t(problem)}</AlertDescription>
         </Alert>
     );
 }
 
 /** "Google" ("Sign in with Google" to assistive technologies), the same outline button as the other options (`SignInForm`'s `alternatives`) */
 export async function GoogleSignInButton({ next, lastUsed, addingAccount = false }: { next?: string; lastUsed?: boolean; addingAccount?: boolean }) {
-    const { t, language } = await getAppI18n();
+    const { t } = await getAppI18n();
     if (!isGoogleSignInConfigured())
         return null;
     const params = new URLSearchParams();

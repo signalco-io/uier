@@ -9,7 +9,7 @@ import { Button } from '@/src/components/ui/button';
 import { changeAccount } from './accountSessions';
 
 export function SignOutButton() {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const [pending, startTransition] = useTransition();
     return (
         <Button variant="outline" disabled={pending} onClick={() => startTransition(async () => {

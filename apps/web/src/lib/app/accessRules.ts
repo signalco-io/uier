@@ -1,3 +1,5 @@
+import { englishAppTranslator } from '../i18n/translate';
+import type { AppTranslator } from '../i18n/types';
 import type { DbMember, DbProject, DbTeam } from './model';
 
 export type AccessSnapshot = { workspaceId: string; teams: readonly DbTeam[] };
@@ -36,16 +38,16 @@ export function projectAccessGrants(
     ];
 }
 
-export function projectAccessSourceLabel(grant: ProjectAccessGrant) {
+export function projectAccessSourceLabel(grant: ProjectAccessGrant, t: AppTranslator = englishAppTranslator) {
     switch (grant.kind) {
         case 'admin':
-            return 'Workspace admin';
+            return t('Workspace admin');
         case 'all':
-            return 'All projects (including future projects)';
+            return t('All projects (including future projects)');
         case 'direct':
-            return 'Direct access';
+            return t('Direct access');
         case 'team':
-            return `Via ${grant.team.name}`;
+            return t('Via {team}', { team: grant.team.name });
     }
 }
 
@@ -53,9 +55,10 @@ export function projectAccessSourceLabel(grant: ProjectAccessGrant) {
 export function projectAccessSources(
     snapshot: AccessSnapshot,
     member: AccessSubject,
-    project: Pick<DbProject, 'id' | 'workspaceId'>
+    project: Pick<DbProject, 'id' | 'workspaceId'>,
+    t: AppTranslator = englishAppTranslator
 ): string[] {
-    return projectAccessGrants(snapshot, member, project).map(projectAccessSourceLabel);
+    return projectAccessGrants(snapshot, member, project).map(grant => projectAccessSourceLabel(grant, t));
 }
 
 export function hasProjectAccess(

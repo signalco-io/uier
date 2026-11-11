@@ -45,7 +45,6 @@ export async function BrowserExtensionNote() {
         return null;
     return (
         <p className="m-0 text-sm text-muted-foreground">{t("Can’t change the site’s code? Members can review it with the")}{' '}
-            <a href={guides.browserExtension.path} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4 hover:text-foreground">{t("browser extension")}</a> instead.
-        </p>
+            <a href={guides.browserExtension.path} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4 hover:text-foreground">{t("browser extension")}</a>{' '}{t("instead.")}{' '}</p>
     );
 }

@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { Fragment, type ReactElement } from 'react';
 import Link from 'next/link';
 import { ChevronDownIcon, ExternalLinkIcon, GlobeIcon, MessageSquareIcon } from 'lucide-react';
@@ -42,7 +41,7 @@ export function ReviewLinksMenu({ projectId, urls, size = 'default', variant = '
 
     // Not links: Next.js would prefetch them, and a review link redirects to the site with a
     // single-use code (app/review), which must only be minted when someone opens it
-    const open = (url: string) => window.open(KnownPageLinks.projectReview(projectId, url), t("_blank"), 'noopener');
+    const open = (url: string) => window.open(KnownPageLinks.projectReview(projectId, url), "_blank", 'noopener');
 
     if (compact) {
         const single = urls.length === 1 && !visit;

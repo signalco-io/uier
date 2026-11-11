@@ -73,7 +73,7 @@ type Outcome = { approved: boolean; url: string | null };
  * that follows a server action (the request is consumed by then) and the page can send the person back.
  */
 export function ConnectConsent({ requestId, request }: { requestId: string; request: ConsentRequest | null }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const [clientName] = useState(request?.client.name ?? 'your coding tool');
     const [outcome, setOutcome] = useState<Outcome | null>(null);
     useEffect(() => {
@@ -118,7 +118,7 @@ function ConsentForm({ requestId, request: { userId, email, client, requestedSco
     request: ConsentRequest;
     onOutcome: (outcome: Outcome) => void;
 }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const [selections, setSelections] = useState<Record<string, AccountSelection>>(() => Object.fromEntries<AccountSelection>(accounts.map(account => {
         const existing = current?.accounts.find(entry => entry.userId === account.id);
         return [account.id, existing ? currentSelection(account, existing.access)
@@ -276,7 +276,7 @@ function AccountAccessChoice({ account, value, onChange }: {
     value: AccountSelection;
     onChange: (value: AccountSelection) => void;
 }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const setWorkspace = (workspaceId: string, projects: 'all' | string[] | undefined) => {
         const workspaces = { ...value.workspaces };
         if (projects === undefined || (Array.isArray(projects) && !projects.length)) delete workspaces[workspaceId];
@@ -337,7 +337,7 @@ function AccountAccessChoice({ account, value, onChange }: {
 
 /** An unknown, expired or used request: the coding tool has to start a new one */
 export function ExpiredRequest() {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     return (
         <CardHeader>
             <h1 className="m-0 text-xl leading-7 font-semibold tracking-[-0.015em]">{t("Start again from your coding tool")}</h1>

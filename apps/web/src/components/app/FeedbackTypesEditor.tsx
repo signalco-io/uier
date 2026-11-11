@@ -17,7 +17,7 @@ const iconOptions = feedbackTypeIcons.map(icon => ({ value: icon, label: iconLab
 
 /** A draft inside its parent's settings form. Disable instead of deleting to keep types recognizable. */
 export function FeedbackTypesEditor({ value, onChange, disabled = false }: { value: FeedbackType[]; onChange: (types: FeedbackType[]) => void; disabled?: boolean }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const id = useId();
     const change = (index: number, patch: Partial<FeedbackType>) => onChange(value.map((type, i) => i === index ? { ...type, ...patch } : type));
     return <FieldGroup>
@@ -29,7 +29,7 @@ export function FeedbackTypesEditor({ value, onChange, disabled = false }: { val
                 <FieldGroup>
                     <Field orientation="horizontal">
                         <FeedbackTypeIcon icon={type.icon} className="size-4 shrink-0" />
-                        <FieldContent className="min-w-0"><FieldLabel htmlFor={`${prefix}-enabled`} className="max-w-full"><span className="truncate" title={t(type.label)}>{type.label || 'New feedback type'}</span></FieldLabel></FieldContent>
+                        <FieldContent className="min-w-0"><FieldLabel htmlFor={`${prefix}-enabled`} className="max-w-full"><span className="truncate" title={type.label}>{type.label || 'New feedback type'}</span></FieldLabel></FieldContent>
                         <Switch id={`${prefix}-enabled`} checked={type.enabled} disabled={disabled}
                             aria-label={t("Enable {value1}", { value1: type.label || 'new feedback type' })} onCheckedChange={enabled => change(index, { enabled })} />
                     </Field>

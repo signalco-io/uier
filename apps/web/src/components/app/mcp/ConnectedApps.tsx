@@ -25,7 +25,7 @@ import { ConnectionAvatar, ConnectionItem, ConnectionReach, factsClassName, Scop
 
 /** Account: the apps connected with OAuth sign-in, one row per grant, each revocable */
 export function ConnectedApps({ apps }: { apps: ConnectedAppView[] }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     return (
         <Section id="connected-apps" title={t("Connected apps")}
             description={t("Coding tools you allowed when they asked you to sign in. Your current project permissions always apply.")}>
@@ -41,7 +41,7 @@ export function ConnectedApps({ apps }: { apps: ConnectedAppView[] }) {
 
 /** Nothing connected yet: what shows up here, and the way to the setup below */
 function NoConnectedApps() {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     return (
         <Empty className="gap-5 border p-8">
             <EmptyHeader>
@@ -59,7 +59,7 @@ function NoConnectedApps() {
 }
 
 function ConnectedAppRow({ app }: { app: ConnectedAppView }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const [revokeTokens, setRevokeTokens] = useState(true);
     const [confirming, setConfirming] = useState(false);
     const [state, setState] = useState<ActionState>(null);
@@ -78,25 +78,25 @@ function ConnectedAppRow({ app }: { app: ConnectedAppView }) {
                 <ClientHosts client={app.client} />
             </>}
             actions={<AlertDialog open={confirming} onOpenChange={open => { setConfirming(open); if (open) setRevokeTokens(true); }}>
-                <AlertDialogTrigger render={<Button variant="ghost" size="sm" aria-label={t("Revoke {value1}", { value1: app.name })} />}>{"Revoke"}</AlertDialogTrigger>
+                <AlertDialogTrigger render={<Button variant="ghost" size="sm" aria-label={t("Revoke {value1}", { value1: app.name })} />}>{t("Revoke")}</AlertDialogTrigger>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle className="break-words">{"Revoke"}{' '}{app.name}?</AlertDialogTitle>
-                        <AlertDialogDescription>{"It loses access to uier on its next request. Feedback it already received stays with it. To use it again, connect it again from your coding tool."}</AlertDialogDescription>
+                        <AlertDialogTitle className="break-words">{t("Revoke")}{' '}{app.name}?</AlertDialogTitle>
+                        <AlertDialogDescription>{t("It loses access to uier on its next request. Feedback it already received stays with it. To use it again, connect it again from your coding tool.")}</AlertDialogDescription>
                     </AlertDialogHeader>
                     {app.activeCreatedTokenCount > 0 && <div className="flex flex-col gap-2 text-sm">
-                        <p className="m-0">{"This connection created"}{' '}{app.activeCreatedTokenCount} {"active access"}{' '}{app.activeCreatedTokenCount === 1 ? "token" : "tokens"}{". These are separate and listed under Access tokens. Unchecked tokens keep access until their expiry or revocation."}</p>
+                        <p className="m-0">{t("This connection created")}{' '}{app.activeCreatedTokenCount} {t("active access")}{' '}{app.activeCreatedTokenCount === 1 ? t("token") : t("tokens")}{t(". These are separate and listed under Access tokens. Unchecked tokens keep access until their expiry or revocation.")}</p>
                         <label className="flex items-center gap-2">
                             <Checkbox checked={revokeTokens} onCheckedChange={setRevokeTokens} disabled={pending} />
-                            {"Also revoke the"}{' '}{app.activeCreatedTokenCount} {"access"}{' '}{app.activeCreatedTokenCount === 1 ? "token it created" : "tokens it created"}
+                            {t("Also revoke the")}{' '}{app.activeCreatedTokenCount} {t("access")}{' '}{app.activeCreatedTokenCount === 1 ? t("token it created") : t("tokens it created")}
                         </label>
                     </div>}
                     <FormMessage state={state} />
                     <AlertDialogFooter>
-                        <AlertDialogCancel disabled={pending}>{"Keep connected"}</AlertDialogCancel>
+                        <AlertDialogCancel disabled={pending}>{t("Keep connected")}</AlertDialogCancel>
                         <AlertDialogAction variant="destructive" disabled={pending} onClick={() => revoke()}>
                             {pending && <Spinner data-icon="inline-start" />}
-                            {"Revoke"}{' '}</AlertDialogAction>
+                            {t("Revoke")}{' '}</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>}>
@@ -115,7 +115,7 @@ function ConnectedAppRow({ app }: { app: ConnectedAppView }) {
                             {app.access.accounts
                                 ? <ul className="m-0 mt-2 flex list-none flex-col gap-3 border-l pl-3 text-muted-foreground">
                                     {app.access.accounts.map((account, index) => <li key={index} className="break-words">
-                                        <span className="font-mono text-[13px] text-foreground break-all">{t(account.label)}</span>
+                                        <span className="font-mono text-[13px] text-foreground break-all">{account.label}</span>
                                         <p className="m-0">{account.summary}</p>
                                         {!account.all && <WorkspaceAccessDetails workspaces={account.workspaces} />}
                                     </li>)}

@@ -18,7 +18,7 @@ async function WorkspaceTabsLayoutContent({ children }: PropsWithChildren) {
     return (
         <>
             <PageHeader title={context.workspace.name}>
-                <LinkTabs label={t("Workspace")} match="path" tabs={workspaceTabs(context)} />
+                <LinkTabs label={t("Workspace")} match="path" tabs={workspaceTabs(context).map(tab => ({ ...tab, label: t(tab.label) }))} />
             </PageHeader>
             {children}
         </>

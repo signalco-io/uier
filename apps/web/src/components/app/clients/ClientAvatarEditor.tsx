@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ImageUpIcon } from 'lucide-react';
@@ -90,7 +89,7 @@ export function ClientAvatarEditor({ client, workspaceId, onIconChange, onColorC
                             </ToggleGroupItem>
                             {clientIcons.map(option => {
                                 const Icon = clientIconComponents[option];
-                                return <ToggleGroupItem key={option} value={option} aria-label={clientIconLabels[option]} className={pickerItemClassName}><Icon /></ToggleGroupItem>;
+                                return <ToggleGroupItem key={option} value={option} aria-label={t(clientIconLabels[option])} className={pickerItemClassName}><Icon /></ToggleGroupItem>;
                             })}
                         </ToggleGroup>
                     </FieldSet>

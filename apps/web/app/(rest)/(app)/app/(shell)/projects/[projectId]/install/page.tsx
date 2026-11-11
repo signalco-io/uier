@@ -48,7 +48,7 @@ async function InstallProjectPageContent({ params, searchParams }: PageProps<'/a
             <OnboardingSteps current={number(step)} hrefs={Object.fromEntries(onboardingSteps.map(name => [number(name), href(name)]))} />
             {step === 'script' && (
                 <OnboardingStepCard id="add-script" title={t("Add the script")} description={<ScriptDescription />}
-                    skip={comments} next={{ href: href('check'), label: 'Next' }}>
+                    skip={comments} next={{ href: href('check'), label: t("Next") }}>
                     <ScriptSnippet baseUrl={await appBaseUrl()} publicId={project.publicId} />
                     <div className="flex flex-col gap-3">
                         <h3 className="m-0 text-sm font-medium">{t("Where to add it")}</h3>

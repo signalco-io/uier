@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { useState } from 'react';
 import { FieldGroup } from '@/src/components/ui/field';
 import { MAX_BULK_PEOPLE } from '@/src/lib/app/limits';
@@ -26,8 +25,8 @@ export function BulkTeamForm({ data, fromTeamId }: { data: AccessData; fromTeamI
                     value={mode}
                     onChange={(value) => setMode(value === 'remove' ? 'remove' : 'add')}
                     options={[
-                        { value: 'add', label: 'Add people to teams' },
-                        { value: 'remove', label: 'Remove people from teams' }
+                        { value: 'add', label: t("Add people to teams") },
+                        { value: 'remove', label: t("Remove people from teams") }
                     ]}
                 />
                 <CheckList

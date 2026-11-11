@@ -1,4 +1,3 @@
-
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { Section } from '@/src/components/app/PageHeader';
 import { GoogleLogo } from '@/src/components/app/SignInProviderLogos';
@@ -10,7 +9,7 @@ import { GoogleAccountControls } from './GoogleAccountControls';
 
 /** The linked Google account. Hidden where Google sign-in is off, unless one is linked (unlinking always works). */
 export async function GoogleAccount({ userId }: { userId: string }) {
-    const { t, language } = await getAppI18n();
+    const { t } = await getAppI18n();
     const [account, session] = await Promise.all([getGoogleAccount(userId), getSessionSignIn()]);
     const configured = isGoogleSignInConfigured();
     if (!account && !configured)

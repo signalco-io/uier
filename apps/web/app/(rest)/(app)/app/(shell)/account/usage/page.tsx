@@ -1,4 +1,3 @@
-
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
@@ -12,9 +11,12 @@ import { resetsIn } from '@/src/components/app/usage/resetsIn';
 import { requireAppContext } from '@/src/lib/app/context';
 import { accountUsage, hourlyResetSeconds } from '@/src/lib/app/usage';
 
-export const metadata: Metadata = {
-    title: 'Usage · Account'
+export async function generateMetadata(): Promise<Metadata> {
+    const { t, language } = await getAppI18n();
+    return {
+    title: t('Usage · Account')
 };
+}
 
 /**
  * The person's own limits in every project they can see, in all their workspaces (the open one first),
@@ -25,7 +27,7 @@ async function AccountUsagePageContent() {
     const { t, language } = await getAppI18n();
     const context = await requireAppContext();
     const { workspaces, network } = await accountUsage(context);
-    const reset = resetsIn(hourlyResetSeconds());
+    const reset = resetsIn(hourlyResetSeconds(), t, language);
     // Workspace names head the projects only when there is more than one
     const ProjectHeading = workspaces.length > 1 ? 'h4' : 'h3';
 

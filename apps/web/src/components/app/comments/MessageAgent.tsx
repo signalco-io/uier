@@ -27,8 +27,8 @@ export function MessageAgent({ author }: { author: ProjectCommentAuthor }) {
                 <AgentMark kind={agent.kind} className="size-3.5 text-foreground" />
                 <span className="text-foreground">{agent.label}</span>
             </PopoverTrigger>
-            <PopoverContent align="start" aria-label={`${agent.label} details`} className="w-72 gap-3 p-3">
-                <p className="m-0 text-sm">{agent.label}{t(" wrote this for ")}{author.isMe ? 'you' : author.name}.</p>
+            <PopoverContent align="start" aria-label={t("{agent} details", { agent: agent.label })} className="w-72 gap-3 p-3">
+                <p className="m-0 text-sm">{t("{agent} wrote this for {author}.", { agent: agent.label, author: author.isMe ? t("you") : author.name })}</p>
                 <Item size="xs" variant="muted">
                     <ItemMedia><AgentAvatar kind={agent.kind} className="size-8" /></ItemMedia>
                     <ItemContent className="min-w-0">
@@ -38,7 +38,7 @@ export function MessageAgent({ author }: { author: ProjectCommentAuthor }) {
                                 {agentModelText({ label: agent.label, model: agent.model })}
                             </ItemDescription>
                             : <ItemDescription className="truncate">{t("No model given")}</ItemDescription>}
-                        {agent.reasoning && <ItemDescription className="truncate">{reasoningText(agent.reasoning)}</ItemDescription>}
+                        {agent.reasoning && <ItemDescription className="truncate">{t("{level} reasoning", { level: agent.reasoning })}</ItemDescription>}
                     </ItemContent>
                 </Item>
                 {agent.connection && <p className="m-0 text-xs break-words text-muted-foreground">{t("Connection: ")}{agent.connection}</p>}

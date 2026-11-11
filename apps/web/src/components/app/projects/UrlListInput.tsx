@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { useId, useState, type ReactNode } from 'react';
 import { XIcon } from 'lucide-react';
 import { FieldDescription, FieldLegend, FieldSet } from '@/src/components/ui/field';

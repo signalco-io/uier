@@ -75,7 +75,8 @@ One store for the page, so the main root, inline threads and code outside React 
 ## What stays English
 
 - axe-core's rule help and failure text (axe has no Croatian); uier's wording around them is translated.
-- What the server writes: Copy issue's export and the feedback context packet, activity entries, email and the app.
+- Copy issue's export and the feedback context packet, outgoing email and public marketing pages. The app has its
+  own independent [profile language preference and catalogs](../../../apps/web/docs/localization.md).
 - Comment text, names and other content people wrote.
 
 ## Tests

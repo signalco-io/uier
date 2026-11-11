@@ -26,12 +26,12 @@ export function ProjectAccessInfo({ access, settingsHref, children }: { access: 
                 {...(settingsHref ? { render: <Link href={settingsHref} />, nativeButton: false, role: 'link' } : {})}
                 {...hoverPopoverTrigger}>
                 <AccessIcon access={access} className="size-4" aria-hidden="true" />
-                {label}
+                {t(label)}
             </PopoverTrigger>
-            <PopoverContent align="start" aria-label={label} className="w-80">
+            <PopoverContent align="start" aria-label={t(label)} className="w-80">
                 <PopoverHeader>
-                    <PopoverTitle>{label}</PopoverTitle>
-                    <PopoverDescription>{description}</PopoverDescription>
+                    <PopoverTitle>{t(label)}</PopoverTitle>
+                    <PopoverDescription>{t(description)}</PopoverDescription>
                 </PopoverHeader>
                 {children}
             </PopoverContent>

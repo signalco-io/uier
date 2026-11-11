@@ -21,7 +21,7 @@ const subscribe = () => () => undefined;
  * a new challenge, which replaces the earlier one.
  */
 export function PasskeySignIn({ next, autofill, lastUsed }: { next?: string; autofill: boolean; lastUsed?: boolean }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     // Rendered on the server as supported (nearly every browser is), so the card doesn't shift.
     const supported = useSyncExternalStore(subscribe, browserSupportsWebAuthn, () => true);
     const [error, setError] = useState<string>();

@@ -36,7 +36,7 @@ const outcomes: Record<string, string> = {
 };
 
 export function LinearSection({ projectId, settings, outcome }: { projectId: string; settings: Settings; outcome?: string }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const notice = outcome && Object.hasOwn(outcomes, outcome) ? outcomes[outcome] : undefined;
     const status = linearStatus(settings);
     return <Section id="linear" title={<IntegrationTitle provider="linear" name="Linear" />} description={t("Create one Linear issue for each shared feedback thread. uier keeps the issue and its discussion up to date.")}
@@ -70,7 +70,7 @@ export function LinearSection({ projectId, settings, outcome }: { projectId: str
 }
 
 function LinearDestination({ projectId, settings }: { projectId: string; settings: Settings }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const formId = useId();
     const [, startLoad] = useTransition();
     const [teams, loadTeams, loadingTeams] = useActionState(loadLinearTeamsAction, null);
@@ -119,7 +119,7 @@ function LinearDestination({ projectId, settings }: { projectId: string; setting
 }
 
 function LinearDestinationForm({ projectId, settings, options }: { projectId: string; settings: Settings; options: Options }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const id = useId();
     const [state, save, pending] = useActionState(saveLinearDestinationAction, null);
     const sameTeam = settings.teamId === options.teamId;
@@ -141,7 +141,7 @@ function LinearDestinationForm({ projectId, settings, options }: { projectId: st
                 <FieldLabel htmlFor={`${id}-project`}>{t("Linear project (optional)")}</FieldLabel>
                 <Select items={projectItems} value={linearProject} onValueChange={value => value !== null && setLinearProject(value)} disabled={pending}>
                     <SelectTrigger id={`${id}-project`}><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectGroup>{projectItems.map(item => <SelectItem key={item.value} value={item.value}>{t(item.label)}</SelectItem>)}</SelectGroup></SelectContent>
+                    <SelectContent><SelectGroup>{projectItems.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup></SelectContent>
                 </Select>
             </Field>
             <StateChoice id={`${id}-open`} label={t("State for open feedback")} choices={openStates} value={openState} onChange={setOpenState} disabled={pending} />
@@ -176,7 +176,7 @@ function LinearDestinationForm({ projectId, settings, options }: { projectId: st
 }
 
 function StateChoice({ id, label, choices, value, onChange, disabled }: { id: string; label: string; choices: Option[]; value: string; onChange: (value: string) => void; disabled: boolean }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     return <Field data-disabled={disabled}>
         <FieldLabel htmlFor={id}>{label}</FieldLabel>
         <Select items={choices.map(item => ({ value: item.id, label: item.name }))} value={value} onValueChange={next => next !== null && onChange(next)} disabled={disabled || choices.length === 0}>
@@ -187,7 +187,7 @@ function StateChoice({ id, label, choices, value, onChange, disabled }: { id: st
 }
 
 function LinearManagement({ projectId, settings }: { projectId: string; settings: Settings }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const router = useRouter();
     const [state, setState] = useState<ActionState<{ message: string }>>(null);
     const [pending, startTransition] = useTransition();

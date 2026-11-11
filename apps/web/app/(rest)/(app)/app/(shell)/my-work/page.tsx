@@ -34,7 +34,7 @@ function Group({ id, title, description, icon, items }: { id: string; title: str
 async function MyWorkPageContent() {
     const { t } = await getAppI18n();
     const context = await requireAppContext();
-    const { assigned, mentions, unread, capped } = await loadMyWork(context);
+    const { assigned, mentions, unread, capped } = await loadMyWork(context, t);
     const empty = !assigned.length && !mentions.length && !unread.length;
     return (
         <>

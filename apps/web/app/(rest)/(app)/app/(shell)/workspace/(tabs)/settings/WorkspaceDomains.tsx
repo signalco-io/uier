@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { useActionState, useId, useState, useTransition } from 'react';
 import { AtSignIcon, LogInIcon, PlusIcon } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
@@ -30,8 +29,8 @@ export type WorkspaceDomainView = {
 };
 
 /** "a", "a and b", "a, b and c" */
-function list(items: string[]) {
-    return items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
+function list(items: string[], language: string) {
+    return new Intl.ListFormat(language, { style: 'long', type: 'conjunction' }).format(items);
 }
 
 /**
@@ -92,9 +91,9 @@ export function WorkspaceDomains({ domains, teams, suggestion, ownDomain, signIn
 }
 
 function DomainRow({ domain, teams }: { domain: WorkspaceDomainView; teams: Team[] }) {
-    const { t } = useAppI18n();
+    const { t, language } = useAppI18n();
     const access = domain.teams.length
-        ? t("They join {value0}.", { value0: list(domain.teams.map(team => team.name)) })
+        ? t("They join {value0}.", { value0: list(domain.teams.map(team => team.name), language) })
         : t("They join without project access until an admin shares projects with them.");
     return (
         <Item variant="outline" role="listitem" className="items-start">

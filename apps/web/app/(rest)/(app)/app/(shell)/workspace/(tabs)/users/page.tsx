@@ -42,12 +42,13 @@ function accessText(role: 'admin' | 'commenter', projects: ProjectsAccess, names
 }
 
 /** The projects someone can review, with a folder (or folders, for all of them) */
-function Access({ role, projects, names }: { role: 'admin' | 'commenter'; projects: ProjectsAccess; names: Map<string, string> }) {
+async function Access({ role, projects, names }: { role: 'admin' | 'commenter'; projects: ProjectsAccess; names: Map<string, string> }) {
+    const { t } = await getAppI18n();
     const Icon = role === 'admin' || projects === 'all' ? FoldersIcon : FolderIcon;
     return (
         <ItemDescription className="flex items-center gap-1.5">
             <Icon aria-hidden="true" className="size-3.5 shrink-0" />
-            <span className="truncate">{accessText(role, projects, names)}</span>
+            <span className="truncate">{role === 'admin' || projects === 'all' ? t('All projects') : projects.length ? accessText(role, projects, names) : t('No projects')}</span>
         </ItemDescription>
     );
 }
@@ -182,7 +183,7 @@ async function UsersPageContent({ searchParams }: PageProps<'/app/workspace/user
                                         <Access role={member.role} projects={member.projects} names={projectNames} />
                                         {teamChips(member.teamIds)}
                                         <ItemDescription className="text-xs">
-                                            {member.relationship && relationshipLabels[member.relationship] && `${relationshipLabels[member.relationship]} · `}{t("Joined")}{' '}<RelativeTime value={member.createdAt} />
+                                            {member.relationship && relationshipLabels[member.relationship] && `${t(relationshipLabels[member.relationship])} · `}{t("Joined")}{' '}<RelativeTime value={member.createdAt} />
                                         </ItemDescription>
                                     </ItemContent>
                                     <ItemActions className="ml-auto @2xl:ml-0">
@@ -216,7 +217,7 @@ async function UsersPageContent({ searchParams }: PageProps<'/app/workspace/user
                                             <Access role={invitation.role} projects={invitation.projects} names={projectNames} />
                                             {teamChips(invitation.teamIds)}
                                             {invitation.relationship && relationshipLabels[invitation.relationship] && (
-                                                <ItemDescription className="text-xs">{relationshipLabels[invitation.relationship]}</ItemDescription>
+                                                <ItemDescription className="text-xs">{t(relationshipLabels[invitation.relationship])}</ItemDescription>
                                             )}
                                         </ItemContent>
                                         <ItemActions className="ml-auto @2xl:ml-0">

@@ -10,7 +10,7 @@ import { acceptInvitationAction } from './actions';
 
 /** Accepting takes a click, like signing in: email scanners open links before people do */
 export function AcceptInvitationForm({ token }: { token: string }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const [state, formAction, pending] = useActionState(acceptInvitationAction, null);
     return (
         <form action={formAction} className="flex flex-col gap-4">

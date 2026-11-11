@@ -45,7 +45,7 @@ export function LinkTabs({ tabs, label, variant = 'line', match = 'url', classNa
     match?: 'url' | 'path';
     className?: string;
 }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const pathname = usePathname();
     const search = useSearchParams().toString();
     const here = match === 'path' ? pathname : `${pathname}${search ? `?${search}` : ''}`;
@@ -68,7 +68,7 @@ export function LinkTabs({ tabs, label, variant = 'line', match = 'url', classNa
     return (
         <nav
             ref={navRef}
-            aria-label={label}
+            aria-label={t(label)}
             {...roving.containerProps}
             className={cn(
                 'flex items-center',

@@ -18,16 +18,21 @@ export function VitalResult({ name, value, mark }: {
     value: number;
     mark: (children: ReactNode, over: boolean) => ReactNode;
 }) {
-    const { t } = useAppI18n();
+    const { t, language } = useAppI18n();
     const [open, setOpen] = useState(false);
     // Closed while the trigger has focus (Escape returns focus to it): stays closed until focus leaves
     const dismissed = useRef(false);
     const target = vitalTargets[name];
     const over = vitalOverTarget(name, value);
-    const good = target.text(target.good);
+    const number = (value: number) => new Intl.NumberFormat(language, {
+        minimumFractionDigits: name === 'lcp' ? 1 : 0,
+        maximumFractionDigits: name === 'lcp' ? 1 : name === 'cls' ? 2 : 0
+    }).format(name === 'lcp' ? value / 1000 : value);
+    const text = (value: number) => name === 'lcp' ? `${number(value)} s` : name === 'inp' ? `${number(value)} ms` : number(value);
+    const good = text(target.good);
     const states = [
         { key: 'within', over: false, label: t("Within target"), limit: t("{value0} or less", { value0: good }), meaning: t("Nothing to look at.") },
-        { key: 'over', over: true, label: t("Over target"), limit: t("More than {value0}", { value0: good }), meaning: target.over }
+        { key: 'over', over: true, label: t("Over target"), limit: t("More than {value0}", { value0: good }), meaning: t(target.over) }
     ];
 
     // Keyboard focus opens it like a hover; focus stays on the trigger, so leaving it closes it again
@@ -51,7 +56,7 @@ export function VitalResult({ name, value, mark }: {
                 className="-mx-1 inline-flex w-fit cursor-help items-center rounded-sm px-1 text-left outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:min-h-11">
                 {mark(
                     <>
-                        {target.label} <span className="font-mono text-xs tabular-nums">{target.text(value)}</span>
+                        {target.label} <span className="font-mono text-xs tabular-nums">{text(value)}</span>
                         <span className="sr-only">{over ? t(", over the {value0} target", { value0: good }) : t(", within target")}</span>
                     </>,
                     over
@@ -59,9 +64,9 @@ export function VitalResult({ name, value, mark }: {
             </PopoverTrigger>
             <PopoverContent align="start" side="top" initialFocus={false} className="w-72 gap-3 p-3">
                 <PopoverHeader>
-                    <PopoverTitle>{target.name} ({target.label})</PopoverTitle>
+                    <PopoverTitle>{t(target.name)} ({target.label})</PopoverTitle>
                     <PopoverDescription>
-                        {target.text(value)}{t(" on this page, ")}{over ? 'over' : 'within'}{t(" the ")}{good}{t(" target.")}
+                        {over ? t("{value} on this page, over the {target} target.", { value: text(value), target: good }) : t("{value} on this page, within the {target} target.", { value: text(value), target: good })}
                     </PopoverDescription>
                 </PopoverHeader>
                 <ul className="m-0 flex list-none flex-col gap-1 p-0">

@@ -1,3 +1,4 @@
+import { getAppI18n } from '@/src/lib/i18n/server';
 import { ShellLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
 import type { PropsWithChildren } from 'react';
@@ -19,6 +20,7 @@ import { AppShortcuts } from '@/src/components/app/keyboard/AppShortcuts';
 
 /** The signed-in app: the sidebar, a top bar with the breadcrumbs, and the page in an inset panel, with the keyboard shortcuts */
 async function AppShellLayoutContent({ children }: PropsWithChildren) {
+    const { t } = await getAppI18n();
     const context = await requireAppContext();
     const projectOrder = await getProjectOrder();
     const visibleProjects = listVisibleProjects(context);
@@ -47,8 +49,8 @@ async function AppShellLayoutContent({ children }: PropsWithChildren) {
                         const feedback = workspace.id === PUBLIC_WORKSPACE_ID && member.role !== 'admin';
                         return {
                             id: workspace.id,
-                            name: feedback ? 'Feedback on uier' : workspace.name,
-                            role: feedback ? 'Sent with Give feedback' : member.role === 'admin' ? 'Admin' : 'Commenter',
+                            name: feedback ? t('Feedback on uier') : workspace.name,
+                            role: feedback ? t('Sent with Give feedback') : member.role === 'admin' ? t('Admin') : t('Commenter'),
                             feedback
                         };
                     })}

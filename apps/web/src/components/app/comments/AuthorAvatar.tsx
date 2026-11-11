@@ -1,5 +1,6 @@
 'use client';
 
+import { createAppTranslator } from '@/src/lib/i18n/translate';
 import { useAppI18n } from '@/src/lib/i18n/client';
 
 import type { MouseEvent } from 'react';
@@ -13,7 +14,7 @@ import { initials } from '../initials';
 import { AgentAvatar } from './AgentAvatar';
 
 /** "You", "Ana", "Ana via Claude", "Guest 3F2A", "uier": who wrote a comment, as its avatar's tooltip says */
-export function authorText(author: ProjectCommentAuthor, deleted = false, t: import('@/src/lib/i18n/types').AppTranslator = text => text) {
+export function authorText(author: ProjectCommentAuthor, deleted = false, t: import('@/src/lib/i18n/types').AppTranslator = createAppTranslator({})) {
     if (deleted || author.kind === 'deleted') return t("Deleted");
     const name = author.isMe ? t("You") : author.name;
     return author.agent ? t("{name} via {agent}", { name, agent: author.agent.label }) : name;

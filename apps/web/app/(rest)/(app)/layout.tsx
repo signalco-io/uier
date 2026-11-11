@@ -18,7 +18,7 @@ async function AppLanguage({ children }: PropsWithChildren) {
 export default function AppLayout({ children }: PropsWithChildren) {
     return (
         <ClientProvider>
-            <Suspense fallback={<PageLoading />}>
+            <Suspense fallback={<div aria-hidden="true"><PageLoading /></div>}>
                 <AppLanguage>
                     <TooltipProvider delay={300}>
                         {children}

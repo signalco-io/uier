@@ -33,7 +33,7 @@ const modifierKeys = new Set(['Shift', 'Control', 'Alt', 'Meta', 'CapsLock']);
  * (WCAG 2.1.4) and never act while typing, in a menu or a dialog, or in the review toolbar.
  */
 export function AppShortcuts({ children }: { children: ReactNode }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const router = useRouter();
     const pathname = usePathname();
     const enabled = useShortcutsEnabled();

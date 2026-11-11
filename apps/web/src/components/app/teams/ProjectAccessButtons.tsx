@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import type { DbProject, DbTeam } from '@/src/lib/app/model';
 import { projectTeamAction, removeProjectAccessAction } from './actions';
 import { type AccessData, currentUpdate, type AccessPerson } from './accessFormData';
@@ -28,9 +27,9 @@ export function ProjectTeamButton({ team, project, data }: { team: DbTeam; proje
     return (
         <ConfirmAccess
             label={add ? t("Share") : t("Remove")}
-            accessibleName={add ? `Share with ${team.name}` : `Remove ${team.name}`}
+            accessibleName={add ? t("Share with {name}", { name: team.name }) : t("Remove {name}", { name: team.name })}
             size="sm"
-            title={`${add ? t("Share") : t("Remove")} ${project.name} ${add ? 'with' : 'from'} ${team.name}?`}
+            title={add ? t("Share {project} with {team}?", { project: project.name, team: team.name }) : t("Remove {project} from {team}?", { project: project.name, team: team.name })}
             description={t("Team members follow the current team grant. Other sources can preserve member access. Guest links remain allowed where enabled.")}
             action={() => projectTeamAction(team.id, project.id, add, data.revision)}
         >
@@ -65,7 +64,7 @@ export function RemoveProjectAccess({
             <UnavailableButton
                 label={t("Remove")}
                 accessibleName={accessibleName}
-                reason="Workspace admins can review every project."
+                reason={t("Workspace admins can review every project.")}
             />
         );
     if (person.member.projects === 'all')
@@ -73,7 +72,7 @@ export function RemoveProjectAccess({
             <UnavailableButton
                 label={t("Remove")}
                 accessibleName={accessibleName}
-                reason="They have access to all projects. Change that on their page first."
+                reason={t("They have access to all projects. Change that on their page first.")}
             />
         );
     const removed = data.access.teams.filter((team) => team.projectIds.includes(project.id)).map((team) => team.id);

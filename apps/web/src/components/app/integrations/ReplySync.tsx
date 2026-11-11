@@ -14,7 +14,7 @@ import { setReplySyncAction } from './actions';
 export function ReplySync({ projectId, provider, enabled, canEnable, needsPermissions }: {
     projectId: string; provider: IntegrationProviderId; enabled: boolean; canEnable: boolean; needsPermissions: boolean;
 }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const id = useId(); const [checked, setChecked] = useState(enabled);
     const [state, save, pending] = useActionState(setReplySyncAction, null);
     return <Section id="reply-sync" title={t("Reply sync")} description={t("Keep the conversation together in uier and your connected tool.")}>

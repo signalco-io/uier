@@ -35,7 +35,7 @@ export function MarkAllRead({ projectId, threads }: { projectId: string; threads
                 break;
             }
         }
-        if (written) toast.success(t("{value0} {value1} marked as read.", { value0: written, value1: written === 1 ? 'thread' : 'threads' }));
+        if (written) toast.success(written === 1 ? t("1 thread marked as read.") : t("{count} threads marked as read.", { count: written }));
         if (failed.length) toast.error(t("Some threads could not be marked as read."), {
             action: { label: t("Retry"), onClick: () => run(failed) }
         });

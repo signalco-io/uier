@@ -1,5 +1,6 @@
 'use client';
 
+import { createAppTranslator } from '@/src/lib/i18n/translate';
 import { useAppI18n } from '@/src/lib/i18n/client';
 
 import { assigneeAgents, agentIsWorking, agentLabels, agentMarks, agentText, type AgentKind, type AssigneeAgentView } from '@uier/toolbar/agents';
@@ -46,7 +47,7 @@ export function AgentAvatar({ kind, workingUntil, className, compact = false }: 
 export type Assignee = { id: string; name: string; avatarUrl?: string; agent?: AssigneeAgentView; agents?: AssigneeAgentView[] };
 
 /** "Assigned to Ana" or "Assigned to you, with Claude Opus 5.5 (high reasoning)": the words of the avatars below */
-export function assignedLabel(assignee: Assignee | Assignee[] | undefined, userId?: string, t: import('@/src/lib/i18n/types').AppTranslator = text => text) {
+export function assignedLabel(assignee: Assignee | Assignee[] | undefined, userId?: string, t: import('@/src/lib/i18n/types').AppTranslator = createAppTranslator({})) {
     const people = Array.isArray(assignee) ? assignee : assignee ? [assignee] : [];
     if (!people.length) return t("Unassigned");
     return t("Assigned to {people}", { people: people.map(person => {

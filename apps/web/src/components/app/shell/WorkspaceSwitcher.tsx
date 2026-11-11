@@ -48,17 +48,18 @@ function AppIcon() {
 }
 
 function WorkspaceLabel({ workspace }: { workspace: WorkspaceOption }) {
+    const { t } = useAppI18n();
     return (
         <span className="grid flex-1 text-left text-sm leading-tight">
             <span className="truncate font-medium">{workspace.name}</span>
-            <span className="truncate text-xs text-muted-foreground">{workspace.role}</span>
+            <span className="truncate text-xs text-muted-foreground">{t(workspace.role)}</span>
         </span>
     );
 }
 
 /** The new workspace's name; a created workspace opens on its first project, so the dialog never closes on success */
 function CreateWorkspaceForm() {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const id = useId();
     const [name, setName] = useState('');
     const [state, formAction, pending] = useActionState(createWorkspaceAction, null);
@@ -102,7 +103,7 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, canManage = 
     currentWorkspaceId: string;
     canManage?: boolean;
 }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const { isMobile } = useSidebar();
     const [pending, startTransition] = useTransition();
     const [creating, setCreating] = useState(false);
@@ -137,7 +138,7 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, canManage = 
                                         <DropdownMenuItem key={workspace.id} onClick={() => workspace.id !== current.id && switchTo(workspace.id)}>
                                             <span className="flex min-w-0 flex-1 flex-col">
                                                 <span className="truncate">{workspace.name}</span>
-                                                <span className="text-xs text-muted-foreground">{workspace.role}</span>
+                                                <span className="text-xs text-muted-foreground">{t(workspace.role)}</span>
                                             </span>
                                             {workspace.id === current.id && <><CheckIcon aria-hidden="true" className="ml-auto" /><span className="sr-only">{t("current")}</span></>}
                                         </DropdownMenuItem>
@@ -163,8 +164,8 @@ export function WorkspaceSwitcher({ workspaces, currentWorkspaceId, canManage = 
                                     <DropdownMenuItem onClick={() => switchTo(feedback.id)}>
                                         <MegaphoneIcon />
                                         <span className="flex min-w-0 flex-1 flex-col">
-                                            <span className="truncate">{feedback.name}</span>
-                                            <span className="text-xs text-muted-foreground">{feedback.role}</span>
+                                            <span className="truncate">{t(feedback.name)}</span>
+                                            <span className="text-xs text-muted-foreground">{t(feedback.role)}</span>
                                         </span>
                                         {feedback.id === current.id && <><CheckIcon aria-hidden="true" className="ml-auto" /><span className="sr-only">{t("current")}</span></>}
                                     </DropdownMenuItem>

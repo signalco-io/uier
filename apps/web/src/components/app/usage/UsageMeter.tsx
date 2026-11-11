@@ -16,7 +16,8 @@ export function UsageMeter({ label, description, used, limit }: { label: string;
     const descriptionId = useId();
     const reached = used >= limit;
     const near = !reached && used >= limit * 0.8;
-    const value = `${used} of ${limit}`;
+    const number = new Intl.NumberFormat(language);
+    const value = t('{used} of {limit}', { used: number.format(used), limit: number.format(limit) });
     return (
         <div className="flex min-w-0 flex-col gap-1.5">
             <Progress
@@ -27,12 +28,12 @@ export function UsageMeter({ label, description, used, limit }: { label: string;
                 className={cn('gap-x-3 gap-y-2',
                     reached && '[&_[data-slot=progress-indicator]]:bg-destructive',
                     near && '[&_[data-slot=progress-indicator]]:bg-[hsl(var(--brand-warning))]')}>
-                <ProgressLabel className="min-w-0 flex-1 font-normal">{label}</ProgressLabel>
+                <ProgressLabel className="min-w-0 flex-1 font-normal">{t(label)}</ProgressLabel>
                 <span className={cn('shrink-0 text-sm tabular-nums', reached ? "text-destructive" : "text-muted-foreground")}>
                     {reached ? t("Limit reached · {value}", { value: value }) : value}
                 </span>
             </Progress>
-            {description && <p id={descriptionId} className="m-0 text-xs text-muted-foreground">{description}</p>}
+            {description && <p id={descriptionId} className="m-0 text-xs text-muted-foreground">{t(description)}</p>}
         </div>
     );
 }

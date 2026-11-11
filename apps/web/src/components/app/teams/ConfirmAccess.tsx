@@ -1,7 +1,6 @@
 'use client';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
-
-
 import { useState, useTransition, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
@@ -57,7 +56,7 @@ export function ConfirmAccess({
                     <DialogDescription>{description}</DialogDescription>
                 </DialogHeader>
                 {children}
-                <FormMessage state={result?.ok ? { ok: true, data: undefined, message: 'Access updated.' } : result} />
+                <FormMessage state={result?.ok ? { ok: true, data: undefined, message: t("Access updated.") } : result} />
                 <DialogFooter>
                     <Button variant="outline" disabled={pending} onClick={() => setOpen(false)}>{t("Cancel")}</Button>
                     <Button
@@ -67,7 +66,7 @@ export function ConfirmAccess({
                                 const outcome = await action();
                                 setResult(outcome);
                                 if (outcome?.ok) {
-                                    toast.success('Changes processed.');
+                                    toast.success(t("Changes processed."));
                                     setOpen(false);
                                     router.refresh();
                                     onSuccess?.();

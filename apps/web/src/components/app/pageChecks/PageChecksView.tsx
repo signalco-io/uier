@@ -49,10 +49,11 @@ const sortedColumn: Partial<Record<PageCheckOrder, { column: string; direction: 
 };
 
 function Checked({ page }: { page: PageCheckRow }) {
+    const { t } = useAppI18n();
     return (
         <span className="flex flex-col gap-0.5">
             <RelativeTime value={page.checkedAt} short />
-            <span className="text-muted-foreground">{changeText(page)}</span>
+            <span className="text-muted-foreground">{changeText(page, t)}</span>
         </span>
     );
 }
@@ -71,6 +72,8 @@ export function PageChecksView({ projectId, pages, environments }: {
 }) {
     const { t } = useAppI18n();
     const params = useUrlSearchParams();
+    const translatedOrders = orderItems.map(item => ({ ...item, label: t(item.label) }));
+    const translatedFilters = filterItems.map(item => ({ ...item, label: t(item.label) }));
     const requested = params.get('sort');
     const order: PageCheckOrder = isPageCheckOrder(requested) ? requested : 'attention';
     // Which pages the list shows (uier #221): all by default, kept in the address as `?show=`
@@ -96,14 +99,14 @@ export function PageChecksView({ projectId, pages, environments }: {
                 </div>
                 {pages.length > 0 && (
                     <div className="flex max-w-full flex-wrap gap-2">
-                        <Select items={filterItems} value={filter}
+                        <Select items={translatedFilters} value={filter}
                             onValueChange={next => setUrlSearchParams({ show: next && next !== 'all' ? next : undefined })}>
                             <SelectTrigger size="sm" aria-label={t("Show pages")} className="w-56 max-w-full">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectGroup>
-                                    {filterItems.map(item => (
+                                    {translatedFilters.map(item => (
                                         <SelectItem key={item.value} value={item.value}>
                                             <span className="flex-1">{item.label}</span>{' '}
                                             <span className="text-muted-foreground tabular-nums">
@@ -114,14 +117,14 @@ export function PageChecksView({ projectId, pages, environments }: {
                                 </SelectGroup>
                             </SelectContent>
                         </Select>
-                        <Select items={orderItems} value={order}
+                        <Select items={translatedOrders} value={order}
                             onValueChange={next => setUrlSearchParams({ sort: next && next !== 'attention' ? next : undefined })}>
                             <SelectTrigger size="sm" aria-label={t("Sort pages")} className="w-48 max-w-full">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectGroup>
-                                    {orderItems.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+                                    {translatedOrders.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
                                 </SelectGroup>
                             </SelectContent>
                         </Select>
@@ -145,7 +148,7 @@ export function PageChecksView({ projectId, pages, environments }: {
                     <section aria-labelledby="checked-pages-title" className="@container/page-checks flex flex-col gap-3">
                         <h3 id="checked-pages-title" className="m-0 text-base font-semibold tracking-[-0.01em]">
                             {t("Pages ")}<span className="font-normal text-muted-foreground tabular-nums">
-                                {filter === 'all' ? pages.length : `${sorted.length} of ${pages.length}`}
+                                {filter === 'all' ? pages.length : t("{shown} of {total}", { shown: sorted.length, total: pages.length })}
                             </span>
                         </h3>
                         {sorted.length === 0 && (
@@ -194,7 +197,7 @@ export function PageChecksView({ projectId, pages, environments }: {
                                         {([[t("Accessibility"), <AccessibilityResult key="a" page={page} />], ['SEO', <SeoResult key="s" page={page} />],
                                             [t("Core Web Vitals"), <VitalsResult key="v" page={page} />], [t("Checked"), <Checked key="c" page={page} />]] as const).map(([label, value]) => (
                                             <div key={label} className="flex min-w-0 flex-col gap-1">
-                                                <dt className="text-xs text-muted-foreground">{label}</dt>
+                                                <dt className="text-xs text-muted-foreground">{t(label)}</dt>
                                                 <dd className="m-0 min-w-0">{value}</dd>
                                             </div>
                                         ))}

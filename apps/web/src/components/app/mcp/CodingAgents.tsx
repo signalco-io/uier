@@ -29,7 +29,7 @@ export function CodingAgents({ endpoint, apps, projects, credentials }: {
     projects: { id: string; name: string }[];
     credentials: AccessToken[];
 }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     return (
         <section aria-label={t("Coding agents")} className="flex flex-col gap-6">
             <ConnectedApps apps={apps} />
@@ -43,7 +43,7 @@ export function CodingAgents({ endpoint, apps, projects, credentials }: {
 
 /** Both repository marketplaces install the same skills and the public uier MCP connector. */
 function PluginSetup() {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     return (
         <Section id="plugins" title={t("Install the uier plugin")}
             description={t("Get the MCP connector and the uier-monitor skills together for Claude Code or Codex.")}>
@@ -87,7 +87,7 @@ function Step({ number, title, children }: { number: number; title: ReactNode; c
 }
 
 function ClientSetup({ endpoint }: { endpoint: string }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const clients = mcpClientConfigurations(endpoint);
     return (
         <Section id="connect" title={t("Connect a coding tool")}
@@ -137,7 +137,7 @@ function ClientSetup({ endpoint }: { endpoint: string }) {
                 <details className="rounded-lg border">
                     <summary className="cursor-pointer px-4 py-3 font-medium">{t("Other clients")}</summary>
                     <div className="flex flex-col gap-3 px-4 pb-4 text-muted-foreground">
-                        <p className="m-0">{t("Claude on the web, desktop and mobile is not offered yet. Its custom connector has not been checked against uier’s sign-in. Request headers for custom connectors are in beta for a limited set of organizations. Where they are available on an individual plan, a custom connector can use the endpoint URL, No sign-in, and")}{' '}<code>{t("Authorization: Bearer &lt;access token&gt;")}</code> {t("under Request headers. Claude connects from Anthropic’s servers and cannot reach a local endpoint. Team and Enterprise plans would share your personal token, so do not use one there.")}{' '}<a className={link} href="https://claude.com/docs/connectors/custom/add-unlisted#authenticate-with-request-headers" target="_blank" rel="noreferrer">{t("Claude connector documentation")}</a></p>
+                        <p className="m-0">{t("Claude on the web, desktop and mobile is not offered yet. Its custom connector has not been checked against uier’s sign-in. Request headers for custom connectors are in beta for a limited set of organizations. Where they are available on an individual plan, a custom connector can use the endpoint URL, No sign-in, and")}{' '}<code>{t("Authorization: Bearer <access token>")}</code> {t("under Request headers. Claude connects from Anthropic’s servers and cannot reach a local endpoint. Team and Enterprise plans would share your personal token, so do not use one there.")}{' '}<a className={link} href="https://claude.com/docs/connectors/custom/add-unlisted#authenticate-with-request-headers" target="_blank" rel="noreferrer">{t("Claude connector documentation")}</a></p>
                         <p className="m-0">{t("VS Code is not offered until a connection can be verified. Its")}{' '}<a className={link} href="https://code.visualstudio.com/docs/agents/reference/mcp-configuration" target="_blank" rel="noreferrer">{t("MCP documentation")}</a> {t("describes masked secret inputs.")}</p>
                         <p className="m-0">{t("Windsurf is not offered until a connection can be verified. Its")}{' '}<a className={link} href="https://docs.devin.ai/desktop/cascade/mcp" target="_blank" rel="noreferrer">{t("current documentation")}</a> {t("describes legacy Cascade in Devin Desktop.")}</p>
                     </div>
@@ -156,7 +156,7 @@ const prompts = [
 ];
 
 function PromptsAndSkill() {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const skill = feedbackSkill();
     return (
         <Section id="skill" title={t("Prompts and agent skill")} description={t("Prompts a connected coding tool can use, and a skill with the same workflow.")}>

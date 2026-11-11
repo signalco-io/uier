@@ -41,7 +41,7 @@ export function ProjectOrderMenu({ order, onChange, canGroupByClient, className 
     canGroupByClient: boolean;
     className?: string;
 }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const groupings = projectGroupings.filter(group => group !== 'client' || canGroupByClient);
     // Grouped by client without any client, the list is not grouped: show that
     const group = groupings.includes(order.group) ? order.group : "none";
@@ -58,14 +58,14 @@ export function ProjectOrderMenu({ order, onChange, canGroupByClient, className 
                 <DropdownMenuRadioGroup value={order.sort} onValueChange={(sort: ProjectSort) => onChange({ ...order, sort })}>
                     <DropdownMenuLabel>{t("Sort")}</DropdownMenuLabel>
                     {projectSorts.map(sort => (
-                        <DropdownMenuRadioItem key={sort} value={sort}>{sortLabels[sort]}</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem key={sort} value={sort}>{t(sortLabels[sort])}</DropdownMenuRadioItem>
                     ))}
                 </DropdownMenuRadioGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuRadioGroup value={group} onValueChange={(next: ProjectGrouping) => onChange({ ...order, group: next })}>
                     <DropdownMenuLabel>{t("Group")}</DropdownMenuLabel>
                     {groupings.map(grouping => (
-                        <DropdownMenuRadioItem key={grouping} value={grouping}>{groupLabels[grouping]}</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem key={grouping} value={grouping}>{t(groupLabels[grouping])}</DropdownMenuRadioItem>
                     ))}
                 </DropdownMenuRadioGroup>
             </DropdownMenuContent>

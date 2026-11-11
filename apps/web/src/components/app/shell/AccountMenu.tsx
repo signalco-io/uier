@@ -41,7 +41,7 @@ const VISIBLE_ACCOUNTS = 3;
 
 /** The signed-in person at the bottom of the sidebar: account, theme, keyboard shortcuts and sign out */
 export function AccountMenu({ name, avatarUrl, accounts }: { name: string; avatarUrl?: string; accounts: BrowserAccount[] }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const { isMobile } = useSidebar();
     const { theme, setTheme } = useTheme();
     const [pending, startTransition] = useTransition();

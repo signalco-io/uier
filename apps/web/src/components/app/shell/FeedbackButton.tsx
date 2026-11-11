@@ -11,7 +11,7 @@ import { openToolbarFeedback } from '../../toolbar/ToolbarScript';
  * pages it is private to the person and the uier team (`isPrivateAppFeedback`).
  */
 export function FeedbackButton() {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const { isMobile, setOpenMobile } = useSidebar();
 
     const handleClick = () => {

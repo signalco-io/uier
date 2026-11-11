@@ -1,4 +1,3 @@
-
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { CircleAlertIcon } from 'lucide-react';
 import { Alert, AlertDescription } from '@/src/components/ui/alert';
@@ -19,14 +18,15 @@ const problems: Record<string, string> = {
     unavailable: 'Microsoft sign-in is not available here. Sign in with your email.'
 };
 
-export function MicrosoftSignInProblem({ outcome }: { outcome?: string | string[] }) {
+export async function MicrosoftSignInProblem({ outcome }: { outcome?: string | string[] }) {
+    const { t } = await getAppI18n();
     const problem = typeof outcome === 'string' && Object.hasOwn(problems, outcome) ? problems[outcome] : undefined;
     if (!problem) return null;
-    return <Alert role="alert" className="mb-3"><CircleAlertIcon /><AlertDescription>{problem}</AlertDescription></Alert>;
+    return <Alert role="alert" className="mb-3"><CircleAlertIcon /><AlertDescription>{t(problem)}</AlertDescription></Alert>;
 }
 
 export async function MicrosoftSignInButton({ next, lastUsed, addingAccount = false }: { next?: string; lastUsed?: boolean; addingAccount?: boolean }) {
-    const { t, language } = await getAppI18n();
+    const { t } = await getAppI18n();
     if (!isMicrosoftSignInConfigured()) return null;
     const params = new URLSearchParams();
     if (next) params.set('next', next);

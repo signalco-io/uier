@@ -38,7 +38,7 @@ function Finding({ id, title, description, count, empty, children }: {
     /** The pages, for the search (lowercase, trimmed; empty for all) */
     children: (query: string) => ReactNode;
 }) {
-    const { t } = useAppI18n();
+    const { t, language } = useAppI18n();
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState('');
     return (
@@ -66,7 +66,7 @@ function Finding({ id, title, description, count, empty, children }: {
                                 <InputGroup className="h-8">
                                     <InputGroupAddon><SearchIcon aria-hidden="true" /></InputGroupAddon>
                                     <InputGroupInput type="search" value={search} onChange={event => setSearch(event.target.value)}
-                                        aria-label={t("Search {value0}", { value0: title.toLocaleLowerCase('en') })} placeholder={t("Search pages")} className="pointer-coarse:min-h-11" />
+                                        aria-label={t("Search {value0}", { value0: title.toLocaleLowerCase(language) })} placeholder={t("Search pages")} className="pointer-coarse:min-h-11" />
                                 </InputGroup>
                             )}
                             <div className="max-h-80 min-w-0 overflow-y-auto overscroll-contain">
@@ -80,7 +80,10 @@ function Finding({ id, title, description, count, empty, children }: {
     );
 }
 
-const noMatch = <p className="m-0 text-sm text-muted-foreground">No pages match the search.</p>;
+function NoMatch() {
+    const { t } = useAppI18n();
+    return <p className="m-0 text-sm text-muted-foreground">{t('No pages match the search.')}</p>;
+}
 
 /** One level of the hierarchy and the levels under it, each under a line from its parent */
 function Levels({ nodes, label, links, nested }: { nodes: PathNode<PageCheckRow>[]; label?: string; links: Links; nested?: boolean }) {
@@ -119,7 +122,7 @@ function PageTree({ pages, label, links }: { pages: readonly PageCheckRow[]; lab
 
 function PageList({ pages, label, links, query }: { pages: readonly PageCheckRow[]; label: string; links: Links; query: string }) {
     const shown = pages.filter(page => pageMatches(page, query));
-    return shown.length ? <PageTree pages={shown} label={label} links={links} /> : noMatch;
+    return shown.length ? <PageTree pages={shown} label={label} links={links} /> : <NoMatch />;
 }
 
 /** Each shared text with its pages; the search finds the text or its pages */
@@ -128,7 +131,7 @@ function SharedList({ groups, links, query }: { groups: SharedText[]; links: Lin
     const shown = groups
         .map(group => normalized(group.text).includes(query) ? group : { ...group, pages: group.pages.filter(page => pageMatches(page, query)) })
         .filter(group => group.pages.length);
-    if (!shown.length) return noMatch;
+    if (!shown.length) return <NoMatch />;
     return (
         <ul className="m-0 flex list-none flex-col gap-3 p-0">
             {shown.map(group => (

@@ -200,7 +200,7 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
                 setSelection(current => current.scope === originalScope ? { scope: originalScope, ids: failed } : current);
                 const retryIds = new Set(results.filter(item => item.outcome === 'failure').map(item => item.id));
                 if (retryIds.size && scopeRef.current === originalScope) setRetry({ scope: originalScope, batch: { ...batch, items: batch.items.filter(item => retryIds.has(item.id)) } as BulkTriageInput });
-                setResult(`${counts.success} changed, ${counts.noop} unchanged, ${counts.conflict} stale, ${counts.unavailable} unavailable, ${counts.failure} failed.${counts.conflict ? t(" Review stale threads before starting a new action.") : ''}`);
+                setResult(t("{changed} changed, {unchanged} unchanged, {stale} stale, {unavailable} unavailable, {failed} failed.", { changed: counts.success, unchanged: counts.noop, stale: counts.conflict, unavailable: counts.unavailable, failed: counts.failure }) + (counts.conflict ? t(" Review stale threads before starting a new action.") : ''));
             } catch {
                 start(() => { for (const item of batch.items) rollback(item.id); });
                 setDetails([]);
@@ -395,8 +395,8 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
                                     aria-label={eligible.length > limit ? t("Select first 50 shown") : t("Select shown results")}
                                     onCheckedChange={() => { setExplicit(true); setSelection({ scope, ids: allChecked ? [] : firstShown.map(comment => comment.id) }); }} />
                                 {pending
-                                    ? <span role="status" className="flex items-center gap-2 text-sm whitespace-nowrap"><Spinner />{t("Saving ")}{pendingCount}{t(" threads")}</span>
-                                    : <span role="status" className="text-sm whitespace-nowrap tabular-nums">{ids.size}{t(" selected")}</span>}
+                                    ? <span role="status" className="flex items-center gap-2 text-sm whitespace-nowrap"><Spinner />{t("Saving {count} threads", { count: pendingCount })}</span>
+                                    : <span role="status" className="text-sm whitespace-nowrap tabular-nums">{t("{count} selected", { count: ids.size })}</span>}
                             </div>
                             <Separator orientation="vertical" className="data-vertical:h-5 data-vertical:self-center @max-xl/comments:hidden" />
                             {/* On a narrow screen the actions take a line of their own */}
@@ -408,7 +408,7 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
                                     </SelectTrigger>
                                     <SelectContent side="top" alignItemWithTrigger={false}><SelectGroup><SelectItem className="pointer-coarse:min-h-11" value="unassigned">{t("Unassign")}</SelectItem>{availableAssignees.map(person => <SelectItem className="pointer-coarse:min-h-11" key={person.userId} value={person.userId}>{person.name}</SelectItem>)}</SelectGroup></SelectContent>
                                 </Select>
-                                <Select items={priorityLabels} value={null} onValueChange={value => value && begin({ kind: 'priority', priority: value })}>
+                                <Select items={Object.fromEntries(Object.entries(priorityLabels).map(([value, label]) => [value, t(label)]))} value={null} onValueChange={value => value && begin({ kind: 'priority', priority: value })}>
                                     <SelectTrigger size="sm" className={cn('border-transparent hover:bg-muted data-placeholder:text-foreground dark:bg-transparent', actionClassName)} aria-label={t("Prioritize selected")} disabled={pending || !ids.size}>
                                         <FlagIcon data-icon="inline-start" aria-hidden="true" /><SelectValue placeholder={t("Priority")} />
                                     </SelectTrigger>

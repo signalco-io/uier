@@ -18,7 +18,7 @@ import { integrationLabels, isIntegrationProvider } from '@/src/lib/integrations
 import { projectSettingsSections } from '../projects/projectSettingsSections';
 import { accountSections } from '../account/accountSections';
 
-type Crumb = { label: string; href: string };
+type Crumb = { label: string; href: string; translate?: boolean };
 
 const projectPages: Record<string, string> = { install: 'Install', settings: 'Settings' };
 
@@ -47,7 +47,7 @@ function crumbs(pathname: string, projectNames: Record<string, string>): Crumb[]
             return [root];
         if (id === 'new')
             return [root, { label: 'Create project', href: KnownPages.AppNewProject }];
-        const project = { label: projectNames[id] ?? 'Project', href: KnownPageLinks.project(id) };
+        const project = { label: projectNames[id] ?? 'Project', translate: !projectNames[id], href: KnownPageLinks.project(id) };
         const pageLabel = page ? projectPages[page] : undefined;
         if (!pageLabel)
             return [root, project];
@@ -81,7 +81,7 @@ function crumbs(pathname: string, projectNames: Record<string, string>): Crumb[]
 }
 
 export function AppBreadcrumbs({ projectNames }: { projectNames: Record<string, string> }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const items = crumbs(usePathname(), projectNames);
     if (!items.length)
         return null;
@@ -98,8 +98,8 @@ export function AppBreadcrumbs({ projectNames }: { projectNames: Record<string, 
                             {/* One line in the 48 px bar: a long name (a project's) is cut short rather than wrapped */}
                             <BreadcrumbItem className={last ? "min-w-0" : "hidden min-w-0 md:inline-flex"}>
                                 {last
-                                    ? <BreadcrumbPage className="truncate">{t(item.label)}</BreadcrumbPage>
-                                    : <BreadcrumbLink render={<Link href={item.href} />} className="max-w-56 truncate">{t(item.label)}</BreadcrumbLink>}
+                                    ? <BreadcrumbPage className="truncate">{item.translate === false ? item.label : t(item.label)}</BreadcrumbPage>
+                                    : <BreadcrumbLink render={<Link href={item.href} />} className="max-w-56 truncate">{item.translate === false ? item.label : t(item.label)}</BreadcrumbLink>}
                             </BreadcrumbItem>
                         </Fragment>
                     );

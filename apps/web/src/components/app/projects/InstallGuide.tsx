@@ -1,4 +1,5 @@
 
+import type { AppTranslator } from '@/src/lib/i18n/types';
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { BrowserExtensionGuide } from './BrowserExtensionGuide';
 import type { ReactNode } from 'react';
@@ -22,43 +23,43 @@ type Platform = {
 const Code = ({ children }: { children: ReactNode }) => <code className="font-mono">{children}</code>;
 
 // Only steps that put the script tag at the end of <body>, where the generic instructions say
-const platforms: Platform[] = [
+const getPlatforms = (t: AppTranslator): Platform[] => [
     {
         id: 'html',
         label: 'HTML',
         steps: ['Open the HTML of every page you want to review (or the shared template).', 'Paste the script right before the closing </body> tag.'],
-        csp: <>If your server sends a <Code>Content-Security-Policy</Code> header, or a page has a CSP <Code>&lt;meta&gt;</Code> tag, add these sources to its matching directives.</>
+        csp: <>{t("If your server sends a")}{' '}<Code>Content-Security-Policy</Code>{' '}{t("header, or a page has a CSP")}{' '}<Code>&lt;meta&gt;</Code>{' '}{t("tag, add these sources to its matching directives.")}</>
     },
     {
         id: 'nextjs',
         label: 'Next.js',
         steps: ['Open app/layout.tsx (pages/_app.tsx with the Pages Router).', 'Add the script with next/script inside <body>.'],
         code: nextJsSnippet,
-        csp: <>Next.js apps set a <Code>Content-Security-Policy</Code> in <Code>headers()</Code> of next.config.js, or in proxy.ts (middleware.ts before Next.js 16). If yours does, add these sources to its matching directives.</>
+        csp: <>{t("Next.js apps set a")}{' '}<Code>Content-Security-Policy</Code>{' '}{t("in")}{' '}<Code>headers()</Code>{' '}{t("of next.config.js, or in proxy.ts (middleware.ts before Next.js 16). If yours does, add these sources to its matching directives.")}</>
     },
     {
         id: 'react',
         label: 'React',
         steps: ['Open index.html (public/index.html with Create React App, the project root with Vite).', 'Paste the script right before the closing </body> tag.'],
-        csp: <>A React app gets its <Code>Content-Security-Policy</Code> from its host (vercel.json, Netlify <Code>_headers</Code>, your server) or a CSP <Code>&lt;meta&gt;</Code> tag in index.html. If yours has one, add these sources to its matching directives.</>
+        csp: <>{t("A React app gets its")}{' '}<Code>Content-Security-Policy</Code>{' '}{t("from its host (vercel.json, Netlify")}{' '}<Code>_headers</Code>{t(", your server) or a CSP")}{' '}<Code>&lt;meta&gt;</Code>{' '}{t("tag in index.html. If yours has one, add these sources to its matching directives.")}</>
     },
     {
         id: 'wordpress',
         label: 'WordPress',
         steps: ['Use a code snippets plugin such as WPCode and add the script to the site-wide footer.', 'Or, in a child theme, paste it into footer.php right before </body>.'],
-        csp: <>WordPress sends no <Code>Content-Security-Policy</Code> by default. If a security plugin, your host or the server config (.htaccess, nginx) adds one, add these sources to its matching directives there.</>
+        csp: <>{t("WordPress sends no")}{' '}<Code>Content-Security-Policy</Code>{' '}{t("by default. If a security plugin, your host or the server config (.htaccess, nginx) adds one, add these sources to its matching directives there.")}</>
     },
     {
         id: 'webflow',
         label: 'Webflow',
         steps: ['Open Site settings, then Custom code.', 'Paste the script into Footer code and publish the site.'],
-        csp: <>Webflow sends a <Code>Content-Security-Policy</Code> only with custom security headers (Enterprise). If your site has one, add these sources to it in Site settings, Publishing, Custom headers, then publish again.</>
+        csp: <>{t("Webflow sends a")}{' '}<Code>Content-Security-Policy</Code>{' '}{t("only with custom security headers (Enterprise). If your site has one, add these sources to it in Site settings, Publishing, Custom headers, then publish again.")}</>
     },
     {
         id: 'shopify',
         label: 'Shopify',
         steps: ['Open Online Store, Themes, then Edit code on your theme.', 'In layout/theme.liquid, paste the script right before </body> and save.'],
-        csp: <>Shopify stores send a <Code>Content-Security-Policy</Code> that does not limit scripts, so most need nothing. If layout/theme.liquid has a CSP <Code>&lt;meta&gt;</Code> tag, add these sources to its matching directives.</>
+        csp: <>{t("Shopify stores send a")}{' '}<Code>Content-Security-Policy</Code>{' '}{t("that does not limit scripts, so most need nothing. If layout/theme.liquid has a CSP")}{' '}<Code>&lt;meta&gt;</Code>{' '}{t("tag, add these sources to its matching directives.")}</>
     }
 ];
 
@@ -130,14 +131,14 @@ export async function PlatformSteps({ baseUrl, publicId }: { baseUrl: string; pu
     return (
         <Tabs defaultValue="html" className="gap-3">
             <TabsList aria-label={t("Platform")} className="flex-wrap justify-start group-data-horizontal/tabs:h-auto">
-                {platforms.map(platform => (
+                {getPlatforms(t).map(platform => (
                     <TabsTrigger key={platform.id} value={platform.id} className="flex-none">{t(platform.label)}</TabsTrigger>
                 ))}
             </TabsList>
-            {platforms.map(platform => (
+            {getPlatforms(t).map(platform => (
                 <TabsContent key={platform.id} value={platform.id} className="flex flex-col gap-3">
                     <ol className="m-0 flex list-decimal flex-col gap-1 pl-5 text-sm">
-                        {platform.steps.map(step => <li key={step}>{step}</li>)}
+                        {platform.steps.map(step => <li key={step}>{t(step)}</li>)}
                     </ol>
                     {platform.code && (<>
                         <CopyBlock value={platform.code(baseUrl, publicId)} label={t("Copy the {value0} code", { value0: platform.label })} />

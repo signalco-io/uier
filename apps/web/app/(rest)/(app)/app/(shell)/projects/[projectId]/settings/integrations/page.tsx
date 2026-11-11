@@ -86,7 +86,7 @@ async function ProjectIntegrationsSettingsPageContent({ params }: PageProps<'/ap
                                     {states[provider].configured && <a href={integrationConnectHref(provider, project.id)} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
                                             <ArrowUpRight data-icon="inline-start" />{t("Connect")}<span className="sr-only"> {name}</span>
                                         </a>}
-                                    <Link href={KnownPageLinks.projectIntegration(project.id, provider)} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>{t("Details")}<span className="sr-only"> about {name}</span></Link>
+                                    <Link href={KnownPageLinks.projectIntegration(project.id, provider)} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>{t("Details")}<span className="sr-only">{' '}{t("about")}{' '}{name}</span></Link>
                                 </div>
                             </li>
                         ))}

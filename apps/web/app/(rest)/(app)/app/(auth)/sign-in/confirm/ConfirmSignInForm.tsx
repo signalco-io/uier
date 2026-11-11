@@ -13,7 +13,7 @@ import { confirmSignInAction } from '../actions';
  * must not use up the single-use link.
  */
 export function ConfirmSignInForm({ token }: { token: string }) {
-    const { t, language } = useAppI18n();
+    const { t } = useAppI18n();
     const [state, formAction, pending] = useActionState(confirmSignInAction, null);
     return (
         <form action={formAction} className="flex flex-col gap-4">

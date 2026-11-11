@@ -23,7 +23,7 @@ import { useMentionTextarea, type MessageMention } from './MentionTextarea';
  * named `submitLabel`, "save" a text button.
  */
 export function MessageComposer({ label, formLabel = label, name, placeholder, value, mentions, onValueChange, mentionsIn, maxLength = 1000, textareaRef,
-    submitLabel, submitVerb, onSubmit, pending = false, cancelLabel = t("Cancel"), onCancel, escapeCancels = false, onDiscard, error, announcement, notices, attachments, onPaste, holdSubmit = false }: {
+    submitLabel, submitVerb, onSubmit, pending = false, cancelLabel, onCancel, escapeCancels = false, onDiscard, error, announcement, notices, attachments, onPaste, holdSubmit = false }: {
     attachments?: ReactNode;
     onPaste?: ClipboardEventHandler<HTMLFormElement>;
     holdSubmit?: boolean;
@@ -102,7 +102,7 @@ export function MessageComposer({ label, formLabel = label, name, placeholder, v
                         </span>
                     </div>
                     <div className="flex shrink-0 items-center gap-0.5">
-                        {onCancel && <Button variant="ghost" size="xs" className="pointer-coarse:min-h-11" onClick={onCancel}>{cancelLabel}</Button>}
+                        {onCancel && <Button variant="ghost" size="xs" className="pointer-coarse:min-h-11" onClick={onCancel}>{cancelLabel ?? t("Cancel")}</Button>}
                         {onDiscard && value.length > 0 && <Button variant="ghost" size="xs" className="pointer-coarse:min-h-11" onClick={onDiscard}>{t("Discard")}</Button>}
                         {submitVerb === 'send'
                             ? <Tooltip>
@@ -120,7 +120,7 @@ export function MessageComposer({ label, formLabel = label, name, placeholder, v
             </InputGroup>
             {/* For screen readers only, out of the layout: Enter in a text box usually adds a line */}
             <FieldDescription id={keysId} className="sr-only">
-                {t("Enter to ")}{submitVerb}{t(". Shift+Enter for a new line.")}{escape && t(" Escape to cancel.")}
+                {submitVerb === 'send' ? t("Enter to send. Shift+Enter for a new line.") : t("Enter to save. Shift+Enter for a new line.")}{escape && t(" Escape to cancel.")}
             </FieldDescription>
             {list}
             {error && <FieldError role="alert">{error}</FieldError>}

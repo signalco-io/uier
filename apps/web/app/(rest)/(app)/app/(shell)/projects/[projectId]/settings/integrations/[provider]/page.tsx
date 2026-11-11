@@ -35,7 +35,8 @@ import type { NotionConnection } from '@/src/lib/integrations/notion/model';
 
 export async function generateMetadata({ params }: PageProps<'/app/projects/[projectId]/settings/integrations/[provider]'>): Promise<Metadata> {
     const { provider } = await params;
-    return { title: `${isIntegrationProvider(provider) ? integrationLabels[provider] : 'Integration'} · Project settings` };
+    const { t } = await getAppI18n();
+    return { title: `${isIntegrationProvider(provider) ? integrationLabels[provider] : t('Integration')} · ${t('Project settings')}` };
 }
 
 /**
