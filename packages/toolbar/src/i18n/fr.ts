@@ -79,7 +79,9 @@ export const fr: Messages = {
         languageSavedAccount: 'Votre choix est enregistré dans votre compte uier.',
         languageSavedBrowser: 'Votre choix reste dans ce navigateur.',
         languageNotSaved: 'Votre langue n’a pas pu être enregistrée. Réessayez.',
-        languageNotLoaded: 'Cette langue n’a pas pu être chargée. Choisissez-la de nouveau pour réessayer.'
+        languageNotLoaded: 'Cette langue n’a pas pu être chargée. Choisissez-la de nouveau pour réessayer.',
+        environment: 'Environnement',
+        environmentHint: 'Ouvre cette page dans l’environnement choisi.'
     },
     shortcutList: {
         addComment: 'Ajouter un commentaire',

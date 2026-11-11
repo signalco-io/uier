@@ -79,7 +79,9 @@ export const de: Messages = {
         languageSavedAccount: 'Ihre Auswahl wird in Ihrem uier-Konto gespeichert.',
         languageSavedBrowser: 'Ihre Auswahl bleibt in diesem Browser.',
         languageNotSaved: 'Ihre Sprache konnte nicht gespeichert werden. Versuchen Sie es erneut.',
-        languageNotLoaded: 'Diese Sprache konnte nicht geladen werden. Wählen Sie sie erneut, um es noch einmal zu versuchen.'
+        languageNotLoaded: 'Diese Sprache konnte nicht geladen werden. Wählen Sie sie erneut, um es noch einmal zu versuchen.',
+        environment: 'Umgebung',
+        environmentHint: 'Öffnet diese Seite in der gewählten Umgebung.'
     },
     shortcutList: {
         addComment: 'Kommentar hinzufügen',

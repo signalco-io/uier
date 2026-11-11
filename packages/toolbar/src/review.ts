@@ -141,6 +141,39 @@ export function commentLink(comment: { id: string; path: string; sourcePath?: st
     return url.toString();
 }
 
+/** An address a reviewer can open: an http(s) origin, nothing else */
+function openableOrigin(origin: string) {
+    try {
+        const url = new URL(origin);
+        return ['http:', 'https:'].includes(url.protocol) && url.origin === origin;
+    } catch {
+        return false;
+    }
+}
+
+/** The project's environments the toolbar can switch to (Options → Environment) */
+export function switchableEnvironments<T extends { origin: string }>(environments: readonly T[] | undefined) {
+    return (environments ?? []).filter(item => openableOrigin(item.origin));
+}
+
+/**
+ * This page on another of the project's environments: only the origin changes, the path, query and hash
+ * stay. In a review it carries the review link too. The path is set on its own, so a path like `//host`
+ * can't lead to another site.
+ */
+export function environmentLink(origin: string, review: ReviewSession | null | undefined, location: Pick<Location, 'pathname' | 'search' | 'hash'> = window.location) {
+    if (!openableOrigin(origin)) return undefined;
+    const url = new URL(origin);
+    url.pathname = location.pathname;
+    url.search = location.search;
+    url.hash = location.hash;
+    // Appended as text: `searchParams` would rewrite the page's own query (`?a+b`, `?flag`)
+    const [key, value] = review?.projectCode ? [toolbarCodeParamKey, review.projectCode] : [reviewParamKey, 'true'];
+    if (review && url.searchParams.get(key) !== value)
+        url.search = `${url.search ? `${url.search}&` : '?'}${key}=${encodeURIComponent(value)}`;
+    return url.toString();
+}
+
 /** The comment the page was opened for (`?uier-comment=`); the parameter is removed from the address */
 export function takeLinkedCommentId() {
     const url = new URL(window.location.href);

@@ -87,6 +87,8 @@ export type ProjectViewer = {
     environmentLabel?: string;
     environmentOptions?: { id: string; label: string }[];
     setEnvironment?: (value: string) => void;
+    /** The project's addresses, each with its label: Options → Environment opens this page on another */
+    environments?: { origin: string; label: string }[];
     draftScope?: string;
     pageState: PageStatePolicy;
     /** Guests tag their comments with a name; members comment under their account name */
@@ -235,6 +237,7 @@ function ProjectEnvironmentProvider({ info, children }: PropsWithChildren<{ info
         access: info.project.access, brief: info.project.brief, feedbackTypes: info.project.feedbackTypes,
         isMember: info.viewer.kind === 'member', draftScope: info.viewer.draftScope,
         needsName: info.viewer.kind !== 'member', pageState: info.project.pageState ?? defaultPageStatePolicy,
-        currentEnvironment, environment, environmentLabel: current?.label, environmentOptions: options, setEnvironment
+        currentEnvironment, environment, environmentLabel: current?.label, environmentOptions: options, setEnvironment,
+        environments: info.project.environments
     }}>{children}</ProjectViewerContext.Provider>;
 }
