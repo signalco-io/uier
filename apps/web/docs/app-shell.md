@@ -33,8 +33,10 @@
   comments list with its thread beside it (capped at 96rem, [comments inbox](comments-inbox.md)) do it, and the comments'
   filters header above them, the count line under that header and the project header take their width. [Page checks](page-checks.md)
   takes the list's width too (96rem at most, uier #214), and so does the project header above it. uier's own workspace, which every account joins for Give feedback, is a
-  `feedback` option in the switcher for people who are not its admins: its own entry after Create workspace,
-  named "Feedback on uier", never in the list of their workspaces. A project's header is
+  `feedback` option in the switcher for people who are not its admins, and the menu leaves it out (uier #257): their
+  sent feedback is in Give feedback's toolbar. Only while a saved selection still has them in it is it listed, checked,
+  as "Feedback on uier" beside their own workspaces to switch back to. Every account is in another workspace too
+  (`getAppContext` creates its own when it has none), so there is always one to switch to. A project's header is
   `projects/[projectId]/layout.tsx` (the favicon in `PageHeader`'s `media`, beside both the name and the row under it: client (a link to the projects list filtered to it, `KnownPageLinks.clientProjects`, on the Done tab for a done project; uier #241), then who can comment (`ProjectAccessInfo`: its popover has the guest links and Invite for admins; for those who configure the project the label is a link to Who can comment in Review settings, `KnownPageLinks.projectAccessSettings`, and the popover opens on hover only, so Who can comment there shows the guest links too), Open
   review and the settings cog (`ProjectSettingsButton`, an icon link with a tooltip, current on the settings pages),
   then the `ProjectTabs`: Comments, [Page checks](page-checks.md) and Install (Settings → Installation and the onboarding
