@@ -558,6 +558,37 @@ test('project settings sections save the name, comment access and addresses', as
     await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'Marketing site' })).toBeVisible();
 });
 
+test('on a phone, project settings fade the tabs hidden past an edge and keep the usage numbers in line', async ({ page }) => {
+    await page.setViewportSize({ width: 402, height: 833 });
+    await signIn(page, uniqueEmail());
+    const projectId = await createProject(page, { urls: ['narrow-settings.example.com'] });
+    await page.goto(`/app/projects/${projectId}/settings`);
+
+    // The sections scroll sideways: an edge fades out only while more tabs are past it (uier #283)
+    const sections = page.getByRole('navigation', { name: 'Project settings' });
+    await expect(sections.getByRole('link', { name: 'General' })).toHaveAttribute('aria-current', 'page');
+    await expect(sections).toHaveAttribute('data-hidden-end', 'true');
+    await expect(sections).not.toHaveAttribute('data-hidden-start');
+    await sections.evaluate(element => { element.scrollLeft = element.scrollWidth; });
+    await expect(sections).toHaveAttribute('data-hidden-start', 'true');
+    await expect(sections).not.toHaveAttribute('data-hidden-end');
+
+    // A label that wraps (a longer one, as in a translation) leaves the numbers of its row on one line (uier #284)
+    const usage = page.getByRole('region', { name: 'Usage' });
+    const labels = usage.locator('dt');
+    await labels.first().evaluate(element => { element.textContent = 'Comments left on every page of the site'; });
+    // The text's own height (a dt stretches to its row)
+    const textHeight = (index: number) => labels.nth(index).evaluate(element => {
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        return range.getBoundingClientRect().height;
+    });
+    expect(await textHeight(0)).toBeGreaterThan(await textHeight(1) * 1.5);
+    const values = usage.locator('dd');
+    const [comments, open] = await Promise.all([values.nth(0).boundingBox(), values.nth(1).boundingBox()]);
+    expect(Math.abs(comments!.y - open!.y)).toBeLessThan(1);
+});
+
 test('the sidebar has the sections, the active projects and the account', async ({ page }) => {
     await signIn(page, uniqueEmail('sidebar'));
     const projectId = await createProject(page, { urls: ['sidebar.example.com'], name: 'Sidebar site' });
