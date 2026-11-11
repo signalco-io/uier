@@ -18,7 +18,8 @@ form, support/setup links and accessibility.
 The index's services are tiles in one panel, three to a row on wide screens and two on tablets: the logo, the
 name, the catalog's description, its optional features under "Optional" and "Set up <service>", whose link covers the
 tile. A sixth tile, "Another tool", links to the suggestion section below, so every row is full; keep the count a
-multiple of two and three when services change.
+multiple of two and three when services change. Each rule under "Every integration" puts its point in strong and
+the rest in muted text (`Rule`), so the list can be scanned; keep that when adding a rule.
 
 The index's cover (`integrations/IntegrationsCover.tsx`, the page's one moving picture) is a loop under the header:
 a shared thread, the five services in one panel and a hairline between them. The thread is copied to each service

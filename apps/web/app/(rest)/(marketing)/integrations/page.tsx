@@ -1,3 +1,4 @@
+import type { PropsWithChildren } from 'react';
 import { publicPageMetadata } from '@/src/lib/metadata';
 import { Add, ArrowRight } from '@signalco/ui-icons';
 import { CheckList, Chip, PageHeader, PageSection, Panel } from '../../../../src/components/marketing/ContentPage';
@@ -16,12 +17,17 @@ const tile = 'group relative flex flex-col gap-5 p-6 transition-colors duration-
 const tileLink = 'inline-flex items-center gap-1.5 text-sm font-medium text-foreground outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring';
 const tileArrow = <ArrowRight size={16} strokeWidth={1.75} aria-hidden="true" className="text-muted-foreground transition-colors duration-[120ms] ease-out group-hover:text-foreground" />;
 
+/** A rule with its point in strong and the rest muted, so the list reads at a glance */
+function Rule({ children }: PropsWithChildren) {
+    return <span className="text-muted-foreground [&_strong]:font-medium [&_strong]:text-foreground">{children}</span>;
+}
+
 const shared = [
-    'Only shared feedback is sent. Private threads and the public uier showcase are excluded.',
-    'A workspace admin connects each project and chooses its destination.',
-    'Nothing is copied before you save a destination. Existing feedback waits for a backfill.',
-    'Two-way status sync and reply sync stay off until you turn them on.',
-    'Disconnect stops future sync and keeps the copies already made.'
+    <Rule><strong>Only shared feedback is sent.</strong> Private threads and the public uier showcase are excluded.</Rule>,
+    <Rule><strong>A workspace admin connects</strong> each project and chooses its destination.</Rule>,
+    <Rule><strong>Nothing is copied before you save a destination.</strong> Existing feedback waits for a backfill.</Rule>,
+    <Rule>Two-way status sync and reply sync <strong>stay off until you turn them on.</strong></Rule>,
+    <Rule><strong>Disconnect stops future sync</strong> and keeps the copies already made.</Rule>
 ];
 
 export default function IntegrationsPage() {
