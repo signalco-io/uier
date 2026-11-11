@@ -59,10 +59,12 @@ release, authentication, document redirects/404s, mutations and navigation conti
 log alone is not evidence of production prefetching. No mutable cache was added, so no new cache
 invalidation lifecycle is required. Follow-up URL-specific enhancements belong in a separate PR.
 
-Final adoption checks passed: nine locked production cases on desktop/mobile/tablet; 43 focused
-integration, navigation, Status and account-session checks; `pnpm typecheck`, both ordinary and
-dedicated production builds; and the short `pnpm test` run (1,059 passed, one pre-existing real-Cosmos
-conditional test skipped without its account). The ordinary build records the testing API as false.
+Final adoption checks passed: all 24 shared locked production cases on desktop/mobile/tablet;
+42 focused integration, navigation, Status, HTTP and tablet checks plus two localized denied-document
+cases; `pnpm typecheck`, both ordinary and dedicated production builds; and the short `pnpm test`
+run (1,059 passed, one pre-existing real-Cosmos conditional test skipped without its account).
+The ordinary build records the testing API as false. The shared suite includes the merged Cache
+Components shell optimizations; denied review documents retain HTTP 404, the account hint and return URL.
 The production browser demonstration held both Status regions, then verified their live content after
 release. The integration 404 preflight explicitly preserves published illustration files and Next's
 generated metadata-image paths; the social-card API suite verifies those images still respond.

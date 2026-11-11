@@ -15,6 +15,10 @@ Session identity, recent-sign-in/email-proof checks and browser account menus wa
 before checking expiry or migration deadlines. A prefetched shell must not freeze those clock-based
 authorization decisions. Unknown public integration guides are rejected in Proxy before their URL-specific
 content streams, preserving HTTP 404; the page independently validates its provider for RSC navigation.
+The internal unavailable entries live under `(rest)/(app-errors)`, outside the app's request-language
+layout, so their synchronous `notFound()` fixes HTTP 404 before localized content streams. Proxy still
+uses the same paths and access preflight; pages/actions/APIs retain their own checks. The generic
+error retains its request nonce marker and the review error retains its account-switch return address.
 
 The verification bridges keep Next's client instrumentation (`instrumentation-client.ts`) so BotID
 initializes before their protected proof requests. They have no app/theme/analytics providers.

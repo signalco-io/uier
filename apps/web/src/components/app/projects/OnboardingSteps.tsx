@@ -1,5 +1,7 @@
 
-import { getAppI18n } from '@/src/lib/i18n/server';
+'use client';
+
+import { useAppI18n } from '@/src/lib/i18n/client';
 import Link from 'next/link';
 import { CheckIcon } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
@@ -13,12 +15,12 @@ export type OnboardingStepNumber = 1 | 2 | 3 | 4;
  * reviewer. Steps with an address in `hrefs` are links (once the project exists, every step after the
  * site). Where the names don't fit (under 40rem, a container query), only the current step shows its name.
  */
-export async function OnboardingSteps({ current, hrefs = {}, className }: {
+export function OnboardingSteps({ current, hrefs = {}, className }: {
     current: OnboardingStepNumber;
     hrefs?: Partial<Record<OnboardingStepNumber, string>>;
     className?: string;
 }) {
-    const { t } = await getAppI18n();
+    const { t } = useAppI18n();
     return (
         <ol aria-label={t("Onboarding progress")} className={cn('@container m-0 flex list-none items-center gap-3 p-0', className)}>
             {onboardingStepLabels.map((label, index) => {
