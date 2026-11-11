@@ -2,7 +2,7 @@ import { Button } from '@signalco/ui-primitives/Button';
 import { PageHeader, PageSection, Panel, Tile, InlineLink } from '@/src/components/marketing/ContentPage';
 import { publicPageMetadata } from '@/src/lib/metadata';
 import { guides } from '@/src/lib/guides';
-import { KnownPages } from '@/src/knownPages';
+import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 
 export const metadata = publicPageMetadata(guides.clientReviews.path, guides.clientReviews);
 
@@ -18,6 +18,7 @@ export default function ClientReviewGuide() {
                 <li>Run the installation check. Use the project’s people settings to invite the client, or deliberately allow guest feedback in its review settings.</li>
                 <li>Share a review link from the project. Ask the client to use that address for the review.</li>
             </ol>
+            <p className="text-sm leading-relaxed text-muted-foreground">Reviewing files as well as a live site? <InlineLink href={KnownPageLinks.comparison('pastel')}>Compare uier and Pastel</InlineLink> before choosing the review workflow.</p>
         </PageSection>
         <PageSection id="keep-feedback-attached-to-the-page" title="Keep feedback attached to the page" wide>
             <Panel>

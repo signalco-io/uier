@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { brand } from '@uier/brand';
 
 // Every public page shares the footer from the marketing layout
-const publicPages = ['/guides', '/guides/client-website-reviews', '/guides/nextjs', '/', '/brand', '/features/ai', '/features/feedback-triage', '/features/fix-verification', '/features/page-checks', '/legal/privacy-policy', '/security', '/open-source', '/status'];
+const publicPages = ['/compare', '/compare/website-feedback-tools', '/compare/bugherd', '/compare/marker-io', '/compare/usersnap', '/compare/pastel', '/guides', '/guides/client-website-reviews', '/guides/nextjs', '/', '/brand', '/features/ai', '/features/feedback-triage', '/features/fix-verification', '/features/page-checks', '/legal/privacy-policy', '/security', '/open-source', '/status'];
 
 test('footer is on every public page', async ({ page }) => {
     for (const path of publicPages) {
@@ -19,6 +19,7 @@ test('footer links to the contact and social destinations', async ({ page }) => 
     await expect(footer.getByRole('link', { name: brand.contact.email })).toHaveAttribute('href', `mailto:${brand.contact.email}`);
     await expect(footer.getByRole('link', { name: 'Report an issue' })).toHaveAttribute('href', brand.issues);
     await expect(footer.getByRole('link', { name: 'GitHub' })).toHaveAttribute('href', brand.social.github);
+    await expect(footer.getByRole('link', { name: 'Compare website feedback tools' })).toHaveAttribute('href', '/compare');
     const parent = footer.getByRole('link', { name: `A ${brand.parent.name} project` });
     await expect(parent).toHaveAttribute('href', brand.parent.url);
     await expect(parent.locator('svg')).toBeVisible();

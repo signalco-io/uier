@@ -32,6 +32,7 @@ export async function SiteFooter() {
                     header: 'Resources',
                     ctas: [
                         { label: 'Guides', href: KnownPages.Guides },
+                        { label: 'Compare website feedback tools', href: KnownPages.Compare },
                         { label: 'Open source', href: KnownPages.OpenSource },
                         { label: 'Security', href: KnownPages.Security },
                         { label: 'Brand', href: KnownPages.Brand },
