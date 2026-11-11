@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import { feedbackStages, type FeedbackStage } from '@uier/toolbar/verification';
 
 /**
@@ -33,12 +32,6 @@ export function boardSort(sorts: BoardSorts | undefined, status: FeedbackStage):
 export function boardSortsOf(sorts: BoardSorts | undefined) {
     return Object.fromEntries(feedbackStages.map(status => [status, boardSort(sorts, status)])) as Record<FeedbackStage, BoardSort>;
 }
-
-/** A column and one of its choices */
-export const boardSortInputSchema = z.object({
-    status: z.enum(feedbackStages),
-    sort: z.enum(boardSorts)
-}).refine(({ status, sort }) => boardSortOptions(status).includes(sort), 'Choose a sort this column offers.');
 
 /**
  * The project with the column's sort: only choices other than a column's default are kept (none: no field),

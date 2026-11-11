@@ -92,7 +92,9 @@ test('environment labels, isolation, alias sharing, history, direct links and pe
         .getByRole('button', { name: 'Production', exact: true }).click();
     await page.reload();
     await expect(commentBubbles(page)).toHaveCount(1);
-    await page.getByRole('button', { name: /^Inbox/ }).click();
+    // Reload restores an open inbox; only open it when it is still closed.
+    if (!await inbox.isVisible())
+        await page.getByRole('button', { name: /^Inbox/ }).click();
     await expect(inboxPages(page)).toContainText('Production');
     await expect(inbox.getByRole('article')).toHaveCount(1);
     await chooseInboxPages(page, /^All pages/);

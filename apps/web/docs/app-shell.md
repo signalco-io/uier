@@ -1,8 +1,11 @@
 # App shell, navigation and the projects list
 
-- **Notification landmark.** App pages mount only the shadcn Sonner toaster. The shared
-  `ClientProvider` disables its signalco notification container in the app layout; public pages
-  keep it. Both containers otherwise expose the same "Notifications alt+T" region, even when empty.
+`ClientProvider` owns theme and document-policy handling. The Next app has no React Query provider;
+the separately bundled review toolbar owns its own query cache.
+
+- **Notification landmark.** App pages mount only the shadcn Sonner toaster. The public layout
+  mounts `PublicNotifications` inside the theme provider; `ClientProvider` does not import that
+  notification implementation into app routes. Both containers otherwise expose the same "Notifications alt+T" region, even when empty.
   `e2e/app.spec.ts` checks one notification region and axe `landmark-unique` on the project, projects
   list and account pages. This rule is outside the WCAG tags used by the general accessibility scan.
 - **Layout.** `(shell)/layout.tsx` is the sidebar (`AppSidebar`: workspace switcher (its menu switches

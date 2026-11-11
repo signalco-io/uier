@@ -8,7 +8,7 @@ import { mentionsSchema } from '../../../lib/review/participants';
 import { bulkReadSchema } from '../../../lib/comments/bulkRead';
 import { assigneeIdsSchema, assignmentModeSchema, agentIdSchema } from '../../../lib/review/assignments';
 import { assigneeAgentInputSchema } from '../../../lib/review/assigneeAgentModel';
-import { boardSortInputSchema } from '../../../lib/app/boardSort';
+import { boardSortInputSchema } from '../../../lib/app/boardSortSchema';
 
 export const pullRequestUrlSchema = z.string().trim().min(1).max(2048);
 export const commentIdSchema = z.string().refine(isValidId);

@@ -15,7 +15,7 @@ import { listMembersWithUsers } from '@/src/lib/app/members';
 import { listInvitations } from '@/src/lib/app/invitations';
 import { listProjects } from '@/src/lib/app/projects';
 import { hasProjectAccess, loadWorkspaceAccess } from '@/src/lib/app/access';
-import { BulkTeamForm } from '@/src/components/app/teams/AccessForms';
+import { BulkTeamForm } from '@/src/components/app/teams/BulkTeamForm';
 import { UsersFilters } from '@/src/components/app/teams/UsersFilters';
 import type { ProjectsAccess } from '@/src/lib/app/model';
 import { WorkspaceTabHeader } from '@/src/components/app/workspace/WorkspaceTabHeader';

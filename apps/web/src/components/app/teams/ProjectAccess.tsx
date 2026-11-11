@@ -12,7 +12,7 @@ import { Section } from '../PageHeader';
 import { PersonAvatar } from '../PersonAvatar';
 import { ProjectMark } from '../projects/ProjectMark';
 import { managementData } from './management';
-import { ProjectTeamButton, RemoveProjectAccess } from './AccessForms';
+import { ProjectTeamButton, RemoveProjectAccess } from './ProjectAccessButtons';
 import { InviteButton } from '../users/InviteDialog';
 
 // The tile stays centred on the row (Item tops it when there is a description), as on the users list

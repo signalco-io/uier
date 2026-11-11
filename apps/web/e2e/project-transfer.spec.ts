@@ -31,7 +31,7 @@ test('an admin of two workspaces transfers a project from the danger zone', asyn
     await create.getByLabel('Workspace name').fill('Agency');
     await create.getByRole('button', { name: 'Create workspace' }).click();
     await expect(page).toHaveURL(/\/app\/projects\/new$/);
-    await switchWorkspace(page, /@example\.com.*Admin/, /\/app\/projects$/);
+    await switchWorkspace(page, /^Personal Admin$/, /\/app\/projects$/);
 
     await page.goto(`/app/projects/${projectId}/settings/danger-zone`);
     await open.click();
@@ -62,6 +62,6 @@ test('an admin of two workspaces transfers a project from the danger zone', asyn
     expect(await projectPublicId(page, projectId)).toBe(publicId);
 
     // The old workspace no longer has it
-    await switchWorkspace(page, /@example\.com.*Admin/, /\/app\/projects\/new$/);
+    await switchWorkspace(page, /^Personal Admin$/, /\/app\/projects\/new$/);
     expect((await page.goto(`/app/projects/${projectId}/settings`))?.status()).toBe(404);
 });

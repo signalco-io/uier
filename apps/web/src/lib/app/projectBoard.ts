@@ -3,7 +3,8 @@ import type { FeedbackStage } from '@uier/toolbar/verification';
 import { canTriageProject } from '../review/comments';
 import type { ProjectActor } from '../review/actor';
 import { UserFacingError } from './actionErrors';
-import { boardSortInputSchema, withBoardSort, type BoardSort } from './boardSort';
+import { withBoardSort, type BoardSort } from './boardSort';
+import { boardSortInputSchema } from './boardSortSchema';
 import type { DbProject } from './model';
 import { updateDoc, getAppStore, type AppStore } from './store';
 

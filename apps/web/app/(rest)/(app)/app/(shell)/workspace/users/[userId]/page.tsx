@@ -6,7 +6,7 @@ import { Item, ItemContent, ItemGroup, ItemMedia, ItemTitle } from '@/src/compon
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/src/components/ui/empty';
 import { PageHeader, Section } from '@/src/components/app/PageHeader';
 import { requireTeamAdmin, managementData } from '@/src/components/app/teams/management';
-import { MemberAccessForm } from '@/src/components/app/teams/AccessForms';
+import { MemberAccessForm } from '@/src/components/app/teams/MemberAccessForm';
 import { ProjectMark } from '@/src/components/app/projects/ProjectMark';
 import { RelativeTime } from '@/src/components/app/comments/DateTime';
 import { PersonAvatar } from '@/src/components/app/PersonAvatar';

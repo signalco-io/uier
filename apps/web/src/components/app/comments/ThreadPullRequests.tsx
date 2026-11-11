@@ -7,7 +7,6 @@ import { toast } from 'sonner';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
 import { setCommentPullRequestAction } from './actions';
-import { Badge } from '@/src/components/ui/badge';
 import { Item, ItemContent, ItemMedia, ItemTitle } from '@/src/components/ui/item';
 import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
@@ -18,22 +17,12 @@ import { integrationLogos } from '../integrations/IntegrationLogo';
 import { hoverPopoverTrigger } from '../hoverPopover';
 import { withSubject } from './AssigneeCard';
 import { unsetValueClass } from './unsetValue';
+import { PullRequestStateBadge } from './PullRequestStateBadge';
 
 export const commentPullRequestLinks = (comment: Pick<ProjectCommentView, 'text' | 'deleted' | 'replies' | 'pullRequests'>) =>
     threadPullRequestLinks([{ text: comment.text, deleted: comment.deleted }, ...comment.replies], comment.pullRequests);
 
 const providers = { github: 'GitHub', gitlab: 'GitLab', 'azure-devops': 'Azure DevOps' };
-const labels: Record<PullRequestState, string> = { open: 'Open', merged: 'Merged', closed: 'Closed', draft: 'Draft' };
-/**
- * Each state's dot (BRAND.md, "Status"), like GitHub's: Open green, Merged violet, Closed red, Draft muted grey.
- * The name always goes beside the dot.
- */
-const stateDotColors: Record<PullRequestState, string> = {
-    open: 'bg-[hsl(var(--brand-success))]',
-    merged: 'bg-[hsl(var(--brand-ready))]',
-    closed: 'bg-[hsl(var(--destructive))]',
-    draft: 'bg-muted-foreground'
-};
 /** The same colours for the pull request's icon once its state is known (at least 3:1 on its surface) */
 const stateIconColors: Record<PullRequestState, string> = {
     open: 'text-[hsl(var(--brand-success))]',
@@ -65,16 +54,6 @@ const pullRequestName = (link: PullRequestLink) => {
     const repository = link.provider === 'azure-devops' ? `${link.organization}/${link.project}/${link.repository}` : link.repository;
     return `${providers[link.provider]} ${repository}${link.provider === 'gitlab' ? ' !' : ' #'}${link.number}`;
 };
-
-/** A known state as the brand's badge: a 6 px dot in the state's colour beside its name */
-export function PullRequestStateBadge({ state }: { state: PullRequestState }) {
-    return (
-        <Badge variant="outline" className="gap-1.5" data-pull-request-state={state}>
-            <span aria-hidden="true" className={cn('size-1.5 shrink-0 rounded-full', stateDotColors[state])} />
-            {labels[state]}
-        </Badge>
-    );
-}
 
 /** What the last read said, per thread and revision, so the row's card and the details share one recent read. */
 const recentStates = new Map<string, { at: number; states: PullRequestStatus[] }>();

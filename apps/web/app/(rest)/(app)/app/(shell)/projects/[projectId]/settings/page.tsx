@@ -11,7 +11,7 @@ import { loadProjectUsage } from '@/src/lib/app/projectComments';
 import { listProjectMembers } from '@/src/lib/app/members';
 import { Section } from '@/src/components/app/PageHeader';
 import { DateTime } from '@/src/components/app/comments/DateTime';
-import { ProjectGeneralForm } from '@/src/components/app/projects/ProjectSettingsForms';
+import { ProjectGeneralForm } from '@/src/components/app/projects/ProjectGeneralForm';
 import { projectAiTitleMode, workspaceAiTitles } from '@/src/lib/titles/settings';
 import { projectRewriteInstructions, workspaceRewriteInstructions } from '@/src/lib/rewrite/settings';
 import { projectSettingsContext } from './settingsContext';
