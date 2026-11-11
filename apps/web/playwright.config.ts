@@ -37,6 +37,7 @@ Object.assign(process.env, unpacedProviders);
 const apiTests = /\.api\.spec\.ts$/;
 // Tablet layouts run in their own project only.
 const tabletTests = /tablet\.spec\.ts$/;
+const instantTests = /(?:instant-nav|partial-prefetching)\.spec\.ts$/;
 
 export default defineConfig({
     // The required suite should expose failures immediately, without retrying a slow browser flow.
@@ -46,6 +47,8 @@ export default defineConfig({
     reporter: [['dot'], ['json', { outputFile: 'playwright-report/results.json' }]],
     timeout: 30 * 1000,
     testDir: join(dirname(fileURLToPath(import.meta.url)), 'e2e'),
+    // These require a dedicated build with Next's testing API enabled.
+    testIgnore: instantTests,
     outputDir: 'test-results/',
     webServer: [
         { command: 'node e2e/support/pullRequestsStub.ts', url: pullRequestsStubUrl, timeout: 30_000, reuseExistingServer: false,
@@ -152,7 +155,7 @@ export default defineConfig({
         },
         {
             name: 'Desktop Chrome',
-            testIgnore: [apiTests, tabletTests],
+            testIgnore: [apiTests, tabletTests, instantTests],
             grep: fullSuite ? undefined : /@smoke/,
             fullyParallel: !fullSuite,
             use: {
@@ -161,7 +164,7 @@ export default defineConfig({
         },
         {
             name: 'Mobile Chrome',
-            testIgnore: [apiTests, tabletTests],
+            testIgnore: [apiTests, tabletTests, instantTests],
             grep: fullSuite ? undefined : /@mobile-smoke/,
             fullyParallel: !fullSuite,
             use: {

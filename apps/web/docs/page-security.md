@@ -11,6 +11,10 @@ development hosts remain explicitly scoped. Inline event handlers are denied wit
 root layout emits the shared hash-authorized initializer before the page content. It skips both
 verification bridges without reading theme storage. Theme changes still use next-themes.
 App HTML and private data stay `no-store`; [Cache Components](cache-components.md) describes the shells.
+Session identity, recent-sign-in/email-proof checks and browser account menus wait for `connection()`
+before checking expiry or migration deadlines. A prefetched shell must not freeze those clock-based
+authorization decisions. Unknown public integration guides are rejected in Proxy before their URL-specific
+content streams, preserving HTTP 404; the page independently validates its provider for RSC navigation.
 
 The verification bridges keep Next's client instrumentation (`instrumentation-client.ts`) so BotID
 initializes before their protected proof requests. They have no app/theme/analytics providers.

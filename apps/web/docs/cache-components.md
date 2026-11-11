@@ -1,7 +1,8 @@
 # Cache Components
 
-`next.config.ts` enables Cache Components on Next.js 16.4. Partial Prefetching is explicitly off;
-its link and navigation migration is separate work. There are no `instant = false` exceptions.
+`next.config.ts` enables Cache Components and Partial Prefetching on Next.js 16.4.
+See [Partial Prefetching](partial-prefetching.md) for the link audit and navigation contracts.
+There are no `instant = false` exceptions.
 The version-matched migration and API docs ship in `node_modules/next/dist/docs/`.
 
 ## Rendering and data

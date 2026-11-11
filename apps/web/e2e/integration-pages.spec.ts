@@ -84,4 +84,11 @@ test('the integrations index collects suggestions through the toolbar', async ({
 
 test('unknown integration guides return a missing page', async ({ page }) => {
     expect((await page.goto('/integrations/unknown'))?.status()).toBe(404);
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('not');
+});
+
+test('guide preflight uses the decoded provider pathname', async ({ page }) => {
+    expect((await page.goto('/integrations/%67ithub'))?.status()).toBe(200);
+    await expect(page.getByRole('heading', { level: 1, name: integrationCatalog.github.title })).toBeVisible();
+    expect((await page.goto('/integrations/%75nknown'))?.status()).toBe(404);
 });

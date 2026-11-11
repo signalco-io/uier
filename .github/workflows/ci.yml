@@ -133,6 +133,9 @@ jobs:
 
       - name: Build
         if: matrix.suite != 'checks'
+        env:
+          # Only the disposable browser-test artifact includes Next's navigation lock API.
+          UIER_INSTANT_TEST: ${{ matrix.suite == 'browser' && '1' || '' }}
         run: pnpm exec turbo run build --filter=@uier/web
 
       - name: Validate deployment artifact boundaries
@@ -163,6 +166,11 @@ jobs:
         if: matrix.suite == 'browser'
         timeout-minutes: 5
         run: pnpm -C apps/web exec playwright test --project="Desktop Chrome" --project="Mobile Chrome"
+
+      - name: Instant navigation contracts
+        if: matrix.suite == 'browser'
+        timeout-minutes: 5
+        run: pnpm -C apps/web exec playwright test --config=playwright.instant.config.ts
 
       - name: Upload Playwright results
         # Successful launch measurements/screenshots are release evidence too.

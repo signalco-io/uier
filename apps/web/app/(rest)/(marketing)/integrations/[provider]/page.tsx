@@ -1,5 +1,6 @@
 import { publicPageMetadata } from '@/src/lib/metadata';
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import { Button } from '@signalco/ui-primitives/Button';
 import { brand } from '@uier/brand';
@@ -21,7 +22,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return publicPageMetadata(`/integrations/${provider}`, { title: integration.title, description: integration.description });
 }
 
-export default async function IntegrationPage({ params }: Props) {
+async function IntegrationContent({ params }: Props) {
     const { provider } = await params;
     if (!isIntegrationCatalogKey(provider)) notFound();
     const integration = integrationCatalog[provider];
@@ -75,4 +76,11 @@ export default async function IntegrationPage({ params }: Props) {
             <p className="text-sm leading-relaxed text-muted-foreground">You can also <InlineLink href={brand.issues}>report a product issue</InlineLink>, <InlineLink href={`${KnownPages.Integrations}#suggest`}>suggest an integration</InlineLink> or read about <InlineLink href={KnownPages.Security}>security</InlineLink>.</p>
         </PageSection>
     </main>;
+}
+
+export default function IntegrationPage(props: Props) {
+    return <Suspense fallback={<main className="flex flex-col pb-16">
+        <PageHeader title="Integrations" lead="Connect website feedback to Notion, GitHub, Linear, Azure DevOps and Slack." />
+        <p className="py-8" role="status">Loading integration guide…</p>
+    </main>}><IntegrationContent {...props} /></Suspense>;
 }

@@ -206,6 +206,11 @@ and `playwright-report/`, so run them one after another there.
 
 An existing server on that port is never reused, inside or outside CI.
 
+For locked navigation checks, build with `UIER_INSTANT_TEST=1 pnpm build`, then run
+`PORT=4404 pnpm -C apps/web exec playwright test --config=playwright.instant.config.ts`.
+The [production navigation rig](../apps/web/instant-nav.rig.md) defines users, contracts and
+artifact checks. The testing API is excluded from ordinary and deployment builds.
+
 ### Test categories
 
 | Category | Selection | Use |
