@@ -29,6 +29,8 @@ import { useKeyShortcutLabel } from '../keyboard/keys';
 /** Tab-like toggles, as `LinkTabs`' segmented filter (the projects list's Active and Done) */
 const segmentedGroup = 'gap-0.5 rounded-lg bg-muted p-[3px]';
 const segmentedItem = 'h-[26px] min-w-[26px] shrink-0 rounded-md px-2.5 text-muted-foreground hover:bg-transparent hover:text-foreground data-pressed:bg-background data-pressed:text-foreground data-pressed:shadow-sm pointer-coarse:min-h-11';
+/** A status tab grows into the room a full-width group has on a phone */
+const statusTab = 'grow sm:grow-0';
 
 /** A filter in effect, left of the Filter button: the filter's name, what it is set to and a button that clears it */
 function FilterChip({ name, value, icon, onClear }: { name?: string; value: string; icon?: React.ReactNode; onClear: () => void }) {
@@ -223,13 +225,14 @@ function StatusTabs({ status, counts, onStatus }: {
     const activeLabel = activeValue === 'active' ? t(statusFilterLabels.active) : `${t(statusFilterLabels.active)}: ${t(statusFilterLabels[activeValue])}`;
     return (
         <div className="-mx-1 -my-0.5 max-w-[calc(100%+0.5rem)] overflow-x-auto px-1 py-0.5">
-            <ToggleGroup size="sm" spacing={0.5} aria-label={t("Status")} className={cn(segmentedGroup, 'w-max')} value={[activeShown ? 'active' : status]}
+            {/* Full width on a phone, the tabs sharing the room (uier #278); still scrolls when their words don't fit */}
+            <ToggleGroup size="sm" spacing={0.5} aria-label={t("Status")} className={cn(segmentedGroup, 'w-max min-w-full sm:min-w-0')} value={[activeShown ? 'active' : status]}
                 // Pressing the Active tab again while it shows one of its statuses unpresses it: back to every active status
                 onValueChange={([value]) => {
                     if (value) onStatus(value as StatusFilter);
                     else if (activeShown && status !== 'active') onStatus('active');
                 }}>
-                <ToggleGroupItem value="active" className={segmentedItem}>
+                <ToggleGroupItem value="active" className={cn(segmentedItem, statusTab)}>
                     {activeLabel} <span className="tabular-nums text-muted-foreground">{counts[activeValue]}</span>
                 </ToggleGroupItem>
                 <DropdownMenu>
@@ -256,7 +259,7 @@ function StatusTabs({ status, counts, onStatus }: {
                     </DropdownMenuContent>
                 </DropdownMenu>
                 {(['done', 'all', 'archived'] as const).map(value => (
-                    <ToggleGroupItem key={value} value={value} className={segmentedItem}>
+                    <ToggleGroupItem key={value} value={value} className={cn(segmentedItem, statusTab)}>
                         {t(statusFilterLabels[value])} <span className="tabular-nums text-muted-foreground">{counts[value]}</span>
                     </ToggleGroupItem>
                 ))}
