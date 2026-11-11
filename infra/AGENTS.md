@@ -131,12 +131,22 @@ assignments and the OIDC subjects CI uses.
 
 ## Email rollout (#132)
 
-Root-domain inbound email uses Cloudflare Email Routing, managed in its dashboard. Keep its
+Root-domain inbound email uses Cloudflare Email Routing, managed by `src/emailRouting.ts`. Keep its
 MX records and `cf2024-1._domainkey` TXT separate from ACS sending records. `emailRoutingSpf` merges
 Cloudflare's forwarding include into the existing protected root SPF resource, retaining ACS's
 sender authorization and final failure policy. Never add a second SPF record or replace the
 Microsoft include. `notify.uier.io` remains the transactional sending domain with its own SPF.
-Destination addresses must be verified before saving a forwarding rule; keep catch-all disabled.
+The program discovers the zone account, imports its existing verified destination and rules with
+live inputs, and imports the existing settings (including subaddressing) and disabled catch-all.
+It then adds missing exact `contact@uier.io`, `security@uier.io` and `privacy@uier.io` forwarding
+rules. Destination addresses and action values are Pulumi secrets, never repository plaintext.
+With multiple verified destinations, the owner must select the existing destination ID using
+`uier:emailRoutingDestinationId` (an ID, not an email); no new secret config key is required.
+Conflicting aliases, Worker-managed rules, enabled catch-all, incomplete discovery or unready
+routing stop adoption. Keep all new resources protected and every existing protection unchanged.
+CI must show no-change imports plus only missing alias creations, with no DNS changes; never
+run a local stack preview or update for this rollout. See the operations guide for import IDs,
+token permissions and acceptance. Destination addresses must already be verified; keep catch-all disabled.
 
 `src/email.ts` retains the protected root `uier.io` domain and its DNS records, and manages a
 separate protected `notify.uier.io` domain for all transactional mail: sign-in links, invitations,

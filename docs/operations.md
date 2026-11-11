@@ -54,15 +54,48 @@ Vercel-trusted identity; account-key authentication remains enabled until the st
 
 ### Incoming email forwarding
 
-Cloudflare Email Routing manages incoming mail for `uier.io` through the Cloudflare dashboard.
+Cloudflare Email Routing manages incoming mail for `uier.io` through `infra/src/emailRouting.ts`.
 The dashboard owns its three MX records and `cf2024-1._domainkey` TXT record. Pulumi retains the
 existing root SPF resource and merges `include:_spf.mx.cloudflare.net` with the ACS-provided
 `include:spf.protection.outlook.com`, preserving `-all`. Keep exactly one root SPF policy;
 do not use the dashboard's conflicting-record deletion or create a second policy. See
 [Cloudflare's domain configuration](https://developers.cloudflare.com/email-service/configuration/domains/).
 
-Add and verify the destination address in Email Routing, then create the exact source-address
-rule with the **Send to an email** action. Keep catch-all disabled. Destination verification,
+The program imports the existing routing settings, verified destination, all existing API-managed
+rules (including disabled ones) and disabled catch-all before adding missing exact forwarding
+rules for `contact@uier.io`, `security@uier.io` and `privacy@uier.io`. All are protected. Existing
+rules retain their live name, priority, enabled flag, matchers and actions; conflicting requested
+aliases stop the run rather than change an import. Worker-managed rules also stop adoption.
+
+CI resolves the account ID with `getZone` using the existing `uier:zoneid`, then uses Cloudflare
+invokes to discover verified destination IDs and rule IDs. Import IDs are `<zone_id>` for settings
+and catch-all, `<account_id>/<destination_id>` for the destination, and `<zone_id>/<rule_id>` for
+rules. The settings resource read preserves `supportSubaddress` (the settings invoke omits it in
+our SDK). Rule detail invokes preserve writable inputs omitted by the list invoke. Discovery is
+unfiltered for enabled status and refuses a possibly truncated result at 1,000 entries.
+
+Exactly one verified destination is selected automatically. If the account has several, the
+owner must set `uier:emailRoutingDestinationId` to the intended existing destination's ID. No
+secret config key or plaintext destination address is needed. The destination email and rule
+and catch-all actions are wrapped as Pulumi secrets, including resource outputs. Do not publish
+unredacted Cloudflare responses, state or destination values in receipts.
+
+Before merging, check CI's Cloudflare token has **Zone → Email Routing Rules → Edit**
+(`Email Routing Rules Write`, including reads), **Account → Email Routing Addresses → Edit**
+(`Email Routing Addresses Write`, including reads) for the zone's account, and **Zone → Zone → Read**
+and **Zone → Zone Settings → Edit** for the zone/account/settings lookups and settings resource.
+Retain existing DNS permissions; do not broaden scopes to other accounts or zones.
+See the provider's [rule](https://www.pulumi.com/registry/packages/cloudflare/api-docs/emailroutingrule/),
+[address](https://www.pulumi.com/registry/packages/cloudflare/api-docs/emailroutingaddress/) and
+[settings](https://www.pulumi.com/registry/packages/cloudflare/api-docs/emailroutingsettings/) references.
+
+Review the PR's CI preview: adoption must show imports with no input changes, then at most three
+new alias rules. Reject replacement, deletion, DNS changes or changes to any existing resource.
+Do not run stack previews or updates locally. Import options remain safe on subsequent runs
+for resources already in state; logical names for the three aliases stay stable after creation.
+A later cleanup can remove completed imports only with a no-diff CI preview. After CI deploys,
+verify the three rules and disabled catch-all, and deliver a real test message to each alias
+before merging the site-address change in PR #627. Destination verification,
 rule activation, authoritative DNS readback and an actual forwarded message are separate checks;
 MX records alone do not establish successful delivery. The transactional `notify.uier.io` records
 and sender identity are independent of inbound forwarding.
