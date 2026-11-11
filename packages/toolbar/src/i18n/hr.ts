@@ -605,6 +605,8 @@ export const hr: Messages = {
         activeOne: (status: string) => `Aktivno: ${status}`,
         showComments: 'Prikaži komentare',
         activeStatuses: 'Aktivni statusi',
+        /** The menu beside the Done tab: Done or Archive */
+        doneStatuses: 'Gotovo i arhiva',
         onThisPage: ' na ovoj stranici',
         noArchived: (where: string) => `Nema arhiviranih komentara${where}`,
         noMatches: (where: string) => `Nema rezultata${where}`,

@@ -17,7 +17,9 @@
   (`activeStatusFilters`) to keep the tabs narrow: the "Active statuses" button beside the Active tab (24px wide, the WCAG 2.5.8 minimum; wider on touch) opens a menu of
   Active and the three, each with its count, and a choice closes it. The Active tab then names the choice ("Active: In
   progress 4") and stays pressed; pressing it again goes back to every active status. `?status=open`, `in-progress` and
-  `ready` links still open on that status. The tabs have no `StateDot`, so Done never reads as a
+  `ready` links still open on that status. Archive folds under Done the same way (uier #302, `doneStatusFilters`): the
+  "Done and archive" button beside the Done tab opens a menu of Done and Archive with their counts; with Archive chosen the
+  tab reads "Archive 2" and stays pressed, and pressing it again goes back to Done. `?status=archived` still opens Archive. The tabs have no `StateDot`, so Done never reads as a
   notification; the three statuses in the menu show theirs in its colour ([status colours](comments-inbox.md)). The menu button is a plain button inside the toggle group: Tab reaches it,
   the arrow keys move between the tabs only. Each filter in effect shows in the search row, left of the Filter button (uier #209; in the list and the board,
   wrapping only when there is no room; on a phone they go to their own line under the row), named by its filter in muted text ("Priority: Urgent",
@@ -33,7 +35,8 @@
   Unread toggle ("Unread 7") is a filter like Only unread here: no dot, the count in the unread accent. Its status tabs are these
   (uier #216, `CommentsStatusTabs` in `sidebar/CommentsSidebarHeader.tsx`): Active (`unresolved`, the default), Done and All, with the
   same Active statuses menu (a toolbar `Popper`, the `uier-status-filter-menu` part: Active, then Open, In progress and Ready to verify
-  with their status dots and counts) and the same "Active: In progress 4" tab; underlined like the toolbar's other tabs. Site-wide
+  with their status dots and counts) and the same "Active: In progress 4" tab, and the same Done tab with Archive in its "Done and archive" menu (`doneStatusFilters`
+  in `CommentsFilter.tsx`); underlined like the toolbar's other tabs. Site-wide
   counts come from the activity summary, Open as its not-done count less In progress and Ready to verify. Neither view has "15 of 93 comments": the
   list's status tabs and the board's columns already count what is shown. A populated project inbox keeps the count line's
   32 px height (44 px on touch) when it has no unread count, so automatic reads and incoming unread feedback do not move the list or board.
@@ -53,7 +56,7 @@
   truncated.
 
 
-Archive (`status=archived`) is a separate list scope beside Active, Done and All. All includes ordinary
+Archive (`status=archived`) is a separate list scope, chosen from the menu beside the Done tab. All includes ordinary
 workflow statuses, without archived threads. Archive uses the same search, people, page, priority,
 unread, author and environment filters. The board excludes archived cards and offers Archive as a
 separate list. The toolbar's `archived` scope follows the same rule; its `all` filter excludes archive.

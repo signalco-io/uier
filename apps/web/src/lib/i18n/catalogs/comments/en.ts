@@ -23,6 +23,7 @@ const messages = {
     "Across pages": "Across pages",
     "Active": "Active",
     "Active statuses": "Active statuses",
+    "Done and archive": "Done and archive",
     "Activity ({count})": "Activity ({count})",
     "Add a title": "Add a title",
     "Add agent": "Add agent",

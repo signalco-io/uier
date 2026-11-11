@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { ToggleGroup, ToggleGroupItem } from '@/src/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import type { EnvironmentOption } from '../../../lib/app/environments';
-import { activeStatusFilters, isActiveStatusFilter, peopleFilterLabels, statusFilterLabels, type AuthorFilter, type CommentsView, type PeopleFilter, type StatusFilter } from './commentLabels';
+import { activeStatusFilters, doneStatusFilters, isActiveStatusFilter, isDoneStatusFilter, peopleFilterLabels, statusFilterLabels, type AuthorFilter, type CommentsView, type PeopleFilter, type StatusFilter } from './commentLabels';
 import { LocationFilter, type PageCount } from './LocationFilter';
 import { pageFilterBase } from './pageFilter';
 import { PriorityFlag } from './PriorityFlag';
@@ -192,9 +192,9 @@ export function CommentFilters({ className, unread, unreadCount, view, status, s
                     go({ view: next, comment: undefined, ...(status === 'archived' ? { status: undefined } : {}) });
                 }} />
             </div>
-            {/* Active (the default, every status but Done), Done, All and Archive; the board shows the statuses side by side,
+            {/* Active (the default, every status but Done), Done and All; the board shows the statuses side by side,
                 with Archive as its last column.
-                Open, In progress and Ready to verify fold under Active: its menu picks one, and the Active tab then names it. */}
+                Open, In progress and Ready to verify fold under Active, Archive under Done: each menu picks one, and the tab then names it. */}
             {view === 'list' && <StatusTabs status={status} counts={statusCounts} onStatus={value => go({ status: value === 'active' ? undefined : value })} />}
         </div>
     );
@@ -203,7 +203,9 @@ export function CommentFilters({ className, unread, unreadCount, view, status, s
 /**
  * The list's status tabs: Active, Done and All. The menu beside Active picks one of the statuses folded under it
  * (Open, In progress, Ready to verify), which the Active tab then shows ("Active: In progress"); pressing that tab
- * goes back to every active status. The tabs have no status dot, so none reads as a notification; the menu keeps them.
+ * goes back to every active status. Done holds Archive the same way (uier #302): its menu picks Done or Archive, the
+ * tab then reads "Archive", and pressing it goes back to Done. The tabs have no status dot, so none reads as a
+ * notification; the Active menu keeps them.
  */
 function StatusTabs({ status, counts, onStatus }: {
     status: StatusFilter;
@@ -214,47 +216,70 @@ function StatusTabs({ status, counts, onStatus }: {
     const activeShown = isActiveStatusFilter(status);
     const activeValue = activeShown ? status : 'active';
     const activeLabel = activeValue === 'active' ? t(statusFilterLabels.active) : `${t(statusFilterLabels.active)}: ${t(statusFilterLabels[activeValue])}`;
+    const doneShown = isDoneStatusFilter(status);
+    const doneValue = doneShown ? status : 'done';
     return (
         <div className="-mx-1 -my-0.5 max-w-[calc(100%+0.5rem)] overflow-x-auto px-1 py-0.5">
             {/* Full width on a phone, the tabs sharing the room (uier #278); still scrolls when their words don't fit */}
-            <ToggleGroup size="sm" spacing={0.5} aria-label={t("Status")} className={cn(segmentedGroup, 'w-max min-w-full sm:min-w-0')} value={[activeShown ? 'active' : status]}
-                // Pressing the Active tab again while it shows one of its statuses unpresses it: back to every active status
+            <ToggleGroup size="sm" spacing={0.5} aria-label={t("Status")} className={cn(segmentedGroup, 'w-max min-w-full sm:min-w-0')}
+                value={[activeShown ? 'active' : doneShown ? 'done' : status]}
+                // Pressing Active or Done again while it shows one of its folded choices unpresses it: back to Active or Done
                 onValueChange={([value]) => {
                     if (value) onStatus(value as StatusFilter);
                     else if (activeShown && status !== 'active') onStatus('active');
+                    else if (doneShown && status !== 'done') onStatus('done');
                 }}>
                 <ToggleGroupItem value="active" className={cn(segmentedItem, statusTab)}>
                     {activeLabel} <span className="tabular-nums text-muted-foreground">{counts[activeValue]}</span>
                 </ToggleGroupItem>
-                <DropdownMenu>
-                    <Tooltip>
-                        <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon-xs" aria-label={t("Active statuses")}
-                            className={cn(segmentedItem, '-ml-0.5 w-6 min-w-6 px-0 data-popup-open:text-foreground pointer-coarse:min-w-8')} />} />}>
-                            <ChevronDownIcon />
-                        </TooltipTrigger>
-                        <TooltipContent>{t("Active statuses")}</TooltipContent>
-                    </Tooltip>
-                    <DropdownMenuContent align="start" className="w-52">
-                        <DropdownMenuRadioGroup value={activeShown ? status : null} onValueChange={(value: StatusFilter) => onStatus(value)}>
-                            {(['active', ...activeStatusFilters] as const).map((value, index) => (
-                                <Fragment key={value}>
-                                    {index === 1 && <DropdownMenuSeparator />}
-                                    <DropdownMenuRadioItem value={value} closeOnClick className="pointer-coarse:min-h-11">
-                                        {value !== 'active' && <StateDot status={value} />}
-                                        {t(statusFilterLabels[value])}
-                                        <span className="ml-auto tabular-nums text-muted-foreground">{counts[value]}</span>
-                                    </DropdownMenuRadioItem>
-                                </Fragment>
-                            ))}
-                        </DropdownMenuRadioGroup>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-                {(['done', 'all', 'archived'] as const).map(value => (
-                    <ToggleGroupItem key={value} value={value} className={cn(segmentedItem, statusTab)}>
-                        {t(statusFilterLabels[value])} <span className="tabular-nums text-muted-foreground">{counts[value]}</span>
-                    </ToggleGroupItem>
-                ))}
+                <StatusesMenu label={t("Active statuses")} values={['active', ...activeStatusFilters]} status={status} counts={counts} onStatus={onStatus} />
+                <ToggleGroupItem value="done" className={cn(segmentedItem, statusTab)}>
+                    {t(statusFilterLabels[doneValue])} <span className="tabular-nums text-muted-foreground">{counts[doneValue]}</span>
+                </ToggleGroupItem>
+                <StatusesMenu label={t("Done and archive")} values={doneStatusFilters} status={status} counts={counts} onStatus={onStatus} />
+                <ToggleGroupItem value="all" className={cn(segmentedItem, statusTab)}>
+                    {t(statusFilterLabels.all)} <span className="tabular-nums text-muted-foreground">{counts.all}</span>
+                </ToggleGroupItem>
             </ToggleGroup>
         </div>
+    );
+}
+
+/**
+ * The chevron beside a status tab: a menu of the tab's own filter, then the ones folded under it, each with its count
+ * (Active, then Open, In progress and Ready to verify with their status dots; Done, then Archive); a choice closes it
+ */
+function StatusesMenu({ label, values, status, counts, onStatus }: {
+    label: string;
+    values: readonly StatusFilter[];
+    status: StatusFilter;
+    counts: Record<StatusFilter, number>;
+    onStatus: (status: StatusFilter) => void;
+}) {
+    const { t } = useAppI18n();
+    return (
+        <DropdownMenu>
+            <Tooltip>
+                <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon-xs" aria-label={label}
+                    className={cn(segmentedItem, '-ml-0.5 w-6 min-w-6 px-0 data-popup-open:text-foreground pointer-coarse:min-w-8')} />} />}>
+                    <ChevronDownIcon />
+                </TooltipTrigger>
+                <TooltipContent>{label}</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="start" className="w-52">
+                <DropdownMenuRadioGroup value={values.includes(status) ? status : null} onValueChange={(value: StatusFilter) => onStatus(value)}>
+                    {values.map((value, index) => (
+                        <Fragment key={value}>
+                            {index === 1 && <DropdownMenuSeparator />}
+                            <DropdownMenuRadioItem value={value} closeOnClick className="pointer-coarse:min-h-11">
+                                {(activeStatusFilters as readonly StatusFilter[]).includes(value) && <StateDot status={value as typeof activeStatusFilters[number]} />}
+                                {t(statusFilterLabels[value])}
+                                <span className="ml-auto tabular-nums text-muted-foreground">{counts[value]}</span>
+                            </DropdownMenuRadioItem>
+                        </Fragment>
+                    ))}
+                </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+        </DropdownMenu>
     );
 }

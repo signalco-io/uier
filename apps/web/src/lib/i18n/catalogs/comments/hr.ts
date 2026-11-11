@@ -24,6 +24,7 @@ const messages: Record<keyof typeof en, string> = {
     "Across pages": "Na više stranica",
     "Active": "Aktivno",
     "Active statuses": "Aktivni statusi",
+    "Done and archive": "Gotovo i arhiva",
     "Activity ({count})": "Aktivnost ({count})",
     "Add a title": "Dodaj naslov",
     "Add agent": "Dodaj agenta",

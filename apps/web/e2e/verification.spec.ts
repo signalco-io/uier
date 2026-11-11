@@ -97,7 +97,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
             await expectNoAxeViolations(page);
             await guest.reload();
             await guest.getByRole('button', { name: /^Inbox/ }).click();
-            await inbox.getByRole('button', { name: /^Done/ }).click();
+            await inbox.getByRole('button', { name: /^Done \d/ }).click();
             await expect(inbox.getByRole('article')).toContainText('Fix confirmed by Original reviewer');
         } finally { await guestContext.close(); }
     });

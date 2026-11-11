@@ -235,10 +235,11 @@ responses. A full five-minute shell safety refresh keeps unrelated sidebar chang
 
 ## Archive
 
-Archive is an explicit fourth list tab (`?status=archived`), separate from Active, Done and All. The
+Archive is an explicit list scope (`?status=archived`), separate from Active, Done and All; it is chosen from the
+"Done and archive" menu beside the Done tab, which then reads "Archive" ([comment filters](comment-filters.md)). The
 ordinary tabs, workflow board columns and My work exclude archived threads. On the board, Archive is
 the last column, after Done ([below](#board-archive-column)); `?status=archived` with Board shows the
-list's Archive tab, and choosing Board from there returns to the columns.
+list's Archive, and choosing Board from there returns to the columns.
 Counts follow the selected search, people, page, priority, environment and author scopes. The app
 loads independent bounded ordinary and archive windows, with the archive filter applied in storage
 before each limit. My work loads only the ordinary window. Presentation filtering remains local.
@@ -247,7 +248,7 @@ An archived or restored open thread leaves its previous scope, including its det
 More actions → Archive comment moves a thread into Archive; Restore comment returns it to its prior
 workflow status, including Done or Ready to verify. Both changes are optimistic and roll back on
 failure; they do not delete content or mark it read. The archive detail carries an Archived label.
-The toolbar uses the same actions in Thread options and an Archive tab; archived threads have no pins,
+The toolbar uses the same actions in Thread options and Archive under its Done tab; archived threads have no pins,
 highlights, inline slots or Show on page action until restored. `e2e/archive.spec.ts` covers both
 surfaces, reload, restore, failed saves, mobile and light/dark accessibility.
 

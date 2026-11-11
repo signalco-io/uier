@@ -221,17 +221,17 @@ test('the pill is one tab stop, ? lists the shortcuts, and G then I, /, J, K, R 
     await expect(inbox.getByRole('searchbox', { name: 'Search comments' })).toBeFocused();
     await expect(inbox.getByRole('searchbox', { name: 'Search comments' })).toHaveValue('');
 
-    // The status tabs: one tab stop, ← and → move between the tabs (past the Active statuses menu, which Tab reaches), Enter chooses
+    // The status tabs: one tab stop, ← and → move between the tabs (past the Active statuses and Done and archive menus, which Tab reaches), Enter chooses
     const tabs = inbox.getByRole('group', { name: 'Show comments' });
     const statuses = tabs.getByRole('button', { name: 'Active statuses', exact: true });
-    await expect(tabs.locator('button:not([tabindex="-1"])')).toHaveCount(2);
+    await expect(tabs.locator('button:not([tabindex="-1"])')).toHaveCount(3);
     const active = tabs.getByRole('button', { name: /^Active \d/ });
     await active.focus();
     await page.keyboard.press('Tab');
     await expect(statuses).toBeFocused();
     await active.focus();
     await page.keyboard.press('ArrowRight');
-    const done = tabs.getByRole('button', { name: /^Done/ });
+    const done = tabs.getByRole('button', { name: /^Done \d/ });
     await expect(done).toBeFocused();
     await expect(active).toHaveAttribute('aria-pressed', 'true');
     // The menu: ↓ moves between Active and its statuses, Escape closes only the menu

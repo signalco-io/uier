@@ -9,7 +9,7 @@ import { cx } from '@signalco/ui-primitives/cx';
 import { ExpandDown, PanelRightClose } from '@signalco/ui-icons';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Stack } from '@signalco/ui-primitives/Stack';
-import { activeStatusFilters, isActiveStatusFilter, type CommentsStatusFilter } from './CommentsFilter';
+import { activeStatusFilters, doneStatusFilters, isActiveStatusFilter, isDoneStatusFilter, type CommentsStatusFilter } from './CommentsFilter';
 import { CommentsBootstrapperContext } from '../CommentsBootstrapperContext';
 import { StatusDot } from '../CommentThreadHeader';
 import { floatingShadowClassName } from '../@types/Comments';
@@ -56,8 +56,9 @@ const tabStateClassName = (pressed: boolean) => pressed ? 'border-foreground tex
  * Active, Done and All, with their counts for the chosen pages, as the app's status tabs: underlined tabs right above
  * the list, one tab stop. Active (the default) is every status but Done; the Active statuses menu beside it picks one
  * of the statuses folded under it (Open, In progress, Ready to verify), which the Active tab then names ("Active: In
- * progress 4"); pressing that tab goes back to every active status. The menu button keeps its own tab stop: the arrow
- * keys move between the tabs only.
+ * progress 4"); pressing that tab goes back to every active status. Done holds Archive the same way (uier #302): its
+ * menu picks Done or Archive, the tab then reads "Archive 2", and pressing it goes back to Done. The menu buttons keep
+ * their own tab stops: the arrow keys move between the tabs only.
  */
 export function CommentsStatusTabs({ status, counts, onStatusChange }: {
     status: CommentsStatusFilter;
@@ -72,6 +73,8 @@ export function CommentsStatusTabs({ status, counts, onStatusChange }: {
     const activeShown = isActiveStatusFilter(status);
     const activeValue = activeShown ? status : 'unresolved';
     const activeLabel = activeValue === 'unresolved' ? statusLabels.unresolved : t.inbox.activeOne(statusLabels[activeValue]);
+    const doneShown = isDoneStatusFilter(status);
+    const doneValue = doneShown ? status : 'resolved';
     return (
         <Row ref={ref} role="group" aria-label={t.inbox.showComments} data-uier-status-tabs="" spacing={2} className="flex-wrap border-b" onFocus={roving.onFocus} onKeyDown={roving.onKeyDown}>
             <Row className="-mb-px">
@@ -81,21 +84,33 @@ export function CommentsStatusTabs({ status, counts, onStatusChange }: {
                     onClick={() => onStatusChange('unresolved')}>
                     {activeLabel} <span className="font-normal tabular-nums text-muted-foreground">{counts[activeValue]}</span>
                 </Button>
-                <ActiveStatusesMenu status={status} counts={counts} onStatusChange={onStatusChange} />
+                <StatusesMenu label={t.inbox.activeStatuses} values={['unresolved', ...activeStatusFilters]} status={status} counts={counts} onStatusChange={onStatusChange} />
             </Row>
-            {(['resolved', 'all', 'archived'] as const).map(value => (
-                <Button key={value} size="sm" variant="plain" aria-pressed={status === value}
-                    className={cx('-mb-px', tabClassName, tabStateClassName(status === value))}
-                    onClick={() => onStatusChange(value)}>
-                    {statusLabels[value]} <span className="font-normal tabular-nums text-muted-foreground">{counts[value]}</span>
+            <Row className="-mb-px">
+                <Button size="sm" variant="plain" aria-pressed={doneShown}
+                    className={cx(tabClassName, tabStateClassName(doneShown))}
+                    // Pressed again while it shows Archive: back to Done
+                    onClick={() => onStatusChange('resolved')}>
+                    {statusLabels[doneValue]} <span className="font-normal tabular-nums text-muted-foreground">{counts[doneValue]}</span>
                 </Button>
-            ))}
+                <StatusesMenu label={t.inbox.doneStatuses} values={doneStatusFilters} status={status} counts={counts} onStatusChange={onStatusChange} />
+            </Row>
+            <Button size="sm" variant="plain" aria-pressed={status === 'all'}
+                className={cx('-mb-px', tabClassName, tabStateClassName(status === 'all'))}
+                onClick={() => onStatusChange('all')}>
+                {statusLabels.all} <span className="font-normal tabular-nums text-muted-foreground">{counts.all}</span>
+            </Button>
         </Row>
     );
 }
 
-/** The chevron beside the Active tab: a menu of Active and the statuses folded under it, each with its count; a choice closes it */
-function ActiveStatusesMenu({ status, counts, onStatusChange }: {
+/**
+ * The chevron beside a tab: a menu of the tab's own filter, then the ones folded under it, each with its count (Active,
+ * then Open, In progress and Ready to verify with their status dots; Done, then Archive); a choice closes it
+ */
+function StatusesMenu({ label, values, status, counts, onStatusChange }: {
+    label: string;
+    values: readonly CommentsStatusFilter[];
     status: CommentsStatusFilter;
     counts: Record<CommentsStatusFilter, number>;
     onStatusChange: (status: CommentsStatusFilter) => void;
@@ -106,7 +121,7 @@ function ActiveStatusesMenu({ status, counts, onStatusChange }: {
     const [open, setOpen] = useState(false);
     const currentRef = useRef<HTMLButtonElement>(null);
     const firstRef = useRef<HTMLButtonElement>(null);
-    const { triggerProps, tooltip } = useIconTooltip(t.inbox.activeStatuses);
+    const { triggerProps, tooltip } = useIconTooltip(label);
     const choose = (value: CommentsStatusFilter) => {
         setOpen(false);
         onStatusChange(value);
@@ -117,7 +132,7 @@ function ActiveStatusesMenu({ status, counts, onStatusChange }: {
             open={open}
             onOpenChange={setOpen}
             align="start"
-            aria-label={t.inbox.activeStatuses}
+            aria-label={label}
             // Like a menu: ↑ and ↓ move between its choices. Escape closes only the menu, not the inbox
             onKeyDown={event => { if (event.key === 'Escape') event.stopPropagation(); else moveFocusInMenu(event); }}
             {...toolbarSurface('uier-status-filter-menu', cx('z-[70] w-52 max-w-[calc(100vw-1rem)] rounded-xl p-1', floatingShadowClassName))}
@@ -128,21 +143,22 @@ function ActiveStatusesMenu({ status, counts, onStatusChange }: {
                 }
             }}
             trigger={(
-                <IconButton size="sm" variant="plain" aria-label={t.inbox.activeStatuses} data-roving-skip="" {...triggerProps}
+                <IconButton size="sm" variant="plain" aria-label={label} data-roving-skip="" {...triggerProps}
                     className={cx('h-8 w-6 min-w-6 rounded-none border-b-2 border-transparent px-0 text-muted-foreground hover:bg-transparent hover:text-foreground active:bg-transparent pointer-coarse:h-11 pointer-coarse:min-w-8',
                         open && 'text-foreground')}>
                     <ExpandDown aria-hidden="true" size={14} />
                 </IconButton>
             )}>
-            <Stack role="group" aria-label={t.inbox.activeStatuses}>
-                {(['unresolved', ...activeStatusFilters] as const).map((value, index) => {
+            <Stack role="group" aria-label={label}>
+                {values.map((value, index) => {
                     const current = value === status;
+                    const stage = (activeStatusFilters as readonly CommentsStatusFilter[]).includes(value) ? value as typeof activeStatusFilters[number] : undefined;
                     return (
                         <Fragment key={value}>
                             {index === 1 && <div role="separator" className="my-1 h-px bg-border" />}
                             <Button ref={current ? currentRef : index === 0 ? firstRef : undefined} variant="plain" size="sm" fullWidth
                                 className="justify-start pointer-coarse:min-h-11" aria-pressed={current}
-                                startDecorator={value === 'unresolved' ? undefined : <StatusDot stage={value} />}
+                                startDecorator={stage ? <StatusDot stage={stage} /> : undefined}
                                 endDecorator={<span className="ml-auto font-normal tabular-nums text-muted-foreground">{counts[value]}</span>}
                                 onClick={() => choose(value)}>
                                 {statusLabels[value]}

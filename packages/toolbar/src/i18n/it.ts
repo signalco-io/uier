@@ -605,6 +605,8 @@ export const it: Messages = {
         activeOne: (status: string) => `Attivi: ${status}`,
         showComments: 'Mostra commenti',
         activeStatuses: 'Stati attivi',
+        /** The menu beside the Done tab: Done or Archive */
+        doneStatuses: 'Fatti e archivio',
         onThisPage: ' in questa pagina',
         noArchived: (where: string) => `Nessun commento archiviato${where}`,
         noMatches: (where: string) => `Nessun risultato${where}`,
