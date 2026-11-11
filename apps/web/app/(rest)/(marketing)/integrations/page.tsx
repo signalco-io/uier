@@ -1,7 +1,7 @@
 import type { PropsWithChildren } from 'react';
 import { publicPageMetadata } from '@/src/lib/metadata';
 import { Add, ArrowRight } from '@signalco/ui-icons';
-import { CheckList, Chip, PageHeader, PageSection, Panel } from '../../../../src/components/marketing/ContentPage';
+import { CheckList, Chip, InlineLink, PageHeader, PageSection, Panel } from '../../../../src/components/marketing/ContentPage';
 import { SuggestIntegrationButton } from '../../../../src/components/marketing/SuggestIntegrationButton';
 import { IntegrationLogo } from '../../../../src/components/app/integrations/IntegrationLogo';
 import { KnownPageLinks } from '../../../../src/knownPages';
@@ -69,6 +69,7 @@ export default function IntegrationsPage() {
         </PageSection>
         <PageSection id="shared" title="Every integration" lead="The same rules apply to each service.">
             <CheckList items={shared} />
+            <p className="text-sm leading-relaxed text-muted-foreground">Need to compare the whole workflow? The <InlineLink href={KnownPageLinks.comparison('website-feedback-tools')}>website feedback tools comparison</InlineLink> covers capture, review and the handoff to your team’s tools.</p>
         </PageSection>
         <PageSection id="suggest" title="Suggest an integration" lead="Missing a tool your team works in? Tell us which one and what you would send to it.">
             <div className="flex flex-col gap-5 rounded-2xl border p-8">

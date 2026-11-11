@@ -1,0 +1,45 @@
+<section id="uier-cosmos-cost-examples" data-viz-composition>
+  <style>
+    #uier-cosmos-cost-examples { display: grid; gap: 12px; }
+    #uier-cosmos-cost-examples .cost-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    #uier-cosmos-cost-examples .cost-caption { color: var(--muted-foreground); }
+  </style>
+  <div class="cost-controls viz-controls">
+    <label class="form-label" for="uier-cost-volume">Queries per month</label>
+    <select id="uier-cost-volume" class="form-select">
+      <option value="10000">10,000</option>
+      <option value="100000" selected>100,000</option>
+      <option value="1000000">1,000,000</option>
+    </select>
+  </div>
+  <div data-viz-container></div>
+  <p class="cost-caption text-small">West Europe retail: €0.2738/million RU. Illustrative query-only costs; excludes writes, storage, Function compute, transfer and tax.</p>
+  <script type="application/json" data-viz-chart data-volume="10000">
+    {"id":"uier-cost-10k","title":"Illustrative Cosmos query cost","description":"10,000 monthly queries. RU/query values are assumptions, not measured charges or latency.","height":230,"columns":["scenario","cost"],"rows":[["10 RU/query",0.02738],["50 RU/query",0.1369],["200 RU/query",0.5476]],"spec":{"type":"horizontalBar","y":"scenario","x":"cost","xLabel":"Monthly query RU cost (EUR)","showValues":true,"showLegend":false,"sortOrder":"original","valueFormat":{"style":"currency","currency":"EUR","minimumFractionDigits":2,"maximumFractionDigits":3}}}
+  </script>
+  <script type="application/json" data-viz-chart data-volume="100000">
+    {"id":"uier-cost-100k","title":"Illustrative Cosmos query cost","description":"100,000 monthly queries. RU/query values are assumptions, not measured charges or latency.","height":230,"columns":["scenario","cost"],"rows":[["10 RU/query",0.2738],["50 RU/query",1.369],["200 RU/query",5.476]],"spec":{"type":"horizontalBar","y":"scenario","x":"cost","xLabel":"Monthly query RU cost (EUR)","showValues":true,"showLegend":false,"sortOrder":"original","valueFormat":{"style":"currency","currency":"EUR","minimumFractionDigits":2,"maximumFractionDigits":3}}}
+  </script>
+  <script type="application/json" data-viz-chart data-volume="1000000">
+    {"id":"uier-cost-1m","title":"Illustrative Cosmos query cost","description":"1,000,000 monthly queries. RU/query values are assumptions, not measured charges or latency.","height":230,"columns":["scenario","cost"],"rows":[["10 RU/query",2.738],["50 RU/query",13.69],["200 RU/query",54.76]],"spec":{"type":"horizontalBar","y":"scenario","x":"cost","xLabel":"Monthly query RU cost (EUR)","showValues":true,"showLegend":false,"sortOrder":"original","valueFormat":{"style":"currency","currency":"EUR","minimumFractionDigits":2,"maximumFractionDigits":3}}}
+  </script>
+</section>
+<script type="module">
+  import { mountChart } from "https://persistent.oaistatic.com/plugins/visualize/charts/1.1.6/element.js";
+  const root = document.getElementById("uier-cosmos-cost-examples");
+  const select = root.querySelector("select");
+  const configs = Object.fromEntries([...root.querySelectorAll("[data-viz-chart]")].map(item => [item.dataset.volume, JSON.parse(item.textContent)]));
+  const saved = window.openai?.widgetState?.volume;
+  select.value = configs[saved] ? saved : "100000";
+  const chart = mountChart(root.querySelector("[data-viz-container]"), configs[select.value]);
+  select.addEventListener("change", () => {
+    chart.config = configs[select.value];
+    window.openai?.setWidgetState?.({volume: select.value});
+  });
+  window.addEventListener("openai:set_globals", event => {
+    const volume = event.detail?.globals?.widgetState?.volume;
+    if (!configs[volume]) return;
+    select.value = volume;
+    chart.config = configs[volume];
+  });
+</script>

@@ -146,3 +146,17 @@ test('in landscape the sidebar stays, the thread opens beside the list and proje
     expect(third!.y).toBeGreaterThan(first!.y + first!.height);
     expect(await noSidewaysScroll(page)).toBe(true);
 });
+
+test('comparison tables stay within the page on portrait and landscape tablets', async ({ page }) => {
+    for (const viewport of [{ width: 768, height: 1024 }, { width: 1024, height: 768 }]) {
+        await page.setViewportSize(viewport);
+        await page.goto('/compare/website-feedback-tools');
+        const region = page.getByRole('region', { name: 'Feature comparison table' });
+        await expect(region).toBeVisible();
+        expect(await noSidewaysScroll(page)).toBe(true);
+        expect(await region.evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true);
+        await region.getByRole('columnheader', { name: 'Workflow or feature', exact: true }).scrollIntoViewIfNeeded();
+        await region.evaluate(element => { element.scrollLeft = element.scrollWidth; });
+        await expect(region.getByRole('columnheader', { name: 'Pastel', exact: true })).toBeInViewport();
+    }
+});

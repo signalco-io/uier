@@ -32,3 +32,6 @@ captions share one grid cell, the inactive ones `invisible`, so the row keeps th
 section below never moves between phases; `e2e/integration-pages.spec.ts` checks both at 390 px. The picture and its caption are `inert` and `aria-hidden`, so the axe scan
 skips their text, which a frame can catch mid-fade; the canvas is `data-uier-decorative` with a `min-height`. It is
 self-contained: the other marketing pages' covers do not share it.
+
+The index links to `/compare/website-feedback-tools` beside the shared integration rules for
+people comparing capture, review and issue-tracker handoff together.

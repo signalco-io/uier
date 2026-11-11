@@ -12,6 +12,7 @@ Product contracts, API references and runbooks stay in the repository's [`docs/`
 - [Brand page](brand-page.md): `/brand`, the live brand reference.
 - [Landing page](landing-page.md): sections, copy rules, the how-it-works scene, pricing.
 - [Feature pages](feature-pages.md): `/features/<feature>`, when to publish one and what each states.
+- [Comparison pages](comparison-pages.md): `/compare`, sourced feature matrices, visual workflows and alternatives.
 - [Integration pages](integration-pages.md): `/integrations` and provider pages, listing illustrations.
 - [Search indexing](search-indexing.md): metadata, sitemap, `noindex`, IndexNow.
 - [Social cards](social-cards.md): page cards, app link previews, `/og/[card]`.
@@ -40,6 +41,7 @@ Product contracts, API references and runbooks stay in the repository's [`docs/`
 
 - [Comments inbox and board](comments-inbox.md): rows, keyboard, the board and drag and drop.
 - [The open thread](comment-thread.md): `CommentCard`, message Markdown, reading when shown, the reply composer.
+- [Comment query backend](comment-query.md): versioned queries, Cosmos execution, capabilities, cursors and saved views.
 - [Comment filters and priority](comment-filters.md): the filter bar and `PriorityFlag`.
 - [App triage](triage.md): search, priority and bulk triage.
 - [In progress](in-progress.md): the In progress stage.
