@@ -73,6 +73,10 @@ test('the footer, guides, homepage and stack question link the extension', async
     await page.goto('/');
     await expect(page.getByRole('contentinfo').getByRole('link', { name: 'Browser extension' })).toHaveAttribute('href', KnownPages.BrowserExtension);
     await expect(page.locator(`main section[aria-labelledby="get-started"] a[href="${KnownPages.BrowserExtension}"]`)).toBeVisible();
+    const browsers = page.locator('main section[aria-labelledby="get-started"]').getByRole('list', { name: 'Browser extension' });
+    for (const name of ['Chrome', 'Edge']) await expect(browsers.getByRole('link', { name, exact: true })).toHaveAttribute('href', extensionStoreUrl);
+    await expect(browsers.getByRole('listitem').filter({ hasText: 'Firefox' })).toHaveText('Firefoxin review');
+    await expect(browsers.getByRole('link')).toHaveCount(2);
     const question = page.getByRole('region', { name: 'Questions' }).locator('details').filter({ hasText: 'Does it work with my stack?' });
     await question.locator('summary').focus();
     await page.keyboard.press('Enter');
