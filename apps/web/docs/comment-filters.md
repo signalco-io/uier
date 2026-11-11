@@ -35,8 +35,10 @@
   same Active statuses menu (a toolbar `Popper`, the `uier-status-filter-menu` part: Active, then Open, In progress and Ready to verify
   with their status dots and counts) and the same "Active: In progress 4" tab; underlined like the toolbar's other tabs. Site-wide
   counts come from the activity summary, Open as its not-done count less In progress and Ready to verify. Neither view has "15 of 93 comments": the
-  list's status tabs and the board's columns already count what is shown. With no unread count the count line is `sr-only`: it takes no
-  room and no gap in the column, and its status stays mounted for announcements. The count line has no side padding of its own and takes the filters header's width, so its
+  list's status tabs and the board's columns already count what is shown. A populated project inbox keeps the count line's
+  32 px height (44 px on touch) when it has no unread count, so automatic reads and incoming unread feedback do not move the list or board.
+  Empty projects hide it; callers without `reserveLine` retain the collapsed `sr-only` line. Its status stays mounted
+  for announcements. The count line has no side padding of its own and takes the filters header's width, so its
   edges line up with the search and Filter row (and the view toggle) in the list and the board, the board's wide layout too; Select shown results and the bulk actions are in the selection bar that
   floats over the end of the comments once something is selected ([App triage](triage.md#selection)).
   `LocationFilter`: its trigger is named by what it shows, then "environment and page" ("Production · /pricing, environment and page").

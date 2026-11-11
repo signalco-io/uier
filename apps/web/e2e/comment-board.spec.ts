@@ -167,7 +167,7 @@ test('the board widens on a wide window, the filters and project headers and the
     // The window the feedback came from
     await page.setViewportSize({ width: 1674, height: 1366 });
     const { column } = await board(page, request);
-    const grid = page.locator('[data-page-width="wide"]');
+    const grid = page.locator('[data-board-scroll]');
     const columns = () => Promise.all(boardStatuses.map(name => placement(column(name))));
     const atBoard = await pageParts(page);
     const view = page.getByRole('group', { name: 'View', exact: true });
@@ -221,7 +221,7 @@ test('the board widens on a wide window, the filters and project headers and the
     const atList = await pageParts(page);
     expect(atList[1]).toEqual(atBoard[1]);
     // The list with its thread beside it is the wide element now
-    const split = page.locator('[data-page-width="wide"]');
+    const split = list.locator('xpath=..');
     await headerSpans(list, split);
 
     // On a very wide window the columns stop at 20rem and the row is centred; the page keeps the reading width
@@ -413,8 +413,30 @@ test('the List/Board choice is remembered and kept in the address; a view in the
     await page.goto(`/app/projects/${project}`);
     await expect.poll(view).toBe('board');
 
-    // Blocked storage only loses the memory
+    // Without the cookie the server paints the list, never a loading state; an older localStorage-only Board choice
+    // then switches once after hydration and moves into the cookie
+    await page.context().clearCookies({ name: /uier_comments_view$/ });
+    let release!: () => void;
+    const hydration = new Promise<void>(resolve => { release = resolve; });
+    await page.route('**/_next/static/**/*.js', async route => { await hydration; await route.continue(); });
+    try {
+        await page.goto(`/app/projects/${project}`, { waitUntil: 'commit' });
+        await expect(list).toBeVisible();
+        await expect(page.locator('#comments').getByRole('status', { name: 'Loading project', exact: true })).toHaveCount(0);
+    } finally { release(); }
+    await page.waitForLoadState('load');
+    await page.unroute('**/_next/static/**/*.js');
+    await expect(column('Open').getByRole('listitem')).toHaveCount(2);
+    await expect.poll(view).toBe('board');
+    await expect.poll(async () => (await page.context().cookies()).find(cookie => cookie.name.endsWith('uier_comments_view'))?.value).toBe('board');
+
+    // The request-readable cookie still remembers the view when localStorage is blocked.
     await page.addInitScript(() => Object.defineProperty(window, 'localStorage', { get() { throw new DOMException('Blocked', 'SecurityError'); } }));
+    await page.goto(`/app/projects/${project}`);
+    await expect(column('Open').getByRole('listitem')).toHaveCount(2);
+    await expect.poll(view).toBe('board');
+    // With neither store available there is no memory; choosing a view still works in the address.
+    await page.context().clearCookies({ name: /uier_comments_view$/ });
     await page.goto(`/app/projects/${project}`);
     await expect(list).toBeVisible();
     expect(view()).toBeNull();

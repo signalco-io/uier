@@ -10,6 +10,7 @@ import { getVisibleProject } from '@/src/lib/app/projects';
 import { loadAppCommentsSnapshot } from '@/src/lib/app/appCommentsSnapshot';
 import { ProjectComments } from '@/src/components/app/comments/ProjectComments';
 import { parseCommentsQuery } from '@/src/components/app/comments/commentsQuery';
+import { getCommentsView } from '@/src/lib/app/commentsViewCookie';
 
 export async function generateMetadata({ params }: PageProps<'/app/projects/[projectId]'>): Promise<Metadata> {
     const { projectId } = await params;
@@ -28,13 +29,16 @@ async function ProjectPageContent({ params, searchParams }: PageProps<'/app/proj
     if (!project)
         notFound();
 
-    const snapshot = await loadAppCommentsSnapshot(context, project, parseCommentsQuery(await searchParams), undefined, t);
+    const [snapshot, initialView] = await Promise.all([
+        loadAppCommentsSnapshot(context, project, parseCommentsQuery(await searchParams), undefined, t),
+        getCommentsView()
+    ]);
     if (!snapshot) notFound();
     return (
         <>
             <section id="comments" aria-labelledby="comments-title" className="flex scroll-mt-6 flex-col gap-4">
                 <h2 id="comments-title" className="sr-only">{t("Comments")}</h2>
-                <ProjectComments {...snapshot} installHref={KnownPageLinks.projectInstall(project.id)} />
+                <ProjectComments {...snapshot} initialView={initialView} installHref={KnownPageLinks.projectInstall(project.id)} />
             </section>
         </>
     );

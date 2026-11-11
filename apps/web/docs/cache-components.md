@@ -129,3 +129,10 @@ wraps the development toolbar in Suspense while public notifications have their 
 The Board retains its synchronous client entry and server rendering inside the project page's
 request boundary. Its sort schema stays separate from browser choices and validates every board
 column, including Archive.
+
+Project comments read the browser's saved List/Board cookie inside `ProjectPageContent`'s request
+boundary. Explicit URL views still win. With no valid cookie the server renders the list, so most
+visitors never wait for a loading state; only a browser with the older localStorage-only Board choice
+switches once after hydration and then moves it into the cookie. This avoids the
+server-list-to-client-board replacement without putting preferences or authorized comments into a shared cache. Populated inboxes retain their width container and unread-row space
+through empty filters and live updates ([CLS investigation](project-comments-cls.md)).
