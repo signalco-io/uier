@@ -39,7 +39,7 @@
     "@vercel/analytics": "2.0.1",
     "@vercel/functions": "3.11.1",
     "@vercel/oidc": "4.0.8",
-    "botid": "1.5.12",
+    "botid": "1.5.13",
     "class-variance-authority": "0.7.1",
     "cn": "0.5.2",
     "geist": "1.9.2",
