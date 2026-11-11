@@ -49,7 +49,7 @@ test('app board receives another reviewer\'s comment and status change without r
     expect(resolved.status()).toBe(200);
     changed(); changed(); changed();
     await expect(thread.getByRole('button', { name: 'Status: Done. Change status', exact: true })).toBeVisible();
-    await expect(draft).toHaveValue('Keep this unfinished reply');
+    await expect(draft).toHaveText('Keep this unfinished reply', { useInnerText: true });
     await page.keyboard.press('Escape');
     await expect(page.getByRole('region', { name: 'Done comments', exact: true }).getByRole('listitem')).toHaveCount(1);
 });
@@ -104,14 +104,14 @@ test('toolbar receives replies, reconciles after socket replacement and preserve
     expect(reply.status()).toBe(201);
     sockets.at(-1)!.send('{"type":"comments.changed"}');
     await expect(thread).toContainText('A remote reply');
-    await expect(draft).toHaveValue('Still writing this reply');
+    await expect(draft).toHaveText('Still writing this reply', { useInnerText: true });
     const previous = sockets.length;
     sockets.at(-1)!.close({ code: 1012, reason: 'Deployment restart' });
     const missed = await request.post(`/api/review/${project}/comments/${comment.id}/replies`, { headers, data: { text: 'Posted during reconnect', authorName: 'Reviewer' } });
     expect(missed.status()).toBe(201);
     await expect.poll(() => sockets.length).toBeGreaterThan(previous);
     await expect(thread).toContainText('Posted during reconnect');
-    await expect(draft).toHaveValue('Still writing this reply');
+    await expect(draft).toHaveText('Still writing this reply', { useInnerText: true });
     let closed = false;
     sockets.at(-1)!.onClose(() => { closed = true; });
     await page.evaluate(() => {
@@ -129,7 +129,7 @@ test('toolbar receives replies, reconciles after socket replacement and preserve
     });
     await expect.poll(() => sockets.length).toBeGreaterThan(suspended);
     await expect(thread).toContainText('Posted while tab was hidden');
-    await expect(draft).toHaveValue('Still writing this reply');
+    await expect(draft).toHaveText('Still writing this reply', { useInnerText: true });
 });
 
 /** Only app-shell RSC reads: revision probes and other request types do not count as renders. */

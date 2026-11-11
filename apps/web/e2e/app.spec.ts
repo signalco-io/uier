@@ -1066,22 +1066,22 @@ test('reply from list and board with mentions, keyboard input and local drafts',
         await page.getByRole('button', { name: 'Board', exact: true }).click();
         await openComment(page, 'Reply without finding a pin');
         await card.getByRole('button', { name: 'Reply', exact: true }).click();
-        await expect(input).toHaveValue('Keep this draft');
+        await expect(input).toHaveText('Keep this draft', { useInnerText: true });
         await page.reload();
         await card.getByRole('button', { name: 'Reply', exact: true }).click();
-        await expect(input).toHaveValue('Keep this draft');
+        await expect(input).toHaveText('Keep this draft', { useInnerText: true });
         await card.getByRole('button', { name: 'Discard', exact: true }).click();
-        await expect(input).toHaveValue('');
+        await expect(input).toHaveText('', { useInnerText: true });
         await input.fill('Please check @');
         const people = card.getByRole('listbox', { name: 'Mention people' });
         await expect(people.getByRole('option')).toHaveCount(1);
         await input.press('Tab');
-        await expect(input).toHaveValue(`Please check @${email.split('@')[0]} `);
+        await expect(input).toHaveText(`Please check @${email.split('@')[0]} `, { useInnerText: true });
         await input.press('Shift+Enter');
         await input.pressSequentially('Second line');
-        const text = await input.inputValue();
+        const text = await input.innerText();
         await input.dispatchEvent('keydown', { key: 'Enter', code: 'Enter', isComposing: true });
-        await expect(input).toHaveValue(text);
+        await expect(input).toHaveText(text, { useInnerText: true });
         let release!: () => void;
         const held = new Promise<void>(resolve => { release = resolve; });
         let posts = 0;
@@ -1093,12 +1093,12 @@ test('reply from list and board with mentions, keyboard input and local drafts',
             await input.press('Enter');
             await expect.poll(() => posts).toBe(1);
             await expect(card.getByText(text.trim(), { exact: true })).toBeVisible();
-            await expect(input).toHaveValue('');
+            await expect(input).toHaveText('', { useInnerText: true });
             await input.fill('New text while sending');
             await expect(card.getByRole('button', { name: 'Post reply' })).toBeDisabled();
             release();
             await expect(card.getByRole('button', { name: 'Post reply' })).toBeEnabled();
-            await expect(input).toHaveValue('New text while sending');
+            await expect(input).toHaveText('New text while sending', { useInnerText: true });
             await expect(card.getByText(text.trim(), { exact: true })).toHaveCount(1);
         } finally { release(); }
         await page.unroute(`**/app/projects/${project}*`);
@@ -1111,12 +1111,12 @@ test('reply from list and board with mentions, keyboard input and local drafts',
         await page.getByRole('menuitem', { name: 'Done', exact: true }).click();
         await expect(card.getByRole('button', { name: 'Status: Done. Change status' })).toBeEnabled();
         // The open thread keeps its reply box and draft through the status change
-        await expect(input).toHaveValue('New text while sending');
+        await expect(input).toHaveText('New text while sending', { useInnerText: true });
         await input.fill('Reply on a done thread');
         await input.press('Enter');
         await expect(card.getByText('Reply on a done thread', { exact: true })).toBeVisible();
         await expect(card.getByRole('button', { name: 'Status: Done. Change status' })).toBeVisible();
-        await expect(input).toHaveValue('');
+        await expect(input).toHaveText('', { useInnerText: true });
         // The optimistic message and cleared draft precede action revalidation. Wait for the
         // saved reply before axe snapshots the document while streamed metadata is changing.
         await expect(card.getByRole('status').filter({ hasText: /^Reply posted$/ })).toHaveText('Reply posted');
@@ -1170,12 +1170,12 @@ test('app replies retry a lost response once and reject forged or unauthorized a
         });
         await input.press('Enter');
         await expect(card.getByRole('alert')).toBeVisible();
-        await expect(input).toHaveValue('Save once after response loss');
+        await expect(input).toHaveText('Save once after response loss', { useInnerText: true });
         await page.reload();
         await card.getByRole('button', { name: 'Reply', exact: true }).click();
-        await expect(input).toHaveValue('Save once after response loss');
+        await expect(input).toHaveText('Save once after response loss', { useInnerText: true });
         await input.press('Enter');
-        await expect(input).toHaveValue('');
+        await expect(input).toHaveText('', { useInnerText: true });
         await expect(card.getByText('Save once after response loss', { exact: true })).toHaveCount(1);
         await page.unroute(`**/app/projects/${project}*`);
         expect((await (await request.get(`/api/review/${project}/comments?scope=site`, { headers })).json()).find((item: { id: string }) => item.id === saved.id).thread.items).toHaveLength(2);

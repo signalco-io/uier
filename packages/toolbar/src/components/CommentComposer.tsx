@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useId, useImperativeHandle, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode, type Ref } from 'react';
+import { useEffect, useId, useImperativeHandle, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode, type Ref } from 'react';
 import { IconTooltip } from './IconTooltip';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
@@ -10,7 +10,8 @@ import { Input } from '@signalco/ui-primitives/Input';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Close, Send } from '@signalco/ui-icons';
 import { useParticipants, type Participant } from '../hooks/useParticipants';
-import { mentionQuery, moveMentions } from '../mentions';
+import { MarkdownEditor, type MarkdownEditorHandle, type MentionQuery } from '../editor/MarkdownEditor';
+import type { EditorMention } from '../editor/markdownDoc';
 import type { Mention } from './@types/Comments';
 import { useDrafts } from '../hooks/useDrafts';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
@@ -30,11 +31,10 @@ const noMentions: Mention[] = [];
 const counterThreshold = commentTextMaxLength - 100;
 // Remaining characters are announced once at each of these lengths, not on every key
 const announceThresholds = [counterThreshold, commentTextMaxLength - 10, commentTextMaxLength];
-// The text box grows with the text up to about 8 lines, then scrolls
-const textareaMaxHeight = 176;
-// Expanded (`tall`): it starts at 8 lines and grows to about 22, within the window
-const tallTextareaRows = 8;
-const tallTextareaMaxHeight = 480;
+// The text box starts at two lines and grows with the text up to about 8, then scrolls. Expanded (`tall`): it
+// starts at 8 lines and grows to about 22, within the window
+const textClassName = 'min-h-[54px] max-h-44';
+const tallTextClassName = 'min-h-[174px] max-h-[min(480px,calc(100dvh-16rem))]';
 
 // A guest's name typed but not sent yet, per form (its draft key): the same form expanded or
 // collapsed again starts with it, and another form never gets it
@@ -50,6 +50,8 @@ export type CommentComposerHandle = {
      * history, so Ctrl/Cmd+Z brings the earlier text back) and gets the focus
      */
     replaceText: (text: string) => void;
+    /** Focuses the text box with the caret at the end */
+    focus: () => void;
 };
 
 type CommentComposerProps = {
@@ -93,6 +95,8 @@ type CommentComposerProps = {
      * failure puts the text back (the toast says why).
      */
     onSubmit: (text: string, mentions?: Mention[]) => Promise<unknown>;
+    /** An image file dropped on the text (the form's Attach image takes it) */
+    onImageDrop?: (file: File) => void;
     /** Shows a "Discard" button while there is text (new comments) */
     onDiscard?: () => void;
     /** Discard shows without text too (a drawing's comment: the drawing is something to discard) */
@@ -100,13 +104,13 @@ type CommentComposerProps = {
 };
 
 /**
- * Text box for a comment or reply. The UI kit has no multi-line input, so this is a plain
- * textarea styled like the kit's `Input` (bordered, radius 8, blue focus ring).
- * Enter sends, Shift+Enter adds a new line.
+ * Text box for a comment or reply: the rich message editor (`editor/MarkdownEditor`, saved as Markdown) in one
+ * box styled like the kit's `Input` (bordered, radius 8, blue focus ring), with its hint or counter and buttons.
+ * Enter sends, Shift+Enter adds a new line; Markdown typed and Ctrl/⌘+B, I, E format the text.
  */
-export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, holdSubmit = false, waiting = false, attachments, beforeText, tall = false, error, onSubmit, onDiscard, discardable = false, initialText, initialMentions, commentId, onCancel }: CommentComposerProps) {
+export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, holdSubmit = false, waiting = false, attachments, beforeText, tall = false, error, onSubmit, onImageDrop, onDiscard, discardable = false, initialText, initialMentions, commentId, onCancel }: CommentComposerProps) {
     const formRef = useRef<HTMLFormElement>(null);
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const editorRef = useRef<MarkdownEditorHandle>(null);
     const inputId = useId();
     const counterId = useId();
     const keysId = useId();
@@ -122,11 +126,11 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
     const mentions = useSyncExternalStore(
         listener => drafts.subscribe(draftKey, listener),
         () => drafts.details(draftKey)?.mentions ?? (text === initialText ? initialMentions ?? noMentions : noMentions));
-    const [caret, setCaret] = useState(0);
+    const [mentionQuery, setMentionQuery] = useState<MentionQuery>();
     const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
     const [activeSuggestion, setActiveSuggestion] = useState(0);
     const listId = useId();
-    const query = suggestionsDismissed ? undefined : mentionQuery(text, caret);
+    const query = suggestionsDismissed ? undefined : mentionQuery;
     const participants = useParticipants(commentId, Boolean(query));
     const suggestions = query ? participants.data?.filter(person => person.name.toLocaleLowerCase().includes(query.search)).slice(0, 8) ?? [] : [];
     const selectedIndex = Math.min(activeSuggestion, Math.max(0, suggestions.length - 1));
@@ -149,32 +153,17 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
     const instant = !onCancel;
     const busy = !instant && (pending || submitting || sharedPending);
 
-    const setText = (value: string) => {
-        const next = moveMentions(text, value, mentions).map(({ userId, start, end }) => ({ userId, start, end }));
+    // The editor reports the Markdown with each mention's range (its mentions move with the text)
+    const setText = (value: string, next: EditorMention[]) => {
         drafts.set(draftKey, value);
         drafts.setDetails(draftKey, { mentions: next });
         setStorageAvailable(drafts.available());
     };
 
     useImperativeHandle(ref, () => ({
-        replaceText: (value: string) => {
-            const textarea = textareaRef.current;
-            if (!textarea) {
-                return;
-            }
-            textarea.focus();
-            textarea.select();
-            // Like typing it: the change is an input event (onChange keeps the drafts in sync) and
-            // one step in the text box's undo history
-            const inserted = value.length
-                ? document.execCommand('insertText', false, value)
-                : document.execCommand('delete');
-            if (!inserted || textarea.value !== value) {
-                // Without execCommand: no undo step
-                setText(value);
-                textarea.setSelectionRange(value.length, value.length);
-            }
-        }
+        // Like typing it: one step in the editor's undo history, so Ctrl/Cmd+Z brings the earlier text back
+        replaceText: (value: string) => editorRef.current?.replaceText(value),
+        focus: () => editorRef.current?.focus('end')
     }));
 
     useEffect(() => {
@@ -183,33 +172,11 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
         }
 
         // After the popover's own open focus handling, which moves the focus to the popover
-        // itself when the previous focus was in the toolbar (the document only sees the shadow host)
-        const timeout = window.setTimeout(() => textareaRef.current?.focus(), 0);
+        // itself when the previous focus was in the toolbar (the document only sees the shadow host).
+        // A restored draft continues where it ended: the caret goes to the end.
+        const timeout = window.setTimeout(() => editorRef.current?.focus('end'), 0);
         return () => window.clearTimeout(timeout);
     }, [autoFocus]);
-
-    // A restored draft continues where it ended (the first focus would put the caret at the start)
-    const caretPlacedRef = useRef(false);
-    const handleFocus = (e: React.FocusEvent<HTMLTextAreaElement>) => {
-        if (caretPlacedRef.current) {
-            return;
-        }
-        caretPlacedRef.current = true;
-        // Preserve an existing selection (including select-all used to replace or clear text).
-        if (e.currentTarget.selectionStart !== e.currentTarget.selectionEnd) return;
-        const length = e.currentTarget.value.length;
-        e.currentTarget.setSelectionRange(length, length);
-    };
-
-    // Grow with the text
-    useLayoutEffect(() => {
-        const textarea = textareaRef.current;
-        if (!textarea) {
-            return;
-        }
-        textarea.style.height = 'auto';
-        textarea.style.height = `${Math.min(textarea.scrollHeight + 2, tall ? tallTextareaMaxHeight : textareaMaxHeight)}px`;
-    }, [text, tall]);
 
     // Announce the remaining characters when the text crosses a threshold
     const lastThreshold = useRef(thresholdIndex(text.length));
@@ -239,7 +206,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
         }
     };
 
-    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         // The draft's text, not this render's: a second Enter before the form re-rendered would send it again
         const text = drafts.get(draftKey) ?? initialText ?? '';
@@ -279,33 +246,29 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
     };
 
     const selectMention = (person: Participant) => {
-        if (!query) return;
-        const label = `@${person.name}`;
-        const value = text.slice(0, query.start) + label + ' ' + text.slice(query.end);
-        if (value.length > commentTextMaxLength) return;
-        const kept = moveMentions(text, value, mentions);
-        setText(value);
-        const selected = [...kept, { userId: person.id, start: query.start, end: query.start + label.length }].sort((a, b) => a.start - b.start);
-        drafts.setDetails(draftKey, { mentions: selected.map(({ userId, start, end }) => ({ userId, start, end })) });
+        // The mention and a space after it, in place of the `@` being typed, unless that is over the limit
+        if (!query || !editorRef.current?.insertMention(person)) return;
         setSuggestionsDismissed(true);
-        const next = query.start + label.length + 1;
-        requestAnimationFrame(() => { textareaRef.current?.focus(); textareaRef.current?.setSelectionRange(next, next); setCaret(next); });
         announce(t.composer.mentioned(person.name));
     };
 
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        if (showSuggestions && !e.nativeEvent.isComposing) {
+    // Keys before the editor's own: true when handled (the editor then prevents the default)
+    const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.isComposing) return false;
+        if (showSuggestions) {
             if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-                e.preventDefault(); setActiveSuggestion((selectedIndex + (e.key === 'ArrowDown' ? 1 : -1) + suggestions.length) % suggestions.length); return;
+                setActiveSuggestion((selectedIndex + (e.key === 'ArrowDown' ? 1 : -1) + suggestions.length) % suggestions.length);
+                return true;
             }
-            if ((e.key === 'Enter' || e.key === 'Tab') && !e.shiftKey) { e.preventDefault(); selectMention(suggestions[selectedIndex]!); return; }
-            if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setSuggestionsDismissed(true); return; }
+            if ((e.key === 'Enter' || e.key === 'Tab') && !e.shiftKey) { selectMention(suggestions[selectedIndex]!); return true; }
+            if (e.key === 'Escape') { e.stopPropagation(); setSuggestionsDismissed(true); return true; }
         }
 
-        if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-            e.preventDefault();
+        if (e.key === 'Enter' && !e.shiftKey) {
             formRef.current?.requestSubmit();
+            return true;
         }
+        return false;
     };
 
     const handleDiscard = () => {
@@ -345,33 +308,28 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                 {beforeText}
                 {/* One box: the text, then its hint or counter and the buttons; the box shows the focus */}
                 <div className={cx('rounded-lg border border-input bg-background', inputFocusRingClassName)}>
-                <textarea
-                    ref={textareaRef}
-                    id={inputId}
-                    name="text"
-                    rows={tall ? tallTextareaRows : 2}
+                <MarkdownEditor
+                    ref={editorRef}
                     value={text}
-                    onChange={(e) => { setText(e.target.value); setCaret(e.target.selectionStart); setSuggestionsDismissed(false); setActiveSuggestion(0); }}
-                    onSelect={e => setCaret(e.currentTarget.selectionStart)}
-                    aria-autocomplete={showSuggestions ? 'list' : undefined}
-                    aria-controls={showSuggestions ? listId : undefined}
-                    aria-activedescendant={showSuggestions ? `${listId}-${selectedIndex}` : undefined}
+                    mentions={mentions}
+                    onChange={(value, next) => { setText(value, next); setSuggestionsDismissed(false); setActiveSuggestion(0); }}
+                    onMentionQuery={setMentionQuery}
                     onKeyDown={handleKeyDown}
-                    onFocus={handleFocus}
+                    onImageDrop={onImageDrop}
                     maxLength={commentTextMaxLength}
                     readOnly={busy || waiting}
                     placeholder={placeholder}
-                    aria-label={label}
-                    aria-describedby={[showCounter || isMember ? counterId : '', keyboard ? keysId : ''].filter(Boolean).join(' ') || undefined}
                     enterKeyHint={onCancel ? 'done' : 'send'}
-                    autoComplete="off"
-                    className={cx(
-                        'block w-full resize-none overflow-y-auto rounded-t-lg border-0 bg-transparent px-3 pb-1 pt-2.5 text-sm text-foreground',
-                        'placeholder:text-muted-foreground',
-                        'focus-visible:outline-none',
-                        'disabled:cursor-not-allowed disabled:opacity-50'
-                    )}
-                    style={{ maxHeight: tall ? `min(${tallTextareaMaxHeight}px, calc(100dvh - 16rem))` : textareaMaxHeight }} />
+                    attributes={{
+                        id: inputId,
+                        'aria-label': label,
+                        'aria-describedby': [showCounter || isMember ? counterId : '', keyboard ? keysId : ''].filter(Boolean).join(' ') || undefined,
+                        'aria-autocomplete': showSuggestions ? 'list' : undefined,
+                        'aria-controls': showSuggestions ? listId : undefined,
+                        'aria-activedescendant': showSuggestions ? `${listId}-${selectedIndex}` : undefined
+                    }}
+                    textClassName={cx('overflow-y-auto rounded-t-lg px-3 pb-1 pt-2.5 text-sm text-foreground', tall ? tallTextClassName : textClassName)}
+                    placeholderClassName="px-3 pt-2.5 text-sm text-muted-foreground" />
                 <Row justifyContent="space-between" spacing={1} className={cx('py-1.5 pr-1.5', attachments ? 'pl-1.5' : 'pl-3')}>
                     <Row spacing={1} className="min-w-0">
                     {attachments}

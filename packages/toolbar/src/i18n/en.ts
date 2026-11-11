@@ -100,13 +100,18 @@ export const en = {
         showShortcuts: 'Show shortcuts',
         send: 'Send a comment',
         newLine: 'New line in a comment',
+        bold: 'Bold',
+        italic: 'Italic',
+        strikethrough: 'Strikethrough',
+        code: 'Code',
         moveToolbar: 'Move along the toolbar',
         moveMenu: 'Move in a menu',
         close: 'Close',
         leftArrow: 'Left arrow',
         rightArrow: 'Right arrow',
         upArrow: 'Up arrow',
-        downArrow: 'Down arrow'
+        downArrow: 'Down arrow',
+        command: 'Command'
     },
     notice: {
         exitReview: 'Exit review',

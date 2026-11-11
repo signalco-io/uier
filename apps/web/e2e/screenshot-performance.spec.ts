@@ -45,7 +45,7 @@ test('screenshots: large-page preparation yields to the browser before scanning 
     }).screenshotScan);
     expect(scan.readsAtTurn).toBeLessThan(2_000);
     await expect(dialog.getByRole('status').filter({ hasText: 'A screenshot of the visible page will be attached.' })).toBeVisible();
-    await expect(dialog.getByRole('textbox')).toHaveValue('Typing while the screenshot is prepared.');
+    await expect(dialog.getByRole('textbox')).toHaveText('Typing while the screenshot is prepared.', { useInnerText: true });
     expect(await page.locator('[data-uier-screenshot-scroll]').count()).toBe(0);
     await context.close();
 });

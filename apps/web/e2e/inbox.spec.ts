@@ -453,7 +453,7 @@ test('reply in inbox shares the pin draft and answers page-level and missing-anc
         await card.getByRole('button', { name: 'Reply', exact: true }).click();
         const input = card.getByRole('textbox', { name: 'Reply', exact: true });
         await expect(input).toBeFocused();
-        await expect(input).toHaveValue('Shared reply draft');
+        await expect(input).toHaveText('Shared reply draft', { useInnerText: true });
         let release!: () => void;
         const held = new Promise<void>(resolve => { release = resolve; });
         let writes = 0;
@@ -469,7 +469,7 @@ test('reply in inbox shares the pin draft and answers page-level and missing-anc
             expect(writes).toBe(1);
             release();
             await expect(card.getByRole('button', { name: 'Post reply' })).toBeEnabled();
-            await expect(input).toHaveValue('Keep newer text');
+            await expect(input).toHaveText('Keep newer text', { useInnerText: true });
         } finally { release(); }
         await card.getByRole('button', { name: 'Close reply' }).click();
         await chooseInboxPages(visitor.page, /^All pages/);
@@ -481,10 +481,10 @@ test('reply in inbox shares the pin draft and answers page-level and missing-anc
             await reply.press('Shift+Enter');
             await reply.pressSequentially('Next line');
             await reply.dispatchEvent('keydown', { key: 'Enter', code: 'Enter', isComposing: true });
-            await expect(reply).toHaveValue(`Answer ${index}\nNext line`);
+            await expect(reply).toHaveText(`Answer ${index}\nNext line`, { useInnerText: true });
             await other.getByRole('button', { name: 'Post reply', exact: true }).click();
             await expect(other.getByText(`Answer ${index}\nNext line`, { exact: true })).toBeVisible();
-            await expect(reply).toHaveValue('');
+            await expect(reply).toHaveText('', { useInnerText: true });
         }
         expect(new URL(visitor.page.url()).pathname).toBe('/brand');
         for (const colorScheme of ['light', 'dark'] as const) {
@@ -503,7 +503,7 @@ test('reply in inbox shares the pin draft and answers page-level and missing-anc
             expect((await response.json()).find((item: { id: string }) => item.id === comment.id).thread.items).toHaveLength(2);
         }
         await card.getByRole('button', { name: 'Reply', exact: true }).click();
-        await expect(input).toHaveValue('Keep newer text');
+        await expect(input).toHaveText('Keep newer text', { useInnerText: true });
     } finally { await visitor.context.close(); }
 });
 

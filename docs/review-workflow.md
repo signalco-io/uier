@@ -247,6 +247,12 @@ Thread messages show their Markdown in the app (the open thread, the board's she
 (pin popovers and the inbox), since coding agents reply in it. Messages are stored as written; only
 the display changes.
 
+Writing one is formatted too ([uier #290](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_ZYXUeIP2kFtRsvOBe6Lzk)): every composer, in the toolbar and in the app, is a
+rich text editor. Markdown typed while writing becomes formatting (`# `, `- `, `1. `, `> `, `---`,
+`**bold**`, `*italic*`, `` `code` ``), Ctrl/⌘+B, I, E and Shift+X format the selection, pasted Markdown
+is formatted, and what is saved is Markdown, so threads, emails and connected services get the same text
+as before. Enter still sends and Shift+Enter adds a line ([editor note](../packages/toolbar/docs/message-editor.md)).
+
 - Supported: paragraphs, with every line break kept as in plain text; bold, italic, `~~strikethrough~~`,
   inline code and fenced code blocks; links, `<https://…>` and bare http(s) addresses; ordered and
   unordered lists; block quotes (a quote ends at its last `>` line, so a reply typed under it stays
@@ -266,7 +272,8 @@ the display changes.
   Markdown themselves) get the text as it was written.
 
 The parser is `@uier/toolbar/markdown`, small and written for this subset: no HTML pass-through and no
-dependency in the toolbar bundle ([toolbar note](../packages/toolbar/docs/message-markdown.md)).
+dependency ([toolbar note](../packages/toolbar/docs/message-markdown.md)). The editor reads and writes
+messages with it; it is built on ProseMirror ([editor note](../packages/toolbar/docs/message-editor.md)).
 
 ### Assignment and mentions
 

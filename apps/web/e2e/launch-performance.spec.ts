@@ -250,7 +250,7 @@ test('feedback on a long page paints its composer first and captures in short ta
                 // The composer's first frame: the next animation frame after its text box is added
                 const root = document.querySelector('#uier-toolbar')!.shadowRoot!;
                 const observer = new MutationObserver(() => {
-                    if (!root.querySelector('[role=dialog] textarea')) return;
+                    if (!root.querySelector('[role=dialog] [data-uier-editor]')) return;
                     observer.disconnect();
                     requestAnimationFrame(() => performance.mark('composer-frame'));
                 });

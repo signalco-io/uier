@@ -56,7 +56,9 @@ a key keeps it), while the toolbar is expanded and the shortcuts are on. `toolba
 | A | Opens the people to assign in that thread, the first focused (`assignShortcutEvent` on the header) |
 | ? | Options on the keyboard shortcuts, the heading focused, with the switch |
 
-The list also has the keys of every text box: Enter sends (saves an edit), Shift+Enter adds a line.
+The list also has the keys of every text box: Enter sends (saves an edit), Shift+Enter adds a line, and the
+formatting keys Ctrl/⌘+B bold, +I italic, +Shift+X strikethrough and +E code (`modifierKey` shows ⌘ on Apple
+devices, Ctrl elsewhere; the rest of the editor's keys are in its [note](message-editor.md)).
 
 Keyboard events from the toolbar's editable controls and letter-key widgets stop at its host, even when
 it is outside a page layer (`modalLayer.ts`). Host-page shortcuts otherwise see the shadow host instead of

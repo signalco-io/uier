@@ -97,13 +97,18 @@ export const hr: Messages = {
         showShortcuts: 'Prikaži prečace',
         send: 'Pošalji komentar',
         newLine: 'Novi redak u komentaru',
+        bold: 'Podebljano',
+        italic: 'Kurziv',
+        strikethrough: 'Precrtano',
+        code: 'Kod',
         moveToolbar: 'Kretanje po traci',
         moveMenu: 'Kretanje po izborniku',
         close: 'Zatvori',
         leftArrow: 'Strelica lijevo',
         rightArrow: 'Strelica desno',
         upArrow: 'Strelica gore',
-        downArrow: 'Strelica dolje'
+        downArrow: 'Strelica dolje',
+        command: 'Command'
     },
     notice: {
         exitReview: 'Završi pregled',

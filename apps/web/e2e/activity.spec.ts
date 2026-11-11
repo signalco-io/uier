@@ -6,6 +6,7 @@ import { expectNoAxeViolations } from './accessibility';
 import { startReviewedSite } from './support/reviewedSite';
 import { allCommentRowLinks, commentRowLink, commentRows, createProject, inBackground, openComment, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
+import { selectText, selectedText } from './support/composer';
 
 async function foreground(page: Page) {
     await page.bringToFront();
@@ -170,14 +171,14 @@ test('foreground refresh keeps drafts/focus, stops hidden/collapsed/offline work
         await second.context.request.post(`${origin}/api/comments/${comment.id}/replies`, { data: { text: 'Fresh reply from another person' } });
         await first.page.clock.runFor(15_100);
         await expect(openThread(first.page).getByText('Fresh reply from another person')).toBeVisible();
-        await expect(reply).toHaveValue('Keep this draft');
+        await expect(reply).toHaveText('Keep this draft', { useInnerText: true });
         await expect(reply).toBeFocused();
         expect(reads).toBeGreaterThan(0);
         // A remote resolve must not dismiss the reply being written.
         await first.context.request.patch(`${origin}/api/comments/${comment.id}`, { data: { resolved: true } });
         await foreground(first.page);
         await expect(openThread(first.page)).toContainText('Done');
-        await expect(reply).toHaveValue('Keep this draft');
+        await expect(reply).toHaveText('Keep this draft', { useInnerText: true });
         await expect(reply).toBeFocused();
         await first.page.evaluate(() => {
             Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
@@ -201,7 +202,7 @@ test('foreground refresh keeps drafts/focus, stops hidden/collapsed/offline work
         await second.context.request.post(`${origin}/api/comments/${comment.id}/replies`, { data: { text: 'While offline' } });
         await first.context.setOffline(false);
         await expect(openThread(first.page).getByText('While offline')).toBeVisible();
-        await expect(reply).toHaveValue('Keep this draft');
+        await expect(reply).toHaveText('Keep this draft', { useInnerText: true });
         await first.page.keyboard.press('Escape');
         await toolbar(first.page).getByRole('button', { name: 'Collapse toolbar' }).click();
         await first.page.clock.runFor(100);
@@ -489,7 +490,7 @@ for (const mode of ['showcase', 'project'] as const) {
             await commentBubbles(reviewer.page).click();
             const reply = openThread(reviewer.page).getByRole('textbox', { name: 'Reply', exact: true });
             await reply.fill('Keep my idle draft');
-            await reply.evaluate((element: HTMLTextAreaElement) => element.setSelectionRange(2, 7));
+            await selectText(reply, 2, 7);
             await reviewer.page.clock.pauseAt(new Date(Date.now() + 1000));
             const counter = refreshCounter(reviewer.page, identityPath, commentsPath);
             const { counts } = counter;
@@ -520,9 +521,9 @@ for (const mode of ['showcase', 'project'] as const) {
             await advance(100);
             await expect(openThread(reviewer.page).getByText('After the held snapshot')).toBeVisible();
             expect(heldReads).toBe(2);
-            await expect(reply).toHaveValue('Keep my idle draft');
+            await expect(reply).toHaveText('Keep my idle draft', { useInnerText: true });
             await expect(reply).toBeFocused();
-            expect(await reply.evaluate((element: HTMLTextAreaElement) => [element.selectionStart, element.selectionEnd])).toEqual([2, 7]);
+            expect(await selectedText(reply)).toBe('ep my');
             await expect(inbox(reviewer.page)).toHaveAccessibleName('Inbox, 1 unread thread');
             await advance(14_000);
             expect(heldReads).toBe(2);
@@ -556,7 +557,7 @@ for (const mode of ['showcase', 'project'] as const) {
             }
             await commentBubbles(reviewer.page).click();
             await reviewer.page.clock.runFor(200);
-            await expect(reply).toHaveValue('Keep my idle draft');
+            await expect(reply).toHaveText('Keep my idle draft', { useInnerText: true });
             await expect(reply).toBeFocused();
         } finally { release?.(); await reviewer.context.close(); await site?.close(); }
     });

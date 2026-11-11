@@ -97,13 +97,18 @@ export const es: Messages = {
         showShortcuts: 'Mostrar atajos',
         send: 'Enviar un comentario',
         newLine: 'Nueva línea en un comentario',
+        bold: 'Negrita',
+        italic: 'Cursiva',
+        strikethrough: 'Tachado',
+        code: 'Código',
         moveToolbar: 'Moverse por la barra',
         moveMenu: 'Moverse por un menú',
         close: 'Cerrar',
         leftArrow: 'Flecha izquierda',
         rightArrow: 'Flecha derecha',
         upArrow: 'Flecha arriba',
-        downArrow: 'Flecha abajo'
+        downArrow: 'Flecha abajo',
+        command: 'Comando'
     },
     notice: {
         exitReview: 'Salir de la revisión',

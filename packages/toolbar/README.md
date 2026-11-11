@@ -400,10 +400,11 @@ error boundary, so one bad comment never breaks the toolbar.
   details** for the same fields as text. Guests and public viewers never get the browser, OS, capture time or
   copy. Unsupported/older fields stay Unknown or Unavailable. Links include only stored, approved page state;
   tracking, credential and review-token fields are excluded. Resizing, replying and editing do not replace the original context.
-- The text box grows with the text; Enter posts, Shift+Enter adds a new line. No line under the text box says so:
+- The text box grows with the text and formats Markdown as it is typed (`**bold**`, `- ` a list, Ctrl/⌘+B;
+  [message editor](docs/message-editor.md)); what is sent is Markdown. Enter posts, Shift+Enter adds a new line. No line under the text box says so:
   the keyboard shortcuts list in Options (`?`) has both keys, as the app's has. Where a mouse or trackpad is present
   (`any-pointer: fine`) the text box is described to screen readers as "Enter to send. Shift+Enter for a new line."
-  (save for edits); a phone's on-screen Enter key sends and has no Shift, so there the textarea's `enterkeyhint`
+  (save for edits); a phone's on-screen Enter key sends and has no Shift, so there the text box's `enterkeyhint`
   labels that key Send (Done for edits) instead.
   Unsent text is kept when the popover closes (a new comment stays as a draft pin until it is posted or discarded).
   A composer that opens with such kept text just shows the text again.

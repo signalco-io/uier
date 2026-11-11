@@ -119,7 +119,7 @@ test('inbox docks on either side with mouse or touch without losing filters or r
     await expect.poll(async () => (await inbox.boundingBox())!.x).toBeGreaterThan(600);
     await expectNoAxeViolations(page);
     await inbox.getByRole('button', { name: 'Show on page' }).click();
-    await expect(openThread(page).getByRole('textbox', { name: 'Reply' })).toHaveValue('Unsent panel reply');
+    await expect(openThread(page).getByRole('textbox', { name: 'Reply' })).toHaveText('Unsent panel reply', { useInnerText: true });
     await page.reload();
     await page.getByRole('button', { name: /^Inbox/ }).click();
     await expect(inbox).toHaveAttribute('data-side', 'right');

@@ -16,6 +16,9 @@ export const addCommentShortcut = 'C';
 /** A key as it is printed, and its name where the print is a symbol (screen readers read "Left arrow", in the toolbar's language) */
 type ShortcutKey = string | { print: string; name: keyof Messages['shortcutList'] };
 
+/** Ctrl, or ⌘ on Apple's systems: the formatting keys of a message (`editor/commands.ts`) */
+const modifierKey: ShortcutKey = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.userAgent) ? { print: '⌘', name: 'command' } : 'Ctrl';
+
 /**
  * Every keyboard shortcut of the toolbar, as Options lists them (`?`). `letter`: a single-key shortcut,
  * which the switch turns off. Keep it in step with the handlers (`CommentsGlobal`, the pill, the menus).
@@ -33,6 +36,11 @@ export const toolbarShortcuts: { label: keyof Messages['shortcutList']; keys: Sh
     // Key names print as on the keyboard (mono: machine), in every language
     { label: 'send', keys: ['Enter'] },
     { label: 'newLine', keys: ['Shift', 'Enter'] },
+    // Formatting in a comment; Markdown typed as you write formats it too
+    { label: 'bold', keys: [modifierKey, 'B'] },
+    { label: 'italic', keys: [modifierKey, 'I'] },
+    { label: 'strikethrough', keys: [modifierKey, 'Shift', 'X'] },
+    { label: 'code', keys: [modifierKey, 'E'] },
     { label: 'moveToolbar', keys: [{ print: '←', name: 'leftArrow' }, { print: '→', name: 'rightArrow' }], join: 'or' },
     { label: 'moveMenu', keys: [{ print: '↑', name: 'upArrow' }, { print: '↓', name: 'downArrow' }], join: 'or' },
     { label: 'close', keys: ['Esc'] }

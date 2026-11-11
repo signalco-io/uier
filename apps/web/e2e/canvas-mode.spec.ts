@@ -195,7 +195,7 @@ test('canvas mode: Edit drawing goes back to the shapes with the comment text ke
     await draft.getByRole('button', { name: 'Edit drawing' }).click();
     await expect(surface(page).getByRole('button', { name: 'Ellipse 1' })).toBeAttached();
     await panel(page).getByRole('button', { name: 'Comment' }).click();
-    await expect(draft.getByRole('textbox', { name: 'Comment' })).toHaveValue('Kept while editing.');
+    await expect(draft.getByRole('textbox', { name: 'Comment' })).toHaveText('Kept while editing.', { useInnerText: true });
     // Discard in the form removes the drawing too
     await draft.getByRole('button', { name: 'Discard' }).click();
     await expect(page.locator('[data-uier-drawing-comment]')).toHaveCount(0);
@@ -221,7 +221,7 @@ test('canvas mode: Draw on the page with a drawing\'s comment unsent goes on wit
     await page.keyboard.press('Enter');
     await expect(surface(page).locator('[data-uier-canvas-shape]')).toHaveCount(2);
     await panel(page).getByRole('button', { name: 'Comment' }).click();
-    await expect(draft.getByRole('textbox', { name: 'Comment' })).toHaveValue('Both drawings.');
+    await expect(draft.getByRole('textbox', { name: 'Comment' })).toHaveText('Both drawings.', { useInnerText: true });
     await draft.getByRole('button', { name: 'Post comment' }).click();
     await expect(openThread(page).getByText('Both drawings.')).toBeVisible();
     await expect.poll(async () => (await savedComment(page, 'Both drawings.'))?.drawing?.shapes.map(shape => shape.type)).toEqual(['ellipse', 'rectangle']);
@@ -269,6 +269,6 @@ test('canvas mode: Edit drawing keeps the shapes on the scrolled content they we
     await expect.poll(async () => (await target.boundingBox())!.y).toBeLessThan(box.y - 50);
     await expect.poll(fromTarget).toEqual(before);
     await panel(page).getByRole('button', { name: 'Comment' }).click();
-    await expect(draft.getByRole('textbox', { name: 'Comment' })).toHaveValue('On the scrolled content.');
+    await expect(draft.getByRole('textbox', { name: 'Comment' })).toHaveText('On the scrolled content.', { useInnerText: true });
     await context.close();
 });

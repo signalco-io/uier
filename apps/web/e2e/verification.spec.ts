@@ -126,7 +126,7 @@ test('ordinary Done and Reopen stay unconfirmed and retain replies, search and s
     await search.fill('Checkout');
     const reopened = await openComment(page, 'Checkout needs a fix');
     await reopened.getByRole('button', { name: 'Reply', exact: true }).click();
-    await expect(reopened.getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue('Retained reply draft');
+    await expect(reopened.getByRole('textbox', { name: 'Reply', exact: true })).toHaveText('Retained reply draft', { useInnerText: true });
 });
 
 test('members request and cancel from the toolbar using the existing participants and keyboard focus', async ({ page, request }) => {

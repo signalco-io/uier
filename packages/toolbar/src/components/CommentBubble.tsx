@@ -443,7 +443,7 @@ export function CommentBubble(props: CommentBubbleProps) {
         else surface.onCloseAutoFocus?.(event);
     };
 
-    // A pasted image file is attached to a new comment, instead of its screenshot
+    // A pasted (or dropped, `onImageDrop`) image file is attached to a new comment, instead of its screenshot
     const composer = (
         <div className="shrink-0" onPaste={attachment.handlePaste}>
             {creating && (
@@ -489,6 +489,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                 // is there already, so the thread keeps its size and the focus stays in it
                 waiting={sending}
                 attachments={<ComposerAttachButton attachment={attachment} reply={!creating} />}
+                onImageDrop={file => void attachment.attach(file)}
                 // A rewrite's form: the quoted text, the suggestions, then the suggested text in its box
                 beforeText={rewriting && selectedText ? (
                     <RewriteSuggestions

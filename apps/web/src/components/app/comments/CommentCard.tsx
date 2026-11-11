@@ -77,12 +77,13 @@ import { useStatusChange, type ResolveExit } from './useStatusChange';
 import { MessageImage } from './MessageImage';
 import { ReactionList, ReactionPicker } from './MessageReactions';
 import { ReplyComposer } from './ReplyComposer';
+import { preloadMessageEditor } from './MessageComposer';
 import { ThreadActivity } from './ThreadActivity';
 import { AssigneesControl } from './AssigneesControl';
 import { MessageAgent } from './MessageAgent';
 import { appCommentDrafts } from './replyDrafts';
 import { MessageEditor } from './MessageEditor';
-import type { MessageMention } from './MentionTextarea';
+import type { MessageMention } from './MentionEditor';
 import { useKeyShortcutLabel, useKeyShortcuts } from '../keyboard/keys';
 import {
     markCommentReadAction,
@@ -260,6 +261,16 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const [verifying, setVerifying] = useState(startVerifying);
     const statusTrigger = useRef<HTMLButtonElement>(null);
     const { permissions, source } = comment;
+    // The message editor is its own chunk: it loads while the page is idle, so Reply and Edit open with it
+    useEffect(() => {
+        if (!permissions.reply && !permissions.edit) return;
+        if (typeof window.requestIdleCallback === 'function') {
+            const id = window.requestIdleCallback(preloadMessageEditor);
+            return () => window.cancelIdleCallback(id);
+        }
+        const timeout = setTimeout(preloadMessageEditor, 500);
+        return () => clearTimeout(timeout);
+    }, [permissions.reply, permissions.edit]);
     const statusChange = useStatusChange(projectId, comment, {
         onMove,
         onVerify: () => setVerifying(true)
@@ -280,8 +291,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     // R, S and A: reply, the status menu and the assignee menu of the thread on screen (not of one a phone keeps
     // hidden until its row is chosen). The menus open as Enter opens them, with their first item highlighted.
     const assigneeTrigger = useRef<HTMLButtonElement>(null);
-    // The reply box itself: an open message editor in the same card is another textarea
-    const replyField = useRef<HTMLTextAreaElement>(null);
+    // The reply box itself: an open message editor in the same card is another text box
+    const replyField = useRef<{ focus: () => void }>(null);
     // Escape closes the empty reply box: the focus goes back to Reply, which takes its place
     const replyButton = useRef<HTMLButtonElement>(null);
     const focusReplyButton = useRef(false);
@@ -663,7 +674,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
 
                 {/* Reply's icon lines up with the message text: past the 24px avatar and its 10px gap, less the button's 6px padding */}
                 {permissions.reply && (replying
-                    ? <ReplyComposer projectId={projectId} userId={userId} userName={assignees.find(person => person.userId === userId)?.name} comment={comment} textareaRef={replyField} onClose={() => { focusReplyButton.current = true; setReplying(false); }} />
+                    ? <ReplyComposer projectId={projectId} userId={userId} userName={assignees.find(person => person.userId === userId)?.name} comment={comment} fieldRef={replyField} onClose={() => { focusReplyButton.current = true; setReplying(false); }} />
                     : <Button ref={replyButton} variant="ghost" size="sm" className="ml-7 self-start text-muted-foreground hover:text-foreground pointer-coarse:min-h-11" aria-keyshortcuts={replyShortcut} onClick={() => setReplying(true)}>
                         <ReplyIcon data-icon="inline-start" />{t("Reply")}
                     </Button>)}
