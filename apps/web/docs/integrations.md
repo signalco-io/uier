@@ -92,6 +92,8 @@ reply sync is off. The React settings serialize booleans, never grants or source
 
 The shared API suites are
 `integrationSignals.api.spec.ts`, `integrationCredentials.api.spec.ts` and `integrations.api.spec.ts`.
+Credential-lease expiry assertions use the issued `lease.until`: acquisition advances the clock
+while reading storage and checking authority, so the call's start time is not its issuance time.
 Azure DevOps (`azure-devops/`) uses Microsoft Entra delegated OAuth with one grant per project
 connection, so its work items are written as the connecting admin. It mirrors each thread into one work
 item's text field rather than its Discussion, sets the mapped state only when the uier status changes,

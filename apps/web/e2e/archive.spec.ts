@@ -101,6 +101,7 @@ test('the board shows Archive as its last column, collapsed until someone expand
     await expect(archivedCard.getByRole('button', { name: /^Move / })).toHaveCount(0);
     for (const colorScheme of ['light', 'dark'] as const) {
         await page.emulateMedia({ colorScheme });
+        await expect(page.locator('html')).toHaveClass(colorScheme === 'dark' ? /\bdark\b/ : /^(?!.*\bdark\b)/);
         await animationsFinished(page.locator('body'));
         await expectNoAxeViolations(page);
     }
@@ -137,11 +138,14 @@ test('toolbar archive removes the pin, restores from Archive and rolls back a fa
     const f = await fixture(page);
     await page.goto(f.reviewUrl);
     if (!await openThread(page).isVisible()) await commentBubble(page, 1, 1).click();
+    const archivedSave = page.waitForResponse(response => response.request().method() === 'PATCH' && new URL(response.url()).pathname.endsWith(`/comments/${f.comment.id}`));
     await (await threadOptions(page, openThread(page))).getByRole('button', { name: 'Archive comment', exact: true }).click();
     await expect(commentBubble(page, 1, 1)).toHaveCount(0);
+    expect((await archivedSave).status()).toBe(200);
     await page.reload();
-    await page.getByRole('button', { name: /^Inbox/ }).click();
     const inbox = page.getByRole('complementary', { name: 'Comments' });
+    if (await page.getByRole('button', { name: /^Inbox/ }).getAttribute('aria-expanded') !== 'true')
+        await page.getByRole('button', { name: /^Inbox/ }).click();
     const tabs = inbox.getByRole('group', { name: 'Show comments' });
     await expect(tabs.getByRole('button', { name: 'Active 0', exact: true })).toBeVisible();
     await tabs.getByRole('button', { name: 'All 0', exact: true }).click();

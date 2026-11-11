@@ -14,6 +14,7 @@ Product contracts, API references and runbooks stay in the repository's [`docs/`
 - [Feature pages](feature-pages.md): `/features/<feature>`, when to publish one and what each states.
 - [Comparison pages](comparison-pages.md): `/compare`, sourced feature matrices, visual workflows and alternatives.
 - [Integration pages](integration-pages.md): `/integrations` and provider pages, listing illustrations.
+- [Guides](guides.md): `/guides` and the guides under it, their step layout and pictures.
 - [Search indexing](search-indexing.md): metadata, sitemap, `noindex`, IndexNow.
 - [Social cards](social-cards.md): page cards, app link previews, `/og/[card]`.
 - [Footer](footer.md): `SiteFooter` and its links.

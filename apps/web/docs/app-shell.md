@@ -4,7 +4,8 @@ The shell and each request-dependent segment use the boundaries described in
 [Cache Components](cache-components.md). The initial shell contains no private data. Proxy completes
 document access decisions before it streams; pages and actions retain their own checks.
 
-`ClientProvider` owns theme and document-policy handling. The Next app has no React Query provider;
+`ClientProvider` owns theme and document-policy handling. Its next-themes initializer stays inert;
+the root layout owns the fixed hash-authorized theme script. The Next app has no React Query provider;
 the separately bundled review toolbar owns its own query cache.
 
 - **Notification landmark.** App pages mount only the shadcn Sonner toaster. The public layout

@@ -32,5 +32,15 @@ With Cache Components, the immutable Geist font bytes use `cacheLife('max')` in
 request values. `/og/[card]` uses its existing runtime allowlist for unknown ids instead of the
 removed `dynamicParams` setting.
 
+The three Geist TTFs use literal `new URL(..., import.meta.url)` asset references so Turbopack
+emits them into `.next/server/assets` and includes those destinations in every social-card
+server trace. Do not replace them with a cwd-based `node_modules/geist` path: tracing can retain
+the font bytes under pnpm's storage path while omitting the alias the renderer tries to open.
+Prerendered images can then work while crawler-triggered runtime rendering fails on Vercel.
+
 `e2e/social-cards.api.spec.ts` checks every public page's card and the app link previews; add a new
-public page to its `publicPaths` (and to `e2e/seo.api.spec.ts`).
+public page to its `publicPaths` (and to `e2e/seo.api.spec.ts`). It requests the advertised card URL,
+including its version query, as Googlebot, and checks all social-card traces for the exact runtime
+font assets, comparing their bytes with the pinned package TTFs. Hosted acceptance must also
+request the advertised images as a crawler: a local
+`next start` retains the full node_modules tree and cannot expose every packaging omission.

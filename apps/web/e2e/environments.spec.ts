@@ -93,7 +93,7 @@ test('environment labels, isolation, alias sharing, history, direct links and pe
     await page.reload();
     await expect(commentBubbles(page)).toHaveCount(1);
     // Reload restores an open inbox; only open it when it is still closed.
-    if (!await inbox.isVisible())
+    if (await page.getByRole('button', { name: /^Inbox/ }).getAttribute('aria-expanded') !== 'true')
         await page.getByRole('button', { name: /^Inbox/ }).click();
     await expect(inboxPages(page)).toContainText('Production');
     await expect(inbox.getByRole('article')).toHaveCount(1);

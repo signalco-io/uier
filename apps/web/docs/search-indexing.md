@@ -1,8 +1,8 @@
 # Search indexing
 
-The public `/guides` index links the client review, Next.js and browser extension setup guides. Use the existing
-`ContentPage` components, snippet generator, metadata and social-card helpers; add public routes
-to SEO, card and footer checks. `SiteStructuredData` connects the homepage `WebSite` to its actual
+The public `/guides` index links the client review, Next.js and browser extension setup guides
+([guides](guides.md)). Use the existing `ContentPage` and guide components, snippet generator,
+metadata and social-card helpers; add public routes to SEO, card and footer checks. `SiteStructuredData` connects the homepage `WebSite` to its actual
 signalco publisher. Preserve the homepage Bing verification meta tag after setup.
 `search-index.mjs` generates the public static-page manifest after the sitemap; the production
 workflow skips the IndexNow job when those content hashes have not changed; otherwise it submits
