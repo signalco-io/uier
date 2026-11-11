@@ -19,7 +19,7 @@ import type { AssigneeOption } from './CommentCard';
 import { CommentFilters } from './CommentFilters';
 import { pageMatches } from './pageFilter';
 import { CommentInbox, useOpenComment } from './CommentInbox';
-import { CommentBoard } from './CommentBoard';
+import { LazyCommentBoard as CommentBoard } from './LazyCommentBoard';
 import { statusFilterLabels, statusMatches, type AuthorFilter, type StatusFilter } from './commentLabels';
 import { commentStatus, commentStatuses, type CommentStatus } from './CommentStatus';
 import { parseCommentsQuery, type CommentsQuery } from './commentsQuery';
