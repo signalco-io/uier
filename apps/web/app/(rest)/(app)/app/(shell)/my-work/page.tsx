@@ -38,7 +38,7 @@ async function MyWorkPageContent() {
     const empty = !assigned.length && !mentions.length && !unread.length;
     return (
         <>
-            <PageHeader title={t("My work")} description={t("Threads that need you in {value0}: assigned to you, mentioning you, or with activity you have not read.", { value0: context.workspace.name })} />
+            <PageHeader title={t("My work")} />
             {empty ? (
                 <Empty className="border">
                     <EmptyHeader>

@@ -556,7 +556,6 @@ const messages: Record<keyof typeof en, string> = {
     "This version includes an integrity check. It gets fixes only when you update the snippet. Pinned production bundles work with the review API for one year after their last release as the current version.": "Questa versione include un controllo di integrità. Le correzioni vengono apportate solo quando aggiorni lo snippet. I bundle di produzione bloccati funzionano con l'API di revisione per un anno dopo il loro ultimo rilascio come versione corrente.",
     "Thread titles": "Titoli delle discussioni",
     "Threads assigned to you, threads that mention you and unread activity show here.": "Le discussioni assegnate a te, le discussioni che ti menzionano e le attività non lette vengono visualizzate qui.",
-    "Threads that need you in {value0}: assigned to you, mentioning you, or with activity you have not read.": "Discussioni che hanno bisogno di te in {value0}: assegnate a te, che ti menzionano o con attività che non hai letto.",
     "Through the team {value0}": "Attraverso il team {value0}",
     "To add": "Per aggiungere",
     "Tone, preferred terms and writing style for AI copy suggestions. Only admins can see or change these settings.": "Tono, termini preferiti e stile dei suggerimenti di scrittura con IA. Solo gli amministratori possono vedere o modificare queste impostazioni.",
