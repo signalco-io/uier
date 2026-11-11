@@ -158,6 +158,8 @@ export type DbVerification = {
 };
 
 export type DbComment = {
+    /** Internal normalized query fields, committed atomically with the comment; never a public DTO. */
+    queryMetadata?: import('../repo/queryMetadata').CommentQueryMetadata;
     /** Bounded audit history, independent of notification delivery and unread cursors. */
     pullRequests?: { url: string; addedBy: string }[];
     history?: import('../comments/history').DbThreadHistoryEntry[];

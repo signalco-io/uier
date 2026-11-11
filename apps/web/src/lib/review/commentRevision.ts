@@ -9,11 +9,11 @@ function stable(value: unknown): string {
 }
 /**
  * Opaque content revision. Future workflow fields participate automatically; delivery bookkeeping
- * does not, nor do the bounded history, transient agent presence and generated title (`aiTitle`).
+ * does not, nor do the bounded history, transient agent presence, query indexes and generated title (`aiTitle`).
  */
 export function commentRevision(comment: DbComment) {
     const content = Object.fromEntries(Object.entries(comment).filter(([key]) => !key.startsWith('_')
-        && !key.startsWith('sync') && !key.startsWith('notification') && key !== 'aiTitle' && key !== 'history'));
+        && !key.startsWith('sync') && !key.startsWith('notification') && key !== 'aiTitle' && key !== 'history' && key !== 'queryMetadata'));
     if (comment.assigneeAgent) {
         const { workingUntil: _, ...agent } = comment.assigneeAgent;
         content.assigneeAgent = agent;

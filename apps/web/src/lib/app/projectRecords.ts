@@ -116,7 +116,7 @@ export async function deleteProjectIntegrationRecords(projectId: string, workspa
 
 /** Records in the workspace's partition that name the project: admins' author filters and Slack test receipts */
 export async function deleteProjectWorkspaceRecords(projectId: string, workspaceId: string, store: AppStore) {
-    for (const type of ['comment-author', 'slack-test'])
+    for (const type of ['comment-author', 'slack-test', 'comment-query-view', 'comment-query-link'])
         await removeAll(await store.query({ type, pk: workspacePk(workspaceId), where: { projectId } }), store);
 }
 

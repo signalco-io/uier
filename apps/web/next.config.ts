@@ -25,7 +25,7 @@ const nextConfig: NextConfig = {
     // run time, so the deployment has to carry them.
     outputFileTracingIncludes: { '/api/mcp': ['../../plugins/uier/skills/**/*'] },
     // @uier/brand ships TypeScript sources (tokens, Mark, Logo); Next compiles them like app code.
-    transpilePackages: ['@uier/brand'],
+    transpilePackages: ['@uier/brand', '@uier/comments-query'],
     images: {
         dangerouslyAllowSVG: true,
         contentSecurityPolicy: 'default-src \'self\'; script-src \'none\'; sandbox;',
