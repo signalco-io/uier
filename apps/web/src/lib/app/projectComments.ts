@@ -10,7 +10,7 @@ import { MAX_THREAD_ITEMS } from '../comments/limits';
 import { commentAnchor, type CommentAnchorView } from './commentAnchor';
 import { projectCommentRouting } from './projectCommentRouting';
 import { commentSourcePath } from '../comments/dto';
-import { loadReadSequences } from '../comments/readState';
+import { getReadSequence, loadReadSequences } from '../comments/readState';
 import type { DbComment, DbCommentKind, DbDeviceSize } from '../db/schema';
 import { toReproductionContext, type ReproductionContext } from '../comments/reproduction';
 import type { ProjectActor } from '../review/actor';
@@ -23,6 +23,7 @@ import {
     canMakeCommentPrivate,
     canResolveComment,
     canSeeComment,
+    getProjectComment,
     listProjectComments,
     projectPartition
 } from '../review/comments';
@@ -295,6 +296,21 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
             reply: project.access !== 'disabled' && items.length < MAX_THREAD_ITEMS
         }
     };
+}
+
+/** A freshly authorized detail load has no dependency on the legacy list window. */
+export async function loadProjectComment(context: AppContext, project: DbProject, id: string) {
+    const actor = appActor(context), comment = await getProjectComment(project, actor, id);
+    if (!comment) return null;
+    const [members, names, readSequence, subscriptions, integrationLinks] = await Promise.all([
+        listProjectMembers(project.workspaceId, project.id), authorNames([comment]),
+        getReadSequence(comment.domain, `user:${context.user.id}`, id),
+        getAppStore().query<NotificationSubscription>({ type: 'notification-subscription', pk: notificationPk(project.id), where: { actorId: `user:${context.user.id}`, threadId: id } }),
+        loadIntegrationLinks(project, actor, [comment])
+    ]);
+    const participants = new Map(members.filter(({ user }) => user).map(({ member, name }) => [member.userId, name]));
+    const view = toView(comment, project, actor, names, participants, members, readSequence, memberAvatars(members), aiTitlesEnabled(context.workspace, project));
+    return view ? { ...view, following: subscriptions[0]?.following ?? isNotificationParticipant(comment, `user:${context.user.id}`), integrationLinks: integrationLinks.get(id) } : null;
 }
 
 /** Every comment of the project the app user can see (all pages), newest first */

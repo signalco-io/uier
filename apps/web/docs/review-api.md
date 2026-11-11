@@ -1,5 +1,11 @@
 # Review API and comment records
 
+- The [comment query backend](comment-query.md) adds complete bounded filtering/sorting reads,
+  compact pages, exact counts/options, capabilities and member-only saved views. It does not replace
+  current toolbar lists yet. `GET /api/review/<code>/comments/<id>` loads one visible full thread with
+  its existing DTO and permissions, without the recent-list cap; configured-origin CORS and current
+  reviewer authorization still apply.
+
 - `GET /api/review/<code>` includes `project.toolbarFeatures` only when the reviewer can comment:
   the effective optional tool IDs (`accessibility`, `seo`, `rewrite`). Missing project settings enable
   every current tool. Members get the project's list; signed-out reviewers get its intersection with

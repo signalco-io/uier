@@ -37,6 +37,7 @@
     "@tanstack/react-query": "5.107.1",
     "@tanstack/react-query-devtools": "5.107.1",
     "@uier/brand": "workspace:*",
+    "@uier/comments-query": "workspace:*",
     "@vercel/analytics": "2.0.1",
     "@vercel/functions": "3.11.0",
     "@vercel/oidc": "4.0.7",

@@ -14,6 +14,7 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 
 ## Product and APIs
 
+- [Filtering and ordering design](design/filtering/README.md): Notion/Linear research, app/toolbar guidelines, Cosmos-first architecture and costs, component contracts and delivery plan.
 - [Toolbar guide](../packages/toolbar/README.md): embedding, modes and configuration.
 - [Browser extension](browser-extension.md): the published desktop extension's design, security boundaries, local loading, receipts and public pages.
 - [Extension releases](browser-extension-release.md): protected release/status CI, owner bootstrap and recovery.
