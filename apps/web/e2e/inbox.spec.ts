@@ -281,7 +281,18 @@ test('inbox: this page by default, other pages from the picker, searched and fil
     // In an empty search it closes the search popover, back on its button (uier #310)
     await search.press('Escape');
     await expect(search).toBeHidden();
-    await expect(sidebar.getByRole('button', { name: 'Search comments', exact: true })).toBeFocused();
+    const searchButton = sidebar.getByRole('button', { name: 'Search comments', exact: true });
+    await expect(searchButton).toBeFocused();
+    await expect(sidebar).toBeVisible();
+    // Shift+Tab from the open search lands on its button; Escape there closes only the search, not the inbox
+    await searchButton.press('Enter');
+    await expect(search).toBeFocused();
+    await search.press('Shift+Tab');
+    await expect(searchButton).toBeFocused();
+    await expect(search).toBeVisible();
+    await searchButton.press('Escape');
+    await expect(search).toBeHidden();
+    await expect(searchButton).toBeFocused();
     await expect(sidebar).toBeVisible();
     await expectListed(allPages, ['Comment #5', 'Comment #3', 'Comment #1']);
 

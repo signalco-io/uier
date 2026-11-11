@@ -15,7 +15,8 @@ const searchIcon = <Search size={16} aria-hidden="true" className="ml-3 shrink-0
  * The inbox's search: a small icon button in its title row (filled while a search applies, its name then says the
  * words) that opens the search field in a popover under the title row, over the filters. It stays in the panel, so
  * the panel's landmark holds it. Opening it focuses the field and selects its text. Escape in a field with text clears
- * it; in an empty one it closes the popover (back on the button). Moving the focus out of it closes it too; the search
+ * it; in an empty one it closes the popover (back on the button), and so does Escape on the button while it is open
+ * (Shift+Tab from the field lands there). Moving the focus out of the field and the button closes it too; the search
  * still applies.
  */
 export function InboxSearch({ value, onChange, open, onOpenChange }: {
@@ -40,6 +41,13 @@ export function InboxSearch({ value, onChange, open, onOpenChange }: {
         if (value) onChange('');
         else close(true);
     };
+    // On the button while the popover is open: Escape closes only the search, never the inbox
+    const handleButtonKeyDown = (event: KeyboardEvent) => {
+        if (!open || event.key !== 'Escape') return;
+        event.stopPropagation();
+        event.preventDefault();
+        close(true);
+    };
     const handleBlur = (event: FocusEvent) => {
         const next = event.relatedTarget as Node | null;
         if (next && (boxRef.current?.contains(next) || buttonRef.current?.contains(next))) return;
@@ -50,7 +58,7 @@ export function InboxSearch({ value, onChange, open, onOpenChange }: {
             <IconButton ref={buttonRef} variant="plain" size="sm" aria-label={active ? `${t.inbox.search}: ${value.trim()}` : t.inbox.search}
                 aria-expanded={open} aria-controls="uier-inbox-search" data-uier-inbox-search=""
                 className={cx(active && 'bg-accent')}
-                onClick={() => onOpenChange(!open)}>
+                onClick={() => onOpenChange(!open)} onKeyDown={handleButtonKeyDown} onBlur={open ? handleBlur : undefined}>
                 <Search size={16} aria-hidden="true" />
             </IconButton>
         </IconTooltip>
