@@ -544,8 +544,8 @@ and thread/item. Pinned drafts retain their element/text anchor and return as cl
 for stale-edit protection. Closing a composer keeps its draft. Discard (Cancel for edits), a
 successful submission and toolbar sign-out remove it; sign-out clears that reviewer's project
 drafts on every page of the current site. Drafts on another reviewed origin must be cleared there.
-Expired drafts are ignored and pruned when the toolbar next opens. A comment, rewrite, reply or edit composer that
-reopens with kept text says "Draft saved in this browser" (the feedback form just shows the text again); nothing is sent to uier before posting, so the cue makes no other claim.
+Expired drafts are ignored and pruned when the toolbar next opens. A composer that reopens with kept text just
+shows the text again, with no line about the saved draft; nothing is sent to uier before posting.
 While a new comment or rewrite draft pin is closed, **Resume draft** above the toolbar pill scrolls to the pin
 and opens it with its text, after a reload too. Browser/site scripts can read
 local storage: do not type secrets into feedback. If storage is blocked or full, the draft stays

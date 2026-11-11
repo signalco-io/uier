@@ -363,8 +363,6 @@ export const it: Messages = {
         saving: 'Salvataggio...',
         keysSend: 'Invio per inviare. Maiusc+Invio per una nuova riga.',
         keysSave: 'Invio per salvare. Maiusc+Invio per una nuova riga.',
-        draftLifetime: (days: number) => `Il testo non inviato resta in questo browser per ${days} giorni dopo l’ultima modifica.`,
-        draftSaved: 'Bozza salvata in questo browser',
         collapseTip: 'Torna al modulo ridotto',
         expandTip: 'Espandi per avere più spazio per scrivere',
         collapse: 'Riduci',

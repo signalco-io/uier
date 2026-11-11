@@ -369,8 +369,6 @@ export const en = {
         saving: 'Saving...',
         keysSend: 'Enter to send. Shift+Enter for a new line.',
         keysSave: 'Enter to save. Shift+Enter for a new line.',
-        draftLifetime: (days: number) => `Unsent text stays in this browser for ${days} days after your last change.`,
-        draftSaved: 'Draft saved in this browser',
         collapseTip: 'Back to the smaller form',
         expandTip: 'Expand for more room to write',
         collapse: 'Collapse',

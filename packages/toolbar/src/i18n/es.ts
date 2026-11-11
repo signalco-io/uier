@@ -363,8 +363,6 @@ export const es: Messages = {
         saving: 'Guardando...',
         keysSend: 'Intro para enviar. Mayús+Intro para una línea nueva.',
         keysSave: 'Intro para guardar. Mayús+Intro para una línea nueva.',
-        draftLifetime: (days: number) => `El texto sin enviar se queda en este navegador ${days} días después de tu último cambio.`,
-        draftSaved: 'Borrador guardado en este navegador',
         collapseTip: 'Volver al formulario pequeño',
         expandTip: 'Ampliar para escribir con más espacio',
         collapse: 'Reducir',

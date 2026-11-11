@@ -363,8 +363,6 @@ export const hr: Messages = {
         saving: 'Spremanje...',
         keysSend: 'Enter za slanje. Shift+Enter za novi redak.',
         keysSave: 'Enter za spremanje. Shift+Enter za novi redak.',
-        draftLifetime: (days: number) => `Neposlani tekst ostaje u ovom pregledniku ${days} ${p(days, 'dan', 'dana', 'dana')} nakon vaše zadnje promjene.`,
-        draftSaved: 'Skica je spremljena u ovom pregledniku',
         collapseTip: 'Natrag na manji obrazac',
         expandTip: 'Proširite za više prostora za pisanje',
         collapse: 'Smanji',

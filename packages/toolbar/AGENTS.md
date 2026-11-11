@@ -98,7 +98,7 @@ every change in the package.
 | `components/CommentAreaHighlight.tsx` | the dashed accent outline of a commented area (`data-uier-area`), with the selection tint while its thread is open; it never takes clicks (the pin opens the thread). Areas resolve to their rectangle in `useCommentItemRects`, so the pin sits at the bottom-right corner and the screenshot is the area |
 | `components/CommentComposer.tsx` | the comment/reply text box (auto-growing textarea: Enter sends, Shift+Enter new line, `enterKeyHint`) in one bordered box with its `attachments` (Attach image), hint or counter, Discard while there is text and the send button (plain icon buttons with their tooltips: an X, since Discard is no labeled button beside Send; Send, since Enter sends; 44 px on touch screens), keeps drafts; `beforeText` goes between the quote and the box (a rewrite's suggestions) |
 | `components/ComposerModal.tsx` | Expand / Collapse and the native modal `<dialog>` a new comment or feedback expands to for focused writing; the form's state stays with its owner ([docs/composer-popovers.md](docs/composer-popovers.md), also posting into the thread in one popover) |
-| `components/ComposerFooter.tsx` | under every composer: "Draft saved in this browser" for a composer that opened with kept text (not feedback: `draftCue={false}`), and the screen-reader-only "Enter to send. Shift+Enter for a new line." (only with `any-pointer: fine`, `useKeyboardLikely`). No visible keyboard hint: the keys are in the shortcuts list (`toolbarShortcuts`). It describes the text box; keep it free of claims beyond browser-local storage |
+| `components/ComposerFooter.tsx` | under every composer: the screen-reader-only "Enter to send. Shift+Enter for a new line." (only with `any-pointer: fine`, `useKeyboardLikely`). No visible keyboard hint: the keys are in the shortcuts list (`toolbarShortcuts`), and no saved-draft line: the kept text is the cue |
 | `components/CommentThreadItemMenu.tsx` | item options (edit with Save/Cancel and stale-edit protection; Reattach comment on the first message; delete with a confirmation); `CommentThreadItem.tsx` renders an inline `CommentComposer`, keeps failed text and returns focus to the menu |
 | `components/CommentErrorBoundary.tsx` | wraps every pin, highlight and sidebar thread: a comment that fails renders nothing |
 | `components/CommentsErrorMessage.tsx`, `Toaster.tsx` | friendly messages for API errors (`rate_limited` with `reason: "too_fast" \| "page_full"`, ...); a member's limit adds **View usage**, the API's usage page ([usage](../../apps/web/docs/usage.md)) |
@@ -224,7 +224,7 @@ text. Drafts are local to each browser origin and expire after seven days.
   `apps/web/e2e/review.spec.ts`; the inbox is in `apps/web/e2e/inbox.spec.ts`; a project's site (the
   script tag, the React component, the notices and their Exit review) is in
   `apps/web/e2e/project-review.spec.ts`; pins and highlights after a reload, a scroll and a resize
-  are in `apps/web/e2e/anchors.spec.ts`; composer keys (no visible hint, the description), the saved-draft cue and Resume draft are in
+  are in `apps/web/e2e/anchors.spec.ts`; composer keys (no visible hint, the description), no saved-draft line and Resume draft are in
   `apps/web/e2e/composer-hints.spec.ts` (desktop and mobile); the shortcuts, their switch and the composites'
   arrow keys are in `apps/web/e2e/shortcuts.spec.ts` (desktop); Add comment after or over an open thread
 starting its own pin (never a reply) is in `apps/web/e2e/new-comment-after-thread.spec.ts`, and a member's

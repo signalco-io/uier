@@ -95,8 +95,6 @@ type CommentComposerProps = {
     onSubmit: (text: string, mentions?: Mention[]) => Promise<unknown>;
     /** Shows a "Discard" button while there is text (new comments) */
     onDiscard?: () => void;
-    /** Says "Draft saved in this browser" when it opens with kept text; off for feedback */
-    draftCue?: boolean;
 };
 
 /**
@@ -104,13 +102,12 @@ type CommentComposerProps = {
  * textarea styled like the kit's `Input` (bordered, radius 8, blue focus ring).
  * Enter sends, Shift+Enter adds a new line.
  */
-export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, holdSubmit = false, waiting = false, attachments, beforeText, tall = false, error, onSubmit, onDiscard, initialText, initialMentions, commentId, onCancel, draftCue = true }: CommentComposerProps) {
+export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, holdSubmit = false, waiting = false, attachments, beforeText, tall = false, error, onSubmit, onDiscard, initialText, initialMentions, commentId, onCancel }: CommentComposerProps) {
     const formRef = useRef<HTMLFormElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const inputId = useId();
     const counterId = useId();
     const keysId = useId();
-    const draftId = useId();
     const drafts = useDrafts();
     const announce = useAnnounce();
     const t = useMessages();
@@ -118,12 +115,6 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
         listener => drafts.subscribe(draftKey, listener),
         () => drafts.get(draftKey) ?? initialText ?? '');
     const [storageAvailable, setStorageAvailable] = useState(drafts.available);
-    // Opened with text kept from earlier (not a rewrite's untouched selected text, nor an edit's
-    // original): it says the draft is saved. Only from the start, so nothing appears while typing.
-    const [restored] = useState(() => {
-        const saved = drafts.get(draftKey)?.trim();
-        return Boolean(saved) && saved !== quote?.trim() && saved !== initialText?.trim();
-    });
     const keyboard = useKeyboardLikely();
     const trimmedText = text.trim();
     const mentions = useSyncExternalStore(
@@ -155,7 +146,6 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
     // Editing waits for the save; new comments, replies and feedback never block the form
     const instant = !onCancel;
     const busy = !instant && (pending || submitting || sharedPending);
-    const draftSaved = draftCue && restored && storageAvailable && trimmedText.length > 0 && error == null && !busy && !sharedPending;
 
     const setText = (value: string) => {
         const next = moveMentions(text, value, mentions).map(({ userId, start, end }) => ({ userId, start, end }));
@@ -370,7 +360,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                     readOnly={busy || waiting}
                     placeholder={placeholder}
                     aria-label={label}
-                    aria-describedby={[showCounter || isMember ? counterId : '', keyboard ? keysId : '', draftSaved ? draftId : ''].filter(Boolean).join(' ') || undefined}
+                    aria-describedby={[showCounter || isMember ? counterId : '', keyboard ? keysId : ''].filter(Boolean).join(' ') || undefined}
                     enterKeyHint={onCancel ? 'done' : 'send'}
                     autoComplete="off"
                     className={cx(
@@ -430,7 +420,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                     </Row>
                 </Row>
                 </div>
-                <ComposerFooter keysId={keysId} draftId={draftId} keyboard={keyboard} submitVerb={onCancel ? 'save' : 'send'} draftSaved={draftSaved} />
+                <ComposerFooter keysId={keysId} keyboard={keyboard} submitVerb={onCancel ? 'save' : 'send'} />
                 {showSuggestions && <div id={listId} role="listbox" aria-label={t.composer.mentionPeople} className="max-h-48 overflow-y-auto rounded-xl border p-1">
                     {suggestions.map((person, index) => <Button key={person.id} id={`${listId}-${index}`} role="option" aria-selected={index === selectedIndex}
                         variant="plain" size="sm" className={cx('min-h-11 w-full justify-start', index === selectedIndex && 'bg-muted')}

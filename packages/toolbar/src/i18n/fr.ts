@@ -362,8 +362,6 @@ export const fr: Messages = {
         saving: 'Enregistrement...',
         keysSend: 'Entrée pour envoyer. Maj+Entrée pour une nouvelle ligne.',
         keysSave: 'Entrée pour enregistrer. Maj+Entrée pour une nouvelle ligne.',
-        draftLifetime: (days: number) => `Le texte non envoyé reste dans ce navigateur ${days} jours après votre dernière modification.`,
-        draftSaved: 'Brouillon enregistré dans ce navigateur',
         collapseTip: 'Revenir au formulaire réduit',
         expandTip: 'Agrandir pour écrire plus à l’aise',
         collapse: 'Réduire',

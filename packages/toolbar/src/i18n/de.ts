@@ -362,8 +362,6 @@ export const de: Messages = {
         saving: 'Wird gespeichert...',
         keysSend: 'Enter zum Senden. Umschalt+Enter für eine neue Zeile.',
         keysSave: 'Enter zum Speichern. Umschalt+Enter für eine neue Zeile.',
-        draftLifetime: (days: number) => `Nicht gesendeter Text bleibt nach Ihrer letzten Änderung ${days} Tage in diesem Browser.`,
-        draftSaved: 'Entwurf in diesem Browser gespeichert',
         collapseTip: 'Zurück zum kleineren Formular',
         expandTip: 'Für mehr Platz zum Schreiben vergrößern',
         collapse: 'Verkleinern',
