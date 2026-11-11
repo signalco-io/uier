@@ -18,7 +18,7 @@ import { projectAccessLabels } from '../projects/projectLabels';
 import { KnownPageLinks } from '../../../knownPages';
 import { InviteButton } from '../users/InviteDialog';
 import type { AssigneeOption } from './CommentCard';
-import { CommentFilters } from './CommentFilters';
+import { CommentFilters, countLineInHeader } from './CommentFilters';
 import { pageMatches } from './pageFilter';
 import { CommentInbox, useOpenComment } from './CommentInbox';
 import { CommentBoard } from './CommentBoard';
@@ -250,6 +250,17 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
         headerWide === 'board' && 'md:w-[min(var(--page-wide),max(100%,var(--board-width)))] md:mx-[calc((100%-min(var(--page-wide),max(100%,var(--board-width))))/2)]');
     const unreadShown = (board ? boardShown : shown).filter(comment => comment.activity?.unread).length;
     // Keep matching cards mounted, including their independent reply drafts. Selection resets per scope.
+    // Only the unread count: the list's status tabs and the board's columns already count what is shown
+    // The count toggles Only unread (uier #193), like the toolbar's Unread toggle; while the filter is on it stays,
+    // at 0 too, so it can be turned off where it was turned on
+    const unreadSummary = (unreadShown > 0 || query.unread) && (
+        <Toggle size="sm" pressed={Boolean(query.unread)} aria-label={t("{value0} unread, show only unread", { value0: unreadShown })}
+            onPressedChange={pressed => setUrlSearchParams({ q: search || undefined, unread: pressed ? 'true' : undefined }, { history: 'push' })}
+            className={cn('-mx-1.5 px-1.5 font-normal tabular-nums pointer-coarse:min-h-11', unreadShown > 0 ? 'text-[hsl(var(--brand-accent-text))] hover:text-[hsl(var(--brand-accent-text))]' : 'text-muted-foreground')}>
+            {t("{count} unread", { count: unreadShown })}
+        </Toggle>
+    );
+    const unreadActions = unreadShown > 0 && <MarkAllRead projectId={projectId} threads={(board ? boardShown : shown).flatMap(comment => comment.activity?.unread ? [{ id: comment.id, sequence: comment.activity.sequence }] : [])} />;
     const selectionScope = JSON.stringify([projectId, query.environment, query.author, query.unread, query.people, query.page, query.status, query.q, query.priority, query.view]);
     return (
         <CommentUpdatesProvider value={updateComment}>
@@ -263,24 +274,18 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
             and so does the count line under it. */}
         <div ref={containerRef} data-page-width={comments.length ? 'wide' : undefined} className="@container/comments flex flex-col gap-2">
             <div data-header-wide={headerWide} className={cn('flex min-w-0 flex-col gap-2', threadOnly && '@max-3xl/comments:hidden', wideClassName)}>
-            <CommentFilters search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} historySources={historySources} unread={Boolean(query.unread)} unreadCount={scopeComments.filter(comment => comment.activity?.unread).length} view={board ? 'board' : 'list'} status={query.status} statusCounts={statusCounts} people={query.people} page={query.page} pages={pages} />
+            <CommentFilters search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} historySources={historySources} unread={Boolean(query.unread)} unreadCount={scopeComments.filter(comment => comment.activity?.unread).length} view={board ? 'board' : 'list'} status={query.status} statusCounts={statusCounts} people={query.people} page={query.page} pages={pages}
+                countLine={comments.length > 0 ? { summary: unreadSummary, actions: unreadActions } : undefined} />
             {searchWindowCapped && <p className="m-0 text-sm text-muted-foreground">{t("Search covers up to 1,000 recent threads in this environment and author scope. Narrow the environment or author to find older feedback.")}</p>}
             </div>
             <TriageSelection projectId={projectId} scope={selectionScope} shown={board ? boardShown : shown} assignees={assignees}
                 barClassName={cn(threadOnly && '@max-3xl/comments:hidden', !comments.length && 'hidden')}
-                lineClassName={wideClassName}
+                // With room (uier #300) the count line is in the search row, left of Filter (`CommentFilters`): this row
+                // only shows, keeping its height through read/unread changes, where the header is narrower than that
+                lineClassName={cn(wideClassName, comments.length > 0 && countLineInHeader)}
                 reserveLine={comments.length > 0}
-                // Only the unread count: the list's status tabs and the board's columns already count what is shown
-                // The count toggles Only unread (uier #193), like the toolbar's Unread toggle; while the filter is on it stays,
-                // at 0 too, so it can be turned off where it was turned on
-                summary={(unreadShown > 0 || query.unread) && (
-                    <Toggle size="sm" pressed={Boolean(query.unread)} aria-label={t("{value0} unread, show only unread", { value0: unreadShown })}
-                        onPressedChange={pressed => setUrlSearchParams({ q: search || undefined, unread: pressed ? 'true' : undefined }, { history: 'push' })}
-                        className={cn('-mx-1.5 px-1.5 font-normal tabular-nums pointer-coarse:min-h-11', unreadShown > 0 ? 'text-[hsl(var(--brand-accent-text))] hover:text-[hsl(var(--brand-accent-text))]' : 'text-muted-foreground')}>
-                        {t("{count} unread", { count: unreadShown })}
-                    </Toggle>
-                )}
-                actions={unreadShown > 0 && <MarkAllRead projectId={projectId} threads={(board ? boardShown : shown).flatMap(comment => comment.activity?.unread ? [{ id: comment.id, sequence: comment.activity.sequence }] : [])} />}>
+                summary={unreadSummary}
+                actions={unreadActions}>
             {!comments.length ? emptyState : !filtered.length ? (
                 <Empty className="border">
                     <EmptyHeader>

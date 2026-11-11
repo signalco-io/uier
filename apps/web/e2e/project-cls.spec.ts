@@ -76,10 +76,19 @@ test('project comments keep CLS below 0.1 through a remembered board load and un
     await page.waitForTimeout(1_100);
     const board = page.locator('[data-board-scroll]');
     const beforeRead = await board.boundingBox();
+    // With room the count line is in the search row, left of Filter (uier #300); on a phone it keeps its own row under it
+    const filter = page.getByRole('button', { name: 'Filter', exact: true });
+    const filterBeforeRead = (await filter.boundingBox())!;
+    const markAll = (await page.getByRole('button', { name: 'Mark all as read', exact: true }).boundingBox())!;
+    if (testInfo.project.name.startsWith('Desktop')) {
+        expect(markAll.x + markAll.width).toBeLessThanOrEqual(filterBeforeRead.x);
+        expect(Math.abs((markAll.y + markAll.height / 2) - (filterBeforeRead.y + filterBeforeRead.height / 2))).toBeLessThan(4);
+    } else expect(markAll.y).toBeGreaterThan(filterBeforeRead.y + filterBeforeRead.height);
     await page.getByRole('button', { name: 'Mark all as read', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Mark all as read', exact: true })).toHaveCount(0);
     await page.waitForTimeout(1_100);
     const afterRead = await board.boundingBox();
+    const filterAfterRead = await filter.boundingBox();
     // Background arrivals happen outside the recent-input allowance and must not insert another row above the board.
     const headers = await verifiedReviewHeaders(request, project, site.origin());
     const arrived = await request.post(`/api/review/${project}/comments`, { headers, data: {
@@ -90,6 +99,7 @@ test('project comments keep CLS below 0.1 through a remembered board load and un
     await expect(page.getByRole('region', { name: 'Open comments', exact: true }).getByRole('listitem')).toHaveCount(21);
     await page.waitForTimeout(1_100);
     const afterArrival = await board.boundingBox();
+    const filterAfterArrival = await filter.boundingBox();
     const search = page.getByRole('searchbox', { name: 'Search feedback' });
     const searchGroup = page.locator('[data-slot="input-group"]').filter({ has: search });
     const searchBefore = await searchGroup.boundingBox();
@@ -122,6 +132,8 @@ test('project comments keep CLS below 0.1 through a remembered board load and un
     expect(paintedView).toBe('board');
     expect(afterRead?.y).toBe(beforeRead?.y);
     expect(afterArrival?.y).toBe(beforeRead?.y);
+    expect(filterAfterRead).toEqual(filterBeforeRead);
+    expect(filterAfterArrival).toEqual(filterBeforeRead);
     expect(searchAfter).toEqual(searchBefore);
     expect(afterToolbar).toEqual(searchAfter);
 });

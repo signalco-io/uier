@@ -38,7 +38,12 @@
   with their status dots and counts) and the same "Active: In progress 4" tab, and the same Done tab with Archive in its "Done and archive" menu (`doneStatusFilters`
   in `CommentsFilter.tsx`); underlined like the toolbar's other tabs. Site-wide
   counts come from the activity summary, Open as its not-done count less In progress and Ready to verify. Neither view has "15 of 93 comments": the
-  list's status tabs and the board's columns already count what is shown. A populated project inbox keeps the count line's
+  list's status tabs and the board's columns already count what is shown. Where the comments are at least 42rem wide
+  (`@2xl/comments`, `countLineInHeader` in `CommentFilters.tsx`; uier #300) the count line is in the search row instead, right-aligned
+  just left of the filters in effect and Filter (`CommentFilters`' `countLine`), and `TriageSelection`'s own line is hidden there: an
+  unread count appearing or going to zero changes only that spot (the filters in effect are right-aligned against Filter, so they
+  stay too), and with no unread count it is `sr-only`. That width fits the search's minimum, the count, Filter and List/Board on
+  one line. Narrower (a phone), the count line keeps its own row under the status tabs. There a populated project inbox keeps the count line's
   32 px height (44 px on touch) when it has no unread count, so automatic reads and incoming unread feedback do not move the list or board.
   Empty projects hide it; callers without `reserveLine` retain the collapsed `sr-only` line. Its status stays mounted
   for announcements. The count line has no side padding of its own and takes the filters header's width, so its

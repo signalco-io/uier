@@ -148,13 +148,14 @@ test('selection stays quiet until it is used, by pointer, keyboard or a long pre
     for (const index of [0, 1, 2]) await expect(box(index)).toHaveCSS('opacity', '0');
     // On a touch screen a tap where the box is goes through to the row; screen readers still find the box
     await expect(box(0)).toHaveCSS('pointer-events', mobile ? 'none' : 'auto');
-    // The count line shows the guests' unread threads; once they are read it shows nothing, so it takes no room (and no gap)
+    // The count line shows the guests' unread threads; once they are read it shows nothing. With room it is in the search
+    // row (uier #300) and then takes no room; on a phone it keeps its own row's height, so the comments stay where they are
     const countLine = await page.getByRole('status').filter({ hasText: /^\d+ unread$/ }).locator('xpath=..').elementHandle();
     const countLineShown = () => countLine!.evaluate(element => getComputedStyle(element).position !== 'absolute');
     expect(await countLineShown()).toBe(true);
     await page.getByRole('button', { name: 'Mark all as read', exact: true }).press('Enter');
     await expect(page.getByRole('button', { name: 'Mark all as read', exact: true })).toHaveCount(0);
-    await expect.poll(countLineShown).toBe(false);
+    await expect.poll(countLineShown).toBe(mobile);
     if (!mobile) {
         // Its room is kept: the box (and the assignee and status before it) stay where they are when it shows
         const atRest = await boxPlace(box(1));

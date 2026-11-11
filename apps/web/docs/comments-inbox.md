@@ -65,7 +65,7 @@ rows with the status filter it waits for their entrance motion to settle before 
   project header (its mark, name, access label, Open review and Settings) takes the same width as the filters' header,
   in the list and on the board (uier #168: the filters' header carries `data-header-wide`, and the project layout widens
   its `PageHeader` from it with `group-has-*`, so settings and the install guide keep the reading width). The count line
-  under the filters takes that width too (uier #187: `TriageSelection`'s `lineClassName`, the header's width classes);
+  under the filters (in the search row where there is room, uier #300) takes that width too (uier #187: `TriageSelection`'s `lineClassName`, the header's width classes);
   the selection bar and the empty states stay in the reading column. An empty column's line ("Nothing open.", "Drop here." while
   dragging, `data-empty-column`) fills the room below the column's name and sits in its middle. A card opens its thread in a sheet over the board; the sheet scrolls the thread, which keeps its full height there (`shrink-0`: the card clips, so as the sheet's flex item it would shrink to the sheet and hide everything below the fold, [uier #201](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_UlwxhOaVoQ87SKArMx3B-); `e2e/comment-board.spec.ts` scrolls a long thread on a short window). Switching List/Board
   closes the open thread. The choice (the toggle, or G then I or B) is kept in the address, `?view=list` too, and
@@ -281,6 +281,26 @@ header from the section's `data-board-archive` (`--board-width-collapsed` / `--b
 
 The Board stays directly imported by `ProjectComments`, so direct Board visits hydrate its
 keyboard controls with the rest of the view.
+
+### Layout stability
+
+The populated inbox keeps `data-page-width="wide"` on its outer container and derives the header's
+width from the chosen view, even when presentation filters match nothing. Removing the board must
+not remove the shell's width container or recenter the search and project header. The unread/action
+row reserves 32 px (44 px on touch) throughout a populated inbox's lifetime, including when empty,
+where the comments are narrower than 42rem; wider, it is in the search row left of Filter, where it adds
+no row and its appearing or going away moves nothing else ([comment filters](comment-filters.md)), and
+the reserved row is hidden. Live arrivals and reading the last unread thread cannot move the comments. A row's unread dot and
+the spacer under it keep their width when read, so its title and path stay aligned.
+
+`e2e/project-cls.spec.ts` measures production HTML through delayed hydration at the reported desktop
+viewport (1674 × 1366) and on Mobile Chrome, with 20 API-created threads and 4× CPU slowdown. It
+records every `layout-shift` source and before/after rectangle in `project-cls.json`, with the toolbar's
+largest-session-window calculation (recent input and toolbar-only entries excluded). It checks the
+painted view before releasing scripts, read-all, a background unread arrival, an empty search and
+Give feedback's toolbar injection, plus unchanged board/header geometry, the count line left of Filter on
+desktop (under it on a phone) and Filter staying put through read-all and the arrival. The full report and limits
+are in [the CLS investigation](project-comments-cls.md).
 
 ### My work's board
 
