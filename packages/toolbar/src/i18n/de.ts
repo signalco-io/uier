@@ -418,7 +418,8 @@ export const de: Messages = {
         postSuggestion: 'Vorschlag senden',
         postComment: 'Kommentar senden',
         participants: (people: string) => `In dieser Diskussion: ${people}`,
-        participantsYou: 'Sie'
+        participantsYou: 'Sie',
+        threadPreview: 'Vorschau der Kommentar-Diskussion'
     },
     feedback: {
         typesOff: 'Feedback-Arten sind für dieses Projekt ausgeschaltet. Sie können weiterhin einen angehefteten Kommentar schreiben.',

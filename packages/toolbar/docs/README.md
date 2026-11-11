@@ -15,7 +15,7 @@ Read the note for the area you change, and update it in the same pull request. A
 - [Keyboard](keyboard.md): the shortcuts, the switch that turns them off, and the composites with one tab stop.
 - [Realtime subscription](realtime.md): socket reconciliation reasons shared by the toolbar and app.
 - [Canvas mode](canvas-mode.md): drawing on the page (pen, marker, shapes, arrows, notes, blur), one comment with the drawing, on the page and in its screenshot.
-- [New comment and feedback popovers](composer-popovers.md): where a pin and its popover go at the window's edges, the people beside a pin, the form (and a rewrite's), posting into the thread in one popover, expanding to a modal.
+- [New comment and feedback popovers](composer-popovers.md): where a pin and its popover go at the window's edges, the people beside a pin, the hover preview, the form (and a rewrite's), posting into the thread in one popover, expanding to a modal.
 - [Accessibility and SEO panels](page-checks.md): the page's checks from the pill, their shared layout (summary, sections, compact rows), axe-core and the on-demand sections in a lazy pinned asset, Core Web Vitals, and one-click comments for issues.
   - [Target size, To review, Comment on all and Not an issue](page-checks-report.md): WCAG 2.2's target size, what axe-core could not decide, one comment for a rule's elements, and findings dismissed in this browser.
   - [Keyboard and screen reader](page-checks-keyboard.md): the tab order on the page, the focus indicator check, and the outline of landmarks, headings and controls.

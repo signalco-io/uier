@@ -419,7 +419,8 @@ export const hr: Messages = {
         postSuggestion: 'Objavi prijedlog',
         postComment: 'Objavi komentar',
         participants: (people: string) => `U ovoj raspravi: ${people}`,
-        participantsYou: 'vi'
+        participantsYou: 'vi',
+        threadPreview: 'Pregled rasprave'
     },
     feedback: {
         typesOff: 'Vrste povratnih informacija isključene su za ovaj projekt. I dalje možete ostaviti prikvačeni komentar.',

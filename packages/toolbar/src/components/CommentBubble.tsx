@@ -1,6 +1,6 @@
 'use client';
 
-import { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useContext, useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Divider } from '@signalco/ui-primitives/Divider';
 import { cx } from '@signalco/ui-primitives/cx';
@@ -18,6 +18,7 @@ import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import { holdsLayersAttribute, isToolbarAnchor, pressableToolbarOpener, toolbarPinId, toolbarSurface } from '../toolbarReview';
+import { isPointing } from './CommentPointOverlay';
 import { PinParticipants, participantsGap, participantsWidth, threadParticipants } from './PinParticipants';
 import { RewriteSuggestions, useRewriteSuggestionsState } from './RewriteSuggestions';
 import { ComposerAttachButton, ComposerAttachmentsHeader, composerIconButtonClassName, useAttachedImage, type AttachedImage } from './ComposerAttachments';
@@ -40,6 +41,13 @@ const bubbleWindowMargin = 4;
  * pill (bottom-4, 48px tall), so the reply box is never underneath it.
  */
 const popoverCollisionPadding = { top: 8, left: 8, right: 8, bottom: 80 };
+
+/**
+ * A mouse resting on a pin previews its thread after this long (uier #308), and the preview closes
+ * this long after the pointer left the pin and the preview (time to move between them)
+ */
+const previewDelay = 400;
+const previewCloseDelay = 150;
 
 /** Half the pin's hit area: 44px on touch (`pointer-coarse:p-1.5`), the pin itself otherwise */
 function bubbleHalfHitArea() {
@@ -283,6 +291,48 @@ export function CommentBubble(props: CommentBubbleProps) {
         onOpenStateChange(openStateId, open);
         return () => onOpenStateChange(openStateId, false);
     }, [openStateId, open, onOpenStateChange]);
+    // A mouse resting on the pin opens a read-only preview of the thread, which closes when the
+    // pointer leaves the pin and the preview; a click (on either) opens the thread itself (uier #308).
+    // Touch and the keyboard open the thread at once, as before.
+    const [previewing, setPreviewing] = useState(false);
+    const preview = previewing && !open;
+    // The last time the popover opened, it was a preview: closing it leaves the focus where it is
+    const previewedRef = useRef(false);
+    const previewTimer = useRef<number>(undefined);
+    useEffect(() => () => window.clearTimeout(previewTimer.current), []);
+    useEffect(() => {
+        if (!open) return;
+        window.clearTimeout(previewTimer.current);
+        previewedRef.current = false;
+        setPreviewing(false);
+    }, [open]);
+    const canPreview = Boolean(commentItem) && !sending;
+    const handlePreviewEnter = (event: PointerEvent) => {
+        if (event.pointerType !== 'mouse' || !canPreview || open) return;
+        window.clearTimeout(previewTimer.current);
+        // Not while a button is held (a drag, a text selection)
+        if (previewing || event.buttons) return;
+        previewTimer.current = window.setTimeout(() => {
+            // Not while choosing a place for a comment: the pins are part of the page then
+            if (isPointing()) return;
+            previewedRef.current = true;
+            setPreviewing(true);
+        }, previewDelay);
+    };
+    const handlePreviewLeave = (event: PointerEvent) => {
+        if (event.pointerType !== 'mouse') return;
+        window.clearTimeout(previewTimer.current);
+        if (previewing) previewTimer.current = window.setTimeout(() => setPreviewing(false), previewCloseDelay);
+    };
+    // A click keeps it open, as the thread with its reply box and actions
+    const handlePinClick = (event: MouseEvent) => {
+        window.clearTimeout(previewTimer.current);
+        if (!preview) return;
+        // Instead of the popover's own toggle, which would close it
+        event.preventDefault();
+        handleOpenChange(true);
+    };
+
     const handleOpenChange = (open: boolean) => {
         setContinuing(false);
         setExpanded(false);
@@ -384,6 +434,15 @@ export function CommentBubble(props: CommentBubbleProps) {
         floatingShadowClassName
     );
 
+    // A saved thread is a part of the toolbar that can be reviewed on uier's own pages; the comment
+    // being written and a preview are not
+    const surface = commentItem && !preview ? toolbarSurface('uier-thread', popoverClassName) : { className: popoverClassName, onCloseAutoFocus: undefined };
+    const handleCloseAutoFocus = (event: Event) => {
+        // A preview never had the focus: it stays where it is, not on the pin
+        if (previewedRef.current) event.preventDefault();
+        else surface.onCloseAutoFocus?.(event);
+    };
+
     // A pasted image file is attached to a new comment, instead of its screenshot
     const composer = (
         <div className="shrink-0" onPaste={attachment.handlePaste}>
@@ -465,9 +524,9 @@ export function CommentBubble(props: CommentBubbleProps) {
                     left={lastRect.left}
                     top={lastRect.top} />
             )}
-            {/* A drawing marks its area itself: the outline only while its thread is open */}
-            {isCommentArea(position) && lastRect && !closedLayer && (!drawing || open) && (
-                <CommentAreaHighlight rect={lastRect} commentId={commentItem?.id} active={open} />
+            {/* A drawing marks its area itself: the outline only while its thread is open (or previewed) */}
+            {isCommentArea(position) && lastRect && !closedLayer && (!drawing || open || preview) && (
+                <CommentAreaHighlight rect={lastRect} commentId={commentItem?.id} active={open || preview} />
             )}
             <Popper
                 container={rootElement}
@@ -487,6 +546,9 @@ export function CommentBubble(props: CommentBubbleProps) {
                                 : t.pin.label(commentItem.number, messagesCount, commentItem.resolved)}
                         aria-description={participantsText}
                         onFocus={handleFocus}
+                        onPointerEnter={handlePreviewEnter}
+                        onPointerLeave={handlePreviewLeave}
+                        onClick={handlePinClick}
                         className={cx(
                             // The pin's shape, so the focus ring follows it: round but for the sharp corner
                             // (top-left, bottom-left when upside down)
@@ -516,24 +578,42 @@ export function CommentBubble(props: CommentBubbleProps) {
                         <PinParticipants people={participants} side={participantsSide} />
                     </button>
                 )}
-                aria-label={creating ? newLabel : sending ? t.pin.sendingComment : t.pin.thread}
+                aria-label={creating ? newLabel : sending ? t.pin.sendingComment : preview ? t.pin.threadPreview : t.pin.thread}
                 {...holdsLayers}
-                // A saved thread is a part of the toolbar that can be reviewed on uier's own pages; the
-                // comment being written is not
-                {...(commentItem ? toolbarSurface('uier-thread', popoverClassName) : { className: popoverClassName })}
-                // A saved thread: R, S and A act on it (`threadShortcuts.ts`)
-                {...(commentItem && { 'data-uier-thread-scope': '' })}
+                {...surface}
+                // Passed through to the Radix popover content, like `collisionPadding`
+                {...{ onCloseAutoFocus: handleCloseAutoFocus }}
+                // A saved thread: R, S and A act on it (`threadShortcuts.ts`); not on a preview
+                {...(commentItem && !preview && { 'data-uier-thread-scope': '' })}
+                {...(preview && {
+                    'data-uier-preview': '',
+                    // The focus stays where it is (the page's, or another thread's reply box)
+                    onOpenAutoFocus: (event: Event) => event.preventDefault(),
+                    onPointerEnter: handlePreviewEnter,
+                    onPointerLeave: handlePreviewLeave,
+                    onClick: handlePinClick
+                })}
                 side={placement.side}
                 sideOffset={placement.sideOffset}
                 align={placement.align}
                 alignOffset={placement.alignOffset}
-                open={open && !expanded}
-                // Not while expanded: the popover makes way for the modal, which has the focus now
-                onOpenChange={next => { if (next || !expandedRef.current) handleOpenChange(next); }}
+                open={(open || preview) && !expanded}
+                // Not while expanded: the popover makes way for the modal, which has the focus now.
+                // A preview (Escape, a press outside) just closes.
+                onOpenChange={next => {
+                    if (!next && preview) setPreviewing(false);
+                    else if (next || !expandedRef.current) handleOpenChange(next);
+                }}
                 // Passed through to the Radix popover content (the Popper's own value is derived from the offsets)
                 {...{ collisionPadding: popoverCollisionPadding }}
             >
-                {commentItem && (
+                {/* Read-only: its controls take no presses or focus, and a click anywhere opens the thread */}
+                {commentItem && preview && (
+                    <div inert className="min-h-0 flex-1 overflow-hidden">
+                        <CommentThread commentItem={commentItem} onPage />
+                    </div>
+                )}
+                {commentItem && !preview && (
                     <>
                         {/* Focusable so the thread can be scrolled with the keyboard */}
                         <div
@@ -547,7 +627,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                         <Divider className="shrink-0" />
                     </>
                 )}
-                {composer}
+                {!preview && composer}
             </Popper>
         </>
     );

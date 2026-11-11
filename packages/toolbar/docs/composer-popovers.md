@@ -116,6 +116,18 @@ pressing it are the pin's) and decorative: the letters are generated content (`c
 text and name stay its number and message count, and its description names the people ("In this thread: you,
 Ana, and Ben"). Drafts and comments still being sent have none.
 
+## Hover preview
+
+A mouse resting on a saved comment's pin for 400 ms opens a read-only preview of its thread in the same popover,
+in the same place ([uier #308](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_hWoACqYfuesBCMSV0ejjJ)):
+"Comment thread preview", the thread `inert` (no presses, no focus, no tooltips), no reply box. It leaves the
+focus where it is, does not mark the thread read, is not a thread for the shortcuts (`data-uier-thread-scope`) and
+not a reviewable part of the toolbar. It closes 150 ms after the pointer leaves both the pin and the preview, and
+on Escape or a press outside. A click on the pin or anywhere in the preview opens the thread itself, with its
+reply box focused, its actions and its read receipt, and it then stays open like a clicked thread. Only a mouse
+previews (`pointerType`), never while a button is held or in point mode (`isPointing`, `CommentPointOverlay`);
+a tap, Enter or Space opens the thread at once, as before. Closing a preview never moves the focus to the pin.
+
 ## Posting: one popover
 
 Sending a new comment never closes one popover to open another. `handleCreated` in `CommentsGlobal` marks the
@@ -160,4 +172,5 @@ animation, the same element once saved). `screenshots.spec.ts`: Attach image in 
 `showcase.spec.ts` (desktop and mobile): a pin at the bottom and right edges is upside down, its thread inside
 the window, clear of the pill and the pin.
 `pin-preview.spec.ts`: the people beside a pin (the author first, "+N", its description, the left side at the
-right edge; desktop and mobile).
+right edge; desktop and mobile), the hover preview (read-only, the focus kept, closing on leave, a click in it or
+on the pin opening the thread; desktop) and a tap opening the thread at once (mobile).

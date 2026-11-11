@@ -94,6 +94,10 @@ the action rows.
 Escape in a new comment or feedback expanded to a modal goes back to its popover; Escape there closes it
 ([popovers](composer-popovers.md)).
 
+A mouse resting on a pin previews its thread, read-only; the keyboard has no preview: Enter or Space on a focused
+pin opens the thread itself, as before, and Escape closes a preview the mouse opened
+([hover preview](composer-popovers.md#hover-preview)).
+
 Composers send on Enter and insert a line break on Shift+Enter. No hint under the text box says so
 ([uier #175](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_B5Zp66h_oPH67ZI1HAbRV)):
 the shortcuts list has both keys, and where a keyboard is likely (`useKeyboardLikely`, `any-pointer: fine`) the text
