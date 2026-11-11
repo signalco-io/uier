@@ -388,6 +388,41 @@ test('on a phone the board stacks its columns without scrolling sideways', async
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()!.width);
 });
 
+test('the List/Board choice is remembered and kept in the address; a view in the address wins', async ({ page, request }) => {
+    const { project, column } = await board(page, request);
+    const list = page.getByRole('list', { name: 'Comments', exact: true });
+    const view = () => new URL(page.url()).searchParams.get('view');
+
+    await page.getByRole('button', { name: 'List', exact: true }).click();
+    await expect(list).toBeVisible();
+    expect(view()).toBe('list');
+    // Opened again without a view: the remembered one, written to the address
+    await page.goto(`/app/projects/${project}`);
+    await expect.poll(view).toBe('list');
+    await expect(list).toBeVisible();
+
+    await page.getByRole('button', { name: 'Board', exact: true }).click();
+    await expect.poll(view).toBe('board');
+    await page.goto(`/app/projects/${project}`);
+    await expect.poll(view).toBe('board');
+    await expect(column('Open').getByRole('listitem')).toHaveCount(2);
+
+    // A link's view wins and is not remembered
+    await page.goto(`/app/projects/${project}?view=list`);
+    await expect(list).toBeVisible();
+    await page.goto(`/app/projects/${project}`);
+    await expect.poll(view).toBe('board');
+
+    // Blocked storage only loses the memory
+    await page.addInitScript(() => Object.defineProperty(window, 'localStorage', { get() { throw new DOMException('Blocked', 'SecurityError'); } }));
+    await page.goto(`/app/projects/${project}`);
+    await expect(list).toBeVisible();
+    expect(view()).toBeNull();
+    await page.getByRole('button', { name: 'Board', exact: true }).click();
+    await expect.poll(view).toBe('board');
+    await expect(column('Open').getByRole('listitem')).toHaveCount(2);
+});
+
 test('board cards drag with the mouse between the columns they can move to', async ({ page, request }, testInfo) => {
     test.skip(testInfo.project.name.startsWith('Mobile'), 'The mouse; touch screens have their own test');
     // Every column on screen: the drop points are measured before the drag, and a board that scrolls sideways

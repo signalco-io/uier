@@ -3,7 +3,7 @@
 import { useAppI18n } from '@/src/lib/i18n/client';
 
 import { commentAssignees } from '@uier/toolbar/agents';
-import { useEffect, useOptimistic, useRef, useState, useTransition } from 'react';
+import { useEffect, useLayoutEffect, useOptimistic, useRef, useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { setUrlSearchParams, useUrlSearchParams } from '@/src/hooks/use-url-search-params';
@@ -25,6 +25,7 @@ import { CommentBoard } from './CommentBoard';
 import { statusFilterLabels, statusMatches, type AuthorFilter, type StatusFilter } from './commentLabels';
 import { commentStatus, commentStatuses, type CommentStatus } from './CommentStatus';
 import { parseCommentsQuery, type CommentsQuery } from './commentsQuery';
+import { storedCommentsView } from './commentsView';
 import { orderComments, sortBoardColumn } from './commentOrder';
 import type { BoardColumn, BoardSort } from '../../../lib/app/boardSort';
 import { setBoardArchiveAction, setBoardSortAction } from './actions';
@@ -106,6 +107,14 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
         const timer = window.setTimeout(() => setUrlSearchParams({ q: search || undefined }), 250);
         return () => window.clearTimeout(timer);
     }, [search, urlQuery.q, urlKey, searchNeedsNormalization]);
+    // With no view in the address, the one the person last chose (List/Board) opens and is written there. A layout
+    // effect, so a page reached in the app paints in that view; a full load paints the server's list for a moment.
+    const urlView = searchParams.get('view');
+    useLayoutEffect(() => {
+        if (urlView === 'list' || urlView === 'board') return;
+        const remembered = storedCommentsView();
+        if (remembered) setUrlSearchParams({ view: remembered });
+    }, [urlView]);
     const commitSearch = () => { setUrlSearchParams({ q: search || undefined }); };
     const clearFilters = () => {
         setSearchDraft({ url: urlKey, value: '' });

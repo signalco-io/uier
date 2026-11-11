@@ -25,6 +25,7 @@ import { pageFilterBase } from './pageFilter';
 import { PriorityFlag } from './PriorityFlag';
 import { StateDot } from './CommentStatus';
 import { useKeyShortcutLabel } from '../keyboard/keys';
+import { rememberCommentsView } from './commentsView';
 
 /** Tab-like toggles, as `LinkTabs`' segmented filter (the projects list's Active and Done) */
 const segmentedGroup = 'gap-0.5 rounded-lg bg-muted p-[3px]';
@@ -189,8 +190,14 @@ export function CommentFilters({ className, unread, unreadCount, view, status, s
                 {/* Icon-only tabs; the tooltip and the accessible name say which. On a touch screen the group, not each tab,
                     takes the 44 px of the search and Filter beside it (its 3 px padding around 38 px tabs; uier #277) */}
                 <ToggleGroup size="sm" spacing={0.5} aria-label={t("View")} className={cn(segmentedGroup, 'shrink-0')} value={[view]}
-                    // A new layout starts with no thread open (the board would open it in a sheet over itself)
-                    onValueChange={([value]) => value && go({ view: value === 'board' ? 'board' : undefined, comment: undefined, ...(status === 'archived' ? { status: undefined } : {}) })}>
+                    // A new layout starts with no thread open (the board would open it in a sheet over itself). The choice is
+                    // remembered as the default and kept in the address, list too, so it wins over the remembered one there
+                    onValueChange={([value]) => {
+                        if (!value) return;
+                        const next = value === 'board' ? 'board' : 'list';
+                        rememberCommentsView(next);
+                        go({ view: next, comment: undefined, ...(status === 'archived' ? { status: undefined } : {}) });
+                    }}>
                     {([['list', t("List"), ListIcon], ['board', t("Board"), KanbanIcon]] as const).map(([value, label, Icon]) => (
                         <Tooltip key={value}>
                             <TooltipTrigger render={<ToggleGroupItem value={value} aria-label={t(label)} className={cn(segmentedItem, 'px-0 pointer-coarse:min-h-[38px] pointer-coarse:min-w-11')} />}>

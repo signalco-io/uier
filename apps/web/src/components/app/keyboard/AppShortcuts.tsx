@@ -10,6 +10,7 @@ import { setUrlSearchParams } from '@/src/hooks/use-url-search-params';
 import { startToolbarComment } from '../../toolbar/ToolbarScript';
 import { isShortcutTarget, useShortcutsEnabled } from './keys';
 import { ShortcutsDialog } from './ShortcutsDialog';
+import { rememberCommentsView } from '../comments/commentsView';
 
 const ShortcutsHelp = createContext<() => void>(() => {});
 
@@ -49,10 +50,11 @@ export function AppShortcuts({ children }: { children: ReactNode }) {
             const project = projectOf(pathname);
             if (!project) return false;
             const href = KnownPageLinks.project(project);
-            const view = letter === 'b' ? "board" : undefined;
-            // On its comments the view changes in place, like the List and Board toggle, and keeps the filters
+            const view = letter === 'b' ? 'board' : 'list';
+            // Remembered like the List and Board toggle. On its comments the view changes in place and keeps the filters
+            rememberCommentsView(view);
             if (pathname === href) setUrlSearchParams({ view, comment: undefined }, { history: 'push' });
-            else router.push(`${href}${view ? '?view=board' : ''}#comments`);
+            else router.push(`${href}?view=${view}#comments`);
         } else return false;
         return true;
     };
