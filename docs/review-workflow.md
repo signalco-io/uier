@@ -96,7 +96,7 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     and that environment's pages on the right: a relative URL, or a section such as `/blog/*` for every page under it;
     people: all, assigned to me, opened by me; only unread) and List/Board, then the status tabs (Active,
     Done and All, with counts; Active, the default, is everything not done. Open, In progress and Ready to verify fold
-    under Active, in the menu beside it, and the tab then reads "Active: In progress"; `?status=` keeps any other choice). Filters in effect show under the bar, each with a clear button. Each
+    under Active, in the menu beside it, and the tab then reads "Active: In progress"; Archive folds under Done the same way; `?status=` keeps any other choice). Filters in effect show under the bar, each with a clear button. Each
     comment is a compact row: number, first line, author, page path (what it was left on, such as "Link in
     navigation", is in the thread's On row), then priority other than Normal (its flag, named for screen readers),
     status (a dot in the status's colour and its name, Open too, so an Active list shows where each thread is: Open ink, In progress sky, Ready to verify violet, Done green; board cards leave it to their column, and board column headers, the status menu, the Status filter and the toolbar's thread use the same colours), the assignee's avatar, age and an unread dot. A row opens its thread (`?comment=<id>`): beside the list on

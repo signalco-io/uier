@@ -17,6 +17,14 @@ export function isActiveStatusFilter(status: CommentsStatusFilter) {
     return status === 'unresolved' || (activeStatusFilters as readonly CommentsStatusFilter[]).includes(status);
 }
 
+/** Done's tab also holds Archive: its menu picks one or the other, and the tab then names it */
+export const doneStatusFilters = ['resolved', 'archived'] as const satisfies readonly CommentsStatusFilter[];
+
+/** Whether the status filter shows Done or Archive */
+export function isDoneStatusFilter(status: CommentsStatusFilter) {
+    return (doneStatusFilters as readonly CommentsStatusFilter[]).includes(status);
+}
+
 /**
  * Which pages the inbox lists: this page (the default), all of the site's pages, one other
  * page (`page:<key>`, see `inboxPageKey`) or a section (`section:/blog`: that page and every page under it)

@@ -24,6 +24,7 @@ const messages: Record<keyof typeof en, string> = {
     "Across pages": "Tra le pagine",
     "Active": "Attivi",
     "Active statuses": "Stati attivi",
+    "Done and archive": "Fatto e archivio",
     "Activity ({count})": "Attività ({count})",
     "Add a title": "Aggiungi un titolo",
     "Add agent": "Aggiungi un agente",

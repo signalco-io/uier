@@ -46,6 +46,14 @@ export function isActiveStatusFilter(filter: StatusFilter) {
     return filter === 'active' || (activeStatusFilters as readonly StatusFilter[]).includes(filter);
 }
 
+/** Done's tab also holds Archive in the list's status filter: its menu picks one or the other (uier #302) */
+export const doneStatusFilters = ['done', 'archived'] as const satisfies readonly StatusFilter[];
+
+/** Whether the status filter shows Done or Archive */
+export function isDoneStatusFilter(filter: StatusFilter) {
+    return (doneStatusFilters as readonly StatusFilter[]).includes(filter);
+}
+
 /** Whether a thread in `status` is listed under the status filter */
 export function statusMatches(filter: StatusFilter, status: import('@uier/toolbar/verification').FeedbackStage, archivedAt?: string) {
     if (filter === 'archived') return Boolean(archivedAt);

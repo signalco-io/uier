@@ -624,6 +624,8 @@ export const en = {
         activeOne: (status: string) => `Active: ${status}`,
         showComments: 'Show comments',
         activeStatuses: 'Active statuses',
+        /** The menu beside the Done tab: Done or Archive */
+        doneStatuses: 'Done and archive',
         /** Each `where` ends the sentence: " on this page", or nothing for every page */
         onThisPage: ' on this page',
         noArchived: (where: string) => `No archived comments${where}`,

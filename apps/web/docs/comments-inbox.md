@@ -65,7 +65,7 @@ rows with the status filter it waits for their entrance motion to settle before 
   project header (its mark, name, access label, Open review and Settings) takes the same width as the filters' header,
   in the list and on the board (uier #168: the filters' header carries `data-header-wide`, and the project layout widens
   its `PageHeader` from it with `group-has-*`, so settings and the install guide keep the reading width). The count line
-  under the filters takes that width too (uier #187: `TriageSelection`'s `lineClassName`, the header's width classes);
+  under the filters (in the search row where there is room, uier #300) takes that width too (uier #187: `TriageSelection`'s `lineClassName`, the header's width classes);
   the selection bar and the empty states stay in the reading column. An empty column's line ("Nothing open.", "Drop here." while
   dragging, `data-empty-column`) fills the room below the column's name and sits in its middle. A card opens its thread in a sheet over the board; the sheet scrolls the thread, which keeps its full height there (`shrink-0`: the card clips, so as the sheet's flex item it would shrink to the sheet and hide everything below the fold, [uier #201](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_UlwxhOaVoQ87SKArMx3B-); `e2e/comment-board.spec.ts` scrolls a long thread on a short window). Switching List/Board
   closes the open thread. The choice (the toggle, or G then I or B) is kept in the address, `?view=list` too, and
@@ -235,10 +235,11 @@ responses. A full five-minute shell safety refresh keeps unrelated sidebar chang
 
 ## Archive
 
-Archive is an explicit fourth list tab (`?status=archived`), separate from Active, Done and All. The
+Archive is an explicit list scope (`?status=archived`), separate from Active, Done and All; it is chosen from the
+"Done and archive" menu beside the Done tab, which then reads "Archive" ([comment filters](comment-filters.md)). The
 ordinary tabs, workflow board columns and My work exclude archived threads. On the board, Archive is
 the last column, after Done ([below](#board-archive-column)); `?status=archived` with Board shows the
-list's Archive tab, and choosing Board from there returns to the columns.
+list's Archive, and choosing Board from there returns to the columns.
 Counts follow the selected search, people, page, priority, environment and author scopes. The app
 loads independent bounded ordinary and archive windows, with the archive filter applied in storage
 before each limit. My work loads only the ordinary window. Presentation filtering remains local.
@@ -247,7 +248,7 @@ An archived or restored open thread leaves its previous scope, including its det
 More actions → Archive comment moves a thread into Archive; Restore comment returns it to its prior
 workflow status, including Done or Ready to verify. Both changes are optimistic and roll back on
 failure; they do not delete content or mark it read. The archive detail carries an Archived label.
-The toolbar uses the same actions in Thread options and an Archive tab; archived threads have no pins,
+The toolbar uses the same actions in Thread options and Archive under its Done tab; archived threads have no pins,
 highlights, inline slots or Show on page action until restored. `e2e/archive.spec.ts` covers both
 surfaces, reload, restore, failed saves, mobile and light/dark accessibility.
 
@@ -280,6 +281,26 @@ header from the section's `data-board-archive` (`--board-width-collapsed` / `--b
 
 The Board stays directly imported by `ProjectComments`, so direct Board visits hydrate its
 keyboard controls with the rest of the view.
+
+### Layout stability
+
+The populated inbox keeps `data-page-width="wide"` on its outer container and derives the header's
+width from the chosen view, even when presentation filters match nothing. Removing the board must
+not remove the shell's width container or recenter the search and project header. The unread/action
+row reserves 32 px (44 px on touch) throughout a populated inbox's lifetime, including when empty,
+where the comments are narrower than 42rem; wider, it is in the search row left of Filter, where it adds
+no row and its appearing or going away moves nothing else ([comment filters](comment-filters.md)), and
+the reserved row is hidden. Live arrivals and reading the last unread thread cannot move the comments. A row's unread dot and
+the spacer under it keep their width when read, so its title and path stay aligned.
+
+`e2e/project-cls.spec.ts` measures production HTML through delayed hydration at the reported desktop
+viewport (1674 × 1366) and on Mobile Chrome, with 20 API-created threads and 4× CPU slowdown. It
+records every `layout-shift` source and before/after rectangle in `project-cls.json`, with the toolbar's
+largest-session-window calculation (recent input and toolbar-only entries excluded). It checks the
+painted view before releasing scripts, read-all, a background unread arrival, an empty search and
+Give feedback's toolbar injection, plus unchanged board/header geometry, the count line left of Filter on
+desktop (under it on a phone) and Filter staying put through read-all and the arrival. The full report and limits
+are in [the CLS investigation](project-comments-cls.md).
 
 ### My work's board
 

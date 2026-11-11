@@ -176,19 +176,23 @@ test('the board widens on a wide window, the filters and project headers and the
     // The project header: its mark (the first part of the title's row) and the settings button at the row's end
     const mark = page.getByRole('heading', { level: 1 }).locator('xpath=../../*[1]');
     const settings = page.getByRole('main').getByLabel('Settings', { exact: true });
-    // The count line under the filters: the guests' threads are unread, so it shows their count (uier #187)
+    // The count line: the guests' threads are unread, so it shows their count (uier #187). With this room it is in the
+    // search row, left of Filter (uier #300)
     const unread = page.getByRole('status').filter({ hasText: /^\d+ unread$/ });
     const countLine = unread.locator('xpath=..');
-    // The filters and project headers and the count line span the board's columns: search, the project's mark and the
-    // unread count start with the first, the view toggle, the settings button and the count line end with the last
+    const filter = page.getByRole('button', { name: /^Filter/ });
+    // The filters and project headers span the board's columns: search and the project's mark start with the first,
+    // the view toggle and the settings button end with the last; the count line is between search and Filter
     const headerSpans = async (first: Locator, last: Locator) => {
         const left = (await placement(first)).left, right = (await placement(last)).right;
         expect((await placement(search)).left).toBeCloseTo(left, 0);
         expect((await placement(view)).right).toBeCloseTo(right, 0);
         expect((await placement(mark)).left).toBeCloseTo(left, 0);
         expect((await placement(settings)).right).toBeCloseTo(right, 0);
-        expect((await placement(unread)).left).toBeCloseTo(left, 0);
-        expect((await placement(countLine)).right).toBeCloseTo(right, 0);
+        const searchBox = (await search.boundingBox())!, lineBox = (await countLine.boundingBox())!, filterBox = (await filter.boundingBox())!;
+        expect(lineBox.x).toBeGreaterThan(searchBox.x + searchBox.width);
+        expect(lineBox.x + lineBox.width).toBeLessThanOrEqual(filterBox.x);
+        expect(Math.abs((lineBox.y + lineBox.height / 2) - (filterBox.y + filterBox.height / 2))).toBeLessThan(4);
     };
     // The page keeps the reading width, 64rem with the 32 px gutters, centred
     const comments = atBoard[1]!;
@@ -274,8 +278,10 @@ test('the board widens on a wide window, the filters and project headers and the
     expect(laptopHeader.view.right).toBeCloseTo(laptopComments!.right, 0);
     expect(laptopHeader.mark.left).toBeCloseTo(laptopComments!.left, 0);
     expect(laptopHeader.settings.right).toBeCloseTo(laptopComments!.right, 0);
-    expect((await placement(unread)).left).toBeCloseTo(laptopComments!.left, 0);
-    expect((await placement(countLine)).right).toBeCloseTo(laptopComments!.right, 0);
+    // The count line stays in the search row, left of Filter
+    const laptopLine = (await countLine.boundingBox())!, laptopFilter = (await filter.boundingBox())!;
+    expect(laptopLine.x + laptopLine.width).toBeLessThanOrEqual(laptopFilter.x);
+    expect(Math.abs((laptopLine.y + laptopLine.height / 2) - (laptopFilter.y + laptopFilter.height / 2))).toBeLessThan(4);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1280);
     await grid.evaluate(element => { element.scrollLeft = element.scrollWidth; });
     await expect(archive).toBeInViewport({ ratio: 1 });
@@ -565,7 +571,7 @@ test('In progress is a column between Open and Ready to verify; cards move in an
     await expect(column('In progress').getByRole('listitem')).toHaveCount(1);
     await page.getByRole('button', { name: 'List', exact: true }).click();
     const tabs = page.getByRole('group', { name: 'Status', exact: true });
-    await expect(tabs.locator('[aria-pressed]')).toHaveText([/^Active \d+$/, /^Done \d+$/, /^All \d+$/, /^Archive \d+$/]);
+    await expect(tabs.locator('[aria-pressed]')).toHaveText([/^Active \d+$/, /^Done \d+$/, /^All \d+$/]);
     await chooseActiveStatus(page, /^In progress \d+$/);
     await expect(page).toHaveURL(/status=in-progress/);
     const row = page.locator('[data-comment-id]').filter({ hasText: 'Second board thread' });
@@ -604,7 +610,7 @@ test('the list shows Active by default, every status but Done, and each row says
     await page.goto(`/app/projects/${project}`);
     const tabs = page.getByRole('group', { name: 'Status', exact: true });
     const toggles = tabs.locator('[aria-pressed]');
-    await expect(toggles).toHaveText([/^Active 2$/, /^Done 1$/, /^All 3$/, /^Archive 0$/]);
+    await expect(toggles).toHaveText([/^Active 2$/, /^Done 1$/, /^All 3$/]);
     await expect(tabs.getByRole('button', { name: 'Active 2', exact: true })).toHaveAttribute('aria-pressed', 'true');
     const rows = page.locator('[data-comment-id]');
     const row = (text: string) => rows.filter({ hasText: text });
