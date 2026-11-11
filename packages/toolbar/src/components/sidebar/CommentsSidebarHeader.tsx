@@ -15,11 +15,12 @@ import { StatusDot } from '../CommentThreadHeader';
 import { floatingShadowClassName } from '../@types/Comments';
 import { toolbarSurface } from '../../toolbarReview';
 import { PanelHandle } from '../DockablePanel';
+import { PanelTitle } from '../PanelTitle';
 import { moveFocusInMenu, useRovingFocus } from '../../focusKeys';
 import { useMessages } from '../../i18n';
 
 /**
- * The inbox's title row: the handle that moves it, its name, the search (`InboxSearch`, its popover under this row) and
+ * The inbox's title row: the handle that moves it, its name (a menu of the other panels, `PanelTitle`), the search (`InboxSearch`, its popover under this row) and
  * Close (with the focus when it opens, unless `autoFocus` is false)
  */
 export function CommentsSidebarHeader({ onClose, autoFocus = true, search }: { onClose: () => void; autoFocus?: boolean; search?: React.ReactNode }) {
@@ -31,13 +32,13 @@ export function CommentsSidebarHeader({ onClose, autoFocus = true, search }: { o
             <Row justifyContent="space-between">
                 <Row spacing={0.5} className="min-w-0">
                     <PanelHandle />
-                    <Typography component="h2" level="body1" semiBold className="text-foreground">{t.inbox.label}</Typography>
+                    <PanelTitle id="inbox" title={t.inbox.label} />
                 </Row>
                 <Row>
                     {search}
                     {brief && <Button size="sm" variant="plain" aria-expanded={briefOpen} onClick={() => setBriefOpen(!briefOpen)}>{t.inbox.reviewBrief}</Button>}
                     <IconTooltip label={t.inbox.close}>
-                        <IconButton onClick={onClose} variant="plain" size="sm" aria-label={t.inbox.close} autoFocus={autoFocus} data-uier-close-inbox="">
+                        <IconButton onClick={onClose} variant="plain" size="sm" aria-label={t.inbox.close} autoFocus={autoFocus} data-uier-close-inbox="" data-uier-panel-close="">
                             <PanelRightClose size={16} aria-hidden="true" />
                         </IconButton>
                     </IconTooltip>

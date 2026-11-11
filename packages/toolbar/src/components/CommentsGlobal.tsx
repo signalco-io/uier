@@ -33,6 +33,7 @@ import { isShowcaseHintDismissed, rememberShowcaseHintDismissed, ShowcaseHint } 
 import { toolbarConfig } from '../config';
 import { usePagePath } from '../hooks/usePagePath';
 import { takeLinkedCommentId } from '../review';
+import { PanelSwitchContext } from './PanelTitle';
 import { fitPanels, readInboxFilter, readOpenPanels, rememberInboxFilter, rememberOpenPanels, RestoredPanelContext, type DockPanelId } from '../openPanel';
 import { openFeedbackEvent, startCommentEvent, takeToolbarRequest } from '../openFeedback';
 import { captureCommentScreenshot } from '../screenshot';
@@ -812,6 +813,25 @@ export function CommentsGlobal({
         ((panel === 'seo' ? seoButtonRef : accessibilityButtonRef).current ?? optionsButtonRef.current)?.focus();
         showPanel(panel, false);
     };
+    // A panel's title menu: the panels this review shows, and one shown in another's place. One open already (on the
+    // other side) gets the focus, as the new one's Close does when it opens.
+    const accessibilityShown = auditAvailable() && features.includes('accessibility');
+    const seoShown = features.includes('seo');
+    const panelSwitch = useMemo(() => ({
+        panels: [
+            { id: 'inbox' as const, label: t.inbox.label },
+            ...(accessibilityShown && !reattaching ? [{ id: 'accessibility' as const, label: t.toolbar.accessibility }] : []),
+            ...(seoShown && !reattaching ? [{ id: 'seo' as const, label: t.toolbar.seo }] : [])
+        ],
+        switchTo: (from: DockPanelId, to: DockPanelId) => {
+            const shown = openPanels.includes(to);
+            setHintOpen(false);
+            showPanel(from, false);
+            showPanel(to, true);
+            if (shown) requestAnimationFrame(() => (rootElement?.getRootNode() as ShadowRoot | Document | undefined)
+                ?.querySelector<HTMLElement>(`#uier-panel-${to} [data-uier-panel-close]`)?.focus());
+        }
+    }), [t, accessibilityShown, seoShown, reattaching, openPanels, showPanel, rootElement]);
     // "Show" after a panel's quick action: the comment's thread on its pin, or the inbox for one about
     // the page. The panel it was in closes; one on the other side stays.
     const handleShowCheckComment = (comment: ShownComment, panel: ChecksPanelId) => {
@@ -989,6 +1009,7 @@ export function CommentsGlobal({
                     <CanvasMode key={canvas.key} initialShapes={canvas.initialShapes} initialFrame={canvas.initialFrame} onDiscard={discardCanvas} onComment={commentOnDrawing} />
                 </CommentErrorBoundary>
             )}
+            <PanelSwitchContext value={panelSwitch}>
             <RestoredPanelContext value={restoredPanels}>
                 {sidebarOpen && (
                     <CommentsSidebar
@@ -1005,6 +1026,7 @@ export function CommentsGlobal({
                     onShowComment={handleShowCheckComment}
                     onAttentionChange={setChecksAttention} />
             </RestoredPanelContext>
+            </PanelSwitchContext>
             <CommentToolbar
                 mode={mode}
                 creatingPointComment={creatingCommentPoint}

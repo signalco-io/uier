@@ -568,7 +568,9 @@ export const de: Messages = {
         move: (label: string) => `Bereich „${label}“ verschieben`,
         moveTip: 'Auf die andere Seite ziehen oder die Pfeiltasten nutzen',
         moved: (label: string, side: 'left' | 'right') => `${label} nach ${side === 'left' ? 'links' : 'rechts'} verschoben.`,
-        moveTo: (side: 'left' | 'right') => `Nach ${side === 'left' ? 'links' : 'rechts'} verschieben`
+        moveTo: (side: 'left' | 'right') => `Nach ${side === 'left' ? 'links' : 'rechts'} verschieben`,
+        /** The menu of a panel's title: the other panels to show in its place */
+        switch: 'Bereich wechseln'
     },
     inbox: {
         label: 'Kommentare',

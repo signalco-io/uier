@@ -568,7 +568,9 @@ export const fr: Messages = {
         move: (label: string) => `Déplacer le panneau « ${label} »`,
         moveTip: 'Faites glisser de l’autre côté, ou utilisez les flèches',
         moved: (label: string, side: 'left' | 'right') => `${label} déplacé à ${side === 'left' ? 'gauche' : 'droite'}.`,
-        moveTo: (side: 'left' | 'right') => `Déplacer à ${side === 'left' ? 'gauche' : 'droite'}`
+        moveTo: (side: 'left' | 'right') => `Déplacer à ${side === 'left' ? 'gauche' : 'droite'}`,
+        /** The menu of a panel's title: the other panels to show in its place */
+        switch: 'Changer de panneau'
     },
     inbox: {
         label: 'Commentaires',

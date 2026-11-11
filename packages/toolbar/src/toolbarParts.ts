@@ -29,7 +29,8 @@ export const toolbarParts = {
     'uier-profile': 'profile',
     'uier-options': 'options',
     'uier-locations': 'location filter',
-    'uier-status-filter-menu': 'status filter'
+    'uier-status-filter-menu': 'status filter',
+    'uier-panel-switch': 'panel menu'
 } as const;
 
 export type ToolbarPart = keyof typeof toolbarParts;

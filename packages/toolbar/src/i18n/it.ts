@@ -569,7 +569,9 @@ export const it: Messages = {
         move: (label: string) => `Sposta il pannello «${label}»`,
         moveTip: 'Trascina sull’altro lato o usa le frecce',
         moved: (label: string, side: 'left' | 'right') => `${label} spostato a ${side === 'left' ? 'sinistra' : 'destra'}.`,
-        moveTo: (side: 'left' | 'right') => `Sposta a ${side === 'left' ? 'sinistra' : 'destra'}`
+        moveTo: (side: 'left' | 'right') => `Sposta a ${side === 'left' ? 'sinistra' : 'destra'}`,
+        /** The menu of a panel's title: the other panels to show in its place */
+        switch: 'Cambia pannello'
     },
     inbox: {
         label: 'Commenti',

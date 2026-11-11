@@ -102,6 +102,13 @@ Both panels share one layout (`components/checks/ChecksParts.tsx`), so they read
   Close, each with its name as the accessible name and tooltip
   ([uier #206](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_AwJBAvg6X-mTNMYh8MVJA)).
   Check again is never disabled and is `aria-busy` while a check runs.
+- **The title is a panel menu** (`PanelTitle`, also the inbox's;
+  [uier #299](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_rVMt4sX1T67EuKCMo7hji)):
+  the h2 holds a button that opens the panels this review shows (`PanelSwitchContext` from `CommentsGlobal`: the inbox, and
+  Accessibility and SEO when they are on and no anchor is being chosen), this one checked. Choosing another closes this
+  panel and opens that one, whose Close takes the focus (one already open on the other side gets it too). ↑ ↓ move
+  between them, Escape closes only the menu; with a single panel the title is plain text. A reviewable part on uier's
+  own pages ("panel menu").
 
 - **The summary first** (`ChecksSummary`): a tile for each kind of result with its count, its icon in
   the result's colour only while it counts something (muted at 0). No line says when it was checked

@@ -569,7 +569,9 @@ export const hr: Messages = {
         move: (label: string) => `Pomakni ploču „${label}”`,
         moveTip: 'Povucite na drugu stranu ili upotrijebite strelice',
         moved: (label: string, side: 'left' | 'right') => `${label}: premješteno ${side === 'left' ? 'lijevo' : 'desno'}.`,
-        moveTo: (side: 'left' | 'right') => `Premjesti ${side === 'left' ? 'lijevo' : 'desno'}`
+        moveTo: (side: 'left' | 'right') => `Premjesti ${side === 'left' ? 'lijevo' : 'desno'}`,
+        /** The menu of a panel's title: the other panels to show in its place */
+        switch: 'Promijeni ploču'
     },
     inbox: {
         label: 'Komentari',
