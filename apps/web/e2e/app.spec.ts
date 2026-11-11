@@ -1055,8 +1055,13 @@ test('reply from list and board with mentions, keyboard input and local drafts',
         // Mentions are said to screen readers only, with no visible hint (uier #287)
         await expect(card.getByText('@ to mention', { exact: true })).toHaveCount(0);
         await expect(card.getByRole('form', { name: 'Reply to thread' }).getByRole('group').getByRole('button', { name: 'Post reply' })).toBeDisabled();
+        // No close button: Escape in the empty box closes it and gives the focus back to Reply (uier #288)
+        await expect(card.getByRole('button', { name: 'Close reply' })).toHaveCount(0);
+        await input.press('Escape');
+        await expect(input).toHaveCount(0);
+        await expect(card.getByRole('button', { name: 'Reply', exact: true })).toBeFocused();
+        await card.getByRole('button', { name: 'Reply', exact: true }).click();
         await input.fill('Keep this draft');
-        await card.getByRole('button', { name: 'Close reply' }).click();
         await backToComments(page);
         await page.getByRole('button', { name: 'Board', exact: true }).click();
         await openComment(page, 'Reply without finding a pin');

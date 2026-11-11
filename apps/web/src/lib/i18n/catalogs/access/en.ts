@@ -107,7 +107,7 @@ const messages = {
     "Bookmark": "Bookmark",
     "Bug": "Bug",
     "Cancel": "Cancel",
-    "Cancel an edit": "Cancel an edit",
+    "Cancel an edit or close an empty reply": "Cancel an edit or close an empty reply",
     "Cannot connect": "Cannot connect",
     "Change assignee": "Change assignee",
     "Change status": "Change status",

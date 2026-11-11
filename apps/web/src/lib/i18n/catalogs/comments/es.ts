@@ -80,7 +80,6 @@ const messages: Record<keyof typeof en, string> = {
     "Clear search": "Borra la búsqueda",
     "Clear selection": "Borra la selección",
     "Close copy text": "Cerrar el texto",
-    "Close reply": "Cerrar respuesta",
     "Closed": "Cerrada",
     "Code": "Código",
     "Collapse Archive": "Contrae el archivo",

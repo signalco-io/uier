@@ -281,6 +281,14 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const assigneeTrigger = useRef<HTMLButtonElement>(null);
     // The reply box itself: an open message editor in the same card is another textarea
     const replyField = useRef<HTMLTextAreaElement>(null);
+    // Escape closes the empty reply box: the focus goes back to Reply, which takes its place
+    const replyButton = useRef<HTMLButtonElement>(null);
+    const focusReplyButton = useRef(false);
+    useEffect(() => {
+        if (replying || !focusReplyButton.current) return;
+        focusReplyButton.current = false;
+        replyButton.current?.focus();
+    }, [replying]);
     const shown = () => Boolean(cardRef.current?.checkVisibility());
     const openMenu = (trigger: HTMLButtonElement | null) => {
         if (!trigger || trigger.disabled || !shown()) return false;
@@ -644,8 +652,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
 
                 {/* Reply's icon lines up with the message text: past the 24px avatar and its 10px gap, less the button's 6px padding */}
                 {permissions.reply && (replying
-                    ? <ReplyComposer projectId={projectId} userId={userId} userName={assignees.find(person => person.userId === userId)?.name} comment={comment} textareaRef={replyField} onClose={() => setReplying(false)} />
-                    : <Button variant="ghost" size="sm" className="ml-7 self-start text-muted-foreground hover:text-foreground pointer-coarse:min-h-11" aria-keyshortcuts={replyShortcut} onClick={() => setReplying(true)}>
+                    ? <ReplyComposer projectId={projectId} userId={userId} userName={assignees.find(person => person.userId === userId)?.name} comment={comment} textareaRef={replyField} onClose={() => { focusReplyButton.current = true; setReplying(false); }} />
+                    : <Button ref={replyButton} variant="ghost" size="sm" className="ml-7 self-start text-muted-foreground hover:text-foreground pointer-coarse:min-h-11" aria-keyshortcuts={replyShortcut} onClick={() => setReplying(true)}>
                         <ReplyIcon data-icon="inline-start" />{t("Reply")}
                     </Button>)}
 

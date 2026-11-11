@@ -19,11 +19,11 @@ import { useMentionTextarea, type MessageMention } from './MentionTextarea';
  * (the keyboard shortcuts dialog lists the keys for everyone). The field takes the focus with the caret at the end when it opens.
  *
  * A surface switches features through its props: `mentionsIn` for `@` mentions, `onCancel` for its cancel button
- * (`escapeCancels` makes Escape press it), `onDiscard` for Discard. `submitVerb` "send" shows the send icon button
+ * (`escapeCancels` makes Escape press it), `onEscapeEmpty` for Escape in an empty field, `onDiscard` for Discard. `submitVerb` "send" shows the send icon button
  * named `submitLabel`, "save" a text button.
  */
 export function MessageComposer({ label, formLabel = label, name, placeholder, value, mentions, onValueChange, mentionsIn, maxLength = 1000, textareaRef,
-    submitLabel, submitVerb, onSubmit, pending = false, cancelLabel, onCancel, escapeCancels = false, onDiscard, error, announcement, notices, attachments, onPaste, holdSubmit = false }: {
+    submitLabel, submitVerb, onSubmit, pending = false, cancelLabel, onCancel, escapeCancels = false, onEscapeEmpty, onDiscard, error, announcement, notices, attachments, onPaste, holdSubmit = false }: {
     attachments?: ReactNode;
     onPaste?: ClipboardEventHandler<HTMLFormElement>;
     holdSubmit?: boolean;
@@ -50,6 +50,8 @@ export function MessageComposer({ label, formLabel = label, name, placeholder, v
     onCancel?: () => void;
     /** Escape (once no mention list is open) presses the cancel button */
     escapeCancels?: boolean;
+    /** Escape (once no mention list is open) while the field is empty: closes a surface that has no cancel button */
+    onEscapeEmpty?: () => void;
     /** Shown while there is text */
     onDiscard?: () => void;
     /** Why the last send or save failed */
@@ -67,7 +69,7 @@ export function MessageComposer({ label, formLabel = label, name, placeholder, v
     const inputId = useId();
     const hintId = useId();
     const keysId = useId();
-    const escape = escapeCancels ? onCancel : undefined;
+    const escape = escapeCancels ? onCancel : !value ? onEscapeEmpty : undefined;
     const { textareaProps, list } = useMentionTextarea({
         mentionsIn, value, mentions, maxLength, textareaRef: textarea, onValueChange,
         onSubmit: () => form.current?.requestSubmit(), onEscape: escape, onMention: person => setMentioned(t("Mentioned {value0}", { value0: person }))
@@ -120,7 +122,7 @@ export function MessageComposer({ label, formLabel = label, name, placeholder, v
             </InputGroup>
             {/* For screen readers only, out of the layout: Enter in a text box usually adds a line */}
             <FieldDescription id={keysId} className="sr-only">
-                {submitVerb === 'send' ? t("Enter to send. Shift+Enter for a new line.") : t("Enter to save. Shift+Enter for a new line.")}{escape && t(" Escape to cancel.")}
+                {submitVerb === 'send' ? t("Enter to send. Shift+Enter for a new line.") : t("Enter to save. Shift+Enter for a new line.")}{escapeCancels && onCancel && t(" Escape to cancel.")}
             </FieldDescription>
             {list}
             {error && <FieldError role="alert">{error}</FieldError>}

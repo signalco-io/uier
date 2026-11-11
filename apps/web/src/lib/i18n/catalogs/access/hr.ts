@@ -108,7 +108,7 @@ const messages: Record<keyof typeof en, string> = {
     "Bookmark": "Knjižna oznaka",
     "Bug": "Greška",
     "Cancel": "Odustani",
-    "Cancel an edit": "Odustani od uređivanja",
+    "Cancel an edit or close an empty reply": "Odustani od uređivanja ili zatvori prazan odgovor",
     "Cannot connect": "Povezivanje nije moguće",
     "Change assignee": "Promijeni zaduženu osobu",
     "Change status": "Promijeni status",

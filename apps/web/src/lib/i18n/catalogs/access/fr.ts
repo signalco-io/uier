@@ -108,7 +108,7 @@ const messages: Record<keyof typeof en, string> = {
     "Bookmark": "Signet",
     "Bug": "Bogue",
     "Cancel": "Annuler",
-    "Cancel an edit": "Annuler une modification",
+    "Cancel an edit or close an empty reply": "Annuler une modification ou fermer une réponse vide",
     "Cannot connect": "Connexion impossible",
     "Change assignee": "Changer le responsable",
     "Change status": "Changer le statut",

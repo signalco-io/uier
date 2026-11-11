@@ -79,7 +79,6 @@ const messages = {
     "Clear search": "Clear search",
     "Clear selection": "Clear selection",
     "Close copy text": "Close copy text",
-    "Close reply": "Close reply",
     "Closed": "Closed",
     "Code": "Code",
     "Collapse Archive": "Collapse Archive",

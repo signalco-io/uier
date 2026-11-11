@@ -80,7 +80,6 @@ const messages: Record<keyof typeof en, string> = {
     "Clear search": "Očisti pretragu",
     "Clear selection": "Poništi odabir",
     "Close copy text": "Zatvori tekst",
-    "Close reply": "Zatvori odgovor",
     "Closed": "Zatvoreno",
     "Code": "Kod",
     "Collapse Archive": "Sažmi arhivu",
