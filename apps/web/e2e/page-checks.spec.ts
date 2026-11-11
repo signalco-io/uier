@@ -54,6 +54,10 @@ test('the Accessibility panel audits the page in the background without the tool
     await expect(button).toHaveAttribute('aria-expanded', 'true');
     const panel = page.getByRole('complementary', { name: 'Accessibility' });
     await expect(panel.getByRole('button', { name: 'Close Accessibility panel' })).toBeFocused();
+    // Check again is the same small icon button as Close, and never takes the focus (uier #297)
+    const checkAgainBox = await panel.getByRole('button', { name: 'Check again' }).boundingBox();
+    const closeBox = await panel.getByRole('button', { name: 'Close Accessibility panel' }).boundingBox();
+    expect([checkAgainBox?.width, checkAgainBox?.height]).toEqual([closeBox?.width, closeBox?.height]);
     await expect(panel.getByRole('status')).toHaveText(/^\d+ issues? found\.$/);
     expect(auditRequests).toHaveLength(1);
 

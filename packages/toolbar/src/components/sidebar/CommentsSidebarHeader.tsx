@@ -33,8 +33,8 @@ export function CommentsSidebarHeader({ onClose, autoFocus = true }: { onClose: 
                 <Row>
                     {brief && <Button size="sm" variant="plain" aria-expanded={briefOpen} onClick={() => setBriefOpen(!briefOpen)}>{t.inbox.reviewBrief}</Button>}
                     <IconTooltip label={t.inbox.close}>
-                        <IconButton onClick={onClose} variant="plain" aria-label={t.inbox.close} autoFocus={autoFocus} data-uier-close-inbox="">
-                            <PanelRightClose />
+                        <IconButton onClick={onClose} variant="plain" size="sm" aria-label={t.inbox.close} autoFocus={autoFocus} data-uier-close-inbox="">
+                            <PanelRightClose size={16} aria-hidden="true" />
                         </IconButton>
                     </IconTooltip>
                 </Row>

@@ -22,7 +22,8 @@ all optional tools hidden, and the absent audit download.
   beside the page). Narrower, the pill keeps its width and both are the first rows of Options; closing a
   panel gives the focus back to the button that opened it (Options there).
 - Each panel is a `DockablePanel` (`uier-panel-accessibility`, `uier-panel-seo`): ink, docked on its own
-  side, Close has the focus when it opens, Escape closes it. On uier's own pages both panels are
+  side, Close has the focus when it opens (never Check again beside it; both are small icon buttons, the handle's size,
+  [uier #297](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_sHphgXGmcH-cClEsQH-Rs)), Escape closes it. On uier's own pages both panels are
   reviewable parts (`toolbarParts.ts`, "accessibility panel", "SEO panel").
 - **Two at once** ([uier #247](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_0noiz5-nVbRxXdaqpC2sH)): the inbox and the checks panels share the dock, one panel
   on each side. `CommentsGlobal` keeps the open panels oldest first (`openPanels`) and `fitPanels`
