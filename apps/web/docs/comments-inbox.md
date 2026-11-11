@@ -273,14 +273,8 @@ header from the section's `data-board-archive` (`--board-width-collapsed` / `--b
   and light/dark axe; `e2e/board-sort.api.spec.ts` the order, the saved state and invalid inputs; `e2e/comment-board.spec.ts` its
   place in the layout and during a drag.
 
-The Board and its drag-and-drop code load only when the Board branch is rendered. List visits
-keep them deferred; direct Board visits still render through server-capable Suspense. Loading and
-retry stay in the results region, so filters and switching back to List remain available.
-
-Direct Board visits use a top-level `next/dynamic` entry to register the server-rendered Board
-chunk for preload. Keep that path when changing the boundary; a plain lazy import delayed
-hydration of the already visible cards. `e2e/bundle-boundaries.spec.ts` covers List visits without
-a Board chunk request, delayed loading, search retention, direct-visit preload and failed-chunk retry.
+The Board stays directly imported by `ProjectComments`, so direct Board visits hydrate its
+keyboard controls with the rest of the view.
 
 ## App language
 
@@ -288,5 +282,4 @@ The app's selected language applies to the inbox, board, filters, thread control
 accessible names. `src/lib/i18n/catalogs/comments` holds the six complete catalogs. Shared machine
 values and browser-safe label records stay stable; components translate their display labels.
 Custom feedback type names, comments, project names and other member content remain as written.
-Relative times use the app language and the existing shared clock. A deferred board's loading
-and retry components read the same locale without changing its stable component or chunk boundary.
+Relative times use the app language and the existing shared clock.

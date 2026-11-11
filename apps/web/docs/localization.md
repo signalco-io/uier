@@ -51,4 +51,4 @@ profile/toolbar writes, catalog key/placeholder completeness and localized gener
 `e2e/app-language.spec.ts` checks every browser language at sign-in, English fallback, profile saves/reloads,
 cross-browser account preferences, explicit English, browser reset, navigation and delayed/failed saves.
 Feature suites continue to use English by default. Translation catalogs are server resources; do not import
-them into a client entry or join deferred forms/board modules back into a synchronous barrel.
+them into a client entry. Preserve the narrow client entry points of settings and access forms.
