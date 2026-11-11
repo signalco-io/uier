@@ -27,6 +27,8 @@ a shared thread, the five services in one panel and a hairline between them. The
 `importReplies.ts` names imported replies ("Ana via Linear"), and Done updates each copy (GitHub says Closed). Change
 it with the catalog: it shows only what the services do. It follows the landing scene's rules: built from the tokens
 and the landing's thread pieces, plays only in view, Pause under it with a caption, one still frame with reduced
-motion, a fixed height per breakpoint. The picture and its caption are `inert` and `aria-hidden`, so the axe scan
+motion (followed live: turned on mid-loop it stops the loop and the line drawing), a fixed height per breakpoint. The
+captions share one grid cell, the inactive ones `invisible`, so the row keeps the longest caption's height and the
+section below never moves between phases; `e2e/integration-pages.spec.ts` checks both at 390 px. The picture and its caption are `inert` and `aria-hidden`, so the axe scan
 skips their text, which a frame can catch mid-fade; the canvas is `data-uier-decorative` with a `min-height`. It is
 self-contained: the other marketing pages' covers do not share it.

@@ -20,7 +20,9 @@ import type { IntegrationProviderId } from '../../../../src/lib/integrations/mod
 // caught mid-fade), the caption under it says what is happening. Motion follows BRAND.md: things come
 // and go with a 150 ms ease-out fade plus 8 px slide, a sync draws its line with ease-out, nothing
 // moves on page load. It plays only while in view, Pause stops it (WCAG 2.2.2), and with reduced
-// motion it shows one still frame. The canvas has a fixed height per breakpoint, so nothing shifts.
+// motion (read live, so turning it on mid-loop stops the scene) it shows one still frame. The canvas
+// has a fixed height per breakpoint and the caption row is as tall as its longest caption, so nothing
+// below shifts.
 
 const phases = [
     { name: 'idle', ms: 1200 },
@@ -45,6 +47,9 @@ const captions: { text: string; phases: Phase[] }[] = [
 /** The frame shown with reduced motion: every copy made, the reply back in the thread */
 const stillPhase = phases.findIndex(phase => phase.name === 'replied');
 const stillCaption = 'Shared feedback becomes a page, an issue, a work item or a message, and replies can come back.';
+
+/** Every caption, stacked in one cell so the row keeps the height of the longest at any width */
+const allCaptions = [...captions.map(item => item.text), stillCaption];
 
 /** What each service makes of the thread, and the word for its done state */
 const services: { provider: IntegrationProviderId; name: string; item: string; done: string }[] = [
@@ -109,11 +114,21 @@ export function IntegrationsCover() {
     // The caption fades in only once the scene has moved: nothing moves on page load
     const [started, setStarted] = useState(false);
 
+    // Reduced motion shows the still frame, also when it is turned on while the loop plays; turned
+    // off, the loop goes on from that frame (unless paused)
     useEffect(() => {
-        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-            setReducedMotion(true);
-            setPhase(stillPhase);
-        }
+        const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+        const apply = () => {
+            setReducedMotion(query.matches);
+            if (query.matches)
+                setPhase(stillPhase);
+        };
+        apply();
+        query.addEventListener('change', apply);
+        return () => query.removeEventListener('change', apply);
+    }, []);
+
+    useEffect(() => {
         const element = root.current;
         if (!element)
             return;
@@ -139,11 +154,16 @@ export function IntegrationsCover() {
 
     return (
         <div ref={root} className="flex min-w-0 flex-col gap-3 pt-12 md:pt-16">
-            <Scene phase={name} />
+            <Scene phase={name} still={reducedMotion} />
             <div className="flex items-start gap-3 px-1">
-                <p inert aria-hidden="true" key={caption} className={cx('min-w-0 flex-1 py-1 text-sm text-muted-foreground', started && 'animate-in fade-in duration-150 ease-out motion-reduce:animate-none')}>
-                    {caption}
-                </p>
+                {/* All captions share one grid cell, the others invisible, so the row never changes height */}
+                <div inert aria-hidden="true" data-integrations-caption="" className="grid min-w-0 flex-1 py-1 text-sm text-muted-foreground">
+                    {allCaptions.map(text => (
+                        <p key={text} className={cx('col-start-1 row-start-1', text === caption ? started && 'animate-in fade-in duration-150 ease-out motion-reduce:animate-none' : 'invisible')}>
+                            {text}
+                        </p>
+                    ))}
+                </div>
                 {!reducedMotion && (
                     <Button
                         variant="plain"
@@ -167,7 +187,7 @@ const grid: CSSProperties = {
     maskImage: 'radial-gradient(ellipse at center, black 30%, transparent 80%)'
 };
 
-function Scene({ phase }: { phase: Phase }) {
+function Scene({ phase, still }: { phase: Phase; still: boolean }) {
     const canvas = useRef<HTMLDivElement>(null);
     const thread = useRef<HTMLDivElement>(null);
     const source = useRef<HTMLSpanElement>(null);
@@ -225,10 +245,10 @@ function Scene({ phase }: { phase: Phase }) {
                             <g key={service.provider}>
                                 <path d={path.out} className="stroke-border" strokeWidth={1} />
                                 {/* The sync out: drawn from the thread when the copy is made, again when it is done */}
-                                <Trace d={path.out} drawn={is('send')} delay={delay} />
-                                <Trace d={path.out} drawn={is('done')} delay={300 + delay} />
+                                <Trace d={path.out} drawn={is('send')} delay={delay} still={still} />
+                                <Trace d={path.out} drawn={is('done')} delay={300 + delay} still={still} />
                                 {/* The reply back, drawn from the service to the thread */}
-                                {index === replyFrom && <Trace d={path.back} drawn={is('reply')} delay={0} />}
+                                {index === replyFrom && <Trace d={path.back} drawn={is('reply')} delay={0} still={still} />}
                             </g>
                         );
                     })}
@@ -280,7 +300,7 @@ function Scene({ phase }: { phase: Phase }) {
  * One sync along a connector: the line draws from its start with ease-out (`pathLength` 1, so the
  * dash offset goes from 1 to 0 whatever its length), then fades back into the hairline.
  */
-function Trace({ d, drawn, delay }: { d: string; drawn: boolean; delay: number }) {
+function Trace({ d, drawn, delay, still }: { d: string; drawn: boolean; delay: number; still: boolean }) {
     return (
         <path
             d={d}
@@ -293,7 +313,10 @@ function Trace({ d, drawn, delay }: { d: string; drawn: boolean; delay: number }
                 strokeDashoffset: drawn ? 0 : 1,
                 opacity: drawn ? 1 : 0,
                 // Drawn: the line grows; after it, it fades and only then goes back to the start, unseen
-                transition: drawn
+                // Reduced motion: no drawing, the line is simply there or not
+                transition: still
+                    ? 'none'
+                    : drawn
                     ? `stroke-dashoffset 600ms ease-out ${delay}ms, opacity 0ms linear ${delay}ms`
                     : 'opacity 150ms ease-out, stroke-dashoffset 0ms linear 150ms'
             }} />
