@@ -15,6 +15,11 @@ privacy limits and directory status aligned with the adapters and `docs/integrat
 `e2e/integration-pages.spec.ts` covers the public guides, their features and settings, the logos, the suggestion
 form, support/setup links and accessibility.
 
+The index's services are tiles in one panel, three to a row on wide screens and two on tablets: the logo, the
+name, the catalog's description, its optional features under "Optional" and "Set up <service>", whose link covers the
+tile. A sixth tile, "Another tool", links to the suggestion section below, so every row is full; keep the count a
+multiple of two and three when services change.
+
 The index's cover (`integrations/IntegrationsCover.tsx`, the page's one moving picture) is a loop under the header:
 a shared thread, the five services in one panel and a hairline between them. The thread is copied to each service
 (the item and its state badge come in as its line arrives), a reply comes back from Linear named the way
