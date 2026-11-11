@@ -82,7 +82,10 @@ export const en = {
         languageSavedAccount: 'Your choice is saved to your uier account.',
         languageSavedBrowser: 'Your choice stays in this browser.',
         languageNotSaved: 'Your language could not be saved. Try again.',
-        languageNotLoaded: 'This language could not be loaded. Choose it to try again.'
+        languageNotLoaded: 'This language could not be loaded. Choose it to try again.',
+        /** Options → Environment: the project's other addresses, the same page on each */
+        environment: 'Environment',
+        environmentHint: 'Opens this page on the environment you choose.'
     },
     shortcutList: {
         addComment: 'Add comment',

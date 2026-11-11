@@ -12,3 +12,12 @@
   Cosmos and memory stores share `repo/originFilter.ts`. Do not infer missing origins or retarget
   removed sources. App direct-comment redirects load the authorized stored thread and retain its
   permitted original source plus canonical saved page state. Environment filters never grant access.
+
+- **Switching environments in the toolbar** (Options → Environment, `ToolbarOptions.tsx`): with more than one http(s)
+  address in `GET /api/review/<code>`'s `environments` (sent only to those who can comment), Options names the one being
+  reviewed and lists them all, the current one checked (`aria-current`). Each other one is a link to this page there
+  (`environmentLink` in `packages/toolbar/src/review.ts`): only the origin changes; the path, query and hash are copied as
+  they are (the path set on its own, so `//host` can't lead away), and a review appends its review link (`toolbar-code` or
+  `review=true`, as a comment link does) so the toolbar opens there too. It opens in the same tab: the UI kit's links open
+  another origin in a new one unless given `target="_self"`. The packaged extension ends its activation on a cross-origin
+  navigation, so there the reviewer starts the review again. `e2e/environments.spec.ts` covers it.

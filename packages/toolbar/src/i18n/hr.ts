@@ -80,7 +80,9 @@ export const hr: Messages = {
         languageSavedAccount: 'Vaš se odabir sprema u vaš uier račun.',
         languageSavedBrowser: 'Vaš odabir ostaje u ovom pregledniku.',
         languageNotSaved: 'Jezik nije spremljen. Pokušajte ponovno.',
-        languageNotLoaded: 'Ovaj jezik nije se mogao učitati. Odaberite ga ponovno da biste pokušali opet.'
+        languageNotLoaded: 'Ovaj jezik nije se mogao učitati. Odaberite ga ponovno da biste pokušali opet.',
+        environment: 'Okruženje',
+        environmentHint: 'Otvara ovu stranicu u odabranom okruženju.'
     },
     shortcutList: {
         addComment: 'Dodaj komentar',

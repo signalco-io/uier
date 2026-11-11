@@ -80,7 +80,9 @@ export const it: Messages = {
         languageSavedAccount: 'La tua scelta viene salvata nel tuo account uier.',
         languageSavedBrowser: 'La tua scelta resta in questo browser.',
         languageNotSaved: 'Non è stato possibile salvare la lingua. Riprova.',
-        languageNotLoaded: 'Non è stato possibile caricare questa lingua. Sceglila di nuovo per riprovare.'
+        languageNotLoaded: 'Non è stato possibile caricare questa lingua. Sceglila di nuovo per riprovare.',
+        environment: 'Ambiente',
+        environmentHint: 'Apre questa pagina nell’ambiente scelto.'
     },
     shortcutList: {
         addComment: 'Aggiungi commento',
