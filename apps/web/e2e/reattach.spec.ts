@@ -1,6 +1,6 @@
 import type { CommentItem } from '../../../packages/toolbar/src/components/@types/Comments';
 import { expect, test } from '@playwright/test';
-import { isolatedOrigin, newVisitor, openLanding, selectText } from './support/toolbar';
+import { inboxSearch, isolatedOrigin, newVisitor, openLanding, selectText } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 import { pngImage } from './support/images';
 
@@ -26,7 +26,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
             await inbox.getByRole('button', { name: /^More options for (your|this) comment$/ }).click();
             await page.getByRole('dialog', { name: 'Comment options' }).getByRole('button', { name: 'Reattach comment', exact: true }).click();
         };
-        await inbox.getByRole('searchbox', { name: 'Search comments' }).fill('Recover this');
+        await (await inboxSearch(inbox)).fill('Recover this');
         await expect(inbox.getByText('Target is missing from this page.')).toBeVisible();
         await inbox.getByRole('button', { name: 'Move comments panel' }).focus();
         await page.keyboard.press('ArrowLeft');
@@ -137,7 +137,7 @@ test('missing, duplicate, hidden and responsive targets stay searchable without 
     await expect(duplicate.locator('[data-uier-anchor-state]')).toHaveAttribute('data-uier-anchor-state', 'restored');
     await page.locator('#duplicates').evaluate(el => el.prepend(el.firstElementChild!.cloneNode(true)));
     await expect(duplicate.locator('[data-uier-anchor-state]')).toHaveAttribute('data-uier-anchor-state', 'ambiguous');
-    await inbox.getByRole('searchbox').fill('Duplicate text');
+    await (await inboxSearch(inbox)).fill('Duplicate text');
     await expect(duplicate).toHaveCount(1);
     await expect(removed).toHaveCount(0);
     await context.close();

@@ -569,13 +569,14 @@ export const es: Messages = {
         move: (label: string) => `Mover el panel «${label}»`,
         moveTip: 'Arrastra al otro lado o usa las flechas',
         moved: (label: string, side: 'left' | 'right') => `${label} movido a la ${side === 'left' ? 'izquierda' : 'derecha'}.`,
-        moveTo: (side: 'left' | 'right') => `Mover a la ${side === 'left' ? 'izquierda' : 'derecha'}`
+        moveTo: (side: 'left' | 'right') => `Mover a la ${side === 'left' ? 'izquierda' : 'derecha'}`,
+        /** The menu of a panel's title: the other panels to show in its place */
+        switch: 'Cambiar de panel'
     },
     inbox: {
         label: 'Comentarios',
         search: 'Buscar comentarios',
         reviewing: (environment: string) => `Revisando ${environment}. Las opiniones nuevas se quedan aquí.`,
-        unread: 'Sin leer',
         assignedToMe: 'Asignados a mí',
         reviewBrief: 'Indicaciones de revisión',
         close: 'Cerrar el panel lateral',

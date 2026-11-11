@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
-import { addToolbarScript, isolatedOrigin, newVisitor, animationsFinished, commentBubbles, inboxPages, openThread, toolbar } from './support/toolbar';
+import { addToolbarScript, inboxSearch, isolatedOrigin, newVisitor, animationsFinished, commentBubbles, inboxPages, openThread, toolbar } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 import { startReviewedSite } from './support/reviewedSite';
 import { allCommentRowLinks, commentRowLink, commentRows, createProject, inBackground, openComment, setProjectAccess, signIn, uniqueEmail } from './support/app';
@@ -77,7 +77,7 @@ test('true unread activity is per reviewer and survives reading, resolution, rel
         await expect(inbox(second.page)).toHaveAccessibleName('Inbox, 1 unread thread');
         // Listing previews does not mark everything read. Reading is separate from Open/Done.
         await inbox(second.page).click();
-        await second.page.getByRole('button', { name: 'Unread 1', exact: true }).click();
+        await second.page.getByRole('button', { name: '1 unread', exact: true }).click();
         const card = second.page.getByRole('article', { name: `Comment #${comment.number}` });
         await expect(card).toContainText('First reviewer feedback');
         await card.getByRole('button', { name: 'Mark as read' }).click();
@@ -94,7 +94,7 @@ test('true unread activity is per reviewer and survives reading, resolution, rel
         await first.context.request.patch(`${origin}/api/comments/${comment.id}`, { data: { resolved: true } });
         await foreground(first.page);
         await inbox(first.page).click();
-        await first.page.getByRole('button', { name: 'Unread 1', exact: true }).click();
+        await first.page.getByRole('button', { name: '1 unread', exact: true }).click();
         const done = first.page.getByRole('article', { name: `Comment #${comment.number}` });
         await expect(done).toContainText('Done');
         await expect(done).toContainText('Second reviewer reply');
@@ -103,7 +103,7 @@ test('true unread activity is per reviewer and survives reading, resolution, rel
         await first.page.getByRole('button', { name: 'Close sidebar' }).click();
         await expect(first.page.getByRole('complementary', { name: 'Comments' })).toBeHidden();
         await inbox(first.page).click();
-        await expect(first.page.getByRole('button', { name: 'Unread 0', exact: true })).toHaveAttribute('aria-pressed', 'true');
+        await expect(first.page.getByRole('button', { name: '0 unread', exact: true })).toHaveAttribute('aria-pressed', 'true');
         // The initial activity response can predate another person's change while still in flight.
         // Hold that real server snapshot so focus must queue a subsequent refresh, not wait for polling.
         let capturedUnread: number | undefined;
@@ -131,7 +131,7 @@ test('true unread activity is per reviewer and survives reading, resolution, rel
         await first.page.unroute('**/api/comments/activity');
         // Open before the reload: it stays open
         await expect(first.page.getByRole('complementary', { name: 'Comments' })).toBeVisible();
-        await first.page.getByRole('button', { name: 'Unread 1', exact: true }).click();
+        await first.page.getByRole('button', { name: '1 unread', exact: true }).click();
         // Unread lists every page, like the pill's count
         await expect(inboxPages(first.page)).toContainText('All pages');
         const otherGroup = first.page.getByRole('region', { name: 'All pages' });
@@ -410,7 +410,7 @@ test('app bulk read follows environment, page and people filters in list and boa
         await inbox(page).click();
         const reviewInbox = page.getByRole('complementary', { name: 'Comments' });
         await reviewInbox.getByRole('button', { name: 'Assigned to me', exact: true }).click();
-        await reviewInbox.getByRole('searchbox', { name: 'Search comments' }).fill('Selected');
+        await (await inboxSearch(reviewInbox)).fill('Selected');
         await expect(reviewInbox.getByRole('article')).toHaveCount(1);
         await reviewInbox.getByRole('button', { name: 'Mark all as read', exact: true }).click();
         // The toolbar defaults to all environments, so the staging thread counts here too.
@@ -595,7 +595,7 @@ for (const mode of ['showcase', 'project'] as const) {
             await foreground(reviewer.page);
             await expect.poll(() => counts.activity).toBe(initial + 1);
             await counter.settle();
-            const search = reviewer.page.getByRole('searchbox', { name: 'Search comments' });
+            const search = reviewer.page.getByRole('complementary', { name: 'Comments' }).getByRole('button', { name: 'Search comments', exact: true });
             const sample = async (interact = false) => {
                 const start = { ...counts };
                 for (let i = 0; i < 8; i++) {

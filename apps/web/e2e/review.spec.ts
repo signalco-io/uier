@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { brand } from '@uier/brand';
-import { addToolbarScript, animationsFinished, commentBubble, commentBubbles, isolatedOrigin, newVisitor, openLanding, openThread, selectText, selectionToolbar, toolbar, copyFromThread } from './support/toolbar';
+import { addToolbarScript, animationsFinished, inboxSearch, commentBubble, commentBubbles, isolatedOrigin, newVisitor, openLanding, openThread, selectText, selectionToolbar, toolbar, copyFromThread } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
 // Review links, the review session and the toolbar's own controls (collapse, profile, options).
@@ -175,9 +175,9 @@ test('collapse hides page annotations, preserves reply text and restores current
     await expand.click();
     await page.getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
     const inbox = page.getByRole('complementary', { name: 'Comments' });
-    await inbox.getByRole('searchbox', { name: 'Search comments' }).fill('Heading placement');
+    await (await inboxSearch(inbox)).fill('Heading placement');
     await collapse.click();
-    await expect(inbox.getByRole('searchbox', { name: 'Search comments' })).toHaveValue('Heading placement');
+    await expect(inbox.getByRole('button', { name: 'Search comments: Heading placement', exact: true })).toBeVisible();
     await expect(inbox.getByRole('article')).toHaveCount(1);
     await inbox.getByRole('button', { name: 'Show on page' }).click();
     await expect(collapse).toBeVisible();

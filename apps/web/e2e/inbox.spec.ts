@@ -5,6 +5,7 @@ import {
     animationsFinished,
     chooseInboxPages,
     inboxPages,
+    inboxSearch,
     inboxPageOptions,
     isolatedOrigin,
     newVisitor,
@@ -39,9 +40,13 @@ test('bulk inbox read follows listed pages/search/status and retries the rendere
         await expect(inbox).toHaveAccessibleName('Inbox, 3 unread threads');
         await inbox.click();
         const sidebar = reader.page.getByRole('complementary', { name: 'Comments' });
-        await sidebar.getByRole('searchbox', { name: 'Search comments' }).fill('Selected');
+        await (await inboxSearch(sidebar)).fill('Selected');
         await expect(sidebar.getByRole('article')).toHaveCount(1);
-        expect((await inboxPages(reader.page).boundingBox())!.width).toBeGreaterThanOrEqual(144);
+        // This page by its path, the picker as wide as the filters (uier #311)
+        await expect(inboxPages(reader.page)).toHaveAccessibleName('Pages: This page, /brand');
+        await expect(inboxPages(reader.page)).toHaveText('/brand');
+        const pickerWidth = (await inboxPages(reader.page).boundingBox())!.width;
+        expect(pickerWidth).toBeGreaterThanOrEqual((await sidebar.getByRole('group', { name: 'Show comments' }).boundingBox())!.width - 1);
         for (const colorScheme of ['light', 'dark'] as const) {
             await reader.page.emulateMedia({ colorScheme });
             await expect(reader.page.locator('html')).toHaveClass(new RegExp(colorScheme));
@@ -73,13 +78,16 @@ test('bulk inbox read follows listed pages/search/status and retries the rendere
         await expect(sidebar.getByRole('article')).toHaveCount(2);
         await sidebar.getByRole('button', { name: 'Mark all as read', exact: true }).click();
         await expect(inbox).toHaveAccessibleName('Inbox, 1 unread thread');
-        await sidebar.getByRole('button', { name: 'Unread 1', exact: true }).click();
+        await sidebar.getByRole('button', { name: '1 unread', exact: true }).click();
         await expect(sidebar.getByRole('article')).toHaveCount(0); // Search still applies.
-        await sidebar.getByRole('searchbox', { name: 'Search comments' }).fill('');
+        await (await inboxSearch(sidebar)).fill('');
         await expect(sidebar.getByRole('article')).toHaveCount(1);
         await sidebar.getByRole('button', { name: 'Mark all as read', exact: true }).click();
         await expect(inbox).toHaveAccessibleName('Inbox');
-        await expect(sidebar.getByRole('button', { name: 'Unread 0', exact: true })).toBeVisible();
+        await expect(sidebar.getByRole('button', { name: '0 unread', exact: true })).toBeVisible();
+        // Turned off with nothing unread, the unread line is gone (uier #301)
+        await sidebar.getByRole('button', { name: '0 unread', exact: true }).click();
+        await expect(sidebar.getByRole('button', { name: /^\d+ unread$/ })).toHaveCount(0);
         await expectNoAxeViolations(reader.page);
         await reader.page.reload();
         await expect(inbox).toHaveAccessibleName('Inbox');
@@ -207,7 +215,7 @@ test('inbox: this page by default, other pages from the picker, searched and fil
     const choosePage = (name: RegExp) => chooseInboxPages(page, name);
 
     // This page first: its open comments, newest first, with their public id and status
-    await expect(pagesButton).toContainText('This page');
+    await expect(pagesButton).toHaveAccessibleName('Pages: This page, /brand');
     await expectListed(thisPage, ['Comment #5', 'Comment #1']);
     const subtitleCard = thisPage.getByRole('article', { name: 'Comment #1' });
     await expect(subtitleCard).toContainText('Status: Open');
@@ -254,7 +262,7 @@ test('inbox: this page by default, other pages from the picker, searched and fil
     }
 
     // Search on this page: "/security" is only in another page's path, which the empty list offers
-    const search = sidebar.getByRole('searchbox', { name: 'Search comments' });
+    const search = await inboxSearch(sidebar);
     await search.fill('/security');
     await expect(thisPage).toContainText('No matches on this page');
     await thisPage.getByRole('button', { name: 'Show 1 on other pages' }).click();
@@ -262,13 +270,29 @@ test('inbox: this page by default, other pages from the picker, searched and fil
     await expectListed(allPages, ['Comment #3']);
     await expect(sidebar.getByRole('status').filter({ hasText: '1 comment found' })).toBeAttached();
     // Messages and public ids, on every page
-    await search.fill('second REPLY');
+    await (await inboxSearch(sidebar)).fill('second REPLY');
     await expectListed(allPages, ['Comment #1']);
-    await search.fill('#5');
+    await (await inboxSearch(sidebar)).fill('#5');
     await expectListed(allPages, ['Comment #5']);
     // Escape clears a search first, and the inbox stays
     await search.press('Escape');
     await expect(search).toHaveValue('');
+    await expect(sidebar).toBeVisible();
+    // In an empty search it closes the search popover, back on its button (uier #310)
+    await search.press('Escape');
+    await expect(search).toBeHidden();
+    const searchButton = sidebar.getByRole('button', { name: 'Search comments', exact: true });
+    await expect(searchButton).toBeFocused();
+    await expect(sidebar).toBeVisible();
+    // Shift+Tab from the open search lands on its button; Escape there closes only the search, not the inbox
+    await searchButton.press('Enter');
+    await expect(search).toBeFocused();
+    await search.press('Shift+Tab');
+    await expect(searchButton).toBeFocused();
+    await expect(search).toBeVisible();
+    await searchButton.press('Escape');
+    await expect(search).toBeHidden();
+    await expect(searchButton).toBeFocused();
     await expect(sidebar).toBeVisible();
     await expectListed(allPages, ['Comment #5', 'Comment #3', 'Comment #1']);
 
@@ -276,15 +300,15 @@ test('inbox: this page by default, other pages from the picker, searched and fil
     await sidebar.getByRole('button', { name: /^Done \d+$/ }).click();
     await expectListed(allPages, ['Comment #6', 'Comment #4', 'Comment #2']);
     await expect(allPages.getByRole('article', { name: 'Comment #4' })).toContainText('Status: Done');
-    await search.fill('contact');
+    await (await inboxSearch(sidebar)).fill('contact');
     await expectListed(allPages, ['Comment #4']);
     // Only in the quoted text, then only in another visitor's guest name
-    await search.fill('vulnerability');
+    await (await inboxSearch(sidebar)).fill('vulnerability');
     await expectListed(allPages, ['Comment #6']);
-    await search.fill(guestName);
+    await (await inboxSearch(sidebar)).fill(guestName);
     await expectListed(allPages, ['Comment #2']);
     await sidebar.getByRole('button', { name: /^All \d+$/ }).click();
-    await search.fill('');
+    await (await inboxSearch(sidebar)).fill('');
     await expectListed(allPages, ['Comment #6', 'Comment #5', 'Comment #4', 'Comment #3', 'Comment #2', 'Comment #1']);
     await expect(sidebar.getByRole('button', { name: 'All 6', exact: true })).toBeVisible();
 

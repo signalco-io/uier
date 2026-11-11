@@ -581,13 +581,14 @@ export const en = {
         move: (label: string) => `Move ${/^[A-Z][a-z]/.test(label) ? label[0]!.toLowerCase() + label.slice(1) : label} panel`,
         moveTip: 'Drag to the other side, or use the arrow keys',
         moved: (label: string, side: 'left' | 'right') => `${label} moved to the ${side}.`,
-        moveTo: (side: 'left' | 'right') => `Move to the ${side}`
+        moveTo: (side: 'left' | 'right') => `Move to the ${side}`,
+        /** The menu of a panel's title: the other panels to show in its place */
+        switch: 'Switch panel'
     },
     inbox: {
         label: 'Comments',
         search: 'Search comments',
         reviewing: (environment: string) => `Reviewing ${environment}. New feedback stays here.`,
-        unread: 'Unread',
         assignedToMe: 'Assigned to me',
         reviewBrief: 'Review brief',
         close: 'Close sidebar',

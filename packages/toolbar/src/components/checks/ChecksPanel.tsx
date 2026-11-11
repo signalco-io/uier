@@ -2,19 +2,19 @@ import { useContext, useState, type ReactNode } from 'react';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { Typography } from '@signalco/ui-primitives/Typography';
 import { cx } from '@signalco/ui-primitives/cx';
 import { PanelRightClose, Reset } from '@signalco/ui-icons';
 import { DockablePanel, PanelHandle } from '../DockablePanel';
 import { IconTooltip } from '../IconTooltip';
 import { InkScope } from '../InkScope';
+import { PanelTitle } from '../PanelTitle';
 import { RestoredPanelContext } from '../../openPanel';
 import { useMessages } from '../../i18n';
 
 /**
  * The Accessibility and SEO panels' shell: docked like the inbox (`DockablePanel`, its own side),
- * ink, sliding in from its side; the title row with the handle and the icon buttons Check again and Close, which has
- * the focus when it opens. Escape closes it. One that stays open from the previous page does neither.
+ * ink, sliding in from its side; the title row with the handle, the title (a menu of the other panels, `PanelTitle`) and the small icon buttons Check again and Close (one
+ * size, as the handle), Close with the focus when it opens: Check again never takes it. Escape closes it. One that stays open from the previous page does neither.
  */
 export function ChecksPanel({ id, title, checking, onCheckAgain, onClose, children }: {
     id: 'accessibility' | 'seo';
@@ -49,18 +49,18 @@ export function ChecksPanel({ id, title, checking, onCheckAgain, onClose, childr
                     <Row justifyContent="space-between" className="shrink-0 px-4 pt-3">
                         <Row spacing={0.5} className="min-w-0">
                             <PanelHandle />
-                            <Typography component="h2" level="body1" semiBold className="text-foreground">{title}</Typography>
+                            <PanelTitle id={id} title={title} />
                         </Row>
                         <Row>
                             {/* Never disabled, so it keeps the focus: a check already running is the one it gets */}
                             <IconTooltip label={t.checks.checkAgain}>
-                                <IconButton variant="plain" aria-label={t.checks.checkAgain} aria-busy={checking || undefined} onClick={onCheckAgain}>
-                                    <Reset aria-hidden="true" />
+                                <IconButton variant="plain" size="sm" aria-label={t.checks.checkAgain} aria-busy={checking || undefined} onClick={onCheckAgain}>
+                                    <Reset size={16} aria-hidden="true" />
                                 </IconButton>
                             </IconTooltip>
                             <IconTooltip label={t.checks.closePanel}>
-                                <IconButton variant="plain" aria-label={t.checks.closeNamed(title)} autoFocus={!restored} onClick={close}>
-                                    <PanelRightClose />
+                                <IconButton variant="plain" size="sm" aria-label={t.checks.closeNamed(title)} autoFocus={!restored} data-uier-panel-close="" onClick={close}>
+                                    <PanelRightClose size={16} aria-hidden="true" />
                                 </IconButton>
                             </IconTooltip>
                         </Row>

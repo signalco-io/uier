@@ -33,6 +33,7 @@ app share:
   `role="toolbar"` named "Tools" (← →; the move handle stays its own stop, since its arrows move the pill),
   and the inbox's status tabs (← →, the chosen tab is the stop; Enter or Space chooses). The Active statuses menu button beside
   Active keeps its own tab stop (`data-roving-skip`, outside the arrows, as in the app); its menu moves with ↑ ↓ and Escape closes only the menu.
+  So does a panel's title menu (`PanelTitle`, the other panels to show).
 - `moveFocusInMenu`: ↑ and ↓, Home and End between the buttons and links of a popover that reads like a menu,
   as its content's `onKeyDown`: Options, a thread's status menu, Thread options, a message's options, Copy, and the people to assign.
   From the popover itself (where Radix leaves the focus in the shadow root) ↓ goes to the first. Text fields
@@ -48,7 +49,7 @@ a key keeps it), while the toolbar is expanded and the shortcuts are on. `toolba
 | --- | --- |
 | C | Point mode, or a comment on the selected text. The page can start the same with `startUierComment()` (the `uier:start-comment` event; uier's app does on its own C, which then starts and never ends point mode) |
 | G then I | Opens the inbox (the focus on Close, as when it opens) |
-| / | Opens the inbox and goes to its search |
+| / | Opens the inbox and its search popover (the search icon in its title row), the field focused with its text selected |
 | J, K | The next or the previous thread: the inbox's cards while it is open (focusable, `tabIndex=-1`), else the pins' threads in page order. A pin's thread opened this way focuses its messages (`autoOpenReading`), not the reply box, so the keys go on |
 | R | The reply box of the thread with the focus (an inbox card's Reply opens it first) |
 | S | Moves the focus to that thread's status menu; Enter opens it with the current status focused, ↑ ↓ choose |
