@@ -575,7 +575,23 @@ const messages: Record<keyof typeof en, string> = {
     "{value0}{value1}, clear filter": "{value0}{value1}, Filter entfernen",
     "{value} on this page, over the {target} target.": "{value} auf dieser Seite, über dem Zielwert {target}.",
     "{value} on this page, within the {target} target.": "{value} auf dieser Seite, im Zielbereich {target}.",
-    "Pages appear as members review the site with the toolbar. Extension reviews are not included yet.": "Seiten erscheinen, sobald Mitglieder die Website mit der Toolbar prüfen. Reviews über die Erweiterung sind noch nicht enthalten."
+    "Pages appear as members review the site with the toolbar. Extension reviews are not included yet.": "Seiten erscheinen, sobald Mitglieder die Website mit der Toolbar prüfen. Reviews über die Erweiterung sind noch nicht enthalten.",
+    "Add reaction": "Reaktion hinzufügen",
+    "Reactions": "Reaktionen",
+    "Thumbs up": "Daumen hoch",
+    "Thumbs down": "Daumen runter",
+    "Laugh": "Lachen",
+    "Hooray": "Hurra",
+    "Confused": "Verwirrt",
+    "Eyes": "Augen",
+    "{name}, 1 reaction": "{name}, 1 Reaktion",
+    "{name}, {count} reactions": "{name}, {count} Reaktionen",
+    "{people} reacted": "Reagiert: {people}",
+    "1 other": "1 weitere Person",
+    "{count} others": "{count} weitere Personen",
+    "Reaction not saved. Try again.": "Reaktion nicht gespeichert. Versuchen Sie es erneut.",
+    "You are reacting too quickly. Please try again later.": "Sie reagieren zu schnell. Bitte versuchen Sie es später erneut.",
+    "This message has all the reactions it can take.": "Diese Nachricht hat alle Reaktionen, die sie aufnehmen kann."
 };
 
 export default messages;

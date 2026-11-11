@@ -574,7 +574,23 @@ const messages = {
     "{value0}{value1}, clear filter": "{value0}{value1}, clear filter",
     "{value} on this page, over the {target} target.": "{value} on this page, over the {target} target.",
     "{value} on this page, within the {target} target.": "{value} on this page, within the {target} target.",
-    "Pages appear as members review the site with the toolbar. Extension reviews are not included yet.": "Pages appear as members review the site with the toolbar. Extension reviews are not included yet."
+    "Pages appear as members review the site with the toolbar. Extension reviews are not included yet.": "Pages appear as members review the site with the toolbar. Extension reviews are not included yet.",
+    "Add reaction": "Add reaction",
+    "Reactions": "Reactions",
+    "Thumbs up": "Thumbs up",
+    "Thumbs down": "Thumbs down",
+    "Laugh": "Laugh",
+    "Hooray": "Hooray",
+    "Confused": "Confused",
+    "Eyes": "Eyes",
+    "{name}, 1 reaction": "{name}, 1 reaction",
+    "{name}, {count} reactions": "{name}, {count} reactions",
+    "{people} reacted": "{people} reacted",
+    "1 other": "1 other",
+    "{count} others": "{count} others",
+    "Reaction not saved. Try again.": "Reaction not saved. Try again.",
+    "You are reacting too quickly. Please try again later.": "You are reacting too quickly. Please try again later.",
+    "This message has all the reactions it can take.": "This message has all the reactions it can take."
 };
 
 export default messages;

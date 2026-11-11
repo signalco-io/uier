@@ -29,7 +29,8 @@ export function feedbackExport(dto: Omit<CommentDto, 'thread'> & { thread: { ite
         ? { id: item.id, deleted: true, createdAt: item.createdAt }
         : { id: item.id, deleted: false, text: item.text, quotedText: item.quotedText, authorName: item.author.name, createdAt: item.createdAt, editedAt: item.editedAt,
             ...('agent' in item && item.agent ? { agent: { kind: item.agent.kind, label: item.agent.label,
-                ...(item.agent.model ? { model: item.agent.model } : {}), ...(item.agent.reasoning ? { reasoning: item.agent.reasoning } : {}) } } : {}) });
+                ...(item.agent.model ? { model: item.agent.model } : {}), ...(item.agent.reasoning ? { reasoning: item.agent.reasoning } : {}) } } : {}),
+            ...(item.reactions?.length ? { reactions: item.reactions.map(({ emoji, count }) => ({ emoji, count })) } : {}) });
     const first = items[0] ?? null;
     const available = first && !first.deleted;
     const position = dto.position;

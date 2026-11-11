@@ -87,7 +87,16 @@ export type AgentSource = { credentialId: string; name: string; kind?: 'credenti
  */
 export type DbMessageAgent = { kind: import('@uier/toolbar/agents').AgentKind; model?: string; reasoning?: string };
 
+/**
+ * The people who reacted to a message with one emoji of the quick set (`@uier/toolbar/reactions`), oldest first:
+ * their author ids (`user:<id>` for a member, the visitor hash of a guest) and, for a project's guest, the name
+ * they gave. Never in a DTO as stored: `comments/reactions.ts` projects counts and names.
+ */
+export type DbReaction = { emoji: import('@uier/toolbar/reactions').ReactionId; by: { id: string; name?: string }[] };
+
 export type DbThreadItem = {
+    /** Reactions to the message (`comments/reactions.ts`); missing means none. Not content: no activity, history or revision. */
+    reactions?: DbReaction[];
     /** Optional image, stored separately under the parent thread and this item id. */
     screenshot?: DbCommentScreenshot;
     /** Server-only deduplication/echo identity. Never grants project access. */

@@ -117,6 +117,8 @@ export type CommentItemThreadItem = {
      * author's name already ends with "via <label>". Its model and reasoning level reach members only.
      */
     agent?: import('../../agents').MessageAgentView;
+    /** Emoji reactions to the message, in the quick set's order (`@uier/toolbar/reactions`); missing when none */
+    reactions?: import('../../reactions').MessageReaction[];
 } | CommentItemDeletedThreadItem;
 
 /**

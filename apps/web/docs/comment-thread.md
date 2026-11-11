@@ -124,6 +124,8 @@ assignee card, with Open in T3 Code or another desktop session link, at the top 
   Request verification form (`VerificationControl`) is a form of labelled fields, not a message, and stays one.
 - Each message (`Message` in `CommentCard.tsx`) is a two-column grid: the 24px avatar is centred on its header row
   (name, via, time, device and the actions, 44px tall on touch screens), the text under the header (uier #281).
+- Reactions (`comments/MessageReactions.tsx`, kept apart from `Message`): Add reaction in each message's header actions
+  (before a reply's More actions) and the reaction pills under the message, after its image. See [Message reactions](reactions.md).
 - Under the messages, Reply is a quiet ghost button with the reply icon, aligned with the message text (R opens it).
   `comments/ReplyComposer.tsx` is the lazy inline reply form it opens in List, Board and the inbox: the shared composer
   with mentions, Discard and the Post reply send button (Enter sends, Shift+Enter adds a line). It has no close button

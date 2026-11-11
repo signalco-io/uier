@@ -575,7 +575,23 @@ const messages: Record<keyof typeof en, string> = {
     "{value0}{value1}, clear filter": "{value0}{value1}, ukloni filtar",
     "{value} on this page, over the {target} target.": "{value} na ovoj stranici, iznad ciljne vrijednosti {target}.",
     "{value} on this page, within the {target} target.": "{value} na ovoj stranici, unutar ciljne vrijednosti {target}.",
-    "Pages appear as members review the site with the toolbar. Extension reviews are not included yet.": "Stranice se prikazuju kada članovi pregledavaju stranicu alatnom trakom. Pregledi putem proširenja još nisu uključeni."
+    "Pages appear as members review the site with the toolbar. Extension reviews are not included yet.": "Stranice se prikazuju kada članovi pregledavaju stranicu alatnom trakom. Pregledi putem proširenja još nisu uključeni.",
+    "Add reaction": "Dodaj reakciju",
+    "Reactions": "Reakcije",
+    "Thumbs up": "Palac gore",
+    "Thumbs down": "Palac dolje",
+    "Laugh": "Smijeh",
+    "Hooray": "Hura",
+    "Confused": "Zbunjenost",
+    "Eyes": "Oči",
+    "{name}, 1 reaction": "{name}, 1 reakcija",
+    "{name}, {count} reactions": "{name}, reakcija: {count}",
+    "{people} reacted": "Reagirali: {people}",
+    "1 other": "još 1",
+    "{count} others": "još {count}",
+    "Reaction not saved. Try again.": "Reakcija nije spremljena. Pokušajte ponovno.",
+    "You are reacting too quickly. Please try again later.": "Reagirate prebrzo. Pokušajte ponovno kasnije.",
+    "This message has all the reactions it can take.": "Ova poruka ima sve reakcije koje može primiti."
 };
 
 export default messages;

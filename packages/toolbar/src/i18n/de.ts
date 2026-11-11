@@ -233,6 +233,16 @@ export const de: Messages = {
         toggle: (count: number) => `Verlauf (${count})`,
         label: 'Verlauf der Diskussion'
     },
+    reactions: {
+        add: 'Reaktion hinzufügen',
+        label: 'Reaktionen',
+        names: { 'thumbs-up': 'Daumen hoch', 'thumbs-down': 'Daumen runter', laugh: 'Lachen', hooray: 'Hurra', confused: 'Verwirrt', heart: 'Herz', rocket: 'Rakete', eyes: 'Augen' },
+        count: (name: string, count: number) => `${name}, ${count} ${p(count, 'Reaktion', 'Reaktionen')}`,
+        people: (people: string) => `Reagiert: ${people}`,
+        you: 'Sie',
+        others: (count: number) => `${count} ${p(count, 'weitere Person', 'weitere Personen')}`,
+        notSaved: 'Reaktion nicht gespeichert'
+    },
     feedbackTypes: {
         comment: 'Kommentar',
         rewrite: 'Textvorschlag',

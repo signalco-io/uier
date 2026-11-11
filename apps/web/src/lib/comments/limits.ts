@@ -59,6 +59,13 @@ export const RATE_LIMIT_PUBLIC_ACCOUNT_COMMENTS = 3 * RATE_LIMIT_VISITOR_COMMENT
 export const RATE_LIMIT_MEMBER_COMMENTS = 100;
 export const RATE_LIMIT_MEMBER_REPLIES = 300;
 export const RATE_LIMIT_IP_WRITES = 30;
+/**
+ * Emoji reactions to messages (adding or removing one counts once): cheap writes, so higher than replies, and
+ * counted apart from them so reacting never uses up what a reviewer can write.
+ */
+export const RATE_LIMIT_VISITOR_REACTIONS = 120;
+export const RATE_LIMIT_MEMBER_REACTIONS = 600;
+export const RATE_LIMIT_IP_REACTIONS = 300;
 /** New comments on a single page (domain + path) per day, so a burst can't fill the page */
 export const PAGE_COMMENTS_WINDOW_SECONDS = DAY;
 export const RATE_LIMIT_PAGE_COMMENTS = 100;

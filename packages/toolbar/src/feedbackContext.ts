@@ -4,6 +4,7 @@ import { feedbackStageLabels } from './verification';
 import { deviceSettings } from './userAgent';
 import { toolbarPartLabel } from './toolbarParts';
 import { drawingSummary, type CommentDrawing } from './drawing';
+import { reactionEmoji, reactionNames } from './reactions';
 
 export { toolbarPartLabel } from './toolbarParts';
 /** Versioned handoff contract shared by copy/export and future authenticated integrations.
@@ -21,6 +22,8 @@ export type FeedbackMessage = {
     editedAt?: string;
     /** The AI agent that wrote it for its author through a coding tool connection; its model and reasoning level are what it gave, untrusted. */
     agent?: { kind: import('./agents').AgentKind; label: string; model?: string; reasoning?: string };
+    /** Emoji reactions and how many people gave each, in the quick set's order (never who). Older packets omit it. */
+    reactions?: { emoji: import('./reactions').ReactionId; count: number }[];
 };
 
 export type FeedbackContext = {
@@ -134,10 +137,13 @@ function message(value: FeedbackMessage | null, label: string) {
     const agent = !value.deleted && value.agent ? [`Written by agent: ${plain(value.agent.label)}`,
         value.agent.model ? ` · Model: ${plain(value.agent.model)}` : '',
         value.agent.reasoning ? ` · Reasoning: ${plain(value.agent.reasoning)}` : ''].join('') : '';
+    const reactions = !value.deleted && value.reactions?.length
+        ? `Reactions: ${value.reactions.map(reaction => `${reactionEmoji[reaction.emoji]} ${reactionNames[reaction.emoji]} (${reaction.count})`).join(' · ')}` : '';
     return [
         `### ${label}`, `Message: ${plain(value.id)}`, metadata, agent,
         value.deleted ? 'This message was deleted. Its text and author are unavailable.' : literal(value.text ?? ''),
-        !value.deleted && value.quotedText !== undefined ? `Quoted original text:\n\n${literal(value.quotedText)}` : ''
+        !value.deleted && value.quotedText !== undefined ? `Quoted original text:\n\n${literal(value.quotedText)}` : '',
+        reactions
     ].filter(Boolean).join('\n\n');
 }
 

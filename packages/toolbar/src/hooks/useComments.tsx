@@ -250,6 +250,11 @@ function updateAllCachedComments(client: QueryClient, update: (comments: Comment
     client.setQueriesData<CommentItem[]>({ queryKey: commentsQueryKeyPrefix }, (current) => current && update(current));
 }
 
+/** The API's version of one comment in every cached list that has it, keeping what is still on its way and the read cursor */
+export function updateCachedComment(client: QueryClient, comment: CommentItem) {
+    updateAllCachedComments(client, (comments) => comments.map(c => c.id === comment.id ? mergeReadCursor(applyPending(comment), c.activity?.readSequence) : c));
+}
+
 /** The comments of every page of the site, for the inbox (fetched while `enabled`) */
 export function useSiteComments(enabled: boolean, unreadOnly = false): UseQueryResult<CommentItem[], Error> {
     const { environment, draftScope } = useProjectViewer();
@@ -298,9 +303,7 @@ export function useComments(refreshOnMount = false): {
     });
 
     // A comment can be on another page (the inbox lists the whole site): every list that has it
-    const handleCommentChanged = (comment: CommentItem) => {
-        updateAllCachedComments(client, (comments) => comments.map(c => c.id === comment.id ? mergeReadCursor(applyPending(comment), c.activity?.readSequence) : c));
-    };
+    const handleCommentChanged = (comment: CommentItem) => updateCachedComment(client, comment);
     const handleCommentDeleted = (commentId: string) => {
         updateAllCachedComments(client, (comments) => comments.filter(c => c.id !== commentId));
     };

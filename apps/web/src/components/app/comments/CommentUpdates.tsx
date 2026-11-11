@@ -2,10 +2,15 @@
 
 import { createContext, useContext } from 'react';
 import type { ProjectCommentMessage, ProjectCommentView } from '../../../lib/app/projectComments';
+import { withOwnReaction, type ReactionId } from '@uier/toolbar/reactions';
 
-/** `removed`: the thread was deleted; the server's next snapshot leaves it out, and My work's board forgets it */
+/**
+ * `removed`: the thread was deleted; the server's next snapshot leaves it out, and My work's board forgets it.
+ * `reaction`: the member's own reaction to one message, applied to whatever the thread shows then.
+ */
 export type CommentUpdate = { id: string; patch: Partial<ProjectCommentView> } | { id: string; readSequence: number }
-    | { id: string; reply: ProjectCommentMessage; previousReplyIds: string[] } | { id: string; removed: true };
+    | { id: string; reply: ProjectCommentMessage; previousReplyIds: string[] } | { id: string; removed: true }
+    | { id: string; reaction: { itemId: string; emoji: ReactionId; reacted: boolean } };
 const CommentUpdates = createContext<(update: CommentUpdate) => void>(() => {});
 
 /** Optimistic changes belong to the whole list, so filters, counts and board columns agree. */
@@ -16,6 +21,11 @@ export function useCommentUpdate() { return useContext(CommentUpdates); }
 export function applyCommentUpdate(comment: ProjectCommentView, update: CommentUpdate): ProjectCommentView {
     if (comment.id !== update.id) return comment;
     if ('patch' in update) return { ...comment, ...update.patch };
+    if ('reaction' in update) {
+        const { itemId, emoji, reacted } = update.reaction;
+        if (comment.messageId === itemId) return { ...comment, reactions: withOwnReaction(comment.reactions, emoji, reacted) };
+        return { ...comment, replies: comment.replies.map(item => item.id === itemId ? { ...item, reactions: withOwnReaction(item.reactions, emoji, reacted) } : item) };
+    }
     if ('reply' in update) {
         const saved = comment.replies.some(item => !update.previousReplyIds.includes(item.id) && item.author.isMe && item.text === update.reply.text);
         return saved ? comment : { ...comment, replies: [...comment.replies, update.reply] };
