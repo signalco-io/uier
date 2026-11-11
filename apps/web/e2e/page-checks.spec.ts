@@ -583,7 +583,7 @@ test('a panel that stays open shows the page it reached, never the previous one,
     await expect(inbox).toContainText('Features need a comparison table');
     await page.evaluate(() => history.pushState({}, '', `${location.pathname.replace(/\/team$/, '/features')}${location.search}`));
     await expect(inbox).toContainText('Features need a comparison table');
-    await expect(inboxPages(page)).toHaveAccessibleName(/This page$/);
+    await expect(inboxPages(page)).toHaveAccessibleName(/This page, \S+\/features$/);
 });
 
 test('a background audit nobody needs any more stops: collapsed while it loads or between its steps, and after Exit review', async ({ page }, testInfo) => {
