@@ -2,7 +2,7 @@
 
 import { useAppI18n } from '@/src/lib/i18n/client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { setUrlSearchParams } from '@/src/hooks/use-url-search-params';
@@ -32,6 +32,8 @@ export type LinkTab = {
  * shows no loading spinner: app pages load fast enough that the current tab moves on the click (uier #272),
  * and a `query` tab switches at once. A `line` tab has no padding, so the first label lines up with the page
  * content and the gap is the only space between tabs. Opening a tab in a new tab or window loads its href.
+ *
+ * A `side` row wider than the screen fades out at an edge while more tabs are hidden past it (uier #283).
  *
  * Like tabs, they are one tab stop (the current tab, or the one last focused): ← and → (and ↑ and ↓ for `side`)
  * move between them, Home and End to the first and the last, Enter opens one.
@@ -64,11 +66,40 @@ export function LinkTabs({ tabs, label, variant = 'line', match = 'url', classNa
         nav.scrollLeft += current.getBoundingClientRect().left - nav.getBoundingClientRect().left - (nav.clientWidth - current.offsetWidth) / 2;
     }, [here]);
 
+    // Which edges of a scrolling `side` row hide more tabs: that edge fades out
+    const [hidden, setHidden] = useState({ start: false, end: false });
+    useEffect(() => {
+        const nav = navRef.current;
+        if (!nav || variant !== 'side')
+            return;
+        const update = () => {
+            const max = nav.scrollWidth - nav.clientWidth;
+            const scrolled = Math.abs(nav.scrollLeft);
+            const start = max > 1 && scrolled > 1;
+            const end = max > 1 && scrolled < max - 1;
+            setHidden(previous => previous.start === start && previous.end === end ? previous : { start, end });
+        };
+        update();
+        nav.addEventListener('scroll', update, { passive: true });
+        const observer = new ResizeObserver(update);
+        observer.observe(nav);
+        return () => {
+            nav.removeEventListener('scroll', update);
+            observer.disconnect();
+        };
+    }, [variant, tabs.length]);
+    const fade = hidden.start || hidden.end
+        ? `linear-gradient(to right, ${hidden.start ? 'transparent, black 2.5rem' : 'black'}, ${hidden.end ? 'black calc(100% - 2.5rem), transparent' : 'black'})`
+        : undefined;
+
     return (
         <nav
             ref={navRef}
             aria-label={t(label)}
             {...roving.containerProps}
+            data-hidden-start={hidden.start || undefined}
+            data-hidden-end={hidden.end || undefined}
+            style={fade ? { maskImage: fade, WebkitMaskImage: fade } : undefined}
             className={cn(
                 'flex items-center',
                 variant === 'line' && 'no-scrollbar gap-5 overflow-x-auto shadow-[inset_0_-1px_0_0_hsl(var(--border))]',
