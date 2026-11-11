@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useEffect, useEffectEvent, useRef, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { subscribeToComments, type RealtimeTicket } from '@uier/toolbar/realtime';
@@ -9,6 +11,7 @@ const SHELL_SAFETY_MS = 5 * 60_000;
 
 /** Refresh changed server-authorized snapshots in place; leave an unchanged idle shell alone. */
 export function RealtimeComments({ projectId, revision, environment, author }: { projectId: string; revision: string; environment?: string; author?: string }) {
+    const { t } = useAppI18n();
     const router = useRouter();
     const [pending, startTransition] = useTransition();
     const queued = useRef<'check' | 'refresh' | undefined>(undefined);
@@ -80,7 +83,7 @@ export function RealtimeComments({ projectId, revision, environment, author }: {
         const unsubscribe = subscribeToComments({
             ticket: async () => {
                 const response = await fetch(`/api/realtime/ticket?projectId=${encodeURIComponent(projectId)}`, { cache: 'no-store' });
-                if (!response.ok) throw new Error('Realtime unavailable.');
+                if (!response.ok) throw new Error(t("Realtime unavailable."));
                 return response.json() as Promise<RealtimeTicket>;
             },
             // Real changes keep their immediate HTTP reconciliation. Ready, focus and safety

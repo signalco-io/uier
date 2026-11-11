@@ -1,4 +1,6 @@
 'use client';
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 
 import { useOptimistic, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -22,6 +24,7 @@ function FilterMark({ client }: { client?: FilterClient }) {
  * Each client shows its `ClientMark`, in the menu and on the trigger.
  */
 export function ClientFilter({ clients, value }: { clients: FilterClient[]; value?: string }) {
+    const { t } = useAppI18n();
     const router = useRouter();
     const [, startTransition] = useTransition();
     const [shown, setShown] = useOptimistic(value ?? 'all');
@@ -34,11 +37,11 @@ export function ClientFilter({ clients, value }: { clients: FilterClient[]; valu
             setShown(next ?? 'all');
             router.push(`${pathname}${search}`);
         })}>
-            <SelectTrigger size="sm" aria-label="Client" className="w-56 max-w-full">
+            <SelectTrigger size="sm" aria-label={t("Client")} className="w-56 max-w-full">
                 <SelectValue>
                     {(selected: string | null) => {
                         const item = itemOf(selected);
-                        return item && <><FilterMark client={item.client} />{item.label}</>;
+                        return item && <><FilterMark client={item.client} />{t(item.label)}</>;
                     }}
                 </SelectValue>
             </SelectTrigger>
@@ -47,7 +50,7 @@ export function ClientFilter({ clients, value }: { clients: FilterClient[]; valu
                     {items.map(item => (
                         <SelectItem key={item.value} value={item.value}>
                             <FilterMark client={item.client} />
-                            {item.label}
+                            {t(item.label)}
                         </SelectItem>
                     ))}
                 </SelectGroup>

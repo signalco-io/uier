@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { KnownPageLinks, KnownPages, projectUsageAnchor } from '@/src/knownPages';
@@ -18,6 +20,7 @@ export const metadata: Metadata = {
  * is the workspace's Usage tab.
  */
 export default async function AccountUsagePage() {
+    const { t, language } = await getAppI18n();
     const context = await requireAppContext();
     const { workspaces, network } = await accountUsage(context);
     const reset = resetsIn(hourlyResetSeconds());
@@ -28,11 +31,11 @@ export default async function AccountUsagePage() {
         <>
             <Section
                 id="limits"
-                title="Your limits"
+                title={t("Your limits")}
                 description={(
                     <>
-                        What you can send to each project in an hour. Counts start again on the hour, {reset}.
-                        {' '}Limits a whole project shares are in <Link href={KnownPages.AppWorkspaceUsage} className="underline underline-offset-4 hover:text-foreground">workspace usage</Link>.
+                        {t("What you can send to each project in an hour. Counts start again on the hour,")}{' '}{reset}.
+                        {' '}{t("Limits a whole project shares are in")}{' '}<Link href={KnownPages.AppWorkspaceUsage} className="underline underline-offset-4 hover:text-foreground">{t("workspace usage")}</Link>.
                     </>
                 )}>
                 {workspaces.length > 0
@@ -41,7 +44,7 @@ export default async function AccountUsagePage() {
                             {workspaces.map(({ workspace, projects }) => (
                                 <section key={workspace.id} aria-label={workspaces.length > 1 ? workspace.name : undefined} className="flex flex-col gap-3">
                                     {workspaces.length > 1 && <h3 className="m-0 text-xs font-medium text-muted-foreground">{workspace.name}</h3>}
-                                    <ul className="m-0 flex list-none flex-col divide-y p-0" aria-label="Projects">
+                                    <ul className="m-0 flex list-none flex-col divide-y p-0" aria-label={t("Projects")}>
                                         {projects.map(({ project, meters }) => (
                                             <li key={project.id} id={projectUsageAnchor(project.publicId ?? project.id)} className="flex scroll-mt-6 flex-col gap-4 py-5 first:pt-0 last:pb-0">
                                                 <div className="flex min-w-0 items-center gap-3">
@@ -63,13 +66,13 @@ export default async function AccountUsagePage() {
                             ))}
                         </div>
                     )
-                    : <p className="m-0 text-sm text-muted-foreground">No projects here yet.</p>}
+                    : <p className="m-0 text-sm text-muted-foreground">{t("No projects here yet.")}</p>}
             </Section>
             {network && (
                 <Section
                     id="network"
-                    title="Your network"
-                    description={`Shared with everyone who uses uier on your internet connection. Counts start again on the hour, ${reset}.`}>
+                    title={t("Your network")}
+                    description={t("Shared with everyone who uses uier on your internet connection. Counts start again on the hour, {reset}.", { reset: reset })}>
                     <UsageMeter {...network} />
                 </Section>
             )}

@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useState, type ReactNode } from 'react';
 import { ChevronRightIcon, SearchIcon } from 'lucide-react';
 import { Badge } from '@/src/components/ui/badge';
@@ -36,6 +38,7 @@ function Finding({ id, title, description, count, empty, children }: {
     /** The pages, for the search (lowercase, trimmed; empty for all) */
     children: (query: string) => ReactNode;
 }) {
+    const { t } = useAppI18n();
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState('');
     return (
@@ -56,14 +59,14 @@ function Finding({ id, title, description, count, empty, children }: {
                     <Collapsible open={open} onOpenChange={setOpen} className="flex min-w-0 flex-col gap-2">
                         <CollapsibleTrigger render={<Button variant="ghost" size="sm" className="group/pages -ml-2 self-start text-muted-foreground pointer-coarse:min-h-11" />}>
                             <ChevronRightIcon data-icon="inline-start" aria-hidden="true" className="transition-transform group-data-[panel-open]/pages:rotate-90 motion-reduce:transition-none" />
-                            {open ? 'Hide pages' : count === 1 ? 'Show the page' : `Show ${count} pages`}
+                            {open ? t("Hide pages") : count === 1 ? t("Show the page") : t("Show {value0} pages", { value0: count })}
                         </CollapsibleTrigger>
                         <CollapsibleContent className="flex min-w-0 flex-col gap-2">
                             {count > SEARCH_FROM && (
                                 <InputGroup className="h-8">
                                     <InputGroupAddon><SearchIcon aria-hidden="true" /></InputGroupAddon>
                                     <InputGroupInput type="search" value={search} onChange={event => setSearch(event.target.value)}
-                                        aria-label={`Search ${title.toLocaleLowerCase('en')}`} placeholder="Search pages" className="pointer-coarse:min-h-11" />
+                                        aria-label={t("Search {value0}", { value0: title.toLocaleLowerCase('en') })} placeholder={t("Search pages")} className="pointer-coarse:min-h-11" />
                                 </InputGroup>
                             )}
                             <div className="max-h-80 min-w-0 overflow-y-auto overscroll-contain">
@@ -121,6 +124,7 @@ function PageList({ pages, label, links, query }: { pages: readonly PageCheckRow
 
 /** Each shared text with its pages; the search finds the text or its pages */
 function SharedList({ groups, links, query }: { groups: SharedText[]; links: Links; query: string }) {
+    const { t } = useAppI18n();
     const shown = groups
         .map(group => normalized(group.text).includes(query) ? group : { ...group, pages: group.pages.filter(page => pageMatches(page, query)) })
         .filter(group => group.pages.length);
@@ -130,7 +134,7 @@ function SharedList({ groups, links, query }: { groups: SharedText[]; links: Lin
             {shown.map(group => (
                 <li key={`${group.pages[0]!.origin}:${group.text}`} className="flex min-w-0 flex-col gap-1">
                     <span className="min-w-0 text-sm break-words">{group.text}</span>
-                    <PageTree pages={group.pages} label={`Pages with “${group.text}”`} links={links} />
+                    <PageTree pages={group.pages} label={t("Pages with “{value0}”", { value0: group.text })} links={links} />
                 </li>
             ))}
         </ul>
@@ -145,25 +149,26 @@ const pagesIn = (groups: SharedText[]) => groups.reduce((total, group) => total 
  * engines not to index them. Each lists its pages when opened, as a hierarchy of their addresses.
  */
 export function AcrossPages({ insights, ...links }: Links & { insights: PageCheckInsights }) {
+    const { t } = useAppI18n();
     return (
         <section aria-labelledby="across-pages-title" className="flex flex-col gap-3">
-            <h3 id="across-pages-title" className="m-0 text-base font-semibold tracking-[-0.01em]">Across pages</h3>
+            <h3 id="across-pages-title" className="m-0 text-base font-semibold tracking-[-0.01em]">{t("Across pages")}</h3>
             <div className="grid items-start gap-4 md:grid-cols-2">
-                <Finding id="shared-titles" title="Shared titles" count={pagesIn(insights.sharedTitles)}
-                    description="Indexable pages of one site address with the same title." empty="No pages share a title.">
+                <Finding id="shared-titles" title={t("Shared titles")} count={pagesIn(insights.sharedTitles)}
+                    description={t("Indexable pages of one site address with the same title.")} empty={t("No pages share a title.")}>
                     {query => <SharedList groups={insights.sharedTitles} links={links} query={query} />}
                 </Finding>
-                <Finding id="shared-descriptions" title="Shared descriptions" count={pagesIn(insights.sharedDescriptions)}
-                    description="Indexable pages of one site address with the same meta description." empty="No pages share a description.">
+                <Finding id="shared-descriptions" title={t("Shared descriptions")} count={pagesIn(insights.sharedDescriptions)}
+                    description={t("Indexable pages of one site address with the same meta description.")} empty={t("No pages share a description.")}>
                     {query => <SharedList groups={insights.sharedDescriptions} links={links} query={query} />}
                 </Finding>
-                <Finding id="without-description" title="Without a description" count={insights.withoutDescription.length}
-                    description="Indexable pages with no meta description." empty="Every indexable page has one.">
-                    {query => <PageList pages={insights.withoutDescription} label="Pages without a description" links={links} query={query} />}
+                <Finding id="without-description" title={t("Without a description")} count={insights.withoutDescription.length}
+                    description={t("Indexable pages with no meta description.")} empty={t("Every indexable page has one.")}>
+                    {query => <PageList pages={insights.withoutDescription} label={t("Pages without a description")} links={links} query={query} />}
                 </Finding>
-                <Finding id="not-indexed" title="Not indexed" count={insights.noindex.length}
-                    description="Pages that ask search engines not to index them." empty="No page asks not to be indexed.">
-                    {query => <PageList pages={insights.noindex} label="Pages not indexed" links={links} query={query} />}
+                <Finding id="not-indexed" title={t("Not indexed")} count={insights.noindex.length}
+                    description={t("Pages that ask search engines not to index them.")} empty={t("No page asks not to be indexed.")}>
+                    {query => <PageList pages={insights.noindex} label={t("Pages not indexed")} links={links} query={query} />}
                 </Finding>
             </div>
         </section>

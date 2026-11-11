@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useActionState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { LogInIcon } from 'lucide-react';
@@ -23,6 +25,7 @@ const outcomes: Record<string, string> = {
 };
 
 export function GoogleAccountControls({ linkedEmail, configured, recentSignIn }: { linkedEmail: string | null; configured: boolean; recentSignIn: boolean }) {
+    const { t, language } = useAppI18n();
     const [state, formAction, pending] = useActionState(unlinkGoogleAction, null);
     const outcome = useSearchParams().get('google');
     const linked = linkedEmail !== null;
@@ -34,8 +37,8 @@ export function GoogleAccountControls({ linkedEmail, configured, recentSignIn }:
             {notice && <p role="status" className="m-0 text-sm text-muted-foreground">{notice}</p>}
             <p className="m-0 text-sm">
                 {linked
-                    ? linkedEmail ? <>Linked to <span className="font-medium">{linkedEmail}</span>.</> : 'A Google account is linked.'
-                    : 'No Google account is linked.'}
+                    ? linkedEmail ? <>{t("Linked to")}{' '}<span className="font-medium">{linkedEmail}</span>.</> : t("A Google account is linked.")
+                    : t("No Google account is linked.")}
             </p>
             <FormMessage state={state} />
             {linked
@@ -43,23 +46,21 @@ export function GoogleAccountControls({ linkedEmail, configured, recentSignIn }:
                     <form action={formAction}>
                         <Button type="submit" variant="outline" disabled={pending}>
                             {pending && <Spinner data-icon="inline-start" />}
-                            Unlink Google account
-                        </Button>
+                            {t("Unlink Google account")}{' '}</Button>
                     </form>
                 )
                 : configured && (recentSignIn
                     ? (
                         // A full navigation, never prefetched: the route starts the link with Google
-                        <a href={`${KnownPages.AppSignInGoogle}?intent=link`} className={buttonVariants({ variant: 'outline' })}>Link Google account</a>
+                        <a href={`${KnownPages.AppSignInGoogle}?intent=link`} className={buttonVariants({ variant: 'outline' })}>{t("Link Google account")}</a>
                     )
                     : (
                         <div className="flex w-full flex-wrap items-center justify-between gap-3 rounded-xl border p-3">
-                            <p className="m-0 min-w-0 flex-1 text-sm text-muted-foreground">To link a Google account, sign in again. Linking needs a sign-in from the last 10 minutes.</p>
+                            <p className="m-0 min-w-0 flex-1 text-sm text-muted-foreground">{t("To link a Google account, sign in again. Linking needs a sign-in from the last 10 minutes.")}</p>
                             <form action={signInAgainAction}>
                                 <Button type="submit" variant="outline">
                                     <LogInIcon data-icon="inline-start" />
-                                    Sign in again
-                                </Button>
+                                    {t("Sign in again")}{' '}</Button>
                             </form>
                         </div>
                     ))}

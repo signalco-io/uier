@@ -1,4 +1,6 @@
 'use client';
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 
 import { useActionState, useId, useState } from 'react';
 import Link from 'next/link';
@@ -40,6 +42,7 @@ export function InviteForm({ projects, teams = [], fromTeamId, fromProjectId, on
     onDone: () => void;
     onInviteAnother: () => void;
 }) {
+    const { t } = useAppI18n();
     const id = useId();
     const [state, formAction, pending] = useActionState(inviteAction, null);
     const [email, setEmail] = useState('');
@@ -61,21 +64,17 @@ export function InviteForm({ projects, teams = [], fromTeamId, fromProjectId, on
                         <span aria-hidden="true" className="mb-2 flex size-10 items-center justify-center rounded-lg bg-muted text-foreground">
                             <MailCheckIcon className="size-5" />
                         </span>
-                        <DialogTitle>Invitation sent</DialogTitle>
-                        <DialogDescription>
-                            We emailed an invitation to <span className="font-medium text-foreground">{state.data.email}</span>.
-                            The link works once and expires in 7 days.
-                        </DialogDescription>
+                        <DialogTitle>{t("Invitation sent")}</DialogTitle>
+                        <DialogDescription>{t("We emailed an invitation to")}{' '}<span className="font-medium text-foreground">{state.data.email}</span>{t(". The link works once and expires in 7 days.")}</DialogDescription>
                         {state.data.devLink && (
                             <p className="m-0 text-sm text-muted-foreground">
-                                <Link href={state.data.devLink}>Open the invitation link</Link> (no email is sent on this deployment)
-                            </p>
+                                <Link href={state.data.devLink}>{t("Open the invitation link")}</Link>{' '}{t("(no email is sent on this deployment)")}</p>
                         )}
                     </DialogHeader>
                 </div>
                 <DialogFooter>
-                    <Button variant="outline" onClick={onInviteAnother}>Invite someone else</Button>
-                    <Button onClick={onDone}>Done</Button>
+                    <Button variant="outline" onClick={onInviteAnother}>{t("Invite someone else")}</Button>
+                    <Button onClick={onDone}>{t("Done")}</Button>
                 </DialogFooter>
             </>
         );
@@ -93,16 +92,16 @@ export function InviteForm({ projects, teams = [], fromTeamId, fromProjectId, on
             <input type="hidden" name="relationship" value={relationship} />
             {selectedTeams.map(teamId => <input key={teamId} type="hidden" name="team" value={teamId} />)}
             <DialogHeader>
-                <DialogTitle>Invite someone</DialogTitle>
+                <DialogTitle>{t("Invite someone")}</DialogTitle>
                 <DialogDescription>
                     {fromProject
-                        ? `They get an email with a link that signs them in and opens ${fromProject.name} for review.`
-                        : 'They get an email with a link that signs them in.'}
+                        ? t("They get an email with a link that signs them in and opens {value0} for review.", { value0: fromProject.name })
+                        : t("They get an email with a link that signs them in.")}
                 </DialogDescription>
             </DialogHeader>
             <FieldGroup className="gap-5">
                 <Field>
-                    <FieldLabel htmlFor={`${id}-email`}>Email</FieldLabel>
+                    <FieldLabel htmlFor={`${id}-email`}>{t("Email")}</FieldLabel>
                     <Input
                         id={`${id}-email`}
                         name="email"
@@ -111,41 +110,41 @@ export function InviteForm({ projects, teams = [], fromTeamId, fromProjectId, on
                         onChange={(event) => setEmail(event.target.value)}
                         required
                         autoComplete="off"
-                        placeholder="name@example.com" />
+                        placeholder={t("name@example.com")} />
                 </Field>
                 <FieldSet>
-                    <FieldLegend variant="label">Role</FieldLegend>
+                    <FieldLegend variant="label">{t("Role")}</FieldLegend>
                     <RadioGroup value={role} onValueChange={(value) => setRole(value === 'admin' ? 'admin' : 'commenter')} className="grid gap-3 sm:grid-cols-2">
                         {roles.map(option => (
                             <ChoiceCard
                                 key={option.value}
                                 id={`${id}-role-${option.value}`}
                                 value={option.value}
-                                title={option.label}
-                                description={option.description} />
+                                title={t(option.label)}
+                                description={t(option.description)} />
                         ))}
                     </RadioGroup>
                 </FieldSet>
                 {role === 'commenter' && (
                     <FieldSet>
-                        <FieldLegend variant="label">Projects</FieldLegend>
+                        <FieldLegend variant="label">{t("Projects")}</FieldLegend>
                         <RadioGroup
                             value={access}
                             onValueChange={(value) => setAccess(value === 'all' ? 'all' : 'selected')}
                             className="flex flex-wrap gap-x-6 gap-y-2">
                             <Field orientation="horizontal" className="w-auto">
                                 <RadioGroupItem value="selected" id={`${id}-access-selected`} />
-                                <FieldLabel htmlFor={`${id}-access-selected`} className="font-normal">Selected projects</FieldLabel>
+                                <FieldLabel htmlFor={`${id}-access-selected`} className="font-normal">{t("Selected projects")}</FieldLabel>
                             </Field>
                             <Field orientation="horizontal" className="w-auto">
                                 <RadioGroupItem value="all" id={`${id}-access-all`} />
-                                <FieldLabel htmlFor={`${id}-access-all`} className="font-normal">All projects, now and later</FieldLabel>
+                                <FieldLabel htmlFor={`${id}-access-all`} className="font-normal">{t("All projects, now and later")}</FieldLabel>
                             </Field>
                         </RadioGroup>
                         {access === 'selected' && (
                             projects.length ? (
                                 // A long list scrolls inside its box, so the dialog keeps its buttons in view
-                                <FieldGroup data-slot="checkbox-group" role="group" aria-label="Projects they can review" className="max-h-40 gap-3 overflow-y-auto rounded-lg border p-3">
+                                <FieldGroup data-slot="checkbox-group" role="group" aria-label={t("Projects they can review")} className="max-h-40 gap-3 overflow-y-auto rounded-lg border p-3">
                                     {projects.map(project => (
                                         <Field key={project.id} orientation="horizontal">
                                             <Checkbox
@@ -157,16 +156,16 @@ export function InviteForm({ projects, teams = [], fromTeamId, fromProjectId, on
                                     ))}
                                 </FieldGroup>
                             ) : (
-                                <FieldDescription>There are no projects yet. Choose a team, or create a project first.</FieldDescription>
+                                <FieldDescription>{t("There are no projects yet. Choose a team, or create a project first.")}</FieldDescription>
                             )
                         )}
                     </FieldSet>
                 )}
-                {(role === 'admin' || access === 'all') && <p className="m-0 text-sm text-destructive" role="status">This grants every project, including future projects{role === 'admin' ? ', and workspace administration' : ''}. Use selected teams and projects for restricted external access.</p>}
+                {(role === 'admin' || access === 'all') && <p className="m-0 text-sm text-destructive" role="status">{t("This grants every project, including future projects")}{role === 'admin' ? t(", and workspace administration") : ''}{t(". Use selected teams and projects for restricted external access.")}</p>}
                 {teams.length > 0 && (
                     <FieldSet>
-                        <FieldLegend variant="label">Teams</FieldLegend>
-                        <FieldDescription>They also review every project of the teams you choose, including projects added later.</FieldDescription>
+                        <FieldLegend variant="label">{t("Teams")}</FieldLegend>
+                        <FieldDescription>{t("They also review every project of the teams you choose, including projects added later.")}</FieldDescription>
                         <FieldGroup data-slot="checkbox-group" className="max-h-32 gap-3 overflow-y-auto">
                             {teams.map(team => (
                                 <Field key={team.id} orientation="horizontal">
@@ -183,28 +182,24 @@ export function InviteForm({ projects, teams = [], fromTeamId, fromProjectId, on
                 {/* A label for the people list only: it changes no permission, so it waits behind More options */}
                 <Collapsible className="flex flex-col gap-3">
                     <CollapsibleTrigger render={<Button variant="ghost" size="sm" className="group/more h-auto self-start px-0 py-1 text-muted-foreground hover:bg-transparent hover:text-foreground aria-expanded:bg-transparent aria-expanded:text-foreground dark:hover:bg-transparent" />}>
-                        <ChevronRightIcon data-icon="inline-start" className="transition-transform group-data-panel-open/more:rotate-90" />
-                        More options
-                    </CollapsibleTrigger>
+                        <ChevronRightIcon data-icon="inline-start" className="transition-transform group-data-panel-open/more:rotate-90" />{t("More options")}</CollapsibleTrigger>
                     <CollapsibleContent>
                         <Field>
-                            <FieldLabel htmlFor={`${id}-relationship`}>Relationship</FieldLabel>
+                            <FieldLabel htmlFor={`${id}-relationship`}>{t("Relationship")}</FieldLabel>
                             <Select items={relationships} value={relationship} onValueChange={value => value !== null && setRelationship(value)}>
                                 <SelectTrigger id={`${id}-relationship`} className="w-40"><SelectValue /></SelectTrigger>
-                                <SelectContent><SelectGroup>{relationships.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup></SelectContent>
+                                <SelectContent><SelectGroup>{relationships.map(item => <SelectItem key={item.value} value={item.value}>{t(item.label)}</SelectItem>)}</SelectGroup></SelectContent>
                             </Select>
-                            <FieldDescription>A label on the users list. It changes no permissions.</FieldDescription>
+                            <FieldDescription>{t("A label on the users list. It changes no permissions.")}</FieldDescription>
                         </Field>
                     </CollapsibleContent>
                 </Collapsible>
             </FieldGroup>
             <FormMessage state={state} />
             <DialogFooter>
-                <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+                <DialogClose render={<Button type="button" variant="outline" />}>{t("Cancel")}</DialogClose>
                 <Button type="submit" disabled={pending}>
-                    {pending && <Spinner data-icon="inline-start" />}
-                    Send invitation
-                </Button>
+                    {pending && <Spinner data-icon="inline-start" />}{t("Send invitation")}</Button>
             </DialogFooter>
         </form>
     );

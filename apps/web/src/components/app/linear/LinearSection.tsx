@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useActionState, useId, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowUpRight, RefreshCw } from 'lucide-react';
@@ -34,33 +36,33 @@ const outcomes: Record<string, string> = {
 };
 
 export function LinearSection({ projectId, settings, outcome }: { projectId: string; settings: Settings; outcome?: string }) {
+    const { t, language } = useAppI18n();
     const notice = outcome && Object.hasOwn(outcomes, outcome) ? outcomes[outcome] : undefined;
     const status = linearStatus(settings);
-    return <Section id="linear" title={<IntegrationTitle provider="linear" name="Linear" />} description="Create one Linear issue for each shared feedback thread. uier keeps the issue and its discussion up to date."
+    return <Section id="linear" title={<IntegrationTitle provider="linear" name="Linear" />} description={t("Create one Linear issue for each shared feedback thread. uier keeps the issue and its discussion up to date.")}
         actions={<Badge variant="secondary">{status}</Badge>}>
         <div className="flex flex-col gap-5">
             {notice && <p role="status" className="m-0 text-sm text-muted-foreground">{notice}</p>}
-            {!settings.configured ? <p className="m-0 text-sm text-muted-foreground">Linear is unavailable on this deployment. A site administrator needs to configure it.</p>
+            {!settings.configured ? <p className="m-0 text-sm text-muted-foreground">{t("Linear is unavailable on this deployment. A site administrator needs to configure it.")}</p>
                 : <>
-                    {settings.organizationName && <p className="m-0 text-sm">Connected organization: {settings.organizationName}.</p>}
+                    {settings.organizationName && <p className="m-0 text-sm">{t("Connected organization:")}{' '}{settings.organizationName}.</p>}
                     {(!settings.connected || settings.status === 'needs_reconnect') && <a href={`/app/linear/connect?project=${encodeURIComponent(projectId)}`} className={cn(buttonVariants(), 'w-fit')}>
-                        <ArrowUpRight data-icon="inline-start" />{settings.status === 'needs_reconnect' ? 'Reconnect Linear' : 'Connect Linear'}
+                        <ArrowUpRight data-icon="inline-start" />{settings.status === 'needs_reconnect' ? t("Reconnect Linear") : t("Connect Linear")}
                     </a>}
                     {settings.connected && settings.status !== 'needs_reconnect' && <>
                         <LinearDestination key={`${settings.teamId}:${settings.linearProjectId}:${settings.openStateId}:${settings.doneStateId}:${settings.labelIds.join(',')}:${settings.screenshots}`}
                             projectId={projectId} settings={settings} />
-                        {settings.teamId && <p className="m-0 text-sm text-muted-foreground">Destination: {settings.teamName ?? 'Saved team'}{settings.projectName ? ` / ${settings.projectName}` : ''}. Screenshots are {settings.screenshots ? 'on' : 'off'}.</p>}
+                        {settings.teamId && <p className="m-0 text-sm text-muted-foreground">{t("Destination:")}{' '}{settings.teamName ?? 'Saved team'}{settings.projectName ? t(" / {value1}", { value1: settings.projectName }) : ''}{t(". Screenshots are")}{' '}{settings.screenshots ? t("on") : t("off")}.</p>}
                     </>}
                 </>}
-            {settings.lastSyncedAt && <p className="m-0 text-sm text-muted-foreground">Last synced <DateTime value={settings.lastSyncedAt} />.</p>}
-            {settings.pausedUntil && <p className="m-0 text-sm text-muted-foreground">Linear requests resume after <DateTime value={settings.pausedUntil} />.</p>}
+            {settings.lastSyncedAt && <p className="m-0 text-sm text-muted-foreground">{t("Last synced")}{' '}<DateTime value={settings.lastSyncedAt} />.</p>}
+            {settings.pausedUntil && <p className="m-0 text-sm text-muted-foreground">{t("Linear requests resume after")}{' '}<DateTime value={settings.pausedUntil} />.</p>}
             {settings.needsReviewCount > 0 && <Alert>
-                <AlertTitle>Some threads need review</AlertTitle>
-                <AlertDescription>{settings.needsReviewCount}{settings.needsReviewCountCapped ? '+' : ''} threads could not be confirmed in Linear. Check the existing Linear copies before requesting a backfill. uier keeps uncertain issue identities to avoid creating duplicates.</AlertDescription>
+                <AlertTitle>{t("Some threads need review")}</AlertTitle>
+                <AlertDescription>{settings.needsReviewCount}{settings.needsReviewCountCapped ? '+' : ''} {t("threads could not be confirmed in Linear. Check the existing Linear copies before requesting a backfill. uier keeps uncertain issue identities to avoid creating duplicates.")}</AlertDescription>
             </Alert>}
             {settings.backfill && <p role="status" className="m-0 text-sm text-muted-foreground">
-                Backfill: {settings.backfill.queued} of {settings.backfill.total} selected threads queued for delivery.
-                {settings.backfill.done && ' Queueing is complete. Delivery continues in the background.'}
+                {t("Backfill:")}{' '}{settings.backfill.queued} {t("of")}{' '}{settings.backfill.total} {t("selected threads queued for delivery.")}{' '}{settings.backfill.done && ' Queueing is complete. Delivery continues in the background.'}
             </p>}
             {settings.connected && <LinearManagement projectId={projectId} settings={settings} />}
         </div>
@@ -68,6 +70,7 @@ export function LinearSection({ projectId, settings, outcome }: { projectId: str
 }
 
 function LinearDestination({ projectId, settings }: { projectId: string; settings: Settings }) {
+    const { t, language } = useAppI18n();
     const formId = useId();
     const [, startLoad] = useTransition();
     const [teams, loadTeams, loadingTeams] = useActionState(loadLinearTeamsAction, null);
@@ -79,17 +82,16 @@ function LinearDestination({ projectId, settings }: { projectId: string; setting
     const options = details?.ok && details.data.teamId === teamId ? details.data : undefined;
     return <FieldGroup>
         <Field>
-            <FieldLabel>Linear teams</FieldLabel>
-            <FieldDescription>Load the teams available to the connected Linear app. This only reads your Linear choices.</FieldDescription>
+            <FieldLabel>{t("Linear teams")}</FieldLabel>
+            <FieldDescription>{t("Load the teams available to the connected Linear app. This only reads your Linear choices.")}</FieldDescription>
             <form action={loadTeams}>
                 <input type="hidden" name="projectId" value={projectId} />
                 <Button type="submit" variant="outline" disabled={loadingTeams || loadingDetails}>
-                    {loadingTeams ? <Spinner data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" />}Load teams
-                </Button>
+                    {loadingTeams ? <Spinner data-icon="inline-start" /> : <RefreshCw data-icon="inline-start" />}{t("Load teams")}{' '}</Button>
             </form>
             <FormMessage state={teams} />
-            {teams?.ok && teams.data.items.length === 0 && <FieldDescription>No teams are available to this Linear app. Check its access in Linear.</FieldDescription>}
-            {teams?.ok && teams.data.truncated && <FieldDescription>Only the first 500 teams are shown. A team outside this list cannot be selected here.</FieldDescription>}
+            {teams?.ok && teams.data.items.length === 0 && <FieldDescription>{t("No teams are available to this Linear app. Check its access in Linear.")}</FieldDescription>}
+            {teams?.ok && teams.data.truncated && <FieldDescription>{t("Only the first 500 teams are shown. A team outside this list cannot be selected here.")}</FieldDescription>}
         </Field>
         {teamOptions.length > 0 && <form onSubmit={event => {
             event.preventDefault(); const data = new FormData(event.currentTarget); startLoad(() => loadDetails(data));
@@ -98,17 +100,16 @@ function LinearDestination({ projectId, settings }: { projectId: string; setting
             <input type="hidden" name="teamId" value={teamId} />
             <FieldGroup>
                 <Field>
-                    <FieldLabel htmlFor={`${formId}-team`}>Team</FieldLabel>
+                    <FieldLabel htmlFor={`${formId}-team`}>{t("Team")}</FieldLabel>
                     <Select items={teamOptions.map(item => ({ value: item.id, label: item.name }))} value={teamId} onValueChange={value => value !== null && setTeamId(value)} disabled={loadingDetails}>
-                        <SelectTrigger id={`${formId}-team`}><SelectValue placeholder="Choose a team" /></SelectTrigger>
+                        <SelectTrigger id={`${formId}-team`}><SelectValue placeholder={t("Choose a team")} /></SelectTrigger>
                         <SelectContent><SelectGroup>{teamOptions.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectGroup></SelectContent>
                     </Select>
-                    <FieldDescription>Load this team’s projects, workflow states and labels before saving.</FieldDescription>
+                    <FieldDescription>{t("Load this team’s projects, workflow states and labels before saving.")}</FieldDescription>
                 </Field>
                 <Field>
                     <Button className="w-fit" type="submit" variant="outline" disabled={!teamId || loadingDetails || loadingTeams}>
-                        {loadingDetails && <Spinner data-icon="inline-start" />}Load team options
-                    </Button>
+                        {loadingDetails && <Spinner data-icon="inline-start" />}{t("Load team options")}{' '}</Button>
                     <FormMessage state={details} />
                 </Field>
             </FieldGroup>
@@ -118,6 +119,7 @@ function LinearDestination({ projectId, settings }: { projectId: string; setting
 }
 
 function LinearDestinationForm({ projectId, settings, options }: { projectId: string; settings: Settings; options: Options }) {
+    const { t, language } = useAppI18n();
     const id = useId();
     const [state, save, pending] = useActionState(saveLinearDestinationAction, null);
     const sameTeam = settings.teamId === options.teamId;
@@ -127,7 +129,7 @@ function LinearDestinationForm({ projectId, settings, options }: { projectId: st
     const [openState, setOpenState] = useState(() => initialChoice(openStates, settings.openStateId));
     const [doneState, setDoneState] = useState(() => initialChoice(doneStates, settings.doneStateId));
     const [linearProject, setLinearProject] = useState(() => initialChoice(options.projects.items, settings.linearProjectId) || 'none');
-    const projectItems = [{ value: 'none', label: 'No Linear project' }, ...options.projects.items.map(item => ({ value: item.id, label: item.name }))];
+    const projectItems = [{ value: 'none', label: t("No Linear project") }, ...options.projects.items.map(item => ({ value: item.id, label: item.name }))];
     return <form action={save} onReset={event => event.preventDefault()}>
         <input type="hidden" name="projectId" value={projectId} />
         <input type="hidden" name="teamId" value={options.teamId} />
@@ -136,18 +138,18 @@ function LinearDestinationForm({ projectId, settings, options }: { projectId: st
         <input type="hidden" name="doneStateId" value={doneState} />
         <FieldGroup>
             <Field>
-                <FieldLabel htmlFor={`${id}-project`}>Linear project (optional)</FieldLabel>
+                <FieldLabel htmlFor={`${id}-project`}>{t("Linear project (optional)")}</FieldLabel>
                 <Select items={projectItems} value={linearProject} onValueChange={value => value !== null && setLinearProject(value)} disabled={pending}>
                     <SelectTrigger id={`${id}-project`}><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectGroup>{projectItems.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup></SelectContent>
+                    <SelectContent><SelectGroup>{projectItems.map(item => <SelectItem key={item.value} value={item.value}>{t(item.label)}</SelectItem>)}</SelectGroup></SelectContent>
                 </Select>
             </Field>
-            <StateChoice id={`${id}-open`} label="State for open feedback" choices={openStates} value={openState} onChange={setOpenState} disabled={pending} />
-            <StateChoice id={`${id}-done`} label="State for done feedback" choices={doneStates} value={doneState} onChange={setDoneState} disabled={pending} />
-            {(!openStates.length || !doneStates.length) && <FieldDescription>This team needs an open workflow state and a completed or canceled state in Linear before it can be saved.</FieldDescription>}
+            <StateChoice id={`${id}-open`} label={t("State for open feedback")} choices={openStates} value={openState} onChange={setOpenState} disabled={pending} />
+            <StateChoice id={`${id}-done`} label={t("State for done feedback")} choices={doneStates} value={doneState} onChange={setDoneState} disabled={pending} />
+            {(!openStates.length || !doneStates.length) && <FieldDescription>{t("This team needs an open workflow state and a completed or canceled state in Linear before it can be saved.")}</FieldDescription>}
             {options.labels.items.length > 0 && <FieldSet disabled={pending}>
-                <FieldLegend variant="label">Labels (optional)</FieldLegend>
-                <FieldDescription>Choose up to 20 existing labels for uier issues. Other labels on the issues are kept.</FieldDescription>
+                <FieldLegend variant="label">{t("Labels (optional)")}</FieldLegend>
+                <FieldDescription>{t("Choose up to 20 existing labels for uier issues. Other labels on the issues are kept.")}</FieldDescription>
                 <FieldGroup>
                     {options.labels.items.map(label => <Field key={label.id} orientation="horizontal">
                         <Checkbox id={`${id}-${label.id}`} name="labelId" value={label.id} defaultChecked={sameTeam && settings.labelIds.includes(label.id)} />
@@ -158,16 +160,15 @@ function LinearDestinationForm({ projectId, settings, options }: { projectId: st
             <Field orientation="horizontal" data-disabled={pending}>
                 <Checkbox id={`${id}-screenshots`} name="screenshots" value="true" defaultChecked={settings.screenshots} disabled={pending} />
                 <FieldContent>
-                    <FieldLabel htmlFor={`${id}-screenshots`}>Include screenshots</FieldLabel>
-                    <FieldDescription>Uploads the current screenshot to Linear. Linear’s copies and retained files follow its own access and retention settings.</FieldDescription>
+                    <FieldLabel htmlFor={`${id}-screenshots`}>{t("Include screenshots")}</FieldLabel>
+                    <FieldDescription>{t("Uploads the current screenshot to Linear. Linear’s copies and retained files follow its own access and retention settings.")}</FieldDescription>
                 </FieldContent>
             </Field>
-            {(options.projects.truncated || options.states.truncated || options.labels.truncated) && <FieldDescription>Only the first 500 choices in each list are shown. Missing choices cannot be saved here.</FieldDescription>}
-            <FieldDescription>Saving turns sync on for shared feedback. Changing the team or Linear project starts new issue identities. Existing Linear copies stay in their previous destination.</FieldDescription>
+            {(options.projects.truncated || options.states.truncated || options.labels.truncated) && <FieldDescription>{t("Only the first 500 choices in each list are shown. Missing choices cannot be saved here.")}</FieldDescription>}
+            <FieldDescription>{t("Saving turns sync on for shared feedback. Changing the team or Linear project starts new issue identities. Existing Linear copies stay in their previous destination.")}</FieldDescription>
             <Field>
                 <Button className="w-fit" type="submit" disabled={pending || !openState || !doneState}>
-                    {pending && <Spinner data-icon="inline-start" />}Save Linear destination
-                </Button>
+                    {pending && <Spinner data-icon="inline-start" />}{t("Save Linear destination")}{' '}</Button>
                 <FormMessage state={state} />
             </Field>
         </FieldGroup>
@@ -175,16 +176,18 @@ function LinearDestinationForm({ projectId, settings, options }: { projectId: st
 }
 
 function StateChoice({ id, label, choices, value, onChange, disabled }: { id: string; label: string; choices: Option[]; value: string; onChange: (value: string) => void; disabled: boolean }) {
+    const { t, language } = useAppI18n();
     return <Field data-disabled={disabled}>
         <FieldLabel htmlFor={id}>{label}</FieldLabel>
         <Select items={choices.map(item => ({ value: item.id, label: item.name }))} value={value} onValueChange={next => next !== null && onChange(next)} disabled={disabled || choices.length === 0}>
-            <SelectTrigger id={id}><SelectValue placeholder="Choose a workflow state" /></SelectTrigger>
+            <SelectTrigger id={id}><SelectValue placeholder={t("Choose a workflow state")} /></SelectTrigger>
             <SelectContent><SelectGroup>{choices.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectGroup></SelectContent>
         </Select>
     </Field>;
 }
 
 function LinearManagement({ projectId, settings }: { projectId: string; settings: Settings }) {
+    const { t, language } = useAppI18n();
     const router = useRouter();
     const [state, setState] = useState<ActionState<{ message: string }>>(null);
     const [pending, startTransition] = useTransition();
@@ -202,30 +205,28 @@ function LinearManagement({ projectId, settings }: { projectId: string; settings
     const canSync = settings.configured && Boolean(settings.teamId) && settings.status === 'connected';
     return <div className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-2">
-            {(settings.enabled || canSync) && <Button type="button" variant="outline" disabled={pending} onClick={() => change(settings.enabled ? 'disable' : 'enable')}>
-                {pending && <Spinner data-icon="inline-start" />}{settings.enabled ? 'Turn sync off' : 'Turn sync on'}
+            {(settings.enabled || canSync) && <Button type="button" variant="outline" disabled={pending} onClick={() => change(settings.enabled ? t("disable") : t("enable"))}>
+                {pending && <Spinner data-icon="inline-start" />}{settings.enabled ? t("Turn sync off") : t("Turn sync on")}
             </Button>}
             {canSync && settings.enabled && <Button type="button" variant="outline" disabled={pending || Boolean(settings.backfill && !settings.backfill.done)} onClick={() => change('backfill')}>
-                Backfill existing feedback
-            </Button>}
+                {t("Backfill existing feedback")}{' '}</Button>}
             <AlertDialog open={confirming} onOpenChange={setConfirming}>
-                <AlertDialogTrigger render={<Button type="button" variant="outline" disabled={pending} />}>Disconnect Linear</AlertDialogTrigger>
+                <AlertDialogTrigger render={<Button type="button" variant="outline" disabled={pending} />}>{t("Disconnect Linear")}</AlertDialogTrigger>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Disconnect Linear from this project?</AlertDialogTitle>
-                        <AlertDialogDescription>Stops future sync from this project. Existing issues, comments and files remain in Linear. Other projects keep their connections.</AlertDialogDescription>
+                        <AlertDialogTitle>{t("Disconnect Linear from this project?")}</AlertDialogTitle>
+                        <AlertDialogDescription>{t("Stops future sync from this project. Existing issues, comments and files remain in Linear. Other projects keep their connections.")}</AlertDialogDescription>
                     </AlertDialogHeader>
                     <FormMessage state={state && !state.ok ? state : null} />
                     <AlertDialogFooter>
-                        <AlertDialogCancel disabled={pending}>Keep connected</AlertDialogCancel>
+                        <AlertDialogCancel disabled={pending}>{t("Keep connected")}</AlertDialogCancel>
                         <AlertDialogAction variant="outline" disabled={pending} onClick={() => change('disconnect')}>
-                            {pending && <Spinner data-icon="inline-start" />}Disconnect Linear
-                        </AlertDialogAction>
+                            {pending && <Spinner data-icon="inline-start" />}{t("Disconnect Linear")}{' '}</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
         </div>
-        {canSync && <p className="m-0 text-sm text-muted-foreground">Backfill selects up to 1,000 existing shared threads for this Linear destination. New feedback syncs automatically while sync is on.</p>}
+        {canSync && <p className="m-0 text-sm text-muted-foreground">{t("Backfill selects up to 1,000 existing shared threads for this Linear destination. New feedback syncs automatically while sync is on.")}</p>}
         <FormMessage state={state?.ok ? { ...state, message: state.data.message } : state} />
     </div>;
 }

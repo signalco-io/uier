@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { cn } from 'cn';
@@ -19,15 +21,16 @@ export const metadata: Metadata = {
 };
 
 export default async function InvitationPage({ searchParams }: PageProps<'/app/invitation'>) {
+    const { t, language } = await getAppI18n();
     const { token } = await searchParams;
     const pending = await getInvitation(token);
 
     if (!pending || typeof token !== 'string') {
         return (
             <AuthCard
-                title="This invitation has expired"
-                description="Invitation links work once and expire after 7 days. Access may also have changed. Ask the person who invited you for a new one.">
-                <Link href={KnownPages.AppSignIn} className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'w-full')}>Sign in</Link>
+                title={t("This invitation has expired")}
+                description={t("Invitation links work once and expire after 7 days. Access may also have changed. Ask the person who invited you for a new one.")}>
+                <Link href={KnownPages.AppSignIn} className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'w-full')}>{t("Sign in")}</Link>
             </AuthCard>
         );
     }
@@ -44,18 +47,16 @@ export default async function InvitationPage({ searchParams }: PageProps<'/app/i
 
     return (
         <AuthCard
-            title={project ? `Review ${project.name}` : 'You are invited'}
+            title={project ? t("Review {value1}", { value1: project.name }) : t("You are invited")}
             description={(
                 <>
-                    {inviter ? <span className="font-medium text-foreground">{inviter.name}</span> : 'Someone'} invited you
-                    {invitation.role === 'admin' ? ' as an admin' : ' to comment'}. Accepting signs you in
-                    as <span className="font-medium text-foreground">{invitation.email}</span>
-                    {project ? ' and opens the site with the toolbar.' : '.'}
+                    {inviter ? <span className="font-medium text-foreground">{inviter.name}</span> : t("Someone")} {t("invited you")}{' '}{invitation.role === 'admin' ? t(" as an admin") : t(" to comment")}{t(". Accepting signs you in as")}{' '}<span className="font-medium text-foreground">{invitation.email}</span>
+                    {project ? t(" and opens the site with the toolbar.") : '.'}
                 </>
             )}>
             <div className="mb-4 text-sm text-muted-foreground">
-                <p>Current project access: {visibleProjects.map(project => project.name).join(', ') || 'No projects yet'}</p>
-                {selectedTeams.length > 0 && <p>Teams: {selectedTeams.map(team => team!.doc.name).join(', ')}. Team access follows their current selected projects, including later admin changes. Team and direct grants add together.</p>}
+                <p>{t("Current project access:")}{' '}{visibleProjects.map(project => project.name).join(', ') || 'No projects yet'}</p>
+                {selectedTeams.length > 0 && <p>{t("Teams:")}{' '}{selectedTeams.map(team => team!.doc.name).join(', ')}{t(". Team access follows their current selected projects, including later admin changes. Team and direct grants add together.")}</p>}
             </div>
             <AcceptInvitationForm token={token} />
         </AuthCard>

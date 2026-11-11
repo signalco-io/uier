@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import { Section } from '@/src/components/app/PageHeader';
 import { MicrosoftLogo } from '@/src/components/app/SignInProviderLogos';
 import { isMicrosoftSignInConfigured } from '@/src/lib/app/microsoft/config';
@@ -8,6 +10,7 @@ import { MicrosoftAccountControls } from './MicrosoftAccountControls';
 
 /** The linked Microsoft account. Hidden where Microsoft sign-in is off, unless one is linked (unlinking always works). */
 export async function MicrosoftAccount({ userId }: { userId: string }) {
+    const { t, language } = await getAppI18n();
     const [account, session] = await Promise.all([getMicrosoftAccount(userId), getSessionSignIn()]);
     const configured = isMicrosoftSignInConfigured();
     if (!account && !configured)
@@ -16,7 +19,7 @@ export async function MicrosoftAccount({ userId }: { userId: string }) {
     const recentSignIn = session?.userId === userId
         && Date.now() - session.signedInAt * 1000 <= PASSKEY_RECENT_SIGN_IN_SECONDS * 1000;
     return (
-        <Section icon={<MicrosoftLogo />} id="microsoft" title="Microsoft account" description="Sign in with Microsoft instead of an email code. Email sign-in always stays available.">
+        <Section icon={<MicrosoftLogo />} id="microsoft" title={t("Microsoft account")} description={t("Sign in with Microsoft instead of an email code. Email sign-in always stays available.")}>
             <MicrosoftAccountControls linkedEmail={account ? account.email : null} configured={configured} recentSignIn={recentSignIn} />
         </Section>
     );

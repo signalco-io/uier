@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import type { Metadata } from 'next';
 import { AuthCard } from '@/src/components/app/AuthCard';
 
@@ -26,11 +28,12 @@ const problems: Record<string, { title: string; description: string }> = {
 const fallback = { title: 'This sign-in cannot continue', description: 'Connect again from your coding tool.' };
 
 export default async function ConnectErrorPage({ searchParams }: PageProps<'/app/connect/error'>) {
+    const { t, language } = await getAppI18n();
     const { error } = await searchParams;
     const problem = (typeof error === 'string' && Object.hasOwn(problems, error) ? problems[error] : undefined) ?? fallback;
     return (
-        <AuthCard title={problem.title} description={problem.description}>
-            <p className="m-0 text-sm text-muted-foreground">You can close this tab.</p>
+        <AuthCard title={t(problem.title)} description={t(problem.description)}>
+            <p className="m-0 text-sm text-muted-foreground">{t("You can close this tab.")}</p>
         </AuthCard>
     );
 }

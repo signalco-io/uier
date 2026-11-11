@@ -1,4 +1,6 @@
 'use client';
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 
 import { useActionState, useId, useState, useTransition } from 'react';
 import { AtSignIcon, LogInIcon, PlusIcon } from 'lucide-react';
@@ -48,44 +50,39 @@ export function WorkspaceDomains({ domains, teams, suggestion, ownDomain, signIn
     /** This browser's sign-in proved no email in the last 10 minutes */
     signInAgain: boolean;
 }) {
+    const { t } = useAppI18n();
     // Also when adding fails because the proof ran out while the page was open
     const [expired, setExpired] = useState(false);
     const needsSignIn = Boolean(suggestion) && (signInAgain || expired);
     return (
         <Section
             id="domains"
-            title="Email domains"
-            description="People who sign in to uier with an email at these domains can join this workspace as commenters. They join with a click; nobody is added without it."
+            title={t("Email domains")}
+            description={t("People who sign in to uier with an email at these domains can join this workspace as commenters. They join with a click; nobody is added without it.")}
             actions={suggestion && !needsSignIn
                 ? <DomainDialog mode="add" domain={suggestion} teams={teams} onSignInAgain={() => setExpired(true)} />
                 : undefined}>
             <div className="flex flex-col gap-4">
                 {domains.length
                     ? (
-                        <ItemGroup aria-label="Email domains" className="gap-3">
+                        <ItemGroup aria-label={t("Email domains")} className="gap-3">
                             {domains.map(domain => <DomainRow key={domain.domain} domain={domain} teams={teams} />)}
                         </ItemGroup>
                     )
-                    : <p className="m-0 text-sm text-muted-foreground">No domains yet.</p>}
+                    : <p className="m-0 text-sm text-muted-foreground">{t("No domains yet.")}</p>}
                 <p className="m-0 text-sm text-muted-foreground">
                     {suggestion
-                        ? `You can add ${suggestion}, the domain of your email. `
+                        ? t("You can add {value0}, the domain of your email. ", { value0: suggestion })
                         : ownDomain && !domains.some(domain => domain.domain === ownDomain)
-                            ? `${ownDomain} is a public email provider, so it can't be added. `
-                            : ''}
-                    An admin can add only the domain of their own email. Each domain matches exactly: add subdomains separately.
-                </p>
+                            ? t("{value0} is a public email provider, so it can't be added. ", { value0: ownDomain })
+                            : ''}{t("An admin can add only the domain of their own email. Each domain matches exactly: add subdomains separately.")}</p>
                 {needsSignIn && (
                     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3">
-                        <p className="m-0 min-w-0 flex-1 text-sm text-muted-foreground">
-                            To add {suggestion}, sign in again with your email. Adding a domain needs a sign-in from the last 10 minutes that confirms your email address.
-                        </p>
+                        <p className="m-0 min-w-0 flex-1 text-sm text-muted-foreground">{t("To add")}{' '}{suggestion}{t(", sign in again with your email. Adding a domain needs a sign-in from the last 10 minutes that confirms your email address.")}</p>
                         <form action={signInAgainWithEmailAction}>
                             <input type="hidden" name="next" value={KnownPages.AppSettings} />
                             <Button type="submit" variant="outline">
-                                <LogInIcon data-icon="inline-start" />
-                                Sign in again
-                            </Button>
+                                <LogInIcon data-icon="inline-start" />{t("Sign in again")}</Button>
                         </form>
                     </div>
                 )}
@@ -95,9 +92,10 @@ export function WorkspaceDomains({ domains, teams, suggestion, ownDomain, signIn
 }
 
 function DomainRow({ domain, teams }: { domain: WorkspaceDomainView; teams: Team[] }) {
+    const { t } = useAppI18n();
     const access = domain.teams.length
-        ? `They join ${list(domain.teams.map(team => team.name))}.`
-        : 'They join without project access until an admin shares projects with them.';
+        ? t("They join {value0}.", { value0: list(domain.teams.map(team => team.name)) })
+        : t("They join without project access until an admin shares projects with them.");
     return (
         <Item variant="outline" role="listitem" className="items-start">
             <ItemMedia variant="icon"><AtSignIcon /></ItemMedia>
@@ -105,7 +103,7 @@ function DomainRow({ domain, teams }: { domain: WorkspaceDomainView; teams: Team
                 <ItemTitle className="line-clamp-none break-all">{domain.domain}</ItemTitle>
                 <ItemDescription className="line-clamp-none break-words">
                     {access}
-                    {domain.addedByName && ` Added by ${domain.addedByName}.`}
+                    {domain.addedByName && t(" Added by {value0}.", { value0: domain.addedByName })}
                 </ItemDescription>
             </ItemContent>
             <ItemActions>
@@ -124,13 +122,14 @@ function DomainDialog({ mode, domain, teams, selected = [], onSignInAgain }: {
     selected?: string[];
     onSignInAgain?: () => void;
 }) {
+    const { t } = useAppI18n();
     const [open, setOpen] = useState(false);
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger render={mode === 'add'
                 ? <Button variant="outline" />
-                : <Button variant="ghost" aria-label={`Change teams for ${domain}`} />}>
-                {mode === 'add' ? <><PlusIcon data-icon="inline-start" />Add {domain}</> : 'Teams'}
+                : <Button variant="ghost" aria-label={t("Change teams for {value0}", { value0: domain })} />}>
+                {mode === 'add' ? <><PlusIcon data-icon="inline-start" />{t("Add")}{' '}{domain}</> : t("Teams")}
             </DialogTrigger>
             <DialogContent>
                 {/* Unmounted when closed, so every opening starts from the saved teams */}
@@ -152,6 +151,7 @@ function DomainForm({ mode, domain, teams, selected, onDone, onSignInAgain }: {
     onDone: () => void;
     onSignInAgain: () => void;
 }) {
+    const { t } = useAppI18n();
     const id = useId();
     const [state, formAction, pending] = useActionState(async (previous: ActionState, formData: FormData) => {
         const result = await (mode === 'add' ? addDomainAction : updateDomainTeamsAction)(previous, formData);
@@ -168,18 +168,18 @@ function DomainForm({ mode, domain, teams, selected, onDone, onSignInAgain }: {
             <input type="hidden" name="domain" value={domain} />
             {chosen.map(teamId => <input key={teamId} type="hidden" name="team" value={teamId} />)}
             <DialogHeader>
-                <DialogTitle className="break-all">{mode === 'add' ? `Add ${domain}` : `Teams for ${domain}`}</DialogTitle>
+                <DialogTitle className="break-all">{mode === 'add' ? t("Add {value0}", { value0: domain }) : t("Teams for {value0}", { value0: domain })}</DialogTitle>
                 <DialogDescription>
                     {mode === 'add'
-                        ? `After they sign in, people with an email at ${domain} can join this workspace as commenters. Nobody joins without choosing to.`
-                        : 'People who join from now on get these teams. People who already joined keep their access.'}
+                        ? t("After they sign in, people with an email at {value0} can join this workspace as commenters. Nobody joins without choosing to.", { value0: domain })
+                        : t("People who join from now on get these teams. People who already joined keep their access.")}
                 </DialogDescription>
             </DialogHeader>
             {teams.length > 0
                 ? (
                     <FieldSet>
-                        <FieldLegend variant="label">Teams</FieldLegend>
-                        <FieldDescription>They review every project of these teams, including projects added later.</FieldDescription>
+                        <FieldLegend variant="label">{t("Teams")}</FieldLegend>
+                        <FieldDescription>{t("They review every project of these teams, including projects added later.")}</FieldDescription>
                         <FieldGroup data-slot="checkbox-group" className="max-h-48 gap-3 overflow-y-auto">
                             {teams.map(team => (
                                 <Field key={team.id} orientation="horizontal">
@@ -195,13 +195,13 @@ function DomainForm({ mode, domain, teams, selected, onDone, onSignInAgain }: {
                         </FieldGroup>
                     </FieldSet>
                 )
-                : <p className="m-0 text-sm text-muted-foreground">They join without project access until an admin shares projects with them or adds them to a team.</p>}
+                : <p className="m-0 text-sm text-muted-foreground">{t("They join without project access until an admin shares projects with them or adds them to a team.")}</p>}
             <FormMessage state={state} />
             <DialogFooter>
-                <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+                <DialogClose render={<Button type="button" variant="outline" />}>{t("Cancel")}</DialogClose>
                 <Button type="submit" disabled={pending}>
                     {pending && <Spinner data-icon="inline-start" />}
-                    {mode === 'add' ? 'Add domain' : 'Save'}
+                    {mode === 'add' ? t("Add domain") : t("Save")}
                 </Button>
             </DialogFooter>
         </form>
@@ -209,6 +209,7 @@ function DomainForm({ mode, domain, teams, selected, onDone, onSignInAgain }: {
 }
 
 function RemoveDomain({ domain }: { domain: string }) {
+    const { t } = useAppI18n();
     const [confirming, setConfirming] = useState(false);
     const [state, setState] = useState<ActionState>(null);
     const [pending, startTransition] = useTransition();
@@ -221,19 +222,17 @@ function RemoveDomain({ domain }: { domain: string }) {
     });
     return (
         <AlertDialog open={confirming} onOpenChange={setConfirming}>
-            <AlertDialogTrigger render={<Button variant="outline" aria-label={`Remove ${domain}`} />}>Remove</AlertDialogTrigger>
+            <AlertDialogTrigger render={<Button variant="outline" aria-label={t("Remove {value0}", { value0: domain })} />}>{t("Remove")}</AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle className="break-all">Remove {domain}?</AlertDialogTitle>
-                    <AlertDialogDescription>People with an email at {domain} can no longer join on their own. People who already joined stay in the workspace.</AlertDialogDescription>
+                    <AlertDialogTitle className="break-all">{t("Remove")}{' '}{domain}?</AlertDialogTitle>
+                    <AlertDialogDescription>{t("People with an email at")}{' '}{domain}{' '}{t("can no longer join on their own. People who already joined stay in the workspace.")}</AlertDialogDescription>
                 </AlertDialogHeader>
                 <FormMessage state={state} />
                 <AlertDialogFooter>
-                    <AlertDialogCancel disabled={pending}>Keep domain</AlertDialogCancel>
+                    <AlertDialogCancel disabled={pending}>{t("Keep domain")}</AlertDialogCancel>
                     <AlertDialogAction variant="destructive" disabled={pending} onClick={() => remove()}>
-                        {pending && <Spinner data-icon="inline-start" />}
-                        Remove
-                    </AlertDialogAction>
+                        {pending && <Spinner data-icon="inline-start" />}{t("Remove")}</AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

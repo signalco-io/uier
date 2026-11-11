@@ -1,4 +1,6 @@
 'use client';
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 
 import { useOptimistic, useTransition } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -9,12 +11,13 @@ const allProjects = 'all';
 
 /** Filters the people by the project they can review (`?project=`); the choice shows at once while they load */
 export function ProjectFilter({ projects, value }: { projects: { id: string; name: string }[]; value?: string }) {
+    const { t } = useAppI18n();
     const router = useRouter();
     const pathname = usePathname();
     const params = useSearchParams();
     const [, startTransition] = useTransition();
     const [shown, setShown] = useOptimistic(value ?? allProjects);
-    const items = [{ value: allProjects, label: 'All projects' }, ...projects.map(project => ({ value: project.id, label: project.name }))];
+    const items = [{ value: allProjects, label: t("All projects") }, ...projects.map(project => ({ value: project.id, label: project.name }))];
     return (
         <Select
             items={items}
@@ -25,13 +28,13 @@ export function ProjectFilter({ projects, value }: { projects: { id: string; nam
                 setShown(next ?? allProjects);
                 router.push(`${pathname}?${query}`);
             })}>
-            <SelectTrigger size="sm" aria-label="Project" className="w-56">
+            <SelectTrigger size="sm" aria-label={t("Project")} className="w-56">
                 <FolderIcon className="text-muted-foreground" />
                 <SelectValue />
             </SelectTrigger>
             <SelectContent>
                 <SelectGroup>
-                    {items.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+                    {items.map(item => <SelectItem key={item.value} value={item.value}>{t(item.label)}</SelectItem>)}
                 </SelectGroup>
             </SelectContent>
         </Select>

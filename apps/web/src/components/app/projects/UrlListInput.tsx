@@ -1,4 +1,6 @@
 'use client';
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 
 import { useId, useState, type ReactNode } from 'react';
 import { XIcon } from 'lucide-react';
@@ -35,6 +37,7 @@ export function UrlListInput({ defaultUrls = [], description, hideLegend = false
     hideLegend?: boolean;
     onUrlsChange?: (urls: string[]) => void;
 }) {
+    const { t } = useAppI18n();
     const idPrefix = useId();
     const [rows, setRows] = useState(() => withNextField((defaultUrls.length ? defaultUrls : ['']).map((url, index) => ({ key: index, url }))));
 
@@ -47,7 +50,7 @@ export function UrlListInput({ defaultUrls = [], description, hideLegend = false
 
     return (
         <FieldSet className="gap-3">
-            <FieldLegend variant="label" className={cn('mb-0', hideLegend && 'sr-only')}>Site addresses</FieldLegend>
+            <FieldLegend variant="label" className={cn('mb-0', hideLegend && 'sr-only')}>{t("Site addresses")}</FieldLegend>
             {description && <FieldDescription>{description}</FieldDescription>}
             <div className="flex flex-col gap-2">
                 {rows.map((row, index) => (
@@ -56,21 +59,21 @@ export function UrlListInput({ defaultUrls = [], description, hideLegend = false
                         <InputGroupInput
                             id={`${idPrefix}-${row.key}`}
                             name="url"
-                            aria-label={index === 0 ? 'Main site address' : `Address ${index + 1}`}
+                            aria-label={index === 0 ? t("Main site address") : t("Address {value0}", { value0: index + 1 })}
                             value={row.url}
                             onChange={(event) => setUrl(row.key, event.target.value)}
                             required={index === 0}
                             inputMode="url"
                             autoComplete="url"
                             spellCheck={false}
-                            placeholder={index === 0 ? 'example.com' : 'staging.example.com (optional)'}
+                            placeholder={index === 0 ? 'example.com' : t("staging.example.com (optional)")}
                             className="font-mono text-[13px] md:text-[13px]" />
                         {/* Not on the main site, nor on the empty field for the next address */}
                         {index > 0 && (row.url || index < rows.length - 1) && (
                             <InputGroupAddon align="inline-end">
                                 <InputGroupButton
                                     size="icon-xs"
-                                    aria-label={`Remove address ${index + 1}`}
+                                    aria-label={t("Remove address {value0}", { value0: index + 1 })}
                                     onClick={() => removeRow(row.key)}>
                                     <XIcon />
                                 </InputGroupButton>
@@ -81,7 +84,7 @@ export function UrlListInput({ defaultUrls = [], description, hideLegend = false
             </div>
             {/* Only once a local address is typed */}
             {rows.some(row => schemelessLocal.test(row.url.trim())) && (
-                <FieldDescription>Local addresses use HTTP by default. Include https:// for local HTTPS.</FieldDescription>
+                <FieldDescription>{t("Local addresses use HTTP by default. Include https:// for local HTTPS.")}</FieldDescription>
             )}
         </FieldSet>
     );

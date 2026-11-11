@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useEffect, useId, useRef, useState, type ReactNode, type RefObject, type ClipboardEventHandler } from 'react';
 import { SendIcon } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
@@ -21,7 +23,7 @@ import { useMentionTextarea, type MessageMention } from './MentionTextarea';
  * named `submitLabel`, "save" a text button.
  */
 export function MessageComposer({ label, formLabel = label, name, placeholder, value, mentions, onValueChange, mentionsIn, maxLength = 1000, textareaRef,
-    submitLabel, submitVerb, onSubmit, pending = false, cancelLabel = 'Cancel', onCancel, escapeCancels = false, onDiscard, error, announcement, notices, attachments, onPaste, holdSubmit = false }: {
+    submitLabel, submitVerb, onSubmit, pending = false, cancelLabel = t("Cancel"), onCancel, escapeCancels = false, onDiscard, error, announcement, notices, attachments, onPaste, holdSubmit = false }: {
     attachments?: ReactNode;
     onPaste?: ClipboardEventHandler<HTMLFormElement>;
     holdSubmit?: boolean;
@@ -57,6 +59,7 @@ export function MessageComposer({ label, formLabel = label, name, placeholder, v
     /** Under the field: storage and recovery notices */
     notices?: ReactNode;
 }) {
+    const { t } = useAppI18n();
     const ownRef = useRef<HTMLTextAreaElement>(null);
     const textarea = textareaRef ?? ownRef;
     const form = useRef<HTMLFormElement>(null);
@@ -67,7 +70,7 @@ export function MessageComposer({ label, formLabel = label, name, placeholder, v
     const escape = escapeCancels ? onCancel : undefined;
     const { textareaProps, list } = useMentionTextarea({
         mentionsIn, value, mentions, maxLength, textareaRef: textarea, onValueChange,
-        onSubmit: () => form.current?.requestSubmit(), onEscape: escape, onMention: person => setMentioned(`Mentioned ${person}`)
+        onSubmit: () => form.current?.requestSubmit(), onEscape: escape, onMention: person => setMentioned(t("Mentioned {value0}", { value0: person }))
     });
     const counting = value.length >= maxLength * 0.9;
     const canSubmit = Boolean(value.trim()) && !pending && !holdSubmit;
@@ -94,13 +97,13 @@ export function MessageComposer({ label, formLabel = label, name, placeholder, v
                     <div className="flex min-w-0 items-center gap-1">
                         {attachments}
                         <span id={hintId} className={`min-w-0 truncate text-xs tabular-nums ${value.length >= maxLength ? 'text-destructive' : 'text-muted-foreground'}`}>
-                            {counting ? <>{value.length}/{maxLength}<span className="sr-only"> characters</span></>
-                                : mentionsIn && <><span aria-hidden="true">@ to mention</span><span className="sr-only">Type @ to mention someone with access.</span></>}
+                            {counting ? <>{value.length}/{maxLength}<span className="sr-only">{t(" characters")}</span></>
+                                : mentionsIn && <><span aria-hidden="true">{t("@ to mention")}</span><span className="sr-only">{t("Type @ to mention someone with access.")}</span></>}
                         </span>
                     </div>
                     <div className="flex shrink-0 items-center gap-0.5">
                         {onCancel && <Button variant="ghost" size="xs" className="pointer-coarse:min-h-11" onClick={onCancel}>{cancelLabel}</Button>}
-                        {onDiscard && value.length > 0 && <Button variant="ghost" size="xs" className="pointer-coarse:min-h-11" onClick={onDiscard}>Discard</Button>}
+                        {onDiscard && value.length > 0 && <Button variant="ghost" size="xs" className="pointer-coarse:min-h-11" onClick={onDiscard}>{t("Discard")}</Button>}
                         {submitVerb === 'send'
                             ? <Tooltip>
                                 <TooltipTrigger render={<Button type="submit" variant="ghost" size="icon-xs" aria-label={submitLabel} disabled={!canSubmit}
@@ -117,7 +120,7 @@ export function MessageComposer({ label, formLabel = label, name, placeholder, v
             </InputGroup>
             {/* For screen readers only, out of the layout: Enter in a text box usually adds a line */}
             <FieldDescription id={keysId} className="sr-only">
-                Enter to {submitVerb}. Shift+Enter for a new line.{escape && ' Escape to cancel.'}
+                {t("Enter to ")}{submitVerb}{t(". Shift+Enter for a new line.")}{escape && t(" Escape to cancel.")}
             </FieldDescription>
             {list}
             {error && <FieldError role="alert">{error}</FieldError>}

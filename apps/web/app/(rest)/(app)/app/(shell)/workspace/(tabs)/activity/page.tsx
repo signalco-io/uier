@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import type { Metadata } from 'next';
 import { KnownPages } from '@/src/knownPages';
 import { listAccessEvents } from '@/src/lib/app/teams';
@@ -7,10 +9,14 @@ import { activityNames } from '@/src/components/app/teams/activityNames';
 import { requireTeamAdmin, managementData } from '@/src/components/app/teams/management';
 import { WorkspaceTabHeader } from '@/src/components/app/workspace/WorkspaceTabHeader';
 
-export const metadata: Metadata = { title: 'Activity' };
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return { title: t("Activity") };
+}
 
 /** Who changed access in the workspace: invitations, removals, teams and grants (admins; kept 180 days) */
 export default async function ActivityPage({ searchParams }: PageProps<'/app/workspace/activity'>) {
+    const { t } = await getAppI18n();
     const context = await requireTeamAdmin();
     const { after } = await searchParams;
     const [data, invitations, history] = await Promise.all([
@@ -21,7 +27,7 @@ export default async function ActivityPage({ searchParams }: PageProps<'/app/wor
     const names = await activityNames(context.workspace.id, history.events, data, invitations);
     return (
         <>
-            <WorkspaceTabHeader description="Who changed access to this workspace and its projects. Only admins see it; it is kept for 180 days." />
+            <WorkspaceTabHeader description={t("Who changed access to this workspace and its projects. Only admins see it; it is kept for 180 days.")} />
             <AccessActivity
                 events={history.events}
                 names={names}

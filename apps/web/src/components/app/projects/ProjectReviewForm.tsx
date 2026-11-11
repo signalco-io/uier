@@ -1,4 +1,6 @@
 'use client';
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 
 import { ToolbarFeaturesFields } from './ToolbarFeaturesFields';
 import type { ToolbarFeatureVisibility } from '@uier/toolbar/toolbar-features';
@@ -49,6 +51,7 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
     feedbackTypes?: DbProject['feedbackTypes'];
     workspaceTypes: FeedbackType[];
 }) {
+    const { t } = useAppI18n();
     const formId = useId();
     const [state, formAction, pending] = useActionState(updateProjectReviewAction, null);
     const saved = pageStatePolicy(policy);
@@ -74,7 +77,7 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
     return (
         <Section
             id="review"
-            title="Review"
+            title={t("Review")}
             stickyFooter
             footer={<SaveFooter formId={formId} state={state} pending={pending} dirty={dirty} onDiscard={discard} />}>
             <form id={formId} action={formAction} onResetCapture={keepValues}>
@@ -88,16 +91,16 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
                 <FieldGroup>
                     {/* The header's access label links here */}
                     <FieldSet id={projectAccessAnchor} className="scroll-mt-6">
-                        <FieldLegend variant="label">Who can comment</FieldLegend>
-                        <FieldDescription>Who can see and leave comments with the toolbar on your site.</FieldDescription>
-                        <RadioGroup value={draft.access} onValueChange={(next) => update(current => ({ ...current, access: next as ProjectAccess }))} aria-label="Who can comment">
+                        <FieldLegend variant="label">{t("Who can comment")}</FieldLegend>
+                        <FieldDescription>{t("Who can see and leave comments with the toolbar on your site.")}</FieldDescription>
+                        <RadioGroup value={draft.access} onValueChange={(next) => update(current => ({ ...current, access: next as ProjectAccess }))} aria-label={t("Who can comment")}>
                             {(['invited', 'guests', 'disabled'] as const).map(option => (
                                 <ChoiceCard
                                     key={option}
                                     id={`${formId}-${option}`}
                                     value={option}
-                                    title={projectAccessLabels[option].label}
-                                    description={projectAccessLabels[option].description}
+                                    title={t(projectAccessLabels[option].label)}
+                                    description={t(projectAccessLabels[option].description)}
                                     icon={<AccessIcon access={option} aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />} />
                             ))}
                         </RadioGroup>
@@ -105,52 +108,51 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
                     </FieldSet>
                     <FieldSeparator />
                     <Field>
-                        <FieldLabel htmlFor={`${formId}-toolbar-language`}>Toolbar language</FieldLabel>
-                        <Select value={draft.toolbarLanguage} items={languageOptions}
+                        <FieldLabel htmlFor={`${formId}-toolbar-language`}>{t("Toolbar language")}</FieldLabel>
+                        <Select value={draft.toolbarLanguage} items={languageOptions.map(option => ({ ...option, label: t(option.label) }))}
                             onValueChange={value => update(current => ({ ...current, toolbarLanguage: languageOptions.find(option => option.value === value)?.value ?? 'workspace' }))}>
                             <SelectTrigger id={`${formId}-toolbar-language`} className="w-full max-w-md">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectGroup>
-                                    {languageOptions.map(option => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                                    {languageOptions.map(option => <SelectItem key={option.value} value={option.value}>{t(option.label)}</SelectItem>)}
                                 </SelectGroup>
                             </SelectContent>
                         </Select>
-                        <FieldDescription>
-                            What reviewers see the toolbar in. People who choose their own language in the toolbar&apos;s Options keep it. Change the workspace default in <Link href={KnownPages.AppSettings} className="underline underline-offset-4 hover:text-foreground">Workspace settings</Link>.
+                        <FieldDescription>{t("What reviewers see the toolbar in. People who choose their own language in the toolbar's Options keep it. Change the workspace default in")}{' '}<Link href={KnownPages.AppSettings} className="underline underline-offset-4 hover:text-foreground">{t("Workspace settings")}</Link>.
                         </FieldDescription>
                     </Field>
                     <FieldSeparator />
                     <ToolbarFeaturesFields value={draft.toolbarFeatures} onChange={toolbarFeatures => update(current => ({ ...current, toolbarFeatures }))} guests={draft.access === 'guests'} disabled={pending} />
                     <FieldSeparator />
                     <Field>
-                        <FieldLabel htmlFor={`${formId}-brief`}>Review brief</FieldLabel>
+                        <FieldLabel htmlFor={`${formId}-brief`}>{t("Review brief")}</FieldLabel>
                         <Textarea id={`${formId}-brief`} name="brief" value={draft.brief} onChange={event => update(current => ({ ...current, brief: event.target.value }))}
-                            maxLength={MAX_PROJECT_BRIEF_LENGTH} rows={5} placeholder="What should reviewers look at?" aria-describedby={`${formId}-readers`} />
+                            maxLength={MAX_PROJECT_BRIEF_LENGTH} rows={5} placeholder={t("What should reviewers look at?")} aria-describedby={`${formId}-readers`} />
                         <FieldDescription id={`${formId}-readers`}>
                             {draft.access === 'disabled'
-                                ? 'Hidden while comments are off.'
-                                : draft.access === 'invited' ? 'Invited people read it in the toolbar.' : 'Anyone with the review link reads it in the toolbar.'}
-                            {' '}Plain text, up to {MAX_PROJECT_BRIEF_LENGTH} characters.
+                                ? t("Hidden while comments are off.")
+                                : draft.access === 'invited' ? t("Invited people read it in the toolbar.") : t("Anyone with the review link reads it in the toolbar.")}
+                            {' '}{t("Plain text, up to")}{' '}{MAX_PROJECT_BRIEF_LENGTH} characters.
                         </FieldDescription>
                     </Field>
                     <FieldSeparator />
                     <FieldSet>
-                        <FieldLegend variant="label">Feedback types</FieldLegend>
-                        <FieldDescription>The choices in Send feedback. Pinned comments and suggested rewrites stay available separately.</FieldDescription>
+                        <FieldLegend variant="label">{t("Feedback types")}</FieldLegend>
+                        <FieldDescription>{t("The choices in Send feedback. Pinned comments and suggested rewrites stay available separately.")}</FieldDescription>
                         <FieldGroup>
                             <Field>
-                                <FieldLabel htmlFor={`${formId}-feedback-types`}>Feedback type defaults</FieldLabel>
+                                <FieldLabel htmlFor={`${formId}-feedback-types`}>{t("Feedback type defaults")}</FieldLabel>
                                 <Select value={draft.feedbackTypesMode} items={[{ value: 'workspace', label: 'Workspace defaults' }, { value: 'replace', label: 'Project override' }]}
                                     onValueChange={mode => { if (mode) update(current => ({ ...current, feedbackTypesMode: mode })); }}>
                                     <SelectTrigger id={`${formId}-feedback-types`} className="w-full max-w-md"><SelectValue /></SelectTrigger>
                                     <SelectContent><SelectGroup>
-                                        <SelectItem value="workspace">Workspace defaults</SelectItem>
-                                        <SelectItem value="replace">Project override</SelectItem>
+                                        <SelectItem value="workspace">{t("Workspace defaults")}</SelectItem>
+                                        <SelectItem value="replace">{t("Project override")}</SelectItem>
                                     </SelectGroup></SelectContent>
                                 </Select>
-                                <FieldDescription>Workspace defaults follow future workspace changes. An override keeps this project's own list.</FieldDescription>
+                                <FieldDescription>{t("Workspace defaults follow future workspace changes. An override keeps this project's own list.")}</FieldDescription>
                             </Field>
                             <FeedbackTypesEditor value={draft.feedbackTypesMode === 'workspace' ? workspaceTypes : draft.feedbackTypes}
                                 onChange={types => update(current => ({ ...current, feedbackTypes: types }))} disabled={draft.feedbackTypesMode === 'workspace' || pending} />
@@ -159,23 +161,21 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
                     <FieldSeparator />
                     <Collapsible open={advanced} onOpenChange={setAdvanced} className="flex flex-col gap-4">
                         <CollapsibleTrigger render={<Button variant="ghost" size="sm" className="group/advanced h-auto self-start px-0 py-1 text-muted-foreground hover:bg-transparent hover:text-foreground aria-expanded:bg-transparent aria-expanded:text-foreground dark:hover:bg-transparent" />}>
-                            <ChevronRightIcon data-icon="inline-start" className="transition-transform group-data-panel-open/advanced:rotate-90" />
-                            Advanced
-                        </CollapsibleTrigger>
+                            <ChevronRightIcon data-icon="inline-start" className="transition-transform group-data-panel-open/advanced:rotate-90" />{t("Advanced")}</CollapsibleTrigger>
                         <CollapsibleContent>
                             <FieldSet>
-                                <FieldLegend variant="label">Page state</FieldLegend>
-                                <FieldDescription>Comments belong to the page path. Add the parts of the address that change what is on the page, so comments stay with that view.</FieldDescription>
+                                <FieldLegend variant="label">{t("Page state")}</FieldLegend>
+                                <FieldDescription>{t("Comments belong to the page path. Add the parts of the address that change what is on the page, so comments stay with that view.")}</FieldDescription>
                                 <FieldGroup>
                                     <Field>
-                                        <FieldLabel htmlFor={`${formId}-query`}>Meaningful query fields</FieldLabel>
+                                        <FieldLabel htmlFor={`${formId}-query`}>{t("Meaningful query fields")}</FieldLabel>
                                         <Input id={`${formId}-query`} value={draft.queryParameters} onChange={event => update(current => ({ ...current, queryParameters: event.target.value }))}
-                                            placeholder="category, sort, tab" className="font-mono text-[13px] md:text-[13px]" />
-                                        <FieldDescription>Up to 12 names, separated by commas. Tracking, identity and credential fields are left out, and so are values that look like emails, URLs or tokens.</FieldDescription>
-                                        {available.length > 0 && <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Query fields seen in recent comments">
-                                            <span className="text-sm text-muted-foreground">Seen in recent comments:</span>
+                                            placeholder={t("category, sort, tab")} className="font-mono text-[13px] md:text-[13px]" />
+                                        <FieldDescription>{t("Up to 12 names, separated by commas. Tracking, identity and credential fields are left out, and so are values that look like emails, URLs or tokens.")}</FieldDescription>
+                                        {available.length > 0 && <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("Query fields seen in recent comments")}>
+                                            <span className="text-sm text-muted-foreground">{t("Seen in recent comments:")}</span>
                                             {available.map(suggestion => <Button key={suggestion.key} variant="outline" size="xs"
-                                                title={`On ${suggestion.comments} recent ${suggestion.comments === 1 ? 'comment' : 'comments'}`}
+                                                title={t("On {value0} recent {value1}", { value0: suggestion.comments, value1: suggestion.comments === 1 ? 'comment' : 'comments' })}
                                                 onClick={() => update(current => ({ ...current, queryParameters: [...entered, suggestion.key].join(', ') }))}>
                                                 <PlusIcon data-icon="inline-start" /><span className="font-mono">{suggestion.key}</span>
                                             </Button>)}
@@ -183,7 +183,7 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
                                     </Field>
                                     <Field orientation="horizontal">
                                         <Checkbox id={`${formId}-hash`} checked={draft.hashRouting} onCheckedChange={value => update(current => ({ ...current, hashRouting: value === true }))} />
-                                        <FieldLabel htmlFor={`${formId}-hash`}>Use hash routes (#/page or #!/page)</FieldLabel>
+                                        <FieldLabel htmlFor={`${formId}-hash`}>{t("Use hash routes (#/page or #!/page)")}</FieldLabel>
                                     </Field>
                                 </FieldGroup>
                             </FieldSet>

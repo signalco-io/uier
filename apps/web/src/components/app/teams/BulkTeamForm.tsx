@@ -1,4 +1,6 @@
 'use client';
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 
 import { useState } from 'react';
 import { FieldGroup } from '@/src/components/ui/field';
@@ -10,6 +12,7 @@ import { ConfirmAccess } from './ConfirmAccess';
 import { Impact } from './AccessImpact';
 
 export function BulkTeamForm({ data, fromTeamId }: { data: AccessData; fromTeamId?: string }) {
+    const { t } = useAppI18n();
     const [people, setPeople] = useState<string[]>([]),
         [teams, setTeams] = useState<string[]>(fromTeamId ? [fromTeamId] : []);
     const [mode, setMode] = useState<'add' | 'remove'>('add');
@@ -19,7 +22,7 @@ export function BulkTeamForm({ data, fromTeamId }: { data: AccessData; fromTeamI
         <div className="flex flex-col gap-4">
             <FieldGroup>
                 <Choice
-                    label="Team change"
+                    label={t("Team change")}
                     value={mode}
                     onChange={(value) => setMode(value === 'remove' ? 'remove' : 'add')}
                     options={[
@@ -28,18 +31,18 @@ export function BulkTeamForm({ data, fromTeamId }: { data: AccessData; fromTeamI
                     ]}
                 />
                 <CheckList
-                    label="People"
-                    description={`Choose up to ${MAX_BULK_PEOPLE} accepted workspace members.`}
+                    label={t("People")}
+                    description={t("Choose up to {value0} accepted workspace members.", { value0: MAX_BULK_PEOPLE })}
                     value={people}
                     onChange={setPeople}
                     options={data.people.map((person) => ({ id: person.member.userId, name: person.name }))}
                 />
-                <CheckList label="Teams" value={teams} onChange={setTeams} options={data.access.teams} />
+                <CheckList label={t("Teams")} value={teams} onChange={setTeams} options={data.access.teams} />
             </FieldGroup>
             <ConfirmAccess
-                label="Review membership changes"
-                title="Change team membership?"
-                description="Each person is saved separately. Review lost and retained access across every affected project. Direct grants stay. No invitation is sent."
+                label={t("Review membership changes")}
+                title={t("Change team membership?")}
+                description={t("Each person is saved separately. Review lost and retained access across every affected project. Direct grants stay. No invitation is sent.")}
                 disabled={!people.length || !teams.length || people.length > MAX_BULK_PEOPLE}
                 action={async () => {
                     const result = await bulkTeamsAction(people, teams, mode, data.revision);
@@ -66,8 +69,8 @@ export function BulkTeamForm({ data, fromTeamId }: { data: AccessData; fromTeamI
                 <div role="status" className="text-sm">
                     {results.map((result) => (
                         <p key={result.userId}>
-                            {data.people.find((person) => person.member.userId === result.userId)?.name ?? 'Person'}:{' '}
-                            {result.ok ? 'Saved' : result.error}
+                            {data.people.find((person) => person.member.userId === result.userId)?.name ?? t("Person")}:{' '}
+                            {result.ok ? t("Saved") : result.error}
                         </p>
                     ))}
                 </div>

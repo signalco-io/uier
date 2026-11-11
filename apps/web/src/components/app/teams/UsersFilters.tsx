@@ -1,4 +1,6 @@
 'use client';
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 
 import { useOptimistic, useTransition } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -11,6 +13,7 @@ export type UsersFilter = 'relationship' | 'team' | 'state';
  * to tell apart. A choice shows at once while the list loads.
  */
 export function UsersFilters({ teams, show }: { teams: { id: string; name: string }[]; show: UsersFilter[] }) {
+    const { t } = useAppI18n();
     const params = useSearchParams(),
         pathname = usePathname(),
         router = useRouter();
@@ -23,7 +26,7 @@ export function UsersFilters({ teams, show }: { teams: { id: string; name: strin
     const filters = [
         {
             key: 'relationship',
-            label: 'Relationship',
+            label: t("Relationship"),
             options: [
                 { id: 'all', name: 'All relationships' },
                 { id: 'internal', name: 'Internal' },
@@ -31,10 +34,10 @@ export function UsersFilters({ teams, show }: { teams: { id: string; name: strin
                 { id: 'unspecified', name: 'Unspecified' }
             ]
         },
-        { key: 'team', label: 'Team', options: [{ id: 'all', name: 'All teams' }, ...teams] },
+        { key: 'team', label: t("Team"), options: [{ id: 'all', name: 'All teams' }, ...teams] },
         {
             key: 'state',
-            label: 'Invitation state',
+            label: t("Invitation state"),
             options: [
                 { id: 'all', name: 'People and invitations' },
                 { id: 'accepted', name: 'Accepted people' },
@@ -55,7 +58,7 @@ export function UsersFilters({ teams, show }: { teams: { id: string; name: strin
                 router.push(`${pathname}?${query}`);
             })}
         >
-            <SelectTrigger aria-label={filter.label} size="sm" className="w-48">
+            <SelectTrigger aria-label={t(filter.label)} size="sm" className="w-48">
                 <SelectValue />
             </SelectTrigger>
             <SelectContent>

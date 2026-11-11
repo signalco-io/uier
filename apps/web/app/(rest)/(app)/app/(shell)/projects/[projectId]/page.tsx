@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { KnownPageLinks } from '@/src/knownPages';
@@ -16,6 +18,7 @@ export async function generateMetadata({ params }: PageProps<'/app/projects/[pro
 
 /** The project's comments (the first tab) */
 export default async function ProjectPage({ params, searchParams }: PageProps<'/app/projects/[projectId]'>) {
+    const { t } = await getAppI18n();
     const { projectId } = await params;
     const context = await requireAppContext();
     const project = await getVisibleProject(context, projectId);
@@ -27,7 +30,7 @@ export default async function ProjectPage({ params, searchParams }: PageProps<'/
     return (
         <>
             <section id="comments" aria-labelledby="comments-title" className="flex scroll-mt-6 flex-col gap-4">
-                <h2 id="comments-title" className="sr-only">Comments</h2>
+                <h2 id="comments-title" className="sr-only">{t("Comments")}</h2>
                 <ProjectComments {...snapshot} installHref={KnownPageLinks.projectInstall(project.id)} />
             </section>
         </>

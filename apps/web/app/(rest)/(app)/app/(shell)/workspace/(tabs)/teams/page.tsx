@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ChevronRightIcon, SearchIcon, UsersIcon } from 'lucide-react';
@@ -18,7 +20,10 @@ import { listTeams } from '@/src/lib/app/teams';
 import { listInvitations } from '@/src/lib/app/invitations';
 import { KnownPages, KnownPageLinks } from '@/src/knownPages';
 
-export const metadata: Metadata = { title: 'Teams' };
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return { title: t("Teams") };
+}
 
 /** "3 people, 1 invited, 2 projects" */
 function countsText(people: number, invited: number, projects: number) {
@@ -31,6 +36,7 @@ function countsText(people: number, invited: number, projects: number) {
 
 /** The workspace's teams (active or archived, searchable) and creating one; the access history is the Activity tab */
 export default async function TeamsPage({ searchParams }: PageProps<'/app/workspace/teams'>) {
+    const { t } = await getAppI18n();
     const context = await requireTeamAdmin(),
         query = await searchParams;
     const text = (key: string) => (typeof query[key] === 'string' ? (query[key] as string) : undefined);
@@ -51,16 +57,16 @@ export default async function TeamsPage({ searchParams }: PageProps<'/app/worksp
     return (
         <>
             <WorkspaceTabHeader
-                description="Share selected projects with a group of people. Archived teams grant no access."
+                description={t("Share selected projects with a group of people. Archived teams grant no access.")}
                 actions={(
                     <>
                         {/* A team of people already in the workspace, with its projects: an occasional, longer flow */}
                         <Dialog>
-                            <DialogTrigger render={<Button variant="outline" />}>Group existing people</DialogTrigger>
+                            <DialogTrigger render={<Button variant="outline" />}>{t("Group existing people")}</DialogTrigger>
                             <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-xl">
                                 <DialogHeader>
-                                    <DialogTitle>Group existing people into a team</DialogTitle>
-                                    <DialogDescription>Choose people already in the workspace and the projects the team shares. Their own access stays.</DialogDescription>
+                                    <DialogTitle>{t("Group existing people into a team")}</DialogTitle>
+                                    <DialogDescription>{t("Choose people already in the workspace and the projects the team shares. Their own access stays.")}</DialogDescription>
                                 </DialogHeader>
                                 <CopyAccessToTeam data={data} />
                             </DialogContent>
@@ -71,7 +77,7 @@ export default async function TeamsPage({ searchParams }: PageProps<'/app/worksp
                 )}>
                 <div className="flex flex-wrap items-center gap-3">
                     <LinkTabs
-                        label="Team status"
+                        label={t("Team status")}
                         variant="segmented"
                         tabs={[
                             { href: stateHref('active'), label: 'Active', current: state === 'active' },
@@ -84,7 +90,7 @@ export default async function TeamsPage({ searchParams }: PageProps<'/app/worksp
                             <InputGroupAddon><SearchIcon aria-hidden="true" /></InputGroupAddon>
                             {/* `/` goes here from the page (`AppShortcuts`) */}
                             <InputGroupInput type="search" name="q" defaultValue={search} maxLength={80}
-                                aria-label="Search teams" placeholder="Search teams" data-shortcut-search="" />
+                                aria-label={t("Search teams")} placeholder={t("Search teams")} data-shortcut-search="" />
                         </InputGroup>
                     </form>
                 </div>
@@ -93,7 +99,7 @@ export default async function TeamsPage({ searchParams }: PageProps<'/app/worksp
                 {teams.length ? (
                     <div className="flex flex-col gap-3">
                         <Card className="gap-0 py-0">
-                            <ItemGroup aria-label={state === 'active' ? 'Active teams' : 'Archived teams'} className="gap-0 divide-y">
+                            <ItemGroup aria-label={state === 'active' ? t("Active teams") : t("Archived teams")} className="gap-0 divide-y">
                                 {teams.map(team => {
                                     const people = data.people.filter(person => person.member.teamIds?.includes(team.id)).length;
                                     const invited = invitations.filter(invitation => invitation.teamIds?.includes(team.id)).length;
@@ -105,7 +111,7 @@ export default async function TeamsPage({ searchParams }: PageProps<'/app/worksp
                                                 </ItemMedia>
                                                 <ItemContent className="min-w-0">
                                                     <ItemTitle className="max-w-full break-words">{team.name}</ItemTitle>
-                                                    {team.description && <ItemDescription className="truncate">{team.description}</ItemDescription>}
+                                                    {team.description && <ItemDescription className="truncate">{t(team.description)}</ItemDescription>}
                                                 </ItemContent>
                                                 <ItemActions className="ml-auto text-sm text-muted-foreground tabular-nums">
                                                     {countsText(people, invited, team.projectIds.length)}
@@ -118,7 +124,7 @@ export default async function TeamsPage({ searchParams }: PageProps<'/app/worksp
                             </ItemGroup>
                         </Card>
                         {next && (
-                            <Link href={`${KnownPages.AppTeams}?${nextQuery}`} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'self-center')}>Next teams page</Link>
+                            <Link href={`${KnownPages.AppTeams}?${nextQuery}`} className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'self-center')}>{t("Next teams page")}</Link>
                         )}
                     </div>
                 ) : (
@@ -128,14 +134,14 @@ export default async function TeamsPage({ searchParams }: PageProps<'/app/worksp
                                 <UsersIcon />
                             </EmptyMedia>
                             <EmptyTitle>
-                                {search ? 'No teams match this search' : state === 'archived' ? 'No archived teams' : 'No teams yet'}
+                                {search ? t("No teams match this search") : state === 'archived' ? t("No archived teams") : t("No teams yet")}
                             </EmptyTitle>
                             <EmptyDescription>
                                 {search
-                                    ? 'Try another name, or look in the other tab.'
+                                    ? t("Try another name, or look in the other tab.")
                                     : state === 'archived'
-                                        ? 'Teams you archive move here. They grant no access until you restore them.'
-                                        : 'A team shares the projects you choose with a group of people. Create a team, then add its people and projects.'}
+                                        ? t("Teams you archive move here. They grant no access until you restore them.")
+                                        : t("A team shares the projects you choose with a group of people. Create a team, then add its people and projects.")}
                             </EmptyDescription>
                         </EmptyHeader>
                     </Empty>

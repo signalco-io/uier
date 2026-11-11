@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { requireAppContext } from '@/src/lib/app/context';
@@ -7,9 +9,10 @@ import { listPageChecks } from '@/src/lib/pageChecks/store';
 import { pageCheckRow } from '@/src/lib/pageChecks/model';
 import { PageChecksView } from '@/src/components/app/pageChecks/PageChecksView';
 
-export const metadata: Metadata = {
-    title: 'Page checks'
-};
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return { title: t("Page checks") };
+}
 
 /**
  * The project's Page checks: what the toolbar's background checks found on each page its members

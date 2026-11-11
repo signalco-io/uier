@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { KeyRoundIcon } from 'lucide-react';
 import { browserSupportsWebAuthn, browserSupportsWebAuthnAutofill, startAuthentication, WebAuthnAbortService } from '@simplewebauthn/browser';
@@ -19,6 +21,7 @@ const subscribe = () => () => undefined;
  * a new challenge, which replaces the earlier one.
  */
 export function PasskeySignIn({ next, autofill, lastUsed }: { next?: string; autofill: boolean; lastUsed?: boolean }) {
+    const { t, language } = useAppI18n();
     // Rendered on the server as supported (nearly every browser is), so the card doesn't shift.
     const supported = useSyncExternalStore(subscribe, browserSupportsWebAuthn, () => true);
     const [error, setError] = useState<string>();
@@ -89,10 +92,9 @@ export function PasskeySignIn({ next, autofill, lastUsed }: { next?: string; aut
     return (
         <>
             <Button type="button" variant="outline" size="lg" className="relative w-full" disabled={pending} onClick={() => void signInWithButton()}
-                aria-label="Sign in with a passkey" aria-describedby={lastUsed ? LAST_USED_ID : undefined}>
+                aria-label={t("Sign in with a passkey")} aria-describedby={lastUsed ? LAST_USED_ID : undefined}>
                 {pending ? <Spinner data-icon="inline-start" /> : <KeyRoundIcon data-icon="inline-start" />}
-                Passkey
-                {lastUsed && <LastUsedBadge />}
+                {t("Passkey")}{' '}{lastUsed && <LastUsedBadge />}
             </Button>
             <FormMessage state={error ? { ok: false, error } : null} />
         </>

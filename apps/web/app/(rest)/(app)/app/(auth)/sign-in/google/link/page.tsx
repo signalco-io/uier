@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
@@ -19,23 +21,22 @@ export const metadata: Metadata = {
  * account already uses the address.
  */
 export default async function GoogleLinkPage() {
+    const { t, language } = await getAppI18n();
     const link = await getGoogleLink((await cookies()).get(GOOGLE_SIGN_IN_COOKIE_NAME)?.value);
 
     if (!link) {
         return (
-            <AuthCard title="This sign-in has expired" description="Start again with Google, or sign in with your email.">
-                <Link href={`${KnownPages.AppSignIn}?add=1`} className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'w-full')}>Sign in again</Link>
+            <AuthCard title={t("This sign-in has expired")} description={t("Start again with Google, or sign in with your email.")}>
+                <Link href={`${KnownPages.AppSignIn}?add=1`} className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'w-full')}>{t("Sign in again")}</Link>
             </AuthCard>
         );
     }
 
     return (
         <AuthCard
-            title="Confirm your email"
+            title={t("Confirm your email")}
             description={<>
-                Confirm <span className="font-medium text-foreground">{link.email}</span> once with an email code
-                to finish signing in with Google.
-            </>}>
+                {t("Confirm")}{' '}<span className="font-medium text-foreground">{link.email}</span> {t("once with an email code to finish signing in with Google.")}{' '}</>}>
             <GoogleLinkForm email={link.email} next={link.next} />
         </AuthCard>
     );

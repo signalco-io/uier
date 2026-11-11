@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { KnownPages } from '@/src/knownPages';
@@ -17,6 +19,7 @@ export const metadata: Metadata = {
  * workspace of its own, that workspace's stored name (Personal for newly created workspaces).
  */
 export default async function WelcomePage() {
+    const { t, language } = await getAppI18n();
     const context = await requireAppContext();
     const { user } = context;
     if (!user.welcomePending)
@@ -28,7 +31,7 @@ export default async function WelcomePage() {
     const workspaceName = workspace?.name;
 
     return (
-        <AuthCard title="Welcome to uier" description="Check how others see you. You can change this later.">
+        <AuthCard title={t("Welcome to uier")} description={t("Check how others see you. You can change this later.")}>
             <WelcomeForm name={name} workspaceName={workspaceName} />
         </AuthCard>
     );

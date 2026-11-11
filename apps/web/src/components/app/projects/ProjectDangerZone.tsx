@@ -1,4 +1,6 @@
 'use client';
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 
 import { useId, useRef, useState, useTransition, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
@@ -16,6 +18,7 @@ import { deleteProjectAction, transferProjectAction, setProjectStatusAction } fr
 import type { TransferPreview, TransferTarget } from '../../../lib/app/projectTransfer';
 
 export function ProjectStatusButton({ projectId, status }: { projectId: string; status: ProjectStatus }) {
+    const { t } = useAppI18n();
     const [pending, startTransition] = useTransition();
     const next: ProjectStatus = status === 'done' ? 'active' : 'done';
 
@@ -29,13 +32,14 @@ export function ProjectStatusButton({ projectId, status }: { projectId: string; 
     return (
         <Button variant="outline" disabled={pending} onClick={handleClick}>
             {pending && <Spinner data-icon="inline-start" />}
-            {status === 'done' ? 'Reopen project' : 'Mark as done'}
+            {status === 'done' ? t("Reopen project") : t("Mark as done")}
         </Button>
     );
 }
 
 /** Deletes the project once its name is typed; the server checks the admin role and the name again */
 export function DeleteProjectButton({ projectId, name }: { projectId: string; name: string }) {
+    const { t } = useAppI18n();
     const router = useRouter();
     const inputId = useId();
     const input = useRef<HTMLInputElement>(null);
@@ -53,7 +57,7 @@ export function DeleteProjectButton({ projectId, name }: { projectId: string; na
                 toast.error(result.error);
                 return;
             }
-            toast.success(`${name} was deleted.`);
+            toast.success(t("{value0} was deleted.", { value0: name }));
             router.push(KnownPages.AppProjects);
         });
     };
@@ -65,27 +69,23 @@ export function DeleteProjectButton({ projectId, name }: { projectId: string; na
             if (!next) setConfirmation('');
         }}>
             {/* Outlined like the row above; the variant's tinted fill leaves its red text under 4.5:1 */}
-            <AlertDialogTrigger render={<Button variant="outline" className={destructiveTextClassName} />}>Delete project</AlertDialogTrigger>
+            <AlertDialogTrigger render={<Button variant="outline" className={destructiveTextClassName} />}>{t("Delete project")}</AlertDialogTrigger>
             {/* Opens on the name field: typing it is the only way on */}
             <AlertDialogContent initialFocus={input}>
                 <form className="contents" onSubmit={handleSubmit}>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Delete {name}?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Its comments, screenshots, review links, access and integration settings are deleted, and the toolbar stops working on its sites. Copies already sent to Notion, GitHub, Linear, Azure DevOps or Slack stay there. This can&apos;t be undone.
-                        </AlertDialogDescription>
+                        <AlertDialogTitle>{t("Delete")}{' '}{name}?</AlertDialogTitle>
+                        <AlertDialogDescription>{t("Its comments, screenshots, review links, access and integration settings are deleted, and the toolbar stops working on its sites. Copies already sent to Notion, GitHub, Linear, Azure DevOps or Slack stay there. This can't be undone.")}</AlertDialogDescription>
                     </AlertDialogHeader>
                     <Field>
-                        <FieldLabel htmlFor={inputId}>Type the project name to confirm</FieldLabel>
+                        <FieldLabel htmlFor={inputId}>{t("Type the project name to confirm")}</FieldLabel>
                         <Input ref={input} id={inputId} value={confirmation} onChange={event => setConfirmation(event.target.value)}
                             placeholder={name} autoComplete="off" spellCheck={false} disabled={pending} />
                     </Field>
                     <AlertDialogFooter>
-                        <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel disabled={pending}>{t("Cancel")}</AlertDialogCancel>
                         <Button type="submit" variant="outline" className={destructiveTextClassName} disabled={!confirmed || pending}>
-                            {pending && <Spinner data-icon="inline-start" />}
-                            Delete project
-                        </Button>
+                            {pending && <Spinner data-icon="inline-start" />}{t("Delete project")}</Button>
                     </AlertDialogFooter>
                 </form>
             </AlertDialogContent>
@@ -114,6 +114,7 @@ export function transferStaysBehind({ integrations, people, teams, invitations }
  * checks both roles and the name again. Afterwards the app opens the project in that workspace.
  */
 export function TransferProjectButton({ projectId, name, targets, preview }: { projectId: string; name: string; targets: TransferTarget[]; preview: TransferPreview }) {
+    const { t } = useAppI18n();
     const router = useRouter();
     const formId = useId();
     const input = useRef<HTMLInputElement>(null);
@@ -133,7 +134,7 @@ export function TransferProjectButton({ projectId, name, targets, preview }: { p
                 toast.error(result.error);
                 return;
             }
-            toast.success(`${name} is in ${target.name} now.`);
+            toast.success(t("{value0} is in {value1} now.", { value0: name, value1: target.name }));
             router.push(KnownPageLinks.project(projectId));
         });
     };
@@ -144,23 +145,21 @@ export function TransferProjectButton({ projectId, name, targets, preview }: { p
             setOpen(next);
             if (!next) setConfirmation('');
         }}>
-            <AlertDialogTrigger render={<Button variant="outline" disabled={!targets.length} />}>Transfer project</AlertDialogTrigger>
+            <AlertDialogTrigger render={<Button variant="outline" disabled={!targets.length} />}>{t("Transfer project")}</AlertDialogTrigger>
             {/* With one workspace to choose, typing the name is the only step left */}
             <AlertDialogContent initialFocus={targets.length === 1 ? input : undefined} className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
                 <form className="contents" onSubmit={handleSubmit}>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Transfer {name}?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            It moves with its comments, replies, screenshots, read state, review links and settings.{preview.client ? ` Its client, ${preview.client}, becomes that workspace's client with the same name.` : ''} Its address in the app stays the same. In the new workspace, admins and people with access to all projects can open it.
-                        </AlertDialogDescription>
+                        <AlertDialogTitle>{t("Transfer")}{' '}{name}?</AlertDialogTitle>
+                        <AlertDialogDescription>{t("It moves with its comments, replies, screenshots, read state, review links and settings.")}{preview.client ? t(" Its client, {value0}, becomes that workspace's client with the same name.", { value0: preview.client }) : ''}{' '}{t("Its address in the app stays the same. In the new workspace, admins and people with access to all projects can open it.")}</AlertDialogDescription>
                     </AlertDialogHeader>
                     <FieldGroup>
                         <Field>
-                            <FieldLabel htmlFor={`${formId}-workspace`}>Workspace</FieldLabel>
+                            <FieldLabel htmlFor={`${formId}-workspace`}>{t("Workspace")}</FieldLabel>
                             <Select value={workspaceId} onValueChange={value => setWorkspaceId(typeof value === 'string' ? value : '')} disabled={pending}
                                 items={targets.map(option => ({ value: option.id, label: option.name }))}>
                                 <SelectTrigger id={`${formId}-workspace`} className="w-full">
-                                    <SelectValue placeholder="Choose a workspace" />
+                                    <SelectValue placeholder={t("Choose a workspace")} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectGroup>
@@ -170,23 +169,21 @@ export function TransferProjectButton({ projectId, name, targets, preview }: { p
                             </Select>
                         </Field>
                         <div className="flex flex-col gap-1.5">
-                            <h3 id={`${formId}-behind`} className="m-0 text-sm font-medium">Stays in this workspace</h3>
+                            <h3 id={`${formId}-behind`} className="m-0 text-sm font-medium">{t("Stays in this workspace")}</h3>
                             <ul aria-labelledby={`${formId}-behind`} className="m-0 flex list-disc flex-col gap-1 pl-5 text-sm text-muted-foreground">
                                 {transferStaysBehind(preview).map(line => <li key={line}>{line}</li>)}
                             </ul>
                         </div>
                         <Field>
-                            <FieldLabel htmlFor={`${formId}-name`}>Type the project name to confirm</FieldLabel>
+                            <FieldLabel htmlFor={`${formId}-name`}>{t("Type the project name to confirm")}</FieldLabel>
                             <Input ref={input} id={`${formId}-name`} value={confirmation} onChange={event => setConfirmation(event.target.value)}
                                 placeholder={name} autoComplete="off" spellCheck={false} disabled={pending} />
                         </Field>
                     </FieldGroup>
                     <AlertDialogFooter>
-                        <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel disabled={pending}>{t("Cancel")}</AlertDialogCancel>
                         <Button type="submit" disabled={!confirmed || pending}>
-                            {pending && <Spinner data-icon="inline-start" />}
-                            Transfer project
-                        </Button>
+                            {pending && <Spinner data-icon="inline-start" />}{t("Transfer project")}</Button>
                     </AlertDialogFooter>
                 </form>
             </AlertDialogContent>

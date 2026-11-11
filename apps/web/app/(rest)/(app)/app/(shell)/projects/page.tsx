@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import type { Metadata } from 'next';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import Link from 'next/link';
@@ -22,11 +24,13 @@ import { CommentCountBubble } from '@/src/components/app/projects/CommentCountBu
 import { ReviewLinksMenu } from '@/src/components/app/projects/ReviewLinksMenu';
 import { AccessIcon, projectAccessLabels } from '@/src/components/app/projects/projectLabels';
 
-export const metadata: Metadata = {
-    title: 'Projects'
-};
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return { title: t("Projects") };
+}
 
 export default async function ProjectsPage({ searchParams }: PageProps<'/app/projects'>) {
+    const { t } = await getAppI18n();
     const context = await requireAppContext();
     const canManageProjects = context.isAdmin && context.workspace.id !== PUBLIC_WORKSPACE_ID;
     const { status: statusParam, client: clientParam } = await searchParams;
@@ -60,9 +64,7 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
         [project.id, (await loadProjectUsage(context, project)).open] as const)));
     const createProject = canManageProjects && (
         <Link href={KnownPages.AppNewProject} className={buttonVariants()}>
-            <PlusIcon data-icon="inline-start" />
-            Create project
-        </Link>
+            <PlusIcon data-icon="inline-start" />{t("Create project")}</Link>
     );
 
     // One status's list, or its empty state
@@ -70,7 +72,7 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
         <ProjectStatusPanel status={listStatus}>
             {shown.length ? (
                 // As many 18rem columns as the page's width holds (the sidebar takes part of a window), up to three
-                <ul aria-label={`${listStatus === 'done' ? 'Done' : 'Active'} projects`} className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(min(18rem,100%),1fr))] gap-4 p-0">
+                <ul aria-label={`${listStatus === 'done' ? t("Done") : t("Active")} projects`} className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(min(18rem,100%),1fr))] gap-4 p-0">
                     {shown.map(project => {
                         const open = openCounts.get(project.id) ?? 0;
                         const access = projectAccessLabels[project.access];
@@ -101,12 +103,12 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
                                             {projectClientSummary && (
                                                 <span className="flex min-w-0 items-center gap-1.5">
                                                     <ClientMark client={projectClientSummary} />
-                                                    <span className="truncate">Client: {projectClientSummary.name}</span>
+                                                    <span className="truncate">{t("Client:")}{' '}{projectClientSummary.name}</span>
                                                 </span>
                                             )}
                                             <span className="flex min-w-0 items-center gap-1.5">
                                                 <AccessIcon access={project.access} className="size-4 shrink-0" aria-hidden="true" />
-                                                <span className="truncate">{access.label}</span>
+                                                <span className="truncate">{t(access.label)}</span>
                                             </span>
                                             {/* The number inside a comment bubble at the line's right end, so it never wraps on its own; none open shows no bubble */}
                                             {open > 0 && <CommentCountBubble count={open} className="ml-auto" />}
@@ -123,23 +125,21 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
                         <EmptyMedia variant="icon">
                             <FolderOpenIcon />
                         </EmptyMedia>
-                        <EmptyTitle>{listStatus === 'done' ? 'No done projects' : 'No active projects'}</EmptyTitle>
+                        <EmptyTitle>{listStatus === 'done' ? t("No done projects") : t("No active projects")}</EmptyTitle>
                         <EmptyDescription>
                             {client
-                                ? 'No projects match this client and status. Choose another filter to see more projects.'
+                                ? t("No projects match this client and status. Choose another filter to see more projects.")
                                 : listStatus === 'done'
-                                ? 'Projects you mark as done move here. You can reopen them any time.'
+                                ? t("Projects you mark as done move here. You can reopen them any time.")
                                 : canManageProjects
-                                    ? 'Create a project for the site you want to review, then add one script tag to it.'
-                                    : 'Projects you are invited to show up here.'}
+                                    ? t("Create a project for the site you want to review, then add one script tag to it.")
+                                    : t("Projects you are invited to show up here.")}
                         </EmptyDescription>
                     </EmptyHeader>
                     {listStatus === 'active' && canManageProjects && (
                         <EmptyContent>
                             <Link href={KnownPages.AppNewProject} className={buttonVariants()}>
-                                <PlusIcon data-icon="inline-start" />
-                                Create project
-                            </Link>
+                                <PlusIcon data-icon="inline-start" />{t("Create project")}</Link>
                         </EmptyContent>
                     )}
                 </Empty>
@@ -150,7 +150,7 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
     return (
         <>
             <PageHeader
-                title="Projects"
+                title={t("Projects")}
                 // The empty active list has its own Create project
                 actions={createProject && (lists.active.length > 0 ? createProject : <ProjectStatusPanel status="done">{createProject}</ProjectStatusPanel>)}>
                 <div className="flex flex-wrap items-center gap-3">

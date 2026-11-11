@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useActionState } from 'react';
 import { Button } from '@/src/components/ui/button';
 import { Spinner } from '@/src/components/ui/spinner';
@@ -8,6 +10,7 @@ import { acceptInvitationAction } from './actions';
 
 /** Accepting takes a click, like signing in: email scanners open links before people do */
 export function AcceptInvitationForm({ token }: { token: string }) {
+    const { t, language } = useAppI18n();
     const [state, formAction, pending] = useActionState(acceptInvitationAction, null);
     return (
         <form action={formAction} className="flex flex-col gap-4">
@@ -15,8 +18,7 @@ export function AcceptInvitationForm({ token }: { token: string }) {
             <FormMessage state={state} />
             <Button type="submit" size="lg" className="w-full" disabled={pending}>
                 {pending && <Spinner data-icon="inline-start" />}
-                Accept invitation
-            </Button>
+                {t("Accept invitation")}{' '}</Button>
         </form>
     );
 }

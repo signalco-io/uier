@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Badge } from '@/src/components/ui/badge';
@@ -24,6 +26,7 @@ import { feedbackStages } from '@uier/toolbar/verification';
  * install guide is one (until the site sends its first comment), above its comments, install guide or settings
  */
 export default async function ProjectLayout({ children, params }: LayoutProps<'/app/projects/[projectId]'>) {
+    const { t } = await getAppI18n();
     const { projectId } = await params;
     const context = await requireAppContext();
     const project = await getVisibleProject(context, projectId);
@@ -40,8 +43,8 @@ export default async function ProjectLayout({ children, params }: LayoutProps<'/
     // the statuses, then Archive, a 3rem strip while collapsed and a column like the others when expanded
     const columns = feedbackStages.length;
     const boardWidths = {
-        '--board-width-collapsed': `calc(${columns} * 20rem + ${columns}rem + 3rem)`,
-        '--board-width-expanded': `calc(${columns + 1} * 20rem + ${columns}rem)`
+        t("--board-width-collapsed"): `calc(${columns} * 20rem + ${columns}rem + 3rem)`,
+        t("--board-width-expanded"): `calc(${columns + 1} * 20rem + ${columns}rem)`
     };
 
     return (
@@ -64,7 +67,7 @@ export default async function ProjectLayout({ children, params }: LayoutProps<'/
                                 href={KnownPageLinks.clientProjects(client.id, project.status === 'done' ? 'done' : 'active')}
                                 className="flex min-w-0 items-center gap-1.5 rounded-sm underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring">
                                 <ClientMark client={clientSummary(client)} />
-                                <span className="min-w-0 break-words">Client: {client.name}</span>
+                                <span className="min-w-0 break-words">{t("Client:")}{' '}{client.name}</span>
                             </Link>
                         )}
                         {/* Who can comment, with the guest links and (for admins) Invite in its popover; admins follow it to the setting */}
@@ -74,9 +77,7 @@ export default async function ProjectLayout({ children, params }: LayoutProps<'/
                         </ProjectAccessInfo>
                         {project.status === 'done' && (
                             <Badge variant="outline" className="gap-1.5">
-                                <span aria-hidden="true" className="size-1.5 rounded-full bg-[hsl(var(--brand-success))]" />
-                                Done
-                            </Badge>
+                                <span aria-hidden="true" className="size-1.5 rounded-full bg-[hsl(var(--brand-success))]" />{t("Done")}</Badge>
                         )}
                     </span>
                 )}

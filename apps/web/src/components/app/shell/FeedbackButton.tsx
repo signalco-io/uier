@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { MegaphoneIcon } from 'lucide-react';
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@/src/components/ui/sidebar';
 import { openToolbarFeedback } from '../../toolbar/ToolbarScript';
@@ -9,6 +11,7 @@ import { openToolbarFeedback } from '../../toolbar/ToolbarScript';
  * pages it is private to the person and the uier team (`isPrivateAppFeedback`).
  */
 export function FeedbackButton() {
+    const { t, language } = useAppI18n();
     const { isMobile, setOpenMobile } = useSidebar();
 
     const handleClick = () => {
@@ -30,7 +33,7 @@ export function FeedbackButton() {
             <SidebarMenuItem>
                 <SidebarMenuButton tooltip="Give feedback" onClick={handleClick}>
                     <MegaphoneIcon />
-                    <span>Give feedback</span>
+                    <span>{t("Give feedback")}</span>
                 </SidebarMenuButton>
             </SidebarMenuItem>
         </SidebarMenu>

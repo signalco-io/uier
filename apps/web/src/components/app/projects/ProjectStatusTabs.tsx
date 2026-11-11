@@ -1,4 +1,6 @@
 'use client';
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 
 import type { ReactNode } from 'react';
 import { useUrlSearchParams } from '@/src/hooks/use-url-search-params';
@@ -15,10 +17,11 @@ export function useProjectStatus(): ProjectStatus {
  * the other list shows at once, with no request and no spinner, and Back, Forward and reload keep it.
  */
 export function ProjectStatusTabs({ hrefs, counts }: { hrefs: Record<ProjectStatus, string>; counts: Record<ProjectStatus, number> }) {
+    const { t } = useAppI18n();
     const status = useProjectStatus();
     return (
         <LinkTabs
-            label="Project status"
+            label={t("Project status")}
             variant="segmented"
             tabs={[
                 { href: hrefs.active, label: 'Active', count: counts.active, current: status === 'active', query: { status: undefined } },

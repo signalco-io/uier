@@ -1,4 +1,6 @@
 'use client';
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 
 import { useActionState, useId, useState } from 'react';
 import Link from 'next/link';
@@ -15,25 +17,24 @@ import { KnownPageLinks } from '@/src/knownPages';
 import { saveTeamAction } from './actions';
 
 export function TeamEditor({ team }: { team?: DbTeam }) {
+    const { t } = useAppI18n();
     const id = useId();
     const [state, action, pending] = useActionState(saveTeamAction, null);
     const [name, setName] = useState(team?.name ?? ''),
         [description, setDescription] = useState(team?.description ?? '');
     return (
         <Dialog>
-            <DialogTrigger render={<Button variant={team ? 'outline' : 'default'} />}>{team ? 'Edit team' : 'Create team'}</DialogTrigger>
+            <DialogTrigger render={<Button variant={team ? 'outline' : 'default'} />}>{team ? t("Edit team") : t("Create team")}</DialogTrigger>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>{team ? 'Edit team' : 'Create team'}</DialogTitle>
-                    <DialogDescription>
-                        Teams share selected projects with a group. New teams start empty.
-                    </DialogDescription>
+                    <DialogTitle>{team ? t("Edit team") : t("Create team")}</DialogTitle>
+                    <DialogDescription>{t("Teams share selected projects with a group. New teams start empty.")}</DialogDescription>
                 </DialogHeader>
                 <form action={action} className="flex flex-col gap-4">
                     {team && <input type="hidden" name="id" value={team.id} />}
                     <FieldGroup>
                         <Field>
-                            <FieldLabel htmlFor={`${id}-name`}>Team name</FieldLabel>
+                            <FieldLabel htmlFor={`${id}-name`}>{t("Team name")}</FieldLabel>
                             <Input
                                 id={`${id}-name`}
                                 name="name"
@@ -44,7 +45,7 @@ export function TeamEditor({ team }: { team?: DbTeam }) {
                             />
                         </Field>
                         <Field>
-                            <FieldLabel htmlFor={`${id}-description`}>Description</FieldLabel>
+                            <FieldLabel htmlFor={`${id}-description`}>{t("Description")}</FieldLabel>
                             <Textarea
                                 id={`${id}-description`}
                                 name="description"
@@ -56,12 +57,11 @@ export function TeamEditor({ team }: { team?: DbTeam }) {
                     </FieldGroup>
                     <FormMessage state={state} />
                     {state?.ok && (
-                        <Link href={KnownPageLinks.team(state.data)} className={buttonVariants()}>Open team</Link>
+                        <Link href={KnownPageLinks.team(state.data)} className={buttonVariants()}>{t("Open team")}</Link>
                     )}
                     <DialogFooter>
                         <Button disabled={pending} type="submit">
-                            {pending && <Spinner />}Save team
-                        </Button>
+                            {pending && <Spinner />}{t("Save team")}</Button>
                     </DialogFooter>
                 </form>
             </DialogContent>

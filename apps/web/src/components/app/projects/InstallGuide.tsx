@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import { BrowserExtensionGuide } from './BrowserExtensionGuide';
 import type { ReactNode } from 'react';
 import { ChevronRightIcon } from 'lucide-react';
@@ -61,7 +63,8 @@ const platforms: Platform[] = [
 ];
 
 /** One numbered step, joined to the next by a line */
-function Step({ number, title, last = false, children }: { number: number; title: string; last?: boolean; children: ReactNode }) {
+async function Step({ number, title, last = false, children }: { number: number; title: string; last?: boolean; children: ReactNode }) {
+    const { t } = await getAppI18n();
     return (
         <li className="relative flex gap-4 pb-10 last:pb-0">
             {!last && <span aria-hidden="true" className="absolute top-9 bottom-1 left-3.5 w-px bg-border" />}
@@ -70,7 +73,7 @@ function Step({ number, title, last = false, children }: { number: number; title
             </span>
             <div className="flex min-w-0 flex-1 flex-col gap-3 pt-0.5">
                 <h2 className="m-0 text-base leading-6 font-semibold tracking-[-0.01em]">
-                    <span className="sr-only">Step {number}: </span>
+                    <span className="sr-only">{t("Step")}{' '}{number}: </span>
                     {title}
                 </h2>
                 {children}
@@ -80,12 +83,12 @@ function Step({ number, title, last = false, children }: { number: number; title
 }
 
 /** A quiet disclosure for what most sites do not need: "Advanced: ..." with a chevron */
-function Advanced({ title, children }: { title: string; children: ReactNode }) {
+async function Advanced({ title, children }: { title: string; children: ReactNode }) {
+    const { t } = await getAppI18n();
     return (
         <Collapsible className="flex flex-col gap-2">
             <CollapsibleTrigger render={<Button variant="ghost" size="sm" className="group/advanced h-auto self-start px-0 py-1 text-muted-foreground hover:bg-transparent hover:text-foreground aria-expanded:bg-transparent aria-expanded:text-foreground dark:hover:bg-transparent" />}>
-                <ChevronRightIcon data-icon="inline-start" className="transition-transform group-data-panel-open/advanced:rotate-90" />
-                Advanced: {title}
+                <ChevronRightIcon data-icon="inline-start" className="transition-transform group-data-panel-open/advanced:rotate-90" />{t("Advanced:")}{' '}{title}
             </CollapsibleTrigger>
             <CollapsibleContent className="flex flex-col gap-3">
                 {children}
@@ -95,43 +98,40 @@ function Advanced({ title, children }: { title: string; children: ReactNode }) {
 }
 
 /** The CSP sources, and where the platform's site sets its policy */
-function SecurityHeaders({ baseUrl, platform }: { baseUrl: string; platform: Platform }) {
+async function SecurityHeaders({ baseUrl, platform }: { baseUrl: string; platform: Platform }) {
+    const { t } = await getAppI18n();
     return (
-        <Advanced title="security headers">
+        <Advanced title={t("security headers")}>
             <p className="m-0 text-sm text-muted-foreground">
-                {platform.csp} Without them the browser blocks the toolbar.
-            </p>
-            <CopyBlock value={cspSnippet(baseUrl)} label="Copy the CSP sources" />
-            <p className="m-0 text-sm text-muted-foreground">
-                The font is optional: when it is blocked the toolbar uses the system font.
-            </p>
+                {platform.csp}{' '}{t("Without them the browser blocks the toolbar.")}</p>
+            <CopyBlock value={cspSnippet(baseUrl)} label={t("Copy the CSP sources")} />
+            <p className="m-0 text-sm text-muted-foreground">{t("The font is optional: when it is blocked the toolbar uses the system font.")}</p>
         </Advanced>
     );
 }
 
 /** The script to copy (the one place the project's code shows), with the pinned version in Advanced */
-export function ScriptSnippet({ baseUrl, publicId }: { baseUrl: string; publicId: string }) {
+export async function ScriptSnippet({ baseUrl, publicId }: { baseUrl: string; publicId: string }) {
+    const { t } = await getAppI18n();
     return (
         <div className="flex flex-col gap-3">
-            <CopyBlock value={embedScript(baseUrl, publicId)} label="Copy the script" />
-            <Advanced title="pin this version">
-                <p className="m-0 text-sm text-muted-foreground">
-                    This version includes an integrity check. It gets fixes only when you update the snippet.
-                    Pinned production bundles work with the review API for one year after their last release as the current version.
-                </p>
-                <CopyBlock value={embedScript(baseUrl, publicId, 'pinned')} label="Copy the pinned script" />
+            <CopyBlock value={embedScript(baseUrl, publicId)} label={t("Copy the script")} />
+            <Advanced title={t("pin this version")}>
+                <p className="m-0 text-sm text-muted-foreground">{t("This version includes an integrity check. It gets fixes only when you update the snippet. Pinned production bundles work with the review API for one year after their last release as the current version.")}</p>
+                <CopyBlock value={embedScript(baseUrl, publicId, 'pinned')} label={t("Copy the pinned script")} />
             </Advanced>
         </div>
     );
 }
 
 /** Where the script goes on the common platforms, each with its own snippet and CSP sources (in Advanced) */
-export function PlatformSteps({ baseUrl, publicId }: { baseUrl: string; publicId: string }) {
+export async function PlatformSteps({ baseUrl, publicId }: { baseUrl: string; publicId: string }) {
+    const { t } = await getAppI18n();
     return (
         <Tabs defaultValue="html" className="gap-3">
-            <TabsList aria-label="Platform" className="flex-wrap justify-start group-data-horizontal/tabs:h-auto">
+            <TabsList aria-label={t("Platform")} className="flex-wrap justify-start group-data-horizontal/tabs:h-auto">
                 {platforms.map(platform => (
-                    <TabsTrigger key={platform.id} value={platform.id} className="flex-none">{platform.label}</TabsTrigger>
+                    <TabsTrigger key={platform.id} value={platform.id} className="flex-none">{t(platform.label)}</TabsTrigger>
                 ))}
             </TabsList>
             {platforms.map(platform => (
@@ -140,10 +140,10 @@ export function PlatformSteps({ baseUrl, publicId }: { baseUrl: string; publicId
                         {platform.steps.map(step => <li key={step}>{step}</li>)}
                     </ol>
                     {platform.code && (<>
-                        <CopyBlock value={platform.code(baseUrl, publicId)} label={`Copy the ${platform.label} code`} />
-                        <Advanced title={`pin the ${platform.label} version`}>
-                            <p className="m-0 text-sm text-muted-foreground">It gets fixes only when you update the snippet.</p>
-                            <CopyBlock value={platform.code(baseUrl, publicId, 'pinned')} label={`Copy the pinned ${platform.label} code`} />
+                        <CopyBlock value={platform.code(baseUrl, publicId)} label={t("Copy the {value0} code", { value0: platform.label })} />
+                        <Advanced title={t("pin the {value0} version", { value0: platform.label })}>
+                            <p className="m-0 text-sm text-muted-foreground">{t("It gets fixes only when you update the snippet.")}</p>
+                            <CopyBlock value={platform.code(baseUrl, publicId, 'pinned')} label={t("Copy the pinned {value0} code", { value0: platform.label })} />
                         </Advanced>
                     </>)}
                     <SecurityHeaders baseUrl={baseUrl} platform={platform} />
@@ -154,11 +154,9 @@ export function PlatformSteps({ baseUrl, publicId }: { baseUrl: string; publicId
 }
 
 /** What the script does, said once wherever it is offered */
-export function ScriptDescription() {
-    return <>
-        Paste it before the closing <code className="font-mono">&lt;/body&gt;</code> tag on every page you want to review.
-        It loads the toolbar only when a page is opened with a review link, so visitors never see it.
-    </>;
+export async function ScriptDescription() {
+    const { t } = await getAppI18n();
+    return <>{t("Paste it before the closing")}{' '}<code className="font-mono">&lt;/body&gt;</code>{' '}{t("tag on every page you want to review. It loads the toolbar only when a page is opened with a review link, so visitors never see it.")}</>;
 }
 
 /**
@@ -166,27 +164,26 @@ export function ScriptDescription() {
  * are where and how to add it on the common platforms (with the CSP sources, in Advanced), then opening a
  * review link (`reviewStep`) and checking the installation. Onboarding shows the same parts one step at a time.
  */
-export function InstallGuide({ baseUrl, projectId, publicId, urls, reviewStep }: { baseUrl: string; projectId: string; publicId: string; urls: string[]; reviewStep: ReactNode }) {
+export async function InstallGuide({ baseUrl, projectId, publicId, urls, reviewStep }: { baseUrl: string; projectId: string; publicId: string; urls: string[]; reviewStep: ReactNode }) {
+    const { t } = await getAppI18n();
     return (
         <Tabs defaultValue="script" className="gap-6">
-            <TabsList aria-label="Review installation method">
-                <TabsTrigger value="script">Install the script</TabsTrigger>
-                <TabsTrigger value="extension">Use browser extension</TabsTrigger>
+            <TabsList aria-label={t("Review installation method")}>
+                <TabsTrigger value="script">{t("Install the script")}</TabsTrigger>
+                <TabsTrigger value="extension">{t("Use browser extension")}</TabsTrigger>
             </TabsList>
             <TabsContent value="extension"><BrowserExtensionGuide /></TabsContent>
             <TabsContent value="script">
             <ol className="m-0 flex list-none flex-col p-0">
-                <Step number={1} title="Copy the script">
+                <Step number={1} title={t("Copy the script")}>
                     <p className="m-0 text-sm text-muted-foreground"><ScriptDescription /></p>
                     <ScriptSnippet baseUrl={baseUrl} publicId={publicId} />
                 </Step>
-                <Step number={2} title="Add it to your site">
+                <Step number={2} title={t("Add it to your site")}>
                     <PlatformSteps baseUrl={baseUrl} publicId={publicId} />
                 </Step>
-                <Step number={3} title="Open a review link" last>
-                    <p className="m-0 text-sm text-muted-foreground">
-                        Once the script is live, a review link opens your site with the toolbar. Pin a comment and it shows up in the app.
-                    </p>
+                <Step number={3} title={t("Open a review link")} last>
+                    <p className="m-0 text-sm text-muted-foreground">{t("Once the script is live, a review link opens your site with the toolbar. Pin a comment and it shows up in the app.")}</p>
                     {reviewStep}
                     <InstallationCheck key={urls.join('\0')} projectId={projectId} publicId={publicId} urls={urls} />
                 </Step>

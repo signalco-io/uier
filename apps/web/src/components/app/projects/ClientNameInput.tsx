@@ -1,4 +1,6 @@
 'use client';
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 
 import { PlusIcon } from 'lucide-react';
 import { Autocomplete, AutocompleteContent, AutocompleteEmpty, AutocompleteInput, AutocompleteItem, AutocompleteList } from '@/src/components/ui/autocomplete';
@@ -16,21 +18,22 @@ export function ClientNameInput({ id, value, onValueChange, clients, className }
     clients: string[];
     className?: string;
 }) {
+    const { t } = useAppI18n();
     if (!clients.length) {
         return (
             <Input id={id} name="clientName" value={value} onChange={event => onValueChange(event.target.value)}
-                maxLength={MAX_CLIENT_NAME_LENGTH} placeholder="Who the site is for, e.g. Acme" className={className} />
+                maxLength={MAX_CLIENT_NAME_LENGTH} placeholder={t("Who the site is for, e.g. Acme")} className={className} />
         );
     }
 
     return (
         <Autocomplete items={clients} value={value} onValueChange={onValueChange} openOnInputClick>
             <AutocompleteInput id={id} name="clientName" maxLength={MAX_CLIENT_NAME_LENGTH} className={className}
-                placeholder="Choose a client or type a new one" triggerLabel="Show clients" />
+                placeholder={t("Choose a client or type a new one")} triggerLabel={t("Show clients")} />
             <AutocompleteContent>
                 <AutocompleteEmpty>
                     <PlusIcon aria-hidden="true" />
-                    <span className="min-w-0 truncate">New client</span>
+                    <span className="min-w-0 truncate">{t("New client")}</span>
                 </AutocompleteEmpty>
                 <AutocompleteList>
                     {(client: string) => <AutocompleteItem key={client} value={client}>{client}</AutocompleteItem>}

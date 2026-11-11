@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useState } from 'react';
 import { CheckIcon, CopyIcon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -8,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/too
 
 /** Code (mono, machine-written) with a copy button */
 export function CopyBlock({ value, label }: { value: string; label: string }) {
+    const { t, language } = useAppI18n();
     const [copied, setCopied] = useState(false);
 
     const copy = async () => {
@@ -16,7 +19,7 @@ export function CopyBlock({ value, label }: { value: string; label: string }) {
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
         } catch {
-            toast.error('Couldn\'t copy. Select the text and copy it instead.');
+            toast.error(t("Couldn't copy. Select the text and copy it instead."));
         }
     };
 
@@ -30,10 +33,10 @@ export function CopyBlock({ value, label }: { value: string; label: string }) {
                     <TooltipTrigger render={<Button variant="ghost" size="icon-sm" aria-label={label} onClick={copy} />}>
                         {copied ? <CheckIcon /> : <CopyIcon />}
                     </TooltipTrigger>
-                    <TooltipContent>{copied ? 'Copied' : 'Copy'}</TooltipContent>
+                    <TooltipContent>{copied ? t("Copied") : t("Copy")}</TooltipContent>
                 </Tooltip>
             </div>
-            <span role="status" className="sr-only">{copied ? 'Copied' : ''}</span>
+            <span role="status" className="sr-only">{copied ? t("Copied") : ''}</span>
         </div>
     );
 }

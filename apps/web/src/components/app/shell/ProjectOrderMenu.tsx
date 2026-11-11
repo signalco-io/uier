@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { ArrowUpDownIcon } from 'lucide-react';
 import {
     DropdownMenu,
@@ -39,28 +41,29 @@ export function ProjectOrderMenu({ order, onChange, canGroupByClient, className 
     canGroupByClient: boolean;
     className?: string;
 }) {
+    const { t, language } = useAppI18n();
     const groupings = projectGroupings.filter(group => group !== 'client' || canGroupByClient);
     // Grouped by client without any client, the list is not grouped: show that
-    const group = groupings.includes(order.group) ? order.group : 'none';
+    const group = groupings.includes(order.group) ? order.group : "none";
     return (
         <DropdownMenu>
             <Tooltip>
                 <TooltipTrigger render={<DropdownMenuTrigger render={<SidebarGroupAction className={cn('text-sidebar-foreground/70', className)} />} />}>
                     <ArrowUpDownIcon />
-                    <span className="sr-only">Sort and group projects</span>
+                    <span className="sr-only">{t("Sort and group projects")}</span>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">Sort and group projects</TooltipContent>
+                <TooltipContent side="bottom">{t("Sort and group projects")}</TooltipContent>
             </Tooltip>
             <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuRadioGroup value={order.sort} onValueChange={(sort: ProjectSort) => onChange({ ...order, sort })}>
-                    <DropdownMenuLabel>Sort</DropdownMenuLabel>
+                    <DropdownMenuLabel>{t("Sort")}</DropdownMenuLabel>
                     {projectSorts.map(sort => (
                         <DropdownMenuRadioItem key={sort} value={sort}>{sortLabels[sort]}</DropdownMenuRadioItem>
                     ))}
                 </DropdownMenuRadioGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuRadioGroup value={group} onValueChange={(next: ProjectGrouping) => onChange({ ...order, group: next })}>
-                    <DropdownMenuLabel>Group</DropdownMenuLabel>
+                    <DropdownMenuLabel>{t("Group")}</DropdownMenuLabel>
                     {groupings.map(grouping => (
                         <DropdownMenuRadioItem key={grouping} value={grouping}>{groupLabels[grouping]}</DropdownMenuRadioItem>
                     ))}

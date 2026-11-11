@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import { workspaceFeedbackTypes } from '@/src/lib/app/feedbackTypes';
 import { WorkspaceFeedbackTypesForm } from './WorkspaceFeedbackTypesForm';
 import type { Metadata } from 'next';
@@ -15,19 +17,21 @@ import { WorkspaceRewriteInstructionsForm } from './WorkspaceRewriteInstructions
 import { workspaceToolbarLanguage } from '@/src/lib/app/toolbarLanguage';
 import { WorkspaceToolbarLanguageForm } from './WorkspaceToolbarLanguageForm';
 
-export const metadata: Metadata = {
-    title: 'Workspace settings'
-};
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return { title: t("Workspace settings") };
+}
 
 /** The current workspace's own settings, for its admins (the uier workspace is managed by uier) */
 export default async function WorkspaceSettingsPage() {
+    const { t } = await getAppI18n();
     const context = await requireAdminContext();
     if (context.workspace.id === PUBLIC_WORKSPACE_ID)
         redirect(KnownPages.AppProjects);
 
     return (
         <div className="flex max-w-3xl flex-col">
-            <WorkspaceTabHeader description="Settings for everyone in this workspace." />
+            <WorkspaceTabHeader description={t("Settings for everyone in this workspace.")} />
             <div className="flex flex-col gap-6">
                 <WorkspaceNameForm name={context.workspace.name} />
                 <WorkspaceToolbarLanguageForm language={workspaceToolbarLanguage(context.workspace)} />

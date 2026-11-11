@@ -1,4 +1,6 @@
 'use client';
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 
 import { useTransition } from 'react';
 import Link from 'next/link';
@@ -26,6 +28,7 @@ export function ProjectActionsMenu({ projectId, projectName, status, className }
     status: ProjectStatus;
     className?: string;
 }) {
+    const { t } = useAppI18n();
     const router = useRouter();
     const [pending, startTransition] = useTransition();
     const openInvite = useInvite();
@@ -36,42 +39,32 @@ export function ProjectActionsMenu({ projectId, projectName, status, className }
             toast.error(result.error);
             return;
         }
-        toast.success(next === 'done' ? `${projectName} is marked as done.` : `${projectName} is active again.`);
+        toast.success(next === 'done' ? t("{value0} is marked as done.", { value0: projectName }) : t("{value0} is active again.", { value0: projectName }));
         router.refresh();
     });
 
     return (
         <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" disabled={pending} aria-label={`More actions for ${projectName}`} className={className} />}>
+            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" disabled={pending} aria-label={t("More actions for {value0}", { value0: projectName })} className={className} />}>
                 <MoreHorizontalIcon />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-44">
                 <DropdownMenuGroup>
                     <DropdownMenuItem onClick={() => openInvite(projectId)}>
-                        <UserPlusIcon />
-                        Invite people
-                    </DropdownMenuItem>
+                        <UserPlusIcon />{t("Invite people")}</DropdownMenuItem>
                     <DropdownMenuItem render={<Link href={KnownPageLinks.projectInstall(projectId)} />}>
-                        <CodeIcon />
-                        Install script
-                    </DropdownMenuItem>
+                        <CodeIcon />{t("Install script")}</DropdownMenuItem>
                     <DropdownMenuItem render={<Link href={KnownPageLinks.projectSettings(projectId)} />}>
-                        <SettingsIcon />
-                        Settings
-                    </DropdownMenuItem>
+                        <SettingsIcon />{t("Settings")}</DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
                     {status === 'done' ? (
                         <DropdownMenuItem onClick={() => setStatus('active')}>
-                            <Undo2Icon />
-                            Reopen
-                        </DropdownMenuItem>
+                            <Undo2Icon />{t("Reopen")}</DropdownMenuItem>
                     ) : (
                         <DropdownMenuItem onClick={() => setStatus('done')}>
-                            <CheckIcon />
-                            Mark as done
-                        </DropdownMenuItem>
+                            <CheckIcon />{t("Mark as done")}</DropdownMenuItem>
                     )}
                 </DropdownMenuGroup>
             </DropdownMenuContent>

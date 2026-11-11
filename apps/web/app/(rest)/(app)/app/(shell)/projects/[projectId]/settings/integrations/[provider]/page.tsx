@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -39,6 +41,7 @@ export async function generateMetadata({ params }: PageProps<'/app/projects/[pro
  * features of its public page). The connect and callback routes come back here with their outcome (`?github=connected`).
  */
 export default async function ProjectIntegrationSettingsPage({ params, searchParams }: PageProps<'/app/projects/[projectId]/settings/integrations/[provider]'>) {
+    const { t } = await getAppI18n();
     const { projectId, provider } = await params;
     if (!isIntegrationProvider(provider))
         notFound();
@@ -55,7 +58,7 @@ export default async function ProjectIntegrationSettingsPage({ params, searchPar
 
     return (
         <>
-            <Link href={KnownPageLinks.projectSettings(project.id, 'integrations')} className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), '-mb-2 -ml-2.5 w-fit')}><ArrowLeft data-icon="inline-start" />All integrations</Link>
+            <Link href={KnownPageLinks.projectSettings(project.id, 'integrations')} className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }), '-mb-2 -ml-2.5 w-fit')}><ArrowLeft data-icon="inline-start" />{t("All integrations")}</Link>
             <IntegrationSection provider={provider} project={project} userId={context.user.id} outcome={value(provider)} githubSetup={value('githubSetup')} />
             {connection && adapter?.supportsStatusSync && <TwoWaySync key={connection.id} projectId={project.id} provider={provider}
                 enabled={connection.twoWaySync === true} canEnable={adapter!.isConfigured() && connection.status === 'connected' && !needsMapping}

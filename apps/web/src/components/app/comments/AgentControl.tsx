@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useId, useRef, useState, useTransition, type FormEvent } from 'react';
 import { useAgentWorking } from '@uier/toolbar/agent-working';
 import { toast } from 'sonner';
@@ -45,6 +47,7 @@ function agentView(input: AssigneeAgentInput): AssigneeAgentView {
  * names do not know shows as it is, in mono (BRAND.md: mono means machine).
  */
 function AgentDetails({ agent }: { agent: AssigneeAgentView }) {
+    const { t } = useAppI18n();
     const known = agent.model ? modelName(agent.model) !== undefined : false;
     return <>
         {agent.model && (
@@ -54,8 +57,8 @@ function AgentDetails({ agent }: { agent: AssigneeAgentView }) {
         )}
         {agent.reasoning && <>
             <span aria-hidden="true" className="shrink-0 text-xs text-muted-foreground">·</span>
-            <span data-agent-reasoning="" title={reasoningText(agent.reasoning)} className="min-w-0 truncate text-xs text-muted-foreground">{agent.reasoning}</span>
-            <span className="sr-only">reasoning</span>
+            <span data-agent-reasoning="" title={t("{level} reasoning", { level: agent.reasoning })} className="min-w-0 truncate text-xs text-muted-foreground">{agent.reasoning}</span>
+            <span className="sr-only">{t("reasoning")}</span>
         </>}
     </>;
 }
@@ -74,6 +77,7 @@ export function AgentControl({ projectId, comment, assignee, editable }: { proje
 }
 
 function SingleAgentControl({ projectId, comment, assignee, agent, editable, adding = false }: { projectId: string; comment: ProjectCommentView; assignee: ProjectAssignee; agent?: AssigneeAgentView; editable: boolean; adding?: boolean }) {
+    const { t } = useAppI18n();
     const [pending, start] = useTransition();
     const update = useCommentUpdate();
     const attempt = useRef<{ value: string; key: string } | null>(null);
@@ -89,7 +93,7 @@ function SingleAgentControl({ projectId, comment, assignee, agent, editable, add
         if (!agent) return null;
         return (
             <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
-                <span className="text-muted-foreground">with</span>
+                <span className="text-muted-foreground">{t("with")}</span>
                 <AgentAvatar kind={agent.kind} workingUntil={agent.workingUntil} className="size-4" />
                 <span className="shrink-0">{agent.label}</span>
                 <AgentDetails agent={agent} />
@@ -111,10 +115,10 @@ function SingleAgentControl({ projectId, comment, assignee, agent, editable, add
         const rollback = () => update({ id: comment.id, patch: { assignees: previous, assignee: previous[0] } });
         try {
             const result = await setCommentAgentAction(projectId, comment.id, next, attempt.current.key, agent?.id, adding);
-            if (!result?.ok) { rollback(); return result?.error ?? 'Could not change the agent. Try again.'; }
+            if (!result?.ok) { rollback(); return result?.error ?? t("Could not change the agent. Try again."); }
             attempt.current = null;
             return undefined;
-        } catch { rollback(); return 'Could not change the agent. Try again.'; }
+        } catch { rollback(); return t("Could not change the agent. Try again."); }
     };
     const choose = (kind: AgentKind) => start(async () => {
         if (kind === agent?.kind) return;
@@ -133,7 +137,7 @@ function SingleAgentControl({ projectId, comment, assignee, agent, editable, add
     const saveDetails = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         if (!agent) return;
-        if (details.sessionUrl && !agentSessionLink(details.sessionUrl)) { setError('Use a supported desktop session link.'); return; }
+        if (details.sessionUrl && !agentSessionLink(details.sessionUrl)) { setError(t("Use a supported desktop session link.")); return; }
         start(async () => {
             const failed = await save({ kind: agent.kind, sessionId: details.sessionId, sessionUrl: details.sessionUrl, model: details.model, reasoning: details.reasoning });
             if (failed) { setError(failed); return; }
@@ -143,11 +147,11 @@ function SingleAgentControl({ projectId, comment, assignee, agent, editable, add
 
     return (
         <>
-            {agent && <span aria-hidden="true" className="text-muted-foreground">with</span>}
+            {agent && <span aria-hidden="true" className="text-muted-foreground">{t("with")}</span>}
             <DropdownMenu>
                 <DropdownMenuTrigger ref={trigger} render={<Button variant="ghost" size="sm" disabled={pending}
-                    aria-label={agent ? `Agent: ${agent.label}. Change agent` : undefined}
-                    aria-description={working ? `${agent?.label} is working now` : undefined}
+                    aria-label={agent ? t("Agent: {value0}. Change agent", { value0: agent.label }) : undefined}
+                    aria-description={working ? t("{value0} is working now", { value0: agent?.label }) : undefined}
                     className={agent ? 'h-7 min-w-0 max-w-full gap-1.5 px-1.5 font-normal pointer-coarse:min-h-11' : 'h-7 gap-1 px-1.5 font-normal text-muted-foreground hover:text-foreground pointer-coarse:min-h-11'} />}>
                     {agent ? <>
                         <AgentAvatar kind={agent.kind} workingUntil={agent.workingUntil} className="size-4" />
@@ -156,12 +160,12 @@ function SingleAgentControl({ projectId, comment, assignee, agent, editable, add
                         {pending && <Spinner data-icon="inline-end" />}
                     </> : <>
                         {pending ? <Spinner data-icon="inline-start" /> : <PlusIcon aria-hidden="true" data-icon="inline-start" />}
-                        Add agent
+                        {t("Add agent")}
                     </>}
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="min-w-52">
                     <DropdownMenuGroup>
-                        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Agent working with you</DropdownMenuLabel>
+                        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">{t("Agent working with you")}</DropdownMenuLabel>
                         <DropdownMenuRadioGroup value={agent?.kind ?? ''}>
                             {agentKinds.map(kind => (
                                 <DropdownMenuRadioItem key={kind} value={kind} closeOnClick className="pointer-coarse:min-h-11" onClick={() => choose(kind)}>
@@ -174,8 +178,8 @@ function SingleAgentControl({ projectId, comment, assignee, agent, editable, add
                     {agent && (
                         <>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="pointer-coarse:min-h-11" onClick={openDetails}>Session and model</DropdownMenuItem>
-                            <DropdownMenuItem className="pointer-coarse:min-h-11" onClick={remove}>Remove agent</DropdownMenuItem>
+                            <DropdownMenuItem className="pointer-coarse:min-h-11" onClick={openDetails}>{t("Session and model")}</DropdownMenuItem>
+                            <DropdownMenuItem className="pointer-coarse:min-h-11" onClick={remove}>{t("Remove agent")}</DropdownMenuItem>
                         </>
                     )}
                 </DropdownMenuContent>
@@ -185,40 +189,40 @@ function SingleAgentControl({ projectId, comment, assignee, agent, editable, add
                 <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md" finalFocus={trigger}>
                     <form onSubmit={saveDetails} className="flex flex-col gap-6">
                         <DialogHeader>
-                            <DialogTitle>{agent?.label ?? 'Agent'} details</DialogTitle>
-                            <DialogDescription>Agents usually fill these in when they start. Change them only when they are missing or wrong.</DialogDescription>
+                            <DialogTitle>{t("{agent} details", { agent: agent?.label ?? t("Agent") })}</DialogTitle>
+                            <DialogDescription>{t("Agents usually fill these in when they start. Change them only when they are missing or wrong.")}</DialogDescription>
                         </DialogHeader>
                         <FieldGroup>
                             <Field>
-                                <FieldLabel htmlFor={`${ids}-session`}>Session id</FieldLabel>
+                                <FieldLabel htmlFor={`${ids}-session`}>{t("Session id")}</FieldLabel>
                                 <Input id={`${ids}-session`} value={details.sessionId} maxLength={MAX_AGENT_SESSION_LENGTH} autoComplete="off" spellCheck={false}
                                     className="font-mono" onChange={event => setDetails(current => ({ ...current, sessionId: event.target.value }))} />
                             </Field>
                             <Field>
-                                <FieldLabel htmlFor={`${ids}-session-url`}>Session link</FieldLabel>
+                                <FieldLabel htmlFor={`${ids}-session-url`}>{t("Session link")}</FieldLabel>
                                 <Input id={`${ids}-session-url`} value={details.sessionUrl} maxLength={MAX_AGENT_SESSION_URL_LENGTH} autoComplete="off" spellCheck={false}
                                     aria-describedby={`${ids}-session-url-description`} className="font-mono"
                                     onChange={event => setDetails(current => ({ ...current, sessionUrl: event.target.value }))} />
-                                <FieldDescription id={`${ids}-session-url-description`}>An existing T3 Code, Codex or Claude desktop session link, supplied by the agent.</FieldDescription>
+                                <FieldDescription id={`${ids}-session-url-description`}>{t("An existing T3 Code, Codex or Claude desktop session link, supplied by the agent.")}</FieldDescription>
                                 <AgentSessionLink sessionUrl={details.sessionUrl} />
                             </Field>
                             <Field>
-                                <FieldLabel htmlFor={`${ids}-model`}>Model</FieldLabel>
+                                <FieldLabel htmlFor={`${ids}-model`}>{t("Model")}</FieldLabel>
                                 <Input id={`${ids}-model`} value={details.model} maxLength={MAX_AGENT_MODEL_LENGTH} autoComplete="off" spellCheck={false}
                                     className="font-mono" onChange={event => setDetails(current => ({ ...current, model: event.target.value }))} />
                             </Field>
                             <Field>
-                                <FieldLabel htmlFor={`${ids}-reasoning`}>Reasoning level</FieldLabel>
+                                <FieldLabel htmlFor={`${ids}-reasoning`}>{t("Reasoning level")}</FieldLabel>
                                 <Input id={`${ids}-reasoning`} value={details.reasoning} maxLength={MAX_AGENT_REASONING_LENGTH} autoComplete="off" spellCheck={false}
                                     aria-describedby={`${ids}-reasoning-description`} className="font-mono"
                                     onChange={event => setDetails(current => ({ ...current, reasoning: event.target.value }))} />
-                                <FieldDescription id={`${ids}-reasoning-description`}>As the agent names it, for example high or xhigh.</FieldDescription>
+                                <FieldDescription id={`${ids}-reasoning-description`}>{t("As the agent names it, for example high or xhigh.")}</FieldDescription>
                             </Field>
                             {error && <FieldError>{error}</FieldError>}
                         </FieldGroup>
                         <DialogFooter>
-                            <DialogClose render={<Button variant="outline" disabled={pending} />}>Cancel</DialogClose>
-                            <Button type="submit" disabled={pending}>{pending && <Spinner data-icon="inline-start" />}Save</Button>
+                            <DialogClose render={<Button variant="outline" disabled={pending} />}>{t("Cancel")}</DialogClose>
+                            <Button type="submit" disabled={pending}>{pending && <Spinner data-icon="inline-start" />}{t("Save")}</Button>
                         </DialogFooter>
                     </form>
                 </DialogContent>

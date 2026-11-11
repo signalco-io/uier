@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useId, useState } from 'react';
 import { ChevronsLeftRightEllipsisIcon, ChevronsRightLeftIcon } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
@@ -40,13 +42,14 @@ const codeClassName = 'font-mono text-xs break-all text-muted-foreground';
  * assistive tech reads it and copying a selection copies it.
  */
 export function SelectorCode({ selector, className }: { selector: string; className?: string }) {
+    const { t } = useAppI18n();
     const [expanded, setExpanded] = useState(false);
     const id = useId();
     const parts = shortSelector(selector);
     if (!parts)
         return <code className={cn(codeClassName, className)}>{selector}</code>;
 
-    const action = expanded ? 'Shorten selector' : 'Show full selector';
+    const action = expanded ? t("Shorten selector") : t("Show full selector");
     return (
         <span className={className}>
             <code id={id} className={codeClassName}>

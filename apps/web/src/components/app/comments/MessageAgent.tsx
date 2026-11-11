@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { agentModelText, modelName, reasoningText } from '@uier/toolbar/agents';
 import { Button } from '@/src/components/ui/button';
 import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/src/components/ui/item';
@@ -14,18 +16,19 @@ import { AgentAvatar, AgentMark } from './AgentAvatar';
  * reported id as its title; an unknown id as it is, in mono), the reasoning level it gave and the connection it came through. The message is still the person's: they edit and delete it as their own.
  */
 export function MessageAgent({ author }: { author: ProjectCommentAuthor }) {
+    const { t } = useAppI18n();
     const agent = author.agent;
     if (!agent) return null;
     return (
         <Popover>
             <PopoverTrigger {...hoverPopoverTrigger} render={<Button variant="ghost" size="xs" data-message-agent={agent.kind}
                 className="shrink-0 gap-1 px-1 font-normal text-muted-foreground hover:text-foreground pointer-coarse:min-h-11" />}>
-                via
+                {t("via")}
                 <AgentMark kind={agent.kind} className="size-3.5 text-foreground" />
                 <span className="text-foreground">{agent.label}</span>
             </PopoverTrigger>
             <PopoverContent align="start" aria-label={`${agent.label} details`} className="w-72 gap-3 p-3">
-                <p className="m-0 text-sm">{agent.label} wrote this for {author.isMe ? 'you' : author.name}.</p>
+                <p className="m-0 text-sm">{agent.label}{t(" wrote this for ")}{author.isMe ? 'you' : author.name}.</p>
                 <Item size="xs" variant="muted">
                     <ItemMedia><AgentAvatar kind={agent.kind} className="size-8" /></ItemMedia>
                     <ItemContent className="min-w-0">
@@ -34,11 +37,11 @@ export function MessageAgent({ author }: { author: ProjectCommentAuthor }) {
                             ? <ItemDescription data-agent-model="" title={agent.model} className={modelName(agent.model) ? 'truncate' : 'truncate font-mono'}>
                                 {agentModelText({ label: agent.label, model: agent.model })}
                             </ItemDescription>
-                            : <ItemDescription className="truncate">No model given</ItemDescription>}
+                            : <ItemDescription className="truncate">{t("No model given")}</ItemDescription>}
                         {agent.reasoning && <ItemDescription className="truncate">{reasoningText(agent.reasoning)}</ItemDescription>}
                     </ItemContent>
                 </Item>
-                {agent.connection && <p className="m-0 text-xs break-words text-muted-foreground">Connection: {agent.connection}</p>}
+                {agent.connection && <p className="m-0 text-xs break-words text-muted-foreground">{t("Connection: ")}{agent.connection}</p>}
             </PopoverContent>
         </Popover>
     );

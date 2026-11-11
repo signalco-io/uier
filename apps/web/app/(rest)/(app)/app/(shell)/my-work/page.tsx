@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import type { Metadata } from 'next';
 import { AtSignIcon, CircleCheckIcon, MailIcon, UserIcon } from 'lucide-react';
 import { requireAppContext } from '@/src/lib/app/context';
@@ -6,9 +8,10 @@ import { PageHeader } from '@/src/components/app/PageHeader';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
 import { MyWorkKeys, MyWorkList } from '@/src/components/app/comments/MyWorkList';
 
-export const metadata: Metadata = {
-    title: 'My work'
-};
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return { title: t("My work") };
+}
 
 function Group({ id, title, description, icon, items }: { id: string; title: string; description: string; icon: React.ReactNode; items: MyWorkItem[] }) {
     if (!items.length) return null;
@@ -27,29 +30,30 @@ function Group({ id, title, description, icon, items }: { id: string; title: str
 
 /** What needs the signed-in member across the workspace's projects they can see */
 export default async function MyWorkPage() {
+    const { t } = await getAppI18n();
     const context = await requireAppContext();
     const { assigned, mentions, unread, capped } = await loadMyWork(context);
     const empty = !assigned.length && !mentions.length && !unread.length;
     return (
         <>
-            <PageHeader title="My work" description={`Threads that need you in ${context.workspace.name}: assigned to you, mentioning you, or with activity you have not read.`} />
+            <PageHeader title={t("My work")} description={t("Threads that need you in {value0}: assigned to you, mentioning you, or with activity you have not read.", { value0: context.workspace.name })} />
             {empty ? (
                 <Empty className="border">
                     <EmptyHeader>
                         <EmptyMedia variant="icon"><CircleCheckIcon /></EmptyMedia>
-                        <EmptyTitle>Nothing needs you</EmptyTitle>
-                        <EmptyDescription>Threads assigned to you, threads that mention you and unread activity show here.</EmptyDescription>
+                        <EmptyTitle>{t("Nothing needs you")}</EmptyTitle>
+                        <EmptyDescription>{t("Threads assigned to you, threads that mention you and unread activity show here.")}</EmptyDescription>
                     </EmptyHeader>
                 </Empty>
             ) : (
                 // J and K go to the next and the previous row across the groups
                 <MyWorkKeys>
-                    <Group id="my-work-assigned" title="Assigned to you" description="Open threads you are the assignee of" icon={<UserIcon />} items={assigned} />
-                    <Group id="my-work-mentions" title="Mentions you" description="Open threads whose messages mention you" icon={<AtSignIcon />} items={mentions} />
-                    <Group id="my-work-unread" title="Unread" description="Other threads with activity you have not read" icon={<MailIcon />} items={unread} />
+                    <Group id="my-work-assigned" title={t("Assigned to you")} description={t("Open threads you are the assignee of")} icon={<UserIcon />} items={assigned} />
+                    <Group id="my-work-mentions" title={t("Mentions you")} description={t("Open threads whose messages mention you")} icon={<AtSignIcon />} items={mentions} />
+                    <Group id="my-work-unread" title={t("Unread")} description={t("Other threads with activity you have not read")} icon={<MailIcon />} items={unread} />
                 </MyWorkKeys>
             )}
-            {capped && <p className="mt-4 text-sm text-muted-foreground">Each project lists up to its 1,000 most recent threads here.</p>}
+            {capped && <p className="mt-4 text-sm text-muted-foreground">{t("Each project lists up to its 1,000 most recent threads here.")}</p>}
         </>
     );
 }

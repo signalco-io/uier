@@ -1,4 +1,6 @@
 'use client';
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 
 import { useState } from 'react';
 import { InstallationCheck } from './InstallationCheck';
@@ -16,12 +18,13 @@ export function InstallationCheckStep({ projectId, publicId, urls, back, skip, n
     skip: string;
     next: string;
 }) {
+    const { t } = useAppI18n();
     const [confirmed, setConfirmed] = useState(false);
     return (
         <OnboardingStepCard
             id="check-installation"
-            title="Check installation"
-            description="Open your site to check that the toolbar loads and connects. Leave the new window open until the check finishes."
+            title={t("Check installation")}
+            description={t("Open your site to check that the toolbar loads and connects. Leave the new window open until the check finishes.")}
             back={back}
             skip={skip}
             next={{ href: next, label: 'Next', primary: confirmed }}>

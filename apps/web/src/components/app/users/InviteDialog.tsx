@@ -1,4 +1,6 @@
 'use client';
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 
 import { createContext, use, useState, type PropsWithChildren } from 'react';
 import { UserPlusIcon } from 'lucide-react';
@@ -67,12 +69,11 @@ export function InviteButton({ projectId, teamId, variant = 'default', size, cla
     size?: 'sm' | 'default';
     className?: string;
 }) {
+    const { t } = useAppI18n();
     const context = use(InviteContext);
     if (!context?.enabled) return null;
     return (
         <Button variant={variant} size={size} className={className} onClick={() => context.open(projectId, teamId)}>
-            <UserPlusIcon data-icon="inline-start" />
-            Invite
-        </Button>
+            <UserPlusIcon data-icon="inline-start" />{t("Invite")}</Button>
     );
 }

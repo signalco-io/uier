@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { type RefObject, useMemo, useState, useSyncExternalStore, useTransition } from 'react';
 import { useAttachedImage } from '@uier/toolbar/attachments';
 import { ReplyAttachment } from './ReplyAttachment';
@@ -26,6 +28,7 @@ export function ReplyComposer({ projectId, userId, userName, comment, textareaRe
     textareaRef?: RefObject<HTMLTextAreaElement | null>;
     onClose: () => void;
 }) {
+    const { t } = useAppI18n();
     const drafts = useMemo(() => appCommentDrafts(projectId, userId, comment.id), [projectId, userId, comment.id]);
     const key = 'reply';
     const text = useSyncExternalStore(listener => drafts.subscribe(key, listener), () => drafts.get(key) ?? '', () => '');
@@ -56,25 +59,25 @@ export function ReplyComposer({ projectId, userId, userName, comment, textareaRe
         const idempotencyKey = drafts.attempt(key, JSON.stringify({ ...input, image: sentImage?.key }));
         const sendId = drafts.startSend(key, sentText, sentMentions);
         setError(undefined);
-        setAnnouncement('Sending reply...');
+        setAnnouncement(t("Sending reply..."));
         attachment.remove();
         startTransition(async () => {
             let saved = false;
             try {
                 await drafts.run(key, async () => {
-                    update({ id: comment.id, reply: { id: `pending-${sendId}`, author: { name: userName ?? 'You', isMe: true }, text: input.text,
+                    update({ id: comment.id, reply: { id: `pending-${sendId}`, author: { name: userName ?? t("You"), isMe: true }, text: input.text,
                         mentions: input.mentions.map(({ start, end }) => ({ start, end })), createdAt: new Date().toISOString(), deleted: false, edited: false, canDelete: false, canFilterAuthor: false, pending: true }, previousReplyIds: comment.replies.map(item => item.id) });
                     const result = await replyCommentAction({ ...input, idempotencyKey, screenshot: sentImage?.dataUrl });
-                    if (!result?.ok) throw new Error(result?.error ?? 'Could not post the reply. Try again.');
+                    if (!result?.ok) throw new Error(result?.error ?? t("Could not post the reply. Try again."));
                 });
                 saved = true;
-                setAnnouncement('Reply posted');
+                setAnnouncement(t("Reply posted"));
             } catch (failure) {
                 if (sentImage) attachment.restore(sentImage);
-                const message = failure instanceof Error ? failure.message : 'Could not post the reply. Try again.';
+                const message = failure instanceof Error ? failure.message : t("Could not post the reply. Try again.");
                 setError(message);
-                toast.error('Your reply was not posted.', { description: `${message} Your draft is kept.` });
-                setAnnouncement('Reply not posted. Your draft is kept.');
+                toast.error(t("Your reply was not posted."), { description: t("{value0} Your draft is kept.", { value0: message }) });
+                setAnnouncement(t("Reply not posted. Your draft is kept."));
             } finally {
                 drafts.settleSend(key, sendId, saved);
                 setStorageAvailable(drafts.available());
@@ -82,16 +85,16 @@ export function ReplyComposer({ projectId, userId, userName, comment, textareaRe
         });
     };
 
-    return <MessageComposer label="Reply" formLabel="Reply to thread" name="reply" placeholder="Reply..."
+    return <MessageComposer label={t("Reply")} formLabel="Reply to thread" name="reply" placeholder={t("Reply...")}
         value={text} mentions={mentions} onValueChange={setText} mentionsIn={{ projectId, commentId: comment.id }} maxLength={maxLength} textareaRef={textareaRef}
         attachments={<ReplyAttachment attachment={attachment} />} onPaste={attachment.handlePaste} holdSubmit={attachment.reading}
-        submitLabel="Post reply" submitVerb="send" onSubmit={submit} pending={pending}
-        cancelLabel="Close reply" onCancel={onClose}
-        onDiscard={() => { attachment.remove(); drafts.delete(key); setError(undefined); setAnnouncement('Draft discarded'); }}
-        error={attachment.error || (error && `${error} Your draft is kept. Try sending again.`)} announcement={announcement}
+        submitLabel={t("Post reply")} submitVerb="send" onSubmit={submit} pending={pending}
+        cancelLabel={t("Close reply")} onCancel={onClose}
+        onDiscard={() => { attachment.remove(); drafts.delete(key); setError(undefined); setAnnouncement(t("Draft discarded")); }}
+        error={attachment.error || (error && t("{value0} Your draft is kept. Try sending again.", { value0: error }))} announcement={announcement}
         notices={<>
-            {!storageAvailable && <FieldDescription role="status">Browser storage is unavailable. Keep this page open to keep your draft.</FieldDescription>}
-            {recoveries > 0 && <FieldDescription role="status">Earlier unsent text is kept separately because both drafts exceed the character limit.
-                <Button variant="ghost" size="sm" className="pointer-coarse:min-h-11" disabled={pending} onClick={() => drafts.restore(key)}>Restore unsent text</Button></FieldDescription>}
+            {!storageAvailable && <FieldDescription role="status">{t("Browser storage is unavailable. Keep this page open to keep your draft.")}</FieldDescription>}
+            {recoveries > 0 && <FieldDescription role="status">{t("Earlier unsent text is kept separately because both drafts exceed the character limit.")}
+                <Button variant="ghost" size="sm" className="pointer-coarse:min-h-11" disabled={pending} onClick={() => drafts.restore(key)}>{t("Restore unsent text")}</Button></FieldDescription>}
         </>} />;
 }

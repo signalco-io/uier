@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import { CircleAlertIcon } from 'lucide-react';
 import { Alert, AlertDescription } from '@/src/components/ui/alert';
 import { cn } from 'cn';
@@ -23,7 +25,8 @@ export function MicrosoftSignInProblem({ outcome }: { outcome?: string | string[
     return <Alert role="alert" className="mb-3"><CircleAlertIcon /><AlertDescription>{problem}</AlertDescription></Alert>;
 }
 
-export function MicrosoftSignInButton({ next, lastUsed, addingAccount = false }: { next?: string; lastUsed?: boolean; addingAccount?: boolean }) {
+export async function MicrosoftSignInButton({ next, lastUsed, addingAccount = false }: { next?: string; lastUsed?: boolean; addingAccount?: boolean }) {
+    const { t, language } = await getAppI18n();
     if (!isMicrosoftSignInConfigured()) return null;
     const params = new URLSearchParams();
     if (next) params.set('next', next);
@@ -31,10 +34,9 @@ export function MicrosoftSignInButton({ next, lastUsed, addingAccount = false }:
     return (
         // Full navigation: this route starts a sign-in and must never be prefetched.
         <a href={`${KnownPages.AppSignInMicrosoft}${params.size ? `?${params}` : ''}`}
-            aria-label="Sign in with Microsoft" aria-describedby={lastUsed ? LAST_USED_ID : undefined} data-slot="button" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'relative w-full')}>
+            aria-label={t("Sign in with Microsoft")} aria-describedby={lastUsed ? LAST_USED_ID : undefined} data-slot="button" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'relative w-full')}>
             <MicrosoftLogo data-icon="inline-start" />
-            Microsoft
-            {lastUsed && <LastUsedBadge />}
+            {t("Microsoft")}{' '}{lastUsed && <LastUsedBadge />}
         </a>
     );
 }

@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import { requireAppContext } from '@/src/lib/app/context';
 import { CodingAgents } from '@/src/components/app/mcp/CodingAgents';
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
 };
 
 /** Coding tools connected to feedback as this person, and their access tokens */
-export default async function AccountCodingAgentsPage() {
+export default function AccountCodingAgentsPage() {
     const context = await requireAppContext();
     const { user } = context;
     const [credentials, projects, grants] = await Promise.all([listMcpCredentials(user.id), listVisibleProjects(context), listConnectedApps(user.id)]);

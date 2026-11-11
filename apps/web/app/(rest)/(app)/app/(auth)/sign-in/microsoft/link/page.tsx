@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
@@ -12,14 +14,15 @@ import { MicrosoftLinkForm } from './MicrosoftLinkForm';
 export const metadata: Metadata = { title: 'Confirm your email' };
 
 export default async function MicrosoftLinkPage() {
+    const { t, language } = await getAppI18n();
     const link = await getMicrosoftLink((await cookies()).get(MICROSOFT_SIGN_IN_COOKIE_NAME)?.value);
     if (!link) return (
-        <AuthCard title="This sign-in has expired" description="Start again with Microsoft, or sign in with your email.">
-            <Link href={`${KnownPages.AppSignIn}?add=1`} className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'w-full')}>Sign in again</Link>
+        <AuthCard title={t("This sign-in has expired")} description={t("Start again with Microsoft, or sign in with your email.")}>
+            <Link href={`${KnownPages.AppSignIn}?add=1`} className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'w-full')}>{t("Sign in again")}</Link>
         </AuthCard>
     );
     return (
-        <AuthCard title="Confirm your email" description="Confirm your email once to link your Microsoft account. Use your existing uier email to keep your projects.">
+        <AuthCard title={t("Confirm your email")} description={t("Confirm your email once to link your Microsoft account. Use your existing uier email to keep your projects.")}>
             <MicrosoftLinkForm email={link.email} next={link.next} />
         </AuthCard>
     );

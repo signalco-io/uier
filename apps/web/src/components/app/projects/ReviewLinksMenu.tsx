@@ -1,4 +1,6 @@
 'use client';
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 
 import { Fragment, type ReactElement } from 'react';
 import Link from 'next/link';
@@ -33,18 +35,19 @@ export function ReviewLinksMenu({ projectId, urls, size = 'default', variant = '
     visit?: boolean;
     compact?: { projectName: string; className?: string };
 }) {
+    const { t } = useAppI18n();
     const [mainUrl] = urls;
     if (!mainUrl)
         return null;
 
     // Not links: Next.js would prefetch them, and a review link redirects to the site with a
     // single-use code (app/review), which must only be minted when someone opens it
-    const open = (url: string) => window.open(KnownPageLinks.projectReview(projectId, url), '_blank', 'noopener');
+    const open = (url: string) => window.open(KnownPageLinks.projectReview(projectId, url), t("_blank"), 'noopener');
 
     if (compact) {
         const single = urls.length === 1 && !visit;
         const button = (
-            <Button variant="ghost" size="icon-sm" aria-label={`Open review for ${compact.projectName}`}
+            <Button variant="ghost" size="icon-sm" aria-label={t("Open review for {value0}", { value0: compact.projectName })}
                 onClick={single ? () => open(mainUrl) : undefined}
                 className={cn('text-muted-foreground hover:text-foreground', compact.className)} />
         );
@@ -53,7 +56,7 @@ export function ReviewLinksMenu({ projectId, urls, size = 'default', variant = '
                 <TooltipTrigger render={render}>
                     <ExternalLinkIcon aria-hidden="true" />
                 </TooltipTrigger>
-                <TooltipContent>Open review</TooltipContent>
+                <TooltipContent>{t("Open review")}</TooltipContent>
             </Tooltip>
         );
         if (single)
@@ -68,18 +71,14 @@ export function ReviewLinksMenu({ projectId, urls, size = 'default', variant = '
 
     if (urls.length === 1 && !visit) {
         return (
-            <Button variant={variant} size={size} onClick={() => open(mainUrl)}>
-                Open review
-                <ExternalLinkIcon data-icon="inline-end" />
+            <Button variant={variant} size={size} onClick={() => open(mainUrl)}>{t("Open review")}<ExternalLinkIcon data-icon="inline-end" />
             </Button>
         );
     }
 
     return (
         <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant={variant} size={size} />}>
-                Open review
-                <ChevronDownIcon data-icon="inline-end" />
+            <DropdownMenuTrigger render={<Button variant={variant} size={size} />}>{t("Open review")}<ChevronDownIcon data-icon="inline-end" />
             </DropdownMenuTrigger>
             <ReviewLinksMenuContent projectId={projectId} urls={urls} visit={visit} open={open} />
         </DropdownMenu>
@@ -93,6 +92,7 @@ function ReviewLinksMenuContent({ projectId, urls, visit, open }: {
     visit: boolean;
     open: (url: string) => void;
 }) {
+    const { t } = useAppI18n();
     return (
         <DropdownMenuContent align="end" className="max-w-[min(24rem,calc(100vw-2rem))] min-w-56">
             {visit ? urls.map((url, index) => (
@@ -101,28 +101,24 @@ function ReviewLinksMenuContent({ projectId, urls, visit, open }: {
                     <DropdownMenuGroup aria-label={displayUrl(url)}>
                         <DropdownMenuLabel className="flex min-w-0 flex-col text-xs font-normal text-muted-foreground">
                             <span className="truncate font-mono text-[13px] text-foreground">{displayUrl(url)}</span>
-                            {index === 0 && urls.length > 1 && <span>Main site</span>}
+                            {index === 0 && urls.length > 1 && <span>{t("Main site")}</span>}
                         </DropdownMenuLabel>
                         <DropdownMenuItem onClick={() => open(url)}>
-                            <MessageSquareIcon />
-                            Review
-                            <ExternalLinkIcon className="ml-auto" />
+                            <MessageSquareIcon />{t("Review")}<ExternalLinkIcon className="ml-auto" />
                         </DropdownMenuItem>
                         <DropdownMenuItem render={<a href={url} target="_blank" rel="noopener noreferrer" />}>
-                            <GlobeIcon />
-                            Visit site
-                            <ExternalLinkIcon className="ml-auto" />
+                            <GlobeIcon />{t("Visit site")}<ExternalLinkIcon className="ml-auto" />
                         </DropdownMenuItem>
                     </DropdownMenuGroup>
                 </Fragment>
             )) : (
                 <DropdownMenuGroup>
-                    <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Review links</DropdownMenuLabel>
+                    <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">{t("Review links")}</DropdownMenuLabel>
                     {urls.map((url, index) => (
                         <DropdownMenuItem key={url} onClick={() => open(url)}>
                             <span className="flex min-w-0 flex-1 flex-col">
                                 <span className="truncate font-mono text-[13px]">{displayUrl(url)}</span>
-                                {index === 0 && <span className="text-xs text-muted-foreground">Main site</span>}
+                                {index === 0 && <span className="text-xs text-muted-foreground">{t("Main site")}</span>}
                             </span>
                             <ExternalLinkIcon className="ml-auto" />
                         </DropdownMenuItem>
@@ -131,7 +127,7 @@ function ReviewLinksMenuContent({ projectId, urls, visit, open }: {
             )}
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-                <DropdownMenuItem render={<Link href={KnownPageLinks.projectInstall(projectId)} />}>Review setup</DropdownMenuItem>
+                <DropdownMenuItem render={<Link href={KnownPageLinks.projectInstall(projectId)} />}>{t("Review setup")}</DropdownMenuItem>
             </DropdownMenuGroup>
         </DropdownMenuContent>
     );

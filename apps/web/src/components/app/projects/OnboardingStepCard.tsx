@@ -1,3 +1,7 @@
+
+'use client';
+
+import { useAppI18n } from '@/src/lib/i18n/client';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { buttonVariants } from '@/src/components/ui/button';
@@ -18,15 +22,16 @@ export function OnboardingStepCard({ id, title, description, back, skip, next, c
     next: { href: string; label: string; primary?: boolean };
     children?: ReactNode;
 }) {
+    const { t } = useAppI18n();
     return (
         <Section
             id={id}
             title={title}
             description={description}
             footer={<>
-                {back && <Link href={back} className={cn(buttonVariants({ variant: 'ghost' }), 'mr-auto')}>Back</Link>}
-                {skip && <Link href={skip} className={buttonVariants({ variant: 'ghost' })}>Skip setup</Link>}
-                <Link href={next.href} className={buttonVariants({ variant: next.primary === false ? 'outline' : 'default' })}>{next.label}</Link>
+                {back && <Link href={back} className={cn(buttonVariants({ variant: 'ghost' }), 'mr-auto')}>{t("Back")}</Link>}
+                {skip && <Link href={skip} className={buttonVariants({ variant: 'ghost' })}>{t("Skip setup")}</Link>}
+                <Link href={next.href} className={buttonVariants({ variant: next.primary === false ? 'outline' : 'default' })}>{t(next.label)}</Link>
             </>}>
             <div className="flex flex-col gap-6">{children}</div>
         </Section>

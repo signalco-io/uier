@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useId, useState, useSyncExternalStore, useTransition } from 'react';
 import { KeyRoundIcon, LogInIcon, PencilIcon, PlusIcon } from 'lucide-react';
 import { browserSupportsWebAuthn, startRegistration } from '@simplewebauthn/browser';
@@ -24,6 +26,7 @@ import { addPasskeyAction, passkeyRegistrationOptionsAction, removePasskeyAction
 const subscribe = () => () => undefined;
 
 export function Passkeys({ passkeys, recentSignIn }: { passkeys: PasskeyView[]; recentSignIn: boolean }) {
+    const { t, language } = useAppI18n();
     // Rendered on the server as supported (nearly every browser is); hidden after hydration otherwise.
     const supported = useSyncExternalStore(subscribe, browserSupportsWebAuthn, () => true);
     const [state, setState] = useState<ActionState<unknown>>(null);
@@ -57,29 +60,27 @@ export function Passkeys({ passkeys, recentSignIn }: { passkeys: PasskeyView[]; 
         <Section
             id="passkeys"
             icon={<KeyRoundIcon />}
-            title="Passkeys"
-            description="Sign in with your fingerprint, face or screen lock instead of an email code. Those never leave your device."
+            title={t("Passkeys")}
+            description={t("Sign in with your fingerprint, face or screen lock instead of an email code. Those never leave your device.")}
             actions={supported && !signInAgain ? (
                 <Button variant="outline" disabled={pending} onClick={() => void add()}>
                     {pending ? <Spinner data-icon="inline-start" /> : <PlusIcon data-icon="inline-start" />}
-                    Add a passkey
-                </Button>
+                    {"Add a passkey"}{' '}</Button>
             ) : undefined}>
             <div className="flex flex-col gap-4">
                 {passkeys.length
-                    ? <ItemGroup aria-label="Your passkeys" className="gap-3">
+                    ? <ItemGroup aria-label={t("Your passkeys")} className="gap-3">
                         {passkeys.map(passkey => <PasskeyRow key={passkey.id} passkey={passkey} />)}
                     </ItemGroup>
-                    : <p className="m-0 text-sm text-muted-foreground">No passkeys yet.</p>}
-                {!supported && <p className="m-0 text-sm text-muted-foreground">This browser does not support passkeys. You can still sign in with an email code.</p>}
+                    : <p className="m-0 text-sm text-muted-foreground">{t("No passkeys yet.")}</p>}
+                {!supported && <p className="m-0 text-sm text-muted-foreground">{t("This browser does not support passkeys. You can still sign in with an email code.")}</p>}
                 {supported && signInAgain && (
                     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3">
-                        <p className="m-0 min-w-0 flex-1 text-sm text-muted-foreground">To add a passkey, sign in again. Adding one needs a sign-in from the last 10 minutes.</p>
+                        <p className="m-0 min-w-0 flex-1 text-sm text-muted-foreground">{t("To add a passkey, sign in again. Adding one needs a sign-in from the last 10 minutes.")}</p>
                         <form action={signInAgainAction}>
                             <Button type="submit" variant="outline">
                                 <LogInIcon data-icon="inline-start" />
-                                Sign in again
-                            </Button>
+                                {t("Sign in again")}{' '}</Button>
                         </form>
                     </div>
                 )}
@@ -90,17 +91,18 @@ export function Passkeys({ passkeys, recentSignIn }: { passkeys: PasskeyView[]; 
 }
 
 function PasskeyRow({ passkey }: { passkey: PasskeyView }) {
+    const { t, language } = useAppI18n();
     return (
         <Item variant="outline" role="listitem" className="items-start">
             <ItemMedia variant="icon"><KeyRoundIcon /></ItemMedia>
             <ItemContent className="min-w-0">
                 <ItemTitle className="line-clamp-none break-words">
                     {passkey.name}
-                    {passkey.backedUp && <Badge variant="secondary">Synced</Badge>}
+                    {passkey.backedUp && <Badge variant="secondary">{t("Synced")}</Badge>}
                 </ItemTitle>
                 <ItemDescription className="line-clamp-none">
-                    Added <DateTime value={passkey.createdAt} />
-                    {' · '}{passkey.lastUsedAt ? <>Last used <DateTime value={passkey.lastUsedAt} /></> : 'Not used yet'}
+                    {t("Added")}{' '}<DateTime value={passkey.createdAt} />
+                    {' · '}{passkey.lastUsedAt ? <>{t("Last used")}{' '}<DateTime value={passkey.lastUsedAt} /></> : t("Not used yet")}
                 </ItemDescription>
             </ItemContent>
             <ItemActions>
@@ -112,10 +114,11 @@ function PasskeyRow({ passkey }: { passkey: PasskeyView }) {
 }
 
 function RenamePasskey({ passkey }: { passkey: PasskeyView }) {
+    const { t, language } = useAppI18n();
     const [open, setOpen] = useState(false);
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`Rename ${passkey.name}`} />}>
+            <DialogTrigger render={<Button variant="ghost" size="icon-sm" aria-label={t("Rename {value1}", { value1: passkey.name })} />}>
                 <PencilIcon />
             </DialogTrigger>
             <DialogContent>
@@ -127,6 +130,7 @@ function RenamePasskey({ passkey }: { passkey: PasskeyView }) {
 }
 
 function RenameForm({ passkey, onSaved }: { passkey: PasskeyView; onSaved: () => void }) {
+    const { t, language } = useAppI18n();
     const id = useId();
     const [name, setName] = useState(passkey.name);
     const [state, setState] = useState<ActionState>(null);
@@ -143,28 +147,28 @@ function RenameForm({ passkey, onSaved }: { passkey: PasskeyView; onSaved: () =>
     return (
         <form onSubmit={save} className="flex flex-col gap-6">
             <DialogHeader>
-                <DialogTitle>Rename passkey</DialogTitle>
-                <DialogDescription>A name helps you tell your passkeys apart, such as the device or password manager it is on.</DialogDescription>
+                <DialogTitle>{t("Rename passkey")}</DialogTitle>
+                <DialogDescription>{t("A name helps you tell your passkeys apart, such as the device or password manager it is on.")}</DialogDescription>
             </DialogHeader>
             <FieldGroup>
                 <Field>
-                    <FieldLabel htmlFor={`${id}-name`}>Passkey name</FieldLabel>
+                    <FieldLabel htmlFor={`${id}-name`}>{t("Passkey name")}</FieldLabel>
                     <Input id={`${id}-name`} value={name} onChange={event => setName(event.target.value)} required maxLength={MAX_PASSKEY_NAME_LENGTH} />
                 </Field>
             </FieldGroup>
             <FormMessage state={state} />
             <DialogFooter>
-                <DialogClose render={<Button type="button" variant="outline" />}>Cancel</DialogClose>
+                <DialogClose render={<Button type="button" variant="outline" />}>{t("Cancel")}</DialogClose>
                 <Button type="submit" disabled={pending}>
                     {pending && <Spinner data-icon="inline-start" />}
-                    Save
-                </Button>
+                    {t("Save")}{' '}</Button>
             </DialogFooter>
         </form>
     );
 }
 
 function RemovePasskey({ passkey }: { passkey: PasskeyView }) {
+    const { t, language } = useAppI18n();
     const [confirming, setConfirming] = useState(false);
     const [state, setState] = useState<ActionState>(null);
     const [pending, startTransition] = useTransition();
@@ -179,19 +183,18 @@ function RemovePasskey({ passkey }: { passkey: PasskeyView }) {
     });
     return (
         <AlertDialog open={confirming} onOpenChange={setConfirming}>
-            <AlertDialogTrigger render={<Button variant="outline" aria-label={`Remove ${passkey.name}`} />}>Remove</AlertDialogTrigger>
+            <AlertDialogTrigger render={<Button variant="outline" aria-label={t("Remove {value1}", { value1: passkey.name })} />}>{t("Remove")}</AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle className="break-words">Remove {passkey.name}?</AlertDialogTitle>
-                    <AlertDialogDescription>It stops working for uier right away. Your browser or password manager may still list it until you delete it there.</AlertDialogDescription>
+                    <AlertDialogTitle className="break-words">{t("Remove")}{' '}{passkey.name}?</AlertDialogTitle>
+                    <AlertDialogDescription>{t("It stops working for uier right away. Your browser or password manager may still list it until you delete it there.")}</AlertDialogDescription>
                 </AlertDialogHeader>
                 <FormMessage state={state} />
                 <AlertDialogFooter>
-                    <AlertDialogCancel disabled={pending}>Keep passkey</AlertDialogCancel>
+                    <AlertDialogCancel disabled={pending}>{t("Keep passkey")}</AlertDialogCancel>
                     <AlertDialogAction variant="destructive" disabled={pending} onClick={() => remove()}>
                         {pending && <Spinner data-icon="inline-start" />}
-                        Remove
-                    </AlertDialogAction>
+                        {t("Remove")}{' '}</AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>

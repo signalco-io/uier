@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import type { ReactNode } from 'react';
 import { DownloadIcon } from 'lucide-react';
 import { inferAgentKind } from '@uier/toolbar/agents';
@@ -27,8 +29,9 @@ export function CodingAgents({ endpoint, apps, projects, credentials }: {
     projects: { id: string; name: string }[];
     credentials: AccessToken[];
 }) {
+    const { t, language } = useAppI18n();
     return (
-        <section aria-label="Coding agents" className="flex flex-col gap-6">
+        <section aria-label={t("Coding agents")} className="flex flex-col gap-6">
             <ConnectedApps apps={apps} />
             <PluginSetup />
             <ClientSetup endpoint={endpoint} />
@@ -40,30 +43,31 @@ export function CodingAgents({ endpoint, apps, projects, credentials }: {
 
 /** Both repository marketplaces install the same skills and the public uier MCP connector. */
 function PluginSetup() {
+    const { t, language } = useAppI18n();
     return (
-        <Section id="plugins" title="Install the uier plugin"
-            description="Get the MCP connector and the uier-monitor skills together for Claude Code or Codex.">
+        <Section id="plugins" title={t("Install the uier plugin")}
+            description={t("Get the MCP connector and the uier-monitor skills together for Claude Code or Codex.")}>
             <div className="flex flex-col gap-4 text-sm">
                 <Tabs defaultValue="claude-plugin" className="gap-4">
-                    <TabsList aria-label="Plugin client" variant="line" className="h-auto! max-w-full flex-wrap">
-                        <TabsTrigger value="claude-plugin" className="min-h-11"><AgentMark kind="claude" />Claude Code plugin</TabsTrigger>
-                        <TabsTrigger value="codex-plugin" className="min-h-11"><AgentMark kind="codex" />Codex plugin</TabsTrigger>
+                    <TabsList aria-label={t("Plugin client")} variant="line" className="h-auto! max-w-full flex-wrap">
+                        <TabsTrigger value="claude-plugin" className="min-h-11"><AgentMark kind="claude" />{t("Claude Code plugin")}</TabsTrigger>
+                        <TabsTrigger value="codex-plugin" className="min-h-11"><AgentMark kind="codex" />{t("Codex plugin")}</TabsTrigger>
                     </TabsList>
                     <TabsContent value="claude-plugin" className="flex flex-col gap-3">
-                        <p className="m-0">Run these commands in a Claude Code session:</p>
-                        <CopyBlock value={'/plugin marketplace add signalco-io/uier\n/plugin install uier@uier'} label="Copy Claude Code plugin commands" />
-                        <p className="m-0 text-muted-foreground">Run <code>/mcp</code> and authenticate the plugin’s uier connection. Then use <code>/uier:uier-monitor &lt;project&gt;</code> when you want it to monitor a project.</p>
-                        <a className={cn(link, 'self-start')} href="https://code.claude.com/docs/en/plugins/publish#publish-through-your-own-marketplace" target="_blank" rel="noreferrer">Claude Code plugin documentation</a>
+                        <p className="m-0">{t("Run these commands in a Claude Code session:")}</p>
+                        <CopyBlock value={'/plugin marketplace add signalco-io/uier\n/plugin install uier@uier'} label={t("Copy Claude Code plugin commands")} />
+                        <p className="m-0 text-muted-foreground">{t("Run")}{' '}<code>/mcp</code> {t("and authenticate the plugin’s uier connection. Then use")}{' '}<code>/uier:uier-monitor &lt;project&gt;</code> {t("when you want it to monitor a project.")}</p>
+                        <a className={cn(link, 'self-start')} href="https://code.claude.com/docs/en/plugins/publish#publish-through-your-own-marketplace" target="_blank" rel="noreferrer">{t("Claude Code plugin documentation")}</a>
                     </TabsContent>
                     <TabsContent value="codex-plugin" className="flex flex-col gap-3">
-                        <p className="m-0">Run these commands in your terminal:</p>
-                        <CopyBlock value={'codex plugin marketplace add signalco-io/uier\ncodex plugin add uier@uier'} label="Copy Codex plugin commands" />
-                        <p className="m-0 text-muted-foreground">Start a new session and follow the plugin’s sign-in flow. Ask Codex to use uier-monitor for your project. If your client cannot complete plugin sign-in, use the access-token setup under Connect a coding tool below.</p>
-                        <a className={cn(link, 'self-start')} href="https://learn.chatgpt.com/docs/developer-commands#codex-plugin" target="_blank" rel="noreferrer">Codex plugin documentation</a>
+                        <p className="m-0">{t("Run these commands in your terminal:")}</p>
+                        <CopyBlock value={"codex plugin marketplace add signalco-io/uier\ncodex plugin add uier@uier"} label={t("Copy Codex plugin commands")} />
+                        <p className="m-0 text-muted-foreground">{t("Start a new session and follow the plugin’s sign-in flow. Ask Codex to use uier-monitor for your project. If your client cannot complete plugin sign-in, use the access-token setup under Connect a coding tool below.")}</p>
+                        <a className={cn(link, 'self-start')} href="https://learn.chatgpt.com/docs/developer-commands#codex-plugin" target="_blank" rel="noreferrer">{t("Codex plugin documentation")}</a>
                     </TabsContent>
                 </Tabs>
-                <p className="m-0 text-muted-foreground">The plugin connects to <code>https://uier.io/api/mcp</code>. Installing it starts no monitor. Invoking uier-monitor approves its workflow for comments in scope, including fixes, merges and replies. Keep one uier connection enabled if you already added it manually.</p>
-                <a className={cn(link, 'self-start')} href="https://github.com/signalco-io/uier/blob/main/docs/agent-plugins.md" target="_blank" rel="noreferrer">Plugin setup and permissions</a>
+                <p className="m-0 text-muted-foreground">{t("The plugin connects to")}{' '}<code>https://uier.io/api/mcp</code>{t(". Installing it starts no monitor. Invoking uier-monitor approves its workflow for comments in scope, including fixes, merges and replies. Keep one uier connection enabled if you already added it manually.")}</p>
+                <a className={cn(link, 'self-start')} href="https://github.com/signalco-io/uier/blob/main/docs/agent-plugins.md" target="_blank" rel="noreferrer">{t("Plugin setup and permissions")}</a>
             </div>
         </Section>
     );
@@ -83,17 +87,18 @@ function Step({ number, title, children }: { number: number; title: ReactNode; c
 }
 
 function ClientSetup({ endpoint }: { endpoint: string }) {
+    const { t, language } = useAppI18n();
     const clients = mcpClientConfigurations(endpoint);
     return (
-        <Section id="connect" title="Connect a coding tool"
-            description="A tool that signs in with your browser opens uier, where you choose the accounts, workspaces, projects and operations it can use. Each profile's current permissions apply.">
+        <Section id="connect" title={t("Connect a coding tool")}
+            description={t("A tool that signs in with your browser opens uier, where you choose the accounts, workspaces, projects and operations it can use. Each profile's current permissions apply.")}>
             <div className="flex flex-col gap-6 text-sm">
                 <div className="flex flex-col gap-2">
-                    <p className="m-0 text-muted-foreground">Add this Streamable HTTP endpoint to your coding tool:</p>
-                    <CopyBlock value={endpoint} label="Copy MCP endpoint" />
+                    <p className="m-0 text-muted-foreground">{t("Add this Streamable HTTP endpoint to your coding tool:")}</p>
+                    <CopyBlock value={endpoint} label={t("Copy MCP endpoint")} />
                 </div>
                 <Tabs defaultValue={clients[0]!.id} className="gap-4">
-                    <TabsList aria-label="Coding client" variant="line" className="h-auto! max-w-full flex-wrap">
+                    <TabsList aria-label={t("Coding client")} variant="line" className="h-auto! max-w-full flex-wrap">
                         {clients.map(client => <TabsTrigger key={client.id} value={client.id} className="min-h-11">
                             <AgentMark kind={inferAgentKind(client.name)} />
                             {client.name}
@@ -103,41 +108,41 @@ function ClientSetup({ endpoint }: { endpoint: string }) {
                         {client.auth === 'oauth'
                             ? <>
                                 <ol className="m-0 flex list-none flex-col gap-4 p-0">
-                                    <Step number={1} title="Add uier in your terminal">
-                                        <CopyBlock value={client.command} label={`Copy ${client.name} command`} />
+                                    <Step number={1} title={t("Add uier in your terminal")}>
+                                        <CopyBlock value={client.command} label={t("Copy {value1} command", { value1: client.name })} />
                                     </Step>
-                                    <Step number={2} title={<>Run <code>/mcp</code> in {client.name}, choose uier and select Authenticate</>}>
-                                        <p className="m-0 text-muted-foreground">Your browser opens uier, where you approve the connection. It then shows up under Connected apps.</p>
+                                    <Step number={2} title={<>{t("Run")}{' '}<code>/mcp</code> {t("in")}{' '}{client.name}{t(", choose uier and select Authenticate")}</>}>
+                                        <p className="m-0 text-muted-foreground">{t("Your browser opens uier, where you approve the connection. It then shows up under Connected apps.")}</p>
                                     </Step>
                                 </ol>
-                                <p className="m-0 text-muted-foreground">Already added uier with an <code>Authorization</code> header, for example in <code>.mcp.json</code>? Remove that header first. {client.name} does not sign in while it is set. <a className={link} href={client.docs} target="_blank" rel="noreferrer">{client.name} documentation</a></p>
+                                <p className="m-0 text-muted-foreground">{t("Already added uier with an")}{' '}<code>{t("Authorization")}</code> {t("header, for example in")}{' '}<code>{t(".mcp.json")}</code>{t("? Remove that header first.")}{' '}{client.name} {t("does not sign in while it is set.")}{' '}<a className={link} href={client.docs} target="_blank" rel="noreferrer">{client.name} {t("documentation")}</a></p>
                             </>
                             : <>
                                 <ol className="m-0 flex list-none flex-col gap-4 p-0">
-                                    <Step number={1} title="Create an access token">
-                                        <p className="m-0 text-muted-foreground">{client.name} uses an access token. Create one under <a className={link} href="#access-tokens">Access tokens</a> below.</p>
+                                    <Step number={1} title={t("Create an access token")}>
+                                        <p className="m-0 text-muted-foreground">{client.name} {t("uses an access token. Create one under")}{' '}<a className={link} href="#access-tokens">{t("Access tokens")}</a> {t("below.")}</p>
                                     </Step>
-                                    <Step number={2} title={<>Set <code>UIER_MCP_TOKEN</code></>}>
-                                        <p className="m-0 text-muted-foreground">Set it in the environment that starts {client.name}.</p>
+                                    <Step number={2} title={<>{t("Set")}{' '}<code>{t("UIER_MCP_TOKEN")}</code></>}>
+                                        <p className="m-0 text-muted-foreground">{t("Set it in the environment that starts")}{' '}{client.name}.</p>
                                     </Step>
-                                    <Step number={3} title={<>Add uier to <code>{client.location}</code></>}>
-                                        <p className="m-0 text-muted-foreground">Merge the entry into your existing configuration.</p>
-                                        <CopyBlock value={client.configuration} label={`Copy ${client.name} MCP configuration`} />
+                                    <Step number={3} title={<>{t("Add uier to")}{' '}<code>{client.location}</code></>}>
+                                        <p className="m-0 text-muted-foreground">{t("Merge the entry into your existing configuration.")}</p>
+                                        <CopyBlock value={client.configuration} label={t("Copy {value1} MCP configuration", { value1: client.name })} />
                                     </Step>
                                 </ol>
-                                <p className="m-0 text-muted-foreground"><a className={link} href={client.docs} target="_blank" rel="noreferrer">{client.name} documentation</a></p>
+                                <p className="m-0 text-muted-foreground"><a className={link} href={client.docs} target="_blank" rel="noreferrer">{client.name} {t("documentation")}</a></p>
                             </>}
                     </TabsContent>)}
                 </Tabs>
                 <details className="rounded-lg border">
-                    <summary className="cursor-pointer px-4 py-3 font-medium">Other clients</summary>
+                    <summary className="cursor-pointer px-4 py-3 font-medium">{t("Other clients")}</summary>
                     <div className="flex flex-col gap-3 px-4 pb-4 text-muted-foreground">
-                        <p className="m-0">Claude on the web, desktop and mobile is not offered yet. Its custom connector has not been checked against uier’s sign-in. Request headers for custom connectors are in beta for a limited set of organizations. Where they are available on an individual plan, a custom connector can use the endpoint URL, No sign-in, and <code>Authorization: Bearer &lt;access token&gt;</code> under Request headers. Claude connects from Anthropic’s servers and cannot reach a local endpoint. Team and Enterprise plans would share your personal token, so do not use one there. <a className={link} href="https://claude.com/docs/connectors/custom/add-unlisted#authenticate-with-request-headers" target="_blank" rel="noreferrer">Claude connector documentation</a></p>
-                        <p className="m-0">VS Code is not offered until a connection can be verified. Its <a className={link} href="https://code.visualstudio.com/docs/agents/reference/mcp-configuration" target="_blank" rel="noreferrer">MCP documentation</a> describes masked secret inputs.</p>
-                        <p className="m-0">Windsurf is not offered until a connection can be verified. Its <a className={link} href="https://docs.devin.ai/desktop/cascade/mcp" target="_blank" rel="noreferrer">current documentation</a> describes legacy Cascade in Devin Desktop.</p>
+                        <p className="m-0">{t("Claude on the web, desktop and mobile is not offered yet. Its custom connector has not been checked against uier’s sign-in. Request headers for custom connectors are in beta for a limited set of organizations. Where they are available on an individual plan, a custom connector can use the endpoint URL, No sign-in, and")}{' '}<code>{t("Authorization: Bearer &lt;access token&gt;")}</code> {t("under Request headers. Claude connects from Anthropic’s servers and cannot reach a local endpoint. Team and Enterprise plans would share your personal token, so do not use one there.")}{' '}<a className={link} href="https://claude.com/docs/connectors/custom/add-unlisted#authenticate-with-request-headers" target="_blank" rel="noreferrer">{t("Claude connector documentation")}</a></p>
+                        <p className="m-0">{t("VS Code is not offered until a connection can be verified. Its")}{' '}<a className={link} href="https://code.visualstudio.com/docs/agents/reference/mcp-configuration" target="_blank" rel="noreferrer">{t("MCP documentation")}</a> {t("describes masked secret inputs.")}</p>
+                        <p className="m-0">{t("Windsurf is not offered until a connection can be verified. Its")}{' '}<a className={link} href="https://docs.devin.ai/desktop/cascade/mcp" target="_blank" rel="noreferrer">{t("current documentation")}</a> {t("describes legacy Cascade in Devin Desktop.")}</p>
                     </div>
                 </details>
-                <p className="m-0 text-xs text-muted-foreground">Feedback sent to a coding tool is handled under that tool’s terms.</p>
+                <p className="m-0 text-xs text-muted-foreground">{t("Feedback sent to a coding tool is handled under that tool’s terms.")}</p>
             </div>
         </Section>
     );
@@ -151,24 +156,24 @@ const prompts = [
 ];
 
 function PromptsAndSkill() {
+    const { t, language } = useAppI18n();
     const skill = feedbackSkill();
     return (
-        <Section id="skill" title="Prompts and agent skill" description="Prompts a connected coding tool can use, and a skill with the same workflow.">
+        <Section id="skill" title={t("Prompts and agent skill")} description={t("Prompts a connected coding tool can use, and a skill with the same workflow.")}>
             <div className="flex flex-col gap-4 text-sm">
-                <ul aria-label="Prompts" className="m-0 flex list-none flex-col divide-y rounded-lg border p-0">
+                <ul aria-label={t("Prompts")} className="m-0 flex list-none flex-col divide-y rounded-lg border p-0">
                     {prompts.map(prompt => <li key={prompt.name} className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:gap-4">
                         <code className="shrink-0 text-[13px] sm:w-36">{prompt.name}</code>
-                        <span className="text-muted-foreground">{prompt.description}</span>
+                        <span className="text-muted-foreground">{t(prompt.description)}</span>
                     </li>)}
                 </ul>
-                <p className="m-0">Copy or download this skill and save it as <code>uier-feedback/SKILL.md</code> in your client’s skills folder. It uses the same workflow as the prompts.</p>
+                <p className="m-0">{t("Copy or download this skill and save it as")}{' '}<code>{t("uier-feedback/SKILL.md")}</code> {t("in your client’s skills folder. It uses the same workflow as the prompts.")}</p>
                 <a download="SKILL.md" href={`data:text/markdown;charset=utf-8,${encodeURIComponent(skill)}`} className={cn(buttonVariants({ variant: 'outline' }), 'self-start')}>
                     <DownloadIcon data-icon="inline-start" />
-                    Download SKILL.md
-                </a>
+                    {t("Download SKILL.md")}{' '}</a>
                 <details>
-                    <summary className="cursor-pointer font-medium">View and copy SKILL.md</summary>
-                    <div className="mt-3"><CopyBlock value={skill} label="Copy SKILL.md" /></div>
+                    <summary className="cursor-pointer font-medium">{t("View and copy SKILL.md")}</summary>
+                    <div className="mt-3"><CopyBlock value={skill} label={t("Copy SKILL.md")} /></div>
                 </details>
             </div>
         </Section>

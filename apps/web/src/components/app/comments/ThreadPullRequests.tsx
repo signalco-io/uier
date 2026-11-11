@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useEffect, useRef, useState, useSyncExternalStore, type MouseEvent, type RefObject } from 'react';
 import { ArrowUpRightIcon, GitPullRequestIcon, PlusIcon, XIcon } from 'lucide-react';
 import { useActionState } from 'react';
@@ -152,10 +154,11 @@ function PullRequestValues({ projectId, commentId, links, revision, comment }: {
 
 /** One properties row; no extra control or tab stop in a list/board card. */
 export function ThreadPullRequests({ projectId, comment }: { projectId: string; comment: ProjectCommentView }) {
+    const { t } = useAppI18n();
     const links = commentPullRequestLinks(comment);
     if (!links.length && !comment.permissions.triage) return null;
     return <>
-        <dt className="flex h-8 items-center text-muted-foreground pointer-coarse:h-11">Pull requests</dt>
+        <dt className="flex h-8 items-center text-muted-foreground pointer-coarse:h-11">{t("Pull requests")}</dt>
         <PullRequestValues key={`${projectId}:${comment.id}:${links.map(link => link.url).join('\n')}`} projectId={projectId} commentId={comment.id} links={links} revision={comment.revision} comment={comment} />
     </>;
 }
@@ -165,6 +168,7 @@ export function ThreadPullRequests({ projectId, comment }: { projectId: string; 
  * Choosing it shows the URL field with focus in it; Escape or leaving it empty closes it and gives focus back.
  */
 function LinkPullRequest({ projectId, commentId }: { projectId: string; commentId: string }) {
+    const { t } = useAppI18n();
     const [open, setOpen] = useState(false);
     const [url, setUrl] = useState('');
     const trigger = useRef<HTMLButtonElement>(null);
@@ -188,28 +192,29 @@ function LinkPullRequest({ projectId, commentId }: { projectId: string; commentI
         <Button ref={trigger} type="button" variant="ghost" size="sm" onClick={() => setOpen(true)}
             data-unset="" className={cn('-ml-1.5 h-7 min-w-0 gap-1.5 px-1.5 font-normal pointer-coarse:min-h-11', unsetValueClass)}>
             <PlusIcon aria-hidden="true" data-icon="inline-start" />
-            Link a pull request
+            {t("Link a pull request")}
         </Button>
     );
     return <form action={action} className="flex w-full min-w-0 flex-wrap items-center gap-2"
         onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(true); } }}>
-        <Input ref={field} aria-label="Pull request URL" type="url" placeholder="Paste a pull request URL" required maxLength={2048}
+        <Input ref={field} aria-label={t("Pull request URL")} type="url" placeholder={t("Paste a pull request URL")} required maxLength={2048}
             value={url} onChange={event => setUrl(event.target.value)}
             onBlur={event => { if (!url && !event.currentTarget.form?.contains(event.relatedTarget)) close(false); }}
             className="min-w-0 flex-1 pointer-coarse:min-h-11" />
-        <Button type="submit" size="sm" variant="ghost" disabled={pending} className="pointer-coarse:min-h-11">Link</Button>
+        <Button type="submit" size="sm" variant="ghost" disabled={pending} className="pointer-coarse:min-h-11">{t("Link")}</Button>
         {error && <p role="alert" className="w-full text-sm text-destructive">{error}</p>}
     </form>;
 }
 
 /** A small x icon button beside a manual link; its name and tooltip say which link it removes */
 function RemovePullRequest({ projectId, commentId, url, name }: { projectId: string; commentId: string; url: string; name: string }) {
+    const { t } = useAppI18n();
     const [, action, pending] = useActionState(async () => {
         const result = await setCommentPullRequestAction(projectId, commentId, url, true);
         if (result && !result.ok) toast.error(result.error);
         return result;
     }, undefined);
-    const label = `Remove link to ${name}`;
+    const label = t("Remove link to {value0}", { value0: name });
     return <form action={action} className="flex">
         <Tooltip>
             <TooltipTrigger render={<Button type="submit" variant="ghost" size="icon-xs" disabled={pending} aria-label={label}
@@ -264,13 +269,14 @@ export function PullRequestCard({ projectId, comment, links, subject, tabbable =
     tabbable?: boolean;
     onPress?: (event: MouseEvent<HTMLButtonElement>) => void;
 }) {
+    const { t } = useAppI18n();
     const [open, setOpen] = useState(false);
     const pointer = useRef<string>('');
     const popup = useRef<HTMLDivElement>(null);
     const state = useKnownState(statesKey(projectId, comment.id, comment.revision, links), links);
     return (
         <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger {...hoverPopoverTrigger} delay={200} data-pull-request-mark="" aria-label={withSubject('Linked pull request', subject)} tabIndex={tabbable ? undefined : -1}
+            <PopoverTrigger {...hoverPopoverTrigger} delay={200} data-pull-request-mark="" aria-label={withSubject(t("Linked pull request"), subject)} tabIndex={tabbable ? undefined : -1}
                 onPointerDown={event => { pointer.current = event.pointerType; }}
                 onClick={event => {
                     // Keyboard clicks have no detail; a tap has no hover to show the card
@@ -285,7 +291,7 @@ export function PullRequestCard({ projectId, comment, links, subject, tabbable =
                     state ? stateIconColors[state] : 'hover:text-foreground')}>
                 <GitPullRequestIcon aria-hidden="true" className="size-3.5" />
             </PopoverTrigger>
-            <PopoverContent ref={popup} initialFocus={popup} align="end" aria-label="Pull requests" className="max-h-[min(32rem,80dvh)] w-80 max-w-[calc(100vw-2rem)] gap-1 overflow-y-auto p-1.5">
+            <PopoverContent ref={popup} initialFocus={popup} align="end" aria-label={t("Pull requests")} className="max-h-[min(32rem,80dvh)] w-80 max-w-[calc(100vw-2rem)] gap-1 overflow-y-auto p-1.5">
                 <PullRequestCardList projectId={projectId} commentId={comment.id} links={links} revision={comment.revision} />
             </PopoverContent>
         </Popover>

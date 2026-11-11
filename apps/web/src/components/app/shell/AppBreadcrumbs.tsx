@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { Fragment } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -79,6 +81,7 @@ function crumbs(pathname: string, projectNames: Record<string, string>): Crumb[]
 }
 
 export function AppBreadcrumbs({ projectNames }: { projectNames: Record<string, string> }) {
+    const { t, language } = useAppI18n();
     const items = crumbs(usePathname(), projectNames);
     if (!items.length)
         return null;
@@ -93,10 +96,10 @@ export function AppBreadcrumbs({ projectNames }: { projectNames: Record<string, 
                             {/* Small screens show the current page only */}
                             {index > 0 && <BreadcrumbSeparator className="hidden md:block" />}
                             {/* One line in the 48 px bar: a long name (a project's) is cut short rather than wrapped */}
-                            <BreadcrumbItem className={last ? 'min-w-0' : 'hidden min-w-0 md:inline-flex'}>
+                            <BreadcrumbItem className={last ? "min-w-0" : "hidden min-w-0 md:inline-flex"}>
                                 {last
-                                    ? <BreadcrumbPage className="truncate">{item.label}</BreadcrumbPage>
-                                    : <BreadcrumbLink render={<Link href={item.href} />} className="max-w-56 truncate">{item.label}</BreadcrumbLink>}
+                                    ? <BreadcrumbPage className="truncate">{t(item.label)}</BreadcrumbPage>
+                                    : <BreadcrumbLink render={<Link href={item.href} />} className="max-w-56 truncate">{t(item.label)}</BreadcrumbLink>}
                             </BreadcrumbItem>
                         </Fragment>
                     );

@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import type { ReactElement, Ref } from 'react';
 import { CheckIcon, ChevronDownIcon } from 'lucide-react';
 import { feedbackStage, feedbackStageLabels, feedbackStages, type FeedbackStage } from '@uier/toolbar/verification';
@@ -35,11 +37,12 @@ export function StateDot({ status }: { status: CommentStatus }) {
 }
 
 export function StateBadge({ status }: { status: CommentStatus }) {
+    const { t } = useAppI18n();
     return (
         <Badge variant="outline" className="gap-1.5">
             <StateDot status={status} />
-            <span className="sr-only">Status: </span>
-            {commentStatusLabels[status]}
+            <span className="sr-only">{t("Status: ")}</span>
+            {t(commentStatusLabels[status])}
         </Badge>
     );
 }
@@ -61,11 +64,12 @@ export function StateMenu({ status, allowed, disabled, onChange, triggerRef, tri
     /** The key that opens the status badge's menu (the open thread's S) */
     keyShortcut?: string;
 }) {
-    const label = commentStatusLabels[status];
+    const { t } = useAppI18n();
+    const label = t(commentStatusLabels[status]);
     return (
         <DropdownMenu>
             {trigger ? <DropdownMenuTrigger render={trigger} disabled={disabled} /> : (
-                <DropdownMenuTrigger render={<Button ref={triggerRef} variant="outline" size="xs" disabled={disabled} aria-label={`Status: ${label}. Change status`} aria-keyshortcuts={keyShortcut}
+                <DropdownMenuTrigger render={<Button ref={triggerRef} variant="outline" size="xs" disabled={disabled} aria-label={t("Status: {value0}. Change status", { value0: label })} aria-keyshortcuts={keyShortcut}
                         className="h-5 gap-1.5 rounded-4xl pl-2 pointer-coarse:min-h-11" />}>
                     <StateDot status={status} />
                     {label}
@@ -78,7 +82,7 @@ export function StateMenu({ status, allowed, disabled, onChange, triggerRef, tri
                         <DropdownMenuItem key={option} disabled={option !== status && !allowed[option]}
                             onClick={() => (option !== status || option === 'ready') && allowed[option] && onChange(option)}>
                             <StateDot status={option} />
-                            {option === 'done' && status === 'ready' ? 'Done without verification' : commentStatusLabels[option]}
+                            {option === 'done' && status === 'ready' ? t("Done without verification") : t(commentStatusLabels[option])}
                             {option === status && <CheckIcon className="ml-auto" />}
                         </DropdownMenuItem>
                     ))}

@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useEffect, useId, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -56,9 +58,10 @@ function GroupLinkAction({ href, label, children }: { href: string; label: strin
 
 /** A top-level page of the app: its icon and name, current on it and the pages below it */
 function NavItem({ href, label, icon: Icon, current, roving }: { href: string; label: string; icon: LucideIcon; current: boolean; roving: RovingProps }) {
+    const { t, language } = useAppI18n();
     return (
         <SidebarMenuItem>
-            <SidebarMenuButton {...roving} isActive={current} tooltip={label} render={<Link href={href} aria-current={current ? 'page' : undefined} />}>
+            <SidebarMenuButton {...roving} isActive={current} tooltip={label} render={<Link href={href} aria-current={current ? "page" : undefined} />}>
                 <Icon />
                 <span>{label}</span>
             </SidebarMenuButton>
@@ -68,9 +71,10 @@ function NavItem({ href, label, icon: Icon, current, roving }: { href: string; l
 
 /** An active project's entry: its favicon and name, current on its pages */
 function ProjectItem({ project, current, roving }: { project: SidebarProject; current: boolean; roving: RovingProps }) {
+    const { t, language } = useAppI18n();
     return (
         <SidebarMenuItem>
-            <SidebarMenuButton {...roving} isActive={current} tooltip={project.name} render={<Link href={KnownPageLinks.project(project.id)} aria-current={current ? 'page' : undefined} />}>
+            <SidebarMenuButton {...roving} isActive={current} tooltip={project.name} render={<Link href={KnownPageLinks.project(project.id)} aria-current={current ? "page" : undefined} />}>
                 {/* A 20 px tile with the mark's own 2 px padding inside its border (uier #87), so the favicon sits on the tile
                     as in the project header and the projects list. The negative margin keeps it in the 16 px icon slot:
                     names line up with the pages above, also collapsed and in the sheet */}
@@ -102,6 +106,7 @@ export function AppSidebar({ isAdmin, user, accounts, workspaces, currentWorkspa
     /** Whether a project the person can see has a client (the workspace area shows its clients then) */
     hasClients: boolean;
 }) {
+    const { t, language } = useAppI18n();
     const pathname = usePathname();
     const groupId = useId();
     // Applied at once. Saving sets the cookie, so Next renders the layout again: after switching to Recent activity
@@ -110,7 +115,7 @@ export function AppSidebar({ isAdmin, user, accounts, workspaces, currentWorkspa
     const [order, setOrder] = useState(projectOrder);
     const changeOrder = (next: ProjectOrder) => {
         setOrder(next);
-        saveProjectOrderAction(next).catch(() => toast.error('Could not save the project order. Try again.'));
+        saveProjectOrderAction(next).catch(() => toast.error(t("Could not save the project order. Try again.")));
     };
     // Only active projects, unless grouped by status
     const groups = orderProjects(projects, order);
@@ -142,27 +147,27 @@ export function AppSidebar({ isAdmin, user, accounts, workspaces, currentWorkspa
                 <WorkspaceSwitcher workspaces={workspaces} currentWorkspaceId={currentWorkspaceId} canManage={isAdmin} />
             </SidebarHeader>
             <SidebarContent>
-                <nav aria-label="App" className="contents" {...roving.containerProps}>
+                <nav aria-label={t("App")} className="contents" {...roving.containerProps}>
                     {/* The app's own pages: Projects and the person's own work */}
                     <SidebarGroup>
                         <SidebarGroupContent>
                             <SidebarMenu>
-                                <NavItem href={KnownPages.AppProjects} label="Projects" icon={LayoutGridIcon} current={projectsCurrent} roving={roving.itemProps(KnownPages.AppProjects)} />
-                                <NavItem href={KnownPages.AppMyWork} label="My work" icon={InboxIcon} current={isCurrent(pathname, KnownPages.AppMyWork)} roving={roving.itemProps(KnownPages.AppMyWork)} />
+                                <NavItem href={KnownPages.AppProjects} label={t("Projects")} icon={LayoutGridIcon} current={projectsCurrent} roving={roving.itemProps(KnownPages.AppProjects)} />
+                                <NavItem href={KnownPages.AppMyWork} label={t("My work")} icon={InboxIcon} current={isCurrent(pathname, KnownPages.AppMyWork)} roving={roving.itemProps(KnownPages.AppMyWork)} />
                             </SidebarMenu>
                         </SidebarGroupContent>
                     </SidebarGroup>
                     <SidebarGroup>
-                        <SidebarGroupLabel>{order.group === 'status' ? 'All projects' : 'Active projects'}</SidebarGroupLabel>
+                        <SidebarGroupLabel>{order.group === 'status' ? t("All projects") : t("Active projects")}</SidebarGroupLabel>
                         {/* Ordering needs more than one project (done ones count: grouped by status, they are listed);
                             it sits left of Create project */}
                         {projects.length > 1 && (
                             <ProjectOrderMenu order={order} onChange={changeOrder} canGroupByClient={active.some(project => project.client)}
-                                className={canCreate ? 'right-10' : undefined} />
+                                className={canCreate ? "right-10" : undefined} />
                         )}
                         {/* An icon link once there are active projects; without them, "Create a project" is in the list */}
                         {canCreate && (
-                            <GroupLinkAction href={KnownPages.AppNewProject} label="Create project">
+                            <GroupLinkAction href={KnownPages.AppNewProject} label={t("Create project")}>
                                 <PlusIcon />
                             </GroupLinkAction>
                         )}
@@ -173,12 +178,12 @@ export function AppSidebar({ isAdmin, user, accounts, workspaces, currentWorkspa
                                     <SidebarMenuItem>
                                         <SidebarMenuButton {...roving.itemProps(KnownPages.AppNewProject)} className="text-sidebar-foreground/70" render={<Link href={KnownPages.AppNewProject} />}>
                                             <PlusIcon />
-                                            <span>Create a project</span>
+                                            <span>{t("Create a project")}</span>
                                         </SidebarMenuButton>
                                     </SidebarMenuItem>
                                 </SidebarMenu>
                             ) : (
-                                <p className="px-2 text-xs text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">No active projects</p>
+                                <p className="px-2 text-xs text-sidebar-foreground/70 group-data-[collapsible=icon]:hidden">{t("No active projects")}</p>
                             ))}
                             {grouped ? groups.map((group, index) => {
                                 // Each client's or status's projects are a list named by it; projects without a client come last
@@ -187,7 +192,7 @@ export function AppSidebar({ isAdmin, user, accounts, workspaces, currentWorkspa
                                     <div key={group.client?.id ?? group.status ?? 'none'} className="flex flex-col not-first:mt-2">
                                         <SidebarGroupLabel id={labelId} className="gap-2 font-normal">
                                             {group.client && <ClientMark client={group.client} />}
-                                            <span className="truncate">{group.client?.name ?? (group.status ? statusLabels[group.status] : 'No client')}</span>
+                                            <span className="truncate">{group.client?.name ?? (group.status ? statusLabels[group.status] : t("No client"))}</span>
                                         </SidebarGroupLabel>
                                         <SidebarMenu aria-labelledby={labelId}>
                                             {group.projects.map(project => (
@@ -211,7 +216,7 @@ export function AppSidebar({ isAdmin, user, accounts, workspaces, currentWorkspa
                         <SidebarGroup className="mt-auto pb-0">
                             <SidebarGroupContent>
                                 <SidebarMenu>
-                                    <NavItem href={workspaceHref} label="Workspace" icon={Building2Icon} current={isCurrent(pathname, KnownPages.AppWorkspace)} roving={roving.itemProps(workspaceHref)} />
+                                    <NavItem href={workspaceHref} label={t("Workspace")} icon={Building2Icon} current={isCurrent(pathname, KnownPages.AppWorkspace)} roving={roving.itemProps(workspaceHref)} />
                                 </SidebarMenu>
                             </SidebarGroupContent>
                         </SidebarGroup>

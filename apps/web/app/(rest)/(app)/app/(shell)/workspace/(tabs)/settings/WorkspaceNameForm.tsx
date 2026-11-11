@@ -1,4 +1,6 @@
 'use client';
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 
 import { useActionState, useId, useState } from 'react';
 import { Button } from '@/src/components/ui/button';
@@ -11,25 +13,24 @@ import { MAX_WORKSPACE_NAME_LENGTH } from '@/src/lib/app/limits';
 import { renameWorkspaceAction } from './actions';
 
 export function WorkspaceNameForm({ name }: { name: string }) {
+    const { t } = useAppI18n();
     const formId = useId();
     const [state, formAction, pending] = useActionState(renameWorkspaceAction, null);
     const [value, setValue] = useState(name);
     return (
         <Section
             id="general"
-            title="General"
+            title={t("General")}
             footer={(
                 <>
                     <FormMessage state={state} className="mr-auto" />
                     <Button type="submit" form={formId} disabled={pending}>
-                        {pending && <Spinner data-icon="inline-start" />}
-                        Save
-                    </Button>
+                        {pending && <Spinner data-icon="inline-start" />}{t("Save")}</Button>
                 </>
             )}>
             <form id={formId} action={formAction}>
                 <Field>
-                    <FieldLabel htmlFor={`${formId}-name`}>Workspace name</FieldLabel>
+                    <FieldLabel htmlFor={`${formId}-name`}>{t("Workspace name")}</FieldLabel>
                     <Input
                         id={`${formId}-name`}
                         name="name"
@@ -38,7 +39,7 @@ export function WorkspaceNameForm({ name }: { name: string }) {
                         required
                         maxLength={MAX_WORKSPACE_NAME_LENGTH}
                         className="max-w-md" />
-                    <FieldDescription>Everyone in the workspace sees it in the workspace menu, and when they connect a coding tool.</FieldDescription>
+                    <FieldDescription>{t("Everyone in the workspace sees it in the workspace menu, and when they connect a coding tool.")}</FieldDescription>
                 </Field>
             </form>
         </Section>

@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -14,9 +16,13 @@ import { getTeam, listAccessEvents } from '@/src/lib/app/teams';
 import { listInvitations } from '@/src/lib/app/invitations';
 import { KnownPageLinks } from '@/src/knownPages';
 
-export const metadata: Metadata = { title: 'Team' };
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return { title: t("Team") };
+}
 
 export default async function TeamPage({ params, searchParams }: PageProps<'/app/workspace/teams/[teamId]'>) {
+    const { t } = await getAppI18n();
     const context = await requireTeamAdmin(),
         { teamId } = await params;
     const team = (await getTeam(context.workspace.id, teamId))?.doc;
@@ -34,29 +40,29 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/app
         <>
             <PageHeader
                 title={team.name}
-                description={team.description ?? 'Selected people and projects in this workspace.'}
+                description={team.description ?? t("Selected people and projects in this workspace.")}
                 actions={<TeamEditor team={team} />}
             />
             <div className="flex flex-col gap-8">
                 <p className="m-0 text-sm text-muted-foreground">
-                    {team.state === 'archived' ? 'Archived · No projects are granted.' : 'Active'}
+                    {team.state === 'archived' ? t("Archived · No projects are granted.") : t("Active")}
                 </p>
                 <Section
                     id="people"
-                    title="People"
-                    description="Accepted workspace members and pending invitations are separate."
+                    title={t("People")}
+                    description={t("Accepted workspace members and pending invitations are separate.")}
                     actions={team.state === 'active' ? <InviteButton teamId={team.id} /> : undefined}
                 >
                     <ul className="m-0 list-none divide-y rounded-xl border p-0">
                         {members.map((person) => (
                             <li className="p-4 text-sm" key={person.member.id}>
                                 <Link href={KnownPageLinks.member(person.member.userId)}>{person.name}</Link> ·{' '}
-                                {person.member.relationship ?? 'Unspecified'} · {person.member.role}
+                                {person.member.relationship ?? t("Unspecified")} · {person.member.role}
                             </li>
                         ))}
                     </ul>
-                    {!members.length && <p className="text-sm text-muted-foreground">No accepted people yet.</p>}
-                    <h3 className="text-sm font-medium">Pending invitations</h3>
+                    {!members.length && <p className="text-sm text-muted-foreground">{t("No accepted people yet.")}</p>}
+                    <h3 className="text-sm font-medium">{t("Pending invitations")}</h3>
                     {pending.length ? (
                         <ul className="text-sm">
                             {pending.map((invitation) => (
@@ -64,27 +70,25 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/app
                             ))}
                         </ul>
                     ) : (
-                        <p className="text-sm text-muted-foreground">No pending invitations.</p>
+                        <p className="text-sm text-muted-foreground">{t("No pending invitations.")}</p>
                     )}
                     {team.state === 'active' && <BulkTeamForm data={data} fromTeamId={team.id} />}
                 </Section>
                 <Section
                     id="projects"
-                    title="Projects"
-                    description="Projects are never copied into a person's direct grants."
+                    title={t("Projects")}
+                    description={t("Projects are never copied into a person's direct grants.")}
                 >
                     {team.state === 'active' ? (
                         <TeamProjectForm key={team.updatedAt} team={team} data={data} />
                     ) : (
-                        <p className="text-sm text-muted-foreground">
-                            Restore this team to select projects again. Restoration starts empty.
-                        </p>
+                        <p className="text-sm text-muted-foreground">{t("Restore this team to select projects again. Restoration starts empty.")}</p>
                     )}
                 </Section>
-                <Section id="lifecycle" title="Team state">
+                <Section id="lifecycle" title={t("Team state")}>
                     <TeamLifecycle team={team} data={data} />
                 </Section>
-                <Section id="activity" title="Activity" description="Changes to this team and its people, kept for 180 days.">
+                <Section id="activity" title={t("Activity")} description={t("Changes to this team and its people, kept for 180 days.")}>
                     <AccessActivity
                         events={history.events}
                         names={names}

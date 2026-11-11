@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useActionState } from 'react';
 import { Button } from '@/src/components/ui/button';
 import { Spinner } from '@/src/components/ui/spinner';
@@ -11,6 +13,7 @@ import { confirmSignInAction } from '../actions';
  * must not use up the single-use link.
  */
 export function ConfirmSignInForm({ token }: { token: string }) {
+    const { t, language } = useAppI18n();
     const [state, formAction, pending] = useActionState(confirmSignInAction, null);
     return (
         <form action={formAction} className="flex flex-col gap-4">
@@ -18,8 +21,7 @@ export function ConfirmSignInForm({ token }: { token: string }) {
             <FormMessage state={state} />
             <Button type="submit" size="lg" className="w-full" disabled={pending}>
                 {pending && <Spinner data-icon="inline-start" />}
-                Continue
-            </Button>
+                {t("Continue")}{' '}</Button>
         </form>
     );
 }

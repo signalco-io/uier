@@ -1,4 +1,6 @@
 'use client';
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 
 import { useState } from 'react';
 import type { DbTeam } from '@/src/lib/app/model';
@@ -9,6 +11,7 @@ import { ConfirmAccess } from './ConfirmAccess';
 import { Impact } from './AccessImpact';
 
 export function TeamProjectForm({ team, data }: { team: DbTeam; data: AccessData }) {
+    const { t } = useAppI18n();
     const [selected, setSelected] = useState(team.projectIds);
     const affected = data.people.filter((person) => person.member.teamIds?.includes(team.id));
     const nextAccess = {
@@ -18,27 +21,26 @@ export function TeamProjectForm({ team, data }: { team: DbTeam; data: AccessData
     return (
         <div className="flex flex-col gap-4">
             <CheckList
-                label="Selected projects"
+                label={t("Selected projects")}
                 value={selected}
                 onChange={setSelected}
                 options={data.projects.map((project) => ({
                     id: project.id,
                     name: `${project.name} · ${project.access === 'guests' ? 'Anyone with the link' : project.access === 'disabled' ? 'Comments off' : 'Invited people'}`
                 }))}
-                description="Only selected projects are shared. Future projects are never added automatically."
+                description={t("Only selected projects are shared. Future projects are never added automatically.")}
             />
             <ConfirmAccess
-                label="Review project changes"
-                title="Change this team's projects?"
-                description={`${affected.length} accepted people are in this team. External reviewers who gain access are listed below. Direct grants and other teams remain independent.`}
+                label={t("Review project changes")}
+                title={t("Change this team's projects?")}
+                description={t("{value0} accepted people are in this team. External reviewers who gain access are listed below. Direct grants and other teams remain independent.", { value0: affected.length })}
                 action={() => teamProjectsAction(team.id, selected, data.revision)}
             >
-                <p className="text-sm">
-                    External reviewers:{' '}
+                <p className="text-sm">{t("External reviewers:")}{' '}
                     {affected
                         .filter((person) => person.member.relationship === 'external')
                         .map((person) => person.name)
-                        .join(', ') || 'None'}
+                        .join(', ') || t("None")}
                 </p>
                 {affected.map((person) => (
                     <Impact

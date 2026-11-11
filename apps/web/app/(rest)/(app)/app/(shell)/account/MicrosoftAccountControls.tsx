@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useActionState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { LogInIcon } from 'lucide-react';
@@ -23,6 +25,7 @@ const outcomes: Record<string, string> = {
 };
 
 export function MicrosoftAccountControls({ linkedEmail, configured, recentSignIn }: { linkedEmail: string | null; configured: boolean; recentSignIn: boolean }) {
+    const { t, language } = useAppI18n();
     const [state, formAction, pending] = useActionState(unlinkMicrosoftAction, null);
     const outcome = useSearchParams().get('microsoft');
     const linked = linkedEmail !== null;
@@ -34,8 +37,8 @@ export function MicrosoftAccountControls({ linkedEmail, configured, recentSignIn
             {notice && <p role="status" className="m-0 text-sm text-muted-foreground">{notice}</p>}
             <p className="m-0 text-sm">
                 {linked
-                    ? linkedEmail ? <>Linked to <span className="font-medium">{linkedEmail}</span>.</> : 'A Microsoft account is linked.'
-                    : 'No Microsoft account is linked.'}
+                    ? linkedEmail ? <>{t("Linked to")}{' '}<span className="font-medium">{linkedEmail}</span>.</> : t("A Microsoft account is linked.")
+                    : t("No Microsoft account is linked.")}
             </p>
             <FormMessage state={state} />
             {linked
@@ -43,23 +46,21 @@ export function MicrosoftAccountControls({ linkedEmail, configured, recentSignIn
                     <form action={formAction}>
                         <Button type="submit" variant="outline" disabled={pending}>
                             {pending && <Spinner data-icon="inline-start" />}
-                            Unlink Microsoft account
-                        </Button>
+                            {t("Unlink Microsoft account")}{' '}</Button>
                     </form>
                 )
                 : configured && (recentSignIn
                     ? (
                         // A full navigation, never prefetched: the route starts the link with Microsoft
-                        <a href={`${KnownPages.AppSignInMicrosoft}?intent=link`} className={buttonVariants({ variant: 'outline' })}>Link Microsoft account</a>
+                        <a href={`${KnownPages.AppSignInMicrosoft}?intent=link`} className={buttonVariants({ variant: 'outline' })}>{t("Link Microsoft account")}</a>
                     )
                     : (
                         <div className="flex w-full flex-wrap items-center justify-between gap-3 rounded-xl border p-3">
-                            <p className="m-0 min-w-0 flex-1 text-sm text-muted-foreground">To link a Microsoft account, sign in again. Linking needs a sign-in from the last 10 minutes.</p>
+                            <p className="m-0 min-w-0 flex-1 text-sm text-muted-foreground">{t("To link a Microsoft account, sign in again. Linking needs a sign-in from the last 10 minutes.")}</p>
                             <form action={signInAgainAction}>
                                 <Button type="submit" variant="outline">
                                     <LogInIcon data-icon="inline-start" />
-                                    Sign in again
-                                </Button>
+                                    {t("Sign in again")}{' '}</Button>
                             </form>
                         </div>
                     ))}

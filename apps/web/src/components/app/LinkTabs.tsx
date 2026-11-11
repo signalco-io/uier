@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
@@ -43,6 +45,7 @@ export function LinkTabs({ tabs, label, variant = 'line', match = 'url', classNa
     match?: 'url' | 'path';
     className?: string;
 }) {
+    const { t, language } = useAppI18n();
     const pathname = usePathname();
     const search = useSearchParams().toString();
     const here = match === 'path' ? pathname : `${pathname}${search ? `?${search}` : ''}`;
@@ -50,7 +53,7 @@ export function LinkTabs({ tabs, label, variant = 'line', match = 'url', classNa
     const isCurrent = (tab: LinkTab) => tab.current ?? (tab.href === here || (tab.nested === true && pathname.startsWith(`${tab.href}/`)));
     const roving = useRovingTabStop(tabs.map(tab => tab.href), {
         preferred: tabs.find(isCurrent)?.href,
-        orientation: variant === 'side' ? 'both' : 'horizontal'
+        orientation: variant === 'side' ? "both" : "horizontal"
     });
 
     // A row wider than the screen scrolls the current tab into the middle (only sideways: the page stays put)
@@ -82,7 +85,7 @@ export function LinkTabs({ tabs, label, variant = 'line', match = 'url', classNa
                         key={tab.href}
                         href={tab.href}
                         {...roving.itemProps(tab.href)}
-                        aria-current={current ? 'page' : undefined}
+                        aria-current={current ? "page" : undefined}
                         // Nothing to load: the address changes during the click (Back and Forward follow it)
                         prefetch={query ? false : undefined}
                         onNavigate={query ? event => {
@@ -97,7 +100,7 @@ export function LinkTabs({ tabs, label, variant = 'line', match = 'url', classNa
                         )}>
                         {/* The spinner's space on the other side too, so the label sits centred over its underline or pill */}
                         {!query && variant !== 'side' && <span aria-hidden="true" className="size-4 shrink-0" />}
-                        {tab.label}
+                        {t(tab.label)}
                         {tab.count !== undefined && <span className="font-normal tabular-nums text-muted-foreground">{tab.count}</span>}
                         {/* Last, so the label and count stay together; at the right edge of a section link that fills its column */}
                         {!query && <NavigationPending className="ml-auto" />}

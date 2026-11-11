@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { BriefcaseIcon, ChevronRightIcon } from 'lucide-react';
@@ -15,9 +17,10 @@ import { ClientEditDialog } from '@/src/components/app/clients/ClientEditDialog'
 import { ClientCreateDialog } from '@/src/components/app/clients/ClientCreateDialog';
 import { ClientMark } from '@/src/components/app/clients/ClientMark';
 
-export const metadata: Metadata = {
-    title: 'Clients'
-};
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return { title: t("Clients") };
+}
 
 /** "2 active, 1 done" */
 function statusText(active: number, done: number) {
@@ -26,6 +29,7 @@ function statusText(active: number, done: number) {
 
 /** The clients of the projects the person can see, each opening the projects list filtered to it */
 export default async function ClientsPage() {
+    const { t } = await getAppI18n();
     const context = await requireAppContext();
     const canEdit = context.isAdmin && context.workspace.id !== PUBLIC_WORKSPACE_ID;
     // Projects first: listing them moves older client names to client documents
@@ -36,7 +40,7 @@ export default async function ClientsPage() {
     return (
         <>
             <WorkspaceTabHeader
-                description="Who your projects are for. Add a client here, or set a project's client when you create it or in its settings."
+                description={t("Who your projects are for. Add a client here, or set a project's client when you create it or in its settings.")}
                 actions={canEdit && projects.length > 0 && (
                     <ClientCreateDialog projects={projects.map(project => ({
                         id: project.id,
@@ -47,7 +51,7 @@ export default async function ClientsPage() {
                 )} />
             {clients.length ? (
                 <Card className="gap-0 py-0">
-                    <ItemGroup aria-label="Clients" className="gap-0 divide-y">
+                    <ItemGroup aria-label={t("Clients")} className="gap-0 divide-y">
                         {clients.map(client => {
                             const active = client.projects.filter(project => project.status !== 'done').length;
                             const done = client.projects.length - active;
@@ -67,7 +71,7 @@ export default async function ClientsPage() {
                                                     {client.name}
                                                 </Link>
                                             </ItemTitle>
-                                            {client.description && <ItemDescription className="break-words whitespace-pre-line">{client.description}</ItemDescription>}
+                                            {client.description && <ItemDescription className="break-words whitespace-pre-line">{t(client.description)}</ItemDescription>}
                                             <ItemDescription className="truncate">
                                                 {client.projects.map(project => project.name).join(', ')}
                                             </ItemDescription>
@@ -89,20 +93,20 @@ export default async function ClientsPage() {
                         <EmptyMedia variant="icon">
                             <BriefcaseIcon />
                         </EmptyMedia>
-                        <EmptyTitle>No clients yet</EmptyTitle>
+                        <EmptyTitle>{t("No clients yet")}</EmptyTitle>
                         <EmptyDescription>
                             {canEdit
                                 ? projects.length
-                                    ? 'Add a client for one or more projects. Everyone who can open one of them sees it.'
-                                    : 'Create a project first, then add the client it is for.'
-                                : 'Clients of the projects you are invited to show up here.'}
+                                    ? t("Add a client for one or more projects. Everyone who can open one of them sees it.")
+                                    : t("Create a project first, then add the client it is for.")
+                                : t("Clients of the projects you are invited to show up here.")}
                         </EmptyDescription>
                     </EmptyHeader>
                     {/* Add client is above the list; without projects there is nothing to add a client to */}
                     {(!canEdit || !projects.length) && (
                         <EmptyContent>
                             <Link href={canEdit ? KnownPages.AppNewProject : KnownPages.AppProjects} className={buttonVariants({ variant: 'outline' })}>
-                                {canEdit ? 'Create project' : 'Go to projects'}
+                                {canEdit ? t("Create project") : t("Go to projects")}
                             </Link>
                         </EmptyContent>
                     )}

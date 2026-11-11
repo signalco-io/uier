@@ -1,4 +1,6 @@
 'use client';
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 
 import { useState } from 'react';
 import Link from 'next/link';
@@ -16,6 +18,7 @@ import { Choice, CheckList } from './AccessFormFields';
 
 /** A person's relationship, teams and direct access, a settings card whose footer reviews the change before it is saved */
 export function MemberAccessForm({ person, data }: { person: AccessPerson; data: AccessData }) {
+    const { t } = useAppI18n();
     const [teams, setTeams] = useState(person.member.teamIds ?? []);
     const [projects, setProjects] = useState<ProjectsAccess>(person.member.projects);
     const [relationship, setRelationship] = useState(person.member.relationship ?? 'unspecified');
@@ -29,13 +32,13 @@ export function MemberAccessForm({ person, data }: { person: AccessPerson; data:
     return (
         <Section
             id="edit-access"
-            title="Teams and direct access"
-            description="Teams and direct grants add together. Relationship is only a label."
+            title={t("Teams and direct access")}
+            description={t("Teams and direct grants add together. Relationship is only a label.")}
             footer={(
                 <ConfirmAccess
-                    label="Review access changes"
-                    title="Update this person's access?"
-                    description="Relationship is a label. Teams and direct grants add together. Review access that remains after this change."
+                    label={t("Review access changes")}
+                    title={t("Update this person's access?")}
+                    description={t("Relationship is a label. Teams and direct grants add together. Review access that remains after this change.")}
                     disabled={!changed}
                     action={() => memberAccessAction(person.member.userId, next, data.revision)}
                 >
@@ -44,7 +47,7 @@ export function MemberAccessForm({ person, data }: { person: AccessPerson; data:
             )}>
             <FieldGroup>
                 <Choice
-                    label="Relationship"
+                    label={t("Relationship")}
                     value={relationship}
                     onChange={setRelationship}
                     options={[
@@ -54,24 +57,19 @@ export function MemberAccessForm({ person, data }: { person: AccessPerson; data:
                     ]}
                 />
                 {data.access.teams.length ? (
-                    <CheckList label="Teams" value={teams} onChange={setTeams} options={data.access.teams} />
+                    <CheckList label={t("Teams")} value={teams} onChange={setTeams} options={data.access.teams} />
                 ) : (
                     <Field>
-                        <FieldTitle>Teams</FieldTitle>
-                        <FieldDescription>
-                            No teams yet. <Link href={KnownPages.AppTeams}>Create a team</Link> to give a group the same projects.
-                        </FieldDescription>
+                        <FieldTitle>{t("Teams")}</FieldTitle>
+                        <FieldDescription>{t("No teams yet.")}{' '}<Link href={KnownPages.AppTeams}>{t("Create a team")}</Link>{' '}{t("to give a group the same projects.")}</FieldDescription>
                     </Field>
                 )}
                 {teams.some((id) => !data.access.teams.some((team) => team.id === id)) && (
-                    <FieldDescription>
-                        Archived or deleted team references are retained. They grant no access; restoring a team starts
-                        with no project grants.
-                    </FieldDescription>
+                    <FieldDescription>{t("Archived or deleted team references are retained. They grant no access; restoring a team starts with no project grants.")}</FieldDescription>
                 )}
                 <Field>
                     <Choice
-                        label="Direct access"
+                        label={t("Direct access")}
                         value={projects === 'all' ? 'all' : 'selected'}
                         onChange={(value) => setProjects(value === 'all' ? 'all' : [])}
                         options={[
@@ -85,16 +83,14 @@ export function MemberAccessForm({ person, data }: { person: AccessPerson; data:
                             <InfoIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
                             <span>
                                 {admin
-                                    ? 'Workspace admins always have every project.'
-                                    : 'All-project access includes every future project.'}{' '}
-                                Team selection does not restrict this access.
-                            </span>
+                                    ? t("Workspace admins always have every project.")
+                                    : t("All-project access includes every future project.")}{' '}{t("Team selection does not restrict this access.")}</span>
                         </FieldDescription>
                     )}
                 </Field>
                 {projects !== 'all' && (
                     <CheckList
-                        label="Direct projects"
+                        label={t("Direct projects")}
                         options={data.projects}
                         value={projects}
                         onChange={setProjects}

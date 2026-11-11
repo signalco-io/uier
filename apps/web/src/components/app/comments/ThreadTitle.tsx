@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import { SparklesIcon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -13,12 +15,13 @@ import { useCommentUpdate } from './CommentUpdates';
 const MAX_LENGTH = 120;
 
 function AiMark() {
+    const { t } = useAppI18n();
     return (
         <Tooltip>
-            <TooltipTrigger render={<span role="img" aria-label="Title written by AI" className="mt-1 inline-flex shrink-0 text-muted-foreground" />}>
+            <TooltipTrigger render={<span role="img" aria-label={t("Title written by AI")} className="mt-1 inline-flex shrink-0 text-muted-foreground" />}>
                 <SparklesIcon aria-hidden="true" className="size-3.5" />
             </TooltipTrigger>
-            <TooltipContent>Written by AI from the first message</TooltipContent>
+            <TooltipContent>{t("Written by AI from the first message")}</TooltipContent>
         </Tooltip>
     );
 }
@@ -37,6 +40,7 @@ export function ThreadTitle({ projectId, commentId, title, byAi = false, canRena
     byAi?: boolean;
     canRename?: boolean;
 }) {
+    const { t } = useAppI18n();
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState('');
     const [pending, start] = useTransition();
@@ -86,14 +90,14 @@ export function ThreadTitle({ projectId, commentId, title, byAi = false, canRena
             update({ id: commentId, patch: next ? { title: next, titleByAi: false } : { title: undefined, titleByAi: false } });
             try {
                 const result = await setCommentTitleAction(projectId, commentId, next);
-                if (!result?.ok) toast.error(result?.error ?? 'Could not rename the thread. Try again.');
-            } catch { toast.error('Could not rename the thread. Try again.'); }
+                if (!result?.ok) toast.error(result?.error ?? t("Could not rename the thread. Try again."));
+            } catch { toast.error(t("Could not rename the thread. Try again.")); }
         });
     };
 
     if (editing) {
         return (
-            <Input ref={input} value={draft} maxLength={MAX_LENGTH} aria-label="Thread title" placeholder="Add a title"
+            <Input ref={input} value={draft} maxLength={MAX_LENGTH} aria-label={t("Thread title")} placeholder={t("Add a title")}
                 className="-mx-1.5 -mt-4 h-auto w-[calc(100%+0.75rem)] px-1.5 py-0.5 text-base font-semibold md:text-base pointer-coarse:min-h-11"
                 onChange={event => setDraft(event.target.value)}
                 onBlur={() => save(false)}
@@ -109,14 +113,14 @@ export function ThreadTitle({ projectId, commentId, title, byAi = false, canRena
             className={cn('-mx-1.5 min-w-0 cursor-text rounded-sm px-1.5 py-0.5 text-left break-words outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 pointer-coarse:min-h-11',
                 !title && 'text-sm font-normal text-muted-foreground')}
             onFocus={begin} onClick={begin}>
-            {title || 'Add a title'}
+            {title || t("Add a title")}
         </button>
     );
     return (
         <div className="-mt-4 flex min-w-0 items-start gap-1.5">
             {title ? <h2 className="m-0 min-w-0 text-base font-semibold">{button}</h2> : button}
             {title && byAi && <AiMark />}
-            <span id={hintId} hidden>{title ? 'Rename the thread' : 'Give the thread a title'}</span>
+            <span id={hintId} hidden>{title ? t("Rename the thread") : t("Give the thread a title")}</span>
         </div>
     );
 }

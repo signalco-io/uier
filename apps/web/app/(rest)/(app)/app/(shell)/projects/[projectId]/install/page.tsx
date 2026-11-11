@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { KnownPageLinks, onboardingSteps, type OnboardingStep } from '@/src/knownPages';
@@ -11,9 +13,10 @@ import { InviteReviewerStep } from '@/src/components/app/projects/InviteReviewer
 import { OnboardingStepCard } from '@/src/components/app/projects/OnboardingStepCard';
 import { OnboardingSteps, type OnboardingStepNumber } from '@/src/components/app/projects/OnboardingSteps';
 
-export const metadata: Metadata = {
-    title: 'Install'
-};
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return { title: t("Install") };
+}
 
 /**
  * Onboarding after the site (`?onboarding=1`, right after creating the project): one step per screen,
@@ -22,6 +25,7 @@ export const metadata: Metadata = {
  * (the toolbar still links here): it moved to Settings → Installation.
  */
 export default async function InstallProjectPage({ params, searchParams }: PageProps<'/app/projects/[projectId]/install'>) {
+    const { t } = await getAppI18n();
     const { projectId } = await params;
     const { onboarding, step: stepParam } = await searchParams;
     if (onboarding !== '1')
@@ -41,11 +45,11 @@ export default async function InstallProjectPage({ params, searchParams }: PageP
         <div className="flex max-w-3xl flex-col gap-8">
             <OnboardingSteps current={number(step)} hrefs={Object.fromEntries(onboardingSteps.map(name => [number(name), href(name)]))} />
             {step === 'script' && (
-                <OnboardingStepCard id="add-script" title="Add the script" description={<ScriptDescription />}
+                <OnboardingStepCard id="add-script" title={t("Add the script")} description={<ScriptDescription />}
                     skip={comments} next={{ href: href('check'), label: 'Next' }}>
                     <ScriptSnippet baseUrl={await appBaseUrl()} publicId={project.publicId} />
                     <div className="flex flex-col gap-3">
-                        <h3 className="m-0 text-sm font-medium">Where to add it</h3>
+                        <h3 className="m-0 text-sm font-medium">{t("Where to add it")}</h3>
                         <PlatformSteps baseUrl={await appBaseUrl()} publicId={project.publicId} />
                     </div>
                     <BrowserExtensionNote />
