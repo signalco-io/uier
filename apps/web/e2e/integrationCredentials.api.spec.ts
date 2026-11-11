@@ -166,7 +166,7 @@ test('refresh save cannot recreate a deleted grant, revive a revocation, or outl
     const expired = await grantFixture();
     const now = Date.now();
     const third = await acquireGrantLease<FixtureGrant>({ ...expired.identity, leaseMs: 1000 }, expired.store, now);
-    expect(await saveGrantLease<FixtureGrant>({ ...expired.identity, lease: third!.lease, update: current => current }, expired.store, now + 1001)).toBeNull();
+    expect(await saveGrantLease<FixtureGrant>({ ...expired.identity, lease: third!.lease, update: current => current }, expired.store, Date.parse(third!.lease.until) + 1)).toBeNull();
     expect(await saveGrantLease<FixtureGrant>({ ...expired.identity, authorize: async () => false, lease: third!.lease, update: current => current }, expired.store, now)).toBeNull();
 });
 
@@ -174,11 +174,13 @@ test('an old holder cannot release another lease or move a grant between scopes'
     const f = await grantFixture();
     const now = Date.now();
     const first = await acquireGrantLease<FixtureGrant>({ ...f.identity, leaseMs: 1000 }, f.store, now);
-    const next = await acquireGrantLease<FixtureGrant>(f.identity, f.store, now + 1001);
-    expect(await releaseGrantLease({ pk: f.grant.pk, id: f.grant.id, lease: first!.lease }, f.store, now + 1001)).toBe(false);
-    await expect(saveGrantLease<FixtureGrant>({ ...f.identity, lease: next!.lease, update: current => ({ ...current, workspaceId: 'w_foreign' }) }, f.store, now + 1001)).rejects.toMatchObject({ code: 'invalid_update' });
-    await expect(saveGrantLease<FixtureGrant>({ ...f.identity, lease: next!.lease, update: current => { current.status = 'revoked'; return current; } }, f.store, now + 1001)).rejects.toMatchObject({ code: 'invalid_update' });
-    expect(await releaseGrantLease({ pk: f.grant.pk, id: f.grant.id, lease: next!.lease }, f.store, now + 1001)).toBe(true);
+    // Issuance advances the clock while reading storage and checking authority.
+    const afterExpiry = Date.parse(first!.lease.until) + 1;
+    const next = await acquireGrantLease<FixtureGrant>(f.identity, f.store, afterExpiry);
+    expect(await releaseGrantLease({ pk: f.grant.pk, id: f.grant.id, lease: first!.lease }, f.store, afterExpiry)).toBe(false);
+    await expect(saveGrantLease<FixtureGrant>({ ...f.identity, lease: next!.lease, update: current => ({ ...current, workspaceId: 'w_foreign' }) }, f.store, afterExpiry)).rejects.toMatchObject({ code: 'invalid_update' });
+    await expect(saveGrantLease<FixtureGrant>({ ...f.identity, lease: next!.lease, update: current => { current.status = 'revoked'; return current; } }, f.store, afterExpiry)).rejects.toMatchObject({ code: 'invalid_update' });
+    expect(await releaseGrantLease({ pk: f.grant.pk, id: f.grant.id, lease: next!.lease }, f.store, afterExpiry)).toBe(true);
 });
 
 
