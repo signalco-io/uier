@@ -2,7 +2,6 @@ import { getClientLogoImage } from '@/src/lib/app/clientLogos';
 import { requestSessionUser } from '@/src/lib/app/sessionIdentity';
 import { errorResponse } from '@/src/lib/comments/http';
 
-export const dynamic = 'force-dynamic';
 const noStore = { 'Cache-Control': 'private, no-store' };
 
 export async function GET(request: Request, { params }: { params: Promise<{ workspaceId: string; clientId: string; version: string }> }) {

@@ -1,4 +1,6 @@
 import { publicPageMetadata } from '@/src/lib/metadata';
+import { Suspense } from 'react';
+import { connection } from 'next/server';
 import { cx } from '@signalco/ui-primitives/cx';
 import { brand } from '@uier/brand';
 import { InlineLink, PageHeader, PageSection, Panel } from '../../../../src/components/marketing/ContentPage';
@@ -7,7 +9,6 @@ import { getServiceStatus, STATUS_CACHE_SECONDS, type ServiceState } from '../..
 // Shows only what the live checks in src/lib/status measure, when the page is requested. No uptime
 // percentages or history: nothing records them.
 
-export const dynamic = 'force-dynamic';
 
 export const metadata = publicPageMetadata('/status', {
     title: 'Status',
@@ -35,38 +36,21 @@ function formatUtc(iso: string) {
     return `${iso.slice(0, 10)} ${iso.slice(11, 19)} UTC`;
 }
 
-export default async function StatusPage() {
-    const report = await getServiceStatus();
-
+export default function StatusPage() {
     return (
         <main className="flex flex-col pb-16">
             <PageHeader
                 title="Status"
                 lead={`Live checks of ${brand.name}'s services, run when this page loads.`}>
-                <p className="flex items-center gap-2 text-base font-medium" role="status">
-                    <StateDot state={report.state} />
-                    {report.state === 'operational' ? 'All services are operational.' : 'Some services are not responding.'}
-                </p>
+                <Suspense fallback={<p className="min-h-6 text-muted-foreground" role="status">Checking services…</p>}>
+                    <StatusSummary />
+                </Suspense>
             </PageHeader>
 
             <PageSection id="services" title="Services">
-                <Panel as="ul">
-                    {report.services.map(service => (
-                        <li key={service.id} className="flex flex-col gap-1 p-6 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6">
-                            <div className="flex flex-col gap-1">
-                                <span className="font-medium">{service.name}</span>
-                                <span className="text-sm text-muted-foreground">{service.description}</span>
-                            </div>
-                            <span className="flex shrink-0 items-center gap-2 text-sm font-medium" data-state={service.state}>
-                                <StateDot state={service.state} />
-                                {stateLabels[service.state]}
-                            </span>
-                        </li>
-                    ))}
-                </Panel>
-                <p className="text-sm text-muted-foreground">
-                    Checked <time dateTime={report.checkedAt} className="font-mono tabular-nums">{formatUtc(report.checkedAt)}</time>
-                </p>
+                <Suspense fallback={<Panel className="min-h-56 p-6"><p role="status" className="text-muted-foreground">Loading service checks…</p></Panel>}>
+                    <ServiceChecks />
+                </Suspense>
             </PageSection>
 
             <PageSection id="how" title="How this works">
@@ -80,4 +64,39 @@ export default async function StatusPage() {
             </PageSection>
         </main>
     );
+}
+
+async function liveReport() {
+    await connection();
+    return getServiceStatus();
+}
+
+async function StatusSummary() {
+    const report = await liveReport();
+    return <p className="flex min-h-6 items-center gap-2 text-base font-medium" role="status">
+        <StateDot state={report.state} />
+        {report.state === 'operational' ? 'All services are operational.' : 'Some services are not responding.'}
+    </p>;
+}
+
+async function ServiceChecks() {
+    const report = await liveReport();
+    return <>
+        <Panel as="ul">
+            {report.services.map(service => (
+                <li key={service.id} className="flex flex-col gap-1 p-6 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6">
+                    <div className="flex flex-col gap-1">
+                        <span className="font-medium">{service.name}</span>
+                        <span className="text-sm text-muted-foreground">{service.description}</span>
+                    </div>
+                    <span className="flex shrink-0 items-center gap-2 text-sm font-medium" data-state={service.state}>
+                        <StateDot state={service.state} />{stateLabels[service.state]}
+                    </span>
+                </li>
+            ))}
+        </Panel>
+        <p className="text-sm text-muted-foreground">
+            Checked <time dateTime={report.checkedAt} className="font-mono tabular-nums">{formatUtc(report.checkedAt)}</time>
+        </p>
+    </>;
 }

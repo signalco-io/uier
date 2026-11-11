@@ -1,5 +1,9 @@
 # App shell, navigation and the projects list
 
+The shell and each request-dependent segment use the boundaries described in
+[Cache Components](cache-components.md). The initial shell contains no private data. Proxy completes
+document access decisions before it streams; pages and actions retain their own checks.
+
 - **Notification landmark.** App pages mount only the shadcn Sonner toaster. The shared
   `ClientProvider` disables its signalco notification container in the app layout; public pages
   keep it. Both containers otherwise expose the same "Notifications alt+T" region, even when empty.

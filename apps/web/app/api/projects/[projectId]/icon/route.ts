@@ -4,7 +4,6 @@ import { getSiteIcon, MISSING_SITE_ICON_MAX_AGE, SITE_ICON_MAX_AGE } from '@/src
 import { siteIconContentSecurityPolicy } from '@/src/lib/secureHeaders';
 import { memberActor } from '@/src/lib/review/actor';
 
-export const dynamic = 'force-dynamic';
 
 const noStore = { 'Cache-Control': 'private, no-store' };
 

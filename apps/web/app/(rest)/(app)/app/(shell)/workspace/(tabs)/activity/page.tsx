@@ -1,3 +1,5 @@
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { KnownPages } from '@/src/knownPages';
 import { listAccessEvents } from '@/src/lib/app/teams';
@@ -10,7 +12,7 @@ import { WorkspaceTabHeader } from '@/src/components/app/workspace/WorkspaceTabH
 export const metadata: Metadata = { title: 'Activity' };
 
 /** Who changed access in the workspace: invitations, removals, teams and grants (admins; kept 180 days) */
-export default async function ActivityPage({ searchParams }: PageProps<'/app/workspace/activity'>) {
+async function ActivityPageContent({ searchParams }: PageProps<'/app/workspace/activity'>) {
     const context = await requireTeamAdmin();
     const { after } = await searchParams;
     const [data, invitations, history] = await Promise.all([
@@ -28,4 +30,8 @@ export default async function ActivityPage({ searchParams }: PageProps<'/app/wor
                 next={history.next ? `${KnownPages.AppActivity}?${new URLSearchParams({ after: history.next })}` : undefined} />
         </>
     );
+}
+
+export default function ActivityPage(props: Parameters<typeof ActivityPageContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading activity" />}><ActivityPageContent {...props} /></Suspense>;
 }

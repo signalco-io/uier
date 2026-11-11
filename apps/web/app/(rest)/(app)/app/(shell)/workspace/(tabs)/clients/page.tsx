@@ -1,3 +1,5 @@
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { BriefcaseIcon, ChevronRightIcon } from 'lucide-react';
@@ -25,7 +27,7 @@ function statusText(active: number, done: number) {
 }
 
 /** The clients of the projects the person can see, each opening the projects list filtered to it */
-export default async function ClientsPage() {
+async function ClientsPageContent() {
     const context = await requireAppContext();
     const canEdit = context.isAdmin && context.workspace.id !== PUBLIC_WORKSPACE_ID;
     // Projects first: listing them moves older client names to client documents
@@ -110,4 +112,8 @@ export default async function ClientsPage() {
             )}
         </>
     );
+}
+
+export default function ClientsPage() {
+    return <Suspense fallback={<PageLoading title="Loading clients" />}><ClientsPageContent /></Suspense>;
 }

@@ -27,5 +27,10 @@ outside `publicPageMetadata` fall back to their own.
   Pictures are specimens with placeholder bars, never words that read as someone's content.
   The sitemap excludes `*/opengraph-image*` and `/og/*`.
 
+With Cache Components, the immutable Geist font bytes use `cacheLife('max')` in
+`socialCardFonts`. They serialize as ArrayBuffers, keeping the cards prerenderable without caching
+request values. `/og/[card]` uses its existing runtime allowlist for unknown ids instead of the
+removed `dynamicParams` setting.
+
 `e2e/social-cards.api.spec.ts` checks every public page's card and the app link previews; add a new
 public page to its `publicPaths` (and to `e2e/seo.api.spec.ts`).

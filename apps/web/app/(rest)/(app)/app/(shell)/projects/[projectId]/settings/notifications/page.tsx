@@ -1,3 +1,5 @@
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { KnownPageLinks } from '@/src/knownPages';
@@ -11,7 +13,7 @@ export const metadata: Metadata = {
 };
 
 /** Everyone turns their own project emails on or off; admins also choose whether emails carry comment excerpts */
-export default async function ProjectNotificationSettingsPage({ params }: PageProps<'/app/projects/[projectId]/settings/notifications'>) {
+async function ProjectNotificationSettingsPageContent({ params }: PageProps<'/app/projects/[projectId]/settings/notifications'>) {
     const { projectId } = await params;
     const { context, project, canConfigure } = await projectSettingsContext(projectId);
     const notifications = await notificationPreference(project.id, `user:${context.user.id}`);
@@ -36,4 +38,8 @@ export default async function ProjectNotificationSettingsPage({ params }: PagePr
             )}
         </>
     );
+}
+
+export default function ProjectNotificationSettingsPage(props: Parameters<typeof ProjectNotificationSettingsPageContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading notifications" />}><ProjectNotificationSettingsPageContent {...props} /></Suspense>;
 }

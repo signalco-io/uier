@@ -74,6 +74,8 @@ export async function generate() {
         for (const entry of xml.matchAll(/<loc>([^<]+)<\/loc>/g)) {
             const url = publicUrl(entry[1]);
             const path = new URL(url).pathname;
+            // Its shell now prerenders, but live health remains outside content-update submissions.
+            if (path === '/status') continue;
             try {
                 const html = await readFile(resolve(root, `apps/web/.next/server/app/${path === '/' ? 'index' : path.slice(1)}.html`), 'utf8');
                 if (/<meta\b[^>]*name="robots"[^>]*content="[^"]*noindex/i.test(html)) continue;

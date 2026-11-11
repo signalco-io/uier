@@ -1,3 +1,5 @@
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -19,7 +21,7 @@ export const metadata: Metadata = { title: 'Person access' };
 const relationshipLabels: Record<string, string> = { internal: 'Internal', external: 'External' };
 
 /** Someone in the workspace: who they are, the projects they can review (and why), then their teams and direct access */
-export default async function PersonPage({ params }: PageProps<'/app/workspace/users/[userId]'>) {
+async function PersonPageContent({ params }: PageProps<'/app/workspace/users/[userId]'>) {
     const context = await requireTeamAdmin(),
         { userId } = await params;
     const data = await managementData(context),
@@ -83,4 +85,8 @@ export default async function PersonPage({ params }: PageProps<'/app/workspace/u
             </div>
         </>
     );
+}
+
+export default function PersonPage(props: Parameters<typeof PersonPageContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading person" />}><PersonPageContent {...props} /></Suspense>;
 }

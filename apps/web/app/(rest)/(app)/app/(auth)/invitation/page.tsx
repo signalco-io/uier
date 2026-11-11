@@ -1,3 +1,5 @@
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { cn } from 'cn';
@@ -18,7 +20,7 @@ export const metadata: Metadata = {
     ...appLinkMetadata(invitationLink)
 };
 
-export default async function InvitationPage({ searchParams }: PageProps<'/app/invitation'>) {
+async function InvitationPageContent({ searchParams }: PageProps<'/app/invitation'>) {
     const { token } = await searchParams;
     const pending = await getInvitation(token);
 
@@ -60,4 +62,8 @@ export default async function InvitationPage({ searchParams }: PageProps<'/app/i
             <AcceptInvitationForm token={token} />
         </AuthCard>
     );
+}
+
+export default function InvitationPage(props: Parameters<typeof InvitationPageContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading invitation" />}><InvitationPageContent {...props} /></Suspense>;
 }

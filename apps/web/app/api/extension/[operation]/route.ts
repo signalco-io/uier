@@ -10,7 +10,6 @@ import { actorAuthorId } from '@/src/lib/review/actor';
 import { extensionClient, extensionClientOrigin } from '@/src/lib/extension/config';
 import { latestExtensionVersion } from '@/src/lib/extension/release';
 
-export const dynamic = 'force-dynamic';
 const handler = extensionHandler(async request => {
     const operation = new URL(request.url).pathname.split('/').at(-1);
     if (operation === 'token' && request.method === 'POST')

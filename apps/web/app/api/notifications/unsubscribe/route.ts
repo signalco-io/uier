@@ -1,7 +1,6 @@
 import { actOnNotificationToken, inspectNotificationToken } from '@/src/lib/notifications/preferences';
 import { ApiError } from '@/src/lib/comments/http';
 
-export const runtime = 'nodejs';
 const headers = { 'Cache-Control': 'no-store' };
 
 /** Scanners and browsers may inspect this URL without changing preferences. */

@@ -15,10 +15,10 @@ export async function appBaseUrl() {
     const configured = configuredAppBaseUrl();
     if (configured)
         return configured;
+    const requestHeaders = await headers();
     if (deploymentEnvironment() !== 'preview' && !isLocalRuntime())
         throw new Error('UIER_BASE_URL is required outside Vercel deployments and local development.');
 
-    const requestHeaders = await headers();
     const host = requestHeaders.get('host');
     if (!host)
         throw new Error('The request has no Host header.');
