@@ -31,8 +31,10 @@ Adding more agents, updating and clearing keep the stage.
 optimistic shared-list patches. It groups each person's `AgentControl` beneath the selection; only
 the signed-in person's controls edit agents, including Add agent while they already have agents.
 `AssigneeCard` opens from rows, board cards and My work. Its full list indents agents beneath their
-person, whose avatar is larger, on a line that runs down from the centre of that avatar. Each agent's header line
-holds its name, then "Working now" and "Started 3 min ago" (compact, truncating); model, reasoning and session follow below. Compact avatars
+person, whose avatar is larger, on a line that runs down from the centre of that avatar. Each agent (`AgentDetailsItem`) has its avatar
+centred on its header line: its name, then "Working now" and "Started 3 min ago" at the right (compact, truncating);
+model, reasoning level and session follow below. `ReasoningLevel` shows the level as signal bars (none/minimal, low,
+medium, high, xhigh/max; an unknown level as text alone) without the word "reasoning", which only screen readers read. Compact avatars
 stack each person's agents beside their 20px avatar as 16px agent avatars. Up to three people and two
 agents per person fit in a compact row; a count names
 the remainder and shows any active work there. The label and scrollable hover card retain everyone.
@@ -106,7 +108,8 @@ new sessions, but no existing-session deep link for either. CLI session ids alon
 a supported desktop link. Unknown apps remain without a link.
 
 The member projection validates the stored URL again and omits invalid legacy values. Agent details
-on rows/boards/My work, the thread's agent control and Session dialog, and the toolbar avatar's
+on rows/boards/My work, the thread's agent control (only once its chip is clicked: a menu item below the agent's details
+for the assignee, the details popover for everyone else) and Session dialog, and the toolbar avatar's
 Assignee details popover show `Open in <app>`, where the URL selects the app independently of agent
 kind. Links are native anchors and only open on a person's click. There is no URL fetch or automatic
 app launch. Members also get the link in MCP lists and feedback packets. Guest DTOs omit agents

@@ -31,6 +31,9 @@ import type { AssigneeAgentInput } from '../../../lib/review/assigneeAgentModel'
 import { setCommentAgentAction } from './actions';
 import { AgentAvatar } from './AgentAvatar';
 import { AgentSessionLink } from './AgentSessionLink';
+import { AgentDetailsItem } from './AssigneeCard';
+import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover';
+import { hoverPopoverTrigger } from '../hoverPopover';
 import { useCommentUpdate } from './CommentUpdates';
 
 function agentView(input: AssigneeAgentInput): AssigneeAgentView {
@@ -66,7 +69,9 @@ function AgentDetails({ agent }: { agent: AssigneeAgentView }) {
 /**
  * The AI agent working under the assignee, after their name in the thread's Assignee field. The assignee
  * picks it (Claude, Codex, ChatGPT, Cursor or AI agent), shown by its logo and name, edits its session id, model and reasoning level (agents usually
- * report these themselves through MCP) or removes it; everyone else reads "with Claude".
+ * report these themselves through MCP) or removes it; everyone else reads "with Claude". Its details and desktop session
+ * link ("Open in T3 Code") show only once the chip is clicked: at the top of the assignee's menu, or in a popover like the
+ * assignee card's for everyone else.
  */
 export function AgentControl({ projectId, comment, assignee, editable }: { projectId: string; comment: ProjectCommentView; assignee: ProjectAssignee; editable: boolean }) {
     const agents = assigneeAgents(assignee);
@@ -88,16 +93,25 @@ function SingleAgentControl({ projectId, comment, assignee, agent, editable, add
     const ids = useId();
 
     const working = useAgentWorking(agent?.workingUntil);
+    const sessionLink = agentSessionLink(agent?.sessionUrl);
 
     if (!editable) {
         if (!agent) return null;
         return (
-            <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
+            <span className="inline-flex min-w-0 max-w-full items-center gap-1">
                 <span className="text-muted-foreground">{t("with")}</span>
-                <AgentAvatar kind={agent.kind} workingUntil={agent.workingUntil} className="size-4" />
-                <span className="shrink-0">{t(agent.label)}</span>
-                <AgentDetails agent={agent} />
-                <AgentSessionLink sessionUrl={agent.sessionUrl} />
+                <Popover>
+                    <PopoverTrigger {...hoverPopoverTrigger} render={<Button variant="ghost" size="sm"
+                        aria-description={working ? t("{value0} is working now", { value0: agent.label }) : undefined}
+                        className="h-7 min-w-0 max-w-full gap-1.5 px-1.5 font-normal pointer-coarse:min-h-11" />}>
+                        <AgentAvatar kind={agent.kind} workingUntil={agent.workingUntil} className="size-4" />
+                        <span className="shrink-0">{t(agent.label)}</span>
+                        <AgentDetails agent={agent} />
+                    </PopoverTrigger>
+                    <PopoverContent align="start" aria-label={t("{agent} details", { agent: agent.label })} className="w-72 p-2">
+                        <AgentDetailsItem agent={agent} />
+                    </PopoverContent>
+                </Popover>
             </span>
         );
     }
@@ -163,7 +177,15 @@ function SingleAgentControl({ projectId, comment, assignee, agent, editable, add
                         {t("Add agent")}
                     </>}
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="min-w-52">
+                <DropdownMenuContent align="start" className={agent ? 'w-72' : 'min-w-52'}>
+                    {agent && <>
+                        {/* The agent's details, as on the assignee card; its desktop session link is a menu item below them */}
+                        <AgentDetailsItem agent={agent} sessionLink={false} className="px-1.5 py-1" />
+                        {sessionLink && <DropdownMenuItem className="pointer-coarse:min-h-11" render={<a href={sessionLink.url} />}>
+                            {t("Open in ")}{sessionLink.app}
+                        </DropdownMenuItem>}
+                        <DropdownMenuSeparator />
+                    </>}
                     <DropdownMenuGroup>
                         <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">{t("Agent working with you")}</DropdownMenuLabel>
                         <DropdownMenuRadioGroup value={agent?.kind ?? ''}>
@@ -184,7 +206,6 @@ function SingleAgentControl({ projectId, comment, assignee, agent, editable, add
                     )}
                 </DropdownMenuContent>
             </DropdownMenu>
-            {agent && <AgentSessionLink sessionUrl={agent.sessionUrl} />}
             <Dialog open={editing} onOpenChange={open => { if (!pending) setEditing(open); }}>
                 <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md" finalFocus={trigger}>
                     <form onSubmit={saveDetails} className="flex flex-col gap-6">
