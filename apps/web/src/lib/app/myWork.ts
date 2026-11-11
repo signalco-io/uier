@@ -4,6 +4,7 @@ import type { AppContext } from './context';
 import { commentAssignees } from '@uier/toolbar/agents';
 import { loadProjectComments, type ProjectCommentView } from './projectComments';
 import { listVisibleProjects } from './projects';
+import { compareCommentOrder } from '../../components/app/comments/commentOrder';
 
 export type MyWorkItem = { projectId: string; projectName: string; comment: ProjectCommentView };
 
@@ -20,7 +21,9 @@ export type MyWork = {
 
 /**
  * Across every project of the current workspace the member can see, the threads that need them: each
- * thread once, in the first group it belongs to (assigned, then mentions, then unread), newest first.
+ * thread once, in the first group it belongs to (assigned, then mentions, then unread). Each group is in a project
+ * list's order (`compareCommentOrder`: priority, then number, highest first); threads of different projects with the
+ * same priority and number keep newest first.
  * The same authorized snapshot as each project's comments page; nothing new is stored.
  */
 export async function loadMyWork(context: AppContext, t: AppTranslator = englishAppTranslator): Promise<MyWork> {
@@ -30,7 +33,8 @@ export async function loadMyWork(context: AppContext, t: AppTranslator = english
         const comments = await loadProjectComments(context, project, 'all', undefined, windowCapped => { capped ||= windowCapped; }, undefined, 'exclude', t);
         return comments.map(comment => ({ projectId: project.id, projectName: project.name, comment }));
     }));
-    const items = perProject.flat().filter(item => !item.comment.archivedAt).sort((a, b) => (b.comment.createdAt ?? '').localeCompare(a.comment.createdAt ?? ''));
+    const items = perProject.flat().filter(item => !item.comment.archivedAt).sort((a, b) => (b.comment.createdAt ?? '').localeCompare(a.comment.createdAt ?? ''))
+        .sort((a, b) => compareCommentOrder(a.comment, b.comment));
     const assigned = items.filter(({ comment }) => !comment.resolved && commentAssignees(comment).some(person => person.id === context.user.id));
     const listed = new Set(assigned.map(item => item.comment.id));
     const mentions = items.filter(({ comment }) => !comment.resolved && comment.mentionsMe && !listed.has(comment.id));

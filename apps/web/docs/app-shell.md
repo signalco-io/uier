@@ -136,7 +136,8 @@ the separately bundled review toolbar owns its own query cache.
   browser extension tab is one line and the setup guide (`BrowserExtensionGuide`).
 - **My work** (`/app/my-work`, `lib/app/myWork.ts`, in the sidebar right after Projects) lists what needs the signed-in
   member across the workspace's projects they can see: open threads assigned to them, open threads that mention them
-  (`mentionsMe`), then other unread threads; each thread once, in the first group it belongs to, newest first. It
+  (`mentionsMe`), then other unread threads; each thread once, in the first group it belongs to. Each group uses a project list's order (`compareCommentOrder`:
+  priority, then number, highest first; uier #292), newest first between projects' threads that tie. It
   reads the same authorized snapshot as each project's comments page (`loadProjectComments`) and stores nothing; a
   row opens its thread on its project's page (`?comment=`). `e2e/my-work.spec.ts` covers it.
 
