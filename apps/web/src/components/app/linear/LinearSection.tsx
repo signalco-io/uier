@@ -40,7 +40,7 @@ export function LinearSection({ projectId, settings, outcome }: { projectId: str
     const notice = outcome && Object.hasOwn(outcomes, outcome) ? outcomes[outcome] : undefined;
     const status = linearStatus(settings);
     return <Section id="linear" title={<IntegrationTitle provider="linear" name="Linear" />} description={t("Create one Linear issue for each shared feedback thread. uier keeps the issue and its discussion up to date.")}
-        actions={<Badge variant="secondary">{status}</Badge>}>
+        actions={<Badge variant="secondary">{t(status)}</Badge>}>
         <div className="flex flex-col gap-5">
             {notice && <p role="status" className="m-0 text-sm text-muted-foreground">{notice}</p>}
             {!settings.configured ? <p className="m-0 text-sm text-muted-foreground">{t("Linear is unavailable on this deployment. A site administrator needs to configure it.")}</p>
@@ -52,7 +52,7 @@ export function LinearSection({ projectId, settings, outcome }: { projectId: str
                     {settings.connected && settings.status !== 'needs_reconnect' && <>
                         <LinearDestination key={`${settings.teamId}:${settings.linearProjectId}:${settings.openStateId}:${settings.doneStateId}:${settings.labelIds.join(',')}:${settings.screenshots}`}
                             projectId={projectId} settings={settings} />
-                        {settings.teamId && <p className="m-0 text-sm text-muted-foreground">{t("Destination:")}{' '}{settings.teamName ?? 'Saved team'}{settings.projectName ? t(" / {value1}", { value1: settings.projectName }) : ''}{t(". Screenshots are")}{' '}{settings.screenshots ? t("on") : t("off")}.</p>}
+                        {settings.teamId && <p className="m-0 text-sm text-muted-foreground">{t("Destination:")}{' '}{settings.teamName ?? t('Saved team')}{settings.projectName ? t(" / {value1}", { value1: settings.projectName }) : ''}{t(". Screenshots are")}{' '}{settings.screenshots ? t("on") : t("off")}.</p>}
                     </>}
                 </>}
             {settings.lastSyncedAt && <p className="m-0 text-sm text-muted-foreground">{t("Last synced")}{' '}<DateTime value={settings.lastSyncedAt} />.</p>}
@@ -62,7 +62,7 @@ export function LinearSection({ projectId, settings, outcome }: { projectId: str
                 <AlertDescription>{settings.needsReviewCount}{settings.needsReviewCountCapped ? '+' : ''} {t("threads could not be confirmed in Linear. Check the existing Linear copies before requesting a backfill. uier keeps uncertain issue identities to avoid creating duplicates.")}</AlertDescription>
             </Alert>}
             {settings.backfill && <p role="status" className="m-0 text-sm text-muted-foreground">
-                {t("Backfill:")}{' '}{settings.backfill.queued} {t("of")}{' '}{settings.backfill.total} {t("selected threads queued for delivery.")}{' '}{settings.backfill.done && ' Queueing is complete. Delivery continues in the background.'}
+                {t("Backfill:")}{' '}{settings.backfill.queued} {t("of")}{' '}{settings.backfill.total} {t("selected threads queued for delivery.")}{' '}{settings.backfill.done && <>{t("Queueing is complete.")}{' '}{t("Delivery continues in the background.")}</>}
             </p>}
             {settings.connected && <LinearManagement projectId={projectId} settings={settings} />}
         </div>
@@ -78,7 +78,7 @@ function LinearDestination({ projectId, settings }: { projectId: string; setting
     const [teamId, setTeamId] = useState(settings.teamId ?? '');
     const choices = teams?.ok ? teams.data.items : [];
     const teamOptions = settings.teamId && !choices.some(item => item.id === settings.teamId)
-        ? [{ id: settings.teamId, name: settings.teamName ?? 'Saved team' }, ...choices] : choices;
+        ? [{ id: settings.teamId, name: settings.teamName ?? t('Saved team') }, ...choices] : choices;
     const options = details?.ok && details.data.teamId === teamId ? details.data : undefined;
     return <FieldGroup>
         <Field>

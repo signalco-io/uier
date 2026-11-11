@@ -111,6 +111,17 @@ const messages = {
     "This workspace is no longer open to your email domain. Ask one of its admins to invite you.": "This workspace is no longer open to your email domain. Ask one of its admins to invite you.",
     "Too many passkey attempts. Try again in a few minutes.": "Too many passkey attempts. Try again in a few minutes.",
     "Too many sign-in emails. Try again later.": "Too many sign-in emails. Try again later.",
-    "This workspace sent many invitations today. Try again tomorrow.": "This workspace sent many invitations today. Try again tomorrow."
+    "This workspace sent many invitations today. Try again tomorrow.": "This workspace sent many invitations today. Try again tomorrow.",
+    "Toggle sidebar": "Toggle sidebar",
+    "Navigation": "Navigation",
+    "Projects, users and your account.": "Projects, users and your account.",
+    "Breadcrumb": "Breadcrumb",
+    "More": "More",
+    "Close": "Close",
+    "Show suggestions": "Show suggestions",
+    "Notifications": "Notifications",
+    "Close toast": "Close toast",
+    "Page not found": "Page not found",
+    "You can stay signed in to 5 accounts. Sign out of one before adding another.": "You can stay signed in to 5 accounts. Sign out of one before adding another."
 };
 export default messages;

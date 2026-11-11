@@ -128,7 +128,7 @@ export function PageChecksView({ projectId, pages, environments }: {
                                                 <SelectItem key={item.value} value={item.value}>
                                                     <span className="flex-1">{item.label}</span>{' '}
                                                     <span className="text-muted-foreground tabular-nums">
-                                                        {filterPageChecks(pages, item.value).length}<span className="sr-only">{t(" pages")}</span>
+                                                        <span aria-hidden="true">{filterPageChecks(pages, item.value).length}</span><span className="sr-only">{filterPageChecks(pages, item.value).length === 1 ? t('1 page') : t('{count} pages', { count: filterPageChecks(pages, item.value).length })}</span>
                                                     </span>
                                                 </SelectItem>
                                             ))}

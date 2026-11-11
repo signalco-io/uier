@@ -176,6 +176,8 @@ work under an assignee (Claude, Codex, ChatGPT, Cursor) show their product's one
 paper on a bordered circle, as do the connected apps and access tokens in Account → Coding agents; in
 compact assignment groups they are small badges on their person's avatar edge. People remain separate groups, and hover cards indent smaller agent avatars beneath
 their person. A generic agent is Lucide's bot.
+The browser extension page's cover shows the official Chrome, Microsoft Edge and Firefox logos in their
+own colours on bordered tiles, each with its name written under it.
 They are third-party marks: never recoloured, redrawn or used as uier's.
 
 ## Typography

@@ -74,7 +74,7 @@ async function ClientsPageContent() {
                                                     {client.name}
                                                 </Link>
                                             </ItemTitle>
-                                            {client.description && <ItemDescription className="break-words whitespace-pre-line">{t(client.description)}</ItemDescription>}
+                                            {client.description && <ItemDescription className="break-words whitespace-pre-line">{client.description}</ItemDescription>}
                                             <ItemDescription className="truncate">
                                                 {client.projects.map(project => project.name).join(', ')}
                                             </ItemDescription>

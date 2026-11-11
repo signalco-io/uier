@@ -46,7 +46,7 @@ export function NotionSection({ projectId, settings, outcome }: { projectId: str
     const problem = settings.statusCode && Object.hasOwn(problems, settings.statusCode) ? problems[settings.statusCode] : undefined;
     const status = notionStatus(settings);
     return <Section id="notion" title={<IntegrationTitle provider="notion" name="Notion" />} description={t("Create one Notion page for each shared feedback thread. uier keeps its fields, discussion and screenshot up to date.")}
-        actions={<Badge variant="secondary">{status}</Badge>}>
+        actions={<Badge variant="secondary">{t(status)}</Badge>}>
         <div className="flex flex-col gap-5">
             {notice && <p role="status" className="m-0 text-sm text-muted-foreground">{notice}</p>}
             {!settings.configured ? <p className="m-0 text-sm text-muted-foreground">{t("Notion is unavailable on this deployment. A site administrator needs to configure it.")}</p> : <>
@@ -55,7 +55,7 @@ export function NotionSection({ projectId, settings, outcome }: { projectId: str
                     {settings.status === 'needs_reconnect' ? t("Reconnect Notion") : t("Connect Notion")}</a>}
                 {connected && settings.status !== 'needs_reconnect' && <>
                     {problem && <Alert><AlertTitle>{t("Check the Notion connection")}</AlertTitle><AlertDescription>{problem}</AlertDescription></Alert>}
-                    {settings.dataSourceId && <p className="m-0 text-sm">{t("Destination:")}{' '}{settings.dataSourceName ?? 'Saved database'}.</p>}
+                    {settings.dataSourceId && <p className="m-0 text-sm">{t("Destination:")}{' '}{settings.dataSourceName ?? t('Saved database')}.</p>}
                     <NotionDestination projectId={projectId} settings={settings} />
                 </>}
             </>}
@@ -64,7 +64,7 @@ export function NotionSection({ projectId, settings, outcome }: { projectId: str
             {settings.needsReviewCount > 0 && <Alert><AlertTitle>{t("Some threads need review")}</AlertTitle>
                 <AlertDescription>{settings.needsReviewCount}{settings.needsReviewCountCapped ? '+' : ''} {t("threads could not be confirmed in Notion. Check their existing copies before retrying. uier retains uncertain page identities to avoid duplicates.")}</AlertDescription>
             </Alert>}
-            {settings.backfill && <p role="status" className="m-0 text-sm text-muted-foreground">{t("Backfill:")}{' '}{settings.backfill.queued} {t("of")}{' '}{settings.backfill.total} {t("selected threads queued for delivery.")}{' '}{settings.backfill.done && ' Queueing is complete. Delivery continues in the background.'}</p>}
+            {settings.backfill && <p role="status" className="m-0 text-sm text-muted-foreground">{t("Backfill:")}{' '}{settings.backfill.queued} {t("of")}{' '}{settings.backfill.total} {t("selected threads queued for delivery.")}{' '}{settings.backfill.done && <>{t("Queueing is complete.")}{' '}{t("Delivery continues in the background.")}</>}</p>}
             {connected && <NotionManagement projectId={projectId} settings={settings} />}
             <p className="m-0 text-sm text-muted-foreground">{t("Private feedback is never sent. Making shared feedback private or deleting it clears and trashes reachable Notion pages. Notion’s history, files and other retained copies follow its own settings.")}</p>
         </div>
@@ -80,7 +80,7 @@ function NotionDestination({ projectId, settings }: { projectId: string; setting
     const [sourceId, setSourceId] = useState(settings.dataSourceId ?? '');
     const choices = sources?.ok ? sources.data : [];
     const allChoices = settings.dataSourceId && !choices.some(item => item.id === settings.dataSourceId)
-        ? [{ id: settings.dataSourceId, name: settings.dataSourceName ?? 'Saved database' }, ...choices] : choices;
+        ? [{ id: settings.dataSourceId, name: settings.dataSourceName ?? t('Saved database') }, ...choices] : choices;
     const options = fields?.ok && fields.data.dataSourceId === sourceId ? fields.data : undefined;
     return <FieldGroup>
         <Field>
@@ -143,7 +143,7 @@ function NotionMappingForm({ projectId, settings, options }: { projectId: string
     const chooseStatus = (value: string) => setMapping(current => {
         if (value === 'none') { const { status: _status, ...rest } = current; return rest; }
         const field = options.schema[value]!; const names = field.options ?? [];
-        return { ...current, status: { property: value, type: field.type as 'status' | 'select', open: names.includes('Open') ? t("Open") : names[0] ?? '', done: names.includes('Done') ? t("Done") : names[1] ?? '' } };
+        return { ...current, status: { property: value, type: field.type as 'status' | 'select', open: names.includes('Open') ? 'Open' : names[0] ?? '', done: names.includes('Done') ? 'Done' : names[1] ?? '' } };
     });
     return <>
         <form ref={form} action={save} onSubmit={event => {

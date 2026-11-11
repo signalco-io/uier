@@ -34,12 +34,12 @@ export function SlackSection({ projectId, settings, outcome }: { projectId: stri
     const connection = settings.connection;
     const status = slackStatus(settings);
     return <Section id="slack" title={<IntegrationTitle provider="slack" name="Slack" />} description={t("Send shared feedback to one Slack channel. Existing messages stay current. Optional summaries cover new replies and status changes.")}
-        actions={<Badge variant="secondary">{status}</Badge>}>
+        actions={<Badge variant="secondary">{t(status)}</Badge>}>
         <div className="flex flex-col gap-5">
             {outcome && Object.hasOwn(outcomes, outcome) && <p role="status" className="m-0 text-sm text-muted-foreground">{outcomes[outcome]}</p>}
             {!settings.configured && <p className="m-0 text-sm text-muted-foreground">{t("Slack is unavailable on this deployment. A site administrator needs to configure and approve its distribution.")}</p>}
             {connection && <>
-                <p className="m-0 text-sm text-muted-foreground">{t("Workspace:")}{' '}{connection.teamName || 'Slack workspace'}.
+                <p className="m-0 text-sm text-muted-foreground">{t("Workspace:")}{' '}{connection.teamName || t('Slack workspace')}.
                     {connection.channelName && <> {t("Channel: #")}{connection.channelName}.</>}</p>
                 {connection.lastSyncedAt && <p className="m-0 text-sm text-muted-foreground">{t("Last delivery")}{' '}<DateTime value={connection.lastSyncedAt} />.</p>}
                 {connection.statusCode === 'rate_limit_requires_review' && <p role="status" className="m-0 text-sm text-muted-foreground">{t("Slack’s request limit needs a site administrator’s review. Notifications stay paused until it is cleared.")}</p>}

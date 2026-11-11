@@ -50,7 +50,7 @@ function Finding({ id, title, description, count, empty, children }: {
                 <CardDescription>{description}</CardDescription>
                 <CardAction>
                     <Badge variant="outline" className="font-mono tabular-nums">
-                        {count}<span className="sr-only"> {count === 1 ? t("page") : t("pages")}</span>
+                        <span aria-hidden="true">{count}</span><span className="sr-only">{count === 1 ? t('1 page') : t('{count} pages', { count })}</span>
                     </Badge>
                 </CardAction>
             </CardHeader>

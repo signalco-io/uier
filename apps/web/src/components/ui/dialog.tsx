@@ -1,5 +1,7 @@
 "use client"
 
+import { useAppI18n } from "@/src/lib/i18n/client"
+
 import * as React from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 import { cn } from "cn"
@@ -49,6 +51,7 @@ function DialogContent({
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
 }) {
+  const { t } = useAppI18n()
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -74,7 +77,7 @@ function DialogContent({
           >
             <XIcon
             />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">{t("Close")}</span>
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Popup>
@@ -100,6 +103,7 @@ function DialogFooter({
 }: React.ComponentProps<"div"> & {
   showCloseButton?: boolean
 }) {
+  const { t } = useAppI18n()
   return (
     <div
       data-slot="dialog-footer"

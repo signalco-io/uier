@@ -115,7 +115,7 @@ async function TeamsPageContent({ searchParams }: PageProps<'/app/workspace/team
                                                 </ItemMedia>
                                                 <ItemContent className="min-w-0">
                                                     <ItemTitle className="max-w-full break-words">{team.name}</ItemTitle>
-                                                    {team.description && <ItemDescription className="truncate">{t(team.description)}</ItemDescription>}
+                                                    {team.description && <ItemDescription className="truncate">{team.description}</ItemDescription>}
                                                 </ItemContent>
                                                 <ItemActions className="ml-auto text-sm text-muted-foreground tabular-nums">
                                                     {countsText(people, invited, team.projectIds.length, t, language)}

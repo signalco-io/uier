@@ -59,7 +59,7 @@ async function InvitationPageContent({ searchParams }: PageProps<'/app/invitatio
                 </>
             )}>
             <div className="mb-4 text-sm text-muted-foreground">
-                <p>{t("Current project access:")}{' '}{visibleProjects.map(project => project.name).join(', ') || 'No projects yet'}</p>
+                <p>{t("Current project access:")}{' '}{visibleProjects.map(project => project.name).join(', ') || t('No projects yet')}</p>
                 {selectedTeams.length > 0 && <p>{t("Teams:")}{' '}{selectedTeams.map(team => team!.doc.name).join(', ')}{t(". Team access follows their current selected projects, including later admin changes. Team and direct grants add together.")}</p>}
             </div>
             <AcceptInvitationForm token={token} />

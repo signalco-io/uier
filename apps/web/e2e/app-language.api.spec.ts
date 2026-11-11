@@ -63,10 +63,9 @@ test('all app catalogs are complete and preserve interpolation names', async () 
     for (const language of appLanguages) {
         const catalog = await loadAppCatalog(language);
         expect(Object.keys(catalog).sort(), language).toEqual(Object.keys(source).sort());
-        for (const [key, value] of Object.entries(catalog)) {
-            expect(value.trim().length, `${language}: ${key}`).toBeGreaterThan(0);
-            expect(placeholders(value), `${language}: ${key}`).toEqual(placeholders(key));
-        }
+        const invalid = Object.entries(catalog).filter(([key, value]) => !value.trim() ||
+            JSON.stringify(placeholders(value)) !== JSON.stringify(placeholders(key))).map(([key]) => key);
+        expect(invalid, `${language}: empty translations or changed placeholders`).toEqual([]);
     }
 });
 

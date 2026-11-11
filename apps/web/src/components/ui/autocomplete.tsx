@@ -1,5 +1,7 @@
 "use client"
 
+import { useAppI18n } from "@/src/lib/i18n/client"
+
 // shadcn/ui has no autocomplete: this follows its Combobox (`shadcn add combobox`, also Base UI)
 // part for part, on Base UI's Autocomplete, whose value is the typed text and whose items only
 // suggest it. Use Combobox when the value must be one of the items.
@@ -47,6 +49,7 @@ function AutocompleteInput({
   /** The trigger's accessible name (it only has an icon) */
   triggerLabel?: string
 }) {
+  const { t } = useAppI18n()
   return (
     // Base UI's input group, rendered as ours: the popup anchors to the whole field
     <AutocompletePrimitive.InputGroup
@@ -61,7 +64,7 @@ function AutocompleteInput({
           <InputGroupButton
             size="icon-xs"
             variant="ghost"
-            render={<AutocompleteTrigger aria-label={triggerLabel} />}
+            render={<AutocompleteTrigger aria-label={triggerLabel === "Show suggestions" ? t("Show suggestions") : triggerLabel} />}
             data-slot="input-group-button"
             className="data-pressed:bg-transparent"
             disabled={disabled}

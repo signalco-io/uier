@@ -74,7 +74,7 @@ type Outcome = { approved: boolean; url: string | null };
  */
 export function ConnectConsent({ requestId, request }: { requestId: string; request: ConsentRequest | null }) {
     const { t } = useAppI18n();
-    const [clientName] = useState(request?.client.name ?? 'your coding tool');
+    const [clientName] = useState(request?.client.name ?? t('your coding tool'));
     const [outcome, setOutcome] = useState<Outcome | null>(null);
     useEffect(() => {
         // Not a redirect from the form post: `form-action 'self'` would block the client's callback.

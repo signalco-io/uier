@@ -26,7 +26,7 @@ function DocumentPolicyBoundary() {
     return null;
 }
 
-export function ClientProvider({children, }: PropsWithChildren) {
+export function ClientProvider({ children }: PropsWithChildren) {
     return (
         <ThemeProvider attribute="class" scriptProps={{ type: 'application/json' }}>
             <DocumentPolicyBoundary />

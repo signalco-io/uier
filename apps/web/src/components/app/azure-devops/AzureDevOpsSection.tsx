@@ -42,7 +42,7 @@ export function AzureDevOpsSection({ projectId, settings, outcome }: { projectId
     const notice = outcome && Object.hasOwn(outcomes, outcome) ? outcomes[outcome] : undefined;
     const status = azureDevOpsStatus(settings);
     return <Section id="azure-devops" title={<IntegrationTitle provider="azure-devops" name="Azure DevOps" />} description={t("Create one Azure Boards work item for each shared feedback thread. uier keeps its description, discussion and state up to date.")}
-        actions={<Badge variant="secondary">{status}</Badge>}>
+        actions={<Badge variant="secondary">{t(status)}</Badge>}>
         <div className="flex flex-col gap-5">
             {notice && <p role="status" className="m-0 text-sm text-muted-foreground">{notice}</p>}
             {!settings.configured ? <p className="m-0 text-sm text-muted-foreground">{t("Azure DevOps is unavailable on this deployment. A site administrator needs to configure it.")}</p>
@@ -60,7 +60,7 @@ export function AzureDevOpsSection({ projectId, settings, outcome }: { projectId
                         <AzureDevOpsDestination key={`${settings.organization}:${settings.azureProjectId}:${settings.workItemType}:${settings.openState}:${settings.doneState}:${settings.areaPath}`}
                             projectId={projectId} settings={settings} />
                         {settings.azureProjectId && <p className="m-0 text-sm text-muted-foreground">
-                            {t("Destination:")}{' '}{settings.organization} / {settings.azureProjectName ?? 'Saved project'}, {settings.workItemType} {t("work items")}{' '}{settings.areaPath ? t(" in {value1}", { value1: settings.areaPath }) : ''}{t(". Open feedback is")}{' '}{settings.openState}{t(", done feedback is")}{' '}{settings.doneState}.
+                            {t("Destination:")}{' '}{settings.organization} / {settings.azureProjectName ?? t('Saved project')}, {settings.workItemType} {t("work items")}{' '}{settings.areaPath ? t(" in {value1}", { value1: settings.areaPath }) : ''}{t(". Open feedback is")}{' '}{settings.openState}{t(", done feedback is")}{' '}{settings.doneState}.
                         </p>}
                     </>}
                 </>}
@@ -75,7 +75,7 @@ export function AzureDevOpsSection({ projectId, settings, outcome }: { projectId
                 <AlertDescription>{settings.needsReviewCount}{settings.needsReviewCountCapped ? '+' : ''} {t("threads could not be confirmed in Azure DevOps. A work item may have been deleted or moved there, or a removal could not finish. Check the existing work items before requesting a backfill.")}</AlertDescription>
             </Alert>}
             {settings.backfill && <p role="status" className="m-0 text-sm text-muted-foreground">
-                {t("Backfill:")}{' '}{settings.backfill.queued} {t("of")}{' '}{settings.backfill.total} {t("selected threads queued for delivery.")}{' '}{settings.backfill.done && ' Queueing is complete. Delivery continues in the background.'}
+                {t("Backfill:")}{' '}{settings.backfill.queued} {t("of")}{' '}{settings.backfill.total} {t("selected threads queued for delivery.")}{' '}{settings.backfill.done && <>{t("Queueing is complete.")}{' '}{t("Delivery continues in the background.")}</>}
             </p>}
             {settings.connected && <AzureDevOpsManagement projectId={projectId} settings={settings} />}
         </div>
@@ -98,7 +98,7 @@ function AzureDevOpsDestination({ projectId, settings }: { projectId: string; se
     const loadedProjects = projects?.ok && projects.data.organization === organization ? projects.data.projects : undefined;
     const projectChoices = loadedProjects?.items ?? [];
     const projectOptions: Option[] = settings.azureProjectId && settings.organization === organization && !projectChoices.some(item => item.id === settings.azureProjectId)
-        ? [{ id: settings.azureProjectId, name: settings.azureProjectName ?? 'Saved project' }, ...projectChoices] : projectChoices;
+        ? [{ id: settings.azureProjectId, name: settings.azureProjectName ?? t('Saved project') }, ...projectChoices] : projectChoices;
     const loadedOptions = options?.ok && options.data.organization === organization && options.data.projectId === azureProject ? options.data : undefined;
     const submit = (load: (data: FormData) => void) => (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault(); const data = new FormData(event.currentTarget); startLoad(() => load(data));

@@ -24,12 +24,12 @@ export function FeedbackTypesEditor({ value, onChange, disabled = false }: { val
         {value.map((type, index) => {
             const custom = type.id.startsWith('custom_');
             const prefix = `${id}-${type.id}`;
-            return <FieldSet key={type.id} className="min-w-0 rounded-xl border p-4" disabled={disabled} aria-label={type.label || 'New feedback type'}>
-                <FieldLegend className="sr-only">{type.label || 'New feedback type'}</FieldLegend>
+            return <FieldSet key={type.id} className="min-w-0 rounded-xl border p-4" disabled={disabled} aria-label={type.label || t('New feedback type')}>
+                <FieldLegend className="sr-only">{type.label || t('New feedback type')}</FieldLegend>
                 <FieldGroup>
                     <Field orientation="horizontal">
                         <FeedbackTypeIcon icon={type.icon} className="size-4 shrink-0" />
-                        <FieldContent className="min-w-0"><FieldLabel htmlFor={`${prefix}-enabled`} className="max-w-full"><span className="truncate" title={type.label}>{type.label || 'New feedback type'}</span></FieldLabel></FieldContent>
+                        <FieldContent className="min-w-0"><FieldLabel htmlFor={`${prefix}-enabled`} className="max-w-full"><span className="truncate" title={type.label}>{type.label || t('New feedback type')}</span></FieldLabel></FieldContent>
                         <Switch id={`${prefix}-enabled`} checked={type.enabled} disabled={disabled}
                             aria-label={t("Enable {value1}", { value1: type.label || 'new feedback type' })} onCheckedChange={enabled => change(index, { enabled })} />
                     </Field>

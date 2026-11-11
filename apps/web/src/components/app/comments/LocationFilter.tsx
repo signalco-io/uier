@@ -42,7 +42,7 @@ function Option({ selected, icon, label, detail, title, onSelect }: {
             {icon}
             <span className="min-w-0 flex-1 truncate">{label}</span>
             {/* Read as "/about, 3 comments" */}
-            {detail !== undefined && <span className="shrink-0 text-xs text-muted-foreground tabular-nums"><span className="sr-only">, </span>{detail}{typeof detail === 'number' && <span className="sr-only"> {detail === 1 ? t("comment") : t("comments")}</span>}</span>}
+            {detail !== undefined && <span className="shrink-0 text-xs text-muted-foreground tabular-nums"><span className="sr-only">, </span>{typeof detail === 'number' ? <><span aria-hidden="true">{detail}</span><span className="sr-only">{detail === 1 ? t('1 comment') : t('{count} comments', { count: detail })}</span></> : detail}</span>}
             <CheckIcon aria-hidden="true" className={cn(!selected && 'invisible')} />
         </button>
     );

@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { signIn, uniqueEmail, hydrated } from './support/app';
+import { signIn, uniqueEmail, hydrated, createProject } from './support/app';
 import { loadAppCatalog } from '../src/lib/i18n/catalog';
 import { createAppTranslator } from '../src/lib/i18n/translate';
 import { appLanguages, type AppLanguage } from '../src/lib/i18n/languages';
@@ -49,9 +49,17 @@ test('profile choice survives reload, follows the account and resets to the brow
     await expect(page.locator('#toolbar-language').getByRole('combobox')).toContainText(de('Project default'));
     await page.reload();
     await expect(section(page).getByRole('combobox')).toContainText('Deutsch');
+    if ((page.viewportSize()?.width ?? 1280) < 1024) {
+        await page.getByRole('button', { name: de('Toggle sidebar'), exact: true }).click();
+        const navigation = page.getByRole('dialog', { name: de('Navigation'), exact: true });
+        await expect(navigation).toBeVisible();
+        await navigation.getByRole('link', { name: de('Projects'), exact: true }).first().click();
+        await expect(page).toHaveURL(/\/app\/projects/);
+        await page.goto('/app/account');
+    }
 
     // The preference is account-wide, including another browser with French as its own default.
-    const other = await browser.newContext({ baseURL, locale: 'fr-FR' });
+    const other = await browser.newContext({ baseURL, locale: 'fr-FR', viewport: { width: 1280, height: 720 }, isMobile: false, hasTouch: false });
     await other.addCookies(await context.cookies());
     const otherPage = await other.newPage();
     await otherPage.goto('/app/account');
@@ -106,4 +114,33 @@ test('a delayed language save disables further choices and a failed save keeps t
     await page.unroute('**/app/account');
     await page.reload();
     await expect(section(page).getByRole('combobox')).toContainText('Deutsch');
+});
+
+
+test('German integration settings preserve the original Notion field and status names', async ({ page, context, baseURL }) => {
+    const de = await translator('de');
+    await signIn(page, uniqueEmail('localized-notion'));
+    const projectId = await createProject(page, { urls: [baseURL!], name: 'Settings' });
+    await context.setExtraHTTPHeaders({ 'Accept-Language': 'de-DE' });
+    await page.goto(`/app/projects/${projectId}/settings/integrations/notion`);
+    const notion = page.getByRole('region', { name: 'Notion', exact: true });
+    await notion.getByRole('link', { name: de('Connect Notion'), exact: true }).click();
+    await page.getByRole('button', { name: 'Allow Notion connection', exact: true }).click();
+    await notion.getByRole('button', { name: de('Load databases'), exact: true }).click();
+    await notion.getByRole('combobox', { name: de('Database'), exact: true }).click();
+    await page.getByRole('option', { name: 'Website feedback', exact: true }).click();
+    await notion.getByRole('button', { name: de('Load fields'), exact: true }).click();
+    const status = notion.getByRole('combobox', { name: de('Status'), exact: true });
+    await status.click();
+    await page.getByRole('option', { name: de('Not mapped'), exact: true }).click();
+    await status.click();
+    await page.getByRole('option', { name: 'Status', exact: true }).click();
+    await expect(notion.getByRole('combobox', { name: de('Status for open feedback'), exact: true })).toContainText('Open');
+    await expect(notion.getByRole('combobox', { name: de('Status for done feedback'), exact: true })).toContainText('Done');
+    await notion.getByRole('button', { name: de('Save Notion mapping'), exact: true }).click();
+    await expect(notion).toContainText(de('Sync on'));
+    await page.reload();
+    await expect(notion).toContainText('Website feedback');
+    // The project name is user-authored, even when it is also a translated interface phrase.
+    await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
 });

@@ -97,7 +97,7 @@ export function AccessibilityResult({ page }: { page: PageCheckRow }) {
     return (
         <span className="flex flex-col gap-0.5">
             {impacts.filter(impact => page.accessibility![impact] > 0).map(impact => (
-                <Marked key={impact} mark={impactIcons[impact]}>{page.accessibility![impact]} {t(impactLabels[impact]).toLocaleLowerCase()}</Marked>
+                <Marked key={impact} mark={impactIcons[impact]}>{t('{count} {impact}', { count: page.accessibility![impact], impact: t(impactLabels[impact]).toLocaleLowerCase() })}</Marked>
             ))}
         </span>
     );

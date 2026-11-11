@@ -40,7 +40,7 @@ export function GitHubSection({ projectId, settings, outcome }: { projectId: str
     const notice = outcome && Object.hasOwn(outcomes, outcome) ? outcomes[outcome] : undefined;
     const status = gitHubStatus(settings, outcome);
     return <Section id="github" title={<IntegrationTitle provider="github" name="GitHub" />} description={t("Create one GitHub issue for each shared feedback thread. uier keeps the issue and its discussion up to date.")}
-        actions={<Badge variant="secondary">{status}</Badge>}>
+        actions={<Badge variant="secondary">{t(status)}</Badge>}>
         <div className="flex flex-col gap-5">
             {notice && (outcome === 'pending' ? <Alert role="status">
                 <AlertTitle>{t("Waiting for GitHub approval")}</AlertTitle>
@@ -77,7 +77,7 @@ export function GitHubSection({ projectId, settings, outcome }: { projectId: str
                 <AlertTitle>{t("Some threads need review")}</AlertTitle>
                 <AlertDescription>{connection.needsReviewCount}{connection.needsReviewCountCapped ? '+' : ''} {t("threads could not be confirmed in GitHub. Check their existing GitHub copies before retrying. uier retains uncertain issue identities to avoid duplicates.")}</AlertDescription>
             </Alert>}
-            {connection?.backfill && <p role="status" className="m-0 text-sm text-muted-foreground">{t("Backfill:")}{' '}{connection.backfill.queued} {t("selected threads queued for delivery.")}{' '}{connection.backfill.done && ' Queueing is complete. Delivery continues in the background.'}</p>}
+            {connection?.backfill && <p role="status" className="m-0 text-sm text-muted-foreground">{t("Backfill:")}{' '}{connection.backfill.queued} {t("selected threads queued for delivery.")}{' '}{connection.backfill.done && <>{t("Queueing is complete.")}{' '}{t("Delivery continues in the background.")}</>}</p>}
             {connection && <GitHubManagement projectId={projectId} settings={settings} />}
         </div>
     </Section>;

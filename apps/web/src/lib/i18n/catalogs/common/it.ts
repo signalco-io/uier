@@ -112,6 +112,17 @@ const messages: Record<keyof typeof en, string> = {
     "This workspace is no longer open to your email domain. Ask one of its admins to invite you.": "Questo spazio non è più aperto al dominio della tua email. Chiedi a un amministratore di invitarti.",
     "Too many passkey attempts. Try again in a few minutes.": "Troppi tentativi con la passkey. Riprova tra qualche minuto.",
     "Too many sign-in emails. Try again later.": "Troppe email di accesso. Riprova più tardi.",
-    "This workspace sent many invitations today. Try again tomorrow.": "Questo spazio ha inviato molti inviti oggi. Riprova domani."
+    "This workspace sent many invitations today. Try again tomorrow.": "Questo spazio ha inviato molti inviti oggi. Riprova domani.",
+    "Toggle sidebar": "Mostra o nascondi la barra laterale",
+    "Navigation": "Navigazione",
+    "Projects, users and your account.": "Progetti, utenti e il tuo account.",
+    "Breadcrumb": "Percorso di navigazione",
+    "More": "Altro",
+    "Close": "Chiudi",
+    "Show suggestions": "Mostra suggerimenti",
+    "Notifications": "Notifiche",
+    "Close toast": "Chiudi notifica",
+    "Page not found": "Pagina non trovata",
+    "You can stay signed in to 5 accounts. Sign out of one before adding another.": "Puoi mantenere l’accesso a 5 account. Esci da uno prima di aggiungerne un altro."
 };
 export default messages;

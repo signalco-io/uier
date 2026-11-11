@@ -25,6 +25,7 @@ export async function generateMetadata({ searchParams }: PageProps<'/app/sign-in
 }
 
 async function SignInPageContent({ searchParams }: PageProps<'/app/sign-in'>) {
+    const { t } = await getAppI18n();
     const { next, google, microsoft, with: method, add, accounts: accountProblem } = await searchParams;
     const nextPath = safeNextPath(next);
     if (add !== '1' && await getSessionUser())
@@ -37,7 +38,7 @@ async function SignInPageContent({ searchParams }: PageProps<'/app/sign-in'>) {
         <SignedInAccounts accounts={accounts} next={nextPath} />
         <SignInForm addingAccount={add === '1'} next={nextPath} withEmail={method === 'email'} lastUsed={lastUsed}
             problems={<>
-                {accountProblem === 'full' && <Alert role="alert"><AlertDescription>{ACCOUNT_LIMIT_MESSAGE}</AlertDescription></Alert>}
+                {accountProblem === 'full' && <Alert role="alert"><AlertDescription>{t(ACCOUNT_LIMIT_MESSAGE)}</AlertDescription></Alert>}
                 <GoogleSignInProblem outcome={google} />
                 <MicrosoftSignInProblem outcome={microsoft} />
             </>}

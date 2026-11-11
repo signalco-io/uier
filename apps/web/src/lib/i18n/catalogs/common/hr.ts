@@ -112,6 +112,17 @@ const messages: Record<keyof typeof en, string> = {
     "This workspace is no longer open to your email domain. Ask one of its admins to invite you.": "Ovaj radni prostor više nije otvoren za vašu domenu e-pošte. Zatražite pozivnicu od administratora.",
     "Too many passkey attempts. Try again in a few minutes.": "Previše pokušaja pristupnim ključem. Pokušajte ponovno za nekoliko minuta.",
     "Too many sign-in emails. Try again later.": "Previše e-poruka za prijavu. Pokušajte kasnije.",
-    "This workspace sent many invitations today. Try again tomorrow.": "Ovaj je radni prostor danas poslao mnogo pozivnica. Pokušajte sutra."
+    "This workspace sent many invitations today. Try again tomorrow.": "Ovaj je radni prostor danas poslao mnogo pozivnica. Pokušajte sutra.",
+    "Toggle sidebar": "Prikažite ili sakrijte bočnu traku",
+    "Navigation": "Navigacija",
+    "Projects, users and your account.": "Projekti, korisnici i vaš račun.",
+    "Breadcrumb": "Navigacijska putanja",
+    "More": "Više",
+    "Close": "Zatvorite",
+    "Show suggestions": "Prikažite prijedloge",
+    "Notifications": "Obavijesti",
+    "Close toast": "Zatvorite obavijest",
+    "Page not found": "Stranica nije pronađena",
+    "You can stay signed in to 5 accounts. Sign out of one before adding another.": "Možete ostati prijavljeni na 5 računa. Odjavite se s jednog prije dodavanja drugog."
 };
 export default messages;
