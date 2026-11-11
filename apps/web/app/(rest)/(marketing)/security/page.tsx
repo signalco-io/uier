@@ -3,6 +3,7 @@ import { Button } from '@signalco/ui-primitives/Button';
 import { brand } from '@uier/brand';
 import { InlineLink, PageHeader, PageSection, Panel, Tile } from '../../../../src/components/marketing/ContentPage';
 import { KnownPages } from '../../../../src/knownPages';
+import { SecurityCover } from './SecurityCover';
 
 // Every control listed here is implemented and verifiable in this repository (apps/web/src/lib/comments,
 // next.config.ts, infra/) or is a documented property of the service it names. Do not add a control
@@ -87,14 +88,17 @@ const controls = [
 export default function SecurityPage() {
     return (
         <main className="flex flex-col pb-16">
-            <PageHeader
-                title="Security"
-                lead={`How ${brand.domain} protects your comments, and how to report a problem.`}>
-                <div className="flex flex-wrap items-center gap-2.5">
-                    <Button variant="solid" size="lg" href={`mailto:${brand.contact.security}`}>Report a vulnerability</Button>
-                    <Button variant="outlined" size="lg" href={brand.repository}>Read the code</Button>
-                </div>
-            </PageHeader>
+            <div className="grid grid-cols-1 items-end gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,440px)] lg:gap-16">
+                <PageHeader
+                    title="Security"
+                    lead={`How ${brand.domain} protects your comments, and how to report a problem.`}>
+                    <div className="flex flex-wrap items-center gap-2.5">
+                        <Button variant="solid" size="lg" href={`mailto:${brand.contact.security}`}>Report a vulnerability</Button>
+                        <Button variant="outlined" size="lg" href={brand.repository}>Read the code</Button>
+                    </div>
+                </PageHeader>
+                <SecurityCover />
+            </div>
 
             <PageSection
                 id="report"
