@@ -2,12 +2,13 @@ import { expect, test } from '@playwright/test';
 import { appNavigation, createProject, hydrated, signIn, uniqueEmail } from './support/app';
 import { toolbar } from './support/toolbar';
 
-test('app navigation preserves the document and feedback toolbar', async ({ page }) => {
+test('app navigation preserves the document and feedback toolbar', async ({ page }, testInfo) => {
     test.setTimeout(60_000);
     await signIn(page, uniqueEmail('client-navigation'));
     const first = await createProject(page, { urls: ['https://first.example.com'], name: 'First navigation site' });
     const second = await createProject(page, { urls: ['https://second.example.com'], name: 'Second navigation site' });
     await page.goto('/app/account/coding-agents');
+    await appNavigation(page);
     await page.getByRole('button', { name: 'Give feedback', exact: true }).click();
     await expect(toolbar(page)).toBeVisible();
     await page.getByRole('textbox', { name: 'Feedback', exact: true }).fill('Draft for coding agents');
@@ -33,14 +34,17 @@ test('app navigation preserves the document and feedback toolbar', async ({ page
         await expect(link).toHaveAttribute('aria-current', 'page');
         await preserved();
         if (section === 'General' || section === 'Coding agents') {
-            await page.getByRole('button', { name: 'Give feedback', exact: true }).click();
+            await appNavigation(page);
+            const feedback = page.getByRole('button', { name: 'Give feedback', exact: true });
+            if (testInfo.project.name === 'Mobile Chrome') await feedback.press('Enter');
+            else await feedback.click();
             await expect(page.getByRole('textbox', { name: 'Feedback', exact: true }))
                 .toHaveValue(section === 'General' ? '' : 'Draft for coding agents');
             await page.keyboard.press('Escape');
         }
     }
-    const navigation = await appNavigation(page);
     for (const [name, id] of [['First navigation site', first], ['Second navigation site', second]]) {
+        const navigation = await appNavigation(page);
         await navigation.getByRole('link', { name, exact: true }).click();
         await expect(page).toHaveURL(new RegExp(`/app/projects/${id}$`));
         await preserved();
@@ -56,10 +60,10 @@ test('app navigation preserves the document and feedback toolbar', async ({ page
         await expect(page).toHaveURL(new RegExp(`/app/projects/${id}/settings/installation$`));
         await preserved();
     }
-    await navigation.getByRole('link', { name: 'Projects', exact: true }).click();
+    await (await appNavigation(page)).getByRole('link', { name: 'Projects', exact: true }).click();
     await expect(page).toHaveURL(/\/app\/projects$/);
     await preserved();
-    await navigation.getByRole('link', { name: 'Workspace', exact: true }).click();
+    await (await appNavigation(page)).getByRole('link', { name: 'Workspace', exact: true }).click();
     for (const section of ['Teams', 'Clients', 'Usage', 'Activity', 'Settings', 'Users']) {
         const link = page.getByRole('navigation', { name: 'Workspace', exact: true }).getByRole('link', { name: section, exact: true });
         await link.click();

@@ -42,6 +42,12 @@
 
 Account section links use Next.js navigation and preserve the document and feedback toolbar pill
 (`e2e/app-navigation.spec.ts`). Google/Microsoft account linking still uses provider redirects.
+On navigation from Projects, `AccountFrame` renders the title and section links using the shared
+layout's current language before the email and forms arrive. The email has its own Suspense boundary
+with a one-line UI-kit skeleton; each section retains its existing `PageLoading`. The frame and a
+focused section link stay mounted as both regions resolve. Initial document loads keep the outer
+request-language and signed-in shell boundaries. `e2e/instant-nav.spec.ts` guards empty/populated
+workspaces on desktop, mobile and tablet with the production-build navigation lock.
 
 - **Several signed-in accounts.** The sidebar account menu switches accounts independently of the
   workspace switcher. Add account supports every sign-in method and retains existing accounts,
