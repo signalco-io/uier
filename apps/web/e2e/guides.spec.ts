@@ -19,5 +19,16 @@ test('guides link the shipped workflow and show the same Next.js snippet as inst
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
+test('each guide links back to the guides and outlines its sections', async ({ page }) => {
+    for (const guide of [guides.clientReviews, guides.nextJs, guides.browserExtension]) {
+        await page.goto(guide.path);
+        await expect(page.getByRole('main').getByRole('link', { name: 'Guides', exact: true })).toHaveAttribute('href', guides.index.path);
+        const hrefs = await page.getByRole('navigation', { name: 'In this guide' }).getByRole('link')
+            .evaluateAll(links => links.map(link => link.getAttribute('href') ?? ''));
+        expect(hrefs.length, guide.path).toBeGreaterThan(2);
+        for (const href of hrefs) await expect(page.locator(`main section${href}`), `${guide.path}${href}`).toHaveCount(1);
+    }
+});
+
 for (const guide of Object.values(guides))
     test(`${guide.path} is accessible`, ({ page }) => assertAccessibility(page, guide.path));
