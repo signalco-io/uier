@@ -239,6 +239,20 @@ export const en = {
         toggle: (count: number) => `Activity (${count})`,
         label: 'Thread activity'
     },
+    reactions: {
+        /** The button that opens the quick set of emoji, and the set's name */
+        add: 'Add reaction',
+        label: 'Reactions',
+        names: { 'thumbs-up': 'Thumbs up', 'thumbs-down': 'Thumbs down', laugh: 'Laugh', hooray: 'Hooray', confused: 'Confused', heart: 'Heart', rocket: 'Rocket', eyes: 'Eyes' },
+        /** A reaction button's name: "Thumbs up, 2 reactions" (its pressed state says whether one is yours) */
+        count: (name: string, count: number) => `${name}, ${count} ${s(count, 'reaction', 'reactions')}`,
+        /** Who reacted: "You, Ana and 2 others reacted"; `people` is already a list in the language's own form */
+        people: (people: string) => `${people} reacted`,
+        you: 'You',
+        /** The last item of that list, for the people not named */
+        others: (count: number) => `${count} ${s(count, 'other', 'others')}`,
+        notSaved: 'Reaction not saved'
+    },
     feedbackTypes: {
         comment: 'Comment',
         rewrite: 'Suggested rewrite',

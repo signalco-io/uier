@@ -8,6 +8,7 @@ import { assertVerifiedWrite } from '@/src/lib/review/verification';
 import * as review from '@/src/lib/review/routes';
 import { readReviewComments, reviewActivitySummary } from '@/src/lib/review/readRoutes';
 import { reattachReviewAnchor } from '@/src/lib/review/anchorRoutes';
+import { reactToReviewComment } from '@/src/lib/review/reactions';
 import { projectFeedbackExport } from '@/src/lib/review/feedbackContext';
 import { followThread, setProjectMuted, threadNotificationState } from '@/src/lib/notifications/preferences';
 import { appBaseUrl } from '@/src/lib/app/request';
@@ -41,6 +42,7 @@ const handler = extensionHandler(async request => {
         : request.method === 'PATCH' ? review.editReviewCommentItem(context, { id, itemId }) : review.deleteReviewCommentItem(context, { id, itemId });
     if (suffix === 'screenshot') return request.method === 'GET' ? review.getReviewScreenshot(context, { id }) : review.replaceReviewScreenshot(context, { id });
     if (suffix === 'priority') return review.prioritizeReviewComment(context, { id });
+    if (suffix === 'reactions') return reactToReviewComment(context, { id });
     if (suffix === 'assignee') return review.assignReviewComment(context, { id });
     if (suffix === 'anchor') return reattachReviewAnchor(context, { id });
     if (suffix === 'read') return request.method === 'POST' ? review.readReviewComment(context, { id }) : review.unreadReviewComment(context, { id });

@@ -25,7 +25,8 @@ import {
     MAX_THREAD_ITEMS,
     PREVIEW_COMMENT_TTL_SECONDS
 } from './limits';
-import { enforceNewCommentLimits, enforceReplyLimits, enforceScreenshotLimits, rateLimitIpBucket, usageLinks, type RateLimitSubject, type RewriteLimitSubject } from './rateLimits';
+import { enforceNewCommentLimits, enforceReactionLimits, enforceReplyLimits, enforceScreenshotLimits, rateLimitIpBucket, usageLinks, type RateLimitSubject, type RewriteLimitSubject } from './rateLimits';
+import { withReaction, type ReactionInput } from './reactions';
 import type { ParsedScreenshot } from './screenshot';
 import type { CreateCommentInput, ReplyInput, UpdateCommentInput } from './validation';
 import { HEADLINE_COMMENT_ID, STEP_COMMENT_ID, PUBLIC_PROJECT_PARTITION, USER_FEEDBACK_PROJECT_ID, isPrivateAppFeedback } from './publicProject';
@@ -377,6 +378,20 @@ export async function replyToComment(context: CommentsApiContext, id: string, in
     if (!stored)
         throw apiErrors.notFound();
     return toDto(stored.comment, context);
+}
+
+/**
+ * Adds or removes the visitor's own reaction to one message: anyone who can reply to the thread. Only the
+ * message's reactions change: no unread activity, notification or `updatedAt` (`comments/reactions.ts`).
+ */
+export async function setCommentReaction(context: CommentsApiContext, id: string, input: ReactionInput) {
+    const store = getCommentsStore();
+    await enforceReactionLimits(store, rateLimitSubject(context));
+    const updated = await updateComment(store, context, id, comment => {
+        assertVisible(comment, context);
+        return withReaction(comment, input, { id: writerId(context) });
+    });
+    return toDto(updated, context);
 }
 
 export async function updateCommentResolved(context: CommentsApiContext, id: string, input: UpdateCommentInput) {

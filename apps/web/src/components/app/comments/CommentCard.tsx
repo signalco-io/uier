@@ -75,6 +75,7 @@ import { VerificationControl } from './VerificationControl';
 import { StateBadge, StateMenu, type CommentStatus } from './CommentStatus';
 import { useStatusChange, type ResolveExit } from './useStatusChange';
 import { MessageImage } from './MessageImage';
+import { ReactionList, ReactionPicker } from './MessageReactions';
 import { ReplyComposer } from './ReplyComposer';
 import { ThreadActivity } from './ThreadActivity';
 import { AssigneesControl } from './AssigneesControl';
@@ -422,9 +423,12 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
         const name = item.author.isMe ? t("You") : item.author.name;
         const edit = editingReply?.id === item.id && item.editable ? editingReply : undefined;
         const editable = item.editable;
+        const target = !item.deleted && !item.pending ? { projectId, commentId: comment.id, itemId: item.id, reactions: item.reactions } : undefined;
         return (
             <Message author={name} agent={!item.deleted && <MessageAgent author={item.author} />} avatarName={item.author.name} avatarUrl={item.author.avatarUrl} createdAt={item.createdAt}
-                actions={!item.deleted && !edit && (item.canDelete || item.canFilterAuthor || editable) && (
+                actions={!item.deleted && !edit && (<div className="flex shrink-0 items-center gap-0.5">
+                    {target && permissions.react && <ReactionPicker target={target} disabled={pending} />}
+                    {(item.canDelete || item.canFilterAuthor || editable) && (
                     <DropdownMenu>
                         <DropdownMenuTrigger render={<Button variant="ghost" size="icon-xs" disabled={pending} className="text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11"
                                 data-reply-actions={item.id} aria-label={t("More actions for reply by {value0}", { value0: item.author.isMe ? t("you") : item.author.name })} />}>
@@ -456,7 +460,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                             </DropdownMenuGroup>
                         </DropdownMenuContent>
                     </DropdownMenu>
-                )}>
+                    )}
+                </div>)}>
                 {item.deleted
                     ? <p className="m-0 text-sm text-muted-foreground">{t("Reply deleted")}</p>
                     : edit
@@ -465,11 +470,14 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                             onCancel={() => closeReplyEdit(item.id)} onSave={(text, mentions) => saveReply(item, edit.expectedText, text, mentions)} />
                         : <><MessageText text={item.text} mentions={item.mentions} edited={item.edited} />{item.pending && <span role="status" className="text-xs text-muted-foreground">{t("Sending...")}</span>}</>}
                 {!item.deleted && item.screenshot && <MessageImage image={item.screenshot} reply />}
+                {target && !edit && <ReactionList target={target} canReact={Boolean(permissions.react)} />}
             </Message>
         );
     };
 
     const { anchor } = comment;
+    // The first message's reactions (older snapshots have no message id: no reactions until the next refresh)
+    const firstTarget = !comment.deleted && comment.messageId ? { projectId, commentId: comment.id, itemId: comment.messageId, reactions: comment.reactions } : undefined;
     return (
         <Card ref={cardRef} role="article" aria-label={label} className={cn('@container/comment gap-0 py-0', className)}>
             <div className="flex flex-col gap-4 px-4 py-3">
@@ -637,7 +645,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                 <ol className="m-0 flex list-none flex-col gap-3 border-t p-0 pt-4">
                     <li>
                         <Message author={comment.deleted ? t("Deleted") : author} agent={!comment.deleted && <MessageAgent author={comment.author} />} avatarName={comment.author.name} avatarUrl={comment.author.avatarUrl} createdAt={comment.createdAt}
-                            meta={<CommentDevice device={comment.device} context={comment.reproduction} />}>
+                            meta={<CommentDevice device={comment.device} context={comment.reproduction} />}
+                            actions={firstTarget && permissions.react && !editing && <ReactionPicker target={firstTarget} disabled={pending} />}>
                             <KindLabel kind={comment.kind} feedbackType={comment.feedbackType} />
                             {comment.deleted
                                 ? <p className="m-0 text-sm text-muted-foreground">{t("Comment deleted")}</p>
@@ -646,6 +655,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                         onCancel={closeEdit} onSave={text => saveEdit(text)} />
                                     : <MessageText text={comment.displayText} mentions={comment.displayMentions} edited={comment.edited} />}
                             {comment.screenshot && <MessageImage image={comment.screenshot} />}
+                            {firstTarget && !editing && <ReactionList target={firstTarget} canReact={Boolean(permissions.react)} />}
                         </Message>
                     </li>
                     {comment.replies.map(item => <li key={item.id}>{reply(item)}</li>)}

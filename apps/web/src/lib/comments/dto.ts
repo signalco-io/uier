@@ -5,6 +5,7 @@ import type { DbComment, DbCommentKind, DbCommentLayer, DbCommentPosition, DbDev
 import { pagePath, sourcePagePath, storedPagePath, storedSourcePath, type PageStatePolicy } from '@uier/toolbar/page-state';
 import { displayName } from './visitor';
 import { MAX_LIST_RESPONSE_BYTES } from './limits';
+import { reactionViews } from './reactions';
 
 export type CommentAuthorDto = {
     name: string;
@@ -19,6 +20,8 @@ export type CommentThreadItemDto = {
     author: CommentAuthorDto;
     createdAt?: string;
     editedAt?: string;
+    /** Emoji reactions to the message (`comments/reactions.ts`); missing when it has none */
+    reactions?: import('@uier/toolbar/reactions').MessageReaction[];
 } | CommentDeletedThreadItemDto;
 
 /** The first item after its author deleted it while others had replied: no text and no author */
@@ -174,6 +177,7 @@ function toThreadItemDto(item: DbThreadItem, visitorAuthorId: string | undefined
         return { id: String(item.id), deleted: true, createdAt: optionalString(item.createdAt) };
 
     const authorId = optionalString(item.authorId);
+    const reactions = reactionViews(item, visitorAuthorId, names);
     return {
         id: String(item.id),
         text: optionalString(item.text) ?? '',
@@ -183,7 +187,8 @@ function toThreadItemDto(item: DbThreadItem, visitorAuthorId: string | undefined
             : item.authorName ? { name: item.authorName } : {}) },
         createdAt: optionalString(item.createdAt),
         editedAt: optionalString(item.editedAt),
-        ...(item.screenshot ? { screenshot: { width: item.screenshot.width, height: item.screenshot.height } } : {})
+        ...(item.screenshot ? { screenshot: { width: item.screenshot.width, height: item.screenshot.height } } : {}),
+        ...(reactions ? { reactions } : {})
     };
 }
 

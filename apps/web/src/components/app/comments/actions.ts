@@ -1,7 +1,8 @@
 'use server';
 
 import { setProjectCommentPullRequest } from '../../../lib/review/pullRequests';
-import { pullRequestCommentActionSchema } from './actionSchemas';
+import { pullRequestCommentActionSchema, reactionCommentActionSchema } from './actionSchemas';
+import { setProjectCommentReaction } from '../../../lib/review/reactions';
 import { z as verificationZ } from 'zod';
 import { changeFixVerification } from '../../../lib/review/fixVerification';
 import { fixVerificationSchema } from '../../../lib/review/fixVerificationSchema';
@@ -61,6 +62,17 @@ export async function replyCommentAction(input: import('zod').infer<typeof reply
         const request = new Request(`${await appBaseUrl()}/app/projects/${project.id}`, { headers: await headers() });
         const screenshot = parsed.screenshot ? await screenshotSchema.parseAsync(parsed.screenshot) : undefined;
         await replyToProjectComment(request, project, actor, parsed.commentId, { ...parsed, screenshot });
+    });
+}
+
+/**
+ * Adds or removes the member's own reaction to one message: who may reply may react (comments on, the thread
+ * visible), checked again by the service on every write attempt, with the member's reaction limit.
+ */
+export async function reactToCommentAction(projectId: string, commentId: string, itemId: string, emoji: import('@uier/toolbar/reactions').ReactionId, reacted: boolean) {
+    return commentAction(reactionCommentActionSchema, { projectId, commentId, itemId, emoji, reacted }, async ({ project, actor }, input) => {
+        const request = new Request(`${await appBaseUrl()}/app/projects/${project.id}`, { headers: await headers() });
+        await setProjectCommentReaction(request, project, actor, input.commentId, { itemId: input.itemId, emoji: input.emoji, reacted: input.reacted });
     });
 }
 

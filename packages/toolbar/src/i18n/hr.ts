@@ -234,6 +234,16 @@ export const hr: Messages = {
         toggle: (count: number) => `Aktivnost (${count})`,
         label: 'Aktivnost rasprave'
     },
+    reactions: {
+        add: 'Dodaj reakciju',
+        label: 'Reakcije',
+        names: { 'thumbs-up': 'Palac gore', 'thumbs-down': 'Palac dolje', laugh: 'Smijeh', hooray: 'Hura', confused: 'Zbunjenost', heart: 'Srce', rocket: 'Raketa', eyes: 'Oči' },
+        count: (name: string, count: number) => `${name}, ${p(count, `${count} reakcija`, `${count} reakcije`, `${count} reakcija`)}`,
+        people: (people: string) => `Reagirali: ${people}`,
+        you: 'Vi',
+        others: (count: number) => `još ${p(count, `${count} osoba`, `${count} osobe`, `${count} osoba`)}`,
+        notSaved: 'Reakcija nije spremljena'
+    },
     feedbackTypes: {
         comment: 'Komentar',
         rewrite: 'Predloženi tekst',

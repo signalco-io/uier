@@ -74,6 +74,9 @@
   and every navigable link (app cards, member redirects, reproduction, notifications, Copy issue) goes through
   `commentSourcePath`, which falls back to the key. Never group, query or authorize by it.
 
+Message reactions (`POST .../comments/<id>/reactions`, `review/reactions.ts`) follow the reply permission and change
+only the message and the etag: no activity, history, sync, `updatedAt` or `commentRevision`. See [Message reactions](reactions.md).
+
 Assignment eligibility lives in `review/participants.ts` and is rechecked inside optimistic
 comment mutations. Mentions store selected account ids with UTF-16 text ranges; review DTOs
 expose identity metadata only to members. App and toolbar must share these checks.

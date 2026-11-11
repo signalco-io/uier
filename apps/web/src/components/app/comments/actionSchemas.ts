@@ -1,5 +1,6 @@
 import { MAX_SCREENSHOT_BYTES } from '../../../lib/comments/limits';
 import { priorities } from '@uier/toolbar/triage';
+import { reactionIds } from '@uier/toolbar/reactions';
 import { feedbackStatusTargets } from '@uier/toolbar/verification';
 import { z } from 'zod';
 import { projectIdSchema, userIdSchema } from '../../../lib/app/validation';
@@ -25,6 +26,8 @@ export const editCommentActionSchema = commentActionSchema.extend({ text: textSc
 export const titleCommentActionSchema = commentActionSchema.extend({ title: z.string().max(1000) });
 export const replyCommentActionSchema = commentActionSchema.extend({ screenshot: z.string().max(Math.ceil(MAX_SCREENSHOT_BYTES / 3) * 4 + 64).optional(), text: textSchema, mentions: mentionsSchema.optional(), idempotencyKey: idempotencyKeySchema });
 export const deleteReplyActionSchema = commentActionSchema.extend({ itemId: commentIdSchema });
+/** Add (`reacted`) or remove the member's own emoji reaction to one message, the first one or a reply */
+export const reactionCommentActionSchema = deleteReplyActionSchema.extend({ emoji: z.enum(reactionIds), reacted: z.boolean() });
 /** One message's new text, the saved text it was edited from and its mentions (the review API's edit) */
 export const editReplyActionSchema = deleteReplyActionSchema.extend({ ...editThreadItemSchema.shape, mentions: mentionsSchema.optional() });
 export const filterAuthorActionSchema = commentActionSchema.extend({ itemId: commentIdSchema.optional() });

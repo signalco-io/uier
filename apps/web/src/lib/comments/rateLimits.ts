@@ -15,6 +15,9 @@ import {
     RATE_LIMIT_IP_REWRITES,
     RATE_LIMIT_VISITOR_REWRITES,
     RATE_LIMIT_IP_WRITES,
+    RATE_LIMIT_IP_REACTIONS,
+    RATE_LIMIT_MEMBER_REACTIONS,
+    RATE_LIMIT_VISITOR_REACTIONS,
     RATE_LIMIT_MEMBER_COMMENTS,
     RATE_LIMIT_MEMBER_REPLIES,
     RATE_LIMIT_PAGE_COMMENTS,
@@ -170,6 +173,27 @@ export async function enforceReplyLimits(store: CommentsStore, subject: RateLimi
         ...(subject.credentialId ? [credentialRepliesLimit(subject.credentialId)] : []),
         authorRepliesLimit(subject.authorId, subject.member),
         ...ipLimit(subject, tooManyReplies)
+    ]);
+}
+
+const tooManyReactions = 'You are reacting too quickly. Please try again later.';
+
+/** Reactions added or removed by one author per hour in a site or project */
+export function authorReactionsLimit(authorId: string, member = false): Limit {
+    return { key: `${member ? 'member' : 'visitor'}-reactions:${authorId}`, limit: member ? RATE_LIMIT_MEMBER_REACTIONS : RATE_LIMIT_VISITOR_REACTIONS,
+        windowSeconds: RATE_LIMIT_WINDOW_SECONDS, reason: 'too_fast', message: tooManyReactions, usage: 'account' };
+}
+
+/** Reactions from one IP address (or IPv6 /64) per hour in a site or project; members are not counted */
+export function networkReactionsLimit(ipBucket: string): Limit {
+    return { key: `ip-reactions:${ipBucket}`, limit: RATE_LIMIT_IP_REACTIONS, windowSeconds: RATE_LIMIT_WINDOW_SECONDS, reason: 'too_fast', message: tooManyReactions, usage: 'account' };
+}
+
+/** Separate from the reply and IP write limits: reacting never uses up what a reviewer can write */
+export async function enforceReactionLimits(store: CommentsStore, subject: RateLimitSubject) {
+    await consumeAll(store, subject, [
+        authorReactionsLimit(subject.authorId, subject.member),
+        ...(subject.ipBucket && !subject.member ? [networkReactionsLimit(subject.ipBucket)] : [])
     ]);
 }
 

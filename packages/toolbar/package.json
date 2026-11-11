@@ -76,6 +76,11 @@
             "development": "./dist-dev/extensionContract.js",
             "default": "./dist/extensionContract.js"
         },
+        "./reactions": {
+            "types": "./src/reactions.ts",
+            "development": "./dist-dev/reactions.js",
+            "default": "./dist/reactions.js"
+        },
         "./triage": {
             "types": "./src/triage.ts",
             "development": "./dist-dev/triage.js",

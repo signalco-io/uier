@@ -67,6 +67,9 @@ export function useIconTooltip(label: string, shortcut?: string, { tap = false, 
     }, [tap, anchor]);
 
     return {
+        /** Shows it at once on the control (a long press, which the control handles itself), and hides it */
+        open: (element: Element) => show(element, 0),
+        close: hide,
         triggerProps: {
             onPointerEnter: (event: PointerEvent) => { if (event.pointerType === 'mouse') show(event.currentTarget, showDelayMs); },
             onPointerLeave: hide,

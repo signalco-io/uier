@@ -233,6 +233,16 @@ export const fr: Messages = {
         toggle: (count: number) => `Activité (${count})`,
         label: 'Activité de la discussion'
     },
+    reactions: {
+        add: 'Ajouter une réaction',
+        label: 'Réactions',
+        names: { 'thumbs-up': 'Pouce levé', 'thumbs-down': 'Pouce baissé', laugh: 'Rire', hooray: 'Hourra', confused: 'Perplexe', heart: 'Cœur', rocket: 'Fusée', eyes: 'Yeux' },
+        count: (name: string, count: number) => `${name}, ${count} ${p(count, 'réaction', 'réactions')}`,
+        people: (people: string) => `Réactions : ${people}`,
+        you: 'Vous',
+        others: (count: number) => `${count} ${p(count, 'autre personne', 'autres personnes')}`,
+        notSaved: 'Réaction non enregistrée'
+    },
     feedbackTypes: {
         comment: 'Commentaire',
         rewrite: 'Réécriture suggérée',

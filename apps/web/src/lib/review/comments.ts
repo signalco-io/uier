@@ -110,7 +110,7 @@ export function canMakeCommentPrivate(actor: ProjectActor) {
 }
 
 /** Actors come from resolveActor/memberActor or mcpProject, which recheck current access. */
-function commentRateLimitSubject(request: Request, project: DbProject, actor: ProjectActor, authorId: string): RateLimitSubject {
+export function commentRateLimitSubject(request: Request, project: DbProject, actor: ProjectActor, authorId: string): RateLimitSubject {
     return {
         domain: projectPartition(project.id), authorId, ipBucket: rateLimitIpBucket(request),
         // Anyone can join the public feedback project; enrollment raises only its new comments.
@@ -383,9 +383,9 @@ async function appendProjectReply(request: Request, project: DbProject, actor: P
 }
 
 /** Applies a change to a comment the actor can see, after `allowed` says the actor may make it */
-export async function changeComment(project: DbProject, actor: ProjectActor, id: string, allowed: (comment: DbComment) => boolean, change: (comment: DbComment) => DbComment | Promise<DbComment>, attempt?: Submission, guard?: CommentChangeGuard, store: CommentsStore = getCommentsStore(), options: { ephemeral?: boolean } = {}) {
+export async function changeComment(project: DbProject, actor: ProjectActor, id: string, allowed: (comment: DbComment) => boolean, change: (comment: DbComment) => DbComment | Promise<DbComment>, attempt?: Submission, guard?: CommentChangeGuard, store: CommentsStore = getCommentsStore(), options: { ephemeral?: boolean; requireComments?: boolean } = {}) {
     const authorize = async (comment: DbComment) => {
-        await refreshMutationActor(project, actor, guard?.requireComments);
+        await refreshMutationActor(project, actor, guard?.requireComments || options.requireComments);
         visibleOrThrow(comment, actor);
         if (guard?.triage && !canTriageProject(project, actor)) throw apiErrors.notFound();
         if (!allowed(comment))
