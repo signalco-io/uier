@@ -53,7 +53,9 @@ pass); a transfer keeps it, since it is keyed by the project.
 
 - Full width like Comments (uier #214): the view breaks out of the reading column to the panel's width less the
   gutters, capped at 96rem (`page-wide`, `data-header-wide="list"` for the project header, [app shell](app-shell.md)).
-- The caption says where the results come from: members' browsers at the time of each visit.
+- No heading of its own: the project's Page checks tab above names it (uier #255), and the section keeps it as
+  its accessible name (`aria-label`); Across pages and Pages are `h2` under the project's `h1`, a finding's title `h3`. The caption says where the results come from: members' browsers at the
+  time of each visit.
 - **Across pages** (`AcrossPages`, `pageCheckInsights` in `src/lib/pageChecks/insights.ts`, pure): indexable
   pages of one site address that share a title, or a meta description (case and spacing aside), indexable
   pages without a description, and pages that ask not to be indexed. A `noindex` page is left out of the
@@ -76,6 +78,8 @@ pass); a transfer keeps it, since it is keyed by the project.
   within target (the toolbar SEO panel's good value or less) and over target (with the panel's warning).
   `vitalTargets` in `src/lib/pageChecks/model.ts` mirrors the toolbar's `webVitals.ts` and `en.ts`; there is no
   third level, so the view shows none. The popup keeps focus on its trigger; Escape closes it until focus leaves.
+- **Show** and **Order** sit in the Pages heading row, beside the list they change, not above Across pages
+  (uier #256).
 - **Order** (`?sort=`, `setUrlSearchParams`, no server request): Needs attention first by default (critical,
   then serious, then all accessibility issues, then SEO to look at, then Core Web Vitals over target),
   Accessibility issues, SEO to look at, Last checked or Page. A column the order follows has `aria-sort`.

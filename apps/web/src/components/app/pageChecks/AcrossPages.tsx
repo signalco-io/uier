@@ -45,7 +45,7 @@ function Finding({ id, title, description, count, empty, children }: {
         <Card size="sm" role="region" aria-labelledby={`${id}-title`} data-page-checks-finding={id}>
             <CardHeader>
                 <CardTitle>
-                    <h4 id={`${id}-title`} className="m-0 text-sm leading-5 font-medium">{title}</h4>
+                    <h3 id={`${id}-title`} className="m-0 text-sm leading-5 font-medium">{title}</h3>
                 </CardTitle>
                 <CardDescription>{description}</CardDescription>
                 <CardAction>
@@ -155,7 +155,7 @@ export function AcrossPages({ insights, ...links }: Links & { insights: PageChec
     const { t } = useAppI18n();
     return (
         <section aria-labelledby="across-pages-title" className="flex flex-col gap-3">
-            <h3 id="across-pages-title" className="m-0 text-base font-semibold tracking-[-0.01em]">{t("Across pages")}</h3>
+            <h2 id="across-pages-title" className="m-0 text-base font-semibold tracking-[-0.01em]">{t("Across pages")}</h2>
             <div className="grid items-start gap-4 md:grid-cols-2">
                 <Finding id="shared-titles" title={t("Shared titles")} count={pagesIn(insights.sharedTitles)}
                     description={t("Indexable pages of one site address with the same title.")} empty={t("No pages share a title.")}>
