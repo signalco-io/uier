@@ -21,7 +21,8 @@ the separately bundled review toolbar owns its own query cache.
   its name starts with the labels above; the email is in the account menu, with Keyboard shortcuts). The navigation's
   links are one tab stop (the current page's): ↓ and ↑, Home and End move between them; `LinkTabs` move with ← and →
   ([keyboard](keyboard.md)). The layout also holds `AppShortcuts`, the inset panel with the breadcrumbs
-  (`AppBreadcrumbs`, from the path: one line, a long name cut short) and the one invite dialog (`InviteProvider`; `InviteButton` and
+  (`AppBreadcrumbs`, from the path: one line, a long name cut short; a project's crumb starts with its `ProjectMark`,
+  the site's favicon, uier #279) and the one invite dialog (`InviteProvider`; `InviteButton` and
   `useInvite()` open it). The sidebar is docked from `lg` (1024 px: landscape tablets and wider), where the panel keeps
   its frame and scrolls inside it; narrower (phones, tablets in portrait) it is a sheet behind the top bar's toggle
   (`useIsMobile`, `hooks/use-mobile.ts`, in step with the `lg:` classes of `ui/sidebar.tsx` and the shell layout) and the
@@ -86,7 +87,7 @@ the separately bundled review toolbar owns its own query cache.
   the only project (not when opened from a team). It never offers the invitation link where email is
   sent: the link signs in as the invited address.
 
-- `ProjectMark` (project cards, the sidebar, the project header) shows the site's favicon, on a light tile
+- `ProjectMark` (project cards, the sidebar, the project header, the breadcrumbs) shows the site's favicon, on a light tile
   in both themes, with the project's first letter until one loads or when the site has none. It takes the
   project's id and address and loads `/api/projects/<id>/icon?site=<address>` (`projectIconUrl`), so the
   browser never contacts the site and app pages need no `img-src https:`. The route answers members only,
