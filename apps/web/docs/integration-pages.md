@@ -14,3 +14,24 @@ and Geist fonts. They contain no customer data and are labelled illustrations. K
 privacy limits and directory status aligned with the adapters and `docs/integration-publication.md`.
 `e2e/integration-pages.spec.ts` covers the public guides, their features and settings, the logos, the suggestion
 form, support/setup links and accessibility.
+
+The index's services are tiles in one panel, three to a row on wide screens and two on tablets: the logo, the
+name, the catalog's description, its optional features under "Optional" and "Set up <service>", whose link covers the
+tile. A sixth tile, "Another tool", links to the suggestion section below, so every row is full; keep the count a
+multiple of two and three when services change. Each rule under "Every integration" puts its point in strong and
+the rest in muted text (`Rule`), so the list can be scanned; keep that when adding a rule.
+
+The index's cover (`integrations/IntegrationsCover.tsx`, the page's one moving picture) is a loop under the header:
+a shared thread, the five services in one panel and a hairline between them. The thread is copied to each service
+(the item and its state badge come in as its line arrives), a reply comes back from Linear named the way
+`importReplies.ts` names imported replies ("Ana via Linear"), and Done updates each copy (GitHub says Closed). Change
+it with the catalog: it shows only what the services do. It follows the landing scene's rules: built from the tokens
+and the landing's thread pieces, plays only in view, Pause under it with a caption, one still frame with reduced
+motion (followed live: turned on mid-loop it stops the loop and the line drawing), a fixed height per breakpoint. The
+captions share one grid cell, the inactive ones `invisible`, so the row keeps the longest caption's height and the
+section below never moves between phases; `e2e/integration-pages.spec.ts` checks both at 390 px. The picture and its caption are `inert` and `aria-hidden`, so the axe scan
+skips their text, which a frame can catch mid-fade; the canvas is `data-uier-decorative` with a `min-height`. It is
+self-contained: the other marketing pages' covers do not share it.
+
+The index links to `/compare/website-feedback-tools` beside the shared integration rules for
+people comparing capture, review and issue-tracker handoff together.

@@ -59,7 +59,8 @@ listing worksheet, the popup (`packages/extension/src/popup.tsx`) and the receip
 Firefox notice live in `src/lib/extension/release.ts` (static pages build without the hosted
 `UIER_EXTENSION_*` settings). The store button uses the same `chromeWebStoreUrl` as the app's link.
 Recheck both pages, and the legal pages' extension sections, when a release changes labels,
-permissions, sign-in or capture. `browser-extension.api.spec.ts` checks the store link and
+permissions, sign-in or capture, and the setup guide's pictures of the popup and the comment box
+(`GuideSpecimens`, [guides](guides.md)). `browser-extension.api.spec.ts` checks the store link and
 `browser-extension.spec.ts` their content.
 
 `/browser-extension`'s cover (`BrowserExtensionCover`, beside the header on wide screens and under it

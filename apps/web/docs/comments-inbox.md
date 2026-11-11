@@ -250,7 +250,8 @@ surfaces, reload, restore, failed saves, mobile and light/dark accessibility.
 
 [uier #243](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_ell0Rb7O9hDp71RsDToUS):
 `ArchiveColumn` in `CommentBoard.tsx` comes after the status columns, collapsed by default: a 3rem strip
-(its name runs down it from `md`, a full-width row on a phone) that is one button, "Archive 3", with
+only as tall as its content (from `md` its icon, name and count run down it as one turned group, a full-width row on
+a phone) that is one button, "Archive 3", with
 `aria-expanded`. Expanded, it is a column like the others (18rem to 20rem) whose header ends with
 Collapse Archive (`FoldHorizontalIcon`, a tooltip); the focus moves to the other toggle either way. The grid's
 tracks come from `--board-columns` (the statuses, then the strip or a column), and the project layout widens its
