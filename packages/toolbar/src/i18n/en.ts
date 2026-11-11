@@ -587,7 +587,6 @@ export const en = {
         label: 'Comments',
         search: 'Search comments',
         reviewing: (environment: string) => `Reviewing ${environment}. New feedback stays here.`,
-        unread: 'Unread',
         assignedToMe: 'Assigned to me',
         reviewBrief: 'Review brief',
         close: 'Close sidebar',

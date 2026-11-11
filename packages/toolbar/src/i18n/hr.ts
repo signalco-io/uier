@@ -575,7 +575,6 @@ export const hr: Messages = {
         label: 'Komentari',
         search: 'Pretraži komentare',
         reviewing: (environment: string) => `Pregledavate ${environment}. Nove povratne informacije ostaju ovdje.`,
-        unread: 'Nepročitano',
         assignedToMe: 'Dodijeljeno meni',
         reviewBrief: 'Upute za pregled',
         close: 'Zatvori bočnu ploču',

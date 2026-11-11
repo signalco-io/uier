@@ -110,29 +110,27 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
                             onChange={(e) => setFilter({ ...filter, keywords: e.target.value })}
                             onKeyDown={handleSearchKeyDown} />
                         {setEnvironment && <p className="m-0 text-xs text-muted-foreground">{t.inbox.reviewing(environmentLabel ?? window.location.origin)}</p>}
-                        <div className="flex flex-wrap items-center gap-2">
-                            <LocationPicker
-                                value={inbox.scope}
-                                pages={inbox.pages}
-                                currentPath={inbox.currentPath}
-                                currentCount={inbox.currentCount}
-                                otherCount={inbox.otherCount}
-                                environment={setEnvironment && { value: environment, options: environmentOptions ?? [], onChange: setEnvironment }}
-                                onChange={(page) => setFilter({ ...filter, page })} />
-                            {/* Unread threads can be done ones and on any page (the pill counts the whole
-                                site): the filter shows every status, and turning it on every page. A filter like the
-                                app's Only unread: no dot, the count in the unread accent */}
-                            <FilterChip pressed={Boolean(filter.unread)} onClick={() => setFilter({ ...filter, unread: !filter.unread, status: 'all', ...(filter.unread ? {} : { page: 'all' as const }) })}>
-                                {t.inbox.unread} <span className={cx('tabular-nums', unread > 0 ? 'text-[hsl(var(--brand-accent-text))]' : 'text-muted-foreground')}>{unread}</span>
-                            </FilterChip>
+                        <LocationPicker
+                            value={inbox.scope}
+                            pages={inbox.pages}
+                            currentPath={inbox.currentPath}
+                            currentCount={inbox.currentCount}
+                            otherCount={inbox.otherCount}
+                            environment={setEnvironment && { value: environment, options: environmentOptions ?? [], onChange: setEnvironment }}
+                            onChange={(page) => setFilter({ ...filter, page })} />
+                        {/* Unread threads can be done ones and on any page (the pill counts the whole site): "N unread"
+                            shows every status, and turning it on every page. Then Mark all as read, as in the app */}
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                             {isMember && (
                                 <FilterChip pressed={Boolean(filter.assignedToMe)} onClick={() => setFilter({ ...filter, assignedToMe: !filter.assignedToMe })}>
                                     {t.inbox.assignedToMe}
                                 </FilterChip>
                             )}
+                            <MarkAllRead comments={inbox.state.error ? [] : inbox.comments ?? []}
+                                unreadTotal={unread}
+                                filtering={Boolean(filter.unread)}
+                                onFilterChange={on => setFilter({ ...filter, unread: on, status: 'all', ...(on ? { page: 'all' as const } : {}) })} />
                         </div>
-                        {/* The count line under the filters, as in the app: the shown unread count, then Mark all as read */}
-                        <MarkAllRead comments={inbox.state.error ? [] : inbox.comments ?? []} />
                         </Stack>
                         <CommentsStatusTabs
                             counts={inbox.counts}

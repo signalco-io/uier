@@ -574,7 +574,6 @@ export const de: Messages = {
         label: 'Kommentare',
         search: 'Kommentare durchsuchen',
         reviewing: (environment: string) => `Sie prüfen ${environment}. Neues Feedback bleibt hier.`,
-        unread: 'Ungelesen',
         assignedToMe: 'Mir zugewiesen',
         reviewBrief: 'Review-Briefing',
         close: 'Seitenleiste schließen',

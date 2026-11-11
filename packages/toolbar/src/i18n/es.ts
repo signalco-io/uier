@@ -575,7 +575,6 @@ export const es: Messages = {
         label: 'Comentarios',
         search: 'Buscar comentarios',
         reviewing: (environment: string) => `Revisando ${environment}. Las opiniones nuevas se quedan aquí.`,
-        unread: 'Sin leer',
         assignedToMe: 'Asignados a mí',
         reviewBrief: 'Indicaciones de revisión',
         close: 'Cerrar el panel lateral',

@@ -73,13 +73,13 @@ test('bulk inbox read follows listed pages/search/status and retries the rendere
         await expect(sidebar.getByRole('article')).toHaveCount(2);
         await sidebar.getByRole('button', { name: 'Mark all as read', exact: true }).click();
         await expect(inbox).toHaveAccessibleName('Inbox, 1 unread thread');
-        await sidebar.getByRole('button', { name: 'Unread 1', exact: true }).click();
+        await sidebar.getByRole('button', { name: '1 unread', exact: true }).click();
         await expect(sidebar.getByRole('article')).toHaveCount(0); // Search still applies.
         await sidebar.getByRole('searchbox', { name: 'Search comments' }).fill('');
         await expect(sidebar.getByRole('article')).toHaveCount(1);
         await sidebar.getByRole('button', { name: 'Mark all as read', exact: true }).click();
         await expect(inbox).toHaveAccessibleName('Inbox');
-        await expect(sidebar.getByRole('button', { name: 'Unread 0', exact: true })).toBeVisible();
+        await expect(sidebar.getByRole('button', { name: '0 unread', exact: true })).toBeVisible();
         await expectNoAxeViolations(reader.page);
         await reader.page.reload();
         await expect(inbox).toHaveAccessibleName('Inbox');
