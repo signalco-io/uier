@@ -11,7 +11,7 @@ list themselves on `?`. The review toolbar does the same with its own keys
 | --- | --- | --- |
 | Comments list | ↓ ↑, Home, End; Enter opens ([inbox](comments-inbox.md)) | `CommentInbox` |
 | Board | ↓ ↑ in a column, ← → to the next column with cards (the card in the same place, or its last), Home and End in the column, Enter opens, M moves | `CommentBoard` |
-| My work | ↓ ↑, Home, End in each list; Enter opens | `MyWorkList` |
+| My work | ↓ ↑, Home, End in each list; Enter opens; as a board, the board's keys | `MyWorkList`, `CommentBoard` |
 | Sidebar navigation | ↓ ↑, Home, End between its links (its group's buttons keep their own stops) | `AppSidebar` |
 | `LinkTabs` (project, workspace, settings sections, segmented filters) | ← →, Home, End (↑ ↓ too for `side`); Enter opens | `LinkTabs` |
 | Toggle groups (List and Board, status tabs), menus, selects, dialogs | the UI kit's own (Base UI) | `components/ui` |
@@ -33,7 +33,7 @@ handler): it listens on the document in the bubble phase, after React's handlers
 | ? | The shortcuts dialog (`ShortcutsDialog`; also the account menu's Keyboard shortcuts) | everywhere |
 | / | The page's search (an input marked `data-shortcut-search`, the first visible) | Comments, Teams |
 | C | Comment on this page: uier's own toolbar starts placing a comment, as its + button does (`startToolbarComment`); Give feedback keeps opening its feedback form | everywhere |
-| G then I, B | The project's comments as the list or the board; in place on its comments page (keeps the filters) | a project's pages |
+| G then I, B | The project's comments as the list or the board; in place on its comments page (keeps the filters); on My work, its lists or its board | a project's pages, My work |
 | G then M, P | My work, Projects | everywhere |
 | J, K | The next or the previous thread: the list opens it (in the thread's place on a phone too), the board focuses the card or opens its thread in the sheet, My work focuses the row | Comments, My work |
 | R, S, A | Reply, the status menu, the assignee menu of the open thread (`CommentCard`; menus open as Enter opens them; R focuses the reply box through its ref, never the card's first textarea, since a message editor can be open too) | the open thread |

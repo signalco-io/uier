@@ -29,7 +29,7 @@ const modifierKeys = new Set(['Shift', 'Control', 'Alt', 'Meta', 'CapsLock']);
 /**
  * The app's shortcuts that work on every page: `?` shows them all (`ShortcutsDialog`), `/` goes to the
  * page's search (a field marked `data-shortcut-search`), C starts a comment with uier's own toolbar, and G followed by I, B,
- * M or P goes to the project's inbox or board, My work or Projects. The comments list and board, My
+ * M or P goes to the project's inbox or board (on My work, its list or board), My work or Projects. The comments list and board, My
  * work and the open thread add their own (`useKeyShortcuts`). Single keys, so they can be turned off
  * (WCAG 2.1.4) and never act while typing, in a menu or a dialog, or in the review toolbar.
  */
@@ -45,7 +45,12 @@ export function AppShortcuts({ children }: { children: ReactNode }) {
     const go = (letter: string) => {
         if (letter === 'm') router.push(KnownPages.AppMyWork);
         else if (letter === 'p') router.push(KnownPages.AppProjects);
-        else if (letter === 'i' || letter === 'b') {
+        else if ((letter === 'i' || letter === 'b') && pathname === KnownPages.AppMyWork) {
+            // My work has List and Board too, remembered apart from the projects' choice
+            const view = letter === 'b' ? 'board' : 'list';
+            rememberCommentsView(view, 'my-work');
+            setUrlSearchParams({ view, comment: undefined }, { history: 'push' });
+        } else if (letter === 'i' || letter === 'b') {
             // Only on a project's pages: the inbox and the board are its comments
             const project = projectOf(pathname);
             if (!project) return false;

@@ -138,8 +138,19 @@ the separately bundled review toolbar owns its own query cache.
   member across the workspace's projects they can see: open threads assigned to them, open threads that mention them
   (`mentionsMe`), then other unread threads; each thread once, in the first group it belongs to. Each group uses a project list's order (`compareCommentOrder`:
   priority, then number, highest first; uier #292), newest first between projects' threads that tie. It
-  reads the same authorized snapshot as each project's comments page (`loadProjectComments`) and stores nothing; a
-  row opens its thread on its project's page (`?comment=`). `e2e/my-work.spec.ts` covers it.
+  reads the same authorized snapshot as each project's comments page (`loadProjectComments`), with each listed project's
+  people to assign from the same member list, and stores nothing; a row opens its thread on its project's page (`?comment=`).
+  List and Board in the header ([uier #294](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fmy-work&comment=comment_UFce1oOdSATj5MRS9lRNt); `MyWorkBoard.tsx`) show the same threads on the comments board instead
+  ([comments inbox](comments-inbox.md)): one column per status, no Archive (My work leaves archived threads out), each column
+  in its default order (no project's saved sorts apply, and nobody gets a sort menu), and each card names its project. A card
+  opens its thread in the board's sheet with its project's people, and a move (drag, or Move) is saved in the thread's own
+  project with its own permissions (`allowedStatuses` reads each thread's, `useStatusChanger` takes each thread's project).
+  A thread changed on the board (moved, read in the sheet, archived) that stops needing you stays there with those changes
+  until My work is loaded again, so a card dropped on Done stays put and the open thread stays open; a deleted one goes
+  (`removed` in `CommentUpdates`). The choice works like a project's (`?view=`, list too, G then I or B) but is remembered
+  on its own (`commentsView.ts`, scope `my-work`): choosing Board for a project's triage leaves My work's grouped lists alone,
+  and the other way round. On the board the header takes the columns' width (`--board-width`, `data-header-wide`).
+  `e2e/my-work.spec.ts` covers it.
 
 ### Idle comments refreshes
 
