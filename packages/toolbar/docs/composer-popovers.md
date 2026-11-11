@@ -81,7 +81,9 @@ bottom edge, while the anchor's bottom is still in the window (an element or are
 edge, [uier #166](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_H_TrIieqwg6OA4Px0efJx)),
 the pin goes above that point upside down (`<Pin upsideDown />`, `data-uier-upside-down`), its sharp corner
 still on the point, inside the window and above the pill. An anchor below the window keeps its pin below
-it, off-screen until scrolled to.
+it, off-screen until scrolled to. The pin's button has the pin's shape (round, with no radius on the sharp
+corner: top-left, or bottom-left upside down), so its focus ring follows the pin, not a circle
+([uier #286](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_1z_xazrZorbfQTPCYKfJ2)).
 
 The popover, a thread or a new comment's form, opens beside its pin on the side with room (right, else left;
 `popoverPlacement`), down from the pin's top, or up from its bottom when the pin is upside down, and shifts up

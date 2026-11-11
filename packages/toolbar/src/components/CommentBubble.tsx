@@ -439,7 +439,10 @@ export function CommentBubble(props: CommentBubbleProps) {
                                 : t.pin.label(commentItem.number, messagesCount, commentItem.resolved)}
                         onFocus={handleFocus}
                         className={cx(
+                            // The pin's shape, so the focus ring follows it: round but for the sharp corner
+                            // (top-left, bottom-left when upside down)
                             'group fixed cursor-pointer rounded-full pointer-coarse:p-1.5',
+                            upsideDown ? 'rounded-bl-none' : 'rounded-tl-none',
                             // A hovered or focused pin comes in front of the pins it overlaps
                             onToolbar ? 'z-[75] hover:z-[76] focus-visible:z-[76]' : 'z-[48] hover:z-[49] focus-visible:z-[49]',
                             sending && 'opacity-70',
