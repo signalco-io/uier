@@ -19,7 +19,9 @@ test('footer links to the contact and social destinations', async ({ page }) => 
     await expect(footer.getByRole('link', { name: brand.contact.email })).toHaveAttribute('href', `mailto:${brand.contact.email}`);
     await expect(footer.getByRole('link', { name: 'Report an issue' })).toHaveAttribute('href', brand.issues);
     await expect(footer.getByRole('link', { name: 'GitHub' })).toHaveAttribute('href', brand.social.github);
-    await expect(footer.getByRole('link', { name: `A ${brand.parent.name} project` })).toHaveAttribute('href', brand.parent.url);
+    const parent = footer.getByRole('link', { name: `A ${brand.parent.name} project` });
+    await expect(parent).toHaveAttribute('href', brand.parent.url);
+    await expect(parent.locator('svg')).toBeVisible();
 });
 
 test('every internal footer link resolves', async ({ page, request }) => {
