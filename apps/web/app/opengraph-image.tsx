@@ -10,7 +10,6 @@ import { CardMotif, socialCardFonts } from '@/src/lib/social/SocialCard';
 export const alt = `${brand.name} · ${brand.tagline}`;
 export const size = socialCardSize;
 export const contentType = 'image/png';
-export const dynamic = 'force-static';
 
 export default async function OpenGraphImage() {
     const { ink, paper, ink500, ink700 } = brand.colors;

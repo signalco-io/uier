@@ -10,13 +10,14 @@ import { appCookieOptions } from '../src/lib/app/appCookies';
 import { sessionToken, sessionSignedInAt, sessionEmailProof, requestSessionUser } from '../src/lib/app/sessionIdentity';
 import { isReviewSignedOut, readReviewSsoSession, REVIEW_SSO_COOKIE_NAME } from '../src/lib/app/reviewSsoCookie';
 import { signToken, verifyToken } from '../src/lib/app/tokens';
-import { findOrCreateUser } from '../src/lib/app/users';
+import { findOrCreateUser, finishWelcome } from '../src/lib/app/users';
 import { getAppStore } from '../src/lib/app/store';
 import { freshlyProvenEmail } from '../src/lib/app/emailProof';
 import { requireRecentSignIn } from '../src/lib/app/passkeys';
 import { createProject } from '../src/lib/app/projects';
 import { ensureOwnWorkspace, getWorkspace } from '../src/lib/app/workspaces';
 import type { AppContext } from '../src/lib/app/context';
+import { PUBLIC_WORKSPACE_ID } from '../src/lib/comments/publicProjectPolicy';
 import { uniqueEmail } from './support/app';
 
 const origin = 'http://localhost:4104';
@@ -25,6 +26,18 @@ test.beforeAll(() => { process.env.UIER_LOCAL = '1'; });
 test.afterAll(() => {
     if (originalLocal === undefined) delete process.env.UIER_LOCAL;
     else process.env.UIER_LOCAL = originalLocal;
+});
+
+test('document preflight leaves action and flight redirects to Next, including internal fetches without the rsc header', async () => {
+    const variants: HeadersInit[] = [{ Accept: 'text/x-component' }, { 'Next-Action': 'action-id' }, { RSC: '1' }];
+    for (const headers of variants) {
+        const response = await proxy(new NextRequest(`${origin}/app`, { headers: { ...Object.fromEntries(new Headers(headers)), Cookie: 'uier_session=invalid' } }));
+        expect(response.headers.get('x-middleware-next')).toBe('1');
+        expect(response.headers.get('location')).toBeNull();
+    }
+    const document = await proxy(new NextRequest(`${origin}/app/projects/private`, { headers: { Accept: 'text/html' } }));
+    expect(document.status).toBe(307);
+    expect(new URL(document.headers.get('location')!).searchParams.get('next')).toBe('/app/projects/private');
 });
 
 class Jar {
@@ -78,6 +91,52 @@ test('switching preserves each original credential, sign-in time, expiry and acc
         expect(jar.get(primary())?.value).toBe(b.token);
         expect(sessionEmailProof(jar.get(primary())?.value, b.user)).toBeNull();
     } finally { Date.now = previousNow; }
+});
+
+test('document preflight keeps repeated-query semantics and public-workspace staff redirects', async () => {
+    const jar = new Jar();
+    const { user } = await account(jar, 'page-preflight');
+    const get = (path: string) => proxy(new NextRequest(`${origin}${path}`, { headers: { cookie: jar.header() } }));
+    const repeated = await get('/app/sign-in?add=1&add=1&next=/app/account&next=/app/projects');
+    expect(new URL(repeated.headers.get('location')!).pathname).toBe('/app');
+    const adding = await get('/app/sign-in?add=1');
+    expect(adding.headers.get('x-middleware-next')).toBe('1');
+
+    const previousStaff = process.env.UIER_STAFF_EMAILS;
+    process.env.UIER_STAFF_EMAILS = user.email;
+    jar.values.set(cookieName(cookieNames.workspace), PUBLIC_WORKSPACE_ID);
+    try {
+        for (const path of ['/app/projects/new', '/app/workspace/users', '/app/workspace/settings']) {
+            const response = await get(path);
+            expect(response.status).toBe(307);
+            expect(new URL(response.headers.get('location')!).pathname).toBe('/app/projects');
+        }
+    } finally {
+        if (previousStaff === undefined) delete process.env.UIER_STAFF_EMAILS;
+        else process.env.UIER_STAFF_EMAILS = previousStaff;
+    }
+});
+
+test('redirect-only app documents keep HTTP redirects before a shell streams', async () => {
+    const jar = new Jar();
+    const { user } = await account(jar, 'document-redirects');
+    const member = await ensureOwnWorkspace(user);
+    const workspace = (await getWorkspace(member.workspaceId))!;
+    const context: AppContext = { user, member, workspace, isAdmin: true, memberships: [{ member, workspace }] };
+    const project = await createProject(context, { name: 'Legacy install', urls: ['https://reviewed.example'], clientName: 'Document client' });
+    await finishWelcome(user.id);
+    const paths = [
+        ['/app/workspace', '/app/workspace/users'],
+        ['/app/welcome', '/app'],
+        ['/app/join?next=/app/account', '/app/account'],
+        [`/app/projects/${project.id}/install`, `/app/projects/${project.id}/settings/installation`],
+        ['/app/projects?client=name:Document%20client&status=done', `/app/projects?status=done&client=${project.clientId}`]
+    ];
+    for (const [path, target] of paths) {
+        const response = await proxy(new NextRequest(`${origin}${path}`, { headers: { cookie: jar.header() } }));
+        expect(response.status).toBe(307);
+        expect(response.headers.get('location')).toBe(`${origin}${target}`);
+    }
 });
 
 test('expired, forged, wrong-purpose and deleted accounts cannot be selected or rescue an invalid active session', async () => {

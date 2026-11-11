@@ -1,5 +1,7 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { AuthCard } from '@/src/components/app/AuthCard';
 
@@ -27,7 +29,7 @@ const problems: Record<string, { title: string; description: string }> = {
 };
 const fallback = { title: 'This sign-in cannot continue', description: 'Connect again from your coding tool.' };
 
-export default async function ConnectErrorPage({ searchParams }: PageProps<'/app/connect/error'>) {
+async function ConnectErrorPageContent({ searchParams }: PageProps<'/app/connect/error'>) {
     const { t, language } = await getAppI18n();
     const { error } = await searchParams;
     const problem = (typeof error === 'string' && Object.hasOwn(problems, error) ? problems[error] : undefined) ?? fallback;
@@ -36,4 +38,8 @@ export default async function ConnectErrorPage({ searchParams }: PageProps<'/app
             <p className="m-0 text-sm text-muted-foreground">{t("You can close this tab.")}</p>
         </AuthCard>
     );
+}
+
+export default function ConnectErrorPage(props: Parameters<typeof ConnectErrorPageContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading error" />}><ConnectErrorPageContent {...props} /></Suspense>;
 }

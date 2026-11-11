@@ -12,7 +12,6 @@ import { projectFeedbackExport } from '@/src/lib/review/feedbackContext';
 import { followThread, setProjectMuted, threadNotificationState } from '@/src/lib/notifications/preferences';
 import { appBaseUrl } from '@/src/lib/app/request';
 
-export const dynamic = 'force-dynamic';
 const handler = extensionHandler(async request => {
     const url = new URL(request.url);
     const path = url.pathname.slice('/api/extension/review/'.length);

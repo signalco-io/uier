@@ -1,11 +1,14 @@
 import { brand } from '@uier/brand';
+import { cacheLife } from 'next/cache';
 import { KnownPages } from '../../knownPages';
 import { Footer1 } from './Footer1';
 
 // The footer of every public page (rendered by the marketing layout). Contact and social
 // destinations come from @uier/brand; labels are sentence case like everything else.
 
-export function SiteFooter() {
+export async function SiteFooter() {
+    'use cache';
+    cacheLife('hours');
     return (
         <Footer1
             features={[

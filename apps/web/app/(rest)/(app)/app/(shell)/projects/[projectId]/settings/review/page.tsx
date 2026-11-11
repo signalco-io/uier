@@ -1,5 +1,7 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import { workspaceFeedbackTypes } from '@/src/lib/app/feedbackTypes';
 import type { Metadata } from 'next';
 import { loadQueryFieldSuggestions } from '@/src/lib/app/pageStateSuggestions';
@@ -14,7 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /** Who can comment (with the guest links while anyone with the link can), the toolbar's language, what reviewers are asked to review and, under Advanced, which page state their comments keep */
-export default async function ProjectReviewSettingsPage({ params }: PageProps<'/app/projects/[projectId]/settings/review'>) {
+async function ProjectReviewSettingsPageContent({ params }: PageProps<'/app/projects/[projectId]/settings/review'>) {
     const { projectId } = await params;
     const { context, project } = await configurableProject(projectId);
     const querySuggestions = await loadQueryFieldSuggestions(project);
@@ -25,4 +27,8 @@ export default async function ProjectReviewSettingsPage({ params }: PageProps<'/
             // The header's access label leads here, so the guest links from its popover are here too
             guestLinks={project.access === 'guests' && project.urls[0] ? <GuestReviewLinks publicId={project.publicId} urls={project.urls} /> : undefined} />
     );
+}
+
+export default function ProjectReviewSettingsPage(props: Parameters<typeof ProjectReviewSettingsPageContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading review" />}><ProjectReviewSettingsPageContent {...props} /></Suspense>;
 }

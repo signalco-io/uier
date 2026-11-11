@@ -1,5 +1,7 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { Section } from '@/src/components/app/PageHeader';
 import { requireAppContext } from '@/src/lib/app/context';
@@ -19,7 +21,7 @@ export const metadata: Metadata = {
 const relationshipLabels = { internal: 'Internal', external: 'External' } as const;
 
 /** General: the name, the theme, the toolbar's language and the person's access in the selected workspace */
-export default async function AccountPage() {
+async function AccountPageContent() {
     const { t, language } = await getAppI18n();
     const context = await requireAppContext();
     const [projects, access] = await Promise.all([listVisibleProjects(context), loadWorkspaceAccess(context.workspace.id)]);
@@ -50,4 +52,8 @@ export default async function AccountPage() {
             </Section>
         </>
     );
+}
+
+export default function AccountPage() {
+    return <Suspense fallback={<PageLoading title="Loading account" />}><AccountPageContent /></Suspense>;
 }

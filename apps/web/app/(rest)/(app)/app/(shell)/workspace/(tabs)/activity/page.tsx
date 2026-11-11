@@ -1,5 +1,7 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { KnownPages } from '@/src/knownPages';
 import { listAccessEvents } from '@/src/lib/app/teams';
@@ -15,7 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /** Who changed access in the workspace: invitations, removals, teams and grants (admins; kept 180 days) */
-export default async function ActivityPage({ searchParams }: PageProps<'/app/workspace/activity'>) {
+async function ActivityPageContent({ searchParams }: PageProps<'/app/workspace/activity'>) {
     const { t } = await getAppI18n();
     const context = await requireTeamAdmin();
     const { after } = await searchParams;
@@ -34,4 +36,8 @@ export default async function ActivityPage({ searchParams }: PageProps<'/app/wor
                 next={history.next ? `${KnownPages.AppActivity}?${new URLSearchParams({ after: history.next })}` : undefined} />
         </>
     );
+}
+
+export default function ActivityPage(props: Parameters<typeof ActivityPageContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading activity" />}><ActivityPageContent {...props} /></Suspense>;
 }

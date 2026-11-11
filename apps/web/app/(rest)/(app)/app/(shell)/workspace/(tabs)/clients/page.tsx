@@ -1,5 +1,7 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { BriefcaseIcon, ChevronRightIcon } from 'lucide-react';
@@ -28,7 +30,7 @@ function statusText(active: number, done: number) {
 }
 
 /** The clients of the projects the person can see, each opening the projects list filtered to it */
-export default async function ClientsPage() {
+async function ClientsPageContent() {
     const { t } = await getAppI18n();
     const context = await requireAppContext();
     const canEdit = context.isAdmin && context.workspace.id !== PUBLIC_WORKSPACE_ID;
@@ -114,4 +116,8 @@ export default async function ClientsPage() {
             )}
         </>
     );
+}
+
+export default function ClientsPage() {
+    return <Suspense fallback={<PageLoading title="Loading clients" />}><ClientsPageContent /></Suspense>;
 }

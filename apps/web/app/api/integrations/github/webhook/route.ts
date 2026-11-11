@@ -1,7 +1,5 @@
 import { receiveGitHubWebhook } from '@/src/lib/integrations/github';
 
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
 const MAX_BODY_BYTES = 1024 * 1024;
 
 export async function POST(request: Request) {

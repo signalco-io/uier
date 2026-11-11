@@ -51,7 +51,7 @@ test('app navigation preserves the document and feedback toolbar', async ({ page
         await preserved();
         await sections.getByRole('link', { name: 'General', exact: true }).click();
         await expect(page).toHaveURL(new RegExp(`/app/projects/${id}/settings$`));
-        await page.locator('button[aria-haspopup="menu"]').filter({ hasText: 'Open review' }).click();
+        await page.getByRole('button', { name: 'Open review', exact: true }).click();
         await page.getByRole('menuitem', { name: 'Review setup', exact: true }).click();
         await expect(page).toHaveURL(new RegExp(`/app/projects/${id}/settings/installation$`));
         await preserved();

@@ -1,5 +1,7 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
@@ -20,7 +22,7 @@ export const metadata: Metadata = {
  * proves the inbox once before the Google account is linked. The page never says whether a uier
  * account already uses the address.
  */
-export default async function GoogleLinkPage() {
+async function GoogleLinkPageContent() {
     const { t, language } = await getAppI18n();
     const link = await getGoogleLink((await cookies()).get(GOOGLE_SIGN_IN_COOKIE_NAME)?.value);
 
@@ -40,4 +42,8 @@ export default async function GoogleLinkPage() {
             <GoogleLinkForm email={link.email} next={link.next} />
         </AuthCard>
     );
+}
+
+export default function GoogleLinkPage() {
+    return <Suspense fallback={<PageLoading title="Loading link" />}><GoogleLinkPageContent /></Suspense>;
 }

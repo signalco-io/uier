@@ -1,5 +1,7 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { KnownPageLinks, onboardingSteps, type OnboardingStep } from '@/src/knownPages';
@@ -24,7 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * setup open the project's comments. Without `onboarding`, this is the old address of the install guide
  * (the toolbar still links here): it moved to Settings → Installation.
  */
-export default async function InstallProjectPage({ params, searchParams }: PageProps<'/app/projects/[projectId]/install'>) {
+async function InstallProjectPageContent({ params, searchParams }: PageProps<'/app/projects/[projectId]/install'>) {
     const { t } = await getAppI18n();
     const { projectId } = await params;
     const { onboarding, step: stepParam } = await searchParams;
@@ -65,4 +67,8 @@ export default async function InstallProjectPage({ params, searchParams }: PageP
             )}
         </div>
     );
+}
+
+export default function InstallProjectPage(props: Parameters<typeof InstallProjectPageContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading install" />}><InstallProjectPageContent {...props} /></Suspense>;
 }

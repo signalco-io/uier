@@ -1,5 +1,7 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import Link from 'next/link';
@@ -29,7 +31,7 @@ export async function generateMetadata(): Promise<Metadata> {
     return { title: t("Projects") };
 }
 
-export default async function ProjectsPage({ searchParams }: PageProps<'/app/projects'>) {
+async function ProjectsPageContent({ searchParams }: PageProps<'/app/projects'>) {
     const { t } = await getAppI18n();
     const context = await requireAppContext();
     const canManageProjects = context.isAdmin && context.workspace.id !== PUBLIC_WORKSPACE_ID;
@@ -165,4 +167,8 @@ export default async function ProjectsPage({ searchParams }: PageProps<'/app/pro
             {statusPanel('done')}
         </>
     );
+}
+
+export default function ProjectsPage(props: Parameters<typeof ProjectsPageContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading projects" />}><ProjectsPageContent {...props} /></Suspense>;
 }

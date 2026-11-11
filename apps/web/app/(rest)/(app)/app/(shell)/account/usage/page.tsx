@@ -1,5 +1,7 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { KnownPageLinks, KnownPages, projectUsageAnchor } from '@/src/knownPages';
@@ -19,7 +21,7 @@ export const metadata: Metadata = {
  * so a link from the toolbar finds its project whichever workspace is open. What a whole project shares
  * is the workspace's Usage tab.
  */
-export default async function AccountUsagePage() {
+async function AccountUsagePageContent() {
     const { t, language } = await getAppI18n();
     const context = await requireAppContext();
     const { workspaces, network } = await accountUsage(context);
@@ -78,4 +80,8 @@ export default async function AccountUsagePage() {
             )}
         </>
     );
+}
+
+export default function AccountUsagePage() {
+    return <Suspense fallback={<PageLoading title="Loading usage" />}><AccountUsagePageContent /></Suspense>;
 }

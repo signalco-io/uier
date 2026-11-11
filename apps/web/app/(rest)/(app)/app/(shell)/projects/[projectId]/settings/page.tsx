@@ -1,5 +1,6 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
+import { PageLoading } from '@/src/components/app/PageLoading';
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { AppPageLoading } from '@/src/components/app/AppPageLoading';
@@ -24,7 +25,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /** General: the name, client and usage, for admins; everyone else starts at their own project emails */
-export default async function ProjectSettingsPage({ params }: PageProps<'/app/projects/[projectId]/settings'>) {
+async function ProjectSettingsPageContent({ params }: PageProps<'/app/projects/[projectId]/settings'>) {
     const { projectId } = await params;
     const { context, project, canConfigure } = await projectSettingsContext(projectId);
     if (!canConfigure)
@@ -75,4 +76,8 @@ async function ProjectUsageSection({ context, project }: { context: AppContext; 
             </dl>
         </Section>
     );
+}
+
+export default function ProjectSettingsPage(props: Parameters<typeof ProjectSettingsPageContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading settings" />}><ProjectSettingsPageContent {...props} /></Suspense>;
 }

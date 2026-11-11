@@ -1,5 +1,7 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
@@ -13,7 +15,7 @@ import { MicrosoftLinkForm } from './MicrosoftLinkForm';
 
 export const metadata: Metadata = { title: 'Confirm your email' };
 
-export default async function MicrosoftLinkPage() {
+async function MicrosoftLinkPageContent() {
     const { t, language } = await getAppI18n();
     const link = await getMicrosoftLink((await cookies()).get(MICROSOFT_SIGN_IN_COOKIE_NAME)?.value);
     if (!link) return (
@@ -26,4 +28,8 @@ export default async function MicrosoftLinkPage() {
             <MicrosoftLinkForm email={link.email} next={link.next} />
         </AuthCard>
     );
+}
+
+export default function MicrosoftLinkPage() {
+    return <Suspense fallback={<PageLoading title="Loading link" />}><MicrosoftLinkPageContent /></Suspense>;
 }

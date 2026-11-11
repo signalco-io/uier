@@ -1,5 +1,10 @@
 # Browser extension runtime
 
+The verification helper streams its validated query configuration within the static-shell CSP.
+It retains Next's client instrumentation so BotID initializes for the proof request, without app,
+theme or analytics providers. Exact registered parent-origin checks stay in place.
+See [page security](page-security.md).
+
 `src/lib/extension` and `/api/extension` use separate revocable sessions: updated packages request
 `renewable: true` for 15-minute access, rotating refresh with 30-day inactivity and one-year absolute
 limits. Legacy packages retain eight-hour sessions. Refresh uses atomic session/token replacement,

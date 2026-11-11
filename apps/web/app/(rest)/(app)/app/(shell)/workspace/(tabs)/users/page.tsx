@@ -1,5 +1,7 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -92,7 +94,7 @@ function ListSection({ id, title, count, description, children }: {
 /** More people and invitations than this together, and the list shows its filters */
 const FILTER_FROM = 8;
 
-export default async function UsersPage({ searchParams }: PageProps<'/app/workspace/users'>) {
+async function UsersPageContent({ searchParams }: PageProps<'/app/workspace/users'>) {
     const { t } = await getAppI18n();
     const context = await requireAdminContext();
     if (context.workspace.id === PUBLIC_WORKSPACE_ID) redirect(KnownPages.AppProjects);
@@ -233,4 +235,8 @@ export default async function UsersPage({ searchParams }: PageProps<'/app/worksp
             </div>
         </>
     );
+}
+
+export default function UsersPage(props: Parameters<typeof UsersPageContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading users" />}><UsersPageContent {...props} /></Suspense>;
 }

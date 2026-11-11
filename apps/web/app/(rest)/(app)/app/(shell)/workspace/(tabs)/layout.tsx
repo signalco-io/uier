@@ -1,5 +1,7 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { PropsWithChildren } from 'react';
 import { requireAppContext } from '@/src/lib/app/context';
 import { PageHeader } from '@/src/components/app/PageHeader';
@@ -10,7 +12,7 @@ import { workspaceTabs } from '@/src/components/app/workspace/workspaceTabs';
  * The workspace area: the workspace's name above its tabs (Users, Teams, Clients, Usage, Activity and
  * Settings for admins; Clients and Usage for everyone else). A team's and a person's own pages open from the tabs, without them.
  */
-export default async function WorkspaceTabsLayout({ children }: PropsWithChildren) {
+async function WorkspaceTabsLayoutContent({ children }: PropsWithChildren) {
     const { t } = await getAppI18n();
     const context = await requireAppContext();
     return (
@@ -21,4 +23,8 @@ export default async function WorkspaceTabsLayout({ children }: PropsWithChildre
             {children}
         </>
     );
+}
+
+export default function WorkspaceTabsLayout(props: Parameters<typeof WorkspaceTabsLayoutContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading workspace" />}><WorkspaceTabsLayoutContent {...props} /></Suspense>;
 }

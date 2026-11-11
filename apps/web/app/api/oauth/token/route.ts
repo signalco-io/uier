@@ -2,7 +2,6 @@ import { OAuthError, oauthJson } from '@/src/lib/mcp/oauth/errors';
 import { limitByIp, oauthEndpoint, oauthIssuer, readForm } from '@/src/lib/mcp/oauth/http';
 import { exchangeCode, refreshTokens } from '@/src/lib/mcp/oauth/tokens';
 
-export const dynamic = 'force-dynamic';
 
 /** Public clients only: no client authentication, no cookies and no CORS. */
 export async function POST(request: Request) {

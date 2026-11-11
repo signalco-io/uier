@@ -1,7 +1,6 @@
 import { limitByIp, oauthEndpoint, readForm } from '@/src/lib/mcp/oauth/http';
 import { revokeToken } from '@/src/lib/mcp/oauth/tokens';
 
-export const dynamic = 'force-dynamic';
 
 /** RFC 7009: unknown tokens still answer 200. */
 export async function POST(request: Request) {

@@ -1,5 +1,7 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -21,7 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
     return { title: t("Team") };
 }
 
-export default async function TeamPage({ params, searchParams }: PageProps<'/app/workspace/teams/[teamId]'>) {
+async function TeamPageContent({ params, searchParams }: PageProps<'/app/workspace/teams/[teamId]'>) {
     const { t } = await getAppI18n();
     const context = await requireTeamAdmin(),
         { teamId } = await params;
@@ -102,4 +104,8 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/app
             </div>
         </>
     );
+}
+
+export default function TeamPage(props: Parameters<typeof TeamPageContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading team" />}><TeamPageContent {...props} /></Suspense>;
 }

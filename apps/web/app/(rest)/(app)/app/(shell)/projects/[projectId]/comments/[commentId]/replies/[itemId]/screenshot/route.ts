@@ -6,7 +6,6 @@ import { screenshotResponse } from '@/src/lib/comments/screenshot';
 import { isValidId } from '@/src/lib/comments/validation';
 import { getProjectScreenshot } from '@/src/lib/review/comments';
 
-export const dynamic = 'force-dynamic';
 
 /** The screenshot of a project comment, for app users who can see the comment */
 export async function GET(_request: Request, { params }: RouteContext<'/app/projects/[projectId]/comments/[commentId]/replies/[itemId]/screenshot'>) {

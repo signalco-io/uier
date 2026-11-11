@@ -1,5 +1,7 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { PropsWithChildren } from 'react';
 import Link from 'next/link';
 import { Logo } from '@uier/brand/Logo';
@@ -9,7 +11,7 @@ import { getSessionUser } from '@/src/lib/app/session';
 import { AccountSessionBoundary } from '@/src/components/app/shell/AccountSessionBoundary';
 
 /** A coding tool's sign-in (consent and its errors): one focused card, without the app sidebar */
-export default async function ConnectLayout({ children }: PropsWithChildren) {
+async function ConnectLayoutContent({ children }: PropsWithChildren) {
     const { t, language } = await getAppI18n();
     const user = await getSessionUser();
     return (
@@ -27,4 +29,8 @@ export default async function ConnectLayout({ children }: PropsWithChildren) {
             </div>
         </main>
     );
+}
+
+export default function ConnectLayout(props: Parameters<typeof ConnectLayoutContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading connect" />}><ConnectLayoutContent {...props} /></Suspense>;
 }

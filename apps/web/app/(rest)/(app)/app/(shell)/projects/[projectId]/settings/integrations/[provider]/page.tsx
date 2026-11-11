@@ -1,5 +1,7 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -40,7 +42,7 @@ export async function generateMetadata({ params }: PageProps<'/app/projects/[pro
  * One service's connection: its destination, sync controls and privacy limits, then what it does (the
  * features of its public page). The connect and callback routes come back here with their outcome (`?github=connected`).
  */
-export default async function ProjectIntegrationSettingsPage({ params, searchParams }: PageProps<'/app/projects/[projectId]/settings/integrations/[provider]'>) {
+async function ProjectIntegrationSettingsPageContent({ params, searchParams }: PageProps<'/app/projects/[projectId]/settings/integrations/[provider]'>) {
     const { t } = await getAppI18n();
     const { projectId, provider } = await params;
     if (!isIntegrationProvider(provider))
@@ -89,4 +91,8 @@ async function IntegrationSection({ provider, project, userId, outcome, githubSe
         case 'slack':
             return <SlackSection projectId={project.id} settings={await getSlackSettings(project, userId)} outcome={outcome} />;
     }
+}
+
+export default function ProjectIntegrationSettingsPage(props: Parameters<typeof ProjectIntegrationSettingsPageContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading integration" />}><ProjectIntegrationSettingsPageContent {...props} /></Suspense>;
 }

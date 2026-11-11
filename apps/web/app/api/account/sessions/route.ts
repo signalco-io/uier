@@ -7,7 +7,6 @@ import { requestSessionUser } from '@/src/lib/app/sessionIdentity';
 import { UserFacingError } from '@/src/lib/app/actionErrors';
 import { apiErrors, errorResponse, parseJsonBody } from '@/src/lib/comments/http';
 
-export const dynamic = 'force-dynamic';
 const inputSchema = z.discriminatedUnion('action', [
     z.object({ action: z.literal('switch'), userId: z.string().min(1).max(100), next: z.string().max(2048).optional() }).strict(),
     z.object({ action: z.literal('sign-out') }).strict(),

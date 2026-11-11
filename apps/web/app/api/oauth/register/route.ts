@@ -2,7 +2,6 @@ import { registerClient } from '@/src/lib/mcp/oauth/clients';
 import { OAuthError, oauthJson } from '@/src/lib/mcp/oauth/errors';
 import { limitByIp, limitGlobally, oauthEndpoint } from '@/src/lib/mcp/oauth/http';
 
-export const dynamic = 'force-dynamic';
 
 /** RFC 7591 dynamic client registration without an initial access token; public clients only. */
 export async function POST(request: Request) {

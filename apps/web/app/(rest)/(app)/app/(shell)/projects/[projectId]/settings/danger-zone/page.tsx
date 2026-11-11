@@ -1,5 +1,7 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { Section } from '@/src/components/app/PageHeader';
 import { DeleteProjectButton, ProjectStatusButton, TransferProjectButton } from '@/src/components/app/projects/ProjectDangerZone';
@@ -12,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /** Changes to the whole project, each a row with its button */
-export default async function ProjectDangerZonePage({ params }: PageProps<'/app/projects/[projectId]/settings/danger-zone'>) {
+async function ProjectDangerZonePageContent({ params }: PageProps<'/app/projects/[projectId]/settings/danger-zone'>) {
     const { t } = await getAppI18n();
     const { projectId } = await params;
     const { context, project } = await configurableProject(projectId);
@@ -55,4 +57,8 @@ export default async function ProjectDangerZonePage({ params }: PageProps<'/app/
             </div>
         </Section>
     );
+}
+
+export default function ProjectDangerZonePage(props: Parameters<typeof ProjectDangerZonePageContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading danger zone" />}><ProjectDangerZonePageContent {...props} /></Suspense>;
 }

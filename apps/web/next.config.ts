@@ -9,6 +9,8 @@ import { combineSecureHeaders } from './src/lib/secureHeaders';
 const toolbarDevOrigin = `http://localhost:${Number(process.env.PORT || 4004) + 1}`;
 
 const nextConfig: NextConfig = {
+    cacheComponents: true,
+    partialPrefetching: false,
     reactStrictMode: true,
     env: {
         // The deployment environment (production or preview), inlined at build time: the deploy

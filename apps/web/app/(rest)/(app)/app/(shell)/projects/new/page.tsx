@@ -1,5 +1,7 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { KnownPages } from '@/src/knownPages';
@@ -18,7 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /** Onboarding, step 1: the site (then step 2, the install page) */
-export default async function NewProjectPage() {
+async function NewProjectPageContent() {
     const { t } = await getAppI18n();
     const context = await requireAdminContext();
     if (context.workspace.id === PUBLIC_WORKSPACE_ID) redirect(KnownPages.AppProjects);
@@ -36,4 +38,8 @@ export default async function NewProjectPage() {
             </Card>
         </div>
     );
+}
+
+export default function NewProjectPage() {
+    return <Suspense fallback={<PageLoading title="Loading new" />}><NewProjectPageContent /></Suspense>;
 }

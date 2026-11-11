@@ -1,5 +1,7 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { ClockIcon, MousePointerClickIcon } from 'lucide-react';
 import { requireAppContext } from '@/src/lib/app/context';
@@ -11,7 +13,7 @@ import { AccountSessionBoundary } from '@/src/components/app/shell/AccountSessio
 export const metadata: Metadata = { title: 'Extension sign-in' };
 
 /** The browser extension's sign-in (`identity.launchWebAuthFlow`): one card, like signing in to the app */
-export default async function ExtensionConsent({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+async function ExtensionConsentContent({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
     const { t, language } = await getAppI18n();
     const context = await requireAppContext();
     let input: Authorization;
@@ -39,4 +41,8 @@ export default async function ExtensionConsent({ searchParams }: { searchParams:
             <ExtensionConsentForm userId={context.user.id} authorization={input} />
         </AuthCard>
     );
+}
+
+export default function ExtensionConsent(props: Parameters<typeof ExtensionConsentContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading extension" />}><ExtensionConsentContent {...props} /></Suspense>;
 }

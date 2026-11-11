@@ -1,5 +1,7 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { GaugeIcon } from 'lucide-react';
@@ -27,7 +29,7 @@ export async function generateMetadata(): Promise<Metadata> {
  * project (`?project=<public id>`); when that project is in another of the person's workspaces, the page
  * offers to open it.
  */
-export default async function WorkspaceUsagePage({ searchParams }: PageProps<'/app/workspace/usage'>) {
+async function WorkspaceUsagePageContent({ searchParams }: PageProps<'/app/workspace/usage'>) {
     const { t } = await getAppI18n();
     const context = await requireAppContext();
     const requested = (await searchParams).project;
@@ -88,4 +90,8 @@ export default async function WorkspaceUsagePage({ searchParams }: PageProps<'/a
                 )}
         </>
     );
+}
+
+export default function WorkspaceUsagePage(props: Parameters<typeof WorkspaceUsagePageContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading usage" />}><WorkspaceUsagePageContent {...props} /></Suspense>;
 }

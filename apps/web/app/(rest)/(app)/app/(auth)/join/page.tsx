@@ -1,5 +1,7 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -27,7 +29,7 @@ export const metadata: Metadata = {
  * refreshes) it looks nothing up and offers to sign in again with the email, the same whether or not a
  * workspace matches.
  */
-export default async function JoinPage({ searchParams }: PageProps<'/app/join'>) {
+async function JoinPageContent({ searchParams }: PageProps<'/app/join'>) {
     const { t, language } = await getAppI18n();
     const user = await getSessionUser();
     const { next } = await searchParams;
@@ -87,4 +89,8 @@ export default async function JoinPage({ searchParams }: PageProps<'/app/join'>)
             </div>
         </AuthCard>
     );
+}
+
+export default function JoinPage(props: Parameters<typeof JoinPageContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading join" />}><JoinPageContent {...props} /></Suspense>;
 }

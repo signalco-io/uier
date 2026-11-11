@@ -1,5 +1,9 @@
 # App shell, navigation and the projects list
 
+The shell and each request-dependent segment use the boundaries described in
+[Cache Components](cache-components.md). The initial shell contains no private data. Proxy completes
+document access decisions before it streams; pages and actions retain their own checks.
+
 `ClientProvider` owns theme and document-policy handling. The Next app has no React Query provider;
 the separately bundled review toolbar owns its own query cache.
 

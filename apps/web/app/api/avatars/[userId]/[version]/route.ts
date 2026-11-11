@@ -2,7 +2,6 @@ import { getAvatarImage } from '@/src/lib/app/avatars';
 import { requestSessionUser } from '@/src/lib/app/sessionIdentity';
 import { userIdSchema } from '@/src/lib/app/validation';
 
-export const dynamic = 'force-dynamic';
 
 const noStore = { 'Cache-Control': 'private, no-store' };
 

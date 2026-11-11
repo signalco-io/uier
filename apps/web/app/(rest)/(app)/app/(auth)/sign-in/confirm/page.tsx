@@ -1,5 +1,7 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { cn } from 'cn';
@@ -13,7 +15,7 @@ export const metadata: Metadata = {
     title: 'Sign in'
 };
 
-export default async function ConfirmSignInPage({ searchParams }: PageProps<'/app/sign-in/confirm'>) {
+async function ConfirmSignInPageContent({ searchParams }: PageProps<'/app/sign-in/confirm'>) {
     const { t, language } = await getAppI18n();
     const { token } = await searchParams;
     const request = await getSignInRequest(token);
@@ -33,4 +35,8 @@ export default async function ConfirmSignInPage({ searchParams }: PageProps<'/ap
             <ConfirmSignInForm token={token} />
         </AuthCard>
     );
+}
+
+export default function ConfirmSignInPage(props: Parameters<typeof ConfirmSignInPageContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading confirm" />}><ConfirmSignInPageContent {...props} /></Suspense>;
 }

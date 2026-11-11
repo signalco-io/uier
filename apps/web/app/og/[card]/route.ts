@@ -3,8 +3,6 @@ import { linkCardImage } from '@/src/lib/social/SocialCard';
 
 // The cards of links into the app (`/og/<card>`), rendered once at build time. Unknown cards are
 // a 404: nothing here draws text from the request. Public pages have their own opengraph-image.tsx.
-export const dynamic = 'force-static';
-export const dynamicParams = false;
 
 export function generateStaticParams() {
     return linkCardIds.map(card => ({ card }));

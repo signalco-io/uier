@@ -1,5 +1,7 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { AtSignIcon, CircleCheckIcon, MailIcon, UserIcon } from 'lucide-react';
 import { requireAppContext } from '@/src/lib/app/context';
@@ -29,7 +31,7 @@ function Group({ id, title, description, icon, items }: { id: string; title: str
 }
 
 /** What needs the signed-in member across the workspace's projects they can see */
-export default async function MyWorkPage() {
+async function MyWorkPageContent() {
     const { t } = await getAppI18n();
     const context = await requireAppContext();
     const { assigned, mentions, unread, capped } = await loadMyWork(context);
@@ -56,4 +58,8 @@ export default async function MyWorkPage() {
             {capped && <p className="mt-4 text-sm text-muted-foreground">{t("Each project lists up to its 1,000 most recent threads here.")}</p>}
         </>
     );
+}
+
+export default function MyWorkPage() {
+    return <Suspense fallback={<PageLoading title="Loading my work" />}><MyWorkPageContent /></Suspense>;
 }

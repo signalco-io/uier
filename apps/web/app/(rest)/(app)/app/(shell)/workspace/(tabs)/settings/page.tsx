@@ -1,5 +1,7 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import { workspaceFeedbackTypes } from '@/src/lib/app/feedbackTypes';
 import { WorkspaceFeedbackTypesForm } from './WorkspaceFeedbackTypesForm';
 import type { Metadata } from 'next';
@@ -23,7 +25,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /** The current workspace's own settings, for its admins (the uier workspace is managed by uier) */
-export default async function WorkspaceSettingsPage() {
+async function WorkspaceSettingsPageContent() {
     const { t } = await getAppI18n();
     const context = await requireAdminContext();
     if (context.workspace.id === PUBLIC_WORKSPACE_ID)
@@ -42,4 +44,8 @@ export default async function WorkspaceSettingsPage() {
             </div>
         </div>
     );
+}
+
+export default function WorkspaceSettingsPage() {
+    return <Suspense fallback={<PageLoading title="Loading settings" />}><WorkspaceSettingsPageContent /></Suspense>;
 }
