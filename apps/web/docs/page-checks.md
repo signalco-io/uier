@@ -78,6 +78,8 @@ pass); a transfer keeps it, since it is keyed by the project.
   within target (the toolbar SEO panel's good value or less) and over target (with the panel's warning).
   `vitalTargets` in `src/lib/pageChecks/model.ts` mirrors the toolbar's `webVitals.ts` and `en.ts`; there is no
   third level, so the view shows none. The popup keeps focus on its trigger; Escape closes it until focus leaves.
+- **Show** and **Order** sit in the Pages heading row, beside the list they change, not above Across pages
+  (uier #256).
 - **Order** (`?sort=`, `setUrlSearchParams`, no server request): Needs attention first by default (critical,
   then serious, then all accessibility issues, then SEO to look at, then Core Web Vitals over target),
   Accessibility issues, SEO to look at, Last checked or Page. A column the order follows has `aria-sort`.
