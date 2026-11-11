@@ -16,7 +16,7 @@
   `?onboarding=1` redirects to Settings → Installation (the toolbar still links there).
 - **One save per settings page.** General (name, client, [thread titles](ai-titles.md) and rewrite instructions), Review (who can comment, `#who-can-comment`, where the project header's access label leads, with the project's `GuestReviewLinks` under it while the saved access is Anyone with the link and the project has an address, so touch and keyboard users reach them without the hover popover; the brief and, in a collapsed
   Advanced section, the page state) and Environments (the site addresses table) are each one form in one card
-  (`ProjectSettingsForms.tsx`) with one server action (`updateProjectGeneralAction`, `updateProjectReviewAction`,
+  (`ProjectGeneralForm.tsx`, `ProjectReviewForm.tsx`, `ProjectSitesForm.tsx`) with one server action (`updateProjectGeneralAction`, `updateProjectReviewAction`,
   `updateProjectSitesAction`) that parses every field with the existing schemas before writing, checks the admin role
   (`adminProject`) and the public project (`assertMutableProject`), and writes only what changed. The card footer is
   `SaveFooter` (`components/app/SettingsSave.tsx`): "Unsaved changes", Discard and a Save that stays off until
@@ -149,3 +149,8 @@ accessibility, guest projection and actual server-action replay as a commenter a
 
 The Review save action checks admin and project authority before parsing feedback types or other
 settings, so unauthorized submissions receive the access refusal even when their settings are malformed.
+
+Settings pages import their own client form entry modules. The email switches and danger-zone
+controls are separate from General, Review and Environments, so an account email preference does not
+import every project editor. Keep these imports direct rather than adding a client barrel. The
+controlled forms share only `keepFormValues.ts` for suppressing React’s action reset.

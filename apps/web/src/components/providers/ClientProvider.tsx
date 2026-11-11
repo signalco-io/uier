@@ -2,17 +2,7 @@
 
 import { DevReviewToolbarScript } from '../toolbar/DevReviewToolbarScript';
 import { PropsWithChildren, useEffect } from 'react';
-import { ThemeProvider, useTheme } from 'next-themes';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { NotificationsContainer } from '@signalco/ui-notifications';
-
-const queryClient = new QueryClient();
-
-function ThemedNotificationsContainer() {
-    const { resolvedTheme } = useTheme();
-    return <NotificationsContainer theme={resolvedTheme === 'dark' ? 'dark' : 'light'} />;
-}
+import { ThemeProvider } from 'next-themes';
 
 /** CSP and COOP belong to the document; Next client navigation cannot replace them. */
 function DocumentPolicyBoundary() {
@@ -36,16 +26,12 @@ function DocumentPolicyBoundary() {
     return null;
 }
 
-export function ClientProvider({children, nonce, signalcoNotifications = true}: PropsWithChildren<{ nonce?: string; signalcoNotifications?: boolean }>) {
+export function ClientProvider({children, nonce}: PropsWithChildren<{ nonce?: string }>) {
     return (
         <ThemeProvider attribute="class" nonce={nonce}>
-            <QueryClientProvider client={queryClient}>
-                <ReactQueryDevtools initialIsOpen={false} />
-                {signalcoNotifications && <ThemedNotificationsContainer />}
-                <DocumentPolicyBoundary />
-                {children}
-                {process.env.NODE_ENV === 'development' && <DevReviewToolbarScript />}
-            </QueryClientProvider>
+            <DocumentPolicyBoundary />
+            {children}
+            {process.env.NODE_ENV === 'development' && <DevReviewToolbarScript />}
         </ThemeProvider>
     );
 }

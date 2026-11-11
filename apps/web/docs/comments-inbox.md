@@ -142,6 +142,8 @@ Recently completed (default, `compareDoneOrder`) and the same four; Archive ([be
 offers Recently archived (default, `compareArchivedOrder`) and the same four, saved under `archive`. Only choices other than a column's
 default are stored, and a stored value a column does not offer reads as its default (`boardSort`).
 The list view keeps its order.
+The write schema lives separately in `boardSortSchema.ts`, so reading the browser's choices and
+defaults does not initialize Zod. Actions and persistence use that same schema before writing.
 
 - `BoardSortMenu` ends each column's header: a ghost icon button (`ArrowUpDownIcon`, named
   "Sort Open: Priority") with the UI kit's radio menu, which closes on a choice. A column in another

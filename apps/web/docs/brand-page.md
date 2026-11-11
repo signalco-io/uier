@@ -4,3 +4,6 @@ It is the live reference for the brand and must keep rendering from `@uier/brand
 kit (no screenshots, no copied values). When you add a brand token, component style or asset,
 add it to the page in the matching section. `e2e/brand.spec.ts` checks that the page renders,
 that the assets (favicon, icons, manifest, OG image) are served, and that it passes axe.
+
+The pull-request state specimen imports `PullRequestStateBadge` directly. Its display-only module
+keeps the live thread controls, provider state reads and mutation Action out of the brand page.

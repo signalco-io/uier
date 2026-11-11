@@ -1,7 +1,7 @@
 import { workspaceFeedbackTypes } from '@/src/lib/app/feedbackTypes';
 import type { Metadata } from 'next';
 import { loadQueryFieldSuggestions } from '@/src/lib/app/pageStateSuggestions';
-import { ProjectReviewForm } from '@/src/components/app/projects/ProjectSettingsForms';
+import { ProjectReviewForm } from '@/src/components/app/projects/ProjectReviewForm';
 import { GuestReviewLinks } from '@/src/components/app/projects/GuestReviewLinks';
 import { configurableProject } from '../settingsContext';
 import { projectToolbarLanguageMode, workspaceToolbarLanguage } from '@/src/lib/app/toolbarLanguage';
