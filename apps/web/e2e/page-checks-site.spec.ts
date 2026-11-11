@@ -164,7 +164,7 @@ test('a member reviews two pages with the same title, and the project\'s Page ch
         await expect(page.locator('html')).toHaveClass(new RegExp(colorScheme));
         await animationsFinished(page.locator('body'));
         await expectNoAxeViolations(page);
-        await page.locator('section[aria-labelledby="page-checks-title"]').screenshot({ path: testInfo.outputPath(`page-checks-${colorScheme}.png`) });
+        await page.locator('section[aria-label="Page checks"]').screenshot({ path: testInfo.outputPath(`page-checks-${colorScheme}.png`) });
     }
 });
 
@@ -200,7 +200,7 @@ test('on a narrow screen each page is a card', async ({ page }, testInfo) => {
     const width = await page.evaluate(() => document.documentElement.scrollWidth);
     expect(width).toBeLessThanOrEqual(page.viewportSize()!.width);
     await expectNoAxeViolations(page);
-    await page.locator('section[aria-labelledby="page-checks-title"]').screenshot({ path: testInfo.outputPath('page-checks-phone.png') });
+    await page.locator('section[aria-label="Page checks"]').screenshot({ path: testInfo.outputPath('page-checks-phone.png') });
 });
 
 test('on a wide window the view and the project header take the width, like the comments', async ({ page }, testInfo) => {
@@ -215,7 +215,7 @@ test('on a wide window the view and the project header take the width, like the 
         const found = (await locator.boundingBox())!;
         return { left: found.x, right: found.x + found.width, width: found.width };
     };
-    const view = await box(page.locator('section[aria-labelledby="page-checks-title"]'));
+    const view = await box(page.locator('section[aria-label="Page checks"]'));
     // Wider than the reading column (64rem less the 32 px gutters), at most 96rem
     expect(view.width).toBeGreaterThan(1024 - 64);
     expect(view.width).toBeLessThanOrEqual(1536);
