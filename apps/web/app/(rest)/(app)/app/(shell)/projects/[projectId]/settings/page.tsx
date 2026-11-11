@@ -66,10 +66,12 @@ async function ProjectUsageSection({ context, project }: { context: AppContext; 
             description={usage.lastCommentAt
                 ? <>{t("Nothing here is limited by a plan. Last comment")}{' '}<DateTime value={usage.lastCommentAt} />.</>
                 : t("Nothing here is limited by a plan.")}>
+            {/* Each row is a label track and a value track shared by its cells (subgrid), so the numbers stay on one
+                line when a label wraps (uier #284) */}
             <dl className="m-0 grid grid-cols-2 overflow-hidden rounded-lg border sm:grid-cols-3">
                 {usageRows.map(row => (
-                    <div key={t(row.label)} className="-mr-px -mb-px flex flex-col gap-1 border-r border-b p-4">
-                        <dt className="text-sm text-muted-foreground">{t(row.label)}</dt>
+                    <div key={t(row.label)} className="-mr-px -mb-px row-span-2 grid grid-rows-subgrid border-r border-b p-4">
+                        <dt className="pb-1 text-sm text-muted-foreground">{t(row.label)}</dt>
                         <dd className="m-0 text-2xl font-semibold tracking-[-0.02em] tabular-nums">{row.value}</dd>
                     </div>
                 ))}
