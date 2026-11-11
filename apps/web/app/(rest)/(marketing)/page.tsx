@@ -20,7 +20,7 @@ import {
 } from '../../../src/components/marketing/LandingSpecimens';
 import { ChecksSpecimen } from '../../../src/components/marketing/ChecksSpecimens';
 import { KnownPages } from '../../../src/knownPages';
-import { firefoxExtensionRelease } from '../../../src/lib/extension/release';
+import { extensionStoreUrl } from '../../../src/lib/extension/release';
 
 export const metadata = {
     ...publicPageMetadata('/'),
@@ -98,6 +98,16 @@ const details: ReactNode[] = [
 
 // The install guide's tabs (src/components/app/projects/InstallGuide.tsx)
 const platforms = ['HTML', 'Next.js', 'React', 'WordPress', 'Webflow', 'Shopify'];
+
+// The desktop browser extension's browsers (docs/browser-extension.md): Chrome and Edge install from
+// the Chrome Web Store; Firefox gets a link only once Mozilla approves the add-on.
+const extensionBrowsers: { name: string; href?: string; note?: string }[] = [
+    { name: 'Chrome', href: extensionStoreUrl },
+    { name: 'Edge', href: extensionStoreUrl },
+    { name: 'Firefox', note: 'in review' }
+];
+
+const chip = 'inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-xs font-medium';
 
 const tryIt = [
     'Press + in the toolbar at the bottom of the window, then click or tap anything on this page.',
@@ -182,12 +192,23 @@ export default function LandingPage() {
                         </div>
                         <ul aria-label="Install guides" className="flex flex-wrap gap-2">
                             {platforms.map(platform => (
-                                <li key={platform} className="inline-flex h-7 items-center rounded-full border px-3 text-xs font-medium">{platform}</li>
+                                <li key={platform} className={chip}>{platform}</li>
                             ))}
                         </ul>
-                        <p className="text-sm leading-relaxed text-muted-foreground">
-                            Cannot change the site? Signed-in reviewers can use the <InlineLink href={KnownPages.BrowserExtension}>browser extension</InlineLink> in desktop Chrome or Edge. {firefoxExtensionRelease.availabilityMessage}
-                        </p>
+                        <div className="flex flex-col gap-3">
+                            <p className="text-base leading-relaxed text-muted-foreground">
+                                Cannot change the site? Review it with the <InlineLink href={KnownPages.BrowserExtension}>browser extension</InlineLink>:
+                            </p>
+                            <ul aria-label="Browser extension" className="flex flex-wrap gap-2">
+                                {extensionBrowsers.map(browser => (
+                                    <li key={browser.name}>
+                                        {browser.href
+                                            ? <a href={browser.href} className={cx(chip, 'transition-colors hover:border-foreground/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2')}>{browser.name}</a>
+                                            : <span className={chip}>{browser.name}<span className="font-normal text-muted-foreground">{browser.note}</span></span>}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
                         <Button variant="solid" href={KnownPages.App} className="mt-auto self-start">Create a project</Button>
                     </div>
                 </div>

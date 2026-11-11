@@ -49,7 +49,8 @@ itself, so the global `:target` margin does not apply there and the layout turns
 - **Get started** (the hero and pricing) opens `/app`, like the navigation's "Sign in": signed-out
   visitors land on sign in, signed-in people in the app. The `#get-started` section below the
   features still offers both paths: trying the showcase toolbar on this page, or a project for
-  your own site.
+  your own site. That card shows the install guides and the browser extension's browsers as chips
+  (see [browser-extension.md](browser-extension.md)).
 - **Pricing** is `brand.pricing`, word for word, and one free offering: no prices, tiers, trials
   or limits. The app has no billing page while everything is free.
 

@@ -59,8 +59,10 @@ permissions, sign-in or capture. `browser-extension.api.spec.ts` checks the stor
 
 `/browser-extension` lists the supported browsers under the hero: desktop Chrome and Microsoft Edge
 from `minimumBrowserVersion`. Firefox's shared build requires version 153 or later; its 0.1.5 native
-hosted acceptance passed and its submission is awaiting Mozilla review. The homepage, FAQ, public
-pages and app installation guide show the same notice. The setup guide describes Firefox Browser
+hosted acceptance passed and its submission is awaiting Mozilla review. The FAQ, public pages and
+app installation guide show the same notice. The homepage's "Review your own site" card lists the
+browsers as chips beside the install guides: Chrome and Edge link the store item, Firefox is marked
+"in review" without a link until Mozilla approves it. The setup guide describes Firefox Browser
 Add-ons installation for when the release is available, then shares the sign-in/review steps.
 No Firefox download link is offered before approval and store acceptance. Safari and mobile use the
 script. The "Where it works" section keeps the unsupported browsers and pages. Its pictures
