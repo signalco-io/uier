@@ -49,7 +49,8 @@ the separately bundled review toolbar owns its own query cache.
   then the `ProjectTabs`: Comments, [Page checks](page-checks.md) and Install (Settings → Installation and the onboarding
   install step) until a comment from one of the project's addresses arrives (`hasProjectFeedback`); after that Install is
   gone; the tabs' line runs to the inset panel's edges, a divider between the header and the page (uier #237): a 1px
-  line whose shadow `clip-path` keeps to its row, so it adds no sideways scrolling); its pages render the comments,
+  line whose shadow `clip-path` keeps to its row, so it adds no sideways scrolling); the Comments label lines up with the
+  page content and the tabs show no loading spinner (uier #272); its pages render the comments,
   page checks, install guide or settings under it.
 - **Sidebar project order.** `ProjectOrderMenu` has two labelled radio groups: Sort (Recent activity, Recently
   created, Name) and Group (None, Client once an active project has one, Status). Only Group → Status lists the done
@@ -117,7 +118,7 @@ the separately bundled review toolbar owns its own query cache.
   named "11 open comments" for screen readers; uier #167), shown only while something is open (uier #169). No footer and no text button. The page renders both the active and the done list (and
   each one's empty state), and `ProjectStatusTabs` (`projects/ProjectStatusTabs.tsx`) shows the one `?status=`
   names. Active and Done are `LinkTabs` with `query`: a click writes the address with `setUrlSearchParams`
-  (`push`), so the other list shows at once with no server request, no spinner and no space kept for one;
+  (`push`), so the other list shows at once with no server request;
   Back, Forward and reload keep the tab, and opening a tab in a new window loads its href. Open counts come
   from `loadProjectUsage` for every listed project. `ClientFilter` still navigates (server filter) and keeps
   the status from the current address. Its menu and trigger show each client's `ClientMark` beside the name; All

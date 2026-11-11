@@ -37,6 +37,7 @@ export default function IntegrationsPage() {
         </PageSection>
         <PageSection id="shared" title="Every integration" lead="The same rules apply to each service.">
             <CheckList items={shared} />
+            <p className="text-sm leading-relaxed text-muted-foreground">Need to compare the whole workflow? The <InlineLink href={KnownPageLinks.comparison('website-feedback-tools')}>website feedback tools comparison</InlineLink> covers capture, review and the handoff to your team’s tools.</p>
         </PageSection>
         <PageSection id="suggest" title="Suggest an integration" lead="Missing a tool your team works in? Tell us which one and what you would send to it.">
             <div className="flex flex-col gap-5 rounded-2xl border p-8">

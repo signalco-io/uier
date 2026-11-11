@@ -579,7 +579,8 @@ const messages: Record<keyof typeof en, string> = {
     "{value0}{value1} · Original source unavailable": "{value0}{value1} · Origine originale non disponibile",
     "{value0}{value1}, clear filter": "{value0}{value1}, rimuovi il filtro",
     "{value} on this page, over the {target} target.": "{value} su questa pagina, oltre l’obiettivo di {target}.",
-    "{value} on this page, within the {target} target.": "{value} su questa pagina, entro l’obiettivo di {target}."
+    "{value} on this page, within the {target} target.": "{value} su questa pagina, entro l’obiettivo di {target}.",
+    "Pages appear as members review the site with the toolbar. Extension reviews are not included yet.": "Le pagine appaiono quando i membri revisionano il sito con la barra degli strumenti. Le revisioni dall’estensione non sono ancora incluse."
 };
 
 export default messages;

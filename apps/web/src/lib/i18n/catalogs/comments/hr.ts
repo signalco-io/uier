@@ -579,7 +579,8 @@ const messages: Record<keyof typeof en, string> = {
     "{value0}{value1} · Original source unavailable": "{value0}{value1} · Izvorni izvor nije dostupan",
     "{value0}{value1}, clear filter": "{value0}{value1}, ukloni filtar",
     "{value} on this page, over the {target} target.": "{value} na ovoj stranici, iznad ciljne vrijednosti {target}.",
-    "{value} on this page, within the {target} target.": "{value} na ovoj stranici, unutar ciljne vrijednosti {target}."
+    "{value} on this page, within the {target} target.": "{value} na ovoj stranici, unutar ciljne vrijednosti {target}.",
+    "Pages appear as members review the site with the toolbar. Extension reviews are not included yet.": "Stranice se prikazuju kada članovi pregledavaju stranicu alatnom trakom. Pregledi putem proširenja još nisu uključeni."
 };
 
 export default messages;

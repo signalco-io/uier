@@ -12,6 +12,7 @@ Product contracts, API references and runbooks stay in the repository's [`docs/`
 - [Brand page](brand-page.md): `/brand`, the live brand reference.
 - [Landing page](landing-page.md): sections, copy rules, the how-it-works scene, pricing.
 - [Feature pages](feature-pages.md): `/features/<feature>`, when to publish one and what each states.
+- [Comparison pages](comparison-pages.md): `/compare`, sourced feature matrices, visual workflows and alternatives.
 - [Integration pages](integration-pages.md): `/integrations` and provider pages, listing illustrations.
 - [Search indexing](search-indexing.md): metadata, sitemap, `noindex`, IndexNow.
 - [Social cards](social-cards.md): page cards, app link previews, `/og/[card]`.

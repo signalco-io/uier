@@ -90,10 +90,8 @@ export function PageChecksView({ projectId, pages, environments }: {
         // at 96rem; data-header-wide gives the project header above the same width
         <section aria-label={t("Page checks")} data-page-width="wide" data-header-wide="list"
             className="flex w-[min(var(--page-wide),96rem)] flex-col gap-6 mx-[calc((100%-min(var(--page-wide),96rem))/2)]">
-            {/* The project's tab names this view; sections remain h2 below the project's h1. */}
-            <p className="m-0 max-w-prose text-sm text-muted-foreground">
-                {t("What the toolbar’s checks found on each page, in members’ browsers at the time of each visit. A page is checked again when a member reviews it.")}
-            </p>
+            {/* No heading or intro of its own (uier #255, uier #273): the project's Page checks tab above names it, so its
+                sections are h2 under the project's h1 */}
 
             {pages.length === 0 ? (
                 <Empty className="border">
@@ -101,7 +99,7 @@ export function PageChecksView({ projectId, pages, environments }: {
                         <EmptyMedia variant="icon"><ScanSearchIcon /></EmptyMedia>
                         <EmptyTitle>{t("No pages checked yet")}</EmptyTitle>
                         <EmptyDescription>
-                            {t("Pages appear here as project members review the site with the toolbar. Each page a member opens is checked in their browser. Reviews in the browser extension are not included yet.")}
+                            {t("Pages appear as members review the site with the toolbar. Extension reviews are not included yet.")}
                         </EmptyDescription>
                     </EmptyHeader>
                 </Empty>

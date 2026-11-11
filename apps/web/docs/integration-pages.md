@@ -14,3 +14,5 @@ and Geist fonts. They contain no customer data and are labelled illustrations. K
 privacy limits and directory status aligned with the adapters and `docs/integration-publication.md`.
 `e2e/integration-pages.spec.ts` covers the public guides, their features and settings, the logos, the suggestion
 form, support/setup links and accessibility.
+The index links to `/compare/website-feedback-tools` beside the shared integration rules for
+people comparing capture, review and issue-tracker handoff together.

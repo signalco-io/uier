@@ -39,6 +39,8 @@ itself, so the global `:target` margin does not apply there and the layout turns
 - **Feature tiles alternate wide and narrow** (wide, narrow, narrow, wide, ...): at `lg` each row is one wide and
   one narrow tile, at `md` the narrow ones pair up and the wide ones take a row, so neither width leaves a gap.
   "And the details" spans the full width under them. Add or remove tiles in pairs that keep the pattern.
+- **Compare workflows** links from below the feature panel to `/compare`. Keep it a contextual
+  link for people choosing a tool; the comparison hub carries the feature matrices and tradeoffs.
 - **One section moves.** The how-it-works scene is a timeline of phases (`phases` in
   `HowItWorks.tsx`); everything in it is always rendered and shown or hidden with the brand's fade,
   and the pointer's targets are measured from the scene, so it follows any width. It plays only

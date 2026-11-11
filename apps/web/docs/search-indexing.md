@@ -9,6 +9,12 @@ workflow skips the IndexNow job when those content hashes have not changed; othe
 only added, changed and removed public URLs. See
 [search discovery](../../../docs/search-discovery.md) for safeguards and recovery.
 
+`/compare` is linked from the marketing navigation, footer and landing page. Its website-feedback
+matrix and tool comparisons are public static pages, included in the sitemap, IndexNow manifest,
+canonical and social-card checks. Contextual links from the client review guide, feedback triage
+and integrations connect the comparisons to the workflows they describe. The client review guide
+links the Pastel comparison for reviews that include files as well as a live website.
+
 Public pages use `publicPageMetadata` (`src/lib/metadata.ts`) with their own pathname, title and
 description. Canonicals and Open Graph URLs point to the production URL without query parameters;
 never put a homepage canonical in the root layout, where other pages would inherit it.

@@ -578,7 +578,8 @@ const messages = {
     "{value0}{value1} · Original source unavailable": "{value0}{value1} · Original source unavailable",
     "{value0}{value1}, clear filter": "{value0}{value1}, clear filter",
     "{value} on this page, over the {target} target.": "{value} on this page, over the {target} target.",
-    "{value} on this page, within the {target} target.": "{value} on this page, within the {target} target."
+    "{value} on this page, within the {target} target.": "{value} on this page, within the {target} target.",
+    "Pages appear as members review the site with the toolbar. Extension reviews are not included yet.": "Pages appear as members review the site with the toolbar. Extension reviews are not included yet."
 };
 
 export default messages;
