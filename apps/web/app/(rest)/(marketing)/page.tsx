@@ -162,6 +162,9 @@ export default function LandingPage() {
                         <CheckList items={details} columns={3} />
                     </div>
                 </div>
+                <p className="max-w-[720px] text-base leading-relaxed text-muted-foreground">
+                    Choosing a tool for your team? <InlineLink href={KnownPages.Compare}>Compare website feedback tools</InlineLink> by review workflow, bug reporting and the features each one supports.
+                </p>
             </section>
 
             <section aria-labelledby="get-started" className="flex flex-col gap-10 pt-16 md:pt-24">

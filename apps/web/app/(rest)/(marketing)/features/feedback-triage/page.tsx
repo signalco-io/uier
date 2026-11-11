@@ -153,6 +153,9 @@ export default function FeedbackTriagePage() {
                     the <InlineLink href={workflowGuide}>review workflow guide</InlineLink> for the technical details.
                 </p>
                 <Button variant="solid" href={KnownPages.App} className="self-start">Get started</Button>
+                <p className="max-w-[720px] text-sm leading-relaxed text-muted-foreground">
+                    Choosing how your team handles a review? <InlineLink href={KnownPages.Compare}>Compare feedback tools</InlineLink> for client reviews, bug reports and follow-up work.
+                </p>
             </PageSection>
         </main>
     );

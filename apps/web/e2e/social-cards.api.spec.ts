@@ -6,6 +6,7 @@ import { linkCardIds, socialCardSize } from '../src/lib/social/cards';
 
 /** Every public page has an opengraph-image.tsx next to it (the landing page: app/opengraph-image.tsx) */
 const publicPaths = [
+    '/compare', '/compare/website-feedback-tools', '/compare/bugherd', '/compare/marker-io', '/compare/usersnap', '/compare/pastel',
     '/guides', '/guides/browser-extension', '/guides/client-website-reviews', '/guides/nextjs',
     '/', '/brand', '/browser-extension', '/features/ai', '/features/feedback-triage', '/features/fix-verification', '/features/page-checks', '/integrations',
     ...Object.keys(integrationCatalog).map(provider => `/integrations/${provider}`),
