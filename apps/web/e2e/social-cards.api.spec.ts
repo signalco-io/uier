@@ -1,4 +1,8 @@
 import { expect, test, type APIRequestContext } from '@playwright/test';
+import { readFile, readdir } from 'node:fs/promises';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 import { brand } from '@uier/brand';
 import { KnownPageLinks, KnownPages } from '../src/knownPages';
 import { integrationCatalog } from '../src/lib/integrations/catalog';
@@ -36,7 +40,7 @@ async function preview(request: APIRequestContext, path: string) {
 }
 
 async function expectCard(request: APIRequestContext, path: string) {
-    const response = await request.get(path);
+    const response = await request.get(path, { headers: { 'User-Agent': 'Googlebot' } });
     expect(response.status(), path).toBe(200);
     expect(response.headers()['content-type'], path).toBe('image/png');
     const png = await response.body();
@@ -58,7 +62,36 @@ test('public pages are previewed with a card of their own', async ({ request }) 
         // The card shows the page's own title (an integration's comes from the catalog, like its page)
         if (!path.startsWith(`${KnownPages.Integrations}/`))
             expect(page.meta('og:image:alt'), path).toBe(page.meta('og:title'));
-        await expectCard(request, card!);
+        const resource = new URL(page.meta('og:image')!);
+        await expectCard(request, `${resource.pathname}${resource.search}`);
+    }
+});
+
+test('social-card traces include the emitted runtime fonts, not only pnpm storage paths', async () => {
+    const appRoot = fileURLToPath(new URL('..', import.meta.url));
+    const serverApp = join(appRoot, '.next/server/app');
+    const traces = (await readdir(serverApp, { recursive: true })).filter(path =>
+        /(?:^|\/)opengraph-image[^/]*\/route\.js\.nft\.json$/.test(path) || path === 'og/[card]/route.js.nft.json');
+    expect(traces.length).toBeGreaterThan(0);
+    const assetsRoot = join(appRoot, '.next/server/assets');
+    const hash = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');
+    const assets = await Promise.all((await readdir(assetsRoot)).filter(file => file.endsWith('.ttf')).map(async file => {
+        const path = join(assetsRoot, file);
+        return { path, hash: hash(await readFile(path)) };
+    }));
+    const fonts = await Promise.all(['geist-sans/Geist-SemiBold.ttf', 'geist-sans/Geist-Regular.ttf', 'geist-mono/GeistMono-Regular.ttf'].map(async font => {
+        const sourceHash = hash(await readFile(join(appRoot, 'node_modules/geist/dist/fonts', font)));
+        const asset = assets.find(asset => asset.hash === sourceHash);
+        expect(asset, `${font} must be emitted as a runtime asset`).toBeDefined();
+        return asset!.path;
+    }));
+    for (const trace of traces) {
+        const path = join(serverApp, trace);
+        const manifest = JSON.parse(await readFile(path, 'utf8')) as { files: string[] };
+        // Check emitted destinations, not resolved package paths: the old trace had font bytes
+        // in pnpm storage but omitted the alias used by the renderer.
+        const files = manifest.files.map(file => resolve(dirname(path), file));
+        for (const font of fonts) expect(files, `${trace}: ${font}`).toContain(font);
     }
 });
 
