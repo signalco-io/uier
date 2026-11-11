@@ -1,5 +1,4 @@
 import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import type { CSSProperties, ReactNode } from 'react';
 import { ImageResponse } from 'next/og';
 import { cacheLife } from 'next/cache';
@@ -17,21 +16,16 @@ const floating = '0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.08)';
 /** A commented text range: the accent at 20 % */
 const selection = 'rgba(46,91,255,0.2)';
 
-// Read by path from the app's node_modules (the build runs with apps/web as the working
-// directory, locally through turbo and on Vercel through the project's root directory):
-// the bundler rewrites `require.resolve`, and satori needs TTF, which next/font does not expose.
-async function geistFont(file: string) {
-    return readFile(join(process.cwd(), 'node_modules', 'geist', 'dist', 'fonts', file));
-}
-
 /** Geist and Geist Mono for `ImageResponse` */
 export async function socialCardFonts() {
     'use cache';
     cacheLife('max');
+    // Literal asset URLs make Turbopack emit and trace these exact TTFs. A cwd-based package
+    // path can retain pnpm's bytes but lose the node_modules/geist alias in a deployed function.
     const [sansSemiBold, sansRegular, monoRegular] = await Promise.all([
-        geistFont('geist-sans/Geist-SemiBold.ttf'),
-        geistFont('geist-sans/Geist-Regular.ttf'),
-        geistFont('geist-mono/GeistMono-Regular.ttf')
+        readFile(new URL('../../../node_modules/geist/dist/fonts/geist-sans/Geist-SemiBold.ttf', import.meta.url)),
+        readFile(new URL('../../../node_modules/geist/dist/fonts/geist-sans/Geist-Regular.ttf', import.meta.url)),
+        readFile(new URL('../../../node_modules/geist/dist/fonts/geist-mono/GeistMono-Regular.ttf', import.meta.url))
     ]);
     return [
         { name: 'Geist', data: Uint8Array.from(sansSemiBold).buffer, weight: 600 as const, style: 'normal' as const },
