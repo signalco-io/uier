@@ -25,7 +25,10 @@ import { CommentBoard } from './CommentBoard';
 import { statusFilterLabels, statusMatches, type AuthorFilter, type StatusFilter } from './commentLabels';
 import { commentStatus, commentStatuses, type CommentStatus } from './CommentStatus';
 import { parseCommentsQuery, type CommentsQuery } from './commentsQuery';
-import { storedCommentsView } from './commentsView';
+import { rememberCommentsView, storedCommentsView } from './commentsView';
+import { parseCommentsView } from '@/src/lib/app/commentsViewPreference';
+import { PageLoading } from '../PageLoading';
+import type { CommentsView } from './commentLabels';
 import { orderComments, sortBoardColumn } from './commentOrder';
 import type { BoardColumn, BoardSort } from '../../../lib/app/boardSort';
 import { setBoardArchiveAction, setBoardSortAction } from './actions';
@@ -66,8 +69,8 @@ function applyFilters(comments: ProjectCommentView[], query: CommentsQuery, user
     });
 }
 
-/** The project's comments in a list (a status tab) or on a board (a column per status), filtered by people and page */
-export function ProjectComments({ projectId, revision, access, isAdmin, comments: savedComments, query: serverQuery, userId, assignees, installHref, environments, authorFilter, searchWindowCapped = false, boardSorts: savedSorts, boardArchiveExpanded: savedArchiveExpanded = false, canSortBoard }: {
+type ProjectCommentsProps = {
+    initialView?: CommentsView;
     revision: string;
     searchWindowCapped?: boolean;
     /** Each board column's sort, saved on the project for everyone (`lib/app/boardSort.ts`) */
@@ -87,11 +90,27 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
     assignees: AssigneeOption[];
     /** The install guide, offered while there are no comments */
     installHref: string;
-}) {
+};
+
+/** The project's comments in a list (a status tab) or on a board (a column per status), filtered by people and page. */
+export function ProjectComments({ projectId, revision, access, isAdmin, comments: savedComments, query: serverQuery, userId, assignees, installHref, environments, authorFilter, searchWindowCapped = false, boardSorts: savedSorts, boardArchiveExpanded: savedArchiveExpanded = false, canSortBoard, initialView }: ProjectCommentsProps) {
     const { t } = useAppI18n();
     // The presentation filters and the open thread change with the address at once, even while a
     // change waits for the server (`useUrlSearchParams`)
     const searchParams = useUrlSearchParams();
+    const explicit = parseCommentsView(searchParams.get('view'));
+    const [remembered, setRemembered] = useState(initialView);
+    // Resolve old localStorage-only preferences before mounting rows. Keep the inbox's own state
+    // mounted through URL changes, including optimistic writes that are still pending.
+    useLayoutEffect(() => {
+        if (explicit) return;
+        const saved = storedCommentsView() ?? initialView;
+        setRemembered(saved ?? 'list');
+        if (saved) {
+            rememberCommentsView(saved);
+            setUrlSearchParams({ view: saved });
+        }
+    }, [explicit, initialView]);
     const containerRef = useRef<HTMLDivElement>(null);
     const openComment = useOpenComment(containerRef);
     // Environment and author are authorized server scopes. Presentation filters only use
@@ -101,20 +120,12 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
     const [searchDraft, setSearchDraft] = useState({ url: urlKey, value: urlQuery.q ?? '' });
     const search = searchDraft.url === urlKey ? searchDraft.value : urlQuery.q ?? '';
     const searchNeedsNormalization = searchParams.getAll('q').length > 1 || (searchParams.get('q') ?? '') !== (urlQuery.q ?? '');
-    const query = { ...urlQuery, q: search, environment: serverQuery.environment, author: serverQuery.author };
+    const query = { ...urlQuery, view: explicit ?? remembered ?? 'list', q: search, environment: serverQuery.environment, author: serverQuery.author };
     useEffect(() => {
         if (search === (urlQuery.q ?? '') && !searchNeedsNormalization) return;
         const timer = window.setTimeout(() => setUrlSearchParams({ q: search || undefined }), 250);
         return () => window.clearTimeout(timer);
     }, [search, urlQuery.q, urlKey, searchNeedsNormalization]);
-    // With no view in the address, the one the person last chose (List/Board) opens and is written there. A layout
-    // effect, so a page reached in the app paints in that view; a full load paints the server's list for a moment.
-    const urlView = searchParams.get('view');
-    useLayoutEffect(() => {
-        if (urlView === 'list' || urlView === 'board') return;
-        const remembered = storedCommentsView();
-        if (remembered) setUrlSearchParams({ view: remembered });
-    }, [urlView]);
     const commitSearch = () => { setUrlSearchParams({ q: search || undefined }); };
     const clearFilters = () => {
         setSearchDraft({ url: urlKey, value: '' });
@@ -232,13 +243,15 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
     // Nothing to show: the board still shows its columns while only Archive has threads
     const nothingShown = board ? !shown.length && !archived.length : !shown.length;
     // What the header takes the width of: the list with its thread beside it, or the board (see below)
-    const headerWide = !filtered.length || nothingShown ? undefined : board ? 'board' : 'list';
+    // Search and live updates must not recenter the controls when their result becomes empty.
+    const headerWide = !comments.length ? undefined : board ? 'board' : 'list';
     // The header's width, which the count line under it takes too (uier #187)
     const wideClassName = cn(headerWide === 'list' && '@3xl/comments:w-[min(var(--page-wide),96rem)] @3xl/comments:mx-[calc((100%-min(var(--page-wide),96rem))/2)]',
         headerWide === 'board' && 'md:w-[min(var(--page-wide),max(100%,var(--board-width)))] md:mx-[calc((100%-min(var(--page-wide),max(100%,var(--board-width))))/2)]');
     const unreadShown = (board ? boardShown : shown).filter(comment => comment.activity?.unread).length;
     // Keep matching cards mounted, including their independent reply drafts. Selection resets per scope.
     const selectionScope = JSON.stringify([projectId, query.environment, query.author, query.unread, query.people, query.page, query.status, query.q, query.priority, query.view]);
+    if (!explicit && !remembered) return <PageLoading title="Loading project" />;
     return (
         <CommentUpdatesProvider value={updateComment}>
         <RealtimeComments projectId={projectId} revision={revision} environment={serverQuery.environment} author={serverQuery.author} />
@@ -249,7 +262,7 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
             the columns don't fit, it stays at the panel's width less the gutters (`page-wide`), the board's visible part.
             The project header above takes the same width from `data-header-wide` (the project layout, which sets `--board-width`),
             and so does the count line under it. */}
-        <div ref={containerRef} className="@container/comments flex flex-col gap-2">
+        <div ref={containerRef} data-page-width={comments.length ? 'wide' : undefined} className="@container/comments flex flex-col gap-2">
             <div data-header-wide={headerWide} className={cn('flex min-w-0 flex-col gap-2', threadOnly && '@max-3xl/comments:hidden', wideClassName)}>
             <CommentFilters search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} historySources={historySources} unread={Boolean(query.unread)} unreadCount={scopeComments.filter(comment => comment.activity?.unread).length} view={board ? 'board' : 'list'} status={query.status} statusCounts={statusCounts} people={query.people} page={query.page} pages={pages} />
             {searchWindowCapped && <p className="m-0 text-sm text-muted-foreground">{t("Search covers up to 1,000 recent threads in this environment and author scope. Narrow the environment or author to find older feedback.")}</p>}
@@ -257,6 +270,7 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
             <TriageSelection projectId={projectId} scope={selectionScope} shown={board ? boardShown : shown} assignees={assignees}
                 barClassName={cn(threadOnly && '@max-3xl/comments:hidden', !comments.length && 'hidden')}
                 lineClassName={wideClassName}
+                reserveLine={comments.length > 0}
                 // Only the unread count: the list's status tabs and the board's columns already count what is shown
                 // The count toggles Only unread (uier #193), like the toolbar's Unread toggle; while the filter is on it stays,
                 // at 0 too, so it can be turned off where it was turned on

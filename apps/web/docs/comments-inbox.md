@@ -70,7 +70,10 @@ rows with the status filter it waits for their entrance motion to settle before 
   closes the open thread. The choice (the toggle, or G then I or B) is kept in the address, `?view=list` too, and
   remembered in this browser for every project (`commentsView.ts`, `localStorage`; blocked storage only loses the
   memory; My work remembers its own, [app shell](app-shell.md)). With no view in the address the remembered one opens and is written there in a layout effect: a page reached
-  in the app paints in it, a full load shows the server's list for a moment. A view in the address wins and is not
+  in the app paints in it. Project choices also write the one-year, browser-readable `__Host-uier_comments_view`
+  cookie (`uier_comments_view` on local HTTP), so a full load renders that view on the server. A browser with only the
+  older localStorage preference sees `PageLoading` until a layout effect resolves and migrates it, before rows mount;
+  it never paints a list and then replaces it with a board. Either store can retain the choice independently. A view in the address wins and is not
   remembered ([uier #291](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_d_oxAs9XP_GuQOZ0l9NND); `e2e/comment-board.spec.ts`). Cards move between columns with `@dnd-kit/core`: the whole card drags (its link shows
   the grab cursor; its selection box and Move keep their presses, as Base UI opens a menu on press), with the
   mouse after 6 px; on a touch screen a card held 250 ms is armed (`data-hold`) and lifts when the finger then moves more
@@ -279,6 +282,23 @@ header from the section's `data-board-archive` (`--board-width-collapsed` / `--b
 
 The Board stays directly imported by `ProjectComments`, so direct Board visits hydrate its
 keyboard controls with the rest of the view.
+
+### Layout stability
+
+The populated inbox keeps `data-page-width="wide"` on its outer container and derives the header's
+width from the chosen view, even when presentation filters match nothing. Removing the board must
+not remove the shell's width container or recenter the search and project header. The unread/action
+row reserves 32 px (44 px on touch) throughout a populated inbox's lifetime, including when empty;
+live arrivals and reading the last unread thread cannot move the comments. A row's unread dot and
+the spacer under it keep their width when read, so its title and path stay aligned.
+
+`e2e/project-cls.spec.ts` measures production HTML through delayed hydration at the reported desktop
+viewport (1674 × 1366) and on Mobile Chrome, with 20 API-created threads and 4× CPU slowdown. It
+records every `layout-shift` source and before/after rectangle in `project-cls.json`, with the toolbar's
+largest-session-window calculation (recent input and toolbar-only entries excluded). It checks the
+painted view before releasing scripts, read-all, a background unread arrival, an empty search and
+Give feedback's toolbar injection, plus unchanged board/header geometry. The full report and limits
+are in [the CLS investigation](project-comments-cls.md).
 
 ### My work's board
 

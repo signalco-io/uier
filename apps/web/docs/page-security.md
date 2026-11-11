@@ -49,7 +49,11 @@ HSTS is one year with subdomains. Do not add `preload` or submit to the preload 
 has observed this policy operating successfully.
 
 `src/lib/cookieNames.ts` centralizes HTTPS `__Host-` / `__Secure-` names, local HTTP names and
-bounded legacy reads. The fixed migration cutoff is 30 October 2026 UTC; legacy sign-in bindings
+lifetimes. `__Host-uier_comments_view` is a browser-readable, Secure, SameSite=Lax presentation
+preference with Path=/ and a one-year lifetime; only `list` and `board` are accepted. It grants no
+access and is read request-scoped. The local HTTP name is `uier_comments_view`.
+
+The registry also defines bounded legacy reads. The fixed migration cutoff is 30 October 2026 UTC; legacy sign-in bindings
 stop being accepted 15 minutes later, session/SSO cookies after 30 days, visitor/workspace cookies
 after 365 days. Never reset this date on a rebuild. Prefer the new name even when its value is
 invalid; do not resurrect a legacy identity. New writes use only the chosen current name; sign-out
