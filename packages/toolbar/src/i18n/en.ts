@@ -837,6 +837,8 @@ export const en = {
             couldNotRun: 'The accessibility check could not run.',
             noIssues: 'No issues found.',
             automatedNote: 'Automated checks find only some issues. Also try a keyboard and a screen reader.',
+            /** The Issues tab without issues or anything to review */
+            issuesEmpty: 'Nothing to fix here. The other tabs cover what automated checks cannot judge.',
             blocked: "The site's Content-Security-Policy or the connection may block its script.",
             undecided: 'axe-core could not decide. Not counted.',
             /** The panel's tabs: axe-core's results, then what it cannot judge */

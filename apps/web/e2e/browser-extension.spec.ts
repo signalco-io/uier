@@ -27,6 +27,11 @@ test('the extension page explains the review path, its limits and permissions', 
     await expect(page.getByRole('heading', { level: 1, name: 'Browser extension' })).toBeVisible();
     await expectStoreLink(page);
     await expect(page.getByRole('main').getByRole('link', { name: 'Read the setup guide' })).toHaveAttribute('href', guides.browserExtension.path);
+    // The cover: each browser's official logo, decorative, with its name written under it; Firefox is in review
+    const cover = page.getByRole('list', { name: 'Browsers', exact: true });
+    await expect(cover.getByRole('listitem')).toHaveText(['Chrome', 'Microsoft Edge', 'FirefoxIn review']);
+    await expect(cover.locator('img[alt=""][aria-hidden="true"]')).toHaveCount(3);
+    for (const logo of await cover.locator('img').all()) expect(await logo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
     // Only the browsers the manifest supports, near the top
     await expect(page.getByRole('list', { name: 'Supported browsers, on desktop:' }).getByRole('listitem'))
         .toHaveText([`Chrome ${extensionRelease.minimumBrowserVersion} or later`, `Microsoft Edge ${extensionRelease.minimumBrowserVersion} or later`]);
@@ -73,6 +78,10 @@ test('the footer, guides, homepage and stack question link the extension', async
     await page.goto('/');
     await expect(page.getByRole('contentinfo').getByRole('link', { name: 'Browser extension' })).toHaveAttribute('href', KnownPages.BrowserExtension);
     await expect(page.locator(`main section[aria-labelledby="get-started"] a[href="${KnownPages.BrowserExtension}"]`)).toBeVisible();
+    const browsers = page.locator('main section[aria-labelledby="get-started"]').getByRole('list', { name: 'Browser extension' });
+    for (const name of ['Chrome', 'Edge']) await expect(browsers.getByRole('link', { name, exact: true })).toHaveAttribute('href', extensionStoreUrl);
+    await expect(browsers.getByRole('listitem').filter({ hasText: 'Firefox' })).toHaveText('Firefoxin review');
+    await expect(browsers.getByRole('link')).toHaveCount(2);
     const question = page.getByRole('region', { name: 'Questions' }).locator('details').filter({ hasText: 'Does it work with my stack?' });
     await question.locator('summary').focus();
     await page.keyboard.press('Enter');

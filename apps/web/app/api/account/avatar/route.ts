@@ -5,7 +5,6 @@ import { APP_COUNTERS_PARTITION, consume } from '@/src/lib/comments/rateLimits';
 import { ApiError, errorResponse } from '@/src/lib/comments/http';
 import { getCommentsStore } from '@/src/lib/repo/commentsStore';
 
-export const dynamic = 'force-dynamic';
 
 /** Changes per account per hour: each upload decodes an image */
 const AVATAR_CHANGES_PER_HOUR = 30;

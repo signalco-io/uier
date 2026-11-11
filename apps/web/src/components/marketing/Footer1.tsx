@@ -1,6 +1,6 @@
 // Vendored from @signalco/cms-components-marketing (signalco monorepo sources): the published
 // npm build (0.1.2) bundles Next.js' CommonJS next/link and breaks App Router prerendering.
-// Adjusted for the uier brand: lockup instead of a text logo, short copyright line.
+// Adjusted for the uier brand: lockup instead of a text logo, short copyright line with signalco's mark.
 import { Typography } from '@signalco/ui-primitives/Typography';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Link } from '@signalco/ui-primitives/Link';
@@ -11,6 +11,7 @@ import { SectionData } from '@signalco/cms-core/SectionData';
 import { brand } from '@uier/brand';
 import { Logo } from '@uier/brand/Logo';
 import { Ctas2 } from './Ctas2';
+import { SignalcoMark } from './SignalcoMark';
 
 /**
  * The footer component with a logo, links, social media icons and system status option.
@@ -62,7 +63,7 @@ export function Footer1({ asset, features, ctas }: SectionData) {
                             {systemStatusFeature?.asset}
                         </div>
                         <Typography level="body3">
-                            © {new Date().getFullYear()} {brand.name} · <Link href={brand.parent.url}>A {brand.parent.name} project</Link>
+                            © {new Date().getFullYear()} {brand.name} · <Link href={brand.parent.url} className="inline-flex items-center gap-1.5 align-bottom"><SignalcoMark size={14} />A {brand.parent.name} project</Link>
                         </Typography>
                     </div>
                 </Stack>

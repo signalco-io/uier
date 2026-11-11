@@ -6,7 +6,6 @@ import { ApiError, apiErrors, errorResponse } from '@/src/lib/comments/http';
 import { APP_COUNTERS_PARTITION, consume } from '@/src/lib/comments/rateLimits';
 import { getCommentsStore } from '@/src/lib/repo/commentsStore';
 
-export const dynamic = 'force-dynamic';
 type Params = { workspaceId: string; clientId: string };
 
 async function authorize(request: Request, { workspaceId, clientId }: Params) {

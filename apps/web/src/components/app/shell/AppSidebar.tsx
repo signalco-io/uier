@@ -222,7 +222,7 @@ export function AppSidebar({ isAdmin, user, accounts, workspaces, currentWorkspa
                 navigation's (the menu's gap-1), not the footer's default 8px plus the group's padding */}
             <SidebarFooter className="gap-1 pt-1">
                 <FeedbackButton />
-                <AccountMenu accounts={accounts} name={user.name} email={user.email} avatarUrl={user.avatarUrl} />
+                <AccountMenu accounts={accounts} name={user.name} avatarUrl={user.avatarUrl} />
             </SidebarFooter>
             <SidebarRail />
         </Sidebar>

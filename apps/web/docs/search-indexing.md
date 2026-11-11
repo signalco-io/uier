@@ -13,7 +13,9 @@ Public pages use `publicPageMetadata` (`src/lib/metadata.ts`) with their own pat
 description. Canonicals and Open Graph URLs point to the production URL without query parameters;
 never put a homepage canonical in the root layout, where other pages would inherit it.
 `next-sitemap.config.cjs` excludes app flows, notification preferences, empty verification bridges
-and metadata assets. Add public dynamic pages through `additionalPaths` (currently `/status`).
+and metadata assets. Add public pages outside the prerender inventory through `additionalPaths` (currently `/status`).
+The status shell now prerenders, but `search-index.mjs` still excludes live health from IndexNow
+content submissions.
 Do not emit build times as `lastmod`; use real content modification dates if they become available.
 
 App pages, notification preferences and verification/session bridges declare `noindex`. Keep them

@@ -1,3 +1,5 @@
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { KnownPageLinks } from '@/src/knownPages';
@@ -13,7 +15,7 @@ export const metadata: Metadata = {
 };
 
 /** The person's emails from every project they can see in the selected workspace, each on or off */
-export default async function AccountNotificationsPage() {
+async function AccountNotificationsPageContent() {
     const context = await requireAppContext();
     const projects = await listVisibleProjects(context);
     const preferences = await Promise.all(projects.map(project => notificationPreference(project.id, `user:${context.user.id}`)));
@@ -40,4 +42,8 @@ export default async function AccountNotificationsPage() {
                 : <p className="m-0 text-sm text-muted-foreground">No projects here yet.</p>}
         </Section>
     );
+}
+
+export default function AccountNotificationsPage() {
+    return <Suspense fallback={<PageLoading title="Loading notifications" />}><AccountNotificationsPageContent /></Suspense>;
 }

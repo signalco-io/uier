@@ -1,5 +1,10 @@
 # Browser extension runtime
 
+The verification helper streams its validated query configuration within the static-shell CSP.
+It retains Next's client instrumentation so BotID initializes for the proof request, without app,
+theme or analytics providers. Exact registered parent-origin checks stay in place.
+See [page security](page-security.md).
+
 `src/lib/extension` and `/api/extension` use separate revocable sessions: updated packages request
 `renewable: true` for 15-minute access, rotating refresh with 30-day inactivity and one-year absolute
 limits. Legacy packages retain eight-hour sessions. Refresh uses atomic session/token replacement,
@@ -57,10 +62,18 @@ Recheck both pages, and the legal pages' extension sections, when a release chan
 permissions, sign-in or capture. `browser-extension.api.spec.ts` checks the store link and
 `browser-extension.spec.ts` their content.
 
-`/browser-extension` lists the supported browsers under the hero: desktop Chrome and Microsoft Edge
+`/browser-extension`'s cover (`BrowserExtensionCover`, beside the header on wide screens and under it
+on narrow ones, like the security page's) shows Chrome, Microsoft Edge and Firefox as their official
+logos on bordered tiles over a dot grid, names written under them and Firefox's tile dashed and marked
+"In review" until Mozilla approves it. Its height is fixed per breakpoint. The logos are unchanged copies in
+`public/browsers` of the `@browser-logos` packages (github.com/alrra/browser-logos), decorative and in
+their own colours. Other Chromium browsers (Brave, Vivaldi, Opera, Arc) stay off until a release is
+tested in them; no receipt covers them yet. The page then lists the supported browsers under the hero: desktop Chrome and Microsoft Edge
 from `minimumBrowserVersion`. Firefox's shared build requires version 153 or later; its 0.1.5 native
-hosted acceptance passed and its submission is awaiting Mozilla review. The homepage, FAQ, public
-pages and app installation guide show the same notice. The setup guide describes Firefox Browser
+hosted acceptance passed and its submission is awaiting Mozilla review. The FAQ, public pages and
+app installation guide show the same notice. The homepage's "Review your own site" card lists the
+browsers as chips beside the install guides: Chrome and Edge link the store item, Firefox is marked
+"in review" without a link until Mozilla approves it. The setup guide describes Firefox Browser
 Add-ons installation for when the release is available, then shares the sign-in/review steps.
 No Firefox download link is offered before approval and store acceptance. Safari and mobile use the
 script. The "Where it works" section keeps the unsupported browsers and pages. Its pictures

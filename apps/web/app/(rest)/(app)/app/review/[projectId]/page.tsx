@@ -1,3 +1,5 @@
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
@@ -14,7 +16,7 @@ export const metadata: Metadata = {
  * may review the project and sends them to the page with the toolbar turned on (`?toolbar-code=`)
  * and signed in. A link that cannot open renders `not-found.tsx` (404).
  */
-export default async function ReviewLinkPage({ params, searchParams }: PageProps<'/app/review/[projectId]'>) {
+async function ReviewLinkPageContent({ params, searchParams }: PageProps<'/app/review/[projectId]'>) {
     const [{ projectId }, query] = await Promise.all([params, searchParams]);
     const url = typeof query.url === 'string' ? query.url : null;
     const comment = typeof query.comment === 'string' ? query.comment : null;
@@ -27,5 +29,9 @@ export default async function ReviewLinkPage({ params, searchParams }: PageProps
     if (!target)
         notFound();
 
-    redirect(target);
+    return redirect(target);
+}
+
+export default function ReviewLinkPage(props: Parameters<typeof ReviewLinkPageContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading project" />}><ReviewLinkPageContent {...props} /></Suspense>;
 }

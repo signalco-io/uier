@@ -810,6 +810,7 @@ export const fr: Messages = {
             couldNotRun: 'La vérification d’accessibilité n’a pas pu s’exécuter.',
             noIssues: 'Aucun problème trouvé.',
             automatedNote: 'Les vérifications automatiques ne trouvent qu’une partie des problèmes. Essayez aussi au clavier et avec un lecteur d’écran.',
+            issuesEmpty: 'Rien à corriger ici. Les autres onglets couvrent ce que les vérifications automatiques ne peuvent pas juger.',
             blocked: 'La Content-Security-Policy du site ou la connexion bloque peut-être son script.',
             undecided: 'axe-core n’a pas pu trancher. Non compté.',
             tabs: { issues: 'Problèmes', keyboard: 'Clavier', screenReader: 'Lecteur d’écran', visual: 'Affichage' }

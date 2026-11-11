@@ -5,7 +5,6 @@ import { isLocalRuntime } from '@/src/lib/comments/environment';
 import { finishGitHubSetup } from '@/src/lib/integrations/github';
 import { invalidIntegrationConnection } from '@/src/lib/integrations/routes';
 
-export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
     const baseUrl = await appBaseUrl();

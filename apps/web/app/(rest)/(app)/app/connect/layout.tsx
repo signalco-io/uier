@@ -1,3 +1,5 @@
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { PropsWithChildren } from 'react';
 import Link from 'next/link';
 import { Logo } from '@uier/brand/Logo';
@@ -7,7 +9,7 @@ import { getSessionUser } from '@/src/lib/app/session';
 import { AccountSessionBoundary } from '@/src/components/app/shell/AccountSessionBoundary';
 
 /** A coding tool's sign-in (consent and its errors): one focused card, without the app sidebar */
-export default async function ConnectLayout({ children }: PropsWithChildren) {
+async function ConnectLayoutContent({ children }: PropsWithChildren) {
     const user = await getSessionUser();
     return (
         <main className="flex min-h-svh flex-col items-center bg-muted/40 px-4 py-10 md:justify-center">
@@ -24,4 +26,8 @@ export default async function ConnectLayout({ children }: PropsWithChildren) {
             </div>
         </main>
     );
+}
+
+export default function ConnectLayout(props: Parameters<typeof ConnectLayoutContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading connect" />}><ConnectLayoutContent {...props} /></Suspense>;
 }

@@ -1,3 +1,5 @@
+import { ShellLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { PropsWithChildren } from 'react';
 import { Separator } from '@/src/components/ui/separator';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/src/components/ui/sidebar';
@@ -16,7 +18,7 @@ import { InviteProvider } from '@/src/components/app/users/InviteDialog';
 import { AppShortcuts } from '@/src/components/app/keyboard/AppShortcuts';
 
 /** The signed-in app: the sidebar, a top bar with the breadcrumbs, and the page in an inset panel, with the keyboard shortcuts */
-export default async function AppShellLayout({ children }: PropsWithChildren) {
+async function AppShellLayoutContent({ children }: PropsWithChildren) {
     const context = await requireAppContext();
     const projectOrder = await getProjectOrder();
     const visibleProjects = listVisibleProjects(context);
@@ -41,7 +43,8 @@ export default async function AppShellLayout({ children }: PropsWithChildren) {
                     user={{ name: context.user.name, email: context.user.email, avatarUrl: avatarUrl(context.user) }}
                     currentWorkspaceId={context.workspace.id}
                     workspaces={context.memberships.map(({ workspace, member }) => {
-                        // Everyone joins uier's workspace to send feedback on the app; its admins (uier staff) work in it
+                        // Everyone joins uier's workspace to send feedback on the app; its admins (uier staff) work in it.
+                        // The switcher lists it for everyone else only while it is current (uier #257)
                         const feedback = workspace.id === PUBLIC_WORKSPACE_ID && member.role !== 'admin';
                         return {
                             id: workspace.id,
@@ -81,4 +84,8 @@ export default async function AppShellLayout({ children }: PropsWithChildren) {
             </AppShortcuts>
         </SidebarProvider>
     );
+}
+
+export default function AppShellLayout(props: Parameters<typeof AppShellLayoutContent>[0]) {
+    return <Suspense fallback={<ShellLoading />}><AppShellLayoutContent {...props} /></Suspense>;
 }

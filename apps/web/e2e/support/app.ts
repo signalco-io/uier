@@ -150,14 +150,28 @@ async function animationsDone(page: Page) {
 /** The app's sidebar navigation; on small screens the sidebar is a sheet, opened first */
 export async function appNavigation(page: Page) {
     const navigation = page.getByRole('navigation', { name: 'App' });
-    const toggle = page.getByRole('button', { name: 'Toggle sidebar' });
+    const toggle = page.getByRole('button', { name: 'Toggle sidebar' }).last();
     // A sheet that is still closing (after a link) can't be used
     await expect(sidebarSheet(page).and(page.locator('[data-closed]'))).toHaveCount(0);
-    if (!await navigation.isVisible() && await toggle.isVisible())
-        await toggle.click();
+    if (!await navigation.isVisible()) {
+        await expect(toggle).toBeVisible();
+        if (!await navigation.isVisible()) {
+            await hydrated(toggle);
+            await toggle.click();
+        }
+    }
     await expect(navigation).toBeVisible();
     await animationsDone(page);
     return navigation;
+}
+
+/**
+ * Opens uier's own workspace, where every account sends feedback on the app. The workspace menu leaves it out for
+ * people who are not uier staff (uier #257), so this selects it as a saved selection would and opens the projects.
+ */
+export async function openFeedbackWorkspace(page: Page) {
+    await page.context().addCookies([{ name: 'uier_workspace', value: 'w_uier_public', url: new URL('/', page.url()).href }]);
+    await page.goto('/app/projects');
 }
 
 /** Closes the sidebar sheet on small screens (links close it themselves) and waits until it is gone */

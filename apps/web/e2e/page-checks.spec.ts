@@ -156,6 +156,19 @@ test('the Accessibility panel audits the page in the background without the tool
     await expect(button).toBeFocused();
 });
 
+test('the Accessibility panel\'s Issues tab has a placeholder on a page without issues', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.use.isMobile === true, 'Desktop layout');
+    await signIn(page, uniqueEmail('a11y-empty'));
+    const project = await createProject(page, { urls: [site.origin()] });
+    // Without `?page-checks`, the page has nothing axe-core reports
+    await page.goto(`/app/review/${project}?url=${encodeURIComponent(`${site.origin()}/${project}/pricing`)}`);
+    await toolbar(page).getByRole('button', { name: /^Accessibility/ }).click();
+    const panel = page.getByRole('complementary', { name: 'Accessibility' });
+    await expect(panel.getByRole('status')).toHaveText('No issues found.', { timeout: 20_000 });
+    await expect(panel.locator('[data-uier-issues-empty]')).toHaveText('Nothing to fix here. The other tabs cover what automated checks cannot judge.');
+    await expect(panel.locator('[data-uier-impact]')).toHaveCount(0);
+});
+
 test('the SEO panel reports the head, headings, links, images and Core Web Vitals, and posts page and element issues', async ({ page }, testInfo) => {
     test.skip(testInfo.project.use.isMobile === true, 'Desktop layout; the phone test is below');
     test.setTimeout(90_000);
@@ -175,8 +188,11 @@ test('the SEO panel reports the head, headings, links, images and Core Web Vital
     await expect(check('title')).toContainText('Reviewed site');
     await expect(check('description')).toHaveAttribute('data-uier-check-state', 'warn');
     await expect(check('description')).toContainText('No meta description.');
-    // Why a check passed or is worth a look: an info button's tooltip by its name, read with the button
-    const about = check('description').getByRole('button', { name: /^About / });
+    // Why a check is worth a look: on its own line, no info button
+    await expect(check('description').getByRole('button', { name: /^About / })).toHaveCount(0);
+    await expect(check('description').getByText('No meta description. Search results may show any text from the page.')).toBeVisible();
+    // Why it passed: an info button's tooltip by its name, read with the button
+    const about = check('title').getByRole('button', { name: /^About / });
     const reason = (await page.locator(`[id="${await about.getAttribute('aria-describedby')}"]`).textContent())!;
     expect(reason).not.toBe('');
     await expect(about).toHaveAccessibleDescription(reason);
@@ -653,8 +669,8 @@ test('on a phone the panels open from Options, keep the pill as wide as before, 
     expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     const created = nextCreate(page, project);
-    // A check's reason shows with a tap on its info button, and hides with another
-    const about = seo.locator('[data-uier-check="alt"]').getByRole('button', { name: /^About / });
+    // A passed check's reason shows with a tap on its info button, and hides with another
+    const about = seo.locator('[data-uier-check="h1"]').getByRole('button', { name: /^About / });
     await seo.locator('[role="tab"][data-uier-tab="content"]').tap();
     await about.tap();
     await expect(page.locator('[data-uier-tooltip]')).toBeVisible();

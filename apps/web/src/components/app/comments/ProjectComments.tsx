@@ -23,8 +23,8 @@ import { LazyCommentBoard as CommentBoard } from './LazyCommentBoard';
 import { statusFilterLabels, statusMatches, type AuthorFilter, type StatusFilter } from './commentLabels';
 import { commentStatus, commentStatuses, type CommentStatus } from './CommentStatus';
 import { parseCommentsQuery, type CommentsQuery } from './commentsQuery';
-import { compareArchivedOrder, orderComments, sortBoardColumn } from './commentOrder';
-import type { BoardSort } from '../../../lib/app/boardSort';
+import { orderComments, sortBoardColumn } from './commentOrder';
+import type { BoardColumn, BoardSort } from '../../../lib/app/boardSort';
 import { setBoardArchiveAction, setBoardSortAction } from './actions';
 import { CommentUpdatesProvider, type CommentUpdate } from './CommentUpdates';
 import { TriageSelection } from './TriageSelection';
@@ -68,7 +68,7 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
     revision: string;
     searchWindowCapped?: boolean;
     /** Each board column's sort, saved on the project for everyone (`lib/app/boardSort.ts`) */
-    boardSorts: Record<CommentStatus, BoardSort>;
+    boardSorts: Record<BoardColumn, BoardSort>;
     /** Whether the board's Archive column is expanded, saved on the project for everyone like the sorts */
     boardArchiveExpanded?: boolean;
     /** Whether this person may change them, the sorts and Archive (`canSortProjectBoard`) */
@@ -125,9 +125,9 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
     // and the completion history in Done.
     const comments = orderComments(optimisticComments);
     // A column's new sort shows at once, and goes back with an error if saving it fails
-    const [boardSorts, showSort] = useOptimistic(savedSorts, (current, change: { status: CommentStatus; sort: BoardSort }) => ({ ...current, [change.status]: change.sort }));
+    const [boardSorts, showSort] = useOptimistic(savedSorts, (current, change: { status: BoardColumn; sort: BoardSort }) => ({ ...current, [change.status]: change.sort }));
     const [, startSorting] = useTransition();
-    const changeSort = (status: CommentStatus, sort: BoardSort) => startSorting(async () => {
+    const changeSort = (status: BoardColumn, sort: BoardSort) => startSorting(async () => {
         showSort({ status, sort });
         const result = await setBoardSortAction(projectId, status, sort)
             .catch(() => ({ ok: false as const, error: 'Could not save the sort. Try again.' }));
@@ -222,8 +222,9 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
     // The board's columns, one per status in order (each thread in exactly one), each in the project's sort for it
     const columns = Object.fromEntries(commentStatuses.map(status => [status,
         sortBoardColumn(shown.filter(comment => commentStatus(comment) === status), boardSorts[status])])) as Record<CommentStatus, ProjectCommentView[]>;
-    // The board's last column, like Done but by when each was archived (`compareArchivedOrder`, ties in the list's order)
-    const archived = board ? filtered.filter(comment => comment.archivedAt).sort(compareArchivedOrder) : [];
+    // The board's last column, in the project's sort for it: by default like Done but by when each was archived
+    // (`compareArchivedOrder`), ties in the list's order
+    const archived = board ? sortBoardColumn(filtered.filter(comment => comment.archivedAt), boardSorts.archive) : [];
     // What the board shows: its columns, and Archive's cards while it is expanded
     const boardShown = [...commentStatuses.flatMap(status => columns[status]), ...(archiveExpanded ? archived : [])];
     // Nothing to show: the board still shows its columns while only Archive has threads

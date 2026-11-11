@@ -1,4 +1,11 @@
 import type { createSecureHeaders } from 'next-secure-headers';
+import { createHash } from 'node:crypto';
+import { themeScript } from './themeScript';
+
+const themeScriptHash = `'sha256-${createHash('sha256').update(themeScript).digest('base64')}'`;
+// React 19's fixed shell timing shim is emitted during prerendering, before any nonce exists.
+// The CSP browser regression verifies the actual emitted bytes, including after dependency updates.
+const shellTimingScriptHash = `'sha256-${createHash('sha256').update('requestAnimationFrame(function(){$RT=performance.now()});').digest('base64')}'`;
 
 // Inlined from the signalco monorepo private package `@signalco/data/node`
 // (combineSecureHeaders + the knownSecureHeadersExternalUrls entries uier uses).
@@ -57,6 +64,7 @@ export function combineSecureHeaders(
     isDevelopment: boolean,
     externalUrls: SecureHeadersExternalUrls[],
     nonce?: string,
+    staticShell = false,
 ): SecureHeadersOptions {
     const baseSubdomains = allowSubdomains
         ? baseDomains.map(bd => `*.${bd.split('.').slice(-2).join('.')}`)
@@ -68,7 +76,8 @@ export function combineSecureHeaders(
         contentSecurityPolicy: {
             directives: {
                 defaultSrc: '\'self\'',
-                scriptSrc: ['\'self\'', ...external('scriptSrc'), ...(nonce ? [`'nonce-${nonce}'`, "'strict-dynamic'"] : ["'unsafe-inline'"]), ...(isDevelopment ? ['\'unsafe-eval\''] : [])],
+                scriptSrc: ['\'self\'', ...external('scriptSrc'), ...(nonce ? [`'nonce-${nonce}'`, ...(staticShell ? [themeScriptHash, shellTimingScriptHash] : ["'strict-dynamic'"])] : ["'unsafe-inline'"]), ...(isDevelopment ? ['\'unsafe-eval\''] : [])],
+                ...(staticShell ? { 'script-src-attr': "'none'" } : {}),
                 objectSrc: '\'none\'',
                 styleSrc: ['\'self\'', ...external('styleSrc'), '\'unsafe-inline\''],
                 fontSrc: ['\'self\'', ...external('fontSrc'), '\'self\' data:'],

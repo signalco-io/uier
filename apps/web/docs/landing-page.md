@@ -7,12 +7,13 @@ headline is the how-it-works scene (`HowItWorks`), and the description stays a d
 hero's first column (tests select it as `main>section>div>p`). "Try it on this page" points visitors
 to the real toolbar; it does not embed a thread.
 
-Sections, in order, each with an `h2` whose id the navigation and footer link to (`KnownPages`):
+Sections, in order, each with an `h2` whose id has a `KnownPages` route:
 how it works (`#how-it-works`, the small heading over the cover scene), features (`#features`), get
 started (`#get-started`), pricing (`#pricing`, `LandingPricing`) and questions (`#faq`,
-`LandingFaq`, native `<details>`). The site header is fixed and 64px tall: the marketing layout sets
+`LandingFaq`, native `<details>`). The header navigation links how it works, features and FAQ, not
+pricing; the footer links pricing too. The site header is fixed and 64px tall: the marketing layout sets
 `scroll-padding-top` on the document (80px), so every in-page link on the marketing pages, followed from
-the header or opened directly (`/#pricing`), lands with its heading below the header. Don't add
+the header or footer, or opened directly (`/#pricing`), lands with its heading below the header. Don't add
 `scroll-margin-top` to anchored sections or headings; it adds to the padding. Next.js scrolls to the hash
 itself, so the global `:target` margin does not apply there and the layout turns it off.
 
@@ -49,7 +50,8 @@ itself, so the global `:target` margin does not apply there and the layout turns
 - **Get started** (the hero and pricing) opens `/app`, like the navigation's "Sign in": signed-out
   visitors land on sign in, signed-in people in the app. The `#get-started` section below the
   features still offers both paths: trying the showcase toolbar on this page, or a project for
-  your own site.
+  your own site. That card shows the install guides and the browser extension's browsers as chips
+  (see [browser-extension.md](browser-extension.md)).
 - **Pricing** is `brand.pricing`, word for word, and one free offering: no prices, tiers, trials
   or limits. The app has no billing page while everything is free.
 

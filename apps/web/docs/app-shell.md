@@ -1,6 +1,11 @@
 # App shell, navigation and the projects list
 
-`ClientProvider` owns theme and document-policy handling. The Next app has no React Query provider;
+The shell and each request-dependent segment use the boundaries described in
+[Cache Components](cache-components.md). The initial shell contains no private data. Proxy completes
+document access decisions before it streams; pages and actions retain their own checks.
+
+`ClientProvider` owns theme and document-policy handling. Its next-themes initializer stays inert;
+the root layout owns the fixed hash-authorized theme script. The Next app has no React Query provider;
 the separately bundled review toolbar owns its own query cache.
 
 - **Notification landmark.** App pages mount only the shadcn Sonner toaster. The public layout
@@ -8,8 +13,8 @@ the separately bundled review toolbar owns its own query cache.
   notification implementation into app routes. Both containers otherwise expose the same "Notifications alt+T" region, even when empty.
   `e2e/app.spec.ts` checks one notification region and axe `landmark-unique` on the project, projects
   list and account pages. This rule is outside the WCAG tags used by the general accessibility scan.
-- **Layout.** `(shell)/layout.tsx` is the sidebar (`AppSidebar`: workspace switcher (its menu switches
-  workspaces, creates one (`createWorkspaceAction`, a dialog for the name) and, for admins, opens Workspace
+- **Layout.** `(shell)/layout.tsx` is the sidebar (`AppSidebar`: workspace switcher (its menu lists the
+  person's workspaces to switch between, the current one checked, also when it is the only one (uier #257), creates one (`createWorkspaceAction`, a dialog for the name) and, for admins, opens Workspace
   settings), Projects (the projects index; the person's own work goes beside it), active projects (every project when grouped by status) with a
   Create project icon link and a Sort and Group menu (`ProjectOrderMenu`) in their header, then at the bottom Workspace (admins; for everyone else only when a
   visible project has a client), Give feedback and the account menu: rows like the navigation's, 4px apart like them (uier #165: the Workspace group has no bottom padding and the footer `gap-1 pt-1`), the person's avatar centred in their 16px icon column so
@@ -36,8 +41,10 @@ the separately bundled review toolbar owns its own query cache.
   comments list with its thread beside it (capped at 96rem, [comments inbox](comments-inbox.md)) do it, and the comments'
   filters header above them, the count line under that header and the project header take their width. [Page checks](page-checks.md)
   takes the list's width too (96rem at most, uier #214), and so does the project header above it. uier's own workspace, which every account joins for Give feedback, is a
-  `feedback` option in the switcher for people who are not its admins: its own entry after Create workspace,
-  named "Feedback on uier", never in the list of their workspaces. A project's header is
+  `feedback` option in the switcher for people who are not its admins, and the menu leaves it out (uier #257): their
+  sent feedback is in Give feedback's toolbar. Only while a saved selection still has them in it is it listed, checked,
+  as "Feedback on uier" beside their own workspaces to switch back to. Every account is in another workspace too
+  (`getAppContext` creates its own when it has none), so there is always one to switch to. A project's header is
   `projects/[projectId]/layout.tsx` (the favicon in `PageHeader`'s `media`, beside both the name and the row under it: client (a link to the projects list filtered to it, `KnownPageLinks.clientProjects`, on the Done tab for a done project; uier #241), then who can comment (`ProjectAccessInfo`: its popover has the guest links and Invite for admins; for those who configure the project the label is a link to Who can comment in Review settings, `KnownPageLinks.projectAccessSettings`, and the popover opens on hover only, so Who can comment there shows the guest links too), Open
   review and the settings cog (`ProjectSettingsButton`, an icon link with a tooltip, current on the settings pages),
   then the `ProjectTabs`: Comments, [Page checks](page-checks.md) and Install (Settings → Installation and the onboarding
@@ -187,8 +194,11 @@ boundary: CSP and COOP belong to a document and must change together.
 ### Account selection
 
 The sidebar footer's account menu lists this browser's live signed-in accounts (avatar, name and
-email), marks the active one and offers Add account, Sign out and, with several accounts, Sign out
-of all accounts. The cap is five; at the cap Add account explains that one must be signed out first.
+email) and marks the active one with a check; there is no separate header for the active person
+(uier #248). It shows at most three accounts, the active one always among them; with more, a
+fourth row (N more accounts) is a submenu with the rest and Add account (uier #249). Below are
+Sign out and, with several accounts, Sign out of all accounts (a power icon, not Sign out's
+log-out icon; uier #250). The cap is five; at the cap Add account explains that one must be signed out first.
 Switching opens a fresh app document on the selected account's own workspace. Sign out opens the
 next live account, or sign-in when none remains. The shell sends only menu fields to the client,
 never session credentials. `AccountSessionBoundary` reconciles other tabs on focus/visibility,

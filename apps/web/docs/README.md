@@ -33,6 +33,7 @@ Product contracts, API references and runbooks stay in the repository's [`docs/`
 - [Projects](projects.md): public ids, addresses, deletion and transfer.
 - [Clients](clients.md): client documents, names, appearance and visibility.
 - [Page and mutation responsiveness](responsiveness.md): realtime refresh, URL state, optimistic updates, `LinkTabs` spinners.
+- [Cache Components](cache-components.md): static shells, request-scoped authorization, cache boundaries and verification.
 - [Keyboard navigation and shortcuts](keyboard.md): composites with one tab stop, the shortcuts, `?` and the switch.
 
 ## Comments and review

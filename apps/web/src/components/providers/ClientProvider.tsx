@@ -1,7 +1,7 @@
 'use client';
 
 import { DevReviewToolbarScript } from '../toolbar/DevReviewToolbarScript';
-import { PropsWithChildren, useEffect } from 'react';
+import { PropsWithChildren, Suspense, useEffect } from 'react';
 import { ThemeProvider } from 'next-themes';
 
 /** CSP and COOP belong to the document; Next client navigation cannot replace them. */
@@ -26,12 +26,12 @@ function DocumentPolicyBoundary() {
     return null;
 }
 
-export function ClientProvider({children, nonce}: PropsWithChildren<{ nonce?: string }>) {
+export function ClientProvider({children}: PropsWithChildren) {
     return (
-        <ThemeProvider attribute="class" nonce={nonce}>
+        <ThemeProvider attribute="class" scriptProps={{ type: 'application/json' }}>
             <DocumentPolicyBoundary />
             {children}
-            {process.env.NODE_ENV === 'development' && <DevReviewToolbarScript />}
+            {process.env.NODE_ENV === 'development' && <Suspense><DevReviewToolbarScript /></Suspense>}
         </ThemeProvider>
     );
 }

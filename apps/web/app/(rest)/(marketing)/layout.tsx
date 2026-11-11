@@ -11,7 +11,6 @@ import { ToolbarScript } from '../../../src/components/toolbar/ToolbarScript';
 const navLinks = [
     { text: 'How it works', href: KnownPages.HowItWorks },
     { text: 'Features', href: KnownPages.Features },
-    { text: 'Pricing', href: KnownPages.Pricing },
     { text: 'FAQ', href: KnownPages.Faq }
 ];
 

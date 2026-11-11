@@ -1,3 +1,5 @@
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { requireAppContext } from '@/src/lib/app/context';
 import { CodingAgents } from '@/src/components/app/mcp/CodingAgents';
@@ -13,7 +15,7 @@ export const metadata: Metadata = {
 };
 
 /** Coding tools connected to feedback as this person, and their access tokens */
-export default async function AccountCodingAgentsPage() {
+async function AccountCodingAgentsPageContent() {
     const context = await requireAppContext();
     const { user } = context;
     const [credentials, projects, grants] = await Promise.all([listMcpCredentials(user.id), listVisibleProjects(context), listConnectedApps(user.id)]);
@@ -38,4 +40,8 @@ export default async function AccountCodingAgentsPage() {
                         actor?.workspaces.flatMap(workspace => workspace.projects).find(project => project.id === projectId)?.name ?? projectId) } : {}) };
             })} />
     );
+}
+
+export default function AccountCodingAgentsPage() {
+    return <Suspense fallback={<PageLoading title="Loading coding agents" />}><AccountCodingAgentsPageContent /></Suspense>;
 }

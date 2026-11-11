@@ -1,11 +1,24 @@
 # Page security and cookie migration
 
 `proxy.ts` overwrites incoming CSP and nonce headers and generates 128 random bits per request
-for `/app` pages and the exact `/review-verification` bridge. Next applies the forwarded CSP nonce
-to framework scripts; the app layout reads `x-nonce` and passes it to `ClientProvider` / `ThemeProvider`.
-Those pages render dynamically with `no-store`. The verification bridge has no app/theme/analytics
-providers. The fixed `/review-session` script and its SHA-256 source share `review/sessionDocument.ts`.
-`/extension-verification` is also nonce-protected and frameable only by its registered helper;
+for `/app` pages and the two verification bridges. Next applies the forwarded CSP nonce to request-rendered scripts. The app's static
+shell allows same-origin script bundles and exact SHA-256 hashes for `themeScript.ts` and React's
+fixed shell-timing script; it uses
+neither `unsafe-inline` nor `strict-dynamic` for scripts. Same-origin parser-inserted bundles are
+allowed deliberately because their prerendered tags cannot carry a per-request nonce. Preview and
+development hosts remain explicitly scoped. Inline event handlers are denied with `script-src-attr`.
+`ClientProvider` makes next-themes' own inline initializer inert (`application/json`) and the app
+root layout emits the shared hash-authorized initializer before the page content. It skips both
+verification bridges without reading theme storage. Theme changes still use next-themes.
+App HTML and private data stay `no-store`; [Cache Components](cache-components.md) describes the shells.
+
+The verification bridges keep Next's client instrumentation (`instrumentation-client.ts`) so BotID
+initializes before their protected proof requests. They have no app/theme/analytics providers.
+`/review-verification` has a request marker beneath Suspense so its resume scripts carry the nonce;
+`/extension-verification` streams its validated query configuration beneath its existing text.
+Both use the same static-shell script policy. The fixed `/review-session` script keeps its stricter
+hash-only policy (`review/sessionDocument.ts`) and loads no Next resources.
+`/extension-verification` is frameable only by its registered helper;
 its `clientId`/`extensionOrigin` query selects one exact, validated extension origin. Legacy
 Chromium helper requests retain the registered Chrome origins. No extension-scheme wildcard is
 used. Case variants get deny/`frame-ancestors 'none'`.

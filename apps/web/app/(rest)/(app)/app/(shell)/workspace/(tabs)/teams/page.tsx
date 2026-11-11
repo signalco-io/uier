@@ -1,3 +1,5 @@
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ChevronRightIcon, SearchIcon, UsersIcon } from 'lucide-react';
@@ -30,7 +32,7 @@ function countsText(people: number, invited: number, projects: number) {
 }
 
 /** The workspace's teams (active or archived, searchable) and creating one; the access history is the Activity tab */
-export default async function TeamsPage({ searchParams }: PageProps<'/app/workspace/teams'>) {
+async function TeamsPageContent({ searchParams }: PageProps<'/app/workspace/teams'>) {
     const context = await requireTeamAdmin(),
         query = await searchParams;
     const text = (key: string) => (typeof query[key] === 'string' ? (query[key] as string) : undefined);
@@ -143,4 +145,8 @@ export default async function TeamsPage({ searchParams }: PageProps<'/app/worksp
             </div>
         </>
     );
+}
+
+export default function TeamsPage(props: Parameters<typeof TeamsPageContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading teams" />}><TeamsPageContent {...props} /></Suspense>;
 }

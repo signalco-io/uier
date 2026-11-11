@@ -5,8 +5,9 @@ import { createSecureHeaders } from 'next-secure-headers';
 import { combineSecureHeaders, siteExternalUrls, permissionsPolicy, siteIconContentSecurityPolicy, siteIconPath } from './src/lib/secureHeaders';
 import { sessionContentSecurityPolicy } from './src/lib/review/sessionDocument';
 import { botIdPath, proxyBotId } from './src/lib/botIdProxy';
-import { cookieNames, readMigratingCookie } from './src/lib/cookieNames';
 import { KnownPages } from './src/knownPages';
+import { appPageAccess } from './src/lib/app/pageAccess';
+import { cookieNames, readMigratingCookie } from './src/lib/cookieNames';
 
 /** App pages that work signed out */
 const publicAppPaths = ['/app/sign-in', '/app/invitation', '/app/connect/error'];
@@ -19,20 +20,20 @@ const integrationReturns = new Set(['/app/notion/callback', '/app/github/setup',
  * (`?next=`), e.g. from a link to a comment or a review link.
  */
 export async function proxy(request: NextRequest) {
-    const { pathname, search } = request.nextUrl;
+    const { pathname } = request.nextUrl;
     if (pathname.toLowerCase() === botIdPath || pathname.toLowerCase().startsWith(`${botIdPath}/`))
         return proxyBotId(request);
     const appPage = pathname === '/app' || pathname.startsWith('/app/');
     const extensionDemo = pathname === KnownPages.ExtensionDemo;
     const bridge = pathname === '/review-verification' || pathname === '/review-session' || pathname === '/extension-verification';
-    const nonce = appPage || (pathname === '/review-verification' || pathname === '/extension-verification') ? randomBytes(16).toString('base64') : undefined;
+    const nonce = appPage || pathname === '/review-verification' || pathname === '/extension-verification' ? randomBytes(16).toString('base64') : undefined;
     const development = process.env.NODE_ENV === 'development';
     const preview = process.env.UIER_DEPLOYMENT_ENV === 'preview';
     const policy = createSecureHeaders({
         ...combineSecureHeaders(['uier.io'], false, development, [
             { connectSrc: [request.nextUrl.origin.replace(/^http/, 'ws')] },
             ...siteExternalUrls(development, preview), ...(bridge ? [{ frameAncestors: pathname === '/extension-verification' ? extensionFrameAncestors(request.nextUrl) : ['*'] }] : [])
-        ], nonce),
+        ], nonce, Boolean(nonce)),
         ...(bridge ? { frameGuard: false } : {})
     });
     // A plain, unembedded reviewer fixture deliberately denies page execution and resource loads.
@@ -61,18 +62,24 @@ export async function proxy(request: NextRequest) {
         return response;
     };
     const next = () => NextResponse.next({ request: { headers: requestHeaders } });
-    if (!appPage || integrationReturns.has(pathname) || publicAppPaths.some(path => pathname === path || pathname.startsWith(`${path}/`)))
-        return finish(next());
-    const sessionToken = readMigratingCookie(request.cookies, cookieNames.session);
-    if (sessionToken) {
-        // Only explicit session changes write the Path=/api/review companion. App requests
-        // cannot see it, and a late page/prefetch response must not undo a switch or sign-out.
-        return finish(next());
+    const publicApp = publicAppPaths.some(path => pathname === path || pathname.startsWith(`${path}/`));
+    if (appPage && !publicApp && !integrationReturns.has(pathname) && !readMigratingCookie(request.cookies, cookieNames.session)) {
+        const signIn = new URL(KnownPages.AppSignIn, request.url);
+        signIn.searchParams.set('next', pathname + request.nextUrl.search);
+        return finish(NextResponse.redirect(signIn));
     }
-
-    const signIn = new URL('/app/sign-in', request.url);
-    signIn.searchParams.set('next', `${pathname}${search}`);
-    return finish(NextResponse.redirect(signIn));
+    // RSC redirects and action outcomes belong to Next's protocol and their own DAL checks.
+    // An HTTP redirect here would replace flight data without updating the client's route.
+    if (request.headers.has('rsc') || request.headers.has('next-action')
+        || request.headers.get('accept')?.includes('text/x-component')) return finish(next());
+    if (!appPage || integrationReturns.has(pathname) || (pathname !== KnownPages.AppSignIn && publicAppPaths.some(path => pathname === path || pathname.startsWith(`${path}/`))))
+        return finish(next());
+    if (pathname.endsWith('/screenshot')) return finish(next());
+    const access = await appPageAccess(request);
+    if (access && 'redirect' in access) return finish(NextResponse.redirect(new URL(access.redirect, request.url)));
+    if (access && 'status' in access)
+        return finish(NextResponse.rewrite(new URL(access.review ? '/app/review-unavailable' : '/app/unavailable', request.url), { status: 404, request: { headers: requestHeaders } }));
+    return finish(next());
 }
 
 export const config = {

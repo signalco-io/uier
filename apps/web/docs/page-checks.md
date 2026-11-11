@@ -21,6 +21,12 @@ One `page-check` document per page and environment in the `app` container, in th
   by `seo:<id>` or `accessibility:<id>` (at most 150), and LCP, CLS and INP when they were measured;
 - when it was saved, and the previous check's counts and time (`previous`).
 
+Query parameters are filtered in both the toolbar reporter and the write API with the project's
+`pageState.queryParameters` ([page state](review-api.md)). For example, `?lang=` and `?lang=sq-AL`
+share the base page unless `lang` is selected as changing content. When selected, even an empty value
+is a distinct view. Existing summaries retain the keys approved when saved after settings change;
+reading does not merge historical reports or their counts.
+
 Nothing names an element, the page's other text or the member who sent it. The latest summary replaces the
 page's previous one. A project keeps up to 200 pages: a new page beyond that removes the least recently
 checked ones (`makeRoom`: an exact count, then the partition's documents, only when a new page arrives at
@@ -47,7 +53,9 @@ pass); a transfer keeps it, since it is keyed by the project.
 
 - Full width like Comments (uier #214): the view breaks out of the reading column to the panel's width less the
   gutters, capped at 96rem (`page-wide`, `data-header-wide="list"` for the project header, [app shell](app-shell.md)).
-- The caption says where the results come from: members' browsers at the time of each visit.
+- No heading of its own: the project's Page checks tab above names it (uier #255), and the section keeps it as
+  its accessible name (`aria-label`); Across pages and Pages are `h2` under the project's `h1`, a finding's title `h3`. The caption says where the results come from: members' browsers at the
+  time of each visit.
 - **Across pages** (`AcrossPages`, `pageCheckInsights` in `src/lib/pageChecks/insights.ts`, pure): indexable
   pages of one site address that share a title, or a meta description (case and spacing aside), indexable
   pages without a description, and pages that ask not to be indexed. A `noindex` page is left out of the
@@ -56,6 +64,9 @@ pass); a transfer keeps it, since it is keyed by the project.
   there are more than six. They are listed as a hierarchy of their addresses (`pathTree` in
   `src/lib/pageChecks/pathTree.ts`, pure): unusual paths with empty segments stay exact flat entries so no
   page link is lost; otherwise a level per path segment, a query under its path, a level that is not a page and holds one level merged into it, under each environment's name when they are from several.
+  Ancestors that are checked pages link to their review even when they are outside that card's finding
+  or search results, using only checked pages from the same environment. Unchecked groupings stay text;
+  unrelated checked pages are never added to the finding. The count describes the finding's pages.
   A page under a level shows the rest of its address; the whole address stays its link's name.
 - **Pages**: a table from the `@3xl` container width (a card per page under it, like the site addresses
   table): the page (its address opens it in review in a new tab, with `projectReview`; an address no longer
@@ -67,6 +78,8 @@ pass); a transfer keeps it, since it is keyed by the project.
   within target (the toolbar SEO panel's good value or less) and over target (with the panel's warning).
   `vitalTargets` in `src/lib/pageChecks/model.ts` mirrors the toolbar's `webVitals.ts` and `en.ts`; there is no
   third level, so the view shows none. The popup keeps focus on its trigger; Escape closes it until focus leaves.
+- **Show** and **Order** sit in the Pages heading row, beside the list they change, not above Across pages
+  (uier #256).
 - **Order** (`?sort=`, `setUrlSearchParams`, no server request): Needs attention first by default (critical,
   then serious, then all accessibility issues, then SEO to look at, then Core Web Vitals over target),
   Accessibility issues, SEO to look at, Last checked or Page. A column the order follows has `aria-sort`.
@@ -86,8 +99,9 @@ The tab is always in the project's header (`ProjectTabs`), after Comments.
 `e2e/page-checks-site.api.spec.ts` (API): members only (guests, public viewers, other tokens and other sites
 refused, the site's verification proof), strict validation and the largest summary, replacement with the kept
 previous counts and the page state, the 200-page cap, the member and project rate limits (validation first),
-deletion with the project, the across-pages, ordering and filter rules, and the address hierarchy.
-`e2e/page-checks-site.spec.ts` (full suite): a member reviews two pages of the `fixture-site` site with the same
+deletion with the project, the across-pages, ordering and filter rules, and the address hierarchy (checked ancestors outside a finding included).
+`e2e/page-checks-site.spec.ts` (full suite): checked ancestors outside a finding link in the same
+environment while unchecked groups stay text; a member reviews two pages of the `fixture-site` site with the same
 title; the toolbar sends one summary each (not again for an unchanged reload), and the view lists both with
 their counts, the shared title and description (closed until opened, under their common path), shows only the pages needing attention, a vital's targets on hover and keyboard focus, sorts by page and passes axe (Desktop Chrome); a `noindex`
 page as a card on a phone, a vital's targets on a tap, without a sideways scroll (Mobile Chrome).

@@ -1,3 +1,5 @@
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { KnownPages } from '@/src/knownPages';
@@ -20,7 +22,7 @@ export async function generateMetadata({ searchParams }: PageProps<'/app/sign-in
     return { title: 'Sign in', ...appLinkMetadata(describeAppLink(safeNextPath(next))) };
 }
 
-export default async function SignInPage({ searchParams }: PageProps<'/app/sign-in'>) {
+async function SignInPageContent({ searchParams }: PageProps<'/app/sign-in'>) {
     const { next, google, microsoft, with: method, add, accounts: accountProblem } = await searchParams;
     const nextPath = safeNextPath(next);
     if (add !== '1' && await getSessionUser())
@@ -43,4 +45,8 @@ export default async function SignInPage({ searchParams }: PageProps<'/app/sign-
             </>} />
         </>
     );
+}
+
+export default function SignInPage(props: Parameters<typeof SignInPageContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading sign in" />}><SignInPageContent {...props} /></Suspense>;
 }

@@ -25,7 +25,7 @@ export function orderComments<T extends Ordered>(comments: readonly T[]) {
     return [...comments].sort(compareCommentOrder);
 }
 
-type Timed = Ordered & { completedAt?: string; updatedAt?: string; createdAt?: string };
+type Timed = Ordered & { completedAt?: string; updatedAt?: string; createdAt?: string; archivedAt?: string };
 
 /** Done is a completion history; legacy threads use their last update, then creation. */
 export function compareDoneOrder(a: Timed, b: Timed) {
@@ -40,10 +40,10 @@ export function compareDoneOrder(a: Timed, b: Timed) {
 }
 
 /**
- * The board's Archive column: like Done, a history, by when each thread was archived, newest first; one without a
+ * The board's Archive column by default: like Done, a history, by when each thread was archived, newest first; one without a
  * readable time falls back to its last update, then creation, and ties keep the usual order.
  */
-export function compareArchivedOrder(a: Timed & { archivedAt?: string }, b: Timed & { archivedAt?: string }) {
+export function compareArchivedOrder(a: Timed, b: Timed) {
     return compareValues(timeOf(a.archivedAt, a.updatedAt, a.createdAt), timeOf(b.archivedAt, b.updatedAt, b.createdAt), -1) || compareCommentOrder(a, b);
 }
 
@@ -83,7 +83,8 @@ export const boardSortOrders: Record<BoardSort, (a: Timed, b: Timed) => number> 
     newest: compareNewestOrder,
     oldest: compareOldestOrder,
     updated: compareUpdatedOrder,
-    completed: compareDoneOrder
+    completed: compareDoneOrder,
+    archived: compareArchivedOrder
 };
 
 /**

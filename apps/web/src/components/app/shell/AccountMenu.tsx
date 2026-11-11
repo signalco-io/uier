@@ -3,7 +3,7 @@
 import { useTransition } from 'react';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
-import { CheckIcon, UserPlusIcon, ChevronsUpDownIcon, CircleUserIcon, KeyboardIcon, LogOutIcon, MonitorIcon, MoonIcon, SunIcon } from 'lucide-react';
+import { CheckIcon, UserPlusIcon, ChevronsUpDownIcon, CircleUserIcon, KeyboardIcon, LogOutIcon, MonitorIcon, MoonIcon, PowerIcon, SunIcon, UsersIcon } from 'lucide-react';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -35,8 +35,10 @@ export const themeOptions = [
     { value: 'system', label: 'System', icon: MonitorIcon }
 ] as const;
 
+const VISIBLE_ACCOUNTS = 3;
+
 /** The signed-in person at the bottom of the sidebar: account, theme, keyboard shortcuts and sign out */
-export function AccountMenu({ name, email, avatarUrl, accounts }: { name: string; email: string; avatarUrl?: string; accounts: BrowserAccount[] }) {
+export function AccountMenu({ name, avatarUrl, accounts }: { name: string; avatarUrl?: string; accounts: BrowserAccount[] }) {
     const { isMobile } = useSidebar();
     const { theme, setTheme } = useTheme();
     const [pending, startTransition] = useTransition();
@@ -47,14 +49,32 @@ export function AccountMenu({ name, email, avatarUrl, accounts }: { name: string
         try { await changeAccount(input); } catch (error) { toast.error(error instanceof Error ? error.message : 'Could not change accounts.'); }
     });
 
-    // The menu's header: the person with their email
-    const person = (
-        <>
-            <PersonAvatar name={name} avatarUrl={avatarUrl} aria-hidden="true" />
-            <span className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{name}</span>
-                <span className="truncate text-xs text-muted-foreground">{email}</span>
+    // At most three accounts in the menu, the active one always among them (in their order); the rest
+    // and Add account are in a submenu, so the menu doesn't grow with every account (uier #249)
+    const shown = accounts.length <= VISIBLE_ACCOUNTS ? accounts : (() => {
+        let others = VISIBLE_ACCOUNTS - (accounts.some(account => account.active) ? 1 : 0);
+        return accounts.filter(account => account.active || others-- > 0);
+    })();
+    const more = accounts.filter(account => !shown.includes(account));
+    const atCap = accounts.length >= MAX_BROWSER_ACCOUNTS;
+
+    const accountItem = (account: BrowserAccount) => (
+        <DropdownMenuItem key={account.id} disabled={pending || account.active}
+            onClick={() => change({ action: 'switch', userId: account.id })}>
+            <PersonAvatar name={account.name} avatarUrl={account.avatarUrl} size="sm" aria-hidden="true" />
+            <span className="grid min-w-0 flex-1">
+                <span className="truncate">{account.name}</span>
+                <span className="truncate text-xs text-muted-foreground">{account.email}</span>
             </span>
+            {account.active && <><CheckIcon aria-hidden="true" /><span className="sr-only">active</span></>}
+        </DropdownMenuItem>
+    );
+    const addAccount = (
+        <>
+            <DropdownMenuItem disabled={pending || atCap} render={<a href={`${KnownPages.AppSignIn}?add=1`} />}>
+                <UserPlusIcon />Add account
+            </DropdownMenuItem>
+            {atCap && <DropdownMenuLabel className="font-normal text-muted-foreground">{MAX_BROWSER_ACCOUNTS} accounts. Sign out to add another.</DropdownMenuLabel>}
         </>
     );
 
@@ -64,7 +84,7 @@ export function AccountMenu({ name, email, avatarUrl, accounts }: { name: string
                 <DropdownMenu>
                     {/* A row like Give feedback and the navigation above it: the avatar is centred in their 16px
                         icon column (spilling over its box, not widening it), so names line up with their labels,
-                        expanded and collapsed; the email is in the menu */}
+                        expanded and collapsed; the email is in the menu's account list */}
                     <DropdownMenuTrigger render={<SidebarMenuButton disabled={pending} className="data-popup-open:bg-sidebar-accent data-popup-open:text-sidebar-accent-foreground" />}>
                         <span className="sr-only">Account: </span>
                         <span className="flex size-4 shrink-0 items-center justify-center">
@@ -78,30 +98,24 @@ export function AccountMenu({ name, email, avatarUrl, accounts }: { name: string
                         side={isMobile ? 'bottom' : 'right'}
                         align="end"
                         sideOffset={4}>
-                        {/* Base UI's group label needs a group */}
-                        <DropdownMenuGroup>
-                            <DropdownMenuLabel className="p-0 font-normal">
-                                <span className="flex items-center gap-2 px-1.5 py-1.5 text-left text-sm">{person}</span>
-                            </DropdownMenuLabel>
-                        </DropdownMenuGroup>
-                        <DropdownMenuSeparator />
+                        {/* No header with the active person: the list marks them (uier #248) */}
                         <DropdownMenuGroup>
                             <DropdownMenuLabel>Signed-in accounts</DropdownMenuLabel>
-                            {accounts.map(account => (
-                                <DropdownMenuItem key={account.id} disabled={pending || account.active}
-                                    onClick={() => change({ action: 'switch', userId: account.id })}>
-                                    <PersonAvatar name={account.name} avatarUrl={account.avatarUrl} size="sm" aria-hidden="true" />
-                                    <span className="grid min-w-0 flex-1">
-                                        <span className="truncate">{account.name}</span>
-                                        <span className="truncate text-xs text-muted-foreground">{account.email}</span>
-                                    </span>
-                                    {account.active && <><CheckIcon aria-hidden="true" /><span className="sr-only">active</span></>}
-                                </DropdownMenuItem>
-                            ))}
-                            <DropdownMenuItem disabled={pending || accounts.length >= MAX_BROWSER_ACCOUNTS} render={<a href={`${KnownPages.AppSignIn}?add=1`} />}>
-                                <UserPlusIcon />Add account
-                            </DropdownMenuItem>
-                            {accounts.length >= MAX_BROWSER_ACCOUNTS && <DropdownMenuLabel className="font-normal text-muted-foreground">5 accounts. Sign out to add another.</DropdownMenuLabel>}
+                            {shown.map(accountItem)}
+                            {more.length ? (
+                                <DropdownMenuSub>
+                                    <DropdownMenuSubTrigger>
+                                        <UsersIcon />
+                                        {more.length} more {more.length === 1 ? 'account' : 'accounts'}
+                                    </DropdownMenuSubTrigger>
+                                    <DropdownMenuSubContent className="min-w-56">
+                                        <DropdownMenuGroup>
+                                            {more.map(accountItem)}
+                                            {addAccount}
+                                        </DropdownMenuGroup>
+                                    </DropdownMenuSubContent>
+                                </DropdownMenuSub>
+                            ) : addAccount}
                         </DropdownMenuGroup>
                         <DropdownMenuSeparator />
                         <DropdownMenuGroup>
@@ -137,7 +151,7 @@ export function AccountMenu({ name, email, avatarUrl, accounts }: { name: string
                             Sign out
                         </DropdownMenuItem>
                         {accounts.length > 1 && <DropdownMenuItem disabled={pending} onClick={() => change({ action: 'sign-out-all' })}>
-                            <LogOutIcon />Sign out of all accounts
+                            <PowerIcon />Sign out of all accounts
                         </DropdownMenuItem>}
                     </DropdownMenuContent>
                 </DropdownMenu>

@@ -108,6 +108,14 @@ test('the board shows Archive as its last column, collapsed until someone expand
     // Saved on the project: still expanded after a reload
     await page.reload();
     await expect(archive.getByRole('listitem')).toHaveCount(1);
+    // Its own sort, like Done's: newest archived first by default, saved on the project too
+    await archive.getByRole('button', { name: 'Sort Archive: Recently archived', exact: true }).click();
+    await expect(page.getByRole('menuitemradio', { name: 'Recently archived', exact: true })).toHaveAttribute('aria-checked', 'true');
+    const sorted = page.waitForResponse(response => response.request().method() === 'POST' && response.request().headers()['next-action'] !== undefined);
+    await page.getByRole('menuitemradio', { name: 'Oldest first', exact: true }).click();
+    expect((await sorted).ok()).toBe(true);
+    await page.reload();
+    await expect(archive.getByRole('button', { name: 'Sort Archive: Oldest first', exact: true })).toBeVisible();
     // Restore from its thread returns it to its column
     thread = await openComment(page, 1);
     await thread.getByRole('button', { name: /^More actions for the comment/ }).click();

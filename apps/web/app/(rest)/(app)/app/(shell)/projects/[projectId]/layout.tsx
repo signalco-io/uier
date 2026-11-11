@@ -1,3 +1,5 @@
+import { PageLoading } from '@/src/components/app/PageLoading';
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Badge } from '@/src/components/ui/badge';
@@ -23,7 +25,7 @@ import { feedbackStages } from '@uier/toolbar/verification';
  * A project: its name, Open review (it lists every address) and the settings cog, then the tabs while the
  * install guide is one (until the site sends its first comment), above its comments, install guide or settings
  */
-export default async function ProjectLayout({ children, params }: LayoutProps<'/app/projects/[projectId]'>) {
+async function ProjectLayoutContent({ children, params }: LayoutProps<'/app/projects/[projectId]'>) {
     const { projectId } = await params;
     const context = await requireAppContext();
     const project = await getVisibleProject(context, projectId);
@@ -93,4 +95,8 @@ export default async function ProjectLayout({ children, params }: LayoutProps<'/
             </div>
         </div>
     );
+}
+
+export default function ProjectLayout(props: Parameters<typeof ProjectLayoutContent>[0]) {
+    return <Suspense fallback={<PageLoading title="Loading project" />}><ProjectLayoutContent {...props} /></Suspense>;
 }

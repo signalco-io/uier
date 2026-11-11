@@ -19,7 +19,9 @@ layouts and pages). `loadWorkspaceAccessForRender` shares the render's team snap
 retries must continue to use uncached `loadWorkspaceAccess`. Nothing caches access across requests.
 Independent context and comment enrichment reads run together. General settings streams lightweight
 usage totals after its authorization check instead of enriching every comment before rendering forms.
-Keep authorization/not-found checks outside streaming boundaries so forbidden document requests retain 404.
+Proxy's request preflight completes document authorization/not-found decisions before streaming, so
+forbidden document requests retain 404. Pages and actions still authorize their own data reads and
+writes inside the request-rendered content. See [Cache Components](cache-components.md).
 
 `ProjectComments` is a client boundary over the server-authorized environment/author snapshot.
 Search, status, people, page, unread, list/board filters and the open thread (`?comment=`) are URL

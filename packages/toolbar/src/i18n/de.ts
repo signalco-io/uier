@@ -810,6 +810,7 @@ export const de: Messages = {
             couldNotRun: 'Die Prüfung der Barrierefreiheit konnte nicht laufen.',
             noIssues: 'Keine Probleme gefunden.',
             automatedNote: 'Automatische Prüfungen finden nur einen Teil der Probleme. Testen Sie auch mit Tastatur und Screenreader.',
+            issuesEmpty: 'Hier gibt es nichts zu beheben. Die anderen Tabs decken ab, was automatische Prüfungen nicht beurteilen können.',
             blocked: 'Die Content-Security-Policy der Website oder die Verbindung blockiert womöglich ihr Skript.',
             undecided: 'axe-core konnte nicht entscheiden. Nicht gezählt.',
             tabs: { issues: 'Probleme', keyboard: 'Tastatur', screenReader: 'Screenreader', visual: 'Darstellung' }
