@@ -137,7 +137,7 @@ test('missing, duplicate, hidden and responsive targets stay searchable without 
     await expect(duplicate.locator('[data-uier-anchor-state]')).toHaveAttribute('data-uier-anchor-state', 'restored');
     await page.locator('#duplicates').evaluate(el => el.prepend(el.firstElementChild!.cloneNode(true)));
     await expect(duplicate.locator('[data-uier-anchor-state]')).toHaveAttribute('data-uier-anchor-state', 'ambiguous');
-    await inbox.getByRole('searchbox').fill('Duplicate text');
+    await (await inboxSearch(inbox)).fill('Duplicate text');
     await expect(duplicate).toHaveCount(1);
     await expect(removed).toHaveCount(0);
     await context.close();
