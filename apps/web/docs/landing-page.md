@@ -38,7 +38,10 @@ itself, so the global `:target` margin does not apply there and the layout turns
   `CommentFilters`). Recheck the pictures when one of those changes; the component comments name what each copies.
 - **Feature tiles alternate wide and narrow** (wide, narrow, narrow, wide, ...): at `lg` each row is one wide and
   one narrow tile, at `md` the narrow ones pair up and the wide ones take a row, so neither width leaves a gap.
-  "And the details" spans the full width under them. Add or remove tiles in pairs that keep the pattern.
+  Add or remove tiles in pairs that keep the pattern.
+- **"And the details"** follows the tiles: an `h3` over a `Panel` of six cells (icon, title, one sentence), three
+  columns at `lg` and two at `md`. Keep it to six, the strongest things the tiles do not show; swap one out
+  rather than add a seventh.
 - **Compare workflows** links from below the feature panel to `/compare`. Keep it a contextual
   link for people choosing a tool; the comparison hub carries the feature matrices and tradeoffs.
 - **One section moves.** The how-it-works scene is a timeline of phases (`phases` in
