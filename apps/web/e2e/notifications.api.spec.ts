@@ -689,21 +689,23 @@ test('one-click rejects malformed, expired and confirmation tokens; guest confir
 });
 
 
-test('fix requests and decisions use current target delivery rules without duplicate or self email', async () => {
+for (const kind of [undefined, 'credential', 'oauth'] as const) test(`fix requests and decisions use current target delivery rules without duplicate or self email (${kind ?? 'human'})`, async () => {
     const f = await fixture();
     const sent: EmailMessage[] = [];
     await dispatch(f.project, f.comment, sent);
     sent.length = 0;
+    const owner = { ...f.ownerActor, ...(kind ? { agent: { credentialId: 'owner-connection', name: 'Coding tool', kind } } : {}) } as ProjectActor;
+    const member = { ...f.memberActor, ...(kind ? { agent: { credentialId: 'member-connection', name: 'Coding tool', kind } } : {}) } as ProjectActor;
     const input = { action: 'request', reviewerId: f.member.id, expectedRevision: null, idempotencyKey: randomUUID() };
-    const requested = await changeFixVerification(f.project, f.ownerActor, f.comment.id, input);
-    await changeFixVerification(f.project, f.ownerActor, f.comment.id, input);
+    const requested = await changeFixVerification(f.project, owner, f.comment.id, input);
+    await changeFixVerification(f.project, owner, f.comment.id, input);
     await dispatch(f.project, f.comment, sent);
     expect(sent).toHaveLength(1);
     expect(sent[0]!.to).toBe(f.member.email);
     expect(sent[0]!.text).toContain('requested a fix check');
     const decision = { action: 'confirm', expectedRevision: requested.verification!.revision, idempotencyKey: randomUUID() };
-    await changeFixVerification(f.project, f.memberActor, f.comment.id, decision);
-    await changeFixVerification(f.project, f.memberActor, f.comment.id, decision);
+    await changeFixVerification(f.project, member, f.comment.id, decision);
+    await changeFixVerification(f.project, member, f.comment.id, decision);
     await dispatch(f.project, f.comment, sent);
     expect(sent).toHaveLength(2);
     expect(sent[1]!.to).toBe(f.owner.email);

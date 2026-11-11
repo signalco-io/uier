@@ -432,7 +432,7 @@ export async function setProjectCommentPriority(project: DbProject, actor: Proje
     priority = parsed.data;
     if (!idempotencyKeySchema.safeParse(idempotencyKey).success) throw apiErrors.invalidRequest('Use a valid submission key.');
     return changeComment(project, actor, id, () => canTriageProject(project, actor), comment =>
-        commentPriority(comment.priority) === priority ? comment : { ...withThreadActivity(comment, actorAuthorId(actor)!, actor.kind === 'member' && Boolean(actor.agent)), priority },
+        commentPriority(comment.priority) === priority ? comment : { ...withThreadActivity(comment, actorAuthorId(actor)!), priority },
         submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { operation: 'priority', id, priority, ...guardFingerprint(guard) }), guard, store);
 }
 
@@ -580,7 +580,7 @@ export async function editProjectCommentItem(project: DbProject, actor: ProjectA
             if (edited.thread.items[0]?.id === itemId) delete updated.aiTitle;
             const existing = new Set(previous?.mentions?.map(mention => mention.userId));
             const recipients = mentionRecipients(mentions.filter(mention => !existing.has(mention.userId)));
-            return recipients.length ? withNotificationEvent(withThreadActivity(updated, actorAuthorId(actor)!, actor.kind === 'member' && Boolean(actor.agent)), actorAuthorId(actor)!, 'mention', nowIso(), recipients, actor.kind === 'member' ? actor.agent : undefined, { itemId }) : updated;
+            return recipients.length ? withNotificationEvent(withThreadActivity(updated, actorAuthorId(actor)!), actorAuthorId(actor)!, 'mention', nowIso(), recipients, actor.kind === 'member' ? actor.agent : undefined, { itemId }) : updated;
         });
 }
 

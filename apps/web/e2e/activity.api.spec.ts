@@ -9,12 +9,14 @@ import { getMemoryCommentsStore } from '../src/lib/repo/memoryCommentsStore';
 import { listComments, replyToComment, getCommentScreenshot } from '../src/lib/comments/service';
 import { readActivity, threadActivity } from '../src/lib/comments/activity';
 import { getReadSequence, markThreadRead, markThreadUnread, projectActivity, unreadComments } from '../src/lib/comments/readState';
-import { deleteProjectCommentItem, replyToProjectComment, setProjectCommentResolved } from '../src/lib/review/comments';
+import { deleteProjectCommentItem, editProjectCommentItem, replyToProjectComment, setProjectCommentPriority, setProjectCommentResolved } from '../src/lib/review/comments';
 import { reviewApiHandler } from '../src/lib/review/http';
 import { listReviewComments, readReviewComment, readReviewComments, unreadReviewComment } from '../src/lib/review/readRoutes';
 import { toReviewCommentDto } from '../src/lib/review/dto';
 import { withImportedReplies } from '../src/lib/integrations/importReplies';
 import type { IntegrationConnection } from '../src/lib/integrations/model';
+import { setProjectCommentAgent } from '../src/lib/review/assigneeAgent';
+import { setProjectCommentPullRequest } from '../src/lib/review/pullRequests';
 import { markThreadsRead } from '../src/lib/comments/bulkRead';
 import { POST as publicBulkRead } from '../app/api/comments/read/route';
 import { POST as publicRead } from '../app/api/comments/[id]/read/route';
@@ -455,4 +457,28 @@ for (const receipts of [false, true]) test(`connector replies are unread for the
     const imported = withImportedReplies(comment, connection, { resolved: true, replies: [], at: now }).comment;
     expect(readActivity(imported, 'user:alice', 6).unread).toBe(true);
     expect(withImportedReplies(imported, connection, { resolved: true, replies: [], at: now }).comment).toBe(imported);
+});
+
+for (const kind of ['credential', 'oauth'] as const) test(`non-reply ${kind} connector edits remain own activity without clearing unseen replies`, async () => {
+    process.env.UIER_LOCAL = '1';
+    const project = { id: randomUUID(), access: 'invited' } as DbProject;
+    await persistProjectAccess(project, [alice, bob]);
+    const store = getMemoryCommentsStore();
+    const connector = { ...alice, agent: { credentialId: randomUUID(), name: 'Coding tool', kind } };
+    let comment: DbComment = { id: `comment_${randomUUID()}`, domain: `project:${project.id}`, projectId: project.id, path: '/',
+        position: { type: 'page' }, authorId: 'user:alice', thread: { items: [{ id: 'first', text: 'Feedback', authorId: 'user:alice' }] } };
+    await store.create(comment);
+    await markThreadRead(comment, 'user:alice', 1);
+    for (const unseenReply of [false, true]) {
+        if (unseenReply) comment = await replyToProjectComment(new Request('https://uier.io/api/review'), project, connector, comment.id, { text: 'New agent reply' });
+        const lastOtherSequence = unseenReply ? threadActivity(comment).sequence : 0;
+        comment = await setProjectCommentPriority(project, connector, comment.id, unseenReply ? 'high' : 'low', randomUUID());
+        comment = await editProjectCommentItem(project, connector, comment.id, 'first', { expectedText: comment.thread.items[0]!.text, text: unseenReply ? 'Feedback @Bob again' : 'Feedback @Bob',
+            mentions: unseenReply ? [] : [{ userId: bob.userId, start: 9, end: 13 }] });
+        comment = await setProjectCommentPullRequest(project, connector, comment.id, 'https://github.com/signalco-io/uier/pull/1', unseenReply);
+        comment = await setProjectCommentAgent(project, connector, comment.id, unseenReply ? null : { kind: 'codex' }, { assignToMe: true, startWork: true });
+        expect(readActivity(comment, 'user:alice', 1)).toMatchObject({ lastOtherSequence, unread: unseenReply });
+        expect(await getReadSequence(comment.domain, 'user:alice', comment.id)).toBe(1);
+        expect(readActivity(comment, 'user:bob', 1).unread).toBe(true);
+    }
 });
