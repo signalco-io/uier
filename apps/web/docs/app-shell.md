@@ -203,3 +203,5 @@ next live account, or sign-in when none remains. The shell sends only menu field
 never session credentials. `AccountSessionBoundary` reconciles other tabs on focus/visibility,
 reconnect, pageshow and account-change events. See [sign-in](sign-in.md#several-accounts-in-one-browser)
 for credential isolation and [account switching coverage](../e2e/account-switching.spec.ts).
+
+Project/workspace tabs, project lists and My work use the app language. Titles made from a project, client, workspace or person’s saved name remain unchanged. Request-specific translations run inside the Cache Components content boundary; the static loading shell can start in English before the app provider is available.

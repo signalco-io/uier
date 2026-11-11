@@ -5,10 +5,13 @@ import type { AppLanguage } from '@/src/lib/i18n/languages';
 export function resetsIn(seconds: number, t: AppTranslator = (message, values) => message.replace(/\{(\w+)\}/g, (placeholder, name: string) => String(values?.[name] ?? placeholder)), language: AppLanguage = 'en') {
     if (seconds < 60)
         return t('in less than a minute');
+    const relative = new Intl.RelativeTimeFormat(language, { numeric: 'always' });
     if (seconds < 3600) {
         const minutes = Math.ceil(seconds / 60);
-        return t(minutes === 1 ? 'in {count} minute' : 'in {count} minutes', { count: new Intl.NumberFormat(language).format(minutes) });
+        return relative.format(minutes, 'minute');
     }
     const hours = Math.round(seconds / 3600);
-    return hours <= 1 ? t('in about an hour') : t('in about {count} hours', { count: new Intl.NumberFormat(language).format(hours) });
+    if (hours <= 1) return t('in about an hour');
+    if (language === 'en') return t('in about {count} hours', { count: new Intl.NumberFormat(language).format(hours) });
+    return t('{time}, approximately', { time: relative.format(hours, 'hour') });
 }

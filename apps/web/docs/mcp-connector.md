@@ -452,3 +452,5 @@ and receipt key, and preserves workflow/content/verification. Authorized single/
 screenshots remain available. `feedback.archive_changed` uses the durable notification ledger and
 existing webhook/push/poll privacy and connection filtering, without owner email. Old status tools do
 not restore archived feedback. `mcp.api.spec.ts` covers scopes, defaults, restore and receipt replay.
+
+Account setup and consent copy use the [app language](localization.md), including scope descriptions and access summaries. Client names, endpoint/configuration values, prompt ids and the exported SKILL.md keep their protocol and workflow values. Pure access-summary formatters accept the request’s optional locale without changing default English protocol callers.

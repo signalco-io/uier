@@ -69,7 +69,7 @@ export function BulkTeamForm({ data, fromTeamId }: { data: AccessData; fromTeamI
                     {results.map((result) => (
                         <p key={result.userId}>
                             {data.people.find((person) => person.member.userId === result.userId)?.name ?? t("Person")}:{' '}
-                            {result.ok ? t("Saved") : result.error}
+                            {result.ok ? t("Saved") : t(result.error ?? 'Something went wrong. Try again.')}
                         </p>
                     ))}
                 </div>

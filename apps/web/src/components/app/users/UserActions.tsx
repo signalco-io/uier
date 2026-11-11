@@ -20,15 +20,16 @@ import type { ActionState } from '../../../lib/app/actionResult';
 import { removeMemberAction, resendInvitationAction, revokeInvitationAction } from './actions';
 
 function useRun() {
+    const { t } = useAppI18n();
     const router = useRouter();
     const [pending, startTransition] = useTransition();
     const run = (action: () => Promise<ActionState>, success: string) => startTransition(async () => {
         const result = await action();
         if (result && !result.ok) {
-            toast.error(result.error);
+            toast.error(t(result.error));
             return;
         }
-        toast.success(success);
+        toast.success(t(success));
         router.refresh();
     });
     return { pending, run };
@@ -78,6 +79,6 @@ export function ResendInvitationButton({ invitationId, email }: { invitationId: 
     return <div className="flex flex-col gap-1"><Button variant="ghost" size="sm" disabled={pending} aria-label={t("Resend the invitation for {value0}", { value0: email })} onClick={() => startTransition(async () => {
         const result = await resendInvitationAction(invitationId);
         if (result?.ok) { setLink(result.data.devLink); toast.success(t("Invitation resent.")); router.refresh(); }
-        else if (result) toast.error(result.error);
+        else if (result) toast.error(t(result.error));
     })}>{t("Resend")}</Button>{link && <Link href={link} className="text-xs">{t("Open invitation")}</Link>}</div>;
 }

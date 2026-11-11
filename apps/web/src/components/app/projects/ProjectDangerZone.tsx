@@ -27,7 +27,7 @@ export function ProjectStatusButton({ projectId, status }: { projectId: string; 
     const handleClick = () => startTransition(async () => {
         const result = await setProjectStatusAction(projectId, next);
         if (result && !result.ok)
-            toast.error(result.error);
+            toast.error(t(result.error));
     });
 
     return (
@@ -55,7 +55,7 @@ export function DeleteProjectButton({ projectId, name }: { projectId: string; na
         startTransition(async () => {
             const result = await deleteProjectAction(projectId, confirmation);
             if (result && !result.ok) {
-                toast.error(result.error);
+                toast.error(t(result.error));
                 return;
             }
             toast.success(t("{value0} was deleted.", { value0: name }));
@@ -132,7 +132,7 @@ export function TransferProjectButton({ projectId, name, targets, preview }: { p
         startTransition(async () => {
             const result = await transferProjectAction(projectId, target.id, confirmation);
             if (result && !result.ok) {
-                toast.error(result.error);
+                toast.error(t(result.error));
                 return;
             }
             toast.success(t("{value0} is in {value1} now.", { value0: name, value1: target.name }));

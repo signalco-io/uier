@@ -127,7 +127,7 @@ function SlackManagement({ projectId, settings }: { projectId: string; settings:
     }
     return <div className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-2">
-            {(connection.enabled || active) && <Button type="button" variant="outline" disabled={pending} onClick={() => change(connection.enabled ? t("disable") : t("enable"))}>
+            {(connection.enabled || active) && <Button type="button" variant="outline" disabled={pending} onClick={() => change(connection.enabled ? 'disable' : 'enable')}>
                 {pending && <Spinner data-icon="inline-start" />}{connection.enabled ? t("Turn Slack notifications off") : t("Turn Slack notifications on")}
             </Button>}
             {active && connection.enabled && <>
@@ -143,7 +143,7 @@ function SlackManagement({ projectId, settings }: { projectId: string; settings:
                             : t("Stops future notifications from this project. Existing Slack messages remain. Other projects keep their connections.")}</AlertDialogDescription></AlertDialogHeader>
                     <FormMessage state={result && !result.ok ? result : null} />
                     <AlertDialogFooter><AlertDialogCancel disabled={pending}>{t("Cancel")}</AlertDialogCancel>
-                        <AlertDialogAction variant={dialog === 'backfill' ? "default" : "outline"} disabled={pending} onClick={() => change(dialog === 'backfill' ? t("backfill") : t("disconnect"))}>
+                        <AlertDialogAction variant={dialog === 'backfill' ? "default" : "outline"} disabled={pending} onClick={() => change(dialog === 'backfill' ? 'backfill' : 'disconnect')}>
                             {pending && <Spinner data-icon="inline-start" />}{dialog === 'backfill' ? t("Send existing feedback") : t("Disconnect Slack")}
                         </AlertDialogAction></AlertDialogFooter>
                 </AlertDialogContent>

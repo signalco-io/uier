@@ -107,3 +107,5 @@ as Notion refuses them in option names); built-in values retain their original l
 existing database options remain stable.
 Slack notification titles also use the saved custom label, retaining the existing Feedback, Bug and
 Suggested rewrite titles for built-in kinds. Labels remain literal, bounded text.
+
+Signed-in integration setup, status badges, capability descriptions, confirmation dialogs and results use the [app language](localization.md). Provider names, remote destination names, mapped fields and configuration snippets remain unchanged. Machine operation ids are never translated.

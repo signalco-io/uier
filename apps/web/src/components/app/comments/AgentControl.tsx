@@ -95,7 +95,7 @@ function SingleAgentControl({ projectId, comment, assignee, agent, editable, add
             <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
                 <span className="text-muted-foreground">{t("with")}</span>
                 <AgentAvatar kind={agent.kind} workingUntil={agent.workingUntil} className="size-4" />
-                <span className="shrink-0">{agent.label}</span>
+                <span className="shrink-0">{t(agent.label)}</span>
                 <AgentDetails agent={agent} />
                 <AgentSessionLink sessionUrl={agent.sessionUrl} />
             </span>
@@ -155,7 +155,7 @@ function SingleAgentControl({ projectId, comment, assignee, agent, editable, add
                     className={agent ? 'h-7 min-w-0 max-w-full gap-1.5 px-1.5 font-normal pointer-coarse:min-h-11' : 'h-7 gap-1 px-1.5 font-normal text-muted-foreground hover:text-foreground pointer-coarse:min-h-11'} />}>
                     {agent ? <>
                         <AgentAvatar kind={agent.kind} workingUntil={agent.workingUntil} className="size-4" />
-                        <span className="shrink-0">{agent.label}</span>
+                        <span className="shrink-0">{t(agent.label)}</span>
                         <AgentDetails agent={agent} />
                         {pending && <Spinner data-icon="inline-end" />}
                     </> : <>
@@ -170,7 +170,7 @@ function SingleAgentControl({ projectId, comment, assignee, agent, editable, add
                             {agentKinds.map(kind => (
                                 <DropdownMenuRadioItem key={kind} value={kind} closeOnClick className="pointer-coarse:min-h-11" onClick={() => choose(kind)}>
                                     <AgentAvatar kind={kind} />
-                                    {agentLabels[kind]}
+                                    {t(agentLabels[kind])}
                                 </DropdownMenuRadioItem>
                             ))}
                         </DropdownMenuRadioGroup>

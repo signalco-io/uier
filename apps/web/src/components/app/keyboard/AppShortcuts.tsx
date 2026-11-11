@@ -52,7 +52,7 @@ export function AppShortcuts({ children }: { children: ReactNode }) {
             const view = letter === 'b' ? "board" : undefined;
             // On its comments the view changes in place, like the List and Board toggle, and keeps the filters
             if (pathname === href) setUrlSearchParams({ view, comment: undefined }, { history: 'push' });
-            else router.push(`${href}${view ? t("?view=board") : ''}#comments`);
+            else router.push(`${href}${view ? '?view=board' : ''}#comments`);
         } else return false;
         return true;
     };

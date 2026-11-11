@@ -1,5 +1,6 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
 import type { ComponentProps } from 'react';
 import dynamic from 'next/dynamic';
 import { Button } from '@/src/components/ui/button';
@@ -8,7 +9,20 @@ import { deferredComponent } from '../deferredComponent';
 
 type BoardProps = ComponentProps<typeof import('./CommentBoard').CommentBoard>;
 
-const loading = <div role="status" className="flex min-h-64 items-center justify-center gap-2"><Spinner />Loading board…</div>;
+function LoadingBoard() {
+    const { t } = useAppI18n();
+    return <div role="status" className="flex min-h-64 items-center justify-center gap-2"><Spinner />{t('Loading board…')}</div>;
+}
+
+function FailedBoard({ retry }: { retry: () => void }) {
+    const { t } = useAppI18n();
+    return <div role="alert" className="flex min-h-64 flex-col items-center justify-center gap-3">
+        <p className="m-0 text-muted-foreground">{t('The board could not load.')}</p>
+        <Button variant="outline" onClick={retry}>{t('Try loading the board again')}</Button>
+    </div>;
+}
+
+const loading = <LoadingBoard />;
 // Next registers these chunks while server-rendering a direct Board visit. A List render never
 // mounts this component, so its board code is not preloaded before the view is selected.
 const InitialBoard = dynamic<BoardProps>(() => import('./CommentBoard').then(module => module.CommentBoard), {
@@ -21,11 +35,6 @@ export const LazyCommentBoard = deferredComponent<BoardProps>(
     {
         initial: InitialBoard,
         loading,
-        failed: retry => (
-            <div role="alert" className="flex min-h-64 flex-col items-center justify-center gap-3">
-                <p className="m-0 text-muted-foreground">The board could not load.</p>
-                <Button variant="outline" onClick={retry}>Try loading the board again</Button>
-            </div>
-        )
+        failed: retry => <FailedBoard retry={retry} />
     }
 );

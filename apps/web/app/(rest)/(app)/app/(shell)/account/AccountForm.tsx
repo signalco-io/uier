@@ -64,7 +64,7 @@ function ProfilePicture({ name, avatarUrl, descriptionId }: { name: string; avat
                 </DropdownMenuContent>
             </DropdownMenu>
             {fileInput}
-            {error && <FieldError className="order-last basis-full">{error}</FieldError>}
+            {error && <FieldError className="order-last basis-full">{t(error)}</FieldError>}
         </>
     );
 }

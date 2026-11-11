@@ -23,7 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /** Internal or External; nothing while unspecified (as on the users list) */
-const relationshipLabels: Record<string, string> = { internal: 'Internal', external: 'External' };
+const relationshipLabels = { internal: 'Internal', external: 'External' } as const;
 
 /** Someone in the workspace: who they are, the projects they can review (and why), then their teams and direct access */
 async function PersonPageContent({ params }: PageProps<'/app/workspace/users/[userId]'>) {

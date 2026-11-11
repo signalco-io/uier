@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Popover, PopoverContent, PopoverDescription, PopoverHeader, PopoverTitle, PopoverTrigger } from '@/src/components/ui/popover';
@@ -13,6 +15,7 @@ import { AccessIcon, projectAccessLabels } from './projectLabels';
  * without, a click opens the same info.
  */
 export function ProjectAccessInfo({ access, settingsHref, children }: { access: ProjectAccess; settingsHref?: string; children?: ReactNode }) {
+    const { t } = useAppI18n();
     const { label, description } = projectAccessLabels[access];
     const [open, setOpen] = useState(false);
 

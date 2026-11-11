@@ -78,7 +78,7 @@ export function CopyAccessToTeam({ data }: { data: AccessData }) {
                     {result.results.map((item) => (
                         <p key={item.userId}>
                             {data.people.find((person) => person.member.userId === item.userId)?.name}:{' '}
-                            {item.ok ? t("Saved") : item.error}
+                            {item.ok ? t("Saved") : t(item.error ?? 'Something went wrong. Try again.')}
                         </p>
                     ))}
                 </div>

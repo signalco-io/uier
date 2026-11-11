@@ -29,7 +29,7 @@ export function WorkspaceToolbarLanguageForm({ language }: { language: ToolbarLa
                 <input type="hidden" name="toolbarLanguage" value={draft.language} />
                 <Field>
                     <FieldLabel htmlFor={`${formId}-language`}>{t("Default language")}</FieldLabel>
-                    <Select value={draft.language} items={options} disabled={pending}
+                    <Select value={draft.language} items={options.map(option => ({ ...option, label: t(option.label) }))} disabled={pending}
                         onValueChange={value => update(current => ({ ...current, language: toolbarLanguages.find(item => item === value) ?? current.language }))}>
                         <SelectTrigger id={`${formId}-language`} className="w-full max-w-md">
                             <SelectValue />

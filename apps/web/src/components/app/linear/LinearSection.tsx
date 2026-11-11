@@ -205,7 +205,7 @@ function LinearManagement({ projectId, settings }: { projectId: string; settings
     const canSync = settings.configured && Boolean(settings.teamId) && settings.status === 'connected';
     return <div className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-2">
-            {(settings.enabled || canSync) && <Button type="button" variant="outline" disabled={pending} onClick={() => change(settings.enabled ? t("disable") : t("enable"))}>
+            {(settings.enabled || canSync) && <Button type="button" variant="outline" disabled={pending} onClick={() => change(settings.enabled ? 'disable' : 'enable')}>
                 {pending && <Spinner data-icon="inline-start" />}{settings.enabled ? t("Turn sync off") : t("Turn sync on")}
             </Button>}
             {canSync && settings.enabled && <Button type="button" variant="outline" disabled={pending || Boolean(settings.backfill && !settings.backfill.done)} onClick={() => change('backfill')}>

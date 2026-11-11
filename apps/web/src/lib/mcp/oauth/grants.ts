@@ -1,3 +1,4 @@
+import type { AppI18n } from '../../i18n/types';
 import { z } from 'zod';
 import type { McpCredential } from '../credentials';
 import { apiErrors } from '../../comments/http';
@@ -171,7 +172,20 @@ export async function validateAccessChoice(userId: string, email: string, access
 }
 
 /** A short summary for Account: "All workspaces and projects" or "2 workspaces, 5 projects" */
-export function describeAccess(access: AgentAccess) {
+export function describeAccess(access: AgentAccess, i18n?: AppI18n) {
+    if (i18n) {
+        const { t, language } = i18n;
+        if (access.kind === 'all') return t('All workspaces and projects, including new ones');
+        const workspaces = access.workspaces.length;
+        const projectLists = access.workspaces.filter(entry => entry.projects !== 'all');
+        const allProjects = workspaces - projectLists.length;
+        const projects = projectLists.reduce((sum, entry) => sum + (entry.projects as string[]).length, 0);
+        const number = (count: number) => new Intl.NumberFormat(language).format(count);
+        const parts = [t(workspaces === 1 ? '{count} workspace' : '{count} workspaces', { count: number(workspaces) })];
+        if (allProjects) parts.push(t('all projects in {count}', { count: number(allProjects) }));
+        if (projects) parts.push(t(projects === 1 ? '{count} project' : '{count} projects', { count: number(projects) }));
+        return parts.join(', ');
+    }
     if (access.kind === 'all') return 'All workspaces and projects, including new ones';
     const workspaces = access.workspaces.length;
     const projectLists = access.workspaces.filter(entry => entry.projects !== 'all');

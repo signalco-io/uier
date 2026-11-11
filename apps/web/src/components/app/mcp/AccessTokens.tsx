@@ -98,8 +98,8 @@ function CreateToken({ projects, form }: { projects: { id: string; name: string 
                             <Checkbox id={`token-scope-${scope}`} checked={selectedScopes.includes(scope)} aria-describedby={`token-scope-${scope}-description`}
                                 onCheckedChange={checked => setSelectedScopes(previous => checked === true ? [...previous, scope] : previous.filter(value => value !== scope))} />
                             <FieldContent>
-                                <FieldLabel htmlFor={`token-scope-${scope}`}>{label}</FieldLabel>
-                                <FieldDescription id={`token-scope-${scope}-description`}>{description}</FieldDescription>
+                                <FieldLabel htmlFor={`token-scope-${scope}`}>{t(label)}</FieldLabel>
+                                <FieldDescription id={`token-scope-${scope}-description`}>{t(description)}</FieldDescription>
                             </FieldContent>
                         </Field>)}
                     </FieldSet>
@@ -113,7 +113,7 @@ function CreateToken({ projects, form }: { projects: { id: string; name: string 
                 </Button>
             </form>
             {token && token !== hiddenToken && <div className="flex flex-col gap-3 rounded-lg border p-4" role="status">
-                <p className="m-0 text-sm">{t("Copy this token now. It will not be shown again after you leave this page. Keep it in your client’s environment as")}{' '}<code>{t("UIER_MCP_TOKEN")}</code>{t(", outside source control.")}</p>
+                <p className="m-0 text-sm">{t("Copy this token now. It will not be shown again after you leave this page. Keep it in your client’s environment as")}{' '}<code>{"UIER_MCP_TOKEN"}</code>{t(", outside source control.")}</p>
                 <CopyBlock value={token} label={t("Copy access token")} />
                 <Button variant="outline" onClick={() => setHiddenToken(token)} className="self-start">{t("Hide token")}</Button>
             </div>}

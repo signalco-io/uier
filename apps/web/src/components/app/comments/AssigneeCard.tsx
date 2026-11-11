@@ -86,7 +86,7 @@ function AgentDetails({ agent }: { agent: AssigneeAgentView }) {
             <ItemContent className="min-w-0">
                 {/* The header: the name, then whether it is working and when it started, compact on the same line; the start gives way first */}
                 <div data-agent-header="" className="flex min-w-0 items-baseline gap-1.5">
-                    <CutText full={agent.label} render={<ItemTitle className="block min-w-0 max-w-[60%] shrink-0 truncate" />} />
+                    <CutText full={t(agent.label)} render={<ItemTitle className="block min-w-0 max-w-[60%] shrink-0 truncate" />} />
                     {(working || agent.setAt) && <span className="flex min-w-0 items-baseline gap-1 text-xs text-muted-foreground">
                         {working && <span className="shrink-0">{t("Working now")}</span>}
                         {working && agent.setAt && <span aria-hidden="true" className="shrink-0">·</span>}

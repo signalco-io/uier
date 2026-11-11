@@ -127,3 +127,5 @@ pages reload their current URL when the account boundary detects an identity cha
 pending connection and showing the new account before another approval.
 `account-consent.api.spec.ts` covers stale approvals through the built server actions;
 `account-sessions.api.spec.ts` covers late app responses after selection and final sign-out.
+
+The sign-in card, provider outcomes, email-code entry, invitations, joining, extension consent and coding-tool consent use the [app language](localization.md). Before sign-in this follows the supported browser language, with English as fallback; an active account’s saved app choice takes precedence.

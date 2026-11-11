@@ -71,12 +71,12 @@ export function SelectComment({ comment, tabbable = true, className }: {
     );
 }
 /** `current`: the thread's assignee now; their agent stays only while they stay the assignee */
-function patchFor(operation: TriageOperation, assignees: AssigneeOption[], current?: ProjectCommentView['assignees']): Partial<ProjectCommentView> {
+function patchFor(operation: TriageOperation, assignees: AssigneeOption[], current?: ProjectCommentView['assignees'], t: import('@/src/lib/i18n/types').AppTranslator = text => text): Partial<ProjectCommentView> {
     if (operation.kind === 'status') return { resolved: operation.resolved };
     if (operation.kind === 'priority') return { priority: operation.priority };
     const person = assignees.find(person => person.userId === operation.assigneeId);
     const existing = current?.find(person => person.id === operation.assigneeId);
-    const people = operation.assigneeId ? [existing ?? { id: operation.assigneeId, name: person?.name ?? 'Former member', avatarUrl: person?.avatarUrl }] : [];
+    const people = operation.assigneeId ? [existing ?? { id: operation.assigneeId, name: person?.name ?? t("Former member"), avatarUrl: person?.avatarUrl }] : [];
     return { assignees: people, assignee: people[0] };
 }
 function snapshot(operation: TriageOperation, comments: ProjectCommentView[]): BulkTriageInput {
@@ -171,7 +171,7 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
         // The bar stays for the outcome and the next action, with the threads that need attention still selected
         setExplicit(true);
         start(async () => {
-            for (const item of batch.items) update({ id: item.id, patch: patchFor(batch, assignees, originals.get(item.id) && commentAssignees(originals.get(item.id)!)) });
+            for (const item of batch.items) update({ id: item.id, patch: patchFor(batch, assignees, originals.get(item.id) && commentAssignees(originals.get(item.id)!), t) });
             const rollback = (id: string) => {
                 const original = originals.get(id);
                 if (original) update({ id, patch: { priority: original.priority, resolved: original.resolved, inProgress: original.inProgress, assignees: commentAssignees(original), assignee: original.assignee } });

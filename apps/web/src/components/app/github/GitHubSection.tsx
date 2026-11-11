@@ -166,7 +166,7 @@ function GitHubManagement({ projectId, settings }: { projectId: string; settings
     const canSync = settings.configured && connection.status === 'connected';
     return <div className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-2">
-            {(connection.enabled || canSync) && <Button type="button" variant="outline" disabled={pending} onClick={() => change(connection.enabled ? t("disable") : t("enable"))}>
+            {(connection.enabled || canSync) && <Button type="button" variant="outline" disabled={pending} onClick={() => change(connection.enabled ? 'disable' : 'enable')}>
                 {pending && <Spinner data-icon="inline-start" />}{connection.enabled ? t("Turn GitHub sync off") : t("Turn GitHub sync on")}
             </Button>}
             {canSync && connection.enabled && <Button type="button" variant="outline" disabled={pending || Boolean(connection.backfill && !connection.backfill.done)} onClick={() => change('backfill')}>{t("Backfill GitHub feedback")}</Button>}

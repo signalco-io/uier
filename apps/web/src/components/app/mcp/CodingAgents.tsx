@@ -115,14 +115,14 @@ function ClientSetup({ endpoint }: { endpoint: string }) {
                                         <p className="m-0 text-muted-foreground">{t("Your browser opens uier, where you approve the connection. It then shows up under Connected apps.")}</p>
                                     </Step>
                                 </ol>
-                                <p className="m-0 text-muted-foreground">{t("Already added uier with an")}{' '}<code>{t("Authorization")}</code> {t("header, for example in")}{' '}<code>{t(".mcp.json")}</code>{t("? Remove that header first.")}{' '}{client.name} {t("does not sign in while it is set.")}{' '}<a className={link} href={client.docs} target="_blank" rel="noreferrer">{client.name} {t("documentation")}</a></p>
+                                <p className="m-0 text-muted-foreground">{t("Already added uier with an")}{' '}<code>{"Authorization"}</code> {t("header, for example in")}{' '}<code>{".mcp.json"}</code>{t("? Remove that header first.")}{' '}{client.name} {t("does not sign in while it is set.")}{' '}<a className={link} href={client.docs} target="_blank" rel="noreferrer">{client.name} {t("documentation")}</a></p>
                             </>
                             : <>
                                 <ol className="m-0 flex list-none flex-col gap-4 p-0">
                                     <Step number={1} title={t("Create an access token")}>
                                         <p className="m-0 text-muted-foreground">{client.name} {t("uses an access token. Create one under")}{' '}<a className={link} href="#access-tokens">{t("Access tokens")}</a> {t("below.")}</p>
                                     </Step>
-                                    <Step number={2} title={<>{t("Set")}{' '}<code>{t("UIER_MCP_TOKEN")}</code></>}>
+                                    <Step number={2} title={<>{t("Set")}{' '}<code>{"UIER_MCP_TOKEN"}</code></>}>
                                         <p className="m-0 text-muted-foreground">{t("Set it in the environment that starts")}{' '}{client.name}.</p>
                                     </Step>
                                     <Step number={3} title={<>{t("Add uier to")}{' '}<code>{client.location}</code></>}>
@@ -137,7 +137,7 @@ function ClientSetup({ endpoint }: { endpoint: string }) {
                 <details className="rounded-lg border">
                     <summary className="cursor-pointer px-4 py-3 font-medium">{t("Other clients")}</summary>
                     <div className="flex flex-col gap-3 px-4 pb-4 text-muted-foreground">
-                        <p className="m-0">{t("Claude on the web, desktop and mobile is not offered yet. Its custom connector has not been checked against uier’s sign-in. Request headers for custom connectors are in beta for a limited set of organizations. Where they are available on an individual plan, a custom connector can use the endpoint URL, No sign-in, and")}{' '}<code>{t("Authorization: Bearer <access token>")}</code> {t("under Request headers. Claude connects from Anthropic’s servers and cannot reach a local endpoint. Team and Enterprise plans would share your personal token, so do not use one there.")}{' '}<a className={link} href="https://claude.com/docs/connectors/custom/add-unlisted#authenticate-with-request-headers" target="_blank" rel="noreferrer">{t("Claude connector documentation")}</a></p>
+                        <p className="m-0">{t("Claude on the web, desktop and mobile is not offered yet. Its custom connector has not been checked against uier’s sign-in. Request headers for custom connectors are in beta for a limited set of organizations. Where they are available on an individual plan, a custom connector can use the endpoint URL, No sign-in, and")}{' '}<code>{"Authorization: Bearer <access token>"}</code> {t("under Request headers. Claude connects from Anthropic’s servers and cannot reach a local endpoint. Team and Enterprise plans would share your personal token, so do not use one there.")}{' '}<a className={link} href="https://claude.com/docs/connectors/custom/add-unlisted#authenticate-with-request-headers" target="_blank" rel="noreferrer">{t("Claude connector documentation")}</a></p>
                         <p className="m-0">{t("VS Code is not offered until a connection can be verified. Its")}{' '}<a className={link} href="https://code.visualstudio.com/docs/agents/reference/mcp-configuration" target="_blank" rel="noreferrer">{t("MCP documentation")}</a> {t("describes masked secret inputs.")}</p>
                         <p className="m-0">{t("Windsurf is not offered until a connection can be verified. Its")}{' '}<a className={link} href="https://docs.devin.ai/desktop/cascade/mcp" target="_blank" rel="noreferrer">{t("current documentation")}</a> {t("describes legacy Cascade in Devin Desktop.")}</p>
                     </div>
@@ -167,7 +167,7 @@ function PromptsAndSkill() {
                         <span className="text-muted-foreground">{t(prompt.description)}</span>
                     </li>)}
                 </ul>
-                <p className="m-0">{t("Copy or download this skill and save it as")}{' '}<code>{t("uier-feedback/SKILL.md")}</code> {t("in your client’s skills folder. It uses the same workflow as the prompts.")}</p>
+                <p className="m-0">{t("Copy or download this skill and save it as")}{' '}<code>{"uier-feedback/SKILL.md"}</code> {t("in your client’s skills folder. It uses the same workflow as the prompts.")}</p>
                 <a download="SKILL.md" href={`data:text/markdown;charset=utf-8,${encodeURIComponent(skill)}`} className={cn(buttonVariants({ variant: 'outline' }), 'self-start')}>
                     <DownloadIcon data-icon="inline-start" />
                     {t("Download SKILL.md")}{' '}</a>

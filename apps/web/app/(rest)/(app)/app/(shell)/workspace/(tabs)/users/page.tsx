@@ -63,7 +63,7 @@ const columnsGroup = 'gap-0 divide-y @2xl:grid @2xl:grid-cols-[auto_minmax(12rem
 const columnsRow = 'rounded-none @2xl:col-span-full @2xl:grid @2xl:grid-cols-subgrid';
 
 /** Internal or External; nothing while unspecified */
-const relationshipLabels: Record<string, string> = { internal: 'Internal', external: 'External' };
+const relationshipLabels = { internal: 'Internal', external: 'External' } as const;
 
 async function RoleBadge({ role }: { role: 'admin' | 'commenter' }) {
     const { t } = await getAppI18n();
@@ -163,7 +163,7 @@ async function UsersPageContent({ searchParams }: PageProps<'/app/workspace/user
                     id="members"
                     title={t("People")}
                     count={shownMembers.length}
-                    description={project ? t("Who can review {value0}.", { value0: projectNames.get(project) }) : t("Admins and commenters of this workspace.")}>
+                    description={project ? t("Who can review {value0}.", { value0: projectNames.get(project) ?? t('Project') }) : t("Admins and commenters of this workspace.")}>
                     <Card className="@container gap-0 py-0">
                         <ItemGroup aria-label={t("People")} className={columnsGroup}>
                             {shownMembers.map(({ member, name, avatarUrl }) => (

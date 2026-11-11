@@ -314,7 +314,7 @@ function AccountAccessChoice({ account, value, onChange }: {
                                 <FieldLegend variant="label" className="break-words">{workspace.name}</FieldLegend>
                                 <Field orientation="horizontal">
                                     <Checkbox id={`workspace-${account.id}-${workspace.id}`} checked={projects === 'all'}
-                                        onCheckedChange={checked => setWorkspace(workspace.id, checked === true ? t("all") : undefined)} />
+                                        onCheckedChange={checked => setWorkspace(workspace.id, checked === true ? 'all' : undefined)} />
                                     <FieldLabel htmlFor={`workspace-${account.id}-${workspace.id}`} className="font-normal">{t("All projects, including new ones")}</FieldLabel>
                                 </Field>
                                 {projects !== 'all' && workspace.projects.map(project => (

@@ -76,11 +76,11 @@ async function ProjectIntegrationsSettingsPageContent({ params }: PageProps<'/ap
                                 </div>
                                 <div className="flex flex-1 flex-col gap-1">
                                     <h3 id={`${provider}-card-title`} className="m-0 text-sm font-semibold">{name}</h3>
-                                    <p className="m-0 text-sm text-muted-foreground">{summary}</p>
+                                    <p className="m-0 text-sm text-muted-foreground">{t(summary)}</p>
                                 </div>
                                 {/* The optional features of its public page and its own page (IntegrationFeatures) */}
                                 <ul aria-label={t("Optional for {value0}", { value0: name })} className="m-0 flex list-none flex-wrap gap-1.5 p-0">
-                                    {integrationCatalog[provider].features.filter(feature => feature.optional).map(feature => <li key={feature.key}><Badge variant="outline">{feature.title}</Badge></li>)}
+                                    {integrationCatalog[provider].features.filter(feature => feature.optional).map(feature => <li key={feature.key}><Badge variant="outline">{t(feature.title)}</Badge></li>)}
                                 </ul>
                                 <div className="flex flex-wrap gap-2">
                                     {states[provider].configured && <a href={integrationConnectHref(provider, project.id)} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
@@ -106,7 +106,7 @@ async function ProjectIntegrationsSettingsPageContent({ params }: PageProps<'/ap
                                     {states[provider].destination && <ItemDescription className="truncate">{states[provider].destination}</ItemDescription>}
                                 </ItemContent>
                                 <ItemActions>
-                                    <Badge variant="secondary">{states[provider].status}</Badge>
+                                    <Badge variant="secondary">{t(states[provider].status)}</Badge>
                                     <ChevronRight className="text-muted-foreground" />
                                 </ItemActions>
                             </Item>

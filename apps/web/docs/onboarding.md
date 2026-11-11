@@ -36,3 +36,5 @@ popover before choosing Invite; clicking that link navigates to Review settings.
   both assets for one year after last release as current; deployment builds carry forward the
   verified uier.io archive. New and retained bundles share a 1,000,000-byte uncompressed size limit.
   Keep the manifest no-store and content-addressed JavaScript immutable with anonymous CORS.
+
+The new-project steps, installation diagnostics and platform instructions follow the app language. Platform/product names and code snippets remain unchanged; only their surrounding guidance is translated. The saved toolbar language is independent of the app language.

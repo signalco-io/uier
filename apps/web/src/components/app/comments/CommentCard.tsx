@@ -417,7 +417,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                 actions={!item.deleted && !edit && (item.canDelete || item.canFilterAuthor || editable) && (
                     <DropdownMenu>
                         <DropdownMenuTrigger render={<Button variant="ghost" size="icon-xs" disabled={pending} className="text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11"
-                                data-reply-actions={item.id} aria-label={t("More actions for reply by {value0}", { value0: item.author.isMe ? 'you' : item.author.name })} />}>
+                                data-reply-actions={item.id} aria-label={t("More actions for reply by {value0}", { value0: item.author.isMe ? t("you") : item.author.name })} />}>
                             <MoreHorizontalIcon />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-auto min-w-48">

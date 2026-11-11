@@ -66,3 +66,5 @@ the list's J and K from the thread, R, S, A, `/`, `?`, the switch and the accoun
 in the app's dialog stops the toolbar's letters on the page and the other way round; the sidebar, My work and
 the workspace tabs, and G with I, B, M and P. `e2e/comment-keyboard.spec.ts` covers the list's arrows.
 The app/toolbar switch case also covers feedback typing and nested shadow-root textareas and contenteditable controls while shortcuts are enabled.
+
+Shortcut descriptions, group headings, symbol names and the single-key setting use the [app language](localization.md). Printed key values and shortcut handlers stay unchanged.

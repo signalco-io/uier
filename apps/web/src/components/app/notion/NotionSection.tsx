@@ -214,7 +214,7 @@ function NotionManagement({ projectId, settings }: { projectId: string; settings
     const canSync = settings.configured && Boolean(settings.dataSourceId) && settings.status === 'connected';
     return <div className="flex flex-col gap-3"><div className="flex flex-wrap gap-2">
         {settings.configured && settings.status !== 'needs_reconnect' && <a href={`/app/notion/connect?project=${encodeURIComponent(projectId)}`} className={buttonVariants({ variant: 'outline' })}>{t("Reconnect Notion")}</a>}
-        {(settings.enabled || canSync) && <Button type="button" variant="outline" disabled={pending} onClick={() => change(settings.enabled ? t("disable") : t("enable"))}>
+        {(settings.enabled || canSync) && <Button type="button" variant="outline" disabled={pending} onClick={() => change(settings.enabled ? 'disable' : 'enable')}>
             {pending && <Spinner data-icon="inline-start" />}{settings.enabled ? t("Turn sync off") : t("Turn sync on")}</Button>}
         {canSync && settings.enabled && <Button type="button" variant="outline" disabled={pending || Boolean(settings.backfill && !settings.backfill.done)} onClick={() => change('backfill')}>{t("Backfill existing feedback")}</Button>}
         <AlertDialog open={confirming} onOpenChange={setConfirming}><AlertDialogTrigger render={<Button type="button" variant="outline" disabled={pending} />}>{t("Disconnect Notion")}</AlertDialogTrigger>

@@ -35,7 +35,7 @@ export function ProjectActionsMenu({ projectId, projectName, status, className }
     const setStatus = (next: ProjectStatus) => startTransition(async () => {
         const result = await setProjectStatusAction(projectId, next);
         if (result && !result.ok) {
-            toast.error(result.error);
+            toast.error(t(result.error));
             return;
         }
         toast.success(next === 'done' ? t("{value0} is marked as done.", { value0: projectName }) : t("{value0} is active again.", { value0: projectName }));

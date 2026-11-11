@@ -1,3 +1,4 @@
+import type { AppI18n } from '../../i18n/types';
 import type { McpScope } from '../scopes';
 import { describeAccess, type AgentAccess, type AccessibleWorkspace, type ClientPresentation, type McpGrant } from './grants';
 
@@ -20,36 +21,37 @@ export type ConnectedAppView = {
     activeCreatedTokenCount: number;
 };
 
-function accessView(access: AgentAccess, accessible: AccessibleWorkspace[]): AccessView {
+function accessView(access: AgentAccess, accessible: AccessibleWorkspace[], i18n?: AppI18n): AccessView {
+    const t = i18n?.t ?? ((message: string) => message);
     const workspaces = access.kind === 'all' ? [] : access.workspaces.map(entry => {
         const workspace = accessible.find(candidate => candidate.workspace.id === entry.workspaceId);
         if (!workspace)
-            return { name: 'A workspace you can no longer open', projects: '' };
+            return { name: t('A workspace you can no longer open'), projects: '' };
         if (entry.projects === 'all')
-            return { name: workspace.workspace.name, projects: 'All projects, including new ones' };
+            return { name: workspace.workspace.name, projects: t('All projects, including new ones') };
         const names = entry.projects.flatMap(id => workspace.projects.find(project => project.id === id)?.name ?? []);
         const unavailable = entry.projects.length - names.length;
         return {
             name: workspace.workspace.name,
-            projects: [...names, ...(unavailable ? [`${unavailable} ${unavailable === 1 ? 'project' : 'projects'} you can no longer open`] : [])].join(', ')
+            projects: [...names, ...(unavailable ? [i18n ? i18n.t(unavailable === 1 ? '{count} project you can no longer open' : '{count} projects you can no longer open', { count: new Intl.NumberFormat(i18n.language).format(unavailable) }) : `${unavailable} ${unavailable === 1 ? 'project' : 'projects'} you can no longer open`] : [])].join(', ')
         };
     });
-    return { all: access.kind === 'all', summary: describeAccess(access), workspaces };
+    return { all: access.kind === 'all', summary: describeAccess(access, i18n), workspaces };
 }
 
 export function connectedAppView(grant: McpGrant & { activeCreatedTokenCount?: number }, accessible: AccessibleWorkspace[],
-    accounts: ConnectedAccountPresentation[] = []): ConnectedAppView {
+    accounts: ConnectedAccountPresentation[] = [], i18n?: AppI18n): ConnectedAppView {
     const includesOtherAccounts = grant.accounts?.some(account => account.userId !== grant.userId);
     const access = includesOtherAccounts ? {
         all: false,
-        summary: `${grant.accounts!.length} ${grant.accounts!.length === 1 ? 'account' : 'accounts'}`,
+        summary: i18n ? i18n.t(grant.accounts!.length === 1 ? '{count} account' : '{count} accounts', { count: new Intl.NumberFormat(i18n.language).format(grant.accounts!.length) }) : `${grant.accounts!.length} ${grant.accounts!.length === 1 ? 'account' : 'accounts'}`,
         workspaces: [],
         accounts: grant.accounts!.map(account => {
             const signedIn = accounts.find(candidate => candidate.userId === account.userId);
-            return { label: signedIn?.email ?? 'Another account',
-                ...accessView(account.access, signedIn?.workspaces ?? []) };
+            return { label: signedIn?.email ?? i18n?.t('Another account') ?? 'Another account',
+                ...accessView(account.access, signedIn?.workspaces ?? [], i18n) };
         })
-    } : accessView(grant.access, accessible);
+    } : accessView(grant.access, accessible, i18n);
     return {
         id: grant.id,
         activeCreatedTokenCount: grant.activeCreatedTokenCount ?? 0,

@@ -245,7 +245,7 @@ function AzureDevOpsManagement({ projectId, settings }: { projectId: string; set
     return <div className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-2">
             {(settings.enabled || canSync) && <Button type="button" variant="outline" disabled={pending}
-                onClick={() => change(settings.enabled && settings.status !== 'paused' ? t("disable") : t("enable"))}>
+                onClick={() => change(settings.enabled && settings.status !== 'paused' ? 'disable' : 'enable')}>
                 {pending && <Spinner data-icon="inline-start" />}{settings.enabled && settings.status !== 'paused' ? t("Turn sync off") : t("Turn sync on")}
             </Button>}
             {canSync && settings.enabled && settings.status === 'connected' && <Button type="button" variant="outline"

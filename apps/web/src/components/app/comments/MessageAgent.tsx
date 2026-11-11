@@ -25,14 +25,14 @@ export function MessageAgent({ author }: { author: ProjectCommentAuthor }) {
                 className="shrink-0 gap-1 px-1 font-normal text-muted-foreground hover:text-foreground pointer-coarse:min-h-11" />}>
                 {t("via")}
                 <AgentMark kind={agent.kind} className="size-3.5 text-foreground" />
-                <span className="text-foreground">{agent.label}</span>
+                <span className="text-foreground">{t(agent.label)}</span>
             </PopoverTrigger>
             <PopoverContent align="start" aria-label={t("{agent} details", { agent: agent.label })} className="w-72 gap-3 p-3">
                 <p className="m-0 text-sm">{t("{agent} wrote this for {author}.", { agent: agent.label, author: author.isMe ? t("you") : author.name })}</p>
                 <Item size="xs" variant="muted">
                     <ItemMedia><AgentAvatar kind={agent.kind} className="size-8" /></ItemMedia>
                     <ItemContent className="min-w-0">
-                        <ItemTitle>{agent.label}</ItemTitle>
+                        <ItemTitle>{t(agent.label)}</ItemTitle>
                         {agent.model
                             ? <ItemDescription data-agent-model="" title={agent.model} className={modelName(agent.model) ? 'truncate' : 'truncate font-mono'}>
                                 {agentModelText({ label: agent.label, model: agent.model })}

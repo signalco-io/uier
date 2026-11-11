@@ -3,7 +3,7 @@
 import { createAppTranslator } from '@/src/lib/i18n/translate';
 import { useAppI18n } from '@/src/lib/i18n/client';
 
-import { assigneeAgents, agentIsWorking, agentLabels, agentMarks, agentText, type AgentKind, type AssigneeAgentView } from '@uier/toolbar/agents';
+import { assigneeAgents, agentIsWorking, agentLabels, agentMarks, agentModelText, type AgentKind, type AssigneeAgentView } from '@uier/toolbar/agents';
 import { useAgentWorking } from '@uier/toolbar/agent-working';
 import { Spinner } from '@/src/components/ui/spinner';
 import { cn } from '@/src/lib/utils';
@@ -53,7 +53,7 @@ export function assignedLabel(assignee: Assignee | Assignee[] | undefined, userI
     return t("Assigned to {people}", { people: people.map(person => {
         const name = person.id === userId ? t("you") : person.name;
         return assigneeAgents(person).reduce((label, agent) => t("{person}, with {agent}{working}", {
-            person: label, agent: agentText(agent), working: agentIsWorking(agent.workingUntil) ? t(", working now") : ''
+            person: label, agent: `${t(agent.label)}${agent.model ? ` ${agentModelText({ label: agent.label, model: agent.model })}` : ''}${agent.reasoning ? ` (${t("{level} reasoning", { level: agent.reasoning })})` : ''}`, working: agentIsWorking(agent.workingUntil) ? t(", working now") : ''
         }), name);
     }).join('; ') });
 }

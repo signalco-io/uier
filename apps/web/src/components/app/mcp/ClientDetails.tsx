@@ -23,7 +23,7 @@ export function ClientName({ client, name = client.name }: { client: ClientPrese
  */
 export function ClientHosts({ client }: { client: ClientPresentation }) {
     const { t } = useAppI18n();
-    const otherHost = client.kind === 'cimd' && client.redirectHost !== null && client.redirectHost !== client.metadataHost;
+    const otherHost = client.kind === 'cimd' && client.redirectHost != null && client.redirectHost !== client.metadataHost;
     return (
         <>
             {client.kind === 'cimd' && client.metadataHost && <span className="block break-words">{t("Published at")}{' '}<span className="font-mono text-[13px]">{client.metadataHost}</span></span>}
@@ -42,7 +42,7 @@ export function ClientNotices({ client }: { client: ClientPresentation }) {
     const notices = [
         ...(client.kind === 'dcr' ? [t('uier cannot confirm who made this app. Its name was supplied by the app.')] : []),
         ...(client.redirectHost === null ? [t('Only continue if you just started this from a coding tool on this computer. Any program on this computer can use this name.')] : []),
-        ...(client.kind === 'cimd' && client.redirectHost !== null && client.redirectHost !== client.metadataHost
+        ...(client.kind === 'cimd' && client.metadataHost && client.redirectHost != null && client.redirectHost !== client.metadataHost
             ? [t('This app sends you back to {redirectHost}, not to {metadataHost}.', { redirectHost: client.redirectHost, metadataHost: client.metadataHost })] : [])
     ];
     if (!notices.length)

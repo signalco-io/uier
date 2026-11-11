@@ -58,3 +58,5 @@ Account section links use Next.js navigation and preserve the document and feedb
   are shown only for accounts currently signed in to that browser. Switching or signing out of browser
   accounts does not revoke the approved MCP connection. Revoke from its managing account ends access
   for all selected profiles. Reconnect and replace it to change the selection. See [MCP connector](mcp-connector.md).
+
+Account controls, profile messages, appearance choices, workspace access and section labels use the [app language](localization.md). App language and Toolbar language are separate saved preferences; native language names remain readable in every language.

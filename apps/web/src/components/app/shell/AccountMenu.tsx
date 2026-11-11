@@ -108,7 +108,7 @@ export function AccountMenu({ name, avatarUrl, accounts }: { name: string; avata
                                 <DropdownMenuSub>
                                     <DropdownMenuSubTrigger>
                                         <UsersIcon />
-                                        {more.length} {t("more")}{' '}{more.length === 1 ? t("account") : t("accounts")}
+                                        {t(more.length === 1 ? '{count} more account' : '{count} more accounts', { count: more.length })}
                                     </DropdownMenuSubTrigger>
                                     <DropdownMenuSubContent className="min-w-56">
                                         <DropdownMenuGroup>

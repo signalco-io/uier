@@ -280,3 +280,12 @@ Direct Board visits use a top-level `next/dynamic` entry to register the server-
 chunk for preload. Keep that path when changing the boundary; a plain lazy import delayed
 hydration of the already visible cards. `e2e/bundle-boundaries.spec.ts` covers List visits without
 a Board chunk request, delayed loading, search retention, direct-visit preload and failed-chunk retry.
+
+## App language
+
+The app's selected language applies to the inbox, board, filters, thread controls and their
+accessible names. `src/lib/i18n/catalogs/comments` holds the six complete catalogs. Shared machine
+values and browser-safe label records stay stable; components translate their display labels.
+Custom feedback type names, comments, project names and other member content remain as written.
+Relative times use the app language and the existing shared clock. A deferred board's loading
+and retry components read the same locale without changing its stable component or chunk boundary.

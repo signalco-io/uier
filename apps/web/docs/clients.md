@@ -50,3 +50,5 @@
   random immutable version and private caching, same as profile pictures. No image bytes or references
   enter review/MCP DTOs. `client-logos.api.spec.ts` covers authorization, validation, replacement/removal,
   conditional conflicts and cleanup; `project-clients.spec.ts` covers the popover and displayed marks.
+
+Client controls, built-in icon/colour labels and empty states follow the app language. Client names, descriptions and chosen environment labels remain user content and are never translated. Mixed client/project pickers translate only their built-in options before appending saved names.
