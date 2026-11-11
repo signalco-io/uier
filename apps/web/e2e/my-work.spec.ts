@@ -123,6 +123,36 @@ test('My work shows its threads on a board: each card names its project, moves s
     await expect(page.getByRole('list', { name: 'Unread', exact: true })).toContainText('Checkout total is wrong');
 });
 
+test('My work keeps its board and open thread when the last thread there stops needing you', async ({ page, request }) => {
+    await signIn(page, uniqueEmail('my-work-board-last'));
+    const project = await createProject(page, { urls: [site.origin()], name: 'Shop' });
+    await setProjectAccess(page, project, 'Anyone with the link');
+    const headers = await verifiedReviewHeaders(request, project, site.origin());
+    const response = await request.post(`/api/review/${project}/comments`, { headers, data: {
+        path: `/${project}/pricing`, text: 'Checkout total is wrong', authorName: 'Guest', position: { type: 'page' }, kind: 'feedback'
+    } });
+    expect(response.status()).toBe(201);
+    const card = page.locator('[data-board-card]').filter({ hasText: 'Checkout total is wrong' });
+
+    // Shown, the only unread thread is read and nothing needs you any more, but the board and the open thread stay
+    await page.goto('/app/my-work?view=board');
+    await card.getByRole('link').first().click();
+    const thread = page.getByRole('dialog').getByRole('article');
+    await expect(thread).toContainText('Checkout total is wrong');
+    await expect(thread.getByRole('button', { name: 'Unread. Mark as read', exact: true })).toHaveCount(0);
+    await page.waitForLoadState('networkidle');
+    await expect(thread).toContainText('Checkout total is wrong');
+    await page.keyboard.press('Escape');
+    await expect(card).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Board', exact: true })).toBeVisible();
+    await expect(page.getByText('Nothing needs you', { exact: true })).toHaveCount(0);
+
+    // Loaded again, it has left, and List/Board goes with it
+    await page.reload();
+    await expect(page.getByText('Nothing needs you', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Board', exact: true })).toHaveCount(0);
+});
+
 test('My work says so when nothing needs you', async ({ page }) => {
     await signIn(page, uniqueEmail('my-work-empty'));
     await page.goto('/app/my-work');

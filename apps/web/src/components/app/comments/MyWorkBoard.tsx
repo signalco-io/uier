@@ -34,7 +34,8 @@ export function MyWorkViewToggle() {
 }
 
 /**
- * My work's threads as its grouped lists (`list`, rendered by the page) or on a board. With no view in the address the
+ * My work's threads as its grouped lists (`list`, rendered by the page) or on a board, and `empty` when nothing needs you.
+ * The page renders it empty too, so a board that keeps threads changed on it stays mounted. With no view in the address the
  * one last chosen for My work opens and is written there, in a layout effect like a project's comments, so a page
  * reached in the app paints in it.
  */
@@ -46,7 +47,8 @@ export function MyWorkViews({ list, ...board }: { list: ReactNode } & Parameters
         const remembered = storedCommentsView('my-work');
         if (remembered) setUrlSearchParams({ view: remembered });
     }, [urlView]);
-    return view === 'board' ? <MyWorkBoard {...board} /> : list;
+    if (view === 'board') return <MyWorkBoard {...board} />;
+    return board.items.length ? list : board.empty;
 }
 
 /** Every column in its default order: My work has no project whose saved sorts it could follow */
@@ -63,9 +65,11 @@ const index = (items: readonly MyWorkItem[]) => Object.fromEntries(items.map(ite
  * then leaves it out. It stays on the board with those changes until My work is loaded again, so a card dropped on Done
  * stays there and the open thread stays open; a deleted one goes.
  */
-export function MyWorkBoard({ items, assignees, userId }: {
+export function MyWorkBoard({ items, assignees, userId, empty }: {
     /** Every thread My work lists, its groups together */
     items: MyWorkItem[];
+    /** Shown in place of the board when it has no thread, kept ones included */
+    empty: ReactNode;
     assignees: MyWork['assignees'];
     userId: string;
 }) {
@@ -103,6 +107,7 @@ export function MyWorkBoard({ items, assignees, userId }: {
     useEffect(() => {
         if (openId && !comments.some(comment => comment.id === openId)) setUrlSearchParams({ comment: undefined });
     }, [openId, comments]);
+    if (!shown.length) return empty;
     return (
         <CommentUpdatesProvider value={updateComment}>
             {/* The page header takes the board's width from `data-header-wide` (the My work page sets `--board-width`) */}

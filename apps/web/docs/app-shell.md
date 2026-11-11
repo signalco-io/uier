@@ -147,7 +147,8 @@ the separately bundled review toolbar owns its own query cache.
   project with its own permissions (`allowedStatuses` reads each thread's, `useStatusChanger` takes each thread's project).
   A thread changed on the board (moved, read in the sheet, archived) that stops needing you stays there with those changes
   until My work is loaded again, so a card dropped on Done stays put and the open thread stays open; a deleted one goes
-  (`removed` in `CommentUpdates`). The choice works like a project's (`?view=`, list too, G then I or B) but is remembered
+  (`removed` in `CommentUpdates`). That holds for the last thread too: the page always renders `MyWorkViews`, which shows
+  the empty state itself, and hides List/Board only while that empty state shows (`data-my-work-empty`). The choice works like a project's (`?view=`, list too, G then I or B) but is remembered
   on its own (`commentsView.ts`, scope `my-work`): choosing Board for a project's triage leaves My work's grouped lists alone,
   and the other way round. On the board the header takes the columns' width (`--board-width`, `data-header-wide`).
   `e2e/my-work.spec.ts` covers it.
