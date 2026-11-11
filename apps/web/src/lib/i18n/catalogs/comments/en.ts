@@ -18,7 +18,6 @@ const messages = {
     "1 more issue": "1 more issue",
     "1 page": "1 page",
     "1 thread marked as read.": "1 thread marked as read.",
-    "@ to mention": "@ to mention",
     "Accessibility": "Accessibility",
     "Accessibility issues": "Accessibility issues",
     "Across pages": "Across pages",

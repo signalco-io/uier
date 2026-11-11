@@ -19,7 +19,6 @@ const messages: Record<keyof typeof en, string> = {
     "1 more issue": "1 problem više",
     "1 page": "1 stranica",
     "1 thread marked as read.": "1 rasprava označena kao pročitana.",
-    "@ to mention": "@ za spominjanje",
     "Accessibility": "Pristupačnost",
     "Accessibility issues": "Problemi pristupačnosti",
     "Across pages": "Na više stranica",

@@ -19,7 +19,6 @@ const messages: Record<keyof typeof en, string> = {
     "1 more issue": "1 problème en plus",
     "1 page": "1 page",
     "1 thread marked as read.": "1 fil marqué comme lu.",
-    "@ to mention": "@ pour mentionner",
     "Accessibility": "Accessibilité",
     "Accessibility issues": "Problèmes d’accessibilité",
     "Across pages": "Sur plusieurs pages",

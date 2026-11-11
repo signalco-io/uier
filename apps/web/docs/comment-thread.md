@@ -112,8 +112,8 @@
   `e2e/editing.spec.ts` checks that missing client hints fall back to parsed browser and OS names,
   without sending the raw user-agent string or exposing reproduction details on public feedback.
 - Every place the app takes a message uses one composer, `comments/MessageComposer.tsx`, laid out as the toolbar's
-  `CommentComposer`: one box (shadcn `InputGroup`) with the text and, inside it under the text, the hint ("@ to mention",
-  or the character count from 900 of 1000) on the left and the buttons on the right (the surface's cancel, Discard while
+  `CommentComposer`: one box (shadcn `InputGroup`) with the text and, inside it under the text, the character count
+  (from 900 of 1000; no visible "@ to mention" hint, uier #287) on the left and the buttons on the right (the surface's cancel, Discard while
   there is text, then the send icon button with its tooltip or a Save text button); under the box the mention list,
   the error and notices. No visible keyboard hint ([uier #175](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_B5Zp66h_oPH67ZI1HAbRV)):
   the keyboard shortcuts dialog lists Enter, Shift+Enter and Esc under "The open thread", and the field is

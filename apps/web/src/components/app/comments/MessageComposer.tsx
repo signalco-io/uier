@@ -13,10 +13,10 @@ import { useMentionTextarea, type MessageMention } from './MentionTextarea';
 
 /**
  * Where a person writes a message in the app: a reply, or a message edited in place. One layout everywhere, as
- * the toolbar's composer: a box with the text and, inside it under the text, the mention hint or the character
- * count and the buttons (cancel, Discard, then send or Save); under the box, the mention list, the error and the
- * notices. What Enter, Shift+Enter and Escape do is said to screen readers only (the keyboard shortcuts dialog lists
- * them for everyone). The field takes the focus with the caret at the end when it opens.
+ * the toolbar's composer: a box with the text and, inside it under the text, the character count (from 900 of 1000)
+ * and the buttons (cancel, Discard, then send or Save); under the box, the mention list, the error and the
+ * notices. The `@` mentions (uier #287) and what Enter, Shift+Enter and Escape do are said to screen readers only
+ * (the keyboard shortcuts dialog lists the keys for everyone). The field takes the focus with the caret at the end when it opens.
  *
  * A surface switches features through its props: `mentionsIn` for `@` mentions, `onCancel` for its cancel button
  * (`escapeCancels` makes Escape press it), `onDiscard` for Discard. `submitVerb` "send" shows the send icon button
@@ -98,7 +98,7 @@ export function MessageComposer({ label, formLabel = label, name, placeholder, v
                         {attachments}
                         <span id={hintId} className={`min-w-0 truncate text-xs tabular-nums ${value.length >= maxLength ? 'text-destructive' : 'text-muted-foreground'}`}>
                             {counting ? <>{value.length}/{maxLength}<span className="sr-only">{t(" characters")}</span></>
-                                : mentionsIn && <><span aria-hidden="true">{t("@ to mention")}</span><span className="sr-only">{t("Type @ to mention someone with access.")}</span></>}
+                                : mentionsIn && <span className="sr-only">{t("Type @ to mention someone with access.")}</span>}
                         </span>
                     </div>
                     <div className="flex shrink-0 items-center gap-0.5">

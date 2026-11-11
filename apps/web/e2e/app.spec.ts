@@ -1052,6 +1052,8 @@ test('reply from list and board with mentions, keyboard input and local drafts',
         await expect(input).toBeFocused();
         // The shared message composer: its hints and buttons in one box
         await expect(input).toHaveAccessibleDescription('Type @ to mention someone with access. Enter to send. Shift+Enter for a new line.');
+        // Mentions are said to screen readers only, with no visible hint (uier #287)
+        await expect(card.getByText('@ to mention', { exact: true })).toHaveCount(0);
         await expect(card.getByRole('form', { name: 'Reply to thread' }).getByRole('group').getByRole('button', { name: 'Post reply' })).toBeDisabled();
         await input.fill('Keep this draft');
         await card.getByRole('button', { name: 'Close reply' }).click();
