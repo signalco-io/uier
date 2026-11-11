@@ -8,8 +8,10 @@ import { withNotificationEvent } from '../notifications/events';
 import type { Container, DeleteOperation, OperationInput, SqlParameter } from '@azure/cosmos';
 import { commentSequenceId, isCommentDocument, screenshotDocumentId, syncTombstoneId, type DbComment, type DbCommentActivity, type DbCounter, type DbScreenshot, type DbSequence, type DbSubmission, type DbSyncTombstone } from '../db/schema';
 import { cosmosDataContainerComments } from '../db/client';
-import { cosmosPoint, cosmosQueryAll } from '../db/diagnostics';
+import { cosmosMeasurement, cosmosPoint, cosmosQueryAll } from '../db/diagnostics';
 import { syncPendingPageLimit, type AppendResult, type CommentsStore, type ConditionalWriteResult, type StoredComment } from './commentsStore';
+import { candidateBudget, commentCandidateProjection, CommentQueryBudgetError, normalizeCandidate, throwIfQueryAborted, validateCandidatePredicate, type CommentQueryCandidate } from './commentQuerySource';
+import { withCommentQueryMetadata } from './queryMetadata';
 
 function errorCode(error: unknown): number | string | undefined {
     return typeof error === 'object' && error !== null && 'code' in error
@@ -17,9 +19,9 @@ function errorCode(error: unknown): number | string | undefined {
         : typeof error === 'object' && error !== null && 'cause' in error ? errorCode(error.cause) : undefined;
 }
 
-/** Removes Cosmos system properties (`_rid`, `_self`, `_etag`, `_attachments`, `_ts`) */
+/** Canonical reads omit Cosmos system properties and internal query optimization fields. */
 function withoutSystemProperties<T = DbComment>(resource: Record<string, unknown>): T {
-    return Object.fromEntries(Object.entries(resource).filter(([key]) => !key.startsWith('_'))) as T;
+    return Object.fromEntries(Object.entries(resource).filter(([key]) => !key.startsWith('_') && key !== 'queryMetadata')) as T;
 }
 
 // Matches the normalized path and old documents whose path still contains the query string (e.g. `/x?review=true`)
@@ -42,6 +44,59 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
         return resources;
     }
     const store: CommentsStore = {
+        async queryCandidates(domain, options = {}) {
+            validateCandidatePredicate(options.predicate);
+            const budget = candidateBudget(options);
+            throwIfQueryAborted(options.signal);
+            const visibility = visibilitySql(options.visibility);
+            const origin = originSql(options.origin);
+            const container = getContainer();
+            const deadline = AbortSignal.timeout(budget.durationMs);
+            const signal = options.signal ? AbortSignal.any([options.signal, deadline]) : deadline;
+            // Scope and visibility are mandatory WHERE terms, ahead of any optional query expression.
+            // There is no TOP: a resource budget rejects the entire operation rather than returning
+            // a recent window that could falsely appear to be the complete filtered result.
+            const iterator = container.items.query<CommentQueryCandidate>({
+                query: `SELECT ${commentCandidateProjection} FROM c WHERE c.domain = @domain AND IS_STRING(c.path)`
+                    + visibility.clause + origin.clause + archiveSql(options.archive)
+                    + (options.predicate ? ` AND (${options.predicate.clause})` : ''),
+                parameters: [{ name: '@domain', value: domain }, ...visibility.parameters, ...origin.parameters,
+                    ...(options.predicate?.parameters ?? [])]
+            }, { partitionKey: domain, maxItemCount: 100, abortSignal: signal });
+            const measurement = cosmosMeasurement({ operation: 'comments.query-candidates', container: container.id, partition: 'single' });
+            const start = performance.now();
+            const candidates: CommentQueryCandidate[] = [];
+            let bytes = 0, requestCharge = 0;
+            const checkBudget = () => {
+                throwIfQueryAborted(options.signal);
+                if (candidates.length > budget.candidates || bytes > budget.bytes || requestCharge > budget.requestCharge
+                    || performance.now() - start > budget.durationMs) throw new CommentQueryBudgetError();
+            };
+            try {
+                // Empty pages can still carry continuation. Only the SDK decides when the query ends.
+                while (iterator.hasMoreResults()) {
+                    checkBudget();
+                    const response = await iterator.fetchNext();
+                    measurement.add(response, response.resources?.length ?? 0, true);
+                    requestCharge += Number(response.requestCharge ?? 0);
+                    for (const row of response.resources ?? []) {
+                        const candidate = normalizeCandidate(row);
+                        bytes += Buffer.byteLength(JSON.stringify(candidate));
+                        candidates.push(candidate);
+                        checkBudget();
+                    }
+                    checkBudget();
+                }
+                measurement.finish();
+                return candidates;
+            } catch (error) {
+                measurement.add(error, 0);
+                measurement.finish(true);
+                throwIfQueryAborted(options.signal);
+                if (deadline.aborted) throw new CommentQueryBudgetError();
+                throw error;
+            }
+        },
         async listRealtime(domain) {
             return queryAll('realtime', domain,
                 'SELECT c.id, c.domain, c.path, c.private, c.authorId, c._etag AS revision FROM c WHERE c.domain = @domain AND IS_STRING(c.path)', []);
@@ -157,11 +212,12 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
         },
         async commitSubmission(receipt, comment, etag, screenshot) {
             const image = screenshot ? await storeScreenshotBytes(screenshot, getBlobs()) : undefined;
+            const prepared = withCommentQueryMetadata(comment);
             const operations: OperationInput[] = [
                 { operationType: 'Create', resourceBody: receipt },
                 etag
-                    ? { operationType: 'Replace', id: comment.id, resourceBody: comment, ifMatch: etag }
-                    : { operationType: 'Create', resourceBody: comment },
+                    ? { operationType: 'Replace', id: comment.id, resourceBody: prepared, ifMatch: etag }
+                    : { operationType: 'Create', resourceBody: prepared },
                 ...(image ? [{ operationType: 'Create' as const, resourceBody: image }] : [])
             ];
             try {
@@ -179,11 +235,11 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
             }
         },
         async create(comment) {
-            await getContainer().items.create<DbComment>(comment);
+            await getContainer().items.create<DbComment>(withCommentQueryMetadata(comment));
         },
         async replace(comment, etag): Promise<ConditionalWriteResult> {
             try {
-                await getContainer().item(comment.id, comment.domain).replace<DbComment>(comment, {
+                await getContainer().item(comment.id, comment.domain).replace<DbComment>(withCommentQueryMetadata(comment), {
                     accessCondition: { type: 'IfMatch', condition: etag }
                 });
                 return 'ok';
@@ -241,7 +297,7 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
                         ...withNotificationEvent(withThreadActivity(current, item.authorId ?? 'legacy', Boolean(item.agent)), item.authorId ?? 'legacy', 'reply', updatedAt),
                         thread: { ...current.thread, items: [...current.thread.items, item] }, updatedAt
                     };
-                    await target.replace(updated, { accessCondition: { type: 'IfMatch', condition: stored.etag } });
+                    await target.replace(withCommentQueryMetadata(updated), { accessCondition: { type: 'IfMatch', condition: stored.etag } });
                     return 'ok';
                 } catch (error) {
                     const code = errorCode(error);
@@ -270,7 +326,7 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
             // Only references participate in Cosmos; uncommitted immutable blobs are swept later.
             try {
                 const response = await getContainer().items.batch([
-                    { operationType: 'Replace', id: comment.id, resourceBody: comment, ifMatch: etag },
+                    { operationType: 'Replace', id: comment.id, resourceBody: withCommentQueryMetadata(comment), ifMatch: etag },
                     { operationType: 'Upsert', resourceBody: image }
                 ], comment.domain);
                 const codes = [response.code, ...(response.result ?? []).map(result => result.statusCode)]

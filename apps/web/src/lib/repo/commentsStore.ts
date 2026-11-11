@@ -7,6 +7,7 @@ import { isCosmosConfigured } from '../db/client';
 import { isLocalRuntime } from '../comments/environment';
 import { createCosmosCommentsStore } from './cosmosCommentsStore';
 import { getMemoryCommentsStore } from './memoryCommentsStore';
+import type { CommentCandidateOptions, CommentQueryCandidate } from './commentQuerySource';
 
 export type StoredComment = {
     comment: DbComment;
@@ -30,6 +31,8 @@ export function syncPendingPageLimit(options: SyncPendingOptions = {}) {
  * except the explicit worker discovery and orphan-image projections.
  */
 export type CommentsStore = {
+    /** All authorized compact candidates; budgets fail explicitly, never return a truncated match set. */
+    queryCandidates(domain: string, options?: CommentCandidateOptions): Promise<CommentQueryCandidate[]>;
     /** Complete partition metadata for realtime detection, including hard deletions; no message text. */
     listRealtime(domain: string): Promise<RealtimeComment[]>;
     /** Indexed syncKey page, including deletion intents: default 100, maximum 1000, ascending. */

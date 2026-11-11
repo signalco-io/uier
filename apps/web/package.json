@@ -35,6 +35,7 @@
     "@simplewebauthn/browser": "14.0.0",
     "@simplewebauthn/server": "14.1.0",
     "@uier/brand": "workspace:*",
+    "@uier/comments-query": "workspace:*",
     "@vercel/analytics": "2.0.1",
     "@vercel/functions": "3.11.0",
     "@vercel/oidc": "4.0.7",

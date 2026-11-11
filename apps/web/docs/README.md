@@ -42,6 +42,7 @@ Product contracts, API references and runbooks stay in the repository's [`docs/`
 
 - [Comments inbox and board](comments-inbox.md): rows, keyboard, the board and drag and drop.
 - [The open thread](comment-thread.md): `CommentCard`, message Markdown, reading when shown, the reply composer.
+- [Comment query backend](comment-query.md): versioned queries, Cosmos execution, capabilities, cursors and saved views.
 - [Comment filters and priority](comment-filters.md): the filter bar and `PriorityFlag`.
 - [App triage](triage.md): search, priority and bulk triage.
 - [In progress](in-progress.md): the In progress stage.

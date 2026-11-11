@@ -255,6 +255,9 @@ importers:
       '@uier/brand':
         specifier: workspace:*
         version: link:../../packages/brand
+      '@uier/comments-query':
+        specifier: workspace:*
+        version: link:../../packages/comments-query
       '@vercel/analytics':
         specifier: 2.0.1
         version: 2.0.1(next@16.4.5(@opentelemetry/api@1.10.0)(@playwright/test@1.65.0)(@types/node@26.6.6)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)
@@ -379,6 +382,12 @@ importers:
       sharp:
         specifier: 0.35.5
         version: 0.35.5(@types/node@26.6.6)
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+
+  packages/comments-query:
+    devDependencies:
       typescript:
         specifier: 7.0.2
         version: 7.0.2

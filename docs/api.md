@@ -774,3 +774,10 @@ precedes storage limits. Activity summaries exclude archived threads from ordina
 badges and add a separate authorized `archived` count. Authorized direct reads, images and v1 exports
 remain compatible; exports add `archivedAt` and an Archived label without changing status/stage.
 No production data migration is required.
+
+## Versioned filtering and ordering
+
+The [comment query backend reference](../apps/web/docs/comment-query.md) documents project,
+workspace, public and review query/count/options/capability endpoints, single-thread detail reads,
+versioned expressions, execution budgets, live keyset cursors, saved views and expiring query links.
+Current app and toolbar screens keep using their existing APIs until the UI migration.
