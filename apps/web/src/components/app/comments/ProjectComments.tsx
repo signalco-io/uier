@@ -29,7 +29,7 @@ import { storedCommentsView } from './commentsView';
 import { orderComments, sortBoardColumn } from './commentOrder';
 import type { BoardColumn, BoardSort } from '../../../lib/app/boardSort';
 import { setBoardArchiveAction, setBoardSortAction } from './actions';
-import { CommentUpdatesProvider, type CommentUpdate } from './CommentUpdates';
+import { applyCommentUpdate, CommentUpdatesProvider, type CommentUpdate } from './CommentUpdates';
 import { TriageSelection } from './TriageSelection';
 import { matchesFeedbackSearch } from '@uier/toolbar/triage';
 import { CommentsSearchNavigationProvider } from './CommentsSearchNavigation';
@@ -121,17 +121,7 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
         setUrlSearchParams({ q: undefined, priority: undefined, status: undefined, people: undefined, page: undefined, unread: undefined }, { history: 'push' });
         document.getElementById('feedback-search')?.focus();
     };
-    const [optimisticComments, updateComment] = useOptimistic(savedComments, (current, update: CommentUpdate) => current.map(comment => {
-        if (comment.id !== update.id) return comment;
-        if ('patch' in update) return { ...comment, ...update.patch };
-        if ('reply' in update) {
-            const saved = comment.replies.some(item => !update.previousReplyIds.includes(item.id) && item.author.isMe && item.text === update.reply.text);
-            return saved ? comment : { ...comment, replies: [...comment.replies, update.reply] };
-        }
-        if (!comment.activity) return comment;
-        const readSequence = Math.max(comment.activity.readSequence, update.readSequence);
-        return { ...comment, activity: { ...comment.activity, readSequence, unread: comment.activity.lastOtherSequence > readSequence } };
-    }));
+    const [optimisticComments, updateComment] = useOptimistic(savedComments, (current, update: CommentUpdate) => current.map(comment => applyCommentUpdate(comment, update)));
     // Priority first (Urgent to Low), then number, highest first: the list, selection and keyboard follow this
     // order. The board's columns each follow the project's sort for them, by default this one in active columns
     // and the completion history in Done.
@@ -300,9 +290,9 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
                     </EmptyHeader>
                 </Empty>
             ) : board ? (
-                <CommentBoard projectId={projectId} columns={columns} sorts={boardSorts} onSort={canSortBoard ? changeSort : undefined}
+                <CommentBoard projectOf={() => ({ id: projectId, assignees })} columns={columns} sorts={boardSorts} onSort={canSortBoard ? changeSort : undefined}
                     archive={{ comments: archived, expanded: archiveExpanded, onExpandedChange: changeArchive }}
-                    allComments={scopeComments} assignees={assignees} userId={userId} openComment={openComment} />
+                    allComments={scopeComments} userId={userId} openComment={openComment} />
             ) : (
                 <CommentInbox projectId={projectId} comments={shown} allComments={scopeComments} assignees={assignees} userId={userId} label={t("Comments")}
                     keeps={status => statusMatches(query.status, status, query.status === 'archived' ? 'archived' : undefined)} readLeaves={Boolean(query.unread)} openComment={openComment} />
