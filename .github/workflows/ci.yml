@@ -164,6 +164,17 @@ jobs:
         timeout-minutes: 5
         run: pnpm -C apps/web exec playwright test --project="Desktop Chrome" --project="Mobile Chrome"
 
+      - name: Build instant navigation artifact
+        if: matrix.suite == 'browser'
+        env:
+          UIER_INSTANT_TEST: '1'
+        run: pnpm exec turbo run build --filter=@uier/web
+
+      - name: Instant navigation contracts
+        if: matrix.suite == 'browser'
+        timeout-minutes: 5
+        run: pnpm -C apps/web exec playwright test --config=playwright.instant.config.ts
+
       - name: Upload Playwright results
         # Successful launch measurements/screenshots are release evidence too.
         if: always() && matrix.suite != 'checks'

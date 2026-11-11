@@ -11,6 +11,11 @@ const toolbarDevOrigin = `http://localhost:${Number(process.env.PORT || 4004) + 
 const nextConfig: NextConfig = {
     cacheComponents: true,
     partialPrefetching: false,
+    experimental: {
+        // Dedicated local/CI test artifacts only. Deployment builds never include the lock API.
+        exposeTestingApiInProductionBuild: process.env.UIER_INSTANT_TEST === '1'
+            && !process.env.VERCEL && !process.env.VERCEL_ENV && !process.env.UIER_DEPLOYMENT_ENV,
+    },
     reactStrictMode: true,
     env: {
         // The deployment environment (production or preview), inlined at build time: the deploy

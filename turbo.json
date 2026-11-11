@@ -16,7 +16,7 @@
                 "public/toolbar-fonts/**",
                 "public/toolbar/**"
             ],
-            "env": ["SITE_URL", "UIER_DEPLOYMENT_ENV", "VERCEL_ENV", "UIER_TOOLBAR_RETAIN_FROM", "GITHUB_SHA"]
+            "env": ["SITE_URL", "UIER_DEPLOYMENT_ENV", "VERCEL_ENV", "VERCEL", "UIER_INSTANT_TEST", "UIER_TOOLBAR_RETAIN_FROM", "GITHUB_SHA"]
         },
         "typecheck": {
             "dependsOn": ["^build"],

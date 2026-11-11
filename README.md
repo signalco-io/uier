@@ -90,6 +90,7 @@ Run these from the repository root:
 | `pnpm build` | Build the toolbar, website and all browser extensions for production |
 | `pnpm test` | Run all API tests and essential browser journeys against the production build |
 | `pnpm test:full` | Run the full desktop/mobile browser regression suite and API tests |
+| `PORT=4314 pnpm test:instant` | Build a dedicated test artifact and verify meaningful instant UI on desktop, mobile and tablet ([rig](apps/web/instant-nav.rig.md)) |
 
 Before the first test run, install Chromium:
 

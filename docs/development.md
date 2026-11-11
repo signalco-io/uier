@@ -181,6 +181,7 @@ Run from the repository root (each one runs the matching script in every package
 | `pnpm typecheck` | TypeScript checks |
 | `pnpm test` | All API tests and essential browser journeys against the built app (`next start` on `PORT`, default 4004, in-memory comments store) |
 | `pnpm test:full` | All API and desktop/mobile browser regression tests |
+| `PORT=4314 pnpm test:instant` | Dedicated production test build and meaningful instant UI contracts on desktop, mobile and tablet ([rig](../apps/web/instant-nav.rig.md)); never deploy this artifact |
 | `pnpm -C packages/brand icons` | Re-render the PNG icon set in `apps/web/public` from the brand mark |
 
 Before the first `pnpm test`, install the Playwright browser:
