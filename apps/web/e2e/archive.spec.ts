@@ -82,6 +82,8 @@ test('the board shows Archive as its last column, collapsed until someone expand
 
     // Archiving from the board's sheet moves the card out of its column; the count follows
     let thread = await openComment(page, 1);
+    // The emulated mouse stays where the card was, which on a phone is over the thread's device icon: away from it, so its hover card stays shut
+    await page.mouse.move(0, page.viewportSize()!.height - 1);
     await thread.getByRole('button', { name: /^More actions for the comment/ }).click();
     await page.getByRole('menuitem', { name: 'Archive comment', exact: true }).click();
     await expect(thread.getByText('Archived', { exact: true })).toBeVisible();

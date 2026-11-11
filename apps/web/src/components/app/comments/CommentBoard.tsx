@@ -519,25 +519,26 @@ export function CommentBoard({ projectOf, columns, sorts, onSort, archive, allCo
                     if (comment && status && takes(comment, status)) move(comment, status, 'drag');
                 }}
                 onDragCancel={endDrag}>
-                {/* From md (tablets too) the board takes the panel's width while the page around it keeps the reading
-                    width, with one row of equal columns, one per status however many there are. A column is 18rem to
-                    20rem (four fill a 1674 px window with the sidebar open) and the row is centred beyond that; when
+                {/* The board takes the panel's width while the page around it keeps the reading width, with one row of
+                    equal columns, one per status however many there are, on a phone too (uier #305). A column is 18rem to
+                    20rem (four fill a 1674 px window with the sidebar open), on a phone at most the page's width less 3rem
+                    so the next column peeks in, and the row is centred beyond that; when
                     the columns don't fit, the board scrolls sideways (`data-board-scroll`, a swipe on a touch screen) instead
                     of squeezing them. The scroller runs edge to edge of the panel and is padded by the page gutter
                     (`page-bleed`), so the first and last columns line up with the page at either end and the rest scroll under
                     the panel's edges; room for a column's drop ring above and below (`py-1`); not up and down
-                    (`overflow-y-clip`), the page does that. A phone stacks the columns.
+                    (`overflow-y-clip`), the page does that.
                     Archive comes last: a 3rem strip while collapsed, a column like the others when expanded
                     (`--board-columns`, so the statuses stay data-driven).
                     While a card is dragged every column is as tall as the longest, so any part of it takes the card. */}
                 <LayoutMotion container={grid} item="data-board-card" skip={settling}>
                 <div ref={grid} data-page-width="wide" data-board-scroll=""
-                    style={{ '--board-columns': `repeat(${statuses.length + (archiveExpanded ? 1 : 0)}, minmax(18rem, 20rem))${archive && !archiveExpanded ? ' 3rem' : ''}` } as CSSProperties}
+                    style={{ '--board-columns': `repeat(${statuses.length + (archiveExpanded ? 1 : 0)}, minmax(min(18rem, var(--page-wide) - 3rem), 20rem))${archive && !archiveExpanded ? ' 3rem' : ''}` } as CSSProperties}
                     onFocus={event => {
                         const id = event.target.closest<HTMLElement>('[data-board-card]')?.dataset.boardCard;
                         if (id && id !== focusId) setFocusId(id);
                     }}
-                    className={cn('relative grid grid-cols-1 items-start gap-4 md:page-bleed md:grid-cols-(--board-columns) md:justify-center-safe md:overflow-x-auto md:overflow-y-clip md:overscroll-x-contain md:py-1', drag && 'md:items-stretch')}>
+                    className={cn('relative grid grid-cols-(--board-columns) items-start justify-center-safe gap-4 overflow-x-auto overflow-y-clip overscroll-x-contain py-1 page-bleed', drag && 'items-stretch')}>
                     {statuses.map(status => {
                         const state = columnState(status);
                         const cards = columns[status];

@@ -72,7 +72,8 @@ async function dragWithTouch(page: Page, card: Locator, target: Locator) {
     await expect(dragPreview(page)).toBeVisible();
     await expect(card).not.toHaveAttribute('data-hold');
     const to = (await target.boundingBox())!;
-    const end = { x: to.x + to.width / 2, y: to.y + 40 };
+    // On a phone the column beside only peeks in at the window's edge: aim at the part on screen
+    const end = { x: Math.min(to.x + to.width / 2, page.viewportSize()!.width - 12), y: to.y + 40 };
     for (let step = 1; step <= 10; step++)
         await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: start.x + (end.x - start.x) * step / 10, y: start.y + (end.y - start.y) * step / 10 }] });
     await expect(target).toHaveAttribute('data-drop', 'over');
@@ -163,7 +164,7 @@ function pageParts(page: Page) {
 const boardStatuses = ['Open', 'In progress', 'Ready to verify', 'Done'];
 
 test('the board widens on a wide window, the filters and project headers and the count line with it; the page stays in the reading column', async ({ page, request }, testInfo) => {
-    test.skip(testInfo.project.name.startsWith('Mobile'), 'Desktop windows; a phone shows one column either way');
+    test.skip(testInfo.project.name.startsWith('Mobile'), 'Desktop windows; a phone has its own test');
     // The window the feedback came from
     await page.setViewportSize({ width: 1674, height: 1366 });
     const { column } = await board(page, request);
@@ -378,14 +379,23 @@ test('a long thread scrolls in the board\'s sheet on a short window, down to Rep
     expect(await sheet.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
 });
 
-test('on a phone the board stacks its columns without scrolling sideways', async ({ page, request }, testInfo) => {
+test('on a phone the board keeps its columns in one row that scrolls sideways, the next one peeking in', async ({ page, request }, testInfo) => {
     test.skip(!testInfo.project.name.startsWith('Mobile'), 'The phone layout');
     const { column } = await board(page, request);
+    const width = page.viewportSize()!.width;
     const open = (await column('Open').boundingBox())!;
+    const inProgress = (await column('In progress').boundingBox())!;
     const done = (await column('Done').boundingBox())!;
-    expect(done.y).toBeGreaterThan(open.y + open.height);
+    expect(inProgress.y).toBeCloseTo(open.y, 0);
     expect(done.width).toBeCloseTo(open.width, 0);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()!.width);
+    // Near the phone's width, lined up with the page, and the next column starts on screen
+    expect(open.x).toBeCloseTo(16, 0);
+    expect(open.width).toBeGreaterThan(width * 0.6);
+    expect(inProgress.x).toBeLessThan(width);
+    // The board scrolls sideways (a swipe), the page does not
+    const grid = page.locator('[data-board-scroll]');
+    expect(await grid.evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
 });
 
 test('the List/Board choice is remembered and kept in the address; a view in the address wins', async ({ page, request }) => {
@@ -777,7 +787,7 @@ test('board cards move when held and moved on a touch screen; a long press held 
     await expect(selectionBar(page)).toHaveCount(0);
     // No Move on a card: held then moved it drags, a tap opens the thread and its status menu
     await expect.poll(() => moveShown(column('Open').getByRole('button', { name: `Move comment #${comments[0]!.number}`, exact: true }))).toBe(false);
-    // The phone stacks the columns: In progress is the one below Open, on the screen
+    // In progress is the column beside Open, peeking in at the phone's edge
     await dragWithTouch(page, card('Open', 'First board thread'), column('In progress'));
     await expect(column('In progress').getByRole('listitem')).toHaveCount(1);
     await expect(dragPreview(page)).toHaveCount(0);
