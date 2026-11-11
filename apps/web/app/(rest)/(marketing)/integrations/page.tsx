@@ -4,6 +4,7 @@ import { SuggestIntegrationButton } from '../../../../src/components/marketing/S
 import { IntegrationLogo } from '../../../../src/components/app/integrations/IntegrationLogo';
 import { KnownPageLinks } from '../../../../src/knownPages';
 import { integrationCatalog, type IntegrationCatalogEntry, type IntegrationCatalogKey } from '../../../../src/lib/integrations/catalog';
+import { IntegrationsCover } from './IntegrationsCover';
 
 export const metadata = publicPageMetadata('/integrations', { title: 'Integrations', description: 'Connect website feedback to Notion, GitHub, Linear, Azure DevOps and Slack.' });
 
@@ -18,6 +19,7 @@ const shared = [
 export default function IntegrationsPage() {
     return <main className="flex flex-col pb-16">
         <PageHeader title="Keep feedback with your work" lead="Connect a uier project to the tools your team uses. Each service has its own destination and controls." />
+        <IntegrationsCover />
         <PageSection id="services" title="Choose a service" wide>
             <Panel as="ul" className="md:grid-cols-2">
                 {(Object.entries(integrationCatalog) as [IntegrationCatalogKey, IntegrationCatalogEntry][]).map(([key, integration]) => (
