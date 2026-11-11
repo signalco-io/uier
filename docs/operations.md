@@ -308,7 +308,7 @@ A ruleset on `main` requires a pull request with a passing **`CI OK`** check and
 
 [`/.well-known/security.txt`](https://uier.io/.well-known/security.txt) is a static UTF-8 text
 file in `apps/web/public/.well-known/`, following [RFC 9116](https://www.rfc-editor.org/rfc/rfc9116.html).
-It publishes the existing `security@signalco.io` reporting contact and links to the repository's
+It publishes the `security@uier.io` reporting contact and links to the repository's
 [security policy](../SECURITY.md). `/security.txt` permanently redirects to the canonical path.
 
 Review the contact and policy when renewing the fixed `Expires` date, keeping the new expiry

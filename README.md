@@ -191,7 +191,7 @@ Bug reports, ideas and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING
 workflow, code conventions and checks. Coding agents should also read [AGENTS.md](AGENTS.md).
 Report security problems through [SECURITY.md](SECURITY.md).
 
-For product help, email [contact@signalco.io](mailto:contact@signalco.io). The
+For product help, email [contact@uier.io](mailto:contact@uier.io). The
 [support guide](SUPPORT.md) links to setup, troubleshooting, privacy and service status.
 
 ## License

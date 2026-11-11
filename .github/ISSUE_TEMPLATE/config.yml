@@ -2,7 +2,7 @@ blank_issues_enabled: true
 contact_links:
   - name: Product help
     url: https://github.com/signalco-io/uier/blob/main/SUPPORT.md
-    about: Find setup guides, or email contact@signalco.io for account and setup help.
+    about: Find setup guides, or email contact@uier.io for account and setup help.
   - name: Report a security problem
     url: https://uier.io/security
     about: Follow the security policy and report vulnerabilities privately.

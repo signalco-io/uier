@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-Email **security@signalco.io** (uier is a signalco project). Please do not open a public issue for a
+Email **security@uier.io** (uier is a signalco project). Please do not open a public issue for a
 security problem.
 
 The machine-readable reporting contact is at

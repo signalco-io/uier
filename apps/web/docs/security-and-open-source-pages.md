@@ -1,6 +1,6 @@
 # Security and open source pages
 
-`public/.well-known/security.txt` publishes the existing reporting contact and repository policy
+`public/.well-known/security.txt` publishes the security@uier.io reporting contact and repository policy
 using RFC 9116. `next.config.ts` redirects `/security.txt` to that canonical location. Keep its
 contact aligned with `brand.contact.security` and `SECURITY.md`, and renew its fixed `Expires`
 date before it passes; requests and builds must not silently extend it. `e2e/seo.api.spec.ts`

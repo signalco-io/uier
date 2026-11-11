@@ -24,6 +24,10 @@ that portal checks, hosted OAuth acceptance or reviewer test cases have passed. 
 recordings cannot be manufactured from local package checks. Keep these gates visible until the
 owner supplies them. No public Claude listing is requested by this document.
 
+The prepared contact is contact@uier.io. The owner must use it in the OpenAI Plugins portal
+and, when the publication hold ends, Claude directory management and connector submissions.
+Repository manifest changes do not update saved portal drafts or published listings.
+
 ## Shared listing material
 
 | Field | Prepared value |
@@ -37,7 +41,7 @@ owner supplies them. No public Claude listing is requested by this document.
 | Support | <https://github.com/signalco-io/uier/issues> |
 | Privacy policy | <https://uier.io/legal/privacy-policy> |
 | Terms | <https://uier.io/legal/terms-of-service> |
-| Contact | `contact@signalco.io` |
+| Contact | `contact@uier.io` |
 | Source | `https://github.com/signalco-io/uier`, folder `plugins/uier`, branch `main` |
 | License | AGPL-3.0-only, included in the plugin |
 | Icon | `plugins/uier/assets/icon.png`, the existing 192 × 192 uier app icon |
