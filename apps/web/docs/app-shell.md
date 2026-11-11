@@ -47,8 +47,8 @@ the separately bundled review toolbar owns its own query cache.
   as "Feedback on uier" beside their own workspaces to switch back to. Every account is in another workspace too
   (`getAppContext` creates its own when it has none), so there is always one to switch to. A project's header is
   `projects/[projectId]/layout.tsx` (the favicon in `PageHeader`'s `media`, beside both the name and the row under it: client (a link to the projects list filtered to it, `KnownPageLinks.clientProjects`, on the Done tab for a done project; uier #241), then who can comment (`ProjectAccessInfo`: its popover has the guest links and Invite for admins; for those who configure the project the label is a link to Who can comment in Review settings, `KnownPageLinks.projectAccessSettings`, and the popover opens on hover only, so Who can comment there shows the guest links too), Open
-  review and the settings cog (`ProjectSettingsButton`, an icon link with a tooltip, current on the settings pages),
-  then the `ProjectTabs`: Comments, [Page checks](page-checks.md) and Install (Settings → Installation and the onboarding
+  review, then the `ProjectTabs` with the settings cog at their right end (`ProjectSettingsButton`, a small icon link
+  styled like a tab, with a tooltip, underlined and current on the settings pages; uier #282): Comments, [Page checks](page-checks.md) and Install (Settings → Installation and the onboarding
   install step) until a comment from one of the project's addresses arrives (`hasProjectFeedback`); after that Install is
   gone; the tabs' line runs to the inset panel's edges, a divider between the header and the page (uier #237): a 1px
   line whose shadow `clip-path` keeps to its row, so it adds no sideways scrolling); the Comments label lines up with the
