@@ -136,7 +136,6 @@ test('a member reviews two pages with the same title, and the project\'s Page ch
     await sharedDescriptions.getByRole('button', { name: 'Show 2 pages' }).click();
     await expect(sharedDescriptions.getByRole('link')).toHaveCount(2);
     await expect(page.getByRole('region', { name: 'Not indexed' })).toContainText('No page asks not to be indexed.');
-    await expect(page.getByText('in members’ browsers at the time of each visit')).toBeVisible();
 
     // Only the pages that need attention (uier #221), kept in the address; the heading says how many of all
     const rows = [pricing, plans].map(summary => ({ ...summary, id: summary.path, origin, checkedAt: '' }) as PageCheckRow);

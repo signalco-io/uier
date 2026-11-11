@@ -84,11 +84,8 @@ export function PageChecksView({ projectId, pages, environments }: {
         // at 96rem; data-header-wide gives the project header above the same width
         <section aria-label="Page checks" data-page-width="wide" data-header-wide="list"
             className="flex w-[min(var(--page-wide),96rem)] flex-col gap-6 mx-[calc((100%-min(var(--page-wide),96rem))/2)]">
-            {/* No heading of its own: the project's Page checks tab above names it (uier #255), so its sections are h2 under the project's h1 */}
-            <p className="m-0 max-w-prose text-sm text-muted-foreground">
-                What the toolbar&rsquo;s checks found on each page, in members&rsquo; browsers at the time of each visit.
-                A page is checked again when a member reviews it.
-            </p>
+            {/* No heading or intro of its own (uier #255, uier #273): the project's Page checks tab above names it, so its
+                sections are h2 under the project's h1 */}
 
             {pages.length === 0 ? (
                 <Empty className="border">
