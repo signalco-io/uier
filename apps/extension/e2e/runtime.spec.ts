@@ -172,7 +172,7 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     await setThreadStatus(reviewed, thread, 'Done');
     await reviewed.getByRole('button', { name: /^Inbox/ }).click();
     const inbox = reviewed.getByRole('complementary', { name: 'Comments' });
-    await inbox.getByRole('button', { name: /^Done/ }).click();
+    await inbox.getByRole('button', { name: /^Done \d/ }).click();
     await setThreadStatus(reviewed, inbox.getByRole('article'), 'Open');
     await expect(commentBubble(reviewed, 2)).toBeVisible();
     await inbox.getByRole('button', { name: /^Active \d/ }).click();
