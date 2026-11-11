@@ -37,7 +37,7 @@ Object.assign(process.env, unpacedProviders);
 const apiTests = /\.api\.spec\.ts$/;
 // Tablet layouts run in their own project only.
 const tabletTests = /tablet\.spec\.ts$/;
-const instantTests = /(?:instant-nav|partial-prefetching)\.spec\.ts$/;
+const instantTests = /(?:instant-nav|partial-prefetching(?:-optimizer)?)\.spec\.ts$/;
 
 export default defineConfig({
     // The required suite should expose failures immediately, without retrying a slow browser flow.

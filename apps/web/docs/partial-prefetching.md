@@ -73,3 +73,45 @@ CI runs security/browser essentials on the ordinary production artifact before b
 dedicated navigation-test artifact. Next's testing bootstrap injects inline scripts, so using that
 artifact for the production CSP audit would test a different script inventory. Keep the strict CSP
 assertions and production allowlist unchanged; do not authorize test instrumentation in user builds.
+
+## Optimization assessment
+
+The optimizer assessment started from main after adoption PR #646 actually merged, including the
+Cache Components shell changes from PR #647. It found no safe additional per-link policy change.
+The bounded contracts below passed both unlocked and locked runs on the same Next 16.4.5 production
+artifact (nine cases in each run across desktop, mobile and tablet). Because the desired contracts
+were already satisfied, no application optimization, artificial RED, or revert-only-optimization
+differential was appropriate. The final tests retain the real Links and their existing hrefs.
+
+- Projects **Active → Done**: the Done list and Projects heading are immediate at
+  `/app/projects?status=done`; the Active list is hidden. Both datasets already exist locally.
+  Keep the query-only `prefetch={false}` policy. Back, Forward and reload preserve the selected view.
+- Projects **Done → Active**: keyboard Enter reaches `/app/projects` with the Active list visible,
+  Done hidden and link focus retained. Keep the same local policy; direct reload stays Active.
+- Projects **project card → Project**: keep the default viewport-prefetched shell and loading
+  status. Private project data waits for navigation. After the source page loads, another page
+  renames the project through its settings form; the destination and direct reload show that fresh
+  name, with HTTP 200 and no-store. The lock hides the name and release reveals it, independently
+  proving that the production testing API is engaged.
+
+Other candidates were checked and left with their existing policy:
+
+- Public static pages, Account and Create project already expose their intended shell content.
+  Status's live checks retain their navigation-time freshness and independent loading regions.
+- The five integration guides use a code-owned static catalog, but index tiles are document
+  anchors and app Guide links cross the public/app document-policy boundary. Adding RSC prefetches
+  or changing those anchors would not establish a useful benefit for those document navigations.
+- Project, workspace, team, user and account records remain authorized, request-scoped reads.
+  There is no established shared mutable-data freshness contract that justifies caching them to
+  make full-prefetch Links useful. No new cache, lifetime, server-invoking Link or manual prefetch
+  call was introduced. No new invalidation lifecycle or provider request budget is needed.
+
+`partial-prefetching-optimizer.spec.ts` adds one regression per exact contract to the existing rig,
+with immediate/completed screenshots attached. Its tests are excluded from ordinary production
+browser runs and run only against the explicit testing build. The optimizer outcome is verified
+existing behavior and freshness coverage, with no claimed latency or request-count improvement.
+
+Final optimizer verification passed: all 33 shared production navigation cases, six focused
+desktop/mobile project-state, tab and settings checks, `pnpm typecheck`, ordinary and dedicated
+production builds, and short `pnpm test` (1,059 passed; the same real-Cosmos conditional skip).
+The ordinary artifact has Partial Prefetching enabled and the testing API disabled.

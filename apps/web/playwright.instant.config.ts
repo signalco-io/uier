@@ -10,7 +10,7 @@ if (artifact.config.experimental.exposeTestingApiInProductionBuild !== true)
 
 export default defineConfig({
     ...base,
-    testMatch: /(?:instant-nav|partial-prefetching)\.spec\.ts$/,
+    testMatch: /(?:instant-nav|partial-prefetching(?:-optimizer)?)\.spec\.ts$/,
     testIgnore: [],
     retries: 0,
     workers: 2,

@@ -40,6 +40,16 @@
     immediately; authorized heading and empty-work result after release. Empty/populated workspaces.
   - Adoption audit: zero effective full-prefetch Links and zero manual prefetch calls. The additional
     default-link shell checks in partial-prefetching.spec.ts passed flag-off before adoption.
+  - Projects Active → Done: actual query-only Link → `/app/projects?status=done`, pointer click;
+    Projects heading and Done list immediately, Active list hidden. Existing `prefetch={false}`;
+    both lists are already local. Back, Forward and reload retain the selected view.
+  - Projects Done → Active: actual query-only Link → `/app/projects`, keyboard Enter;
+    Projects heading and Active list immediately, Done list hidden, link focus retained.
+    Existing `prefetch={false}`; direct reload retains Active.
+  - Projects card → its exact project URL: existing default viewport Link; retained app shell and
+    Loading project immediately, private heading absent. Rename through the real settings form
+    in a second authenticated page after the source loads; fresh name appears after release and
+    on direct reload (HTTP 200, no-store). No additional full-prefetch/server-invoking link policy.
 - CONSTRAINTS: hard signed-in loads retain the request-language and account shell
   boundaries. No private data, permission-dependent links or catalogs enter a shared
   cache. Proxy pageAccess and page/action/API checks preserve document redirects,
@@ -50,6 +60,10 @@
   Revert only route/component optimization → build → same tests fail; reapply →
   build → complete RUN passes. Capture locked/completed screenshots as test attachments.
   Delete unlocked scaffolding before committing. No additional permission needed locally.
+  The post-adoption optimizer's three selected contracts passed unlocked and locked on the same
+  artifact before application edits. They already meet the desired contract: keep their policies,
+  ship regression coverage, and do not manufacture RED or a revert differential. See the
+  [optimization assessment](docs/partial-prefetching.md#optimization-assessment).
 - LIVENESS: n/a; freshly completed local build/start, occupied ports fail rather than reuse.
 - WALLS: dependencies must be installed before reading Next's version-matched bundled
   docs. next and @next/playwright are exactly 16.4.5; Playwright is exactly 1.65.0.
