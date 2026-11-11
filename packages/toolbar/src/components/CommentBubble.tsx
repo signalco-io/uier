@@ -1,6 +1,6 @@
 'use client';
 
-import { useContext, useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Divider } from '@signalco/ui-primitives/Divider';
 import { cx } from '@signalco/ui-primitives/cx';
@@ -9,7 +9,7 @@ import { useMessages } from '../i18n';
 import { newLocalId, useComments } from '../hooks/useComments';
 import { lowestRect, resolveAnchorElement, useCommentPlacement } from '../hooks/useCommentItemRects';
 import { cancelCommentScreenshot, captureCommentScreenshot } from '../screenshot';
-import { newCommentDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
+import { newCommentDraftKey, newDrawingDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
 import { CommentThread } from './CommentThread';
 import { CommentComposer, type CommentComposerHandle } from './CommentComposer';
 import { CommentSelectionHighlight } from './CommentSelectionHighlight';
@@ -19,8 +19,13 @@ import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import { holdsLayersAttribute, isToolbarAnchor, pressableToolbarOpener, toolbarPinId, toolbarSurface } from '../toolbarReview';
 import { RewriteSuggestions, useRewriteSuggestionsState } from './RewriteSuggestions';
-import { ComposerAttachButton, ComposerAttachmentsHeader, useAttachedImage, type AttachedImage } from './ComposerAttachments';
+import { ComposerAttachButton, ComposerAttachmentsHeader, composerIconButtonClassName, useAttachedImage, type AttachedImage } from './ComposerAttachments';
 import { ComposerModal, ExpandComposerButton } from './ComposerModal';
+import { IconButton } from '@signalco/ui-primitives/IconButton';
+import { IconTooltip } from './IconTooltip';
+import { DrawingLayer } from './canvas/DrawingLayer';
+import { DrawIcon } from './canvas/CanvasIcons';
+import { commentDrawing, type CommentDrawing } from '../drawing';
 import { CommentDraft, CommentItem, CommentItemPosition, commentTextMaxLength, floatingShadowClassName, isCommentArea } from './@types/Comments';
 
 // Bubble (the pin) half size, how far its message count badge reaches past the right edge (Pin,
@@ -145,9 +150,11 @@ type CommentBubbleProps = {
      * popover, without the opening animation (one popover that goes on, not one closing and another opening)
      */
     continuesDraft?: boolean;
-    /** Sending failed: the draft (its text is back, the choice to omit its screenshot and its attached image) should be on the page again */
-    onSendFailed?: (error: unknown, choice: { omitScreenshot: boolean; image?: AttachedImage }) => void;
+    /** Sending failed: the draft (its text is back, the choice to omit its screenshot, its attached image and its drawing) should be on the page again */
+    onSendFailed?: (error: unknown, choice: { omitScreenshot: boolean; image?: AttachedImage; drawing?: CommentDrawing }) => void;
     onCanceled?: () => void;
+    /** A drawing's draft: back to canvas mode with its shapes (Edit drawing) */
+    onEditDrawing?: () => void;
     className?: string;
 } & (
     /** A saved comment */
@@ -157,14 +164,18 @@ type CommentBubbleProps = {
 );
 
 export function CommentBubble(props: CommentBubbleProps) {
-    const { autoOpen, autoOpenReading = false, continuesDraft = false, onAutoOpened, onAutoOpenStep, onCreated, onSendFailed, onCanceled, onOpenStateChange, className } = props;
+    const { autoOpen, autoOpenReading = false, continuesDraft = false, onAutoOpened, onAutoOpenStep, onCreated, onSendFailed, onCanceled, onEditDrawing, onOpenStateChange, className } = props;
     const commentItem = props.commentItem;
     const creating = !commentItem;
     const position = props.commentItem ? props.commentItem.position : props.draft.position;
     // A rewrite suggestion: the suggested text for the selected text, instead of a comment
     const rewriting = props.draft?.kind === 'rewrite';
     const selectedText = props.draft?.position.type === 'text' ? props.draft.position.text : undefined;
-    const draftKey = commentItem ? commentItem.id : (rewriting ? newRewriteDraftKey : newCommentDraftKey);
+    // A comment on a drawing (canvas mode): its shapes are shown on its area; the draft keeps them in memory
+    const drawingDraft = props.draft?.kind === 'drawing';
+    const savedDrawing = commentItem?.drawing;
+    const drawing = useMemo(() => props.draft ? props.draft.drawing : commentDrawing(savedDrawing), [props.draft, savedDrawing]);
+    const draftKey = commentItem ? commentItem.id : (rewriting ? newRewriteDraftKey : drawingDraft ? newDrawingDraftKey : newCommentDraftKey);
     const t = useMessages();
     const newLabel = rewriting ? t.pin.newRewrite : t.pin.newComment;
     // Picking a suggestion replaces the text in the text box (as if typed, so it can be undone)
@@ -186,7 +197,7 @@ export function CommentBubble(props: CommentBubbleProps) {
     useEffect(() => {
         if (creating) setCapture({
             device: props.draft.device ?? getDeviceInfo(),
-            screenshot: props.draft.screenshot ?? captureCommentScreenshot(position, rootElement)
+            screenshot: props.draft.screenshot ?? captureCommentScreenshot(position, rootElement, props.draft.drawing)
         });
     }, [creating, position, rootElement, props.draft]);
     const [omitScreenshot, setOmitScreenshot] = useState(props.draft?.omitScreenshot ?? false);
@@ -198,7 +209,7 @@ export function CommentBubble(props: CommentBubbleProps) {
         if (omitted && cancelCommentScreenshot(capture?.screenshot)) {
             setCapture(current => current && { ...current, screenshot: undefined });
         } else if (!omitted && capture && !capture.screenshot) {
-            setCapture({ ...capture, screenshot: captureCommentScreenshot(position, rootElement) });
+            setCapture({ ...capture, screenshot: captureCommentScreenshot(position, rootElement, drawing) });
         }
     };
     const mutation = creating ? create : reply;
@@ -234,7 +245,8 @@ export function CommentBubble(props: CommentBubbleProps) {
             quotedText: quotedText || undefined,
             // The original viewport, alongside the automatic capture, even after resizing.
             device: capture?.device ?? getDeviceInfo(),
-            screenshot: attachment.screenshotFor(omitScreenshot, capture?.screenshot)
+            screenshot: attachment.screenshotFor(omitScreenshot, capture?.screenshot),
+            ...(draft.drawing ? { drawing: draft.drawing } : {})
         });
         // The draft pin makes way for the comment's, shown at once with its thread open
         onCreated?.(localId);
@@ -242,7 +254,7 @@ export function CommentBubble(props: CommentBubbleProps) {
             await posting;
         } catch (error) {
             // After the composer has put the text back
-            window.setTimeout(() => onSendFailed?.(error, { omitScreenshot, image: attachment.image }), 0);
+            window.setTimeout(() => onSendFailed?.(error, { omitScreenshot, image: attachment.image, drawing: draft.drawing }), 0);
             throw error;
         }
         announce(rewriting ? t.pin.suggestionPosted : t.pin.commentPosted);
@@ -272,15 +284,16 @@ export function CommentBubble(props: CommentBubbleProps) {
     const handleOpenChange = (open: boolean) => {
         setContinuing(false);
         setExpanded(false);
-        if (open && creating) setCapture({ device: getDeviceInfo(), screenshot: captureCommentScreenshot(position, rootElement) });
+        if (open && creating) setCapture({ device: getDeviceInfo(), screenshot: captureCommentScreenshot(position, rootElement, drawing) });
         if (!open) {
             mutation.reset();
             rewrite.reset();
             setReading(false);
             // A new comment with text stays on the page as a draft pin; reopening it brings the text
-            // back. A rewrite whose text is still the selected text has nothing to keep.
+            // back. A rewrite whose text is still the selected text has nothing to keep. A drawing is
+            // something to keep by itself: Discard removes it.
             const text = drafts.get(draftKey)?.trim();
-            if (creating && (!text?.length || (rewriting && text === selectedText?.trim()))) {
+            if (creating && !drawingDraft && (!text?.length || (rewriting && text === selectedText?.trim()))) {
                 drafts.delete(draftKey);
                 onCanceled?.();
             }
@@ -372,7 +385,23 @@ export function CommentBubble(props: CommentBubbleProps) {
                     omitted={omitScreenshot}
                     onOmittedChange={handleOmittedChange}
                     attachment={attachment}
-                    actions={<ExpandComposerButton expanded={expanded} onExpandedChange={setExpanded} />} />
+                    actions={<>
+                        {drawingDraft && onEditDrawing && placementState === 'exact' && (
+                            <IconTooltip label={t.canvas.editDrawing}>
+                                <IconButton
+                                    variant="plain"
+                                    size="xs"
+                                    type="button"
+                                    data-uier-edit-drawing=""
+                                    aria-label={t.canvas.editDrawing}
+                                    className={composerIconButtonClassName}
+                                    onClick={onEditDrawing}>
+                                    <DrawIcon size={16} />
+                                </IconButton>
+                            </IconTooltip>
+                        )}
+                        <ExpandComposerButton expanded={expanded} onExpandedChange={setExpanded} />
+                    </>} />
             )}
             <CommentComposer
                 commentId={commentItem?.id}
@@ -400,6 +429,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                         onPick={(suggestion) => composerRef.current?.replaceText(suggestion)} />
                 ) : undefined}
                 onSubmit={handleSubmit}
+                discardable={drawingDraft}
                 onDiscard={creating ? handleDiscard : attachment.remove} />
             {!creating && attachment.error && <p role="alert" className="m-0 px-3 pb-2 text-xs text-destructive">{attachment.error}</p>}
         </div>
@@ -418,7 +448,16 @@ export function CommentBubble(props: CommentBubbleProps) {
                     commentId={commentItem?.id}
                     onClick={commentItem ? () => setOpen(true) : undefined} />
             )}
-            {isCommentArea(position) && lastRect && !closedLayer && (
+            {isCommentArea(position) && lastRect && !closedLayer && drawing && (
+                <DrawingLayer
+                    data-uier-drawing-comment={commentItem?.id ?? ''}
+                    className={onToolbar ? 'z-[74]' : 'z-[47]'}
+                    shapes={drawing.shapes}
+                    left={lastRect.left}
+                    top={lastRect.top} />
+            )}
+            {/* A drawing marks its area itself: the outline only while its thread is open */}
+            {isCommentArea(position) && lastRect && !closedLayer && (!drawing || open) && (
                 <CommentAreaHighlight rect={lastRect} commentId={commentItem?.id} active={open} />
             )}
             <Popper

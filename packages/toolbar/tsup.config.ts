@@ -13,6 +13,28 @@ const browserTargets = [...new Set(browserslist(undefined, { path: fileURLToPath
     return `${engine === 'ios_saf' ? 'ios' : engine}${versions!.split('-')[0]}`;
 }))];
 
+/**
+ * esbuild ends a bundle with every bundled file's license comment, and the UI kit's bundles repeat
+ * lucide-react's notice for each of their icons (over 40 KB of the review bundle). Keeps each distinct
+ * notice once in each file's comment, with the first file that has it; the code is unchanged.
+ */
+function withDistinctLicenses(js: string) {
+    const start = js.lastIndexOf('/*! Bundled license information:');
+    if (start < 0) return js;
+    // One part for each bundled file (a line without indentation), its notices within it
+    const licenses = js.slice(start).split(/(?=^\S[^\n]*:\n)/m).map(part => {
+        const seen = new Set<string>();
+        // An entry: the file, then its comment (`(** … *)`, indented two more), then a blank line
+        return part.replace(/^( *)\S[^\n]*:\n\1  \(\*\*\n[\s\S]*?\n\1   \*\)\n(?:\1\n)?/gm, (entry, indent: string) => {
+            const notice = entry.slice(entry.indexOf('\n') + 1).split('\n').map(line => line.slice(indent.length)).join('\n').trim();
+            if (seen.has(notice)) return '';
+            seen.add(notice);
+            return entry;
+        });
+    }).join('');
+    return js.slice(0, start) + licenses;
+}
+
 // The toolbar's languages but English (src/languages.ts), each built to `language-<code>.js`
 const languageEntries = Object.fromEntries(toolbarLanguages.filter(code => code !== 'en').map(code => [`language-${code}`, `./src/i18n/assets/${code}.ts`]));
 
@@ -77,7 +99,7 @@ export default defineConfig(({ env }) => {
                     integrity: development ? '' : `sha384-${createHash('sha384').update(asset).digest('base64')}`
                 }];
             }));
-            const js = readFileSync(`./${outDir}/review.js`).toString()
+            const js = withDistinctLicenses(readFileSync(`./${outDir}/review.js`).toString())
                 .replace(/(["'])__uier_audit_path__\1/g, () => JSON.stringify(development ? './audit.js' : `/toolbar/${auditHash}.js`))
                 .replace(/(["'])__uier_audit_integrity__\1/g, () => JSON.stringify(development ? '' : auditIntegrity))
                 .replace(/(["'])__uier_language_assets__\1/g, () => `(${JSON.stringify(languageAssets)})`);
@@ -118,7 +140,7 @@ export default defineConfig(({ env }) => {
         banner: { js: '\'use client\';' }
     }, {
         // Pure browser/server page identity contract; no React client boundary.
-        entry: { toolbarFeatures: './src/toolbarFeatures.ts', languages: './src/languages.ts', feedbackTypes: './src/feedbackTypes.ts', realtime: './src/realtime.ts', verification: './src/verification.ts', extensionContract: './src/extensionContract.ts', triage: './src/triage.ts', agents: './src/agents.ts', devices: './src/devices.ts', pageState: './src/pageState.ts', screenshotPolicy: './src/screenshotPolicy.ts', mentions: './src/mentions.ts', markdown: './src/markdown.ts', draftStorage: './src/hooks/draftStorage.ts', feedbackContext: './src/feedbackContext.ts', keyboard: './src/keyboard.ts' },
+        entry: { toolbarFeatures: './src/toolbarFeatures.ts', languages: './src/languages.ts', feedbackTypes: './src/feedbackTypes.ts', drawing: './src/drawing.ts', realtime: './src/realtime.ts', verification: './src/verification.ts', extensionContract: './src/extensionContract.ts', triage: './src/triage.ts', agents: './src/agents.ts', devices: './src/devices.ts', pageState: './src/pageState.ts', screenshotPolicy: './src/screenshotPolicy.ts', mentions: './src/mentions.ts', markdown: './src/markdown.ts', draftStorage: './src/hooks/draftStorage.ts', feedbackContext: './src/feedbackContext.ts', keyboard: './src/keyboard.ts' },
         outDir,
         format: ['esm'],
         platform: 'neutral'

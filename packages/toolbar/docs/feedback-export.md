@@ -16,6 +16,10 @@ Authorization and private-field projection
 belong on the server; never format a raw document or browser location for export. See
 [the shared contract](../../../docs/feedback-context.md).
 
+A comment with a drawing ([canvas mode](canvas-mode.md)) adds `drawing` (shape count, an English summary,
+the area's size and the text notes) to the packet; the Markdown describes it after the area and fences the
+notes' text like messages. The screenshot reference is unchanged: the drawing is already painted into it.
+
 Custom page feedback retains its stable `kind: custom_<id>` and optional server-captured
 `feedbackType: { id, label, icon }` in the version 1 packet. The display snapshot is independent of
 current workspace/project settings, and includes neither the placeholder nor the enabled state.

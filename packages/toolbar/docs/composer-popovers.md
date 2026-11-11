@@ -29,6 +29,15 @@ submission), and its buttons are `type="button"`. A picked suggestion replaces t
 instruction and the suggestions belong to the popover's owner (`useRewriteSuggestionsState` in `CommentBubble`),
 like the attached image: Expand and Collapse keep them; closing the popover or Discard clears them.
 
+### A drawing
+
+A drawing's comment ([canvas mode](canvas-mode.md)) is the comment form on the drawing's area, with **Edit
+drawing** (a pen icon button in the header, `data-uier-edit-drawing`) beside Omit screenshot: canvas mode again
+with the shapes, the text kept for when Comment opens the form again. The drawing stays on the page while the
+form is open. Its draft is its own (`newDrawingDraftKey`, kind `drawing`); the drawing is in memory only, so
+the form keeps it when closed without text, and shows **Discard** even when the text is empty, which removes the
+drawing too.
+
 ## Drafts across reloads
 
 Every message composer already uses `CommentComposer`'s `draftKey` and the shared seven-day

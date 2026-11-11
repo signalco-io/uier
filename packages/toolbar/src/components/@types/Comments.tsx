@@ -192,6 +192,8 @@ export type CommentItem = {
     feedbackType?: import('../../feedbackTypes').FeedbackTypeSnapshot;
     /** The page check it was posted from (the Accessibility and SEO panels); missing on every other comment */
     check?: import('../../feedbackTypes').CommentCheck;
+    /** Shapes drawn on the page with it (canvas mode), from its area's top-left corner; only on an area */
+    drawing?: import('../../drawing').CommentDrawing;
     thread: CommentItemThread;
     /** The coarse device size and the viewport (width, height) it was left from */
     device?: { size?: CommentDeviceSize; windowSize?: [number, number] };
@@ -228,8 +230,13 @@ export type CommentItem = {
 export type CommentDraft = {
     device?: CommentDeviceInfo;
     position: CommentAnchor;
-    /** A rewrite suggestion for the selected text, instead of a comment */
-    kind?: 'comment' | 'rewrite';
+    /**
+     * A rewrite suggestion for the selected text, instead of a comment; `drawing`, a comment with the
+     * shapes drawn in canvas mode (its own draft, posted as a comment)
+     */
+    kind?: 'comment' | 'rewrite' | 'drawing';
+    /** The shapes drawn in canvas mode, from the area's top-left corner (kept in memory, like the capture) */
+    drawing?: import('../../drawing').CommentDrawing;
     /** Started when the feedback began; retained through collapse and awaited before posting. */
     screenshot?: Promise<string | undefined>;
     /** The reviewer chose to send only the text (kept in memory, like the capture) */

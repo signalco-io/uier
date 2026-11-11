@@ -163,6 +163,7 @@ const messages: Record<keyof typeof en, string> = {
     "Direct projects": "Izravni projekti",
     "Done": "Gotovo",
     "Done projects": "Odrađeni projekti",
+    "Drawing on the page": "Crtanje po stranici",
     "Each page takes up to": "Svaka stranica zauzima do",
     "Each person is saved separately. Review lost and retained access across every affected project. Direct grants stay. No invitation is sent.": "Svaka osoba se sprema zasebno. Pregledajte izgubljeni i zadržani pristup u svakom pogođenom projektu. Izravne dopuštenja ostati. Pozivnica nije poslana.",
     "Each project lists up to its 1,000 most recent threads here.": "Svaki projekt ovdje navodi do 1000 najnovijih rasprave.",

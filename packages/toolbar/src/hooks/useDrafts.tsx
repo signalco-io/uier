@@ -8,6 +8,8 @@ import { createDraftStore } from './draftStorage';
 
 export const newCommentDraftKey = 'new';
 export const newRewriteDraftKey = 'new-rewrite';
+/** A comment on a drawing (canvas mode): its own text, never another pin's draft */
+export const newDrawingDraftKey = 'new-drawing';
 export const feedbackDraftKey = 'feedback';
 
 const DraftsContext = createContext<ReturnType<typeof createDraftStore> | undefined>(undefined);

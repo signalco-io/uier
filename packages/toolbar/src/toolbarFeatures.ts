@@ -1,5 +1,5 @@
 /** Optional tools. Core feedback, the inbox and account/options controls always stay available. */
-export const toolbarFeatures = ['accessibility', 'seo', 'rewrite'] as const;
+export const toolbarFeatures = ['accessibility', 'seo', 'rewrite', 'draw'] as const;
 export type ToolbarFeature = typeof toolbarFeatures[number];
 
 /** Missing lists follow all current/future tools; an explicit (even empty) list stays customized. */

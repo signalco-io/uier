@@ -223,6 +223,12 @@ export type DbComment = {
      * (added later: older documents have none). Read through `commentCheck`
      */
     check?: import('@uier/toolbar/feedback-types').CommentCheck;
+    /**
+     * Shapes drawn on the page with the comment (the toolbar's canvas mode), from the top-left corner of
+     * its area, as the API parsed them; added later, so older documents have none. Read through
+     * `commentDrawing`. Removed with the comment.
+     */
+    drawing?: import('@uier/toolbar/drawing').CommentDrawing;
     thread: { items: DbThreadItem[] };
     /**
      * Project comments: the thread's title, written by AI from its first message after it was saved

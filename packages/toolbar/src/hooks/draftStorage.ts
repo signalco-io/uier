@@ -7,7 +7,8 @@ const maxDraftRecordLength = 64_000;
 export const draftLifetimeMs = 7 * 24 * 60 * 60 * 1000;
 export type DraftDetails = {
     mentions?: Mention[];
-    anchor?: { kind: 'comment' | 'rewrite'; position: CommentAnchor };
+    /** `drawing`: a canvas mode comment's area; its shapes stay in memory */
+    anchor?: { kind: 'comment' | 'rewrite' | 'drawing'; position: CommentAnchor };
     originalText?: string;
 };
 /** Text being sent in the background: the form is empty, the text stays here until the send settles */
@@ -94,7 +95,7 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
                 || (typeof l === 'object' && l !== null && selector(l.opener)
                     && (l.label === undefined || (typeof l.label === 'string' && l.label.length <= 120))
                     && (l.nested === undefined || (Array.isArray(l.nested) && l.nested.length > 0 && l.nested.length <= 7 && l.nested.every(selector))));
-            if (!p || !['comment', 'rewrite'].includes(a.kind) || !layer(p.layer)
+            if (!p || !['comment', 'rewrite', 'drawing'].includes(a.kind) || !layer(p.layer)
                 || !(p.type === 'point' ? selector(p.selector) && fraction(p.xNormal) && fraction(p.yNormal)
                     && ((p.widthNormal === undefined && p.heightNormal === undefined) || (fraction(p.widthNormal) && fraction(p.heightNormal)))
                     : p.type === 'text' && selector(p.startSelector) && (p.endSelector === undefined || selector(p.endSelector)) && typeof p.text === 'string' && p.text.length <= 2000

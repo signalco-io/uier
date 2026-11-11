@@ -163,6 +163,7 @@ const messages: Record<keyof typeof en, string> = {
     "Direct projects": "Direkte Projekte",
     "Done": "Erledigt",
     "Done projects": "Abgeschlossene Projekte",
+    "Drawing on the page": "Zeichnen auf der Seite",
     "Each page takes up to": "Jede Seite nimmt bis zu",
     "Each person is saved separately. Review lost and retained access across every affected project. Direct grants stay. No invitation is sent.": "Jede Person wird separat gespeichert. Überprüfen Sie verlorene und behaltene Zugriffe für jedes betroffene Projekt. Direkte Berechtigungen bleiben bestehen. Es wird keine Einladung verschickt.",
     "Each project lists up to its 1,000 most recent threads here.": "Jedes Projekt listet hier bis zu 1.000 aktuelle Threads auf.",

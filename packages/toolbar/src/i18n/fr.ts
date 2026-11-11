@@ -47,6 +47,7 @@ export const fr: Messages = {
         accessibility: 'Accessibilité',
         seo: 'SEO',
         about: 'À propos d’uier',
+        draw: 'Dessiner sur la page',
         collapse: 'Replier la barre'
     },
     profile: {
@@ -511,6 +512,44 @@ export const fr: Messages = {
     selection: {
         label: 'Texte sélectionné',
         rewrite: 'Réécrire'
+    },
+    canvas: {
+        panel: 'Outils de dessin',
+        surface: 'Dessin',
+        surfaceHelp: 'Dessinez avec un pointeur. Au clavier : choisissez un outil, puis appuyez ici sur Entrée pour l’ajouter. Tab mène aux formes ; les flèches en déplacent une, Alt et les flèches la redimensionnent.',
+        started: 'Dessin sur la page. Choisissez un outil, dessinez, puis Commenter.',
+        tools: { select: 'Sélectionner', pen: 'Stylo', marker: 'Surligneur', brush: 'Pinceau', line: 'Ligne', arrow: 'Flèche', rectangle: 'Rectangle', ellipse: 'Ellipse', diamond: 'Losange', text: 'Note', blur: 'Flou', eraser: 'Gomme' },
+        shapes: { pen: 'Trait de stylo', marker: 'Trait de surligneur', brush: 'Trait de pinceau', line: 'Ligne', arrow: 'Flèche', rectangle: 'Rectangle', ellipse: 'Ellipse', diamond: 'Losange', text: 'Note', blur: 'Zone floutée' },
+        /** A shape in the drawing, by its place: "Rectangle 2" */
+        shape: (name: string, number: number) => `${name} ${number}`,
+        style: 'Style',
+        color: 'Couleur',
+        background: 'Fond',
+        none: 'Aucun',
+        fill: 'Remplissage du fond',
+        fills: { semi: 'Translucide', solid: 'Opaque' },
+        outline: 'Contour',
+        outlines: { solid: 'Continu', dashed: 'Tirets', dotted: 'Pointillés' },
+        width: 'Épaisseur',
+        widths: { s: 'Fine', m: 'Moyenne', l: 'Épaisse', xl: 'Très épaisse' },
+        edges: 'Bords',
+        edgeStyles: { clean: 'Nets', sketchy: 'Esquissés' },
+        colors: { ink: 'Encre', white: 'Blanc', red: 'Rouge', amber: 'Ambre', green: 'Vert', blue: 'Bleu', violet: 'Violet' },
+        undo: 'Annuler',
+        redo: 'Rétablir',
+        deleteShape: 'Supprimer la forme',
+        discard: 'Abandonner',
+        comment: 'Commenter',
+        textNote: 'Note',
+        added: (name: string) => `Ajouté : ${name}`,
+        deleted: (name: string) => `Supprimé : ${name}`,
+        undone: 'Annulé',
+        redone: 'Rétabli',
+        discarded: 'Dessin abandonné',
+        full: 'Le dessin est plein. Retirez une forme pour en ajouter une autre.',
+        tooLarge: 'Ce dessin est trop grand pour être enregistré. Retirez quelques formes.',
+        pointerOnly: 'Cet outil dessine avec un pointeur. Choisissez un autre outil pour ajouter une forme au clavier.',
+        editDrawing: 'Modifier le dessin'
     },
     hint: {
         title: 'Essayez uier sur cette page',

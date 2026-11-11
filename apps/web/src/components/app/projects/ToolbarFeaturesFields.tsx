@@ -6,7 +6,7 @@ import { toolbarFeatures, type ToolbarFeatureVisibility } from '@uier/toolbar/to
 import { Checkbox } from '@/src/components/ui/checkbox';
 import { Field, FieldDescription, FieldLabel, FieldLegend, FieldSet, FieldGroup } from '@/src/components/ui/field';
 
-const labels = { accessibility: 'Accessibility', seo: 'SEO', rewrite: 'Text rewrites' };
+const labels = { accessibility: 'Accessibility', seo: 'SEO', rewrite: 'Text rewrites', draw: 'Drawing on the page' };
 
 export function ToolbarFeaturesFields({ value, onChange, guests, disabled }: {
     value: ToolbarFeatureVisibility;

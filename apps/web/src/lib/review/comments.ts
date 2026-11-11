@@ -211,7 +211,8 @@ export async function createProjectComment(request: Request, project: DbProject,
     const partition = projectPartition(project.id);
     const attempt = submission(partition, authorId, input.idempotencyKey, {
         operation: 'create', path: input.path, position: input.position, kind: input.kind, text: input.text, mentions: input.mentions ?? [],
-        quotedText: input.quotedText, authorName: actor.kind === 'guest' ? input.authorName : undefined, origin: input.origin
+        quotedText: input.quotedText, authorName: actor.kind === 'guest' ? input.authorName : undefined, origin: input.origin,
+        ...(input.drawing ? { drawing: input.drawing } : {})
     });
     const recovered = await recoverSubmission(store, attempt);
     if (recovered) return visibleOrThrow(recovered, actor);
@@ -238,6 +239,7 @@ export async function createProjectComment(request: Request, project: DbProject,
         kind: input.kind,
         ...(feedbackType ? { feedbackType } : {}),
         ...(input.check ? { check: input.check } : {}),
+        ...(input.drawing ? { drawing: input.drawing } : {}),
         thread: {
             items: [{
                 id: `item_${nanoid()}`,
