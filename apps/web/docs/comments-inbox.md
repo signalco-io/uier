@@ -24,7 +24,7 @@ rows with the status filter it waits for their entrance motion to settle before 
   that arrives above it in a realtime refresh does not take its place, and the arrow keys go on from it; a filter that
   hides it shows the new first one; `e2e/realtime.spec.ts`); narrower (a phone, a tablet in portrait) a row opens
   the thread in the list's and the filters' place with Back to comments, and adds a history entry so Back closes
-  it. Where the page scrolls (below `lg`) the thread opens and stays (beside the list) under the sticky top bar. Each row is a link (it opens in a new tab too); its selection box starts the meta line under the author (a
+  it. Where the page scrolls (below `lg`) the thread opens and stays (beside the list) under the sticky top bar. Stuck beside the list it keeps the page gutter (`--page-gutter`) above and below it, the gap it has from the panel's side ([uier #312](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_kETWRM4lFAX9IoRqOG2vY)). Each row is a link (it opens in a new tab too); its selection box starts the meta line under the author (a
   card's bottom left) and shows only when it is used ([App triage](triage.md#selection)), but keeps its room (and the
   room stays where a person can't triage), so the path never moves when it appears. The list moves with the
   keyboard like an inbox: ↓/↑ go to the next/previous row and stop at the ends, Home/End (from a row) to the first and
