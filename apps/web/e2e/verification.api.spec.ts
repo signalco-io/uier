@@ -275,8 +275,8 @@ test('missing project opt-in suspends existing checks without hiding threads or 
     await expect(f.ask(f.request(asked.verification!.revision))).rejects.toThrow('Mark the comment done instead');
     await expect(f.decide(asked)).rejects.toThrow('Mark the comment done instead');
     await expect(setProjectCommentWorkflowStatus(off, developer, asked.id, 'ready')).rejects.toThrow('Mark the comment done instead');
-    const summary = await projectActivity(asked.domain, undefined, () => true, 'exclude', false);
-    expect(summary.summary).toMatchObject({ ready: 0, open: 1 });
+    const summary = await projectActivity(asked.domain, `user:${reviewer.userId}`, () => true, 'exclude', false);
+    expect(summary.summary).toMatchObject({ ready: 0, open: 1, unreadReady: 0, unreadOpen: 1 });
     await updateProject(off.workspaceId, off.id, { verificationEnabled: true });
     expect(verificationPermissions(asked, { ...off, verificationEnabled: true }, developer, members).request).toBe(true);
     await updateProject(off.workspaceId, off.id, { verificationEnabled: false });

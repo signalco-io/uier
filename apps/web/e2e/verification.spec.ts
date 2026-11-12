@@ -242,6 +242,10 @@ test('verification is off by default, and disabling it leaves pending threads re
         await expect(review.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
         await page.reload();
         await expect(toggle).not.toBeChecked();
+        await page.goto(`/app/projects/${project}`);
+        await page.getByRole('button', { name: 'Active statuses', exact: true }).click();
+        await expect(page.getByRole('menuitemradio', { name: /^Ready to verify/ })).toHaveCount(0);
+        await page.keyboard.press('Escape');
         await page.goto(`/app/projects/${project}?view=board&status=ready`);
         await expect(page.getByRole('region', { name: 'Ready to verify comments', exact: true })).toHaveCount(0);
         await expect(page.getByRole('region', { name: 'QA comments', exact: true })).toHaveCount(0);
