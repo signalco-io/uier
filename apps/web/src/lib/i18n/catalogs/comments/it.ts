@@ -1,6 +1,9 @@
 import type en from './en';
 
 const messages: Record<keyof typeof en, string> = {
+    "Mark shown as read": "Segna quelli mostrati come letti",
+    "Load more": "Carica altro",
+    "Loading comments": "Caricamento dei commenti",
     " (admin override for {reviewer})": " (decisione admin per {reviewer})",
     " (edited)": " (modificato)",
     " (this page)": " (questa pagina)",

@@ -24,8 +24,8 @@ forbidden document requests retain 404. Pages and actions still authorize their 
 writes inside the request-rendered content. See [Cache Components](cache-components.md).
 
 `ProjectComments` is a client boundary over the server-authorized environment/author snapshot.
-Search, status, people, page, unread, list/board filters and the open thread (`?comment=`) are URL
-state with no server request: read them with `useUrlSearchParams` and write them with
+Search, status, people, page, unread, list/board filters and the open thread (`?comment=`) remain immediate URL
+state. Project filters now fetch bounded summary pages without a page/RSC navigation: read them with `useUrlSearchParams` and write them with
 `setUrlSearchParams` (`src/hooks/use-url-search-params.ts`), not `useSearchParams` and
 `history.pushState`. Next.js applies history writes and Back/Forward to `useSearchParams` in a
 transition, and React holds that transition while a server action started with `useTransition` is
@@ -57,3 +57,11 @@ list's round trips to check that Active and Done switch at once, with no spinner
 Client navigation keeps the embedded toolbar pill mounted; only its page-specific review state
 resets. See [client navigation continuity](app-shell.md#client-navigation-continuity) for the
 navigation audit, deliberate document boundaries and regression coverage.
+
+
+Project comment pagination keeps one in-flight read per column and aborts stale generations when a
+query/view/workflow changes. A realtime RSC snapshot rebuilds the pages already loaded; it does not
+unmount the open composer. Column totals come from the server, with optimistic deltas only for
+loaded rows being changed. Idle revision checks omit bodies and canonical enrichment. Read mutations
+retain their explicit rendered cursors; the paged view labels their partial scope Mark shown as read.
+See [paged project comments](comments-inbox.md#paged-project-comments) for limits and measurement boundaries.

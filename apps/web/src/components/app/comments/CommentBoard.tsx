@@ -3,7 +3,7 @@
 import { defaultStatusWorkflow, orderedStatuses, statusForComment, workflowStatusLabel, type StatusWorkflow, type WorkflowStatus } from '../../../lib/app/statusWorkflow';
 import { useAppI18n } from '@/src/lib/i18n/client';
 
-import { useEffect, useEffectEvent, useId, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, type SyntheticEvent } from 'react';
+import { Fragment, useEffect, useEffectEvent, useId, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, type SyntheticEvent } from 'react';
 import { createPortal } from 'react-dom';
 import {
     DndContext, DragOverlay, MouseSensor, defaultDropAnimationSideEffects, pointerWithin, useDraggable, useDroppable, useSensor, useSensors,
@@ -17,7 +17,7 @@ import { Button } from '@/src/components/ui/button';
 import { Sheet, SheetContent, SheetTitle } from '@/src/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import { Spinner } from '@/src/components/ui/spinner';
-import { CommentCard, type AssigneeOption } from './CommentCard';
+import type { AssigneeOption } from './CommentCard';
 import { CommentRow, commentRowId } from './CommentRow';
 import { commentStatus, commentStatuses, StateDot, StateMenu, type CommentStatus } from './CommentStatus';
 import { allowedStatuses, movedPatch, useStatusChanger } from './useStatusChange';
@@ -30,6 +30,8 @@ import { shortcutLetter } from '@uier/toolbar/keyboard';
 import { isShortcutTarget, useShortcutsEnabled } from '../keyboard/keys';
 import { HoldTouchSensor } from './holdTouchSensor';
 import { longPressDelay, pressTolerance } from './TriageSelection';
+import { VirtualCommentList, revealVirtualComment, type CommentPageControl } from './VirtualCommentList';
+import { PagedCommentCard } from './PagedCommentCard';
 
 /** The board's columns: every status, in order (`commentStatuses`); drag and drop and Move follow this list */
 const statuses = commentStatuses;
@@ -337,10 +339,12 @@ export type BoardProject = { id: string; name?: string; url?: string; assignees:
  * it from the column's header. Archive is the last column (`archive`), collapsed unless the project expands it; My work,
  * which leaves archived threads out, has none.
  */
-export function CommentBoard({ projectOf, columns: categoryColumns, workflow, verificationEnabled, sorts, onSort, archive, allComments, userId, openComment }: {
+export function CommentBoard({ projectOf, columns: categoryColumns, workflow, verificationEnabled, sorts, onSort, archive, allComments, userId, openComment, paging, detailRevision }: {
     workflow?: StatusWorkflow;
     verificationEnabled?: boolean;
     /** Each thread's project (`BoardProject`) */
+    detailRevision?: string;
+    paging?: Record<string, CommentPageControl>;
     projectOf: (comment: ProjectCommentView) => BoardProject;
     /** Each column's cards, in its sort */
     columns: Record<CommentStatus, ProjectCommentView[]>;
@@ -487,13 +491,16 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
             event.preventDefault();
             if (!next || next.id === id) return;
         }
-        const card = board.querySelector<HTMLElement>(`[data-board-card="${CSS.escape(next.id)}"]`);
-        // The same control in that card: its selection box from a selection box, otherwise its link
-        const fromBox = target.closest('[role="checkbox"]');
-        const control = (fromBox && card?.querySelector<HTMLElement>('[role="checkbox"]')) || document.getElementById(commentRowId(next.id));
         setFocusId(next.id);
-        control?.focus({ preventScroll: true });
-        card?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        revealVirtualComment(next.id);
+        const id = next.id;
+        requestAnimationFrame(() => {
+            const card = board.querySelector<HTMLElement>(`[data-board-card="${CSS.escape(id)}"]`);
+            const fromBox = target.closest('[role="checkbox"]');
+            const control = (fromBox && card?.querySelector<HTMLElement>('[role="checkbox"]')) || document.getElementById(commentRowId(id));
+            control?.focus({ preventScroll: true });
+            card?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        });
     });
     useEffect(() => {
         // Bubble phase on the window, after the page's own handlers, so a key they used (`preventDefault`) stays theirs
@@ -536,6 +543,7 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
                     if (!comment) return;
                     // dnd-kit measures the card after this: the place it would land takes its height now
                     const card = document.querySelector(`[data-board-card="${CSS.escape(comment.id)}"]`);
+                    setFocusId(comment.id);
                     setDrag({ comment, height: card?.getBoundingClientRect().height ?? 0 });
                 }}
                 onDragOver={({ over: target }) => setOver(columnOf(target, definitions))}
@@ -578,19 +586,19 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
                         const placeholder = state === 'over' ? landing(status) : -1;
                         const slot = <li key="placeholder" aria-hidden="true" data-drop-placeholder="" style={{ height: drag?.height }}
                             className="rounded-lg border border-dashed border-foreground/30 bg-background/60" />;
-                        const items = cards.map(comment => (
-                            <BoardCard key={comment.id} project={projectOf(comment)} comment={comment} href={hrefFor(comment.id)} opened={comment.id === openId}
-                                moving={pending && movingId === comment.id} tabbable={comment.id === tabStop?.id}
-                                onOpen={event => open(comment.id, event, { replace: false })}
-                                onMove={(category, id) => move(comment, workflow ? id ?? category : category, 'menu', id)} />
-                        ));
-                        if (placeholder >= 0) items.splice(placeholder, 0, slot);
                         return (
-                            <BoardColumn key={status} status={categoryOf(status)} definition={definition(status)} columnIds={statuses} count={cards.length} state={state} sort={sorts[categoryOf(status)]} onSort={onSort}>
-                                {items.length ? (
-                                    <ul aria-label={t("{value0} comments list", { value0: workflowStatusLabel(definition(status), t) })} className="m-0 flex list-none flex-col gap-2 p-0">
-                                        {items}
-                                    </ul>
+                            <BoardColumn key={status} status={categoryOf(status)} definition={definition(status)} columnIds={statuses} count={paging?.[status]?.total ?? cards.length} state={state} sort={sorts[categoryOf(status)]} onSort={onSort}>
+                                {cards.length || placeholder >= 0 ? (
+                                    <VirtualCommentList items={cards} control={paging?.[status]} focusedId={focusId ?? tabStop?.id}
+                                        label={t("{value0} comments list", { value0: workflowStatusLabel(definition(status), t) })}
+                                        footer={placeholder === cards.length ? slot : undefined}
+                                        render={(comment, index) => <Fragment key={comment.id}>
+                                            {index === placeholder && slot}
+                                            <BoardCard project={projectOf(comment)} comment={comment} href={hrefFor(comment.id)} opened={comment.id === openId}
+                                                moving={pending && movingId === comment.id} tabbable={comment.id === tabStop?.id}
+                                                onOpen={event => open(comment.id, event, { replace: false })}
+                                                onMove={(category, id) => move(comment, workflow ? id ?? category : category, 'menu', id)} />
+                                        </Fragment>} />
                                 ) : (
                                     // In the middle of the column's room below its name, a drag's longer column too
                                     <p data-empty-column="" className="m-0 flex flex-1 items-center px-2 text-sm text-muted-foreground">{state === 'target' ? t("Drop here.") : t(emptyColumn[categoryOf(status)])}</p>
@@ -598,16 +606,14 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
                             </BoardColumn>
                         );
                     })}
-                    {archive && archiveDefinitions.map(archiveStatus => <ArchiveColumn key={archiveStatus.id} label={workflowStatusLabel(archiveStatus, t)} count={archiveCards(archiveStatus).length} sort={sorts.archive} onSort={onSort} expanded={archive.expanded} dimmed={Boolean(drag)} onExpandedChange={archive.onExpandedChange}>
+                    {archive && archiveDefinitions.map(archiveStatus => <ArchiveColumn key={archiveStatus.id} label={workflowStatusLabel(archiveStatus, t)} count={paging?.[archiveStatus.id]?.total ?? archiveCards(archiveStatus).length} sort={sorts.archive} onSort={onSort} expanded={archive.expanded} dimmed={Boolean(drag)} onExpandedChange={archive.onExpandedChange}>
                         {archiveCards(archiveStatus).length ? (
-                            <ul aria-label={t("Archived comments list")} className="m-0 flex list-none flex-col gap-2 p-0">
-                                {archiveCards(archiveStatus).map(comment => (
+                            <VirtualCommentList items={archiveCards(archiveStatus)} control={paging?.[archiveStatus.id]} focusedId={focusId ?? tabStop?.id}
+                                label={t("Archived comments list")} render={comment => (
                                     <BoardCard key={comment.id} project={projectOf(comment)} comment={comment} href={hrefFor(comment.id)} opened={comment.id === openId}
                                         moving={false} tabbable={comment.id === tabStop?.id}
-                                        onOpen={event => open(comment.id, event, { replace: false })}
-                                        onMove={() => {}} />
-                                ))}
-                            </ul>
+                                        onOpen={event => open(comment.id, event, { replace: false })} onMove={() => {}} />
+                                )} />
                         ) : (
                             <p data-empty-column="" className="m-0 flex flex-1 items-center px-2 text-sm text-muted-foreground">{t("Nothing archived.")}</p>
                         )}
@@ -635,7 +641,7 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
                     {opened && openedProject && (
                         // `shrink-0`: the card clips (`overflow-hidden`), so as a flex item it would shrink to the sheet's
                         // height and hide what is below the fold; at its full height the sheet scrolls it
-                        <CommentCard key={`${opened.id}-${verifyId === opened.id}`}
+                        <PagedCommentCard snapshotRevision={detailRevision} key={`${opened.id}-${verifyId === opened.id}`}
                             className="shrink-0 rounded-none border-0 ring-0"
                             projectId={openedProject.id}
                             comment={opened}

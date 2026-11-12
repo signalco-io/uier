@@ -58,3 +58,17 @@ PORT=4304 PLAYWRIGHT_FULL=1 pnpm -C apps/web exec playwright test project-cls.sp
 Recheck the original project in Edge after deployment. If it still reports a higher score, collect
 that document's buffered layout-shift sources and the preceding navigation/actions; the page's
 whole lifetime, including previous client navigations, contributes to its largest session window.
+
+
+Project pagination retains the populated width marker and reserved count row even when the first
+page has no rows (for example, all matches are in collapsed Archive). Server-side view preference
+resolution happens before selecting initial pages, so hydration does not replace the server's view.
+Virtual row spacers keep the column's scroll extent; subsequent pages extend inside its bounded
+scroller. The existing CLS regression remains the geometry guard; the larger fixture records DOM
+and payload measurements separately ([paging](comments-inbox.md#measurement-and-remaining-database-work)).
+
+
+The paged regression at 4× CPU slowdown measured CLS 0 on desktop and 0.027126 on mobile,
+both below 0.1. The mobile entry was the expected shift of existing cards when a live arrival was
+inserted above them inside Open; the board top, filter row and search geometry stayed unchanged.
+These measurements are local Chromium evidence, not acceptance of the original Edge report.

@@ -1,6 +1,9 @@
 import type en from './en';
 
 const messages: Record<keyof typeof en, string> = {
+    "Mark shown as read": "Označi prikazano kao pročitano",
+    "Load more": "Učitaj više",
+    "Loading comments": "Učitavanje komentara",
     " (admin override for {reviewer})": " (administratorska odluka za {reviewer})",
     " (edited)": " (uređeno)",
     " (this page)": " (ova stranica)",

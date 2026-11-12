@@ -104,6 +104,8 @@ export type ProjectCommentView = {
     workflow?: StatusWorkflow;
     workflowStatusId?: string;
     archiveStatusId?: string;
+    /** List/board summary: the canonical detail is loaded only when the thread opens. */
+    summary?: boolean;
     pullRequests?: { url: string; canRemove: boolean }[];
     history?: ThreadHistoryEntry[];
     priority: CommentPriority;
@@ -349,12 +351,25 @@ export async function loadProjectComment(context: AppContext, project: DbProject
     return view ? { ...view, workflow, labels: labelsForComment(labels, view), availableLabels: labels, following: subscriptions[0]?.following ?? isNotificationParticipant(comment, `user:${context.user.id}`), integrationLinks: integrationLinks.get(id) } : null;
 }
 
+/** Bounded fanout even when a project has many custom-status columns. */
+async function selectedProjectComments(project: DbProject, actor: ProjectActor, ids: readonly string[]) {
+    const comments: DbComment[] = [];
+    let index = 0;
+    await Promise.all(Array.from({ length: Math.min(8, ids.length) }, async () => {
+        while (index < ids.length) {
+            const comment = await getProjectComment(project, actor, ids[index++]!);
+            if (comment) comments.push(comment);
+        }
+    }));
+    return comments;
+}
+
 /** Every comment of the project the app user can see (all pages), newest first */
-export async function loadProjectComments(context: AppContext, project: DbProject, environment?: string, authorId?: string, onWindow?: (capped: boolean) => void, membersForRequest?: ReturnType<typeof listProjectMembers>, archive: ArchiveFilter = 'all', t: AppTranslator = englishAppTranslator) {
+export async function loadProjectComments(context: AppContext, project: DbProject, environment?: string, authorId?: string, onWindow?: (capped: boolean) => void, membersForRequest?: ReturnType<typeof listProjectMembers>, archive: ArchiveFilter = 'all', t: AppTranslator = englishAppTranslator, selectedIds?: readonly string[]) {
     const actor = appActor(context);
     let windowCapped = false;
     const [comments, members, reads, subscriptions] = await Promise.all([
-        Promise.all((archive === 'all' ? ['exclude', 'only'] as const : [archive]).map(scope =>
+        selectedIds ? selectedProjectComments(project, actor, selectedIds) : Promise.all((archive === 'all' ? ['exclude', 'only'] as const : [archive]).map(scope =>
             listProjectComments(project, actor, undefined, environment ? environmentFilter(project, environment) : undefined, authorId,
                 capped => { windowCapped ||= capped; }, scope)))
             .then(lists => {

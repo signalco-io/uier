@@ -2,7 +2,9 @@
 
 The version 1 read API supports typed nested All/Any/Not conditions, literal search, ordinary
 or archived collections, page/environment locations, relative people and dates, and up to eight
-sort rules. The app and toolbar have not switched to it yet. Existing comment APIs are unchanged.
+sort rules. The toolbar has not switched to it yet. Project Board/List use a separate app paging adapter over
+the same budgeted candidate source; their legacy full-thread snapshot is replaced, while query v1
+and the existing toolbar comment APIs retain their contracts.
 
 `packages/comments-query` owns parsing, normalization, field/operator definitions, evaluation
 and deterministic ordering. It has no server dependencies. The server owns authorization;
@@ -137,3 +139,15 @@ set. Removed definitions do not remain queryable as current labels. Guests canno
 filters, facets or options. `thread-labels.api.spec.ts` covers filtering, pagination and authority.
 Label option-name enrichment shares one workspace load per workspace within the request while
 resolving each source project's own override. No workspace data is cached across requests.
+### Project Board/List adapter
+
+`POST /api/projects/:projectId/comments/pages` accepts normalized legacy app filter params plus an
+optional effective status ID (`lane`), signed cursor, archive expansion choice and open thread ID.
+It returns a bounded set of app row summaries, per-column page metadata, exact category/column totals,
+page options and a scope revision. A single authorized source scan serves all initial columns.
+Routing-only scans set `includeText: false`, omitting message bodies, quoted text, diagnostic device
+fields and metadata search text; full-text queries explicitly retain them. Query v1 continues using
+the complete projection by default. Both projections preserve effective workflow IDs so removed
+status IDs can fall back through the current workflow. Canonical detail loads remain independent.
+See [the inbox note](comments-inbox.md#paged-project-comments) for the app cursor binding, virtualization,
+selection, local benchmark and the remaining native database paging/aggregate performance gate.

@@ -9,7 +9,7 @@ export type CommentQueryMessage = Pick<DbThreadItem, 'id' | 'text' | 'quotedText
 export type CommentQueryCandidate = Pick<DbComment,
     'id' | 'domain' | 'projectId' | 'path' | 'pageStateVersion' | 'sourcePath' | 'origin' | 'private' | 'authorId' |
     'labelIds' | 'assigneeId' | 'assigneeIds' | 'priority' | 'resolved' | 'inProgress' | 'archivedAt' | 'number' | 'kind' |
-    'feedbackType' | 'check' | 'createdAt' | 'updatedAt' | 'completedAt' | 'activity' | 'manualTitle'> & {
+    'workflowStatusId' | 'archiveStatusId' | 'feedbackType' | 'check' | 'createdAt' | 'updatedAt' | 'completedAt' | 'activity' | 'manualTitle'> & {
     revision: string;
     hasScreenshot: boolean;
     position: { type: 'point' | 'text' | 'page' };
@@ -31,6 +31,10 @@ export type CommentCandidatePredicate = {
 };
 
 export type CommentCandidateOptions = {
+    /** App paging without a text query needs routing/activity only, not message bodies or metadata search text. */
+    includeText?: boolean;
+    /** Canonical opener or remaining reply author, applied before candidate budgets. */
+    authorId?: string;
     visibility?: VisibilityFilter;
     origin?: OriginFilter;
     archive?: ArchiveFilter;
@@ -66,16 +70,16 @@ export function throwIfQueryAborted(signal?: AbortSignal) {
 }
 
 /** Source projection; this internal record never contains screenshot bytes, tokens or audit payloads. */
-export function toCommentQueryCandidate(comment: DbComment, revision: string): CommentQueryCandidate {
+export function toCommentQueryCandidate(comment: DbComment, revision: string, includeText = true): CommentQueryCandidate {
     const visibleItems = comment.thread?.items ?? [];
     const candidate: CommentQueryCandidate = {
         id: comment.id, domain: comment.domain, path: comment.path, revision,
         position: { type: comment.position?.type ?? 'page' },
         hasScreenshot: Boolean(comment.screenshot || visibleItems.some(item => !item.deletedAt && item.screenshot)),
         thread: { items: visibleItems.map(item => ({
-            id: item.id, text: item.deletedAt ? '' : item.text,
+            id: item.id, text: item.deletedAt || !includeText ? '' : item.text,
             ...(item.deletedAt ? { deletedAt: item.deletedAt } : {
-                ...(item.quotedText !== undefined ? { quotedText: item.quotedText } : {}),
+                ...(includeText && item.quotedText !== undefined ? { quotedText: item.quotedText } : {}),
                 ...(item.authorId !== undefined ? { authorId: item.authorId } : {}),
                 ...(item.authorName !== undefined ? { authorName: item.authorName } : {}),
                 ...(item.mentions ? { mentions: item.mentions.map(({ userId, start, end }): DbMention => ({ userId, start, end })) } : {})
@@ -83,10 +87,10 @@ export function toCommentQueryCandidate(comment: DbComment, revision: string): C
         })) }
     };
     const fields = ['labelIds', 'projectId', 'pageStateVersion', 'sourcePath', 'origin', 'private', 'authorId', 'assigneeId', 'assigneeIds',
-        'priority', 'resolved', 'inProgress', 'archivedAt', 'number', 'kind', 'feedbackType', 'check', 'createdAt', 'updatedAt',
+        'priority', 'resolved', 'inProgress', 'archivedAt', 'number', 'kind', 'workflowStatusId', 'archiveStatusId', 'feedbackType', 'check', 'createdAt', 'updatedAt',
         'completedAt', 'activity', 'manualTitle', 'aiTitle', 'device', 'queryMetadata'] as const;
     for (const field of fields) {
-        if (comment[field] !== undefined) Object.assign(candidate, { [field]: structuredClone(comment[field]) });
+        if (comment[field] !== undefined && (includeText || field !== 'queryMetadata' && field !== 'device')) Object.assign(candidate, { [field]: structuredClone(comment[field]) });
     }
     if (comment.verification) candidate.verification = { outcome: comment.verification.outcome,
         ...(comment.verification.fixUrl ? { fixUrl: comment.verification.fixUrl } : {}) };
@@ -98,9 +102,10 @@ export function toCommentQueryCandidate(comment: DbComment, revision: string): C
 }
 
 /** A SELECT projection with the same shape as toCommentQueryCandidate, never SELECT *. */
-export const commentCandidateProjection = `c.id, c.domain, c.projectId, c.path, c.pageStateVersion, c.sourcePath, c.origin,
+export function commentCandidateProjectionFor(includeText = true) {
+    return `c.id, c.domain, c.projectId, c.path, c.pageStateVersion, c.sourcePath, c.origin,
  c.labelIds, c.private, c.authorId, c.assigneeId, c.assigneeIds, c.priority, c.resolved, c.inProgress, c.archivedAt, c.number, c.kind,
- c.feedbackType, c.check, c.createdAt, c.updatedAt, c.completedAt, c.activity, c.manualTitle, c.aiTitle, c.device, c.queryMetadata,
+ c.workflowStatusId, c.archiveStatusId, c.feedbackType, c.check, c.createdAt, c.updatedAt, c.completedAt, c.activity, c.manualTitle, c.aiTitle, ${includeText ? 'c.device, c.queryMetadata,' : ''}
  c._etag AS revision, {"type": c.position.type} AS position,
  {"outcome": c.verification.outcome, "fixUrl": c.verification.fixUrl} AS verification,
  IIF((IS_OBJECT(c.screenshot) OR (IS_STRING(c.screenshot) AND c.screenshot != "")), true,
@@ -110,8 +115,10 @@ export const commentCandidateProjection = `c.id, c.domain, c.projectId, c.path, 
  IIF(IS_ARRAY(c.assigneeAgents), ARRAY(SELECT VALUE {"kind": a.kind, "assigneeId": a.assigneeId, "workingUntil": a.workingUntil} FROM a IN c.assigneeAgents), null) AS assigneeAgents,
  {"items": ARRAY(SELECT VALUE IIF(IS_STRING(i.deletedAt) AND i.deletedAt != "",
  {"id": i.id, "text": "", "deletedAt": i.deletedAt, "createdAt": i.createdAt},
- {"id": i.id, "text": i.text, "quotedText": i.quotedText, "authorId": i.authorId,
+ {"id": i.id, "text": ${includeText ? 'i.text, "quotedText": i.quotedText' : '""'}, "authorId": i.authorId,
  "authorName": i.authorName, "mentions": i.mentions, "createdAt": i.createdAt}) FROM i IN c.thread.items)} AS thread`;
+}
+export const commentCandidateProjection = commentCandidateProjectionFor();
 
 /** Cosmos omits undefined object properties, but can retain the surrounding empty projection. */
 export function normalizeCandidate(candidate: CommentQueryCandidate): CommentQueryCandidate {

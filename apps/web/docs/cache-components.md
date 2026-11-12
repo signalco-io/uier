@@ -155,3 +155,10 @@ visitors never wait for a loading state; only a browser with the older localStor
 switches once after hydration and then moves it into the cookie. This avoids the
 server-list-to-client-board replacement without putting preferences or authorized comments into a shared cache. Populated inboxes retain their width container and unread-row space
 through empty filters and live updates ([CLS investigation](project-comments-cls.md)).
+
+
+Project Board/List page selection stays inside `ProjectPageContent`'s authorized request boundary.
+The validated view cookie is resolved before selecting first pages. Summary cursors, exact counts,
+metadata revisions and canonical thread details remain private/no-store; no mutable shared cache
+was introduced. Client filter/page POSTs independently check the current session, workspace,
+project and visibility. See [paged project comments](comments-inbox.md#paged-project-comments).

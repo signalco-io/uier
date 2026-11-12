@@ -715,6 +715,8 @@ test('the list shows Active by default, every status but Done, and each row says
 
 test('board cards drag to and from In progress; from Ready to verify it cancels the check', async ({ page, request }, testInfo) => {
     test.skip(testInfo.project.name.startsWith('Mobile'), 'The mouse; touch screens use the same move');
+    // Keep all measured drop targets inside the viewport, as in the other mouse-drag journey.
+    await page.setViewportSize({ width: 1674, height: 900 });
     const { project, comments, column, card } = await board(page, request);
 
     // Open to In progress: every other column takes the card

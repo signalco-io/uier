@@ -9,8 +9,8 @@ workflow is deployed to production, with labels and actor rules taken from the d
 link it from the landing (details or questions) and the footer, and add it to `KnownPages` and to
 the public paths in `e2e/seo.api.spec.ts`, `e2e/social-cards.api.spec.ts` and `e2e/footer.spec.ts`.
 
-`/features/feedback-triage` states the shipped bounds from `MAX_PROJECT_COMMENTS` (1,000 threads)
-and `MAX_TRIAGE_THREADS` (50), the batch outcomes and the permissions; change the page with them.
+`/features/feedback-triage` states paged project feedback (including search over older authorized threads)
+and the `MAX_TRIAGE_THREADS` action bound (50), the batch outcomes and the permissions; change the page with them.
 Its bulk Done is ordinary completion and never reviewer confirmation: a pending check ends as "Done
 without reviewer confirmation" (`@uier/toolbar/verification` labels). It links to
 `/features/fix-verification` for the verification workflow rather than describing it.

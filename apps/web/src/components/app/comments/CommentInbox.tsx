@@ -5,10 +5,12 @@ import { cn } from '@/src/lib/utils';
 import { setUrlSearchParams, useUrlSearchParams } from '@/src/hooks/use-url-search-params';
 import { KnownPageLinks } from '../../../knownPages';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
-import { CommentCard, type AssigneeOption, type ResolveExit } from './CommentCard';
+import type { AssigneeOption, ResolveExit } from './CommentCard';
 import { CommentRow, commentRowId } from './CommentRow';
 import { commentStatus, type CommentStatus } from './CommentStatus';
 import { LayoutMotion } from './LayoutMotion';
+import { VirtualCommentList, revealVirtualComment, type CommentPageControl } from './VirtualCommentList';
+import { PagedCommentCard } from './PagedCommentCard';
 import { shortcutLetter } from '@uier/toolbar/keyboard';
 import { isShortcutTarget, useShortcutsEnabled } from '../keyboard/keys';
 
@@ -81,7 +83,9 @@ export function useOpenComment(container: RefObject<HTMLElement | null>) {
  * phone, until a row is chosen) it stays unread. The keys pass threads faster than that, so only the
  * one the reader stops on is read.
  */
-export function CommentInbox({ projectId, comments, allComments, assignees, userId, label, keeps, readLeaves, openComment }: {
+export function CommentInbox({ projectId, comments, allComments, assignees, userId, label, keeps, readLeaves, openComment, paging, detailRevision }: {
+    detailRevision?: string;
+    paging?: CommentPageControl;
     projectId: string;
     /** The shown comments, in order */
     comments: ProjectCommentView[];
@@ -162,17 +166,16 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
         // At the first or the last row the keys do nothing, rather than scroll the page
         event.preventDefault();
         if (!next) return;
-        const row = list.querySelector<HTMLElement>(`[data-comment-id="${CSS.escape(next.id)}"]`);
-        // The same control in that row: its selection box from a selection box, otherwise its link
-        const fromBox = target instanceof Element && target.closest('[role="checkbox"]');
-        const control = (fromBox && row?.querySelector<HTMLElement>('[role="checkbox"]')) || document.getElementById(commentRowId(next.id));
-        setKeyboard(state => ({ ...state, id: next.id }));
-        if (!listShown) {
-            open(next.id, undefined, { replace: true });
-            return;
-        }
-        control?.focus({ preventScroll: true });
-        row?.scrollIntoView({ block: 'nearest' });
+        const id = next.id;
+        setKeyboard(state => ({ ...state, id }));
+        if (!listShown) { open(id, undefined, { replace: true }); return; }
+        revealVirtualComment(id);
+        requestAnimationFrame(() => {
+            const row = list.querySelector<HTMLElement>(`[data-comment-id="${CSS.escape(id)}"]`);
+            const fromBox = target instanceof Element && target.closest('[role="checkbox"]');
+            const control = (fromBox && row?.querySelector<HTMLElement>('[role="checkbox"]')) || document.getElementById(commentRowId(id));
+            control?.focus({ preventScroll: true }); row?.scrollIntoView({ block: 'nearest' });
+        });
         if (sideBySide()) open(next.id);
     });
     useEffect(() => {
@@ -219,12 +222,11 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
                 selected && '@3xl/comments:w-[min(var(--page-wide),96rem)] @3xl/comments:mx-[calc((100%-min(var(--page-wide),96rem))/2)]')}>
             <LayoutMotion container={listRef} item="data-comment-id">
             {/* `isolate`: rows that move stay under the page's sticky header, and leaving copies above the list's background */}
-            <ul ref={listRef} aria-label={label} className={cn('relative isolate m-0 flex min-w-0 list-none flex-col gap-0.5 rounded-xl border bg-card p-1', opened && '@max-3xl/comments:hidden')}
+            <VirtualCommentList gap={2} listRef={listRef} items={comments} label={label} control={paging} focusedId={keyboard.id ?? tabStop?.id} itemAttribute="data-comment-id" className={cn('relative isolate m-0 flex min-w-0 list-none flex-col gap-0.5 rounded-xl border bg-card p-1', opened && '@max-3xl/comments:hidden')}
                 onFocus={event => {
                     const id = event.target.closest<HTMLElement>('[data-comment-id]')?.dataset.commentId;
                     if (id) setKeyboard(state => state.id === id ? state : { ...state, id });
-                }}>
-                {comments.map(comment => {
+                }} render={comment => {
                     const leaves = isLeaving(comment);
                     return (
                         // Scroll margin: clear of the sticky top bar (below lg, where the page scrolls) when the keys bring a row into view
@@ -240,8 +242,7 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
                             </div>
                         </li>
                     );
-                })}
-            </ul>
+                }} />
             </LayoutMotion>
             {selected && (
                 <div ref={detailRef}
@@ -250,7 +251,7 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
                     // the top and the bottom, the gap it has from the panel's side (uier #312)
                     className={cn('min-w-0 scroll-mt-16 lg:scroll-mt-4 @3xl/comments:sticky @3xl/comments:top-[calc(3rem+var(--page-gutter))] @3xl/comments:max-h-[calc(100svh-3rem-2*var(--page-gutter)-var(--selection-bar,0px))] @3xl/comments:overflow-y-auto @3xl/comments:rounded-xl lg:@3xl/comments:top-(--page-gutter) lg:@3xl/comments:max-h-[calc(100svh-4rem-2*var(--page-gutter)-var(--selection-bar,0px))]',
                         !opened && '@max-3xl/comments:hidden')}>
-                    <CommentCard key={selected.id}
+                    <PagedCommentCard snapshotRevision={detailRevision} key={selected.id}
                         projectId={projectId}
                         comment={selected}
                         reviewLink={KnownPageLinks.projectReview(projectId, selected.url, selected.id)}

@@ -223,7 +223,7 @@ test('mark all as read clears the rendered unread snapshot before confirmation',
     // The row says it is unread, as does the count beside Mark all as read
     const unreadRow = page.getByRole('link', { name: /, unread$/ });
     await expect(unreadRow).toHaveCount(1);
-    await expect(page.getByText('1 unread', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: '1 unread, show only unread', exact: true })).toBeVisible();
     const pending = gate();
     await page.route(`**/app/projects/${project}*`, async route => {
         if (route.request().method() === 'POST') await pending.wait;

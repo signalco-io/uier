@@ -1,5 +1,8 @@
 // App discussion and page-check source phrases. Translate wording, never saved member content.
 const messages = {
+    "Mark shown as read": "Mark shown as read",
+    "Load more": "Load more",
+    "Loading comments": "Loading comments",
     " (admin override for {reviewer})": " (admin override for {reviewer})",
     " (edited)": " (edited)",
     " (this page)": " (this page)",

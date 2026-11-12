@@ -221,3 +221,21 @@ test('Cosmos metadata is in the same conditional write and transaction as canoni
     expect(batches[1]?.[0]?.resourceBody?.queryMetadata?.hasScreenshot).toBe(true);
     expect(batches[1]?.[1]?.resourceBody).not.toHaveProperty('data');
 });
+
+test('routing-only projections omit message bodies and apply author scope before the scan budget', async () => {
+    const domain = `routing-${randomUUID()}`, store = getMemoryCommentsStore();
+    await store.create(comment(domain, 'other', { authorId: 'another', thread: { items: [{ id: 'first', text: 'Do not project this body', authorId: 'another' }] } }));
+    await store.create(comment(domain, 'mine', { workflowStatusId: 'approved', archiveStatusId: 'rejected', device: { browser: 'Diagnostic value' } }));
+    const selected = await store.queryCandidates(domain, { authorId: 'owner', includeText: false, maxCandidates: 1 });
+    expect(selected.map(row => row.id)).toEqual(['mine']);
+    expect(selected[0]).toMatchObject({ workflowStatusId: 'approved', archiveStatusId: 'rejected' });
+    expect(JSON.stringify(selected)).not.toMatch(/The checkout fails|Do not project|Diagnostic value|queryMetadata/);
+    const fake = queryContainer([{ resources: selected }]);
+    expect(await createCosmosCommentsStore(() => fake.container).queryCandidates(domain, { authorId: 'owner', includeText: false })).toEqual(selected);
+    const sql = fake.queries[0]!.input;
+    expect(sql.query).toContain('"text": ""');
+    expect(sql.query).not.toContain('"text": i.text');
+    expect(sql.query).not.toContain('c.device, c.queryMetadata');
+    expect(sql.query).toContain('c.authorId = @authorId OR EXISTS');
+    expect(sql.parameters).toContainEqual({ name: '@authorId', value: 'owner' });
+});

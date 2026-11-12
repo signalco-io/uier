@@ -96,7 +96,8 @@ test('project comments keep CLS below 0.1 through a remembered board load and un
     } });
     expect(arrived.status()).toBe(201);
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-    await expect(page.getByRole('region', { name: 'Open comments', exact: true }).getByRole('listitem')).toHaveCount(21);
+    await expect(page.getByRole('region', { name: 'Open comments', exact: true }).getByRole('heading')).toHaveText('Open21');
+    await expect(page.getByRole('region', { name: 'Open comments', exact: true }).locator('[data-comment-window]')).toHaveAttribute('data-loaded-count', '21');
     await page.waitForTimeout(1_100);
     const afterArrival = await board.boundingBox();
     const filterAfterArrival = await filter.boundingBox();

@@ -795,19 +795,23 @@ published extension ([public pages](browser-extension.md#public-pages)).
 
 ## Search, priority and bulk triage
 
-Search feedback filters the authorized app snapshot immediately. Its `q` URL parameter is limited
+Search feedback keeps the controls immediate and queries the complete authorized project. Its `q` URL parameter is limited
 to 200 characters and saved with debounced history replacement. Each whitespace-separated word
 must appear literally, without case sensitivity, in the first message, a non-deleted reply or quote,
 the canonical page path or the public thread number (`#12`). Deleted text is excluded. Search,
-priority, status, people, page and unread filters combine locally; environment and staff-author
+priority, status, people, page and unread filters combine before server pagination; environment and staff-author
 changes still load a new server-authorized scope. People is Everyone, Assigned to me, Unassigned
 (`people=unassigned`: threads with no assignee, the same threads as MCP `list_feedback` with
 `assignee: "unassigned"`) or Opened by me. Back/Forward, view changes and reload retain the
 URL filters. Mark all as read snapshots only the final shown threads and their rendered cursors.
 
-Search covers at most 1,000 recent threads in the loaded environment/author scope. A notice appears
-when the storage window is capped, including when private threads reduce the visible count. Narrow
-the environment or staff-author scope to look for older feedback. This is not database-wide search.
+The list and each effective board status column start with 25 summaries and fetch more as that
+list/column scrolls. Counts describe all authorized matches, including older feedback; the project
+view no longer has a recent-thread search window. Long lists render only their current scroll
+window. Select shown results uses the pages already loaded and keeps the 50-thread action limit.
+Mark shown as read acts on the loaded unread threads; it says Mark all as read when all matching
+unread threads are loaded. Very large queries retain explicit server execution budgets and can ask
+for a narrower scope. This remains a single-project search, not workspace-wide search.
 
 Priority is Low, Normal, High or Urgent; missing priority on older records means Normal. A current
 project member can change visible threads in app cards and toolbar thread/inbox views. Guests can

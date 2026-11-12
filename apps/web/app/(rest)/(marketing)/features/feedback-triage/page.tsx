@@ -116,8 +116,8 @@ export default function FeedbackTriagePage() {
 
             <PageSection id="limits" title="Limits" lead="Triage works within these bounds today.">
                 <Panel className="md:grid-cols-2">
-                    <Tile title="1,000 recent threads">
-                        <p>Search and filters cover up to 1,000 of the most recent threads in the loaded environment. When there are more, the app says so: narrow the environment or the author to reach older feedback.</p>
+                    <Tile title="Feedback loads in pages">
+                        <p>The list and each board column load more feedback as you scroll. Search includes older threads in the selected project. If a search is too large, choose a narrower environment and try again.</p>
                     </Tile>
                     <Tile title="50 threads per action">
                         <p>You can select up to 50 shown threads. With more results, Select first 50 shown takes the first 50 in the order shown: Open, In progress, Ready to verify, then Done on the board. The rest stay as they are.</p>

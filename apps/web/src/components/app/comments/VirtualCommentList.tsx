@@ -1,0 +1,92 @@
+'use client';
+
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { cn } from '@/src/lib/utils';
+import { Button } from '@/src/components/ui/button';
+import { Spinner } from '@/src/components/ui/spinner';
+import { useAppI18n } from '@/src/lib/i18n/client';
+
+export type CommentPageControl = { total: number; hasMore: boolean; loading: boolean; loadMore: () => void; error?: boolean };
+const revealEvent = 'uier-reveal-comment';
+export function revealVirtualComment(id: string) { document.dispatchEvent(new CustomEvent(revealEvent, { detail: id })); }
+
+/** Measured variable-height rows, overscanned within their own column/list scroller. No document scroll listeners. */
+export function VirtualCommentList<T extends { id: string }>({ items, label, render, control, focusedId, className, onFocus, listRef, footer, gap = 8, itemAttribute = 'data-board-card' }: {
+    items: T[]; label: string; render: (item: T, index: number) => ReactNode; control?: CommentPageControl;
+    focusedId?: string; className?: string; onFocus?: React.FocusEventHandler<HTMLUListElement>; itemAttribute?: string; listRef?: RefObject<HTMLUListElement | null>; footer?: ReactNode; gap?: number;
+}) {
+    const { t } = useAppI18n();
+    const root = useRef<HTMLUListElement>(null), sentinel = useRef<HTMLLIElement>(null);
+    const sizes = useRef(new Map<string, number>());
+    const [viewport, setViewport] = useState({ top: 0, height: 600 });
+    const [, setMeasure] = useState(0);
+    const [revealed, setRevealed] = useState<string>();
+    const offsets = [0];
+    for (const item of items) offsets.push(offsets.at(-1)! + (sizes.current.get(item.id) ?? 100) + gap);
+    const virtual = Boolean(control) && items.length > 20;
+    const start = virtual ? Math.max(0, offsets.findIndex(offset => offset >= viewport.top) - 5) : 0;
+    const end = virtual ? Math.min(items.length, Math.max(start + 1, offsets.findIndex(offset => offset > viewport.top + viewport.height) < 0 ? items.length : offsets.findIndex(offset => offset > viewport.top + viewport.height)) + 4) : items.length;
+    const indexes = new Set(Array.from({ length: end - start }, (_, index) => start + index));
+    for (const id of [focusedId, revealed]) { const index = items.findIndex(item => item.id === id); if (index >= 0) indexes.add(index); }
+    const visible = [...indexes].sort((a, b) => a - b);
+    useLayoutEffect(() => {
+        const list = root.current;
+        if (!list || !control) return;
+        const readViewport = () => setViewport({ top: list.scrollTop, height: list.clientHeight || 600 });
+        readViewport(); list.addEventListener('scroll', readViewport, { passive: true });
+        const resize = new ResizeObserver(readViewport); resize.observe(list);
+        return () => { list.removeEventListener('scroll', readViewport); resize.disconnect(); };
+    }, [Boolean(control)]);
+    useLayoutEffect(() => {
+        if (!virtual || !root.current) return;
+        const observer = new ResizeObserver(entries => {
+            let changed = false;
+            for (const entry of entries) {
+                const id = entry.target.getAttribute(itemAttribute);
+                const height = entry.borderBoxSize[0]?.blockSize ?? entry.target.getBoundingClientRect().height;
+                if (id && height > 0 && sizes.current.get(id) !== height) { sizes.current.set(id, height); changed = true; }
+            }
+            if (changed) setMeasure(value => value + 1);
+        });
+        for (const row of root.current.querySelectorAll(`[${itemAttribute}]`)) observer.observe(row);
+        return () => observer.disconnect();
+    }, [items, start, end, virtual, revealed, focusedId, itemAttribute]);
+    useEffect(() => {
+        const reveal = (event: Event) => {
+            const id = (event as CustomEvent<string>).detail, index = items.findIndex(item => item.id === id);
+            if (index < 0 || !root.current) return;
+            setRevealed(id);
+            const top = offsets[index]!;
+            if (top < root.current.scrollTop || top + (sizes.current.get(id) ?? 100) > root.current.scrollTop + root.current.clientHeight) root.current.scrollTop = top;
+        };
+        document.addEventListener(revealEvent, reveal);
+        return () => document.removeEventListener(revealEvent, reveal);
+    });
+    const hasMore = control?.hasMore, loading = control?.loading, failed = control?.error;
+    useEffect(() => {
+        const marker = sentinel.current, list = root.current;
+        if (!marker || !list || !hasMore || loading || failed) return;
+        const observer = new IntersectionObserver(entries => {
+            if (entries.some(entry => entry.isIntersecting) && list.checkVisibility()) control?.loadMore();
+        }, { root: list, rootMargin: '0px 0px 100px 0px' });
+        observer.observe(marker); return () => observer.disconnect();
+    }, [hasMore, loading, failed, items.length, control?.loadMore]);
+    const children: ReactNode[] = [];
+    let previous = 0;
+    for (const index of visible) {
+        const space = offsets[index]! - offsets[previous]!;
+        if (space > 0) children.push(<li key={`space-${index}`} role="presentation" aria-hidden="true" style={{ height: Math.max(0, space - gap) }} />);
+        children.push(render(items[index]!, index)); previous = index + 1;
+    }
+    if (previous < items.length) children.push(<li key="space-end" role="presentation" aria-hidden="true" style={{ height: Math.max(0, offsets[items.length]! - offsets[previous]! - gap) }} />);
+    return <ul ref={node => { root.current = node; if (listRef) listRef.current = node; }} aria-label={label} aria-busy={loading || undefined} onFocus={onFocus} data-loaded-count={items.length} data-comment-window={control ? '' : undefined}
+        className={cn('m-0 flex list-none flex-col gap-2 p-0 [&>li]:shrink-0', control && 'max-h-[max(20rem,calc(100svh-22rem))] overflow-y-auto overscroll-y-contain [overflow-anchor:none]', className)}>
+        {children}
+        {footer}
+        {control?.hasMore && <li ref={sentinel} role="presentation" className="flex shrink-0 justify-center p-2">
+            <Button variant="ghost" size="sm" className="pointer-coarse:min-h-11" disabled={control.loading} onClick={control.loadMore}>
+                {control.loading && <Spinner />}{t(control.error ? 'Try again' : 'Load more')}
+            </Button>
+        </li>}
+    </ul>;
+}

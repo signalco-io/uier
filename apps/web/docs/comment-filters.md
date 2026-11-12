@@ -72,8 +72,8 @@
   `@uier/toolbar/page-sections`, which the toolbar inbox's `LocationPicker` uses for the same split: environments, this page, all pages and the sections
   on its left, the other pages with their search on its right). Choosing an environment
   keeps the panel open and reloads its pages. "Removed addresses" and
-  "Source not recorded" show only when comments have that source (`historySources`, worked out in `ProjectComments`
-  from the loaded comments when every environment is loaded and the search window is not capped); when that is not
+  "Source not recorded" show only when comments have that source (`historySources`, returned by the authorized
+  server scan for the complete environment scope); when that is not
   known they show, and a chosen one always shows. The pages column has no environment label of its own: the
   environment column beside it shows the choice. The chosen environment and page have the `accent` background
   as well as the check mark. Each option has a `title` with its full label, since long paths are
@@ -103,3 +103,12 @@ authored by admins remain as saved. App label writes optimistically update the t
 and filters together and roll back on failure. Labels do not change sorting or status categories.
 The shared query backend also supports the member-only `labels` set field before paging, totals
 and facets; see [comment query](comment-query.md). Toolbar filtering is follow-up work.
+
+Project Board/List filter changes fetch bounded summary pages without a page navigation. Search
+includes replies on off-page threads; category/status counts and page options come from complete
+server matches. Column paging keys are effective custom-status IDs. The unread action says Mark
+shown as read while additional unread matches are not loaded. See [paging](comments-inbox.md#paged-project-comments).
+
+The view toggle records an implicit current List/Board choice in the existing history entry before
+pushing the new choice. Back therefore restores that view even though the browser now remembers
+the later choice; an initial visit without either saved preference still keeps its original URL.

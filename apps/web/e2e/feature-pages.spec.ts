@@ -17,7 +17,7 @@ test('feedback triage states the shipped workflow, its bounds and its next steps
     await expect(page).toHaveURL(/#limits$/);
 
     const limits = page.getByRole('region', { name: 'Limits' });
-    await expect(limits.getByRole('heading', { name: '1,000 recent threads' })).toBeVisible();
+    await expect(limits.getByRole('heading', { name: 'Feedback loads in pages' })).toBeVisible();
     await expect(limits.getByRole('heading', { name: '50 threads per action' })).toBeVisible();
     await expect(limits).toContainText('There is no search across projects');
     await expect(limits).toContainText('They do not delete threads');
@@ -49,7 +49,7 @@ test('feedback triage states the shipped workflow, its bounds and its next steps
 
 test('the homepage, its questions and the footer lead to feedback triage', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('region', { name: 'What it does' }).getByRole('link', { name: 'bulk triage' }))
+    await expect(page.getByRole('region', { name: 'What it does' }).getByRole('link', { name: 'triage', exact: true }))
         .toHaveAttribute('href', '/features/feedback-triage');
     const question = page.getByRole('region', { name: 'Questions' }).locator('details').filter({ hasText: 'How do I sort through a lot of feedback?' });
     // The keyboard, as in landing.spec.ts: on a phone the toolbar can cover the summary while it settles
