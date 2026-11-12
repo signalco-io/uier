@@ -78,7 +78,7 @@ as written. `toolbar-language.api.spec.ts` and `toolbar-language.spec.ts` cover 
 ### Toolbar features
 
 Review settings → Toolbar features lets project admins simplify the toolbar's optional tools:
-Accessibility, SEO, [Consent and cookies](../../../packages/toolbar/docs/page-checks-consent.md), Text rewrites and Drawing on the page (the toolbar's canvas mode). Comments, page feedback (subject to the existing Feedback types
+Accessibility, SEO, [Security and compliance](../../../packages/toolbar/docs/page-checks-security.md), Text rewrites and Drawing on the page (the toolbar's canvas mode). Comments, page feedback (subject to the existing Feedback types
 setting), the inbox and account/options controls stay available. These choices share the Review page's
 Save/Discard draft and admin/project checks; they change visibility, not endpoint permissions.
 

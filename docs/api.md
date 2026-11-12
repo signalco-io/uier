@@ -318,6 +318,11 @@ find the thread in either. `sourcePath` is the same page as it was addressed, fo
 | `POST /api/rewrite` | `{ text, instruction? }` | `200` `{ suggestions }`: up to 3 rewrites of selected page text, none when the model declines (see [Rewrite suggestions](#rewrite-suggestions)); `503 unavailable` without an API key or when the model can't be reached; never sets the visitor cookie |
 | `POST /api/page-suggestions` | `{ kind, text, title?, description? }` | `200` `{ suggestions }`: up to 3 titles, meta descriptions or questions the page answers (`kind`: `title`, `description` or `questions`), none when the model declines (see [Page suggestions](#page-suggestions)); `503 unavailable` without an API key, when the model can't be reached or answers with something other than a list; never sets the visitor cookie |
 
+Security and compliance retains the `consent` comment-check type for compatibility. Its new
+security observations use `security-*` IDs; the existing consent IDs remain valid. Export labels
+use the new tool name. Security reports are browser-local and enter the API only when a reviewer
+explicitly posts a finding, as described in [the security-check scope](../packages/toolbar/docs/page-checks-security.md).
+
 **Public ids.** Every new comment gets a `number`, counted per domain (per project for a project's comments)
 from 1 and shown as `#12` in the toolbar and the app. One sequence document per partition (`type: 'sequence'`,
 id `$sequence_comments`, which no route accepts, no `path` and no `ttl` of its own) is incremented atomically

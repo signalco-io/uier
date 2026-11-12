@@ -18,7 +18,7 @@ export const toolbarParts = {
     'uier-panel-inbox': 'inbox',
     'uier-panel-accessibility': 'accessibility panel',
     'uier-panel-seo': 'SEO panel',
-    'uier-panel-consent': 'consent and cookies panel',
+    'uier-panel-consent': 'security and compliance panel',
     'uier-thread': 'comment thread',
     'uier-thread-menu': 'thread options',
     'uier-thread-status-menu': 'thread status',

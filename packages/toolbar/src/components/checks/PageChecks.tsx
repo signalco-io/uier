@@ -17,7 +17,7 @@ import { useComments } from '../../hooks/useComments';
 import { useAnnounce } from '../Announcer';
 import type { CommentItem } from '../@types/Comments';
 import { AccessibilityPanel, type AccessibilityState } from './AccessibilityPanel';
-import { ConsentPanel } from './ConsentPanel';
+import { SecurityPanel } from './SecurityPanel';
 import { SeoPanel, seoChecks, tally, vitalChecks } from './SeoPanel';
 import { ChecksContext, type PostedComment } from './ChecksParts';
 import { ElementHighlight } from './ElementHighlight';
@@ -357,7 +357,7 @@ function PageChecksPanels({ panels, collapsed, onClose, onShowComment, onAttenti
             )}
             {consentOpen && (
                 <ChecksContext value={actions('consent')}>
-                    <ConsentPanel onClose={() => onClose('consent')} onCheck={checkNow('consent', () => {
+                    <SecurityPanel onClose={() => onClose('consent')} onCheck={checkNow('consent', () => {
                         setHighlighted(undefined);
                         sections.runPanel('consent', { again: true });
                     })} />

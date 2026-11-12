@@ -23,9 +23,9 @@ async function memberReview(page: Page, variant = 'banner') {
 async function openPanel(page: Page) {
     if (test.info().project.use.isMobile) {
         await toolbar(page).getByRole('button', { name: 'Options', exact: true }).click();
-        await page.getByRole('dialog', { name: 'Options' }).getByRole('button', { name: /^Consent and cookies/ }).click();
-    } else await toolbar(page).getByRole('button', { name: /^Consent and cookies/ }).click();
-    const panel = page.getByRole('complementary', { name: 'Consent and cookies' });
+        await page.getByRole('dialog', { name: 'Options' }).getByRole('button', { name: /^Security and compliance/ }).click();
+    } else await toolbar(page).getByRole('button', { name: /^Security and compliance/ }).click();
+    const panel = page.getByRole('complementary', { name: 'Security and compliance' });
     await expect(section(panel, 'snapshot')).toHaveAttribute('data-uier-section-status', 'done', { timeout: 20_000 });
     await showChecksTab(panel, 'snapshot');
     return panel;
@@ -66,7 +66,7 @@ test('names-only inventory, timing limits, comments and dismissals use the page-
     await named(snapshot, '_ga').getByRole('button', { name: 'Not an issue' }).click();
     await expect(named(snapshot, '_ga')).toHaveAttribute('data-uier-check-state', 'none');
     await page.reload();
-    panel = page.getByRole('complementary', { name: 'Consent and cookies' });
+    panel = page.getByRole('complementary', { name: 'Security and compliance' });
     await expect(section(panel, 'snapshot')).toHaveAttribute('data-uier-section-status', 'done', { timeout: 20_000 });
     const ga = named(section(panel, 'snapshot'), '_ga');
     await expect(ga).toHaveAttribute('data-uier-check-state', 'none');
@@ -83,7 +83,7 @@ test('names-only inventory, timing limits, comments and dismissals use the page-
     await expect(ga).toContainText(/(Comment posted|Bug report sent) as #1/);
     expect(sent.join('\n')).not.toMatch(/private-(cookie|local|session)-value-342|another-private-value-342/);
     await page.reload();
-    panel = page.getByRole('complementary', { name: 'Consent and cookies' });
+    panel = page.getByRole('complementary', { name: 'Security and compliance' });
     await expect(named(section(panel, 'snapshot'), '_ga')).toContainText('Reported as #1', { timeout: 20_000 });
     await animationsFinished(panel);
     await expectNoAxeViolations(page, { include: ['#uier-toolbar'] });

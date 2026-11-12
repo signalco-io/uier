@@ -553,7 +553,7 @@ const messages: Record<keyof typeof en, string> = {
     "Teams you archive move here. They grant no access until you restore them.": "Timovi koje arhivirate sele se ovamo. Ne dopuštaju pristup dok ih ne vratite.",
     "Teams: {items}": "Timovi: {items}",
     "Tell uier which site you want to review. Then add the script and invite a reviewer.": "Navedite uieru koje web-mjesto želite pregledati. Zatim dodajte skriptu i pozovite osobu da ga pregleda.",
-    "Consent and cookies": "Privola i kolačići",
+    "Security and compliance": "Sigurnost i usklađenost",
     "Text rewrites": "Prepisuje tekst",
     "The API responded, but browser verification failed. Check frame-src and retry.": "API je odgovorio, ali provjera preglednika nije uspjela. Provjerite frame-src i pokušajte ponovno.",
     "The browser blocked a required uier script. Check script-src in the security headers.": "Preglednik je blokirao potrebnu uier skriptu. Provjerite script-src u sigurnosnim zaglavljima.",

@@ -553,7 +553,7 @@ const messages: Record<keyof typeof en, string> = {
     "Teams you archive move here. They grant no access until you restore them.": "Les équipes que vous archivez sont déplacées ici. Ils n'accordent aucun accès jusqu'à ce que vous les restauriez.",
     "Teams: {items}": "Équipes: {items}",
     "Tell uier which site you want to review. Then add the script and invite a reviewer.": "Indiquez à uier le site à examiner. Ajoutez ensuite le script et invitez une personne à le réviser.",
-    "Consent and cookies": "Consentement et cookies",
+    "Security and compliance": "Sécurité et conformité",
     "Text rewrites": "Réécritures de texte",
     "The API responded, but browser verification failed. Check frame-src and retry.": "L'API a répondu, mais la vérification du navigateur a échoué. Vérifiez frame-src et réessayez.",
     "The browser blocked a required uier script. Check script-src in the security headers.": "Le navigateur a bloqué un script uier requis. Vérifiez script-src dans les en-têtes de sécurité.",

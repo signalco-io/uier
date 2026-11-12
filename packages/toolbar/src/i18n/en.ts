@@ -7,7 +7,14 @@ const s = (count: number, one: string, other: string) => count === 1 ? one : oth
 
 export const en = {
     consentPanel: {
-        title: 'Consent and cookies',
+        security: "Page security",
+        headers: "Response headers",
+        checkHeaders: "Check response headers",
+        checkingHeaders: "Checking response headers…",
+        passed: "Passed checks",
+        headerScope: "One anonymous GET of this page, without cookies or redirects. The body is not read. This response can differ from the loaded page. Check again clears these results.",
+        securityLimits: "Page evidence for review, not a security or legal compliance certification. Original navigation headers, TLS configuration, server vulnerabilities, HttpOnly and third-party cookies are not inspected. No sensitive files are probed.",
+        title: 'Security and compliance',
         toReview: 'To review',
         notes: 'Notes',
         snapshot: 'Page snapshot',
@@ -59,7 +66,7 @@ export const en = {
             `${badge} unread ${count === 1 && !capped ? 'thread' : 'threads'}${count > 99 && !capped ? `, ${count} in total` : ''}`,
         accessibility: 'Accessibility',
         seo: 'SEO',
-        consent: 'Consent and cookies',
+        consent: 'Security and compliance',
         about: 'About uier',
         draw: 'Draw on the page',
         collapse: 'Collapse toolbar'
@@ -850,7 +857,7 @@ export const en = {
         image: 'Image'
     },
     checks: {
-        kinds: { consent: 'Consent and cookies', accessibility: 'Accessibility', seo: 'SEO', 'web-vitals': 'Core Web Vitals' },
+        kinds: { consent: 'Security and compliance', accessibility: 'Accessibility', seo: 'SEO', 'web-vitals': 'Core Web Vitals' },
         highlight: 'Highlight',
         notAnIssue: 'Not an issue',
         /** "Comment posted as #12" */

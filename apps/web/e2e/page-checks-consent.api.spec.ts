@@ -9,14 +9,14 @@ test('consent comments preserve their check and packet label, without accepting 
     try {
         const path = `/e2e/${randomUUID()}`;
         const check = { type: 'consent', id: 'consent-storage-name' };
-        const data = { path, position: { type: 'page' }, kind: 'feedback', text: 'Consent and cookies: Review the cookie name `_ga`. Timing unknown.', check };
+        const data = { path, position: { type: 'page' }, kind: 'feedback', text: 'Security and compliance: Review the cookie name `_ga`. Timing unknown.', check };
         const response = await visitor.post('/api/comments', { data });
         expect(response.status(), await response.text()).toBe(201);
         const comment = await response.json();
         expect(comment.check).toEqual(check);
         const packet = await (await visitor.get(`/api/comments/${comment.id}/context`)).json();
         expect(packet.context.check).toEqual(check);
-        expect(packet.markdown).toContain('Page check: Consent and cookies (` consent-storage-name `)');
+        expect(packet.markdown).toContain('Page check: Security and compliance (` consent-storage-name `)');
         expect(commentCheck(check)).toEqual(check);
         const extra = await visitor.post('/api/comments', { data: { ...data, check: { ...check, cookieValue: 'not-accepted' } } });
         expect(extra.status()).toBe(400);

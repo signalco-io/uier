@@ -28,7 +28,7 @@ project's pages together ([the view](../../../apps/web/docs/page-checks.md)). It
   The request goes through `apiRequest`, with the review token and the cross-origin verification proof
   like every review write.
 
-Consent and cookies is local to its panel. Neither its inventory nor its observation reports enter
+Security and compliance is local to its panel. Neither its inventory nor its observation reports enter
 this automatic summary. Only a reviewer’s explicit Comment action sends a finding’s names and
 metadata; no cookie or storage values are collected into the reports.
 

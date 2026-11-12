@@ -22,7 +22,8 @@ Read the note for the area you change, and update it in the same pull request. A
   - [Target size, To review, Comment on all and Not an issue](page-checks-report.md): WCAG 2.2's target size, what axe-core could not decide, one comment for a rule's elements, and findings dismissed in this browser.
   - [Keyboard and screen reader](page-checks-keyboard.md): the tab order on the page, the focus indicator check, and the outline of landmarks, headings and controls.
   - [Alt text, zoom and text spacing, motion](page-checks-content.md): the alt text review, reflow at this width, the text spacing mode, and animations and media that move on their own.
-  - [Consent and cookies](page-checks-consent.md): names-only storage inventory, known consent-platform markers and a bounded observation before a consent choice.
+  - [Security and compliance](page-checks-security.md): page evidence, optional anonymous response-header checks, unknowns and privacy limits.
+  - [Consent inventory and observation](page-checks-consent.md): names-only storage inventory, known consent-platform markers and a bounded observation before a consent choice.
   - [Sharing and structured data](page-checks-seo-head.md): Open Graph and X card tags with their previews, and the JSON-LD checks with their sources.
   - [More Page, Links and Images checks](page-checks-seo-page.md): viewport, language and hreflang, generic link text, Check links, and image weight.
   - [Crawlers](page-checks-crawler.md): the page's response, the served HTML against the rendered page, robots.txt for search and AI crawlers, the sitemap and llms.txt.

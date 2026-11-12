@@ -10,9 +10,9 @@ const path = '/features/page-checks';
 test('the page checks page explains the panels, the comments and the app view', async ({ page }) => {
     const response = await page.goto(path);
     expect(response?.status()).toBe(200);
-    await expect(page).toHaveTitle(`Accessibility and SEO checks · ${brand.name}`);
+    await expect(page).toHaveTitle(`Accessibility, SEO and security checks · ${brand.name}`);
     await expect(page.getByRole('heading', { level: 1, name: 'Check each page as you review it' })).toBeVisible();
-    for (const name of ['How it works', 'Accessibility', 'SEO', 'From finding to comment', 'Across your pages', 'What the checks cannot tell you', 'Try it', 'Questions'])
+    for (const name of ['How it works', 'Accessibility', 'SEO', 'Security and compliance', 'From finding to comment', 'Across your pages', 'What the checks cannot tell you', 'Try it', 'Questions'])
         await expect(page.getByRole('region', { name, exact: true }), name).toBeVisible();
 
     const main = page.getByRole('main');
@@ -27,6 +27,11 @@ test('the page checks page explains the panels, the comments and the app view', 
     const seo = page.getByRole('region', { name: 'SEO', exact: true });
     await expect(seo).toContainText('measured in your browser against 2.5 s, 0.1 and 200 ms');
     await expect(seo).toContainText('up to 100 of its own links');
+
+    const security = page.getByRole('region', { name: 'Security and compliance', exact: true });
+    await expect(security).toContainText('explicitly request this page without cookies');
+    await expect(security).toContainText('Sensitive files are not probed');
+    await expect(security).toContainText('do not certify security or legal compliance');
 
     const findings = page.getByRole('region', { name: 'From finding to comment', exact: true });
     for (const action of ['Highlight', 'Comment on all', 'Not an issue'])

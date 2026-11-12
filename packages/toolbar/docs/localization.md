@@ -84,3 +84,7 @@ One store for the page, so the main root, inline threads and code outside React 
 `e2e/toolbar-language.api.spec.ts` covers resolution and fallback, validation, admin-only settings and saving or
 resetting an account's choice through both APIs; `e2e/toolbar-language.spec.ts` (full suite) a project language
 reaching a guest, a guest's choice across a reload and back to Default, and a member's choice in Account.
+
+Security and compliance keeps the machine ID `consent`. Its tool labels and security/header
+observations are translated in all six catalogs; header names, Secure/SameSite attributes and
+stable `security-*` check IDs remain unchanged.
