@@ -161,4 +161,7 @@ Project Board/List page selection stays inside `ProjectPageContent`'s authorized
 The validated view cookie is resolved before selecting first pages. Summary cursors, exact counts,
 metadata revisions and canonical thread details remain private/no-store; no mutable shared cache
 was introduced. Client filter/page POSTs independently check the current session, workspace,
-project and visibility. See [paged project comments](comments-inbox.md#paged-project-comments).
+project and visibility. The initial request catches a query-budget error as an explicit narrowing
+state with scope filters; other failures still propagate, and page POSTs still return 422 for the
+budget. Refresh depths share one authorized scan and reuse its read state.
+See [paged project comments](comments-inbox.md#paged-project-comments).

@@ -9,10 +9,13 @@ import { apiErrors, errorResponse, parseJsonBody } from '@/src/lib/comments/http
 import { queryError } from '@/src/lib/commentQuery/service';
 import { enforceQueryReadLimits } from '@/src/lib/commentQuery/limits';
 import { appActor } from '@/src/lib/app/projectComments';
+import { PROJECT_COMMENT_MAX_DEPTH } from '@/src/lib/app/projectCommentPaging';
 
+const laneSchema = z.string().min(1).max(80).regex(/^[a-z][a-z0-9_-]*$/);
 const schema = z.object({
     params: z.record(z.string().max(100), z.string().max(2000)),
-    lane: z.string().min(1).max(80).regex(/^[a-z][a-z0-9_-]*$/).optional(),
+    lane: laneSchema.optional(),
+    depths: z.record(laneSchema, z.number().int().min(1).max(PROJECT_COMMENT_MAX_DEPTH)).optional(),
     cursor: z.string().max(8192).optional(), archiveExpanded: z.boolean().optional(), openId: z.string().max(200).optional()
 }).strict();
 
@@ -34,6 +37,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
         await enforceQueryReadLimits(request, [{ domain: `project:${project.id}`, project, actor: appActor(context) }]);
         const input = await parseJsonBody(request, schema, 32 * 1024);
         if (input.cursor && !input.lane) throw apiErrors.invalidRequest('Choose a column for this cursor.');
+        if (input.depths && (input.cursor || input.lane)) throw apiErrors.invalidRequest('Choose either a page cursor or column depths.');
         const { t } = await getAppI18n();
         const data = await loadAppCommentsSnapshot(context, project, parseCommentsQuery(input.params), undefined, t, { ...input, signal: request.signal });
         if (!data) throw apiErrors.notFound();

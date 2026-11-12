@@ -3,7 +3,7 @@ import { agentIsWorking } from '@uier/toolbar/agents';
 import { commentPriority, matchesFeedbackSearch } from '@uier/toolbar/triage';
 import { feedbackStages, feedbackStage } from '@uier/toolbar/verification';
 import { keyedHash } from '../comments/environment';
-import { apiErrors } from '../comments/http';
+import { ApiError, apiErrors } from '../comments/http';
 import { loadReadSequences } from '../comments/readState';
 import { readActivity } from '../comments/activity';
 import { commentPath } from '../comments/dto';
@@ -32,7 +32,7 @@ import { englishAppTranslator } from '../i18n/translate';
 import type { AppTranslator } from '../i18n/types';
 
 export { PROJECT_COMMENT_PAGE_SIZE } from './projectCommentPaging';
-import { PROJECT_COMMENT_PAGE_SIZE, projectCommentPageKey, type CommentLane, type CommentPage, type ProjectCommentPaging, type ProjectCommentPageInput } from './projectCommentPaging';
+import { PROJECT_COMMENT_MAX_DEPTH, PROJECT_COMMENT_PAGE_SIZE, projectCommentPageKey, type CommentLane, type CommentPage, type ProjectCommentPaging, type ProjectCommentPageInput } from './projectCommentPaging';
 export type { ProjectCommentPageInput } from './projectCommentPaging';
 
 type Pivot = Pick<ProjectCommentView, 'id' | 'number' | 'createdAt' | 'updatedAt' | 'completedAt' | 'archivedAt'> & { priority?: ProjectCommentView['priority'] };
@@ -93,6 +93,7 @@ export async function loadProjectCommentPages(context: AppContext, project: DbPr
     const matching = scope.filter(matches), sorts = boardSortsOf(project.boardSorts);
     const archiveExpanded = input.archiveExpanded ?? Boolean(project.boardArchiveExpanded);
     const workflow = effectiveStatusWorkflow(context.workspace, project), definitions = orderedStatuses(workflow);
+    const stage = (comment: CommentQueryCandidate) => feedbackStage({ ...comment, verificationEnabled: workflow.verificationEnabled === true });
     const key = projectCommentPageKey(query, sorts, archiveExpanded, workflow, `${project.id}:${context.user.id}`);
     const board = query.view === 'board' && query.status !== 'archived';
     const boardStatus = board ? boardStatusFilter(query.status) : undefined;
@@ -103,33 +104,41 @@ export async function loadProjectCommentPages(context: AppContext, project: DbPr
     const choices: CommentLane[] = input.lane ? [input.lane] : board ? definitions.filter(status =>
         (!boardStatus || status.category === boardStatus) && (status.category !== 'archive' || archiveExpanded)).map(status => status.id) : ['list'];
     if (input.lane && (board ? !definitions.some(status => status.id === input.lane && (!boardStatus || status.category === boardStatus)) : input.lane !== 'list')) throw apiErrors.invalidRequest('This column does not belong to the current view.');
+    if (input.depths && Object.keys(input.depths).some(lane => !choices.includes(lane))) throw apiErrors.invalidRequest('This column does not belong to the current view.');
     for (const lane of choices) {
         const definition = board ? definitions.find(status => status.id === lane)! : undefined;
         const sort = definition ? sorts[definition.category] : undefined;
         const compare = (a: Pivot, b: Pivot) => (sort ? boardSortOrders[sort](a, b) : compareCommentOrder(a, b)) || compareCommentOrder(a, b) || a.id.localeCompare(b.id);
-        const rows = (board ? rowsByLane.get(lane)! : matching.filter(comment => statusMatches(query.status, feedbackStage(comment), comment.archivedAt))).sort(compare);
+        const rows = (board ? rowsByLane.get(lane)! : matching.filter(comment => statusMatches(query.status, stage(comment), comment.archivedAt))).sort(compare);
         const binding = keyedHash('project-comment-page-binding', JSON.stringify([key, lane, viewerId, project.id, context.isAdmin, project.access, project.urls, query.unread ? input.openId : undefined]));
         const cursor = input.cursor ? readCursor(input.cursor, binding) : undefined;
         const remaining = cursor ? rows.filter(row => compare(row, cursor.after) > 0) : rows;
-        const page = remaining.slice(0, PROJECT_COMMENT_PAGE_SIZE), last = page.at(-1);
+        const depth = input.depths?.[lane] ?? 1;
+        if (!Number.isInteger(depth) || depth < 1 || depth > PROJECT_COMMENT_MAX_DEPTH) throw apiErrors.invalidRequest('Invalid column depth.');
+        const size = depth * PROJECT_COMMENT_PAGE_SIZE;
+        const page = remaining.slice(0, size), last = page.at(-1);
         const after = last && { id: last.id, priority: last.priority ?? 'normal', number: last.number, createdAt: last.createdAt,
             updatedAt: last.updatedAt, completedAt: last.completedAt, archivedAt: last.archivedAt };
         lanes[lane] = { ids: page.map(row => row.id), total: rows.length,
-            nextCursor: remaining.length > PROJECT_COMMENT_PAGE_SIZE && after ? signCursor({ key: binding, after, expires: cursor?.expires ?? Date.now() + 15 * 60_000 }) : null };
+            nextCursor: remaining.length > size && after ? signCursor({ key: binding, after, expires: cursor?.expires ?? Date.now() + 15 * 60_000 }) : null };
         for (const row of page) selected.add(row.id);
     }
-    const statusCounts = Object.fromEntries(filters.map(filter => [filter, matching.filter(comment => statusMatches(filter, feedbackStage(comment), comment.archivedAt)).length])) as Record<StatusFilter, number>;
+    const statusCounts = Object.fromEntries(filters.map(filter => [filter, matching.filter(comment => statusMatches(filter, stage(comment), comment.archivedAt)).length])) as Record<StatusFilter, number>;
+    const statusUnread = Object.fromEntries(filters.map(filter => [filter, matching.filter(comment => statusMatches(filter, stage(comment), comment.archivedAt) && readActivity(comment, viewerId, reads.get(comment.id)).unread).length])) as Record<StatusFilter, number>;
     const paths = new Map<string, number>();
     for (const comment of scope.filter(comment => board || Boolean(comment.archivedAt) === (query.status === 'archived'))) {
         const path = commentPath(comment); paths.set(path, (paths.get(path) ?? 0) + 1);
     }
-    const paging: ProjectCommentPaging = { key, lanes, statusCounts, scopeTotal: scope.length, matchedTotal: matching.length,
+    const paging: ProjectCommentPaging = { key, lanes, statusCounts, statusUnread, scopeTotal: scope.length, matchedTotal: matching.length,
         pages: [...paths].map(([path, count]) => ({ path, count })),
         historySources: [...new Set(scope.map(comment => feedbackSource(project, comment.origin).environment).filter(id => id === 'removed' || id === 'unknown'))],
-        unreadCount: matching.filter(comment => (board ? (!boardStatus || feedbackStage(comment) === boardStatus && !comment.archivedAt) && (!comment.archivedAt || archiveExpanded) : statusMatches(query.status, feedbackStage(comment), comment.archivedAt)) && readActivity(comment, viewerId, reads.get(comment.id)).unread).length };
+        unreadCount: matching.filter(comment => (board ? (!boardStatus || stage(comment) === boardStatus && !comment.archivedAt) && (!comment.archivedAt || archiveExpanded) : statusMatches(query.status, stage(comment), comment.archivedAt)) && readActivity(comment, viewerId, reads.get(comment.id)).unread).length };
     const [views, openedComment] = await Promise.all([
-        input.revisionOnly ? [] : loadProjectComments(context, project, undefined, undefined, undefined, Promise.resolve(members), 'all', t, [...selected]),
-        !input.revisionOnly && input.openId && !selected.has(input.openId) && scope.some(comment => comment.id === input.openId) ? loadProjectComment(context, project, input.openId) : undefined
+        input.revisionOnly ? [] : loadProjectComments(context, project, undefined, undefined, undefined, Promise.resolve(members), 'all', t, [...selected], { reads, subscriptions }),
+        !input.revisionOnly && input.openId && !selected.has(input.openId) && scope.some(comment => comment.id === input.openId) ? loadProjectComment(context, project, input.openId).catch(error => {
+            if (error instanceof ApiError && error.status === 404) return null;
+            throw error;
+        }) : undefined
     ]);
     // Stable across presentation filters and cursors. Off-page edits, read cursors, policy, names and expiring leases count.
     const revision = keyedHash('app-comments-paged-snapshot', JSON.stringify({
@@ -138,5 +147,6 @@ export async function loadProjectCommentPages(context: AppContext, project: DbPr
         members, subscriptions, project, user: context.user, workspace: context.workspace, actor
     }));
     const byId = new Map(views.map(view => [view.id, view]));
+    if (!input.revisionOnly) for (const lane of Object.values(lanes)) if (lane) lane.ids = lane.ids.filter(id => byId.has(id));
     return { comments: [...selected].flatMap(id => byId.has(id) ? [summary(byId.get(id)!)] : []), openedComment: openedComment ?? undefined, paging, revision };
 }

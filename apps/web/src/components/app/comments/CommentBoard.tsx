@@ -30,7 +30,7 @@ import { shortcutLetter } from '@uier/toolbar/keyboard';
 import { isShortcutTarget, useShortcutsEnabled } from '../keyboard/keys';
 import { HoldTouchSensor } from './holdTouchSensor';
 import { longPressDelay, pressTolerance } from './TriageSelection';
-import { VirtualCommentList, revealVirtualComment, type CommentPageControl } from './VirtualCommentList';
+import { VirtualCommentList, revealVirtualComment, type CommentPageControl, type CommentListPosition } from './VirtualCommentList';
 import { PagedCommentCard } from './PagedCommentCard';
 
 /** The board's columns: every status, in order (`commentStatuses`); drag and drop and Move follow this list */
@@ -162,9 +162,10 @@ function openMoveFromKeyboard(event: KeyboardEvent<HTMLElement>) {
  * screen readers: Tab to it, or press M on the card. A pointer that does not drag opens the thread and
  * its status menu.
  */
-function BoardCard({ project, comment, href, opened, moving, tabbable, onOpen, onMove }: {
+function BoardCard({ project, comment, href, opened, moving, tabbable, onOpen, onMove, position }: {
     /** The thread's project; its name shows on the card where the board has several projects' threads (My work) */
     project: BoardProject;
+    position?: CommentListPosition;
     comment: ProjectCommentView;
     href: string;
     opened: boolean;
@@ -182,7 +183,7 @@ function BoardCard({ project, comment, href, opened, moving, tabbable, onOpen, o
     const { setNodeRef, listeners, isDragging } = useDraggable({ id: comment.id, data: { comment }, disabled: !canMove || moving });
     const shortcutId = useId();
     return (
-        <li ref={setNodeRef} {...fromCardSurface(listeners)} data-board-card={comment.id}
+        <li ref={setNodeRef} {...position} {...fromCardSurface(listeners)} data-board-card={comment.id}
             onKeyDown={canMove ? openMoveFromKeyboard : undefined}
             className={cn('rounded-lg transition-[opacity,scale] duration-150 ease-out motion-reduce:transition-opacity',
                 canMove && 'touch-manipulation select-none [-webkit-touch-callout:none] [&_a]:cursor-grab',
@@ -592,9 +593,9 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
                                     <VirtualCommentList items={cards} control={paging?.[status]} focusedId={focusId ?? tabStop?.id}
                                         label={t("{value0} comments list", { value0: workflowStatusLabel(definition(status), t) })}
                                         footer={placeholder === cards.length ? slot : undefined}
-                                        render={(comment, index) => <Fragment key={comment.id}>
+                                        render={(comment, index, position) => <Fragment key={comment.id}>
                                             {index === placeholder && slot}
-                                            <BoardCard project={projectOf(comment)} comment={comment} href={hrefFor(comment.id)} opened={comment.id === openId}
+                                            <BoardCard position={position} project={projectOf(comment)} comment={comment} href={hrefFor(comment.id)} opened={comment.id === openId}
                                                 moving={pending && movingId === comment.id} tabbable={comment.id === tabStop?.id}
                                                 onOpen={event => open(comment.id, event, { replace: false })}
                                                 onMove={(category, id) => move(comment, workflow ? id ?? category : category, 'menu', id)} />
@@ -609,8 +610,8 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
                     {archive && archiveDefinitions.map(archiveStatus => <ArchiveColumn key={archiveStatus.id} label={workflowStatusLabel(archiveStatus, t)} count={paging?.[archiveStatus.id]?.total ?? archiveCards(archiveStatus).length} sort={sorts.archive} onSort={onSort} expanded={archive.expanded} dimmed={Boolean(drag)} onExpandedChange={archive.onExpandedChange}>
                         {archiveCards(archiveStatus).length ? (
                             <VirtualCommentList items={archiveCards(archiveStatus)} control={paging?.[archiveStatus.id]} focusedId={focusId ?? tabStop?.id}
-                                label={t("Archived comments list")} render={comment => (
-                                    <BoardCard key={comment.id} project={projectOf(comment)} comment={comment} href={hrefFor(comment.id)} opened={comment.id === openId}
+                                label={t("Archived comments list")} render={(comment, _index, position) => (
+                                    <BoardCard position={position} key={comment.id} project={projectOf(comment)} comment={comment} href={hrefFor(comment.id)} opened={comment.id === openId}
                                         moving={false} tabbable={comment.id === tabStop?.id}
                                         onOpen={event => open(comment.id, event, { replace: false })} onMove={() => {}} />
                                 )} />

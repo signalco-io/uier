@@ -1,18 +1,20 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type AriaAttributes, type ReactNode, type RefObject } from 'react';
 import { cn } from '@/src/lib/utils';
 import { Button } from '@/src/components/ui/button';
 import { Spinner } from '@/src/components/ui/spinner';
 import { useAppI18n } from '@/src/lib/i18n/client';
 
 export type CommentPageControl = { total: number; hasMore: boolean; loading: boolean; loadMore: () => void; error?: boolean };
+export type CommentListPosition = Pick<AriaAttributes, 'aria-setsize' | 'aria-posinset'>;
 const revealEvent = 'uier-reveal-comment';
 export function revealVirtualComment(id: string) { document.dispatchEvent(new CustomEvent(revealEvent, { detail: id })); }
 
-/** Measured variable-height rows, overscanned within their own column/list scroller. No document scroll listeners. */
-export function VirtualCommentList<T extends { id: string }>({ items, label, render, control, focusedId, className, onFocus, listRef, footer, gap = 8, itemAttribute = 'data-board-card' }: {
-    items: T[]; label: string; render: (item: T, index: number) => ReactNode; control?: CommentPageControl;
+/** Measured rows with overscan. The narrow inbox follows the document; board columns scroll independently. */
+export function VirtualCommentList<T extends { id: string }>({ items, label, render, control, focusedId, className, onFocus, listRef, footer, gap = 8, itemAttribute = 'data-board-card', documentScroll = false }: {
+    items: T[]; label: string; render: (item: T, index: number, position: CommentListPosition) => ReactNode; control?: CommentPageControl;
+    documentScroll?: boolean;
     focusedId?: string; className?: string; onFocus?: React.FocusEventHandler<HTMLUListElement>; itemAttribute?: string; listRef?: RefObject<HTMLUListElement | null>; footer?: ReactNode; gap?: number;
 }) {
     const { t } = useAppI18n();
@@ -21,10 +23,19 @@ export function VirtualCommentList<T extends { id: string }>({ items, label, ren
     const [viewport, setViewport] = useState({ top: 0, height: 600 });
     const [, setMeasure] = useState(0);
     const [revealed, setRevealed] = useState<string>();
+    const [windowScroll, setWindowScroll] = useState(false);
+    useLayoutEffect(() => {
+        if (!documentScroll) return;
+        const media = window.matchMedia('(max-width: 1023px)');
+        const changed = () => setWindowScroll(media.matches);
+        changed(); media.addEventListener('change', changed);
+        return () => media.removeEventListener('change', changed);
+    }, [documentScroll]);
     const offsets = [0];
     for (const item of items) offsets.push(offsets.at(-1)! + (sizes.current.get(item.id) ?? 100) + gap);
     const virtual = Boolean(control) && items.length > 20;
-    const start = virtual ? Math.max(0, offsets.findIndex(offset => offset >= viewport.top) - 5) : 0;
+    const first = offsets.findIndex(offset => offset >= viewport.top);
+    const start = virtual ? Math.max(0, (first < 0 ? items.length : first) - 5) : 0;
     const end = virtual ? Math.min(items.length, Math.max(start + 1, offsets.findIndex(offset => offset > viewport.top + viewport.height) < 0 ? items.length : offsets.findIndex(offset => offset > viewport.top + viewport.height)) + 4) : items.length;
     const indexes = new Set(Array.from({ length: end - start }, (_, index) => start + index));
     for (const id of [focusedId, revealed]) { const index = items.findIndex(item => item.id === id); if (index >= 0) indexes.add(index); }
@@ -32,11 +43,18 @@ export function VirtualCommentList<T extends { id: string }>({ items, label, ren
     useLayoutEffect(() => {
         const list = root.current;
         if (!list || !control) return;
-        const readViewport = () => setViewport({ top: list.scrollTop, height: list.clientHeight || 600 });
-        readViewport(); list.addEventListener('scroll', readViewport, { passive: true });
+        // The CSS already removes the narrow inbox's height constraint before hydration.
+        // Read the media query on the first layout pass too: its full document height is
+        // never a viewport, even before the window-mode state update has committed.
+        const followsWindow = documentScroll && window.matchMedia('(max-width: 1023px)').matches;
+        const readViewport = () => setViewport(followsWindow ? { top: Math.max(0, -list.getBoundingClientRect().top), height: window.innerHeight }
+            : { top: list.scrollTop, height: list.clientHeight || 600 });
+        const scroller = followsWindow ? window : list;
+        readViewport(); scroller.addEventListener('scroll', readViewport, { passive: true });
         const resize = new ResizeObserver(readViewport); resize.observe(list);
-        return () => { list.removeEventListener('scroll', readViewport); resize.disconnect(); };
-    }, [Boolean(control)]);
+        window.addEventListener('resize', readViewport);
+        return () => { scroller.removeEventListener('scroll', readViewport); resize.disconnect(); window.removeEventListener('resize', readViewport); };
+    }, [Boolean(control), windowScroll, documentScroll]);
     useLayoutEffect(() => {
         if (!virtual || !root.current) return;
         const observer = new ResizeObserver(entries => {
@@ -57,7 +75,8 @@ export function VirtualCommentList<T extends { id: string }>({ items, label, ren
             if (index < 0 || !root.current) return;
             setRevealed(id);
             const top = offsets[index]!;
-            if (top < root.current.scrollTop || top + (sizes.current.get(id) ?? 100) > root.current.scrollTop + root.current.clientHeight) root.current.scrollTop = top;
+            if (windowScroll) window.scrollTo({ top: window.scrollY + root.current.getBoundingClientRect().top + top - 56 });
+            else if (top < root.current.scrollTop || top + (sizes.current.get(id) ?? 100) > root.current.scrollTop + root.current.clientHeight) root.current.scrollTop = top;
         };
         document.addEventListener(revealEvent, reveal);
         return () => document.removeEventListener(revealEvent, reveal);
@@ -68,22 +87,23 @@ export function VirtualCommentList<T extends { id: string }>({ items, label, ren
         if (!marker || !list || !hasMore || loading || failed) return;
         const observer = new IntersectionObserver(entries => {
             if (entries.some(entry => entry.isIntersecting) && list.checkVisibility()) control?.loadMore();
-        }, { root: list, rootMargin: '0px 0px 100px 0px' });
+        }, { root: documentScroll && window.matchMedia('(max-width: 1023px)').matches ? null : list, rootMargin: '0px 0px 100px 0px' });
         observer.observe(marker); return () => observer.disconnect();
-    }, [hasMore, loading, failed, items.length, control?.loadMore]);
+    }, [hasMore, loading, failed, items.length, control?.loadMore, windowScroll, documentScroll]);
     const children: ReactNode[] = [];
     let previous = 0;
     for (const index of visible) {
         const space = offsets[index]! - offsets[previous]!;
         if (space > 0) children.push(<li key={`space-${index}`} role="presentation" aria-hidden="true" style={{ height: Math.max(0, space - gap) }} />);
-        children.push(render(items[index]!, index)); previous = index + 1;
+        children.push(render(items[index]!, index, { 'aria-setsize': control?.total ?? items.length, 'aria-posinset': index + 1 })); previous = index + 1;
     }
     if (previous < items.length) children.push(<li key="space-end" role="presentation" aria-hidden="true" style={{ height: Math.max(0, offsets[items.length]! - offsets[previous]! - gap) }} />);
     return <ul ref={node => { root.current = node; if (listRef) listRef.current = node; }} aria-label={label} aria-busy={loading || undefined} onFocus={onFocus} data-loaded-count={items.length} data-comment-window={control ? '' : undefined}
-        className={cn('m-0 flex list-none flex-col gap-2 p-0 [&>li]:shrink-0', control && 'max-h-[max(20rem,calc(100svh-22rem))] overflow-y-auto overscroll-y-contain [overflow-anchor:none]', className)}>
+        className={cn('m-0 flex list-none flex-col gap-2 p-0 [&>li]:shrink-0', control && 'max-h-[max(20rem,calc(100svh-22rem))] overflow-y-auto overscroll-y-contain [overflow-anchor:none]', control && documentScroll && 'max-lg:max-h-none max-lg:overflow-x-clip max-lg:overflow-y-visible max-lg:overscroll-auto', className)}>
         {children}
         {footer}
-        {control?.hasMore && <li ref={sentinel} role="presentation" className="flex shrink-0 justify-center p-2">
+        {control?.hasMore && <li ref={sentinel} role="presentation" className="flex shrink-0 flex-col items-center justify-center p-2">
+            {control.error && <p role="status" className="m-0 text-sm text-muted-foreground">{t('More comments could not be loaded.')}</p>}
             <Button variant="ghost" size="sm" className="pointer-coarse:min-h-11" disabled={control.loading} onClick={control.loadMore}>
                 {control.loading && <Spinner />}{t(control.error ? 'Try again' : 'Load more')}
             </Button>

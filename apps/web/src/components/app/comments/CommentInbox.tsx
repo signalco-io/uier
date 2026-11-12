@@ -222,15 +222,15 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
                 selected && '@3xl/comments:w-[min(var(--page-wide),96rem)] @3xl/comments:mx-[calc((100%-min(var(--page-wide),96rem))/2)]')}>
             <LayoutMotion container={listRef} item="data-comment-id">
             {/* `isolate`: rows that move stay under the page's sticky header, and leaving copies above the list's background */}
-            <VirtualCommentList gap={2} listRef={listRef} items={comments} label={label} control={paging} focusedId={keyboard.id ?? tabStop?.id} itemAttribute="data-comment-id" className={cn('relative isolate m-0 flex min-w-0 list-none flex-col gap-0.5 rounded-xl border bg-card p-1', opened && '@max-3xl/comments:hidden')}
+            <VirtualCommentList documentScroll gap={2} listRef={listRef} items={comments} label={label} control={paging} focusedId={keyboard.id ?? tabStop?.id} itemAttribute="data-comment-id" className={cn('relative isolate m-0 flex min-w-0 list-none flex-col gap-0.5 rounded-xl border bg-card p-1', opened && '@max-3xl/comments:hidden')}
                 onFocus={event => {
                     const id = event.target.closest<HTMLElement>('[data-comment-id]')?.dataset.commentId;
                     if (id) setKeyboard(state => state.id === id ? state : { ...state, id });
-                }} render={comment => {
+                }} render={(comment, _index, position) => {
                     const leaves = isLeaving(comment);
                     return (
                         // Scroll margin: clear of the sticky top bar (below lg, where the page scrolls) when the keys bring a row into view
-                        <li key={comment.id} inert={leaves} data-comment-id={comment.id}
+                        <li key={comment.id} {...position} inert={leaves} data-comment-id={comment.id}
                             // While it moves (`LayoutMotion`), a row covers the rows it passes, and the copy of one that
                             // leaves fades out beneath the rows that take its place
                             className={cn('grid min-w-0 scroll-mt-14 scroll-mb-1 grid-cols-1 grid-rows-[1fr] transition-[grid-template-rows,opacity,translate] duration-150 ease-out motion-reduce:transition-none data-motion:rounded-lg data-motion:bg-card data-[motion=exit]:-z-1 lg:scroll-mt-1',

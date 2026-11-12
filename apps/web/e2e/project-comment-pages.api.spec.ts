@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { mock } from 'node:test';
 import { expect, test } from '@playwright/test';
 import { loadAppCommentsSnapshot } from '../src/lib/app/appCommentsSnapshot';
 import type { AppContext } from '../src/lib/app/context';
@@ -9,8 +10,14 @@ import { parseCommentsQuery } from '../src/components/app/comments/commentsQuery
 import { persistProjectAccess } from './support/projectAccess';
 import { boardSorts, type BoardSort } from '../src/lib/app/boardSort';
 import { sortBoardColumn } from '../src/components/app/comments/commentOrder';
+import { CommentQueryBudgetError } from '../src/lib/repo/commentQuerySource';
+import { markThreadRead } from '../src/lib/comments/readState';
 
 test.beforeAll(() => { process.env.UIER_LOCAL = '1'; });
+// Observe the fixture's storage boundary without replacing production dependencies.
+function memoryDomain(domain: string) {
+    return (globalThis as unknown as { __uierCommentsMemoryStore2: { domains: Map<string, Map<unknown, unknown>> } }).__uierCommentsMemoryStore2.domains.get(domain)!;
+}
 async function fixture() {
     const project = await persistProjectAccess({ id: randomUUID().replaceAll('-', '').slice(0, 12), aiTitles: 'off' } as DbProject);
     const context = { user: { id: 'admin', name: 'Admin' }, workspace: { id: project.workspaceId, aiTitles: false }, isAdmin: true } as AppContext;
@@ -45,6 +52,83 @@ test('project pages are bounded, count the entire authorized project and defer A
     const archived = await f.load({ view: 'list', status: 'archived' });
     expect(archived.comments).toHaveLength(25);
     expect(archived.paging.lanes.list?.total).toBe(40);
+});
+
+test('refresh depths restore multiple lanes with one scan and one read/subscription load', async () => {
+    const f = await fixture();
+    for (let i = 0; i < 320; i++) await f.store.create(f.row(i, i < 110 ? {} : i < 220 ? { inProgress: true } : { resolved: true }));
+    const entries = memoryDomain(f.domain), values = Map.prototype.values;
+    let scans = 0, reads = 0, subscriptions = 0;
+    const observer = mock.method(Map.prototype, 'values', function(this: Map<unknown, unknown>) {
+        if (this === entries) scans++;
+        const partitions = (globalThis as unknown as { __uierAppMemoryStore: { partitions: Map<string, Map<unknown, unknown>> } }).__uierAppMemoryStore.partitions;
+        for (const [pk, partition] of partitions) if (this === partition) {
+            if (pk.startsWith('review-read:')) reads++;
+            if (pk.startsWith('notifications:')) subscriptions++;
+        }
+        return values.call(this);
+    });
+    try {
+        const data = await f.load({}, { depths: { open: 4, 'in-progress': 3, done: 2 } });
+        expect([scans, reads, subscriptions]).toEqual([1, 1, 1]);
+        expect(data.comments).toHaveLength(225);
+        expect(data.paging.lanes.open?.ids).toHaveLength(100);
+        expect(data.paging.lanes['in-progress']?.ids).toHaveLength(75);
+        expect(data.paging.lanes.done?.ids).toHaveLength(50);
+        const next = await f.load({}, { lane: 'open', cursor: data.paging.lanes.open!.nextCursor! });
+        expect(next.paging.lanes.open?.ids).toHaveLength(10);
+        expect(next.paging.lanes.open?.ids.some(id => data.paging.lanes.open!.ids.includes(id))).toBe(false);
+        await expect(f.load({}, { depths: { open: 9 } })).rejects.toMatchObject({ status: 400 });
+        await expect(f.load({}, { depths: { missing: 2 } })).rejects.toMatchObject({ status: 400 });
+    } finally { observer.mock.restore(); }
+});
+
+test('status unread totals include only off-page unread threads, with verification disabled and enabled', async () => {
+    const f = await fixture();
+    for (let i = 0; i < 35; i++) await f.store.create(f.row(i, { inProgress: true, verification: { outcome: 'pending', requester: 'user:member', reviewer: 'user:admin', requestedAt: '2026-01-01T00:00:00.000Z' } as DbComment['verification'] }));
+    const first = await f.load({}, {}, { verificationEnabled: true });
+    expect(first.paging.lanes.ready?.ids).toHaveLength(25);
+    for (const view of first.comments) await markThreadRead((await f.store.get(f.domain, view.id))!.comment, 'user:admin', 1);
+    const refreshed = await f.load({ view: 'list', status: 'open' }, {}, { verificationEnabled: true });
+    expect(refreshed.comments).toHaveLength(0);
+    expect(refreshed.paging.statusUnread).toMatchObject({ open: 0, ready: 10, active: 10, all: 10 });
+    const disabled = await f.load({ status: 'ready' });
+    expect(disabled.query.status).toBe('active');
+    expect(disabled.paging.lanes.ready).toBeUndefined();
+    expect(disabled.paging.statusCounts).toMatchObject({ ready: 0, 'in-progress': 35 });
+});
+
+test('budget failures retain page filters explicitly and HTTP callers still fail instead of showing partial totals', async () => {
+    const f = await fixture();
+    await f.store.create(f.row(0));
+    const entries = memoryDomain(f.domain), values = Map.prototype.values;
+    const observer = mock.method(Map.prototype, 'values', function(this: Map<unknown, unknown>) {
+        if (this === entries) throw new CommentQueryBudgetError();
+        return values.call(this);
+    });
+    try {
+        const fallback = await f.load({}, { budgetFallback: true });
+        expect(fallback.paging.queryTooExpensive).toBe(true);
+        expect(fallback.environments.length).toBeGreaterThan(0);
+        expect(fallback.comments).toEqual([]);
+        await expect(f.load()).rejects.toBeInstanceOf(CommentQueryBudgetError);
+    } finally { observer.mock.restore(); }
+});
+
+test('a thread turning private between scan and point reads only disappears from that page', async () => {
+    const f = await fixture();
+    for (let i = 0; i < 3; i++) await f.store.create(f.row(i));
+    const entries = memoryDomain(f.domain), get = Map.prototype.get;
+    const observer = mock.method(Map.prototype, 'get', function(this: Map<unknown, unknown>, key: unknown) {
+        const value = get.call(this, key);
+        if (this === entries && key === 'row-00000') value.document.private = true;
+        return value;
+    });
+    try {
+        const data = (await loadAppCommentsSnapshot({ ...f.context, isAdmin: false, user: { ...f.context.user, id: 'other' } }, f.project, parseCommentsQuery({ view: 'board' })))!;
+        expect(data.comments.map(row => row.id)).toEqual(['row-00002', 'row-00001']);
+        expect(data.paging.lanes.open?.ids).toEqual(['row-00002', 'row-00001']);
+    } finally { observer.mock.restore(); }
 });
 
 test('cursor pages follow each supported column sort, without duplicates on equal sort keys', async () => {

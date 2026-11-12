@@ -1,6 +1,9 @@
 import type en from './en';
 
 const messages: Record<keyof typeof en, string> = {
+    "This search is too large. Narrow the environment or author and try again.": "Esta búsqueda es demasiado amplia. Limita el entorno o el autor e inténtalo de nuevo.",
+    "Comments could not be refreshed. Your loaded comments are still shown.": "No se pudieron actualizar los comentarios. Los comentarios cargados siguen visibles.",
+    "More comments could not be loaded.": "No se pudieron cargar más comentarios.",
     "Mark shown as read": "Marcar los mostrados como leídos",
     "Load more": "Cargar más",
     "Loading comments": "Cargando comentarios",

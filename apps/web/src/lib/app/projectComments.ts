@@ -18,6 +18,7 @@ import { projectCommentRouting } from './projectCommentRouting';
 import { commentSourcePath } from '../comments/dto';
 import { reactionViews } from '../comments/reactions';
 import { getReadSequence, loadReadSequences } from '../comments/readState';
+import { ApiError } from '../comments/http';
 import type { DbComment, DbCommentKind, DbDeviceSize } from '../db/schema';
 import { toReproductionContext, type ReproductionContext } from '../comments/reproduction';
 import type { ProjectActor } from '../review/actor';
@@ -357,15 +358,20 @@ async function selectedProjectComments(project: DbProject, actor: ProjectActor, 
     let index = 0;
     await Promise.all(Array.from({ length: Math.min(8, ids.length) }, async () => {
         while (index < ids.length) {
-            const comment = await getProjectComment(project, actor, ids[index++]!);
-            if (comment) comments.push(comment);
+            try {
+                const comment = await getProjectComment(project, actor, ids[index++]!);
+                if (comment) comments.push(comment);
+            } catch (error) {
+                // A deletion or privacy change after the candidate scan only removes this row.
+                if (!(error instanceof ApiError && error.status === 404)) throw error;
+            }
         }
     }));
     return comments;
 }
 
 /** Every comment of the project the app user can see (all pages), newest first */
-export async function loadProjectComments(context: AppContext, project: DbProject, environment?: string, authorId?: string, onWindow?: (capped: boolean) => void, membersForRequest?: ReturnType<typeof listProjectMembers>, archive: ArchiveFilter = 'all', t: AppTranslator = englishAppTranslator, selectedIds?: readonly string[]) {
+export async function loadProjectComments(context: AppContext, project: DbProject, environment?: string, authorId?: string, onWindow?: (capped: boolean) => void, membersForRequest?: ReturnType<typeof listProjectMembers>, archive: ArchiveFilter = 'all', t: AppTranslator = englishAppTranslator, selectedIds?: readonly string[], loadedState?: { reads: Map<string, number>; subscriptions: NotificationSubscription[] }) {
     const actor = appActor(context);
     let windowCapped = false;
     const [comments, members, reads, subscriptions] = await Promise.all([
@@ -377,8 +383,8 @@ export async function loadProjectComments(context: AppContext, project: DbProjec
                 return lists.flat().sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
             }),
         membersForRequest ?? listProjectMembers(project.workspaceId, project.id),
-        loadReadSequences(`project:${project.id}`, `user:${context.user.id}`),
-        getAppStore().query<NotificationSubscription>({ type: 'notification-subscription', pk: notificationPk(project.id), where: { actorId: `user:${context.user.id}` } })
+        loadedState?.reads ?? loadReadSequences(`project:${project.id}`, `user:${context.user.id}`),
+        loadedState?.subscriptions ?? getAppStore().query<NotificationSubscription>({ type: 'notification-subscription', pk: notificationPk(project.id), where: { actorId: `user:${context.user.id}` } })
     ]);
     const [names, integrationLinks] = await Promise.all([authorNames(comments), loadIntegrationLinks(project, actor, comments)]);
     const participants = new Map(members.filter(({ user }) => user).map(({ member, name }) => [member.userId, name]));

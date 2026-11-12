@@ -250,8 +250,9 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
     const totalFor = (lane: CommentLane) => lane === 'list' && !board ? statusCounts[query.status]
         : Math.max(0, (pager.data.paging.lanes[lane]?.total ?? 0) + delta(comment => statusForComment(workflow, comment).id === lane));
     const pageControl = (lane: CommentLane) => ({ total: totalFor(lane), hasMore: Boolean(pager.data.paging.lanes[lane]?.nextCursor),
-        loading: pager.loading || pager.loadingLanes.has(lane), error: pager.error || pager.failedLanes.has(lane), loadMore: () => { void pager.loadMore(lane); } });
-    const populated = pager.data.paging.scopeTotal > 0;
+        loading: pager.loading || pager.loadingLanes.has(lane), error: Boolean(pager.error) || pager.failedLanes.has(lane), loadMore: () => { if (pager.error) pager.retry(); else void pager.loadMore(lane); } });
+    const budgetExceeded = pager.error === 'budget' || pager.data.paging.queryTooExpensive;
+    const populated = pager.data.paging.scopeTotal > 0 || Boolean(budgetExceeded);
     // Where the open thread takes the whole width, it takes the filters' place too
     const threadOnly = Boolean(openComment.openId) && !board && scopeComments.some(comment => comment.id === openComment.openId);
     // The board's status filter (uier #335) narrows its columns to one; the others stay, empty, as drop targets
@@ -301,9 +302,12 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
             and so does the count line under it. */}
         <div ref={containerRef} data-page-width={populated ? 'wide' : undefined} aria-busy={pager.loading || undefined} className="@container/comments flex flex-col gap-2">
             <div data-header-wide={headerWide} className={cn('flex min-w-0 flex-col gap-2', threadOnly && '@max-3xl/comments:hidden', wideClassName)}>
-            <CommentFilters verificationEnabled={workflow.verificationEnabled === true} labels={labels} label={query.label} search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} historySources={historySources} unread={Boolean(query.unread)} unreadCount={pager.data.paging.unreadCount} view={board ? 'board' : 'list'} status={query.status} statusCounts={statusCounts} statusUnread={statusUnread} people={query.people} page={query.page} pages={pages}
+            <CommentFilters verificationEnabled={workflow.verificationEnabled === true} labels={labels} label={query.label} search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} historySources={historySources} unread={Boolean(query.unread)} unreadCount={pager.data.paging.unreadCount} view={board ? 'board' : 'list'} status={query.status} statusCounts={pager.data.paging.queryTooExpensive ? undefined : statusCounts} statusUnread={statusUnread} people={query.people} page={query.page} pages={pages}
                 countLine={populated ? { summary: unreadSummary, actions: unreadActions } : undefined} />
-            {pager.error && <p role="status" className="m-0 text-sm text-muted-foreground"><Button variant="ghost" onClick={pager.retry}>{t('Try again')}</Button></p>}
+            {(pager.error || budgetExceeded) && <p role="status" className="m-0 text-sm text-muted-foreground">
+                {budgetExceeded ? t('This search is too large. Narrow the environment or author and try again.') : t('Comments could not be refreshed. Your loaded comments are still shown.')}
+                <Button variant="ghost" onClick={pager.retry}>{t('Try again')}</Button>
+            </p>}
             </div>
             <TriageSelection projectId={projectId} scope={selectionScope} shown={board ? boardShown : shown} assignees={assignees}
                 barClassName={cn(threadOnly && '@max-3xl/comments:hidden', !populated && 'hidden')}
@@ -313,7 +317,7 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
                 reserveLine={populated}
                 summary={unreadSummary}
                 actions={unreadActions}>
-            {!populated ? emptyState : pager.data.paging.matchedTotal + delta(() => true) === 0 ? (
+            {pager.data.paging.queryTooExpensive ? null : !populated ? emptyState : pager.data.paging.matchedTotal + delta(() => true) === 0 ? (
                 <Empty className="border">
                     <EmptyHeader>
                         <EmptyMedia variant="icon">

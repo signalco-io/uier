@@ -34,7 +34,7 @@ async function ProjectPageContent({ params, searchParams }: PageProps<'/app/proj
     const query = parseCommentsQuery(search);
     if (!search.view && initialView) query.view = initialView;
     const snapshot = await loadAppCommentsSnapshot(context, project, query, undefined, t, {
-        openId: typeof search.comment === 'string' ? search.comment : undefined
+        openId: typeof search.comment === 'string' ? search.comment : undefined, budgetFallback: true
     });
     if (!snapshot) notFound();
     return (

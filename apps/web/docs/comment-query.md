@@ -142,12 +142,12 @@ resolving each source project's own override. No workspace data is cached across
 ### Project Board/List adapter
 
 `POST /api/projects/:projectId/comments/pages` accepts normalized legacy app filter params plus an
-optional effective status ID (`lane`), signed cursor, archive expansion choice and open thread ID.
+optional effective status ID (`lane`), signed cursor, archive expansion choice and open thread ID. Refreshes instead accept a strict `depths` map keyed by visible effective status ID (or `list`), one to eight pages per lane; depths cannot be combined with a lane/cursor.
 It returns a bounded set of app row summaries, per-column page metadata, exact category/column totals,
-page options and a scope revision. A single authorized source scan serves all initial columns.
+per-status unread totals, page options and a scope revision. A single authorized source scan serves all initial columns or all requested refresh depths. Verification-disabled projects normalize Ready filters to Active and count old pending verifications in their ordinary category.
 Routing-only scans set `includeText: false`, omitting message bodies, quoted text, diagnostic device
 fields and metadata search text; full-text queries explicitly retain them. Query v1 continues using
 the complete projection by default. Both projections preserve effective workflow IDs so removed
-status IDs can fall back through the current workflow. Canonical detail loads remain independent.
+status IDs can fall back through the current workflow. Canonical enrichment reuses loaded read state and skips threads that become inaccessible after the scan. Detail loads remain independent. Oversized HTTP queries return 422; the server page catches only the budget error to show a narrowing message with scope controls, without partial counts.
 See [the inbox note](comments-inbox.md#paged-project-comments) for the app cursor binding, virtualization,
 selection, local benchmark and the remaining native database paging/aggregate performance gate.

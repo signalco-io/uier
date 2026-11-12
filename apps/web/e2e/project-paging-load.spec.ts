@@ -27,12 +27,17 @@ test('a 2,000-thread project bounds initial HTML and mounted rows in Board and L
             await hydrated(page.getByRole('button', { name: view === 'board' ? 'Board' : 'List', exact: true }));
             await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
             const metrics = await page.evaluate(() => ({ mountedRows: document.querySelectorAll('[data-comment-row]').length,
+                viewport: { width: window.innerWidth, height: window.innerHeight, visual: window.visualViewport?.height, scrollWidth: document.documentElement.scrollWidth },
+                windows: [...document.querySelectorAll<HTMLElement>('[data-comment-window]')].map(element => ({ loaded: element.dataset.loadedCount, mounted: element.querySelectorAll('[data-comment-row]').length,
+                    width: element.clientWidth, height: element.clientHeight, top: element.getBoundingClientRect().top, overflow: getComputedStyle(element).overflowY })),
                 domElements: document.querySelectorAll('*').length, htmlBytes: (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming).decodedBodySize,
                 encodedBytes: (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming).encodedBodySize, fcpMs: performance.getEntriesByName('first-contentful-paint')[0]?.startTime }));
             measurements.push({ view, ...metrics, untilHydratedMs: Math.round(performance.now() - start) });
             // Baseline mode runs this same fixture against the parent build, preserving its list cap for comparison.
             if (process.env.UIER_PAGING_BASELINE !== '1') {
                 expect(metrics.mountedRows).toBeLessThan(25);
+                expect(metrics.windows[0]?.loaded).toBe('25');
+                expect(metrics.viewport.scrollWidth).toBeLessThanOrEqual((page.viewportSize()?.width ?? metrics.viewport.width) + 1);
                 expect(metrics.htmlBytes).toBeLessThan(1_000_000);
                 if (view === 'board') await expect(page.getByRole('region', { name: 'Open comments', exact: true }).getByRole('heading')).toHaveText('Open2000');
                 else await expect(page.getByRole('button', { name: 'Active 2000', exact: true })).toBeVisible();

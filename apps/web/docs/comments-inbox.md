@@ -365,25 +365,29 @@ project setting, plus toolbar label controls, are deferred.
 Project Board and List request 25 summaries at a time (`projectCommentPages.ts`,
 `POST /api/projects/:projectId/comments/pages`). Board starts one page per effective ordinary status,
 in category order. Custom status IDs have independent cursors and totals; missing/removed stored IDs
-fall back through `statusForComment` to the category default. The five default columns are unchanged.
+fall back through `statusForComment` to the category default. Default statuses retain their columns; Ready to verify is only shown when the project enables verification.
 Each archive status has a total while collapsed and gets its first page when expanded. The list has
 one cursor for the selected status scope. Sorts retain their category settings, completion/archive
 fallbacks, missing-value rules and deterministic ID ties.
 
 Search (including replies and quotes), people, page/section, priority, labels, unread, environment and author
 apply before page selection. Tabs/column headers and page options come from complete authorized
-server matches, independent of the loaded window. The recent 1,000-thread search cap no longer
+server matches, independent of the loaded window. Per-status unread totals also cover unloaded pages, with the same optimistic read deltas as counts. The recent 1,000-thread search cap no longer
 applies to project Board/List. Signed cursors expire after 15 minutes and bind the project, viewer,
 query, effective workflow, view and sort. Every request reauthorizes current workspace/project access
 and private visibility; cursors never grant access. Responses are private/no-store and cross-site
 browser reads are rejected.
 
 The scroll sentinel and the keyboard-accessible Load more button share one request per column.
-Failures keep the current rows and offer Try again; an expired cursor restarts the loaded window.
+Failures keep the current rows, explain what failed and offer Try again; an expired cursor restarts
+the loaded window. Failed filters release `aria-busy`, so assistive technology can announce the
+retry message. An execution-budget failure on the server-rendered page keeps the environment and
+author controls available with a narrowing message; it never presents partial totals. HTTP requests
+retain their 422 error.
 `VirtualCommentList` measures variable-height rows and renders the viewport with overscan; spacer
 items cannot shrink. Focused/dragged cards stay mounted, and keyboard navigation reveals its target
 before focusing it. Each column scrolls vertically within the existing horizontal board. List rows
-use the same windowing. My work retains its existing data source and category lanes.
+use document/window virtualization below 1024 px, with no nested list scroll box. Horizontal clipping prevents visually hidden inline labels after long titles from extending the document viewport; wider lists retain a bounded scroller. Rows expose their absolute `aria-posinset` and the server total as `aria-setsize`. My work retains its existing data source and category lanes.
 
 Selection and Select shown results use the explicitly loaded matching summaries (up to the existing
 50-thread batch limit), including loaded rows outside the virtual viewport. Fetching another page or
@@ -395,8 +399,12 @@ open when its thread moves into a collapsed archive column. Details/composers ke
 through fresh snapshots; deleted/inaccessible details close on a fresh 404.
 
 Filter changes keep URL/history controls immediate, cancel stale page requests and replace the window.
-Socket/action refreshes re-read the number of pages already loaded, preserving scroll and mounted
-composers while removing moved/deleted rows. Idle revision checks use routing metadata without
+Socket/action refreshes send one `depths` map and rebuild all loaded lanes from a single scan,
+capped at eight pages (200 rows) per lane. A fresh RSC first page can be reused until deeper pages
+are loaded; deeper refreshes need one additional HTTP request, rather than one request per page.
+Scroll and composers remain mounted while moved/deleted rows leave. Enrichment reuses the scan
+request’s read cursors and subscriptions; a thread becoming private between scan and canonical
+read is skipped. Idle revision checks use routing metadata without
 canonical detail enrichment. No private application data is put in a shared cache.
 
 ### Measurement and remaining database work
@@ -405,20 +413,20 @@ canonical detail enrichment. No private application data is put in a shared cach
 in-process snapshot loads. The baseline is the previous full-thread loader at
 `b354414442b9653ab9c48da72bdaf0f49865b577`: it returned 1,400 views (1,000 ordinary plus 400 archived),
 so its ordinary window also omitted 600 threads. The new snapshot counts all 2,000, returns 100 board
-summaries or 25 list summaries, and leaves the collapsed archive bodies unloaded.
+summaries or 25 list summaries, and leaves the collapsed archive bodies unloaded. The fixture enables verification so its four ordinary status lanes remain comparable after #687.
 
 | In-process snapshot, 2,000 × 11 messages | Before | After |
 | --- | ---: | ---: |
-| Board JSON | 25,105,338 B | 230,760 B |
-| List JSON | 25,105,337 B | 60,003 B |
-| Board median of five | 80.24 ms | 22.97 ms |
-| List median of five | 76.81 ms | 15.03 ms |
+| Board JSON | 25,105,338 B | 233,625 B |
+| List JSON | 25,105,337 B | 60,843 B |
+| Board median of five | 80.24 ms | 29.46 ms |
+| List median of five | 76.81 ms | 22.75 ms |
 
 These are serialized snapshot bytes and local in-memory service timings, not deployed HTTP latency,
 compressed transfer or Cosmos RU. `project-paging-load.spec.ts` separately records production-build
 HTML bytes, DOM size, mounted rows and hydration time with 2,000 real API-created single-message
-threads. `project-comment-paging.spec.ts` checks scroll/retry/selection/search/detail behavior on
-desktop and mobile. Timing targets still need deployed measurements.
+threads. `project-comment-page-routes.api.spec.ts` covers the HTTP authorization, origin, schema, depths and cursor boundaries. `project-comment-paging.spec.ts` and the shared tablet journey check refresh batching, off-page unread dots, scroll/retry/selection/search/detail behavior on
+desktop, mobile and tablet. Timing targets still need deployed measurements.
 
 The browser baseline is `10a39b764cba91a178fc9ee24e532cf3afda0f24` (merged custom statuses and
 board filters, before this change), Chromium 158.0.8127.18, Desktop Chrome, ordinary production
@@ -429,16 +437,16 @@ run per view, not latency percentiles:
 | --- | ---: | ---: |
 | Board mounted rows | 1,000 | 10 |
 | List mounted rows | 1,000 | 10 |
-| Board DOM elements | 38,371 | 754 |
-| List DOM elements | 35,424 | 780 |
-| Board decoded HTML | 11,263,172 B | 282,008 B |
-| List decoded HTML | 9,742,889 B | 265,037 B |
-| Board encoded HTML | 278,983 B | 36,963 B |
-| List encoded HTML | 254,401 B | 36,101 B |
-| Board through hydration | 2,123 ms | 468 ms |
-| List through hydration | 1,539 ms | 479 ms |
+| Board DOM elements | 38,371 | 741 |
+| List DOM elements | 35,424 | 783 |
+| Board decoded HTML | 11,263,172 B | 295,774 B |
+| List decoded HTML | 9,742,889 B | 281,926 B |
+| Board encoded HTML | 278,983 B | 37,806 B |
+| List encoded HTML | 254,401 B | 36,964 B |
+| Board through hydration | 2,123 ms | 430 ms |
+| List through hydration | 1,539 ms | 418 ms |
 
-Mobile Chrome's changed build also mounted 10 rows for each view and retained totals of 2,000.
+Mobile Chrome mounted 10 board rows and 16 document-scrolling list rows, with 25 loaded in either view and totals of 2,000. The list kept the document at 393 px with no horizontal overflow. The regression checks the first loaded window as well as mounted rows, so an eager sentinel cannot hide behind virtualization.
 `project-paging-load.json` records each profile's HTML, DOM, FCP and hydration measurements. Run
 `PORT=4504 PLAYWRIGHT_FULL=1 pnpm -C apps/web exec playwright test project-paging-load.spec.ts --project="Desktop Chrome" --project="Mobile Chrome" --retries=0`
 after a production build. For a parent comparison, run the same fixture on that build with

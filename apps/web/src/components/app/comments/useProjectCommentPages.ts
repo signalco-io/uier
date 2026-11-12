@@ -3,7 +3,7 @@
 import type { ProjectCommentView } from '@/src/lib/app/projectComments';
 import { useEffect, useRef, useState } from 'react';
 import type { loadAppCommentsSnapshot } from '@/src/lib/app/appCommentsSnapshot';
-import { projectCommentPageKey, type CommentLane } from '@/src/lib/app/projectCommentPaging';
+import { PROJECT_COMMENT_MAX_DEPTH, projectCommentPageKey, type CommentLane } from '@/src/lib/app/projectCommentPaging';
 import type { CommentsQuery } from './commentsQuery';
 import type { StatusWorkflow } from '@/src/lib/app/statusWorkflow';
 import type { BoardColumn, BoardSort } from '@/src/lib/app/boardSort';
@@ -30,7 +30,7 @@ export function useProjectCommentPages(initial: Snapshot, query: CommentsQuery, 
     const [data, setData] = useState(initial);
     const [loading, setLoading] = useState(false);
     const [loadingLanes, setLoadingLanes] = useState<Set<CommentLane>>(new Set());
-    const [error, setError] = useState(false);
+    const [error, setError] = useState<'budget' | 'unavailable'>();
     const [failedLanes, setFailedLanes] = useState<Set<CommentLane>>(new Set());
     const [retry, setRetry] = useState(0);
     const state = useRef(data); state.current = data;
@@ -41,11 +41,11 @@ export function useProjectCommentPages(initial: Snapshot, query: CommentsQuery, 
     const depths = useRef<Partial<Record<CommentLane, number>>>({});
     const latestOpen = useRef(openId); latestOpen.current = openId;
     const params = { ...query, view: query.view, status: query.status, people: query.people };
-    const request = async (signal: AbortSignal, lane?: CommentLane, cursor?: string) => {
+    const request = async (signal: AbortSignal, lane?: CommentLane, cursor?: string, depths?: Partial<Record<CommentLane, number>>): Promise<Snapshot> => {
         const response = await fetch(`/api/projects/${encodeURIComponent(initial.projectId)}/comments/pages`, {
             method: 'POST', credentials: 'same-origin', cache: 'no-store', signal, headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ params: Object.fromEntries(Object.entries(params).filter(([, value]) => value !== undefined).map(([key, value]) => [key, String(value)])),
-                archiveExpanded, openId: latestOpen.current, lane, cursor })
+                archiveExpanded, openId: latestOpen.current, lane, cursor, depths })
         });
         if (!response.ok) throw new Error(String(response.status));
         return response.json() as Promise<Snapshot>;
@@ -56,30 +56,25 @@ export function useProjectCommentPages(initial: Snapshot, query: CommentsQuery, 
         controllers.current.clear(); busyLanes.current.clear(); setLoadingLanes(new Set()); setFailedLanes(new Set());
         const controller = new AbortController(); controllers.current.add(controller);
         const sameScope = state.current.paging.key === desiredKey;
-        const wanted = sameScope ? { ...depths.current } : {};
+        const wanted = sameScope ? Object.fromEntries(Object.entries(depths.current).map(([lane, depth]) => [lane, Math.min(depth ?? 1, PROJECT_COMMENT_MAX_DEPTH)])) : {};
         if (!sameScope) depths.current = {};
         const serverMatches = initial.paging.key === desiredKey;
         const serverVersion = `${initial.paging.key}|${initial.revision}`;
         const useServer = serverMatches && serverUsed.current !== serverVersion && !retry;
         // The initial SSR window needs no duplicate HTTP request.
         if (serverMatches && initial.revision === state.current.revision && sameScope && !retry) {
-            controllers.current.delete(controller); setLoading(false); setError(false); return;
+            controllers.current.delete(controller); setLoading(false); setError(undefined); return;
         }
-        setLoading(true); setError(false);
+        setLoading(true); setError(undefined);
         void (async () => {
             try {
-                let next = useServer ? initial : await request(controller.signal);
+                // A fresh RSC first page suffices until a lane has more loaded. Restore all deeper
+                // windows in one request/scan, rather than replaying every continuation serially.
+                const needsDepths = Object.values(wanted).some(depth => depth > 1);
+                const next = useServer && !needsDepths ? initial : await request(controller.signal, undefined, undefined, wanted);
                 if (useServer) serverUsed.current = serverVersion;
-                for (const [name, depth] of Object.entries(wanted)) {
-                    const lane = name as CommentLane;
-                    for (let page = 1; page < (depth ?? 1); page++) {
-                        const cursor = next.paging.lanes[lane]?.nextCursor;
-                        if (!cursor) break;
-                        next = mergePage(next, await request(controller.signal, lane, cursor), lane);
-                    }
-                }
-                if (!controller.signal.aborted && version === generation.current) setData(next);
-            } catch { if (!controller.signal.aborted) setError(true); }
+                if (!controller.signal.aborted && version === generation.current) { depths.current = wanted; setData(next); }
+            } catch (error) { if (!controller.signal.aborted) setError(error instanceof Error && error.message === '422' ? 'budget' : 'unavailable'); }
             finally {
                 controllers.current.delete(controller);
                 if (!controller.signal.aborted && version === generation.current) setLoading(false);
@@ -95,7 +90,7 @@ export function useProjectCommentPages(initial: Snapshot, query: CommentsQuery, 
         const cursor = state.current.paging.lanes[lane]?.nextCursor;
         if (!cursor) return;
         const controller = new AbortController(), version = generation.current;
-        controllers.current.add(controller); busyLanes.current.add(lane); setFailedLanes(current => new Set([...current].filter(value => value !== lane))); setLoadingLanes(current => new Set([...current, lane])); setError(false);
+        controllers.current.add(controller); busyLanes.current.add(lane); setFailedLanes(current => new Set([...current].filter(value => value !== lane))); setLoadingLanes(current => new Set([...current, lane])); setError(undefined);
         try {
             const next = await request(controller.signal, lane, cursor);
             if (version !== generation.current || controller.signal.aborted) return;
@@ -112,5 +107,5 @@ export function useProjectCommentPages(initial: Snapshot, query: CommentsQuery, 
             if (version === generation.current) { busyLanes.current.delete(lane); setLoadingLanes(current => new Set([...current].filter(value => value !== lane))); }
         }
     };
-    return { data: data.projectId === initial.projectId && data.userId === initial.userId ? data : initial, loading: loading || data.paging.key !== desiredKey, error, loadMore, loadingLanes, failedLanes, retry: () => setRetry(current => current + 1) };
+    return { data: data.projectId === initial.projectId && data.userId === initial.userId ? data : initial, loading: loading || !error && data.paging.key !== desiredKey, error, loadMore, loadingLanes, failedLanes, retry: () => setRetry(current => current + 1) };
 }

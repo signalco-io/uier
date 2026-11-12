@@ -60,8 +60,8 @@ navigation audit, deliberate document boundaries and regression coverage.
 
 
 Project comment pagination keeps one in-flight read per column and aborts stale generations when a
-query/view/workflow changes. A realtime RSC snapshot rebuilds the pages already loaded; it does not
+query/view/workflow changes. A realtime RSC snapshot rebuilds the loaded lane depths in one batched request (at most eight pages per lane); it does not
 unmount the open composer. Column totals come from the server, with optimistic deltas only for
 loaded rows being changed. Idle revision checks omit bodies and canonical enrichment. Read mutations
 retain their explicit rendered cursors; the paged view labels their partial scope Mark shown as read.
-See [paged project comments](comments-inbox.md#paged-project-comments) for limits and measurement boundaries.
+Below 1024 px the inbox virtualizes against the document viewport and scrolls with the page; board columns retain their independent scrollers. Wider lists use a bounded list scroller. See [paged project comments](comments-inbox.md#paged-project-comments) for limits and measurement boundaries.

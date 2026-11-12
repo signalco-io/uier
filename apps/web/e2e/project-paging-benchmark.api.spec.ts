@@ -9,7 +9,7 @@ import { persistProjectAccess } from './support/projectAccess';
 
 test('large seeded project measures the initial board and list payloads', async ({}, testInfo) => {
     process.env.UIER_LOCAL = '1';
-    const project = await persistProjectAccess({ id: randomUUID().replaceAll('-', '').slice(0, 12), aiTitles: 'off' } as DbProject);
+    const project = await persistProjectAccess({ id: randomUUID().replaceAll('-', '').slice(0, 12), aiTitles: 'off', verificationEnabled: true } as DbProject);
     const context = { user: { id: 'admin', name: 'Admin' }, workspace: { id: project.workspaceId, aiTitles: false }, isAdmin: true } as AppContext;
     const store = getCommentsStore(), domain = `project:${project.id}`;
     const now = '2026-01-01T00:00:00.000Z';
