@@ -6,6 +6,7 @@ import {
     chooseInboxPages,
     inboxPages,
     inboxSearch,
+    expectInboxListed,
     inboxPageOptions,
     isolatedOrigin,
     newVisitor,
@@ -107,7 +108,7 @@ test('bulk inbox read sends more than 200 listed threads in sequential bounded r
     try {
         await reader.page.route('**/api/comments?*', async route => {
             const params = new URL(route.request().url()).searchParams;
-            const list = params.get('scope') === 'site' ? items.slice(200) : items.slice(0, 200);
+            const list = params.get('archive') === 'only' ? [] : params.get('scope') === 'site' ? items.slice(200) : items.slice(0, 200);
             await route.fulfill({ json: list.map(item => ({ ...item, activity: { ...item.activity, readSequence: read.has(item.id) ? 1 : 0, unread: !read.has(item.id) } })) });
         });
         await reader.page.route('**/api/comments/activity', route => route.fulfill({ json: { unread: 205 - read.size, open: 205, done: 0, total: 205 } }));
@@ -125,7 +126,7 @@ test('bulk inbox read sends more than 200 listed threads in sequential bounded r
         await reader.page.getByRole('button', { name: /^Inbox/ }).click();
         await chooseInboxPages(reader.page, /^All pages/);
         const sidebar = reader.page.getByRole('complementary', { name: 'Comments' });
-        await expect(sidebar.getByRole('article')).toHaveCount(205);
+        await expectInboxListed(sidebar, 205);
         await sidebar.getByRole('button', { name: 'Mark all as read', exact: true }).click();
         await expect.poll(() => read.size).toBe(205);
         expect(batches).toEqual([200, 5]);
@@ -378,7 +379,7 @@ test('inbox: a comment\'s link never leaves the site', async ({ browser }, testI
         resolved: false,
         isMine: false
     };
-    await page.route('**/api/comments?scope=site', route => route.fulfill({ json: [sneaky] }));
+    await page.route('**/api/comments?scope=site&*', route => route.fulfill({ json: new URL(route.request().url()).searchParams.get('archive') === 'only' ? [] : [sneaky] }));
     await page.getByRole('button', { name: /^Inbox/ }).click();
     await chooseInboxPages(page, /^All pages/);
     const link = page.getByRole('complementary', { name: 'Comments' }).getByRole('article', { name: 'Comment #7' }).getByRole('link');
@@ -495,7 +496,8 @@ test('reply in inbox shares the pin draft and answers page-level and missing-anc
         }
         await visitor.page.reload();
         await addToolbarScript(visitor.page);
-        await visitor.page.getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
+        // The inbox stays open across a reload
+        await expect(visitor.page.getByRole('button', { name: /^Inbox(?:,|$)/ })).toHaveAttribute('aria-expanded', 'true');
         await chooseInboxPages(visitor.page, /^All pages/);
         await expect(inbox.getByText('Shared reply draft', { exact: true })).toHaveCount(1);
         for (const comment of saved) {

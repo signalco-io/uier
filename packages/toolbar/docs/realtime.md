@@ -12,6 +12,9 @@ The `changed` callback receives why reconciliation is needed:
 - `foreground`: the view became visible/online or received focus.
 - `ended`: a previously ready session ended, which can mean revoked access.
 
+A refresh of the inbox's site list reloads as many pages as the reader scrolled to (`useSiteComments`), each after
+the oldest comment of the one before, so a comment added meanwhile never repeats or skips a card.
+
 Every write to a thread's document changes its etag, so message reactions arrive like any other change
 ([reactions](reactions.md)). A `change` reason wins over other reasons in the same notification window. Existing toolbar
 callbacks ignore the reason and keep their own foreground/HTTP scheduler. The app refreshes true

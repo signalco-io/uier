@@ -7,6 +7,7 @@ import { apiErrors, parseJsonBody } from '../comments/http';
 import { loadReadSequences, markThreadRead, markThreadUnread, projectActivity, unreadComments } from '../comments/readState';
 import { withinListResponseSize } from '../comments/dto';
 import { MAX_LIST_COMMENTS } from '../comments/limits';
+import { listPage, pageOfComments } from '../comments/listPage';
 import { isValidId, reviewPathSchema } from '../comments/validation';
 import { projectOrigins, projectReviewOrigin } from '../app/projects';
 import { actorAuthorId, assertWriter } from './actor';
@@ -20,7 +21,10 @@ import { loadIntegrationLinks } from '../integrations/links';
 
 const listQuerySchema = z.object({ path: reviewPathSchema });
 
-/** `?path=/x`: the comments of the page; `?scope=site`: of every page (the toolbar's inbox) */
+/**
+ * `?path=/x`: the comments of the page; `?scope=site`: of every page (the toolbar's inbox), newest first, in pages
+ * (`?limit=` and `?before=`, `listPage.ts`) as the inbox scrolls; the unread list is one page
+ */
 export async function listReviewComments({ request, project, actor, siteOrigin }: ReviewApiContext) {
     const params = new URL(request.url).searchParams;
     let path: string | undefined;
@@ -30,13 +34,17 @@ export async function listReviewComments({ request, project, actor, siteOrigin }
             throw apiErrors.invalidRequest('"path" is required and must start with "/".');
         path = pagePath(query.data.path, project.pageState);
     }
+    const unread = params.get('unread') === 'true' && path === undefined;
+    const page = path === undefined && !unread ? listPage(params) : undefined;
 
     const archive = archiveFilter(params.get('archive'));
     const filter = environmentFilter(project, environmentSelection(project, params.get('environment'), projectReviewOrigin(project, request, siteOrigin)));
     const visible = (comment: import('../db/schema').DbCommentActivity) => canSeeComment(comment, actor) && matchesOrigin(comment.origin, filter);
-    const comments = (params.get('unread') === 'true' && path === undefined
-        ? await unreadComments(`project:${project.id}`, actorAuthorId(actor), visible, archive)
-        : await listProjectComments(project, actor, path, filter, undefined, undefined, archive)).slice(0, MAX_LIST_COMMENTS);
+    const comments = unread
+        ? (await unreadComments(`project:${project.id}`, actorAuthorId(actor), visible, archive)).slice(0, MAX_LIST_COMMENTS)
+        : page
+        ? pageOfComments(await listProjectComments(project, actor, path, filter, undefined, undefined, archive), page)
+        : (await listProjectComments(project, actor, path, filter, undefined, undefined, archive)).slice(0, MAX_LIST_COMMENTS);
     const [names, reads, participants, notifications, links] = await Promise.all([
         authorNames(comments), loadReadSequences(`project:${project.id}`, actorAuthorId(actor)), participantNames(project), threadNotificationStates(project, actor, comments),
         loadIntegrationLinks(project, actor, comments)

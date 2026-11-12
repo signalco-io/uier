@@ -40,6 +40,14 @@ export const inboxPages = (page: Page) => page.getByRole('complementary', { name
 /** The open location picker: this page, all pages and the sections on the left, the other pages on the right (each named with its count: "/about, 3 comments") */
 export const inboxPageOptions = (page: Page) => page.getByRole('dialog', { name: /^(Pages|Environment and page)$/ });
 
+/**
+ * How many threads the open inbox lists: it renders only the cards near its view (virtualized), and each card says
+ * where it is in the list (`aria-posinset`, `aria-setsize`)
+ */
+export async function expectInboxListed(inbox: Locator, count: number) {
+    await expect(inbox.getByRole('article').first()).toHaveAttribute('aria-setsize', String(count));
+}
+
 /** The open inbox's search field: its search button in the title row opens it first when it is closed */
 export async function inboxSearch(inbox: Locator) {
     const field = inbox.getByRole('searchbox', { name: 'Search comments' });

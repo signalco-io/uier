@@ -3,11 +3,11 @@ import type { CommentPriority } from '../triage';
 import { isFeedbackTypeId } from '../feedbackTypes';
 import { drawingFingerprint } from '../drawing';
 import { useProjectViewer } from '../project/ProjectGate';
-import { useContext, useEffect } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { QueryClient, UseMutationResult, UseQueryResult, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toolbarConfig } from '../config';
 import { CommentsBootstrapperContext } from '../components/CommentsBootstrapperContext';
-import { CommentActivity, CommentDeviceInfo, CommentItem, CommentItemPosition, CommentItemThreadItem, CommentKind, Mention } from '../components/@types/Comments';
+import { CommentActivity, CommentDeviceInfo, CommentItem, CommentItemPosition, CommentItemThreadItem, CommentKind, Mention, commentsListMaxLength } from '../components/@types/Comments';
 import { apiImage, apiRequest, commentsQueryKeyPrefix, required, visitorQueryKey, pageVisitorQueryKey, projectViewerQueryKey, CommentsApiError, currentReviewerRevision, activityQueryKey } from './api';
 import { newCommentDraftKey, newDrawingDraftKey, newRewriteDraftKey, feedbackDraftKey, useDrafts } from './useDrafts';
 import type { Visitor } from './useVisitor';
@@ -229,9 +229,62 @@ async function editMessage({ commentId, itemId, text, expectedText, mentions }: 
     }));
 }
 
-async function getSiteComments(client: QueryClient, unreadOnly: boolean, environment?: string) {
-    const comments = await getCommentScopes(`scope=site${unreadOnly ? '&unread=true' : ''}${environment ? `&environment=${encodeURIComponent(environment)}` : ''}`);
-    return withPending(reconcileReads(client, Array.isArray(comments) ? comments : []), () => !unreadOnly);
+/**
+ * The inbox loads the site's ordinary (not archived) comments in pages of this many, newest first, as it scrolls
+ * (the review API's `?before=`, `apps/web/src/lib/comments/listPage.ts`). The first is as long as the list was before
+ * paging, so the counts of pages and sections are no shorter. Archived ones, the unread list and the public comments
+ * API (no project) are one page.
+ */
+export const siteListPageSize = commentsListMaxLength;
+
+/** Whether the site's list loads more as the inbox scrolls */
+const pagedSiteList = (unreadOnly: boolean) => Boolean(toolbarConfig.project) && !unreadOnly;
+
+/** The ordinary comments of a list loaded so far: no archived ones and none still on their way */
+const loadedOrdinary = (comments: CommentItem[] | undefined) => comments?.filter(comment => !comment.archivedAt && !comment.pending) ?? [];
+
+/** The oldest of them, whose `<createdAt>|<id>` the next page starts after (as the API orders them) */
+function siteCursor(comments: CommentItem[]) {
+    const oldest = comments.reduce<CommentItem | undefined>((last, comment) => !last
+        || (comment.createdAt ?? '').localeCompare(last.createdAt ?? '') < 0
+        || (comment.createdAt === last.createdAt && comment.id < last.id) ? comment : last, undefined);
+    return oldest && `&before=${encodeURIComponent(`${oldest.createdAt ?? ''}|${oldest.id}`)}`;
+}
+
+const siteQuery = (unreadOnly: boolean, environment?: string) =>
+    `scope=site${unreadOnly ? '&unread=true' : ''}${environment ? `&environment=${encodeURIComponent(environment)}` : ''}`;
+
+/** One page of the site's ordinary comments after `cursor` (the first without one) */
+async function getSitePage(query: string, cursor = '') {
+    const page = await apiRequest<CommentItem[]>(`${commentsApiUrl}?${query}&archive=exclude${cursor}`);
+    return Array.isArray(page) ? page : [];
+}
+
+/**
+ * The site's comments. A paged list loads as many pages again as it had (`loaded`), so a refresh keeps what the
+ * reader scrolled to, each page after the last one it got (comments added meanwhile never repeat or skip one)
+ */
+async function getSiteComments(client: QueryClient, unreadOnly: boolean, environment?: string, loaded = 0) {
+    const query = siteQuery(unreadOnly, environment);
+    if (!pagedSiteList(unreadOnly)) {
+        const comments = await getCommentScopes(query);
+        return withPending(reconcileReads(client, Array.isArray(comments) ? comments : []), () => !unreadOnly);
+    }
+    const loadOrdinary = async () => {
+        const ordinary: CommentItem[] = [];
+        let more: boolean;
+        do {
+            const page = await getSitePage(query, ordinary.length ? siteCursor(ordinary) : '');
+            const known = new Set(ordinary.map(comment => comment.id));
+            const added = page.filter(comment => !known.has(comment.id));
+            ordinary.push(...added);
+            // A short page is the last; one with nothing new (an API that does not page) too
+            more = page.length >= siteListPageSize && added.length > 0;
+        } while (more && ordinary.length < loaded);
+        return ordinary;
+    };
+    const [ordinary, archived] = await Promise.all([loadOrdinary(), apiRequest<CommentItem[]>(`${commentsApiUrl}?${query}&archive=only`)]);
+    return withPending(reconcileReads(client, [...ordinary, ...(Array.isArray(archived) ? archived : [])]), () => true);
 }
 
 export function commentsQueryKey(path: string, environment?: string, reviewer?: string) {
@@ -257,19 +310,81 @@ export function updateCachedComment(client: QueryClient, comment: CommentItem) {
     updateAllCachedComments(client, (comments) => comments.map(c => c.id === comment.id ? mergeReadCursor(applyPending(comment), c.activity?.readSequence) : c));
 }
 
-/** The comments of every page of the site, for the inbox (fetched while `enabled`) */
-export function useSiteComments(enabled: boolean, unreadOnly = false): UseQueryResult<CommentItem[], Error> {
+function useSiteQueryKey(unreadOnly: boolean) {
     const { environment, draftScope } = useProjectViewer();
+    return [...(unreadOnly ? [...commentsQueryKeyPrefix, 'site-unread'] : siteCommentsQueryKey), environment ?? 'current', draftScope ?? 'public'] as const;
+}
+
+/** The comments of every page of the site, for the inbox (fetched while `enabled`); `useMoreSiteComments` loads older ones */
+export function useSiteComments(enabled: boolean, unreadOnly = false): UseQueryResult<CommentItem[], Error> {
+    const { environment } = useProjectViewer();
     const client = useQueryClient();
+    const queryKey = useSiteQueryKey(unreadOnly);
     return useQuery({
-        queryKey: [...(unreadOnly ? [...commentsQueryKeyPrefix, 'site-unread'] : siteCommentsQueryKey), environment ?? 'current', draftScope ?? 'public'],
-        queryFn: () => authorizedList(client, () => getSiteComments(client, unreadOnly, environment)),
+        queryKey,
+        // A refresh loads as many as the reader scrolled to
+        queryFn: () => authorizedList(client, () => getSiteComments(client, unreadOnly, environment, loadedOrdinary(client.getQueryData<CommentItem[]>(queryKey)).length)),
         refetchOnMount: 'always',
         refetchOnWindowFocus: false,
         refetchOnReconnect: false,
         retry: false,
         enabled
     });
+}
+
+export type MoreSiteComments = {
+    /** Whether the list loads in pages (a project's site list, not the unread one) */
+    paged: boolean;
+    /** Whether older comments may be there to load */
+    hasMore: boolean;
+    loading: boolean;
+    error: Error | null;
+    /** Loads the next page, after the oldest loaded comment; nothing while one is loading. A refresh that ends after it
+     * replaces the list with as many pages as it started with, and the list asks again */
+    loadMore: () => void;
+};
+
+/**
+ * The next pages of the site's list (`useSiteComments`), as the inbox scrolls: each is added to the cached list, so
+ * every change to a comment (`updateAllCachedComments`), the read cursors and a refresh apply to it as to the first
+ */
+export function useMoreSiteComments(list: UseQueryResult<CommentItem[], Error>, unreadOnly = false): MoreSiteComments {
+    const { environment } = useProjectViewer();
+    const client = useQueryClient();
+    const queryKey = useSiteQueryKey(unreadOnly);
+    const key = JSON.stringify(queryKey);
+    // Per list (the environment and reviewer are in its key): the end it reached, and the page on its way
+    const [state, setState] = useState<{ key: string; end: boolean; loading: boolean; error: Error | null }>({ key, end: false, loading: false, error: null });
+    const current = state.key === key ? state : { key, end: false, loading: false, error: null };
+    const ordinary = loadedOrdinary(list.data).length;
+    // A first page shorter than a page is the whole list
+    const hasMore = pagedSiteList(unreadOnly) && list.isSuccess && !current.end && ordinary >= siteListPageSize;
+    const loadMore = () => {
+        if (!hasMore || current.loading) return;
+        const revision = currentReviewerRevision();
+        const cursor = siteCursor(loadedOrdinary(client.getQueryData<CommentItem[]>(queryKey)));
+        setState({ ...current, loading: true, error: null });
+        // Lost access empties the lists, as a refresh does
+        void authorizedList(client, () => getSitePage(siteQuery(unreadOnly, environment), cursor)).then(page => {
+            // Another reviewer since (signed in or out): their list is not this one
+            if (revision !== currentReviewerRevision()) {
+                setState(previous => previous.key === key ? { ...previous, loading: false } : previous);
+                return;
+            }
+            const known = new Set(client.getQueryData<CommentItem[]>(queryKey)?.map(comment => comment.id));
+            const added = reconcileReads(client, page.filter(comment => !known.has(comment.id))).map(applyPending);
+            client.setQueryData<CommentItem[]>(queryKey, comments => {
+                if (!comments) return comments;
+                const listed = new Set(comments.map(comment => comment.id));
+                return [...comments, ...added.filter(comment => !listed.has(comment.id))];
+            });
+            // A short page is the last; one with nothing new (an API that does not page) too
+            setState(previous => previous.key === key ? { key, end: page.length < siteListPageSize || !added.length, loading: false, error: null } : previous);
+        }, (error: unknown) => {
+            setState(previous => previous.key === key ? { ...previous, loading: false, error: error instanceof Error ? error : new Error(String(error)) } : previous);
+        });
+    };
+    return { paged: pagedSiteList(unreadOnly), hasMore, loading: current.loading, error: current.error, loadMore };
 }
 
 export function useComments(refreshOnMount = false): {

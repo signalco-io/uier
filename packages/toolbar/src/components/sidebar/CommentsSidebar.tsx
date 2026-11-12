@@ -137,6 +137,7 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
                         <CommentsSidebarCommentsList
                             inbox={inbox}
                             filter={filter}
+                            scrollRef={contentRef}
                             onShowOnPage={onShowOnPage}
                             onShowAllPages={() => setFilter({ ...filter, page: 'all' })} />
                     </div>
