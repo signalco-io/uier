@@ -44,6 +44,23 @@ function MessageAgent({ agent }: { agent: MessageAgentView }) {
     </>;
 }
 
+/**
+ * A message's avatar names its author on hover or keyboard focus (uier #323): the full name, "(you)" and
+ * the agent that wrote it for them, with the model and reasoning level members get.
+ */
+function MessageAuthorAvatar({ name, person, agent }: { name: string; person: string; agent?: MessageAgentView }) {
+    const t = useMessages();
+    const label = agent ? `${person}. ${t.thread.writtenBy(agentDescription(agent, t))}` : person;
+    const { triggerProps, tooltip } = useIconTooltip(label, undefined, { prose: Boolean(agent) });
+    return <>
+        <Avatar size="sm" role="img" aria-label={label} tabIndex={0} {...triggerProps}
+            className="shrink-0 border bg-accent text-[11px] font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            {avatarText(name)}
+        </Avatar>
+        {tooltip}
+    </>;
+}
+
 function parseDate(value: string | undefined) {
     if (!value) return undefined;
     const date = new Date(value);
@@ -150,7 +167,7 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
 
     return (
         <div ref={rootRef} className="flex gap-2">
-            <Avatar size="sm" aria-hidden="true" className="shrink-0 border bg-accent text-[11px] font-semibold text-foreground">{avatarText(authorName)}</Avatar>
+            <MessageAuthorAvatar name={authorName} person={isMe ? t.thread.authorYou(person) : person} agent={agent} />
             {/* The author line and the message almost touch (uier #240); the rest keeps its spacing */}
             <div className="flex min-w-0 flex-1 flex-col">
                 <Row spacing={1} justifyContent="space-between" className="min-h-6">

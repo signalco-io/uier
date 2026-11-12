@@ -684,10 +684,13 @@ export function CommentBubble(props: CommentBubbleProps) {
                 // Passed through to the Radix popover content (the Popper's own value is derived from the offsets)
                 {...{ collisionPadding: popoverCollisionPadding }}
             >
-                {/* Read-only: its controls take no presses or focus, and a click anywhere opens the thread */}
+                {/* Read-only: its controls take no presses or focus, and a click anywhere opens the thread.
+                    The wrapper is not inert, so the wheel over a long thread scrolls it (uier #322). */}
                 {commentItem && preview && (
-                    <div inert className="min-h-0 flex-1 overflow-hidden">
-                        <CommentThread commentItem={commentItem} onPage />
+                    <div data-uier-preview-scroll="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                        <div inert>
+                            <CommentThread commentItem={commentItem} onPage allMessages />
+                        </div>
                     </div>
                 )}
                 {commentItem && !preview && (
@@ -700,7 +703,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                             role="group"
                             {...(revealControls && { 'data-uier-controls-reveal': '' })}
                             className="min-h-0 flex-1 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
-                            <CommentThread commentItem={commentItem} reading={open} onPage />
+                            <CommentThread commentItem={commentItem} reading={open} onPage allMessages={revealControls} />
                         </div>
                         <Divider className="shrink-0" />
                     </>
