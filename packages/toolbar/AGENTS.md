@@ -129,6 +129,7 @@ they behave goes in that note, not here.
 | `project/installationCheck.ts` | the install page's `uier-check` diagnostics ([project mode](docs/project-mode.md#installation-check)) |
 | `pageState.ts`, `hooks/usePagePath.tsx` | a page's canonical identity and source path, client-side navigation (`@uier/toolbar/page-state`) ([page identity](docs/page-state.md)) |
 | `hooks/useCommentItemRects.tsx` | resolves anchors to rectangles and pin placements ([anchor recovery](docs/anchor-recovery.md#resolving-positions)) |
+| `src/pinLayout.ts` | moves pins that would overlap apart, the least needed ([popovers](docs/composer-popovers.md#where-the-pin-and-its-popover-go)) |
 | `hooks/useLayoutVersion.ts` | shared geometry version for scroll (capture), resize, size and DOM changes; separate DOM evidence version for anchor/index invalidation, including observer restarts |
 | `hooks/useReviewMovement.ts`, `components/DockablePanel.tsx` | moving the pill, docking panels, notices by the pill ([the pill](docs/pill-and-options.md#moving-and-docking)) |
 | `hooks/useDrafts.tsx` | browser-local drafts, with `draftStorage.ts` ([popovers](docs/composer-popovers.md#drafts-across-reloads)) |
