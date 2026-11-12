@@ -275,6 +275,9 @@ test('the board widens on a wide window, the filters and project headers and the
     expect((await placement(column('Open'))).left).toBeCloseTo(laptopComments!.left, 0);
     // The filters and project headers stay at the panel's width less the gutters and do not scroll with the board
     const headers = async () => ({ search: await placement(search), view: await placement(view), mark: await placement(mark), settings: await placement(settings) });
+    // The search is as wide as the first column under it (uier #355)
+    const openWidth = (await column('Open').boundingBox())!.width;
+    await expect.poll(async () => Math.round((await placement(search)).width)).toBe(Math.round(openWidth));
     const laptopHeader = await headers();
     expect(laptopHeader.search.left).toBeCloseTo(laptopComments!.left, 0);
     expect(laptopHeader.view.right).toBeCloseTo(laptopComments!.right, 0);
