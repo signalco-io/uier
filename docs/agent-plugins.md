@@ -64,8 +64,9 @@ starting it. A request to read one comment alone does not invoke that workflow.
 
 Monitoring requires a local coding client, a repository checkout, Git, Node.js 18 or later and
 an authenticated `gh` CLI. The target repository's runtime requirements still apply. Its
-watcher uses a separate scoped token, stores local state under the shared git directory and
-reads uier and GitHub. The [plugin README](../plugins/uier/README.md#what-runs-and-where-data-goes)
+watcher uses a separate scoped token, stores local state under the shared git directory, names
+that directory in a small file under `~/.uier-monitor` for the local dashboard, and reads uier and
+GitHub. The [plugin README](../plugins/uier/README.md#what-runs-and-where-data-goes)
 discloses execution, data handling and persistence. There are no install hooks or local MCP
 servers. The MCP connection itself can be used without running the monitor.
 
@@ -84,7 +85,7 @@ and copies the root license and existing 192 px app icon. Do not edit those gene
 node .github/scripts/agent-plugins.mjs
 node .github/scripts/agent-plugins.mjs --check
 node plugins/uier/skills/uier-monitor/scripts/build-script-skill.mjs --check
-node --test .github/scripts/agent-plugins.test.mjs plugins/uier/skills/uier-monitor/scripts/monitor.test.mjs
+node --test .github/scripts/agent-plugins.test.mjs plugins/uier/skills/uier-monitor/scripts/monitor.test.mjs plugins/uier/skills/uier-monitor/scripts/dashboard.test.mjs
 claude plugin validate --strict plugins/uier
 claude plugin validate --strict .
 ```

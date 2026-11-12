@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
 import { once } from 'node:events';
@@ -10,6 +10,10 @@ import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
+
+// The scripts announce themselves to the dashboard; keep that out of the person's own ~/.uier-monitor.
+process.env.UIER_MONITOR_HOME = mkdtempSync(join(tmpdir(), 'uier-monitor-home-'));
+process.on('exit', () => rmSync(process.env.UIER_MONITOR_HOME, { recursive: true, force: true }));
 
 // Exercise the actual standalone script without invoking its CLI or network.
 const source = readFileSync(new URL('./monitor.mjs', import.meta.url), 'utf8')
@@ -696,6 +700,12 @@ for (const detached of [false, true]) test(`standalone persistent watcher delive
         assert.equal(JSON.parse(readFileSync(join(dir, 'inbox.json'), 'utf8'))[0].type, 'new');
         assert.equal(JSON.parse(readFileSync(join(dir, 'watch.pid'), 'utf8')).persistent, true);
         assert.ok(JSON.parse(readFileSync(join(dir, 'watch.json'), 'utf8')).heartbeatAt);
+        // The dashboard's feed: the watcher announced the state folder and journaled what it did.
+        const journal = readFileSync(join(dir, 'events.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
+        assert.deepEqual(journal.slice(0, 3).map(event => event.type), ['watcher', 'new', 'wake']);
+        assert.ok(journal.every(event => !Number.isNaN(Date.parse(event.at))) && journal[2].delivered === true);
+        assert.ok(readdirSync(join(process.env.UIER_MONITOR_HOME, 'monitors')).some(name =>
+            JSON.parse(readFileSync(join(process.env.UIER_MONITOR_HOME, 'monitors', name), 'utf8')).stateDir === dir));
         const health = execFileSync(process.execPath, [fileURLToPath(new URL('./monitor.mjs', import.meta.url)),
             'status', '--state', dir], { env: { ...process.env, UIER_MCP_TOKEN: 'fixture-only-token' }, encoding: 'utf8' });
         assert.match(health, /persistent/);

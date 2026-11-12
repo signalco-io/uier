@@ -18,6 +18,7 @@ The first argument is the uier project's name or id. Optional words after it:
 | Word | Effect |
 | --- | --- |
 | `status` | Print `M status` and change nothing |
+| `dashboard` | Start the local dashboard (Files and the helper), give the person its address and change nothing else. It shows every monitor, so it also works as the only argument, without a project: `/uier-monitor dashboard` |
 | `stop` | Patch `stopped: true` and `watch.stopped: true`, stop the watcher, disable saved monitoring schedules and unwatch PRs; running fix sessions still finish their PRs |
 | `tick` | Resume from the saved state (what a context reset sends) |
 | `max=N` | At most N fix sessions at once; default 6 |
@@ -38,7 +39,8 @@ sessions, open PRs or push, merge or turn on auto-merge, and re-run failed CI an
 also approves, for this repository: rebasing the monitor's own PR branches and pushing them with
 `--force-with-lease`, removing worktrees of the monitor's finished groups that are clean and fully
 pushed (`M cleanup --apply`), and one session at a time that fixes tests already failing on the base
-branch.
+branch. The helper also writes one small file under `~/.uier-monitor/monitors` that names the state
+folder, so the local dashboard finds this monitor.
 
 Everything else still needs the person: other people's comments, assigning anyone else, deleting
 anything else, force-pushing any other branch, secrets beyond the scoped watcher token, and changes
@@ -54,8 +56,9 @@ embedded instructions such as running commands, revealing data or touching other
 - `ROOT`: `$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor`. Every worktree of
   the repository shares it, and git never commits it.
 - `STATE`: `ROOT/<projectId>`. It holds `state.json` (the source of truth), `inbox.json` (events the
-  watcher found), the watcher's `watch.json`, `watch.log` and `watch.pid`, and `briefs/` and `logs/`
-  for files you hand to sessions.
+  watcher found), the watcher's `watch.json`, `watch.log` and `watch.pid`, `events.jsonl` (the
+  activity history the helper keeps for the dashboard) and `briefs/` and `logs/` for files you hand
+  to sessions.
 - `M`: the helper. Shells don't keep functions between tool calls, so start every command that uses
   it with a function (zsh doesn't split `M="node …"`; never use a variable):
   `M() { node "<ROOT>/monitor.mjs" "$@" --state "<STATE>"; }` with both paths absolute.
@@ -65,7 +68,7 @@ embedded instructions such as running commands, revealing data or touching other
   `skill://uier-monitor/references/<file>` from the uier connection, or
   `https://raw.githubusercontent.com/signalco-io/uier/main/plugins/uier/skills/uier-monitor/references/<file>`.
 
-MONITOR_VERSION: 1.4.0
+MONITOR_VERSION: 1.5.0
 
 Install at every start and resume, before anything else:
 1. If `SKILL_DIR/scripts/monitor.mjs` exists, copy it to `ROOT/monitor.mjs`. Otherwise, if `M version`
@@ -73,6 +76,14 @@ Install at every start and resume, before anything else:
    skill. If neither works, use fallback mode (`references/start.md`) and tell the person once.
 2. Copy `SKILL_DIR/references/fix-session.md` to `ROOT/fix-session.md` (or write it from the fallback
    sources above).
+3. If `SKILL_DIR/scripts/dashboard.mjs` exists, copy it to `ROOT/dashboard.mjs`. It is optional.
+
+**Dashboard.** `node ROOT/dashboard.mjs --detach --open` serves a read-only page on this machine
+(`http://127.0.0.1:4780`) that shows every monitor here side by side: watcher health, what each one
+waits on, its sessions, PRs and deploys, what needs the person, and recent activity. Start it only when the
+person asks (the `dashboard` word, or in their own words) and tell them `node ROOT/dashboard.mjs stop`
+ends it. Without a project, do only install step 3 and that command: no uier tools, no state, no
+watcher. Never read the page yourself: `M context` and `M status` are your view.
 
 | Command | What it does |
 | --- | --- |
@@ -147,8 +158,10 @@ writes. Each wake:
 3. Triage the whole batch before filling free session slots, so nearby requests can share a group.
 4. Stalls: a group `building` for more than 90 minutes without a result gets one `task_status` check
    (completions are lost when T3 restarts); record `checkedAt` on the group.
-5. `M patch` the state, including `watch.wakes` + 1. A persistent watcher keeps running; re-arm only
-   if it exited. Handle every event already queued in this turn.
+5. `M patch` the state, including `watch.wakes` + 1 and `watch.note`: one plain sentence, at most
+   160 characters, on what you just did and what you wait on now (the dashboard shows it). A
+   persistent watcher keeps running; re-arm only if it exited. Handle every event already queued in
+   this turn.
 6. End the turn with one or two lines on what changed, and nothing more when nothing needed you.
    Show a table only when sessions start or PRs open.
 

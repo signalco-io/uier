@@ -55,3 +55,10 @@
   Its `groups` decide which groups the watcher closes; an entry without a `pr` (push mode) must list them.
 - `mainFailures`: tests that fail on the base branch too, for the main-fix group.
 - `watcherUpdatedAt`: when the watcher last wrote its own bookkeeping. `updatedAt` stays yours.
+- `watch.note`: one sentence on what you just did and what you wait on, rewritten on every wake.
+  The dashboard shows it; nothing else reads it.
+
+`events.jsonl`, next to `state.json`, is the activity history: one JSON line for each event the
+watcher finds, each wake and take, and each change of a group's `state` or an item's `decision` or
+`stage` made through `M patch` or by the watcher. Only the helper writes it; the dashboard reads it
+for its feed and for how long a group has been in its state. Never read it on a wake.

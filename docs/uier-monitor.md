@@ -95,6 +95,71 @@ delta baseline; `notification.json` tracks delivery without consuming the inbox.
 node "$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor/monitor.mjs" status --project uier00000001
 ```
 
+### The dashboard
+
+`dashboard.mjs`, next to `monitor.mjs`, serves a local page that shows every monitor on the machine,
+whichever repository it runs in:
+
+```bash
+node "$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor/dashboard.mjs" --open
+```
+
+It opens `http://127.0.0.1:4780`. `--detach` keeps it serving after the command returns
+(`dashboard.mjs stop` ends it), `--port N` picks another port, `--state DIR` adds a monitor it didn't
+find, and `--json` prints one snapshot and exits. The skill starts it too: `/uier-monitor dashboard`
+(in Claude Code with the plugin, `/uier:uier-monitor dashboard`), with or without a project.
+
+Every monitor is a card, and the cards sit side by side, so you see all of them without opening
+anything. A card shows:
+
+- **Watcher health:** running, waiting (a running watcher with nothing in progress), stopped, not
+  running or not responding, with failing wake delivery and usage limits called out. Low disk space
+  shows once, at the top of the page. Stopped and inactive monitors are dimmed.
+- **Sessions:** how many of the monitor's slots are working.
+- **Waiting on:** sessions still working, pull requests to merge, deploys to finish, a timer, events
+  the orchestrator hasn't taken yet, or you. The orchestrator's last note says what it just did.
+- **Work in progress:** one line per group under Building, In review, Pull request, Deploying or
+  Blocked, with its comments, pull request, agent, time in that state and a link to the session,
+  then the queued comments and what needs you (open questions, comments ready to verify, blocked
+  groups and failed uier writes). A speech bubble marks links to uier comments and a pull request
+  icon marks links to GitHub. The agent shows its maker's mark (Claude, OpenAI or Cursor), the model's
+  name as uier writes it ("Claude Opus 5.5") and the reasoning level in words ("Extra high").
+
+**Session links.** T3 Code opens `t3-thread://` links only inside its own chat, so the page links a
+T3 session through T3 Code's hosted thread link (`https://app.t3.codes/threads/…`, the one Copy
+thread copies), which opens it in the desktop app, the mobile app or the browser. Codex and Claude
+desktop session links keep their own schemes.
+
+**Updates move.** The page changes what is there instead of redrawing it: a group that changes state
+shows the new state where it is and then glides to its new place, a group that leaves the pipeline
+says Done or Cancelled for a moment before it goes, new rows fade in and changed numbers and words
+are highlighted briefly. The dot of a group being worked on beats. With reduced motion turned on in
+the system, nothing moves.
+
+**Show details** opens a card across the page and adds each group's note, the watcher's version and
+last check-in, the activity feed, comments closed per day, the median time from start to close and
+the wakes of the last 24 hours. The totals above the cards count every monitor that isn't stopped or
+inactive.
+
+**How it finds monitors.** The helper announces each monitor with one small file in
+`~/.uier-monitor/monitors` (`UIER_MONITOR_HOME` moves the folder), written when the watcher starts
+and on every `patch`. The file holds the state folder's path, the project's id and name and the
+repository's name. The dashboard also looks in the checkout it runs in, so a monitor whose watcher
+predates version 1.5.0 shows up when you start the dashboard from its repository. A monitor nobody
+touched for a day is listed as Inactive, and one whose state folder is gone is left out.
+
+**What it reads.** `state.json`, `watch.json`, `watch.pid`, `inbox.json`, `notification.json` and
+`events.jsonl`, the activity history the helper appends to: one line for each event the watcher
+finds, each wake and take, and each change of a group's state or a comment's decision or stage.
+Without that history (an older watcher) the feed shows the watcher's log instead. The journal rotates
+at 2 MB, keeping one earlier file.
+
+**What it never does.** It doesn't change a monitor, uier or the repository, and it has no write
+endpoint. It binds to `127.0.0.1` and refuses requests under another host name, so a web page you
+visit can't read it. It loads nothing from the internet. The browser receives a fixed set of fields,
+never the state files themselves or a token, and the page renders feedback text as text. Binding
+another address with `--host` makes the page readable by everyone who can reach that address.
+
 ## How it works
 
 - **Gate before the model.** In T3, the local `t3 thread send` CLI lets a detached persistent watcher
@@ -201,6 +266,21 @@ The skill reads this section at start. It takes precedence over what the skill d
 ## Changing the skill
 
 Edit `plugins/uier/skills/uier-monitor/SKILL.md`, its `references/` and its `scripts/monitor.mjs`.
+The dashboard is `scripts/dashboard.mjs`: one file with its page inside, no dependencies and no
+imports from `monitor.mjs`, so it also reads monitors that run an older helper. Its colours are the
+values of `packages/brand/tokens.css`, and its agent marks and model names are those of
+`packages/toolbar/src/agents.ts`; `dashboard.test.mjs` checks both, so change them there first.
+
+While you work on the dashboard, run it with `--dev`:
+
+```bash
+node plugins/uier/skills/uier-monitor/scripts/dashboard.mjs --dev --open
+```
+
+Every save of `dashboard.mjs` swaps the new code in on the same port and reloads the open page, which
+keeps its open cards and scroll position. A save that doesn't load is reported in the terminal and
+the last good code keeps serving. Without `--dev`, an open page still reloads itself after the
+dashboard restarts with different code.
 `SKILL.md` holds what the orchestrator needs on every wake, since every model call re-reads it; first
 start, waiting modes, the token and workflow detection live in `references/start.md`, the fix
 session rules in `references/fix-session.md` and the state fields in `references/state.md`. After a
