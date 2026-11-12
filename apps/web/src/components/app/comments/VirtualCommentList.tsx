@@ -99,7 +99,7 @@ export function VirtualCommentList<T extends { id: string }>({ items, label, ren
     }
     if (previous < items.length) children.push(<li key="space-end" role="presentation" aria-hidden="true" style={{ height: Math.max(0, offsets[items.length]! - offsets[previous]! - gap) }} />);
     return <ul ref={node => { root.current = node; if (listRef) listRef.current = node; }} aria-label={label} aria-busy={loading || undefined} onFocus={onFocus} data-loaded-count={items.length} data-comment-window={control ? '' : undefined}
-        className={cn('m-0 flex list-none flex-col gap-2 p-0 [&>li]:shrink-0', control && 'max-h-[max(20rem,calc(100svh-22rem))] overflow-y-auto overscroll-y-contain [overflow-anchor:none]', control && documentScroll && 'max-lg:max-h-none max-lg:overflow-x-clip max-lg:overflow-y-visible max-lg:overscroll-auto', className)}>
+        className={cn('m-0 flex list-none flex-col gap-2 p-0 [&>li]:shrink-0', control && 'scrollbar-subtle max-h-[max(20rem,calc(100svh-22rem))] overflow-y-auto overscroll-y-contain [overflow-anchor:none]', control && documentScroll && 'max-lg:max-h-none max-lg:overflow-x-clip max-lg:overflow-y-visible max-lg:overscroll-auto', className)}>
         {children}
         {footer}
         {control?.hasMore && <li ref={sentinel} role="presentation" className="flex shrink-0 flex-col items-center justify-center p-2">

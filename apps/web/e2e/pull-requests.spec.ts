@@ -46,6 +46,14 @@ test('thread details collect PRs from messages and replies, with one quiet mark 
     await thread.getByRole('textbox', { name: 'Pull request URL', exact: true }).fill(manualUrl);
     await thread.getByRole('button', { name: 'Link', exact: true }).click();
     await expect(thread.locator('[data-pull-request-links]').getByRole('link')).toHaveCount(1);
+    // Merged and Open: the mark shows the least advanced state, the one that still needs attention
+    await thread.getByRole('button', { name: 'Link a pull request', exact: true }).click();
+    await thread.getByRole('textbox', { name: 'Pull request URL', exact: true }).fill('https://gitlab.com/acme/site/-/merge_requests/1');
+    await thread.getByRole('button', { name: 'Link', exact: true }).click();
+    await expect(thread.locator('[data-pull-request-links]').getByRole('link')).toHaveCount(2);
+    await expect(page.locator('[data-comment-id] [data-pull-request-mark]')).toHaveAttribute('data-pull-request-color', 'open');
+    await thread.getByRole('button', { name: 'Remove link to GitLab acme/site !1', exact: true }).click();
+    await expect(thread.locator('[data-pull-request-links]').getByRole('link')).toHaveCount(1);
     await thread.getByRole('button', { name: 'Reply', exact: true }).click();
     await thread.getByRole('textbox', { name: 'Reply', exact: true }).fill('Also https://github.com/acme/site/pull/1 https://github.com/acme/site/pull/3 https://gitlab.com/acme/site/-/merge_requests/4 https://dev.azure.com/acme/Website/_git/site/pullrequest/9');
     await thread.getByRole('button', { name: 'Post reply', exact: true }).click();
@@ -79,7 +87,7 @@ test('thread details collect PRs from messages and replies, with one quiet mark 
     }
     if (testInfo.project.name.startsWith('Mobile')) await backToComments(page);
     await expect(commentRows(page).getByLabel('Linked pull request')).toHaveCount(1);
-    // Pull requests in different states leave the row's mark uncoloured
+    // Azure DevOps #9 has no known state, so the row's mark stays uncoloured
     await expect(commentRows(page).locator('[data-pull-request-mark]')).not.toHaveAttribute('data-pull-request-color');
     // Hovering the mark (a tap on touch screens) lists the pull requests with their provider and state
     const mark = commentRows(page).getByRole('button', { name: /^Linked pull request, comment #\d+$/ });

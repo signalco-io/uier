@@ -86,6 +86,20 @@
   scroll-padding-inline: var(--page-gutter);
 }
 
+/*
+ * A thin scrollbar in the theme's muted ink on a clear track, for scroll areas inside a card or column (the board's
+ * columns, the inbox list), where the platform's wide grey bar looks out of place in dark mode. Like the toolbar's
+ * (packages/toolbar/src/styles/toolbar-theme.css); it darkens while the pointer is over the area.
+ */
+@utility scrollbar-subtle {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.35) transparent;
+
+  &:hover {
+    scrollbar-color: hsl(var(--muted-foreground) / 0.6) transparent;
+  }
+}
+
 html, body, #__next {
   height: 100%;
   width: 100%;

@@ -59,7 +59,9 @@ rows with the status filter it waits for their entrance motion to settle before 
   edge to edge of the panel, padded by the page gutter (`page-bleed`, `--page-gutter`), so the first and last columns
   line up with the page content at either end and the others scroll under the panel's edges, not short of them. Where
   the columns fit there is no scrollbar, scrollbars that take room included (the panel's width is measured inside its
-  scrollbar, [app shell](app-shell.md)). On dark a card is the page's black, a step
+  scrollbar, [app shell](app-shell.md)). A column's card list (and the list layout's, `VirtualCommentList`) scrolls with
+  a thin scrollbar in the muted ink on a clear track (`scrollbar-subtle` in `app/global.css`, darker on hover), not the
+  platform's wide grey bar ([uier #365](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_Qy7RLDJqawBo6PHlCuKyS)). On dark a card is the page's black, a step
   darker than its column, so it stands apart (light keeps paper cards on the muted column). The board's grid is wider than the reading width (`md:page-bleed`,
   `data-page-width="wide"`). On a project the columns start at the left (`justify-start` from `ProjectComments`; My work
   keeps them centred) and the filters' header is the panel's width less the gutters (`page-wide`) whatever the columns'
@@ -132,7 +134,8 @@ current message or reply links to a supported provider PR. It is `PullRequestCar
 which works like the assignee card: hovering it, Enter on it (it shares the row's tab stop rule) or a tap
 opens a popover listing each pull request with its provider's mark, repository and number as an external link,
 and its state badge when known (the name in the state's colour, but a closed one's in ink); a mouse click still opens the thread. The mark takes the
-state's colour (`data-pull-request-color`) when every one of the thread's pull requests is in the same known state,
+colour (`data-pull-request-color`) of the least advanced state across the thread's pull requests (draft, then open,
+closed, merged: Open and Merged show Open) once every one of them has a known state,
 from a read the page already made (the open thread beside it, or the mark's card; a shared store in
 `ThreadPullRequests.tsx`): rows never read on their own, so a list doesn't spend the providers' hourly reads. State is read only while the popover is
 open, through the same endpoint and five-minute reuse as the [open thread's details](comment-thread.md).
