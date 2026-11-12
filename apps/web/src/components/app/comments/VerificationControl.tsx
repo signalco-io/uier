@@ -20,7 +20,8 @@ import { commentParticipantsAction, verificationCommentAction } from './actions'
  * form. The form opens from the status menu's "Ready to verify" (`formOpen`); focus goes back to
  * `returnFocus` (the status menu) when it closes.
  */
-export function VerificationControl({ projectId, userId, comment, formOpen, onFormOpenChange, returnFocus }: {
+export function VerificationControl({ projectId, userId, comment, formOpen, onFormOpenChange, returnFocus, statusId }: {
+    statusId?: string;
     projectId: string;
     userId: string;
     comment: ProjectCommentView;
@@ -63,7 +64,7 @@ export function VerificationControl({ projectId, userId, comment, formOpen, onFo
     if (!v && !formOpen && !responses && !pending && !error && !notice) return null;
     const send = (action: 'request' | 'confirm' | 'reject' | 'cancel', override = false) => start(async () => {
         const fallback = document.querySelector<HTMLInputElement>('input[data-shortcut-search]');
-        const input = action === 'request' ? { action, reviewerId: reviewer, summary, fixUrl, expectedRevision: v?.revision ?? null }
+        const input = action === 'request' ? { action, ...(statusId ? { statusId } : {}), reviewerId: reviewer, summary, fixUrl, expectedRevision: v?.revision ?? null }
             : { action, override, expectedRevision: v?.revision ?? null };
         const value = JSON.stringify(input);
         if (attempt.current?.value !== value) attempt.current = { value, key: crypto.randomUUID() };

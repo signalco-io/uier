@@ -72,6 +72,7 @@ import { integrationLabels } from './commentLabels';
 import { useCommentUpdate } from './CommentUpdates';
 import { useReadWhenShown } from './useReadWhenShown';
 import { VerificationControl } from './VerificationControl';
+import { defaultStatusWorkflow, workflowStatusLabel } from '../../../lib/app/statusWorkflow';
 import { StateBadge, StateMenu, type CommentStatus } from './CommentStatus';
 import { useStatusChange, type ResolveExit } from './useStatusChange';
 import { MessageImage } from './MessageImage';
@@ -95,6 +96,7 @@ import {
     editCommentAction,
     setCommentPrivateAction,
     setCommentArchivedAction,
+    setCommentWorkflowStatusAction,
 } from './actions';
 
 export type AssigneeOption = { userId: string; name: string; avatarUrl?: string };
@@ -196,7 +198,7 @@ function MessageText({ text, mentions, edited }: { text: string; mentions?: Mess
  * the linked issues, and the page it was left on at the bottom. It is the open thread: once it has been
  * on screen for a moment it is marked read (`useReadWhenShown`), except after Mark as unread.
  */
-export function CommentCard({ projectId, comment, reviewLink, assignees, userId, onMove, onBack, onReadWhenShown, startVerifying = false, className }: {
+export function CommentCard({ projectId, comment, reviewLink, assignees, userId, onMove, onBack, onReadWhenShown, startVerifying = false, startVerifyingStatusId, className }: {
     projectId: string;
     comment: ProjectCommentView;
     /** Review link that opens the page at this comment */
@@ -212,6 +214,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     onReadWhenShown?: () => void;
     /** Opens with the Request verification form (a card dropped on Ready to verify) */
     startVerifying?: boolean;
+    startVerifyingStatusId?: string;
     className?: string;
 }) {
     const { t } = useAppI18n();
@@ -259,6 +262,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const replyActionsFocus = useRef<string>(undefined);
     // The Request verification form, opened from the status menu
     const [verifying, setVerifying] = useState(startVerifying);
+    const [verificationStatusId, setVerificationStatusId] = useState(startVerifyingStatusId);
     const statusTrigger = useRef<HTMLButtonElement>(null);
     const { permissions, source } = comment;
     // The message editor is its own chunk: it loads while the page is idle, so Reply and Edit open with it
@@ -273,11 +277,11 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     }, [permissions.reply, permissions.edit]);
     const statusChange = useStatusChange(projectId, comment, {
         onMove,
-        onVerify: () => setVerifying(true)
+        onVerify: statusId => { setVerificationStatusId(statusId); setVerifying(true); }
     });
-    const changeStatus = (next: CommentStatus) => {
+    const changeStatus = (next: CommentStatus, statusId?: string) => {
         if (next !== 'ready') setVerifying(false);
-        statusChange.change(next);
+        statusChange.change(next, statusId);
     };
     const author = comment.author.isMe ? t("You") : comment.author.name;
     const label = comment.deleted ? t("Deleted comment") : t("Comment by {value0}", { value0: comment.author.isMe ? t("you") : comment.author.name });
@@ -502,8 +506,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                     )}
                     <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                         {Object.values(statusChange.allowed).some(Boolean)
-                            ? <StateMenu status={statusChange.status} allowed={statusChange.allowed} disabled={pending || statusChange.pending} onChange={changeStatus} triggerRef={statusTrigger} keyShortcut={statusShortcut} />
-                            : <StateBadge status={statusChange.status} />}
+                            ? <StateMenu comment={comment} status={statusChange.status} allowed={statusChange.allowed} disabled={pending || statusChange.pending} onChange={changeStatus} triggerRef={statusTrigger} keyShortcut={statusShortcut} />
+                            : <StateBadge comment={comment} status={statusChange.status} />}
                         {comment.number !== undefined && (
                             <span className="font-mono text-xs text-muted-foreground tabular-nums">
                                 <span className="sr-only">{t("Comment ")}</span>#{comment.number}
@@ -560,14 +564,20 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                             {t("Mark as unread")}
                                         </DropdownMenuItem>
                                     )}
-                                    {permissions.resolve && (
-                                        <DropdownMenuItem onClick={() => run(
-                                            () => setCommentArchivedAction(projectId, comment.id, !comment.archivedAt), undefined,
-                                            { archivedAt: comment.archivedAt ? undefined : new Date().toISOString() })}>
-                                            {comment.archivedAt ? <ArchiveRestoreIcon /> : <ArchiveIcon />}
-                                            {comment.archivedAt ? t("Restore comment") : t("Archive comment")}
+                                    {permissions.resolve && <>
+                                        <DropdownMenuItem onClick={() => run(() => setCommentArchivedAction(projectId, comment.id, !comment.archivedAt), undefined,
+                                            { archivedAt: comment.archivedAt ? undefined : new Date().toISOString(), archiveStatusId: comment.archivedAt ? undefined : (comment.workflow ?? defaultStatusWorkflow).archiveStatusId })}>
+                                            {comment.archivedAt ? <ArchiveRestoreIcon /> : <ArchiveIcon />}{comment.archivedAt ? t('Restore comment') : t('Archive comment')}
                                         </DropdownMenuItem>
-                                    )}
+                                        {(comment.workflow ?? defaultStatusWorkflow).statuses.filter(status => status.category === 'archive').map(status => (
+                                            ((comment.workflow ?? defaultStatusWorkflow).statuses.filter(option => option.category === 'archive').length > 1) &&
+                                            <DropdownMenuItem key={status.id} title={status.description || undefined} disabled={Boolean(comment.archivedAt) && comment.archiveStatusId === status.id} onClick={() => run(
+                                                () => setCommentWorkflowStatusAction(projectId, comment.id, status.id), undefined,
+                                                { archivedAt: comment.archivedAt ?? new Date().toISOString(), archiveStatusId: status.id })}>
+                                                <ArchiveIcon />{workflowStatusLabel(status, t)}
+                                            </DropdownMenuItem>
+                                        ))}
+                                    </>}
                                     {permissions.edit && (
                                         <DropdownMenuItem
                                             onClick={() => {
@@ -650,7 +660,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                 </dl>
 
                 <VerificationControl projectId={projectId} userId={userId} comment={comment}
-                    formOpen={verifying} onFormOpenChange={setVerifying} returnFocus={statusTrigger} />
+                    statusId={verificationStatusId} formOpen={verifying} onFormOpenChange={setVerifying} returnFocus={statusTrigger} />
 
                 {/* The messages, one under the other like a chat */}
                 <ol className="m-0 flex list-none flex-col gap-3 border-t p-0 pt-4">

@@ -1,5 +1,6 @@
 'use client';
 
+import { defaultStatusWorkflow, orderedStatuses, statusForComment, workflowStatusLabel } from '../../../lib/app/statusWorkflow';
 import { useAppI18n } from '@/src/lib/i18n/client';
 
 import type { ReactElement, Ref } from 'react';
@@ -36,13 +37,13 @@ export function StateDot({ status }: { status: CommentStatus }) {
     return <span aria-hidden="true" data-status-dot={status} className={cn('size-1.5 shrink-0 rounded-full', stateDotColors[status])} />;
 }
 
-export function StateBadge({ status }: { status: CommentStatus }) {
+export function StateBadge({ status, comment }: { status: CommentStatus; comment?: ProjectCommentView }) {
     const { t } = useAppI18n();
     return (
         <Badge variant="outline" className="gap-1.5">
             <StateDot status={status} />
             <span className="sr-only">{t("Status: ")}</span>
-            {t(commentStatusLabels[status])}
+            {comment ? workflowStatusLabel(statusForComment(comment.workflow ?? defaultStatusWorkflow, comment, false), t) : t(commentStatusLabels[status])}
         </Badge>
     );
 }
@@ -53,11 +54,12 @@ export function StateBadge({ status }: { status: CommentStatus }) {
  * verify, Open and In progress cancel the check), Ready to verify with the request permission (it
  * opens the Request verification form).
  */
-export function StateMenu({ status, allowed, disabled, onChange, triggerRef, trigger, keyShortcut }: {
+export function StateMenu({ status, allowed, disabled, onChange, triggerRef, trigger, keyShortcut, comment }: {
+    comment?: ProjectCommentView;
     status: CommentStatus;
     allowed: Record<CommentStatus, boolean>;
     disabled: boolean;
-    onChange: (status: CommentStatus) => void;
+    onChange: (status: CommentStatus, statusId?: string) => void;
     triggerRef?: Ref<HTMLButtonElement>;
     /** Another trigger than the status badge (the board card's Move to) */
     trigger?: ReactElement;
@@ -65,7 +67,11 @@ export function StateMenu({ status, allowed, disabled, onChange, triggerRef, tri
     keyShortcut?: string;
 }) {
     const { t } = useAppI18n();
-    const label = t(commentStatusLabels[status]);
+    const workflow = comment?.workflow ?? defaultStatusWorkflow;
+    const current = comment ? statusForComment(workflow, comment, false).id : status;
+    const currentStatus = workflow.statuses.find(option => option.id === current);
+    const label = currentStatus ? workflowStatusLabel(currentStatus, t) : t(commentStatusLabels[status]);
+    const options = orderedStatuses(workflow).filter(option => option.category !== 'archive');
     return (
         <DropdownMenu>
             {trigger ? <DropdownMenuTrigger render={trigger} disabled={disabled} /> : (
@@ -80,14 +86,21 @@ export function StateMenu({ status, allowed, disabled, onChange, triggerRef, tri
             )}
             <DropdownMenuContent align="start" className="min-w-48">
                 <DropdownMenuGroup>
-                    {commentStatuses.map(option => (
-                        <DropdownMenuItem key={option} disabled={option !== status && !allowed[option]}
-                            onClick={() => (option !== status || option === 'ready') && allowed[option] && onChange(option)}>
-                            <StateDot status={option} />
-                            {option === 'done' && status === 'ready' ? t("Done without verification") : t(commentStatusLabels[option])}
-                            {option === status && <CheckIcon className="ml-auto" />}
-                        </DropdownMenuItem>
-                    ))}
+                    {options.map(option => {
+                        const category = option.category as CommentStatus;
+                        const permitted = allowed[category] || (category === status && Boolean(comment?.permissions.resolve) && Object.values(allowed).some(Boolean));
+                        const selected = option.id === current;
+                        return <DropdownMenuItem key={option.id} disabled={!selected && !permitted} title={option.description || undefined}
+                            onClick={() => {
+                                if ((!selected || category === 'ready') && permitted) onChange(category, option.id);
+                            }}>
+                            <StateDot status={category} />
+                            <span className="flex min-w-0 flex-col"><span className="whitespace-normal break-words">{category === 'done' && status === 'ready' && option.id === 'done' && option.label === feedbackStageLabels.done ? t('Done without verification') : workflowStatusLabel(option, t)}</span>
+                                {option.description && <span className="max-w-64 whitespace-normal break-words text-xs text-muted-foreground">{option.description}</span>}
+                            </span>
+                            {selected && <CheckIcon className="ml-auto" />}
+                        </DropdownMenuItem>;
+                    })}
                 </DropdownMenuGroup>
             </DropdownMenuContent>
         </DropdownMenu>

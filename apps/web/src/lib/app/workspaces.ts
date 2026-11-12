@@ -1,3 +1,4 @@
+import { statusWorkflowSchema } from './statusWorkflowSchema';
 import { feedbackTypesSchema } from './feedbackTypeSchema';
 import { nanoid } from 'nanoid';
 import { z } from 'zod';
@@ -172,6 +173,16 @@ export async function setWorkspaceFeedbackTypes(workspaceId: string, userId: str
     if ((await getMember(workspaceId, userId))?.role !== 'admin')
         throw new UserFacingError('Only admins can do this.');
     const updated = await updateDoc<DbWorkspace>(workspacePk(workspaceId), workspaceId, workspace => ({ ...workspace, feedbackTypes }));
+    if (!updated) throw new UserFacingError('This workspace is unavailable or your access changed.');
+    return updated;
+}
+
+/** Status defaults are workspace settings, writable only by a current admin. */
+export async function setWorkspaceStatusWorkflow(workspaceId: string, userId: string, value: unknown) {
+    assertMutableWorkspace(workspaceId);
+    if ((await getMember(workspaceId, userId))?.role !== 'admin') throw new UserFacingError('Only admins can do this.');
+    const statusWorkflow = statusWorkflowSchema.parse(value);
+    const updated = await updateDoc<DbWorkspace>(workspacePk(workspaceId), workspaceId, workspace => ({ ...workspace, statusWorkflow }));
     if (!updated) throw new UserFacingError('This workspace is unavailable or your access changed.');
     return updated;
 }

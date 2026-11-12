@@ -1,6 +1,21 @@
 import type en from './en';
 
 const messages: Record<keyof typeof en, string> = {
+    "Add status to {category}": "Dodajte status u {category}",
+    "Archive action uses": "Status za arhiviranje",
+    "Collapse {name}": "Sažmite {name}",
+    "Define statuses within the five workflow categories. Projects inherit these defaults or use their own set.": "Definirajte statuse unutar pet kategorija tijeka rada. Projekti nasljeđuju ove zadane postavke ili koriste vlastite statuse.",
+    "Done action uses": "Status za označavanje dovršenim",
+    "Move down": "Pomaknite dolje",
+    "Move down {name}": "Pomaknite dolje {name}",
+    "Move up": "Pomaknite gore",
+    "Move up {name}": "Pomaknite gore {name}",
+    "New comments start in": "Početni status novih komentara",
+    "Ready to verify needs a verification request and a reviewer, so new comments cannot start there.": "Spremno za provjeru zahtijeva zahtjev za provjeru i osobu koja provjerava, pa novi komentari ne mogu početi u toj kategoriji.",
+    "Status defaults": "Zadani statusi",
+    "Status name": "Naziv statusa",
+    "Statuses": "Statusi",
+    "Statuses keep their category. Filters and verification follow the category. Removed statuses return existing threads to a status in the same category.": "Statusi zadržavaju svoju kategoriju. Filtri i provjera slijede kategoriju. Uklanjanjem statusa postojeće rasprave prelaze u status iste kategorije.",
     " (external)": " (vanjski)",
     " Added by {value0}.": " Dodao {value0}.",
     " Its client, {value0}, becomes that workspace's client with the same name.": " Njegov klijent, {value0}, postaje klijent tog radnog prostora s istim imenom.",

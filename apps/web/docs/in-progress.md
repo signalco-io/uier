@@ -13,3 +13,9 @@ routes take `{ status }` or `{ resolved }`, never both. Lists, counts, tabs and 
 stage, never the raw flag; the app's Active tab and MCP `status: "open"` mean not done, the app's Open tab means Open only. Focused coverage is
 `in-progress.api.spec.ts`, the MCP spec, `comment-board.spec.ts`, `verification.spec.ts` and
 `toolbar-app-parity.spec.ts`. See [review workflow](../../../docs/review-workflow.md#in-progress).
+
+Custom statuses refine these categories through `workflowStatusId`; they never replace the
+`inProgress`/`resolved`/verification stage. App ID writes use `setProjectCommentWorkflowStatus`
+with fresh project/settings validation. Ordinary category transitions clear obsolete refinements
+and choose the target category's default. Same-category moves retain the stage and completion
+clock. Archive has its own `archiveStatusId`, preserving the ordinary ID for restore.

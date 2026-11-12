@@ -1,3 +1,6 @@
+import { loadStatusWorkflow } from '../app/statusWorkflows';
+import { defaultStatus } from '../app/statusWorkflow';
+import { feedbackStage } from '@uier/toolbar/verification';
 import { randomUUID } from 'node:crypto';
 import { pagePath } from '@uier/toolbar/page-state';
 import type { DbComment } from '../db/schema';
@@ -38,17 +41,21 @@ export async function changeFixVerification(project: DbProject, actor: ProjectAc
     const attempt = submission(projectPartition(project.id), me, input.idempotencyKey, { operation: 'verification', id, ...input });
     return changeComment(project, actor, id, () => true, async comment => {
         const currentProject = await refreshMutationActor(project, actor, true);
+        const workflow = await loadStatusWorkflow(currentProject);
+        const selected = 'statusId' in input && input.statusId ? workflow.statuses.find(status => status.id === input.statusId) : undefined;
+        if ('statusId' in input && input.statusId && !selected) throw apiErrors.invalidRequest('This status is no longer available.');
         const v = comment.verification;
         if ((v?.revision ?? null) !== input.expectedRevision) throw apiErrors.conflict();
         const now = new Date().toISOString();
         if (input.action === 'request') {
+            if (selected && selected.category !== 'ready') throw apiErrors.invalidRequest('Choose a Ready to verify status.');
             if (actor.kind !== 'member') throw apiErrors.forbidden('Only project members can request verification.');
             const reviewer = input.reviewerId === 'author' ? comment.authorId : `user:${input.reviewerId}`;
             if (!reviewer || reviewer === me) throw apiErrors.forbidden('Choose another reviewer.');
             if (reviewer.startsWith('user:')) await assertEligibleParticipant(currentProject, comment, reviewer.slice(5));
             else if (reviewer !== comment.authorId || comment.thread.items[0]?.deletedAt || currentProject.access !== 'guests')
                 throw apiErrors.forbidden('Choose a member who still has access.');
-            const updated: DbComment = { ...withThreadActivity(comment, me), resolved: false, verification: {
+            const updated: DbComment = { ...withThreadActivity(comment, me), resolved: false, workflowStatusId: (selected ?? defaultStatus(workflow, 'ready')).id, verification: {
                 id: randomUUID(), revision: randomUUID(), requester: me, reviewer, requestedAt: now, outcome: 'pending',
                 ...(input.summary ? { summary: input.summary } : {}), ...(input.fixUrl ? { fixUrl: fixDestination(currentProject, input.fixUrl) } : {})
             } };
@@ -77,6 +84,9 @@ export async function changeFixVerification(project: DbProject, actor: ProjectAc
         const target = input.action === 'reject' ? 'in-progress' : input.action === 'cancel' ? input.status : undefined;
         if (target === 'in-progress') updated.inProgress = true;
         else if (target === 'open' || input.action === 'confirm') delete updated.inProgress;
+        const category = feedbackStage(updated);
+        if (selected && selected.category !== category) throw apiErrors.invalidRequest('Choose a status in the target category.');
+        updated.workflowStatusId = (selected ?? defaultStatus(workflow, category)).id;
         return withNotificationEvent(updated, me, input.action === 'confirm' ? 'verification-confirmed' : input.action === 'reject' ? 'verification-rejected' : 'verification-canceled', now, [v.requester, v.reviewer], actor.kind === 'member' ? actor.agent : undefined, { verificationOverride: input.override === true });
     }, attempt, { expected: null, value: () => null, requireComments: true }, store);
 }

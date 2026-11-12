@@ -1,3 +1,4 @@
+import { workspaceStatusWorkflow } from '@/src/lib/app/statusWorkflows';
 
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
@@ -22,7 +23,7 @@ async function ProjectReviewSettingsPageContent({ params }: PageProps<'/app/proj
     const querySuggestions = await loadQueryFieldSuggestions(project);
 
     return (
-        <ProjectReviewForm toolbarFeatures={project.toolbarFeatures} workspaceTypes={workspaceFeedbackTypes(context.workspace)}
+        <ProjectReviewForm statusWorkflow={project.statusWorkflow} workspaceWorkflow={workspaceStatusWorkflow(context.workspace)} toolbarFeatures={project.toolbarFeatures} workspaceTypes={workspaceFeedbackTypes(context.workspace)}
             toolbarLanguage={projectToolbarLanguageMode(project)} workspaceToolbarLanguage={workspaceToolbarLanguage(context.workspace)} feedbackTypes={project.feedbackTypes} projectId={project.id} access={project.access} brief={project.brief} policy={project.pageState} suggestions={querySuggestions}
             // The header's access label leads here, so the guest links from its popover are here too
             guestLinks={project.access === 'guests' && project.urls[0] ? <GuestReviewLinks publicId={project.publicId} urls={project.urls} /> : undefined} />

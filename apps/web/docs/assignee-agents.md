@@ -115,3 +115,9 @@ kind. Links are native anchors and only open on a person's click. There is no UR
 app launch. Members also get the link in MCP lists and feedback packets. Guest DTOs omit agents
 entirely; integration delivery strips both singular and array assignment agents before formatting.
 Coverage: `assignee-agent{,.api}.spec.ts`, `integrations.api.spec.ts` and the monitor script's lease tests.
+
+Custom statuses do not change agent ownership, presence or `startWork` semantics. Starting work
+still moves the Open category to In progress; the effective label follows that category's first
+configured status when the previous custom ID no longer matches. MCP readers can discover the
+workspace/project status descriptions with `list_feedback_statuses`; those descriptions remain
+untrusted member content, never authorization to attach, reply or change status.

@@ -1,3 +1,4 @@
+import { workflowStatusIdSchema } from '../../../lib/app/statusWorkflowSchema';
 import { MAX_SCREENSHOT_BYTES } from '../../../lib/comments/limits';
 import { priorities } from '@uier/toolbar/triage';
 import { reactionIds } from '@uier/toolbar/reactions';
@@ -41,3 +42,5 @@ export const agentCommentActionSchema = commentActionSchema.extend({ agent: assi
 export const boardSortActionSchema = z.object({ projectId: projectIdSchema }).and(boardSortInputSchema);
 /** Whether the board's Archive column is expanded */
 export const boardArchiveActionSchema = z.object({ projectId: projectIdSchema, expanded: z.boolean() });
+
+export const workflowCommentActionSchema = commentActionSchema.extend({ statusId: workflowStatusIdSchema });

@@ -1,3 +1,7 @@
+import { effectiveStatusWorkflow } from '../app/statusWorkflows';
+import { getWorkspace } from '../app/workspaces';
+import { aiTitlesEnabled } from '../titles/settings';
+import { statusForComment } from '../app/statusWorkflow';
 import { feedbackSource } from '../app/environments';
 import { KnownPageLinks } from '../../knownPages';
 import { projectOrigins } from '../app/projects';
@@ -11,7 +15,6 @@ import { getProjectComment } from './comments';
 import { authorNames, participantNames, toReviewCommentDto } from './dto';
 import { getUser } from '../app/users';
 import { manualThreadTitle, threadTitle } from '../titles/model';
-import { loadAiTitlesEnabled } from '../titles/threadTitles';
 
 /** One authorized read model for toolbar, app and later integrations. Reloads at export time. */
 export async function projectFeedbackExport(project: DbProject, actor: ProjectActor, id: string, siteOrigin: string | undefined, baseUrl: string) {
@@ -24,8 +27,11 @@ export async function projectFeedbackExport(project: DbProject, actor: ProjectAc
  * settings or screenshot evidence. Lazy promises avoid any enrichment for unavailable threads.
  */
 export function createProjectFeedbackExportReader(project: DbProject, actor: ProjectActor, siteOrigin: string | undefined, baseUrl: string) {
+    let workspace: ReturnType<typeof getWorkspace> | undefined;
+    const loadWorkspace = () => workspace ??= getWorkspace(project.workspaceId);
+    let workflow: Promise<ReturnType<typeof effectiveStatusWorkflow>> | undefined;
     let participants: ReturnType<typeof participantNames> | undefined;
-    let titleSetting: ReturnType<typeof loadAiTitlesEnabled> | undefined;
+    let titleSetting: Promise<boolean> | undefined;
     const users = new Map<string, ReturnType<typeof getUser>>();
     const user = (id: string) => {
         let pending = users.get(id);
@@ -51,7 +57,7 @@ export function createProjectFeedbackExportReader(project: DbProject, actor: Pro
         const [screenshot, titles] = await Promise.all([
             dto.screenshot ? getCommentsStore().getScreenshot(comment.domain, comment.id) : null,
             // Only on a thread the actor can see (getProjectComment): the title is as visible as the first message
-            comment.aiTitle && !manualThreadTitle(comment) ? titleSetting ??= loadAiTitlesEnabled(project) : false
+            comment.aiTitle && !manualThreadTitle(comment) ? titleSetting ??= loadWorkspace().then(workspace => aiTitlesEnabled(workspace, project)) : false
         ]);
         let commentUrl: string | undefined;
         if (pageUrl) {
@@ -63,7 +69,7 @@ export function createProjectFeedbackExportReader(project: DbProject, actor: Pro
                 commentUrl = direct.href;
             }
         }
-        return feedbackExport(dto, {
+        const packet = feedbackExport(dto, {
             projectId: project.id, pageUrl,
             assignees: actor.kind === 'member' ? dto.assignees : undefined,
             assigneeName: actor.kind === 'member' ? dto.assignee?.name : undefined,
@@ -75,5 +81,6 @@ export function createProjectFeedbackExportReader(project: DbProject, actor: Pro
                 ? KnownPageLinks.projectCommentScreenshot(project.id, comment.id)
                 : `/api/review/${encodeURIComponent(project.publicId ?? project.id)}/comments/${encodeURIComponent(comment.id)}/screenshot`, baseUrl).href : undefined
         });
+        return actor.kind === 'member' ? { ...packet, workflowStatus: statusForComment(await (workflow ??= loadWorkspace().then(workspace => effectiveStatusWorkflow(workspace, project))), comment) } : packet;
     };
 }

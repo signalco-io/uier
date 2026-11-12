@@ -1,3 +1,5 @@
+import { workspaceStatusWorkflow } from '@/src/lib/app/statusWorkflows';
+import { WorkspaceStatusWorkflowForm } from './WorkspaceStatusWorkflowForm';
 
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
@@ -40,6 +42,7 @@ async function WorkspaceSettingsPageContent() {
                 <WorkspaceAiTitlesForm enabled={workspaceAiTitles(context.workspace)} />
                 <WorkspaceRewriteInstructionsForm instructions={workspaceRewriteInstructions(context.workspace)} />
                 <WorkspaceFeedbackTypesForm types={workspaceFeedbackTypes(context.workspace)} />
+                <WorkspaceStatusWorkflowForm workflow={workspaceStatusWorkflow(context.workspace)} />
                 <WorkspaceDomainsSection context={context} />
             </div>
         </div>

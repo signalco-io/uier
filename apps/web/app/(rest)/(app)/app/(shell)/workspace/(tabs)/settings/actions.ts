@@ -1,4 +1,5 @@
 'use server';
+import { setWorkspaceStatusWorkflow } from '@/src/lib/app/workspaces';
 
 import { revalidatePath } from 'next/cache';
 import { actionResult, type ActionState } from '@/src/lib/app/actionResult';
@@ -46,4 +47,12 @@ export async function setWorkspaceToolbarLanguageAction(_: ActionState, formData
         await setWorkspaceToolbarLanguage(context.workspace.id, context.user.id, formData.get('toolbarLanguage'));
         revalidatePath('/app', 'layout');
     }, 'Saved. Toolbars use the new language on their next page load.');
+}
+
+export async function setWorkspaceStatusWorkflowAction(_: ActionState, formData: FormData): Promise<ActionState> {
+    return actionResult(async () => {
+        const context = await appContextOrThrow({ admin: true });
+        await setWorkspaceStatusWorkflow(context.workspace.id, context.user.id, JSON.parse(String(formData.get('statusWorkflow') ?? 'null')));
+        revalidatePath('/app', 'layout');
+    }, 'Saved.');
 }

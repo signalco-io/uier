@@ -116,3 +116,8 @@ Use those measurements to select native indexed paging/composite indexes, exact 
 and appropriately invalidated caching. The full evaluator remains the semantic oracle and fallback.
 See the [Cosmos-first plan](../../../docs/design/filtering/azure-primitives-plan.md) and
 [UI component plan](../../../docs/design/filtering/components-plan.md).
+
+Custom status IDs refine a category and do not change query v1's `status` field or archive
+collection semantics. Query filters and facets continue to use the five semantic categories;
+custom names/descriptions are discoverable through MCP `list_feedback_statuses`. The first
+custom-status slice does not add a query field or reinterpret saved definitions.

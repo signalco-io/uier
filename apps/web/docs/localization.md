@@ -57,3 +57,9 @@ Feature suites continue to use English by default. Translation catalogs are serv
 them into a client entry. Preserve the narrow client entry points of settings and access forms.
 The browser suite also checks Croatian denied-project/review documents: HTTP 404, localized content,
 private no-store, the active-account hint and the original account-switch return address.
+
+
+The custom-status editor uses the management catalog in all six languages. Unchanged built-in
+status labels are translated in rows, boards and menus; renamed and custom labels and descriptions
+remain as saved by members (`workflowStatusLabel`). Categories retain their localized workflow
+labels independently of those names.

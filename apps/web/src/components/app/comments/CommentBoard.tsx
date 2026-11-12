@@ -1,5 +1,6 @@
 'use client';
 
+import { defaultStatusWorkflow, orderedStatuses, statusForComment, workflowStatusLabel, type StatusWorkflow, type WorkflowStatus } from '../../../lib/app/statusWorkflow';
 import { useAppI18n } from '@/src/lib/i18n/client';
 
 import { useEffect, useEffectEvent, useId, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, type SyntheticEvent } from 'react';
@@ -18,7 +19,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/too
 import { Spinner } from '@/src/components/ui/spinner';
 import { CommentCard, type AssigneeOption } from './CommentCard';
 import { CommentRow, commentRowId } from './CommentRow';
-import { commentStatus, commentStatuses, commentStatusLabels, StateDot, StateMenu, type CommentStatus } from './CommentStatus';
+import { commentStatus, commentStatuses, StateDot, StateMenu, type CommentStatus } from './CommentStatus';
 import { allowedStatuses, movedPatch, useStatusChanger } from './useStatusChange';
 import type { BoardColumn as BoardColumnKey, BoardSort } from '../../../lib/app/boardSort';
 import { BoardSortMenu } from './BoardSortMenu';
@@ -38,44 +39,53 @@ const emptyColumn: Record<CommentStatus, string> = { open: 'Nothing open.', 'in-
 const commentName = (comment: ProjectCommentView, t: import('@/src/lib/i18n/types').AppTranslator) => comment.number !== undefined ? t('comment #{number}', { number: comment.number }) : t('comment');
 const sentence = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 /** A column takes the card when it is another status the person may move it to (`allowedStatuses`) */
-const takes = (comment: ProjectCommentView, status: CommentStatus) => status !== commentStatus(comment) && allowedStatuses(comment)[status];
+const takes = (comment: ProjectCommentView, status: WorkflowStatus) => {
+    const category = status.category as CommentStatus;
+    return !comment.archivedAt && (category !== commentStatus(comment) ? allowedStatuses(comment)[category]
+        : Boolean(comment.permissions.resolve) && status.id !== statusForComment(comment.workflow ?? defaultStatusWorkflow, comment, false).id);
+};
 const draggedComment = (active: Active) => (active.data.current as { comment?: ProjectCommentView } | undefined)?.comment;
-const columnOf = (over: Over | null) => statuses.find(status => status === over?.id);
+const columnOf = (over: Over | null, definitions: WorkflowStatus[]) => definitions.find(status => status.id === over?.id)?.id;
 
 /**
  * What a screen reader hears while a card is dragged (dnd-kit's live region). Keyboard and screen
  * reader users move cards with Move (M on a focused card), which announces the move itself.
  */
-const boardAnnouncements = (t: import('@/src/lib/i18n/types').AppTranslator): Announcements => ({
-    onDragStart: ({ active }) => {
-        const comment = draggedComment(active);
-        return comment && t("Picked up {comment} from {status}.", { comment: commentName(comment, t), status: t(commentStatusLabels[commentStatus(comment)]) });
-    },
-    onDragOver: ({ active, over }) => {
-        const comment = draggedComment(active);
-        const status = columnOf(over);
-        if (!comment) return;
-        const name = sentence(commentName(comment, t));
-        if (!status) return t("{comment} is not over a column.", { comment: name });
-        if (status === commentStatus(comment)) return t("{comment} is over {status}, where it is now.", { comment: name, status: t(commentStatusLabels[status]) });
-        return takes(comment, status) ? t("{comment} is over {status}.", { comment: name, status: t(commentStatusLabels[status]) }) : t("{comment} can't move to {status}.", { comment: name, status: t(commentStatusLabels[status]) });
-    },
-    onDragEnd: ({ active, over }) => {
-        const comment = draggedComment(active);
-        const status = columnOf(over);
-        if (!comment || !status) return;
-        return status === 'ready'
-            ? t("{comment} was dropped on Ready to verify. Request verification to move it.", { comment: sentence(commentName(comment, t)) })
-            : t("{comment} moved to {status}.", { comment: sentence(commentName(comment, t)), status: t(commentStatusLabels[status]) });
-    },
-    onDragCancel: ({ active, over }) => {
-        const comment = draggedComment(active);
-        const status = columnOf(over);
-        if (!comment) return;
-        const stays = t("It stays in {status}.", { status: t(commentStatusLabels[commentStatus(comment)]) });
-        return status && status !== commentStatus(comment) ? t("{comment} can't move to {status}.", { comment: sentence(commentName(comment, t)), status: t(commentStatusLabels[status]) }) + " " + stays : t("{comment} stays in {status}.", { comment: sentence(commentName(comment, t)), status: t(commentStatusLabels[commentStatus(comment)]) });
-    }
-});
+const boardAnnouncements = (t: import('@/src/lib/i18n/types').AppTranslator, definitions: WorkflowStatus[], workflow?: StatusWorkflow): Announcements => {
+    const label = (id: string) => { const status = definitions.find(status => status.id === id); return status ? workflowStatusLabel(status, t) : id; };
+    const current = (comment: ProjectCommentView) => workflow ? statusForComment(workflow, comment, false).id : commentStatus(comment);
+    const accepts = (comment: ProjectCommentView, id: string) => takes(comment, definitions.find(status => status.id === id)!);
+    return {
+        onDragStart: ({ active }) => {
+            const comment = draggedComment(active);
+            return comment && t("Picked up {comment} from {status}.", { comment: commentName(comment, t), status: label(current(comment)) });
+        },
+        onDragOver: ({ active, over }) => {
+            const comment = draggedComment(active);
+            const status = columnOf(over, definitions);
+            if (!comment) return;
+            const name = sentence(commentName(comment, t));
+            if (!status) return t("{comment} is not over a column.", { comment: name });
+            if (status === current(comment)) return t("{comment} is over {status}, where it is now.", { comment: name, status: label(status) });
+            return accepts(comment, status) ? t("{comment} is over {status}.", { comment: name, status: label(status) }) : t("{comment} can't move to {status}.", { comment: name, status: label(status) });
+        },
+        onDragEnd: ({ active, over }) => {
+            const comment = draggedComment(active);
+            const status = columnOf(over, definitions);
+            if (!comment || !status) return;
+            return definitions.find(option => option.id === status)?.category === 'ready'
+                ? t("{comment} was dropped on Ready to verify. Request verification to move it.", { comment: sentence(commentName(comment, t)) })
+                : t("{comment} moved to {status}.", { comment: sentence(commentName(comment, t)), status: label(status) });
+        },
+        onDragCancel: ({ active, over }) => {
+            const comment = draggedComment(active);
+            const status = columnOf(over, definitions);
+            if (!comment) return;
+            const stays = t("It stays in {status}.", { status: label(current(comment)) });
+            return status && status !== current(comment) ? t("{comment} can't move to {status}.", { comment: sentence(commentName(comment, t)), status: label(status) }) + " " + stays : t("{comment} stays in {status}.", { comment: sentence(commentName(comment, t)), status: label(current(comment)) });
+        }
+    };
+};
 
 /** The lifted card settles into its new place (or back) with the brand's 150 ms ease-out */
 const dropAnimation: DropAnimation = {
@@ -160,13 +170,13 @@ function BoardCard({ project, comment, href, opened, moving, tabbable, onOpen, o
     /** The board's one tab stop: its link, Move, avatars and selection box are in the Tab order */
     tabbable: boolean;
     onOpen: (event: MouseEvent<HTMLAnchorElement>) => void;
-    onMove: (status: CommentStatus) => void;
+    onMove: (status: CommentStatus, statusId?: string) => void;
 }) {
     const { t } = useAppI18n();
     const status = commentStatus(comment);
     const allowed = allowedStatuses(comment);
     // An archived card stays in Archive until Restore comment (in its thread) returns it to its status
-    const canMove = !comment.archivedAt && statuses.some(option => option !== status && allowed[option]);
+    const canMove = !comment.archivedAt && (statuses.some(option => option !== status && allowed[option]) || (comment.permissions.resolve && (comment.workflow?.statuses.filter(option => option.category === status).length ?? 0) > 1));
     const { setNodeRef, listeners, isDragging } = useDraggable({ id: comment.id, data: { comment }, disabled: !canMove || moving });
     const shortcutId = useId();
     return (
@@ -182,7 +192,7 @@ function BoardCard({ project, comment, href, opened, moving, tabbable, onOpen, o
                 describedBy={canMove ? shortcutId : undefined} keyShortcuts={canMove ? 'M' : undefined}
                 actions={canMove && (
                     // While the move saves, Move keeps the focus it was given but offers no other column
-                    <StateMenu status={status} allowed={moving ? noMoves(allowed) : allowed} disabled={false} onChange={onMove}
+                    <StateMenu comment={comment} status={status} allowed={moving ? noMoves(allowed) : allowed} disabled={false} onChange={onMove}
                         trigger={(
                             // Only set to take it out: an explicit `undefined` would replace Base UI's own tab index
                             <Button variant="ghost" size="icon-xs" aria-label={t("Move {value0}", { value0: commentName(comment, t) })} data-move={comment.id} className={moveButtonClassName}
@@ -202,8 +212,10 @@ type ColumnState = 'idle' | 'home' | 'target' | 'over' | 'refused';
  * one under it is highlighted, and the others are dimmed and refuse it. Its header ends with the column's
  * sort for the people who may change it (`onSort`).
  */
-function BoardColumn({ status, count, state, sort, onSort, children }: {
+function BoardColumn({ status, definition, columnIds, count, state, sort, onSort, children }: {
     status: CommentStatus;
+    definition: WorkflowStatus;
+    columnIds: string[];
     count: number;
     state: ColumnState;
     sort: BoardSort;
@@ -212,19 +224,19 @@ function BoardColumn({ status, count, state, sort, onSort, children }: {
 }) {
     // A placeholder changes a column's height, and on narrow screens moves the columns below it
     const { t } = useAppI18n();
-    const { setNodeRef } = useDroppable({ id: status, resizeObserverConfig: { updateMeasurementsFor: [...statuses] } });
+    const { setNodeRef } = useDroppable({ id: definition.id, resizeObserverConfig: { updateMeasurementsFor: columnIds } });
     return (
-        <section ref={setNodeRef} aria-label={t("{status} comments", { status: t(commentStatusLabels[status]) })} data-drop={state === 'idle' ? undefined : state}
+        <section ref={setNodeRef} aria-label={t("{status} comments", { status: workflowStatusLabel(definition, t) })} data-drop={state === 'idle' ? undefined : state}
             className={cn('flex min-h-24 flex-col gap-2 rounded-2xl border bg-muted/50 p-2 transition-[background-color,border-color,box-shadow,opacity] duration-150 ease-out',
                 'data-[drop=over]:border-dashed data-[drop=target]:border-dashed data-[drop=target]:border-foreground/30',
                 'data-[drop=over]:border-foreground/30 data-[drop=over]:bg-muted data-[drop=over]:ring-2 data-[drop=over]:ring-ring data-[drop=refused]:opacity-50')}>
             <div className="flex items-center gap-2 px-2 pt-1">
                 <h3 className="m-0 flex min-w-0 items-center gap-2 text-sm font-medium">
                     <StateDot status={status} />
-                    {t(commentStatusLabels[status])}
+                    <span className="truncate" title={definition.description || definition.label}>{workflowStatusLabel(definition, t)}</span>
                     <span className="font-normal tabular-nums text-muted-foreground">{count}</span>
                 </h3>
-                {onSort && <BoardSortMenu status={status} sort={sort} onChange={next => onSort(status, next)} />}
+                {onSort && <BoardSortMenu label={workflowStatusLabel(definition, t)} status={status} sort={sort} onChange={next => onSort(status, next)} />}
             </div>
             {children}
         </section>
@@ -238,7 +250,8 @@ function BoardColumn({ status, count, state, sort, onSort, children }: {
  * it again. The choice is the project's, like the columns' sorts (`onExpandedChange`). It is not a drop target and
  * its cards don't move: Restore comment in the thread returns one to its status. While a card is dragged it is dimmed.
  */
-function ArchiveColumn({ count, sort, onSort, expanded, dimmed, onExpandedChange, children }: {
+function ArchiveColumn({ label = 'Archive', count, sort, onSort, expanded, dimmed, onExpandedChange, children }: {
+    label?: string;
     count: number;
     sort: BoardSort;
     onSort?: (status: BoardColumnKey, sort: BoardSort) => void;
@@ -261,7 +274,7 @@ function ArchiveColumn({ count, sort, onSort, expanded, dimmed, onExpandedChange
         onExpandedChange(!expanded);
     };
     return (
-        <section aria-label={t("Archived comments")} data-board-archive={expanded ? 'expanded' : 'collapsed'} data-drop={dimmed ? 'refused' : undefined}
+        <section aria-label={label === t('Archive') ? t('Archived comments') : t('{status} comments', { status: label })} data-board-archive={expanded ? 'expanded' : 'collapsed'} data-drop={dimmed ? 'refused' : undefined}
             className={cn('flex flex-col rounded-2xl border bg-muted/50 transition-opacity duration-150 ease-out data-[drop=refused]:opacity-50',
                 expanded ? 'min-h-24 gap-2 p-2' : 'md:self-start')}>
             {expanded ? (
@@ -269,19 +282,19 @@ function ArchiveColumn({ count, sort, onSort, expanded, dimmed, onExpandedChange
                     <div className="flex items-center gap-2 px-2 pt-1">
                         <h3 className="m-0 flex min-w-0 items-center gap-2 text-sm font-medium">
                             <ArchiveIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-                            {t("Archive")}
+                            {label}
                             <span className="font-normal tabular-nums text-muted-foreground">{count}</span>
                         </h3>
-                        {onSort && <BoardSortMenu status="archive" sort={sort} onChange={next => onSort('archive', next)} className="mr-0" />}
+                        {onSort && <BoardSortMenu label={label} status="archive" sort={sort} onChange={next => onSort('archive', next)} className="mr-0" />}
                         <Tooltip>
                             <TooltipTrigger render={(
                                 // Takes no more height than the column's name; 44 px to tap on a touch screen
-                                <Button ref={toggle} variant="ghost" size="icon-xs" aria-label={t("Collapse Archive")} aria-expanded="true" onClick={change}
+                                <Button ref={toggle} variant="ghost" size="icon-xs" aria-label={t("Collapse {name}", { name: label })} aria-expanded="true" onClick={change}
                                     className={cn('relative -my-1 -mr-1.5 text-muted-foreground hover:text-foreground after:absolute after:-inset-2.5 pointer-fine:after:hidden', !onSort && 'ml-auto')} />
                             )}>
                                 <FoldHorizontalIcon />
                             </TooltipTrigger>
-                            <TooltipContent side="bottom">{t("Collapse Archive")}</TooltipContent>
+                            <TooltipContent side="bottom">{t("Collapse {name}", { name: label })}</TooltipContent>
                         </Tooltip>
                     </div>
                     {children}
@@ -293,7 +306,7 @@ function ArchiveColumn({ count, sort, onSort, expanded, dimmed, onExpandedChange
                     className="h-auto min-h-11 w-full justify-start rounded-2xl px-4 py-2.5 font-medium md:justify-center md:px-0 md:py-3">
                     <span className="flex items-center gap-2 md:[writing-mode:vertical-rl]">
                         <ArchiveIcon className="text-muted-foreground md:rotate-90" />
-                        <span>{t("Archive")}</span>{' '}
+                        <span>{label}</span>{' '}
                         <span className="font-normal tabular-nums text-muted-foreground">{count}</span>
                     </span>
                 </Button>
@@ -323,7 +336,8 @@ export type BoardProject = { id: string; name?: string; assignees: AssigneeOptio
  * it from the column's header. Archive is the last column (`archive`), collapsed unless the project expands it; My work,
  * which leaves archived threads out, has none.
  */
-export function CommentBoard({ projectOf, columns, sorts, onSort, archive, allComments, userId, openComment }: {
+export function CommentBoard({ projectOf, columns: categoryColumns, workflow, sorts, onSort, archive, allComments, userId, openComment }: {
+    workflow?: StatusWorkflow;
     /** Each thread's project (`BoardProject`) */
     projectOf: (comment: ProjectCommentView) => BoardProject;
     /** Each column's cards, in its sort */
@@ -339,6 +353,18 @@ export function CommentBoard({ projectOf, columns, sorts, onSort, archive, allCo
     openComment: ReturnType<typeof useOpenComment>;
 }) {
     const { t } = useAppI18n();
+    const definitions = orderedStatuses(workflow ?? defaultStatusWorkflow).filter(status => status.category !== 'archive');
+    const statuses = definitions.map(status => status.id);
+    const definition = (id: string) => definitions.find(status => status.id === id)!;
+    const categoryOf = (id: string) => definition(id).category as CommentStatus;
+    const currentStatus = (comment: ProjectCommentView) => workflow ? statusForComment(workflow, comment, false).id : commentStatus(comment);
+    const accepts = (comment: ProjectCommentView, id: string) => {
+        if (!workflow) return !comment.archivedAt && categoryOf(id) !== commentStatus(comment) && allowedStatuses(comment)[categoryOf(id)];
+        return takes(comment, definition(id));
+    };
+    const columns = Object.fromEntries(definitions.map(status => [status.id, categoryColumns[status.category as CommentStatus].filter(comment => currentStatus(comment) === status.id)]));
+    const archiveDefinitions = orderedStatuses(workflow ?? defaultStatusWorkflow).filter(status => status.category === 'archive');
+    const archiveCards = (status: WorkflowStatus) => archive?.comments.filter(comment => !workflow || statusForComment(workflow, comment).id === status.id) ?? [];
     const { openId, hrefFor, open, close } = openComment;
     const opened = openId ? allComments.find(comment => comment.id === openId) : undefined;
     const { change, pending } = useStatusChanger(comment => projectOf(comment).id);
@@ -348,7 +374,7 @@ export function CommentBoard({ projectOf, columns, sorts, onSort, archive, allCo
     // else the first. The arrow keys move between the cards and the columns.
     const [focusId, setFocusId] = useState<string>();
     // What the keys go through, column by column: the statuses, then Archive while it is expanded
-    const lanes = [...statuses.map(status => columns[status]), ...(archive?.expanded ? [archive.comments] : [])];
+    const lanes = [...statuses.map(status => (columns[status] ?? [])), ...(archive?.expanded ? archiveDefinitions.map(archiveCards) : [])];
     const cards = lanes.flat();
     const listed = (id: string | undefined) => cards.find(comment => comment.id === id);
     const current = listed(focusId) ?? listed(openId);
@@ -357,11 +383,12 @@ export function CommentBoard({ projectOf, columns, sorts, onSort, archive, allCo
     const [movingId, setMovingId] = useState<string>();
     // The thread to open with its Request verification form
     const [verifyId, setVerifyId] = useState<string>();
+    const [verifyStatusId, setVerifyStatusId] = useState<string>();
     // The dragged card (with its height, for the place it would land) and the column under it
     const [drag, setDrag] = useState<{ comment: ProjectCommentView; height: number }>();
-    const [over, setOver] = useState<CommentStatus>();
+    const [over, setOver] = useState<string>();
     // Moved with Move: it travels to its new column (`LayoutMotion`), the focus follows it there and the move is announced
-    const focusAfterMove = useRef<{ id: string; status: CommentStatus }>(undefined);
+    const focusAfterMove = useRef<{ id: string; status: string }>(undefined);
     const [announcement, setAnnouncement] = useState('');
     const reducedMotion = useSyncExternalStore(subscribeReducedMotion, () => window.matchMedia(reducedMotionQuery).matches, () => false);
     // The lifted card goes to the body, above the sheet and out of any clipping container
@@ -381,24 +408,25 @@ export function CommentBoard({ projectOf, columns, sorts, onSort, archive, allCo
     // A card whose lifted copy is on screen (dragged, or settling from the drop) is dnd-kit's to place
     const settling = () => new Set([...document.querySelectorAll<HTMLElement>('[data-drag-preview]')].map(preview => preview.dataset.dragPreview ?? ''));
 
-    const move = (comment: ProjectCommentView, status: CommentStatus, via: 'drag' | 'menu') => {
+    const move = (comment: ProjectCommentView, status: string, via: 'drag' | 'menu', selectedStatusId?: string) => {
         setMovingId(comment.id);
-        if (via === 'menu' && status !== 'ready') {
+        if (via === 'menu' && categoryOf(status) !== 'ready') {
             focusAfterMove.current = { id: comment.id, status };
-            setAnnouncement(t("{value0} moved to {value1}.", { value0: sentence(commentName(comment, t)), value1: t(commentStatusLabels[status]) }));
+            setAnnouncement(t("{value0} moved to {value1}.", { value0: sentence(commentName(comment, t)), value1: workflowStatusLabel(definition(status), t) }));
         }
-        change(comment, status, {
+        change(comment, categoryOf(status), {
             onVerify: () => {
                 setVerifyId(comment.id);
+                setVerifyStatusId(workflow ? status : selectedStatusId);
                 open(comment.id, undefined, { replace: false });
             }
-        });
+        }, workflow ? status : selectedStatusId);
     };
     // Move's menu closes with the card it was on, so the focus is lost: give it to Move on the card in its
     // new column. A frame later, once the closed menu no longer keeps the page inert.
     useEffect(() => {
         const target = focusAfterMove.current;
-        if (!target || !columns[target.status].some(comment => comment.id === target.id)) return;
+        if (!target || !(columns[target.status] ?? []).some(comment => comment.id === target.id)) return;
         focusAfterMove.current = undefined;
         requestAnimationFrame(() => {
             const button = document.querySelector<HTMLElement>(`[data-move="${CSS.escape(target.id)}"]`);
@@ -481,26 +509,26 @@ export function CommentBoard({ projectOf, columns, sorts, onSort, archive, allCo
         setOver(undefined);
         suppressClickAfterDrag();
     };
-    const columnState = (status: CommentStatus): ColumnState => {
+    const columnState = (status: string): ColumnState => {
         if (!drag) return 'idle';
-        if (status === commentStatus(drag.comment)) return 'home';
-        if (!takes(drag.comment, status)) return 'refused';
+        if (status === currentStatus(drag.comment)) return 'home';
+        if (!accepts(drag.comment, status)) return 'refused';
         return over === status ? 'over' : 'target';
     };
     // Where the dragged card would land in the column under it: the card as the move shows it (`movedPatch`: first
     // in Done by completion, or by update), placed by the column's sort among its cards, as it will be after the drop
-    const landing = (status: CommentStatus) => {
+    const landing = (status: string) => {
         if (!drag) return -1;
-        const moved = { ...drag.comment, ...movedPatch(drag.comment, status) };
-        const listed = [...columns[status], moved].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
-        return sortBoardColumn(listed, sorts[status]).indexOf(moved);
+        const moved = { ...drag.comment, ...movedPatch(drag.comment, categoryOf(status)), workflowStatusId: workflow ? status : undefined };
+        const listed = [...(columns[status] ?? []), moved].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+        return sortBoardColumn(listed, sorts[categoryOf(status)]).indexOf(moved);
     };
-    const refusedOver = Boolean(drag && over && over !== commentStatus(drag.comment) && !takes(drag.comment, over));
+    const refusedOver = Boolean(drag && over && over !== currentStatus(drag.comment) && !accepts(drag.comment, over));
 
     return (
         <>
             <DndContext id={boardId} sensors={sensors} collisionDetection={pointerWithin}
-                accessibility={{ announcements: boardAnnouncements(t), screenReaderInstructions: { draggable: t("To move a comment to another column, focus it and press M.") } }}
+                accessibility={{ announcements: boardAnnouncements(t, definitions, workflow), screenReaderInstructions: { draggable: t("To move a comment to another column, focus it and press M.") } }}
                 onDragStart={({ active }) => {
                     const comment = draggedComment(active);
                     if (!comment) return;
@@ -508,18 +536,18 @@ export function CommentBoard({ projectOf, columns, sorts, onSort, archive, allCo
                     const card = document.querySelector(`[data-board-card="${CSS.escape(comment.id)}"]`);
                     setDrag({ comment, height: card?.getBoundingClientRect().height ?? 0 });
                 }}
-                onDragOver={({ over: target }) => setOver(columnOf(target))}
+                onDragOver={({ over: target }) => setOver(columnOf(target, definitions))}
                 // A column that does not take the card cancels the drop: the card goes back
                 cancelDrop={({ active, over }) => {
                     const comment = draggedComment(active);
-                    const status = columnOf(over);
-                    return !comment || !status || !takes(comment, status);
+                    const status = columnOf(over, definitions);
+                    return !comment || !status || !accepts(comment, status);
                 }}
                 onDragEnd={({ active, over }) => {
                     endDrag();
                     const comment = draggedComment(active);
-                    const status = columnOf(over);
-                    if (comment && status && takes(comment, status)) move(comment, status, 'drag');
+                    const status = columnOf(over, definitions);
+                    if (comment && status && accepts(comment, status)) move(comment, status, 'drag');
                 }}
                 onDragCancel={endDrag}>
                 {/* The board takes the panel's width while the page around it keeps the reading width, with one row of
@@ -536,7 +564,7 @@ export function CommentBoard({ projectOf, columns, sorts, onSort, archive, allCo
                     While a card is dragged every column is as tall as the longest, so any part of it takes the card. */}
                 <LayoutMotion container={grid} item="data-board-card" skip={settling}>
                 <div ref={grid} data-page-width="wide" data-board-scroll=""
-                    style={{ '--board-columns': `repeat(${statuses.length + (archiveExpanded ? 1 : 0)}, minmax(min(18rem, var(--page-wide) - 3rem), 20rem))${archive && !archiveExpanded ? ' 3rem' : ''}` } as CSSProperties}
+                    style={{ '--board-columns': `repeat(${statuses.length + (archiveExpanded ? archiveDefinitions.length : 0)}, minmax(min(18rem, var(--page-wide) - 3rem), 20rem))${archive && !archiveExpanded ? ` repeat(${archiveDefinitions.length}, 3rem)` : ''}` } as CSSProperties}
                     onFocus={event => {
                         const id = event.target.closest<HTMLElement>('[data-board-card]')?.dataset.boardCard;
                         if (id && id !== focusId) setFocusId(id);
@@ -544,7 +572,7 @@ export function CommentBoard({ projectOf, columns, sorts, onSort, archive, allCo
                     className={cn('relative grid grid-cols-(--board-columns) items-start justify-center-safe gap-4 overflow-x-auto overflow-y-clip overscroll-x-contain py-1 page-bleed', drag && 'items-stretch')}>
                     {statuses.map(status => {
                         const state = columnState(status);
-                        const cards = columns[status];
+                        const cards = (columns[status] ?? []);
                         const placeholder = state === 'over' ? landing(status) : -1;
                         const slot = <li key="placeholder" aria-hidden="true" data-drop-placeholder="" style={{ height: drag?.height }}
                             className="rounded-lg border border-dashed border-foreground/30 bg-background/60" />;
@@ -552,26 +580,26 @@ export function CommentBoard({ projectOf, columns, sorts, onSort, archive, allCo
                             <BoardCard key={comment.id} project={projectOf(comment)} comment={comment} href={hrefFor(comment.id)} opened={comment.id === openId}
                                 moving={pending && movingId === comment.id} tabbable={comment.id === tabStop?.id}
                                 onOpen={event => open(comment.id, event, { replace: false })}
-                                onMove={next => move(comment, next, 'menu')} />
+                                onMove={(category, id) => move(comment, workflow ? id ?? category : category, 'menu', id)} />
                         ));
                         if (placeholder >= 0) items.splice(placeholder, 0, slot);
                         return (
-                            <BoardColumn key={status} status={status} count={cards.length} state={state} sort={sorts[status]} onSort={onSort}>
+                            <BoardColumn key={status} status={categoryOf(status)} definition={definition(status)} columnIds={statuses} count={cards.length} state={state} sort={sorts[categoryOf(status)]} onSort={onSort}>
                                 {items.length ? (
-                                    <ul aria-label={t("{value0} comments list", { value0: t(commentStatusLabels[status]) })} className="m-0 flex list-none flex-col gap-2 p-0">
+                                    <ul aria-label={t("{value0} comments list", { value0: workflowStatusLabel(definition(status), t) })} className="m-0 flex list-none flex-col gap-2 p-0">
                                         {items}
                                     </ul>
                                 ) : (
                                     // In the middle of the column's room below its name, a drag's longer column too
-                                    <p data-empty-column="" className="m-0 flex flex-1 items-center px-2 text-sm text-muted-foreground">{state === 'target' ? t("Drop here.") : t(emptyColumn[status])}</p>
+                                    <p data-empty-column="" className="m-0 flex flex-1 items-center px-2 text-sm text-muted-foreground">{state === 'target' ? t("Drop here.") : t(emptyColumn[categoryOf(status)])}</p>
                                 )}
                             </BoardColumn>
                         );
                     })}
-                    {archive && <ArchiveColumn count={archive.comments.length} sort={sorts.archive} onSort={onSort} expanded={archive.expanded} dimmed={Boolean(drag)} onExpandedChange={archive.onExpandedChange}>
-                        {archive.comments.length ? (
+                    {archive && archiveDefinitions.map(archiveStatus => <ArchiveColumn key={archiveStatus.id} label={workflowStatusLabel(archiveStatus, t)} count={archiveCards(archiveStatus).length} sort={sorts.archive} onSort={onSort} expanded={archive.expanded} dimmed={Boolean(drag)} onExpandedChange={archive.onExpandedChange}>
+                        {archiveCards(archiveStatus).length ? (
                             <ul aria-label={t("Archived comments list")} className="m-0 flex list-none flex-col gap-2 p-0">
-                                {archive.comments.map(comment => (
+                                {archiveCards(archiveStatus).map(comment => (
                                     <BoardCard key={comment.id} project={projectOf(comment)} comment={comment} href={hrefFor(comment.id)} opened={comment.id === openId}
                                         moving={false} tabbable={comment.id === tabStop?.id}
                                         onOpen={event => open(comment.id, event, { replace: false })}
@@ -581,7 +609,7 @@ export function CommentBoard({ projectOf, columns, sorts, onSort, archive, allCo
                         ) : (
                             <p data-empty-column="" className="m-0 flex flex-1 items-center px-2 text-sm text-muted-foreground">{t("Nothing archived.")}</p>
                         )}
-                    </ArchiveColumn>}
+                    </ArchiveColumn>)}
                 </div>
                 </LayoutMotion>
                 {client && createPortal(
@@ -613,6 +641,7 @@ export function CommentBoard({ projectOf, columns, sorts, onSort, archive, allCo
                             assignees={openedProject.assignees}
                             userId={userId}
                             startVerifying={verifyId === opened.id}
+                            startVerifyingStatusId={verifyStatusId}
                             onBack={closeThread} />
                     )}
                 </SheetContent>

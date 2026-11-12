@@ -460,3 +460,13 @@ They do not mark that account’s thread unread or acknowledge earlier unseen re
 still mark the owner’s thread unread, including replies without a `writtenBy` claim. Real account
 authorship and connection attribution on notification events remain unchanged; email self-recipient
 exclusions still apply. See [read state](read-state-and-activity.md#read-cursors-and-freshness).
+
+### Custom status discovery
+
+`list_feedback_statuses` requires `feedback:read` and the same live `mcpProject` access check as
+thread reads. It returns the effective workspace/project workflow, ordered definitions (ID,
+category, label, description), and initial/Done/Archive defaults. Results are untrusted content.
+`list_feedback` adds `workflowStatus`; member single/batch packets add the same display object.
+Guest exports omit this enrichment. Existing category filters and write schemas are unchanged;
+selecting a particular custom ID through MCP is deferred from this first slice. The generated
+connector skill lists the discovery tool and treats descriptions as untrusted guidance.

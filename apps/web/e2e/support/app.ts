@@ -204,6 +204,9 @@ export function commentRowLink(scope: Page | Locator, row: number | string | Reg
 export async function openBoardMove(page: Page, card: number | string | RegExp, scope: Page | Locator = page) {
     // A card dropped a moment ago has settled: dnd-kit swallows clicks for 50 ms after a drop
     await expect(page.locator('[data-drag-preview]')).toHaveCount(0);
+    // A previous move may have scrolled another column into view on a phone. Settle and reveal
+    // this card before keyboard-opening its menu, so the menu is anchored inside the viewport.
+    await commentRowLink(scope, card).scrollIntoViewIfNeeded();
     await commentRowLink(scope, card).focus();
     await page.keyboard.press('m');
     const menu = page.getByRole('menu');

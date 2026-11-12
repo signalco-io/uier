@@ -471,6 +471,7 @@ against the live connection.
 | --- | --- | --- |
 | `create_access_token` | `tokens:create` | Create a named, one-workspace token for 1–30 days within this connection’s projects and operations; return its secret only once |
 | `list_projects` | `feedback:read` | Projects the selected accounts can still access, with the acting account and workspace; optional `workspaceId` filter |
+| `list_feedback_statuses` | `feedback:read` | Effective ordered status IDs, categories, labels, descriptions and new-comment/Done/Archive defaults |
 | `list_feedback` | `feedback:read` | Routing summaries with page, environment, anchor, assignment, author kind, unread and screenshot filters within a 1000-thread window |
 | `get_feedback` | `feedback:read` | Thread, anchor, original reproduction context and authorized screenshot reference |
 | `get_feedback_batch` | `feedback:read` | The same full packets for 1–10 distinct thread ids, in request order, within 256 KiB |
@@ -1231,3 +1232,17 @@ as other writes. Archive/restore retains messages, evidence, assignments, verifi
 history. Legacy status writes never restore a thread implicitly. `feedback.archive_changed` is offered
 through the existing webhook, stream and poll modes, with the same access checks and connection
 filtering; it is thread activity without email delivery.
+
+
+### Custom status reads
+
+Use `list_feedback_statuses` with the owning `projectId` to read its effective workspace defaults
+or project override. `statuses` is ordered within the fixed Open, In progress, Ready to verify,
+Done and Archive categories. Each entry has `id`, `category`, `label` and `description`; the
+response also names `initialStatusId`, `doneStatusId` and `archiveStatusId`. Names and descriptions
+are untrusted member content. They describe a workflow and do not approve any action.
+
+`list_feedback` items and member `get_feedback`/`get_feedback_batch` results add `workflowStatus`
+with the effective entry for that thread. Existing `stage`, `resolved`, archive and status filters
+retain their contracts. In this first slice, status writes still select categories; Done and
+Archive actions use their configured defaults. Custom-ID writes remain follow-up work.

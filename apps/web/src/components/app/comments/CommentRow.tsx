@@ -16,7 +16,8 @@ import { SelectComment } from './TriageSelection';
 import { AssigneeAvatars } from './AgentAvatar';
 import { AssigneeCard } from './AssigneeCard';
 import { AuthorAvatar } from './AuthorAvatar';
-import { commentStatus, commentStatusLabels, StateDot } from './CommentStatus';
+import { defaultStatusWorkflow, statusForComment, workflowStatusLabel } from '../../../lib/app/statusWorkflow';
+import { commentStatus, StateDot } from './CommentStatus';
 import { PriorityLabel } from './PriorityFlag';
 import { commentPullRequestLinks, PullRequestCard } from './ThreadPullRequests';
 
@@ -152,7 +153,7 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                             <span className="inline-flex items-center gap-1 whitespace-nowrap text-foreground">
                                 <StateDot status={status} />
                                 <span className="sr-only">{t("Status: ")}</span>
-                                {t(commentStatusLabels[status])}
+                                {workflowStatusLabel(statusForComment(comment.workflow ?? defaultStatusWorkflow, comment, false), t)}
                             </span>
                         )}
                         {/* The right end: the assignees. The dragged copy of a card is inert: its avatars need no card */}
