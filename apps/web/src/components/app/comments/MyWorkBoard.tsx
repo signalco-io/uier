@@ -139,7 +139,8 @@ const index = (items: readonly MyWorkItem[]) => Object.fromEntries(items.map(ite
  *
  * A thread changed here (moved to Done, read in the sheet, archived) can stop needing you, and the page's fresh snapshot
  * then leaves it out. It stays on the board with those changes until My work is loaded again, so a card dropped on Done
- * stays there and the open thread stays open; a deleted one goes.
+ * stays there and the open thread stays open; a deleted one goes. The board stays mounted when no card is left on it
+ * (the last one archived, or filtered out), its columns hidden under `noMatch`, so its open thread stays open.
  */
 export function MyWorkBoard({ items, assignees, userId, empty, header, noMatch, filter, sorts: chosen, onSort }: {
     /** Every thread My work lists, its groups together */
@@ -201,10 +202,12 @@ export function MyWorkBoard({ items, assignees, userId, empty, header, noMatch, 
             {/* The page header takes the board's width from `data-header-wide` (the My work page sets `--board-width`) */}
             <div ref={containerRef} data-header-wide="board" className="flex flex-col gap-4">
                 {header}
-                {onBoard.length ? (
+                {!onBoard.length && noMatch}
+                {/* Mounted with no card too, only its columns hidden, so a thread archived from the last card keeps its sheet (and Restore) */}
+                <div className={onBoard.length ? 'contents' : 'hidden'}>
                     <CommentBoard projectOf={projectOf} columns={columns} sorts={sorts} onSort={(column, sort) => { if (column !== 'archive') onSort(column, sort); }}
                         allComments={comments} userId={userId} openComment={openComment} />
-                ) : noMatch}
+                </div>
             </div>
         </CommentUpdatesProvider>
     );

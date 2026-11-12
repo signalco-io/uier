@@ -162,7 +162,8 @@ the separately bundled review toolbar owns its own query cache.
   It has no Environment and page filter (each project has its own environments and paths), no status tabs (the groups are
   mostly open threads) and no count line. Everything filters what is loaded at once and stays in the address (`?q=`,
   `?priority=`, `?people=`, `?unread=`, `?project=`), using a project's matching (`applyFilters` in `ProjectComments.tsx`).
-  A list with nothing matching is left out; nothing matching anywhere shows "Nothing here" with Clear filters. Each list's
+  A list with nothing matching is left out; nothing matching anywhere shows "Nothing here" with Clear filters. On the board that message replaces only
+  the columns: the board stays mounted (columns hidden), so a thread archived from the last card keeps its sheet and Restore. Each list's
   heading (`MyWorkGroups` in `MyWorkList.tsx`) and each board column's ends with its sort (`BoardSortMenu`, a list offering an
   active column's choices: Priority, the default, Newest first, Oldest first, Recently updated; Done adds Recently
   completed). The sorts are this person's, remembered in this browser (`myWorkSorts.ts`, `uier:my-work-sorts`, only choices

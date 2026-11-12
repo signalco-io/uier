@@ -226,6 +226,36 @@ test('My work keeps its board and open thread when the last thread there stops n
     await expect(page.getByRole('button', { name: 'Board', exact: true })).toHaveCount(0);
 });
 
+test('My work keeps the open thread when its last card is archived, so it can be restored', async ({ page, request }) => {
+    await signIn(page, uniqueEmail('my-work-archive-last'));
+    const project = await createProject(page, { urls: [site.origin()], name: 'Shop' });
+    await setProjectAccess(page, project, 'Anyone with the link');
+    const headers = await verifiedReviewHeaders(request, project, site.origin());
+    const response = await request.post(`/api/review/${project}/comments`, { headers, data: {
+        path: `/${project}/pricing`, text: 'Checkout total is wrong', authorName: 'Guest', position: { type: 'page' }, kind: 'feedback'
+    } });
+    expect(response.status()).toBe(201);
+    const card = page.locator('[data-board-card]').filter({ hasText: 'Checkout total is wrong' });
+
+    await page.goto('/app/my-work?view=board');
+    await card.getByRole('link').first().click();
+    const thread = page.getByRole('dialog').getByRole('article');
+    await expect(thread).toContainText('Checkout total is wrong');
+    // Away from the card, so no hover card covers the thread's menu on a phone
+    await page.mouse.move(0, page.viewportSize()!.height - 1);
+    await thread.getByRole('button', { name: /^More actions for the comment/ }).click();
+    await page.getByRole('menuitem', { name: 'Archive comment', exact: true }).click();
+    // The board has no card left, but its sheet stays open on the archived thread, with Restore
+    await expect(thread.getByText('Archived', { exact: true })).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    await expect(thread).toContainText('Checkout total is wrong');
+    await thread.getByRole('button', { name: /^More actions for the comment/ }).click();
+    await page.getByRole('menuitem', { name: 'Restore comment', exact: true }).click();
+    await expect(thread.getByText('Archived', { exact: true })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(card).toBeVisible();
+});
+
 test('My work says so when nothing needs you', async ({ page }) => {
     await signIn(page, uniqueEmail('my-work-empty'));
     await page.goto('/app/my-work');
