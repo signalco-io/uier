@@ -183,10 +183,12 @@ test('the board widens on a wide window, the filters and project headers and the
     const unread = page.getByRole('status').filter({ hasText: /^\d+ unread$/ });
     const countLine = unread.locator('xpath=..');
     const filter = page.getByRole('button', { name: /^Filter/ });
-    // The filters and project headers span the board's columns: search and the project's mark start with the first,
-    // the view toggle and the settings button end with the last; the count line is between search and Filter
-    const headerSpans = async (first: Locator, last: Locator) => {
-        const left = (await placement(first)).left, right = (await placement(last)).right;
+    // The filters and project headers are full width from the left (uier #363): search and the project's mark start
+    // with the first column, the view toggle and the settings button end at the page's right edge, the panel less its
+    // 32 px gutter, however far the columns reach; the count line is between search and Filter
+    const headerSpans = async (first: Locator) => {
+        const left = (await placement(first)).left, right = 32;
+        expect(left).toBeCloseTo(32, 0);
         expect((await placement(search)).left).toBeCloseTo(left, 0);
         expect((await placement(view)).right).toBeCloseTo(right, 0);
         expect((await placement(mark)).left).toBeCloseTo(left, 0);
@@ -217,7 +219,7 @@ test('the board widens on a wide window, the filters and project headers and the
     const strip = (await archive.boundingBox())!;
     expect(strip.width).toBe(48);
     expect(strip.x).toBeCloseTo(boxes.at(-1)!.x + boxes.at(-1)!.width + 16, 0);
-    await headerSpans(column('Open'), archive);
+    await headerSpans(column('Open'));
 
     // The list: the comments are where the board had them; the filters and project headers and the count line span
     // the list and the thread beside it
@@ -229,9 +231,10 @@ test('the board widens on a wide window, the filters and project headers and the
     expect(atList[1]).toEqual(atBoard[1]);
     // The list with its thread beside it is the wide element now
     const split = list.locator('xpath=..');
-    await headerSpans(list, split);
+    await headerSpans(list);
+    expect((await placement(split)).right).toBeCloseTo(32, 0);
 
-    // On a very wide window the columns stop at 20rem and the row is centred; the page keeps the reading width
+    // On a very wide window the columns stop at 20rem and start at the left, under the search (uier #363); the page keeps the reading width
     await page.getByRole('button', { name: 'Board', exact: true }).click();
     await page.setViewportSize({ width: 2560, height: 1440 });
     await expect.poll(async () => (await placement(grid)).width).toBeGreaterThan(2000);
@@ -239,8 +242,9 @@ test('the board widens on a wide window, the filters and project headers and the
     for (const box of widest) expect(box.width).toBe(320);
     const first = widest[0]!, last = await placement(archive);
     expect(first.room - first.left - last.right).toBe(4 * 320 + 4 * 16 + 48);
-    expect(first.left).toBeCloseTo(last.right, 0);
-    await headerSpans(column('Open'), archive);
+    expect(first.left).toBeCloseTo(32, 0);
+    expect(last.right).toBeGreaterThan(32);
+    await headerSpans(column('Open'));
     const [, widestComments] = await pageParts(page);
     expect(widestComments!.width).toBe(1024 - 64);
     expect(widestComments!.left).toBeCloseTo(widestComments!.right, 0);
@@ -300,7 +304,7 @@ test('the board widens on a wide window, the filters and project headers and the
     await expect.poll(async () => (await placement(archive)).width).toBe(320);
     const expanded = await placement(column('Open'));
     expect(expanded.room - expanded.left - (await placement(archive)).right).toBe(5 * 320 + 4 * 16);
-    await headerSpans(column('Open'), archive);
+    await headerSpans(column('Open'));
     await archive.getByRole('button', { name: 'Collapse Archive', exact: true }).click();
     await expect(archive.getByRole('button', { name: 'Archive 0', exact: true })).toBeVisible();
 });

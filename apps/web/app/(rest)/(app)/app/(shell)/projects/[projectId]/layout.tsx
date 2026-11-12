@@ -1,5 +1,3 @@
-import { orderedStatuses } from '@/src/lib/app/statusWorkflow';
-import { effectiveStatusWorkflow } from '@/src/lib/app/statusWorkflows';
 
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { ProjectLoading } from '@/src/components/app/projects/ProjectLoading';
@@ -7,7 +5,6 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Badge } from '@/src/components/ui/badge';
-import { cn } from '@/src/lib/utils';
 import { requireAppContext } from '@/src/lib/app/context';
 import { getVisibleProjectForPage as getVisibleProject } from '@/src/lib/app/projectLinkPage';
 import { clientSummary, getClient } from '@/src/lib/app/clients';
@@ -41,26 +38,13 @@ async function ProjectLayoutContent({ children, params }: LayoutProps<'/app/proj
     // Those who configure the project (settingsContext's rule) change who can comment from the label
     const canConfigure = context.isAdmin && project.workspaceId !== PUBLIC_WORKSPACE_ID;
 
-    // The board's columns and gaps (20rem a column), the width the comments header and this header take in Board:
-    // the statuses, then Archive, a 3rem strip while collapsed and a column like the others when expanded
-    const workflow = effectiveStatusWorkflow(context.workspace, project);
-    const columns = orderedStatuses(workflow).filter(status => status.category !== 'archive').length;
-    const archives = workflow.statuses.filter(status => status.category === 'archive').length;
-    const boardWidths = {
-        "--board-width-collapsed": `calc(${columns} * 20rem + ${columns + archives - 1}rem + ${archives} * 3rem)`,
-        "--board-width-expanded": `calc(${columns + archives} * 20rem + ${columns + archives - 1}rem)`
-    };
-
     return (
-        // On the comments page the header is as wide as the comments' header under it (ProjectComments marks it with
-        // data-header-wide): the list with its thread, or the board's columns up to the panel's width less the gutters,
-        // so it stays put when the board scrolls. Page checks marks itself as list width too; other project pages keep the reading width.
-        <div className="group/project @container/project flex flex-col [--board-width:var(--board-width-collapsed)] has-[[data-board-archive=expanded]]:[--board-width:var(--board-width-expanded)]"
-            style={boardWidths as React.CSSProperties}>
+        // On the comments and page checks the header is as wide as what is under them (marked with data-header-wide):
+        // the panel's width less the gutters, from the left, list and board alike (uier #363), so it stays put when the
+        // board scrolls. Other project pages keep the reading width.
+        <div className="group/project flex flex-col">
             <PageHeader
-                className={cn('min-w-0',
-                    'group-has-[[data-header-wide=list]]/project:@3xl/project:w-[min(var(--page-wide),96rem)] group-has-[[data-header-wide=list]]/project:@3xl/project:mx-[calc((100%-min(var(--page-wide),96rem))/2)]',
-                    'group-has-[[data-header-wide=board]]/project:md:w-[min(var(--page-wide),max(100%,var(--board-width)))] group-has-[[data-header-wide=board]]/project:md:mx-[calc((100%-min(var(--page-wide),max(100%,var(--board-width))))/2)]')}
+                className="min-w-0 group-has-[[data-header-wide]]/project:page-wide"
                 media={<ProjectMark name={project.name} projectId={project.id} url={project.urls[0]} className="size-14 rounded-xl text-xl [&>img]:p-2.5" />}
                 title={project.name}
                 description={(
