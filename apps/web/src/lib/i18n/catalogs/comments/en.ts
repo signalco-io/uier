@@ -40,6 +40,7 @@ const messages = {
     "An existing T3 Code, Codex or Claude desktop session link, supplied by the agent.": "An existing T3 Code, Codex or Claude desktop session link, supplied by the agent.",
     "Archive": "Archive",
     "Archive comment": "Archive comment",
+    "Archive selected": "Archive selected",
     "Archived": "Archived",
     "Archived comments": "Archived comments",
     "Archived comments list": "Archived comments list",

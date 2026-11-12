@@ -41,6 +41,7 @@ const messages: Record<keyof typeof en, string> = {
     "An existing T3 Code, Codex or Claude desktop session link, supplied by the agent.": "Un link a una sessione desktop esistente di T3 Code, Codex o Claude, fornito dall’agente.",
     "Archive": "Archivio",
     "Archive comment": "Archivia commento",
+    "Archive selected": "Archivia i selezionati",
     "Archived": "Archiviato",
     "Archived comments": "Commenti archiviati",
     "Archived comments list": "Elenco dei commenti archiviati",

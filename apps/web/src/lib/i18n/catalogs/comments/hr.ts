@@ -41,6 +41,7 @@ const messages: Record<keyof typeof en, string> = {
     "An existing T3 Code, Codex or Claude desktop session link, supplied by the agent.": "Poveznica na postojeću sesiju aplikacije T3 Code, Codex ili Claude koju je naveo agent.",
     "Archive": "Arhiva",
     "Archive comment": "Arhiviraj komentar",
+    "Archive selected": "Arhiviraj odabrane",
     "Archived": "Arhivirano",
     "Archived comments": "Arhivirani komentari",
     "Archived comments list": "Popis arhiviranih komentara",

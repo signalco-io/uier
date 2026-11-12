@@ -3,7 +3,7 @@
 import { useAppI18n } from '@/src/lib/i18n/client';
 
 import { createContext, useContext, useEffect, useEffectEvent, useRef, useState, useTransition, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
-import { CircleCheckIcon, FlagIcon, RotateCcwIcon, UserIcon, XIcon } from 'lucide-react';
+import { ArchiveIcon, CircleCheckIcon, FlagIcon, RotateCcwIcon, UserIcon, XIcon } from 'lucide-react';
 import { commentAssignees } from '@uier/toolbar/agents';
 import { priorities, priorityLabels } from '@uier/toolbar/triage';
 import { Button } from '@/src/components/ui/button';
@@ -73,6 +73,7 @@ export function SelectComment({ comment, tabbable = true, className }: {
 /** `current`: the thread's assignee now; their agent stays only while they stay the assignee */
 function patchFor(operation: TriageOperation, assignees: AssigneeOption[], current?: ProjectCommentView['assignees'], t: import('@/src/lib/i18n/types').AppTranslator = text => text): Partial<ProjectCommentView> {
     if (operation.kind === 'status') return { resolved: operation.resolved };
+    if (operation.kind === 'archive') return { archivedAt: new Date().toISOString() };
     if (operation.kind === 'priority') return { priority: operation.priority };
     const person = assignees.find(person => person.userId === operation.assigneeId);
     const existing = current?.find(person => person.id === operation.assigneeId);
@@ -80,6 +81,7 @@ function patchFor(operation: TriageOperation, assignees: AssigneeOption[], curre
     return { assignees: people, assignee: people[0] };
 }
 function snapshot(operation: TriageOperation, comments: ProjectCommentView[]): BulkTriageInput {
+    if (operation.kind === 'archive') return { kind: 'archive', items: comments.map(comment => ({ id: comment.id, idempotencyKey: crypto.randomUUID() })) };
     if (operation.kind === 'priority') return { ...operation, items: comments.map(comment => ({ id: comment.id, expected: comment.priority, idempotencyKey: crypto.randomUUID() })) };
     if (operation.kind === 'assignment') return { ...operation, items: comments.map(comment => ({ id: comment.id, expected: comment.assignee?.id ?? null, revision: comment.revision, idempotencyKey: crypto.randomUUID() })) };
     return { ...operation, items: comments.map(comment => ({ id: comment.id, expected: comment.resolved, revision: comment.revision, idempotencyKey: crypto.randomUUID() })) };
@@ -176,7 +178,7 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
             for (const item of batch.items) update({ id: item.id, patch: patchFor(batch, assignees, originals.get(item.id) && commentAssignees(originals.get(item.id)!), t) });
             const rollback = (id: string) => {
                 const original = originals.get(id);
-                if (original) update({ id, patch: { priority: original.priority, resolved: original.resolved, inProgress: original.inProgress, assignees: commentAssignees(original), assignee: original.assignee } });
+                if (original) update({ id, patch: { priority: original.priority, resolved: original.resolved, inProgress: original.inProgress, assignees: commentAssignees(original), assignee: original.assignee, archivedAt: original.archivedAt } });
             };
             try {
                 const response = await triageCommentsAction(projectId, batch);
@@ -192,7 +194,7 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
                                 agents: person.agents, agent: person.agents[0] };
                         });
                         update({ id: item.id, patch: { assignees: people, assignee: people[0],
-                            priority: item.saved.priority, resolved: item.saved.resolved, inProgress: item.saved.inProgress, revision: item.saved.revision } });
+                            priority: item.saved.priority, resolved: item.saved.resolved, inProgress: item.saved.inProgress, revision: item.saved.revision, archivedAt: item.saved.archivedAt } });
                     }
                 } });
                 const failed = results.filter(item => item.outcome !== 'success' && item.outcome !== 'noop').map(item => item.id);
@@ -214,6 +216,9 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
         });
     };
     const begin = (operation: TriageOperation) => run(snapshot(operation, selected));
+    // Nothing for an action to change: Done when every selected thread is done already, Archive when every one is archived (uier #333)
+    const allDone = selected.length > 0 && selected.every(comment => comment.resolved);
+    const allArchived = selected.length > 0 && selected.every(comment => comment.archivedAt);
 
     // x selects the focused row (or card), Ctrl or ⌘ + A the shown results from a row or the bar, Escape closes the
     // bar from the comments or the page. Never while typing or in a menu or dialog, nor a key the page already used.
@@ -400,8 +405,8 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
                                     : <span role="status" className="text-sm whitespace-nowrap tabular-nums">{t("{count} selected", { count: ids.size })}</span>}
                             </div>
                             <Separator orientation="vertical" className="data-vertical:h-5 data-vertical:self-center @max-xl/comments:hidden" />
-                            {/* On a narrow screen the actions take a line of their own */}
-                            <div className="flex items-center gap-1 @max-xl/comments:w-full @max-xl/comments:justify-between">
+                            {/* On a narrow screen the actions take a line of their own, wrapping when they don't fit and sharing each line's room */}
+                            <div className="flex items-center gap-1 @max-xl/comments:w-full @max-xl/comments:flex-wrap @max-xl/comments:*:grow">
                                 <Select items={{ unassigned: t("Unassign"), ...Object.fromEntries(availableAssignees.map(person => [person.userId, person.name])) }} value={null}
                                     onValueChange={value => value && begin({ kind: 'assignment', assigneeId: value === 'unassigned' ? null : value })}>
                                     <SelectTrigger size="sm" className={cn('border-transparent hover:bg-muted data-placeholder:text-foreground dark:bg-transparent', actionClassName)} aria-label={t("Assign selected")} disabled={pending || !ids.size}>
@@ -415,12 +420,15 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
                                     </SelectTrigger>
                                     <SelectContent side="top" alignItemWithTrigger={false}><SelectGroup>{priorities.map(value => <SelectItem className="pointer-coarse:min-h-11" key={value} value={value}><PriorityFlag priority={value} />{t(priorityLabels[value])}</SelectItem>)}</SelectGroup></SelectContent>
                                 </Select>
-                                <Button size="sm" variant="ghost" aria-label={t("Mark selected as done")} className={actionClassName} disabled={pending || !ids.size} onClick={() => begin({ kind: 'status', resolved: true })}>
+                                {!allDone && <Button size="sm" variant="ghost" aria-label={t("Mark selected as done")} className={actionClassName} disabled={pending || !ids.size} onClick={() => begin({ kind: 'status', resolved: true })}>
                                     <CircleCheckIcon data-icon="inline-start" />{t("Done")}
-                                </Button>
+                                </Button>}
                                 <Button size="sm" variant="ghost" aria-label={t("Reopen selected")} className={actionClassName} disabled={pending || !ids.size} onClick={() => begin({ kind: 'status', resolved: false })}>
                                     <RotateCcwIcon data-icon="inline-start" />{t("Reopen")}
                                 </Button>
+                                {!allArchived && <Button size="sm" variant="ghost" aria-label={t("Archive selected")} className={actionClassName} disabled={pending || !ids.size} onClick={() => begin({ kind: 'archive' })}>
+                                    <ArchiveIcon data-icon="inline-start" />{t("Archive")}
+                                </Button>}
                             </div>
                         </div>
                     )}
