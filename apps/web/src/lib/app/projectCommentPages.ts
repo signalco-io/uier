@@ -7,6 +7,7 @@ import { ApiError, apiErrors } from '../comments/http';
 import { loadReadSequences } from '../comments/readState';
 import { readActivity } from '../comments/activity';
 import { commentPath } from '../comments/dto';
+import { threadPullRequestLinks } from '../comments/pullRequestLinks';
 import { getAppStore } from './store';
 import { notificationPk, type NotificationSubscription } from '../notifications/preferences';
 import { getCommentsStore } from '../repo/commentsStore';
@@ -57,7 +58,9 @@ function readCursor(token: string, key: string): Cursor {
 }
 /** Only the row presentation crosses the initial boundary, never its full discussion or diagnostics. */
 function summary(view: ProjectCommentView): ProjectCommentView {
-    return { ...view, workflow: undefined, availableLabels: undefined, summary: true, text: view.text.slice(0, 500), displayText: view.displayText.slice(0, 500),
+    const pullRequests = threadPullRequestLinks([{ text: view.text, deleted: view.deleted }, ...view.replies], view.pullRequests)
+        .map(link => ({ url: link.url, canRemove: view.pullRequests?.find(saved => saved.url === link.url)?.canRemove ?? false }));
+    return { ...view, pullRequests, workflow: undefined, availableLabels: undefined, summary: true, text: view.text.slice(0, 500), displayText: view.displayText.slice(0, 500),
         displayMentions: view.displayMentions?.filter(mention => mention.end <= 500), replies: [], history: undefined,
         screenshot: undefined, anchor: { type: 'page', label: '' }, reproduction: { text: '' }, quotedText: undefined, reactions: undefined,
         verification: view.verification ? { ...view.verification, fixUrl: undefined } : undefined };

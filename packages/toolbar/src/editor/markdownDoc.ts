@@ -103,7 +103,7 @@ const asciiPunctuation = /[!-/:-@[-`{-~]/;
 const isWhitespace = (char: string | undefined) => char === undefined || /\s/.test(char);
 const isPunctuation = (char: string | undefined) => char !== undefined && /[\p{P}\p{S}]/u.test(char);
 // The parser's bare URLs (markdown.ts): the parser links them again, so nothing in them is escaped
-const bareUrlPattern = /^https?:\/\/[^\s<>[\]"`-]+/i;
+const bareUrlPattern = /^https?:\/\/[^\s<>[\]"`-]+/i;
 const trailingUrlPunctuation = /[?!.,:;*_~'"]$/;
 const autolinkPattern = /^<(?:[a-zA-Z][a-zA-Z0-9+.-]{1,31}:[^<>\x00-\x20]*|[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/;
 

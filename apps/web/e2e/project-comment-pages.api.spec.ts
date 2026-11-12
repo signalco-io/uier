@@ -302,3 +302,21 @@ test('label swim lanes page independently, bind cursors and resolve removed defi
     const removed = await f.load({}, {}, { ...fields, threadLabels: { mode: 'replace', value: [] } });
     expect(removed.paging.lanes['open~unlabeled']?.total).toBe(32);
 });
+
+
+test('summary PR cards retain links from complete messages without reply bodies or removal rights', async () => {
+    const f = await fixture();
+    const opener = 'https://github.com/acme/site/pull/2';
+    const reply = 'https://gitlab.com/acme/site/-/merge_requests/4';
+    await f.store.create(f.row(1, { thread: { items: [
+        { id: 'first', text: `${'Intro '.repeat(100)}${opener}`, authorId: 'user:member' },
+        { id: 'reply', text: reply, authorId: 'user:member' },
+        { id: 'removed', text: 'https://github.com/acme/site/pull/99', authorId: 'user:member', deletedAt: '2026-01-02T00:00:00.000Z' }
+    ] } }));
+    const result = await f.load();
+    expect(result.comments[0]?.text).not.toContain(opener);
+    expect(result.comments[0]?.replies).toEqual([]);
+    expect(result.comments[0]?.pullRequests).toEqual([
+        { url: opener, canRemove: false }, { url: reply, canRemove: false }
+    ]);
+});

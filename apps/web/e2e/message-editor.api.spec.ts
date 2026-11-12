@@ -44,6 +44,8 @@ test('typed text stays text: only what would become formatting gets a backslash'
         ['[label](https://uier.io)', '[label\\](https://uier.io)'],
         ['a `tick', 'a \\`tick'],
         ['https://uier.io/a_b_c?x=1', 'https://uier.io/a_b_c?x=1'],
+        ['https://gitlab.com/acme/site/-/merge_requests/4', 'https://gitlab.com/acme/site/-/merge_requests/4'],
+        ['https://my-site.example/a_b_c', 'https://my-site.example/a_b_c'],
         // The address ends before the `*`, so it goes in `<…>` where the backslash after it can not join it
         ['https://uier.io/a_b_c?x=*y*', '<https://uier.io/a_b_c?x=*y>\\*'],
         ['C:\\Users\\new', 'C:\\Users\\new']

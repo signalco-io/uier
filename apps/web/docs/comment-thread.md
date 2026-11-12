@@ -197,3 +197,8 @@ its workflow badge and gains a neutral Archived label. Restore retains the origi
 verification and completion time. Archive/restore records member-visible Activity entries and advances
 thread activity without acknowledging read cursors. The change reconciles through the existing app
 snapshot and toolbar cache refresh; failures restore the previous view. See [Archive](comments-inbox.md#archive).
+
+List/board summaries retain recognized PR URLs from full authorized messages before trimming
+the opener and omitting replies. Detected URLs carry no manual-link removal permission.
+`project-comment-pages.api.spec.ts` covers long openers, replies and deleted-message exclusion;
+`pull-requests.spec.ts` checks the same links in the thread, list card and board.
