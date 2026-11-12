@@ -95,13 +95,28 @@ function InboxReply({ comment, onClose }: { comment: CommentItem; onClose: () =>
     </div>;
 }
 
+/** Lucide's reply (the UI kit has none), drawn like the kit's icons; the app's Reply has the same icon */
+function ReplyIcon({ size = 16 }: { size?: number }) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0">
+            <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
+            <path d="m9 17-5-5 5-5" />
+        </svg>
+    );
+}
+
 function InboxThread({ comment }: { comment: CommentItem }) {
     // Mount the mutation/query hooks only after Reply is opened, keeping long lists light.
     const [replying, setReplying] = useState(false);
     const t = useMessages();
     return <CommentThread commentItem={comment}>
-        {replying ? <InboxReply comment={comment} onClose={() => setReplying(false)} /> : <div className="px-3 pb-2">
+        {/* Reply's icon lines up with the message text (uier #373): the thread's 16 px padding, the 24 px avatar and
+            its 8 px gap, less the button's own 12 px padding */}
+        {replying ? <InboxReply comment={comment} onClose={() => setReplying(false)} /> : <div className="pb-2 pl-9">
             <Button variant="plain" size="sm" disabled={comment.pending} onClick={() => setReplying(true)}
+                className="text-muted-foreground hover:text-foreground pointer-coarse:min-h-11"
+                startDecorator={<ReplyIcon />}
                 {...{ 'data-uier-reply': '' }}>{t.inbox.reply}</Button>
         </div>}
     </CommentThread>;

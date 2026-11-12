@@ -33,6 +33,7 @@ This page's unsent drafts come before the list (`InboxDrafts.tsx`): resume, post
 ## The list
 
 - `useInboxComments.ts` and `CommentsFilter.tsx`.
+- Under each card's messages, Reply (Lucide's reply icon, like the app's) lines its icon up with the message text.
 - Cards end with Show on page (this page) or a link to their page. An empty "this page" offers the other pages'
   matches. Unread lists all pages.
 - The list is virtualized (`@tanstack/react-virtual` over the inbox's scroll area, `VirtualCards`): only the cards
