@@ -48,6 +48,48 @@ export async function expectInboxListed(inbox: Locator, count: number) {
     await expect(inbox.getByRole('article').first()).toHaveAttribute('aria-setsize', String(count));
 }
 
+/** The pill's Page checks button: Accessibility, SEO and Security and compliance behind one menu (uier #353) */
+export const pageChecksButton = (page: Page) => toolbar(page).getByRole('button', { name: /^Page checks/ });
+
+/** A page tool in the open Page checks menu, named with what its check found ("SEO, 2 to look at") */
+export const pageCheckItem = (page: Page, name: RegExp | string) => page.getByRole('dialog', { name: 'Page checks' }).getByRole('button', { name });
+
+/**
+ * Opens (or closes) a page tool's panel from the pill: through the Page checks menu, or the tool's own button when the
+ * review shows only one tool
+ */
+export async function openPageCheck(page: Page, name: RegExp) {
+    const group = pageChecksButton(page);
+    const own = toolbar(page).getByRole('button', { name });
+    // The pill's tools show once the toolbar has loaded: wait for either
+    await expect(group.or(own).first()).toBeVisible({ timeout: 15_000 });
+    if (await group.count()) {
+        await group.click();
+        await pageCheckItem(page, name).click();
+    } else await own.click();
+}
+
+/** A page tool's name in the Page checks menu ("Accessibility, 3 issues found"): the menu opens for it and closes again */
+export async function pageCheckName(page: Page, name: RegExp) {
+    await pageChecksButton(page).click();
+    const label = await pageCheckItem(page, name).getAttribute('aria-label');
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog', { name: 'Page checks' })).toBeHidden();
+    // Off the button, so its hover does not count as its highlight
+    await page.mouse.move(0, 0);
+    return label;
+}
+
+/** Whether a page tool's panel is open, as its item in the Page checks menu says (`aria-expanded`): the menu opens for it and closes again */
+export async function expectPageCheckExpanded(page: Page, name: RegExp, expanded: boolean) {
+    await pageChecksButton(page).click();
+    await expect(pageCheckItem(page, name)).toHaveAttribute('aria-expanded', String(expanded));
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog', { name: 'Page checks' })).toBeHidden();
+    // Off the button, so its hover does not count as its highlight
+    await page.mouse.move(0, 0);
+}
+
 /** The open inbox's search field: its search button in the title row opens it first when it is closed */
 export async function inboxSearch(inbox: Locator) {
     const field = inbox.getByRole('searchbox', { name: 'Search comments' });

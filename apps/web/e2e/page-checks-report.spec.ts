@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page, type Request } from '@playwright
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, commentBubble, showChecksTab, toolbar } from './support/toolbar';
+import { animationsFinished, commentBubble, openPageCheck, pageCheckName, pageChecksButton, showChecksTab, toolbar } from './support/toolbar';
 
 // The panels' reporting core (packages/toolbar/docs/page-checks-report.md) on its own page of the
 // reviewed site (`fixture-report`, e2e/support/fixtures/report.ts): WCAG 2.2 target size, what
@@ -33,9 +33,8 @@ async function memberReview(page: Page, label: string, query = '') {
 
 /** The background audit's report on the button: how many issues it found */
 async function backgroundIssues(page: Page) {
-    const button = toolbar(page).getByRole('button', { name: /^Accessibility/ });
-    await expect(button).toHaveAccessibleName(/^Accessibility, \d+ issues? found$/, { timeout: 30_000 });
-    return Number(/(\d+) issues?/.exec(await button.getAttribute('aria-label') ?? await button.innerText())?.[1]);
+    await expect(pageChecksButton(page)).toHaveAttribute('data-uier-attention-panels', /\baccessibility\b/, { timeout: 30_000 });
+    return Number(/(\d+) issues?/.exec(await pageCheckName(page, /^Accessibility/) ?? '')?.[1]);
 }
 
 /** The short names of a list's elements, in order */
@@ -48,9 +47,8 @@ test('target size is checked by the background audit as by Check again, and what
     test.skip(testInfo.project.use.isMobile === true, 'Desktop layout');
     test.setTimeout(90_000);
     const project = await memberReview(page, 'report-review');
-    const button = toolbar(page).getByRole('button', { name: /^Accessibility/ });
-    await expect(button).toHaveAccessibleName('Accessibility, 8 issues found', { timeout: 30_000 });
-    await button.click();
+    await expect.poll(() => pageCheckName(page, /^Accessibility/), { timeout: 30_000 }).toBe('Accessibility, 8 issues found');
+    await openPageCheck(page, /^Accessibility/);
     const panel = accessibilityPanel(page);
     await expect(panel.getByRole('status')).toHaveText('8 issues found.');
 
@@ -85,7 +83,7 @@ test('target size is checked by the background audit as by Check again, and what
     expect(body.check).toEqual({ type: 'accessibility', id: 'color-contrast' });
     await expect(contrast).toContainText(/Comment posted as #1/);
     // Still not an issue: the button's count is the same
-    await expect(button).toHaveAccessibleName('Accessibility, 8 issues found');
+    await expect.poll(() => pageCheckName(page, /^Accessibility/)).toBe('Accessibility, 8 issues found');
 
     await animationsFinished(panel);
     await expectNoAxeViolations(page, { include: ['#uier-toolbar'] });
@@ -96,7 +94,7 @@ test('one comment for all of a rule\'s or a check\'s elements, listed within the
     test.setTimeout(120_000);
     const project = await memberReview(page, 'report-group', '?many');
     await backgroundIssues(page);
-    await toolbar(page).getByRole('button', { name: /^Accessibility/ }).click();
+    await openPageCheck(page, /^Accessibility/);
     const panel = accessibilityPanel(page);
 
     // A rule: pinned to its first element, its text lists them, the check says how many
@@ -138,7 +136,7 @@ test('one comment for all of a rule\'s or a check\'s elements, listed within the
     await expect(contrast).toContainText(/Comment posted for 2 elements as #3/);
 
     // An SEO check with several elements gets it from the same list
-    await toolbar(page).getByRole('button', { name: /^SEO/ }).click();
+    await openPageCheck(page, /^SEO/);
     const seo = seoPanel(page);
     await showChecksTab(seo, 'content');
     const alt = seo.locator('[data-uier-check="alt"]');
@@ -154,7 +152,7 @@ test('one comment for all of a rule\'s or a check\'s elements, listed within the
     await showChecksTab(seo, 'content');
     await expect(alt.getByRole('listitem').filter({ hasText: 'Reported as #4' })).toHaveCount(3);
     await expect(alt.getByRole('button', { name: /^Comment/ })).toHaveCount(0);
-    await toolbar(page).getByRole('button', { name: /^Accessibility/ }).click();
+    await openPageCheck(page, /^Accessibility/);
     await expect(panel.getByRole('status')).toHaveText(/issues found\.$/, { timeout: 30_000 });
     await expect(images.getByRole('listitem').filter({ hasText: 'Reported as #1' })).toHaveCount(3);
     await expect(images.getByRole('button', { name: /^Comment/ })).toHaveCount(0);
@@ -204,9 +202,8 @@ test('Not an issue leaves the counts and the dot in this browser, is kept after 
     test.skip(testInfo.project.use.isMobile === true, 'Desktop layout');
     test.setTimeout(90_000);
     await memberReview(page, 'report-dismiss');
-    const button = toolbar(page).getByRole('button', { name: /^Accessibility/ });
     const issues = await backgroundIssues(page);
-    await button.click();
+    await openPageCheck(page, /^Accessibility/);
     const panel = accessibilityPanel(page);
     const images = panel.locator('[data-uier-rule="image-alt"]');
     const row = (list: Locator, name: string) => list.getByRole('list', { name: /^Elements:/ }).getByRole('listitem').filter({ hasText: name });
@@ -217,35 +214,34 @@ test('Not an issue leaves the counts and the dot in this browser, is kept after 
     await expect(row(images, 'img#gallery-3').getByRole('button', { name: 'Not an issue' })).toBeFocused();
     await expect(panel.getByRole('status')).toHaveText(`${issues - 1} issues found.`);
     await expect(panel.locator('[data-uier-summary="critical"] [data-uier-summary-count]')).toHaveText('2');
-    await expect(button).toHaveAccessibleName(`Accessibility, ${issues - 1} issues found`);
-    await expect(button.locator('[data-uier-attention="accessibility"]')).toBeVisible();
+    await expect.poll(() => pageCheckName(page, /^Accessibility/)).toBe(`Accessibility, ${issues - 1} issues found`);
+    await expect(pageChecksButton(page).locator('[data-uier-attention="page-checks"]')).toBeVisible();
     // Folded under its list, said to be this browser's only
     const fold = images.locator('summary', { hasText: 'Dismissed' });
     await expect(fold).toHaveText('Dismissed 1');
     await expect(images.getByRole('list', { name: /^Dismissed:/ })).toBeHidden();
 
     // An SEO finding about the page: its check becomes a note, out of the count
-    await toolbar(page).getByRole('button', { name: /^SEO/ }).click();
+    await openPageCheck(page, /^SEO/);
     const seo = seoPanel(page);
-    const seoButton = toolbar(page).getByRole('button', { name: /^SEO/ });
     const toLook = Number(await seo.locator('[data-uier-summary="warn"] [data-uier-summary-count]').innerText());
-    await expect(seoButton).toHaveAccessibleName(`SEO, ${toLook} to look at`);
+    await expect.poll(() => pageCheckName(page, /^SEO/)).toBe(`SEO, ${toLook} to look at`);
     const description = seo.locator('[data-uier-check="description"]');
     await description.getByRole('button', { name: 'Not an issue' }).click();
     await expect(description).toHaveAttribute('data-uier-check-state', 'none');
     await expect(description.locator('summary', { hasText: 'Dismissed' })).toBeFocused();
     await expect(seo.locator('[data-uier-summary="warn"] [data-uier-summary-count]')).toHaveText(String(toLook - 1));
-    await expect(seoButton).toHaveAccessibleName(`SEO, ${toLook - 1} to look at`);
+    await expect.poll(() => pageCheckName(page, /^SEO/)).toBe(`SEO, ${toLook - 1} to look at`);
 
     // Kept in this browser: the next page load counts without them
     await page.reload();
-    await expect(seoButton).toHaveAccessibleName(`SEO, ${toLook - 1} to look at`);
+    await expect.poll(() => pageCheckName(page, /^SEO/)).toBe(`SEO, ${toLook - 1} to look at`);
     await expect(description).toHaveAttribute('data-uier-check-state', 'none');
-    await expect(button).toHaveAccessibleName(`Accessibility, ${issues - 1} issues found`, { timeout: 30_000 });
+    await expect.poll(() => pageCheckName(page, /^Accessibility/), { timeout: 30_000 }).toBe(`Accessibility, ${issues - 1} issues found`);
     expect(await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('uier:checks-dismissed:v1:')).length)).toBe(1);
 
     // Restore counts it again, and the focus stays in its list
-    await button.click();
+    await openPageCheck(page, /^Accessibility/);
     await fold.click();
     await expect(images.getByText('Hidden in this browser only.')).toBeVisible();
     await animationsFinished(panel);
@@ -255,5 +251,5 @@ test('Not an issue leaves the counts and the dot in this browser, is kept after 
     await expect(fold).toHaveCount(0);
     await expect(images.getByRole('button', { name: 'Not an issue' }).first()).toBeFocused();
     await expect(panel.getByRole('status')).toHaveText(`${issues} issues found.`);
-    await expect(button).toHaveAccessibleName(`Accessibility, ${issues} issues found`);
+    await expect.poll(() => pageCheckName(page, /^Accessibility/)).toBe(`Accessibility, ${issues} issues found`);
 });

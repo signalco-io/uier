@@ -3,7 +3,7 @@ import { expectNoAxeViolations } from './accessibility';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { linkRequests, mostAtOnce } from './support/fixtures/seoPage';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, showChecksTab, toolbar } from './support/toolbar';
+import { animationsFinished, showChecksTab, toolbar, openPageCheck } from './support/toolbar';
 
 // More of the SEO panel's own Page, Links and Images checks (packages/toolbar/docs/page-checks-seo-page.md)
 // on the reviewed site's `fixture-seo-page` origin (e2e/support/fixtures/seoPage.ts): the viewport,
@@ -33,7 +33,7 @@ async function memberReview(page: Page, label: string, query: string) {
 }
 
 async function openSeo(page: Page) {
-    await toolbar(page).getByRole('button', { name: /^SEO/ }).click();
+    await openPageCheck(page, /^SEO/);
     const panel = page.getByRole('complementary', { name: 'SEO' });
     await expect(panel.getByRole('button', { name: 'Close SEO panel' })).toBeFocused();
     return { panel, check: (id: string) => panel.locator(`[data-uier-check="${id}"]`), links: panel.locator('[data-uier-link-check]') };

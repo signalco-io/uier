@@ -7,8 +7,9 @@ move the pill and dock its panels, and `useToolbarNotice` places notices by it.
 ## The pill
 
 - A `nav` landmark. Its buttons: Add comment, Draw on the page ([canvas mode](canvas-mode.md), the optional
-  feature `draw`), Inbox with the blue unread count, Accessibility and SEO (from 640 px; narrower they are rows
-  of Options, [page checks](page-checks.md#where-they-open)), About, Profile, Options and Collapse / Expand.
+  feature `draw`), Inbox with the blue unread count, Page checks (from 640 px: a menu of Accessibility, SEO and
+  Security and compliance, `checks/PageChecksMenu.tsx`, or the one tool's own button when only one is on; narrower
+  they are rows of Options, [page checks](page-checks.md#where-they-open)), About, Profile, Options and Collapse / Expand.
 - The buttons are a `role="toolbar"` with one tab stop and ← → between them; the move handle is beside it
   ([keyboard](keyboard.md#composites)).
 - The point-mode instruction (`role="status"`) shows by the pill. In its place, while a draft pin is closed,
@@ -32,7 +33,7 @@ inbox's state stay. Collapsing also ends canvas mode ([canvas mode](canvas-mode.
   - Language, with Default first ([languages](localization.md)).
   - Environment: this page on another of the project's addresses, when it has more than one
     ([environments](../../../apps/web/docs/environments.md)).
-  - Accessibility and SEO on a narrow screen.
+  - Accessibility, SEO and Security and compliance on a narrow screen.
   - Reset moved toolbar, View project, Exit review and Sign out. On uier's own pages, account sign-out stays in
     the app's account menu.
 - Options always ends with "Powered by uier", a link to uier.io: the toolbar runs on other people's sites.

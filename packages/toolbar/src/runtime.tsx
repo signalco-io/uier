@@ -12,6 +12,7 @@ import { adoptToolbarStyles } from './stylesheet';
 import { runtimeAdapters } from './adapters';
 import { claimReviewLayer, extensionOwnsReviewLayer } from './coexistence';
 import { followPageLayers } from './modalLayer';
+import { markToolbarFocusGuards } from './focusGuards';
 
 const containerId = 'uier-toolbar';
 
@@ -72,6 +73,8 @@ export function mountToolbar(mode: ToolbarMode, review: ReviewSession | null, on
     if (!runtimeAdapters()) ensureBrandFont();
     document.body.appendChild(container);
     toolbarMounts[toolbarMountKey] = container;
+    // The toolbar's menus' focus guards, for the Keyboard check (src/focusGuards.ts)
+    const stopMarkingGuards = markToolbarFocusGuards(shadowRoot);
     // Into the page's open modal dialog, popover, menu or dialog while there is one (src/modalLayer.ts)
     const stopFollowingModals = followPageLayers(container);
 
@@ -81,6 +84,7 @@ export function mountToolbar(mode: ToolbarMode, review: ReviewSession | null, on
     const unmount = () => {
         darkScheme.removeEventListener('change', applyScheme);
         stopFollowingModals();
+        stopMarkingGuards();
         release?.();
         // After the click that asked for it has been handled
         window.setTimeout(() => {

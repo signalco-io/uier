@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page, type Request } from '@playwright
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, showChecksTab, toolbar } from './support/toolbar';
+import { animationsFinished, openPageCheck, pageCheckName, pageChecksButton, showChecksTab, toolbar } from './support/toolbar';
 
 // The SEO panel's Sharing and Structured data sections (packages/toolbar/docs/page-checks-seo-head.md)
 // on a project's site on another origin with the install guide's CSP: `fixture-seo-head`
@@ -28,7 +28,7 @@ async function memberReview(page: Page, label: string, variant: string) {
 
 /** Opens the SEO panel and waits for both sections, the shared image measured */
 async function openSeoPanel(page: Page) {
-    await toolbar(page).getByRole('button', { name: /^SEO/ }).click();
+    await openPageCheck(page, /^SEO/);
     const panel = page.getByRole('complementary', { name: 'SEO' });
     const sharing = panel.locator('[data-uier-section="sharing"]');
     await expect(sharing).toHaveAttribute('data-uier-section-status', 'done', { timeout: 20_000 });
@@ -100,8 +100,7 @@ test('the sections report broken sharing tags and structured data, count them an
     test.setTimeout(90_000);
     const project = await memberReview(page, 'seo-head-broken', 'broken');
     // The tags and JSON-LD are read in the background: the page's own SEO checks find nothing here
-    const button = toolbar(page).getByRole('button', { name: /^SEO/ });
-    await expect(button).toHaveAccessibleName(/^SEO, \d+ to look at$/, { timeout: 20_000 });
+    await expect(pageChecksButton(page)).toHaveAttribute('data-uier-attention-panels', /\bseo\b/, { timeout: 20_000 });
     const panel = await openSeoPanel(page);
 
     await expectRow(panel, 'share-title', 'warn', '2 og:title tags. Platforms may use either.');
@@ -124,7 +123,7 @@ test('the sections report broken sharing tags and structured data, count them an
     // The summary and the button count the sections' warnings with the panel's own
     const warnings = await panel.locator('[data-uier-check-state="warn"]').count();
     await expect(panel.locator('[data-uier-summary="warn"] [data-uier-summary-count]')).toHaveText(String(warnings));
-    await expect(button).toHaveAccessibleName(`SEO, ${warnings} to look at`);
+    await expect.poll(() => pageCheckName(page, /^SEO/)).toBe(`SEO, ${warnings} to look at`);
 
     // A finding about the page names the block and the property, and the documentation it comes from
     const created = nextCreate(page, project);

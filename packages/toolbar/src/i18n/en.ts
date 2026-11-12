@@ -7,6 +7,8 @@ const s = (count: number, one: string, other: string) => count === 1 ? one : oth
 
 export const en = {
     consentPanel: {
+        about: "About this tab",
+        groups: { cookie: "Cookies", local: "Local storage", session: "Session storage", request: "Known tracker requests" },
         security: "Page security",
         headers: "Response headers",
         checkHeaders: "Check response headers",
@@ -67,6 +69,7 @@ export const en = {
         accessibility: 'Accessibility',
         seo: 'SEO',
         consent: 'Security and compliance',
+        pageChecks: 'Page checks',
         about: 'About uier',
         draw: 'Draw on the page',
         collapse: 'Collapse toolbar'

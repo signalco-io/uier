@@ -43,4 +43,6 @@ export type PageCheck = {
     issues: PageIssue[];
     /** Its issues marked "Not an issue" in this browser, out of `issues` (set by `PageChecks`; a check with only these is a note) */
     dismissed?: PageIssue[];
+    /** Where a panel lists it apart from the section's other checks: the consent inventory's kind of storage, or requests to known trackers */
+    group?: 'cookie' | 'local' | 'session' | 'request';
 };

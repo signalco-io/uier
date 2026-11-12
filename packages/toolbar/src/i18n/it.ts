@@ -8,6 +8,8 @@ const p = (count: number, one: string, other: string) => plural('it', count, one
 
 export const it: Messages = {
     consentPanel: {
+        about: "Informazioni su questa scheda",
+        groups: { cookie: "Cookie", local: "Archiviazione locale", session: "Archiviazione di sessione", request: "Richieste a tracker noti" },
         security: "Sicurezza della pagina",
         headers: "Header della risposta",
         checkHeaders: "Controlla gli header",
@@ -66,6 +68,7 @@ export const it: Messages = {
         accessibility: 'Accessibilità',
         seo: 'SEO',
         consent: 'Sicurezza e conformità',
+        pageChecks: 'Controlli della pagina',
         about: 'Informazioni su uier',
         draw: 'Disegna sulla pagina',
         collapse: 'Comprimi la barra'

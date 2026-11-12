@@ -1,7 +1,7 @@
 # Reviewing uier's own toolbar
 
 On uier's own pages every part of the toolbar can be commented on like page content: the pill, the
-inbox, the Accessibility and SEO panels, a saved comment's thread and the toolbar's popovers and menus (options, profile, feedback form,
+inbox, the Accessibility and SEO panels, a saved comment's thread and the toolbar's popovers and menus (options, profile, the Page checks menu, feedback form,
 thread options and status, message options, reaction picker, copy menu, device details, screenshot, the inbox's location filter).
 Everywhere else the toolbar stays out of point mode and out of anchors.
 

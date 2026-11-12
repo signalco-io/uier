@@ -21,11 +21,11 @@ export const metadata = publicPageMetadata(KnownPages.PageChecks, { title, descr
 const steps = [
     {
         title: 'Open a page with the toolbar',
-        text: 'Both checks start in the background once the page has loaded and the browser is idle. When they find something to act on, the Accessibility or SEO button in the toolbar gets an amber dot.'
+        text: 'Both checks start in the background once the page has loaded and the browser is idle. When they find something to act on, the Page checks button in the toolbar gets an amber dot.'
     },
     {
         title: 'Open a panel',
-        text: 'Accessibility, SEO and Security and compliance sit after the inbox; on a phone they are in Options. Security and consent checks run when you open their panel or start a check. A summary comes first, then each section with what it found.'
+        text: 'Page checks, next to the inbox, opens Accessibility, SEO or Security and compliance. On a phone they are in Options. Security and consent checks run only when you open their panel or start a check. Each panel starts with a summary, then what each section found.'
     },
     {
         title: 'Comment in one click',

@@ -36,6 +36,11 @@ changes no consent and patches no page APIs.
   by guessing public suffixes. Tag-manager presence alone is not treated as a tracker request.
 - All existing storage has unknown creation/consent timing. Likely analytics/marketing names and
   known-host requests are suggestions **To review**. Consent findings have no green compliance/pass results. The separate security checks can pass individual observations ([security scope](page-checks-security.md)).
+- The Page snapshot and Before consent lists group their names by storage type: **Cookies**, **Local storage**,
+  **Session storage** and **Known tracker requests**, each a heading with its count
+  (`PageCheck.group`, `data-uier-section-group`; [uier #348](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_IkXsGU3Go5mJubYgeQN_t)).
+  Banner markers and notes come first, ungrouped. The tab's own name is the list's only visible title
+  ([uier #351](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_UrMs3PljBvzy0-ixug830)).
 
 ## Before consent
 
@@ -68,7 +73,9 @@ stay in memory. Site-wide page summaries exclude all consent sections. A reviewe
 post a finding with `{ type: 'consent', id: 'consent-…' }`; its text contains names/metadata only,
 within the existing 1,000-character comment limit. Values never enter reports, logs or payloads.
 
-The consent tabs always state their limits: HttpOnly/third-party cookies, frame storage,
+The consent tabs always state their limits, behind the info button at the end of the tab row
+([uier #349](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_5ibUtgLp61NobAIRQh_rk);
+`data-uier-consent-limits` on the Page snapshot's text): HttpOnly/third-party cookies, frame storage,
 IndexedDB, Cache Storage and server-side tracking are not inspected. Earlier consent and activity
 before the toolbar loaded are unknown. It examines this page, never crawls the site, and makes no
 legal-compliance claims.

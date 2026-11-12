@@ -18,9 +18,16 @@ Text rewrites use the same feature list on the selection toolbar and saved draft
 `toolbar-features.spec.ts` covers desktop/mobile controls, restored panels, guests leaving feedback with
 all optional tools hidden, and the absent audit download.
 
-- **Accessibility**, **SEO** and **Security and compliance** are buttons in the pill after Inbox, from 640 px wide (where panels dock
-  beside the page). Narrower, the pill keeps its width and the tools are the first rows of Options; closing a
-  panel gives the focus back to the button that opened it (Options there).
+- **Page checks** is one button in the pill after Inbox, from 640 px wide (where panels dock beside the page;
+  `PageChecksMenu`, [uier #353](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_0Di6IvUzeVGM_svuu5xmT)),
+  so the pill does not grow with every tool. It opens a menu (`role="dialog"` "Page checks", a reviewable part,
+  "page checks menu") of **Accessibility**, **SEO** and **Security and compliance**, the ones this review shows: each item
+  has the tool's icon, its amber dot, the name with its count ("SEO, 2 to look at"), `aria-expanded` and
+  `aria-controls`, as the separate buttons had. Choosing one opens its panel (its Close takes the focus) or closes it;
+  ↑ ↓ move between items and Escape closes only the menu. With a single tool on, that tool keeps its own button.
+  Narrower than 640 px, the pill keeps its width and the tools are the first rows of Options; closing a
+  panel gives the focus back to the button that opened it (Page checks, or Options there). Deep links and restored
+  panels open the panel directly; there are no keyboard shortcuts for the tools.
 - Each panel is a `DockablePanel` (`uier-panel-accessibility`, `uier-panel-seo`, `uier-panel-consent`): ink, docked on its own
   side, Close has the focus when it opens (never Check again beside it; both are small icon buttons, the handle's size,
   [uier #297](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_sHphgXGmcH-cClEsQH-Rs)), Escape closes it. On uier's own pages the panels are
@@ -32,8 +39,8 @@ all optional tools hidden, and the absent audit download.
   swaps their sides (`DockablePanel`, both are announced), so both stay open. Two fit side by side from
   688 px (two 320 px panels with their margins, `panelsSideBySide`); narrower, one is open at a time and
   the newest stays (also when the window narrows). Reattach still closes the checks panels.
-- While its panel is open, a button (Inbox, Accessibility, SEO, Security and compliance) is highlighted: the UI kit's `soft`
-  variant, as About's hint, on the ink pill in both colour schemes. It says so with `aria-expanded` and names
+- While its panel is open, a button (Inbox, or Page checks while any of its panels is, and that panel's menu item) is
+  highlighted: the UI kit's `soft` variant, as About's hint, on the ink pill in both colour schemes. It says so with `aria-expanded` and names
   its panel in `aria-controls` (a disclosure, so no `aria-pressed` beside it). The Options rows on a phone
   have no state: one panel is open there and it covers the page.
 - `components/checks/PageChecks.tsx` owns what the panels keep while closed: the last report of each,
@@ -94,11 +101,13 @@ person's way
   panel tries again, and says so if it fails then), unless the panel is open by then. One that ended
   without a report (too large a page, too slow a step) leaves the check to the panel, and an open panel
   checks the page then. It never clears a highlight.
-- **The indicator.** While a report of this page found something to act on, its button in the pill gets
+- **The indicator.** While a report of this page found something to act on, its item in the Page checks menu gets
   a small amber dot (`AttentionDot`, `--brand-warning`, `data-uier-attention`) and an accessible name that
   says what (`checksButtonLabel`): "Accessibility, 3 issues found" (every element of every rule) and "SEO,
   2 to look at" (the panel's "To look at" count, Core Web Vitals included, so it follows them as the page
-  is used; `ChecksAttentionReporter`). The tooltip stays the panel's name. On a narrow screen the dot and
+  is used; `ChecksAttentionReporter`). The Page checks button gets the dot too, its name adds the sum ("Page checks,
+  5 to look at", `pageChecksLabel`) and `data-uier-attention-panels` lists the tools that found something
+  (`"accessibility seo"`, for tests). The tooltip stays the button's name. On a narrow screen the dot and
   the name are on the panel's Options row. Without a report, or with nothing to act on, neither changes.
 
 ## Layout
@@ -117,8 +126,10 @@ The panels share one layout (`components/checks/ChecksParts.tsx`), so they read 
   show the panel's icon before its name, the same icon as its toolbar button
   ([uier #319](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2F&comment=comment_uF0MmPs535f5qBd3Zf-gc)). Choosing another closes this
   panel and opens that one, whose Close takes the focus (one already open on the other side gets it too). ↑ ↓ move
-  between them, Escape closes only the menu; with a single panel the title is plain text. A reviewable part on uier's
-  own pages ("panel menu").
+  between them, Escape closes only the menu; with a single panel the title is plain text. The menu is as wide as its
+  longest name, each on one line from the start, shortened with an ellipsis on a narrow screen
+  ([uier #350](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_V17jODbToGJuzjwYeA7tB)).
+  A reviewable part on uier's own pages ("panel menu").
 
 - **The summary first** (`ChecksSummary`): a tile for each kind of result with its count, its icon in
   the result's colour only while it counts something (muted at 0). No line says when it was checked
@@ -156,7 +167,13 @@ The panels share one layout (`components/checks/ChecksParts.tsx`), so they read 
   summary comes in, a layout shift its CLS check would count (a shadow root's shift sources are `null`). The open tab
   is kept in module memory per panel: it stays on the next page (a client-side navigation) and when the
   panel opens again; a full page load starts at the first. Tests
-  choose one with `showChecksTab` (`e2e/support/toolbar.ts`).
+  choose one with `showChecksTab` (`e2e/support/toolbar.ts`). A tab may have an `about` text (what its checks can
+  and cannot see): an info button at the end of the tab row (`data-uier-tab-about`, outside the tab list's arrows)
+  shows the open tab's text in a tooltip, also on a tap, and names it in its description, instead of a paragraph
+  in the tab ([uier #349](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_5ibUtgLp61NobAIRQh_rk)).
+  A section whose heading would repeat its tab's name passes `hideTitle` to `ReportSection` (the h3 stays for screen
+  readers, [uier #351](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_UrMs3PljBvzy0-ixug830)),
+  and `groups` puts its checks with a `PageCheck.group` under a heading of their own (with its count), after the rest.
 - **Sections** (`CheckSection`): a heading with its count and a short note on the right, over one
   bordered card whose rows are divided by lines.
 - **Rows** (`CheckItem`): one compact row per check: the state icon, the name (with a small info button but on a warning),

@@ -241,12 +241,16 @@ export function usePanelSectionChecks(panel: ChecksPanelId): PageCheck[] {
  * `CheckItem`). While its first check runs it says so; one that failed says so too (Check again
  * retries); without a report (nothing to show, or no audit asset here) it renders nothing.
  */
-export function ReportSection({ id, title, section, note, children }: {
+export function ReportSection({ id, title, section, note, hideTitle, groups, children }: {
     id: string;
     title: string;
     section: SectionState;
     /** Instead of the report's own note */
     note?: ReactNode;
+    /** The heading for screen readers only (`CheckSection`), where its tab shows the same name */
+    hideTitle?: boolean;
+    /** Checks of these groups (`PageCheck.group`) in a section of their own after this one, each under its title, in this order */
+    groups?: Partial<Record<NonNullable<PageCheck['group']>, string>>;
     children?: ReactNode;
 }) {
     const { status, report } = section;
@@ -254,7 +258,7 @@ export function ReportSection({ id, title, section, note, children }: {
     if (!report) {
         if (status !== 'checking' && status !== 'failed') return null;
         return (
-            <CheckSection title={title} data-uier-section={id} data-uier-section-status={status} aria-busy={status === 'checking' || undefined}>
+            <CheckSection title={title} hideTitle={hideTitle} data-uier-section={id} data-uier-section-status={status} aria-busy={status === 'checking' || undefined}>
                 {/* Not a live region: the panel has one status, and several sections start at once */}
                 <li className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
                     {status === 'checking' && <LoaderSpinner size={14} aria-hidden="true" className="motion-safe:animate-spin" />}
@@ -263,10 +267,28 @@ export function ReportSection({ id, title, section, note, children }: {
             </CheckSection>
         );
     }
-    return (
-        <CheckSection title={title} count={report.count} note={note ?? report.note} data-uier-section={id} data-uier-section-status={status}>
+    if (!groups) return (
+        <CheckSection title={title} hideTitle={hideTitle} count={report.count} note={note ?? report.note} data-uier-section={id} data-uier-section-status={status}>
             {report.checks.map(check => <CheckItem key={check.id} check={check} />)}
             {children}
         </CheckSection>
+    );
+    // One element is the section (its id and status), its groups' cards in it
+    const grouped = (check: PageCheck) => Boolean(check.group && groups[check.group]);
+    return (
+        <div data-uier-section={id} data-uier-section-status={status} className="flex min-w-0 flex-col gap-6">
+            <CheckSection title={title} hideTitle={hideTitle} note={note ?? report.note}>
+                {report.checks.filter(check => !grouped(check)).map(check => <CheckItem key={check.id} check={check} />)}
+                {children}
+            </CheckSection>
+            {(Object.entries(groups) as [NonNullable<PageCheck['group']>, string][]).map(([group, groupTitle]) => {
+                const checks = report.checks.filter(check => check.group === group);
+                return checks.length > 0 && (
+                    <CheckSection key={group} title={groupTitle} count={checks.length} data-uier-section-group={group}>
+                        {checks.map(check => <CheckItem key={check.id} check={check} />)}
+                    </CheckSection>
+                );
+            })}
+        </div>
     );
 }

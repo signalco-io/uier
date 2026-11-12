@@ -2,7 +2,7 @@ import { expect, test, type Page, type Request } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, showChecksTab, toolbar } from './support/toolbar';
+import { animationsFinished, showChecksTab, toolbar, openPageCheck } from './support/toolbar';
 
 // The SEO panel's AI search section (packages/toolbar/docs/page-checks-ai-search.md) on a project's
 // site on another origin with the install guide's CSP: the page's main content as Markdown, what the
@@ -37,7 +37,7 @@ async function openSeoPanel(page: Page, label: string, query = '') {
     const project = await createProject(page, { urls: [origin()] });
     await page.goto(`/app/review/${project}?url=${encodeURIComponent(`${origin()}/${project}/guide${query}`)}`);
     await expect(toolbar(page)).toBeVisible();
-    await toolbar(page).getByRole('button', { name: /^SEO/ }).click();
+    await openPageCheck(page, /^SEO/);
     const panel = page.getByRole('complementary', { name: 'SEO' });
     await expect(panel.locator('[data-uier-section="aiSearch"]')).toHaveAttribute('data-uier-section-status', 'done', { timeout: 20_000 });
     await showChecksTab(panel, 'search');
@@ -154,7 +154,7 @@ test('the AI search section shows the main content as Markdown, what it leaves o
     // Kept while the panel is closed, without asking again
     await page.keyboard.press('Escape');
     await expect(panel).toBeHidden();
-    await toolbar(page).getByRole('button', { name: /^SEO/ }).click();
+    await openPageCheck(page, /^SEO/);
     await expect(panel.locator('[data-uier-ai-suggestions]').getByRole('list', { name: 'Suggested titles' }).getByRole('listitem').first()).toContainText(/sent|posted/);
     expect(suggestionRequests).toHaveLength(2);
 });

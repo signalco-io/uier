@@ -126,7 +126,7 @@ function storageChecks(context: SectionContext, data: Inventory, observed = fals
         const issue = pageIssue(context.path, { type: 'consent', id }, undefined, `${name}: ${reason}`,
             `${t.title}: ${reason}\n\`${name}\`\n${value}\n${t.reviewOnly}`.slice(0, 1000));
         issue.review = true;
-        return pageCheck(id, name, observed || item.category === 'analytics' || item.category === 'marketing' ? 'warn' : 'none', reason, { value, issues: [issue] });
+        return pageCheck(id, name, observed || item.category === 'analytics' || item.category === 'marketing' ? 'warn' : 'none', reason, { value, issues: [issue], group: item.kind });
     });
 }
 
@@ -143,7 +143,7 @@ function trackerChecks(context: SectionContext, hosts: string[], observed = fals
         const issue = pageIssue(context.path, { type: 'consent', id }, undefined, `${host}: ${reason}`,
             `${t.title}: ${reason}\n\`${host}\` · ${party}\n${t.reviewOnly}`);
         issue.review = true;
-        return pageCheck(id, host, 'warn', reason, { value: party, issues: [issue] });
+        return pageCheck(id, host, 'warn', reason, { value: party, issues: [issue], group: 'request' });
     });
 }
 

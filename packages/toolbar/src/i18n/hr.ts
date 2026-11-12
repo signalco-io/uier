@@ -8,6 +8,8 @@ const p = (count: number, one: string, few: string, other: string) => pluralHr(c
 
 export const hr: Messages = {
     consentPanel: {
+        about: "O ovoj kartici",
+        groups: { cookie: "Kolačići", local: "Lokalna pohrana", session: "Pohrana sesije", request: "Zahtjevi poznatim alatima za praćenje" },
         security: "Sigurnost stranice",
         headers: "Zaglavlja odgovora",
         checkHeaders: "Provjerite zaglavlja odgovora",
@@ -66,6 +68,7 @@ export const hr: Messages = {
         accessibility: 'Pristupačnost',
         seo: 'SEO',
         consent: 'Sigurnost i usklađenost',
+        pageChecks: 'Provjere stranice',
         about: 'O uieru',
         draw: 'Crtaj po stranici',
         collapse: 'Sažmi traku'

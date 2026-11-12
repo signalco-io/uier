@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page, type Request } from '@playwright
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, showChecksTab, toolbar } from './support/toolbar';
+import { animationsFinished, showChecksTab, toolbar, openPageCheck } from './support/toolbar';
 
 // The Accessibility panel's Keyboard and Screen reader sections (packages/toolbar/docs/page-checks-keyboard.md)
 // on a project's site on another origin (`fixture-keyboard`, e2e/support/fixtures/keyboard.ts): the tab
@@ -32,7 +32,7 @@ async function openPanel(page: Page, label: string) {
     const project = await createProject(page, { urls: [fixtureOrigin()] });
     await page.goto(`/app/review/${project}?url=${encodeURIComponent(`${fixtureOrigin()}/${project}/keyboard`)}`);
     await expect(toolbar(page)).toBeVisible();
-    await toolbar(page).getByRole('button', { name: /^Accessibility/ }).click();
+    await openPageCheck(page, /^Accessibility/);
     const panel = page.getByRole('complementary', { name: 'Accessibility' });
     const keyboard = panel.locator('[data-uier-section="keyboard"]');
     await expect(keyboard).toHaveAttribute('data-uier-section-status', 'done', { timeout: 20_000 });
@@ -137,9 +137,34 @@ test('the Keyboard section reports the tab order and draws it on the page while 
     await panel.getByRole('button', { name: 'Close Accessibility panel' }).click();
     await expect(panel).toBeHidden();
     await expect(layer).toHaveCount(0);
-    await toolbar(page).getByRole('button', { name: /^Accessibility/ }).click();
+    await openPageCheck(page, /^Accessibility/);
     await expect(tools.getByRole('button', { name: 'Show tab order' })).toHaveAttribute('aria-pressed', 'false');
     await expect(layer).toHaveCount(0);
+});
+
+test('the toolbar\'s own menu focus guards are left out of the hidden tab stops, a page\'s own guard is reported', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.use.isMobile === true, 'Desktop layout; the menu is in Options on a phone');
+    test.setTimeout(90_000);
+    // Opened from the Page checks menu: its guards are still on the body while it closes, and are not counted
+    const { panel, keyboard } = await openPanel(page, 'keyboard-guards');
+    const hidden = check(keyboard, 'tab-hidden-stop');
+    await expect(hidden.getByRole('listitem')).toHaveCount(1);
+    await expect(hidden.getByRole('listitem')).toContainText('a#ghost-link.ghost');
+
+    // A guard the page's own Radix left behind (a force-mounted, closed popover keeps one) takes the focus: reported
+    await page.evaluate(() => {
+        const guard = document.createElement('span');
+        guard.id = 'page-guard';
+        guard.setAttribute('data-radix-focus-guard', '');
+        guard.tabIndex = 0;
+        guard.style.cssText = 'outline: none; opacity: 0; position: fixed; pointer-events: none;';
+        document.body.prepend(guard);
+    });
+    await panel.getByRole('button', { name: 'Check again' }).click();
+    await expect(keyboard).toHaveAttribute('data-uier-section-status', 'done', { timeout: 20_000 });
+    await showChecksTab(panel, 'keyboard');
+    await expect(hidden.getByRole('listitem')).toHaveCount(2);
+    await expect(hidden.getByRole('listitem').filter({ hasText: 'span#page-guard' })).toHaveCount(1);
 });
 
 /** The focus check's results: the button without a focus style, and the stop that stays hidden; never the ring, the wrapper or the skip link */

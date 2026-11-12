@@ -3,6 +3,7 @@ import { pageCheck, pageIssue, type SectionContext, type SectionReport } from '.
 import { words } from './locale';
 import { redactName } from './redactName';
 import { headerRequestAddress, securityHeaderRules, securityAddress } from './securityRules';
+import { pristineFetch } from './pristineFetch';
 
 const elementLimit = 1000;
 const findingLimit = 100;
@@ -107,8 +108,11 @@ export async function checkSecurityHeaders(context: SectionContext): Promise<Sec
     context.signal.throwIfAborted();
     const unavailable = (reason: string) => ({ checks: Object.entries(t.headers).map(([id, label]) => pageCheck(`security-header-${id}`, label, 'none', reason)) });
     if (!url) return unavailable(t.requestSkipped);
+    // Not the page's `fetch`, which a page script may have wrapped to add credentials or headers
+    const pristine = pristineFetch();
+    if (!pristine) return unavailable(t.requestUnavailable);
     try {
-        const response = await fetch(url.href, { method: 'GET', mode: 'same-origin', credentials: 'omit', redirect: 'manual', cache: 'no-store',
+        const response = await pristine.fetch(url.href, { method: 'GET', mode: 'same-origin', credentials: 'omit', redirect: 'manual', cache: 'no-store',
             referrerPolicy: 'no-referrer', headers: { Accept: 'text/html,application/xhtml+xml' }, signal: AbortSignal.any([context.signal, AbortSignal.timeout(5000)]) });
         void response.body?.cancel().catch(() => undefined);
         context.signal.throwIfAborted();
@@ -121,4 +125,5 @@ export async function checkSecurityHeaders(context: SectionContext): Promise<Sec
                 { issues: rule.state === 'warn' ? [issue(context, id, `${reason} ${t.anonymous}`)] : [] });
         }) };
     } catch { context.signal.throwIfAborted(); return unavailable(t.requestUnavailable); }
+    finally { pristine.release(); }
 }

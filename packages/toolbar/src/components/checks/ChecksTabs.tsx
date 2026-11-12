@@ -1,5 +1,8 @@
 import { useId, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@signalco/ui-primitives/Button';
+import { IconButton } from '@signalco/ui-primitives/IconButton';
+import { Info } from '@signalco/ui-icons';
+import { useIconTooltip } from '../IconTooltip';
 import { cx } from '@signalco/ui-primitives/cx';
 import { useRovingFocus } from '../../focusKeys';
 import type { ChecksPanelId } from './PageChecks';
@@ -12,7 +15,23 @@ export type ChecksTab = {
     /** What its sections found to act on: a dot on the tab, and the count in its name */
     attention: number;
     content: ReactNode;
+    /** What the tab's checks can and cannot see: behind an info button at the end of the tab row, not a paragraph in the tab */
+    about?: { label: string; text: string; /** `data-uier-<marker>` on the text, for tests */ marker?: string };
 };
+
+/** The info button at the end of the tab row: the chosen tab's limits in a tooltip (also on a tap), and its description */
+function TabAbout({ about }: { about: NonNullable<ChecksTab['about']> }) {
+    const textId = useId();
+    const { triggerProps, tooltip } = useIconTooltip(about.text, undefined, { tap: true, prose: true });
+    return <>
+        <IconButton size="xs" variant="plain" aria-label={about.label} aria-describedby={textId} data-uier-tab-about=""
+            className="size-6 shrink-0 text-muted-foreground hover:text-foreground pointer-coarse:size-11" {...triggerProps}>
+            <Info size={14} aria-hidden="true" />
+        </IconButton>
+        {tooltip}
+        <span id={textId} hidden {...about.marker ? { [`data-uier-${about.marker}`]: '' } : {}}>{about.text}</span>
+    </>;
+}
 
 /**
  * Each panel's last tab, in module memory: a panel that opens again, or stays open on the next page
@@ -56,7 +75,8 @@ export function ChecksTabs({ panel, label, tabs, filtered }: {
             // Its line runs across the whole panel (out of its 16 px padding), between the panel's header and its
             // content, and its sections sit closer to it than the panel's other parts are to each other. It sits close
             // under the summary too: the tabs' own height already spaces their names from the tiles
-            <div ref={ref} role="tablist" aria-label={label} data-uier-tabs={panel} className="-mx-4 -mb-4 -mt-2 flex flex-wrap gap-x-3 border-b px-4"
+            <div className="-mx-4 -mb-4 -mt-2 flex items-center gap-2 border-b px-4">
+            <div ref={ref} role="tablist" aria-label={label} data-uier-tabs={panel} className="flex min-w-0 flex-1 flex-wrap gap-x-3"
                 onFocus={roving.onFocus} onKeyDown={roving.onKeyDown}>
                 {tabs.map(tab => {
                     const active = tab.id === current;
@@ -72,6 +92,9 @@ export function ChecksTabs({ panel, label, tabs, filtered }: {
                         </Button>
                     );
                 })}
+            </div>
+            {/* Outside the tab list (its arrows move between tabs only); the tab's own Tab stop after it */}
+            {(() => { const about = tabs.find(tab => tab.id === current)?.about; return about && <TabAbout key={current} about={about} />; })()}
             </div>
         )}
         {tabs.map(tab => (

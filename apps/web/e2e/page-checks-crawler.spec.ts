@@ -3,7 +3,7 @@ import { expectNoAxeViolations } from './accessibility';
 import { createProject, signIn, uniqueEmail } from './support/app';
 import { auditAssetPath } from './support/auditRuns';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, showChecksTab, toolbar } from './support/toolbar';
+import { animationsFinished, openPageCheck, pageChecksButton, showChecksTab, toolbar } from './support/toolbar';
 
 // The SEO panel's Crawlers section (packages/toolbar/docs/page-checks-crawler.md) on a project's site
 // on another origin with the install guide's CSP (`fixture-crawler`, e2e/support/fixtures/crawler.ts):
@@ -45,7 +45,7 @@ async function memberReview(page: Page, label: string, pagePath: string) {
 
 /** Opens the SEO panel and waits for its Crawlers section's report */
 async function openCrawlers(page: Page) {
-    await toolbar(page).getByRole('button', { name: /^SEO/ }).click();
+    await openPageCheck(page, /^SEO/);
     const panel = page.getByRole('complementary', { name: 'SEO' });
     const section = panel.locator('[data-uier-section="crawler"]');
     await expect(section).toHaveAttribute('data-uier-section-status', 'done', { timeout: 20_000 });
@@ -62,7 +62,7 @@ test('the Crawlers section requests nothing before the SEO panel opens, then rep
     const project = await memberReview(page, 'crawler-section', 'listed');
 
     // The background checks ran (the SEO button says what they found, the audit asset with the on-demand checks loaded) without a request of the section
-    await expect(toolbar(page).getByRole('button', { name: /^SEO/ })).toHaveAccessibleName(/^SEO, \d+ to look at$/, { timeout: 20_000 });
+    await expect(pageChecksButton(page)).toHaveAttribute('data-uier-attention-panels', /\bseo\b/, { timeout: 20_000 });
     await auditLoaded;
     await page.waitForTimeout(1000);
     expect(requests.total()).toBe(0);
@@ -113,7 +113,7 @@ test('the Crawlers section requests nothing before the SEO panel opens, then rep
     // Kept for the page: opening the panel again requests nothing
     await page.keyboard.press('Escape');
     await expect(panel).toBeHidden();
-    await toolbar(page).getByRole('button', { name: /^SEO/ }).click();
+    await openPageCheck(page, /^SEO/);
     await expect(check('crawl-sitemap')).toHaveAttribute('data-uier-check-state', 'pass');
     expect(requests.total()).toBe(5);
 
