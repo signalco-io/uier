@@ -153,9 +153,14 @@ async function getCommentScopes(query: string) {
     return lists.flatMap(comments => Array.isArray(comments) ? comments : []);
 }
 
-async function getComments(path: string, client: QueryClient, environment?: string) {
-    const comments = await getCommentScopes(`path=${encodeURIComponent(path)}${environment ? `&environment=${encodeURIComponent(environment)}` : ''}`);
-    return withPending(reconcileReads(client, Array.isArray(comments) ? comments : []), comment => comment.path === path);
+const pageQuery = (path: string, environment?: string) =>
+    `path=${encodeURIComponent(path)}${environment ? `&environment=${encodeURIComponent(environment)}` : ''}`;
+
+/** A page's comments; a project's ordinary ones in pages (`getPagedList`) */
+async function getComments(path: string, client: QueryClient, queryKey: readonly unknown[], environment?: string) {
+    const query = pageQuery(path, environment);
+    const comments = pagedLists() ? await getPagedList(queryKey, query) : await getCommentScopes(query);
+    return withPending(reconcileReads(client, comments), comment => comment.path === path);
 }
 
 /** Project settings suggest page state from these names (never values), while the page is still the comment's view */
@@ -230,61 +235,69 @@ async function editMessage({ commentId, itemId, text, expectedText, mentions }: 
 }
 
 /**
- * The inbox loads the site's ordinary (not archived) comments in pages of this many, newest first, as it scrolls
- * (the review API's `?before=`, `apps/web/src/lib/comments/listPage.ts`). The first is as long as the list was before
- * paging, so the counts of pages and sections are no shorter. Archived ones, the unread list and the public comments
- * API (no project) are one page.
+ * A project's lists of ordinary (not archived) comments load in pages of this many, newest first: the first when the
+ * list loads, the next ones as the inbox scrolls. The review API answers `?limit=` with `{ comments, next }`, `next`
+ * the cursor of the following page or `null` at the end; it is also set when the response was cut at its size limit,
+ * so a short page is never taken as the end (`apps/web/src/lib/review/readRoutes.ts`). Archived ones, the unread list
+ * and the public comments API (no project) are one page.
  */
-export const siteListPageSize = commentsListMaxLength;
+export const listPageSize = commentsListMaxLength;
 
-/** Whether the site's list loads more as the inbox scrolls */
-const pagedSiteList = (unreadOnly: boolean) => Boolean(toolbarConfig.project) && !unreadOnly;
+/** Whether a list loads in pages */
+const pagedLists = () => Boolean(toolbarConfig.project);
 
-/** The ordinary comments of a list loaded so far: no archived ones and none still on their way */
-const loadedOrdinary = (comments: CommentItem[] | undefined) => comments?.filter(comment => !comment.archivedAt && !comment.pending) ?? [];
+/** A paged list's continuation (by its query key): the next page's cursor (`null`: the end) and how many pages it has */
+type ListPaging = { next: string | null; pages: number };
+const listPaging = new Map<string, ListPaging>();
+const pagingKey = (queryKey: readonly unknown[]) => JSON.stringify(queryKey);
 
-/** The oldest of them, whose `<createdAt>|<id>` the next page starts after (as the API orders them) */
-function siteCursor(comments: CommentItem[]) {
-    const oldest = comments.reduce<CommentItem | undefined>((last, comment) => !last
-        || (comment.createdAt ?? '').localeCompare(last.createdAt ?? '') < 0
-        || (comment.createdAt === last.createdAt && comment.id < last.id) ? comment : last, undefined);
-    return oldest && `&before=${encodeURIComponent(`${oldest.createdAt ?? ''}|${oldest.id}`)}`;
+type ListPage = { comments: CommentItem[]; next: string | null };
+
+/** One page of a list's ordinary comments after the cursor (the first without one) */
+async function getListPage(query: string, before: string | null): Promise<ListPage> {
+    const page = await apiRequest<ListPage | CommentItem[]>(`${commentsApiUrl}?${query}&archive=exclude&limit=${listPageSize}${before ? `&before=${encodeURIComponent(before)}` : ''}`);
+    // An API that does not page answers with the list itself: its only page
+    if (Array.isArray(page)) return { comments: page, next: null };
+    const next = typeof page?.next === 'string' && page.next !== before ? page.next : null;
+    return { comments: Array.isArray(page?.comments) ? page.comments : [], next };
+}
+
+/**
+ * A paged list: as many pages of ordinary comments as it had (a refresh keeps what the reader scrolled to), each after
+ * the one before, and the archived ones
+ */
+async function getPagedList(queryKey: readonly unknown[], query: string) {
+    const key = pagingKey(queryKey);
+    const loadOrdinary = async () => {
+        const wanted = listPaging.get(key)?.pages ?? 1;
+        const comments: CommentItem[] = [];
+        let next: string | null = null;
+        let pages = 0;
+        do {
+            const page = await getListPage(query, next);
+            const known = new Set(comments.map(comment => comment.id));
+            comments.push(...page.comments.filter(comment => !known.has(comment.id)));
+            next = page.next;
+            pages++;
+        } while (next && pages < wanted);
+        return { comments, paging: { next, pages } };
+    };
+    const [ordinary, archived] = await Promise.all([loadOrdinary(), apiRequest<CommentItem[]>(`${commentsApiUrl}?${query}&archive=only`)]);
+    listPaging.set(key, ordinary.paging);
+    return [...ordinary.comments, ...(Array.isArray(archived) ? archived : [])];
 }
 
 const siteQuery = (unreadOnly: boolean, environment?: string) =>
     `scope=site${unreadOnly ? '&unread=true' : ''}${environment ? `&environment=${encodeURIComponent(environment)}` : ''}`;
 
-/** One page of the site's ordinary comments after `cursor` (the first without one) */
-async function getSitePage(query: string, cursor = '') {
-    const page = await apiRequest<CommentItem[]>(`${commentsApiUrl}?${query}&archive=exclude${cursor}`);
-    return Array.isArray(page) ? page : [];
-}
-
-/**
- * The site's comments. A paged list loads as many pages again as it had (`loaded`), so a refresh keeps what the
- * reader scrolled to, each page after the last one it got (comments added meanwhile never repeat or skip one)
- */
-async function getSiteComments(client: QueryClient, unreadOnly: boolean, environment?: string, loaded = 0) {
+/** The site's comments; a project's ordinary ones in pages (the unread list is one) */
+async function getSiteComments(client: QueryClient, queryKey: readonly unknown[], unreadOnly: boolean, environment?: string) {
     const query = siteQuery(unreadOnly, environment);
-    if (!pagedSiteList(unreadOnly)) {
+    if (!pagedLists() || unreadOnly) {
         const comments = await getCommentScopes(query);
-        return withPending(reconcileReads(client, Array.isArray(comments) ? comments : []), () => !unreadOnly);
+        return withPending(reconcileReads(client, comments), () => !unreadOnly);
     }
-    const loadOrdinary = async () => {
-        const ordinary: CommentItem[] = [];
-        let more: boolean;
-        do {
-            const page = await getSitePage(query, ordinary.length ? siteCursor(ordinary) : '');
-            const known = new Set(ordinary.map(comment => comment.id));
-            const added = page.filter(comment => !known.has(comment.id));
-            ordinary.push(...added);
-            // A short page is the last; one with nothing new (an API that does not page) too
-            more = page.length >= siteListPageSize && added.length > 0;
-        } while (more && ordinary.length < loaded);
-        return ordinary;
-    };
-    const [ordinary, archived] = await Promise.all([loadOrdinary(), apiRequest<CommentItem[]>(`${commentsApiUrl}?${query}&archive=only`)]);
-    return withPending(reconcileReads(client, [...ordinary, ...(Array.isArray(archived) ? archived : [])]), () => true);
+    return withPending(reconcileReads(client, await getPagedList(queryKey, query)), () => true);
 }
 
 export function commentsQueryKey(path: string, environment?: string, reviewer?: string) {
@@ -322,8 +335,8 @@ export function useSiteComments(enabled: boolean, unreadOnly = false): UseQueryR
     const queryKey = useSiteQueryKey(unreadOnly);
     return useQuery({
         queryKey,
-        // A refresh loads as many as the reader scrolled to
-        queryFn: () => authorizedList(client, () => getSiteComments(client, unreadOnly, environment, loadedOrdinary(client.getQueryData<CommentItem[]>(queryKey)).length)),
+        // A refresh loads as many pages as the reader scrolled to
+        queryFn: () => authorizedList(client, () => getSiteComments(client, queryKey, unreadOnly, environment)),
         refetchOnMount: 'always',
         refetchOnWindowFocus: false,
         refetchOnReconnect: false,
@@ -332,59 +345,71 @@ export function useSiteComments(enabled: boolean, unreadOnly = false): UseQueryR
     });
 }
 
-export type MoreSiteComments = {
-    /** Whether the list loads in pages (a project's site list, not the unread one) */
+export type MoreComments = {
+    /** Whether the list loads in pages (a project's lists, not the unread one) */
     paged: boolean;
-    /** Whether older comments may be there to load */
+    /** Whether the API has a next page (its `next` cursor) */
     hasMore: boolean;
     loading: boolean;
     error: Error | null;
-    /** Loads the next page, after the oldest loaded comment; nothing while one is loading. A refresh that ends after it
-     * replaces the list with as many pages as it started with, and the list asks again */
+    /** Loads the next page; nothing while one is loading. A page that arrives after a refresh of its list is dropped
+     * (the refresh ends where it ends), and the list asks again */
     loadMore: () => void;
 };
 
+/** A list that has no more pages */
+export const noMoreComments: MoreComments = { paged: false, hasMore: false, loading: false, error: null, loadMore: () => {} };
+
 /**
- * The next pages of the site's list (`useSiteComments`), as the inbox scrolls: each is added to the cached list, so
- * every change to a comment (`updateAllCachedComments`), the read cursors and a refresh apply to it as to the first
+ * The next pages of a paged list (`getPagedList`), as the inbox scrolls: each is added to the cached list, so every
+ * change to a comment (`updateAllCachedComments`), the read cursors and a refresh apply to it as to the first.
+ * `query` undefined: a list that is one page.
  */
-export function useMoreSiteComments(list: UseQueryResult<CommentItem[], Error>, unreadOnly = false): MoreSiteComments {
-    const { environment } = useProjectViewer();
+function useMoreComments(list: UseQueryResult<CommentItem[], Error>, queryKey: readonly unknown[], query: string | undefined): MoreComments {
     const client = useQueryClient();
-    const queryKey = useSiteQueryKey(unreadOnly);
-    const key = JSON.stringify(queryKey);
-    // Per list (the environment and reviewer are in its key): the end it reached, and the page on its way
-    const [state, setState] = useState<{ key: string; end: boolean; loading: boolean; error: Error | null }>({ key, end: false, loading: false, error: null });
-    const current = state.key === key ? state : { key, end: false, loading: false, error: null };
-    const ordinary = loadedOrdinary(list.data).length;
-    // A first page shorter than a page is the whole list
-    const hasMore = pagedSiteList(unreadOnly) && list.isSuccess && !current.end && ordinary >= siteListPageSize;
+    const key = pagingKey(queryKey);
+    // Per list (the environment and reviewer are in its key): the page on its way
+    const [state, setState] = useState<{ key: string; loading: boolean; error: Error | null }>({ key, loading: false, error: null });
+    const current = state.key === key ? state : { key, loading: false, error: null };
+    const paging = query === undefined ? undefined : listPaging.get(key);
+    const hasMore = list.isSuccess && Boolean(paging?.next);
     const loadMore = () => {
-        if (!hasMore || current.loading) return;
+        if (!hasMore || current.loading || !paging?.next || query === undefined) return;
         const revision = currentReviewerRevision();
-        const cursor = siteCursor(loadedOrdinary(client.getQueryData<CommentItem[]>(queryKey)));
-        setState({ ...current, loading: true, error: null });
+        setState({ key, loading: true, error: null });
         // Lost access empties the lists, as a refresh does
-        void authorizedList(client, () => getSitePage(siteQuery(unreadOnly, environment), cursor)).then(page => {
-            // Another reviewer since (signed in or out): their list is not this one
-            if (revision !== currentReviewerRevision()) {
-                setState(previous => previous.key === key ? { ...previous, loading: false } : previous);
-                return;
+        void authorizedList(client, () => getListPage(query, paging.next)).then(page => {
+            // Another reviewer since (signed in or out), or a refresh of the list: this page does not continue it
+            if (revision === currentReviewerRevision() && listPaging.get(key) === paging) {
+                const known = new Set(client.getQueryData<CommentItem[]>(queryKey)?.map(comment => comment.id));
+                const added = reconcileReads(client, page.comments.filter(comment => !known.has(comment.id))).map(applyPending);
+                listPaging.set(key, { next: page.next, pages: paging.pages + 1 });
+                client.setQueryData<CommentItem[]>(queryKey, comments => {
+                    if (!comments) return comments;
+                    const listed = new Set(comments.map(comment => comment.id));
+                    return [...comments, ...added.filter(comment => !listed.has(comment.id))];
+                });
             }
-            const known = new Set(client.getQueryData<CommentItem[]>(queryKey)?.map(comment => comment.id));
-            const added = reconcileReads(client, page.filter(comment => !known.has(comment.id))).map(applyPending);
-            client.setQueryData<CommentItem[]>(queryKey, comments => {
-                if (!comments) return comments;
-                const listed = new Set(comments.map(comment => comment.id));
-                return [...comments, ...added.filter(comment => !listed.has(comment.id))];
-            });
-            // A short page is the last; one with nothing new (an API that does not page) too
-            setState(previous => previous.key === key ? { key, end: page.length < siteListPageSize || !added.length, loading: false, error: null } : previous);
+            setState(previous => previous.key === key ? { key, loading: false, error: null } : previous);
         }, (error: unknown) => {
-            setState(previous => previous.key === key ? { ...previous, loading: false, error: error instanceof Error ? error : new Error(String(error)) } : previous);
+            setState(previous => previous.key === key ? { key, loading: false, error: error instanceof Error ? error : new Error(String(error)) } : previous);
         });
     };
-    return { paged: pagedSiteList(unreadOnly), hasMore, loading: current.loading, error: current.error, loadMore };
+    return { paged: query !== undefined, hasMore, loading: current.loading, error: current.error, loadMore };
+}
+
+/** The next pages of the site's list (`useSiteComments`); the unread list is one page */
+export function useMoreSiteComments(list: UseQueryResult<CommentItem[], Error>, unreadOnly = false): MoreComments {
+    const { environment } = useProjectViewer();
+    const queryKey = useSiteQueryKey(unreadOnly);
+    return useMoreComments(list, queryKey, pagedLists() && !unreadOnly ? siteQuery(unreadOnly, environment) : undefined);
+}
+
+/** The next pages of this page's list (`useComments`) */
+export function useMorePageComments(list: UseQueryResult<CommentItem[], Error>): MoreComments {
+    const { path } = useContext(CommentsBootstrapperContext);
+    const { currentEnvironment, draftScope } = useProjectViewer();
+    return useMoreComments(list, commentsQueryKey(path, currentEnvironment, draftScope), pagedLists() ? pageQuery(path, currentEnvironment) : undefined);
 }
 
 export function useComments(refreshOnMount = false): {
@@ -411,7 +436,7 @@ export function useComments(refreshOnMount = false): {
 
     const query = useQuery({
         queryKey,
-        queryFn: () => authorizedList(client, () => getComments(path, client, currentEnvironment)),
+        queryFn: () => authorizedList(client, () => getComments(path, client, queryKey, currentEnvironment)),
         // Only the review layer refreshes on navigation. New pin/header observers reuse it.
         refetchOnMount: refreshOnMount ? 'always' : false,
         refetchOnWindowFocus: false,
@@ -630,6 +655,7 @@ async function authorizedList<T>(client: QueryClient, load: () => Promise<T>) {
         if (error instanceof CommentsApiError && [401, 403, 404].includes(error.status)) {
             // React Query retains stale data on error. Purge it before showing an access notice.
             client.setQueriesData({ queryKey: commentsQueryKeyPrefix }, []);
+            listPaging.clear();
             client.removeQueries({ queryKey: ['screenshot'] });
             client.setQueriesData({ queryKey: activityQueryKey }, { unread: 0, inProgress: 0, ready: 0, open: 0, done: 0, total: 0 });
             if (toolbarConfig.project) void client.invalidateQueries({ queryKey: projectViewerQueryKey });

@@ -39,7 +39,9 @@ test('a long inbox renders only the cards in view and loads older pages as it sc
         const before = params.get('before');
         cursors.push(before);
         const start = before ? threads.findIndex(thread => `${thread.createdAt}|${thread.id}` === before) + 1 : 0;
-        await route.fulfill({ json: threads.slice(start, start + Number(params.get('limit') ?? 200)) });
+        const page = threads.slice(start, start + Number(params.get('limit') ?? 200));
+        const last = page.at(-1);
+        await route.fulfill({ json: { comments: page, next: start + page.length < threads.length && last ? `${last.createdAt}|${last.id}` : null } });
     });
     await page.route(`**/api/review/${projectId}/comments/activity**`, route => route.fulfill({ json: { unread: 0, open: total + 1, inProgress: 0, ready: 0, done: 0, total: total + 1, archived: 0 } }));
 
@@ -73,3 +75,63 @@ test('a long inbox renders only the cards in view and loads older pages as it sc
     await expect(inbox.locator('article:focus')).toHaveAttribute('aria-posinset', String(total + 1));
     await expect(inbox.locator('article:focus')).toBeInViewport();
 });
+
+test('this page\'s threads past its list\'s first page are listed in All pages and load as This page scrolls', async ({ page }) => {
+    await signIn(page, uniqueEmail('inbox-paging-page'));
+    const projectId = await createProject(page, { urls: [site.origin()] });
+    const path = `/${projectId}/pricing`;
+    await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${site.origin()}${path}`)}`);
+    await page.getByRole('button', { name: 'Add comment', exact: true }).click();
+    const heading = (await page.getByRole('heading', { level: 1 }).boundingBox())!;
+    await page.mouse.click(heading.x + 20, heading.y + heading.height / 2);
+    const composer = page.getByRole('textbox', { name: 'Comment', exact: true });
+    await composer.fill('The template thread');
+    const posted = page.waitForResponse(response => response.request().method() === 'POST' && /\/api\/review\/[^/]+\/comments$/.test(new URL(response.url()).pathname));
+    await composer.press('Enter');
+    const template = await (await posted).json() as CommentItem;
+    await expect(commentBubble(page, 1, 1)).toBeVisible();
+
+    // 250 threads on this page: more than the first page of either list. Both lists page them as the API does.
+    const total = 250;
+    const threads = Array.from({ length: total }, (_, index) => ({ ...template, id: `comment_here_${String(index).padStart(3, '0')}`, number: index + 2,
+        position: { type: 'page' }, kind: 'feedback', createdAt: new Date(Date.UTC(2026, 9, 1) - index * 60_000).toISOString(),
+        thread: { items: [{ ...template.thread.items[0]!, id: `item_${index}`, text: `This page thread ${index}` }] } }));
+    const cursors: Record<'page' | 'site', (string | null)[]> = { page: [], site: [] };
+    await page.route(`**/api/review/${projectId}/comments?**`, async route => {
+        const params = new URL(route.request().url()).searchParams;
+        if (params.get('archive') === 'only') return await route.fulfill({ json: [] });
+        const list = params.get('scope') === 'site' ? 'site' : 'page';
+        const before = params.get('before');
+        cursors[list].push(before);
+        const start = before ? threads.findIndex(thread => `${thread.createdAt}|${thread.id}` === before) + 1 : 0;
+        const slice = threads.slice(start, start + Number(params.get('limit') ?? 200));
+        const last = slice.at(-1);
+        await route.fulfill({ json: { comments: slice, next: start + slice.length < threads.length && last ? `${last.createdAt}|${last.id}` : null } });
+    });
+    await page.route(`**/api/review/${projectId}/comments/activity**`, route => route.fulfill({ json: { unread: 0, open: total, inProgress: 0, ready: 0, done: 0, total, archived: 0 } }));
+    await page.reload();
+
+    await page.getByRole('button', { name: /^Inbox/ }).click();
+    const inbox = page.getByRole('complementary', { name: 'Comments' });
+    const scroller = inbox.locator('[data-uier-inbox-scroll]');
+    const scrollToEnd = async () => await expect.poll(async () => {
+        await scroller.evaluate(element => { element.scrollTop = element.scrollHeight; });
+        return await inbox.getByRole('article').first().getAttribute('aria-setsize');
+    }, { timeout: 15_000 }).toBe(String(total));
+
+    // All pages: the site's second page has this page's older threads, which this page's first page does not
+    await chooseInboxPages(page, /^All pages/);
+    await expectInboxListed(inbox, -1);
+    await scrollToEnd();
+    await expect(inbox.getByText('This page thread 249', { exact: true })).toBeVisible();
+    expect(cursors.site).toEqual([null, `${threads[199]!.createdAt}|${threads[199]!.id}`]);
+    expect(cursors.page.filter(Boolean)).toEqual([]);
+
+    // This page: its own list continues where its first page ended
+    await chooseInboxPages(page, /^This page/);
+    await scroller.evaluate(element => { element.scrollTop = 0; });
+    await scrollToEnd();
+    await expect.poll(() => cursors.page.filter(Boolean)).toEqual([`${threads[199]!.createdAt}|${threads[199]!.id}`]);
+    await expect(inbox.getByText('This page thread 249', { exact: true })).toBeVisible();
+});
+

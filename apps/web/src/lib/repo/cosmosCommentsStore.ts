@@ -3,6 +3,7 @@ import { getScreenshotBlobStore, storeScreenshotBytes, type ScreenshotBlobStore 
 import { originSql } from './originFilter';
 import { authorSql } from './authorFilter';
 import { visibilitySql } from './visibilityFilter';
+import { commentPageCursorSql, completeCommentPage } from './commentPage';
 import { withThreadActivity } from '../comments/activity';
 import { withNotificationEvent } from '../notifications/events';
 import type { Container, DeleteOperation, OperationInput, SqlParameter } from '@azure/cosmos';
@@ -177,6 +178,21 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
                 `SELECT TOP @limit * FROM c WHERE c.domain = @domain AND IS_DEFINED(c.path)${filter.clause}${author.clause}${archiveSql(archive)} ORDER BY c.createdAt DESC`,
                 [...filter.parameters, ...author.parameters, { name: '@limit', value: limit }]);
             return resources.map(resource => withoutSystemProperties<DbComment>(resource));
+        },
+        async listPage(domain, { limit, before, path, originFilter, authorId, archive, visibility }) {
+            const origin = originSql(originFilter);
+            const author = authorSql(authorId);
+            const visible = visibilitySql(visibility);
+            const cursor = commentPageCursorSql(before);
+            const where = `c.domain = @domain AND IS_STRING(c.path) AND IS_STRING(c.createdAt)${path === undefined ? '' : ` AND ${pathFilter}`}`
+                + `${visible.clause}${origin.clause}${author.clause}${archiveSql(archive)}${cursor.clause}`;
+            const parameters = [...visible.parameters, ...origin.parameters, ...author.parameters, ...cursor.parameters,
+                ...(path === undefined ? [] : pathParameters(path)), { name: '@limit', value: Math.max(1, Math.min(1000, Math.trunc(limit))) }];
+            const read = async (operation: string, query: string, extra: SqlParameter[] = []) =>
+                (await queryAll<Record<string, unknown>>(operation, domain, query, [...parameters, ...extra])).map(resource => withoutSystemProperties<DbComment>(resource));
+            const first = await read('listPage', `SELECT TOP @limit * FROM c WHERE ${where} ORDER BY c.createdAt DESC`);
+            return completeCommentPage(first, limit, createdAt =>
+                read('listPageTies', `SELECT TOP @limit * FROM c WHERE ${where} AND c.createdAt = @tieAt ORDER BY c.id DESC`, [{ name: '@tieAt', value: createdAt }]));
         },
         async listChangedSince(domain, since, limit) {
             // `_ts` is the server's write time in seconds; one second earlier never skips a write.

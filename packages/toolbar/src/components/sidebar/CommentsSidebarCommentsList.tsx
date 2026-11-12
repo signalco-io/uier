@@ -156,7 +156,7 @@ function useScrollMargin(listRef: RefObject<HTMLElement | null>, scrollRef: RefO
 /**
  * The cards, virtualized: only those in view (and a few around them) are rendered, measured as they render, so a
  * long inbox stays light. The card with the focus stays rendered while it scrolls away (a reply being written, menus).
- * Near the end the next page of the site's list loads (`useMoreSiteComments`).
+ * Near the end the next page of the list loads (`useMoreSiteComments`, or `useMorePageComments` for This page).
  */
 function VirtualCards({ comments, scrollRef, more, renderCard }: {
     comments: CommentItem[];

@@ -347,7 +347,7 @@ test('extension reply image reads use the closed broker route and current thread
 });
 
 
-test('extension comment lists forward archive filters while unknown query keys stay closed', async () => {
+test('extension comment lists forward archive filters and paging while unknown query keys stay closed', async () => {
     const { extensionOperation } = await import('@uier/toolbar/extension-contract');
     const base = 'https://uier.io/api/review/project123/comments';
     for (const archive of ['exclude', 'only', 'all']) {
@@ -357,6 +357,38 @@ test('extension comment lists forward archive filters while unknown query keys s
                 .toEqual({ path: 'comments', query });
         }
     }
+    // The inbox's pages: a limit and the cursor of the page before
+    const paged = '?scope=site&archive=exclude&limit=200&before=2026-01-01T00%3A00%3A00.000Z%7Ccomment_x';
+    expect(extensionOperation(`${base}${paged}`, 'https://uier.io', 'project123', 'GET')).toEqual({ path: 'comments', query: paged });
     expect(() => extensionOperation(`${base}?arbitrary=true`, 'https://uier.io', 'project123', 'GET'))
         .toThrow('Unsupported review query');
 });
+
+test('extension site lists page through the broker: the second page continues after the first', async () => {
+    const { extensionOperation } = await import('@uier/toolbar/extension-contract');
+    const { getMemoryCommentsStore } = await import('../src/lib/repo/memoryCommentsStore');
+    const { listReviewComments } = await import('../src/lib/review/readRoutes');
+    // The broker's list operation (`app/api/extension/review/[...path]/route.ts`)
+    const brokered = extensionHandler(async request => listReviewComments(await extensionReviewContext(request)));
+    const f = await renewableFixture();
+    const scoped = await (await createScope(request('scope', f.credentials.token, { projectId: f.project.id, origin: 'https://reviewed.example' }))).json() as { token: string };
+    const store = getMemoryCommentsStore();
+    const ids = [1, 2, 3].map(index => `comment_page${index}_${randomUUID()}`);
+    for (const [index, id] of ids.entries()) await store.create({ id, domain: `project:${f.project.id}`, projectId: f.project.id, origin: 'https://reviewed.example',
+        path: `/page-${index}`, position: { type: 'page' }, authorId: `user:${f.user.id}`, number: index + 1,
+        thread: { items: [{ id: 'first', text: `Paged ${index}`, authorId: `user:${f.user.id}` }] }, createdAt: `2026-02-0${index + 1}T00:00:00.000Z` });
+    // The toolbar's request, as the worker checks it and forwards it to the broker
+    const page = async (query: string) => {
+        const url = `https://uier.io/api/review/${f.project.id}/comments?${query}`;
+        const operation = extensionOperation(url, 'https://uier.io', f.project.id, 'GET');
+        const response = await brokered(request(`review/${operation.path}${operation.query}`, scoped.token));
+        expect(response.status).toBe(200);
+        return await response.json() as { comments: { id: string }[]; next: string | null };
+    };
+    const first = await page('scope=site&archive=exclude&limit=2');
+    expect(first.comments.map(comment => comment.id)).toEqual([ids[2], ids[1]]);
+    expect(first.next).toEqual(expect.any(String));
+    const second = await page(`scope=site&archive=exclude&limit=2&before=${encodeURIComponent(first.next!)}`);
+    expect(second).toEqual({ comments: [expect.objectContaining({ id: ids[0] })], next: null });
+});
+

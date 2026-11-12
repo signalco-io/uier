@@ -8,6 +8,7 @@ import { isLocalRuntime } from '../comments/environment';
 import { createCosmosCommentsStore } from './cosmosCommentsStore';
 import { getMemoryCommentsStore } from './memoryCommentsStore';
 import type { CommentCandidateOptions, CommentQueryCandidate } from './commentQuerySource';
+import type { CommentPageOptions } from './commentPage';
 
 export type StoredComment = {
     comment: DbComment;
@@ -47,6 +48,11 @@ export type CommentsStore = {
     list(domain: string, path: string, limit: number, originFilter?: OriginFilter, authorId?: string, archive?: ArchiveFilter): Promise<DbComment[]>;
     /** Every comment of the partition (all pages), newest first; author selection precedes limit. */
     listAll(domain: string, limit: number, originFilter?: OriginFilter, authorId?: string, archive?: ArchiveFilter): Promise<DbComment[]>;
+    /**
+     * One keyset page, newest first by `createdAt` then id: the comments older than `before` that match every filter
+     * (visibility included), at most `limit`. Cursor and filters apply before the limit (`commentPage.ts`).
+     */
+    listPage(domain: string, options: CommentPageOptions): Promise<DbComment[]>;
     /** All thread activity, without message text or images; authoritative badge counts. */
     listActivity(domain: string): Promise<DbCommentActivity[]>;
     /**
