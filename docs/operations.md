@@ -63,7 +63,8 @@ do not use the dashboard's conflicting-record deletion or create a second policy
 
 The program imports the existing routing settings, verified destination, all existing API-managed
 rules (including disabled ones) and disabled catch-all before adding missing exact forwarding
-rules for `contact@uier.io`, `security@uier.io` and `privacy@uier.io`. All are protected. Existing
+rules for `contact@uier.io`, `security@uier.io` and `privacy@uier.io`. These public contact
+addresses are forwarded by the Pulumi-managed rules. All are protected. Existing
 rules retain their live name, priority, enabled flag, matchers and actions; conflicting requested
 aliases stop the run rather than change an import. Worker-managed rules also stop adoption.
 

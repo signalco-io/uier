@@ -12,5 +12,5 @@ and the footer links.
 
 Public contact addresses come from `brand.contact`: privacy requests use privacy@uier.io and
 general questions use contact@uier.io. The privacy, cookie, terms and acceptable-use policies
-have an effective date of 11 November 2026 for this contact update. Keep the displayed addresses
+have an effective date of 12 November 2026 for this contact update. Keep the displayed addresses
 and mailto links aligned with the brand constants.

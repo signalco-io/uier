@@ -10,7 +10,7 @@ export const metadata = publicPageMetadata('/legal/terms-of-service', {
 
 export default function TermsOfServicePage() {
     return (
-        <LegalDocument href={KnownPages.LegalTermsOfService} title="Terms of service" effective="11 November 2026">
+        <LegalDocument href={KnownPages.LegalTermsOfService} title="Terms of service" effective="12 November 2026">
             <p>
                 These terms apply when you use {brand.domain}, including leaving comments with the {brand.name}{' '}
                 toolbar. {brand.name} is a {brand.parent.name} project; in these terms &ldquo;we&rdquo; means{' '}

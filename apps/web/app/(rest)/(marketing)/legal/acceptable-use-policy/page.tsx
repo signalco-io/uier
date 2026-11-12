@@ -10,7 +10,7 @@ export const metadata = publicPageMetadata('/legal/acceptable-use-policy', {
 
 export default function AcceptableUsePolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalAcceptableUsePolicy} title="Acceptable use policy" effective="11 November 2026">
+        <LegalDocument href={KnownPages.LegalAcceptableUsePolicy} title="Acceptable use policy" effective="12 November 2026">
             <p>
                 Comments on {brand.domain} are public and anonymous, so they only work if people use them in good
                 faith. This policy is part of the <a href={KnownPages.LegalTermsOfService}>terms of service</a>.
