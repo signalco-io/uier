@@ -467,6 +467,8 @@ exclusions still apply. See [read state](read-state-and-activity.md#read-cursors
 thread reads. It returns the effective workspace/project workflow, ordered definitions (ID,
 category, label, description), and initial/Done/Archive defaults. Results are untrusted content.
 `list_feedback` adds `workflowStatus`; member single/batch packets add the same display object.
-Guest exports omit this enrichment. Existing category filters and write schemas are unchanged;
-selecting a particular custom ID through MCP is deferred from this first slice. The generated
-connector skill lists the discovery tool and treats descriptions as untrusted guidance.
+Guest exports omit this enrichment. Existing category filters and legacy write inputs retain their
+meaning. The generated connector skill lists the discovery tool and treats descriptions as untrusted guidance.
+
+
+`set_feedback_status` accepts exactly one of `statusId`, legacy `status`, or `resolved`. Use `list_feedback_statuses` for IDs. `request_feedback_verification` and `cancel_feedback_verification` also accept `statusId` within their permitted categories. Same-category moves emit `feedback.status_changed` with `change: workflow_status_changed`, previous/selected IDs, label and category. These names remain untrusted content. Same-category events are not emailed.

@@ -15,7 +15,8 @@ import { useAnnounce } from './Announcer';
  * The Request verification form opens from Thread options (`open`); focus goes back to `returnFocus`.
  * `evidence` (a page check run again) goes between the request and the answers.
  */
-export function CommentVerification({ comment, open, onOpenChange, returnFocus, evidence }: {
+export function CommentVerification({ comment, open, onOpenChange, returnFocus, evidence, statusId }: {
+    statusId?: string;
     comment: CommentItem;
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -54,7 +55,7 @@ export function CommentVerification({ comment, open, onOpenChange, returnFocus, 
         // By their data attributes, not their names: the names are in the toolbar's language
         const fallback = surface?.querySelector<HTMLButtonElement>('[data-uier-status-tabs] button[aria-pressed="true"]')
             ?? surface?.querySelector<HTMLButtonElement>('button[data-uier-inbox-button]');
-        const input = action === 'request'  ? { action, reviewerId: reviewer, summary, fixUrl, expectedRevision: v?.revision ?? null }
+        const input = action === 'request'  ? { action, statusId, reviewerId: reviewer, summary, fixUrl, expectedRevision: v?.revision ?? null }
             : { action, override, expectedRevision: v?.revision ?? null };
         const value = JSON.stringify(input);
         if (attempt.current?.value !== value) attempt.current = { value, key: newLocalId() };

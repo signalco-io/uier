@@ -54,7 +54,7 @@ export function StatusWorkflowEditor({ value, onChange, disabled = false }: { va
             </FieldSet>;
         })}
         {([
-            ['initialStatusId', 'New comments start in', value.statuses.filter(status => status.category !== 'ready')],
+            ['initialStatusId', 'New comments start in', value.statuses.filter(status => status.category === 'open' || status.category === 'in-progress')],
             ['doneStatusId', 'Done action uses', value.statuses.filter(status => status.category === 'done')],
             ['archiveStatusId', 'Archive action uses', value.statuses.filter(status => status.category === 'archive')]
         ] as const).map(([field, label, statuses]) => <Field key={field}>
@@ -64,7 +64,7 @@ export function StatusWorkflowEditor({ value, onChange, disabled = false }: { va
                 <SelectTrigger id={`${id}-${field}`} className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent><SelectGroup>{statuses.map(status => <SelectItem key={status.id} value={status.id}>{status.label}</SelectItem>)}</SelectGroup></SelectContent>
             </Select>
-            {field === 'initialStatusId' && <FieldDescription>{t('Ready to verify needs a verification request and a reviewer, so new comments cannot start there.')}</FieldDescription>}
+            {field === 'initialStatusId' && <FieldDescription>{t('New comments must start in Open or In progress so they appear in active feedback.')}</FieldDescription>}
         </Field>)}
     </FieldGroup>;
 }

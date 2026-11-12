@@ -479,7 +479,7 @@ against the live connection.
 | `list_assignees` | `feedback:assign` | Existing participants eligible to see the thread |
 | `reply_to_feedback` | `feedback:reply` | Validated reply as the human account, attributed to the connection and marked as written by the agent; its text shows as Markdown ([replies written by an agent](#replies-written-by-an-agent)) |
 | `set_feedback_archived` | `feedback:status` | Archive or restore with `archived: boolean`, thread ids and a stable retry key; workflow status is retained |
-| `set_feedback_status` | `feedback:status` | Open, In progress or Done (`status`), or the earlier Done/Open switch (`resolved`), using the app's permission checks ([In progress](#in-progress)) |
+| `set_feedback_status` | `feedback:status` | Effective custom ID (`statusId`), Open, In progress or Done (`status`), or the earlier Done/Open switch (`resolved`), using the app's permission checks ([In progress](#in-progress)) |
 | `link_feedback_pull_request` | `feedback:assign` | Attach a PR URL to a visible thread, idempotently |
 | `assign_feedback` | `feedback:assign` | Assign an existing authorized participant, or `null` to unassign |
 | `set_feedback_agent` | `feedback:assign` | Attach the connection as the AI agent working under its owner on feedback assigned to them ([agents](#agents-working-on-feedback)) |
@@ -1071,13 +1071,14 @@ A thread is Open, In progress, Ready to verify or Done ([review workflow](review
 
 `set_feedback_status` takes exactly one of:
 
+- `statusId`: an effective ID from `list_feedback_statuses`, including Archive. Enter Ready through a verification request; a move within Ready preserves the pending check.
 - `status`: `open`, `in-progress` or `done`. Ready to verify is a fix check request
   (`request_feedback_verification`). Leaving Ready to verify this way ends the check without
   confirmation, as Reopen does.
 - `resolved`: the earlier switch, unchanged for existing clients. `true` is Done (it ends In
   progress); `false` reopens a Done thread to Open and leaves an In progress thread as it is.
 
-Both and neither are `invalid_request`. The result is `{ actingAs, commentId, resolved, stage }`.
+Multiple selectors or no selector are `invalid_request`. The result is `{ actingAs, commentId, resolved, stage }`.
 `cancel_feedback_verification` takes an optional `status` (`open` or `in-progress`); without it the
 thread returns to where it was before the request. Its result adds `stage`. Who may set In progress
 follows the app: the same people who mark the thread done or reopen it.
@@ -1244,5 +1245,8 @@ are untrusted member content. They describe a workflow and do not approve any ac
 
 `list_feedback` items and member `get_feedback`/`get_feedback_batch` results add `workflowStatus`
 with the effective entry for that thread. Existing `stage`, `resolved`, archive and status filters
-retain their contracts. In this first slice, status writes still select categories; Done and
-Archive actions use their configured defaults. Custom-ID writes remain follow-up work.
+retain their contracts. Status writes accept `statusId` from the effective workflow. Ordinary category writes retain their
+meaning. Ready to verify still requires `request_feedback_verification`; its `statusId` selects a
+Ready status, and cancellation can select an Open or In progress `statusId`. Same-category moves
+keep verification and completion history and emit activity/events with the selected status.
+Custom IDs are validated again on each write attempt, and MCP retries retain receipt semantics.

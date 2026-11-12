@@ -101,3 +101,38 @@ test('workspace statuses inherit, project overrides save/discard, and board/menu
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     } finally { await site.close(); }
 });
+
+test('toolbar custom status menu groups descriptions and persists moves within a category and into archive', async ({ page, baseURL }) => {
+    const { commentBubble, openThread } = await import('./support/toolbar');
+    const site = await startReviewedSite(new URL(baseURL!).origin);
+    try {
+        await signIn(page, uniqueEmail('toolbar-workflow'));
+        const project = await createProject(page, { urls: [site.origin()] });
+        await page.goto(`/app/projects/${project}/settings/review`);
+        const review = page.getByRole('region', { name: 'Review', exact: true });
+        await hydrated(review.locator('form'));
+        await choose(page, review.getByRole('combobox', { name: 'Status defaults' }), 'Project override');
+        await addStatus(review, 'Open', 'Approved');
+        await addStatus(review, 'Archive', 'Rejected');
+        await save(review);
+        await page.goto(`/app/review/${project}?url=${encodeURIComponent(`${site.origin()}/${project}/pricing`)}`);
+        await page.getByRole('button', { name: 'Add comment', exact: true }).click();
+        const heading = (await page.getByRole('heading', { level: 1 }).boundingBox())!;
+        await page.mouse.click(heading.x + 20, heading.y + heading.height / 2);
+        const composer = page.getByRole('textbox', { name: 'Comment', exact: true });
+        await composer.fill('Custom toolbar statuses');
+        await composer.press('Enter');
+        await expect(commentBubble(page, 1, 1)).toBeVisible();
+        const thread = openThread(page);
+        await thread.getByRole('button', { name: 'Status: Open. Change status', exact: true }).click();
+        const menu = page.getByRole('dialog', { name: 'Status', exact: true });
+        await expect(menu).toContainText('Approved workflow description');
+        await menu.getByRole('button', { name: /^Approved/ }).click();
+        await expect(thread.getByRole('button', { name: 'Status: Approved. Change status', exact: true })).toBeVisible();
+        await page.reload();
+        await commentBubble(page, 1, 1).click();
+        await thread.getByRole('button', { name: 'Status: Approved. Change status', exact: true }).click();
+        await menu.getByRole('button', { name: /^Rejected/ }).click();
+        await expect(commentBubble(page, 1, 1)).toBeHidden();
+    } finally { await site.close(); }
+});

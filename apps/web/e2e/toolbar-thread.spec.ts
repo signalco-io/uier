@@ -43,7 +43,7 @@ test('a new thread shows its comment and reply box; triage and email controls ar
     // The status menu: every status, as in the app, the current one pressed and focused
     await thread.getByRole('button', { name: 'Status: Open. Change status', exact: true }).click();
     const statusMenu = page.getByRole('dialog', { name: 'Status', exact: true });
-    await expect(statusMenu.getByRole('button')).toHaveText(['Open', 'In progress', 'Ready to verify', 'Done']);
+    await expect(statusMenu.getByRole('button')).toHaveText(['Open', 'In progress', 'Ready to verify', 'Done', 'Archive']);
     await expect(statusMenu.getByRole('button', { name: 'Open', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(statusMenu.getByRole('button', { name: 'Open', exact: true })).toBeFocused();
     await animationsFinished(statusMenu);

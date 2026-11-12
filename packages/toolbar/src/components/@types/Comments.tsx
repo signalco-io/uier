@@ -208,6 +208,8 @@ export type CommentItem = {
     resolved: boolean;
     /** In progress, only when set; `feedbackStage` (`../../verification`) gives the status */
     inProgress?: boolean;
+    workflowStatusId?: string;
+    archiveStatusId?: string;
     /**
      * Whether the current visitor wrote this comment (only the author can resolve or delete it).
      * Always `false` once the author deleted the first item.

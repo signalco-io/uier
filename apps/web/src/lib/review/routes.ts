@@ -1,5 +1,7 @@
 import { resolveToolbarFeatures } from '@uier/toolbar/toolbar-features';
-import { updateCommentSchema } from '../comments/validation';
+import { setProjectCommentWorkflowStatus } from './comments';
+import { feedbackStatusTargets } from '@uier/toolbar/verification';
+import { workflowStatusIdSchema } from '../app/statusWorkflowSchema';
 import { defaultFeedbackTypes, type FeedbackType } from '@uier/toolbar/feedback-types';
 import { loadFeedbackTypes } from '../app/feedbackTypes';
 import { changeFixVerification } from './fixVerification';
@@ -151,13 +153,18 @@ export async function replyToReviewComment(context: ReviewApiContext, { id }: { 
 }
 
 /** Share the legacy status contract and the additive archive operation with the public API. */
-const updateSchema = updateCommentSchema;
+const updateSchema = z.object({
+    statusId: workflowStatusIdSchema.optional(), archived: z.boolean().optional(),
+    resolved: z.boolean().optional(), status: z.enum(feedbackStatusTargets).optional()
+}).strict().refine(input => [input.statusId, input.archived, input.resolved, input.status].filter(value => value !== undefined).length === 1, 'Send exactly one of statusId, archived, resolved or status.');
 
 export async function updateReviewComment(context: ReviewApiContext, { id }: { id: string }) {
     const { request, project, actor } = context;
     const input = await parseJsonBody(request, updateSchema);
     assertWriter(actor);
-    return await commentResponse(context, input.archived !== undefined
+    return await commentResponse(context, input.statusId !== undefined
+        ? await setProjectCommentWorkflowStatus(project, actor, commentId(id), input.statusId)
+        : input.archived !== undefined
         ? await setProjectCommentArchived(project, actor, commentId(id), input.archived)
         : input.status !== undefined
         ? await setProjectCommentStatus(project, actor, commentId(id), input.status)

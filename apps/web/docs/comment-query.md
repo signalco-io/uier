@@ -121,3 +121,6 @@ Custom status IDs refine a category and do not change query v1's `status` field 
 collection semantics. Query filters and facets continue to use the five semantic categories;
 custom names/descriptions are discoverable through MCP `list_feedback_statuses`. The first
 custom-status slice does not add a query field or reinterpret saved definitions.
+
+
+Custom status writes do not change category filters or paging. The review comment DTO includes `workflowStatusId` and `archiveStatusId`; removed IDs fall back to the effective category default in the toolbar menu.

@@ -26,3 +26,6 @@ Workflow status stays separate and unchanged. A failed archive rolls back every 
 an error toast even when its optimistic removal unmounted the pin. All six catalogs include the archive
 labels and announcements. Activity summaries keep archived separate from ordinary totals and unread
 badges. Site-wide totals remain authoritative; page/search lists keep their existing bounded windows.
+
+
+Custom status menus load `/api/review/<project>/statuses` through a shared query and send `PATCH { statusId }`. This isolated menu mutation leaves inbox paging and legacy optimistic status mutations unchanged; it disables the menu while saving, updates cached comments only for the same reviewer revision, and invalidates comments/activity on settlement. Ready requests carry the selected ID to the reviewer form; canceling to a custom Open/In progress status carries its ID too. Archive entries select the exact archive status. Descriptions appear under their labels.

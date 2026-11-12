@@ -1,5 +1,7 @@
 'use client';
 
+import { useWorkflowStatus, type WorkflowStatus } from '../hooks/useWorkflowStatus';
+
 import { feedbackStage, feedbackStages, type FeedbackStage } from '../verification';
 import { useContext, useEffect, useRef, useState, type RefObject } from 'react';
 import { Row } from '@signalco/ui-primitives/Row';
@@ -27,6 +29,12 @@ import { keepMovedFocus, toolbarSurface } from '../toolbarReview';
 import { moveFocusInMenu } from '../focusKeys';
 import { useMessages, type Messages } from '../i18n';
 
+function statusLabel(status: WorkflowStatus, t: Messages) {
+    const builtins = { open: 'Open', 'in-progress': 'In progress', ready: 'Ready to verify', done: 'Done', archive: 'Archive' };
+    return status.id === status.category && status.label === builtins[status.category]
+        ? status.category === 'archive' ? t.inbox.filters.archived : t.status[status.category] : status.label;
+}
+
 /** Each status's dot (BRAND.md, "Status"): Open an ink ring (outlined), In progress sky, Ready to verify violet, Done green. The app's `StateDot`. */
 const stageDotColors: Record<FeedbackStage, string> = {
     open: 'border border-foreground',
@@ -40,13 +48,13 @@ export function StatusDot({ stage }: { stage: FeedbackStage }) {
 }
 
 /** "Open", "In progress", "Ready to verify" or "Done", with the status dot in its colour. The app's `StateBadge`. */
-export function CommentStatusBadge({ stage }: { stage: FeedbackStage }) {
+export function CommentStatusBadge({ stage, label }: { stage: FeedbackStage; label?: string }) {
     const t = useMessages();
     return (
         <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium text-foreground">
             <StatusDot stage={stage} />
             <span className="sr-only">{t.thread.statusPrefix}</span>
-            {t.status[stage]}
+            {label ?? t.status[stage]}
         </span>
     );
 }
@@ -57,24 +65,28 @@ export function CommentStatusBadge({ stage }: { stage: FeedbackStage }) {
  * (again while a check is pending); from Ready to verify, Done says Done without verification. S moves
  * the focus to the badge (`data-uier-status`); Enter or Space opens it, the current status focused.
  */
-function CommentStatusMenu({ stage, allowed, pending, shortcut, onChange }: {
+function CommentStatusMenu({ stage, allowed, pending, shortcut, onChange, statuses, selectedId, canArchive }: {
     stage: FeedbackStage;
     allowed: Record<FeedbackStage, boolean>;
     pending: boolean;
     shortcut: boolean;
-    onChange: (stage: FeedbackStage) => void;
+    statuses?: WorkflowStatus[]; selectedId?: string; canArchive: boolean;
+    onChange: (stage: FeedbackStage | 'archive', statusId?: string) => void;
 }) {
     const { rootElement } = useContext(CommentsBootstrapperContext);
     const t = useMessages();
     const [open, setOpen] = useState(false);
     const currentRef = useRef<HTMLButtonElement>(null);
     // Ready to verify waits for the menu to close: its form then takes the focus
-    const requesting = useRef(false);
-    const label = t.status[stage];
-    const choose = (option: FeedbackStage) => {
+    const requesting = useRef<string | false>(false);
+    const options = [...feedbackStages, 'archive' as const].flatMap(category => statuses?.filter(status => status.category === category) ?? (category === 'archive' ? [] : [{ id: category, category, label: t.status[category], description: '' }]));
+    const localizedOptions = options.map(option => ({ ...option, label: statusLabel(option, t) }));
+    const selected = localizedOptions.find(option => option.id === selectedId) ?? localizedOptions.find(option => option.category === stage);
+    const label = selected?.label ?? t.status[stage];
+    const choose = (option: WorkflowStatus) => {
         setOpen(false);
-        if (option === 'ready') requesting.current = true;
-        else onChange(option);
+        if (option.category === 'ready' && (stage !== 'ready' || option.id === selected?.id)) requesting.current = option.id;
+        else onChange(option.category, statuses ? option.id : undefined);
     };
     // Radix props passed through the Popper to the popover content
     const contentProps = {
@@ -87,9 +99,10 @@ function CommentStatusMenu({ stage, allowed, pending, shortcut, onChange }: {
                 keepMovedFocus(event);
                 return;
             }
+            const statusId = requesting.current;
             requesting.current = false;
             event.preventDefault();
-            onChange('ready');
+            onChange('ready', statusId || undefined);
         }
     };
     return (
@@ -102,7 +115,7 @@ function CommentStatusMenu({ stage, allowed, pending, shortcut, onChange }: {
             // Like a menu: ↑ and ↓ move between its statuses. Escape closes only the menu (React
             // events bubble out of the portal to the thread, whose inbox would close too)
             onKeyDown={event => { if (event.key === 'Escape') event.stopPropagation(); else moveFocusInMenu(event); }}
-            {...toolbarSurface('uier-thread-status-menu', cx('z-[70] w-52 max-w-[calc(100vw-1rem)] rounded-xl p-1', floatingShadowClassName))}
+            {...toolbarSurface('uier-thread-status-menu', cx('z-[70] w-64 max-h-[60vh] overflow-y-auto max-w-[calc(100vw-1rem)] rounded-xl p-1', floatingShadowClassName))}
             trigger={(
                 <Button
                     variant="outlined"
@@ -120,19 +133,20 @@ function CommentStatusMenu({ stage, allowed, pending, shortcut, onChange }: {
             )}
             {...contentProps}>
             <Stack role="group" aria-label={t.thread.setStatus}>
-                {feedbackStages.map(option => {
-                    const current = option === stage;
-                    // The current status only acts for Ready to verify: a new check
-                    const acts = allowed[option] && (!current || option === 'ready');
-                    return (
-                        <Button key={option} ref={current ? currentRef : undefined} variant="plain" size="sm" fullWidth className="justify-start"
-                            aria-pressed={current} disabled={pending || (!current && !allowed[option])}
-                            startDecorator={<StatusDot stage={option} />}
+                {localizedOptions.map((option, index) => {
+                    const current = option.id === selected?.id;
+                    const enabled = option.category === 'archive' ? canArchive : allowed[option.category];
+                    const categoryStart = index === 0 || options[index - 1]?.category !== option.category;
+                    return <Stack key={option.id}>
+                        {categoryStart && <span className="px-2 py-1 text-xs text-muted-foreground">{option.category === 'archive' ? t.inbox.filters.archived : t.status[option.category]}</span>}
+                        <Button ref={current ? currentRef : undefined} variant="plain" size="sm" fullWidth className="justify-start"
+                            aria-pressed={current} disabled={pending || (!current && !enabled)} title={option.description || undefined}
+                            startDecorator={option.category !== 'archive' ? <StatusDot stage={option.category} /> : undefined}
                             endDecorator={current ? <Check size={14} className="ml-auto" /> : undefined}
-                            onClick={() => acts ? choose(option) : setOpen(false)}>
-                            {option === 'done' && stage === 'ready' ? t.thread.doneWithoutVerification : t.status[option]}
+                            onClick={() => enabled && (!current || option.category === 'ready') ? choose(option) : setOpen(false)}>
+                            <span className="text-left"><span className="block">{option.id === 'done' && option.label === t.status.done && stage === 'ready' ? t.thread.doneWithoutVerification : option.label}</span>{option.description && <span className="block text-xs font-normal text-muted-foreground">{option.description}</span>}</span>
                         </Button>
-                    );
+                    </Stack>;
                 })}
             </Stack>
         </Popper>
@@ -194,7 +208,7 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
     comment: CommentItem;
     onMarkedUnread?: () => void;
     /** Thread options' Request verification and the status menu's Ready to verify: the form opens in the thread */
-    onRequestVerification?: () => void;
+    onRequestVerification?: (statusId?: string) => void;
     /** Thread options' button, where focus returns from the forms it opens */
     optionsRef?: RefObject<HTMLButtonElement | null>;
 }) {
@@ -206,6 +220,14 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
     const announce = useAnnounce();
     const [uncopiedLink, setUncopiedLink] = useState<string>();
     const stage = feedbackStage(comment);
+    const custom = useWorkflowStatus();
+    const selectedStatusId = comment.archivedAt ? comment.archiveStatusId : comment.workflowStatusId;
+    const workflow = custom.workflow.data;
+    const category = comment.archivedAt ? 'archive' : stage;
+    const fallbackId = category === 'archive' ? workflow?.archiveStatusId : category === 'done' ? workflow?.doneStatusId : undefined;
+    const selectedStatus = workflow?.statuses.find(status => status.id === selectedStatusId && status.category === category)
+        ?? workflow?.statuses.find(status => status.id === fallbackId && status.category === category)
+        ?? workflow?.statuses.find(status => status.category === category);
     // Only the author changes the status (the API enforces it too); in a project, every member can (the API's `permissions`)
     const canResolve = !comment.pending && (comment.permissions?.resolve ?? comment.isMine);
     const unread = Boolean(comment.activity?.unread);
@@ -239,24 +261,27 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
     // requester or an admin); Ready to verify with the request permission
     const leave = stage === 'ready' ? Boolean(verification?.cancel) && !comment.pending : canResolve;
     const allowed: Record<FeedbackStage, boolean> = {
-        open: stage !== 'open' && leave,
-        'in-progress': stage !== 'in-progress' && leave,
-        ready: Boolean(verification?.request && onRequestVerification) && !comment.pending,
-        done: stage !== 'done' && canResolve
+        open: leave,
+        'in-progress': leave,
+        ready: (stage === 'ready' && canResolve) || Boolean(verification?.request && onRequestVerification) && !comment.pending,
+        done: canResolve
     };
     const canChangeStatus = feedbackStages.some(option => allowed[option]);
 
-    const handleStage = async (next: FeedbackStage) => {
-        if (next === 'ready') {
-            onRequestVerification?.();
+    const handleStage = async (next: FeedbackStage | 'archive', statusId?: string) => {
+        if (next === 'ready' && (stage !== 'ready' || !statusId || statusId === selectedStatus?.id)) {
+            onRequestVerification?.(statusId);
             return;
         }
-        if (next === stage) return;
+        if (next === stage && (!statusId || statusId === selectedStatus?.id)) return;
         try {
-            if (stage === 'ready' && next !== 'done') {
+            if (statusId && !(stage === 'ready' && (next === 'open' || next === 'in-progress'))) {
+                await custom.mutation.mutateAsync({ commentId: comment.id, statusId });
+            } else if (next === 'archive') return;
+            else if (stage === 'ready' && next !== 'done') {
                 if (cancelAttempt.current?.status !== next) cancelAttempt.current = { status: next, key: newLocalId() };
                 await verificationMutation.mutateAsync({ commentId: comment.id, input: {
-                    action: 'cancel', override: false, status: next,
+                    action: 'cancel', override: false, status: next, statusId,
                     expectedRevision: comment.verification?.revision ?? null, idempotencyKey: cancelAttempt.current.key
                 } });
                 cancelAttempt.current = null;
@@ -264,9 +289,9 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
                 // Done and Reopen
                 await resolve.mutateAsync({ commentId: comment.id, resolved: next === 'done' });
             } else {
-                await progress.mutateAsync({ commentId: comment.id, status: next });
+                if (next === 'open' || next === 'in-progress') await progress.mutateAsync({ commentId: comment.id, status: next });
             }
-            announce(next === 'done' ? t.thread.markedDone : stage === 'done' && next === 'open' ? t.thread.reopened : t.thread.markedAs(t.status[next]));
+            announce(next === 'done' ? t.thread.markedDone : stage === 'done' && next === 'open' ? t.thread.reopened : t.thread.markedAs(next === 'archive' ? t.thread.archivedLabel : t.status[next]));
         } catch {
             // Shown below
         }
@@ -311,10 +336,10 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
             <Row spacing={1} justifyContent="space-between" className="flex-nowrap">
                 <Row spacing={1} className="min-w-0 flex-wrap gap-y-1">
                     {canChangeStatus
-                        ? <CommentStatusMenu stage={stage} allowed={allowed} shortcut={shortcuts}
-                            pending={resolve.isPending || progress.isPending || verificationMutation.isPending}
-                            onChange={next => void handleStage(next)} />
-                        : <CommentStatusBadge stage={stage} />}
+                        ? <CommentStatusMenu stage={stage} allowed={allowed} statuses={custom.workflow.data?.statuses} selectedId={selectedStatus?.id} canArchive={canResolve} shortcut={shortcuts}
+                            pending={custom.mutation.isPending || resolve.isPending || progress.isPending || verificationMutation.isPending}
+                            onChange={(next, statusId) => void handleStage(next, statusId)} />
+                        : <CommentStatusBadge stage={stage} label={selectedStatus ? statusLabel(selectedStatus, t) : undefined} />}
                     {/* The public id, numbered per site */}
                     {comment.number !== undefined && (
                         <span className="truncate font-mono text-xs tabular-nums text-muted-foreground">
@@ -353,7 +378,7 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
                 <CommentAssigneeOptions comment={comment} autoFocus={assigning === 'key'} onAssigned={() => { setAssigning(false); optionsRef?.current?.focus(); }} />
             )}
             <CopyIssueResult state={issue} />
-            <CommentsErrorMessage error={archive.error ?? resolve.error ?? progress.error ?? verificationMutation.error ?? read.error ?? unreadMutation.error ?? prioritize.error ?? notifications.error} />
+            <CommentsErrorMessage error={custom.mutation.error ?? archive.error ?? resolve.error ?? progress.error ?? verificationMutation.error ?? read.error ?? unreadMutation.error ?? prioritize.error ?? notifications.error} />
             {uncopiedLink && (
                 <label className="flex flex-col gap-1 text-sm">
                     <span className={destructiveTextClassName}>{t.thread.linkNotCopied}</span>
