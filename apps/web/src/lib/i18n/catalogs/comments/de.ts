@@ -213,6 +213,7 @@ const messages: Record<keyof typeof en, string> = {
     "Issue Markdown": "Markdown des Issues",
     "Issue copied.": "Issue kopiert.",
     "It stays in {status}.": "Er bleibt in {status}.",
+    "Group by label": "Nach Label gruppieren",
     "Label": "Beschriftung",
     "Language": "Sprache",
     "Largest Contentful Paint": "Largest Contentful Paint",

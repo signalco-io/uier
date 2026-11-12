@@ -1,4 +1,5 @@
 'use client';
+import { createContext, useContext } from 'react';
 
 import { useAppI18n } from '@/src/lib/i18n/client';
 
@@ -34,6 +35,7 @@ export function commentTitle(comment: ProjectCommentView) {
 }
 
 /** The id of a row's link, to give it the focus back */
+export const BoardRowScope = createContext('');
 export const commentRowId = (id: string) => `comment-row-${id}`;
 
 /**
@@ -78,6 +80,7 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
      */
     tabbable?: boolean;
 }) {
+    const rowScope = useContext(BoardRowScope);
     const { t } = useAppI18n();
     const people = commentAssignees(comment);
     const userId = comment.assignedUserId;
@@ -114,7 +117,7 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                     <AuthorAvatar author={comment.author} deleted={comment.deleted} onPress={openFromAvatars} />
                 </span>
                 <div className="flex min-w-0 items-baseline gap-2">
-                    <a ref={link} id={preview ? undefined : commentRowId(comment.id)} href={href} onClick={onOpen} aria-current={selected === 'opened' ? 'true' : undefined} draggable={card ? false : undefined}
+                    <a ref={link} id={preview ? undefined : commentRowId(rowScope + comment.id)} href={href} onClick={onOpen} aria-current={selected === 'opened' ? 'true' : undefined} draggable={card ? false : undefined}
                         aria-describedby={describedBy} aria-keyshortcuts={keyShortcuts}
                         tabIndex={tabbable ? undefined : -1}
                         className={cn('min-w-0 flex-1 text-sm outline-none after:absolute after:inset-0 after:rounded-lg', card ? 'line-clamp-2 break-words' : 'truncate',

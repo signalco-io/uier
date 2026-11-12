@@ -105,6 +105,14 @@ test('members add/remove thread labels, rows and board show them, and label filt
         await page.getByRole('button', { name: 'Board', exact: true }).click();
         await expect(page.locator('[data-board-card]')).toHaveCount(1);
         await expect(page.locator('[data-board-card]').getByText('Bug', { exact: true })).toBeVisible();
+        await page.getByRole('button', { name: 'Group by label', exact: true }).click();
+        await expect(page.getByRole('button', { name: 'Group by label', exact: true })).toHaveAttribute('aria-pressed', 'true');
+        await expect(page.locator('[data-label-lane]').filter({ has: page.getByRole('heading', { name: 'Bug', exact: true }) }).locator('[data-board-card]')).toHaveCount(1);
+        await page.reload();
+        await expect(page.getByRole('button', { name: 'Group by label', exact: true })).toHaveAttribute('aria-pressed', 'true');
+        await page.getByRole('button', { name: 'Group by label', exact: true }).click();
+        await expect(page.locator('[data-label-lane]')).toHaveCount(0);
+
         await openComment(page, comment.number);
         await thread.getByRole('button', { name: 'Edit labels' }).click();
         await page.getByRole('menuitemcheckbox', { name: /Bug/ }).click();
@@ -115,5 +123,50 @@ test('members add/remove thread labels, rows and board show them, and label filt
         await expect(thread.getByText('No labels', { exact: true })).toBeVisible();
         await thread.getByRole('button', { name: 'Activity (2)', exact: true }).click();
         await expect(thread.getByText(/changed labels\./)).toHaveCount(2);
+    } finally { await site.close(); }
+});
+
+test('toolbar members set labels, recover failed saves and retain assignments after reload', async ({ page, baseURL }) => {
+    test.setTimeout(90_000);
+    const { commentBubble, openThread } = await import('./support/toolbar');
+    const site = await startReviewedSite(new URL(baseURL!).origin);
+    try {
+        await signIn(page, uniqueEmail('toolbar-labels'));
+        const project = await createProject(page, { urls: [site.origin()] });
+        await page.goto('/app/workspace/settings');
+        const workspace = page.getByRole('region', { name: 'Labels', exact: true });
+        await hydrated(workspace.locator('form'));
+        await workspace.getByRole('button', { name: 'Add label', exact: true }).click();
+        await workspace.getByLabel('Label name', { exact: true }).fill('Design');
+        await save(workspace);
+        await page.goto(`/app/review/${project}?url=${encodeURIComponent(`${site.origin()}/${project}/pricing`)}`);
+        await page.getByRole('button', { name: 'Add comment', exact: true }).click();
+        const heading = (await page.getByRole('heading', { level: 1 }).boundingBox())!;
+        await page.mouse.click(heading.x + 20, heading.y + heading.height / 2);
+        const composer = page.getByRole('textbox', { name: 'Comment', exact: true });
+        await composer.fill('Toolbar labels');
+        await composer.press('Enter');
+        await expect(commentBubble(page, 1, 1)).toBeVisible();
+        const thread = openThread(page);
+        await thread.getByRole('button', { name: 'Edit labels' }).click();
+        const menu = page.getByRole('dialog', { name: 'Labels', exact: true });
+        const option = menu.getByRole('button', { name: 'Design', exact: true });
+        await page.route('**/comments/*/labels', route => route.abort('failed'));
+        await option.click();
+        await expect(option).toBeEnabled();
+        await expect(option).toHaveAttribute('aria-pressed', 'false');
+        await page.unroute('**/comments/*/labels');
+        await option.click();
+        await expect(option).toHaveAttribute('aria-pressed', 'true');
+        await page.keyboard.press('Escape');
+        await expect(thread.locator('[data-thread-label]').filter({ hasText: /^Design$/ })).toBeVisible();
+        await page.reload();
+        await commentBubble(page, 1, 1).click();
+        await expect(thread.locator('[data-thread-label]').filter({ hasText: /^Design$/ })).toBeVisible();
+        await thread.getByRole('button', { name: 'Edit labels' }).click();
+        await option.click();
+        await expect(option).toHaveAttribute('aria-pressed', 'false');
+        await page.keyboard.press('Escape');
+        await expect(thread.locator('[data-thread-label]').filter({ hasText: /^Design$/ })).toHaveCount(0);
     } finally { await site.close(); }
 });

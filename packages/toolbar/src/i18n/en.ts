@@ -174,6 +174,7 @@ export const en = {
         urgent: 'Urgent'
     },
     thread: {
+        labels: {'title': 'Labels', 'edit': 'Edit labels', 'empty': 'No labels'},
         showAll: (count: number) => `Show all ${count} messages`,
         connectedServices: 'Connected services',
         openIn: (service: string) => `Open in ${service}`,

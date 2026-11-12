@@ -213,6 +213,7 @@ const messages = {
     "Issue Markdown": "Issue Markdown",
     "Issue copied.": "Issue copied.",
     "It stays in {status}.": "It stays in {status}.",
+    "Group by label": "Group by label",
     "Label": "Label",
     "Language": "Language",
     "Largest Contentful Paint": "Largest Contentful Paint",

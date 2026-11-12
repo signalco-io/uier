@@ -201,6 +201,7 @@ export type CommentItem = {
     device?: { size?: CommentDeviceSize; windowSize?: [number, number] };
     /** Detailed, safe reproduction fields returned only to authorized project members. */
     reproduction?: CommentReproduction;
+    labelIds?: string[];
     priority?: import('../../triage').CommentPriority;
     verification?: import('../../verification').VerificationDetails;
     verificationPermissions?: import('../../verification').VerificationPermissions;

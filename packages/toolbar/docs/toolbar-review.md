@@ -121,3 +121,5 @@ remount the layer. `apps/web/e2e/app-navigation.spec.ts` asserts document, host 
 The path-specific visitor query retains its previous result while loading the next page, avoiding
 an empty gate that would remove the layer. A returned reviewer-scope change still clears reviewer
 caches and remounts; API reads and writes continue to check the current session independently.
+
+Thread label controls use the same thread surface as the discussion. They are project-member-only and preserve the current managed workspace label-settings restrictions.

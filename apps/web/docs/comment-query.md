@@ -151,3 +151,5 @@ the complete projection by default. Both projections preserve effective workflow
 status IDs can fall back through the current workflow. Canonical enrichment reuses loaded read state and skips threads that become inaccessible after the scan. Detail loads remain independent. Oversized HTTP queries return 422; the server page catches only the budget error to show a narrowing message with scope controls, without partial counts.
 See [the inbox note](comments-inbox.md#paged-project-comments) for the app cursor binding, virtualization,
 selection, local benchmark and the remaining native database paging/aggregate performance gate.
+
+The legacy project-board pages endpoint supports label/status cell keys (`status~labelId`, or `status~unlabeled`) when project grouping is enabled. It resolves effective catalogs before grouping; each cell has an independently bound cursor and exact total. This does not change query v1 or guest capabilities.

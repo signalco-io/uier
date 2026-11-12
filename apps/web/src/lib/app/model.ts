@@ -228,6 +228,7 @@ export type DbProject = AppDoc & {
     boardSorts?: import('./boardSort').BoardSorts;
     /** Whether the board's Archive column, its last, is expanded for everyone who opens it; missing means collapsed */
     boardArchiveExpanded?: true;
+    boardGroupByLabel?: boolean;
     status: ProjectStatus;
     access: ProjectAccess;
     /**

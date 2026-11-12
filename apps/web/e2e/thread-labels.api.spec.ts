@@ -142,3 +142,19 @@ test('thread label limits are checked against the atomic result and removed defi
     await setWorkspaceThreadLabels(f.workspace.id, admin.userId, catalog.slice(1));
     expect((await f.change([catalog[20]!.id])).labelIds).toHaveLength(20);
 });
+
+test('saved label grouping follows triage authority and preserves catalog settings', async () => {
+    const { saveProjectBoardGrouping } = await import('../src/lib/app/projectBoard');
+    const f = await fixture();
+    await expect(saveProjectBoardGrouping(f.project, guest, true)).rejects.toThrow();
+    await expect(saveProjectBoardGrouping(f.project, member, 'yes' as unknown as boolean)).rejects.toThrow();
+    const grouped = await saveProjectBoardGrouping(f.project, member, true);
+    expect(grouped.boardGroupByLabel).toBe(true);
+    expect(await loadThreadLabels(grouped)).toEqual(labels);
+    const plain = await saveProjectBoardGrouping(grouped, member, false);
+    expect(plain.boardGroupByLabel).toBe(false);
+    const { toReviewCommentDto } = await import('../src/lib/review/dto');
+    const comment = await f.change(['label_bug']);
+    expect(toReviewCommentDto(comment!, member, new Map(), [], 0, new Map(), f.project)?.labelIds).toEqual(['label_bug']);
+    expect(toReviewCommentDto(comment!, guest, new Map(), [], 0, new Map(), f.project)).not.toHaveProperty('labelIds');
+});

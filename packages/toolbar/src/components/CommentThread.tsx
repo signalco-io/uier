@@ -1,3 +1,4 @@
+import { CommentLabels } from './CommentLabels';
 import { CommentVerification } from './CommentVerification';
 import { CheckRecheck } from './checks/CheckRecheck';
 import { readyForReview } from '../verification';
@@ -134,6 +135,7 @@ function ThreadContents({ commentItem, reading, onPage, allMessages }: { comment
             <CommentAnchorDetails comment={commentItem} />
             <CommentActivity entries={commentItem.history} />
             {toolbarConfig.project && commentItem.notifications?.eligible && <ThreadNotifications comment={commentItem} />}
+            <CommentLabels comment={commentItem} />
             {commentItem.integrationLinks && commentItem.integrationLinks.length > 0 && <nav aria-label={t.thread.connectedServices} className="flex flex-wrap gap-3 text-xs">
                 {commentItem.integrationLinks.map(link => <a key={link.provider} href={link.url} target="_blank" rel="noopener noreferrer"
                     className="text-muted-foreground underline underline-offset-2 hover:text-foreground">

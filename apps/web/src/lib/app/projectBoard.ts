@@ -57,3 +57,12 @@ export async function saveProjectBoardArchive(project: DbProject, actor: Project
         throw new UserFacingError('This project no longer exists.');
     return saved;
 }
+
+/** Shared board grouping preference; label catalogs remain independently admin managed. */
+export async function saveProjectBoardGrouping(project: DbProject, actor: ProjectActor, grouped: boolean, store: AppStore = getAppStore()) {
+    const value = z.boolean().parse(grouped);
+    if (!canSortProjectBoard(project, actor)) throw new UserFacingError('You can’t change how this board is shown.');
+    const saved = await updateDoc<DbProject>(project.pk, project.id, current => ({ ...current, boardGroupByLabel: value }), store);
+    if (!saved) throw new UserFacingError('This project no longer exists.');
+    return saved;
+}

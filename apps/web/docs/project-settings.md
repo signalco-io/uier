@@ -211,5 +211,6 @@ public projects retain their existing settings restrictions.
 Thread assignments store IDs only. Renaming/recoloring a definition updates its display; removing
 it (including by override or transfer) hides it on existing threads without rewriting them.
 Definitions and descriptions are member-only and are omitted from guest review/bootstrap DTOs.
-The first slice adds app controls, filtering and MCP; toolbar controls and saved board swim lanes
-remain follow-up work. `thread-labels.api.spec.ts` and `thread-labels.spec.ts` cover these contracts.
+App controls, filtering and MCP share the catalog with toolbar controls and saved board label swim lanes. `thread-labels.api.spec.ts` and `thread-labels.spec.ts` cover these contracts.
+
+The board’s Group by label preference is saved as `DbProject.boardGroupByLabel`, independently of the label catalog and its admin-only settings. It follows the board sort/archive triage authority, including staff-only triage on managed feedback projects; catalog settings on uier’s own workspace remain disabled.

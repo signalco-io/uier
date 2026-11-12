@@ -45,7 +45,7 @@ export const boardSortActionSchema = z.object({ projectId: projectIdSchema }).an
 export const boardArchiveActionSchema = z.object({ projectId: projectIdSchema, expanded: z.boolean() });
 /** A board column under the board's filters (the comments page's query parameters), for Archive all (uier #357) */
 export const boardColumnActionSchema = z.object({ projectId: projectIdSchema, params: z.record(z.string().max(100), z.string().max(2000)),
-    lane: z.string().min(1).max(80).regex(/^[a-z][a-z0-9_-]*$/) }).strict();
+    lane: z.string().min(1).max(160).regex(/^[a-z][a-zA-Z0-9_~\-]*$/) }).strict();
 
 export const workflowCommentActionSchema = commentActionSchema.extend({ statusId: workflowStatusIdSchema });
 

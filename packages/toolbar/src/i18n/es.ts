@@ -170,6 +170,7 @@ export const es: Messages = {
         urgent: 'Urgente'
     },
     thread: {
+        labels: {'title': 'Etiquetas', 'edit': 'Editar etiquetas', 'empty': 'Sin etiquetas'},
         showAll: (count: number) => `Mostrar los ${count} mensajes`,
         connectedServices: 'Servicios conectados',
         openIn: (service: string) => `Abrir en ${service}`,
