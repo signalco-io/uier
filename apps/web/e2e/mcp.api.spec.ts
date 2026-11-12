@@ -1010,7 +1010,7 @@ test('MCP custom status writes validate effective IDs and keep receipt retries a
         await set({ statusId: 'approved', idempotencyKey: retry });
         saved = (await getCommentsStore().get(f.comment.domain, f.comment.id))!.comment;
         expect(saved.resolved).toBe(true);
-        expect((await set({ statusId: 'rejected' })).isError).not.toBe(true);
+        expect(data(await set({ statusId: 'rejected' }))).toMatchObject({ archivedAt: expect.any(String), resolved: true });
         expect((await getCommentsStore().get(f.comment.domain, f.comment.id))!.comment.archiveStatusId).toBe('rejected');
     } finally { await client.close(); }
 });

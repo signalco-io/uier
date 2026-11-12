@@ -28,6 +28,7 @@ const handler = extensionHandler(async request => {
     if (path === 'comments') return request.method === 'GET' ? review.listReviewComments(context) : review.createReviewComment(context);
     if (path === 'comments/activity') return reviewActivitySummary(context);
     if (path === 'comments/read') return readReviewComments(context);
+    if (path === 'statuses') return review.getReviewStatuses(context);
     if (path === 'participants') return review.listReviewParticipants(context);
     if (path === 'rewrite') return review.suggestReviewRewrites(context);
     if (path === 'notifications') {

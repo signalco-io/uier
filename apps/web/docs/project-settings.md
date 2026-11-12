@@ -187,3 +187,5 @@ My work keeps its category columns across projects, while its thread menus use e
 statuses. Board sorts remain shared per category. Same-category moves name the selected status in
 activity and MCP events; existing category APIs, filters and verification retain their meanings.
 Coverage: `status-workflow{,.api}.spec.ts` and `mcp.api.spec.ts`.
+
+The review API workflow endpoint is member-only. Guests retain ordinary category actions without receiving workspace/project workflow names, descriptions or defaults.

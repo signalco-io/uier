@@ -135,3 +135,31 @@ test('same-category custom moves record history and durable events; receipt retr
     expect(replay.workflowStatusId).toBe('custom_merging');
     await expect(setProjectCommentWorkflowStatus(f.project, member, comment.id, 'done', key)).rejects.toMatchObject({ code: 'conflict' });
 });
+
+test('review workflow endpoint returns configuration only to current project members', async () => {
+    const { GET } = await import('../app/api/review/[projectId]/statuses/route');
+    const { projectRefPk } = await import('../src/lib/app/model');
+    const { randomToken, signToken } = await import('../src/lib/app/tokens');
+    const f = await fixture();
+    await getAppStore().create({ type: 'project-ref', id: f.project.id, pk: projectRefPk(f.project.id), workspaceId: f.project.workspaceId });
+    await setWorkspaceStatusWorkflow(f.workspace.id, admin.userId, workflow());
+    const get = (headers: HeadersInit = {}) => {
+        const requestHeaders = new Headers(headers);
+        requestHeaders.set('Origin', f.project.urls[0]!);
+        return GET(new Request(`https://uier.io/api/review/${f.project.id}/statuses`, { headers: requestHeaders }),
+            { params: Promise.resolve({ projectId: f.project.id }) });
+    };
+    for (const headers of [new Headers(), new Headers({ 'X-Uier-Visitor': randomToken() })]) {
+        const guest = await get(headers);
+        expect(guest.status).toBe(403);
+        expect(guest.headers.get('Cache-Control')).toBe('no-store');
+        const body = await guest.json();
+        expect(body).toMatchObject({ error: 'forbidden' });
+        expect(JSON.stringify(body)).not.toMatch(/Approved|custom_approved|initialStatusId|description/);
+    }
+    const token = signToken('review', { uid: member.userId, pid: f.project.id }, 300);
+    const authorized = await get({ Authorization: `Bearer ${token}` });
+    expect(authorized.status).toBe(200);
+    expect(authorized.headers.get('Cache-Control')).toBe('no-store');
+    expect(await authorized.json()).toEqual(workflow());
+});

@@ -1,5 +1,5 @@
 import { reviewApiHandler, reviewPreflight } from '@/src/lib/review/http';
-import { loadStatusWorkflow } from '@/src/lib/app/statusWorkflows';
+import { getReviewStatuses } from '@/src/lib/review/routes';
 
-export const GET = reviewApiHandler(async ({ project }) => Response.json(await loadStatusWorkflow(project)));
+export const GET = reviewApiHandler(getReviewStatuses);
 export const OPTIONS = reviewPreflight('GET');

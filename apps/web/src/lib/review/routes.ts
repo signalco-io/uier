@@ -3,6 +3,7 @@ import { setProjectCommentWorkflowStatus } from './comments';
 import { feedbackStatusTargets } from '@uier/toolbar/verification';
 import { workflowStatusIdSchema } from '../app/statusWorkflowSchema';
 import { defaultFeedbackTypes, type FeedbackType } from '@uier/toolbar/feedback-types';
+import { loadStatusWorkflow } from '../app/statusWorkflows';
 import { loadFeedbackTypes } from '../app/feedbackTypes';
 import { changeFixVerification } from './fixVerification';
 import { fixVerificationSchema } from './fixVerificationSchema';
@@ -72,6 +73,12 @@ function writerName(actor: ProjectActor, authorName: string | undefined) {
     if (actor.kind === 'guest' && !authorName)
         throw apiErrors.invalidRequest('"authorName" must not be empty.');
     return authorName;
+}
+
+/** Workflow names, descriptions and defaults are member-only configuration. */
+export async function getReviewStatuses({ project, actor }: ReviewApiContext) {
+    if (actor.kind !== 'member') throw apiErrors.forbidden('Only project members can view status workflows.');
+    return Response.json(await loadStatusWorkflow(project));
 }
 
 /**

@@ -296,7 +296,7 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
             : input.status !== undefined
             ? await setProjectCommentStatus(project, actor, input.commentId, input.status, key(identity, input.idempotencyKey))
             : await setProjectCommentResolved(project, actor, input.commentId, input.resolved!, key(identity, input.idempotencyKey));
-        return result({ actingAs, commentId: saved.id, resolved: Boolean(saved.resolved), stage: feedbackStage(saved) });
+        return result({ actingAs, commentId: saved.id, resolved: Boolean(saved.resolved), stage: feedbackStage(saved), archivedAt: saved.archivedAt ?? null });
     }));
     server.registerTool('request_feedback_verification', { description: `Request a human-approved fix check from the original author or another eligible member. The thread becomes Ready to verify, which still counts as Open; this does not confirm the fix. Read the current verification revision first. ${untrusted}`, inputSchema: {
         ...write, statusId: workflowStatusIdSchema.optional(), expectedRevision: z.string().min(1).max(128).nullable(), reviewerId: z.union([z.literal('author'), userIdSchema]),

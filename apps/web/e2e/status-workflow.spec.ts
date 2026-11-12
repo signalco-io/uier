@@ -103,6 +103,7 @@ test('workspace statuses inherit, project overrides save/discard, and board/menu
 });
 
 test('toolbar custom status menu groups descriptions and persists moves within a category and into archive', async ({ page, baseURL }) => {
+    test.setTimeout(60_000);
     const { commentBubble, openThread } = await import('./support/toolbar');
     const site = await startReviewedSite(new URL(baseURL!).origin);
     try {
@@ -134,5 +135,23 @@ test('toolbar custom status menu groups descriptions and persists moves within a
         await thread.getByRole('button', { name: 'Status: Approved. Change status', exact: true }).click();
         await menu.getByRole('button', { name: /^Rejected/ }).click();
         await expect(commentBubble(page, 1, 1)).toBeHidden();
+        await page.reload();
+        const inbox = page.getByRole('complementary', { name: 'Comments' });
+        const inboxButton = page.getByRole('button', { name: /^Inbox/ });
+        if (await inboxButton.getAttribute('aria-expanded') !== 'true') await inboxButton.click();
+        await inbox.getByRole('button', { name: 'Done and archive', exact: true }).click();
+        await page.getByRole('dialog', { name: 'Done and archive' }).getByRole('button', { name: /^Archive/ }).click();
+        const archived = inbox.getByRole('article');
+        await archived.getByRole('button', { name: 'Status: Rejected. Change status', exact: true }).click();
+        for (const name of [/^Open$/, /^Approved/, /^In progress$/, /^Ready to verify$/, /^Done$/])
+            await expect(menu.getByRole('button', { name })).toBeDisabled();
+        await expect(menu.getByRole('button', { name: /^Rejected/ })).toBeEnabled();
+        const restored = page.waitForResponse(response => response.request().method() === 'PATCH' && /\/comments\/[^/]+$/.test(new URL(response.url()).pathname));
+        await menu.getByRole('button', { name: 'Restore comment', exact: true }).click();
+        const saved = await (await restored).json();
+        expect(saved.archivedAt).toBeUndefined();
+        await expect(commentBubble(page, 1, 1)).toBeVisible();
+        await inbox.getByRole('button', { name: 'Active 1', exact: true }).click();
+        await expect(inbox.getByRole('article').getByRole('button', { name: 'Status: Approved. Change status', exact: true })).toBeVisible();
     } finally { await site.close(); }
 });
