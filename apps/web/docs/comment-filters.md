@@ -51,7 +51,9 @@
   floats over the end of the comments once something is selected ([App triage](triage.md#selection)).
   `LocationFilter`: its trigger is named by what it shows, then "environment and page" ("Production · /pricing, environment and page").
   Environments on the left, the chosen environment's pages on the right with a search,
-  sections such as `/blog/*` and "Pages under" a typed path, matched by `pageFilter.ts`. Choosing an environment
+  sections such as `/blog/*` and "Pages under" a typed path, matched by `pageFilter.ts` (the sections and their matching come from
+  `@uier/toolbar/page-sections`, which the toolbar inbox's `LocationPicker` uses for the same split: environments, this page, all pages and the sections
+  on its left, the other pages with their search on its right). Choosing an environment
   keeps the panel open and reloads its pages. "Removed addresses" and
   "Source not recorded" show only when comments have that source (`historySources`, worked out in `ProjectComments`
   from the loaded comments when every environment is loaded and the search window is not capped); when that is not

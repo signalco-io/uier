@@ -47,6 +47,11 @@
             "development": "./dist-dev/pageState.js",
             "default": "./dist/pageState.js"
         },
+        "./page-sections": {
+            "types": "./src/pageSections.ts",
+            "development": "./dist-dev/pageSections.js",
+            "default": "./dist/pageSections.js"
+        },
         "./mentions": {
             "types": "./src/mentions.ts",
             "development": "./dist-dev/mentions.js",

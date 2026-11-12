@@ -9,7 +9,8 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from '@/src/components/u
 import { Popover, PopoverContent, PopoverTrigger } from '@/src/components/ui/popover';
 import { cn } from '@/src/lib/utils';
 import type { EnvironmentOption } from '../../../lib/app/environments';
-import { pageFilterBase, pageMatches } from './pageFilter';
+import { pageSections, type PageSection } from '@uier/toolbar/page-sections';
+import { pageFilterBase } from './pageFilter';
 
 export type PageCount = { path: string; count: number };
 
@@ -83,28 +84,13 @@ export function LocationFilter({ environment, environments, historySources, page
 
     const { sections, shown, typedPrefix } = useMemo(() => {
         const query = search.trim().toLowerCase();
-        const count = (filter: string) => pages.filter(item => pageMatches(filter, item.path));
-        // Sections: every parent path with at least two pages
-        const parents = new Set<string>();
-        for (const { path } of pages) {
-            const segments = path.split(/[?#]/)[0]!.split('/').filter(Boolean);
-            for (let index = 1; index < segments.length; index++)
-                parents.add(`/${segments.slice(0, index).join('/')}`);
-        }
-        const sections = [...parents]
-            .map(base => ({ filter: `${base}/*`, base, matches: count(`${base}/*`) }))
-            .filter(section => section.matches.length > 1 && (!query || section.base.toLowerCase().includes(query)))
-            .sort((a, b) => a.base.localeCompare(b.base))
-            .slice(0, query ? 10 : 5);
+        // Sections: every parent path with at least two pages, shared with the toolbar's inbox
+        const { sections, typed } = pageSections(pages, search);
         const shown = pages
             .filter(item => !query || item.path.toLowerCase().includes(query))
             .sort((a, b) => b.count - a.count || a.path.localeCompare(b.path));
-        // A typed path that is not a section yet: everything under it
-        const typed = search.trim().replace(/\/+$/, '');
-        const typedPrefix = typed.startsWith('/') && typed.length > 1 && !sections.some(section => section.base === typed)
-            ? { filter: `${typed}/*`, base: typed, matches: count(`${typed}/*`) }
-            : undefined;
-        return { sections, shown, typedPrefix };
+        const asFilter = (section: PageSection<PageCount>) => ({ filter: `${section.base}/*`, base: section.base, matches: section.pages });
+        return { sections: sections.map(asFilter), shown, typedPrefix: typed && asFilter(typed) };
     }, [pages, search]);
 
     const total = (items: PageCount[]) => items.reduce((sum, item) => sum + item.count, 0);

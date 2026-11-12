@@ -6,7 +6,8 @@ import { cx } from '@signalco/ui-primitives/cx';
 import { Check, ExpandDown, File, Globe, Layers, Search } from '@signalco/ui-icons';
 import { CommentsBootstrapperContext } from '../CommentsBootstrapperContext';
 import { useInkContainer } from '../InkScope';
-import { inSection, type CommentsPageFilter } from './CommentsFilter';
+import type { CommentsPageFilter } from './CommentsFilter';
+import { pageSections } from '../../pageSections';
 import { pageKeyPath, type InboxPage } from './useInboxComments';
 import { toolbarSurface } from '../../toolbarReview';
 import { useIconTooltip } from '../IconTooltip';
@@ -63,10 +64,10 @@ function GroupLabel({ children }: { children: ReactNode }) {
 }
 
 /**
- * Where the inbox's comments are from, in one control the width of the inbox, like the app's location filter (this
- * page shows its path, its full address in a tooltip): the
- * environment (when the project has several) on the left and the pages on the right. Pages can be
- * searched; sections with several pages (`/blog/…`) and a typed path list every page under it.
+ * Where the inbox's comments are from, in one control the width of the inbox, split like the app's location filter
+ * (`LocationFilter`; this page shows its path, its full address in a tooltip): on the left the environment (when the
+ * project has several), this page, all pages and the sections with several pages (`/blog/…`, from `@uier/toolbar/page-sections`,
+ * as in the app); on the right the single pages and their search. A typed path lists every page under it.
  */
 export function LocationPicker({ value, pages, currentPath, currentCount, otherCount, environment, onChange }: {
     value: CommentsPageFilter;
@@ -95,26 +96,8 @@ export function LocationPicker({ value, pages, currentPath, currentCount, otherC
     const { sections, shown, typed } = useMemo(() => {
         const query = search.trim().toLowerCase();
         // This page counts in its sections too
-        const everyPage = [{ path: currentPath, count: currentCount }, ...pages];
-        const parents = new Set<string>();
-        for (const { path } of everyPage) {
-            const segments = path.split(/[?#]/)[0]!.split('/').filter(Boolean);
-            for (let index = 1; index < segments.length; index++)
-                parents.add(`/${segments.slice(0, index).join('/')}`);
-        }
-        const section = (base: string) => {
-            const matches = everyPage.filter(item => inSection(base, item.path));
-            return { key: `section:${base}` as const, base, pages: matches.length, count: matches.reduce((sum, item) => sum + item.count, 0) };
-        };
-        const sections = [...parents]
-            .map(section)
-            .filter(item => item.pages > 1 && (!query || item.base.toLowerCase().includes(query)))
-            .sort((a, b) => a.base.localeCompare(b.base))
-            .slice(0, query ? 10 : 5);
+        const { sections, typed } = pageSections([{ path: currentPath, count: currentCount }, ...pages], search);
         const shown = pages.filter(item => !query || item.path.toLowerCase().includes(query));
-        // A typed path that is not a section yet: everything under it
-        const path = search.trim().replace(/\/+$/, '');
-        const typed = path.startsWith('/') && path.length > 1 && !sections.some(item => item.base === path) ? section(path) : undefined;
         return { sections, shown, typed };
     }, [pages, currentPath, currentCount, search]);
 
@@ -159,8 +142,7 @@ export function LocationPicker({ value, pages, currentPath, currentCount, otherC
             aria-label={name}
             onKeyDown={handleKeyDown}
             {...focusSearch}
-            {...toolbarSurface('uier-locations', cx('z-[55] grid gap-0 rounded-xl p-0',
-                environment ? 'w-[min(36rem,calc(100vw-2rem))] sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)]' : 'w-[min(22rem,calc(100vw-2rem))]'))}
+            {...toolbarSurface('uier-locations', 'z-[55] grid w-[min(36rem,calc(100vw-2rem))] gap-0 rounded-xl p-0 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)]')}
             trigger={(
                 <Button variant="outlined" aria-label={`${name}: ${spoken}`} {...triggerProps} className="w-full justify-between rounded-md font-normal"
                     startDecorator={value === 'current' || value.startsWith('page:') ? <File size={14} aria-hidden="true" className="shrink-0 text-muted-foreground" />
@@ -169,26 +151,48 @@ export function LocationPicker({ value, pages, currentPath, currentCount, otherC
                     <span className={cx('min-w-0 flex-1 truncate text-left', current && 'font-mono text-[13px]')}>{summary}</span>
                 </Button>
             )}>
-            {environment && (
-                <div role="group" aria-label={t.locations.environment} className="flex flex-col border-b p-1 sm:max-h-96 sm:overflow-y-auto sm:border-r sm:border-b-0">
-                    <GroupLabel>{t.locations.environment}</GroupLabel>
-                    <Option selected={!environment.value || environment.value === 'all'} icon={<Globe size={14} aria-hidden="true" className="shrink-0 text-muted-foreground" />}
-                        label={t.locations.allEnvironments} onSelect={() => environment.onChange('all')} />
-                    {environment.options.map(item => (
-                        <Option key={item.id} selected={environment.value === item.id} label={item.label} onSelect={() => environment.onChange(item.id)} />
-                    ))}
-                    {historyEnvironments(t).map(item => (
-                        <Option key={item.id} selected={environment.value === item.id} label={<span className="text-muted-foreground">{item.label}</span>}
-                            onSelect={() => environment.onChange(item.id)} />
-                    ))}
+            {/* Split like the app's location filter: what to list (the environment, this page, all pages, sections) on
+                the left, the single pages with their search on the right; stacked on narrow screens */}
+            <div className="flex min-w-0 flex-col border-b p-1 sm:max-h-96 sm:overflow-y-auto sm:border-r sm:border-b-0">
+                {environment && (
+                    <div role="group" aria-label={t.locations.environment} className="flex flex-col">
+                        <GroupLabel>{t.locations.environment}</GroupLabel>
+                        <Option selected={!environment.value || environment.value === 'all'} icon={<Globe size={14} aria-hidden="true" className="shrink-0 text-muted-foreground" />}
+                            label={t.locations.allEnvironments} onSelect={() => environment.onChange('all')} />
+                        {environment.options.map(item => (
+                            <Option key={item.id} selected={environment.value === item.id} label={item.label} title={item.label} onSelect={() => environment.onChange(item.id)} />
+                        ))}
+                        {historyEnvironments(t).map(item => (
+                            <Option key={item.id} selected={environment.value === item.id} label={<span className="text-muted-foreground">{item.label}</span>}
+                                title={item.label} onSelect={() => environment.onChange(item.id)} />
+                        ))}
+                    </div>
+                )}
+                <div role="group" aria-label={t.locations.pages} className="flex flex-col">
+                    {/* Which environment the pages are from */}
+                    <div className="flex min-w-0 items-baseline justify-between gap-2 pr-2">
+                        <GroupLabel>{t.locations.pages}</GroupLabel>
+                        {environment && <span className="min-w-0 truncate text-xs text-muted-foreground">{environmentLabel ?? t.locations.allEnvironments}</span>}
+                    </div>
+                    <Option selected={value === 'current'} icon={<File size={14} aria-hidden="true" className="shrink-0 text-muted-foreground" />}
+                        label={t.locations.thisPage} title={currentPath} detail={currentCount} onSelect={() => choose('current')} />
+                    <Option selected={value === 'all'} icon={<Globe size={14} aria-hidden="true" className="shrink-0 text-muted-foreground" />}
+                        label={t.locations.allPages} detail={currentCount + otherCount} onSelect={() => choose('all')} />
                 </div>
-            )}
+                {sections.length > 0 && (
+                    <div role="group" aria-label={t.locations.sections} className="flex flex-col">
+                        <GroupLabel>{t.locations.sections}</GroupLabel>
+                        {sections.map(section => (
+                            <Option key={section.base} selected={value === `section:${section.base}`} icon={sectionIcon}
+                                label={<span className="font-mono text-[13px]">{section.base}/…</span>}
+                                title={`${section.base}/… · ${t.locations.sectionDetail(section.pages.length, section.count)}`}
+                                detail={section.count} onSelect={() => choose(`section:${section.base}`)} />
+                        ))}
+                    </div>
+                )}
+            </div>
             <div className="flex min-w-0 flex-col gap-1 p-1">
-                {/* Which environment the pages are from */}
-                <div className="flex min-w-0 items-baseline justify-between gap-2 pr-2">
-                    <GroupLabel>{t.locations.pages}</GroupLabel>
-                    {environment && <span className="min-w-0 truncate text-xs text-muted-foreground">{environmentLabel ?? t.locations.allEnvironments}</span>}
-                </div>
+                <GroupLabel>{sections.length > 0 ? t.locations.singlePages : t.locations.otherPages}</GroupLabel>
                 <div className="px-1">
                     <Input
                         type="search"
@@ -201,25 +205,12 @@ export function LocationPicker({ value, pages, currentPath, currentCount, otherC
                         value={search}
                         onChange={event => setSearch(event.target.value)} />
                 </div>
-                <div role="group" aria-label={t.locations.pages} className="flex max-h-72 flex-col overflow-y-auto">
-                    {!search && <>
-                        <Option selected={value === 'current'} icon={<File size={14} aria-hidden="true" className="shrink-0 text-muted-foreground" />}
-                            label={t.locations.thisPage} detail={currentCount} onSelect={() => choose('current')} />
-                        <Option selected={value === 'all'} icon={<Globe size={14} aria-hidden="true" className="shrink-0 text-muted-foreground" />}
-                            label={t.locations.allPages} detail={currentCount + otherCount} onSelect={() => choose('all')} />
-                    </>}
+                <div role="group" aria-label={sections.length > 0 ? t.locations.singlePages : t.locations.otherPages} className="flex max-h-72 flex-col overflow-y-auto">
                     {typed && (
-                        <Option selected={value === typed.key} icon={sectionIcon}
+                        <Option selected={value === `section:${typed.base}`} icon={sectionIcon}
                             label={<>{t.locations.pagesUnder}<span className="font-mono text-[13px]">{typed.base}</span></>}
-                            detail={typed.count} onSelect={() => choose(typed.key)} />
+                            title={`${typed.base}/…`} detail={typed.count} onSelect={() => choose(`section:${typed.base}`)} />
                     )}
-                    {sections.length > 0 && <GroupLabel>{t.locations.sections}</GroupLabel>}
-                    {sections.map(section => (
-                        <Option key={section.key} selected={value === section.key} icon={sectionIcon}
-                            label={<span className="font-mono text-[13px]">{section.base}/…</span>}
-                            detail={t.locations.sectionDetail(section.pages, section.count)} onSelect={() => choose(section.key)} />
-                    ))}
-                    {shown.length > 0 && <GroupLabel>{sections.length > 0 ? t.locations.singlePages : t.locations.otherPages}</GroupLabel>}
                     {shown.slice(0, maxPages).map(page => (
                         <Option key={page.key} selected={value === page.key} title={page.path}
                             icon={<File size={14} aria-hidden="true" className="shrink-0 text-muted-foreground" />}
