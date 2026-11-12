@@ -60,7 +60,7 @@ test('the predictable showcase id cannot be used as a public review code', async
     if (await showGuide.isVisible()) await showGuide.click();
     const publicId = /data-uier-project="([A-Za-z0-9_-]{21})"/.exec(await snippet.textContent() ?? '')?.[1];
     expect(publicId).toBeTruthy();
-    for (const predictable of ['uier00000001', 'uier00000002']) {
+    for (const predictable of ['uier00000001', 'uier00000002', 'uier00000003']) {
         expect((await page.request.get(`/api/review/${predictable}`)).status()).toBe(404);
         expect((await page.request.get(`/api/review/${predictable}/comments?path=/`)).status()).toBe(404);
     }

@@ -11,7 +11,7 @@ import { projectRefPk, workspacePk, type DbProject, type DbProjectRef, type Proj
 import { hasProjectAccess, loadWorkspaceAccessForRender } from './access';
 import type { AppContext } from './context';
 import { MAX_PROJECT_BRIEF_LENGTH, MAX_PROJECT_NAME_LENGTH, MAX_PROJECT_URLS } from './limits';
-import { ensurePublicProject, isUierFeedbackProject } from '../comments/publicProject';
+import { ensurePublicProject, isUierProvisionedProject } from '../comments/publicProject';
 import { assertMutableWorkspace, assertMutableProject } from '../comments/publicProjectPolicy';
 import { ensureProjectPublicId, isLiveProject, isProjectPublicId, projectByPublicId } from './projectPublicIds';
 import { createProjectWithClient, ensureProjectClient } from './clients';
@@ -121,17 +121,17 @@ export async function getProject(workspaceId: string, projectId: string) {
 export async function findProject(projectId: string) {
     if (!isProjectId(projectId))
         return null;
-    if (isUierFeedbackProject(projectId))
+    if (isUierProvisionedProject(projectId))
         await ensurePublicProject();
     const ref = (await getAppStore().get<DbProjectRef>(projectRefPk(projectId), projectId))?.doc;
     // A deleted project's retired claim names no workspace
     return ref?.type === 'project-ref' ? await getProject(ref.workspaceId, projectId) : null;
 }
 
-/** Public review boundary. Retain old random codes, never the predictable showcase id. */
+/** Public review boundary. Retain old random codes, never the predictable ids of uier's own projects. */
 export async function findReviewProject(code: string) {
     return await projectByPublicId(code)
-        ?? (!isUierFeedbackProject(code) ? await findProject(code) : null);
+        ?? (!isUierProvisionedProject(code) ? await findProject(code) : null);
 }
 
 /** A project of the current workspace the member may see, or `null` */

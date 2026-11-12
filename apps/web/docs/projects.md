@@ -3,8 +3,19 @@
 - `app/projectPublicIds.ts` assigns stable 21-character public Nano IDs lazily with claimed references
   and optimistic concurrency. Generated review URLs, embeds and guest email links use `publicId`;
   internal project ids retain storage/membership/MCP meaning. Review routes use `findReviewProject`,
-  retaining legacy random codes but rejecting the fixed `uier00000001` and `uier00000002` codes. Do not expose abandoned
+  retaining legacy random codes but rejecting the fixed codes of uier's own projects (`isUierProvisionedProject`:
+  `uier00000001`, `uier00000002`, `uier00000003`). Do not expose abandoned
   references or overwrite a saved public id. See `docs/api.md#public-project-identifiers`.
+- **The monitor dashboard project** (`uier00000003`, `provisionMonitorDashboardProject` in
+  `comments/publicProject.ts`) is where uier's staff review the uier monitor's local dashboard
+  ([the monitor guide](../../../docs/uier-monitor.md#feedback-on-the-dashboard)). It is provisioned in code
+  with the other projects of uier's workspace, because that workspace takes no project from the app. It is an
+  ordinary invited project, not a feedback project: `isUierFeedbackProject` stays false for it, so its comments
+  don't expire and notifications and MCP events work. Only staff reach it, since every other account's
+  membership names the user feedback project alone. Its public id is fixed in code (`claimProjectPublicId`
+  claims it create-only), so the dashboard's docs can name it; the addresses are the dashboard's default port.
+  `e2e/public-project.api.spec.ts` covers provisioning and access, `e2e/monitor-dashboard.spec.ts` the
+  toolbar on the dashboard under its own CSP.
 - Project deletion (`app/projectDeletion.ts`, the settings Danger zone, `deleteProjectAction`) is admin-only,
   requires the typed name and refuses the public workspace/project in the service too. Disconnect services
   through their own Disconnect paths while the project exists, then store the identifier-only
