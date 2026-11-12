@@ -105,7 +105,9 @@ Both panels share one layout (`components/checks/ChecksParts.tsx`), so they read
 - **The title is a panel menu** (`PanelTitle`, also the inbox's;
   [uier #299](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_rVMt4sX1T67EuKCMo7hji)):
   the h2 holds a button that opens the panels this review shows (`PanelSwitchContext` from `CommentsGlobal`: the inbox, and
-  Accessibility and SEO when they are on and no anchor is being chosen), this one checked. Choosing another closes this
+  Accessibility and SEO when they are on and no anchor is being chosen), this one checked. The button and each item
+  show the panel's icon before its name, the same icon as its toolbar button
+  ([uier #319](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2F&comment=comment_uF0MmPs535f5qBd3Zf-gc)). Choosing another closes this
   panel and opens that one, whose Close takes the focus (one already open on the other side gets it too). ↑ ↓ move
   between them, Escape closes only the menu; with a single panel the title is plain text. A reviewable part on uier's
   own pages ("panel menu").

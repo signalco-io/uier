@@ -42,7 +42,7 @@ export type CommentsSidebarProps = {
  */
 export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, onShowOnPage, pageDrafts = [], onResumeDraft, onSendDraft, onDiscardDraft, focusRequest }: CommentsSidebarProps) {
     const t = useMessages();
-    const { isMember, environment, environmentOptions, setEnvironment, environmentLabel } = useProjectViewer();
+    const { isMember, environment, environmentOptions, setEnvironment } = useProjectViewer();
     const { data: activity } = useActivitySummary();
     const unread = activity?.unread ?? 0;
     const inbox = useInboxComments(filter);
@@ -97,7 +97,6 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
                                 open={searchOpen} onOpenChange={setSearchOpen} />} />
                         {/* The search and filters are one group, closer together than the title and the tabs */}
                         <Stack spacing={1}>
-                        {setEnvironment && <p className="m-0 text-xs text-muted-foreground">{t.inbox.reviewing(environmentLabel ?? window.location.origin)}</p>}
                         <LocationPicker
                             value={inbox.scope}
                             pages={inbox.pages}
