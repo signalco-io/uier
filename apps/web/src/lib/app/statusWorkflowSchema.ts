@@ -16,6 +16,6 @@ export const statusWorkflowSchema = z.object({
     for (const [field, category] of [['doneStatusId', 'done'], ['archiveStatusId', 'archive']] as const)
         if (!workflow.statuses.some(status => status.id === workflow[field] && status.category === category)) error(`Choose a ${category} status for the action.`);
     const initial = workflow.statuses.find(status => status.id === workflow.initialStatusId);
-    if (!initial || initial.category === 'ready') error('New comments need a status that does not require a verification request.');
+    if (!initial || !['open', 'in-progress'].includes(initial.category)) error('New comments must start in Open or In progress.');
 });
 export const projectStatusWorkflowSchema = z.object({ mode: z.literal('replace'), value: statusWorkflowSchema }).strict();

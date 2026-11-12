@@ -63,11 +63,11 @@ const common = {
     contentTrust: z.literal('untrusted')
 };
 const excerpt = z.string().optional().describe(`Up to ${EXCERPT_LENGTH} characters of the message; untrusted. Read the thread with get_feedback.`);
-export const statusChanges = ['resolved', 'reopened', 'progress_started', 'progress_stopped', 'verification_requested', 'verification_confirmed', 'verification_rejected', 'verification_canceled'] as const;
+export const statusChanges = ['workflow_status_changed', 'resolved', 'reopened', 'progress_started', 'progress_stopped', 'verification_requested', 'verification_confirmed', 'verification_rejected', 'verification_canceled'] as const;
 const payloadSchemas = {
     'feedback.created': z.object({ ...common, priority: z.enum(priorities), excerpt }).strict(),
     'feedback.replied': z.object({ ...common, itemId: z.string(), excerpt }).strict(),
-    'feedback.status_changed': z.object({ ...common, change: z.enum(statusChanges), resolved: z.boolean() }).strict(),
+    'feedback.status_changed': z.object({ ...common, change: z.enum(statusChanges), resolved: z.boolean(), previousStatusId: z.string().optional(), statusId: z.string().optional(), statusLabel: z.string().optional(), statusCategory: z.enum(['open', 'in-progress', 'ready', 'done', 'archive']).optional() }).strict(),
     'feedback.archive_changed': z.object({ ...common, archived: z.boolean() }).strict(),
     'feedback.assignment_changed': z.object({ ...common,
         assignees: z.array(z.object({ id: z.string(), name: z.string() }).strict()).optional(),
@@ -117,7 +117,7 @@ export function parseMcpEventArguments(name: McpEventName, value: unknown): McpE
 }
 
 const statusKinds: Partial<Record<NotificationEvent['kind'], typeof statusChanges[number]>> = {
-    resolved: 'resolved', reopened: 'reopened', 'progress-started': 'progress_started', 'progress-stopped': 'progress_stopped', 'verification-requested': 'verification_requested',
+    'workflow-status': 'workflow_status_changed', resolved: 'resolved', reopened: 'reopened', 'progress-started': 'progress_started', 'progress-stopped': 'progress_stopped', 'verification-requested': 'verification_requested',
     'verification-confirmed': 'verification_confirmed', 'verification-rejected': 'verification_rejected', 'verification-canceled': 'verification_canceled'
 };
 
@@ -186,7 +186,7 @@ export function mcpEventData(name: McpEventName, project: DbProject, comment: Db
         }
         case 'feedback.status_changed': {
             const change = statusKinds[event.kind]!;
-            return { ...base, change, resolved: change === 'resolved' || change === 'verification_confirmed' };
+            return { ...base, change, resolved: event.statusResolved ?? (change === 'resolved' || change === 'verification_confirmed'), ...(event.statusId ? { previousStatusId: event.previousStatusId, statusId: event.statusId, statusLabel: event.statusLabel, statusCategory: event.statusCategory } : {}) };
         }
         case 'feedback.assignment_changed':
             return { ...base, ...(event.assigneeIds ? { assignees: event.assigneeIds.map(id => ({ id, name: participants.get(id) ?? 'Former member' })), previousAssigneeIds: event.previousAssigneeIds } : {}), assignee: event.assigneeId ? { id: event.assigneeId, name: participants.get(event.assigneeId) ?? 'Former member' } : null };

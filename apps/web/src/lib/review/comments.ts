@@ -1,5 +1,5 @@
 import { loadStatusWorkflow } from '../app/statusWorkflows';
-import { defaultStatus, workflowStatusPatch } from '../app/statusWorkflow';
+import { defaultStatus, statusForComment, workflowStatusPatch } from '../app/statusWorkflow';
 import { workflowStatusIdSchema } from '../app/statusWorkflowSchema';
 import { feedbackTypeForSubmission } from '../app/feedbackTypes';
 import { ordinaryVerificationStatus, withOrdinaryStage } from '../comments/verificationState';
@@ -37,7 +37,7 @@ import { KnownPages } from '../../knownPages';
 import { isPrivateAppFeedback, isUierFeedbackProject, PUBLIC_PROJECT_PARTITION, USER_FEEDBACK_PROJECT_ID } from '../comments/publicProject';
 import { isValidId, type CreateCommentInput } from '../comments/validation';
 import type { DbProject } from '../app/model';
-import { actorAuthorId, memberActor, refreshMutationActor, assertWriter, type ProjectActor } from './actor';
+import { actorAuthorId, memberActor, refreshMutationActor, assertCanUseComments, assertWriter, type ProjectActor } from './actor';
 import { assertEligibleParticipant, assertParticipantEditor, validateMentions } from './participants';
 import { replaceSavedScreenshot } from '../comments/replaceScreenshot';
 import type { ParsedScreenshot } from '../comments/screenshot';
@@ -146,7 +146,7 @@ async function updateComment<T extends DbComment | null>(
     project: DbProject,
     actor: ProjectActor,
     id: string,
-    update: (comment: DbComment) => T | Promise<T>,
+    update: (comment: DbComment, currentProject: DbProject) => T | Promise<T>,
     onDelete?: (comment: DbComment, etag: string) => Promise<ConditionalWriteResult>
 ): Promise<T> {
     const partition = projectPartition(project.id);
@@ -155,8 +155,8 @@ async function updateComment<T extends DbComment | null>(
         if (!stored)
             throw apiErrors.notFound();
 
-        await refreshMutationActor(project, actor);
-        const updated = await update({ ...stored.comment, activity: threadActivity(stored.comment) });
+        const currentProject = await refreshMutationActor(project, actor);
+        const updated = await update({ ...stored.comment, activity: threadActivity(stored.comment) }, currentProject);
         const result = updated
             ? await store.replace(updated, stored.etag)
             : await (onDelete ? onDelete(stored.comment, stored.etag) : store.delete(partition, id, stored.etag));
@@ -232,7 +232,7 @@ export async function createProjectComment(request: Request, project: DbProject,
     });
     const recovered = await recoverSubmission(store, attempt);
     if (recovered) return visibleOrThrow(recovered, actor);
-    const workflow = await loadStatusWorkflow(await refreshMutationActor(project, actor, true));
+    const workflow = await loadStatusWorkflow(project);
     const initial = workflow.statuses.find(status => status.id === workflow.initialStatusId)!;
     const feedbackType = await feedbackTypeForSubmission(project, input.kind);
     await enforceNewCommentLimits(store, commentRateLimitSubject(request, project, actor, authorId), input.path);
@@ -282,7 +282,7 @@ export async function createProjectComment(request: Request, project: DbProject,
     if (screenshot)
         comment.screenshot = screenshotInfo(screenshot);
     const recorded = withSyncMark(project, null, withNotificationEvent(comment, authorId, 'comment', now, mentionRecipients(comment.thread.items[0]!.mentions), actor.kind === 'member' ? actor.agent : undefined, { itemId: comment.thread.items[0]!.id }));
-    await refreshMutationActor(project, actor);
+    await refreshMutationActor(project, actor, true);
     if (attempt) {
         const saved = await commitNewSubmission(store, attempt, recorded, screenshot ? screenshotDocument(recorded, screenshot) : undefined);
         queueMcpEventDelivery(project.id);
@@ -404,19 +404,29 @@ async function appendProjectReply(request: Request, project: DbProject, actor: P
 }
 
 /** Applies a change to a comment the actor can see, after `allowed` says the actor may make it */
-export async function changeComment(project: DbProject, actor: ProjectActor, id: string, allowed: (comment: DbComment) => boolean, change: (comment: DbComment) => DbComment | Promise<DbComment>, attempt?: Submission, guard?: CommentChangeGuard, store: CommentsStore = getCommentsStore(), options: { ephemeral?: boolean; requireComments?: boolean } = {}) {
+export async function changeComment(project: DbProject, actor: ProjectActor, id: string, allowed: (comment: DbComment) => boolean, change: (comment: DbComment, currentProject: DbProject) => DbComment | Promise<DbComment>, attempt?: Submission, guard?: CommentChangeGuard, store: CommentsStore = getCommentsStore(), options: { ephemeral?: boolean; requireComments?: boolean } = {}) {
+    let authorizedProject: DbProject | undefined;
     const authorize = async (comment: DbComment) => {
-        await refreshMutationActor(project, actor, guard?.requireComments || options.requireComments);
+        const currentProject = await refreshMutationActor(project, actor, guard?.requireComments || options.requireComments);
         visibleOrThrow(comment, actor);
         if (guard?.triage && !canTriageProject(project, actor)) throw apiErrors.notFound();
         if (!allowed(comment))
             throw apiErrors.forbidden('You can\'t change this comment.');
+        authorizedProject = currentProject;
+        return currentProject;
     };
-    const apply = async (comment: DbComment) => {
-        await authorize(comment);
+    const apply = async (comment: DbComment, refreshedProject?: DbProject) => {
+        const currentProject = refreshedProject ?? authorizedProject ?? await authorize(comment);
+        authorizedProject = undefined;
+        if (refreshedProject) {
+            if (guard?.requireComments || options.requireComments) assertCanUseComments(currentProject, actor);
+            visibleOrThrow(comment, actor);
+            if (!allowed(comment)) throw apiErrors.forbidden();
+            if (guard?.triage && !canTriageProject(currentProject, actor)) throw apiErrors.notFound();
+        }
         if (guard?.revision && commentRevision(comment) !== guard.revision) throw apiErrors.conflict();
         if (guard && guard.value(comment) !== guard.expected) throw apiErrors.conflict();
-        const changed = await change(comment);
+        const changed = await change(comment, currentProject);
         guard?.onResult?.(changed !== comment);
         // Presence changes only the etag: no unread step, content timestamp, integration or title work.
         if (options.ephemeral) return changed;
@@ -462,8 +472,8 @@ export async function setProjectCommentResolved(project: DbProject, actor: Proje
     resolved = z.boolean().parse(resolved);
     return await changeComment(project, actor, id,
         comment => canResolveComment(comment, actor),
-        async comment => Boolean(comment.resolved) === resolved && !(!resolved && comment.verification?.outcome === 'pending') ? comment : withNotificationEvent(
-            { ...ordinaryVerificationStatus(withThreadActivity(comment, actorAuthorId(actor)!), resolved, true), workflowStatusId: defaultStatus(await loadStatusWorkflow(await refreshMutationActor(project, actor)), resolved ? 'done' : comment.inProgress ? 'in-progress' : 'open').id }, actorAuthorId(actor)!, resolved ? 'resolved' : 'reopened', nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined),
+        async (comment, currentProject) => Boolean(comment.resolved) === resolved && !(!resolved && comment.verification?.outcome === 'pending') ? comment : withNotificationEvent(
+            { ...ordinaryVerificationStatus(withThreadActivity(comment, actorAuthorId(actor)!), resolved, true), workflowStatusId: defaultStatus(await loadStatusWorkflow(currentProject), resolved ? 'done' : comment.inProgress ? 'in-progress' : 'open').id }, actorAuthorId(actor)!, resolved ? 'resolved' : 'reopened', nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined),
         submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { operation: 'status', id, resolved, ...guardFingerprint(guard) }), guard, store);
 }
 
@@ -478,12 +488,12 @@ export async function setProjectCommentStatus(project: DbProject, actor: Project
     status = parsed.data;
     return await changeComment(project, actor, id,
         comment => canResolveComment(comment, actor),
-        async comment => {
+        async (comment, currentProject) => {
             const from = feedbackStage(comment);
             if (from === status) return comment;
             const actorId = actorAuthorId(actor)!;
             const kind = status === 'done' ? 'resolved' : status === 'in-progress' ? 'progress-started' : from === 'in-progress' ? 'progress-stopped' : 'reopened';
-            return withNotificationEvent({ ...withOrdinaryStage(withThreadActivity(comment, actorId), status), ...workflowStatusPatch(await loadStatusWorkflow(await refreshMutationActor(project, actor)), status) }, actorId, kind, nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined);
+            return withNotificationEvent({ ...withOrdinaryStage(withThreadActivity(comment, actorId), status), ...workflowStatusPatch(await loadStatusWorkflow(currentProject), status) }, actorId, kind, nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined);
         },
         submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { operation: 'status', id, status, ...guardFingerprint(guard) }), guard, store);
 }
@@ -491,10 +501,10 @@ export async function setProjectCommentStatus(project: DbProject, actor: Project
 /** Archiving uses the existing status authority and never changes the workflow or read cursors. */
 export async function setProjectCommentArchived(project: DbProject, actor: ProjectActor, id: string, archived: boolean, idempotencyKey?: string, store?: CommentsStore) {
     archived = z.boolean().parse(archived);
-    return changeComment(project, actor, id, comment => canResolveComment(comment, actor), async comment =>
+    return changeComment(project, actor, id, comment => canResolveComment(comment, actor), async (comment, currentProject) =>
         Boolean(comment.archivedAt) === archived ? comment : withNotificationEvent({
             ...withThreadActivity(comment, actorAuthorId(actor)!), archivedAt: archived ? nowIso() : undefined,
-            archiveStatusId: archived ? defaultStatus(await loadStatusWorkflow(await refreshMutationActor(project, actor)), 'archive').id : undefined
+            archiveStatusId: archived ? defaultStatus(await loadStatusWorkflow(currentProject), 'archive').id : undefined
         }, actorAuthorId(actor)!, archived ? 'archived' : 'restored', nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined), submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { operation: 'archive', id, archived }), undefined, store);
 }
 
@@ -695,26 +705,28 @@ export async function reattachProjectAnchor(project: DbProject, actor: ProjectAc
 }
 
 /** Select an effective custom status without changing the category's permissions or verification contract. */
-export async function setProjectCommentWorkflowStatus(project: DbProject, actor: ProjectActor, id: string, statusId: string) {
+export async function setProjectCommentWorkflowStatus(project: DbProject, actor: ProjectActor, id: string, statusId: string, idempotencyKey?: string) {
     if (!workflowStatusIdSchema.safeParse(statusId).success) throw apiErrors.invalidRequest('Choose a valid status.');
-    return changeComment(project, actor, id, comment => canResolveComment(comment, actor), async comment => {
-        const workflow = await loadStatusWorkflow(await refreshMutationActor(project, actor));
+    return changeComment(project, actor, id, comment => canResolveComment(comment, actor), async (comment, currentProject) => {
+        const workflow = await loadStatusWorkflow(currentProject);
         const target = workflow.statuses.find(status => status.id === statusId);
         if (!target) throw apiErrors.invalidRequest('This status is no longer available. Reload the page.');
         const from = feedbackStage(comment);
+        const previousStatus = statusForComment(workflow, comment);
+        const detail = { statusResolved: target.category === 'archive' ? Boolean(comment.resolved) : target.category === 'done', previousStatusId: previousStatus.id, statusId: target.id, statusLabel: target.label, statusCategory: target.category };
         const actorId = actorAuthorId(actor)!;
         if (target.category === 'archive') {
             if (comment.archivedAt && comment.archiveStatusId === target.id) return comment;
             const updated = { ...withThreadActivity(comment, actorId), archivedAt: comment.archivedAt ?? nowIso(), archiveStatusId: target.id };
-            return comment.archivedAt ? updated : withNotificationEvent(updated, actorId, 'archived', nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined);
+            return withNotificationEvent(updated, actorId, comment.archivedAt ? 'workflow-status' : 'archived', nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined, detail);
         }
         if (target.category === 'ready' && from !== 'ready') throw apiErrors.invalidRequest('Request verification and choose a reviewer first.');
         if (from === 'ready' && target.category !== 'ready' && target.category !== 'done')
             throw apiErrors.invalidRequest('Cancel the verification request before changing its category.');
         if (from === target.category && comment.workflowStatusId === target.id) return comment;
         const updated = { ...(target.category === 'ready' ? comment : withOrdinaryStage(comment, target.category)), workflowStatusId: target.id };
-        if (from === target.category) return withThreadActivity(updated, actorId);
+        if (from === target.category) return withNotificationEvent(withThreadActivity(updated, actorId), actorId, 'workflow-status', nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined, detail);
         const kind = target.category === 'done' ? 'resolved' : target.category === 'in-progress' ? 'progress-started' : from === 'in-progress' ? 'progress-stopped' : 'reopened';
-        return withNotificationEvent(withThreadActivity(updated, actorId), actorId, kind, nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined);
-    });
+        return withNotificationEvent(withThreadActivity(updated, actorId), actorId, kind, nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined, detail);
+    }, submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { operation: 'workflow-status', id, statusId }));
 }

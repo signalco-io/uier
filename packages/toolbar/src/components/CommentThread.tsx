@@ -28,6 +28,7 @@ export function CommentThread({ commentItem, reading = false, onPage = false, al
 function ThreadContents({ commentItem, reading, onPage, allMessages }: { commentItem: CommentItem; reading: boolean; onPage: boolean; allMessages: boolean }) {
     // Request verification opens from Thread options; focus goes back there
     const [verifying, setVerifying] = useState(false);
+    const [verificationStatusId, setVerificationStatusId] = useState<string>();
     const t = useMessages();
     const optionsRef = useRef<HTMLButtonElement>(null);
     const read = useReadComment();
@@ -90,7 +91,7 @@ function ThreadContents({ commentItem, reading, onPage, allMessages }: { comment
         // Tight around the messages (uier #215): the header, the messages and what follows them are 8 px apart
         <Stack ref={threadRef} spacing={1} className="px-4 py-3">
             <CommentThreadHeader comment={commentItem} onMarkedUnread={() => setKeptUnread(true)}
-                onRequestVerification={() => setVerifying(true)} optionsRef={optionsRef} />
+                onRequestVerification={statusId => { setVerificationStatusId(statusId); setVerifying(true); }} optionsRef={optionsRef} />
             {/* Where it came from */}
             {source && <div className="text-xs text-muted-foreground">{source}</div>}
             {/* The messages, one under the other like a chat; the avatars make the column */}
@@ -129,7 +130,7 @@ function ThreadContents({ commentItem, reading, onPage, allMessages }: { comment
                 )}
             </Stack>
             {!ready && recheck}
-            <CommentVerification comment={commentItem} open={verifying} onOpenChange={setVerifying} returnFocus={optionsRef} evidence={ready && recheck} />
+            <CommentVerification statusId={verificationStatusId} comment={commentItem} open={verifying} onOpenChange={setVerifying} returnFocus={optionsRef} evidence={ready && recheck} />
             <CommentAnchorDetails comment={commentItem} />
             <CommentActivity entries={commentItem.history} />
             {toolbarConfig.project && commentItem.notifications?.eligible && <ThreadNotifications comment={commentItem} />}

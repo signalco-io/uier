@@ -21,6 +21,7 @@ export type DbThreadHistoryEntry = {
     userId?: string;
     agentKind?: AgentKind;
     status?: ReturnType<typeof feedbackStage>;
+    statusId?: string; statusLabel?: string;
     priority?: ReturnType<typeof commentPriority>;
 };
 export type ThreadHistoryEntry = { id: string; at: string; description: string };
@@ -28,7 +29,7 @@ export type ThreadHistoryEntry = { id: string; at: string; description: string }
 /** Diff the authorized latest version inside its ETag/receipt write, never after persistence. */
 export function withThreadHistory(previous: DbComment, next: DbComment, actorId: string, at = new Date().toISOString()): DbComment {
     const entries: DbThreadHistoryEntry[] = [];
-    const add = (action: HistoryAction, detail: Partial<Pick<DbThreadHistoryEntry, 'userId' | 'agentKind' | 'status' | 'priority'>> = {}) => {
+    const add = (action: HistoryAction, detail: Partial<Pick<DbThreadHistoryEntry, 'userId' | 'agentKind' | 'status' | 'priority' | 'statusId' | 'statusLabel'>> = {}) => {
         entries.push({ id: randomUUID(), at, actorId, action, private: Boolean(previous.private || next.private), ...detail });
     };
     for (const link of next.pullRequests ?? []) if (!previous.pullRequests?.some(old => old.url === link.url)) add('pull-request-linked');
@@ -46,7 +47,11 @@ export function withThreadHistory(previous: DbComment, next: DbComment, actorId:
         if (!old || details(old) !== details(agent)) add(old ? 'agent-updated' : 'agent-attached', { userId: agent.assigneeId, agentKind: agent.kind });
     }
     if (Boolean(previous.archivedAt) !== Boolean(next.archivedAt)) add(next.archivedAt ? 'archived' : 'restored');
-    if (feedbackStage(previous) !== feedbackStage(next)) add('status', { status: feedbackStage(next) });
+    if (feedbackStage(previous) !== feedbackStage(next) || previous.workflowStatusId !== next.workflowStatusId || (previous.archivedAt && next.archivedAt && previous.archiveStatusId !== next.archiveStatusId)) {
+        const latest = next.notificationEvents?.at(-1);
+        const event = latest && latest !== previous.notificationEvents?.at(-1) ? latest : undefined;
+        add('status', { status: feedbackStage(next), statusId: event?.statusId, statusLabel: event?.statusLabel });
+    }
     if (previous.verification?.revision !== next.verification?.revision && next.verification
         && ['pending', 'confirmed', 'needs-work', 'canceled'].includes(next.verification.outcome)) {
         const outcome = next.verification.outcome;
@@ -81,7 +86,7 @@ export function threadHistoryView(comment: DbComment, viewer: { member: boolean;
             'pull-request-linked': t('linked a pull request'), 'pull-request-removed': t('removed a pull request link'),
             archived: t('archived the thread'), restored: t('restored the thread'),
             assigned: t('assigned {person}', { person: target }), unassigned: t('unassigned {person}', { person: target }),
-            status: t('changed status to {status}', { status: t(entry.status ? feedbackStageLabels[entry.status] : 'Open') }),
+            status: t('changed status to {status}', { status: entry.statusLabel ?? t(entry.status ? feedbackStageLabels[entry.status] : 'Open') }),
             'verification-requested': t('requested verification'), 'verification-confirmed': t('confirmed the fix'),
             'verification-rejected': t('rejected the fix'), 'verification-canceled': t('canceled verification'),
             priority: t('changed priority to {priority}', { priority: t(entry.priority ? priorityLabels[entry.priority] : 'Normal') }),

@@ -1,3 +1,5 @@
+import { workflowStatusIdSchema } from '../app/statusWorkflowSchema';
+import { setProjectCommentWorkflowStatus } from '../review/comments';
 import { loadStatusWorkflow } from '../app/statusWorkflows';
 import { orderedStatuses, statusForComment } from '../app/statusWorkflow';
 import { commentCheck, feedbackTypeSnapshot } from '@uier/toolbar/feedback-types';
@@ -280,36 +282,39 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         const saved = await setProjectCommentArchived(project, actor, input.commentId, input.archived, key(identity, input.idempotencyKey));
         return result({ actingAs: actingAsFor(user), commentId: saved.id, archivedAt: saved.archivedAt ?? null, resolved: Boolean(saved.resolved), stage: feedbackStage(saved) });
     }));
-    server.registerTool('set_feedback_status', { description: `Set an ordinary human-approved status without reviewer confirmation. Send exactly one of status (open, in-progress or done) or resolved (true: Done; false: reopens a Done thread to Open and leaves an In progress thread as it is). Leaving Ready to verify ends the pending check without confirmation. Replaying a key does not overwrite subsequent status changes. ${untrusted}`, inputSchema: {
+    server.registerTool('set_feedback_status', { description: `Set an ordinary human-approved status without reviewer confirmation. Send exactly one of statusId (from list_feedback_statuses), status (open, in-progress or done) or resolved (true: Done; false: reopens a Done thread to Open and leaves an In progress thread as it is). Leaving Ready to verify ends the pending check without confirmation. Replaying a key does not overwrite subsequent status changes. ${untrusted}`, inputSchema: {
         ...write,
+        statusId: workflowStatusIdSchema.optional().describe('Effective custom status ID from list_feedback_statuses. Ready requires a verification request; within Ready it preserves the check.'),
         status: z.enum(feedbackStatusTargets).optional().describe('open, in-progress (someone is working on it) or done. Ready to verify is request_feedback_verification.'),
         resolved: z.boolean().optional().describe('The earlier Done/Open switch, kept for existing clients: true is done; false reopens a Done thread and keeps In progress.')
     }, annotations: writeAnnotations }, input => safely(async () => {
         const { project, actor, user } = await mcpProject(identity, input.projectId, 'feedback:status');
         const actingAs = actingAsFor(user);
-        if ((input.status === undefined) === (input.resolved === undefined)) throw apiErrors.invalidRequest('Send either status or resolved.');
-        const saved = input.status !== undefined
+        if ([input.statusId, input.status, input.resolved].filter(value => value !== undefined).length !== 1) throw apiErrors.invalidRequest('Send exactly one of statusId, status or resolved.');
+        const saved = input.statusId !== undefined
+            ? await setProjectCommentWorkflowStatus(project, actor, input.commentId, input.statusId, key(identity, input.idempotencyKey))
+            : input.status !== undefined
             ? await setProjectCommentStatus(project, actor, input.commentId, input.status, key(identity, input.idempotencyKey))
             : await setProjectCommentResolved(project, actor, input.commentId, input.resolved!, key(identity, input.idempotencyKey));
-        return result({ actingAs, commentId: saved.id, resolved: Boolean(saved.resolved), stage: feedbackStage(saved) });
+        return result({ actingAs, commentId: saved.id, resolved: Boolean(saved.resolved), stage: feedbackStage(saved), archivedAt: saved.archivedAt ?? null });
     }));
     server.registerTool('request_feedback_verification', { description: `Request a human-approved fix check from the original author or another eligible member. The thread becomes Ready to verify, which still counts as Open; this does not confirm the fix. Read the current verification revision first. ${untrusted}`, inputSchema: {
-        ...write, expectedRevision: z.string().min(1).max(128).nullable(), reviewerId: z.union([z.literal('author'), userIdSchema]),
+        ...write, statusId: workflowStatusIdSchema.optional(), expectedRevision: z.string().min(1).max(128).nullable(), reviewerId: z.union([z.literal('author'), userIdSchema]),
         summary: z.string().trim().max(500).optional(), fixUrl: z.string().trim().max(2048).optional()
     }, annotations: writeAnnotations }, input => safely(async () => {
         const { project, actor, user } = await mcpProject(identity, input.projectId, 'feedback:status');
         const actingAs = actingAsFor(user);
-        const saved = await changeFixVerification(project, actor, input.commentId, { action: 'request', reviewerId: input.reviewerId,
+        const saved = await changeFixVerification(project, actor, input.commentId, { action: 'request', statusId: input.statusId, reviewerId: input.reviewerId,
             expectedRevision: input.expectedRevision, summary: input.summary, fixUrl: input.fixUrl, idempotencyKey: key(identity, input.idempotencyKey) });
         return result({ actingAs, commentId: saved.id, saved: true, revision: saved.verification?.revision });
     }));
     server.registerTool('cancel_feedback_verification', { description: `Cancel a human-approved current fix check as its requester or an admin. Requires the current request revision. The thread goes back to where it was before the request (Open or In progress) unless status says otherwise. No reviewer confirmation is available through MCP. ${untrusted}`, inputSchema: {
-        ...write, expectedRevision: z.string().min(1).max(128),
+        ...write, statusId: workflowStatusIdSchema.optional(), expectedRevision: z.string().min(1).max(128),
         status: z.enum(['open', 'in-progress']).optional().describe('Where the thread goes; without it, back to where it was before the request.')
     }, annotations: writeAnnotations }, input => safely(async () => {
         const { project, actor, user } = await mcpProject(identity, input.projectId, 'feedback:status');
         const actingAs = actingAsFor(user);
-        const saved = await changeFixVerification(project, actor, input.commentId, { action: 'cancel', expectedRevision: input.expectedRevision, idempotencyKey: key(identity, input.idempotencyKey),
+        const saved = await changeFixVerification(project, actor, input.commentId, { action: 'cancel', statusId: input.statusId, expectedRevision: input.expectedRevision, idempotencyKey: key(identity, input.idempotencyKey),
             ...(input.status ? { status: input.status } : {}) });
         return result({ actingAs, commentId: saved.id, saved: true, revision: saved.verification?.revision, stage: feedbackStage(saved) });
     }));

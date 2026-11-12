@@ -3,7 +3,7 @@ export type ExtensionMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 const id = '[A-Za-z0-9_-]{1,72}';
 const operations: [RegExp, ExtensionMethod[]][] = [
     [/^$/, ['GET']], [/^comments$/, ['GET', 'POST']], [/^comments\/activity$/, ['GET']],
-    [/^comments\/read$/, ['POST']], [/^participants$/, ['GET']], [/^rewrite$/, ['POST']],
+    [/^comments\/read$/, ['POST']], [/^participants$/, ['GET']], [/^statuses$/, ['GET']], [/^rewrite$/, ['POST']],
     [/^notifications$/, ['POST']], [/^language$/, ['POST']],
     [new RegExp(`^comments/${id}$`), ['PATCH', 'DELETE']],
     [new RegExp(`^comments/${id}/replies$`), ['POST']],

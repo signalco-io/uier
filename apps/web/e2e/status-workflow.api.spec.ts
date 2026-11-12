@@ -38,7 +38,7 @@ test('configuration validates categories, IDs, names, bounded text and category-
     const value = workflow();
     expect(statusWorkflowSchema.parse(value)).toEqual(value);
     for (const invalid of [
-        { ...value, initialStatusId: 'custom_qa' }, { ...value, doneStatusId: 'custom_approved' }, { ...value, archiveStatusId: 'done' },
+        { ...value, initialStatusId: 'custom_qa' }, { ...value, initialStatusId: 'custom_production' }, { ...value, initialStatusId: 'custom_rejected' }, { ...value, doneStatusId: 'custom_approved' }, { ...value, archiveStatusId: 'done' },
         { ...value, statuses: value.statuses.filter(status => status.category !== 'ready') },
         { ...value, statuses: [...value.statuses, value.statuses[0]] },
         ...[{ label: 'Open' }, { label: 'x'.repeat(41) }, { description: 'x'.repeat(501) }, { label: 'a\u202e' }, { id: '../bad' }, { category: 'unknown' }].map(patch => ({ ...value, statuses: [...value.statuses.slice(0, -1), { ...value.statuses.at(-1), ...patch }] }))
@@ -70,10 +70,7 @@ test('creation defaults and receipt retries use the saved workflow, while catego
     await setWorkspaceStatusWorkflow(f.workspace.id, admin.userId, { ...workflow(), initialStatusId: 'custom_merging' });
     expect((await f.create(key)).id).toBe(comment.id);
     expect((await f.create()).inProgress).toBe(true);
-    await setWorkspaceStatusWorkflow(f.workspace.id, admin.userId, { ...workflow(), initialStatusId: 'custom_production' });
-    expect(feedbackStage(await f.create())).toBe('done');
-    await setWorkspaceStatusWorkflow(f.workspace.id, admin.userId, { ...workflow(), initialStatusId: 'custom_rejected' });
-    expect(await f.create()).toMatchObject({ archiveStatusId: 'custom_rejected', archivedAt: expect.any(String), resolved: false });
+
 });
 
 test('custom moves are atomic, preserve same-category completion time, enforce authority and reject removed/foreign IDs', async () => {
@@ -122,4 +119,47 @@ test('Ready statuses require a real verification request; same-category moves re
     await expect(setProjectCommentWorkflowStatus(f.project, member, comment.id, 'custom_merging')).rejects.toMatchObject({ code: 'invalid_request' });
     const confirmed = await changeFixVerification(f.project, member, comment.id, { action: 'confirm', expectedRevision: ready.verification!.revision, idempotencyKey: randomUUID() });
     expect(confirmed).toMatchObject({ resolved: true, workflowStatusId: 'custom_production', verification: { outcome: 'confirmed' } });
+});
+
+
+test('same-category custom moves record history and durable events; receipt retries preserve later moves', async () => {
+    const f = await fixture();
+    await setWorkspaceStatusWorkflow(f.workspace.id, admin.userId, workflow());
+    const comment = await f.create();
+    const key = randomUUID();
+    const moved = await setProjectCommentWorkflowStatus(f.project, member, comment.id, 'open', key);
+    expect(moved.notificationEvents?.at(-1)).toMatchObject({ kind: 'workflow-status', previousStatusId: 'custom_approved', statusId: 'open', statusLabel: 'Open' });
+    expect(moved.history?.at(-1)).toMatchObject({ action: 'status', statusId: 'open', statusLabel: 'Open' });
+    await setProjectCommentWorkflowStatus(f.project, member, comment.id, 'custom_merging');
+    const replay = await setProjectCommentWorkflowStatus(f.project, member, comment.id, 'open', key);
+    expect(replay.workflowStatusId).toBe('custom_merging');
+    await expect(setProjectCommentWorkflowStatus(f.project, member, comment.id, 'done', key)).rejects.toMatchObject({ code: 'conflict' });
+});
+
+test('review workflow endpoint returns configuration only to current project members', async () => {
+    const { GET } = await import('../app/api/review/[projectId]/statuses/route');
+    const { projectRefPk } = await import('../src/lib/app/model');
+    const { randomToken, signToken } = await import('../src/lib/app/tokens');
+    const f = await fixture();
+    await getAppStore().create({ type: 'project-ref', id: f.project.id, pk: projectRefPk(f.project.id), workspaceId: f.project.workspaceId });
+    await setWorkspaceStatusWorkflow(f.workspace.id, admin.userId, workflow());
+    const get = (headers: HeadersInit = {}) => {
+        const requestHeaders = new Headers(headers);
+        requestHeaders.set('Origin', f.project.urls[0]!);
+        return GET(new Request(`https://uier.io/api/review/${f.project.id}/statuses`, { headers: requestHeaders }),
+            { params: Promise.resolve({ projectId: f.project.id }) });
+    };
+    for (const headers of [new Headers(), new Headers({ 'X-Uier-Visitor': randomToken() })]) {
+        const guest = await get(headers);
+        expect(guest.status).toBe(403);
+        expect(guest.headers.get('Cache-Control')).toBe('no-store');
+        const body = await guest.json();
+        expect(body).toMatchObject({ error: 'forbidden' });
+        expect(JSON.stringify(body)).not.toMatch(/Approved|custom_approved|initialStatusId|description/);
+    }
+    const token = signToken('review', { uid: member.userId, pid: f.project.id }, 300);
+    const authorized = await get({ Authorization: `Bearer ${token}` });
+    expect(authorized.status).toBe(200);
+    expect(authorized.headers.get('Cache-Control')).toBe('no-store');
+    expect(await authorized.json()).toEqual(workflow());
 });

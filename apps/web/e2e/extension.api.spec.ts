@@ -392,3 +392,22 @@ test('extension site lists page through the broker: the second page continues af
     expect(second).toEqual({ comments: [expect.objectContaining({ id: ids[0] })], next: null });
 });
 
+test('extension workflow discovery uses the allowed GET operation and current member authority', async () => {
+    const { getReviewStatuses } = await import('../src/lib/review/routes');
+    const GET = extensionHandler(async request => getReviewStatuses(await extensionReviewContext(request)));
+    const { defaultStatusWorkflow } = await import('../src/lib/app/statusWorkflow');
+    const { allowedExtensionOperation, extensionOperation } = await import('@uier/toolbar/extension-contract');
+    const f = await fixture();
+    const workflow = { ...structuredClone(defaultStatusWorkflow), statuses: [...defaultStatusWorkflow.statuses,
+        { id: 'approved', category: 'open' as const, label: 'Approved', description: 'Internal workflow hint' }] };
+    await updateProject(f.project.workspaceId, f.project.id, { statusWorkflow: { mode: 'replace', value: workflow } });
+    const credentials = await exchangeExtensionCode(f.exchange);
+    const scoped = await (await createScope(request('scope', credentials.token, { projectId: f.project.id, origin: 'https://reviewed.example' }))).json() as { token: string };
+    expect(extensionOperation(`https://uier.io/api/review/${f.project.id}/statuses`, 'https://uier.io', f.project.id, 'GET')).toEqual({ path: 'statuses', query: '' });
+    for (const method of ['POST', 'PATCH', 'DELETE']) expect(allowedExtensionOperation('statuses', method)).toBe(false);
+    const response = await GET(request('review/statuses', scoped.token));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(workflow);
+    await getAppStore().delete(workspacePk(f.project.workspaceId), memberId(f.user.id));
+    expect((await GET(request('review/statuses', scoped.token))).status).toBe(401);
+});

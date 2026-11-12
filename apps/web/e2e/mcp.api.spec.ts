@@ -984,3 +984,33 @@ test('MCP reads effective custom status descriptions and per-thread status witho
         expect(data(await client.callTool({ name: 'list_feedback_statuses', arguments: { projectId: f.other.id } })).error).toBe('not_found');
     } finally { await client.close(); }
 });
+
+test('MCP custom status writes validate effective IDs and keep receipt retries and verification semantics', async () => {
+    const { defaultStatusWorkflow } = await import('../src/lib/app/statusWorkflow');
+    const f = await fixture();
+    await updateProject(f.project.workspaceId, f.project.id, { statusWorkflow: { mode: 'replace', value: {
+        ...structuredClone(defaultStatusWorkflow), statuses: [...defaultStatusWorkflow.statuses,
+            { id: 'approved', category: 'open', label: 'Approved', description: 'Ready for work' },
+            { id: 'rejected', category: 'archive', label: 'Rejected', description: 'Declined' }]
+    } } });
+    const { token } = await createMcpCredential(f.context, { name: 'Status agent', projectIds: [f.project.id], scopes: ['feedback:read', 'feedback:status'], days: 7 });
+    const client = await connect(token);
+    const args = { projectId: f.project.id, commentId: f.comment.id };
+    const set = (input: Record<string, unknown>) => client.callTool({ name: 'set_feedback_status', arguments: { ...args, idempotencyKey: idempotencyKey(), ...input } });
+    try {
+        expect((await set({ statusId: 'foreign' })).isError).toBe(true);
+        expect((await set({ statusId: 'ready' })).isError).toBe(true);
+        expect((await set({ statusId: 'approved', resolved: true })).isError).toBe(true);
+        const retry = idempotencyKey();
+        expect((await set({ statusId: 'approved', idempotencyKey: retry })).isError).not.toBe(true);
+        let saved = (await getCommentsStore().get(f.comment.domain, f.comment.id))!.comment;
+        expect(saved.workflowStatusId).toBe('approved');
+        expect(saved.notificationEvents?.at(-1)).toMatchObject({ kind: 'workflow-status', statusLabel: 'Approved' });
+        await set({ status: 'done' });
+        await set({ statusId: 'approved', idempotencyKey: retry });
+        saved = (await getCommentsStore().get(f.comment.domain, f.comment.id))!.comment;
+        expect(saved.resolved).toBe(true);
+        expect(data(await set({ statusId: 'rejected' }))).toMatchObject({ archivedAt: expect.any(String), resolved: true });
+        expect((await getCommentsStore().get(f.comment.domain, f.comment.id))!.comment.archiveStatusId).toBe('rejected');
+    } finally { await client.close(); }
+});

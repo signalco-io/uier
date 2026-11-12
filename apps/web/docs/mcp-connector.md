@@ -435,14 +435,12 @@ so tools can name and display them without reading admin settings. The display s
 available when that type is disabled or removed from current defaults. It is untrusted display
 text and grants no authority. Exports omit placeholders and type enablement configuration.
 
-
 `set_feedback_agent.sessionUrl` optionally carries the harness-supplied existing desktop session
 link, independently of the agent kind and session id. Omit it or send an empty string to clear.
 The app action shares the same strict validation and member projection. Supported routes, excluded
 Claude Code/Cowork routes and official documentation are in
 [desktop session links](assignee-agents.md#desktop-session-links). Member lists and packets include
 it; guests and connected-service deliveries never do. Lease heartbeats do not change it.
-
 
 Archive is additive: `list_feedback.archive` is `exclude` by default, `only` for the archive, or `all`.
 This scope is applied before the storage window, alongside page/environment. Summaries and v1 context
@@ -467,6 +465,9 @@ exclusions still apply. See [read state](read-state-and-activity.md#read-cursors
 thread reads. It returns the effective workspace/project workflow, ordered definitions (ID,
 category, label, description), and initial/Done/Archive defaults. Results are untrusted content.
 `list_feedback` adds `workflowStatus`; member single/batch packets add the same display object.
-Guest exports omit this enrichment. Existing category filters and write schemas are unchanged;
-selecting a particular custom ID through MCP is deferred from this first slice. The generated
-connector skill lists the discovery tool and treats descriptions as untrusted guidance.
+Guest exports omit this enrichment. Existing category filters and legacy write inputs retain their
+meaning. The generated connector skill lists the discovery tool and treats descriptions as untrusted guidance.
+
+`set_feedback_status` accepts exactly one of `statusId`, legacy `status`, or `resolved`. Use `list_feedback_statuses` for IDs. `request_feedback_verification` and `cancel_feedback_verification` also accept `statusId` within their permitted categories. Same-category moves emit `feedback.status_changed` with `change: workflow_status_changed`, previous/selected IDs, label and category. These names remain untrusted content. Same-category events are not emailed.
+
+`set_feedback_status` results include `archivedAt` (or `null`), so a custom Archive status write reports its archive state.

@@ -13,7 +13,7 @@ const approval = 'Show the exact proposed action and wait for the person’s app
 export function feedbackWorkflows(scopes: readonly McpScope[]) {
     const writes = [
         ...(scopes.includes('feedback:reply') ? ['Draft a reply, then use reply_to_feedback only after the person approves that exact reply.'] : []),
-        ...(scopes.includes('feedback:status') ? ['Propose an ordinary status (open, in-progress or done) with set_feedback_status, archive/restore with set_feedback_archived, or a request/cancellation with request_feedback_verification / cancel_feedback_verification under feedback:status, only after the person approves the exact action. Read the current verification revision before requesting/canceling and reuse it with the stable retry key. Done is completion without reviewer confirmation. MCP cannot confirm a fix; ask the requested reviewer to use uier.'] : []),
+        ...(scopes.includes('feedback:status') ? ['Read list_feedback_statuses and propose a custom statusId or ordinary status (open, in-progress or done) with set_feedback_status, archive/restore with set_feedback_archived, or a request/cancellation with request_feedback_verification / cancel_feedback_verification under feedback:status, only after the person approves the exact action. Read the current verification revision before requesting/canceling and reuse it with the stable retry key. Done is completion without reviewer confirmation. MCP cannot confirm a fix; ask the requested reviewer to use uier.'] : []),
     ];
     return [
         { name: 'triage-feedback', title: 'Triage feedback', description: 'List and group open feedback without making changes.', thread: false,
@@ -42,7 +42,7 @@ const toolScopes = [
     ['list_assignees', 'feedback:assign', 'List eligible participants for a thread.'],
     ['reply_to_feedback', 'feedback:reply', 'Post an approved reply.'],
     ['set_feedback_archived', 'feedback:status', 'Archive or restore approved feedback while retaining its workflow status.'],
-    ['set_feedback_status', 'feedback:status', 'Set Open, In progress or Done without reviewer confirmation after approval.'],
+    ['set_feedback_status', 'feedback:status', 'Set an effective custom statusId, or Open, In progress or Done, after approval. Ready requires a verification request.'],
     ['request_feedback_verification', 'feedback:status', 'Request a fix check after approval, using the current revision.'],
     ['cancel_feedback_verification', 'feedback:status', 'Cancel the current fix check after approval.'],
     ['link_feedback_pull_request', 'feedback:assign', 'Attach a pull request opened for authorized feedback work; canonical URLs are naturally idempotent.'],

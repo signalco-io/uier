@@ -90,3 +90,5 @@ it never dispatches to reply deletion. Image uploads use the existing verified r
 browser registrations, exact callbacks, bound extension origins, refresh rebinding and exact helper
 ancestors. Public installation links remain subject to each browser's publication and acceptance
 gates; local browser builds do not announce new store availability.
+
+Workflow discovery uses the allowlisted `GET statuses` operation and the same member-only handler as the embed review API. Guests cannot retrieve workflow names, descriptions or defaults.

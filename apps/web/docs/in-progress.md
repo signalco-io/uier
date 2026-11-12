@@ -19,3 +19,5 @@ Custom statuses refine these categories through `workflowStatusId`; they never r
 with fresh project/settings validation. Ordinary category transitions clear obsolete refinements
 and choose the target category's default. Same-category moves retain the stage and completion
 clock. Archive has its own `archiveStatusId`, preserving the ordinary ID for restore.
+
+Toolbar status menus offer the effective custom statuses grouped by category, with descriptions. Same-category moves record status activity; Ready-to-verify moves preserve the current check. The write path reuses the project authorized for each conditional-write attempt when loading workflow defaults.
