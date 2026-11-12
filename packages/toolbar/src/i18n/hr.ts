@@ -170,6 +170,7 @@ export const hr: Messages = {
         urgent: 'Hitno'
     },
     thread: {
+        labels: {'title': 'Oznake', 'edit': 'Uredi oznake', 'empty': 'Nema oznaka'},
         showAll: (count: number) => `Prikaži sve poruke (${count})`,
         connectedServices: 'Povezane usluge',
         openIn: (service: string) => `Otvori u servisu ${service}`,

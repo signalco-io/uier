@@ -1,4 +1,5 @@
 'use client';
+import { labelLaneKey } from '@/src/lib/app/projectCommentPaging';
 
 import { useAppI18n } from '@/src/lib/i18n/client';
 
@@ -19,7 +20,7 @@ import { useCommentUpdate } from './CommentUpdates';
 const batchSize = 50;
 
 /** What Archive all needs to find a column's threads: the project and the board's filters (the page's query) */
-export type ArchiveAllScope = { projectId: string; params: Record<string, string> };
+export type ArchiveAllScope = { projectId: string; group?: string; params: Record<string, string> };
 
 /**
  * Archive all, a small icon button in a board column's header, left of its sort (uier #357). After a confirmation it
@@ -35,7 +36,7 @@ export function ArchiveAllButton({ scope, lane, label, count }: { scope: Archive
     const run = () => start(async () => {
         let archived = 0, failed = false;
         try {
-            const listed = await boardColumnThreadsAction(scope.projectId, scope.params, lane);
+            const listed = await boardColumnThreadsAction(scope.projectId, scope.params, scope.group ? labelLaneKey(lane, scope.group) : lane);
             if (!listed?.ok) throw new Error(listed?.error);
             for (let offset = 0; offset < listed.data.length; offset += batchSize) {
                 const ids = listed.data.slice(offset, offset + batchSize);

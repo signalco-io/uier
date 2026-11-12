@@ -28,7 +28,7 @@ export async function loadAppCommentsSnapshot(context: AppContext, project: DbPr
             // The page retains its scope controls without pretending that partial counts are complete.
             // HTTP page requests still report 422, so existing rows survive a failed refresh.
             const paging: ProjectCommentPaging = {
-                key: projectCommentPageKey(query, boardSortsOf(project.boardSorts), page.archiveExpanded ?? Boolean(project.boardArchiveExpanded), workflow, `${project.id}:${context.user.id}`),
+                key: projectCommentPageKey(query, boardSortsOf(project.boardSorts), page.archiveExpanded ?? Boolean(project.boardArchiveExpanded), workflow, `${project.id}:${context.user.id}`, project.boardGroupByLabel ? effectiveThreadLabels(context.workspace, project).map(label => label.id) : false),
                 lanes: {}, statusCounts: { active: 0, open: 0, 'in-progress': 0, ready: 0, done: 0, all: 0, archived: 0 },
                 statusUnread: { active: 0, open: 0, 'in-progress': 0, ready: 0, done: 0, all: 0, archived: 0 },
                 scopeTotal: 0, matchedTotal: 0, unreadCount: 0, pages: [], historySources: [], queryTooExpensive: true
@@ -38,6 +38,7 @@ export async function loadAppCommentsSnapshot(context: AppContext, project: DbPr
         membersForRequest
     ]);
     const snapshot = {
+        boardGroupByLabel: Boolean(project.boardGroupByLabel),
         labels: effectiveThreadLabels(context.workspace, project),
         workflow,
         environments: environmentOptions(project), projectId: project.id, access: project.access, isAdmin: context.isAdmin,

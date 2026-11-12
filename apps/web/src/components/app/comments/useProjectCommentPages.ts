@@ -26,8 +26,8 @@ export function mergePage(current: Snapshot, next: Snapshot, lane: CommentLane):
 }
 
 /** Query changes cancel stale reads; refreshes rebuild the loaded windows and keep the composers mounted. */
-export function useProjectCommentPages(initial: Snapshot, query: CommentsQuery, sorts: Record<BoardColumn, BoardSort>, archiveExpanded: boolean, workflow: StatusWorkflow, openId?: string) {
-    const desiredKey = projectCommentPageKey(query, sorts, archiveExpanded, workflow, `${initial.projectId}:${initial.userId}`);
+export function useProjectCommentPages(initial: Snapshot, query: CommentsQuery, sorts: Record<BoardColumn, BoardSort>, archiveExpanded: boolean, workflow: StatusWorkflow, openId?: string, groupByLabel: false | string[] = false) {
+    const desiredKey = projectCommentPageKey(query, sorts, archiveExpanded, workflow, `${initial.projectId}:${initial.userId}`, groupByLabel);
     const [data, setData] = useState(initial);
     const [loading, setLoading] = useState(false);
     const [loadingLanes, setLoadingLanes] = useState<Set<CommentLane>>(new Set());

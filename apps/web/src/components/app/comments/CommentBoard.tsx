@@ -1,5 +1,6 @@
 'use client';
 
+import { useContext } from 'react';
 import { defaultStatusWorkflow, orderedStatuses, statusForComment, workflowStatusLabel, type StatusWorkflow, type WorkflowStatus } from '../../../lib/app/statusWorkflow';
 import { useAppI18n } from '@/src/lib/i18n/client';
 
@@ -18,7 +19,7 @@ import { Sheet, SheetContent, SheetTitle } from '@/src/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import { Spinner } from '@/src/components/ui/spinner';
 import type { AssigneeOption } from './CommentCard';
-import { CommentRow, commentRowId } from './CommentRow';
+import { CommentRow, commentRowId, BoardRowScope } from './CommentRow';
 import { commentStatus, commentStatuses, GlowingStateDot, StateMenu, type CommentStatus } from './CommentStatus';
 import { allowedStatuses, movedPatch, useStatusChanger } from './useStatusChange';
 import type { BoardColumn as BoardColumnKey, BoardSort } from '../../../lib/app/boardSort';
@@ -368,6 +369,7 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
     openComment: ReturnType<typeof useOpenComment>;
 }) {
     const { t } = useAppI18n();
+    const rowScope = useContext(BoardRowScope);
     const definitions = orderedStatuses(workflow ?? defaultStatusWorkflow).filter(status => status.category !== 'archive' && (status.category !== 'ready' || (verificationEnabled ?? (workflow ? workflow.verificationEnabled === true : allComments.some(comment => comment.verificationEnabled)))));
     const statuses = definitions.map(status => status.id);
     const definition = (id: string) => definitions.find(status => status.id === id)!;
@@ -444,7 +446,7 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
         if (!target || !(columns[target.status] ?? []).some(comment => comment.id === target.id)) return;
         focusAfterMove.current = undefined;
         requestAnimationFrame(() => {
-            const button = document.querySelector<HTMLElement>(`[data-move="${CSS.escape(target.id)}"]`);
+            const button = grid.current?.querySelector<HTMLElement>(`[data-move="${CSS.escape(target.id)}"]`);
             if (!button || (document.activeElement && document.activeElement !== document.body)) return;
             button.focus({ preventScroll: true });
             // Into view where it lands, once it has travelled there
@@ -506,7 +508,7 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
         requestAnimationFrame(() => {
             const card = board.querySelector<HTMLElement>(`[data-board-card="${CSS.escape(id)}"]`);
             const fromBox = target.closest('[role="checkbox"]');
-            const control = (fromBox && card?.querySelector<HTMLElement>('[role="checkbox"]')) || document.getElementById(commentRowId(id));
+            const control = (fromBox && card?.querySelector<HTMLElement>('[role="checkbox"]')) || document.getElementById(commentRowId(rowScope + id));
             control?.focus({ preventScroll: true });
             card?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
         });
@@ -551,7 +553,7 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
                     const comment = draggedComment(active);
                     if (!comment) return;
                     // dnd-kit measures the card after this: the place it would land takes its height now
-                    const card = document.querySelector(`[data-board-card="${CSS.escape(comment.id)}"]`);
+                    const card = grid.current?.querySelector(`[data-board-card="${CSS.escape(comment.id)}"]`);
                     setFocusId(comment.id);
                     setDrag({ comment, height: card?.getBoundingClientRect().height ?? 0 });
                 }}
@@ -645,7 +647,7 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
             <Sheet open={Boolean(opened)} onOpenChange={next => { if (!next) closeThread(); }}>
                 {/* `data-shortcuts`: the thread's keys (R, S, A, J, K) work in the sheet, which is a dialog */}
                 <SheetContent ref={sheetRef} data-shortcuts="" side="right" showCloseButton={false} className="gap-0 overflow-x-hidden overflow-y-auto p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-xl"
-                    finalFocus={() => (opened ? document.getElementById(commentRowId(opened.id)) : null) ?? true}>
+                    finalFocus={() => (opened ? document.getElementById(commentRowId(rowScope + opened.id)) : null) ?? true}>
                     <SheetTitle className="sr-only">{opened?.number !== undefined ? t("Comment #{value0}", { value0: opened.number }) : t("Comment")}</SheetTitle>
                     {opened && openedProject && (
                         // `shrink-0`: the card clips (`overflow-hidden`), so as a flex item it would shrink to the sheet's

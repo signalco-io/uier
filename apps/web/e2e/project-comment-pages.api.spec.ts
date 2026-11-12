@@ -273,3 +273,32 @@ test('merging a continuation preserves the full-window revision and other lane r
     expect(merged.paging.lanes.done?.ids).toEqual(first.paging.lanes.done?.ids);
     expect(merged.comments.some(row => row.id === 'row-00101')).toBe(false);
 });
+
+test('label swim lanes page independently, bind cursors and resolve removed definitions as unlabeled', async () => {
+    const f = await fixture();
+    const labels = [
+        { id: 'label_DesignA', name: 'Design', color: 'violet' as const, description: '' },
+        { id: 'label_BugB', name: 'Bug', color: 'red' as const, description: '' }
+    ];
+    const fields = { boardGroupByLabel: true, threadLabels: { mode: 'replace' as const, value: labels } };
+    for (let i = 0; i < 31; i++) await f.store.create(f.row(i, { labelIds: i % 2 ? [labels[0]!.id] : labels.map(label => label.id) }));
+    await f.store.create(f.row(100, { labelIds: ['label_removed'] }));
+    await f.store.create(f.row(101, { labelIds: [labels[1]!.id], archivedAt: '2026-01-02T00:00:00.000Z' }));
+    const first = await f.load({}, {}, fields);
+    expect(first.paging.lanes['open~label_DesignA']).toMatchObject({ total: 31 });
+    expect(first.paging.lanes['open~label_DesignA']?.ids).toHaveLength(25);
+    expect(first.paging.lanes['open~label_BugB']?.total).toBe(16);
+    expect(first.paging.lanes['open~unlabeled']?.ids).toEqual(['row-00100']);
+    expect(first.paging.lanes['archive~label_BugB']).toEqual({ ids: [], total: 1, nextCursor: null });
+    const allBug = await f.load({}, { lane: 'open~label_BugB', allIds: true, revisionOnly: true }, fields);
+    expect(allBug.paging.lanes['open~label_BugB']?.ids).toHaveLength(16);
+    const cursor = first.paging.lanes['open~label_DesignA']!.nextCursor!;
+    const next = await f.load({}, { lane: 'open~label_DesignA', cursor }, fields);
+    expect(next.paging.lanes['open~label_DesignA']?.ids).toHaveLength(6);
+    expect(next.paging.lanes['open~label_DesignA']?.ids.some(id => first.paging.lanes['open~label_DesignA']!.ids.includes(id))).toBe(false);
+    await expect(f.load({}, { lane: 'open~label_BugB', cursor }, fields)).rejects.toMatchObject({ status: 400 });
+    await expect(f.load({}, { lane: 'open', cursor }, fields)).rejects.toMatchObject({ status: 400 });
+    await expect(f.load({}, { lane: 'open~label_DesignA', cursor }, { ...fields, boardGroupByLabel: false })).rejects.toMatchObject({ status: 400 });
+    const removed = await f.load({}, {}, { ...fields, threadLabels: { mode: 'replace', value: [] } });
+    expect(removed.paging.lanes['open~unlabeled']?.total).toBe(32);
+});

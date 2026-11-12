@@ -213,6 +213,7 @@ const messages: Record<keyof typeof en, string> = {
     "Issue Markdown": "Markdown du ticket",
     "Issue copied.": "Ticket copié.",
     "It stays in {status}.": "Il reste dans {status}.",
+    "Group by label": "Regrouper par étiquette",
     "Label": "Libellé",
     "Language": "Langue",
     "Largest Contentful Paint": "Largest Contentful Paint",

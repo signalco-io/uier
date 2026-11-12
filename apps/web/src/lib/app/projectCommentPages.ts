@@ -32,7 +32,7 @@ import { englishAppTranslator } from '../i18n/translate';
 import type { AppTranslator } from '../i18n/types';
 
 export { PROJECT_COMMENT_PAGE_SIZE } from './projectCommentPaging';
-import { PROJECT_COMMENT_MAX_DEPTH, PROJECT_COMMENT_PAGE_SIZE, projectCommentPageKey, type CommentLane, type CommentPage, type ProjectCommentPaging, type ProjectCommentPageInput } from './projectCommentPaging';
+import { labelLaneKey, PROJECT_COMMENT_MAX_DEPTH, PROJECT_COMMENT_PAGE_SIZE, projectCommentPageKey, type CommentLane, type CommentPage, type ProjectCommentPaging, type ProjectCommentPageInput } from './projectCommentPaging';
 export type { ProjectCommentPageInput } from './projectCommentPaging';
 
 type Pivot = Pick<ProjectCommentView, 'id' | 'number' | 'createdAt' | 'updatedAt' | 'completedAt' | 'archivedAt'> & { priority?: ProjectCommentView['priority'] };
@@ -94,19 +94,27 @@ export async function loadProjectCommentPages(context: AppContext, project: DbPr
     const archiveExpanded = input.archiveExpanded ?? Boolean(project.boardArchiveExpanded);
     const workflow = effectiveStatusWorkflow(context.workspace, project), definitions = orderedStatuses(workflow);
     const stage = (comment: CommentQueryCandidate) => feedbackStage({ ...comment, verificationEnabled: workflow.verificationEnabled === true });
-    const key = projectCommentPageKey(query, sorts, archiveExpanded, workflow, `${project.id}:${context.user.id}`);
+    const key = projectCommentPageKey(query, sorts, archiveExpanded, workflow, `${project.id}:${context.user.id}`, project.boardGroupByLabel ? labels.map(label => label.id) : false);
     const board = query.view === 'board' && query.status !== 'archived';
     const boardStatus = board ? boardStatusFilter(query.status) : undefined;
     const lanes: Partial<Record<CommentLane, CommentPage>> = {};
     const selected = new Set<string>();
-    const rowsByLane = new Map(definitions.map(status => [status.id, matching.filter(comment => statusForComment(workflow, comment).id === status.id)]));
-    if (board) for (const status of definitions) lanes[status.id] = { ids: [], total: boardStatus && status.category !== boardStatus ? 0 : rowsByLane.get(status.id)!.length, nextCursor: null };
-    const choices: CommentLane[] = input.lane ? [input.lane] : board ? definitions.filter(status =>
-        (!boardStatus || status.category === boardStatus) && (status.category !== 'archive' || archiveExpanded)).map(status => status.id) : ['list'];
-    if (input.lane && (board ? !definitions.some(status => status.id === input.lane && (!boardStatus || status.category === boardStatus)) : input.lane !== 'list')) throw apiErrors.invalidRequest('This column does not belong to the current view.');
+    const groups = project.boardGroupByLabel ? [...labels.map(label => label.id), 'unlabeled'] : [''];
+    const laneDefinitions = definitions.flatMap(status => groups.map(label => ({ status, label, id: label ? labelLaneKey(status.id, label) : status.id })));
+    const rowsByLane = new Map(laneDefinitions.map(lane => [lane.id, [] as CommentQueryCandidate[]]));
+    for (const comment of matching) {
+        const status = statusForComment(workflow, comment).id;
+        const assigned = project.boardGroupByLabel ? labelsForComment(labels, comment).map(label => label.id) : [''];
+        for (const label of assigned.length ? assigned : ['unlabeled'])
+            rowsByLane.get(label ? labelLaneKey(status, label) : status)?.push(comment);
+    }
+    if (board) for (const { status, id } of laneDefinitions) lanes[id] = { ids: [], total: boardStatus && status.category !== boardStatus ? 0 : rowsByLane.get(id)!.length, nextCursor: null };
+    const available = laneDefinitions.filter(({ status }) => (!boardStatus || status.category === boardStatus) && (status.category !== 'archive' || archiveExpanded));
+    const choices: CommentLane[] = input.lane ? [input.lane] : board ? available.map(lane => lane.id) : ['list'];
+    if (input.lane && (board ? !available.some(lane => lane.id === input.lane) : input.lane !== 'list')) throw apiErrors.invalidRequest('This column does not belong to the current view.');
     if (input.depths && Object.keys(input.depths).some(lane => !choices.includes(lane))) throw apiErrors.invalidRequest('This column does not belong to the current view.');
     for (const lane of choices) {
-        const definition = board ? definitions.find(status => status.id === lane)! : undefined;
+        const definition = board ? laneDefinitions.find(value => value.id === lane)!.status : undefined;
         const sort = definition ? sorts[definition.category] : undefined;
         const compare = (a: Pivot, b: Pivot) => (sort ? boardSortOrders[sort](a, b) : compareCommentOrder(a, b)) || compareCommentOrder(a, b) || a.id.localeCompare(b.id);
         const rows = (board ? rowsByLane.get(lane)! : matching.filter(comment => statusMatches(query.status, stage(comment), comment.archivedAt))).sort(compare);

@@ -370,8 +370,7 @@ scope and replay without overwriting later edits, even if a definition was remov
 reject foreign/removed IDs; removing can clear a retired ID. New adds prune retired IDs so they
 cannot consume all available slots. Existing guest DTOs and exports omit labels.
 
-This slice leaves board columns and their paging unchanged. Label swim lanes and their saved
-project setting, plus toolbar label controls, are deferred.
+Toolbar label controls share this catalog. Optional label swim lanes retain independent status-cell paging and save the grouping choice on the project.
 
 ## Paged project comments
 
@@ -480,3 +479,5 @@ measurements should guide that next optimization ([query backend](comment-query.
 The label filter also runs before page selection, using the current effective label catalog. Removed
 catalog IDs match no threads even if historical assignments remain. Label changes reset cursor and
 selection scope, and the routing projection retains label IDs without loading message bodies.
+
+The project board offers **Group by label**, saved for everyone by members who can triage. Each effective label has a horizontal lane, followed by No labels; multi-label threads appear in each matching lane. Each label/status cell has its own cursor, total and loaded window. Moves change status within the lane; label edits remain explicit thread controls. Duplicate cards have separate DOM focus targets and only the board opened from owns the thread sheet.

@@ -57,3 +57,5 @@ the first message ([anchor recovery](anchor-recovery.md)); delete, with a confir
 Icon buttons show their names with `IconTooltip` / `useIconTooltip`: on hover after 300 ms, at once on keyboard
 focus, portaled into the shadow root's container with a fixed position, decorative, never on touch. Use it
 instead of `title` for icon-only controls.
+
+Project member threads show effective assigned labels below the discussion. Members who can triage can open Labels to add/remove one label at a time; saves keep controls disabled, retain server values on failure and refresh the shared comment cache. Catalogs use the member-only review labels endpoint; guest DTOs omit assignments and guests never fetch the catalog.

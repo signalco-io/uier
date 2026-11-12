@@ -47,6 +47,7 @@ export function messageMentions(item: DbThreadItem, names: Map<string, string>) 
 export type ReviewAssignee = { id?: string; name: string; isMe: boolean; unavailable: boolean; agent?: import('@uier/toolbar/agents').AssigneeAgentView; agents?: import('@uier/toolbar/agents').AssigneeAgentView[] };
 
 export type ReviewCommentDto = CommentDto & {
+    labelIds?: string[];
     verificationEnabled?: boolean;
     workflowStatusId?: string; archiveStatusId?: string;
     history?: ThreadHistoryEntry[];
@@ -88,7 +89,7 @@ export function toReviewCommentDto(comment: DbComment, actor: ProjectActor, name
         ...(project ? { verification: verificationDetails(comment, project, actor, participants), verificationPermissions: verificationPermissions(comment, project, actor, participants) } : {}),
         ...(project ? { source: feedbackSource(project, comment.origin) } : {}),
         activity: readActivity(comment, authorId, readSequence),
-        ...(actor.kind === 'member' ? { reproduction: toReproductionContext(comment, origins) } : {}),
+        ...(actor.kind === 'member' ? { labelIds: comment.labelIds, reproduction: toReproductionContext(comment, origins) } : {}),
         private: comment.private === true,
         assignees, assignee: assignees[0],
         permissions: {

@@ -1,4 +1,5 @@
 'use server';
+import { saveProjectBoardGrouping } from '../../../lib/app/projectBoard';
 import { changeProjectCommentLabels } from '../../../lib/review/threadLabels';
 import { labelsCommentActionSchema } from './actionSchemas';
 
@@ -285,7 +286,7 @@ export async function boardColumnThreadsAction(projectId: string, params: Record
         const query = parseCommentsQuery({ ...input.params, view: 'board' });
         const data = await loadAppCommentsSnapshot(context, project, query, undefined, undefined, { lane: input.lane, allIds: true, revisionOnly: true });
         if (!data) throw new UserFacingError('This view is no longer available.');
-        if (orderedStatuses(data.workflow).find(status => status.id === input.lane)?.category === 'archive') throw new UserFacingError('These threads are archived already.');
+        if (orderedStatuses(data.workflow).find(status => status.id === input.lane.split('~')[0])?.category === 'archive') throw new UserFacingError('These threads are archived already.');
         return data.paging.lanes[input.lane]?.ids ?? [];
     });
 }
@@ -319,4 +320,13 @@ export async function setCommentWorkflowStatusAction(projectId: string, commentI
 export async function changeCommentLabelsAction(projectId: string, commentId: string, labelIds: string[], mode: 'add' | 'remove', idempotencyKey: string) {
     return commentAction(labelsCommentActionSchema, { projectId, commentId, labelIds, mode, idempotencyKey },
         ({ project, actor }, input) => changeProjectCommentLabels(project, actor, input.commentId, input.labelIds, input.mode, input.idempotencyKey));
+}
+
+export async function setBoardGroupingAction(projectId: string, expanded: boolean) {
+    return actionResult(async () => {
+        const input = parseActionInput(boardArchiveActionSchema, { projectId, expanded });
+        const { project, actor } = await commentContext(input.projectId);
+        await saveProjectBoardGrouping(project, actor, input.expanded);
+        revalidatePath(KnownPageLinks.project(input.projectId));
+    });
 }
