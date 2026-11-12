@@ -18,6 +18,7 @@ import { triageCommentsAction } from './actions';
 import { useCommentUpdate } from './CommentUpdates';
 import type { AssigneeOption } from './CommentCard';
 import { PriorityFlag } from './PriorityFlag';
+import { PersonAvatar } from './AgentAvatar';
 import { ownsKeys } from '../keyboard/keys';
 
 const limit = 50;
@@ -412,7 +413,8 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
                                     <SelectTrigger size="sm" className={cn('border-transparent hover:bg-muted data-placeholder:text-foreground dark:bg-transparent', actionClassName)} aria-label={t("Assign selected")} disabled={pending || !ids.size}>
                                         <UserIcon data-icon="inline-start" aria-hidden="true" /><SelectValue placeholder={t("Assign")} />
                                     </SelectTrigger>
-                                    <SelectContent side="top" alignItemWithTrigger={false}><SelectGroup><SelectItem className="pointer-coarse:min-h-11" value="unassigned">{t("Unassign")}</SelectItem>{availableAssignees.map(person => <SelectItem className="pointer-coarse:min-h-11" key={person.userId} value={person.userId}>{person.name}</SelectItem>)}</SelectGroup></SelectContent>
+                                    {/* Each person with their avatar, like the thread's assignee picker (uier #334); Unassign keeps the same indent */}
+                                    <SelectContent side="top" alignItemWithTrigger={false}><SelectGroup><SelectItem className="pointer-coarse:min-h-11" value="unassigned"><span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground"><UserIcon aria-hidden="true" /></span>{t("Unassign")}</SelectItem>{availableAssignees.map(person => <SelectItem className="pointer-coarse:min-h-11" key={person.userId} value={person.userId}><PersonAvatar assignee={person} /><span className="min-w-0 truncate">{person.name}</span></SelectItem>)}</SelectGroup></SelectContent>
                                 </Select>
                                 <Select items={Object.fromEntries(Object.entries(priorityLabels).map(([value, label]) => [value, t(label)]))} value={null} onValueChange={value => value && begin({ kind: 'priority', priority: value })}>
                                     <SelectTrigger size="sm" className={cn('border-transparent hover:bg-muted data-placeholder:text-foreground dark:bg-transparent', actionClassName)} aria-label={t("Prioritize selected")} disabled={pending || !ids.size}>
