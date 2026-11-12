@@ -652,6 +652,11 @@ export const en = {
         commentNumber: (number: number) => `Comment #${number}`,
         comment: 'Comment',
         olderNotListed: 'Older comments are not listed.',
+        /** This page's new comments not sent yet, above its threads (uier #296) */
+        drafts: 'Drafts',
+        draftComment: 'Draft comment',
+        draftRewrite: 'Draft rewrite suggestion',
+        draftDiscarded: 'Draft discarded',
         unreadCount: (count: number) => `${count} unread`,
         markAllRead: 'Mark all as read',
         markedRead: (count: number) => `${count} ${s(count, 'thread', 'threads')} marked as read.`,

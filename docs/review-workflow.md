@@ -554,7 +554,9 @@ drafts on every page of the current site. Drafts on another reviewed origin must
 Expired drafts are ignored and pruned when the toolbar next opens. A composer that reopens with kept text just
 shows the text again, with no line about the saved draft; nothing is sent to uier before posting.
 While a new comment or rewrite draft pin is closed, **Resume draft** above the toolbar pill scrolls to the pin
-and opens it with its text, after a reload too. Browser/site scripts can read
+and opens it with its text, after a reload too. A page can have several: each new comment or rewrite is a draft of
+its own, and the toolbar's inbox lists the page's drafts above its threads, to resume, post or discard each
+([uier #296](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fmy-work&comment=comment_SfAne_dyH6incZms-P4n2), [toolbar note](../packages/toolbar/docs/composer-popovers.md#several-drafts-on-a-page)). Browser/site scripts can read
 local storage: do not type secrets into feedback. If storage is blocked or full, the draft stays
 in memory and the composer explains that the page must stay open.
 

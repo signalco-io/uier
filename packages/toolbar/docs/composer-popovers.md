@@ -49,13 +49,55 @@ replies use the thread id, and edits use `edit:<commentId>:<itemId>` with the or
 Typing writes immediately; reopening the same box after a reload or toolbar remount restores its text and
 mentions. The kept text is the cue: no composer says "Draft saved in this browser" under its box ([uier #218](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_xQbZJy4bLvce3eONhs0J-),
 [uier #295](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fmy-work&comment=comment_kAQn2JJ3-PFQNEGtg3L2V)). Successful sends/saves and explicit Discard/Cancel clear the appropriate draft; failed or uncertain
-sends retain it. The authorized reviewer, API, project and canonical page scope never includes a build id.
+sends retain it. A send the page never saw settle (it was reloaded or left meanwhile, or failed while it was being
+left) comes back as a draft too, marked `unsettled`: it may have been saved. Once the page's comments are loaded and
+one of yours has its text, it was, and the draft goes (`CommentsGlobal`), so a comment posted just before a reload is
+not listed as unsent; one that was not saved stays. A plain failed send (an error shown in the form) is not marked.
+The authorized reviewer, API, project and canonical page scope never includes a build id.
 Screenshots, attached images and device details stay in memory. The app's own feedback-mode toolbar is
 loaded on demand again with Give feedback after a document reload; this reuses the same draft keys.
 
 `apps/web/e2e/drafts.spec.ts` covers every toolbar composer, reloads, separate feedback kinds and edit snapshots;
 `drafts-project.spec.ts` covers reviewer/project/page isolation. `app-composer-drafts.spec.ts` covers the toolbar
 on `/app/projects/<id>`, including an app RSC refresh and Next.js's document navigation after deployment skew.
+
+## Several drafts on a page
+
+Each new comment and rewrite is a draft of its own ([uier #296](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fmy-work&comment=comment_SfAne_dyH6incZms-P4n2)): `startDraft` gives it its own key
+(`newDraftKey`: `new:<id>`, `new-rewrite:<id>`), so Add comment, C or a selection never reopens an unsent draft
+elsewhere; that one stays on the page as its closed pin. A comment or rewrite on the very same spot as an unsent one
+(C on the same focused element, the same text selected again) goes on with it. A draft kept before there could be
+several (`new`, `new-rewrite`) comes back as one of them. A drawing's comment stays one (`newDrawingDraftKey`: its
+drawing is in memory, [canvas mode](canvas-mode.md)), and each comment's submission key is kept in its own draft
+(`CreateCommentInput.draftKey`).
+
+- The page's comment and rewrite drafts with text come back as closed pins on load and on each page
+  (`restorePageDrafts`, the newest 50; the store's `keys()` lists a page's records). Records left without text (a
+  form open when the page was left) are removed then, so they do not pile up. A closed pin is captured when its form
+  opens or it is sent, not when it comes back, so many drafts cost nothing on load.
+- **Resume draft** above the pill opens the latest closed one. The inbox lists them all.
+- The inbox lists this page's drafts above its threads, newest first (`sidebar/InboxDrafts.tsx`, current through the
+  store's `subscribeAll` and `version`): those with text whose form is closed, under Active and All, while the chosen
+  pages include this page, not with the unread or Assigned to me filters, and only those with every word of the
+  search. A card has "Draft comment" (or "Draft rewrite suggestion") and when it last changed, the quoted text, the
+  text without its Markdown and, when its target is not on the page, why; then Resume draft (only while its pin can be
+  placed), Post comment (Post suggestion) and Discard, an X named by its tooltip as in the form.
+- Resume draft closes the inbox, unless the draft is on a part of it, and opens the form on its pin with its text,
+  focused, like Resume draft above the pill.
+- Post comment sends the draft as it is, without its form (`CommentDraftHandle.send` on its pin, the composer's
+  steps: its text and mentions, its attached image or a new capture of its anchor, its submission key). An anchor
+  outside the window is scrolled into view first, as Resume draft does, and captured once that has settled (a frame),
+  so the screenshot is of its anchor, not of the window it was not in (`revealAnchor`); an anchor not on the page is
+  captured as its form would (the window). No form or
+  thread opens (`quiet`): its card goes, its thread is in the list and its pin on the page. A failed send is like a
+  form's: the text is back, the draft is listed again (its pin closed, the error in its form) and the toast says why.
+  A guest without a name, or an image still being read, opens its form instead.
+- Discard removes the draft and says "Draft discarded". After Post comment or Discard the focus goes to the next
+  card, else the inbox.
+
+`apps/web/e2e/multiple-drafts.spec.ts` (desktop and mobile) covers two drafts on a page, a reload, the inbox's list
+under Active (none under Done), Resume draft, a failed and a successful post from the inbox and Discard, the
+screenshot of an offscreen draft posted from the inbox, and a comment saved while the page reloaded.
 
 ## Capture responsiveness
 

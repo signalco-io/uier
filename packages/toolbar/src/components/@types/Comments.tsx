@@ -233,6 +233,11 @@ export type CommentDraft = {
     device?: CommentDeviceInfo;
     position: CommentAnchor;
     /**
+     * Where its text is kept (hooks/useDrafts.tsx): its own key (`newDraftKey`), so several drafts can wait on a
+     * page; without one, the single draft of its kind
+     */
+    draftKey?: string;
+    /**
      * A rewrite suggestion for the selected text, instead of a comment; `drawing`, a comment with the
      * shapes drawn in canvas mode (its own draft, posted as a comment)
      */
