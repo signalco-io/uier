@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { cookieNames } from '../src/lib/cookieNames';
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { parseQuery } from '@uier/comments-query';
@@ -167,6 +169,7 @@ test('managed feedback projects allow label catalogs while retaining unrelated s
     const workspace = { ...f.workspace, id: PUBLIC_WORKSPACE_ID, pk: workspacePk(PUBLIC_WORKSPACE_ID) };
     await store.create(workspace);
     await store.create({ type: 'member', id: memberId(admin.userId), pk: workspace.pk, workspaceId: workspace.id, userId: admin.userId, role: 'admin', projects: 'all', joinedAt: new Date().toISOString() });
+    await store.create({ type: 'member', id: memberId(member.userId), pk: workspace.pk, workspaceId: workspace.id, userId: member.userId, role: 'commenter', projects: [USER_FEEDBACK_PROJECT_ID], joinedAt: new Date().toISOString() });
     const { renameWorkspace } = await import('../src/lib/app/workspaces');
     await expect(renameWorkspace(workspace.id, admin.userId, 'Changed')).rejects.toThrow();
     await setWorkspaceThreadLabels(workspace.id, admin.userId, labels);
@@ -180,5 +183,40 @@ test('managed feedback projects allow label catalogs while retaining unrelated s
         await expect(updateProject(workspace.id, id, { name: 'Changed', threadLabels: undefined })).rejects.toThrow('managed');
         await expect(updateProject(workspace.id, id, { access: 'guests' })).rejects.toThrow('managed');
         expect(await loadThreadLabels((await updateProject(workspace.id, id, { threadLabels: undefined }))!)).toEqual(labels);
+    }
+});
+
+
+test('a signed-in uier workspace commenter cannot save a project label override', async ({ request, baseURL }) => {
+    const { USER_FEEDBACK_PROJECT_ID, PUBLIC_WORKSPACE_ID } = await import('../src/lib/comments/publicProjectPolicy');
+    const manifest = JSON.parse(readFileSync(new URL('../.next/server/server-reference-manifest.json', import.meta.url), 'utf8')) as { node: Record<string, { exportedName?: string }> };
+    const call = async (name: string, path: string, fields: Record<string, string>, workspace = false) => {
+        const action = Object.entries(manifest.node).find(([, entry]) => entry.exportedName === name)?.[0];
+        expect(action, name).toBeTruthy();
+        const form = new FormData();
+        for (const [key, value] of Object.entries(fields)) form.append(`_1_${key}`, value);
+        form.append('0', '[null,"$K1"]');
+        const cookies = (await request.storageState()).cookies.map(cookie => `${cookie.name}=${cookie.value}`);
+        if (workspace) cookies.push(`${cookieNames.workspace.legacy}=${PUBLIC_WORKSPACE_ID}`);
+        return request.post(path, { headers: { 'Next-Action': action!, Origin: baseURL!, Cookie: cookies.join('; ') }, multipart: form, maxRedirects: 0 });
+    };
+    // Normal sign-in stores a commenter membership in uier's workspace, never a staff admin.
+    const sent = await call('requestSignInAction', '/app/sign-in?add=1', { email: `labels-commenter-${randomUUID()}@example.com` });
+    let credentials: { requestId: string; devCode: string } | undefined;
+    for (const line of (await sent.text()).split('\n')) {
+        try {
+            const value = JSON.parse(line.slice(line.indexOf(':') + 1)) as { ok?: boolean; data?: { requestId: string; devCode: string } } | null;
+            if (value?.ok && value.data?.devCode) credentials = value.data;
+        } catch { /* Other Flight records are not action results. */ }
+    }
+    expect(credentials).toBeTruthy();
+    const confirmed = await call('confirmSignInCodeAction', '/app/sign-in?add=1', { requestId: credentials!.requestId, code: credentials!.devCode });
+    expect(confirmed.headers()['x-action-redirect']).toBeTruthy();
+    for (const [name, path, fields] of [
+        ['setWorkspaceThreadLabelsAction', '/app/workspace/settings', { threadLabels: JSON.stringify(labels) }],
+        ['updateProjectLabelsAction', `/app/projects/${USER_FEEDBACK_PROJECT_ID}/settings/review`, { projectId: USER_FEEDBACK_PROJECT_ID, threadLabels: JSON.stringify({ mode: 'replace', value: labels }) }]
+    ] as const) {
+        const response = await call(name, path, fields, true);
+        expect(await response.text()).toContain('Only admins can do this.');
     }
 });
