@@ -90,12 +90,38 @@ test('names-only inventory, timing limits, comments and dismissals use the page-
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
+test('readable cookie names and prefixes survive identifier redaction', async ({ page }) => {
+    const names: [string, string][] = [
+        ['OptanonAlertBoxClosed', 'OptanonAlertBoxClosed'],
+        ['CookieConsentPolicy', 'CookieConsentPolicy'],
+        ['_ga', '_ga'],
+        ['_ga_readable', '_ga_readable'],
+        ['_ga_ABC123DEF4', '_ga_…'],
+        ['_hjSessionUser_1234567', '_hjSessionUser_…'],
+        ['__Secure-next-auth.session-token', '__Secure-next-auth.session-token'],
+        ['readable_prefix-AbCdEfGh12345678.suffix', 'readable_prefix-….suffix']
+    ];
+    await page.addInitScript(names => {
+        if (!location.hostname.startsWith('fixture-consent.')) return;
+        Object.defineProperty(window, 'cookieStore', { configurable: true, value: {
+            getAll: async () => names.map(([name]) => ({ name }))
+        } });
+    }, names);
+    await memberReview(page);
+    const panel = await openPanel(page);
+    const snapshot = section(panel, 'snapshot');
+    for (const [, display] of names) await expect(named(snapshot, display)).toBeVisible();
+    await expect(panel).not.toContainText('ABC123DEF4');
+    await expect(panel).not.toContainText('1234567');
+    await expect(panel).not.toContainText('AbCdEfGh12345678');
+});
+
 test('identifiers in cookie and storage names are shortened before display and posting', async ({ page }) => {
     test.setTimeout(150_000);
     const fixtures: [string, string, string][] = [
         ['profile.reviewer@example.com', 'profile.reviewer@example.com', '…'],
         ['account:123e4567-e89b-12d3-a456-426614174000', '123e4567-e89b-12d3-a456-426614174000', 'account:…'],
-        ['CognitoIdentityServiceProvider.shortClient.alice.idToken', 'shortClient', '….…'],
+        ['CognitoIdentityServiceProvider.shortClient.alice.idToken', 'shortClient', 'CognitoIdentityServiceProvider.…'],
         ['shortAccount-login.windows.net-idtoken-shortClient-shortTenant', 'shortAccount', '…-login.windows.net-…'],
         ['firebase:authUser:shortApiKey:shortApp', 'shortApiKey', 'firebase:authUser:…'],
         ['@@auth0spajs@@::shortClient::audience::scope', 'shortClient', '@@auth0spajs@@:…'],
@@ -193,8 +219,8 @@ test('exposed cookie metadata is used and a pending observation is cancelled whe
     await memberReview(page);
     let panel = await openPanel(page);
     await expect(named(section(panel, 'snapshot'), 'session_cookie')).toContainText('Browser session');
-    await expect(named(section(panel, 'snapshot'), '…')).toContainText(new URL(origin()).hostname);
-    await expect(named(section(panel, 'snapshot'), '…')).toContainText('2030-01-01');
+    await expect(named(section(panel, 'snapshot'), 'persistent_cookie')).toContainText(new URL(origin()).hostname);
+    await expect(named(section(panel, 'snapshot'), 'persistent_cookie')).toContainText('2030-01-01');
     await showChecksTab(panel, 'before-consent');
     await panel.locator('[data-uier-consent-observe]').click();
     await expect(section(panel, 'observation')).toHaveAttribute('data-uier-section-status', 'checking');

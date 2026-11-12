@@ -56,9 +56,12 @@ re-check: a new controlled observation is needed.
 
 At most 100 names of each storage type, 100 new names per observation and the last 2,000 resource
 entries are inspected; names display up to 160 characters. The shared `redactName` helper shortens
-names to hide emails, UUIDs, long hex/base64 segments, long digit runs and known authentication-key
-identifier positions (Cognito, MSAL, Firebase and Auth0) before inventory, display or comment text
-is built. Check IDs hash the redacted name with its storage kind and domain; names that redact to
+names to hide emails, UUIDs, opaque segments of 16+ characters (mixed letters/digits, pure hex
+or base64 syntax), digit runs of 8+ and known authentication-key identifier positions (Cognito,
+MSAL, Firebase and Auth0) before inventory, display or comment text is built. Name separators
+(`_`, `-`, `.` and `:`) preserve readable prefixes; known Google Analytics and Hotjar suffix IDs
+are shortened even below those thresholds. Readable names such as `OptanonAlertBoxClosed` and
+`CookieConsentPolicy` remain visible. Check IDs hash the redacted name with its storage kind and domain; names that redact to
 the same key are merged, including during observation. Truncation and denied storage access
 are notes, never clean passes. Cookie Store calls time out after one second. Inventory and reports
 stay in memory. Site-wide page summaries exclude all consent sections. A reviewer may explicitly
