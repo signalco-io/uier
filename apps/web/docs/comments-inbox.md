@@ -283,6 +283,11 @@ a phone) that is one button, "Archive 3", with
 `aria-expanded`. Expanded, it is a column like the others (18rem to 20rem) whose header ends with
 Collapse Archive (`FoldHorizontalIcon`, a tooltip); the focus moves to the other toggle either way. The grid's
 tracks come from `--board-columns` (the statuses, then the strip or a column); the project header is full width either way.
+- [uier #369](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_zTdFM-sfeJ0lM6ukyBQ5G):
+  collapsed, the strip has no fill, a fainter border and a muted name and icon until it is pointed at (not a lower opacity
+  on the whole strip, which would take its count below text contrast). Expanding or collapsing it morphs: the grid's
+  tracks (resolved to pixels) and the column's height animate for 200 ms, the new content fades in and the fill follows
+  by transition. Nothing animates with reduced motion.
 - Order: by default like Done but by archive time (`compareArchivedOrder`: `archivedAt`, newest first, then the update and
   creation times, ties in the list's order). [uier #251](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_isE8wcqHfUDuHHI3xdXB9):
   its expanded header has a sort menu like Done's (Recently archived instead of Recently completed), before Collapse
