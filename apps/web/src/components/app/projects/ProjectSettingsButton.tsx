@@ -9,9 +9,10 @@ import { KnownPageLinks } from '@/src/knownPages';
 import { isInstallPage } from './ProjectTabs';
 
 /**
- * The project's settings: a small cog at the right end of the project's tabs (uier #282), quiet like a tab and
- * underlined like the current one on the settings pages, except the install guide while the Install tab is there to
- * show it. Its name and tooltip say Settings.
+ * The project's settings: a cog at the right end of the project's tabs (uier #282), quiet like a tab and underlined
+ * like the current one on the settings pages, except the install guide while the Install tab is there to show it. Its
+ * name and tooltip say Settings; where the tabs' row is at least 28rem wide (`@container/project-tabs`) the label
+ * shows beside the cog too (uier #331), and a narrow row (a phone) keeps the cog alone.
  */
 export function ProjectSettingsButton({ projectId, installTab }: { projectId: string; installTab: boolean }) {
     const { t } = useAppI18n();
@@ -26,9 +27,10 @@ export function ProjectSettingsButton({ projectId, installTab }: { projectId: st
                         href={settings}
                         aria-label={t("Settings")}
                         aria-current={current ? 'page' : undefined}
-                        className="relative inline-flex h-10 w-8 shrink-0 items-center justify-center border-b-2 border-transparent text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 aria-[current=page]:border-foreground aria-[current=page]:text-foreground pointer-coarse:w-11" />
+                        className="relative inline-flex h-10 min-w-8 shrink-0 items-center justify-center gap-1.5 border-b-2 border-transparent text-sm font-medium whitespace-nowrap text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 aria-[current=page]:border-foreground aria-[current=page]:text-foreground pointer-coarse:min-w-11" />
                 )}>
                 <SettingsIcon aria-hidden="true" className="size-4" />
+                <span aria-hidden="true" className="hidden @md/project-tabs:inline">{t("Settings")}</span>
             </TooltipTrigger>
             <TooltipContent>{t("Settings")}</TooltipContent>
         </Tooltip>
