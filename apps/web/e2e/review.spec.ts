@@ -225,7 +225,7 @@ test('the profile shows the guest name; signing out forgets it', async ({ browse
     // page's checks on a phone
     await page.getByRole('button', { name: 'Options', exact: true }).click();
     await expect(options(page).getByRole('link', { name: 'Powered by uier' })).toHaveAttribute('href', 'https://uier.io');
-    if (testInfo.project.use.hasTouch) await expect(options(page).locator('button')).toHaveText([/^Language/, 'Accessibility', 'SEO']);
+    if (testInfo.project.use.hasTouch) await expect(options(page).locator('button')).toHaveText([/^Language/, 'Accessibility', 'SEO', 'Security and compliance']);
     else {
         // The switch in its own group first, with a separator from the actions
         await expect(options(page).getByRole('switch', { name: 'Shortcuts', exact: true })).toBeChecked();
