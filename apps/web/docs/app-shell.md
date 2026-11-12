@@ -61,7 +61,8 @@ the separately bundled review toolbar owns its own query cache.
   and the project header. `CommentsLoading` (comments/) draws the search row (search, the list's status tabs, Filter,
   List/Board), the count line's own row where it has one, then the list with the first thread beside it, or the board's
   four default columns and Archive's strip. It picks the view the comments will open in from the address, else the
-  one remembered in this browser; the server, which cannot know, draws the list (`useSyncExternalStore`).
+  one remembered in this browser, and the list for Archive (`?status=archived`) as `ProjectComments` does; the server,
+  which cannot know, draws the list (`useSyncExternalStore`).
   `PageChecksLoading` (pageChecks/) draws Across pages' two cards, Pages with its filter and order, and the table (the
   cards under 48rem). While the project layout itself loads, `ProjectLoading` (projects/) draws the header and tabs over
   the comments' skeleton. A project with no comments yet loads wide and then shows its narrower empty state; the

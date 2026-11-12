@@ -10,9 +10,14 @@ import { storedCommentsView } from './commentsView';
 
 const subscribeNothing = () => () => {};
 
-/** The view a project's comments will open in: the address's, else the remembered one, else the list */
+/**
+ * The view a project's comments will open in: the address's, else the remembered one, else the list. Archive is
+ * always a list (`ProjectComments`' rule: the board has Archive as its last column instead), Board chosen or not.
+ */
 function loadingView(): CommentsView {
-    return parseCommentsView(new URLSearchParams(window.location.search).get('view')) ?? storedCommentsView() ?? 'list';
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('status') === 'archived') return 'list';
+    return parseCommentsView(params.get('view')) ?? storedCommentsView() ?? 'list';
 }
 
 /**
