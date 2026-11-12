@@ -16,6 +16,7 @@ app share:
   (`shortcutsChangeEvent`, `detail`: on or off) on the window: every copy on the page updates its cached
   value and tells its subscribers; the `storage` event does that for the site's other tabs. WCAG 2.1.4:
   letters can be turned off, the arrows, Enter and Esc always work.
+- `uier:shortcuts-off` holds a boolean only: `'true'` while the shortcuts are off, nothing while they are on.
 - Which key a press is: `isShortcutPress` (not handled already, not held, not composing, no Ctrl, ⌘ or Alt),
   `shortcutLetter` (the letter on Latin layouts, else the key in its place; no Shift), `isShortcutsHelpKey`
   (`?`), `isSearchKey` (`/`) and `sequenceTimeoutMs` (G, then the next key).
@@ -55,6 +56,11 @@ a key keeps it), while the toolbar is expanded and the shortcuts are on. `toolba
 | S | Moves the focus to that thread's status menu; Enter opens it with the current status focused, ↑ ↓ choose |
 | A | Opens the people to assign in that thread, the first focused (`assignShortcutEvent` on the header) |
 | ? | Options on the keyboard shortcuts, the heading focused, with the switch |
+
+C in point mode ends it. Add comment names C in its tooltip (a mono `kbd`, `IconTooltip`'s `shortcut`) and in
+`aria-keyshortcuts`, and so does the selection toolbar's Add comment ([selected text](point-mode.md#selected-text)).
+Options shows the list and the switch where a keyboard is likely, and always while the shortcuts are off
+([Options](pill-and-options.md#profile-and-options)).
 
 The list also has the keys of every text box: Enter sends (saves an edit), Shift+Enter adds a line, and the
 formatting keys Ctrl/⌘+B bold, +I italic, +Shift+X strikethrough and +E code (`modifierKey` shows ⌘ on Apple
@@ -106,6 +112,8 @@ Composers send on Enter and insert a line break on Shift+Enter. No hint under th
 the shortcuts list has both keys, and where a keyboard is likely (`useKeyboardLikely`, `any-pointer: fine`) the text
 box is described to screen readers as "Enter to send. Shift+Enter for a new line." Their submit control stays
 labelled and uses the plain button variant; on touch input it has a 44px minimum target.
+That description is `ComposerFooter`, under every composer: screen-reader-only, with no visible keyboard hint
+and no saved-draft line ([drafts](composer-popovers.md#drafts-across-reloads)).
 
 ## Tests
 

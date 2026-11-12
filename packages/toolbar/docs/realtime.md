@@ -19,6 +19,10 @@ response cut at its size limit is short too. A refresh reloads as many pages as 
 refresh of its list started is dropped, and the list asks again. The inbox merges the site list's threads of this page
 into this page's list by id, so All pages, sections and This page list every loaded one.
 
+`hooks/useComments.tsx` and `hooks/useVisitor.tsx` are the React Query hooks against the comments and visitor
+APIs (`hooks/api.ts`: requests, errors, query keys); with a project, against the project's review API. A change to
+a comment updates every cached list that has it, the page's and the site's.
+
 Every write to a thread's document changes its etag, so message reactions arrive like any other change
 ([reactions](reactions.md)). A `change` reason wins over other reasons in the same notification window. Existing toolbar
 callbacks ignore the reason and keep their own foreground/HTTP scheduler. The app refreshes true
