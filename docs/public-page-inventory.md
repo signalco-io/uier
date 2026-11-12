@@ -21,9 +21,11 @@ above and the inventory review date above; the last column records additional cl
 
 | Canonical path | Primary intent | Priority | Route registration and maintained source | Remaining gate |
 | --- | --- | --- | --- | --- |
-| `/` | Website feedback and first product evaluation | P1 | `Landing`; [landing note](../apps/web/docs/landing-page.md), brand constants | #291 accuracy corrections |
+| `/` | Website feedback and first product evaluation | P1 | `Landing`; [landing note](../apps/web/docs/landing-page.md), brand constants | Maintain search/social title consistency and dated provider qualification |
 | `/guides` | Find a practical setup/review guide | P1 | `Guides`; guide catalog and [guides note](../apps/web/docs/guides.md) | None; reuse this hub |
-| `/guides/client-website-reviews` | Run a client review from project setup to checked fix | P1 | `ClientReviewGuide`; guide catalog, shipped app/toolbar labels | #307 brief/scope/round guidance |
+| `/guides/client-website-reviews` | Run a scoped client review through handoff and a checked fix | P1 | `ClientReviewGuide`; guide catalog, review brief and shipped labels | Preserve optional per-thread verification limits |
+| `/guides/website-review-checklist` | Scope and perform a human website review | P2 | `ReviewChecklist`; guide catalog, reviewResources.ts and current checks workflow | No certification or security-audit claim |
+| `/guides/website-bug-report-template` | Write a reproducible report and hand it off | P2 | `BugReportTemplate`; reviewResources.ts and Copy issue contract | No invented diagnostics; checked example/privacy scope |
 | `/guides/nextjs` | Install in a Next.js App Router site | P1 | `NextJsGuide`; shared `nextJsSnippet`, [onboarding](../apps/web/docs/onboarding.md) | #294 remaining platform/removal receipts |
 | `/guides/browser-extension` | Set up a supported released extension | P1 | Guide catalog; [extension release record](browser-extension.md) | New browser claims need their own acceptance |
 | `/browser-extension` | Evaluate reviewing without a script embed | P1 | `BrowserExtension`; release source and extension record | Preserve per-browser store/hosted gates |
@@ -37,12 +39,12 @@ above and the inventory review date above; the last column records additional cl
 | `/features/feedback-triage` | Search, prioritize and act on selected feedback | P1 | `FeedbackTriage`; [triage note](../apps/web/docs/triage.md) | Preserve current bounds and permissions |
 | `/features/fix-verification` | Ask a reviewer to check one thread's fix | P1 | `FixVerification`; [verification note](../apps/web/docs/fix-verification.md) | Preserve optional confirmation versus ordinary Done |
 | `/features/page-checks` | Understand in-browser accessibility/SEO checks | P1 | `PageChecks`; [checks note](../apps/web/docs/page-checks.md) | No certification or scheduled-crawler claim |
-| `/integrations` | Choose a supported feedback destination | P1 | `Integrations`; integration catalog, [activation](integration-activation.md) | #300 evidence reconciliation |
-| `/integrations/github` | Set up the GitHub issue handoff | P1 | `KnownPageLinks.integration('github')`; catalog and activation/publication records | #300; Marketplace approval is separate |
-| `/integrations/linear` | Set up the Linear issue handoff | P1 | `KnownPageLinks.integration('linear')`; catalog and activation/publication records | #300; directory eligibility is separate |
-| `/integrations/notion` | Set up the Notion page handoff | P1 | `KnownPageLinks.integration('notion')`; catalog and activation/publication records | #300; submission is not approval |
-| `/integrations/slack` | Configure bounded notifications and optional replies | P1 | `KnownPageLinks.integration('slack')`; catalog and activation/publication records | #300; optional reply acceptance and Marketplace gates |
-| `/integrations/azure-devops` | Understand the Azure Boards handoff and setup | P1 | `KnownPageLinks.integration('azure-devops')`; catalog and dated Entra record | #300; delegated hosted acceptance remains separate |
+| `/integrations` | Choose a supported feedback destination | P1 | `Integrations`; integration catalog, [activation](integration-activation.md) | Maintain dated availability/acceptance records |
+| `/integrations/github` | Set up the GitHub issue handoff | P1 | `KnownPageLinks.integration('github')`; catalog and activation/publication records | Marketplace approval is separate |
+| `/integrations/linear` | Set up the Linear issue handoff | P1 | `KnownPageLinks.integration('linear')`; catalog and activation/publication records | Directory eligibility is separate |
+| `/integrations/notion` | Set up the Notion page handoff | P1 | `KnownPageLinks.integration('notion')`; catalog and activation/publication records | Submission is not approval |
+| `/integrations/slack` | Configure bounded notifications and optional replies | P1 | `KnownPageLinks.integration('slack')`; catalog and activation/publication records | Optional reply acceptance and Marketplace gates |
+| `/integrations/azure-devops` | Understand the Azure Boards handoff and setup | P1 | `KnownPageLinks.integration('azure-devops')`; catalog and dated Entra record | Delegated hosted acceptance remains separate |
 | `/security` | Inspect actual controls and report a vulnerability | P1 | `Security`; [security note](../apps/web/docs/security-and-open-source-pages.md), [SECURITY.md](../SECURITY.md) | #290 corrections, current evidence for stronger claims |
 | `/open-source` | Understand licenses and contribute | P1 | `OpenSource`; package manifests, LICENSE and CONTRIBUTING | License changes need source reconciliation |
 | `/brand` | Use the product's actual design system | P2 | `Brand`; [BRAND.md](../packages/brand/BRAND.md) and tokens | Brand changes must update both references |
@@ -72,8 +74,6 @@ ready. Unknown/unpublished slugs must return a real 404. Do not create `/docs` a
 | `/use-cases/user-acceptance-testing` | Plan manual acceptance review | P2 | #303; optional verification workflow | No automated-testing or mandatory approval promise |
 | `/guides/html`, `/guides/react` | Stack-specific installation | P2 | #304; maintained app snippets | Representative lifecycle/removal evidence |
 | `/guides/webflow`, `/guides/shopify` | Platform-specific installation | P2 | #305; app snippets and current platform docs | Actual plan/surface/placement constraints and acceptance |
-| `/guides/website-review-checklist` | Perform a scoped human review | P2 | #306; shipped review/checks workflow | Usable checklist, filled example, manual-check limits |
-| `/guides/website-bug-report-template` | Write a reproducible report | P2 | #307; Copy issue/context contract | Copyable template, filled example and working handoff |
 
 ## Registration and maintenance procedure
 

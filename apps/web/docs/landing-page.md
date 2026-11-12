@@ -69,6 +69,13 @@ itself, so the global `:target` margin does not apply there and the layout turns
   Keep the own-website question, persisted demo ids, tagline and pricing unchanged when updating copy.
   The homepage description owns broad website-feedback, client-review and bug-report intent.
 
+The search title names website feedback, client reviews and bug reports. It is an absolute metadata
+title so the root template cannot add the brand twice. The visible h1/tagline and the brand social
+title/card remain `Say it on the page.`; the canonical and shared description stay consistent.
+The integration tile/FAQ point to each service's dated qualification and explicitly retain pending
+Azure DevOps delivery and optional reply-import verification instead of implying every adapter is
+equally accepted. Preserve that distinction when #300's evidence changes.
+
 `e2e/landing.spec.ts` asserts the title, the `h1`, the "Get started" links, the sections, the
 pricing copy, the FAQ keyboard behaviour and the footer line through the brand constants; update
 the test when you change those on purpose.

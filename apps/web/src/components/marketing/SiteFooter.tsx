@@ -32,6 +32,8 @@ export async function SiteFooter() {
                     header: 'Resources',
                     ctas: [
                         { label: 'Guides', href: KnownPages.Guides },
+                        { label: 'Website review checklist', href: KnownPages.ReviewChecklist },
+                        { label: 'Bug-report template', href: KnownPages.BugReportTemplate },
                         { label: 'Compare website feedback tools', href: KnownPages.Compare },
                         { label: 'Open source', href: KnownPages.OpenSource },
                         { label: 'Security', href: KnownPages.Security },

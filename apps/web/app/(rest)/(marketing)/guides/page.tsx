@@ -4,6 +4,7 @@ import { GuideTeaser } from '@/src/components/marketing/guides/GuideLayout';
 import { ClientReviewThumbnail, ExtensionThumbnail, NextJsThumbnail } from '@/src/components/marketing/guides/GuideSpecimens';
 import { publicPageMetadata } from '@/src/lib/metadata';
 import { guides } from '@/src/lib/guides';
+import { BugReportSpecimen, ReviewChecklistSpecimen } from '@/src/components/marketing/guides/PracticalReviewSpecimens';
 
 export const metadata = publicPageMetadata(guides.index.path, guides.index);
 
@@ -37,6 +38,13 @@ export default function GuidesPage() {
                     description={guides.browserExtension.description}
                     label="Browser extension"
                     picture={<ExtensionThumbnail />} />
+            </div>
+        </section>
+        <section id="run-a-focused-review" aria-labelledby="run-a-focused-review-title" className="flex flex-col gap-8 pt-16 md:pt-24">
+            <SectionHeading id="run-a-focused-review-title" title="Run a focused review" lead="Agree what to check, then make each finding reproducible." />
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <GuideTeaser href={guides.reviewChecklist.path} title={guides.reviewChecklist.title} description={guides.reviewChecklist.description} label="Review checklist" picture={<ReviewChecklistSpecimen />} />
+                <GuideTeaser href={guides.bugReport.path} title={guides.bugReport.title} description={guides.bugReport.description} label="Report template" picture={<BugReportSpecimen />} />
             </div>
         </section>
     </main>;

@@ -6,7 +6,8 @@ that must stay out of discovery. Follow its registration and maintenance procedu
 page. KnownPages and the existing catalogs remain the code registrations; the inventory adds their
 editorial ownership rather than another routing or crawl-file system.
 
-The public `/guides` index links the client review, Next.js and browser extension setup guides
+The public `/guides` index links client review, Next.js and browser extension setup, plus the human
+website-review checklist and copyable bug-report template
 ([guides](guides.md)). Use the existing `ContentPage` and guide components, snippet generator,
 metadata and social-card helpers; add public routes to SEO, card and footer checks. `SiteStructuredData` connects the homepage `WebSite` to its actual
 signalco publisher. Preserve the homepage Bing verification meta tag after setup.
