@@ -112,6 +112,12 @@
     opacity: 0;
 }
 
+/* Except the status menu: the thread's status is worth seeing at a glance (uier #322). Still inert,
+   a click on it opens the thread like anywhere in the preview. */
+[data-uier-preview] [data-uier-status][data-uier-thread-control] {
+    opacity: 1;
+}
+
 /* The thread opened from its preview: the controls fade in (at once with reduced motion: the rule in `@layer base` above) */
 [data-uier-controls-reveal] [data-uier-thread-control] {
     animation: uier-thread-controls-in 200ms ease-out;

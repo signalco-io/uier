@@ -18,13 +18,14 @@ import { useMessages } from '../i18n';
 
 /**
  * A thread: its first and last message, and "Show all" for the ones between. On the page (a pin's
- * popover, `onPage`) it leaves out where it came from: that is the page it is on.
+ * popover, `onPage`) it leaves out where it came from: that is the page it is on. `allMessages` starts
+ * with every message shown: a pin's hover preview, and the thread opened from it (uier #322).
  */
-export function CommentThread({ commentItem, reading = false, onPage = false, children }: { commentItem: CommentItem; reading?: boolean; onPage?: boolean; children?: ReactNode }) {
-    return <DraftsProvider page={commentItem.path}><ThreadContents commentItem={commentItem} reading={reading} onPage={onPage} />{children}</DraftsProvider>;
+export function CommentThread({ commentItem, reading = false, onPage = false, allMessages = false, children }: { commentItem: CommentItem; reading?: boolean; onPage?: boolean; allMessages?: boolean; children?: ReactNode }) {
+    return <DraftsProvider page={commentItem.path}><ThreadContents commentItem={commentItem} reading={reading} onPage={onPage} allMessages={allMessages} />{children}</DraftsProvider>;
 }
 
-function ThreadContents({ commentItem, reading, onPage }: { commentItem: CommentItem; reading: boolean; onPage: boolean }) {
+function ThreadContents({ commentItem, reading, onPage, allMessages }: { commentItem: CommentItem; reading: boolean; onPage: boolean; allMessages: boolean }) {
     // Request verification opens from Thread options; focus goes back there
     const [verifying, setVerifying] = useState(false);
     const t = useMessages();
@@ -62,12 +63,13 @@ function ThreadContents({ commentItem, reading, onPage }: { commentItem: Comment
             window.removeEventListener('blur', cancel);
         };
     }, [verificationChanged, canReadAutomatically, commentItem.id, commentItem.activity?.sequence, commentItem.activity?.unread, read.mutate]);
-    const [expanded, setExpanded] = useState(false);
+    const [expanded, setExpanded] = useState(allMessages);
     // "Show all" goes away once used (it is the only way to expand): the focus moves to the first
-    // message it showed instead of getting lost
+    // message it showed instead of getting lost. Not when the thread starts with all of them.
     const firstRevealedRef = useRef<HTMLDivElement>(null);
+    const showAllUsedRef = useRef(false);
     useEffect(() => {
-        if (expanded) {
+        if (expanded && showAllUsedRef.current) {
             firstRevealedRef.current?.focus();
         }
     }, [expanded]);
@@ -116,7 +118,7 @@ function ThreadContents({ commentItem, reading, onPage }: { commentItem: Comment
                         size="xs"
                         className="ml-6 self-start text-muted-foreground"
                         data-uier-thread-control=""
-                        onClick={() => setExpanded(true)}>
+                        onClick={() => { showAllUsedRef.current = true; setExpanded(true); }}>
                         {t.thread.showAll(messagesCount)}
                     </Button>
                 )}

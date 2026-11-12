@@ -119,10 +119,12 @@ test('resting the mouse on a pin previews its thread; a click keeps it open with
     await expect(preview(page)).toContainText('The heading could be shorter.');
     await expect(preview(page)).toContainText('And bolder.');
     await expect(preview(page).getByRole('textbox')).toHaveCount(0);
-    // Without its controls (copy, options, add reaction ...), which keep their place (uier #320)
-    const previewControls = preview(page).locator('[data-uier-thread-control]');
+    // Without its controls (copy, options, add reaction ...), which keep their place (uier #320),
+    // except the status, which shows (uier #322)
+    const previewControls = preview(page).locator('[data-uier-thread-control]:not([data-uier-status])');
     await expect(previewControls.first()).toBeAttached();
     for (const control of await previewControls.all()) await expect(control).toHaveCSS('opacity', '0');
+    for (const status of await preview(page).locator('[data-uier-status]').all()) await expect(status).toHaveCSS('opacity', '1');
     await expect(openThread(page).filter({ has: page.getByRole('textbox', { name: 'Reply' }) })).toHaveCount(0);
     expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
     await page.mouse.move(5, 5, { steps: 4 });
@@ -174,6 +176,45 @@ test('a tap on a pin opens its thread at once, without a preview (uier #308)', a
     const thread = page.getByRole('dialog', { name: 'Comment thread', exact: true });
     await expect(thread.getByRole('textbox', { name: 'Reply' })).toBeVisible();
     await expect(preview(page)).toHaveCount(0);
+
+    await context.close();
+});
+
+test('the pointer in a long thread\'s preview scrolls it to its last message (uier #322)', async ({ browser }, testInfo) => {
+    test.skip(Boolean(testInfo.project.use.hasTouch), 'A mouse only: a tap opens the thread at once');
+    const origin = isolatedOrigin(testInfo);
+    const { context, page } = await newVisitor(browser, testInfo);
+    await page.setViewportSize({ width: 1280, height: 600 });
+    await openLanding(page, origin, { dismissHint: true });
+    const created = await postComment(page, { position: { type: 'point', selector: 'h1', xNormal: 0.5, yNormal: 0.5 }, text: 'The heading could be shorter.' });
+    expect(created.status).toBe(201);
+    const replies = Array.from({ length: 12 }, (_, index) => `Reply ${index + 1}: ${'a longer thought about the heading '.repeat(3)}`);
+    for (const text of replies) expect(await postReply(page, created.body.id!, text)).toBe(201);
+    await page.reload();
+    const pin = commentBubble(page, 13, 1);
+    await expect(pin).toBeVisible();
+
+    await hover(page, pin);
+    await expect(preview(page)).toBeVisible();
+    // Every message, not "Show all" (which it could not press), bounded by the window
+    await expect(preview(page).getByText(/^Reply \d+:/)).toHaveCount(12);
+    expect((await preview(page).boundingBox())!.height).toBeLessThanOrEqual(600);
+    const last = preview(page).getByText(/^Reply 12:/);
+    await expect(last).not.toBeInViewport();
+    // The wheel over the preview scrolls the thread, not the page
+    await hover(page, preview(page));
+    const scrollY = await page.evaluate(() => window.scrollY);
+    for (let index = 0; index < 10; index++) await page.mouse.wheel(0, 400);
+    await expect(last).toBeInViewport();
+    await expect(preview(page)).toBeVisible();
+    expect(await page.evaluate(() => window.scrollY)).toBe(scrollY);
+
+    // Opened from the preview, the thread keeps every message, its reply box focused
+    await page.mouse.down();
+    await page.mouse.up();
+    const thread = page.getByRole('dialog', { name: 'Comment thread', exact: true });
+    await expect(thread.getByRole('textbox', { name: 'Reply' })).toBeFocused();
+    await expect(thread.getByText(/^Reply \d+:/)).toHaveCount(12);
 
     await context.close();
 });

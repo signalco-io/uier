@@ -176,13 +176,17 @@ A mouse resting on a saved comment's pin for 400 ms opens a read-only preview of
 in the same place ([uier #308](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_hWoACqYfuesBCMSV0ejjJ)):
 "Comment thread preview", the thread `inert` (no presses, no focus, no tooltips), no reply box. It leaves the
 focus where it is, does not mark the thread read, is not a thread for the shortcuts (`data-uier-thread-scope`) and
-not a reviewable part of the toolbar. It closes 150 ms after the pointer leaves both the pin and the preview, and
+not a reviewable part of the toolbar. It shows every message, without "Show all", which it could not press, and the
+wrapper around the inert thread is not inert, so the wheel over a long thread scrolls it inside the popover's
+bounds ([uier #322](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_kX2useXkznTzd9GDZnVQO);
+`CommentThread`'s `allMessages`). It closes 150 ms after the pointer leaves both the pin and the preview, and
 on Escape or a press outside. The preview hides the thread's controls ([uier #320](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2F&comment=comment_TYufg9xk1VZCzxenJAKMJ)):
 each control marked `data-uier-thread-control` (the status menu, Mark as read, Copy, Thread options, Add reaction,
 a message's options, "Show all", Email me replies) is transparent but keeps its place, so nothing moves when the
-thread opens; the status badge without a menu, the people and the reaction pills stay as content. A click on the
+thread opens; the status menu (`data-uier-status`, still inert) shows, as do the status badge without a menu, the
+people and the reaction pills ([uier #322](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_kX2useXkznTzd9GDZnVQO)). A click on the
 pin or anywhere in the preview (or Enter or Space on the pin) opens the thread itself, with its reply box focused,
-its actions and its read receipt, and it then stays open like a clicked thread; its controls fade in over 200 ms
+its actions and its read receipt, and it then stays open like a clicked thread, with every message still shown; its controls fade in over 200 ms
 (`data-uier-controls-reveal`, at once with reduced motion). Only a mouse
 previews (`pointerType`), never while a button is held or in point mode (`isPointing`, `CommentPointOverlay`);
 a tap, Enter or Space opens the thread at once, as before. Closing a preview never moves the focus to the pin.
@@ -232,5 +236,7 @@ animation, the same element once saved). `screenshots.spec.ts`: Attach image in 
 `showcase.spec.ts` (desktop and mobile): a pin at the bottom and right edges is upside down, its thread inside
 the window, clear of the pill and the pin.
 `pin-preview.spec.ts`: the people beside a pin (the author first and in front, tucked under the pin, sliding out on hover, "+N", its description, the left side at the
-right edge; desktop and mobile), the hover preview (read-only, the focus kept, closing on leave, a click in it or
-on the pin opening the thread; desktop) and a tap opening the thread at once (mobile).
+right edge; desktop and mobile), the hover preview (read-only, the focus kept, the status shown and the other controls
+hidden, closing on leave, a click in it or on the pin opening the thread; a long
+thread's every message, scrolled by the wheel without scrolling the page and kept when it opens; desktop) and a tap
+opening the thread at once (mobile).
