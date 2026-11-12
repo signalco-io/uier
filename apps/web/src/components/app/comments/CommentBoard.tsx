@@ -232,6 +232,8 @@ function BoardColumn({ status, definition, columnIds, count, state, sort, onSort
     // A placeholder changes a column's height, and on narrow screens moves the columns below it
     const { t } = useAppI18n();
     const { setNodeRef } = useDroppable({ id: definition.id, resizeObserverConfig: { updateMeasurementsFor: columnIds } });
+    // Archive all only where finished threads wait (Done-category columns, uier #370)
+    const archivable = Boolean(archiveAll) && status === 'done' && count > 0;
     return (
         <section ref={setNodeRef} aria-label={t("{status} comments", { status: workflowStatusLabel(definition, t) })} data-drop={state === 'idle' ? undefined : state}
             className={cn('flex min-h-24 flex-col gap-2 rounded-2xl border bg-muted/50 p-2 transition-[background-color,border-color,box-shadow,opacity] duration-150 ease-out',
@@ -244,9 +246,9 @@ function BoardColumn({ status, definition, columnIds, count, state, sort, onSort
                     <span className="truncate" title={definition.description || definition.label}>{workflowStatusLabel(definition, t)}</span>
                     <span className="font-normal tabular-nums text-muted-foreground">{count}</span>
                 </h3>
-                {/* Archive all, left of the sort, while the column has cards (uier #357) */}
-                {archiveAll && count > 0 && <ArchiveAllButton scope={archiveAll} lane={definition.id} label={workflowStatusLabel(definition, t)} count={count} />}
-                {onSort && <BoardSortMenu label={workflowStatusLabel(definition, t)} status={status} sort={sort} onChange={next => onSort(status, next)} className={archiveAll && count > 0 ? 'ml-0' : undefined} />}
+                {/* Archive all, left of the sort, while a Done column has cards (uier #357, #370) */}
+                {archivable && archiveAll && <ArchiveAllButton scope={archiveAll} lane={definition.id} label={workflowStatusLabel(definition, t)} count={count} />}
+                {onSort && <BoardSortMenu label={workflowStatusLabel(definition, t)} status={status} sort={sort} onChange={next => onSort(status, next)} className={archivable ? 'ml-0' : undefined} />}
             </div>
             {children}
         </section>

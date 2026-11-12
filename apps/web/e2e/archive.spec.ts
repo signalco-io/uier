@@ -162,34 +162,41 @@ test('Archive all in a board column archives every thread in it, the ones not lo
             path: `/${projectId}/pricing`, text: `Column feedback ${index}`, authorName: 'Reviewer', position: { type: 'page' }, kind: 'feedback'
         } });
         expect(response.status(), await response.text()).toBe(201);
+        // Archive all is only on Done columns (uier #370); one stays open to show Open has none
+        if (index) {
+            const resolved = await request.patch(`/api/review/${projectId}/comments/${(await response.json()).id}`, { headers, data: { resolved: true } });
+            expect(resolved.status(), await resolved.text()).toBe(200);
+        }
     }
     await page.goto(`/app/projects/${projectId}?view=board`);
     const column = (name: string) => page.getByRole('region', { name: `${name} comments`, exact: true });
-    const open = column('Open');
-    await expect(open.getByRole('heading')).toHaveText('Open30');
-    await expect(open.locator('[data-comment-window]')).toHaveAttribute('data-loaded-count', '25');
-    // A column with cards glows around its dot (uier #356); an empty one does not, and has no Archive all
-    await expect(open.locator('[data-status-glow]')).toHaveCount(1);
-    await expect(column('Done').locator('[data-status-glow]')).toHaveCount(0);
-    await expect(column('Done').getByRole('button', { name: /^Archive all/ })).toHaveCount(0);
+    const done = column('Done');
+    await expect(done.getByRole('heading')).toHaveText('Done29');
+    await expect(done.locator('[data-comment-window]')).toHaveAttribute('data-loaded-count', '25');
+    // A column with cards glows around its dot (uier #356); an empty one does not. Open has cards but no Archive all
+    await expect(done.locator('[data-status-glow]')).toHaveCount(1);
+    await expect(column('In progress').locator('[data-status-glow]')).toHaveCount(0);
+    await expect(column('Open').getByRole('heading')).toHaveText('Open1');
+    await expect(column('Open').getByRole('button', { name: /^Archive all/ })).toHaveCount(0);
 
     // Cancel changes nothing
-    await open.getByRole('button', { name: 'Archive all in Open', exact: true }).click();
+    await done.getByRole('button', { name: 'Archive all in Done', exact: true }).click();
     let dialog = page.getByRole('alertdialog');
-    await expect(dialog.getByRole('heading')).toHaveText('Archive 30 threads in Open?');
+    await expect(dialog.getByRole('heading')).toHaveText('Archive 29 threads in Done?');
     await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(dialog).toBeHidden();
-    await expect(open.getByRole('heading')).toHaveText('Open30');
+    await expect(done.getByRole('heading')).toHaveText('Done29');
 
-    await open.getByRole('button', { name: 'Archive all in Open', exact: true }).click();
+    await done.getByRole('button', { name: 'Archive all in Done', exact: true }).click();
     dialog = page.getByRole('alertdialog');
     await dialog.getByRole('button', { name: 'Archive all', exact: true }).click();
-    await expect(page.getByText('30 threads archived.', { exact: true })).toBeVisible();
-    await expect(open.getByText('Nothing open.', { exact: true })).toBeVisible();
-    await expect(column('Archived').getByRole('button', { name: 'Archive 30', exact: true })).toBeVisible();
+    await expect(page.getByText('29 threads archived.', { exact: true })).toBeVisible();
+    await expect(done.getByRole('button', { name: /^Archive all/ })).toHaveCount(0);
+    await expect(column('Archived').getByRole('button', { name: 'Archive 29', exact: true })).toBeVisible();
     await page.reload();
-    await expect(open.getByRole('heading')).toHaveText('Open0');
-    await expect(column('Archived').getByRole('button', { name: 'Archive 30', exact: true })).toBeVisible();
+    await expect(done.getByRole('heading')).toHaveText('Done0');
+    await expect(column('Open').getByRole('heading')).toHaveText('Open1');
+    await expect(column('Archived').getByRole('button', { name: 'Archive 29', exact: true })).toBeVisible();
 });
 
 test('toolbar archive removes the pin, restores from Archive and rolls back a failed save', async ({ page }) => {

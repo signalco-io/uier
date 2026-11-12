@@ -147,12 +147,13 @@ saved reply updates the mark through the existing comment refresh.
 ## Board Archive all
 
 A board column with cards has Archive all (`ArchiveAllButton.tsx`), a small icon button left of its sort, for the
-people who may triage the project (uier #357). It asks first ("Archive 30 threads in Open?"), then archives every
+people who may triage the project (uier #357). Only Done-category columns have it ([uier #370](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_NSBaele28ZUe89AGOiCpB)):
+Open, In progress and Ready to verify don't. It asks first ("Archive 30 threads in Done?"), then archives every
 thread in the column under the board's filters, the ones the column has not loaded yet too: `boardColumnThreadsAction`
 lists the lane's ids on the server (`allIds` in `loadProjectCommentPages`, no rows read), and the client archives them
 50 at a time through `triageCommentsAction`, the selection bar's bulk action. Loaded cards leave at once; a toast says
 how many were archived and offers Retry when some were not. Archive itself has none. `e2e/archive.spec.ts` covers a
-column larger than its first page.
+Done column larger than its first page and an Open column without it.
 
 ## Board column sorts
 
