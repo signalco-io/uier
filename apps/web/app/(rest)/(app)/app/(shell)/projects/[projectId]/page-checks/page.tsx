@@ -1,6 +1,6 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { PageChecksLoading } from '@/src/components/app/pageChecks/PageChecksLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -34,5 +34,6 @@ async function ProjectPageChecksPageContent({ params }: PageProps<'/app/projects
 }
 
 export default function ProjectPageChecksPage(props: Parameters<typeof ProjectPageChecksPageContent>[0]) {
-    return <Suspense fallback={<PageLoading title="Loading page checks" />}><ProjectPageChecksPageContent {...props} /></Suspense>;
+    // Shaped like Page checks and as wide (uier #344)
+    return <Suspense fallback={<PageChecksLoading />}><ProjectPageChecksPageContent {...props} /></Suspense>;
 }

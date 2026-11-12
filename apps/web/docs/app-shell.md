@@ -55,6 +55,18 @@ the separately bundled review toolbar owns its own query cache.
   line whose shadow `clip-path` keeps to its row, so it adds no sideways scrolling); the Comments label lines up with the
   page content and the tabs show no loading spinner (uier #272); its pages render the comments,
   page checks, install guide or settings under it.
+- **Project loading** ([uier #344](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_iO2SPR02hm0K7M1qE9GlP)): the Comments and Page checks tabs load in skeletons shaped like the page and
+  as wide as it will be, so neither the project header nor the content changes width when the page arrives. Each
+  skeleton carries the loaded page's `data-page-width="wide"` and `data-header-wide`, which widen the shell's column
+  and the project header. `CommentsLoading` (comments/) draws the search row (search, the list's status tabs, Filter,
+  List/Board), the count line's own row where it has one, then the list with the first thread beside it, or the board's
+  four default columns and Archive's strip. It picks the view the comments will open in from the address, else the
+  one remembered in this browser; the server, which cannot know, draws the list (`useSyncExternalStore`).
+  `PageChecksLoading` (pageChecks/) draws Across pages' two cards, Pages with its filter and order, and the table (the
+  cards under 48rem). While the project layout itself loads, `ProjectLoading` (projects/) draws the header and tabs over
+  the comments' skeleton. A project with no comments yet loads wide and then shows its narrower empty state; the
+  skeleton cannot know. `e2e/instant-nav.spec.ts` holds each tab switch in its loading state (`instant()`) and checks
+  that the header and the project's name do not move when the page arrives (`pnpm test:instant`).
 - **Sidebar project order.** `ProjectOrderMenu` has two labelled radio groups: Sort (Recent activity, Recently
   created, Name) and Group (None, Client once an active project has one, Status). Only Group → Status lists the done
   projects too, under Active and Done, and the header then reads "All projects" (`listsProject`).

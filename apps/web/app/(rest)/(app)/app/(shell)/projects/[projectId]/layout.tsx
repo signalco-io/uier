@@ -1,7 +1,7 @@
 import { effectiveStatusWorkflow } from '@/src/lib/app/statusWorkflows';
 
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { PageLoading } from '@/src/components/app/PageLoading';
+import { ProjectLoading } from '@/src/components/app/projects/ProjectLoading';
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -95,5 +95,6 @@ async function ProjectLayoutContent({ children, params }: LayoutProps<'/app/proj
 }
 
 export default function ProjectLayout(props: Parameters<typeof ProjectLayoutContent>[0]) {
-    return <Suspense fallback={<PageLoading title="Loading project" />}><ProjectLayoutContent {...props} /></Suspense>;
+    // Shaped like the project's header, tabs and comments, as wide as they will be (uier #344)
+    return <Suspense fallback={<ProjectLoading />}><ProjectLayoutContent {...props} /></Suspense>;
 }
