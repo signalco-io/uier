@@ -8,6 +8,7 @@ import { reflowSections } from './ReflowSection';
 import { screenReaderSections } from './ScreenReaderSection';
 import { sharingSections } from './SharingSection';
 import { structuredDataSections } from './StructuredDataSection';
+import { consentSnapshot, consentObservation } from '../ConsentPanel';
 import type { SectionDefinition } from './sections';
 
 /**
@@ -15,6 +16,6 @@ import type { SectionDefinition } from './sections';
  * file lists its own definitions, so adding one changes only that file.
  */
 export const sectionDefinitions: readonly SectionDefinition[] = [
-    ...pageExtrasSections, ...sharingSections, ...structuredDataSections, ...crawlerSections, ...aiSearchSections,
+    consentSnapshot, consentObservation, ...pageExtrasSections, ...sharingSections, ...structuredDataSections, ...crawlerSections, ...aiSearchSections,
     ...keyboardSections, ...screenReaderSections, ...altTextSections, ...reflowSections, ...motionSections
 ];

@@ -1,6 +1,6 @@
-# Accessibility and SEO panels
+# Page-check panels
 
-Two panels report on the page under review, opened from the pill like the inbox
+Accessibility, SEO and [Consent and cookies](page-checks-consent.md) report on the page under review, opened from the pill like the inbox
 ([uier #174](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_C_nKFJTsza8hv7_NCXjTq)).
 Every issue they find has a quick action that posts it as a comment in one click.
 
@@ -11,20 +11,20 @@ signed-out selection on projects allowing guests ([settings](../../../apps/web/d
 `ProjectGate` supplies the review API's effective `toolbarFeatures` list. Missing fields (older servers
 and the standalone showcase) keep all tools. A hidden panel has no desktop button or mobile Options
 row, cannot be opened through a restored panel or handler, and does no background work: no audit,
-sections or Web Vitals for that hidden tool. Hiding both checks panels mounts neither. SEO summaries
+sections or Web Vitals for that hidden tool. With every check tool hidden, no checks panel mounts. SEO summaries
 do not wait for an Accessibility audit when that tool is hidden. Refreshing the configuration removes
 disabled panels and cancels their work; the inbox and all existing feedback remain available.
 Text rewrites use the same feature list on the selection toolbar and saved draft entry points.
 `toolbar-features.spec.ts` covers desktop/mobile controls, restored panels, guests leaving feedback with
 all optional tools hidden, and the absent audit download.
 
-- **Accessibility** and **SEO** are buttons in the pill after Inbox, from 640 px wide (where panels dock
-  beside the page). Narrower, the pill keeps its width and both are the first rows of Options; closing a
+- **Accessibility**, **SEO** and **Consent and cookies** are buttons in the pill after Inbox, from 640 px wide (where panels dock
+  beside the page). Narrower, the pill keeps its width and the tools are the first rows of Options; closing a
   panel gives the focus back to the button that opened it (Options there).
-- Each panel is a `DockablePanel` (`uier-panel-accessibility`, `uier-panel-seo`): ink, docked on its own
+- Each panel is a `DockablePanel` (`uier-panel-accessibility`, `uier-panel-seo`, `uier-panel-consent`): ink, docked on its own
   side, Close has the focus when it opens (never Check again beside it; both are small icon buttons, the handle's size,
-  [uier #297](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_sHphgXGmcH-cClEsQH-Rs)), Escape closes it. On uier's own pages both panels are
-  reviewable parts (`toolbarParts.ts`, "accessibility panel", "SEO panel").
+  [uier #297](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_sHphgXGmcH-cClEsQH-Rs)), Escape closes it. On uier's own pages the panels are
+  reviewable parts (`toolbarParts.ts`, "accessibility panel", "SEO panel", "consent and cookies panel").
 - **Two at once** ([uier #247](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_0noiz5-nVbRxXdaqpC2sH)): the inbox and the checks panels share the dock, one panel
   on each side. `CommentsGlobal` keeps the open panels oldest first (`openPanels`) and `fitPanels`
   (`src/openPanel.ts`) keeps what fits: opening a panel closes only an open one on its side, so two
@@ -32,16 +32,21 @@ all optional tools hidden, and the absent audit download.
   swaps their sides (`DockablePanel`, both are announced), so both stay open. Two fit side by side from
   688 px (two 320 px panels with their margins, `panelsSideBySide`); narrower, one is open at a time and
   the newest stays (also when the window narrows). Reattach still closes the checks panels.
-- While its panel is open, a button (Inbox, Accessibility, SEO) is highlighted: the UI kit's `soft`
+- While its panel is open, a button (Inbox, Accessibility, SEO, Consent and cookies) is highlighted: the UI kit's `soft`
   variant, as About's hint, on the ink pill in both colour schemes. It says so with `aria-expanded` and names
   its panel in `aria-controls` (a disclosure, so no `aria-pressed` beside it). The Options rows on a phone
   have no state: one panel is open there and it covers the page.
 - `components/checks/PageChecks.tsx` owns what the panels keep while closed: the last report of each,
   the comments their quick actions posted (by issue key; keys end with the checked page's path, so after a
-  client-side navigation the same finding on another page can be commented again) and the highlighted element. Both
+  client-side navigation the same finding on another page can be commented again) and the highlighted element. Accessibility and SEO
   check the page in the background ([below](#in-the-background)), so a panel opens with its report. Opening a panel
   checks the page when it has no report of the current page (and none is running); **Check again** runs it again. A report of
   another page (after a client-side navigation) says so.
+
+Consent and cookies uses the same panel shell, menu, docking, guest name and finding actions. Its two
+sections run only when the panel opens or the reviewer starts an observation. It performs no background
+storage reads, makes no verdict about consent, and never contributes to the site-wide Accessibility/SEO
+summary. Its entry points follow the independent `consent` toolbar feature.
 
 ## In the background
 
@@ -95,7 +100,7 @@ person's way
 
 ## Layout
 
-Both panels share one layout (`components/checks/ChecksParts.tsx`), so they read the same way
+The panels share one layout (`components/checks/ChecksParts.tsx`), so they read the same way
 ([uier #197](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fbrand&comment=comment_Z9xMVmu-Ai2HN7Hm-ryXZ)):
 
 - **The title row** (`ChecksPanel`): the handle and the title, then two icon buttons, Check again and

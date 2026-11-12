@@ -18,6 +18,7 @@ export const toolbarParts = {
     'uier-panel-inbox': 'inbox',
     'uier-panel-accessibility': 'accessibility panel',
     'uier-panel-seo': 'SEO panel',
+    'uier-panel-consent': 'consent and cookies panel',
     'uier-thread': 'comment thread',
     'uier-thread-menu': 'thread options',
     'uier-thread-status-menu': 'thread status',
@@ -36,7 +37,7 @@ export const toolbarParts = {
 
 export type ToolbarPart = keyof typeof toolbarParts;
 
-const partIds: readonly string[] = ['uier-feedback-toolbar', 'uier-panel-inbox', 'uier-panel-accessibility', 'uier-panel-seo'] satisfies ToolbarPart[];
+const partIds: readonly string[] = ['uier-feedback-toolbar', 'uier-panel-inbox', 'uier-panel-accessibility', 'uier-panel-seo', 'uier-panel-consent'] satisfies ToolbarPart[];
 
 /** Every reviewable part, as a selector list */
 export const toolbarPartsSelector = Object.keys(toolbarParts)

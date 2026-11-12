@@ -7,6 +7,17 @@ import { plural } from './plural';
 const p = (count: number, one: string, other: string) => plural('it', count, one, other);
 
 export const it: Messages = {
+    consentPanel: {
+        title: 'Consenso e cookie',
+        toReview: 'Da verificare',
+        notes: 'Note',
+        snapshot: 'Stato della pagina',
+        before: 'Prima del consenso',
+        observe: 'Osserva per 15 secondi',
+        observing: 'Osservazione in corso…',
+        instructions: 'Inizia in una nuova sessione del browser prima di scegliere. Attendi 15 secondi prima di fare una scelta sul consenso. Questo controllo non modifica la tua scelta e non svuota l’archiviazione.',
+        limits: 'Solo questa pagina. Cookie HttpOnly e di terze parti, archiviazione dei frame, IndexedDB, cache e tracciamento lato server non sono visibili qui. Consensi precedenti e attività prima del caricamento della barra sono sconosciuti. Solo nomi; i valori non vengono mai inviati. Le categorie sono indicative. I risultati vanno verificati e non sono un giudizio di conformità legale. I nomi sono abbreviati per nascondere gli identificatori.'
+    },
     common: {
         cancel: 'Annulla',
         close: 'Chiudi',
@@ -47,6 +58,7 @@ export const it: Messages = {
             `${badge} ${count === 1 && !capped ? 'discussione non letta' : 'discussioni non lette'}${count > 99 && !capped ? `, ${count} in totale` : ''}`,
         accessibility: 'Accessibilità',
         seo: 'SEO',
+        consent: 'Consenso e cookie',
         about: 'Informazioni su uier',
         draw: 'Disegna sulla pagina',
         collapse: 'Comprimi la barra'
@@ -811,7 +823,7 @@ export const it: Messages = {
         image: 'Immagine'
     },
     checks: {
-        kinds: { accessibility: 'Accessibilità', seo: 'SEO', 'web-vitals': 'Core Web Vitals' },
+        kinds: { consent: 'Consenso e cookie', accessibility: 'Accessibilità', seo: 'SEO', 'web-vitals': 'Core Web Vitals' },
         highlight: 'Evidenzia',
         notAnIssue: 'Non è un problema',
         postedAs: (label: string, number: number | undefined) => `${label}${number !== undefined ? ` come #${number}` : ''}`,

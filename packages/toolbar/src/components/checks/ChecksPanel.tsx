@@ -17,7 +17,7 @@ import { useMessages } from '../../i18n';
  * size, as the handle), Close with the focus when it opens: Check again never takes it. Escape closes it. One that stays open from the previous page does neither.
  */
 export function ChecksPanel({ id, title, checking, onCheckAgain, onClose, children }: {
-    id: 'accessibility' | 'seo';
+    id: 'accessibility' | 'seo' | 'consent';
     title: string;
     /** A check is running (Check again gets its result) */
     checking?: boolean;
