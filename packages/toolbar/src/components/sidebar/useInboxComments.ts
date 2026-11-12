@@ -106,6 +106,10 @@ export function useInboxComments(filter: CommentsFilter) {
         archived: withStatus(scoped, 'archived')?.length ?? 0
     };
 
+    // Which tabs' listed comments include unread ones: each tab's unread dot, chosen or not (uier #346)
+    const unread = Object.fromEntries((Object.keys(counts) as CommentsStatusFilter[])
+        .map(status => [status, Boolean(withStatus(scoped, status)?.some(comment => comment.activity?.unread))])) as Record<CommentsStatusFilter, boolean>;
+
     // Site-wide totals come from the full authorized projection, never the capped text window.
     if (scope === 'all' && activity && !filter.keywords?.trim() && !filter.unread && !filter.assignedToMe) {
         // `open` here is every status but Done: Active
@@ -153,6 +157,7 @@ export function useInboxComments(filter: CommentsFilter) {
         comments,
         state,
         counts,
+        unread,
         pages: [...pages.values()],
         currentPath: path,
         currentCount,

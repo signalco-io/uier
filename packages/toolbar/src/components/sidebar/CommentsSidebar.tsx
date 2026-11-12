@@ -121,6 +121,7 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
                         </Stack>
                         <CommentsStatusTabs
                             counts={inbox.counts}
+                            unread={inbox.unread}
                             status={filter.status}
                             onStatusChange={(status) => setFilter({ ...filter, status })} />
                     </Stack>

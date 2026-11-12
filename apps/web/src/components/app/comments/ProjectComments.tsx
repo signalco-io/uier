@@ -234,6 +234,9 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
     const filtered = applyFilters(comments, query, userId, openId);
     const statusCounts = Object.fromEntries((Object.keys(statusFilterLabels) as StatusFilter[])
         .map(filter => [filter, filtered.filter(comment => statusMatches(filter, commentStatus(comment), comment.archivedAt)).length])) as Record<StatusFilter, number>;
+    // Each status tab's unread dot, chosen or not (uier #346)
+    const statusUnread = Object.fromEntries((Object.keys(statusFilterLabels) as StatusFilter[])
+        .map(filter => [filter, filtered.some(comment => comment.activity?.unread && statusMatches(filter, commentStatus(comment), comment.archivedAt))]));
     // Where the open thread takes the whole width, it takes the filters' place too
     const threadOnly = Boolean(openComment.openId) && !board && scopeComments.some(comment => comment.id === openComment.openId);
     // The board's status filter (uier #335) narrows its columns to one; the others stay, empty, as drop targets
@@ -281,7 +284,7 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
             and so does the count line under it. */}
         <div ref={containerRef} data-page-width={comments.length ? 'wide' : undefined} className="@container/comments flex flex-col gap-2">
             <div data-header-wide={headerWide} className={cn('flex min-w-0 flex-col gap-2', threadOnly && '@max-3xl/comments:hidden', wideClassName)}>
-            <CommentFilters labels={labels} label={query.label} search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} historySources={historySources} unread={Boolean(query.unread)} unreadCount={scopeComments.filter(comment => comment.activity?.unread).length} view={board ? 'board' : 'list'} status={query.status} statusCounts={statusCounts} people={query.people} page={query.page} pages={pages}
+            <CommentFilters labels={labels} label={query.label} search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} historySources={historySources} unread={Boolean(query.unread)} unreadCount={scopeComments.filter(comment => comment.activity?.unread).length} view={board ? 'board' : 'list'} status={query.status} statusCounts={statusCounts} statusUnread={statusUnread} people={query.people} page={query.page} pages={pages}
                 countLine={comments.length > 0 ? { summary: unreadSummary, actions: unreadActions } : undefined} />
             {searchWindowCapped && <p className="m-0 text-sm text-muted-foreground">{t("Search covers up to 1,000 recent threads in this environment and author scope. Narrow the environment or author to find older feedback.")}</p>}
             </div>

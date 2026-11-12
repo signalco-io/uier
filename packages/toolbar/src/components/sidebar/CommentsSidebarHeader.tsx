@@ -1,4 +1,4 @@
-import { Fragment, useContext, useRef, useState } from 'react';
+import { Fragment, useContext, useId, useRef, useState } from 'react';
 import { IconTooltip, useIconTooltip } from '../IconTooltip';
 import { useProjectViewer } from '../../project/ProjectGate';
 import { Row } from '@signalco/ui-primitives/Row';
@@ -49,6 +49,16 @@ export function CommentsSidebarHeader({ onClose, autoFocus = true, search }: { o
     );
 }
 
+/**
+ * A status tab's or menu item's unread dot (uier #346): shown whenever its listed comments include unread ones, chosen or
+ * not, like a thread's (the brand accent). Assistive tech hears "Unread" as the tab's description (`aria-describedby`),
+ * so its name stays its label and count.
+ */
+function TabUnread({ unread }: { unread?: boolean }) {
+    if (!unread) return null;
+    return <span aria-hidden="true" data-uier-tab-unread="" className="size-1.5 shrink-0 rounded-full bg-[hsl(var(--brand-accent))]" />;
+}
+
 const tabClassName = 'gap-1.5 rounded-none border-b-2 px-0.5 hover:bg-transparent active:bg-transparent pointer-coarse:h-11 pointer-coarse:min-w-11';
 const tabStateClassName = (pressed: boolean) => pressed ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground';
 
@@ -58,11 +68,13 @@ const tabStateClassName = (pressed: boolean) => pressed ? 'border-foreground tex
  * of the statuses folded under it (Open, In progress, Ready to verify), which the Active tab then names ("Active: In
  * progress 4"); pressing that tab goes back to every active status. Done holds Archive the same way (uier #302): its
  * menu picks Done or Archive, the tab then reads "Archive 2", and pressing it goes back to Done. The menu buttons keep
- * their own tab stops: the arrow keys move between the tabs only.
+ * their own tab stops: the arrow keys move between the tabs only. A tab whose listed comments include unread ones has
+ * the unread dot after its count, chosen or not (`unread`, uier #346), and so do the menus' items.
  */
-export function CommentsStatusTabs({ status, counts, onStatusChange }: {
+export function CommentsStatusTabs({ status, counts, unread = {}, onStatusChange }: {
     status: CommentsStatusFilter;
     counts: Record<CommentsStatusFilter, number>;
+    unread?: Partial<Record<CommentsStatusFilter, boolean>>;
     onStatusChange: (status: CommentsStatusFilter) => void;
 }) {
     const t = useMessages();
@@ -75,30 +87,34 @@ export function CommentsStatusTabs({ status, counts, onStatusChange }: {
     const activeLabel = activeValue === 'unresolved' ? statusLabels.unresolved : t.inbox.activeOne(statusLabels[activeValue]);
     const doneShown = isDoneStatusFilter(status);
     const doneValue = doneShown ? status : 'resolved';
+    // What a tab with the unread dot is described by
+    const unreadId = useId();
+    const described = (value: CommentsStatusFilter) => unread[value] ? unreadId : undefined;
     return (
         <Row ref={ref} role="group" aria-label={t.inbox.showComments} data-uier-status-tabs="" spacing={2} className="flex-wrap border-b" onFocus={roving.onFocus} onKeyDown={roving.onKeyDown}>
+            <span id={unreadId} hidden>{t.inbox.hasUnread}</span>
             <Row className="-mb-px">
-                <Button size="sm" variant="plain" aria-pressed={activeShown}
+                <Button size="sm" variant="plain" aria-pressed={activeShown} aria-describedby={described(activeValue)}
                     className={cx(tabClassName, tabStateClassName(activeShown))}
                     // Pressed again while it shows one of its statuses: back to every active status
                     onClick={() => onStatusChange('unresolved')}>
-                    {activeLabel} <span className="font-normal tabular-nums text-muted-foreground">{counts[activeValue]}</span>
+                    {activeLabel} <span className="font-normal tabular-nums text-muted-foreground">{counts[activeValue]}</span><TabUnread unread={unread[activeValue]} />
                 </Button>
-                <StatusesMenu label={t.inbox.activeStatuses} values={['unresolved', ...activeStatusFilters]} status={status} counts={counts} onStatusChange={onStatusChange} />
+                <StatusesMenu label={t.inbox.activeStatuses} values={['unresolved', ...activeStatusFilters]} status={status} counts={counts} unread={unread} unreadId={unreadId} onStatusChange={onStatusChange} />
             </Row>
             <Row className="-mb-px">
-                <Button size="sm" variant="plain" aria-pressed={doneShown}
+                <Button size="sm" variant="plain" aria-pressed={doneShown} aria-describedby={described(doneValue)}
                     className={cx(tabClassName, tabStateClassName(doneShown))}
                     // Pressed again while it shows Archive: back to Done
                     onClick={() => onStatusChange('resolved')}>
-                    {statusLabels[doneValue]} <span className="font-normal tabular-nums text-muted-foreground">{counts[doneValue]}</span>
+                    {statusLabels[doneValue]} <span className="font-normal tabular-nums text-muted-foreground">{counts[doneValue]}</span><TabUnread unread={unread[doneValue]} />
                 </Button>
-                <StatusesMenu label={t.inbox.doneStatuses} values={doneStatusFilters} status={status} counts={counts} onStatusChange={onStatusChange} />
+                <StatusesMenu label={t.inbox.doneStatuses} values={doneStatusFilters} status={status} counts={counts} unread={unread} unreadId={unreadId} onStatusChange={onStatusChange} />
             </Row>
-            <Button size="sm" variant="plain" aria-pressed={status === 'all'}
+            <Button size="sm" variant="plain" aria-pressed={status === 'all'} aria-describedby={described('all')}
                 className={cx('-mb-px', tabClassName, tabStateClassName(status === 'all'))}
                 onClick={() => onStatusChange('all')}>
-                {statusLabels.all} <span className="font-normal tabular-nums text-muted-foreground">{counts.all}</span>
+                {statusLabels.all} <span className="font-normal tabular-nums text-muted-foreground">{counts.all}</span><TabUnread unread={unread.all} />
             </Button>
         </Row>
     );
@@ -108,11 +124,14 @@ export function CommentsStatusTabs({ status, counts, onStatusChange }: {
  * The chevron beside a tab: a menu of the tab's own filter, then the ones folded under it, each with its count (Active,
  * then Open, In progress and Ready to verify with their status dots; Done, then Archive); a choice closes it
  */
-function StatusesMenu({ label, values, status, counts, onStatusChange }: {
+function StatusesMenu({ label, values, status, counts, unread, unreadId, onStatusChange }: {
     label: string;
     values: readonly CommentsStatusFilter[];
     status: CommentsStatusFilter;
     counts: Record<CommentsStatusFilter, number>;
+    unread: Partial<Record<CommentsStatusFilter, boolean>>;
+    /** The tabs' "Unread" description */
+    unreadId: string;
     onStatusChange: (status: CommentsStatusFilter) => void;
 }) {
     const { rootElement } = useContext(CommentsBootstrapperContext);
@@ -157,9 +176,11 @@ function StatusesMenu({ label, values, status, counts, onStatusChange }: {
                         <Fragment key={value}>
                             {index === 1 && <div role="separator" className="my-1 h-px bg-border" />}
                             <Button ref={current ? currentRef : index === 0 ? firstRef : undefined} variant="plain" size="sm" fullWidth
-                                className="justify-start pointer-coarse:min-h-11" aria-pressed={current}
+                                className="justify-start pointer-coarse:min-h-11" aria-pressed={current} aria-describedby={unread[value] ? unreadId : undefined}
                                 startDecorator={stage ? <StatusDot stage={stage} /> : undefined}
-                                endDecorator={<span className="ml-auto font-normal tabular-nums text-muted-foreground">{counts[value]}</span>}
+                                endDecorator={<span className="ml-auto flex items-center gap-1.5 font-normal tabular-nums text-muted-foreground">{counts[value]}
+                                    {/* Its own room, so the counts line up whether or not an item has unread comments */}
+                                    <span className="flex w-1.5 shrink-0 justify-center"><TabUnread unread={unread[value]} /></span></span>}
                                 onClick={() => choose(value)}>
                                 {statusLabels[value]}
                             </Button>

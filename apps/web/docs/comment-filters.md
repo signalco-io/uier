@@ -27,7 +27,13 @@
   `ready` links still open on that status. Archive folds under Done the same way (uier #302, `doneStatusFilters`): the
   "Done and archive" button beside the Done tab opens a menu of Done and Archive with their counts; with Archive chosen the
   tab reads "Archive 2" and stays pressed, and pressing it again goes back to Done. `?status=archived` still opens Archive. The tabs have no `StateDot`, so Done never reads as a
-  notification; the three statuses in the menu show theirs in its colour ([status colours](comments-inbox.md)). The menu button is a plain button inside the toggle group: Tab reaches it,
+  notification; the three statuses in the menu show theirs in its colour ([status colours](comments-inbox.md)). A tab whose
+  comments (with the other filters applied) include unread ones has the unread dot after its count, chosen or not, and so
+  does each menu item ([uier #346](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_xBbWYsilDxsQa0FGcc-0p); `statusUnread` from `ProjectComments`, a 6 px dot in the brand accent like a row's,
+  in its own fixed room in the menus so the counts line up). Assistive tech hears "Unread" as the tab's description
+  (`aria-describedby`), so a tab's name stays its label and count ("Done 3"). The toolbar's inbox tabs and menus do the
+  same (`TabUnread` in `CommentsSidebarHeader.tsx`, `unread` from `useInboxComments`, the listed comments of the chosen
+  pages; `inbox.hasUnread`). The menu button is a plain button inside the toggle group: Tab reaches it,
   the arrow keys move between the tabs only. Each filter in effect shows in the search row, left of the Filter button (uier #209; in the list and the board,
   wrapping only when there is no room; on a phone they go to their own line under the row), named by its filter in muted text ("Priority: Urgent",
   "Environment: Production", "Page: /app/…", "People: Unassigned", "Author: Ana", and "Only unread"), with its own
