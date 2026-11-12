@@ -31,6 +31,8 @@ no cover over the page:
   `widthNormal`/`heightNormal` (`isCommentArea`), so older toolbars still pin it.
 - `components/CommentAreaHighlight.tsx` is the dashed accent outline of a commented area (`data-uier-area`), with
   the selection tint while its thread is open. It never takes clicks: the pin opens the thread.
+  A saved area is outlined only while its pin is hovered or focused, or its thread is open or previewed; a
+  draft's area always is.
 - Areas resolve to their rectangle in `useCommentItemRects`, so the pin sits at the bottom-right corner and the
   screenshot is the area.
 

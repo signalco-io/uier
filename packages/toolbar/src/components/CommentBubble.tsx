@@ -411,7 +411,11 @@ export function CommentBubble(props: CommentBubbleProps) {
         setPreviewing(false);
     }, [open]);
     const canPreview = Boolean(commentItem) && !sending;
+    // A pointer over the pin, or the keyboard on it: a saved area's outline shows (uier #375)
+    const [pinHovered, setPinHovered] = useState(false);
+    const [pinFocused, setPinFocused] = useState(false);
     const handlePreviewEnter = (event: PointerEvent) => {
+        setPinHovered(true);
         if (event.pointerType !== 'mouse' || !canPreview || open) return;
         window.clearTimeout(previewTimer.current);
         // Not while a button is held (a drag, a text selection)
@@ -424,6 +428,7 @@ export function CommentBubble(props: CommentBubbleProps) {
         }, previewDelay);
     };
     const handlePreviewLeave = (event: PointerEvent) => {
+        setPinHovered(false);
         if (event.pointerType !== 'mouse') return;
         window.clearTimeout(previewTimer.current);
         if (previewing) previewTimer.current = window.setTimeout(() => setPreviewing(false), previewCloseDelay);
@@ -505,6 +510,7 @@ export function CommentBubble(props: CommentBubbleProps) {
 
     // Bubbles are fixed to their anchor; when one gets the focus off-screen, scroll it into view
     const handleFocus = () => {
+        setPinFocused(true);
         const rect = triggerRef.current?.getBoundingClientRect();
         if (!rect || (rect.top >= 0 && rect.bottom <= window.innerHeight)) {
             return;
@@ -639,8 +645,9 @@ export function CommentBubble(props: CommentBubbleProps) {
                     left={lastRect.left}
                     top={lastRect.top} />
             )}
-            {/* A drawing marks its area itself: the outline only while its thread is open (or previewed) */}
-            {isCommentArea(position) && lastRect && !closedLayer && (!drawing || open || preview) && (
+            {/* The outline only while the pin is hovered or focused, or its thread is open (or previewed);
+                a drawing marks its area itself, so it keeps showing (uier #375) */}
+            {isCommentArea(position) && lastRect && !closedLayer && (open || preview || (!drawing && (creating || pinHovered || pinFocused))) && (
                 <CommentAreaHighlight rect={lastRect} commentId={commentItem?.id} active={open || preview} />
             )}
             <Popper
@@ -663,6 +670,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                                 : t.pin.label(commentItem.number, messagesCount, statusName)}
                         aria-description={participantsText}
                         onFocus={handleFocus}
+                        onBlur={() => setPinFocused(false)}
                         onPointerEnter={handlePreviewEnter}
                         onPointerLeave={handlePreviewLeave}
                         onClick={handlePinClick}
