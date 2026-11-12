@@ -5,7 +5,7 @@ import { useAppI18n } from '@/src/lib/i18n/client';
 import type { ThreadLabel } from '../../../lib/app/threadLabel';
 import { defaultStatusWorkflow, statusForComment, orderedStatuses, type StatusWorkflow } from '../../../lib/app/statusWorkflow';
 import { commentAssignees } from '@uier/toolbar/agents';
-import { useEffect, useLayoutEffect, useOptimistic, useRef, useState, useTransition } from 'react';
+import { useEffect, useLayoutEffect, useOptimistic, useRef, useState, useTransition, type RefObject } from 'react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { setUrlSearchParams, useUrlSearchParams } from '@/src/hooks/use-url-search-params';
@@ -121,6 +121,7 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
     }, [explicit, initialView]);
     const containerRef = useRef<HTMLDivElement>(null);
     const openComment = useOpenComment(containerRef);
+    useFirstColumnWidth(containerRef);
     // Environment and author navigate through authorization; presentation filters fetch fresh
     // summary pages while their URL controls update immediately.
     const urlKey = searchParams.toString();
@@ -274,6 +275,11 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
     // The header's width, which the count line under it takes too (uier #187)
     const wideClassName = cn(headerWide === 'list' && '@3xl/comments:w-[min(var(--page-wide),96rem)] @3xl/comments:mx-[calc((100%-min(var(--page-wide),96rem))/2)]',
         headerWide === 'board' && 'md:w-[min(var(--page-wide),max(100%,var(--board-width)))] md:mx-[calc((100%-min(var(--page-wide),max(100%,var(--board-width))))/2)]');
+    // The search is as wide as the first column under it, the list beside its thread or the board's first column, so
+    // their edges line up (uier #355; `--first-column`, measured by `useFirstColumnWidth`). Narrower, where the list
+    // takes the whole width, it keeps its own width
+    const searchClassName = cn(headerWide === 'list' && '@3xl/comments:[--search-width:var(--first-column,20rem)]',
+        headerWide === 'board' && 'md:[--search-width:var(--first-column,20rem)]');
     const unreadShown = Math.max(0, pager.data.paging.unreadCount + delta(comment => Boolean(comment.activity?.unread)
         && (board ? comment.archivedAt ? archiveExpanded && !boardStatus : !boardStatus || commentStatus(comment) === boardStatus
             : statusMatches(query.status, commentStatus(comment), comment.archivedAt))));
@@ -301,7 +307,7 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
             The project header above takes the same width from `data-header-wide` (the project layout, which sets `--board-width`),
             and so does the count line under it. */}
         <div ref={containerRef} data-page-width={populated ? 'wide' : undefined} aria-busy={pager.loading || undefined} className="@container/comments flex flex-col gap-2">
-            <div data-header-wide={headerWide} className={cn('flex min-w-0 flex-col gap-2', threadOnly && '@max-3xl/comments:hidden', wideClassName)}>
+            <div data-header-wide={headerWide} className={cn('flex min-w-0 flex-col gap-2', threadOnly && '@max-3xl/comments:hidden', wideClassName, searchClassName)}>
             <CommentFilters verificationEnabled={workflow.verificationEnabled === true} labels={labels} label={query.label} search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} historySources={historySources} unread={Boolean(query.unread)} unreadCount={pager.data.paging.unreadCount} view={board ? 'board' : 'list'} status={query.status} statusCounts={pager.data.paging.queryTooExpensive ? undefined : statusCounts} statusUnread={statusUnread} people={query.people} page={query.page} pages={pages}
                 countLine={populated ? { summary: unreadSummary, actions: unreadActions } : undefined} />
             {(pager.error || budgetExceeded) && <p role="status" className="m-0 text-sm text-muted-foreground">
@@ -352,4 +358,41 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
         </CommentsSearchNavigationProvider>
         </CommentUpdatesProvider>
     );
+}
+
+/**
+ * Keeps `--first-column` on the comments' container at the width of the first column under the filters: the board's
+ * first column, or the list's (beside its thread). The search takes it (uier #355). Columns mount and unmount with
+ * the view and the filters, so the container's own resizes and changes below it look for the column again.
+ */
+function useFirstColumnWidth(containerRef: RefObject<HTMLDivElement | null>) {
+    useLayoutEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+        let column: Element | null = null;
+        const measure = () => {
+            const width = column?.getBoundingClientRect().width;
+            if (width) container.style.setProperty('--first-column', `${Math.round(width)}px`);
+            else container.style.removeProperty('--first-column');
+        };
+        const columns = new ResizeObserver(measure);
+        const find = () => {
+            const next = container.querySelector('[data-board-scroll] > section') ?? container.querySelector('[data-comment-id]')?.closest('ul') ?? null;
+            if (next !== column) {
+                if (column) columns.unobserve(column);
+                column = next;
+                if (column) columns.observe(column);
+            }
+            measure();
+        };
+        // Once a frame at most: rows mount and unmount as the lists scroll
+        let frame = 0;
+        const schedule = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; find(); }); };
+        const resizes = new ResizeObserver(schedule);
+        resizes.observe(container);
+        const changes = new MutationObserver(schedule);
+        changes.observe(container, { childList: true, subtree: true });
+        find();
+        return () => { cancelAnimationFrame(frame); resizes.disconnect(); columns.disconnect(); changes.disconnect(); };
+    }, [containerRef]);
 }
