@@ -110,7 +110,8 @@ function CommentStatusMenu({ stage, allowed, pending, shortcut, onChange }: {
                     className="h-6 shrink-0 gap-1.5 rounded-full px-2 text-xs font-medium"
                     aria-label={t.thread.changeStatus(label)}
                     aria-keyshortcuts={shortcut ? 'S' : undefined}
-                    data-uier-status="">
+                    data-uier-status=""
+                    data-uier-thread-control="">
                     <StatusDot stage={stage} />
                     <span className="sr-only">{t.thread.statusPrefix}</span>
                     {label}
@@ -151,6 +152,7 @@ export function UnreadDot({ className, disabled, onRead }: { className?: string;
                 variant="plain"
                 className={cx('-mx-1.5 size-6 shrink-0', className)}
                 aria-label={t.thread.unreadMarkAsRead}
+                data-uier-thread-control=""
                 disabled={disabled}
                 onClick={onRead}>
                 <span aria-hidden="true" className="size-2 rounded-full bg-[hsl(var(--brand-accent))]" />

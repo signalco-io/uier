@@ -171,8 +171,13 @@ in the same place ([uier #308](https://uier.io/app/review/uier00000002?url=https
 "Comment thread preview", the thread `inert` (no presses, no focus, no tooltips), no reply box. It leaves the
 focus where it is, does not mark the thread read, is not a thread for the shortcuts (`data-uier-thread-scope`) and
 not a reviewable part of the toolbar. It closes 150 ms after the pointer leaves both the pin and the preview, and
-on Escape or a press outside. A click on the pin or anywhere in the preview opens the thread itself, with its
-reply box focused, its actions and its read receipt, and it then stays open like a clicked thread. Only a mouse
+on Escape or a press outside. The preview hides the thread's controls ([uier #320](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2F&comment=comment_TYufg9xk1VZCzxenJAKMJ)):
+each control marked `data-uier-thread-control` (the status menu, Mark as read, Copy, Thread options, Add reaction,
+a message's options, "Show all", Email me replies) is transparent but keeps its place, so nothing moves when the
+thread opens; the status badge without a menu, the people and the reaction pills stay as content. A click on the
+pin or anywhere in the preview (or Enter or Space on the pin) opens the thread itself, with its reply box focused,
+its actions and its read receipt, and it then stays open like a clicked thread; its controls fade in over 200 ms
+(`data-uier-controls-reveal`, at once with reduced motion). Only a mouse
 previews (`pointerType`), never while a button is held or in point mode (`isPointing`, `CommentPointOverlay`);
 a tap, Enter or Space opens the thread at once, as before. Closing a preview never moves the focus to the pin.
 

@@ -119,6 +119,10 @@ test('resting the mouse on a pin previews its thread; a click keeps it open with
     await expect(preview(page)).toContainText('The heading could be shorter.');
     await expect(preview(page)).toContainText('And bolder.');
     await expect(preview(page).getByRole('textbox')).toHaveCount(0);
+    // Without its controls (copy, options, add reaction ...), which keep their place (uier #320)
+    const previewControls = preview(page).locator('[data-uier-thread-control]');
+    await expect(previewControls.first()).toBeAttached();
+    for (const control of await previewControls.all()) await expect(control).toHaveCSS('opacity', '0');
     await expect(openThread(page).filter({ has: page.getByRole('textbox', { name: 'Reply' }) })).toHaveCount(0);
     expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
     await page.mouse.move(5, 5, { steps: 4 });
@@ -135,6 +139,9 @@ test('resting the mouse on a pin previews its thread; a click keeps it open with
     await page.mouse.up();
     const thread = page.getByRole('dialog', { name: 'Comment thread', exact: true });
     await expect(thread.getByRole('textbox', { name: 'Reply' })).toBeFocused();
+    // The controls come back, fading in
+    await expect(thread.locator('[data-uier-controls-reveal]')).toBeAttached();
+    await expect(thread.getByRole('button', { name: 'Thread options' })).toHaveCSS('opacity', '1');
     await expect(preview(page)).toHaveCount(0);
     // It stays open when the pointer leaves
     await page.mouse.move(5, 5, { steps: 4 });

@@ -55,7 +55,7 @@ export function ThreadNotifications({ comment }: { comment: CommentItem }) {
     if (!toolbarConfig.project || !state?.eligible || state.member) return null;
     return <div className="flex flex-col gap-2 text-xs text-muted-foreground">
         <div className="flex flex-wrap items-center gap-x-3">
-            <Button size="xs" variant="plain" className={quietButtonClassName} disabled={follow.isPending} onClick={() => {
+            <Button size="xs" variant="plain" className={quietButtonClassName} data-uier-thread-control="" disabled={follow.isPending} onClick={() => {
                 if (!state.following) setEditing(!editing);
                 else follow.mutate(false);
             }}>{state.following ? t.thread.unfollow : t.notifications.emailMeReplies}</Button>

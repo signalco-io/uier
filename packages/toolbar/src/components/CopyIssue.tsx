@@ -76,7 +76,7 @@ export function CopyMenu({ state, className, linkAvailable, onCopyLink }: {
             onKeyDown={moveFocusInMenu}
             {...toolbarSurface('uier-copy-menu', cx('z-[70] w-64 max-w-[calc(100vw-1rem)] rounded-xl p-1', floatingShadowClassName))}
             trigger={(
-                <IconButton size="xs" variant="plain" className={className} aria-label={t.copy.label} aria-busy={state.pending}
+                <IconButton size="xs" variant="plain" className={className} aria-label={t.copy.label} aria-busy={state.pending} data-uier-thread-control=""
                     disabled={state.pending} {...triggerProps}>
                     <Copy size={16} />
                 </IconButton>
