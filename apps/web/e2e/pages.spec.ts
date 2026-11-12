@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 import { brand } from '@uier/brand';
 import { assertAccessibility } from './accessibility';
+import { MAX_BODY_BYTES, MAX_BULK_READ_BYTES, MAX_COMMENT_BODY_BYTES, MAX_NEW_COMMENT_BODY_BYTES } from '../src/lib/comments/limits';
 
 const repositoryRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -30,6 +31,18 @@ test('security page publishes the reporting contact and the controls', async ({ 
     await expect(page.getByRole('heading', { level: 3, name: 'Checked changes', exact: true })).toBeVisible();
     await expect(page.getByText('Production changes go through pull requests with passing checks. An approving review is not required. Selected type declarations and browser-test tools may merge automatically after three days. Other dependency and action updates wait for a maintainer to merge them. Infrastructure is applied only by CI.', { exact: true })).toBeVisible();
     await expect(page.getByRole('main').getByRole('link', { name: 'privacy policy' })).toHaveAttribute('href', '/legal/privacy-policy');
+    const main = page.getByRole('main');
+    await expect(main).toContainText('X-Uier-Visitor');
+    await expect(main).toContainText('a separate authorized whole-thread deletion removes the discussion');
+    await expect(main).toContainText('Signed-in feedback on uier is private to its author and the uier team');
+    await expect(main).toContainText('Messages support Markdown');
+    await expect(main).toContainText('Cosmos account-key authentication is disabled');
+    for (const limit of [MAX_BODY_BYTES, MAX_BULK_READ_BYTES, MAX_COMMENT_BODY_BYTES, MAX_NEW_COMMENT_BODY_BYTES])
+        await expect(main).toContainText(`${limit.toLocaleString('en-US')} bytes`);
+    for (const unsupported of ['16 KB per request', 'no HTML, Markdown or links', 'Only the author of a comment or reply can'])
+        await expect(main).not.toContainText(unsupported);
+    for (const bundle of ['/toolbar.js', '/review.js', '/audit.js'])
+        await expect(main).toContainText(bundle);
 });
 
 test('open source page links the repository, licenses and contribution guide', async ({ page }) => {

@@ -61,6 +61,13 @@ itself, so the global `:target` margin does not apply there and the layout turns
   (see [browser-extension.md](browser-extension.md)).
 - **Pricing** is `brand.pricing`, word for word, and one free offering: no prices, tiers, trials
   or limits. The app has no billing page while everything is free.
+- **Context and privacy:** the context tile describes a screenshot attempt, not guaranteed capture.
+  The saved-data FAQ names sensitive visible content, omission before posting, later redaction and
+  its inability to recall delivered copies, member-only browser/OS details and requested rewrite
+  inputs sent to Anthropic. Guest feedback is public; signed-in uier feedback is author/team-private.
+  Both uier feedback projects have the 90-day TTL; customer projects retain feedback until deleted.
+  Keep the own-website question, persisted demo ids, tagline and pricing unchanged when updating copy.
+  The homepage description owns broad website-feedback, client-review and bug-report intent.
 
 `e2e/landing.spec.ts` asserts the title, the `h1`, the "Get started" links, the sections, the
 pricing copy, the FAQ keyboard behaviour and the footer line through the brand constants; update

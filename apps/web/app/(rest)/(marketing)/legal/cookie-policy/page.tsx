@@ -38,7 +38,7 @@ const items = [
         name: '__Host-uier_visitor',
         type: 'Cookie (first party, HttpOnly)',
         when: 'Your first comment, reply, Mark as read or Mark all as read action',
-        purpose: 'Recognises your comments and read state, so only you can resolve or delete your comments. Holds a random token; the server stores only its hash.',
+        purpose: 'Recognises your feedback and read state. The toolbar can send the local visitor token as X-Uier-Visitor; an existing cookie takes precedence. Action permissions also allow authorized project members and admins, including uier staff moderation. The server stores only the token hash.',
         duration: 'One year'
     },
     {
@@ -254,10 +254,10 @@ export default function CookiePolicyPage() {
 
             <h2>Third parties</h2>
             <p>
-                Vercel Web Analytics, which counts page views, and Vercel BotID, which checks that comments come
-                from people, set no cookies and store nothing in your browser. No other third party loads on{' '}
-                {brand.domain}. The <a href={KnownPages.LegalPrivacyPolicy}>privacy policy</a> explains what they
-                process.
+                Vercel Web Analytics collection is disabled and its browser SDK is not loaded. Vercel BotID
+                verifies browser writes without setting cookies or keeping browser storage. Choosing an external
+                sign-in provider takes you to that provider; connected services and requested AI features process
+                the data described in the <a href={KnownPages.LegalPrivacyPolicy}>privacy policy</a>.
             </p>
 
             <h2>Removing them</h2>

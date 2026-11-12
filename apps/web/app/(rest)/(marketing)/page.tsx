@@ -24,7 +24,9 @@ import { KnownPages } from '../../../src/knownPages';
 import { extensionStoreUrl } from '../../../src/lib/extension/release';
 
 export const metadata = {
-    ...publicPageMetadata('/'),
+    ...publicPageMetadata('/', {
+        description: 'Website feedback on the page: collect client comments, report bugs and hand the context to your team or coding agent.'
+    }),
     verification: { other: { 'msvalidate.01': '16CF0F06FF0F10896508557122F1DA5C' } }
 };
 
@@ -41,7 +43,7 @@ const features: { title: string; text: ReactNode; visual: ReactNode; wide?: bool
     },
     {
         title: 'The context comes with it',
-        text: 'A new comment captures a screenshot of the spot, with the page, the window size, the browser and the operating system. Or attach your own image.',
+        text: 'A new comment attempts a screenshot of the spot. Check it for private details before posting. Members see available browser and device context; capture and browser details can be unavailable.',
         visual: <ContextSpecimen />
     },
     {

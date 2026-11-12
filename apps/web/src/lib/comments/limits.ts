@@ -7,6 +7,8 @@ const DAY = 24 * HOUR;
 
 /** Maximum accepted request body size in bytes (larger bodies are rejected with 413). */
 export const MAX_BODY_BYTES = 16 * 1024;
+/** Bulk read acknowledgements: up to 200 ids and sequence cursors. */
+export const MAX_BULK_READ_BYTES = 48 * 1024;
 
 /**
  * Screenshots of the commented part of the page (screenshot.ts): at most this many bytes (a

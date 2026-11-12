@@ -12,16 +12,24 @@ export default function TermsOfServicePage() {
     return (
         <LegalDocument href={KnownPages.LegalTermsOfService} title="Terms of service" effective="12 November 2026">
             <p>
-                These terms apply when you use {brand.domain}, including leaving comments with the {brand.name}{' '}
-                toolbar. {brand.name} is a {brand.parent.name} project; in these terms &ldquo;we&rdquo; means{' '}
+                These terms apply when you use {brand.domain}, its app, toolbar, browser extension and coding-tool
+                connections. {brand.name} is a {brand.parent.name} project; in these terms &ldquo;we&rdquo; means{' '}
                 {brand.parent.name}. By using the site you agree to these terms. If you do not agree, do not use it.
             </p>
 
             <h2>The service</h2>
             <p>
-                {brand.domain} shows what {brand.name} is and runs the {brand.name} toolbar on its own pages. Anyone
-                can leave comments there without an account. Using {brand.name} on other websites is not available
-                yet; when it is, these terms will cover it.
+                {brand.name} lets people review live websites and discuss the feedback. You can try it on our
+                public pages without an account. Sign in to create a workspace and projects for your own sites,
+                invite people or teams, share review links and connect coding tools. Project settings determine
+                which sites and reviewers can use the toolbar. Guest access does not require an account when
+                the project allows it.
+            </p>
+            <p>
+                Add the toolbar or configure a site only if you have the site owner&rsquo;s authority to do so.
+                Workspace admins are responsible for the sites, access settings, invitations and services they
+                configure. Make sure you have permission to collect and share the page content and feedback,
+                including screenshots, with the reviewers and connected services you choose.
             </p>
 
             <h2>Price</h2>
@@ -31,14 +39,26 @@ export default function TermsOfServicePage() {
 
             <h2>Your comments</h2>
             <ul>
-                <li>Comments are public: anyone who opens the page can read them and reply.</li>
+                <li>Guest feedback on our public pages is public. Feedback you leave while signed in to uier is private to you and the uier team.</li>
+                <li>In customer projects, the project&rsquo;s access settings control visibility. Private feedback is limited to its author and workspace admins. Keep review links and credentials with the people you intend to give access to.</li>
                 <li>You are responsible for what you post. Do not post personal information, secrets or anything you do not have the right to share.</li>
                 <li>
                     You keep the rights to your comments. You allow us to store them, show them to visitors of the
-                    page and remove them, for as long as they exist on {brand.domain}.
+                    project or public page and remove them, within the access and retention rules described here.
                 </li>
-                <li>Visitor threads are deleted automatically 90 days after their last change. Our starter threads and their replies do not expire. You can delete your own messages earlier.</li>
+                <li>Feedback in uier&rsquo;s own feedback projects expires 90 days after its last change, whether left as a guest or while signed in. Our starter threads and their replies do not expire. Feedback in customer projects stays until it or its project is deleted; marking it done or archiving it does not delete it.</li>
+                <li>You can remove your own messages. Removing a message can leave other people&rsquo;s replies in place. A separate whole-thread deletion removes the discussion; the thread author or a workspace admin can use it where offered. Workspace admins, including the uier team in our feedback projects, can moderate feedback.</li>
             </ul>
+
+            <h2>Removal and outside copies</h2>
+            <p>
+                A workspace admin can delete a project. You can request account or personal-data removal using
+                the contact in our <a href={KnownPages.LegalPrivacyPolicy}>privacy policy</a>. Removing an account
+                or someone&rsquo;s project access does not automatically delete all feedback they contributed.
+                Cleanup can require retries. Deleted data can remain in backups for up to seven days; copies
+                already delivered to reviewers, email, coding tools or connected services follow those
+                recipients&rsquo; own retention and removal rules. We cannot promise immediate erasure of every copy.
+            </p>
 
             <h2>Acceptable use</h2>
             <p>
