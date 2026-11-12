@@ -1,6 +1,6 @@
 
 import { getAppI18n } from '@/src/lib/i18n/server';
-import { CommentsLoading } from '@/src/components/app/comments/CommentsLoading';
+import { ProjectCommentsLoading } from '@/src/components/app/comments/ProjectCommentsLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -45,6 +45,6 @@ async function ProjectPageContent({ params, searchParams }: PageProps<'/app/proj
 }
 
 export default function ProjectPage(props: Parameters<typeof ProjectPageContent>[0]) {
-    // Shaped like the comments, in the view they will open in and as wide (uier #344)
-    return <Suspense fallback={<CommentsLoading />}><ProjectPageContent {...props} /></Suspense>;
+    // Shaped like the comments, in the view they will open in and as wide (uier #344, #362)
+    return <Suspense fallback={<ProjectCommentsLoading />}><ProjectPageContent {...props} /></Suspense>;
 }

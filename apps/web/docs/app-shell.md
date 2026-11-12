@@ -39,9 +39,10 @@ the separately bundled review toolbar owns its own query cache.
   scrollbars take room (shown always, as on macOS with a mouse), and the board would then be that much wider than the panel
   and scroll it sideways when its columns fit.
   The rest of the page stays in the reading column. Only the comments board and the
-  comments list with its thread beside it (capped at 96rem, [comments inbox](comments-inbox.md)) do it, and the comments'
+  comments list with its thread beside it ([comments inbox](comments-inbox.md)) do it, and the comments'
   filters header above them, the count line under that header and the project header take their width. [Page checks](page-checks.md)
-  takes the list's width too (96rem at most, uier #214), and so does the project header above it. uier's own workspace, which every account joins for Give feedback, is a
+  takes that width too (uier #214), and so does the project header above it. On a project's Comments and Page checks
+  the content and both headers are the full `page-wide` width from the left, with no cap and no centring ([uier #363](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_bqLvicXdinxKaoz_A8cT0)). uier's own workspace, which every account joins for Give feedback, is a
   `feedback` option in the switcher for people who are not its admins, and the menu leaves it out (uier #257): their
   sent feedback is in Give feedback's toolbar. Only while a saved selection still has them in it is it listed, checked,
   as "Feedback on uier" beside their own workspaces to switch back to. Every account is in another workspace too
@@ -60,9 +61,15 @@ the separately bundled review toolbar owns its own query cache.
   skeleton carries the loaded page's `data-page-width="wide"` and `data-header-wide`, which widen the shell's column
   and the project header. `CommentsLoading` (comments/) draws the search row (search, the list's status tabs, Filter,
   List/Board), the count line's own row where it has one, then the list with the first thread beside it, or the board's
-  four default columns and Archive's strip. It picks the view the comments will open in from the address, else the
-  one remembered in this browser, and the list for Archive (`?status=archived`) as `ProjectComments` does; the server,
-  which cannot know, draws the list (`useSyncExternalStore`).
+  four default columns and Archive's strip, from the left. The search row needs no data, so it is drawn for real but
+  `inert` and `aria-hidden` (search, the status tabs with the address's tab pressed and their counts loading, Filter,
+  List/Board with the opening view pressed; [uier #362](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_Wg-1DSXTyPI9bQLuSCxHj)). It picks the view the comments will open in from the address
+  (`?view=board`), else the remembered one, and the list for Archive (`?status=archived`) as `ProjectComments` does.
+  `ProjectCommentsLoading` (a server component, the page's and `ProjectLoading`'s fallback) holds two answers: the
+  prefetched shell's guess from this browser (`CommentsLoading`: the address, read again as the skeleton commits so a
+  navigation does not draw the page being left, and the remembered view; the server draws the list), then, under its
+  own request-scoped boundary, the request's answer (`AddressCommentsLoading`: the router's `useSearchParams` and the
+  view cookie), which streams before any comment is read.
   `PageChecksLoading` (pageChecks/) draws Across pages' two cards, Pages with its filter and order, and the table (the
   cards under 48rem). While the project layout itself loads, `ProjectLoading` (projects/) draws the header and tabs over
   the comments' skeleton. A project with no comments yet loads wide and then shows its narrower empty state; the
@@ -167,7 +174,8 @@ the separately bundled review toolbar owns its own query cache.
   (`removed` in `CommentUpdates`). That holds for the last thread too: the page always renders `MyWorkViews`, which shows
   the empty state itself, with no search, Filter or List/Board while it shows (`data-my-work-empty`). The choice works like a project's (`?view=`, list too, G then I or B) but is remembered
   on its own (`commentsView.ts`, scope `my-work`): choosing Board for a project's triage leaves My work's grouped lists alone,
-  and the other way round. On the board the page header and the filters take the columns' width (`--board-width`, `data-header-wide`).
+  and the other way round. On the board the page header and the filters take the columns' width (`--board-width`, `data-header-wide`);
+  a project's board does not (uier #363: full width from the left).
 - **My work's search, filters and sorts** ([uier #341](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fmy-work&comment=comment_CiCbLz-eGLRCCw2eBhTDk), `MyWorkViews` in `MyWorkBoard.tsx`):
   under the page header, in the lists and on the board, the comments' own filter row (`CommentFilters`): search (`/` goes there),
   Filter and List/Board. Filter has a Project filter first (`projects`/`project`: the projects with a thread here, by name, each

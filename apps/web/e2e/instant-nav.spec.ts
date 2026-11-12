@@ -129,6 +129,28 @@ test('A project\'s Comments and Page checks tabs load as wide as they will be, s
         expect(Math.abs(loading.header - loaded.header)).toBeLessThanOrEqual(1);
         expect(Math.abs(loading.title - loaded.title)).toBeLessThanOrEqual(1);
 
+        // Board remembered loads as a board (uier #362): the columns' skeleton under the search row, which is drawn
+        // (search, Filter and List/Board with Board pressed) but inert and hidden from assistive tech, without the list's
+        // status tabs; as wide as the loaded board, from the left (uier #363)
+        await page.context().addCookies([{ name: 'uier_comments_view', value: 'board', url: page.url() }]);
+        await page.goto(`/app/projects/${project}/install`);
+        await hydrated(comments);
+        await instant(page, async () => {
+            await comments.click();
+            const skeleton = page.locator('[data-comments-loading]').filter({ visible: true });
+            await expect(skeleton).toHaveAttribute('data-comments-loading', 'board');
+            await expect(skeleton.getByPlaceholder('Search feedback')).toBeVisible();
+            await expect(skeleton.locator('[inert] button').filter({ hasText: 'Filter' })).toBeVisible();
+            await expect(skeleton.locator('[data-pressed]')).toHaveCount(1);
+            await expect(page.getByRole('searchbox')).toHaveCount(0);
+            await capture(page, info, 'board-loading');
+            loading = await width();
+        });
+        await expect(page.getByRole('region', { name: 'Open comments', exact: true })).toBeVisible();
+        const boardLoaded = await width();
+        expect(Math.abs(loading.title - boardLoaded.title)).toBeLessThanOrEqual(1);
+        expect(Math.abs(loading.header - boardLoaded.header)).toBeLessThanOrEqual(1);
+
         const checks = page.getByRole('link', { name: 'Page checks', exact: true });
         await hydrated(checks);
         await instant(page, async () => {
