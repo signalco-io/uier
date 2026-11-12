@@ -1,21 +1,15 @@
-'use client';
-
-import { cn } from '@/src/lib/utils';
 import { Skeleton } from '@/src/components/ui/skeleton';
-import { CommentsLoading } from '../comments/CommentsLoading';
+import { ProjectCommentsLoading } from '../comments/ProjectCommentsLoading';
 
 /**
  * A project while its layout loads (uier #344): its header (favicon, name, who can comment, Open review) and tabs over
- * its comments' skeleton (`CommentsLoading`, the first tab's), as wide as the loaded page. The header takes the
- * comments' width from their `data-header-wide` like the project layout's, with the default workflow's board width
- * (four 20rem columns and Archive's 3rem strip) while the board's real columns are not known yet.
+ * its comments' skeleton (`ProjectCommentsLoading`, the first tab's), as wide as the loaded page. On the comments the
+ * header is the panel's width less the gutters (`page-wide`, uier #363), like the project layout's.
  */
 export function ProjectLoading() {
     return (
-        <div className="group/project @container/project flex flex-col [--board-width:calc(4*20rem+4rem+3rem)]">
-            <div aria-hidden="true" className={cn('flex min-w-0 flex-col gap-4 pb-6',
-                'group-has-[[data-header-wide=list]]/project:@3xl/project:w-[min(var(--page-wide),96rem)] group-has-[[data-header-wide=list]]/project:@3xl/project:mx-[calc((100%-min(var(--page-wide),96rem))/2)]',
-                'group-has-[[data-header-wide=board]]/project:md:w-[min(var(--page-wide),max(100%,var(--board-width)))] group-has-[[data-header-wide=board]]/project:md:mx-[calc((100%-min(var(--page-wide),max(100%,var(--board-width))))/2)]')}>
+        <div className="group/project flex flex-col">
+            <div aria-hidden="true" className="flex min-w-0 flex-col gap-4 pb-6 group-has-[[data-header-wide]]/project:page-wide">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="flex min-w-0 flex-1 basis-80 items-center gap-4">
                         <Skeleton className="size-14 shrink-0 animate-none rounded-xl" />
@@ -34,7 +28,7 @@ export function ProjectLoading() {
                 </div>
             </div>
             <div className="flex flex-col gap-6">
-                <CommentsLoading />
+                <ProjectCommentsLoading />
             </div>
         </div>
     );

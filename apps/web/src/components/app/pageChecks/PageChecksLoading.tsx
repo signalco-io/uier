@@ -14,7 +14,7 @@ export function PageChecksLoading() {
     const { t } = useAppI18n();
     return (
         <div role="status" aria-label={t("Loading page checks")} data-page-width="wide" data-header-wide="list"
-            className="flex w-[min(var(--page-wide),96rem)] flex-col gap-6 mx-[calc((100%-min(var(--page-wide),96rem))/2)]">
+            className="flex flex-col gap-6 page-wide">
             <span className="sr-only">{t("Loading page checks")}…</span>
             <div className="flex flex-col gap-3">
                 <Skeleton className="h-6 w-32 animate-none" />

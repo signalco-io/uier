@@ -20,7 +20,7 @@ rows with the status filter it waits for their entrance motion to settle before 
   and their [agents](assignee-agents.md); see [Multiple assignees](#multiple-assignees)), beside the open thread
   (`CommentCard.tsx`). The open thread is in the URL (`?comment=<id>`, `useOpenComment`): side by side (`@container/comments` from `@3xl`, 48rem: the list's 18rem and
   at least 29rem for the thread; from about 1100 px with the sidebar docked, which takes in most landscape tablets; the
-  list and the thread then break out of the reading column to the panel's width, at most 96rem, with `page-wide`'s length
+  list and the thread then break out of the reading column to the panel's width, however wide ([uier #363](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_bqLvicXdinxKaoz_A8cT0)), with `page-wide`'s length
   ([app shell](app-shell.md)), the list taking up to 30 % of it, 28rem at most; the filters' header (search, Filter, List/Board, the status tabs and the filters in effect) and the project header above it take the same width, `ProjectComments`) it replaces
   the history entry and the first shown thread is open until another is chosen (it stays while it is listed, so a thread
   that arrives above it in a realtime refresh does not take its place, and the arrow keys go on from it; a filter that
@@ -61,9 +61,10 @@ rows with the status filter it waits for their entrance motion to settle before 
   the columns fit there is no scrollbar, scrollbars that take room included (the panel's width is measured inside its
   scrollbar, [app shell](app-shell.md)). On dark a card is the page's black, a step
   darker than its column, so it stands apart (light keeps paper cards on the muted column). The board's grid is wider than the reading width (`md:page-bleed`,
-  `data-page-width="wide"`), and from `md` the filters' header takes the columns' width (`--board-width`: 20rem a
-  column and the gaps, never narrower than the reading column), up to the panel's width less the gutters
-  (`page-wide`): when the columns don't fit, the header stays at that width while the board scrolls under it. The
+  `data-page-width="wide"`). On a project the columns start at the left (`justify-start` from `ProjectComments`; My work
+  keeps them centred) and the filters' header is the panel's width less the gutters (`page-wide`) whatever the columns'
+  width ([uier #363](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_bqLvicXdinxKaoz_A8cT0)): it stays put while the board scrolls under it. My work's header takes its columns' width
+  (`--board-width`, up to `page-wide`). The
   project header (its mark, name, access label, Open review and Settings) takes the same width as the filters' header,
   in the list and on the board (uier #168: the filters' header carries `data-header-wide`, and the project layout widens
   its `PageHeader` from it with `group-has-*`, so settings and the install guide keep the reading width). The count line
@@ -277,8 +278,7 @@ only as tall as its content (from `md` its icon, name and count run down it as o
 a phone) that is one button, "Archive 3", with
 `aria-expanded`. Expanded, it is a column like the others (18rem to 20rem) whose header ends with
 Collapse Archive (`FoldHorizontalIcon`, a tooltip); the focus moves to the other toggle either way. The grid's
-tracks come from `--board-columns` (the statuses, then the strip or a column), and the project layout widens its
-header from the section's `data-board-archive` (`--board-width-collapsed` / `--board-width-expanded`).
+tracks come from `--board-columns` (the statuses, then the strip or a column); the project header is full width either way.
 - Order: by default like Done but by archive time (`compareArchivedOrder`: `archivedAt`, newest first, then the update and
   creation times, ties in the list's order). [uier #251](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_isE8wcqHfUDuHHI3xdXB9):
   its expanded header has a sort menu like Done's (Recently archived instead of Recently completed), before Collapse

@@ -86,10 +86,10 @@ export function PageChecksView({ projectId, pages, environments }: {
     const ariaSort = (column: string) => sortedBy?.column === column ? sortedBy.direction : undefined;
 
     return (
-        // Full width like the comments (uier #214): the panel's width less the gutters (`page-wide`, app-shell.md), capped
-        // at 96rem; data-header-wide gives the project header above the same width
+        // Full width like the comments (uier #214): the panel's width less the gutters (`page-wide`, app-shell.md), from
+        // the left, however wide (uier #363); data-header-wide gives the project header above the same width
         <section aria-label={t("Page checks")} data-page-width="wide" data-header-wide="list"
-            className="flex w-[min(var(--page-wide),96rem)] flex-col gap-6 mx-[calc((100%-min(var(--page-wide),96rem))/2)]">
+            className="flex flex-col gap-6 page-wide">
             {/* No heading or intro of its own (uier #255, uier #273): the project's Page checks tab above names it, so its
                 sections are h2 under the project's h1 */}
 

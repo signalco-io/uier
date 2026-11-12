@@ -272,9 +272,9 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
     // What the header takes the width of: the list with its thread beside it, or the board (see below)
     // Search and live updates must not recenter the controls when their result becomes empty.
     const headerWide = !populated ? undefined : board ? 'board' : 'list';
-    // The header's width, which the count line under it takes too (uier #187)
-    const wideClassName = cn(headerWide === 'list' && '@3xl/comments:w-[min(var(--page-wide),96rem)] @3xl/comments:mx-[calc((100%-min(var(--page-wide),96rem))/2)]',
-        headerWide === 'board' && 'md:w-[min(var(--page-wide),max(100%,var(--board-width)))] md:mx-[calc((100%-min(var(--page-wide),max(100%,var(--board-width))))/2)]');
+    // The header's width, which the count line under it takes too (uier #187): the panel's width less the gutters, list
+    // and board alike, with no cap or centring (uier #363)
+    const wideClassName = headerWide && 'page-wide';
     // The search is as wide as the first column under it, the list beside its thread or the board's first column, so
     // their edges line up (uier #355; `--first-column`, measured by `useFirstColumnWidth`). Narrower, where the list
     // takes the whole width, it keeps its own width
@@ -301,12 +301,13 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
         <RealtimeComments projectId={projectId} revision={revision} environment={serverQuery.environment} author={serverQuery.author} />
         <CommentsSearchNavigationProvider value={commitSearch}>
         {/* The filter rows, the count line and the comments share one spacing: the gap between search and the status tabs.
-            The header (search, Filter, the view toggle, the status tabs) is as wide as what is under it: the list with its
-            thread beside it (CommentInbox) or the board's columns (CommentBoard). It never scrolls with the board: when
-            the columns don't fit, it stays at the panel's width less the gutters (`page-wide`), the board's visible part.
-            The project header above takes the same width from `data-header-wide` (the project layout, which sets `--board-width`),
-            and so does the count line under it. */}
-        <div ref={containerRef} data-page-width={populated ? 'wide' : undefined} aria-busy={pager.loading || undefined} className="@container/comments flex flex-col gap-2">
+            The header (search, Filter, the view toggle, the status tabs) is as wide as what is under it, the panel's width
+            less the gutters (`page-wide`): the list with its thread beside it (CommentInbox), or the board, whose columns
+            start at its left edge (uier #363). It never scrolls with the board. The project header above takes the same
+            width from `data-header-wide` (the project layout), and so does the count line under it. */}
+        <div ref={containerRef} data-page-width={populated ? 'wide' : undefined} aria-busy={pager.loading || undefined}
+            // The board's columns start at the left, under the search (uier #363); My work's board keeps its own
+            className="@container/comments flex flex-col gap-2 [&_[data-board-scroll]]:justify-start">
             <div data-header-wide={headerWide} className={cn('flex min-w-0 flex-col gap-2', threadOnly && '@max-3xl/comments:hidden', wideClassName, searchClassName)}>
             <CommentFilters verificationEnabled={workflow.verificationEnabled === true} labels={labels} label={query.label} search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} historySources={historySources} unread={Boolean(query.unread)} unreadCount={pager.data.paging.unreadCount} view={board ? 'board' : 'list'} status={query.status} statusCounts={pager.data.paging.queryTooExpensive ? undefined : statusCounts} statusUnread={statusUnread} people={query.people} page={query.page} pages={pages}
                 countLine={populated ? { summary: unreadSummary, actions: unreadActions } : undefined} />
