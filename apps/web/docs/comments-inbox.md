@@ -5,14 +5,15 @@ the page path separately, so layout changes keep both pieces of information cove
 rows with the status filter it waits for their entrance motion to settle before scanning contrast.
 
 - The comments page is an inbox. `comments/CommentInbox.tsx` lists compact rows (`CommentRow.tsx`). The title line:
-  the unread dot, the author (`AuthorAvatar`: a member's picture or initial with the AI agent that wrote it for them
+  the unread dot (in the row's left padding, out of the flow, so reading a row moves nothing and a read row has no
+  empty gutter, uier #330), the author (`AuthorAvatar`: a member's picture or initial with the AI agent that wrote it for them
   stacked on its edge, a person's outline for a guest, uier's mark on its own starter threads; one image named "By Ana",
   the name in a tooltip, a click on it opens the row; it starts the line, before the number, centred on a card's
   first title line), number, title (`commentTitle`: the [AI title](ai-titles.md), else the first line without its Markdown, `markdownPlainText`; up to two lines on a card)
   and age (`RelativeTime short`: "3 min ago", "2 hr ago", "yesterday", "2 wk ago", the date and time on hover; the
   thread's messages, its activity and other sentences keep whole words; one shared clock ticks every 10 seconds while any age is shown and the tab is visible, and only the ages whose words change re-render). The first minute reads "just now", here and in the toolbar's thread (`CommentTime`), never counting seconds (uier #172).
   The meta line, one on rows and cards alike, starts under the title, so the path lines up with "#12 …": the selection
-  box under the author's avatar (past the unread dot's room), the page path (what it was left on is only in the thread's On row), then private (a 12 px lock, a step smaller than the other marks), a linked pull request, priority other than Normal (`PriorityLabel`: its
+  box under the author's avatar, the page path (what it was left on is only in the thread's On row), then private (a 12 px lock, a step smaller than the other marks), a linked pull request, priority other than Normal (`PriorityLabel`: its
   flag alone, named "High priority"), status (`StateDot` and its name, Open too; a board card leaves the status to its column, whose region name screen readers announce), and at its right end
   every assignee's avatar with their agents' smaller avatars stacked beside it (`AssigneeCard`: hovering shows who it is assigned to
   and their [agents](assignee-agents.md); see [Multiple assignees](#multiple-assignees)), beside the open thread
@@ -290,8 +291,8 @@ not remove the shell's width container or recenter the search and project header
 row reserves 32 px (44 px on touch) throughout a populated inbox's lifetime, including when empty,
 where the comments are narrower than 42rem; wider, it is in the search row left of Filter, where it adds
 no row and its appearing or going away moves nothing else ([comment filters](comment-filters.md)), and
-the reserved row is hidden. Live arrivals and reading the last unread thread cannot move the comments. A row's unread dot and
-the spacer under it keep their width when read, so its title and path stay aligned.
+the reserved row is hidden. Live arrivals and reading the last unread thread cannot move the comments. A row's unread dot sits
+in its left padding, out of the flow, so reading it leaves its title and path where they are.
 
 `e2e/project-cls.spec.ts` measures production HTML through delayed hydration at the reported desktop
 viewport (1674 × 1366) and on Mobile Chrome, with 20 API-created threads and 4× CPU slowdown. It

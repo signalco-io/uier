@@ -78,3 +78,36 @@ test('app navigation preserves the document and feedback toolbar', async ({ page
     await page.goForward();
     await preserved();
 });
+
+// Next keeps a visited page in the document, hidden, after navigating away (Cache Components' Activity): a project
+// page kept that way adds no second h1 and no repeated ids (uier #324, #328), and gets them back when shown again
+test('a project page kept hidden after navigating adds no heading or ids', async ({ page }) => {
+    await signIn(page, uniqueEmail('hidden-project'));
+    const first = await createProject(page, { urls: ['https://first-kept.example.com'], name: 'First kept site' });
+    const second = await createProject(page, { urls: ['https://second-kept.example.com'], name: 'Second kept site' });
+    const open = async (name: string, id: string) => {
+        await (await appNavigation(page)).getByRole('link', { name, exact: true }).click();
+        await expect(page).toHaveURL(new RegExp(`/app/projects/${id}$`));
+    };
+    const repeatedIds = () => page.evaluate(() => {
+        const ids = [...document.querySelectorAll('[id]')].map(element => element.id);
+        return ids.filter((id, index) => ids.indexOf(id) !== index);
+    });
+    await open('First kept site', first);
+    await open('Second kept site', second);
+    const inset = page.locator('main[data-slot="sidebar-inset"]');
+    // The first project's page is still there, hidden
+    await expect(inset.getByText('First kept site', { exact: true })).toBeAttached();
+    await expect(inset.getByText('First kept site', { exact: true })).toBeHidden();
+    await expect(page.locator('h1')).toHaveCount(1);
+    await expect(page.locator('h1')).toHaveText('Second kept site');
+    await expect(page.locator('#comments')).toHaveCount(1);
+    await expect(page.locator('#comments')).toBeVisible();
+    expect(await repeatedIds()).toEqual([]);
+    await page.goBack();
+    await expect(page).toHaveURL(new RegExp(`/app/projects/${first}$`));
+    await expect(page.locator('h1')).toHaveCount(1);
+    await expect(page.locator('h1')).toHaveText('First kept site');
+    await expect(page.locator('#comments')).toBeVisible();
+    expect(await repeatedIds()).toEqual([]);
+});

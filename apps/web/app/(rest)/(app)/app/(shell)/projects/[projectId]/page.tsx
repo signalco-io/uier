@@ -9,6 +9,7 @@ import { requireAppContext } from '@/src/lib/app/context';
 import { getVisibleProject } from '@/src/lib/app/projects';
 import { loadAppCommentsSnapshot } from '@/src/lib/app/appCommentsSnapshot';
 import { ProjectComments } from '@/src/components/app/comments/ProjectComments';
+import { CommentsSection } from '@/src/components/app/comments/CommentsSection';
 import { parseCommentsQuery } from '@/src/components/app/comments/commentsQuery';
 import { getCommentsView } from '@/src/lib/app/commentsViewCookie';
 
@@ -35,12 +36,9 @@ async function ProjectPageContent({ params, searchParams }: PageProps<'/app/proj
     ]);
     if (!snapshot) notFound();
     return (
-        <>
-            <section id="comments" aria-labelledby="comments-title" className="flex scroll-mt-6 flex-col gap-4">
-                <h2 id="comments-title" className="sr-only">{t("Comments")}</h2>
-                <ProjectComments {...snapshot} initialView={initialView} installHref={KnownPageLinks.projectInstall(project.id)} />
-            </section>
-        </>
+        <CommentsSection title={t("Comments")}>
+            <ProjectComments {...snapshot} initialView={initialView} installHref={KnownPageLinks.projectInstall(project.id)} />
+        </CommentsSection>
     );
 }
 

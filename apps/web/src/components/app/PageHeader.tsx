@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { cn } from '@/src/lib/utils';
+import { PageTitle } from './PageTitle';
 
 /** Destructive text (errors): `--destructive`, mixed with white on dark so it keeps 4.5:1 there too */
 export const destructiveTextClassName = 'text-[hsl(var(--destructive))] dark:text-[color-mix(in_srgb,hsl(var(--destructive))_55%,white)]';
@@ -20,7 +21,7 @@ export function PageHeader({ title, description, media, actions, children, class
 }) {
     const heading = (
         <div className="flex min-w-0 flex-col gap-1">
-            <h1 className="m-0 text-[28px] leading-[34px] font-semibold tracking-[-0.02em] break-words">{title}</h1>
+            <PageTitle className="m-0 text-[28px] leading-[34px] font-semibold tracking-[-0.02em] break-words">{title}</PageTitle>
             {description && <div className="text-sm text-muted-foreground">{description}</div>}
         </div>
     );
