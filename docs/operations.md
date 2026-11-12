@@ -71,7 +71,9 @@ CI resolves the account ID with `getZone` using the existing `uier:zoneid`, then
 invokes to discover verified destination IDs and rule IDs. Import IDs are `<zone_id>` for settings
 and catch-all, `<account_id>/<destination_id>` for the destination, and `<zone_id>/<rule_id>` for
 rules. The settings resource read preserves `supportSubaddress` (the settings invoke omits it in
-our SDK). Rule detail invokes preserve writable inputs omitted by the list invoke. Discovery is
+our SDK). Rule detail invokes preserve writable inputs omitted by the list invoke. Listed catch-all
+entries (an `all` matcher or the separately discovered catch-all ID) are excluded from detail
+reads: Cloudflare serves them only through `rules/catch_all`. Discovery is
 unfiltered for enabled status and refuses a possibly truncated result at 1,000 entries.
 
 Exactly one verified destination is selected automatically. If the account has several, the

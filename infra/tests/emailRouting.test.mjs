@@ -7,6 +7,8 @@ const destination = { id: 'destination-id', email: 'destination@example.test', v
 const legacy = { id: 'legacy-id', enabled: false, name: 'Existing rule', priority: 7, source: 'api',
     matchers: [{ type: 'literal', field: 'to', value: 'existing@uier.io' }],
     actions: [{ type: 'forward', values: [destination.email] }] };
+const catchAll = { id: 'catch-all-id', enabled: false, name: 'Drop all', source: 'api',
+    actions: [{ type: 'drop', values: [] }], matchers: [{ type: 'all' }] };
 const registrations = [];
 const calls = [];
 const options = new Map();
@@ -19,10 +21,16 @@ pulumi.runtime.setMocks({
         calls.push(args);
         if (args.token.includes('getZone:')) return { name: 'uier.io', account: { id: 'account-id' } };
         if (args.token.includes('getEmailRoutingSettings:')) return { enabled: true, status: 'ready' };
-        if (args.token.includes('getEmailRoutingCatchAll:')) return { enabled: false, name: 'Drop all', source: 'api', actions: [{ type: 'drop', values: [] }], matchers: [{ type: 'all' }] };
+        if (args.token.includes('getEmailRoutingCatchAll:')) return catchAll;
         if (args.token.includes('getEmailRoutingAddresses:')) return { results: [destination] };
-        if (args.token.includes('getEmailRoutingRules:')) return { results: [legacy] };
-        if (args.token.includes('getEmailRoutingRule:')) return legacy;
+        if (args.token.includes('getEmailRoutingRules:')) return { results: [legacy, catchAll,
+            { ...catchAll, id: 'matcher-only-catch-all' },
+            { ...catchAll, matchers: [] },
+        ] };
+        if (args.token.includes('getEmailRoutingRule:')) {
+            assert.equal(args.inputs.ruleIdentifier, legacy.id, 'catch-all must never use the rule detail endpoint');
+            return legacy;
+        }
         throw new Error(`Unexpected invoke: ${args.token}`);
     },
 }, 'uier', 'test');
@@ -53,12 +61,13 @@ test('rejects ambiguous/unverified destinations, conflicting/duplicate aliases a
     assert.throws(() => emailRoutingPlan([destination], [{ ...legacy, source: 'wrangler' }]), /Worker-managed/);
 });
 
-test('runtime discovers IDs, imports without rewriting inputs and protects every adopted resource', async () => {
+test('runtime excludes listed catch-all rules from detail reads, discovers IDs, imports without rewriting inputs and protects every adopted resource', async () => {
     await pulumi.runtime.runInPulumiStack(async () => {
         pulumi.runtime.registerStackTransformation(args => { options.set(args.name, args.opts); return undefined; });
         await emailRouting().promise();
     });
     const managed = registrations.filter(item => item.type.startsWith('cloudflare:') && item.name !== 'email-routing-settings-live');
+    assert.deepEqual(calls.filter(item => item.token.includes('getEmailRoutingRule:')).map(item => item.inputs.ruleIdentifier), [legacy.id]);
     assert.equal(managed.length, 7);
     assert.ok(managed.every(item => item.type.startsWith('cloudflare:index/emailRouting')));
     assert.ok(managed.every(item => options.get(item.name).protect === true));

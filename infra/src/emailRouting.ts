@@ -50,8 +50,11 @@ export function emailRouting() {
         if (catchAll.enabled || catchAll.source !== 'api') throw new Error('Email Routing catch-all must remain disabled and API-managed.');
         if (addresses.results.length >= maxItems || listedRules.results.length >= maxItems)
             throw new Error('Email Routing discovery reached its limit; refusing a partial import.');
-        // The list invoke omits source; fetch each rule's full writable inputs.
-        const rules = await Promise.all(listedRules.results.map(rule => cloudflare.getEmailRoutingRule({ zoneId, ruleIdentifier: rule.id })));
+        // Catch-all can appear in the list but only supports the separate catch_all endpoint.
+        // The list invoke omits source; fetch each ordinary rule's full writable inputs.
+        const ordinaryRules = listedRules.results.filter(rule =>
+            !(catchAll.id && rule.id === catchAll.id) && !rule.matchers.some(matcher => matcher.type === 'all'));
+        const rules = await Promise.all(ordinaryRules.map(rule => cloudflare.getEmailRoutingRule({ zoneId, ruleIdentifier: rule.id })));
         const plan = emailRoutingPlan(addresses.results, rules, destinationId);
         // The settings invoke omits supportSubaddress in this SDK. Read the resource so its
         // optional writable setting is imported exactly, including a live true value.
