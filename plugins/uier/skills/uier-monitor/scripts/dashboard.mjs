@@ -46,12 +46,16 @@ Usage: node dashboard.mjs [serve] [options]
   --open          Open the page in the browser.
   --detach        Keep serving after this command returns. Stop it with: node dashboard.mjs stop
   --json          Print one snapshot of every monitor as JSON and exit.
+  --review ID     Load the uier review toolbar on the page for the uier project with this id, so
+                  people can leave feedback on the dashboard itself. The project's addresses must
+                  include the dashboard's (http://127.0.0.1:${DEFAULT_PORT}). Off unless you pass it.
   --dev           For work on the dashboard itself: when this file changes, the new code takes over
                   on the same port and open pages reload, keeping their open cards and scroll position.
 
 Monitors are found in ~/.uier-monitor/monitors (UIER_MONITOR_HOME overrides the folder), where the
 watcher announces itself, and in <git common dir>/uier-monitor of the checkout you run this in.
-The dashboard is read-only: it never changes a monitor, uier or the repository.
+The dashboard is read-only: it never changes a monitor, uier or the repository. It loads nothing
+from the internet, except the uier toolbar when you start it with --review.
 `;
 
 // ---------------------------------------------------------------- reading files
@@ -448,6 +452,30 @@ export function collect(options = {}) {
 // ---------------------------------------------------------------- server
 
 /**
+ * `--review`: which uier project's toolbar the page loads, and from where (uier.io; UIER_REVIEW_URL
+ * points it at another uier deployment). Null when the page stays offline.
+ */
+export function reviewOf(project, base = process.env.UIER_REVIEW_URL || 'https://uier.io') {
+    if (project === undefined || project === null) return null;
+    if (typeof project !== 'string' || !/^[A-Za-z0-9_-]{6,64}$/.test(project)) throw new Error('--review needs a uier project id (letters, digits, - and _).');
+    let url;
+    try { url = new URL(base); } catch { throw new Error('UIER_REVIEW_URL is not a web address.'); }
+    const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+    if (url.protocol !== 'https:' && !(url.protocol === 'http:' && local)) throw new Error('UIER_REVIEW_URL must be an https address.');
+    return { project, origin: url.origin };
+}
+
+/** The page's Content-Security-Policy: nothing from elsewhere, or exactly what the uier toolbar needs. */
+function contentSecurityPolicy(nonce, review) {
+    const uier = review ? ` ${review.origin}` : '';
+    return [`default-src 'none'`, `script-src 'nonce-${nonce}'${uier}`, `style-src 'nonce-${nonce}'${uier}`,
+        // The toolbar's API and live updates, and its screenshot storage.
+        `connect-src 'self'${review ? `${uier} ${review.origin.replace(/^http/, 'ws')} https://*.blob.core.windows.net` : ''}`,
+        review ? `img-src data: blob: https:` : `img-src data:`, ...(review ? [`font-src${uier}`, `frame-src${uier}`] : []),
+        `base-uri 'none'`, `form-action 'none'`, `frame-ancestors 'none'`].join('; ');
+}
+
+/**
  * Answers the dashboard's requests. Loopback binds answer only to loopback host names (no DNS
  * rebinding). `close(true)` tells open pages to reload before it lets them go.
  */
@@ -475,8 +503,9 @@ export function createHandler(options = {}) {
         if (request.method !== 'GET') return send(405, 'text/plain', 'Read-only\n', { allow: 'GET' });
         if (url.pathname === '/') {
             const nonce = randomBytes(16).toString('base64');
-            return send(200, 'text/html; charset=utf-8', PAGE.replaceAll('__NONCE__', nonce).replace('__BUILD__', BUILD), { 'content-security-policy':
-                `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'; connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'` });
+            const toolbar = options.review ? `<script nonce="${nonce}" src="${options.review.origin}/toolbar.js" data-uier-project="${options.review.project}" defer></script>\n` : '';
+            return send(200, 'text/html; charset=utf-8', PAGE.replaceAll('__NONCE__', nonce).replace('__BUILD__', BUILD).replace('</body>', `${toolbar}</body>`),
+                { 'content-security-policy': contentSecurityPolicy(nonce, options.review) });
         }
         if (url.pathname === '/api/ping') return send(200, 'application/json', JSON.stringify({ app: APP, version: VERSION, build: BUILD }));
         if (url.pathname === '/api/snapshot') return send(200, 'application/json', current());
@@ -548,6 +577,7 @@ function parseArgs(argv) {
         if (arg === '--state') options.states.push(value());
         else if (arg === '--port') options.port = Number(value());
         else if (arg === '--host') options.host = value();
+        else if (arg === '--review') options.review = reviewOf(value());
         else if (['--open', '--detach', '--json', '--dev'].includes(arg)) options[arg.slice(2)] = true;
         else if (arg === '--help' || arg === '-h' || arg === 'help') options.command = 'help';
         else if (arg === 'stop' || arg === 'serve') options.command = arg;
@@ -585,7 +615,7 @@ async function serve(options) {
     }
     if (options.detach) {
         const args = [fileURLToPath(import.meta.url), 'serve', '--host', host, ...(options.port === undefined ? [] : ['--port', String(options.port)]),
-            ...(options.dev ? ['--dev'] : []), ...options.states.flatMap(dir => ['--state', resolve(dir)])];
+            ...(options.dev ? ['--dev'] : []), ...(options.review ? ['--review', options.review.project] : []), ...options.states.flatMap(dir => ['--state', resolve(dir)])];
         const child = spawn(process.execPath, args, { detached: true, stdio: 'ignore' });
         child.unref();
         for (let wait = 0; wait < 40; wait++) {
@@ -620,7 +650,8 @@ async function serve(options) {
     console.log(`uier monitor dashboard: ${url} (${plural(total, 'monitor')}). Read-only; press Ctrl+C to stop.`);
     if (!['127.0.0.1', 'localhost', '::1'].includes(host)) console.log(`Bound to ${host}: everyone who can reach this address can read the page.`);
     if (options.dev) console.log('Watching dashboard.mjs: an edit swaps in the new code and reloads open pages.');
-    if (options.open) openBrowser(url);
+    if (options.review) console.log(`Review: the page loads the uier toolbar from ${options.review.origin} for project ${options.review.project}. Open ${url}/?review=true to leave feedback.`);
+    if (options.open) openBrowser(options.review ? `${url}/?review=true` : url);
 }
 
 function stop() {

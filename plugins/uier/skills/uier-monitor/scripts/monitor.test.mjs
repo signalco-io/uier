@@ -683,8 +683,10 @@ for (const detached of [false, true]) test(`standalone persistent watcher delive
         });
         server.listen(0, '127.0.0.1'); await once(server, 'listening');
         const cli = join(dir, 'fake-t3.mjs'), delivered = join(dir, 'delivered.json');
-        writeFileSync(cli, `#!${process.execPath}\nimport {writeFileSync, readFileSync} from 'node:fs';\n`
-            + `writeFileSync(process.env.UM_TEST_WAKE_OUTPUT, JSON.stringify({args:process.argv.slice(2),prompt:readFileSync(0,'utf8')}));\n`, { mode: 0o700 });
+        // Written whole, then renamed: the test reads the file as soon as it exists.
+        writeFileSync(cli, `#!${process.execPath}\nimport {writeFileSync, readFileSync, renameSync} from 'node:fs';\n`
+            + `const out = process.env.UM_TEST_WAKE_OUTPUT;\n`
+            + `writeFileSync(out + '.tmp', JSON.stringify({args:process.argv.slice(2),prompt:readFileSync(0,'utf8')}));\nrenameSync(out + '.tmp', out);\n`, { mode: 0o700 });
         writeFileSync(join(dir, 'state.json'), JSON.stringify({ project: { id: 'fixture' }, me: { name: 'person' } }));
         child = spawn(process.execPath, [fileURLToPath(new URL('./monitor.mjs', import.meta.url)), 'watch', '--state', dir,
             '--persistent', '--thread', 'fixture-thread', '--t3-cli', cli, '--batch-seconds', '0', ...(detached ? ['--detach'] : [])], {
@@ -701,10 +703,13 @@ for (const detached of [false, true]) test(`standalone persistent watcher delive
         assert.equal(JSON.parse(readFileSync(join(dir, 'watch.pid'), 'utf8')).persistent, true);
         assert.ok(JSON.parse(readFileSync(join(dir, 'watch.json'), 'utf8')).heartbeatAt);
         // The dashboard's feed: the watcher announced the state folder and journaled what it did.
-        const journal = readFileSync(join(dir, 'events.jsonl'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
+        // The wake is journaled once its delivery returned, a moment after the CLI wrote its output.
+        const readJournal = () => readFileSync(join(dir, 'events.jsonl'), 'utf8').split('\n').filter(line => line.endsWith('}')).map(line => JSON.parse(line));
+        for (let tries = 0; tries < 200 && !readJournal().some(event => event.type === 'wake'); tries++) await sleep(20);
+        const journal = readJournal();
         assert.deepEqual(journal.slice(0, 3).map(event => event.type), ['watcher', 'new', 'wake']);
         assert.ok(journal.every(event => !Number.isNaN(Date.parse(event.at))) && journal[2].delivered === true);
-        assert.ok(readdirSync(join(process.env.UIER_MONITOR_HOME, 'monitors')).some(name =>
+        assert.ok(readdirSync(join(process.env.UIER_MONITOR_HOME, 'monitors')).filter(name => name.endsWith('.json')).some(name =>
             JSON.parse(readFileSync(join(process.env.UIER_MONITOR_HOME, 'monitors', name), 'utf8')).stateDir === dir));
         const health = execFileSync(process.execPath, [fileURLToPath(new URL('./monitor.mjs', import.meta.url)),
             'status', '--state', dir], { env: { ...process.env, UIER_MCP_TOKEN: 'fixture-only-token' }, encoding: 'utf8' });

@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 // The registry of this test run, never the person's own ~/.uier-monitor.
 const home = mkdtempSync(join(tmpdir(), 'uier-monitor-home-'));
 process.env.UIER_MONITOR_HOME = home;
-const { PAGE, agentOf, collect, createDashboardServer, discover, modelName, sessionLink, snapshot } = await import('./dashboard.mjs');
+const { PAGE, agentOf, collect, createDashboardServer, discover, modelName, reviewOf, sessionLink, snapshot } = await import('./dashboard.mjs');
 const monitor = fileURLToPath(new URL('./monitor.mjs', import.meta.url));
 const temporary = [home];
 after(() => { for (const dir of temporary) rmSync(dir, { recursive: true, force: true }); });
@@ -198,6 +198,31 @@ test('the server is read-only, answers loopback names only and serves a locked-d
         assert.equal((await call('/', { headers: { host: `evil.example:${port}` } })).response.statusCode, 403);
         assert.equal((await call('/api/snapshot', { method: 'POST' })).response.statusCode, 405);
         assert.equal((await call('/state.json')).response.statusCode, 404);
+        assert.equal((await call('/?review=true')).response.statusCode, 200, 'a review link is still the page');
+    } finally {
+        server.closeAllConnections();
+        await new Promise(resolve => server.close(resolve));
+    }
+});
+
+test('--review adds the uier toolbar and exactly the sources it needs; without it the page stays offline', async () => {
+    assert.equal(reviewOf(undefined), null);
+    assert.deepEqual(reviewOf('proj_abc123'), { project: 'proj_abc123', origin: 'https://uier.io' });
+    assert.deepEqual(reviewOf('proj_abc123', 'http://localhost:4004/app'), { project: 'proj_abc123', origin: 'http://localhost:4004' });
+    for (const bad of ['', 'a"b', 'x y z x y z', '<script>']) assert.throws(() => reviewOf(bad), /project id/);
+    assert.throws(() => reviewOf('proj_abc123', 'http://example.com'), /https/);
+
+    const server = createDashboardServer({ states: [stateDir({ project: { id: 'p1' } })], ...outside, review: reviewOf('proj_abc123') });
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    try {
+        const response = await fetch(`http://127.0.0.1:${server.address().port}/`);
+        const policy = response.headers.get('content-security-policy');
+        const nonce = /script-src 'nonce-([^']+)'/.exec(policy)[1];
+        assert.ok((await response.text()).includes(`<script nonce="${nonce}" src="https://uier.io/toolbar.js" data-uier-project="proj_abc123" defer></script>\n</body>`));
+        for (const part of [`script-src 'nonce-${nonce}' https://uier.io`, `connect-src 'self' https://uier.io wss://uier.io `, 'frame-src https://uier.io', 'font-src https://uier.io', `default-src 'none'`, `frame-ancestors 'none'`])
+            assert.ok(policy.includes(part), part);
+        assert.ok(!policy.includes('unsafe'));
     } finally {
         server.closeAllConnections();
         await new Promise(resolve => server.close(resolve));

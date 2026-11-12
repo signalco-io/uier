@@ -72,7 +72,8 @@ So the dashboard can find monitors in any repository, the helper also writes one
 monitor under `~/.uier-monitor/monitors` (the state folder's path, the project's id and name and
 the repository's name; `UIER_MONITOR_HOME` moves the folder). The dashboard starts only when you
 ask for it. It binds to `127.0.0.1`, answers read requests only, loads nothing from the internet
-and changes neither the monitor, uier nor the repository. It sends the browser a fixed set of
+(unless you start it with `--review <project id>`, which loads the uier toolbar for that project so
+people can comment on the dashboard) and changes neither the monitor, uier nor the repository. It sends the browser a fixed set of
 fields from the state files, never a token.
 Its separately scoped watcher token can read feedback and screenshots, assign people, link pull
 requests and maintain agent presence; status changes and replies require their separately granted

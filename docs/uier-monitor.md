@@ -156,7 +156,7 @@ at 2 MB, keeping one earlier file.
 
 **What it never does.** It doesn't change a monitor, uier or the repository, and it has no write
 endpoint. It binds to `127.0.0.1` and refuses requests under another host name, so a web page you
-visit can't read it. It loads nothing from the internet. The browser receives a fixed set of fields,
+visit can't read it. It loads nothing from the internet unless you pass `--review`. The browser receives a fixed set of fields,
 never the state files themselves or a token, and the page renders feedback text as text. Binding
 another address with `--host` makes the page readable by everyone who can reach that address.
 
