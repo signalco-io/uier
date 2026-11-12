@@ -91,6 +91,7 @@ export function CommentThreadItemMenu({ kind, own = true, confirmText, disabled,
                     className="size-6 text-muted-foreground hover:text-foreground"
                     {...tip.triggerProps}
                     aria-label={t.thread.moreOptionsFor(own, kind)}
+                    data-uier-thread-control=""
                     disabled={disabled}>
                     <MoreHorizontal size={16} />
                 </IconButton>

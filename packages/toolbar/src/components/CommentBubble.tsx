@@ -367,6 +367,8 @@ export function CommentBubble(props: CommentBubbleProps) {
     // The last time the popover opened, it was a preview: closing it leaves the focus where it is
     const previewedRef = useRef(false);
     const previewTimer = useRef<number>(undefined);
+    // Opened from its preview: the thread's controls, hidden in the preview, fade in (uier #320)
+    const [revealControls, setRevealControls] = useState(false);
     useEffect(() => () => window.clearTimeout(previewTimer.current), []);
     useEffect(() => {
         if (!open) return;
@@ -398,6 +400,7 @@ export function CommentBubble(props: CommentBubbleProps) {
         if (!preview) return;
         // Instead of the popover's own toggle, which would close it
         event.preventDefault();
+        setRevealControls(true);
         handleOpenChange(true);
     };
 
@@ -406,6 +409,7 @@ export function CommentBubble(props: CommentBubbleProps) {
         setExpanded(false);
         if (open && creating) setCapture({ device: getDeviceInfo(), screenshot: captureCommentScreenshot(position, rootElement, drawing) });
         if (!open) {
+            setRevealControls(false);
             mutation.reset();
             rewrite.reset();
             setReading(false);
@@ -694,6 +698,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                             tabIndex={0}
                             aria-label={t.pin.messages}
                             role="group"
+                            {...(revealControls && { 'data-uier-controls-reveal': '' })}
                             className="min-h-0 flex-1 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
                             <CommentThread commentItem={commentItem} reading={open} onPage />
                         </div>

@@ -115,6 +115,7 @@ function ThreadContents({ commentItem, reading, onPage }: { commentItem: Comment
                         variant="plain"
                         size="xs"
                         className="ml-6 self-start text-muted-foreground"
+                        data-uier-thread-control=""
                         onClick={() => setExpanded(true)}>
                         {t.thread.showAll(messagesCount)}
                     </Button>

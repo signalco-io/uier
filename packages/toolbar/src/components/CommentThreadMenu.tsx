@@ -81,6 +81,7 @@ export function CommentThreadMenu({ className, actions, triggerRef }: { classNam
                     variant="plain"
                     className={className}
                     aria-label={t.thread.options}
+                    data-uier-thread-control=""
                     {...triggerProps}>
                     <MoreHorizontal size={16} />
                 </IconButton>

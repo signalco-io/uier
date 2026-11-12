@@ -104,3 +104,21 @@
 :host([popover])::backdrop {
     display: none !important;
 }
+
+/* A pin's hover preview shows the thread without its controls (copy, options, add reaction, the
+   status menu ...), kept in the layout so the thread does not move when it opens (uier #320).
+   Outside the layers, so no utility (`disabled:opacity-50`) shows one again. */
+[data-uier-preview] [data-uier-thread-control] {
+    opacity: 0;
+}
+
+/* The thread opened from its preview: the controls fade in (at once with reduced motion: the rule in `@layer base` above) */
+[data-uier-controls-reveal] [data-uier-thread-control] {
+    animation: uier-thread-controls-in 200ms ease-out;
+}
+
+@keyframes uier-thread-controls-in {
+    from {
+        opacity: 0;
+    }
+}

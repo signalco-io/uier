@@ -158,7 +158,7 @@ export function ReactionPicker({ comment, item, disabled }: { comment: CommentIt
             {...toolbarSurface('uier-reaction-picker', cx('z-[70] w-auto rounded-xl p-1', floatingShadowClassName))}
             trigger={(
                 <IconButton size="xs" variant="plain" className="size-6 text-muted-foreground hover:text-foreground" {...tip.triggerProps}
-                    aria-label={t.reactions.add} disabled={disabled} data-uier-add-reaction="">
+                    aria-label={t.reactions.add} disabled={disabled} data-uier-add-reaction="" data-uier-thread-control="">
                     <SmilePlusIcon size={16} />
                 </IconButton>
             )}
