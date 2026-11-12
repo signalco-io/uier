@@ -104,7 +104,7 @@ test('active MCP work refreshes shared avatars, keeps drafts and expires locally
         await expect(thread.locator('[data-agent-working]')).toBeVisible();
         for (const target of [page, review]) {
             await target.emulateMedia({ reducedMotion: 'no-preference' });
-            const indicator = target.locator('[data-agent-working] svg').first();
+            const indicator = target.locator('svg[data-agent-working]').first();
             await expect.poll(() => indicator.evaluate(node => getComputedStyle(node).animationName)).not.toBe('none');
             await target.emulateMedia({ reducedMotion: 'reduce' });
             await expect.poll(() => indicator.evaluate(node => getComputedStyle(node).animationName)).toBe('none');
