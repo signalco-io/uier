@@ -19,8 +19,8 @@ export const metadata: Metadata = {
 async function ProjectSettingsLayoutContent({ children, params }: LayoutProps<'/app/projects/[projectId]/settings'>) {
     const { t } = await getAppI18n();
     const { projectId } = await params;
-    const { project, canConfigure } = await projectSettingsContext(projectId);
-    const sections = projectSettingsSections.filter(section => canConfigure || !section.configure).map(section => ({ ...section, label: t(section.label) }));
+    const { context, project, canConfigure } = await projectSettingsContext(projectId);
+    const sections = projectSettingsSections.filter(section => canConfigure || !section.configure || (context.isAdmin && section.section === 'review')).map(section => ({ ...section, label: t(section.label) }));
 
     return (
         <SettingsLayout tabs={settingsTabs(sections, section => KnownPageLinks.projectSettings(project.id, section))} label={t("Project settings")} heading={t("Settings")}>

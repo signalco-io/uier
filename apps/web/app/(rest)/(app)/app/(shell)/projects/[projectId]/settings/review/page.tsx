@@ -1,3 +1,5 @@
+import { notFound } from 'next/navigation';
+import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import { workspaceThreadLabels } from '@/src/lib/app/threadLabels';
 import { workspaceStatusWorkflow } from '@/src/lib/app/statusWorkflows';
 
@@ -7,9 +9,9 @@ import { Suspense } from 'react';
 import { workspaceFeedbackTypes } from '@/src/lib/app/feedbackTypes';
 import type { Metadata } from 'next';
 import { loadQueryFieldSuggestions } from '@/src/lib/app/pageStateSuggestions';
-import { ProjectReviewForm } from '@/src/components/app/projects/ProjectReviewForm';
+import { ProjectLabelsForm, ProjectReviewForm } from '@/src/components/app/projects/ProjectReviewForm';
 import { GuestReviewLinks } from '@/src/components/app/projects/GuestReviewLinks';
-import { configurableProject } from '../settingsContext';
+import { projectSettingsContext } from '../settingsContext';
 import { projectToolbarLanguageMode, workspaceToolbarLanguage } from '@/src/lib/app/toolbarLanguage';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -20,7 +22,9 @@ export async function generateMetadata(): Promise<Metadata> {
 /** Who can comment (with the guest links while anyone with the link can), the toolbar's language, what reviewers are asked to review and, under Advanced, which page state their comments keep */
 async function ProjectReviewSettingsPageContent({ params }: PageProps<'/app/projects/[projectId]/settings/review'>) {
     const { projectId } = await params;
-    const { context, project } = await configurableProject(projectId);
+    const { context, project } = await projectSettingsContext(projectId);
+    if (!context.isAdmin) notFound();
+    if (project.workspaceId === PUBLIC_WORKSPACE_ID) return <ProjectLabelsForm projectId={project.id} threadLabels={project.threadLabels} workspaceLabels={workspaceThreadLabels(context.workspace)} />;
     const querySuggestions = await loadQueryFieldSuggestions(project);
 
     return (

@@ -20,7 +20,7 @@ requests reconcile memberships without invitations. `getAppContext` and `memberA
 current allowlist at read time too, including old review tokens and MCP connections. Missing/empty
 configuration means no staff; malformed entries are skipped using `emailSchema`. Preserve the
 selected workspace and personal onboarding. The public workspace has no Users page, invitations,
-member removal or project creation; both projects' settings are fixed, with personal email preferences
+member removal or project creation; both projects' settings except label catalogs are fixed, with personal email preferences
 still available. Enforce this in services as well as the UI; earlier invitations cannot assign roles.
 Keep all ordinary workspace behavior unchanged. Admin author filtering uses `app/commentAuthors.ts`:
 random, account/project-bound references expire after 24 hours, and stored author ids never cross
@@ -45,3 +45,5 @@ original page. See [client navigation continuity](app-shell.md#client-navigation
 
 `showcase.spec.ts` verifies that malformed stored anchors do not break the toolbar and remain
 available in inbox threads. Its active fixtures must not be injected into the separate archive response.
+
+Staff admins can configure workspace labels and project label overrides in uier’s own workspace and feedback projects. Other managed settings remain restricted. Existing triage permissions, member-only catalogs, label filters, toolbar controls, MCP label tools and saved board swim lanes apply there too.

@@ -51,7 +51,8 @@ export function assertMutableWorkspace(workspaceId: string) {
         throw new UserFacingError('Everyone joins the uier workspace automatically.');
 }
 
-export function assertMutableProject(workspaceId: string, projectId: string) {
+export function assertMutableProject(workspaceId: string, projectId: string, fields: string[] = []) {
+    if (fields.length > 0 && fields.every(field => field === 'threadLabels')) return;
     if (workspaceId === PUBLIC_WORKSPACE_ID || isUierFeedbackProject(projectId))
         throw new UserFacingError('The settings of uier’s feedback projects are managed by uier.');
 }

@@ -28,7 +28,7 @@ import { SaveFooter, useSettingsDraft } from '../SettingsSave';
 import { MAX_PROJECT_BRIEF_LENGTH } from '../../../lib/app/limits';
 import type { ProjectAccess } from '../../../lib/app/model';
 import { AccessIcon, projectAccessLabels } from './projectLabels';
-import { updateProjectReviewAction } from './actions';
+import { updateProjectLabelsAction, updateProjectReviewAction } from './actions';
 import { pageStatePolicy, type PageStatePolicy } from '@uier/toolbar/page-state';
 import type { QueryFieldSuggestion } from '../../../lib/app/pageStateSuggestions';
 import { toolbarLanguageLabel, toolbarLanguages, type ToolbarLanguage } from '@uier/toolbar/languages';
@@ -242,4 +242,32 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
             </form>
         </Section>
     );
+}
+
+/** Only label settings are editable on managed feedback projects. */
+export function ProjectLabelsForm({ projectId, threadLabels, workspaceLabels }: { projectId: string; threadLabels?: DbProject['threadLabels']; workspaceLabels: ThreadLabel[] }) {
+    const { t } = useAppI18n();
+    const formId = useId();
+    const [state, action, pending] = useActionState(updateProjectLabelsAction, null);
+    const { draft, update, dirty, discard } = useSettingsDraft({ labelsMode: threadLabels ? 'replace' as const : 'workspace' as const, labels: threadLabels?.value ?? workspaceLabels }, state);
+    return <Section title={t('Labels')} stickyFooter footer={<SaveFooter formId={formId} state={state} pending={pending} dirty={dirty} onDiscard={discard} />}>
+        <form id={formId} action={action} onResetCapture={keepValues}>
+            <input type="hidden" name="projectId" value={projectId} />
+            <input type="hidden" name="threadLabels" value={draft.labelsMode === 'workspace' ? 'workspace' : JSON.stringify({ mode: 'replace', value: draft.labels })} />
+            <FieldSet>
+                <FieldLegend variant="label">{t('Labels')}</FieldLegend>
+                <FieldDescription>{t('Projects inherit workspace labels or use their own set.')}</FieldDescription>
+                <Field>
+                    <FieldLabel htmlFor={`${formId}-labels`}>{t('Label defaults')}</FieldLabel>
+                    <Select value={draft.labelsMode} items={[{ value: 'workspace', label: t('Workspace defaults') }, { value: 'replace', label: t('Project override') }]} disabled={pending}
+                        onValueChange={mode => { if (mode) update(current => ({ ...current, labelsMode: mode })); }}>
+                        <SelectTrigger id={`${formId}-labels`} className="w-full max-w-md pointer-coarse:min-h-11"><SelectValue /></SelectTrigger>
+                        <SelectContent><SelectGroup><SelectItem value="workspace">{t('Workspace defaults')}</SelectItem><SelectItem value="replace">{t('Project override')}</SelectItem></SelectGroup></SelectContent>
+                    </Select>
+                    <FieldDescription>{t("Workspace defaults follow future workspace changes. An override keeps this project's own list.")}</FieldDescription>
+                </Field>
+                <ThreadLabelsEditor value={draft.labelsMode === 'workspace' ? workspaceLabels : draft.labels} onChange={labels => update(current => ({ ...current, labels }))} disabled={draft.labelsMode === 'workspace' || pending} />
+            </FieldSet>
+        </form>
+    </Section>;
 }

@@ -158,3 +158,27 @@ test('saved label grouping follows triage authority and preserves catalog settin
     expect(toReviewCommentDto(comment!, member, new Map(), [], 0, new Map(), f.project)?.labelIds).toEqual(['label_bug']);
     expect(toReviewCommentDto(comment!, guest, new Map(), [], 0, new Map(), f.project)).not.toHaveProperty('labelIds');
 });
+
+
+test('managed feedback projects allow label catalogs while retaining unrelated settings restrictions', async () => {
+    const { PUBLIC_WORKSPACE_ID, PUBLIC_PROJECT_ID, USER_FEEDBACK_PROJECT_ID } = await import('../src/lib/comments/publicProjectPolicy');
+    const f = await fixture();
+    const store = getAppStore();
+    const workspace = { ...f.workspace, id: PUBLIC_WORKSPACE_ID, pk: workspacePk(PUBLIC_WORKSPACE_ID) };
+    await store.create(workspace);
+    await store.create({ type: 'member', id: memberId(admin.userId), pk: workspace.pk, workspaceId: workspace.id, userId: admin.userId, role: 'admin', projects: 'all', joinedAt: new Date().toISOString() });
+    const { renameWorkspace } = await import('../src/lib/app/workspaces');
+    await expect(renameWorkspace(workspace.id, admin.userId, 'Changed')).rejects.toThrow();
+    await setWorkspaceThreadLabels(workspace.id, admin.userId, labels);
+    await expect(setWorkspaceThreadLabels(workspace.id, member.userId, labels)).rejects.toThrow('Only admins');
+    for (const id of [PUBLIC_PROJECT_ID, USER_FEEDBACK_PROJECT_ID]) {
+        const project = { ...f.project, id, pk: workspace.pk, workspaceId: workspace.id };
+        await store.create(project);
+        expect(await loadThreadLabels(project)).toEqual(labels);
+        const own = (await updateProject(workspace.id, id, { threadLabels: { mode: 'replace', value: [labels[0]!] } }))!;
+        expect(await loadThreadLabels(own)).toEqual([labels[0]]);
+        await expect(updateProject(workspace.id, id, { name: 'Changed', threadLabels: undefined })).rejects.toThrow('managed');
+        await expect(updateProject(workspace.id, id, { access: 'guests' })).rejects.toThrow('managed');
+        expect(await loadThreadLabels((await updateProject(workspace.id, id, { threadLabels: undefined }))!)).toEqual(labels);
+    }
+});

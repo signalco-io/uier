@@ -9,8 +9,6 @@ import { Suspense } from 'react';
 import { workspaceFeedbackTypes } from '@/src/lib/app/feedbackTypes';
 import { WorkspaceFeedbackTypesForm } from './WorkspaceFeedbackTypesForm';
 import type { Metadata } from 'next';
-import { redirect } from 'next/navigation';
-import { KnownPages } from '@/src/knownPages';
 import { WorkspaceTabHeader } from '@/src/components/app/workspace/WorkspaceTabHeader';
 import { requireAdminContext } from '@/src/lib/app/context';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
@@ -33,7 +31,7 @@ async function WorkspaceSettingsPageContent() {
     const { t } = await getAppI18n();
     const context = await requireAdminContext();
     if (context.workspace.id === PUBLIC_WORKSPACE_ID)
-        redirect(KnownPages.AppProjects);
+        return <div className="flex max-w-3xl flex-col"><WorkspaceTabHeader description={t("Settings for everyone in this workspace.")} /><WorkspaceThreadLabelsForm labels={workspaceThreadLabels(context.workspace)} /></div>;
 
     return (
         <div className="flex max-w-3xl flex-col">

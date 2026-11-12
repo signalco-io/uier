@@ -188,9 +188,8 @@ export async function setWorkspaceStatusWorkflow(workspaceId: string, userId: st
     return updated;
 }
 
-/** Label catalogs follow the status workflow's current-admin and managed-workspace checks. */
+/** Label catalogs are admin managed, including in uier’s workspace. */
 export async function setWorkspaceThreadLabels(workspaceId: string, userId: string, value: unknown) {
-    assertMutableWorkspace(workspaceId);
     if ((await getMember(workspaceId, userId))?.role !== 'admin') throw new UserFacingError('Only admins can do this.');
     const threadLabels = threadLabelsSchema.parse(value);
     const updated = await updateDoc<DbWorkspace>(workspacePk(workspaceId), workspaceId, workspace => ({ ...workspace, threadLabels }));
