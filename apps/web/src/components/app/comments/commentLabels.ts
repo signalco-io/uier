@@ -49,6 +49,16 @@ export function isActiveStatusFilter(filter: StatusFilter) {
 /** Done's tab also holds Archive in the list's status filter: its menu picks one or the other (uier #302) */
 export const doneStatusFilters = ['done', 'archived'] as const satisfies readonly StatusFilter[];
 
+/**
+ * The board's status filter (uier #335): one of its columns, or none (every column). The board shares the list's
+ * `?status=`, so a status chosen in one view stays in the other; Active and All show every column there
+ */
+export const boardStatusFilters = ['open', 'in-progress', 'ready', 'done'] as const satisfies readonly StatusFilter[];
+export type BoardStatusFilter = typeof boardStatusFilters[number];
+export function boardStatusFilter(status: StatusFilter): BoardStatusFilter | undefined {
+    return (boardStatusFilters as readonly StatusFilter[]).includes(status) ? status as BoardStatusFilter : undefined;
+}
+
 /** Whether the status filter shows Done or Archive */
 export function isDoneStatusFilter(filter: StatusFilter) {
     return (doneStatusFilters as readonly StatusFilter[]).includes(filter);

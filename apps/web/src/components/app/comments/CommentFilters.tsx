@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { ToggleGroup, ToggleGroupItem } from '@/src/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import type { EnvironmentOption } from '../../../lib/app/environments';
-import { activeStatusFilters, doneStatusFilters, isActiveStatusFilter, isDoneStatusFilter, peopleFilterLabels, statusFilterLabels, type AuthorFilter, type CommentsView, type PeopleFilter, type StatusFilter } from './commentLabels';
+import { activeStatusFilters, boardStatusFilter, boardStatusFilters, doneStatusFilters, isActiveStatusFilter, isDoneStatusFilter, peopleFilterLabels, statusFilterLabels, type AuthorFilter, type CommentsView, type PeopleFilter, type StatusFilter } from './commentLabels';
 import { LocationFilter, type PageCount } from './LocationFilter';
 import { pageFilterBase } from './pageFilter';
 import { PriorityFlag } from './PriorityFlag';
@@ -109,7 +109,10 @@ export function CommentFilters({ className, unread, unreadCount, view, status, s
             ?? (environment === 'removed' ? t("Removed addresses") : environment === 'unknown' ? t("Source not recorded") : environment)
         : undefined;
     const pagePrefix = page ? pageFilterBase(page) : undefined;
+    // The list's status tabs show its status; the board's is a filter like the others, in the Filter popover (uier #335)
+    const boardStatus = view === 'board' ? boardStatusFilter(status) : undefined;
     const chips = [
+        boardStatus && { key: 'status', name: t('Status'), value: t(statusFilterLabels[boardStatus]), clear: () => go({ status: undefined }) },
         priority && { key: 'priority', name: t('Priority'), value: t(priorityLabels[priority]), clear: () => go({ priority: undefined }) },
         unread && { key: 'unread', value: t('Only unread'), clear: () => go({ unread: undefined }) },
         environmentLabel && { key: 'environment', name: t('Environment'), value: environmentLabel, clear: () => go({ environment: undefined, page: undefined }) },
@@ -167,6 +170,23 @@ export function CommentFilters({ className, unread, unreadCount, view, status, s
                     <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)]">
                         <PopoverHeader><PopoverTitle>{t("Filter comments")}</PopoverTitle></PopoverHeader>
                         <FieldGroup className="gap-4">
+                            {view === 'board' && (
+                                <Field>
+                                    <FieldLabel htmlFor="filter-status">{t("Status")}</FieldLabel>
+                                    <Select items={{ all: t("All statuses"), ...Object.fromEntries(boardStatusFilters.map(value => [value, t(statusFilterLabels[value])])) }} value={boardStatus ?? 'all'}
+                                        onValueChange={value => go({ status: value === 'all' ? undefined : value ?? undefined })}>
+                                        <SelectTrigger id="filter-status" aria-label={t("Status filter")} className="w-full pointer-coarse:min-h-11">
+                                            <SelectValue>{(value: typeof boardStatusFilters[number] | 'all') => value === 'all' ? t("All statuses") : <><StateDot status={value} />{t(statusFilterLabels[value])}</>}</SelectValue>
+                                        </SelectTrigger>
+                                        <SelectContent><SelectGroup>
+                                            <SelectItem className="pointer-coarse:min-h-11" value="all">{t("All statuses")}</SelectItem>
+                                            {boardStatusFilters.map(value => <SelectItem className="pointer-coarse:min-h-11" key={value} value={value}>
+                                                <StateDot status={value} />{t(statusFilterLabels[value])}<span className="ml-auto tabular-nums text-muted-foreground">{statusCounts[value]}</span>
+                                            </SelectItem>)}
+                                        </SelectGroup></SelectContent>
+                                    </Select>
+                                </Field>
+                            )}
                             <Field>
                                 <FieldLabel htmlFor="filter-priority">{t("Priority")}</FieldLabel>
                                 <Select items={{ all: t("All priorities"), ...Object.fromEntries(Object.entries(priorityLabels).map(([key, label]) => [key, t(label)])) }} value={priority ?? 'all'} onValueChange={value => go({ priority: value === 'all' ? undefined : value ?? undefined })}>
@@ -207,7 +227,7 @@ export function CommentFilters({ className, unread, unreadCount, view, status, s
                             </Field>
                             {active > 0 && (
                                 <Button variant="ghost" size="sm" className="self-start pointer-coarse:min-h-11"
-                                    onClick={() => { go({ priority: undefined, unread: undefined, environment: undefined, page: undefined, people: undefined, author: undefined }); setFiltersOpen(false); }}>
+                                    onClick={() => { go({ priority: undefined, unread: undefined, environment: undefined, page: undefined, people: undefined, author: undefined, ...(boardStatus ? { status: undefined } : {}) }); setFiltersOpen(false); }}>
                                     {t("Clear filters")}
                                 </Button>
                             )}
