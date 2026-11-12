@@ -438,8 +438,8 @@ export const de: Messages = {
         dimensions: 'Wählen Sie ein Bild mit höchstens 4096 Pixeln pro Seite.'
     },
     pin: {
-        label: (number: number | undefined, messages: number | undefined, done: boolean | undefined) =>
-            [number === undefined ? 'Kommentar' : `Kommentar #${number}`, ...(messages === undefined ? [] : [`${messages} ${p(messages, 'Nachricht', 'Nachrichten')}`]), ...(done ? ['erledigt'] : [])].join(', '),
+        label: (number: number | undefined, messages: number | undefined, status: string | undefined) =>
+            [number === undefined ? 'Kommentar' : `Kommentar #${number}`, ...(messages === undefined ? [] : [`${messages} ${p(messages, 'Nachricht', 'Nachrichten')}`]), ...(status ? [status] : [])].join(', '),
         newComment: 'Neuer Kommentar',
         newRewrite: 'Neuer Textvorschlag',
         commentSending: 'Kommentar, wird gesendet',

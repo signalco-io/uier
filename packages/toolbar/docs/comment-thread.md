@@ -12,6 +12,14 @@ The app's `CommentCard` follows the same layout, icons and words: change both to
 reply, named "Comment #6, 3 messages", and the thread's people beside it
 ([who is in the thread](composer-popovers.md#who-is-in-the-thread)).
 
+The thread's status but Open is on the pin too (`PinStatus.tsx`, uier #364): the 6 px status dot of the
+thread header (`stageDotColors`, by category for custom statuses) in an ink border and the pin's white ring,
+on its round bottom-right edge, so the pin keeps its size and reads on light and dark pages. The pin's name
+ends with the status ("Comment #6, 3 messages, In progress", a custom status's own name; `selectedWorkflowStatus`
+as in the header). It follows the cached comment, so optimistic changes ([optimistic status](optimistic-status.md))
+and realtime updates show at once. Done pins leave the page, so Done shows only on a pin kept for its draft.
+Checked in `apps/web/e2e/toolbar-thread.spec.ts`.
+
 ## The thread
 
 - The popover is bounded by the window and clear of the pill

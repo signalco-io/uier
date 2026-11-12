@@ -439,8 +439,8 @@ export const es: Messages = {
         dimensions: 'Elige una imagen de 4096 píxeles por lado como máximo.'
     },
     pin: {
-        label: (number: number | undefined, messages: number | undefined, done: boolean | undefined) =>
-            [number === undefined ? 'Comentario' : `Comentario #${number}`, ...(messages === undefined ? [] : [`${messages} ${p(messages, 'mensaje', 'mensajes')}`]), ...(done ? ['hecho'] : [])].join(', '),
+        label: (number: number | undefined, messages: number | undefined, status: string | undefined) =>
+            [number === undefined ? 'Comentario' : `Comentario #${number}`, ...(messages === undefined ? [] : [`${messages} ${p(messages, 'mensaje', 'mensajes')}`]), ...(status ? [status] : [])].join(', '),
         newComment: 'Comentario nuevo',
         newRewrite: 'Nueva sugerencia de reescritura',
         commentSending: 'Comentario, enviando',

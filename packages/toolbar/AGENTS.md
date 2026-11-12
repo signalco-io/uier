@@ -98,7 +98,7 @@ they behave goes in that note, not here.
 | `src/i18n/`, `src/languages.ts` | the six languages: catalogs, the language store, language assets and the codes shared with the app ([languages](docs/localization.md)) |
 | `components/ToolbarFeedback.tsx`, `CommentKindLabel.tsx` | the feedback dialog (feedback or bug report about the page, no pin) and the "Feedback" / "Bug report" label of such threads |
 | `components/InlineCommentThread.tsx` | live `data-uier-thread="<comment id>"` slots: same thread and reply composer as the pins, adopting the same constructed sheet in their shadow root, with cleanup; never auto-focus on load |
-| `components/CommentBubble.tsx`, `CommentThread*.tsx`, `PinParticipants.tsx` | a pin and its thread popover: the header, menus and reply form ([threads](docs/comment-thread.md)) |
+| `components/CommentBubble.tsx`, `CommentThread*.tsx`, `PinParticipants.tsx`, `PinStatus.tsx` | a pin and its thread popover: the header, menus and reply form ([threads](docs/comment-thread.md)) |
 | `components/CommentPointOverlay.tsx` | point mode: the outline, the add-comment pointer, presses taken from the page, dragged areas ([point mode](docs/point-mode.md)) |
 | `components/CommentAreaHighlight.tsx` | the dashed outline of a commented area ([point mode](docs/point-mode.md#areas)) |
 | `components/canvas/`, `src/canvas/`, `src/drawing.ts` | canvas mode: the surface, its tool panel, the shapes' data and a comment's drawing on the page ([canvas mode](docs/canvas-mode.md)) |

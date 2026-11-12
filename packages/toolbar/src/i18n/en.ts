@@ -451,9 +451,9 @@ export const en = {
         dimensions: 'Choose an image of at most 4096 pixels on each side.'
     },
     pin: {
-        /** A pin's name, like the app's: "Comment #6, 3 messages, done" */
-        label: (number: number | undefined, messages: number | undefined, done: boolean | undefined) =>
-            [number === undefined ? 'Comment' : `Comment #${number}`, ...(messages === undefined ? [] : [`${messages} ${s(messages, 'message', 'messages')}`]), ...(done ? ['done'] : [])].join(', '),
+        /** A pin's name, like the app's: "Comment #6, 3 messages, In progress" (the status but Open, as on the pin) */
+        label: (number: number | undefined, messages: number | undefined, status: string | undefined) =>
+            [number === undefined ? 'Comment' : `Comment #${number}`, ...(messages === undefined ? [] : [`${messages} ${s(messages, 'message', 'messages')}`]), ...(status ? [status] : [])].join(', '),
         newComment: 'New comment',
         newRewrite: 'New rewrite suggestion',
         commentSending: 'Comment, sending',

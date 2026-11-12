@@ -1,6 +1,6 @@
 'use client';
 
-import { useWorkflowStatus, type WorkflowStatus } from '../hooks/useWorkflowStatus';
+import { selectedWorkflowStatus, useWorkflowStatus, type WorkflowStatus } from '../hooks/useWorkflowStatus';
 
 import { feedbackStage, feedbackStages, type FeedbackStage } from '../verification';
 import { useContext, useEffect, useRef, useState, type RefObject } from 'react';
@@ -29,14 +29,15 @@ import { keepMovedFocus, toolbarSurface } from '../toolbarReview';
 import { moveFocusInMenu } from '../focusKeys';
 import { useMessages, type Messages } from '../i18n';
 
-function statusLabel(status: WorkflowStatus, t: Messages) {
+/** A status's name: the localized built-in names, a custom status's own */
+export function statusLabel(status: WorkflowStatus, t: Messages) {
     const builtins = { open: 'Open', 'in-progress': 'In progress', ready: 'Ready to verify', done: 'Done', archive: 'Archive' };
     return status.id === status.category && status.label === builtins[status.category]
         ? status.category === 'archive' ? t.inbox.filters.archived : t.status[status.category] : status.label;
 }
 
 /** Each status's dot (BRAND.md, "Status"): Open an ink ring (outlined), In progress sky, Ready to verify violet, Done green. The app's `StateDot`. */
-const stageDotColors: Record<FeedbackStage, string> = {
+export const stageDotColors: Record<FeedbackStage, string> = {
     open: 'border border-foreground',
     'in-progress': 'bg-[hsl(var(--brand-in-progress))]',
     ready: 'bg-[hsl(var(--brand-ready))]',
@@ -224,13 +225,7 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
     const [uncopiedLink, setUncopiedLink] = useState<string>();
     const stage = feedbackStage(comment);
     const custom = useWorkflowStatus();
-    const selectedStatusId = comment.archivedAt ? comment.archiveStatusId : comment.workflowStatusId;
-    const workflow = custom.workflow.data;
-    const category = comment.archivedAt ? 'archive' : stage;
-    const fallbackId = category === 'archive' ? workflow?.archiveStatusId : category === 'done' ? workflow?.doneStatusId : undefined;
-    const selectedStatus = workflow?.statuses.find(status => status.id === selectedStatusId && status.category === category)
-        ?? workflow?.statuses.find(status => status.id === fallbackId && status.category === category)
-        ?? workflow?.statuses.find(status => status.category === category);
+    const selectedStatus = selectedWorkflowStatus(comment, stage, custom.workflow.data);
     // Only the author changes the status (the API enforces it too); in a project, every member can (the API's `permissions`)
     const canResolve = !comment.pending && (comment.permissions?.resolve ?? comment.isMine);
     const unread = Boolean(comment.activity?.unread);
