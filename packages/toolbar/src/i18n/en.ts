@@ -194,6 +194,7 @@ export const en = {
         writtenBy: (details: string) => `Written by ${details}`,
         via: 'via',
         viaAgent: (details: string) => `via ${details}`,
+        authorYou: (name: string) => `${name} (you)`,
         commentDeleted: 'Comment deleted',
         formerMember: 'Former member',
         you: 'You',

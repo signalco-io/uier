@@ -188,6 +188,7 @@ export const fr: Messages = {
         writtenBy: (details: string) => `Écrit par ${details}`,
         via: 'via',
         viaAgent: (details: string) => `via ${details}`,
+        authorYou: (name: string) => `${name} (vous)`,
         commentDeleted: 'Commentaire supprimé',
         formerMember: 'Ancien membre',
         you: 'Vous',

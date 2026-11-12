@@ -170,6 +170,12 @@ pressing it are the pin's) and decorative: the letters are generated content (`c
 text and name stay its number and message count, and its description names the people ("In this thread: you,
 Ana, and Ben"). Drafts and comments still being sent have none.
 
+In the thread, each message's avatar names its author on hover or keyboard focus (`MessageAuthorAvatar`,
+`useIconTooltip`, [uier #323](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_-b9ksSNB6R_PuRNAMiTff)):
+the full name, "(you)" on your own, and "Written by Claude" with its model and reasoning level for a message an AI agent wrote for
+its author (those two only for members, as in "via"). The avatar is a focusable `img` with the
+same words as its name; not in a hover preview, which is inert.
+
 ## Hover preview
 
 A mouse resting on a saved comment's pin for 400 ms opens a read-only preview of its thread in the same popover,
@@ -237,6 +243,6 @@ animation, the same element once saved). `screenshots.spec.ts`: Attach image in 
 the window, clear of the pill and the pin.
 `pin-preview.spec.ts`: the people beside a pin (the author first and in front, tucked under the pin, sliding out on hover, "+N", its description, the left side at the
 right edge; desktop and mobile), the hover preview (read-only, the focus kept, the status shown and the other controls
-hidden, closing on leave, a click in it or on the pin opening the thread; a long
+hidden, closing on leave, a click in it or on the pin opening the thread, a message's avatar naming its author; a long
 thread's every message, scrolled by the wheel without scrolling the page and kept when it opens; desktop) and a tap
 opening the thread at once (mobile).

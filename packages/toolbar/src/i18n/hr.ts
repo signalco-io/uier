@@ -189,6 +189,7 @@ export const hr: Messages = {
         writtenBy: (details: string) => `Napisao je ${details}`,
         via: 'putem',
         viaAgent: (details: string) => `putem ${details}`,
+        authorYou: (name: string) => `${name} (vi)`,
         commentDeleted: 'Komentar je izbrisan',
         formerMember: 'Bivši član',
         you: 'Vi',

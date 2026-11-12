@@ -145,6 +145,12 @@ test('resting the mouse on a pin previews its thread; a click keeps it open with
     await expect(thread.locator('[data-uier-controls-reveal]')).toBeAttached();
     await expect(thread.getByRole('button', { name: 'Thread options' })).toHaveCSS('opacity', '1');
     await expect(preview(page)).toHaveCount(0);
+    // A message's avatar names its author on hover (uier #323)
+    const avatar = thread.getByRole('img', { name: /^Guest [0-9A-F]{4} \(you\)$/ }).first();
+    await hover(page, avatar);
+    await expect(page.locator('[data-uier-tooltip]')).toHaveText(/^Guest [0-9A-F]{4} \(you\)$/);
+    await hover(page, thread.getByRole('textbox', { name: 'Reply' }));
+    await expect(page.locator('[data-uier-tooltip]')).toHaveCount(0);
     // It stays open when the pointer leaves
     await page.mouse.move(5, 5, { steps: 4 });
     await page.waitForTimeout(400);

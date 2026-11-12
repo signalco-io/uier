@@ -189,6 +189,7 @@ export const it: Messages = {
         writtenBy: (details: string) => `Scritto da ${details}`,
         via: 'tramite',
         viaAgent: (details: string) => `tramite ${details}`,
+        authorYou: (name: string) => `${name} (tu)`,
         commentDeleted: 'Commento eliminato',
         formerMember: 'Ex membro',
         you: 'Tu',
