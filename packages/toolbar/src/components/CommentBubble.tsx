@@ -19,7 +19,7 @@ import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import { holdsLayersAttribute, isToolbarAnchor, pressableToolbarOpener, toolbarPinId, toolbarSurface } from '../toolbarReview';
 import { isPointing } from './CommentPointOverlay';
-import { PinParticipants, participantsGap, participantsWidth, threadParticipants } from './PinParticipants';
+import { PinParticipants, participantsTuck, participantsWidth, threadParticipants } from './PinParticipants';
 import { RewriteSuggestions, useRewriteSuggestionsState } from './RewriteSuggestions';
 import { ComposerAttachButton, ComposerAttachmentsHeader, composerIconButtonClassName, useAttachedImage, type AttachedImage } from './ComposerAttachments';
 import { ComposerModal, ExpandComposerButton } from './ComposerModal';
@@ -484,7 +484,7 @@ export function CommentBubble(props: CommentBubbleProps) {
     const placement = popoverPlacement(pinLeft, pinTop, upsideDown);
     // Whose thread it is: the people in it beside the pin, on the side with room (uier #307)
     const participants = commentItem && !sending ? threadParticipants(commentItem, t.common.guest) : [];
-    const participantsReach = Math.max(bubbleHalfSize + participantsGap, bubbleHalfHitArea()) + participantsWidth(participants);
+    const participantsReach = bubbleHalfSize - participantsTuck + participantsWidth(participants);
     const participantsSide = pinLeft + participantsReach <= document.documentElement.clientWidth - bubbleWindowMargin ? 'right' : 'left';
     const participantsText = participants.length
         ? t.pin.participants(new Intl.ListFormat(language, { type: 'conjunction' }).format(participants.map(person => person.isMe ? t.pin.participantsYou : person.name)))
