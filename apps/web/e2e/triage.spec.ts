@@ -485,18 +485,18 @@ test('search, selection and priority preserve reply drafts in their original thr
     await expect(page.getByText('1 changed, 0 unchanged, 0 stale, 0 unavailable, 0 failed.', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Clear search', exact: true }).click();
     original = await openComment(page, comments[0]!.number);
-    await expect(await openReply(original)).toHaveValue(draft);
+    await expect(await openReply(original)).toHaveText(draft, { useInnerText: true });
     await backToComments(page);
     // The board opens the same thread in a sheet
     await page.getByRole('button', { name: 'Board', exact: true }).click();
     original = await openComment(page, comments[0]!.number);
-    await expect(await openReply(original)).toHaveValue(draft);
+    await expect(await openReply(original)).toHaveText(draft, { useInnerText: true });
     await page.reload();
     await original.getByRole('button', { name: 'Reply', exact: true }).click();
-    await expect(original.getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue(draft);
+    await expect(original.getByRole('textbox', { name: 'Reply', exact: true })).toHaveText(draft, { useInnerText: true });
     await page.keyboard.press('Escape');
     await expect(original).toBeHidden();
     const other = await openComment(page, comments[1]!.number);
     await other.getByRole('button', { name: 'Reply', exact: true }).click();
-    await expect(other.getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue('');
+    await expect(other.getByRole('textbox', { name: 'Reply', exact: true })).toHaveText('', { useInnerText: true });
 });

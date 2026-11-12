@@ -36,7 +36,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
             await expect(composer).toHaveAttribute('aria-activedescendant', /.+/);
             await composer.press('Enter');
         }
-        await expect(composer).toHaveValue(`Please review @${name} `);
+        await expect(composer).toHaveText(`Please review @${name} `, { useInnerText: true });
         // Picking an identity does not submit the composer.
         await expect(page.locator('[data-uier-comment="new"]')).toBeVisible();
         await page.screenshot({ path: testInfo.outputPath(`mention-${colorScheme}.png`) });

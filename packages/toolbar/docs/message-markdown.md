@@ -2,16 +2,18 @@
 
 Thread messages show their Markdown, in the toolbar (pin popovers and the inbox) and in the app's thread.
 What is supported and why is in [Markdown in messages](../../../docs/review-workflow.md#markdown-in-messages).
+Writing a message is the [message editor](message-editor.md), which loads and saves Markdown with this parser.
 
 - `src/markdown.ts` (`@uier/toolbar/markdown`, pure, browser and server) parses a message into a small tree:
-  paragraphs (line breaks kept), headings, fenced code, quotes, lists, rules; strong, emphasis, `~~`
+  paragraphs (line breaks kept), headings (with their level), fenced code, quotes, lists, rules; strong, emphasis, `~~`
   strikethrough, code spans, links, autolinks and bare http(s) URLs. Emphasis follows CommonMark's delimiter
   rules; blocks are line based. It never passes HTML through, refuses every link that is not http, https or
   mailto (`safeHref`), turns images into links, and caps nesting (eight list or quote levels, twelve inline
   levels) so any input stays linear and shallow. `markdownPlainText` gives the words without markers (the app's
   list rows).
 - Mentions: each range is swapped for one private use character the text does not contain before parsing,
-  so Markdown can neither split a mention nor read a name as Markdown; code shows the name as text.
+  so Markdown can neither split a mention nor read a name as Markdown; code shows the name as text. A mention
+  given with an `id` keeps it on its node, for the editor.
 - `components/MessageMarkdown.tsx` renders the tree with the toolbar's classes; `CommentThreadItem.tsx` passes
   the message text, its mentions (`@` and the current name, Former member for removed accounts) and
   "(edited)", which ends the last paragraph. The app's `MessageMarkdown` renders the same tree: change both

@@ -44,7 +44,7 @@ test('rewrite: pick a suggestion and post it', async ({ browser }, testInfo) => 
     // The reviewer's own version starts as the selected text
     const suggested = draft.getByRole('textbox', { name: 'Suggested text' });
     await expect(suggested).toBeFocused();
-    await expect(suggested).toHaveValue(selected);
+    await expect(suggested).toHaveText(selected, { useInnerText: true });
     await expect(draft.locator('blockquote')).toHaveText(selected);
 
     // One form like a new comment's (uier #180): the header, the quoted text, the instruction with
@@ -72,7 +72,7 @@ test('rewrite: pick a suggestion and post it', async ({ browser }, testInfo) => 
     await draft.getByRole('button', { name: 'Expand' }).click();
     await expect.poll(() => isModal(draft)).toBe(true);
     await expect(suggested).toBeFocused();
-    await expect(suggested).toHaveValue(selected);
+    await expect(suggested).toHaveText(selected, { useInnerText: true });
     await expect(instruction).toHaveValue('Shorter');
     await expect(suggestions.getByRole('button')).toHaveCount(3);
     await draft.getByRole('button', { name: 'Collapse' }).click();
@@ -82,7 +82,7 @@ test('rewrite: pick a suggestion and post it', async ({ browser }, testInfo) => 
 
     // A picked suggestion becomes the text, to post as it is or to edit
     await suggestions.getByRole('button', { name: 'Comment on any live website, right on the page.' }).click();
-    await expect(suggested).toHaveValue('Comment on any live website, right on the page.');
+    await expect(suggested).toHaveText('Comment on any live website, right on the page.', { useInnerText: true });
     await suggested.press('End');
     await suggested.pressSequentially(' Nothing to install.');
     await draft.getByRole('button', { name: 'Post suggestion' }).click();

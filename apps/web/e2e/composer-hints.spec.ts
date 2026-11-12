@@ -39,7 +39,7 @@ test('toolbar composers keep Enter and Shift+Enter without a hint under the text
         await text.pressSequentially('First line');
         await page.keyboard.press('Shift+Enter');
         await text.pressSequentially('Second line');
-        await expect(text).toHaveValue('First line\nSecond line');
+        await expect(text).toHaveText('First line\nSecond line', { useInnerText: true });
     }
     await page.screenshot({ path: info.outputPath('composer-hint.png') });
     if (touch) await text.fill('First line\nSecond line');
@@ -100,7 +100,7 @@ test('a closed draft is kept in this browser and Resume draft reopens it after a
     const pin = page.locator('[data-uier-comment="new"]');
     await expect(pin).not.toBeInViewport();
     await resume.click();
-    await expect(text).toHaveValue('Pick this up later');
+    await expect(text).toHaveText('Pick this up later', { useInnerText: true });
     await expect(text).toBeFocused();
     await expect(pin).toBeInViewport();
     await expect(draft.getByText(draftCue)).toHaveCount(0);

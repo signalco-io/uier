@@ -851,7 +851,7 @@ test('rewrite suggestions on the project\'s site go through the review API', asy
     await draft.getByRole('button', { name: 'Suggest', exact: true }).click();
     await suggestRequest;
     await draft.getByRole('group', { name: 'Suggestions' }).getByRole('button', { name: 'Second suggestion.' }).click();
-    await expect(draft.getByRole('textbox', { name: 'Suggested text' })).toHaveValue('Second suggestion.');
+    await expect(draft.getByRole('textbox', { name: 'Suggested text' })).toHaveText('Second suggestion.', { useInnerText: true });
     await expect(draft.getByRole('textbox', { name: 'Your name' })).toHaveValue('Dana');
     await draft.getByRole('button', { name: 'Post suggestion' }).click();
     await expect(openThread(guest.page).getByText('Suggested rewrite', { exact: true })).toBeVisible();
@@ -1084,7 +1084,7 @@ test('the app lists, filters and manages a project\'s comments', async ({ page, 
     await page.getByRole('menuitem', { name: 'Edit' }).click();
     const editor = anaCard.getByRole('textbox', { name: 'Edit comment', exact: true });
     await expect(editor).toBeFocused();
-    await expect(editor).toHaveValue('Pricing needs a table.');
+    await expect(editor).toHaveText('Pricing needs a table.', { useInnerText: true });
     await expect(editor).toHaveAccessibleDescription('Enter to save. Shift+Enter for a new line. Escape to cancel.');
     await editor.press('Escape');
     await expect(editor).toHaveCount(0);

@@ -20,7 +20,7 @@ test('own comments and replies can be edited, canceled and opened in the inbox a
     };
     await startEdit();
     const editor = thread.getByRole('textbox', { name: 'Edit comment', exact: true });
-    await expect(editor).toHaveValue('Original message');
+    await expect(editor).toHaveText('Original message', { useInnerText: true });
     await editor.fill('');
     await expect(thread.getByRole('button', { name: 'Save changes' })).toBeDisabled();
     await editor.fill('Canceled change');
@@ -69,12 +69,12 @@ test('failed and stale edits keep the attempted text and never overwrite the new
     await page.route(endpoint, route => route.abort('failed'));
     await thread.getByRole('button', { name: 'Save changes' }).click();
     await expect(thread.getByRole('alert')).toContainText('Check your connection');
-    await expect(editor).toHaveValue('Keep my attempted correction');
+    await expect(editor).toHaveText('Keep my attempted correction', { useInnerText: true });
     await page.unroute(endpoint);
     await page.route(endpoint, route => route.fulfill({ status: 403, contentType: 'application/json', body: JSON.stringify({ error: 'comments_disabled', message: 'Comments off' }) }));
     await thread.getByRole('button', { name: 'Save changes' }).click();
     await expect(thread.getByRole('alert')).toContainText('Comments are turned off');
-    await expect(editor).toHaveValue('Keep my attempted correction');
+    await expect(editor).toHaveText('Keep my attempted correction', { useInnerText: true });
     await page.unroute(endpoint);
     // Another editor saves while this edit is open. The API compares only this message's text.
     await page.evaluate(async ({ id, itemId }) => {
@@ -84,12 +84,12 @@ test('failed and stale edits keep the attempted text and never overwrite the new
     }, { id: comment.id, itemId: comment.thread.items[0]!.id });
     await thread.getByRole('button', { name: 'Save changes' }).click();
     await expect(thread.getByRole('alert')).toContainText('This message changed');
-    await expect(editor).toHaveValue('Keep my attempted correction');
+    await expect(editor).toHaveText('Keep my attempted correction', { useInnerText: true });
     await thread.getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(thread).toContainText('Newer saved message (edited)');
     await thread.getByRole('button', { name: 'More options for your comment' }).click();
     await page.getByRole('dialog', { name: 'Comment options', exact: true }).getByRole('button', { name: 'Edit', exact: true }).click();
-    await expect(editor).toHaveValue('Newer saved message');
+    await expect(editor).toHaveText('Newer saved message', { useInnerText: true });
     await editor.fill('Reviewed correction');
     await thread.getByRole('button', { name: 'Save changes' }).click();
     await expect(thread).toContainText('Reviewed correction (edited)');

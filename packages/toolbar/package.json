@@ -57,6 +57,11 @@
             "development": "./dist-dev/markdown.js",
             "default": "./dist/markdown.js"
         },
+        "./editor": {
+            "types": "./src/editor/index.ts",
+            "development": "./dist-dev/editor.js",
+            "default": "./dist/editor.js"
+        },
         "./drafts": {
             "types": "./src/hooks/draftStorage.ts",
             "development": "./dist-dev/draftStorage.js",
@@ -167,6 +172,15 @@
     },
     "dependencies": {
         "axe-core": "4.14.0",
-        "modern-screenshot": "4.7.0"
+        "modern-screenshot": "4.7.0",
+        "prosemirror-commands": "1.7.2",
+        "prosemirror-history": "1.5.1",
+        "prosemirror-inputrules": "1.5.1",
+        "prosemirror-keymap": "1.2.3",
+        "prosemirror-model": "1.25.13",
+        "prosemirror-schema-list": "1.6.0",
+        "prosemirror-state": "1.4.4",
+        "prosemirror-transform": "1.12.5",
+        "prosemirror-view": "1.42.9"
     }
 }

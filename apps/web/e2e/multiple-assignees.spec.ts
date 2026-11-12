@@ -72,7 +72,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
             await expect.poll(() => sockets.length).toBeGreaterThan(0);
             sockets.at(-1)!.send('{"type":"comments.changed"}');
             await expect(thread.locator('[data-agent="cursor"]')).toBeVisible();
-            await expect(draft).toHaveValue('Keep my draft during assignment updates');
+            await expect(draft).toHaveText('Keep my draft during assignment updates', { useInnerText: true });
             await expectNoAxeViolations(page, { include: ['[role="article"]'] });
             const mobile = testInfo.project.name.startsWith('Mobile');
             if (mobile) await backToComments(page);

@@ -14,7 +14,10 @@ rules: [review workflow](../../../docs/review-workflow.md#screenshots). Discard 
 icon buttons in the box's bottom-right corner, an X and a paper plane, each named by its tooltip (`IconTooltip`),
 like every icon button in the form ([uier #289](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_5pAm5RcV57oGHBohkQrzH)).
 Edits keep labeled Cancel and Save buttons. No line under the text box: what Enter and Shift+Enter do is in the
-keyboard shortcuts list ([keyboard](keyboard.md)).
+keyboard shortcuts list ([keyboard](keyboard.md)). The text box is the rich [message editor](message-editor.md):
+Markdown typed in it formats as it is written, and a dropped image file is attached like Attach image
+(`onImageDrop`). Its draft API is unchanged: `CommentComposer` keeps the Markdown and the mention ranges in
+`useDrafts` under its `draftKey`, and `initialText`/`initialMentions` start an edit.
 
 ### A rewrite
 
@@ -157,7 +160,8 @@ text box starts at 8 lines (`CommentComposer`'s `tall`).
 - The popover is closed while the modal is open, at once (`data-[state=closed]:animate-none!`), and its own
   close (the focus moving into the modal) is ignored (`expandedRef`), so it never cancels the draft.
 - The form mounts once the dialog is shown: a closed dialog has no layout, and the text box sizes itself to its
-  text when it mounts. Tooltips go into the dialog (`TooltipContainerContext`), not under it.
+  text when it mounts. Escape in the text box reaches the dialog: the editor passes it on unless a mention list
+  takes it. Tooltips go into the dialog (`TooltipContainerContext`), not under it.
 - The modal carries the comment being written, so it is not a reviewable part of the toolbar; a comment on a
   toolbar part keeps that part's popover open from the modal too (`data-uier-holds-layers`). Letter shortcuts
   do not act in it ([keyboard](keyboard.md)).

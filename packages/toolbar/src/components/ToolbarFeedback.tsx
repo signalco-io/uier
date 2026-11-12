@@ -174,6 +174,7 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
                 tall={expanded}
                 holdSubmit={attachment.reading}
                 attachments={<ComposerAttachButton attachment={attachment} />}
+                onImageDrop={file => void attachment.attach(file)}
                 error={create.error}
                 onSubmit={handleSubmit} />
         </div>

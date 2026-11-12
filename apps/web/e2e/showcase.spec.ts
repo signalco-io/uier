@@ -96,7 +96,6 @@ test('visitors leave public feedback; only the author resolves or deletes it', a
 
     const pointComposer = author.getByRole('textbox', { name: 'Comment', exact: true });
     await expect(pointComposer).toBeFocused();
-    await expect(pointComposer).toHaveAttribute('maxlength', '1000');
     await pointComposer.fill('The heading could use a subtitle.');
     const createRequest = author.waitForRequest(request => request.method() === 'POST' && new URL(request.url()).pathname === '/api/comments');
     await pointComposer.press('Enter');
@@ -146,7 +145,7 @@ test('visitors leave public feedback; only the author resolves or deletes it', a
     await reply.fill('Agreed, +1');
     await reply.press('Enter');
     await expect(commentBubble(visitor, 2)).toBeVisible();
-    await expect(reply).toHaveValue('');
+    await expect(reply).toHaveText('', { useInnerText: true });
     await expect(visitorThread.getByText('You', { exact: true })).toBeVisible();
     // Only the own reply can be deleted
     await expect(visitorThread.getByRole('button', { name: 'More options' })).toHaveCount(1);
@@ -493,12 +492,12 @@ test('point comments: instructions, keyboard path, kept drafts', async ({ browse
     await page.keyboard.press('Escape');
     await expect(composer).toBeHidden();
     await page.getByRole('button', { name: 'New comment' }).click();
-    await expect(composer).toHaveValue('Typed with the keyboard');
+    await expect(composer).toHaveText('Typed with the keyboard', { useInnerText: true });
 
     // Shift+Enter adds a new line, Enter posts
     await composer.press('Shift+Enter');
     await composer.pressSequentially('Second line');
-    await expect(composer).toHaveValue('Typed with the keyboard\nSecond line');
+    await expect(composer).toHaveText('Typed with the keyboard\nSecond line', { useInnerText: true });
     await composer.press('Enter');
     const bubble = commentBubble(page, 1);
     await expect(bubble).toBeVisible();
@@ -663,7 +662,7 @@ test('rate limit messages tell a full page from a fast visitor', async ({ browse
     await composer.press('Enter');
     const alert = openThread(page).getByRole('alert');
     await expect(alert).toHaveText('This page has reached its comment limit. Try again in about an hour.');
-    await expect(composer).toHaveValue('Hello');
+    await expect(composer).toHaveText('Hello', { useInnerText: true });
     // The draft is back (it opens again): measured colours are only final once it faded in
     await animationsFinished(openThread(page));
     await expectNoAxeViolations(page);

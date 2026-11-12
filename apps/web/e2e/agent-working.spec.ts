@@ -95,7 +95,7 @@ test('active MCP work refreshes shared avatars, keeps drafts and expires locally
         await reviewChanged();
         await expect(page.locator('[data-agent-working]')).toHaveCount(0);
         await expect(review.locator('[data-agent-working]')).toHaveCount(0);
-        await expect(draft).toHaveValue('Keep this reply while the agent works');
+        await expect(draft).toHaveText('Keep this reply while the agent works', { useInnerText: true });
         await expect(thread.getByRole('button', { name: 'Agent: Claude. Change agent', exact: true })).toBeVisible();
         await expect(thread.getByRole('button', { name: 'Status: Open. Change status', exact: true })).toBeVisible();
         await working(true);
@@ -115,7 +115,7 @@ test('active MCP work refreshes shared avatars, keeps drafts and expires locally
         // Advance only the browser clock: no server cleanup/write or new realtime frame is needed.
         await Promise.all([page.clock.fastForward(301_000), review.clock.fastForward(301_000), myWork.clock.fastForward(301_000)]);
         for (const target of [page, review, myWork]) await expect(target.locator('[data-agent-working]')).toHaveCount(0);
-        await expect(draft).toHaveValue('Keep this reply while the agent works');
+        await expect(draft).toHaveText('Keep this reply while the agent works', { useInnerText: true });
         if (mobile) await backToComments(page);
         await expect(commentRows(page).getByRole('button', { name: /^Assigned to you, with Claude, comment #\d+$/ })).toBeVisible();
         await call('clear_feedback_agent', {});

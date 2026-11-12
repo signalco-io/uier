@@ -128,8 +128,9 @@ export default defineConfig(({ env }) => {
         }
     }, {
         // `@uier/toolbar/react` (src/react.ts): the React component that adds the script above to a page.
-        // An ES module for bundlers; React comes from the site.
-        entry: { attachments: './src/useAttachedImage.ts', react: './src/react.ts', agentWorking: './src/useAgentWorking.ts' },
+        // An ES module for bundlers; React comes from the site. `@uier/toolbar/editor` is the message editor the
+        // app shares with the review script; its ProseMirror packages stay imports, for the app's bundler.
+        entry: { attachments: './src/useAttachedImage.ts', react: './src/react.ts', agentWorking: './src/useAgentWorking.ts', editor: './src/editor/index.ts' },
         outDir,
         format: ['esm'],
         outExtension: () => ({ js: '.js' }),

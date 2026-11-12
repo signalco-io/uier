@@ -31,7 +31,7 @@ test('feedback expands to a modal and back, keeping its text, type, image and sc
     await expect(form).toHaveCount(1);
     await expect.poll(() => isModal(form)).toBe(true);
     await expect(text).toBeFocused();
-    await expect(text).toHaveValue('The pricing table overlaps the footer.');
+    await expect(text).toHaveText('The pricing table overlaps the footer.', { useInnerText: true });
     await expect(form.getByRole('button', { name: 'Bug report', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(form.getByRole('button', { name: 'Omit screenshot' })).toHaveAttribute('aria-pressed', 'true');
     expect((await text.boundingBox())!.height).toBeGreaterThan(small.height);
@@ -45,7 +45,7 @@ test('feedback expands to a modal and back, keeping its text, type, image and sc
     await expect(form).toBeVisible();
     await expect.poll(() => isModal(form)).toBe(false);
     await expect(text).toBeFocused();
-    await expect(text).toHaveValue('The pricing table overlaps the footer. On narrow windows.');
+    await expect(text).toHaveText('The pricing table overlaps the footer. On narrow windows.', { useInnerText: true });
     await expect(form.getByRole('button', { name: 'Omit screenshot' })).toHaveAttribute('aria-pressed', 'true');
 
     // An image attached in the modal is still attached after Collapse, and is sent
@@ -82,7 +82,7 @@ test('a new comment expands to a modal; the backdrop and Collapse go back, and i
     await draft.getByRole('button', { name: 'Expand' }).click();
     await expect.poll(() => isModal(draft)).toBe(true);
     await expect(text).toBeFocused();
-    await expect(text).toHaveValue('The heading could be shorter.');
+    await expect(text).toHaveText('The heading could be shorter.', { useInnerText: true });
     // Tab stays in the modal: the page and the toolbar behind it are inert
     for (let i = 0; i < 6; i++) {
         await page.keyboard.press('Tab');
@@ -97,7 +97,7 @@ test('a new comment expands to a modal; the backdrop and Collapse go back, and i
     await page.mouse.click(4, 4);
     await expect(draft).toBeVisible();
     await expect.poll(() => isModal(draft)).toBe(false);
-    await expect(text).toHaveValue('The heading could be shorter.');
+    await expect(text).toHaveText('The heading could be shorter.', { useInnerText: true });
 
     // Posted from the modal: the comment's thread opens on its pin
     await draft.getByRole('button', { name: 'Expand' }).click();

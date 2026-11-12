@@ -96,13 +96,18 @@ export const fr: Messages = {
         showShortcuts: 'Afficher les raccourcis',
         send: 'Envoyer un commentaire',
         newLine: 'Nouvelle ligne dans un commentaire',
+        bold: 'Gras',
+        italic: 'Italique',
+        strikethrough: 'Barré',
+        code: 'Code',
         moveToolbar: 'Se déplacer dans la barre',
         moveMenu: 'Se déplacer dans un menu',
         close: 'Fermer',
         leftArrow: 'Flèche gauche',
         rightArrow: 'Flèche droite',
         upArrow: 'Flèche haut',
-        downArrow: 'Flèche bas'
+        downArrow: 'Flèche bas',
+        command: 'Commande'
     },
     notice: {
         exitReview: 'Quitter la revue',

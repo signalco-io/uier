@@ -96,13 +96,18 @@ export const de: Messages = {
         showShortcuts: 'Tastenkürzel anzeigen',
         send: 'Kommentar senden',
         newLine: 'Neue Zeile im Kommentar',
+        bold: 'Fett',
+        italic: 'Kursiv',
+        strikethrough: 'Durchgestrichen',
+        code: 'Code',
         moveToolbar: 'In der Leiste bewegen',
         moveMenu: 'In einem Menü bewegen',
         close: 'Schließen',
         leftArrow: 'Pfeil nach links',
         rightArrow: 'Pfeil nach rechts',
         upArrow: 'Pfeil nach oben',
-        downArrow: 'Pfeil nach unten'
+        downArrow: 'Pfeil nach unten',
+        command: 'Befehlstaste'
     },
     notice: {
         exitReview: 'Review beenden',

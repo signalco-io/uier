@@ -42,7 +42,7 @@ test('app navigation preserves the document and feedback toolbar', async ({ page
         if (section === 'General' || section === 'Coding agents') {
             await openFeedback();
             await expect(page.getByRole('textbox', { name: 'Feedback', exact: true }))
-                .toHaveValue(section === 'General' ? '' : 'Draft for coding agents');
+                .toHaveText(section === 'General' ? '' : 'Draft for coding agents', { useInnerText: true });
             await page.keyboard.press('Escape');
         }
     }

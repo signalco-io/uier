@@ -216,14 +216,14 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     expect(await worker.evaluate(() => performance.timeOrigin)).not.toBe(workerStartedAt);
     await reviewed.reload();
     await reviewed.getByRole('button', { name: 'New comment', exact: true }).click();
-    await expect(reviewed.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Recovered extension draft');
+    await expect(reviewed.getByRole('textbox', { name: 'Comment', exact: true })).toHaveText('Recovered extension draft', { useInnerText: true });
     if (proxy) {
         proxy.dropNextReviewWrite();
         await reviewed.getByRole('textbox', { name: 'Comment', exact: true }).press('Enter');
         await expect(reviewed.getByRole('dialog', { name: 'New comment', exact: true }).getByRole('alert')).toContainText('Check your connection');
         await reviewed.reload();
         await reviewed.getByRole('button', { name: 'New comment', exact: true }).click();
-        await expect(reviewed.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Recovered extension draft');
+        await expect(reviewed.getByRole('textbox', { name: 'Comment', exact: true })).toHaveText('Recovered extension draft', { useInnerText: true });
     }
     await reviewed.getByRole('textbox', { name: 'Comment', exact: true }).press('Enter');
     await expect(reviewed.getByText('Recovered extension draft', { exact: true })).toBeVisible();

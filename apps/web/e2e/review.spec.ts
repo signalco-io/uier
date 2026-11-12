@@ -150,7 +150,7 @@ test('collapse hides page annotations, preserves reply text and restores current
         return pin && heading ? Math.abs(pin.y + pin.height / 2 - (heading.y + heading.height * 0.25 + 17)) : Infinity;
     }).toBeLessThan(2);
     await pointPin.click();
-    await expect(openThread(page).getByRole('textbox', { name: 'Reply' })).toHaveValue('Keep this unsent reply');
+    await expect(openThread(page).getByRole('textbox', { name: 'Reply' })).toHaveText('Keep this unsent reply', { useInnerText: true });
     await page.keyboard.press('Escape');
 
     // The remembered collapsed state hides saved annotations from the first render after reload.
@@ -200,7 +200,7 @@ test('collapse preserves a new comment draft without posting it', async ({ brows
     await page.getByRole('button', { name: 'Expand toolbar' }).click();
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'New comment', exact: true }).click();
-    await expect(openThread(page).getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Keep this unsent comment');
+    await expect(openThread(page).getByRole('textbox', { name: 'Comment', exact: true })).toHaveText('Keep this unsent comment', { useInnerText: true });
     const saved = await page.evaluate(async () => await (await fetch('/api/comments?path=/')).json() as unknown[]);
     expect(saved).toHaveLength(0);
     await context.close();

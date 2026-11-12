@@ -155,10 +155,13 @@ assignee card, with Open in T3 Code or another desktop session link, at the top 
   member may edit (`canEditItem`, as the toolbar allows: its author or an admin; the view carries its saved text
   and mentions as `editable` only then). Edit turns the message into `MessageEditor` in place: the saved text with
   Cancel and Save in the shared composer (Enter saves, Shift+Enter adds a line, Escape cancels), and the menu takes the
-  focus back when it closes. `useMentionTextarea` (`MentionTextarea.tsx`) gives the composer's field its `@` mentions,
-  Enter and Escape; mentions move with the text.
-  After a chosen mention the caret is placed in a layout effect, in the same commit as the new value, so typing straight
-  on continues after the name; a deferred move (`requestAnimationFrame`) once let later keys land before the name.
+  focus back when it closes. `MessageComposer`'s field is the toolbar's rich [message editor](../../../packages/toolbar/docs/message-editor.md)
+  (`@uier/toolbar/editor`, loaded with `React.lazy` and preloaded by `CommentCard` when the thread can be replied to or
+  edited; an `aria-hidden` placeholder holds its place until then): Markdown typed in it formats as it is written and
+  what is saved is Markdown. `useMentionEditor` (`MentionEditor.tsx`) gives it its `@` mentions, Enter and Escape;
+  each mention is one node that moves with the text. A chosen mention and a space go in the `@` query's place with
+  the caret after them in one change, so typing straight on continues after the name. `fieldRef` is the editor's
+  handle, for R to focus the reply box.
   App edits use that same draft store/scope (`replyDrafts.ts`), with `edit` for the first message and
   `edit-reply:<itemId>` for each reply. `MessageEditor` writes text and mentions synchronously, including empty
   text; `CommentCard` restores open editors after hydration when the current view still allows editing.

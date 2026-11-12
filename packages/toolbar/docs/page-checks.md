@@ -284,7 +284,7 @@ checks (a `details` row, "Outline").
 ## Sections
 
 Checks added after the first two panels run on demand, in the audit asset, and show as sections of a
-panel. The review bundle (858 KB of the 1 MB a published bundle may be) gets only their views.
+panel. The review bundle (1.22 MB of the 1.5 MB a published bundle may be, the message editor about 240 KB of it) gets only their views.
 
 - **The logic** is one module per area in `src/checks/lazy/` (`crawler.ts`, `sharing.ts`, ...), bundled
   into `dist/audit.js` beside axe-core and handed over with it (`auditEntry.ts`, `auditHandoff.ts`;
