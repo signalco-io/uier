@@ -4,7 +4,7 @@ import { useContext } from 'react';
 import { defaultStatusWorkflow, orderedStatuses, statusForComment, workflowStatusLabel, type StatusWorkflow, type WorkflowStatus } from '../../../lib/app/statusWorkflow';
 import { useAppI18n } from '@/src/lib/i18n/client';
 
-import { Fragment, useEffect, useEffectEvent, useId, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, type SyntheticEvent } from 'react';
+import { Fragment, useEffect, useEffectEvent, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, type SyntheticEvent } from 'react';
 import { createPortal } from 'react-dom';
 import {
     DndContext, DragOverlay, MouseSensor, defaultDropAnimationSideEffects, pointerWithin, useDraggable, useDroppable, useSensor, useSensors,
@@ -105,6 +105,8 @@ function subscribeReducedMotion(onChange: () => void) {
     return () => query.removeEventListener('change', onChange);
 }
 const subscribeNothing = () => () => {};
+/** BRAND.md, "Motion": the Archive strip changes size like an item changes place */
+const archiveMorphMs = 200;
 
 /**
  * A press that lifted a card can still end in a click on its link (a short long-press on a touch
@@ -232,6 +234,8 @@ function BoardColumn({ status, definition, columnIds, count, state, sort, onSort
     // A placeholder changes a column's height, and on narrow screens moves the columns below it
     const { t } = useAppI18n();
     const { setNodeRef } = useDroppable({ id: definition.id, resizeObserverConfig: { updateMeasurementsFor: columnIds } });
+    // Archive all only where finished threads wait (Done-category columns, uier #370)
+    const archivable = Boolean(archiveAll) && status === 'done' && count > 0;
     return (
         <section ref={setNodeRef} aria-label={t("{status} comments", { status: workflowStatusLabel(definition, t) })} data-drop={state === 'idle' ? undefined : state}
             className={cn('flex min-h-24 flex-col gap-2 rounded-2xl border bg-muted/50 p-2 transition-[background-color,border-color,box-shadow,opacity] duration-150 ease-out',
@@ -244,9 +248,9 @@ function BoardColumn({ status, definition, columnIds, count, state, sort, onSort
                     <span className="truncate" title={definition.description || definition.label}>{workflowStatusLabel(definition, t)}</span>
                     <span className="font-normal tabular-nums text-muted-foreground">{count}</span>
                 </h3>
-                {/* Archive all, left of the sort, while the column has cards (uier #357) */}
-                {archiveAll && count > 0 && <ArchiveAllButton scope={archiveAll} lane={definition.id} label={workflowStatusLabel(definition, t)} count={count} />}
-                {onSort && <BoardSortMenu label={workflowStatusLabel(definition, t)} status={status} sort={sort} onChange={next => onSort(status, next)} className={archiveAll && count > 0 ? 'ml-0' : undefined} />}
+                {/* Archive all, left of the sort, while a Done column has cards (uier #357, #370) */}
+                {archivable && archiveAll && <ArchiveAllButton scope={archiveAll} lane={definition.id} label={workflowStatusLabel(definition, t)} count={count} />}
+                {onSort && <BoardSortMenu label={workflowStatusLabel(definition, t)} status={status} sort={sort} onChange={next => onSort(status, next)} className={archivable ? 'ml-0' : undefined} />}
             </div>
             {children}
         </section>
@@ -279,14 +283,36 @@ function ArchiveColumn({ label = 'Archive', count, sort, onSort, expanded, dimme
         toggled.current = false;
         toggle.current?.focus({ preventScroll: true });
     }, [expanded]);
+    // The board's tracks and the column's height before a toggle, which it morphs from (uier #369)
+    const section = useRef<HTMLElement>(null);
+    const morphFrom = useRef<{ columns: string; height: number } | null>(null);
     const change = () => {
         toggled.current = true;
+        const grid = section.current?.parentElement;
+        morphFrom.current = section.current && grid && !window.matchMedia(reducedMotionQuery).matches
+            ? { columns: getComputedStyle(grid).gridTemplateColumns, height: section.current.offsetHeight } : null;
         onExpandedChange(!expanded);
     };
+    // The strip widens into the column (or the column narrows into the strip) instead of jumping: the grid's tracks, in
+    // pixels, and the column's height move in 200 ms, the new content fades in as it gets room, and the background and
+    // opacity follow by transition. Before LayoutMotion measures, so the cards beside it ride along with their columns.
+    useLayoutEffect(() => {
+        const from = morphFrom.current;
+        morphFrom.current = null;
+        const element = section.current;
+        const grid = element?.parentElement;
+        if (!from || !element || !grid) return;
+        const options = { duration: archiveMorphMs, easing: 'ease-out' };
+        grid.animate({ gridTemplateColumns: [from.columns, getComputedStyle(grid).gridTemplateColumns] }, options);
+        element.animate({ height: [`${from.height}px`, `${element.offsetHeight}px`], overflow: ['clip', 'clip'] }, options);
+        for (const child of Array.from(element.children)) child.animate({ opacity: [0, 1] }, { duration: archiveMorphMs, easing: 'ease-in' });
+    }, [expanded]);
     return (
-        <section aria-label={label === t('Archive') ? t('Archived comments') : t('{status} comments', { status: label })} data-board-archive={expanded ? 'expanded' : 'collapsed'} data-drop={dimmed ? 'refused' : undefined}
-            className={cn('flex flex-col rounded-2xl border bg-muted/50 transition-opacity duration-150 ease-out data-[drop=refused]:opacity-50',
-                expanded ? 'min-h-24 gap-2 p-2' : 'md:self-start')}>
+        <section ref={section} aria-label={label === t('Archive') ? t('Archived comments') : t('{status} comments', { status: label })} data-board-archive={expanded ? 'expanded' : 'collapsed'} data-drop={dimmed ? 'refused' : undefined}
+            className={cn('flex flex-col rounded-2xl border transition-[background-color,border-color,opacity] duration-200 ease-out motion-reduce:transition-none data-[drop=refused]:opacity-50',
+                // Collapsed it stays out of the way (uier #369): no fill, a fainter edge and a muted name until it is pointed
+                // at. Not a lower opacity on the whole strip: its count would fall below text contrast
+                expanded ? 'min-h-24 gap-2 bg-muted/50 p-2' : 'border-border/50 bg-transparent hover:border-border md:self-start')}>
             {expanded ? (
                 <>
                     <div className="flex items-center gap-2 px-2 pt-1">
@@ -313,9 +339,9 @@ function ArchiveColumn({ label = 'Archive', count, sort, onSort, expanded, dimme
                 // The whole strip expands it. From md the strip is only as tall as its content, and the icon, the name
                 // and the count run down it together, turned like the name (the icon by `rotate-90`, as writing modes leave SVG upright)
                 <Button ref={toggle} variant="ghost" aria-expanded="false" onClick={change}
-                    className="h-auto min-h-11 w-full justify-start rounded-2xl px-4 py-2.5 font-medium md:justify-center md:px-0 md:py-3">
+                    className="group/archive h-auto min-h-11 w-full justify-start rounded-2xl px-4 py-2.5 font-medium text-muted-foreground hover:text-foreground md:justify-center md:px-0 md:py-3">
                     <span className="flex items-center gap-2 md:[writing-mode:vertical-rl]">
-                        <ArchiveIcon className="text-muted-foreground md:rotate-90" />
+                        <ArchiveIcon className="opacity-60 transition-opacity duration-150 group-hover/archive:opacity-100 group-focus-visible/archive:opacity-100 motion-reduce:transition-none md:rotate-90" />
                         <span>{label}</span>{' '}
                         <span className="font-normal tabular-nums text-muted-foreground">{count}</span>
                     </span>

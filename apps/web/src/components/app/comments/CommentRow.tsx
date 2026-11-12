@@ -109,7 +109,12 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
             'pointer-coarse:has-[[data-slot=checkbox]]:select-none pointer-coarse:has-[[data-slot=checkbox]]:[-webkit-touch-callout:none]')}>
             {/* The unread dot overlays the row's top right corner, above its age (uier #330, #360): it takes no room, so
                 reading the row moves nothing and the padding is the same on both sides (uier #354) */}
-            {unread && <span aria-hidden="true" data-unread-dot="" className="pointer-events-none absolute top-1 right-1 size-2 rounded-full bg-[hsl(var(--brand-accent))]" />}
+            {/* It fades and scales in and out as the thread is marked unread or read, rather than blinking (uier #371) */}
+            {(unread || Boolean(comment.activity?.lastOtherSequence)) && (
+                <span aria-hidden="true" data-unread-dot={unread ? '' : undefined}
+                    className={cn('pointer-events-none absolute top-1 right-1 size-2 rounded-full bg-[hsl(var(--brand-accent))] transition-[opacity,scale] duration-150 ease-out motion-reduce:transition-none',
+                        unread ? 'scale-100 opacity-100' : 'scale-50 opacity-0')} />
+            )}
             {/* Two columns: the author over the selection box, then the title over the meta line, so the page path lines up with "#12 …" */}
             <div className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1">
                 {/* Who wrote it starts the title line, before "#12 …"; centred on its first line */}

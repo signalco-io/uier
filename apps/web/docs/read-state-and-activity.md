@@ -39,6 +39,11 @@ isolation; `thread-history.spec.ts` covers the app/toolbar controls, reloads, th
   App list/board actions snapshot the shown unread threads and send sequential batches, retaining
   failed cursors for toast retry. Neither bulk nor single reads acknowledge newer activity. The app's open
   thread reads itself like the toolbar's open thread (800 ms on screen in a focused window, `useReadWhenShown`).
+  [uier #371](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_Od6934yxuIL6cZlby8_n-):
+  the thread's unread dot (`UnreadDot` in `CommentCard.tsx`) and the row's dot (`CommentRow.tsx`) stay mounted while
+  the thread has someone else's activity, so marking it read or unread fades and scales the dot in 150 ms and the
+  thread's header line closes or opens its room instead of jumping; hidden, the card's dot is `inert` and `aria-hidden`.
+  No motion on the first render or with reduced motion.
 
 - `e2e/activity.spec.ts` exercises project/showcase adaptive refresh with the Playwright clock:
   15-second active cadence, 30 after one minute idle, 60 after two, immediate return, held-response
