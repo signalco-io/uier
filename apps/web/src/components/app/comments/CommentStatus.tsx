@@ -37,6 +37,27 @@ export function StateDot({ status }: { status: CommentStatus }) {
     return <span aria-hidden="true" data-status-dot={status} className={cn('size-1.5 shrink-0 rounded-full', stateDotColors[status])} />;
 }
 
+/** A soft halo in each status's colour, behind its dot (Open's ink at a lower strength than the colours) */
+const stateGlowColors: Record<CommentStatus, string> = {
+    open: 'bg-foreground/25',
+    'in-progress': 'bg-[hsl(var(--brand-in-progress)/0.5)]',
+    ready: 'bg-[hsl(var(--brand-ready)/0.5)]',
+    done: 'bg-[hsl(var(--brand-success)/0.5)]'
+};
+
+/**
+ * The status dot with a soft glow around it, where it marks something that holds threads: a board column with cards
+ * (uier #356). The glow is decoration only: it takes no room, so the name beside it stays where it was.
+ */
+export function GlowingStateDot({ status, glow }: { status: CommentStatus; glow: boolean }) {
+    return (
+        <span className="relative flex shrink-0 items-center justify-center">
+            {glow && <span aria-hidden="true" data-status-glow={status} className={cn('pointer-events-none absolute size-4 rounded-full blur-[3px]', stateGlowColors[status])} />}
+            <span className="relative flex"><StateDot status={status} /></span>
+        </span>
+    );
+}
+
 export function StateBadge({ status, comment }: { status: CommentStatus; comment?: ProjectCommentView }) {
     const { t } = useAppI18n();
     return (

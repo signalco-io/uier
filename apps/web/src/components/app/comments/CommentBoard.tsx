@@ -19,7 +19,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/too
 import { Spinner } from '@/src/components/ui/spinner';
 import type { AssigneeOption } from './CommentCard';
 import { CommentRow, commentRowId } from './CommentRow';
-import { commentStatus, commentStatuses, StateDot, StateMenu, type CommentStatus } from './CommentStatus';
+import { commentStatus, commentStatuses, GlowingStateDot, StateMenu, type CommentStatus } from './CommentStatus';
 import { allowedStatuses, movedPatch, useStatusChanger } from './useStatusChange';
 import type { BoardColumn as BoardColumnKey, BoardSort } from '../../../lib/app/boardSort';
 import { BoardSortMenu } from './BoardSortMenu';
@@ -235,7 +235,8 @@ function BoardColumn({ status, definition, columnIds, count, state, sort, onSort
                 'data-[drop=over]:border-foreground/30 data-[drop=over]:bg-muted data-[drop=over]:ring-2 data-[drop=over]:ring-ring data-[drop=refused]:opacity-50')}>
             <div className="flex items-center gap-2 px-2 pt-1">
                 <h3 className="m-0 flex min-w-0 items-center gap-2 text-sm font-medium">
-                    <StateDot status={status} />
+                    {/* A column with cards glows around its dot, so the columns that need attention stand out (uier #356) */}
+                    <GlowingStateDot status={status} glow={count > 0} />
                     <span className="truncate" title={definition.description || definition.label}>{workflowStatusLabel(definition, t)}</span>
                     <span className="font-normal tabular-nums text-muted-foreground">{count}</span>
                 </h3>

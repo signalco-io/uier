@@ -108,6 +108,8 @@ rows with the status filter it waits for their entrance motion to settle before 
   green (`--brand-success`; BRAND.md, "Status"), always beside the name. List rows, board column headers, the
   thread's status menu (`StateMenu`, `StateBadge`) and the Active statuses menu of the Status filter all use it (the status tabs have none); the
   toolbar's `CommentStatusBadge` uses the same tokens. The dot carries `data-status-dot="<status>"`.
+  A board column with cards shows its dot with a soft glow in the same colour (`GlowingStateDot`, `data-status-glow`;
+  Open's ink at a lower strength), so the columns that hold threads stand out; an empty column has none (uier #356).
   `e2e/status-colors.spec.ts` checks each status's colour in the list, the board, the menu and the filter, in
   light and dark, with axe. It opens the board's Move through `openBoardMove`, as a keyboard user does,
   rather than clicking its visually hidden pointer target.
