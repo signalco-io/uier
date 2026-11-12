@@ -71,14 +71,19 @@ const refreshEvery = 5 * 60_000;
 const statesKey = (projectId: string, commentId: string, revision: string, links: PullRequestLink[]) =>
     `${projectId}\n${commentId}\n${revision}\n${links.map(link => link.url).join('\n')}`;
 
+/** Least to most advanced: the mark shows the state that still needs the most attention. */
+const stateOrder: PullRequestState[] = ['draft', 'open', 'closed', 'merged'];
+
 /**
- * The one state all of a thread's pull requests share, from a read the page already made (the open thread or the
- * mark's card); the mark never reads on its own, so rows don't spend the providers' hourly reads.
+ * The least advanced state among a thread's pull requests (Open over Merged), from a read the page already made (the
+ * open thread or the mark's card), once every one of them has a known state; the mark never reads on its own, so rows
+ * don't spend the providers' hourly reads.
  */
 function useKnownState(key: string, links: PullRequestLink[]) {
     const states = useSyncExternalStore(subscribeRecent, () => recentStates.get(key)?.states, () => undefined);
     const known = links.map(link => states?.find(value => value.url === link.url)?.state);
-    return known.length > 0 && known.every(state => state && state === known[0]) ? known[0] : undefined;
+    if (known.length === 0 || known.some(state => !state)) return undefined;
+    return stateOrder.find(state => known.includes(state));
 }
 
 /**

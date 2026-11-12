@@ -134,7 +134,8 @@ current message or reply links to a supported provider PR. It is `PullRequestCar
 which works like the assignee card: hovering it, Enter on it (it shares the row's tab stop rule) or a tap
 opens a popover listing each pull request with its provider's mark, repository and number as an external link,
 and its state badge when known (the name in the state's colour, but a closed one's in ink); a mouse click still opens the thread. The mark takes the
-state's colour (`data-pull-request-color`) when every one of the thread's pull requests is in the same known state,
+colour (`data-pull-request-color`) of the least advanced state across the thread's pull requests (draft, then open,
+closed, merged: Open and Merged show Open) once every one of them has a known state,
 from a read the page already made (the open thread beside it, or the mark's card; a shared store in
 `ThreadPullRequests.tsx`): rows never read on their own, so a list doesn't spend the providers' hourly reads. State is read only while the popover is
 open, through the same endpoint and five-minute reuse as the [open thread's details](comment-thread.md).
