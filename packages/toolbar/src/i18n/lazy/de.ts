@@ -7,6 +7,53 @@ const s = (count: number, one: string, other: string) => plural('de', count, one
 const n = (value: number) => value.toLocaleString('de');
 
 export const lazyDe: LazyMessages = {
+    consent: {
+        banner: "Einwilligungsbanner oder Plattform",
+        bannerReason: "Nur bekannte Plattformmerkmale. Ein Banner kann angepasst, verborgen, in einem Shadow Root oder bereits geschlossen sein. Seine Präsenz belegt keine Einwilligung.",
+        visible: "Banner sichtbar",
+        detected: "Plattformmerkmal gefunden",
+        notDetected: "Kein bekanntes Merkmal gefunden",
+        timing: "Zeitpunkt der Einwilligung",
+        timingReason: "Eine Aufnahme kann nicht feststellen, wann ein Cookie gesetzt wurde oder ob schon eine Einwilligung vorlag.",
+        timingUnknown: "Unbekannt",
+        scope: "Umfang der Beobachtung",
+        scopeReason: "Nur für dieses Dokument sichtbare Namen werden gelesen. Speicherzugriff kann blockiert sein.",
+        namesOnly: "Nur Namen",
+        limit: "Inventargrenze",
+        limitReason: "Höchstens 100 Namen je Speicherart, 100 neue Namen und die letzten 2.000 Ressourcenzeiten werden geprüft. Namen werden bis 160 Zeichen angezeigt.",
+        tabSession: "Tabsitzung",
+        persistent: "Dauerhaft; Ablauf der Anwendung unbekannt",
+        browserSession: "Browsersitzung",
+        unknownLifetime: "Lebensdauer unbekannt",
+        unknownDomain: "Domain nicht offengelegt",
+        firstParty: "Erstanbieter (Seitenkontext)",
+        thirdParty: "Drittanbieter (bekannter Anbieter)",
+        existingName: "Bei der Prüfung bereits vorhanden. Setzzeitpunkt und frühere Einwilligung unbekannt. Prüfen Sie die vermutete Kategorie.",
+        newName: "Ein neuer Name erschien während des vor Ihrer Einwilligung gestarteten Zeitfensters. Prüfen Sie seinen Zweck; dies belegt weder eine Wertänderung noch den Urheber.",
+        existingRequest: "Eine Anfrage an einen bekannten Analyse- oder Werbehost ist erfasst. Einwilligungszeitpunkt unbekannt; kein Beleg für gesendete Cookies oder Trackingdaten.",
+        newRequest: "Ein bekannter Analyse- oder Werbehost wurde während des vor Ihrer Auswahl gestarteten Zeitfensters angefragt. Prüfen Sie die Anfrage; kein Beleg für gesendete Cookies oder Trackingdaten.",
+        reviewOnly: "Zu prüfen. Kategorie und Einwilligungszeitpunkt müssen von einer Person geprüft werden.",
+        observation: "Beobachtungszeitfenster",
+        observationReason: "Die Person startet dies vor der Einwilligung. Abfragen können kurzlebige Namen und Änderungen vorhandener Werte übersehen. Anfragen belegen keine Speicherung.",
+        observationDone: "15 Sekunden Beobachtung beendet",
+        noNew: "Keine neuen Namen oder bekannten Hosts beobachtet",
+        noNewReason: "Nur dieses Zeitfenster wurde geprüft. Dies belegt nicht, dass die Seite kein Tracking nutzt.",
+        title: "Einwilligung und Cookies",
+        kinds: {
+            cookie: "Cookie",
+            local: "Lokaler Speicher",
+            session: "Sitzungsspeicher"
+        },
+        categories: {
+            analytics: "Vermutlich Analyse",
+            marketing: "Vermutlich Marketing",
+            preferences: "Vermutlich Einstellungen",
+            consent: "Vermutlich Einwilligungseinstellung",
+            unknown: "Kategorie unbekannt"
+        },
+        expires: (date: string) => `Läuft ab ${date}`,
+        unavailable: (list: string) => `Zugriff nicht verfügbar: ${list}`
+    },
     found: {
         altText: 'Alternativtext',
         image: 'Bild',

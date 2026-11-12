@@ -3,10 +3,10 @@ import type { CommentsFilter } from './components/sidebar/CommentsFilter';
 import { panelSide } from './components/DockablePanel';
 
 /** A docked panel: the inbox, the Accessibility or the SEO panel */
-export type DockPanelId = 'inbox' | 'accessibility' | 'seo';
+export type DockPanelId = 'inbox' | 'accessibility' | 'seo' | 'consent';
 
 const storageKey = 'uier:toolbar-panel';
-const isDockPanel = (value: unknown): value is DockPanelId => value === 'inbox' || value === 'accessibility' || value === 'seo';
+const isDockPanel = (value: unknown): value is DockPanelId => value === 'inbox' || value === 'accessibility' || value === 'seo' || value === 'consent';
 
 /**
  * The open panels that can stay open together, oldest first: one on each side where two fit side by

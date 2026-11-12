@@ -6,6 +6,17 @@ import { plural } from './plural';
 const p = (count: number, one: string, other: string) => plural('de', count, one, other);
 
 export const de: Messages = {
+    consentPanel: {
+        title: "Einwilligung und Cookies",
+        toReview: "Zu prüfen",
+        notes: "Hinweise",
+        snapshot: "Seitenaufnahme",
+        before: "Vor der Einwilligung",
+        observe: "15 Sekunden beobachten",
+        observing: "Beobachtung läuft…",
+        instructions: "Starten Sie vor Ihrer Auswahl in einer neuen Browsersitzung. Warten Sie 15 Sekunden, bevor Sie eine Einwilligung auswählen. Diese Prüfung ändert Ihre Auswahl nicht und löscht keinen Speicher.",
+        limits: "Nur diese Seite. HttpOnly- und Drittanbieter-Cookies, Speicher in Frames, IndexedDB, Cache-Speicher und serverseitiges Tracking sind hier nicht sichtbar. Frühere Einwilligungen und Aktivitäten vor dem Laden der Toolbar sind unbekannt. Nur Namen; Werte werden nie gesendet. Kategorien sind Hinweise. Ergebnisse sind zu prüfen und kein rechtliches Konformitätsurteil."
+    },
     common: {
         cancel: 'Abbrechen',
         close: 'Schließen',
@@ -46,6 +57,7 @@ export const de: Messages = {
             `${badge} ungelesene ${count === 1 && !capped ? 'Diskussion' : 'Diskussionen'}${count > 99 && !capped ? `, insgesamt ${count}` : ''}`,
         accessibility: 'Barrierefreiheit',
         seo: 'SEO',
+        consent: "Einwilligung und Cookies",
         about: 'Über uier',
         draw: 'Auf der Seite zeichnen',
         collapse: 'Leiste einklappen'
@@ -810,7 +822,7 @@ export const de: Messages = {
         image: 'Bild'
     },
     checks: {
-        kinds: { accessibility: 'Barrierefreiheit', seo: 'SEO', 'web-vitals': 'Core Web Vitals' },
+        kinds: { consent: "Einwilligung und Cookies", accessibility: 'Barrierefreiheit', seo: 'SEO', 'web-vitals': 'Core Web Vitals' },
         highlight: 'Hervorheben',
         notAnIssue: 'Kein Problem',
         postedAs: (label: string, number: number | undefined) => `${label}${number !== undefined ? ` als #${number}` : ''}`,

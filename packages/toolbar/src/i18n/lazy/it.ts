@@ -7,6 +7,53 @@ const s = (count: number, one: string, other: string) => plural('it', count, one
 const n = (value: number) => value.toLocaleString('it');
 
 export const lazyIt: LazyMessages = {
+    consent: {
+        banner: "Banner o piattaforma del consenso",
+        bannerReason: "Solo indicatori di piattaforme note. Un banner può essere personalizzato, nascosto, in uno shadow root o già chiuso. La presenza non prova il consenso.",
+        visible: "banner visibile",
+        detected: "indicatore della piattaforma trovato",
+        notDetected: "Nessun indicatore noto trovato",
+        timing: "Momento del consenso",
+        timingReason: "Una schermata non permette di stabilire quando è stato creato un cookie o se il consenso era già stato dato.",
+        timingUnknown: "Sconosciuto",
+        scope: "Ambito dell’osservazione",
+        scopeReason: "Vengono letti solo i nomi visibili a questo documento. L’accesso all’archiviazione può essere bloccato.",
+        namesOnly: "Solo nomi",
+        limit: "Limite dell’inventario",
+        limitReason: "Vengono esaminati al massimo 100 nomi per tipo di archiviazione, 100 nuovi nomi e le ultime 2000 misure delle risorse. I nomi sono mostrati fino a 160 caratteri.",
+        tabSession: "Sessione della scheda",
+        persistent: "Persistente; scadenza applicativa sconosciuta",
+        browserSession: "Sessione del browser",
+        unknownLifetime: "Durata sconosciuta",
+        unknownDomain: "Dominio non esposto",
+        firstParty: "Prima parte (contesto della pagina)",
+        thirdParty: "Terza parte (fornitore noto)",
+        existingName: "Già presente al controllo. Momento di creazione e consenso precedente sconosciuti. Verifica la categoria probabile.",
+        newName: "Un nuovo nome è apparso durante l’intervallo avviato prima della scelta sul consenso. Verificane lo scopo; non prova una modifica di valore né identifica chi lo ha creato.",
+        existingRequest: "È registrata una richiesta a un host noto di analisi o pubblicità. Momento del consenso sconosciuto; non prova l’invio di cookie o dati di tracciamento.",
+        newRequest: "Un host noto di analisi o pubblicità è stato richiesto durante l’intervallo avviato prima della scelta. Verifica la richiesta; non prova l’invio di cookie o dati di tracciamento.",
+        reviewOnly: "Da verificare. Categoria e momento del consenso richiedono una verifica umana.",
+        observation: "Intervallo di osservazione",
+        observationReason: "La persona avvia questo controllo prima di scegliere. Il polling può perdere nomi di breve durata e modifiche a valori esistenti. Le richieste non provano un’archiviazione.",
+        observationDone: "Osservazione di 15 secondi terminata",
+        noNew: "Nessun nuovo nome o host noto osservato",
+        noNewReason: "È stato controllato solo questo intervallo. Non prova che la pagina sia priva di tracciamento.",
+        title: "Consenso e cookie",
+        kinds: {
+            cookie: "Cookie",
+            local: "Archiviazione locale",
+            session: "Archiviazione di sessione"
+        },
+        categories: {
+            analytics: "Probabile analisi",
+            marketing: "Probabile marketing",
+            preferences: "Probabili preferenze",
+            consent: "Probabile preferenza di consenso",
+            unknown: "Categoria sconosciuta"
+        },
+        expires: (date: string) => `Scade ${date}`,
+        unavailable: (list: string) => `Accesso non disponibile: ${list}`
+    },
     found: {
         altText: 'Testo alternativo',
         image: 'Immagine',

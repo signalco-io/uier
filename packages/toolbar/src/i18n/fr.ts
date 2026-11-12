@@ -6,6 +6,17 @@ import { plural } from './plural';
 const p = (count: number, one: string, other: string) => plural('fr', count, one, other);
 
 export const fr: Messages = {
+    consentPanel: {
+        title: "Consentement et cookies",
+        toReview: "À examiner",
+        notes: "Notes",
+        snapshot: "Instantané de la page",
+        before: "Avant le consentement",
+        observe: "Observer pendant 15 secondes",
+        observing: "Observation en cours…",
+        instructions: "Commencez dans une nouvelle session du navigateur avant de choisir. Attendez 15 secondes avant de faire un choix de consentement. Ce contrôle ne modifie pas votre choix et ne vide pas le stockage.",
+        limits: "Cette page uniquement. Les cookies HttpOnly et tiers, le stockage des cadres, IndexedDB, le cache et le suivi côté serveur ne sont pas visibles ici. Les consentements antérieurs et l’activité précédant le chargement de la barre sont inconnus. Noms uniquement ; les valeurs ne sont jamais envoyées. Les catégories sont indicatives. Les résultats sont à examiner, sans verdict de conformité juridique."
+    },
     common: {
         cancel: 'Annuler',
         close: 'Fermer',
@@ -46,6 +57,7 @@ export const fr: Messages = {
             `${badge} ${count === 1 && !capped ? 'discussion non lue' : 'discussions non lues'}${count > 99 && !capped ? `, ${count} au total` : ''}`,
         accessibility: 'Accessibilité',
         seo: 'SEO',
+        consent: "Consentement et cookies",
         about: 'À propos d’uier',
         draw: 'Dessiner sur la page',
         collapse: 'Replier la barre'
@@ -810,7 +822,7 @@ export const fr: Messages = {
         image: 'Image'
     },
     checks: {
-        kinds: { accessibility: 'Accessibilité', seo: 'SEO', 'web-vitals': 'Core Web Vitals' },
+        kinds: { consent: "Consentement et cookies", accessibility: 'Accessibilité', seo: 'SEO', 'web-vitals': 'Core Web Vitals' },
         highlight: 'Mettre en évidence',
         notAnIssue: 'Pas un problème',
         postedAs: (label: string, number: number | undefined) => `${label}${number !== undefined ? ` sous le #${number}` : ''}`,

@@ -1,6 +1,7 @@
 import type { PageFixture } from './types';
 import aiSearch from './aiSearch';
 import content from './content';
+import consent from './consent';
 import crawler from './crawler';
 import keyboard from './keyboard';
 import report from './report';
@@ -13,6 +14,7 @@ import verify from './verify';
 export const fixtures: Record<string, PageFixture | undefined> = {
     'ai-search': aiSearch,
     'content': content,
+    'consent': consent,
     'crawler': crawler,
     'keyboard': keyboard,
     'report': report,

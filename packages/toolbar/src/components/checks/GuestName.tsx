@@ -10,7 +10,7 @@ import { useMessages } from '../../i18n';
 const guestNameMaxLength = 80;
 
 /** The panel a name field is in (both checks panels can be open together, each with its own field) */
-type GuestNamePanel = 'accessibility' | 'seo';
+type GuestNamePanel = 'accessibility' | 'seo' | 'consent';
 
 type GuestNameState = {
     needed: boolean;

@@ -187,7 +187,7 @@ export function CommentsGlobal({
     const [mountRequest] = useState(takeToolbarRequest);
     // The panels open on the previous page stay open on this one (client-side navigation or a full load)
     const [restoredPanels, setRestoredPanels] = useState<readonly DockPanelId[]>(() => mountRequest ? [] : fitPanels(readOpenPanels()
-        .filter(panel => panel === 'inbox' || (features.includes(panel) && (panel !== 'accessibility' || auditAvailable()))), panelsSideBySideNow()));
+        .filter(panel => panel === 'inbox' || (features.includes(panel) && (panel === 'seo' || auditAvailable()))), panelsSideBySideNow()));
     // The open docked panels (the inbox, the Accessibility and SEO panels), oldest first: one on each
     // side where two fit side by side, else one (`fitPanels`). Opening one closes only the one on its side.
     const [openPanels, setOpenPanels] = useState<readonly DockPanelId[]>(restoredPanels);
@@ -237,6 +237,7 @@ export function CommentsGlobal({
     const hintButtonRef = useRef<HTMLButtonElement>(null);
     const accessibilityButtonRef = useRef<HTMLButtonElement>(null);
     const seoButtonRef = useRef<HTMLButtonElement>(null);
+    const consentButtonRef = useRef<HTMLButtonElement>(null);
     const optionsButtonRef = useRef<HTMLButtonElement>(null);
     const draftKeyRef = useRef(0);
     // The last focused review target, for comments created with the keyboard.
@@ -842,7 +843,7 @@ export function CommentsGlobal({
         setRestoredPanels(current => current.every(panel => openPanels.includes(panel)) ? current : current.filter(panel => openPanels.includes(panel)));
     }, [openPanels]);
     const changeChecksPanel = (panel: ChecksPanelId, open: boolean) => {
-        if (reattaching || !features.includes(panel)) return;
+        if (reattaching || !features.includes(panel) || panel === 'consent' && !auditAvailable()) return;
         if (!open) {
             closeChecks(panel);
             return;
@@ -852,18 +853,20 @@ export function CommentsGlobal({
     };
     // The focus goes back to the panel's button (Options on a narrow screen)
     const closeChecks = (panel: ChecksPanelId) => {
-        ((panel === 'seo' ? seoButtonRef : accessibilityButtonRef).current ?? optionsButtonRef.current)?.focus();
+        ((panel === 'consent' ? consentButtonRef : panel === 'seo' ? seoButtonRef : accessibilityButtonRef).current ?? optionsButtonRef.current)?.focus();
         showPanel(panel, false);
     };
     // A panel's title menu: the panels this review shows, and one shown in another's place. One open already (on the
     // other side) gets the focus, as the new one's Close does when it opens.
     const accessibilityShown = auditAvailable() && features.includes('accessibility');
     const seoShown = features.includes('seo');
+    const consentShown = auditAvailable() && features.includes('consent');
     const panelSwitch = useMemo(() => ({
         panels: [
             { id: 'inbox' as const, label: t.inbox.label },
             ...(accessibilityShown && !reattaching ? [{ id: 'accessibility' as const, label: t.toolbar.accessibility }] : []),
-            ...(seoShown && !reattaching ? [{ id: 'seo' as const, label: t.toolbar.seo }] : [])
+            ...(seoShown && !reattaching ? [{ id: 'seo' as const, label: t.toolbar.seo }] : []),
+            ...(consentShown && !reattaching ? [{ id: 'consent' as const, label: t.toolbar.consent }] : [])
         ],
         switchTo: (from: DockPanelId, to: DockPanelId) => {
             const shown = openPanels.includes(to);
@@ -873,7 +876,7 @@ export function CommentsGlobal({
             if (shown) requestAnimationFrame(() => (rootElement?.getRootNode() as ShadowRoot | Document | undefined)
                 ?.querySelector<HTMLElement>(`#uier-panel-${to} [data-uier-panel-close]`)?.focus());
         }
-    }), [t, accessibilityShown, seoShown, reattaching, openPanels, showPanel, rootElement]);
+    }), [t, accessibilityShown, seoShown, consentShown, reattaching, openPanels, showPanel, rootElement]);
     // "Show" after a panel's quick action: the comment's thread on its pin, or the inbox for one about
     // the page. The panel it was in closes; one on the other side stays.
     const handleShowCheckComment = (comment: ShownComment, panel: ChecksPanelId) => {
@@ -1107,6 +1110,7 @@ export function CommentsGlobal({
                 checksAttention={checksAttention}
                 accessibilityButtonRef={accessibilityButtonRef}
                 seoButtonRef={seoButtonRef}
+                consentButtonRef={consentButtonRef}
                 optionsButtonRef={optionsButtonRef}
                 onToggleSidebar={() => {
                     if (reattaching) return;

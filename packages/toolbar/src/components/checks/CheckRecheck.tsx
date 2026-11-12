@@ -25,7 +25,8 @@ export function CheckRecheck({ comment }: { comment: CommentItem }) {
     const { path } = useContext(CommentsBootstrapperContext);
     const { currentEnvironment } = useProjectViewer();
     const features = useToolbarFeatures();
-    if (!comment.check || comment.pending || comment.thread.items[0]?.deleted
+    // Consent findings need a new reviewer-controlled observation, never an automatic pass.
+    if (!comment.check || comment.check.type === 'consent' || comment.pending || comment.thread.items[0]?.deleted
         || comment.path !== path || (comment.source && comment.source.environment !== currentEnvironment)) return null;
     if (!features.includes(comment.check.type === 'accessibility' ? 'accessibility' : 'seo')) return null;
     // Another page (a client-side navigation) starts over
