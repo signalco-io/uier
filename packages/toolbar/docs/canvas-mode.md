@@ -1,6 +1,6 @@
 # Canvas mode
 
-Draw on the page (the pill's button after Add comment, a pen) lets a reviewer draw on the live page and
+Draw on the page (the pill's button after Add comment, a brush, the panel's Brush icon) lets a reviewer draw on the live page and
 send the drawing as one comment ([uier #276](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_os3tIIsf4quE9caFmRA3S)).
 Every shape drawn in one session becomes one comment on an area, the drawing saved with it as vector
 shapes: shown to everyone who sees the comment, where it was drawn, and painted into its screenshot.
