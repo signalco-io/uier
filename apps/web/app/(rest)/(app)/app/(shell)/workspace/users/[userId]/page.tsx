@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
@@ -8,20 +10,24 @@ import { Item, ItemContent, ItemGroup, ItemMedia, ItemTitle } from '@/src/compon
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/src/components/ui/empty';
 import { PageHeader, Section } from '@/src/components/app/PageHeader';
 import { requireTeamAdmin, managementData } from '@/src/components/app/teams/management';
-import { MemberAccessForm } from '@/src/components/app/teams/AccessForms';
+import { MemberAccessForm } from '@/src/components/app/teams/MemberAccessForm';
 import { ProjectMark } from '@/src/components/app/projects/ProjectMark';
 import { RelativeTime } from '@/src/components/app/comments/DateTime';
 import { PersonAvatar } from '@/src/components/app/PersonAvatar';
 import { projectAccessSources } from '@/src/lib/app/access';
 import { KnownPageLinks } from '@/src/knownPages';
 
-export const metadata: Metadata = { title: 'Person access' };
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return { title: t("Person access") };
+}
 
 /** Internal or External; nothing while unspecified (as on the users list) */
-const relationshipLabels: Record<string, string> = { internal: 'Internal', external: 'External' };
+const relationshipLabels = { internal: 'Internal', external: 'External' } as const;
 
 /** Someone in the workspace: who they are, the projects they can review (and why), then their teams and direct access */
 async function PersonPageContent({ params }: PageProps<'/app/workspace/users/[userId]'>) {
+    const { t } = await getAppI18n();
     const context = await requireTeamAdmin(),
         { userId } = await params;
     const data = await managementData(context),
@@ -43,18 +49,18 @@ async function PersonPageContent({ params }: PageProps<'/app/workspace/users/[us
                 description={(
                     <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
                         <span className="font-mono text-[13px]">{member.email}</span>
-                        <Badge variant={member.role === 'admin' ? 'default' : 'secondary'}>{member.role === 'admin' ? 'Admin' : 'Commenter'}</Badge>
-                        {member.relationship && relationshipLabels[member.relationship] && <Badge variant="outline">{relationshipLabels[member.relationship]}</Badge>}
-                        <span>Joined <RelativeTime value={member.createdAt} /></span>
+                        <Badge variant={member.role === 'admin' ? 'default' : 'secondary'}>{member.role === 'admin' ? t("Admin") : t("Commenter")}</Badge>
+                        {member.relationship && relationshipLabels[member.relationship] && <Badge variant="outline">{t(relationshipLabels[member.relationship])}</Badge>}
+                        <span>{t("Joined")}{' '}<RelativeTime value={member.createdAt} /></span>
                     </span>
                 )} />
             <div className="flex flex-col gap-8">
                 <Section
                     id="effective-access"
-                    title="Project access"
-                    description="What they can review now, and why. Grants add together.">
+                    title={t("Project access")}
+                    description={t("What they can review now, and why. Grants add together.")}>
                     {projects.length ? (
-                        <ItemGroup aria-label="Projects" className="gap-0 divide-y rounded-lg border">
+                        <ItemGroup aria-label={t("Projects")} className="gap-0 divide-y rounded-lg border">
                             {projects.map(({ project, sources }) => (
                                 <Item key={project.id} role="listitem" className="rounded-none">
                                     <ItemMedia>
@@ -75,8 +81,8 @@ async function PersonPageContent({ params }: PageProps<'/app/workspace/users/[us
                     ) : (
                         <Empty className="border">
                             <EmptyHeader>
-                                <EmptyTitle>No project access</EmptyTitle>
-                                <EmptyDescription>Add them to a team or give them direct access below.</EmptyDescription>
+                                <EmptyTitle>{t("No project access")}</EmptyTitle>
+                                <EmptyDescription>{t("Add them to a team or give them direct access below.")}</EmptyDescription>
                             </EmptyHeader>
                         </Empty>
                     )}

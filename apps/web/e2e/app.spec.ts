@@ -346,7 +346,7 @@ test('onboarding creates a project with its addresses and sets up reviews one st
     await expect(page.getByRole('heading', { level: 1, name: 'example.com' })).toBeVisible();
     await expect(page).toHaveTitle('example.com · uier');
     await expect(page.getByText('No comments yet')).toBeVisible();
-    // Until the site sends a comment, the tabs offer the install guide; Settings is the header's cog
+    // Until the site sends a comment, the tabs offer the install guide; Settings is the cog at the tabs' right end
     await expect(page.getByRole('navigation', { name: 'Project' }).getByRole('link')).toHaveText(['Comments', 'Page checks', 'Install']);
     await expect(page.getByRole('link', { name: 'Settings', exact: true })).toHaveAttribute('href', `/app/projects/${projectId}/settings`);
     const empty = page.locator('[data-slot="empty"]');
@@ -481,7 +481,7 @@ test('project settings sections save the name, comment access and addresses', as
     const projectId = await createProject(page, { urls: ['settings.example.com'] });
     await page.goto(`/app/projects/${projectId}/settings`);
     await expect(page.getByRole('heading', { level: 1, name: 'settings.example.com' })).toBeVisible();
-    // The header's Settings button is current (the breadcrumb ends at Settings too, as a disabled link)
+    // The tabs' Settings cog is current (the breadcrumb ends at Settings too, as a disabled link)
     const settingsButton = page.getByRole('link', { name: 'Settings', exact: true, disabled: false });
     await expect(settingsButton).toHaveAttribute('aria-current', 'page');
     // An icon (the cog), named by its label and a tooltip
@@ -556,6 +556,37 @@ test('project settings sections save the name, comment access and addresses', as
     await expect(page.getByRole('heading', { level: 1, name: 'Marketing site' })).toBeVisible();
     await page.goto('/app/projects');
     await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'Marketing site' })).toBeVisible();
+});
+
+test('on a phone, project settings fade the tabs hidden past an edge and keep the usage numbers in line', async ({ page }) => {
+    await page.setViewportSize({ width: 402, height: 833 });
+    await signIn(page, uniqueEmail());
+    const projectId = await createProject(page, { urls: ['narrow-settings.example.com'] });
+    await page.goto(`/app/projects/${projectId}/settings`);
+
+    // The sections scroll sideways: an edge fades out only while more tabs are past it (uier #283)
+    const sections = page.getByRole('navigation', { name: 'Project settings' });
+    await expect(sections.getByRole('link', { name: 'General' })).toHaveAttribute('aria-current', 'page');
+    await expect(sections).toHaveAttribute('data-hidden-end', 'true');
+    await expect(sections).not.toHaveAttribute('data-hidden-start');
+    await sections.evaluate(element => { element.scrollLeft = element.scrollWidth; });
+    await expect(sections).toHaveAttribute('data-hidden-start', 'true');
+    await expect(sections).not.toHaveAttribute('data-hidden-end');
+
+    // A label that wraps (a longer one, as in a translation) leaves the numbers of its row on one line (uier #284)
+    const usage = page.getByRole('region', { name: 'Usage' });
+    const labels = usage.locator('dt');
+    await labels.first().evaluate(element => { element.textContent = 'Comments left on every page of the site'; });
+    // The text's own height (a dt stretches to its row)
+    const textHeight = (index: number) => labels.nth(index).evaluate(element => {
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        return range.getBoundingClientRect().height;
+    });
+    expect(await textHeight(0)).toBeGreaterThan(await textHeight(1) * 1.5);
+    const values = usage.locator('dd');
+    const [comments, open] = await Promise.all([values.nth(0).boundingBox(), values.nth(1).boundingBox()]);
+    expect(Math.abs(comments!.y - open!.y)).toBeLessThan(1);
 });
 
 test('the sidebar has the sections, the active projects and the account', async ({ page }) => {
@@ -1021,29 +1052,36 @@ test('reply from list and board with mentions, keyboard input and local drafts',
         await expect(input).toBeFocused();
         // The shared message composer: its hints and buttons in one box
         await expect(input).toHaveAccessibleDescription('Type @ to mention someone with access. Enter to send. Shift+Enter for a new line.');
+        // Mentions are said to screen readers only, with no visible hint (uier #287)
+        await expect(card.getByText('@ to mention', { exact: true })).toHaveCount(0);
         await expect(card.getByRole('form', { name: 'Reply to thread' }).getByRole('group').getByRole('button', { name: 'Post reply' })).toBeDisabled();
+        // No close button: Escape in the empty box closes it and gives the focus back to Reply (uier #288)
+        await expect(card.getByRole('button', { name: 'Close reply' })).toHaveCount(0);
+        await input.press('Escape');
+        await expect(input).toHaveCount(0);
+        await expect(card.getByRole('button', { name: 'Reply', exact: true })).toBeFocused();
+        await card.getByRole('button', { name: 'Reply', exact: true }).click();
         await input.fill('Keep this draft');
-        await card.getByRole('button', { name: 'Close reply' }).click();
         await backToComments(page);
         await page.getByRole('button', { name: 'Board', exact: true }).click();
         await openComment(page, 'Reply without finding a pin');
         await card.getByRole('button', { name: 'Reply', exact: true }).click();
-        await expect(input).toHaveValue('Keep this draft');
+        await expect(input).toHaveText('Keep this draft', { useInnerText: true });
         await page.reload();
         await card.getByRole('button', { name: 'Reply', exact: true }).click();
-        await expect(input).toHaveValue('Keep this draft');
+        await expect(input).toHaveText('Keep this draft', { useInnerText: true });
         await card.getByRole('button', { name: 'Discard', exact: true }).click();
-        await expect(input).toHaveValue('');
+        await expect(input).toHaveText('', { useInnerText: true });
         await input.fill('Please check @');
         const people = card.getByRole('listbox', { name: 'Mention people' });
         await expect(people.getByRole('option')).toHaveCount(1);
         await input.press('Tab');
-        await expect(input).toHaveValue(`Please check @${email.split('@')[0]} `);
+        await expect(input).toHaveText(`Please check @${email.split('@')[0]} `, { useInnerText: true });
         await input.press('Shift+Enter');
         await input.pressSequentially('Second line');
-        const text = await input.inputValue();
+        const text = await input.innerText();
         await input.dispatchEvent('keydown', { key: 'Enter', code: 'Enter', isComposing: true });
-        await expect(input).toHaveValue(text);
+        await expect(input).toHaveText(text, { useInnerText: true });
         let release!: () => void;
         const held = new Promise<void>(resolve => { release = resolve; });
         let posts = 0;
@@ -1055,12 +1093,12 @@ test('reply from list and board with mentions, keyboard input and local drafts',
             await input.press('Enter');
             await expect.poll(() => posts).toBe(1);
             await expect(card.getByText(text.trim(), { exact: true })).toBeVisible();
-            await expect(input).toHaveValue('');
+            await expect(input).toHaveText('', { useInnerText: true });
             await input.fill('New text while sending');
             await expect(card.getByRole('button', { name: 'Post reply' })).toBeDisabled();
             release();
             await expect(card.getByRole('button', { name: 'Post reply' })).toBeEnabled();
-            await expect(input).toHaveValue('New text while sending');
+            await expect(input).toHaveText('New text while sending', { useInnerText: true });
             await expect(card.getByText(text.trim(), { exact: true })).toHaveCount(1);
         } finally { release(); }
         await page.unroute(`**/app/projects/${project}*`);
@@ -1073,12 +1111,12 @@ test('reply from list and board with mentions, keyboard input and local drafts',
         await page.getByRole('menuitem', { name: 'Done', exact: true }).click();
         await expect(card.getByRole('button', { name: 'Status: Done. Change status' })).toBeEnabled();
         // The open thread keeps its reply box and draft through the status change
-        await expect(input).toHaveValue('New text while sending');
+        await expect(input).toHaveText('New text while sending', { useInnerText: true });
         await input.fill('Reply on a done thread');
         await input.press('Enter');
         await expect(card.getByText('Reply on a done thread', { exact: true })).toBeVisible();
         await expect(card.getByRole('button', { name: 'Status: Done. Change status' })).toBeVisible();
-        await expect(input).toHaveValue('');
+        await expect(input).toHaveText('', { useInnerText: true });
         // The optimistic message and cleared draft precede action revalidation. Wait for the
         // saved reply before axe snapshots the document while streamed metadata is changing.
         await expect(card.getByRole('status').filter({ hasText: /^Reply posted$/ })).toHaveText('Reply posted');
@@ -1132,12 +1170,12 @@ test('app replies retry a lost response once and reject forged or unauthorized a
         });
         await input.press('Enter');
         await expect(card.getByRole('alert')).toBeVisible();
-        await expect(input).toHaveValue('Save once after response loss');
+        await expect(input).toHaveText('Save once after response loss', { useInnerText: true });
         await page.reload();
         await card.getByRole('button', { name: 'Reply', exact: true }).click();
-        await expect(input).toHaveValue('Save once after response loss');
+        await expect(input).toHaveText('Save once after response loss', { useInnerText: true });
         await input.press('Enter');
-        await expect(input).toHaveValue('');
+        await expect(input).toHaveText('', { useInnerText: true });
         await expect(card.getByText('Save once after response loss', { exact: true })).toHaveCount(1);
         await page.unroute(`**/app/projects/${project}*`);
         expect((await (await request.get(`/api/review/${project}/comments?scope=site`, { headers })).json()).find((item: { id: string }) => item.id === saved.id).thread.items).toHaveLength(2);

@@ -1,6 +1,7 @@
 export const KnownPages = {
     Landing: '/',
     Guides: '/guides',
+    Compare: '/compare',
     ClientReviewGuide: '/guides/client-website-reviews',
     NextJsGuide: '/guides/nextjs',
     HowItWorks: '/#how-it-works',
@@ -90,6 +91,7 @@ export const projectAccessAnchor = 'who-can-comment';
 
 /** Pages with a parameter */
 export const KnownPageLinks = {
+    comparison: (slug: string) => `${KnownPages.Compare}/${encodeURIComponent(slug)}`,
     integration: (provider: string) => `/integrations/${encodeURIComponent(provider)}`,
     team: (id: string) => `/app/workspace/teams/${encodeURIComponent(id)}`,
     member: (id: string) => `/app/workspace/users/${encodeURIComponent(id)}`,

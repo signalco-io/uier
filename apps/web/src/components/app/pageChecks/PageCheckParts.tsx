@@ -1,3 +1,7 @@
+'use client';
+import { useAppI18n } from '@/src/lib/i18n/client';
+
+import type { AppTranslator } from '@/src/lib/i18n/types';
 import { ArrowUpRightIcon, CircleAlertIcon, CircleCheckIcon, InfoIcon, OctagonAlertIcon, TriangleAlertIcon, type LucideIcon } from 'lucide-react';
 import { KnownPageLinks } from '@/src/knownPages';
 import { cn } from '@/src/lib/utils';
@@ -52,6 +56,7 @@ export function PageLink({ projectId, page, environments, base }: {
     environments: readonly PageEnvironment[];
     base?: string;
 }) {
+    const { t } = useAppI18n();
     const shown = page.sourcePath ?? page.path;
     const above = base && shown.startsWith(base) && shown.length > base.length ? base : '';
     const address = (
@@ -64,7 +69,7 @@ export function PageLink({ projectId, page, environments, base }: {
     return (
         <a href={KnownPageLinks.projectReview(projectId, `${page.origin}${shown}`)} target="_blank" rel="noopener"
             className="-mx-1 inline-flex w-fit max-w-full min-w-0 items-center gap-1 rounded-md px-1 underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none pointer-coarse:min-h-11">
-            <span className="sr-only">Open in review: </span>
+            <span className="sr-only">{t("Open in review: ")}</span>
             {address}
             <ArrowUpRightIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
         </a>
@@ -73,11 +78,12 @@ export function PageLink({ projectId, page, environments, base }: {
 
 /** The page's address and its title under it (and its environment, when the project has several) */
 export function PageCell({ projectId, page, environments }: { projectId: string; page: PageCheckRow; environments: readonly PageEnvironment[] }) {
+    const { t } = useAppI18n();
     const environment = environments.find(item => item.origin === page.origin);
     return (
         <div className="flex min-w-0 flex-col gap-0.5">
             <PageLink projectId={projectId} page={page} environments={environments} />
-            <span className={cn('min-w-0 text-sm break-words whitespace-normal', !page.title && 'text-muted-foreground')}>{page.title ?? 'No title'}</span>
+            <span className={cn('min-w-0 text-sm break-words whitespace-normal', !page.title && 'text-muted-foreground')}>{page.title ?? t("No title")}</span>
             {environments.length > 1 && <span className="truncate text-xs text-muted-foreground">{environment?.label ?? page.origin}</span>}
         </div>
     );
@@ -85,12 +91,13 @@ export function PageCell({ projectId, page, environments }: { projectId: string;
 
 /** axe-core's issues by impact (only the impacts it found), or why there are none */
 export function AccessibilityResult({ page }: { page: PageCheckRow }) {
-    if (!page.accessibility) return muted('Not checked');
-    if (!accessibilityTotal(page.accessibility)) return <Marked mark={passIcon}>None found</Marked>;
+    const { t } = useAppI18n();
+    if (!page.accessibility) return muted(t("Not checked"));
+    if (!accessibilityTotal(page.accessibility)) return <Marked mark={passIcon}>{t("None found")}</Marked>;
     return (
         <span className="flex flex-col gap-0.5">
             {impacts.filter(impact => page.accessibility![impact] > 0).map(impact => (
-                <Marked key={impact} mark={impactIcons[impact]}>{page.accessibility![impact]} {impactLabels[impact].toLowerCase()}</Marked>
+                <Marked key={impact} mark={impactIcons[impact]}>{t('{count} {impact}', { count: page.accessibility![impact], impact: t(impactLabels[impact]).toLocaleLowerCase() })}</Marked>
             ))}
         </span>
     );
@@ -98,18 +105,20 @@ export function AccessibilityResult({ page }: { page: PageCheckRow }) {
 
 /** The SEO checks worth a look, and how many passed */
 export function SeoResult({ page }: { page: PageCheckRow }) {
+    const { t } = useAppI18n();
     return (
         <span className="flex flex-col gap-0.5">
-            {page.seo.warn > 0 ? <Marked mark={warnIcon}>{page.seo.warn} to look at</Marked> : <Marked mark={passIcon}>None to look at</Marked>}
-            {muted(`${page.seo.pass} passed`)}
+            {page.seo.warn > 0 ? <Marked mark={warnIcon}>{t("{count} to look at", { count: page.seo.warn })}</Marked> : <Marked mark={passIcon}>{t("None to look at")}</Marked>}
+            {muted(t("{count} passed", { count: page.seo.pass }))}
         </span>
     );
 }
 
 /** Core Web Vitals measured in the member's browser, each against its target (its states on hover, focus or a tap) */
 export function VitalsResult({ page }: { page: PageCheckRow }) {
+    const { t } = useAppI18n();
     const measured = vitalNames.filter(name => page.vitals?.[name] !== undefined);
-    if (!measured.length) return muted('Not measured');
+    if (!measured.length) return muted(t("Not measured"));
     return (
         <span className="flex flex-col gap-0.5">
             {measured.map(name => (
@@ -121,12 +130,15 @@ export function VitalsResult({ page }: { page: PageCheckRow }) {
 }
 
 /** What changed since the check before, in counts */
-export function changeText(page: PageCheckRow) {
+export function changeText(page: PageCheckRow, t: AppTranslator) {
     const change = pageCheckChange(page);
-    if (!change) return 'First check';
+    if (!change) return t('First check');
+    const issues = Math.abs(change.accessibility ?? 0);
     const parts = [
-        change.accessibility ? `${Math.abs(change.accessibility)} ${change.accessibility < 0 ? 'fewer' : 'more'} ${Math.abs(change.accessibility) === 1 ? 'issue' : 'issues'}` : undefined,
-        change.seo ? `${Math.abs(change.seo)} ${change.seo < 0 ? 'fewer' : 'more'} to look at` : undefined
+        change.accessibility ? change.accessibility < 0
+            ? issues === 1 ? t('1 fewer issue') : t('{count} fewer issues', { count: issues }) : issues === 1 ? t('1 more issue') : t('{count} more issues', { count: issues }) : undefined,
+        change.seo ? change.seo < 0
+            ? t('{count} fewer to look at', { count: Math.abs(change.seo) }) : t('{count} more to look at', { count: change.seo }) : undefined
     ].filter(Boolean);
-    return parts.length ? parts.join(', ') : 'No change';
+    return parts.length ? parts.join(', ') : t('No change');
 }

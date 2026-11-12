@@ -19,19 +19,19 @@ test('pinned and rewrite drafts restore text/anchors on navigation and reload, w
     const before = await page.locator('[data-uier-comment="new"]').boundingBox();
     await page.keyboard.press('Escape');
     await page.locator('[data-uier-comment="new"]').click();
-    await expect(draft.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Keep my anchored feedback');
+    await expect(draft.getByRole('textbox', { name: 'Comment', exact: true })).toHaveText('Keep my anchored feedback', { useInnerText: true });
     await page.goto(`${origin}/brand`);
     await expect(page.locator('[data-uier-comment="new"]')).toHaveCount(0);
     await page.goto(origin);
     await page.getByRole('button', { name: 'New comment', exact: true }).click();
-    await expect(draft.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Keep my anchored feedback');
+    await expect(draft.getByRole('textbox', { name: 'Comment', exact: true })).toHaveText('Keep my anchored feedback', { useInnerText: true });
     const after = await page.locator('[data-uier-comment="new"]').boundingBox();
     expect(Math.abs(after!.x - before!.x)).toBeLessThan(3);
     await expect(draft.locator('img')).toHaveCount(0);
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.reload();
     await page.getByRole('button', { name: 'New comment', exact: true }).click();
-    await expect(draft.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Keep my anchored feedback');
+    await expect(draft.getByRole('textbox', { name: 'Comment', exact: true })).toHaveText('Keep my anchored feedback', { useInnerText: true });
     await expect(page.locator('html')).toHaveClass(/dark/);
     await animationsFinished(page.locator('body'));
     await expectNoAxeViolations(page);
@@ -39,7 +39,7 @@ test('pinned and rewrite drafts restore text/anchors on navigation and reload, w
     await page.emulateMedia({ colorScheme: 'light' });
     await page.reload();
     await page.getByRole('button', { name: 'New comment', exact: true }).click();
-    await expect(draft.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Keep my anchored feedback');
+    await expect(draft.getByRole('textbox', { name: 'Comment', exact: true })).toHaveText('Keep my anchored feedback', { useInnerText: true });
     await expect(page.locator('html')).not.toHaveClass(/dark/);
     await animationsFinished(page.locator('body'));
     await expectNoAxeViolations(page);
@@ -56,13 +56,13 @@ test('pinned and rewrite drafts restore text/anchors on navigation and reload, w
     await rewrite.getByRole('textbox', { name: 'Suggested text' }).fill('Keep the rewrite');
     await page.reload();
     await page.getByRole('button', { name: 'New rewrite suggestion', exact: true }).click();
-    await expect(rewrite.getByRole('textbox', { name: 'Suggested text' })).toHaveValue('Keep the rewrite');
+    await expect(rewrite.getByRole('textbox', { name: 'Suggested text' })).toHaveText('Keep the rewrite', { useInnerText: true });
     await expect(rewrite).toContainText('Review any live website');
     await expect(page.locator('[data-uier-comment="new"]')).toHaveCount(2);
     expect(await page.evaluate(() => JSON.stringify(Object.values(localStorage)))).not.toContain('data:image');
     await rewrite.getByRole('button', { name: 'Discard' }).click();
     await page.getByRole('button', { name: 'New comment', exact: true }).click();
-    await expect(draft.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Another anchored draft');
+    await expect(draft.getByRole('textbox', { name: 'Comment', exact: true })).toHaveText('Another anchored draft', { useInnerText: true });
     await draft.getByRole('button', { name: 'Discard' }).click();
     await context.close();
 });
@@ -90,10 +90,10 @@ test('uncertain create and reply responses survive reload and repeated submissio
     });
     await expect(draft.getByRole('alert')).toContainText('Check your connection');
     expect(posts).toBe(1);
-    await expect(draft.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Save once after a lost response');
+    await expect(draft.getByRole('textbox', { name: 'Comment', exact: true })).toHaveText('Save once after a lost response', { useInnerText: true });
     await page.reload();
     await page.getByRole('button', { name: 'New comment', exact: true }).click();
-    await expect(draft.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Save once after a lost response');
+    await expect(draft.getByRole('textbox', { name: 'Comment', exact: true })).toHaveText('Save once after a lost response', { useInnerText: true });
     await page.unroute('**/api/comments');
     const retry = page.waitForRequest(request => request.method() === 'POST' && new URL(request.url()).pathname === '/api/comments');
     await draft.getByRole('button', { name: 'Post comment' }).click();
@@ -109,10 +109,10 @@ test('uncertain create and reply responses survive reload and repeated submissio
     await expect(thread.getByRole('alert')).toContainText('Check your connection');
     await page.reload();
     await page.locator(`[data-uier-comment="${comments[0]!.id}"]`).click();
-    await expect(thread.getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue('Keep this reply too');
+    await expect(thread.getByRole('textbox', { name: 'Reply', exact: true })).toHaveText('Keep this reply too', { useInnerText: true });
     await page.unroute(repliesUrl);
     await thread.getByRole('button', { name: 'Post reply' }).click();
-    await expect(thread.getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue('');
+    await expect(thread.getByRole('textbox', { name: 'Reply', exact: true })).toHaveText('', { useInnerText: true });
     // Sent in the background
     await expect.poll(async () => {
         const saved = await page.evaluate(async () => (await (await fetch('/api/comments?path=/')).json() as CommentDto[])[0]) as CommentDto;
@@ -132,10 +132,10 @@ test('page feedback, bugs and edits keep separate drafts and sign-out clears eve
     await feedback.getByRole('textbox', { name: 'Bug report', exact: true }).fill('Bug draft');
     await page.reload();
     await page.getByRole('button', { name: 'Send feedback', exact: true }).click();
-    await expect(feedback.getByRole('textbox', { name: 'Bug report', exact: true })).toHaveValue('Bug draft');
+    await expect(feedback.getByRole('textbox', { name: 'Bug report', exact: true })).toHaveText('Bug draft', { useInnerText: true });
     await feedback.getByRole('button', { name: 'Feedback', exact: true }).click();
-    await expect(feedback.getByRole('textbox', { name: 'Feedback', exact: true })).toHaveValue('Feedback draft');
-    // The kept text is the cue: no "Draft saved in this browser" line under the feedback box
+    await expect(feedback.getByRole('textbox', { name: 'Feedback', exact: true })).toHaveText('Feedback draft', { useInnerText: true });
+    // The kept text is the cue: no "Draft saved in this browser" line under the box
     await expect(feedback.getByText('Draft saved in this browser')).toHaveCount(0);
     await feedback.getByRole('button', { name: 'Send feedback', exact: true }).click();
     await expect(feedback).toBeHidden();
@@ -153,7 +153,7 @@ test('page feedback, bugs and edits keep separate drafts and sign-out clears eve
     await page.getByRole('textbox', { name: 'Edit comment', exact: true }).fill('Edit draft');
     await page.reload();
     await page.getByRole('button', { name: /^Inbox/ }).click();
-    await expect(page.getByRole('textbox', { name: 'Edit comment', exact: true })).toHaveValue('Edit draft');
+    await expect(page.getByRole('textbox', { name: 'Edit comment', exact: true })).toHaveText('Edit draft', { useInnerText: true });
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     await page.getByRole('button', { name: 'Close sidebar' }).click();
     await page.getByRole('button', { name: 'Options', exact: true }).click();
@@ -177,7 +177,7 @@ test('blocked browser storage retains a working composer and reports the recover
     await expect(draft.getByRole('status').filter({ hasText: 'Keep this page open' })).toBeVisible();
     await page.keyboard.press('Escape');
     await page.locator('[data-uier-comment="new"]').click();
-    await expect(draft.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Still send my feedback');
+    await expect(draft.getByRole('textbox', { name: 'Comment', exact: true })).toHaveText('Still send my feedback', { useInnerText: true });
     await draft.getByRole('button', { name: 'Post comment' }).click();
     await expect(openThread(page)).toContainText('Still send my feedback');
     await context.close();
@@ -194,7 +194,7 @@ test('a failed reviewer lookup offers retry before restoring the authorized draf
     await page.unroute('**/api/visitor?*');
     await page.getByRole('button', { name: 'Try again', exact: true }).click();
     await page.getByRole('button', { name: 'New comment', exact: true }).click();
-    await expect(page.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Recover when the service returns');
+    await expect(page.getByRole('textbox', { name: 'Comment', exact: true })).toHaveText('Recover when the service returns', { useInnerText: true });
     await context.close();
 });
 
@@ -224,13 +224,13 @@ test('inline and pin composers share edit/reply drafts and pending state', async
     const inlineThread = page.getByRole('region', { name: 'Headline comment thread' });
     await inlineThread.getByRole('button', { name: 'More options for your comment' }).click();
     await page.getByRole('dialog', { name: 'Comment options', exact: true }).getByRole('button', { name: 'Edit', exact: true }).click();
-    await expect(inlineThread.getByRole('textbox', { name: 'Edit comment', exact: true })).toHaveValue('Keep the same edit from either surface');
+    await expect(inlineThread.getByRole('textbox', { name: 'Edit comment', exact: true })).toHaveText('Keep the same edit from either surface', { useInnerText: true });
     await inlineThread.getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(inlineThread.getByRole('button', { name: 'More options for your comment' })).toBeFocused();
     await page.getByRole('heading', { level: 1 }).scrollIntoViewIfNeeded();
     await page.locator(`[data-uier-comment="${comment.id}"]`).click();
     await pin.fill('Send from either composer');
-    await expect(inline).toHaveValue('Send from either composer');
+    await expect(inline).toHaveText('Send from either composer', { useInnerText: true });
     let posts = 0;
     let release: (() => void) | undefined;
     await page.route(`**/api/comments/${comment.id}/replies`, async route => {
@@ -241,8 +241,8 @@ test('inline and pin composers share edit/reply drafts and pending state', async
     try {
         await page.getByRole('dialog', { name: 'Comment thread', exact: true }).getByRole('button', { name: 'Post reply' }).click();
         // Sent in the background: both composers are empty and the reply shows before the API answers
-        await expect(pin).toHaveValue('');
-        await expect(inline).toHaveValue('');
+        await expect(pin).toHaveText('', { useInnerText: true });
+        await expect(inline).toHaveText('', { useInnerText: true });
         await expect(page.getByRole('dialog', { name: 'Comment thread', exact: true })).toContainText('Send from either composer');
         await expect.poll(() => posts).toBe(1);
         await inline.evaluate(element => element.closest('form')!.requestSubmit());

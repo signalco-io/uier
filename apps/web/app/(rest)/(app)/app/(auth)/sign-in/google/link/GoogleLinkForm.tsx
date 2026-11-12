@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useActionState } from 'react';
 import { Button } from '@/src/components/ui/button';
 import { Spinner } from '@/src/components/ui/spinner';
@@ -9,6 +11,7 @@ import { SignInCodeForm } from '../../SignInForm';
 
 /** The usual sign-in email for the account's address; this browser's waiting Google account rides along. */
 export function GoogleLinkForm({ email, next }: { email: string; next?: string }) {
+    const { t } = useAppI18n();
     const [state, formAction, pending] = useActionState(requestSignInAction, null);
 
     if (state?.ok)
@@ -21,8 +24,7 @@ export function GoogleLinkForm({ email, next }: { email: string; next?: string }
             <FormMessage state={state} />
             <Button type="submit" size="lg" className="w-full" disabled={pending}>
                 {pending && <Spinner data-icon="inline-start" />}
-                Email me a sign-in code
-            </Button>
+                {t("Email me a sign-in code")}{' '}</Button>
         </form>
     );
 }

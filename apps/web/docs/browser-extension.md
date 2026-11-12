@@ -59,10 +59,17 @@ listing worksheet, the popup (`packages/extension/src/popup.tsx`) and the receip
 Firefox notice live in `src/lib/extension/release.ts` (static pages build without the hosted
 `UIER_EXTENSION_*` settings). The store button uses the same `chromeWebStoreUrl` as the app's link.
 Recheck both pages, and the legal pages' extension sections, when a release changes labels,
-permissions, sign-in or capture. `browser-extension.api.spec.ts` checks the store link and
+permissions, sign-in or capture, and the setup guide's pictures of the popup and the comment box
+(`GuideSpecimens`, [guides](guides.md)). `browser-extension.api.spec.ts` checks the store link and
 `browser-extension.spec.ts` their content.
 
-`/browser-extension` lists the supported browsers under the hero: desktop Chrome and Microsoft Edge
+`/browser-extension`'s cover (`BrowserExtensionCover`, beside the header on wide screens and under it
+on narrow ones, like the security page's) shows Chrome, Microsoft Edge and Firefox as their official
+logos on bordered tiles over a dot grid, names written under them and Firefox's tile dashed and marked
+"In review" until Mozilla approves it. Its height is fixed per breakpoint. The logos are unchanged copies in
+`public/browsers` of the `@browser-logos` packages (github.com/alrra/browser-logos), decorative and in
+their own colours. Other Chromium browsers (Brave, Vivaldi, Opera, Arc) stay off until a release is
+tested in them; no receipt covers them yet. The page then lists the supported browsers under the hero: desktop Chrome and Microsoft Edge
 from `minimumBrowserVersion`. Firefox's shared build requires version 153 or later; its 0.1.5 native
 hosted acceptance passed and its submission is awaiting Mozilla review. The FAQ, public pages and
 app installation guide show the same notice. The homepage's "Review your own site" card lists the

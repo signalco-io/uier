@@ -63,6 +63,19 @@
             min-width: 44px;
             min-height: 44px;
         }
+
+        /* Reaction pills (components/MessageReactions.tsx) look 32 px tall in a row of their own; the
+           hit area stays 44 px, 6 px above and below, and their rows are 12 px apart so none overlap */
+        [data-uier-root] button[data-uier-reaction] {
+            position: relative;
+            min-height: 32px;
+        }
+
+        [data-uier-root] button[data-uier-reaction]::after {
+            content: "";
+            position: absolute;
+            inset: -6px 0;
+        }
     }
 }
 

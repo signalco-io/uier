@@ -1,5 +1,6 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
 import { useActionState, useId, useState } from 'react';
 import { Button } from '@/src/components/ui/button';
 import { CardContent, CardFooter } from '@/src/components/ui/card';
@@ -24,6 +25,7 @@ function derivedName(mainUrl: string | undefined) {
  * placeholder is the name the main address gives it, as it is typed.
  */
 export function NewProjectForm({ clients }: { clients: string[] }) {
+    const { t } = useAppI18n();
     const id = useId();
     const [state, formAction, pending] = useActionState(createProjectAction, null);
     const [name, setName] = useState('');
@@ -34,20 +36,20 @@ export function NewProjectForm({ clients }: { clients: string[] }) {
             <CardContent>
                 <FieldGroup>
                     <UrlListInput
-                        description="The site you want to review first, then any staging or preview addresses, so reviewers can open any of them."
+                        description={t("The site you want to review first, then any staging or preview addresses, so reviewers can open any of them.")}
                         onUrlsChange={urls => setMainUrl(urls[0])} />
                     <Field>
-                        <FieldLabel htmlFor={`${id}-name`}>Project name</FieldLabel>
+                        <FieldLabel htmlFor={`${id}-name`}>{t("Project name")}</FieldLabel>
                         <Input
                             id={`${id}-name`}
                             name="name"
                             value={name}
                             onChange={(event) => setName(event.target.value)}
                             maxLength={MAX_PROJECT_NAME_LENGTH}
-                            placeholder={derivedName(mainUrl) ?? 'Defaults to the site\'s domain'} />
+                            placeholder={derivedName(mainUrl) ?? t("Defaults to the site's domain")} />
                     </Field>
                     <Field>
-                        <FieldLabel htmlFor={`${id}-client`}>Client name (optional)</FieldLabel>
+                        <FieldLabel htmlFor={`${id}-client`}>{t("Client name (optional)")}</FieldLabel>
                         <ClientNameInput id={`${id}-client`} value={clientName} onValueChange={setClientName} clients={clients} />
                     </Field>
                 </FieldGroup>
@@ -55,9 +57,7 @@ export function NewProjectForm({ clients }: { clients: string[] }) {
             <CardFooter className="justify-end gap-3 border-t">
                 <FormMessage state={state} className="mr-auto" />
                 <Button type="submit" disabled={pending}>
-                    {pending && <Spinner data-icon="inline-start" />}
-                    Create project
-                </Button>
+                    {pending && <Spinner data-icon="inline-start" />}{t("Create project")}</Button>
             </CardFooter>
         </form>
     );

@@ -1,3 +1,6 @@
+'use client';
+
+import { useAppI18n } from '@/src/lib/i18n/client';
 import { FlagIcon, type LucideProps } from 'lucide-react';
 import { priorityLabels, type CommentPriority } from '@uier/toolbar/triage';
 import { cn } from '@/src/lib/utils';
@@ -24,8 +27,9 @@ export function PriorityFlag({ priority, className, ...props }: { priority: Comm
  * icon-only indicators (Private, the assignee) are named the same way, without a tooltip.
  */
 export function PriorityLabel({ priority }: { priority: CommentPriority }) {
+    const { t } = useAppI18n();
     return (
-        <span role="img" aria-label={`${priorityLabels[priority]} priority`} className="inline-flex items-center">
+        <span role="img" aria-label={t("{priority} priority", { priority: t(priorityLabels[priority]) })} className="inline-flex items-center">
             <PriorityFlag priority={priority} className="size-3.5" />
         </span>
     );

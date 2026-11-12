@@ -4,7 +4,9 @@ import { join } from 'node:path';
 
 const year = 365 * 24 * 60 * 60 * 1000;
 const hashPattern = /^[a-f0-9]{64}$/;
-const bundleSizeLimit = 1_000_000;
+// The review script is about 1.22 MB with the message editor (ProseMirror, about 240 KB of it); the limit
+// bounds every published and retained toolbar file, the loader far below it (e2e/toolbar-assets.api.spec.ts).
+const bundleSizeLimit = 1_500_000;
 
 function hash(bytes) { return createHash('sha256').update(bytes).digest('hex'); }
 

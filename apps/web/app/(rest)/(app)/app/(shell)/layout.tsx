@@ -1,3 +1,4 @@
+import { getAppI18n } from '@/src/lib/i18n/server';
 import { ShellLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
 import type { PropsWithChildren } from 'react';
@@ -19,6 +20,7 @@ import { AppShortcuts } from '@/src/components/app/keyboard/AppShortcuts';
 
 /** The signed-in app: the sidebar, a top bar with the breadcrumbs, and the page in an inset panel, with the keyboard shortcuts */
 async function AppShellLayoutContent({ children }: PropsWithChildren) {
+    const { t } = await getAppI18n();
     const context = await requireAppContext();
     const projectOrder = await getProjectOrder();
     const visibleProjects = listVisibleProjects(context);
@@ -48,8 +50,8 @@ async function AppShellLayoutContent({ children }: PropsWithChildren) {
                         const feedback = workspace.id === PUBLIC_WORKSPACE_ID && member.role !== 'admin';
                         return {
                             id: workspace.id,
-                            name: feedback ? 'Feedback on uier' : workspace.name,
-                            role: feedback ? 'Sent with Give feedback' : member.role === 'admin' ? 'Admin' : 'Commenter',
+                            name: feedback ? t('Feedback on uier') : workspace.name,
+                            role: feedback ? t('Sent with Give feedback') : member.role === 'admin' ? t('Admin') : t('Commenter'),
                             feedback
                         };
                     })}
@@ -62,7 +64,7 @@ async function AppShellLayoutContent({ children }: PropsWithChildren) {
                     <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b bg-background px-3 lg:static">
                         <SidebarTrigger />
                         <Separator orientation="vertical" className="mr-1 data-vertical:h-4 data-vertical:self-center" />
-                        <AppBreadcrumbs projectNames={Object.fromEntries(projects.map(project => [project.id, project.name]))} />
+                        <AppBreadcrumbs projects={Object.fromEntries(projects.map(project => [project.id, { name: project.name, url: project.urls[0] }]))} />
                     </header>
                     <div className="flex-1 lg:overflow-y-auto">
                         {/* While an element marked data-page-width="wide" is in it, this is a container, so the column can

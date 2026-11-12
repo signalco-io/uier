@@ -28,10 +28,10 @@ test('own replies are edited in place in the open thread, keeping mentions and n
         // Typing straight after choosing a mention continues after it (the caret never jumps back)
         await input.press('Tab');
         await input.pressSequentially('first draft');
-        await expect(input).toHaveValue(`Please check @${name} first draft`);
+        await expect(input).toHaveText(`Please check @${name} first draft`, { useInnerText: true });
         await input.press('Enter');
         await expect(card.getByRole('status').filter({ hasText: /^Reply posted$/ })).toHaveText('Reply posted');
-        await card.getByRole('button', { name: 'Close reply' }).click();
+        await input.press('Escape');
 
         // The reply's menu: Edit first, wide enough that no item wraps
         const actions = card.getByRole('button', { name: 'More actions for reply by you', exact: true });
@@ -45,7 +45,7 @@ test('own replies are edited in place in the open thread, keeping mentions and n
         await menu.getByRole('menuitem', { name: 'Edit', exact: true }).click();
         const editor = card.getByRole('textbox', { name: 'Edit reply', exact: true });
         await expect(editor).toBeFocused();
-        await expect(editor).toHaveValue(`Please check @${name} first draft`);
+        await expect(editor).toHaveText(`Please check @${name} first draft`, { useInnerText: true });
         await expect(actions).toHaveCount(0);
         await expectNoAxeViolations(page);
         // Escape and Cancel leave the message as it was and give the focus back to its menu
@@ -67,10 +67,10 @@ test('own replies are edited in place in the open thread, keeping mentions and n
         await expect(card.getByRole('listbox', { name: 'Mention people' }).getByRole('option')).toHaveCount(1);
         await editor.press('Enter');
         await editor.pressSequentially('then ship');
-        await expect(editor).toHaveValue(`Please check @${name} first draft, ask @${name} then ship`);
+        await expect(editor).toHaveText(`Please check @${name} first draft, ask @${name} then ship`, { useInnerText: true });
         // Reload while editing: both the text and selected mention identities come back in this message.
         await page.reload();
-        await expect(editor).toHaveValue(`Please check @${name} first draft, ask @${name} then ship`);
+        await expect(editor).toHaveText(`Please check @${name} first draft, ask @${name} then ship`, { useInnerText: true });
         await card.getByRole('button', { name: 'Save', exact: true }).click();
         const edited = `Please check @${name} first draft, ask @${name} then ship (edited)`;
         await expect(card.getByText(edited, { exact: true })).toBeVisible();
@@ -95,12 +95,12 @@ test('own replies are edited in place in the open thread, keeping mentions and n
         await editor.fill('My stale edit');
         // The restored editor must retain the original expectedText even though the page now has a newer reply.
         await page.reload();
-        await expect(editor).toHaveValue('My stale edit');
+        await expect(editor).toHaveText('My stale edit', { useInnerText: true });
         await editor.press('Enter');
         await expect(card.getByRole('alert')).toContainText('This message changed while you were editing.');
-        await expect(editor).toHaveValue('My stale edit');
+        await expect(editor).toHaveText('My stale edit', { useInnerText: true });
         await page.reload();
-        await expect(editor).toHaveValue('My stale edit');
+        await expect(editor).toHaveText('My stale edit', { useInnerText: true });
         await card.getByRole('button', { name: 'Cancel', exact: true }).click();
         await page.reload();
         await expect(card.getByText('Edited in another tab (edited)', { exact: true })).toBeVisible();

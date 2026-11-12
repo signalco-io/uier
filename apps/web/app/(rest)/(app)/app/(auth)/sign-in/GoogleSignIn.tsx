@@ -1,3 +1,4 @@
+import { getAppI18n } from '@/src/lib/i18n/server';
 import { CircleAlertIcon } from 'lucide-react';
 import { Alert, AlertDescription } from '@/src/components/ui/alert';
 import { cn } from 'cn';
@@ -19,7 +20,8 @@ const problems: Record<string, string> = {
 };
 
 /** Why the last Google attempt did not sign in, at the top of the card */
-export function GoogleSignInProblem({ outcome }: { outcome?: string | string[] }) {
+export async function GoogleSignInProblem({ outcome }: { outcome?: string | string[] }) {
+    const { t } = await getAppI18n();
     const problem = typeof outcome === 'string' && Object.hasOwn(problems, outcome) ? problems[outcome] : undefined;
     if (!problem)
         return null;
@@ -27,13 +29,14 @@ export function GoogleSignInProblem({ outcome }: { outcome?: string | string[] }
         // The card content adds 12 px between its children: 24 px above the email field
         <Alert role="alert" className="mb-3">
             <CircleAlertIcon />
-            <AlertDescription>{problem}</AlertDescription>
+            <AlertDescription>{t(problem)}</AlertDescription>
         </Alert>
     );
 }
 
 /** "Google" ("Sign in with Google" to assistive technologies), the same outline button as the other options (`SignInForm`'s `alternatives`) */
-export function GoogleSignInButton({ next, lastUsed, addingAccount = false }: { next?: string; lastUsed?: boolean; addingAccount?: boolean }) {
+export async function GoogleSignInButton({ next, lastUsed, addingAccount = false }: { next?: string; lastUsed?: boolean; addingAccount?: boolean }) {
+    const { t } = await getAppI18n();
     if (!isGoogleSignInConfigured())
         return null;
     const params = new URLSearchParams();
@@ -42,10 +45,9 @@ export function GoogleSignInButton({ next, lastUsed, addingAccount = false }: { 
     return (
         // A plain link: a full navigation, never prefetched (the route starts a sign-in).
         <a href={`${KnownPages.AppSignInGoogle}${params.size ? `?${params}` : ''}`}
-            aria-label="Sign in with Google" aria-describedby={lastUsed ? LAST_USED_ID : undefined} data-slot="button" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'relative w-full')}>
+            aria-label={t("Sign in with Google")} aria-describedby={lastUsed ? LAST_USED_ID : undefined} data-slot="button" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'relative w-full')}>
             <GoogleLogo data-icon="inline-start" />
-            Google
-            {lastUsed && <LastUsedBadge />}
+            {t("Google")}{' '}{lastUsed && <LastUsedBadge />}
         </a>
     );
 }

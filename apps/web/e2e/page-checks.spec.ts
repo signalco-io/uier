@@ -54,6 +54,10 @@ test('the Accessibility panel audits the page in the background without the tool
     await expect(button).toHaveAttribute('aria-expanded', 'true');
     const panel = page.getByRole('complementary', { name: 'Accessibility' });
     await expect(panel.getByRole('button', { name: 'Close Accessibility panel' })).toBeFocused();
+    // Check again is the same small icon button as Close, and never takes the focus (uier #297)
+    const checkAgainBox = await panel.getByRole('button', { name: 'Check again' }).boundingBox();
+    const closeBox = await panel.getByRole('button', { name: 'Close Accessibility panel' }).boundingBox();
+    expect([checkAgainBox?.width, checkAgainBox?.height]).toEqual([closeBox?.width, closeBox?.height]);
     await expect(panel.getByRole('status')).toHaveText(/^\d+ issues? found\.$/);
     expect(auditRequests).toHaveLength(1);
 
@@ -154,6 +158,23 @@ test('the Accessibility panel audits the page in the background without the tool
     await page.keyboard.press('Escape');
     await expect(panel).toBeHidden();
     await expect(button).toBeFocused();
+
+    // The title is a menu of the panels: SEO shows in this one's place, its Close focused (uier #299)
+    await button.click();
+    await panel.getByRole('heading', { name: 'Accessibility' }).getByRole('button').click();
+    const panels = page.getByRole('dialog', { name: 'Switch panel' });
+    await expect(panels.getByRole('button')).toHaveText(['Comments', 'Accessibility', 'SEO']);
+    await expect(panels.getByRole('button', { name: 'Accessibility' })).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await expect(panel).toBeHidden();
+    const seoPanel = page.getByRole('complementary', { name: 'SEO' });
+    await expect(seoPanel.getByRole('button', { name: 'Close SEO panel' })).toBeFocused();
+    await expect(seoButton).toHaveAttribute('aria-expanded', 'true');
+    await seoPanel.getByRole('heading', { name: 'SEO' }).getByRole('button').click();
+    await page.getByRole('dialog', { name: 'Switch panel' }).getByRole('button', { name: 'Comments' }).click();
+    await expect(seoPanel).toBeHidden();
+    await expect(page.getByRole('complementary', { name: 'Comments' }).getByRole('button', { name: 'Close sidebar' })).toBeFocused();
 });
 
 test('the Accessibility panel\'s Issues tab has a placeholder on a page without issues', async ({ page }, testInfo) => {
@@ -579,7 +600,7 @@ test('a panel that stays open shows the page it reached, never the previous one,
     await expect(inbox).toContainText('Features need a comparison table');
     await page.evaluate(() => history.pushState({}, '', `${location.pathname.replace(/\/team$/, '/features')}${location.search}`));
     await expect(inbox).toContainText('Features need a comparison table');
-    await expect(inboxPages(page)).toHaveAccessibleName(/This page$/);
+    await expect(inboxPages(page)).toHaveAccessibleName(/This page, \S+\/features$/);
 });
 
 test('a background audit nobody needs any more stops: collapsed while it loads or between its steps, and after Exit review', async ({ page }, testInfo) => {

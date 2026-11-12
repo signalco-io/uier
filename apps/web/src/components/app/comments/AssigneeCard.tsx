@@ -1,7 +1,9 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useLayoutEffect, useRef, useState, type MouseEvent, type ReactElement, type ReactNode } from 'react';
-import { assigneeAgents, agentModelText, modelName, reasoningText, type AssigneeAgentView } from '@uier/toolbar/agents';
+import { assigneeAgents, agentModelText, modelName, type AssigneeAgentView } from '@uier/toolbar/agents';
 import { useAgentWorking } from '@uier/toolbar/agent-working';
 import { cn } from '@/src/lib/utils';
 import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/src/components/ui/item';
@@ -11,6 +13,7 @@ import { hoverPopoverTrigger } from '../hoverPopover';
 import { AgentAvatar, AssigneeAvatars, assignedLabel, PersonAvatar, type Assignee } from './AgentAvatar';
 import { RelativeTime } from './DateTime';
 import { AgentSessionLink } from './AgentSessionLink';
+import { ReasoningLevel } from './ReasoningLevel';
 
 /**
  * The assignee's avatars on a row or board card (`AssigneeAvatars`). Hovering them shows who the thread is
@@ -30,6 +33,7 @@ export function AssigneeCard({ assignees, userId, subject, tabbable = true, onPr
     onPress?: (event: MouseEvent<HTMLButtonElement>) => void;
     className?: string;
 }) {
+    const { t } = useAppI18n();
     const [open, setOpen] = useState(false);
     const pointer = useRef<string>('');
     // Opened by the keyboard or a tap, focus goes to the card itself, not to its first cut-off line (and its tooltip)
@@ -37,7 +41,7 @@ export function AssigneeCard({ assignees, userId, subject, tabbable = true, onPr
     useAgentWorking(assignees.flatMap(person => assigneeAgents(person).map(agent => agent.workingUntil)));
     return (
         <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger {...hoverPopoverTrigger} delay={200} data-assignee-card="" aria-label={withSubject(assignedLabel(assignees, userId), subject)} tabIndex={tabbable ? undefined : -1}
+            <PopoverTrigger {...hoverPopoverTrigger} delay={200} data-assignee-card="" aria-label={withSubject(assignedLabel(assignees, userId, t), subject)} tabIndex={tabbable ? undefined : -1}
                 onPointerDown={event => { pointer.current = event.pointerType; }}
                 onClick={event => {
                     // Keyboard clicks have no detail; a tap has no hover to show the card
@@ -50,18 +54,18 @@ export function AssigneeCard({ assignees, userId, subject, tabbable = true, onPr
                 className={cn('relative z-10 -m-0.5 flex shrink-0 rounded-full p-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-coarse:-m-3 pointer-coarse:p-3', className)}>
                 <AssigneeAvatars assignees={assignees} decorative />
             </PopoverTrigger>
-            <PopoverContent ref={popup} initialFocus={popup} align="end" aria-label="Assignee details" className="max-h-[min(32rem,80dvh)] w-72 gap-2 overflow-y-auto p-2">
+            <PopoverContent ref={popup} initialFocus={popup} align="end" aria-label={t("Assignee details")} className="max-h-[min(32rem,80dvh)] w-72 gap-2 overflow-y-auto p-2">
                 {assignees.map(assignee => <div key={assignee.id} data-assignee-details={assignee.id} className="flex min-w-0 flex-col gap-1">
                     <Item size="xs">
                         <ItemMedia><PersonAvatar assignee={assignee} className="size-8" initialsClassName="text-xs" /></ItemMedia>
                         <ItemContent className="min-w-0">
-                            <ItemDescription>Assigned to</ItemDescription>
-                            <CutText full={assignee.id === userId ? 'You' : assignee.name} render={<ItemTitle className="block max-w-full truncate" />} />
+                            <ItemDescription>{t("Assigned to")}</ItemDescription>
+                            <CutText full={assignee.id === userId ? t("You") : assignee.name} render={<ItemTitle className="block max-w-full truncate" />} />
                         </ItemContent>
                     </Item>
                     {/* The line runs down from the centre of the person's 32px avatar: the item's 10px inset plus half the avatar, less half the 1px line */}
                     {assigneeAgents(assignee).length > 0 && <div data-assignee-agents="" className="ml-[25.5px] flex min-w-0 flex-col gap-1 border-l pl-1.5">
-                        {assigneeAgents(assignee).map((agent, index) => <AgentDetails key={agent.id ?? index} agent={agent} />)}
+                        {assigneeAgents(assignee).map((agent, index) => <AgentDetailsItem key={agent.id ?? index} agent={agent} />)}
                     </div>}
                 </div>)}
             </PopoverContent>
@@ -74,19 +78,27 @@ export function withSubject(label: string, subject?: string) {
     return subject ? `${label}, ${subject}` : label;
 }
 
-function AgentDetails({ agent }: { agent: AssigneeAgentView }) {
+/**
+ * One agent's details: its avatar beside the header line (name on the left, whether it is working and when it
+ * started on the right), then the model by name, the reasoning level as signal bars, the session and its desktop
+ * link. The assignee card lists one per agent; the thread's agent chip shows it on click (`sessionLink={false}`
+ * where the menu gives the link its own item).
+ */
+export function AgentDetailsItem({ agent, sessionLink = true, className }: { agent: AssigneeAgentView; sessionLink?: boolean; className?: string }) {
+    const { t } = useAppI18n();
     const working = useAgentWorking(agent.workingUntil);
     return (
-        <Item size="xs">
-            <ItemMedia><AgentAvatar kind={agent.kind} workingUntil={agent.workingUntil} className="size-6" /></ItemMedia>
+        <Item size="xs" data-agent-details="" className={className}>
+            {/* Centred on the header line, not on the whole block: the 24px avatar is 2px taller than that line */}
+            <ItemMedia className="-mt-0.5 self-start group-has-data-[slot=item-description]/item:translate-y-0"><AgentAvatar kind={agent.kind} workingUntil={agent.workingUntil} className="size-6" /></ItemMedia>
             <ItemContent className="min-w-0">
-                {/* The header: the name, then whether it is working and when it started, compact on the same line; the start gives way first */}
-                <div data-agent-header="" className="flex min-w-0 items-baseline gap-1.5">
-                    <CutText full={agent.label} render={<ItemTitle className="block min-w-0 max-w-[60%] shrink-0 truncate" />} />
-                    {(working || agent.setAt) && <span className="flex min-w-0 items-baseline gap-1 text-xs text-muted-foreground">
-                        {working && <span className="shrink-0">Working now</span>}
+                {/* The header: the name, then whether it is working and when it started, compact and on the right of the same line; the start gives way first */}
+                <div data-agent-header="" className="flex min-w-0 items-baseline justify-between gap-1.5">
+                    <CutText full={t(agent.label)} render={<ItemTitle className="block min-w-0 max-w-[60%] shrink-0 truncate" />} />
+                    {(working || agent.setAt) && <span className="ml-auto flex min-w-0 items-baseline justify-end gap-1 text-xs text-muted-foreground">
+                        {working && <span className="shrink-0">{t("Working now")}</span>}
                         {working && agent.setAt && <span aria-hidden="true" className="shrink-0">·</span>}
-                        {agent.setAt && <span data-agent-since="" className="min-w-0 truncate">Started <RelativeTime value={agent.setAt} short /></span>}
+                        {agent.setAt && <span data-agent-since="" className="min-w-0 truncate">{t("Started ")}<RelativeTime value={agent.setAt} short /></span>}
                     </span>}
                 </div>
                 {/* By name like the thread's Assignee field, the reported id as its title; an unknown id as it is, in mono */}
@@ -95,12 +107,12 @@ function AgentDetails({ agent }: { agent: AssigneeAgentView }) {
                         render={<ItemDescription className={modelName(agent.model) ? 'truncate' : 'truncate font-mono'} />}>
                         {agentModelText({ label: agent.label, model: agent.model })}
                     </CutText>
-                    : <ItemDescription className="truncate">No model given</ItemDescription>}
-                {agent.reasoning && <CutText full={reasoningText(agent.reasoning)} render={<ItemDescription className="truncate" />} />}
+                    : <ItemDescription className="truncate">{t("No model given")}</ItemDescription>}
+                {agent.reasoning && <ItemDescription className="flex min-w-0" title={t("{level} reasoning", { level: agent.reasoning })}><ReasoningLevel level={agent.reasoning} /></ItemDescription>}
                 {agent.sessionId && <CutText data-agent-session="" full={<span className="font-mono break-all">{agent.sessionId}</span>} render={<ItemDescription className="truncate" />}>
-                    Session <span className="font-mono">{agent.sessionId}</span>
+                    {t("Session ")}<span className="font-mono">{agent.sessionId}</span>
                 </CutText>}
-                <AgentSessionLink sessionUrl={agent.sessionUrl} />
+                {sessionLink && <AgentSessionLink sessionUrl={agent.sessionUrl} />}
             </ItemContent>
         </Item>
     );

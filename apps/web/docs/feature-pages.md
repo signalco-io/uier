@@ -16,6 +16,7 @@ without reviewer confirmation" (`@uier/toolbar/verification` labels). It links t
 `/features/fix-verification` for the verification workflow rather than describing it.
 `e2e/feature-pages.api.spec.ts` covers its metadata, social card and the 404s;
 `e2e/feature-pages.spec.ts` its claims, links and accessibility.
+Its final section links to `/compare` for teams deciding how to handle website reviews.
 
 `/features/fix-verification` keeps a reviewer's confirmation apart from ordinary and bulk Done (it
 links to the triage page for the latter), a connected service's closure and MCP status; change it

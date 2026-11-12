@@ -8,7 +8,10 @@ import { anchorSelector } from '../anchorSelector';
 import { closeToolbarLayers, toolbarReviewTarget, watchToolbarPresses } from '../toolbarReview';
 import { Button } from '@signalco/ui-primitives/Button';
 import { commentKey, useComments, useSiteComments, useCommentsRefresh, useActivitySummary } from '../hooks/useComments';
-import { newCommentDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
+import { isPageDraftKey, newDraftKey, newDrawingDraftKey, useDrafts } from '../hooks/useDrafts';
+import { CanvasMode } from './canvas/CanvasMode';
+import { finishDrawing, frameOf, shapesInFrame, type CanvasFrame } from '../canvas/finish';
+import type { CommentDrawing, DrawingShape } from '../drawing';
 import { getCommentPlacement, resolveAnchorElement, selectionTextMaxLength, textOffsetWithin, useCommentItemRects } from '../hooks/useCommentItemRects';
 import { CommentsSidebar } from './sidebar/CommentsSidebar';
 import { PageChecks, type ChecksAttention, type ChecksPanelId, type ShownComment } from './checks/PageChecks';
@@ -18,7 +21,7 @@ import { CommentSelectionPopover } from './CommentSelectionPopover';
 import { CommentSelectionHighlight } from './CommentSelectionHighlight';
 import { CommentAreaHighlight } from './CommentAreaHighlight';
 import { CommentPointOverlay } from './CommentPointOverlay';
-import { CommentBubble } from './CommentBubble';
+import { CommentBubble, type CommentDraftHandle } from './CommentBubble';
 import { InlineCommentThreads } from './InlineCommentThread';
 import { CommentErrorBoundary } from './CommentErrorBoundary';
 import { CommentsErrorMessage } from './CommentsErrorMessage';
@@ -30,6 +33,7 @@ import { isShowcaseHintDismissed, rememberShowcaseHintDismissed, ShowcaseHint } 
 import { toolbarConfig } from '../config';
 import { usePagePath } from '../hooks/usePagePath';
 import { takeLinkedCommentId } from '../review';
+import { PanelSwitchContext } from './PanelTitle';
 import { fitPanels, readInboxFilter, readOpenPanels, rememberInboxFilter, rememberOpenPanels, RestoredPanelContext, type DockPanelId } from '../openPanel';
 import { openFeedbackEvent, startCommentEvent, takeToolbarRequest } from '../openFeedback';
 import { captureCommentScreenshot } from '../screenshot';
@@ -53,6 +57,9 @@ function isToolbarNode(node: Node | null | undefined, rootElement: HTMLElement |
     return nodeRoot === rootNode || node === rootNode.host || rootNode.host.contains(node)
         || (nodeRoot instanceof ShadowRoot && nodeRoot.host.hasAttribute('data-uier-thread'));
 }
+
+/** At most this many of a page's drafts come back as pins (the newest; the others stay stored until they expire) */
+const maxPageDrafts = 50;
 
 /** A point comment in the middle of the element, for comments created with the keyboard */
 function centerPoint(element: Element): CommentPoint {
@@ -103,6 +110,8 @@ function rememberCollapsed(collapsed: boolean) {
 type CommentDraftState = CommentDraft & {
     /** New for every draft, so a new draft opens its popover again */
     key: number;
+    /** Where its text is kept: each comment and rewrite its own (`newDraftKey`), so several can wait on the page */
+    draftKey: string;
     initiallyClosed?: boolean;
     /**
      * Sent as this comment (its temporary id): the draft stays on the page until the comment's pin
@@ -120,24 +129,34 @@ export function CommentsGlobal({
     const features = useToolbarFeatures();
     const drafts = useDrafts();
     const [creatingCommentSelection, setCreatingCommentSelection] = useState<CommentSelection>();
-    const restorePageDrafts = () =>
-        [newCommentDraftKey, newRewriteDraftKey].map(key => drafts.details(key))
-            .filter(value => value?.text.trim() && value.anchor)
-            .sort((a, b) => b!.updatedAt - a!.updatedAt)
-            .map((saved, index) => ({ ...saved!.anchor!, key: -index, initiallyClosed: true }));
+    // Every comment and rewrite draft of the page with text: a closed pin each, newest first (a drawing's needs its
+    // drawing, which is in memory only)
+    const restorePageDrafts = (): CommentDraftState[] => drafts.keys().filter(isPageDraftKey)
+        .flatMap(draftKey => {
+            const saved = drafts.details(draftKey);
+            return saved?.text.trim() && saved.anchor && saved.anchor.kind !== 'drawing' ? [{ draftKey, saved }] : [];
+        })
+        .sort((a, b) => b.saved.updatedAt - a.saved.updatedAt)
+        .slice(0, maxPageDrafts)
+        .map(({ draftKey, saved }, index) => ({ ...saved.anchor!, draftKey, key: -index, initiallyClosed: true }));
     const [creatingComments, setCreatingComments] = useState<CommentDraftState[]>(restorePageDrafts);
     const setCreatingComment = (draft: CommentDraftState) => setCreatingComments(current =>
-        [...current.filter(other => other.kind !== draft.kind), draft]);
+        [...current.filter(other => other.draftKey !== draft.draftKey), draft]);
     const removeCreatingComment = (key: number) => setCreatingComments(current => current.filter(draft => draft.key !== key));
+    // A send can finish after navigating away and back, or in another composer instance; Discard in the inbox
+    useEffect(() => drafts.subscribeAll(() => setCreatingComments(current => {
+        const kept = current.filter(draft => drafts.details(draft.draftKey));
+        return kept.length === current.length ? current : kept;
+    })), [drafts]);
+    // Drafts left without text (a form open on a page left or reloaded) are not kept: they would pile up, one per form
     useEffect(() => {
-        // A send can finish after navigating away and back, or in another composer instance.
-        const watch = (key: string, kind: CommentDraft['kind']) => drafts.subscribe(key, () => {
-            if (!drafts.details(key)) setCreatingComments(current => current.filter(draft => draft.kind !== kind));
-        });
-        const stopComment = watch(newCommentDraftKey, 'comment');
-        const stopRewrite = watch(newRewriteDraftKey, 'rewrite');
-        return () => { stopComment(); stopRewrite(); };
+        for (const draftKey of drafts.keys().filter(isPageDraftKey)) {
+            const saved = drafts.details(draftKey);
+            if (saved && !saved.text.trim() && !saved.sending?.length && !saved.recoveries?.length) drafts.delete(draftKey);
+        }
     }, [drafts]);
+    // Each draft pin's actions, for the inbox's drafts (Send)
+    const draftHandles = useRef(new Map<string, CommentDraftHandle>());
     // Draft pins whose composer is open; a closed one is offered as "Resume draft" in the toolbar
     const [openDrafts, setOpenDrafts] = useState<ReadonlySet<string>>(() => new Set());
     const handleDraftOpenState = useCallback((key: string, open: boolean) => setOpenDrafts(current => {
@@ -224,6 +243,22 @@ export function CommentsGlobal({
     const lastPageFocusRef = useRef<Element | null>(null);
 
     const { path, query: commentItems, reattach } = useComments(true);
+    // A send the page never saw settle (it was reloaded or left meanwhile) comes back as a draft, as it may not have been
+    // saved. Once the page's comments show it was (one of yours with its text), its draft goes: it is not listed as unsent.
+    const loadedComments = commentItems.data;
+    useEffect(() => {
+        if (!loadedComments) return;
+        for (const draftKey of drafts.keys().filter(isPageDraftKey)) {
+            const saved = drafts.details(draftKey);
+            const text = saved?.text.trim();
+            if (!text || !saved?.unsettled?.includes(text)) continue;
+            const sent = loadedComments.some(comment => {
+                const first = comment.thread.items[0];
+                return comment.isMine && first && 'text' in first && first.text.trim() === text;
+            });
+            if (sent) drafts.delete(draftKey);
+        }
+    }, [drafts, loadedComments]);
     const [reattaching, setReattaching] = useState<{ comment: CommentItem; candidate?: CommentAnchor; mode?: 'point' | 'text' }>();
     const requestReattach = (comment: CommentItem) => {
         if (comment.path !== path || !(comment.permissions?.edit ?? comment.isMine)) return;
@@ -274,6 +309,10 @@ export function CommentsGlobal({
 
     const [creatingCommentPoint, setCreatingCommentPoint] = useState(mountRequest === 'comment');
     const shortcutsEnabled = useShortcutsEnabled();
+    // Canvas mode (docs/canvas-mode.md): drawing on the page, then one comment with the drawing.
+    // `initialShapes`: a drawing's draft drawn on again (Edit drawing), on the content of `initialFrame`.
+    const [canvas, setCanvas] = useState<{ key: number; initialShapes?: DrawingShape[]; initialFrame?: CanvasFrame }>();
+    const drawButtonRef = useRef<HTMLButtonElement>(null);
 
     /** The visitor found the feature: the first-run hint is not needed anymore */
     const closeHintForUse = () => {
@@ -281,32 +320,97 @@ export function CommentsGlobal({
         setHintOpen(false);
     };
 
-    const startDraft = (anchor: CommentDraft['position'], kind: CommentDraft['kind'] = 'comment', element?: Element) => {
+    const startDraft = (anchor: CommentDraft['position'], kind: CommentDraft['kind'] = 'comment', element?: Element, drawing?: CommentDrawing) => {
         if (kind === 'rewrite' && !features.includes('rewrite')) return;
+        if (kind === 'drawing' && (!features.includes('draw') || !drawing)) return;
         // While the menu, popover or dialog it is in is open: its opener is saved with it (layerAnchor.ts)
         const position = withLayer(anchor, element);
         // On uier's own pages the toolbar's popovers stayed open while pointing: those the comment is not on close
         closeToolbarLayers(element ?? resolveAnchorElement(position));
         closeHintForUse();
         draftKeyRef.current += 1;
-        const draftKey = kind === 'rewrite' ? newRewriteDraftKey : newCommentDraftKey;
-        const existing = drafts.details(draftKey);
-        if (existing?.text.trim() && existing.anchor) {
-            setCreatingComment({ ...existing.anchor, key: draftKeyRef.current });
+        // A comment or rewrite on the very same spot as an unsent one goes on with it (C on the same focused element,
+        // the same text selected again); elsewhere it is a draft of its own, and the others wait as pins
+        const same = kind === 'drawing' ? undefined : creatingComments.find(draft => draft.kind === kind && !draft.sentAs
+            && JSON.stringify(draft.position) === JSON.stringify(position) && drafts.get(draft.draftKey)?.trim());
+        if (same) {
+            setCreatingComment({ kind: same.kind, position: same.position, draftKey: same.draftKey, key: draftKeyRef.current });
             return;
         }
+        // A drawing is new every time: text kept from an earlier one stays with it
+        const draftKey = kind === 'drawing' ? newDrawingDraftKey : newDraftKey(kind);
         drafts.setDetails(draftKey, { anchor: { kind, position } });
         // A rewrite starts from the selected text (when it fits a comment's length)
         if (kind === 'rewrite' && position.type === 'text') {
-            drafts.set(newRewriteDraftKey, position.text.length <= commentTextMaxLength ? position.text : '');
+            drafts.set(draftKey, position.text.length <= commentTextMaxLength ? position.text : '');
         }
         setCreatingComment({
             key: draftKeyRef.current,
+            draftKey,
             position,
             kind,
+            ...(drawing ? { drawing } : {}),
             device: getDeviceInfo(),
-            screenshot: captureCommentScreenshot(position, rootElement)
+            screenshot: captureCommentScreenshot(position, rootElement, drawing)
         });
+    };
+
+    /**
+     * A drawing's draft drawn on again: canvas mode with its shapes, on the content of the scroll container
+     * its area is in (so they scroll with it); the draft's text stays for the comment. `false` when its area
+     * is not on the page as it was drawn (missing, or in a closed menu, popover or dialog).
+     */
+    const resumeDrawing = (draft: CommentDraftState) => {
+        if (!draft.drawing || draft.position.type !== 'point') return false;
+        const placement = getCommentPlacement(draft.position);
+        const area = placement.state === 'exact' ? placement.rects[0] : undefined;
+        if (!area) return false;
+        const frame = frameOf(resolveAnchorElement(draft.position));
+        removeCreatingComment(draft.key);
+        draftKeyRef.current += 1;
+        setCanvas({ key: draftKeyRef.current, initialShapes: shapesInFrame(draft.drawing, area, frame), initialFrame: frame });
+        return true;
+    };
+
+    /** Draw on the page (the pill's button): canvas mode starts; pressed again with nothing drawn, it ends */
+    const toggleCanvas = () => {
+        if (reattaching || !features.includes('draw')) return;
+        if (canvas) {
+            // With shapes drawn, the panel's Discard or Comment ends it: the drawing is never lost by a second press
+            const panel = rootElement?.getRootNode();
+            const comment = panel instanceof ShadowRoot ? panel.querySelector<HTMLElement>('[data-uier-canvas-comment]') : null;
+            if (comment && !(comment as HTMLButtonElement).disabled) comment.focus();
+            else setCanvas(undefined);
+            return;
+        }
+        closeHintForUse();
+        setCreatingCommentPoint(false);
+        setCreatingCommentSelection(undefined);
+        window.getSelection()?.removeAllRanges();
+        setOpenComment(undefined);
+        // One session, one comment: an unsent drawing's comment is drawn on again, never replaced by a new one.
+        // Its area off the page: its form opens instead, like Resume draft.
+        const unsent = creatingComments.find(draft => draft.kind === 'drawing' && draft.drawing && !draft.sentAs);
+        if (unsent && !resumeDrawing(unsent)) {
+            draftKeyRef.current += 1;
+            setCreatingComment({ kind: unsent.kind, position: unsent.position, drawing: unsent.drawing, draftKey: unsent.draftKey, key: draftKeyRef.current, initiallyClosed: true });
+            setResumingDraft(draftKeyRef.current);
+            return;
+        }
+        if (unsent) return;
+        draftKeyRef.current += 1;
+        setCanvas({ key: draftKeyRef.current });
+    };
+    const discardCanvas = () => {
+        setCanvas(undefined);
+        drawButtonRef.current?.focus();
+    };
+    /** Comment in canvas mode: the drawing becomes a draft comment on its area, its form open */
+    const commentOnDrawing = (shapes: DrawingShape[], frame: CanvasFrame) => {
+        const finished = finishDrawing(shapes, frame);
+        if (typeof finished === 'string') return finished;
+        setCanvas(undefined);
+        startDraft(finished.position, 'drawing', finished.element, finished.drawing);
     };
 
     /** Keyboard path: pin a new comment to the focused page element (or the main content) */
@@ -338,7 +442,7 @@ export function CommentsGlobal({
     // The page asked to comment (`startUierComment()`, the app's C): what the + button or C starts,
     // a comment on the page text selected, else point mode (started, never ended, by a repeat)
     const handleCommentRequest = useEffectEvent(() => {
-        if (reattaching) return;
+        if (reattaching || canvas) return;
         closeHintForUse();
         if (collapsed) {
             handleCollapsedChange(false);
@@ -476,7 +580,8 @@ export function CommentsGlobal({
     // handling of the key (`preventDefault`) wins. The toolbar's dialogs (options, feedback, an expanded form) keep their
     // keys; a thread's popover keeps C, but the thread keys work in it.
     const handleShortcut = useEffectEvent((event: KeyboardEvent) => {
-        if (reattaching || isLetterKeyTarget(event)) {
+        // Canvas mode has its own keys (the tools' letters)
+        if (reattaching || canvas || isLetterKeyTarget(event)) {
             return;
         }
         const target = event.composedPath()[0];
@@ -604,7 +709,7 @@ export function CommentsGlobal({
     };
 
     const handleAddPointComment = (fromKeyboard: boolean) => {
-        if (reattaching) return;
+        if (reattaching || canvas) return;
         if (fromKeyboard) {
             // Point mode needs a pointer; with the keyboard the comment goes on the element
             // that had the focus before the toolbar
@@ -623,39 +728,51 @@ export function CommentsGlobal({
     };
 
     // The latest closed draft pin with text (a closed draft pin always has text)
-    const draftKeyOf = (kind: CommentDraft['kind']) => kind === 'rewrite' ? newRewriteDraftKey : newCommentDraftKey;
     const resumableDraft = creatingComments
-        .filter(draft => (draft.kind !== 'rewrite' || features.includes('rewrite')) && !openDrafts.has(draftKeyOf(draft.kind)) && drafts.get(draftKeyOf(draft.kind))?.trim())
-        .sort((a, b) => (drafts.details(draftKeyOf(b.kind))?.updatedAt ?? 0) - (drafts.details(draftKeyOf(a.kind))?.updatedAt ?? 0))[0];
-    const resumeDraft = () => {
-        if (!resumableDraft) return;
+        .filter(draft => !draft.sentAs && (draft.kind !== 'rewrite' || features.includes('rewrite')) && (draft.kind !== 'drawing' || features.includes('draw')) && !openDrafts.has(draft.draftKey) && drafts.get(draft.draftKey)?.trim())
+        .sort((a, b) => (drafts.details(b.draftKey)?.updatedAt ?? 0) - (drafts.details(a.draftKey)?.updatedAt ?? 0))[0];
+    const resumeDraft = (draft: CommentDraftState) => {
         closeHintForUse();
         setCreatingCommentPoint(false);
         setCreatingCommentSelection(undefined);
         draftKeyRef.current += 1;
         // Like reopening its pin: a new capture, then the composer with the text
-        setCreatingComment({ kind: resumableDraft.kind, position: resumableDraft.position, key: draftKeyRef.current, initiallyClosed: true });
+        setCreatingComment({ kind: draft.kind, position: draft.position, drawing: draft.drawing, draftKey: draft.draftKey, key: draftKeyRef.current, initiallyClosed: true });
         setResumingDraft(draftKeyRef.current);
+    };
+    // The inbox's drafts: Resume opens its form on its pin (the inbox closes, unless the draft is on a part of it),
+    // Send posts it as it is (or opens its form when that asks for something, a guest's name), Discard removes it
+    const resumeInboxDraft = (draft: CommentDraftState) => {
+        if (!toolbarReviewTarget(resolveAnchorElement(draft.position))?.closest('#uier-panel-inbox')) setSidebarOpen(false);
+        resumeDraft(draft);
+    };
+    const sendInboxDraft = (draft: CommentDraftState) => {
+        if (!draftHandles.current.get(draft.draftKey)?.send()) resumeInboxDraft(draft);
+    };
+    const discardInboxDraft = (draft: CommentDraftState) => {
+        drafts.delete(draft.draftKey);
+        announce(messages().inbox.draftDiscarded);
     };
 
     // A posted comment's pin is there at once, and its thread is open in place of the draft's popover
     // (one popover, never closing and opening again): its reply box waits until it is saved. The
     // comment comes into the list a moment later (the query cache notifies in a later task), so the
     // draft stays until then (`sentAs`, see `shownCreatingComments`).
-    const handleCreated = (localId: string, draftKey: number) => {
+    // Sent from the inbox (`quiet`): its pin comes without opening its thread, the inbox stays as it is
+    const handleCreated = (localId: string, draftKey: number, quiet: boolean) => {
         setCreatingComments(current => current.map(draft => draft.key === draftKey ? { ...draft, sentAs: localId } : draft));
-        setContinuedThread(localId);
+        if (!quiet) setContinuedThread(localId);
     };
-    // It was not posted: the draft, with its text back, is on the page again. One started meanwhile
-    // stays as it is, with its own image and screenshot choice; the text is back in it.
-    const restoreCreatingComment = (kind: CommentDraft['kind'], sendError: unknown, choice: Pick<CommentDraft, 'omitScreenshot' | 'image'>) => {
+    // It was not posted: the draft, with its text back, is on the page again (closed when it was sent from the
+    // inbox, where it is listed again). Others started meanwhile are drafts of their own.
+    const restoreCreatingComment = (sent: CommentDraftState, sendError: unknown, choice: Pick<CommentDraft, 'omitScreenshot' | 'image' | 'drawing'>, quiet: boolean) => {
         // The draft it was sent from has nothing to show any more
-        setCreatingComments(current => current.filter(other => !other.sentAs));
-        const saved = drafts.details(kind === 'rewrite' ? newRewriteDraftKey : newCommentDraftKey);
+        setCreatingComments(current => current.filter(other => other.key !== sent.key));
+        const saved = drafts.details(sent.draftKey);
         if (!saved?.text.trim() || !saved.anchor) return;
         draftKeyRef.current += 1;
-        const restored = { ...saved.anchor, key: draftKeyRef.current, sendError, ...choice };
-        setCreatingComments(current => current.some(other => other.kind === kind) ? current : [...current, restored]);
+        const restored = { ...saved.anchor, draftKey: sent.draftKey, key: draftKeyRef.current, sendError, ...choice, ...(quiet ? { initiallyClosed: true } : {}) };
+        setCreatingComments(current => current.some(other => other.draftKey === sent.draftKey) ? current : [...current, restored]);
     };
     const handleAutoOpened = useCallback(() => setOpenComment(undefined), []);
     // Each layer a pin opens on its way (a thread, a menu) gives its thread another second to open
@@ -738,6 +855,25 @@ export function CommentsGlobal({
         ((panel === 'seo' ? seoButtonRef : accessibilityButtonRef).current ?? optionsButtonRef.current)?.focus();
         showPanel(panel, false);
     };
+    // A panel's title menu: the panels this review shows, and one shown in another's place. One open already (on the
+    // other side) gets the focus, as the new one's Close does when it opens.
+    const accessibilityShown = auditAvailable() && features.includes('accessibility');
+    const seoShown = features.includes('seo');
+    const panelSwitch = useMemo(() => ({
+        panels: [
+            { id: 'inbox' as const, label: t.inbox.label },
+            ...(accessibilityShown && !reattaching ? [{ id: 'accessibility' as const, label: t.toolbar.accessibility }] : []),
+            ...(seoShown && !reattaching ? [{ id: 'seo' as const, label: t.toolbar.seo }] : [])
+        ],
+        switchTo: (from: DockPanelId, to: DockPanelId) => {
+            const shown = openPanels.includes(to);
+            setHintOpen(false);
+            showPanel(from, false);
+            showPanel(to, true);
+            if (shown) requestAnimationFrame(() => (rootElement?.getRootNode() as ShadowRoot | Document | undefined)
+                ?.querySelector<HTMLElement>(`#uier-panel-${to} [data-uier-panel-close]`)?.focus());
+        }
+    }), [t, accessibilityShown, seoShown, reattaching, openPanels, showPanel, rootElement]);
     // "Show" after a panel's quick action: the comment's thread on its pin, or the inbox for one about
     // the page. The panel it was in closes; one on the other side stays.
     const handleShowCheckComment = (comment: ShownComment, panel: ChecksPanelId) => {
@@ -773,6 +909,7 @@ export function CommentsGlobal({
             setOpenComment(undefined);
             setContinuedThread(undefined);
             setReattaching(undefined);
+            setCanvas(undefined);
             closeHintForUse();
         }
     };
@@ -786,7 +923,11 @@ export function CommentsGlobal({
 
     // A sent draft until its comment's pin is in the list (`handleCreated`)
     const shownCreatingComments = creatingComments.filter(draft => (draft.kind !== 'rewrite' || features.includes('rewrite')) &&
+        (draft.kind !== 'drawing' || features.includes('draw')) &&
         (!draft.sentAs || !pinnedComments.some(comment => commentKey(comment) === draft.sentAs)));
+    // Listed in the inbox (with text), each to resume or send, while its form is closed (one being written is not
+    // waiting); their pins are there while the toolbar is expanded
+    const inboxDrafts = collapsed ? [] : shownCreatingComments.filter(draft => !draft.sentAs && !openDrafts.has(draft.draftKey));
 
     // Keep the pill, movement and inbox mounted across SPA navigation. Only state tied to
     // the old page's DOM is discarded, before children can commit against the new draft store.
@@ -804,6 +945,7 @@ export function CommentsGlobal({
         setContinuedThread(undefined);
         setOpenComment(undefined);
         setReattaching(undefined);
+        setCanvas(undefined);
         setFeedbackRequested(false);
         setLinkedCommentId(takeLinkedCommentId());
         linkHandledRef.current = false;
@@ -838,14 +980,20 @@ export function CommentsGlobal({
             {!collapsed && shownCreatingComments.map(creatingComment => (
                 <CommentErrorBoundary key={`${path}:new-${creatingComment.key}`}>
                     <CommentBubble
+                        ref={handle => {
+                            if (!handle) return;
+                            draftHandles.current.set(creatingComment.draftKey, handle);
+                            return () => { if (draftHandles.current.get(creatingComment.draftKey) === handle) draftHandles.current.delete(creatingComment.draftKey); };
+                        }}
                         draft={creatingComment}
                         initiallyClosed={creatingComment.initiallyClosed}
                         autoOpen={resumingDraft === creatingComment.key}
                         onAutoOpened={handleDraftResumed}
                         onOpenStateChange={handleDraftOpenState}
                         draftPinOffset={pinnedComments.some(comment => resolveAnchorElement(comment.position) === resolveAnchorElement(creatingComment.position)) ? 36 : 0}
-                        onCreated={localId => { if (activePath.current === path) handleCreated(localId, creatingComment.key); }}
-                        onSendFailed={(error, choice) => { if (activePath.current === path) restoreCreatingComment(creatingComment.kind, error, choice); }}
+                        onCreated={(localId, quiet) => { if (activePath.current === path) handleCreated(localId, creatingComment.key, quiet); }}
+                        onSendFailed={(error, choice, quiet) => { if (activePath.current === path) restoreCreatingComment(creatingComment, error, choice, quiet); }}
+                        onEditDrawing={creatingComment.kind === 'drawing' && !canvas ? () => resumeDrawing(creatingComment) : undefined}
                         onCanceled={() => removeCreatingComment(creatingComment.key)} />
                 </CommentErrorBoundary>
             ))}
@@ -906,6 +1054,12 @@ export function CommentsGlobal({
             {!collapsed && creatingCommentPoint && (
                 <CommentPointOverlay onPoint={handleCreateCommentPoint} />
             )}
+            {!collapsed && canvas && features.includes('draw') && (
+                <CommentErrorBoundary>
+                    <CanvasMode key={canvas.key} initialShapes={canvas.initialShapes} initialFrame={canvas.initialFrame} onDiscard={discardCanvas} onComment={commentOnDrawing} />
+                </CommentErrorBoundary>
+            )}
+            <PanelSwitchContext value={panelSwitch}>
             <RestoredPanelContext value={restoredPanels}>
                 {sidebarOpen && (
                     <CommentsSidebar
@@ -913,6 +1067,10 @@ export function CommentsGlobal({
                         onFilterChange={setSidebarFilter}
                         onClose={handleCloseSidebar}
                         onShowOnPage={handleShowOnPage}
+                        pageDrafts={inboxDrafts}
+                        onResumeDraft={key => { const draft = inboxDrafts.find(other => other.draftKey === key); if (draft) resumeInboxDraft(draft); }}
+                        onSendDraft={key => { const draft = inboxDrafts.find(other => other.draftKey === key); if (draft) sendInboxDraft(draft); }}
+                        onDiscardDraft={key => { const draft = inboxDrafts.find(other => other.draftKey === key); if (draft) discardInboxDraft(draft); }}
                         focusRequest={inboxFocus} />
                 )}
                 <PageChecks key={`${path}:${language}:${features.join(',')}`}
@@ -922,6 +1080,7 @@ export function CommentsGlobal({
                     onShowComment={handleShowCheckComment}
                     onAttentionChange={setChecksAttention} />
             </RestoredPanelContext>
+            </PanelSwitchContext>
             <CommentToolbar
                 mode={mode}
                 creatingPointComment={creatingCommentPoint}
@@ -935,8 +1094,11 @@ export function CommentsGlobal({
                 inboxButtonRef={inboxButtonRef}
                 hintButtonRef={hintButtonRef}
                 onAddPointComment={handleAddPointComment}
+                drawing={Boolean(canvas)}
+                drawButtonRef={drawButtonRef}
+                onDraw={features.includes('draw') ? toggleCanvas : undefined}
                 // Not over the inbox or while choosing a new anchor
-                onResumeDraft={resumableDraft && !sidebarOpen && !reattaching ? resumeDraft : undefined}
+                onResumeDraft={resumableDraft && !sidebarOpen && !reattaching ? () => resumeDraft(resumableDraft) : undefined}
                 onCancelPointComment={() => { setCreatingCommentPoint(false); addButtonRef.current?.focus(); }}
                 sidebarOpen={sidebarOpen}
                 checksPanels={checksPanels}

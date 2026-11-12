@@ -1,5 +1,6 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ImageUpIcon } from 'lucide-react';
@@ -31,14 +32,15 @@ export function ClientAvatarEditor({ client, workspaceId, onIconChange, onColorC
     onPendingChange: (pending: boolean) => void;
     disabled: boolean;
 }) {
+    const { t } = useAppI18n();
     const [open, setOpen] = useState(false);
     const [logoUrl, setLogoUrl] = useState(client.logoUrl);
     const [status, setStatus] = useState('');
     const router = useRouter();
     const { pending, error, fileInput, dropTarget, choose, remove } = usePictureUpload({
         endpoint: KnownPageLinks.clientLogoUpload(workspaceId, client.id),
-        fileLabel: 'Client logo file',
-        failed: 'The logo could not be saved.',
+        fileLabel: t("Client logo file"),
+        failed: t("The logo could not be saved."),
         disabled,
         onPendingChange: (next) => {
             if (next) {
@@ -51,59 +53,59 @@ export function ClientAvatarEditor({ client, workspaceId, onIconChange, onColorC
         onSaved: async (method, response) => {
             const result = method === 'POST' ? await response.json() as { url: string } : undefined;
             setLogoUrl(result?.url);
-            setStatus(method === 'POST' ? 'Logo saved.' : 'Logo removed.');
+            setStatus(method === 'POST' ? t("Logo saved.") : t("Logo removed."));
             router.refresh();
         }
     });
     return (
         <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger render={<EditablePicture aria-label="Edit client avatar" disabled={disabled} className="size-12 rounded-xl" badgeClassName="-right-1.5 -bottom-1.5 size-5" {...dropTarget} />}>
+            <PopoverTrigger render={<EditablePicture aria-label={t("Edit client avatar")} disabled={disabled} className="size-12 rounded-xl" badgeClassName="-right-1.5 -bottom-1.5 size-5" {...dropTarget} />}>
                 <ClientMark client={{ ...client, logoUrl }} className="size-12 rounded-xl text-lg" />
             </PopoverTrigger>
             <PopoverContent align="start" className={cn('max-h-[min(32rem,80svh)] w-80 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl', dropTargetClassName)} {...dropTarget}>
-                <PopoverTitle>Client avatar</PopoverTitle>
+                <PopoverTitle>{t("Client avatar")}</PopoverTitle>
                 <FieldGroup>
                     <Field data-invalid={error ? true : undefined}>
                         <div className="flex flex-wrap gap-2">
                             <Button variant="outline" className="pointer-coarse:min-h-11" disabled={pending} onClick={choose}>
                                 {pending ? <Spinner data-icon="inline-start" /> : <ImageUpIcon data-icon="inline-start" />}
-                                {logoUrl ? 'Change logo' : 'Upload logo'}
+                                {logoUrl ? t("Change logo") : t("Upload logo")}
                             </Button>
-                            {logoUrl && <Button variant="ghost" className="pointer-coarse:min-h-11" disabled={pending} onClick={remove}>Remove logo</Button>}
+                            {logoUrl && <Button variant="ghost" className="pointer-coarse:min-h-11" disabled={pending} onClick={remove}>{t("Remove logo")}</Button>}
                         </div>
                         {fileInput}
-                        <FieldDescription>PNG, JPEG, WebP or GIF, cropped to a square. Drop or paste one here too. Logo changes save immediately.</FieldDescription>
+                        <FieldDescription>{t("PNG, JPEG, WebP or GIF, cropped to a square. Drop or paste one here too. Logo changes save immediately.")}</FieldDescription>
                         {error && <FieldError>{error}</FieldError>}
                         <p role="status" className="text-sm text-muted-foreground">{status}</p>
                     </Field>
                     <FieldSet disabled={pending || !!logoUrl}>
-                        <FieldLegend variant="label">Icon</FieldLegend>
-                        {logoUrl && <FieldDescription>Remove the logo to use an icon and colour.</FieldDescription>}
-                        <ToggleGroup variant="outline" spacing={2} value={[client.icon ?? LETTER]} aria-label="Icon"
+                        <FieldLegend variant="label">{t("Icon")}</FieldLegend>
+                        {logoUrl && <FieldDescription>{t("Remove the logo to use an icon and colour.")}</FieldDescription>}
+                        <ToggleGroup variant="outline" spacing={2} value={[client.icon ?? LETTER]} aria-label={t("Icon")}
                             disabled={pending || !!logoUrl}
                             onValueChange={([value]) => value && onIconChange(value === LETTER ? undefined : value as ClientIcon)} className="flex-wrap">
-                            <ToggleGroupItem value={LETTER} aria-label="First letter" className={cn(pickerItemClassName, 'text-sm font-semibold uppercase')}>
+                            <ToggleGroupItem value={LETTER} aria-label={t("First letter")} className={cn(pickerItemClassName, 'text-sm font-semibold uppercase')}>
                                 {client.name.trim()[0] ?? '?'}
                             </ToggleGroupItem>
                             {clientIcons.map(option => {
                                 const Icon = clientIconComponents[option];
-                                return <ToggleGroupItem key={option} value={option} aria-label={clientIconLabels[option]} className={pickerItemClassName}><Icon /></ToggleGroupItem>;
+                                return <ToggleGroupItem key={option} value={option} aria-label={t(clientIconLabels[option])} className={pickerItemClassName}><Icon /></ToggleGroupItem>;
                             })}
                         </ToggleGroup>
                     </FieldSet>
                     <FieldSet disabled={pending || !!logoUrl}>
-                        <FieldLegend variant="label">Colour</FieldLegend>
-                        <ToggleGroup variant="outline" spacing={2} value={[client.color ?? INK]} aria-label="Colour"
+                        <FieldLegend variant="label">{t("Colour")}</FieldLegend>
+                        <ToggleGroup variant="outline" spacing={2} value={[client.color ?? INK]} aria-label={t("Colour")}
                             disabled={pending || !!logoUrl}
                             onValueChange={([value]) => value && onColorChange(value === INK ? undefined : value as ClientColor)} className="flex-wrap">
-                            <ToggleGroupItem value={INK} aria-label="Ink" className={pickerItemClassName}><span aria-hidden="true" className="size-4 rounded-full border bg-background" /></ToggleGroupItem>
-                            {clientColors.map(option => <ToggleGroupItem key={option} value={option} aria-label={clientColorClasses[option].label} className={pickerItemClassName}>
+                            <ToggleGroupItem value={INK} aria-label={t("Ink")} className={pickerItemClassName}><span aria-hidden="true" className="size-4 rounded-full border bg-background" /></ToggleGroupItem>
+                            {clientColors.map(option => <ToggleGroupItem key={option} value={option} aria-label={t(clientColorClasses[option].label)} className={pickerItemClassName}>
                                 <span aria-hidden="true" className={cn('size-4 rounded-full', clientColorClasses[option].swatch)} />
                             </ToggleGroupItem>)}
                         </ToggleGroup>
                     </FieldSet>
                 </FieldGroup>
-                <Button variant="outline" className="pointer-coarse:min-h-11" onClick={() => setOpen(false)}>Done</Button>
+                <Button variant="outline" className="pointer-coarse:min-h-11" onClick={() => setOpen(false)}>{t("Done")}</Button>
             </PopoverContent>
         </Popover>
     );

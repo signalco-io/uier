@@ -1,8 +1,11 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useRef, type MouseEvent, type ReactNode } from 'react';
 import { GitPullRequestIcon, LockIcon, ReplaceIcon } from 'lucide-react';
 import { commentKindIcon, commentKindLabel } from '@uier/toolbar/feedback-types';
+import { localizedKindLabel } from './kindLabel';
 import { FeedbackTypeIcon } from '../FeedbackTypeIcon';
 import { commentAssignees } from '@uier/toolbar/agents';
 import { markdownPlainText } from '@uier/toolbar/markdown';
@@ -70,14 +73,16 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
      */
     tabbable?: boolean;
 }) {
+    const { t } = useAppI18n();
     const people = commentAssignees(comment);
     const userId = comment.assignedUserId;
     const status = commentStatus(comment);
     const unread = Boolean(comment.activity?.unread);
-    const title = commentTitle(comment);
+    const title = comment.deleted ? t("Comment deleted") : commentTitle(comment);
     const pullRequests = commentPullRequestLinks(comment);
     // The row's buttons repeat on every row: their names end with the thread they act on (and its project in My work)
-    const subject = `${comment.number === undefined ? `comment “${title}”` : `comment #${comment.number}`}${project ? ` in ${project}` : ''}`;
+    const subject = comment.number === undefined ? t("comment “{title}”", { title }) : t("comment #{number}", { number: comment.number });
+    const fullSubject = project ? t("{subject} in {project}", { subject, project }) : subject;
     const link = useRef<HTMLAnchorElement>(null);
     // A click on the author's or a mouse click on the assignee's avatars or the pull request mark opens the thread like the rest of the row, modifier keys and all
     const openFromAvatars = (event: MouseEvent) => link.current?.dispatchEvent(new window.MouseEvent('click', {
@@ -98,7 +103,7 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
             <div className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1">
                 {/* Who wrote it starts the title line, before "#12 …"; centred on its first line, like the unread dot */}
                 <span className="flex h-5 shrink-0 items-center gap-2">
-                    {unread && <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-[hsl(var(--brand-accent))]" />}
+                    <span aria-hidden="true" className={cn('size-2 shrink-0 rounded-full bg-[hsl(var(--brand-accent))]', !unread && 'invisible')} />
                     <AuthorAvatar author={comment.author} deleted={comment.deleted} onPress={openFromAvatars} />
                 </span>
                 <div className="flex min-w-0 items-baseline gap-2">
@@ -109,12 +114,12 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                             unread ? 'font-semibold' : 'font-medium', comment.deleted && 'text-muted-foreground')}>
                         {comment.number !== undefined && <>
                             <span className="font-mono text-xs font-normal text-muted-foreground tabular-nums">
-                                <span className="sr-only">Comment </span>#{comment.number}
+                                <span className="sr-only">{t("Comment ")}</span>#{comment.number}
                             </span>{' '}
                         </>}
-                        {comment.number === undefined && <span className="sr-only">Comment: </span>}
+                        {comment.number === undefined && <span className="sr-only">{t("Comment: ")}</span>}
                         {title}
-                        {unread && <span className="sr-only">, unread</span>}
+                        {unread && <span className="sr-only">{t(", unread")}</span>}
                     </a>
                     <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums"><RelativeTime value={comment.createdAt} short /></span>
                     {actions}
@@ -122,40 +127,40 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                 {/* The selection box, under the author's own avatar (past the unread dot's room). The slot stays when the box is
                     hidden or absent, so the path never moves */}
                 <span className="flex h-5 items-center gap-2 self-center">
-                    {unread && <span aria-hidden="true" className="w-2 shrink-0" />}
+                    <span aria-hidden="true" className="w-2 shrink-0" />
                     <span className="flex w-5 shrink-0 justify-center"><SelectComment comment={comment} tabbable={tabbable} /></span>
                 </span>
                 <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
                     <p className="m-0 flex min-w-0 flex-1 items-center gap-1.5">
-                        {comment.kind !== 'comment' && <span role="img" aria-label={commentKindLabel(comment.kind, comment.feedbackType)} title={commentKindLabel(comment.kind, comment.feedbackType)} className="flex shrink-0">
+                        {comment.kind !== 'comment' && <span role="img" aria-label={localizedKindLabel(comment.kind, comment.feedbackType, t)} title={localizedKindLabel(comment.kind, comment.feedbackType, t)} className="flex shrink-0">
                             {comment.kind === 'rewrite' ? <ReplaceIcon aria-hidden="true" className="size-3.5" /> : <FeedbackTypeIcon icon={commentKindIcon(comment.kind, comment.feedbackType)} className="size-3.5" />}
                         </span>}
                         <span className="truncate">
                             {project && <><span className="font-medium text-foreground">{project}</span><span aria-hidden="true"> · </span></>}
-                            <span className="sr-only">Page </span>
+                            <span className="sr-only">{t("Page ")}</span>
                             <span className="font-mono">{comment.path}</span>
                         </span>
                     </p>
                     <div className="flex min-h-5 shrink-0 items-center gap-2">
-                        {comment.private && <LockIcon aria-label="Private" className="size-3 shrink-0" />}
+                        {comment.private && <LockIcon aria-label={t("Private")} className="size-3 shrink-0" />}
                         {/* Hovering or tapping the mark shows the pull requests; the dragged copy of a card and a row without its project keep the plain mark */}
                         {pullRequests.length > 0 && (preview || !projectId
-                            ? <GitPullRequestIcon aria-label="Linked pull request" className="size-3.5" />
-                            : <PullRequestCard projectId={projectId} comment={comment} links={pullRequests} subject={subject} tabbable={tabbable} onPress={openFromAvatars} />)}
+                            ? <GitPullRequestIcon aria-label={t("Linked pull request")} className="size-3.5" />
+                            : <PullRequestCard projectId={projectId} comment={comment} links={pullRequests} subject={fullSubject} tabbable={tabbable} onPress={openFromAvatars} />)}
                         {/* Normal is the default: only a priority that differs gets its flag */}
                         {comment.priority !== 'normal' && <PriorityLabel priority={comment.priority} />}
                         {/* Every row says its status (Active mixes them); a board card's column (named for assistive tech) already does */}
                         {!card && (
                             <span className="inline-flex items-center gap-1 whitespace-nowrap text-foreground">
                                 <StateDot status={status} />
-                                <span className="sr-only">Status: </span>
-                                {commentStatusLabels[status]}
+                                <span className="sr-only">{t("Status: ")}</span>
+                                {t(commentStatusLabels[status])}
                             </span>
                         )}
                         {/* The right end: the assignees. The dragged copy of a card is inert: its avatars need no card */}
                         {people.length > 0 && (preview
                             ? <AssigneeAvatars assignees={people} userId={userId} />
-                            : <AssigneeCard assignees={people} userId={userId} subject={subject} tabbable={tabbable} onPress={openFromAvatars} />)}
+                            : <AssigneeCard assignees={people} userId={userId} subject={fullSubject} tabbable={tabbable} onPress={openFromAvatars} />)}
                     </div>
                 </div>
             </div>

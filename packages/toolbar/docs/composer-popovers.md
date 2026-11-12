@@ -10,8 +10,14 @@ posted comment's thread opens in the draft's place.
 Attach image (`ComposerAttachButton`) is in the bottom-left corner of the text box (`CommentComposer`'s
 `attachments`), so it reads as a part of the comment; once an image is attached, its name with a remove button
 takes that place and the screenshot toggle leaves the header (the image replaces the screenshot). Screenshot
-rules: [review workflow](../../../docs/review-workflow.md#screenshots). No line under the text box: what Enter and
-Shift+Enter do is in the keyboard shortcuts list ([keyboard](keyboard.md)).
+rules: [review workflow](../../../docs/review-workflow.md#screenshots). Discard (once there is text) and Send are
+icon buttons in the box's bottom-right corner, an X and a paper plane, each named by its tooltip (`IconTooltip`),
+like every icon button in the form ([uier #289](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_5pAm5RcV57oGHBohkQrzH)).
+Edits keep labeled Cancel and Save buttons. No line under the text box: what Enter and Shift+Enter do is in the
+keyboard shortcuts list ([keyboard](keyboard.md)). The text box is the rich [message editor](message-editor.md):
+Markdown typed in it formats as it is written, and a dropped image file is attached like Attach image
+(`onImageDrop`). Its draft API is unchanged: `CommentComposer` keeps the Markdown and the mention ranges in
+`useDrafts` under its `draftKey`, and `initialText`/`initialMentions` start an edit.
 
 ### A rewrite
 
@@ -26,21 +32,72 @@ submission), and its buttons are `type="button"`. A picked suggestion replaces t
 instruction and the suggestions belong to the popover's owner (`useRewriteSuggestionsState` in `CommentBubble`),
 like the attached image: Expand and Collapse keep them; closing the popover or Discard clears them.
 
+### A drawing
+
+A drawing's comment ([canvas mode](canvas-mode.md)) is the comment form on the drawing's area, with **Edit
+drawing** (a pen icon button in the header, `data-uier-edit-drawing`) beside Omit screenshot: canvas mode again
+with the shapes, the text kept for when Comment opens the form again. The drawing stays on the page while the
+form is open. Its draft is its own (`newDrawingDraftKey`, kind `drawing`); the drawing is in memory only, so
+the form keeps it when closed without text, and shows **Discard** even when the text is empty, which removes the
+drawing too.
+
 ## Drafts across reloads
 
 Every message composer already uses `CommentComposer`'s `draftKey` and the shared seven-day
 `draftStorage.ts` store: anchored comments and rewrites retain their anchor, feedback has a key per type,
 replies use the thread id, and edits use `edit:<commentId>:<itemId>` with the original text snapshot.
 Typing writes immediately; reopening the same box after a reload or toolbar remount restores its text and
-mentions. Such a restored composer says "Draft saved in this browser" under its box, except the feedback form
-(`draftCue={false}` in `ToolbarFeedback`): there the kept text is enough of a cue ([uier #218](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_xQbZJy4bLvce3eONhs0J-)). Successful sends/saves and explicit Discard/Cancel clear the appropriate draft; failed or uncertain
-sends retain it. The authorized reviewer, API, project and canonical page scope never includes a build id.
+mentions. The kept text is the cue: no composer says "Draft saved in this browser" under its box ([uier #218](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_xQbZJy4bLvce3eONhs0J-),
+[uier #295](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fmy-work&comment=comment_kAQn2JJ3-PFQNEGtg3L2V)). Successful sends/saves and explicit Discard/Cancel clear the appropriate draft; failed or uncertain
+sends retain it. A send the page never saw settle (it was reloaded or left meanwhile, or failed while it was being
+left) comes back as a draft too, marked `unsettled`: it may have been saved. Once the page's comments are loaded and
+one of yours has its text, it was, and the draft goes (`CommentsGlobal`), so a comment posted just before a reload is
+not listed as unsent; one that was not saved stays. A plain failed send (an error shown in the form) is not marked.
+The authorized reviewer, API, project and canonical page scope never includes a build id.
 Screenshots, attached images and device details stay in memory. The app's own feedback-mode toolbar is
 loaded on demand again with Give feedback after a document reload; this reuses the same draft keys.
 
 `apps/web/e2e/drafts.spec.ts` covers every toolbar composer, reloads, separate feedback kinds and edit snapshots;
 `drafts-project.spec.ts` covers reviewer/project/page isolation. `app-composer-drafts.spec.ts` covers the toolbar
 on `/app/projects/<id>`, including an app RSC refresh and Next.js's document navigation after deployment skew.
+
+## Several drafts on a page
+
+Each new comment and rewrite is a draft of its own ([uier #296](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fmy-work&comment=comment_SfAne_dyH6incZms-P4n2)): `startDraft` gives it its own key
+(`newDraftKey`: `new:<id>`, `new-rewrite:<id>`), so Add comment, C or a selection never reopens an unsent draft
+elsewhere; that one stays on the page as its closed pin. A comment or rewrite on the very same spot as an unsent one
+(C on the same focused element, the same text selected again) goes on with it. A draft kept before there could be
+several (`new`, `new-rewrite`) comes back as one of them. A drawing's comment stays one (`newDrawingDraftKey`: its
+drawing is in memory, [canvas mode](canvas-mode.md)), and each comment's submission key is kept in its own draft
+(`CreateCommentInput.draftKey`).
+
+- The page's comment and rewrite drafts with text come back as closed pins on load and on each page
+  (`restorePageDrafts`, the newest 50; the store's `keys()` lists a page's records). Records left without text (a
+  form open when the page was left) are removed then, so they do not pile up. A closed pin is captured when its form
+  opens or it is sent, not when it comes back, so many drafts cost nothing on load.
+- **Resume draft** above the pill opens the latest closed one. The inbox lists them all.
+- The inbox lists this page's drafts above its threads, newest first (`sidebar/InboxDrafts.tsx`, current through the
+  store's `subscribeAll` and `version`): those with text whose form is closed, under Active and All, while the chosen
+  pages include this page, not with the unread or Assigned to me filters, and only those with every word of the
+  search. A card has "Draft comment" (or "Draft rewrite suggestion") and when it last changed, the quoted text, the
+  text without its Markdown and, when its target is not on the page, why; then Resume draft (only while its pin can be
+  placed), Post comment (Post suggestion) and Discard, an X named by its tooltip as in the form.
+- Resume draft closes the inbox, unless the draft is on a part of it, and opens the form on its pin with its text,
+  focused, like Resume draft above the pill.
+- Post comment sends the draft as it is, without its form (`CommentDraftHandle.send` on its pin, the composer's
+  steps: its text and mentions, its attached image or a new capture of its anchor, its submission key). An anchor
+  outside the window is scrolled into view first, as Resume draft does, and captured once that has settled (a frame),
+  so the screenshot is of its anchor, not of the window it was not in (`revealAnchor`); an anchor not on the page is
+  captured as its form would (the window). No form or
+  thread opens (`quiet`): its card goes, its thread is in the list and its pin on the page. A failed send is like a
+  form's: the text is back, the draft is listed again (its pin closed, the error in its form) and the toast says why.
+  A guest without a name, or an image still being read, opens its form instead.
+- Discard removes the draft and says "Draft discarded". After Post comment or Discard the focus goes to the next
+  card, else the inbox.
+
+`apps/web/e2e/multiple-drafts.spec.ts` (desktop and mobile) covers two drafts on a page, a reload, the inbox's list
+under Active (none under Done), Resume draft, a failed and a successful post from the inbox and Discard, the
+screenshot of an offscreen draft posted from the inbox, and a comment saved while the page reloaded.
 
 ## Capture responsiveness
 
@@ -81,13 +138,40 @@ bottom edge, while the anchor's bottom is still in the window (an element or are
 edge, [uier #166](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_H_TrIieqwg6OA4Px0efJx)),
 the pin goes above that point upside down (`<Pin upsideDown />`, `data-uier-upside-down`), its sharp corner
 still on the point, inside the window and above the pill. An anchor below the window keeps its pin below
-it, off-screen until scrolled to.
+it, off-screen until scrolled to. The pin's button has the pin's shape (round, with no radius on the sharp
+corner: top-left, or bottom-left upside down), so its focus ring follows the pin, not a circle
+([uier #286](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_1z_xazrZorbfQTPCYKfJ2)).
 
 The popover, a thread or a new comment's form, opens beside its pin on the side with room (right, else left;
 `popoverPlacement`), down from the pin's top, or up from its bottom when the pin is upside down, and shifts up
 or down to stay inside the window and clear of the pill. It never covers the pin. A window too narrow for
 either side (mobile) has it below the pin, or above it when there is more room there or the pin is upside
 down, shifted sideways to stay inside.
+
+## Who is in the thread
+
+A saved comment's pin shows the people in its thread beside it (`PinParticipants`,
+[uier #307](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_v2LlQN7fAUCaHNj3Et-BL)):
+the author, then everyone who replied, in the order they first wrote (`threadParticipants`: a message an AI agent
+wrote for someone counts as theirs; deleted and unsent messages do not count). A small overlapping stack of 20 px
+avatars with the same letters as the messages' avatars, ink (the dark tokens) like the pin; past three people, the
+first two and "+N". It sits 6 px right of the pin, past the message count badge, centred on it, or on its left when
+the window has no room on the right, so it never leaves the window. It is part of the pin's button (hovering and
+pressing it are the pin's) and decorative: the letters are generated content (`content: attr(...)`), so the pin's
+text and name stay its number and message count, and its description names the people ("In this thread: you,
+Ana, and Ben"). Drafts and comments still being sent have none.
+
+## Hover preview
+
+A mouse resting on a saved comment's pin for 400 ms opens a read-only preview of its thread in the same popover,
+in the same place ([uier #308](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_hWoACqYfuesBCMSV0ejjJ)):
+"Comment thread preview", the thread `inert` (no presses, no focus, no tooltips), no reply box. It leaves the
+focus where it is, does not mark the thread read, is not a thread for the shortcuts (`data-uier-thread-scope`) and
+not a reviewable part of the toolbar. It closes 150 ms after the pointer leaves both the pin and the preview, and
+on Escape or a press outside. A click on the pin or anywhere in the preview opens the thread itself, with its
+reply box focused, its actions and its read receipt, and it then stays open like a clicked thread. Only a mouse
+previews (`pointerType`), never while a button is held or in point mode (`isPointing`, `CommentPointOverlay`);
+a tap, Enter or Space opens the thread at once, as before. Closing a preview never moves the focus to the pin.
 
 ## Posting: one popover
 
@@ -118,7 +202,8 @@ text box starts at 8 lines (`CommentComposer`'s `tall`).
 - The popover is closed while the modal is open, at once (`data-[state=closed]:animate-none!`), and its own
   close (the focus moving into the modal) is ignored (`expandedRef`), so it never cancels the draft.
 - The form mounts once the dialog is shown: a closed dialog has no layout, and the text box sizes itself to its
-  text when it mounts. Tooltips go into the dialog (`TooltipContainerContext`), not under it.
+  text when it mounts. Escape in the text box reaches the dialog: the editor passes it on unless a mention list
+  takes it. Tooltips go into the dialog (`TooltipContainerContext`), not under it.
 - The modal carries the comment being written, so it is not a reviewable part of the toolbar; a comment on a
   toolbar part keeps that part's popover open from the modal too (`data-uier-holds-layers`). Letter shortcuts
   do not act in it ([keyboard](keyboard.md)).
@@ -132,3 +217,6 @@ instruction and suggestions kept in the modal and back. `new-comment-after-threa
 animation, the same element once saved). `screenshots.spec.ts`: Attach image in the text box.
 `showcase.spec.ts` (desktop and mobile): a pin at the bottom and right edges is upside down, its thread inside
 the window, clear of the pill and the pin.
+`pin-preview.spec.ts`: the people beside a pin (the author first, "+N", its description, the left side at the
+right edge; desktop and mobile), the hover preview (read-only, the focus kept, closing on leave, a click in it or
+on the pin opening the thread; desktop) and a tap opening the thread at once (mobile).

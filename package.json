@@ -19,6 +19,7 @@
     "dev": "turbo run dev --ui tui",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:instant": "UIER_INSTANT_TEST=1 pnpm build && pnpm -C apps/web exec playwright test --config=playwright.instant.config.ts",
     "test:full": "PLAYWRIGHT_FULL=1 turbo run test"
   },
   "devDependencies": {

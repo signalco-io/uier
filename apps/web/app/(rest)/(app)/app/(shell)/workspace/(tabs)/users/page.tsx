@@ -1,3 +1,5 @@
+
+import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
@@ -17,7 +19,7 @@ import { listMembersWithUsers } from '@/src/lib/app/members';
 import { listInvitations } from '@/src/lib/app/invitations';
 import { listProjects } from '@/src/lib/app/projects';
 import { hasProjectAccess, loadWorkspaceAccess } from '@/src/lib/app/access';
-import { BulkTeamForm } from '@/src/components/app/teams/AccessForms';
+import { BulkTeamForm } from '@/src/components/app/teams/BulkTeamForm';
 import { UsersFilters } from '@/src/components/app/teams/UsersFilters';
 import type { ProjectsAccess } from '@/src/lib/app/model';
 import { WorkspaceTabHeader } from '@/src/components/app/workspace/WorkspaceTabHeader';
@@ -27,9 +29,10 @@ import { ProjectFilter } from '@/src/components/app/users/ProjectFilter';
 import { InviteButton } from '@/src/components/app/users/InviteDialog';
 import { RemoveMemberButton, ResendInvitationButton, RevokeInvitationButton } from '@/src/components/app/users/UserActions';
 
-export const metadata: Metadata = {
-    title: 'Users'
-};
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return { title: t("Users") };
+}
 
 function accessText(role: 'admin' | 'commenter', projects: ProjectsAccess, names: Map<string, string>) {
     if (role === 'admin' || projects === 'all')
@@ -39,12 +42,13 @@ function accessText(role: 'admin' | 'commenter', projects: ProjectsAccess, names
 }
 
 /** The projects someone can review, with a folder (or folders, for all of them) */
-function Access({ role, projects, names }: { role: 'admin' | 'commenter'; projects: ProjectsAccess; names: Map<string, string> }) {
+async function Access({ role, projects, names }: { role: 'admin' | 'commenter'; projects: ProjectsAccess; names: Map<string, string> }) {
+    const { t } = await getAppI18n();
     const Icon = role === 'admin' || projects === 'all' ? FoldersIcon : FolderIcon;
     return (
         <ItemDescription className="flex items-center gap-1.5">
             <Icon aria-hidden="true" className="size-3.5 shrink-0" />
-            <span className="truncate">{accessText(role, projects, names)}</span>
+            <span className="truncate">{role === 'admin' || projects === 'all' ? t('All projects') : projects.length ? accessText(role, projects, names) : t('No projects')}</span>
         </ItemDescription>
     );
 }
@@ -59,10 +63,11 @@ const columnsGroup = 'gap-0 divide-y @2xl:grid @2xl:grid-cols-[auto_minmax(12rem
 const columnsRow = 'rounded-none @2xl:col-span-full @2xl:grid @2xl:grid-cols-subgrid';
 
 /** Internal or External; nothing while unspecified */
-const relationshipLabels: Record<string, string> = { internal: 'Internal', external: 'External' };
+const relationshipLabels = { internal: 'Internal', external: 'External' } as const;
 
-function RoleBadge({ role }: { role: 'admin' | 'commenter' }) {
-    return <Badge variant={role === 'admin' ? 'default' : 'secondary'}>{role === 'admin' ? 'Admin' : 'Commenter'}</Badge>;
+async function RoleBadge({ role }: { role: 'admin' | 'commenter' }) {
+    const { t } = await getAppI18n();
+    return <Badge variant={role === 'admin' ? 'default' : 'secondary'}>{role === 'admin' ? t("Admin") : t("Commenter")}</Badge>;
 }
 
 /** A titled list of a page (people, invitations) */
@@ -91,6 +96,7 @@ function ListSection({ id, title, count, description, children }: {
 const FILTER_FROM = 8;
 
 async function UsersPageContent({ searchParams }: PageProps<'/app/workspace/users'>) {
+    const { t } = await getAppI18n();
     const context = await requireAdminContext();
     if (context.workspace.id === PUBLIC_WORKSPACE_ID) redirect(KnownPages.AppProjects);
     const { project: projectParam, relationship, team, state } = await searchParams;
@@ -126,17 +132,17 @@ async function UsersPageContent({ searchParams }: PageProps<'/app/workspace/user
     return (
         <>
             <WorkspaceTabHeader
-                description="The people who review the projects in this workspace."
+                description={t("The people who review the projects in this workspace.")}
                 actions={(
                     <>
                         {/* Adding existing people to teams (or removing them) is occasional: a dialog, not the top of the page */}
                         {access.teams.length > 0 && (
                             <Dialog>
-                                <DialogTrigger render={<Button variant="outline" />}>Team membership</DialogTrigger>
+                                <DialogTrigger render={<Button variant="outline" />}>{t("Team membership")}</DialogTrigger>
                                 <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-xl">
                                     <DialogHeader>
-                                        <DialogTitle>Team membership</DialogTitle>
-                                        <DialogDescription>Add or remove existing people without another invitation. Direct grants stay.</DialogDescription>
+                                        <DialogTitle>{t("Team membership")}</DialogTitle>
+                                        <DialogDescription>{t("Add or remove existing people without another invitation. Direct grants stay.")}</DialogDescription>
                                     </DialogHeader>
                                     <BulkTeamForm data={data} />
                                 </DialogContent>
@@ -155,11 +161,11 @@ async function UsersPageContent({ searchParams }: PageProps<'/app/workspace/user
             <div className="flex flex-col gap-10">
                 <ListSection
                     id="members"
-                    title="People"
+                    title={t("People")}
                     count={shownMembers.length}
-                    description={project ? `Who can review ${projectNames.get(project)}.` : 'Admins and commenters of this workspace.'}>
+                    description={project ? t("Who can review {value0}.", { value0: projectNames.get(project) ?? t('Project') }) : t("Admins and commenters of this workspace.")}>
                     <Card className="@container gap-0 py-0">
-                        <ItemGroup aria-label="People" className={columnsGroup}>
+                        <ItemGroup aria-label={t("People")} className={columnsGroup}>
                             {shownMembers.map(({ member, name, avatarUrl }) => (
                                 <Item key={member.id} role="listitem" className={columnsRow}>
                                     <ItemMedia className={centeredMedia}>
@@ -168,7 +174,7 @@ async function UsersPageContent({ searchParams }: PageProps<'/app/workspace/user
                                     <ItemContent className="min-w-48">
                                         <ItemTitle>
                                             <Link href={KnownPageLinks.member(member.userId)} className="underline-offset-4 hover:underline">{name}</Link>
-                                            {member.userId === context.user.id && <span className="font-normal text-muted-foreground">(you)</span>}
+                                            {member.userId === context.user.id && <span className="font-normal text-muted-foreground">{t("(you)")}</span>}
                                         </ItemTitle>
                                         <ItemDescription className="truncate font-mono text-[13px]">{member.email}</ItemDescription>
                                     </ItemContent>
@@ -177,13 +183,12 @@ async function UsersPageContent({ searchParams }: PageProps<'/app/workspace/user
                                         <Access role={member.role} projects={member.projects} names={projectNames} />
                                         {teamChips(member.teamIds)}
                                         <ItemDescription className="text-xs">
-                                            {member.relationship && relationshipLabels[member.relationship] && `${relationshipLabels[member.relationship]} · `}
-                                            Joined <RelativeTime value={member.createdAt} />
+                                            {member.relationship && relationshipLabels[member.relationship] && `${t(relationshipLabels[member.relationship])} · `}{t("Joined")}{' '}<RelativeTime value={member.createdAt} />
                                         </ItemDescription>
                                     </ItemContent>
                                     <ItemActions className="ml-auto @2xl:ml-0">
                                         <span className={roleColumn}><RoleBadge role={member.role} /></span>
-                                        <Link href={KnownPageLinks.member(member.userId)} aria-label={`Manage access for ${name}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>Manage access</Link>
+                                        <Link href={KnownPageLinks.member(member.userId)} aria-label={t("Manage access for {value0}", { value0: name })} className={buttonVariants({ variant: 'outline', size: 'sm' })}>{t("Manage access")}</Link>
                                         {member.userId !== context.user.id && <RemoveMemberButton userId={member.userId} name={name} />}
                                     </ItemActions>
                                 </Item>
@@ -193,12 +198,12 @@ async function UsersPageContent({ searchParams }: PageProps<'/app/workspace/user
                 </ListSection>
                 <ListSection
                     id="invitations"
-                    title="Invitations"
+                    title={t("Invitations")}
                     count={shownInvitations.length}
-                    description="Sent and not accepted yet.">
+                    description={t("Sent and not accepted yet.")}>
                     {shownInvitations.length ? (
                         <Card className="@container gap-0 py-0">
-                            <ItemGroup aria-label="Invitations" className={columnsGroup}>
+                            <ItemGroup aria-label={t("Invitations")} className={columnsGroup}>
                                 {shownInvitations.map(invitation => (
                                     <Item key={invitation.id} role="listitem" className={columnsRow}>
                                         <ItemMedia variant="icon" className={cn(centeredMedia, 'size-8 rounded-full border border-dashed')}>
@@ -206,13 +211,13 @@ async function UsersPageContent({ searchParams }: PageProps<'/app/workspace/user
                                         </ItemMedia>
                                         <ItemContent className="min-w-48">
                                             <ItemTitle className="font-mono text-[13px] font-normal">{invitation.email}</ItemTitle>
-                                            <ItemDescription className="text-xs"><span>Expires <RelativeTime value={invitation.expiresAt} /></span></ItemDescription>
+                                            <ItemDescription className="text-xs"><span>{t("Expires")}{' '}<RelativeTime value={invitation.expiresAt} /></span></ItemDescription>
                                         </ItemContent>
                                         <ItemContent className="min-w-0 basis-56">
                                             <Access role={invitation.role} projects={invitation.projects} names={projectNames} />
                                             {teamChips(invitation.teamIds)}
                                             {invitation.relationship && relationshipLabels[invitation.relationship] && (
-                                                <ItemDescription className="text-xs">{relationshipLabels[invitation.relationship]}</ItemDescription>
+                                                <ItemDescription className="text-xs">{t(relationshipLabels[invitation.relationship])}</ItemDescription>
                                             )}
                                         </ItemContent>
                                         <ItemActions className="ml-auto @2xl:ml-0">
@@ -225,7 +230,7 @@ async function UsersPageContent({ searchParams }: PageProps<'/app/workspace/user
                             </ItemGroup>
                         </Card>
                     ) : (
-                        <p className="m-0 rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">No pending invitations.</p>
+                        <p className="m-0 rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">{t("No pending invitations.")}</p>
                     )}
                 </ListSection>
             </div>

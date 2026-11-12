@@ -501,7 +501,7 @@ test('official HTTP client reads context and image, then records approved reply/
     } finally { await client.close(); }
 });
 
-test('MCP status and assignment stay read for the owner, preserving unseen replies and other-member activity', async () => {
+test('MCP non-reply operations stay read for the owner, preserving unseen replies and other-member activity', async () => {
     const f = await fixture();
     const colleague = await findOrCreateUser(`unread-${randomUUID()}@example.com`);
     await getAppStore().create<DbMember>({ ...f.context.member, id: memberId(colleague.id), userId: colleague.id,
@@ -543,10 +543,33 @@ test('MCP status and assignment stay read for the owner, preserving unseen repli
             await call(name, input); // fresh-key no-op
             expect(threadActivity(await load()).sequence).toBe(before + 1);
         }
+        const metadataChanges = async () => {
+            await call('set_feedback_agent', { agent: 'codex', sessionId: 'own-session', assignToMe: true });
+            await call('set_feedback_agent_working', { working: true, sessionId: 'own-session' });
+            await call('set_feedback_agent_working', { working: false, sessionId: 'own-session' });
+            await call('set_feedback_agent', { agent: 'codex', sessionId: 'own-session', model: 'updated-model' });
+            await call('clear_feedback_agent', {});
+            await call('request_feedback_verification', { expectedRevision: (await load()).verification?.revision ?? null, reviewerId: colleague.id });
+            await call('cancel_feedback_verification', { expectedRevision: (await load()).verification!.revision });
+            const link = { projectId: f.project.id, commentId: f.comment.id, url: 'https://github.com/signalco-io/uier/pull/1' };
+            expect((await client.callTool({ name: 'link_feedback_pull_request', arguments: link })).isError).not.toBe(true);
+            const beforeRetry = threadActivity(await load()).sequence;
+            expect((await client.callTool({ name: 'link_feedback_pull_request', arguments: link })).isError).not.toBe(true);
+            expect(threadActivity(await load()).sequence).toBe(beforeRetry);
+            await call('set_feedback_archived', { archived: true });
+            await call('set_feedback_archived', { archived: false });
+        };
+        await metadataChanges();
+        const saved = await load();
+        expect(readActivity(saved, ownerId, 1)).toMatchObject({ lastOtherSequence: 0, unread: false });
+        expect(readActivity(saved, otherId, 1).unread).toBe(true);
+        expect(await getReadSequence(saved.domain, ownerId, saved.id)).toBe(1);
+        expect(saved.notificationEvents!.filter(event => event.sequence > 1).every(event => event.actorId === ownerId && event.agent?.credentialId === credential.id)).toBe(true);
         const listed = async () => data(await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id } })).items[0];
         expect((await listed()).unread).toBe(false);
         await call('reply_to_feedback', { text: 'Connector reply' });
         const replySequence = threadActivity(await load()).sequence;
+        await metadataChanges();
         await call('set_feedback_status', { status: 'done' });
         await call('assign_feedback', { assigneeId: f.user.id });
         expect(readActivity(await load(), ownerId, 1)).toMatchObject({ lastOtherSequence: replySequence, unread: true });

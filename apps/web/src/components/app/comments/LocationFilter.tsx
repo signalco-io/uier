@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useMemo, useRef, useState, useTransition, type KeyboardEvent, type ReactNode } from 'react';
 import { CheckIcon, ChevronDownIcon, FileIcon, FolderIcon, GlobeIcon, SearchIcon } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
@@ -28,6 +30,7 @@ function Option({ selected, icon, label, detail, title, onSelect }: {
     title?: string;
     onSelect: () => void;
 }) {
+    const { t } = useAppI18n();
     return (
         <button
             type="button"
@@ -39,7 +42,7 @@ function Option({ selected, icon, label, detail, title, onSelect }: {
             {icon}
             <span className="min-w-0 flex-1 truncate">{label}</span>
             {/* Read as "/about, 3 comments" */}
-            {detail !== undefined && <span className="shrink-0 text-xs text-muted-foreground tabular-nums"><span className="sr-only">, </span>{detail}{typeof detail === 'number' && <span className="sr-only"> {detail === 1 ? 'comment' : 'comments'}</span>}</span>}
+            {detail !== undefined && <span className="shrink-0 text-xs text-muted-foreground tabular-nums"><span className="sr-only">, </span>{typeof detail === 'number' ? <><span aria-hidden="true">{detail}</span><span className="sr-only">{detail === 1 ? t('1 comment') : t('{count} comments', { count: detail })}</span></> : detail}</span>}
             <CheckIcon aria-hidden="true" className={cn(!selected && 'invisible')} />
         </button>
     );
@@ -66,15 +69,17 @@ export function LocationFilter({ environment, environments, historySources, page
     onPage: (value: string | undefined) => void;
     triggerClassName?: string;
 }) {
+    const { t } = useAppI18n();
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState('');
     const searchRef = useRef<HTMLInputElement>(null);
     // The pages come with the environment's comments from the server
     const [loading, startLoading] = useTransition();
     const environmentLabel = [...environments, ...historyEnvironments].find(item => item.id === environment)?.label;
+    const shownEnvironment = historyEnvironments.some(item => item.id === environment) && environmentLabel ? t(environmentLabel) : environmentLabel;
     const prefix = page ? pageFilterBase(page) : undefined;
     const pageLabel = page && (prefix !== undefined ? `${prefix}/…` : page);
-    const summary = [environmentLabel, pageLabel].filter(Boolean).join(' · ') || 'All environments and pages';
+    const summary = [shownEnvironment, pageLabel].filter(Boolean).join(' · ') || t("All environments and pages");
 
     const { sections, shown, typedPrefix } = useMemo(() => {
         const query = search.trim().toLowerCase();
@@ -123,7 +128,7 @@ export function LocationFilter({ environment, environments, historySources, page
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger render={<Button variant="outline" size="sm" aria-label={`${summary}, environment and page`} className={cn('max-w-80 min-w-36 justify-between font-normal pointer-coarse:min-h-11', triggerClassName)} />}>
+            <PopoverTrigger render={<Button variant="outline" size="sm" aria-label={t("{value0}, environment and page", { value0: summary })} className={cn('max-w-80 min-w-36 justify-between font-normal pointer-coarse:min-h-11', triggerClassName)} />}>
                 {prefix !== undefined ? <FolderIcon data-icon="inline-start" className="text-muted-foreground" />
                     : page ? <FileIcon data-icon="inline-start" className="text-muted-foreground" />
                         : <GlobeIcon data-icon="inline-start" className="text-muted-foreground" />}
@@ -133,51 +138,51 @@ export function LocationFilter({ environment, environments, historySources, page
             {/* Environments left, their pages right (stacked on narrow screens); opens in the page search, so typing filters right away */}
             <PopoverContent align="start" className="grid w-[min(40rem,calc(100vw-2rem))] gap-0 p-0 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)]" onKeyDown={moveFocus}
                 initialFocus={searchRef}>
-                <div role="group" aria-label="Environment" className="flex flex-col border-b p-1 sm:max-h-96 sm:overflow-y-auto sm:border-r sm:border-b-0">
-                    <GroupLabel>Environment</GroupLabel>
-                    <Option selected={!environment || environment === 'all'} icon={<GlobeIcon aria-hidden="true" />} label="All environments"
+                <div role="group" aria-label={t("Environment")} className="flex flex-col border-b p-1 sm:max-h-96 sm:overflow-y-auto sm:border-r sm:border-b-0">
+                    <GroupLabel>{t("Environment")}</GroupLabel>
+                    <Option selected={!environment || environment === 'all'} icon={<GlobeIcon aria-hidden="true" />} label={t("All environments")}
                         onSelect={() => chooseEnvironment(undefined)} />
                     {environments.map(item => (
                         <Option key={item.id} selected={environment === item.id} label={item.label} title={item.label} onSelect={() => chooseEnvironment(item.id)} />
                     ))}
                     {historyEnvironments.filter(item => !historySources || historySources.includes(item.id) || environment === item.id).map(item => (
-                        <Option key={item.id} selected={environment === item.id} label={<span className="text-muted-foreground">{item.label}</span>} title={item.label}
+                        <Option key={item.id} selected={environment === item.id} label={<span className="text-muted-foreground">{t(item.label)}</span>} title={t(item.label)}
                             onSelect={() => chooseEnvironment(item.id)} />
                     ))}
                 </div>
                 <div aria-busy={loading} className={cn('flex min-w-0 flex-col gap-1 p-1 transition-opacity', loading && 'opacity-60')}>
                     {/* The environment column beside it shows which environment the pages are from */}
-                    <GroupLabel>Pages</GroupLabel>
+                    <GroupLabel>{t("Pages")}</GroupLabel>
                     <div className="px-1">
                         <InputGroup className="h-8">
                             <InputGroupAddon><SearchIcon aria-hidden="true" /></InputGroupAddon>
                             <InputGroupInput ref={searchRef} type="search" value={search} onChange={event => setSearch(event.target.value)}
-                                aria-label="Search pages" placeholder="Search pages or type a path" className="font-mono text-[13px]" />
+                                aria-label={t("Search pages")} placeholder={t("Search pages or type a path")} className="font-mono text-[13px]" />
                         </InputGroup>
                     </div>
-                    <div role="group" aria-label="Pages" className="flex max-h-72 flex-col overflow-y-auto">
+                    <div role="group" aria-label={t("Pages")} className="flex max-h-72 flex-col overflow-y-auto">
                         {!search && (
-                            <Option selected={!page} icon={<GlobeIcon aria-hidden="true" />} label="All pages" detail={total(pages)} onSelect={() => choosePage(undefined)} />
+                            <Option selected={!page} icon={<GlobeIcon aria-hidden="true" />} label={t("All pages")} detail={total(pages)} onSelect={() => choosePage(undefined)} />
                         )}
                         {typedPrefix && (
                             <Option selected={page === typedPrefix.filter} icon={<FolderIcon aria-hidden="true" />}
-                                label={<>Pages under <span className="font-mono text-[13px]">{typedPrefix.base}</span></>} title={`Pages under ${typedPrefix.base}`}
+                                label={<>{t("Pages under ")}<span className="font-mono text-[13px]">{typedPrefix.base}</span></>} title={t("Pages under {value0}", { value0: typedPrefix.base })}
                                 detail={total(typedPrefix.matches)} onSelect={() => choosePage(typedPrefix.filter)} />
                         )}
-                        {sections.length > 0 && <GroupLabel>Sections</GroupLabel>}
+                        {sections.length > 0 && <GroupLabel>{t("Sections")}</GroupLabel>}
                         {sections.map(section => (
                             <Option key={section.filter} selected={page === section.filter} icon={<FolderIcon aria-hidden="true" />}
                                 label={<span className="font-mono text-[13px]">{section.base}/…</span>} title={`${section.base}/…`}
-                                detail={`${section.matches.length} pages · ${total(section.matches)} comments`} onSelect={() => choosePage(section.filter)} />
+                                detail={t("{pages} pages · {comments} comments", { pages: section.matches.length, comments: total(section.matches) })} onSelect={() => choosePage(section.filter)} />
                         ))}
-                        {shown.length > 0 && sections.length > 0 && <GroupLabel>Single pages</GroupLabel>}
+                        {shown.length > 0 && sections.length > 0 && <GroupLabel>{t("Single pages")}</GroupLabel>}
                         {shown.slice(0, maxPages).map(item => (
                             <Option key={item.path} selected={page === item.path} icon={<FileIcon aria-hidden="true" />}
                                 label={<span className="font-mono text-[13px]">{item.path}</span>} title={item.path} detail={item.count} onSelect={() => choosePage(item.path)} />
                         ))}
-                        {shown.length > maxPages && <p className="m-0 px-2 py-1.5 text-xs text-muted-foreground">Type to find the other {shown.length - maxPages} pages.</p>}
+                        {shown.length > maxPages && <p className="m-0 px-2 py-1.5 text-xs text-muted-foreground">{t("Type to find the other {count} pages.", { count: shown.length - maxPages })}</p>}
                         {search && !shown.length && !sections.length && !typedPrefix && (
-                            <p className="m-0 px-2 py-1.5 text-sm text-muted-foreground">No pages match. Type a path that starts with / to match every page under it.</p>
+                            <p className="m-0 px-2 py-1.5 text-sm text-muted-foreground">{t("No pages match. Type a path that starts with / to match every page under it.")}</p>
                         )}
                     </div>
                 </div>

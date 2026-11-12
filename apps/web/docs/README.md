@@ -12,7 +12,9 @@ Product contracts, API references and runbooks stay in the repository's [`docs/`
 - [Brand page](brand-page.md): `/brand`, the live brand reference.
 - [Landing page](landing-page.md): sections, copy rules, the how-it-works scene, pricing.
 - [Feature pages](feature-pages.md): `/features/<feature>`, when to publish one and what each states.
+- [Comparison pages](comparison-pages.md): `/compare`, sourced feature matrices, visual workflows and alternatives.
 - [Integration pages](integration-pages.md): `/integrations` and provider pages, listing illustrations.
+- [Guides](guides.md): `/guides` and the guides under it, their step layout and pictures.
 - [Search indexing](search-indexing.md): metadata, sitemap, `noindex`, IndexNow.
 - [Social cards](social-cards.md): page cards, app link previews, `/og/[card]`.
 - [Footer](footer.md): `SiteFooter` and its links.
@@ -22,6 +24,8 @@ Product contracts, API references and runbooks stay in the repository's [`docs/`
 - [Page security](page-security.md): CSP, nonces, COOP, HSTS and the cookie name migration.
 
 ## The app
+
+- [App languages](localization.md): supported languages, browser defaults, profile preference and catalogs.
 
 - [App shell](app-shell.md): sidebar, sidebar project order, workspace area, project header, `ProjectMark`, projects list, My work.
 - [Project settings](project-settings.md): settings sections, one save per page, notification settings.
@@ -34,12 +38,17 @@ Product contracts, API references and runbooks stay in the repository's [`docs/`
 - [Clients](clients.md): client documents, names, appearance and visibility.
 - [Page and mutation responsiveness](responsiveness.md): realtime refresh, URL state, optimistic updates, `LinkTabs` spinners.
 - [Cache Components](cache-components.md): static shells, request-scoped authorization, cache boundaries and verification.
+- [Partial Prefetching](partial-prefetching.md): link policies, shared shells and production navigation verification.
 - [Keyboard navigation and shortcuts](keyboard.md): composites with one tab stop, the shortcuts, `?` and the switch.
 
 ## Comments and review
 
+- [Project comments CLS](project-comments-cls.md): measured layout-shift sources, fixes and production-build regression.
+
 - [Comments inbox and board](comments-inbox.md): rows, keyboard, the board and drag and drop.
 - [The open thread](comment-thread.md): `CommentCard`, message Markdown, reading when shown, the reply composer.
+- [Message reactions](reactions.md): emoji reactions to each message, their storage, permissions, API and views.
+- [Comment query backend](comment-query.md): versioned queries, Cosmos execution, capabilities, cursors and saved views.
 - [Comment filters and priority](comment-filters.md): the filter bar and `PriorityFlag`.
 - [App triage](triage.md): search, priority and bulk triage.
 - [In progress](in-progress.md): the In progress stage.

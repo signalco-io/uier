@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { Fragment, useId } from 'react';
 import { setShortcutsEnabled } from '@uier/toolbar/keyboard';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/src/components/ui/dialog';
@@ -60,7 +62,12 @@ const groups: { title: string; shortcuts: Shortcut[] }[] = [
             // In the reply box and a message being edited (MessageComposer); no hint under the box repeats them
             { label: 'Send or save a message', keys: ['Enter'] },
             { label: 'New line', keys: ['Shift', 'Enter'] },
-            { label: 'Cancel an edit', keys: ['Esc'] }
+            // Formatting in a message (`@uier/toolbar/editor`); Markdown typed as you write formats it too
+            { label: 'Bold', keys: ['mod', 'B'] },
+            { label: 'Italic', keys: ['mod', 'I'] },
+            { label: 'Strikethrough', keys: ['mod', 'Shift', 'X'] },
+            { label: 'Code', keys: ['mod', 'E'] },
+            { label: 'Cancel an edit or close an empty reply', keys: ['Esc'] }
         ]
     },
     {
@@ -78,15 +85,16 @@ const groups: { title: string; shortcuts: Shortcut[] }[] = [
 const modifierKey = (): Key => /Mac|iPhone|iPad/.test(navigator.userAgent) ? { print: '⌘', name: 'Command' } : 'Ctrl';
 
 function Keys({ shortcut }: { shortcut: Shortcut }) {
+    const { t } = useAppI18n();
     return (
         <KbdGroup>
             {shortcut.keys.map((key, index) => {
                 const shown = key === 'mod' ? modifierKey() : key;
                 return (
                     <Fragment key={index}>
-                        {index > 0 && shortcut.join && <span className="text-xs text-muted-foreground">{shortcut.join}</span>}
+                        {index > 0 && shortcut.join && <span className="text-xs text-muted-foreground">{t(shortcut.join)}</span>}
                         <Kbd>
-                            {typeof shown === 'string' ? shown : <><span aria-hidden="true">{shown.print}</span><span className="sr-only">{shown.name}</span></>}
+                            {typeof shown === 'string' ? shown : <><span aria-hidden="true">{shown.print}</span><span className="sr-only">{t(shown.name)}</span></>}
                         </Kbd>
                     </Fragment>
                 );
@@ -100,25 +108,28 @@ function Keys({ shortcut }: { shortcut: Shortcut }) {
  * single-key shortcuts off in this browser (WCAG 2.1.4). The review toolbar reads the same switch.
  */
 export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+    const { t } = useAppI18n();
     const enabled = useShortcutsEnabled();
     const switchId = useId();
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-h-[calc(100svh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-4 sm:max-w-2xl">
                 <DialogHeader>
-                    <DialogTitle>Keyboard shortcuts</DialogTitle>
-                    <DialogDescription>They never act while you type in a field.</DialogDescription>
+                    <DialogTitle>{t('Keyboard shortcuts')}</DialogTitle>
+                    <DialogDescription>{t('They never act while you type in a field.')}</DialogDescription>
                 </DialogHeader>
-                <div className="-mx-6 grid min-h-0 gap-x-8 gap-y-5 overflow-y-auto px-6 sm:grid-cols-2">
+                {/* It scrolls on a short window: the keyboard can scroll it too */}
+                <div role="region" aria-label={t('Keyboard shortcuts')} tabIndex={0}
+                    className="-mx-6 grid min-h-0 gap-x-8 gap-y-5 overflow-y-auto px-6 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring sm:grid-cols-2">
                     {groups.map(group => (
-                        <section key={group.title} aria-label={group.title} className="flex flex-col gap-2">
-                            <h3 className="m-0 text-xs font-medium text-muted-foreground">{group.title}</h3>
+                        <section key={t(group.title)} aria-label={t(group.title)} className="flex flex-col gap-2">
+                            <h3 className="m-0 text-xs font-medium text-muted-foreground">{t(group.title)}</h3>
                             <dl className="m-0 flex flex-col gap-1.5">
                                 {group.shortcuts.map(shortcut => (
-                                    <div key={shortcut.label} className="flex min-h-6 items-center justify-between gap-3" data-shortcut-off={shortcut.letter && !enabled ? '' : undefined}>
+                                    <div key={t(shortcut.label)} className="flex min-h-6 items-center justify-between gap-3" data-shortcut-off={shortcut.letter && !enabled ? '' : undefined}>
                                         <dt className={shortcut.letter && !enabled ? 'text-muted-foreground' : undefined}>
-                                            {shortcut.label}
-                                            {shortcut.letter && !enabled && <span className="sr-only"> (off)</span>}
+                                            {t(shortcut.label)}
+                                            {shortcut.letter && !enabled && <span className="sr-only">{t(' (off)')}</span>}
                                         </dt>
                                         <dd className="m-0 shrink-0"><Keys shortcut={shortcut} /></dd>
                                     </div>
@@ -129,8 +140,8 @@ export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenC
                 </div>
                 <Field orientation="horizontal" className="border-t pt-4">
                     <FieldContent>
-                        <FieldLabel htmlFor={switchId}>Single-key shortcuts</FieldLabel>
-                        <FieldDescription>Turn them off if they get in the way of speech input. The arrow keys, Enter and Esc keep working. The review toolbar in this browser follows this too.</FieldDescription>
+                        <FieldLabel htmlFor={switchId}>{t('Single-key shortcuts')}</FieldLabel>
+                        <FieldDescription>{t('Turn them off if they get in the way of speech input. The arrow keys, Enter and Esc keep working. The review toolbar in this browser follows this too.')}</FieldDescription>
                     </FieldContent>
                     <Switch id={switchId} checked={enabled} onCheckedChange={checked => setShortcutsEnabled(checked)} />
                 </Field>

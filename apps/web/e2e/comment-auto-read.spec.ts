@@ -66,7 +66,7 @@ test('beside the list the shown thread is read, and the arrow keys read only the
     await expect(thread).toContainText('Guest thread 5');
     await expect(dot).toHaveCount(0);
     await expect(row(page, 5)).not.toHaveAccessibleName(/, unread$/);
-    await expect(page.getByText('· 4 unread', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: '4 unread, show only unread', exact: true })).toBeVisible();
     await expect.poll(() => reads).toEqual([ids[5]]);
 
     // Skimming with the keys: only the thread the reader stops on is read
@@ -81,7 +81,7 @@ test('beside the list the shown thread is read, and the arrow keys read only the
     expect(reads).toEqual([ids[5], ids[2]]);
     await expect(row(page, 4)).toHaveAccessibleName(/, unread$/);
     await expect(row(page, 3)).toHaveAccessibleName(/, unread$/);
-    await expect(page.getByText('· 3 unread', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: '3 unread, show only unread', exact: true })).toBeVisible();
 
     // Saved: after a reload the open thread is already read, so nothing is written again
     await page.reload();
@@ -131,7 +131,7 @@ test('where the thread takes the list\'s place, nothing is read until a row is o
     await backToComments(page);
     await expect(row(page, 2)).not.toHaveAccessibleName(/, unread$/);
     await expect(row(page, 1)).toHaveAccessibleName(/, unread$/);
-    await expect(page.getByText('· 1 unread', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: '1 unread, show only unread', exact: true })).toBeVisible();
 });
 
 test('Only unread keeps the read thread while it is open, the board\'s sheet reads its thread, a failed read comes back', async ({ page, request }, testInfo) => {
@@ -148,7 +148,7 @@ test('Only unread keeps the read thread while it is open, the board\'s sheet rea
     await expect.poll(() => openId(page)).toBe(ids[4]);
     await expect(row(page, 4)).not.toHaveAccessibleName(/, unread$/);
     await expect(commentRows(page)).toHaveCount(4);
-    await expect(page.getByText('· 3 unread', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: '3 unread, show only unread', exact: true })).toBeVisible();
     await page.waitForTimeout(pastDwell);
     expect(reads).toEqual([ids[4]]);
     await expect(row(page, 3)).toHaveAccessibleName(/, unread$/);

@@ -47,6 +47,7 @@ export const de: Messages = {
         accessibility: 'Barrierefreiheit',
         seo: 'SEO',
         about: 'Über uier',
+        draw: 'Auf der Seite zeichnen',
         collapse: 'Leiste einklappen'
     },
     profile: {
@@ -79,7 +80,9 @@ export const de: Messages = {
         languageSavedAccount: 'Ihre Auswahl wird in Ihrem uier-Konto gespeichert.',
         languageSavedBrowser: 'Ihre Auswahl bleibt in diesem Browser.',
         languageNotSaved: 'Ihre Sprache konnte nicht gespeichert werden. Versuchen Sie es erneut.',
-        languageNotLoaded: 'Diese Sprache konnte nicht geladen werden. Wählen Sie sie erneut, um es noch einmal zu versuchen.'
+        languageNotLoaded: 'Diese Sprache konnte nicht geladen werden. Wählen Sie sie erneut, um es noch einmal zu versuchen.',
+        environment: 'Umgebung',
+        environmentHint: 'Öffnet diese Seite in der gewählten Umgebung.'
     },
     shortcutList: {
         addComment: 'Kommentar hinzufügen',
@@ -93,13 +96,18 @@ export const de: Messages = {
         showShortcuts: 'Tastenkürzel anzeigen',
         send: 'Kommentar senden',
         newLine: 'Neue Zeile im Kommentar',
+        bold: 'Fett',
+        italic: 'Kursiv',
+        strikethrough: 'Durchgestrichen',
+        code: 'Code',
         moveToolbar: 'In der Leiste bewegen',
         moveMenu: 'In einem Menü bewegen',
         close: 'Schließen',
         leftArrow: 'Pfeil nach links',
         rightArrow: 'Pfeil nach rechts',
         upArrow: 'Pfeil nach oben',
-        downArrow: 'Pfeil nach unten'
+        downArrow: 'Pfeil nach unten',
+        command: 'Befehlstaste'
     },
     notice: {
         exitReview: 'Review beenden',
@@ -229,6 +237,16 @@ export const de: Messages = {
     activity: {
         toggle: (count: number) => `Verlauf (${count})`,
         label: 'Verlauf der Diskussion'
+    },
+    reactions: {
+        add: 'Reaktion hinzufügen',
+        label: 'Reaktionen',
+        names: { 'thumbs-up': 'Daumen hoch', 'thumbs-down': 'Daumen runter', laugh: 'Lachen', hooray: 'Hurra', confused: 'Verwirrt', heart: 'Herz', rocket: 'Rakete', eyes: 'Augen' },
+        count: (name: string, count: number) => `${name}, ${count} ${p(count, 'Reaktion', 'Reaktionen')}`,
+        people: (people: string) => `Reagiert: ${people}`,
+        you: 'Sie',
+        others: (count: number) => `${count} ${p(count, 'weitere Person', 'weitere Personen')}`,
+        notSaved: 'Reaktion nicht gespeichert'
     },
     feedbackTypes: {
         comment: 'Kommentar',
@@ -362,8 +380,6 @@ export const de: Messages = {
         saving: 'Wird gespeichert...',
         keysSend: 'Enter zum Senden. Umschalt+Enter für eine neue Zeile.',
         keysSave: 'Enter zum Speichern. Umschalt+Enter für eine neue Zeile.',
-        draftLifetime: (days: number) => `Nicht gesendeter Text bleibt nach Ihrer letzten Änderung ${days} Tage in diesem Browser.`,
-        draftSaved: 'Entwurf in diesem Browser gespeichert',
         collapseTip: 'Zurück zum kleineren Formular',
         expandTip: 'Für mehr Platz zum Schreiben vergrößern',
         collapse: 'Verkleinern',
@@ -415,7 +431,10 @@ export const de: Messages = {
         suggestionPlaceholder: 'Ihre Version des Textes...',
         commentPlaceholder: 'Feedback geben...',
         postSuggestion: 'Vorschlag senden',
-        postComment: 'Kommentar senden'
+        postComment: 'Kommentar senden',
+        participants: (people: string) => `In dieser Diskussion: ${people}`,
+        participantsYou: 'Sie',
+        threadPreview: 'Vorschau der Kommentar-Diskussion'
     },
     feedback: {
         typesOff: 'Feedback-Arten sind für dieses Projekt ausgeschaltet. Sie können weiterhin einen angehefteten Kommentar schreiben.',
@@ -512,6 +531,44 @@ export const de: Messages = {
         label: 'Markierter Text',
         rewrite: 'Umformulieren'
     },
+    canvas: {
+        panel: 'Zeichenwerkzeuge',
+        surface: 'Zeichnung',
+        surfaceHelp: 'Zeichnen Sie mit einem Zeiger. Mit der Tastatur: Wählen Sie ein Werkzeug und drücken Sie hier die Eingabetaste, um es hinzuzufügen. Mit Tab erreichen Sie die Formen; die Pfeiltasten verschieben eine, Alt und die Pfeiltasten ändern ihre Größe.',
+        started: 'Sie zeichnen auf der Seite. Wählen Sie ein Werkzeug, zeichnen Sie, dann Kommentieren.',
+        tools: { select: 'Auswählen', pen: 'Stift', marker: 'Textmarker', brush: 'Pinsel', line: 'Linie', arrow: 'Pfeil', rectangle: 'Rechteck', ellipse: 'Ellipse', diamond: 'Raute', text: 'Textnotiz', blur: 'Unschärfe', eraser: 'Radierer' },
+        shapes: { pen: 'Stiftlinie', marker: 'Markerlinie', brush: 'Pinsellinie', line: 'Linie', arrow: 'Pfeil', rectangle: 'Rechteck', ellipse: 'Ellipse', diamond: 'Raute', text: 'Textnotiz', blur: 'Unscharfer Bereich' },
+        /** A shape in the drawing, by its place: "Rectangle 2" */
+        shape: (name: string, number: number) => `${name} ${number}`,
+        style: 'Stil',
+        color: 'Farbe',
+        background: 'Hintergrund',
+        none: 'Keiner',
+        fill: 'Hintergrundfüllung',
+        fills: { semi: 'Durchscheinend', solid: 'Deckend' },
+        outline: 'Kontur',
+        outlines: { solid: 'Durchgehend', dashed: 'Gestrichelt', dotted: 'Gepunktet' },
+        width: 'Stärke',
+        widths: { s: 'Dünn', m: 'Mittel', l: 'Kräftig', xl: 'Sehr kräftig' },
+        edges: 'Kanten',
+        edgeStyles: { clean: 'Exakt', sketchy: 'Skizziert' },
+        colors: { ink: 'Tinte', white: 'Weiß', red: 'Rot', amber: 'Bernstein', green: 'Grün', blue: 'Blau', violet: 'Violett' },
+        undo: 'Rückgängig',
+        redo: 'Wiederholen',
+        deleteShape: 'Form löschen',
+        discard: 'Verwerfen',
+        comment: 'Kommentieren',
+        textNote: 'Textnotiz',
+        added: (name: string) => `${name} hinzugefügt`,
+        deleted: (name: string) => `${name} gelöscht`,
+        undone: 'Rückgängig gemacht',
+        redone: 'Wiederholt',
+        discarded: 'Zeichnung verworfen',
+        full: 'Die Zeichnung ist voll. Entfernen Sie eine Form, um eine weitere hinzuzufügen.',
+        tooLarge: 'Diese Zeichnung ist zu groß zum Speichern. Entfernen Sie einige Formen.',
+        pointerOnly: 'Dieses Werkzeug zeichnet mit einem Zeiger. Wählen Sie ein anderes Werkzeug, um eine Form mit der Tastatur hinzuzufügen.',
+        editDrawing: 'Zeichnung bearbeiten'
+    },
     hint: {
         title: 'Probieren Sie uier auf dieser Seite aus',
         dismiss: 'Schließen',
@@ -529,13 +586,14 @@ export const de: Messages = {
         move: (label: string) => `Bereich „${label}“ verschieben`,
         moveTip: 'Auf die andere Seite ziehen oder die Pfeiltasten nutzen',
         moved: (label: string, side: 'left' | 'right') => `${label} nach ${side === 'left' ? 'links' : 'rechts'} verschoben.`,
-        moveTo: (side: 'left' | 'right') => `Nach ${side === 'left' ? 'links' : 'rechts'} verschieben`
+        moveTo: (side: 'left' | 'right') => `Nach ${side === 'left' ? 'links' : 'rechts'} verschieben`,
+        /** The menu of a panel's title: the other panels to show in its place */
+        switch: 'Bereich wechseln'
     },
     inbox: {
         label: 'Kommentare',
         search: 'Kommentare durchsuchen',
         reviewing: (environment: string) => `Sie prüfen ${environment}. Neues Feedback bleibt hier.`,
-        unread: 'Ungelesen',
         assignedToMe: 'Mir zugewiesen',
         reviewBrief: 'Review-Briefing',
         close: 'Seitenleiste schließen',
@@ -551,6 +609,8 @@ export const de: Messages = {
         activeOne: (status: string) => `Aktiv: ${status}`,
         showComments: 'Kommentare anzeigen',
         activeStatuses: 'Aktive Status',
+        /** The menu beside the Done tab: Done or Archive */
+        doneStatuses: 'Erledigt und Archiv',
         onThisPage: ' auf dieser Seite',
         noArchived: (where: string) => `Keine archivierten Kommentare${where}`,
         noMatches: (where: string) => `Keine Treffer${where}`,
@@ -571,6 +631,10 @@ export const de: Messages = {
         commentNumber: (number: number) => `Kommentar #${number}`,
         comment: 'Kommentar',
         olderNotListed: 'Ältere Kommentare werden nicht aufgeführt.',
+        drafts: 'Entwürfe',
+        draftComment: 'Kommentarentwurf',
+        draftRewrite: 'Entwurf eines Textvorschlags',
+        draftDiscarded: 'Entwurf verworfen',
         unreadCount: (count: number) => `${count} ungelesen`,
         markAllRead: 'Alle als gelesen markieren',
         markedRead: (count: number) => `${count} ${p(count, 'Diskussion', 'Diskussionen')} als gelesen markiert.`,

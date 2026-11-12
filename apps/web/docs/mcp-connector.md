@@ -452,3 +452,11 @@ and receipt key, and preserves workflow/content/verification. Authorized single/
 screenshots remain available. `feedback.archive_changed` uses the durable notification ledger and
 existing webhook/push/poll privacy and connection filtering, without owner email. Old status tools do
 not restore archived feedback. `mcp.api.spec.ts` covers scopes, defaults, restore and receipt replay.
+
+Account setup and consent copy use the [app language](localization.md), including scope descriptions and access summaries. Client names, endpoint/configuration values, prompt ids and the exported SKILL.md keep their protocol and workflow values. Pure access-summary formatters accept the request’s optional locale without changing default English protocol callers.
+
+Non-reply writes through either OAuth or access tokens count as the acting account’s own activity.
+They do not mark that account’s thread unread or acknowledge earlier unseen replies. Agent replies
+still mark the owner’s thread unread, including replies without a `writtenBy` claim. Real account
+authorship and connection attribution on notification events remain unchanged; email self-recipient
+exclusions still apply. See [read state](read-state-and-activity.md#read-cursors-and-freshness).

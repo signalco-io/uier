@@ -4,6 +4,7 @@ import { maxPageKeyLength } from '@uier/toolbar/page-state';
 import { commentCheckCountMax, commentCheckIdPattern, commentCheckTypes } from '@uier/toolbar/feedback-types';
 import { feedbackStatusTargets } from '@uier/toolbar/verification';
 import { pageLanguagePattern } from '@uier/toolbar/devices';
+import { parseDrawing } from '@uier/toolbar/drawing';
 import { MAX_SCREENSHOT_DATA_URL_LENGTH, parseScreenshot, sanitizeScreenshot } from './screenshot';
 import {
     MAX_DEVICE_LABEL_LENGTH,
@@ -220,6 +221,20 @@ export const screenshotSchema = z.string()
         return parsed;
     });
 
+/**
+ * Shapes drawn on the page with a comment (the toolbar's canvas mode, `@uier/toolbar/drawing`): a closed
+ * vocabulary of shape types, colour names and sizes, bounded numbers and short plain text, at most
+ * `drawingLimits` of them. Kept as parsed: only the known fields of each shape.
+ */
+export const drawingSchema = z.unknown().transform((value, ctx) => {
+    const parsed = parseDrawing(value);
+    if (typeof parsed === 'string') {
+        ctx.addIssue({ code: 'custom', message: parsed });
+        return z.NEVER;
+    }
+    return parsed;
+});
+
 export const replaceScreenshotSchema = z.object({
     screenshot: screenshotSchema,
     expectedRevision: z.string().min(1).max(128).nullable()
@@ -236,9 +251,15 @@ export const createCommentSchema = z.object({
     text: textSchema,
     quotedText: quotedTextSchema.optional(),
     check: checkSchema.optional(),
+    /** A comment's drawing: only a comment on an area (the drawing's box) */
+    drawing: drawingSchema.optional(),
     device: deviceSchema.optional(),
     screenshot: screenshotSchema.optional()
 }).refine(
+    input => !input.drawing || (input.kind === 'comment' && input.position.type === 'point'
+        && input.position.widthNormal !== undefined && input.position.heightNormal !== undefined),
+    { path: ['drawing'], message: 'A drawing belongs to a comment on an area' }
+).refine(
     input => {
         switch (input.kind) {
             case 'feedback':

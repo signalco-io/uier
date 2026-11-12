@@ -1,15 +1,15 @@
 'use client';
 
-import { useContext, useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useImperativeHandle, useMemo, useRef, useState, type MouseEvent, type PointerEvent, type Ref } from 'react';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Divider } from '@signalco/ui-primitives/Divider';
 import { cx } from '@signalco/ui-primitives/cx';
 import { Pin } from '@uier/brand';
-import { useMessages } from '../i18n';
+import { useMessages, useToolbarLanguage } from '../i18n';
 import { newLocalId, useComments } from '../hooks/useComments';
-import { lowestRect, resolveAnchorElement, useCommentPlacement } from '../hooks/useCommentItemRects';
+import { getCommentPlacement, lowestRect, resolveAnchorElement, useCommentPlacement } from '../hooks/useCommentItemRects';
 import { cancelCommentScreenshot, captureCommentScreenshot } from '../screenshot';
-import { newCommentDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
+import { newCommentDraftKey, newDrawingDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
 import { CommentThread } from './CommentThread';
 import { CommentComposer, type CommentComposerHandle } from './CommentComposer';
 import { CommentSelectionHighlight } from './CommentSelectionHighlight';
@@ -18,10 +18,19 @@ import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import { holdsLayersAttribute, isToolbarAnchor, pressableToolbarOpener, toolbarPinId, toolbarSurface } from '../toolbarReview';
+import { isPointing } from './CommentPointOverlay';
+import { PinParticipants, participantsGap, participantsWidth, threadParticipants } from './PinParticipants';
 import { RewriteSuggestions, useRewriteSuggestionsState } from './RewriteSuggestions';
-import { ComposerAttachButton, ComposerAttachmentsHeader, useAttachedImage, type AttachedImage } from './ComposerAttachments';
+import { ComposerAttachButton, ComposerAttachmentsHeader, composerIconButtonClassName, useAttachedImage, type AttachedImage } from './ComposerAttachments';
 import { ComposerModal, ExpandComposerButton } from './ComposerModal';
-import { CommentDraft, CommentItem, CommentItemPosition, commentTextMaxLength, floatingShadowClassName, isCommentArea } from './@types/Comments';
+import { IconButton } from '@signalco/ui-primitives/IconButton';
+import { IconTooltip } from './IconTooltip';
+import { DrawingLayer } from './canvas/DrawingLayer';
+import { DrawIcon } from './canvas/CanvasIcons';
+import { commentDrawing, type CommentDrawing } from '../drawing';
+import { useProjectViewer } from '../project/ProjectGate';
+import { getGuestName } from '../project/projectSession';
+import { CommentDraft, CommentItem, CommentItemPosition, commentTextMaxLength, floatingShadowClassName, isCommentArea, type Mention } from './@types/Comments';
 
 // Bubble (the pin) half size, how far its message count badge reaches past the right edge (Pin,
 // @uier/brand) and its minimal distance from the window edges
@@ -34,6 +43,13 @@ const bubbleWindowMargin = 4;
  * pill (bottom-4, 48px tall), so the reply box is never underneath it.
  */
 const popoverCollisionPadding = { top: 8, left: 8, right: 8, bottom: 80 };
+
+/**
+ * A mouse resting on a pin previews its thread after this long (uier #308), and the preview closes
+ * this long after the pointer left the pin and the preview (time to move between them)
+ */
+const previewDelay = 400;
+const previewCloseDelay = 150;
 
 /** Half the pin's hit area: 44px on touch (`pointer-coarse:p-1.5`), the pin itself otherwise */
 function bubbleHalfHitArea() {
@@ -125,7 +141,34 @@ function scrollAnchorIntoView(position: CommentItemPosition, rect: DOMRect | und
     resolveAnchorElement(position)?.scrollIntoView({ block: 'center', behavior });
 }
 
+/**
+ * Brings a draft's anchor into the window when it is outside it, as Resume draft does, so its screenshot is of its
+ * anchor and not of whatever the window shows: the capture measures its region in the window. Resolves once the
+ * scroll has settled (the next frame; soon, when the tab is hidden). An anchor that is not on the page is not
+ * scrolled to: its capture is of the window, as the form's would be.
+ */
+function revealAnchor(position: CommentItemPosition): Promise<void> {
+    const { rects, state } = getCommentPlacement(position);
+    if (!rects.length || rects.every(rect => rect.top >= 0 && rect.bottom <= window.innerHeight)) return Promise.resolve();
+    scrollAnchorIntoView(position, lowestRect(rects), 'auto', state === 'closed');
+    return new Promise(resolve => {
+        requestAnimationFrame(() => resolve());
+        window.setTimeout(resolve, 100);
+    });
+}
+
+/** A draft pin's actions from outside its popover: the inbox's drafts (CommentsGlobal) */
+export type CommentDraftHandle = {
+    /**
+     * Sends the draft as it is, without opening its form: its text, mentions, attached image or a new capture of its
+     * anchor. `false` when it needs its form (a guest's name, an image still being read, nothing to send).
+     */
+    send: () => boolean;
+};
+
 type CommentBubbleProps = {
+    /** A draft's actions from outside it (the inbox) */
+    ref?: Ref<CommentDraftHandle>;
     /** Opens the thread once the pin is on the page (a comment that was just posted, or a comment link) */
     autoOpen?: boolean;
     /** Opened with J or K, going from thread to thread: the messages take the focus, not the reply box */
@@ -138,16 +181,24 @@ type CommentBubbleProps = {
     onAutoOpenStep?: () => void;
     /** With the comment's id, or a draft's key (see hooks/useDrafts.tsx) */
     onOpenStateChange?: (commentId: string, open: boolean) => void;
-    /** The comment was sent: its temporary id, its pin shown at once (see hooks/useComments.tsx) */
-    onCreated?: (localId: string) => void;
+    /**
+     * The comment was sent: its temporary id, its pin shown at once (see hooks/useComments.tsx). `quiet`: sent from
+     * the inbox (`CommentDraftHandle.send`), so its thread does not open on the page.
+     */
+    onCreated?: (localId: string, quiet: boolean) => void;
     /**
      * A comment just sent from a draft: its thread is open from the start, in place of the draft's
      * popover, without the opening animation (one popover that goes on, not one closing and another opening)
      */
     continuesDraft?: boolean;
-    /** Sending failed: the draft (its text is back, the choice to omit its screenshot and its attached image) should be on the page again */
-    onSendFailed?: (error: unknown, choice: { omitScreenshot: boolean; image?: AttachedImage }) => void;
+    /**
+     * Sending failed: the draft (its text is back, the choice to omit its screenshot, its attached image and its drawing)
+     * should be on the page again; `quiet` (sent from the inbox) with its form closed
+     */
+    onSendFailed?: (error: unknown, choice: { omitScreenshot: boolean; image?: AttachedImage; drawing?: CommentDrawing }, quiet: boolean) => void;
     onCanceled?: () => void;
+    /** A drawing's draft: back to canvas mode with its shapes (Edit drawing) */
+    onEditDrawing?: () => void;
     className?: string;
 } & (
     /** A saved comment */
@@ -157,15 +208,20 @@ type CommentBubbleProps = {
 );
 
 export function CommentBubble(props: CommentBubbleProps) {
-    const { autoOpen, autoOpenReading = false, continuesDraft = false, onAutoOpened, onAutoOpenStep, onCreated, onSendFailed, onCanceled, onOpenStateChange, className } = props;
+    const { autoOpen, autoOpenReading = false, continuesDraft = false, onAutoOpened, onAutoOpenStep, onCreated, onSendFailed, onCanceled, onEditDrawing, onOpenStateChange, className } = props;
     const commentItem = props.commentItem;
     const creating = !commentItem;
     const position = props.commentItem ? props.commentItem.position : props.draft.position;
     // A rewrite suggestion: the suggested text for the selected text, instead of a comment
     const rewriting = props.draft?.kind === 'rewrite';
     const selectedText = props.draft?.position.type === 'text' ? props.draft.position.text : undefined;
-    const draftKey = commentItem ? commentItem.id : (rewriting ? newRewriteDraftKey : newCommentDraftKey);
+    // A comment on a drawing (canvas mode): its shapes are shown on its area; the draft keeps them in memory
+    const drawingDraft = props.draft?.kind === 'drawing';
+    const savedDrawing = commentItem?.drawing;
+    const drawing = useMemo(() => props.draft ? props.draft.drawing : commentDrawing(savedDrawing), [props.draft, savedDrawing]);
+    const draftKey = commentItem ? commentItem.id : props.draft.draftKey ?? (rewriting ? newRewriteDraftKey : drawingDraft ? newDrawingDraftKey : newCommentDraftKey);
     const t = useMessages();
+    const language = useToolbarLanguage();
     const newLabel = rewriting ? t.pin.newRewrite : t.pin.newComment;
     // Picking a suggestion replaces the text in the text box (as if typed, so it can be undone)
     const composerRef = useRef<CommentComposerHandle>(null);
@@ -183,12 +239,15 @@ export function CommentBubble(props: CommentBubbleProps) {
     const lastRect = lowestRect(placementRects);
     const { create, reply } = useComments();
     const [capture, setCapture] = useState<{ device: ReturnType<typeof getDeviceInfo>; screenshot: Promise<string | undefined> | undefined }>();
+    // A draft pin that starts closed (restored, or one of several on the page) is captured when its form opens or it
+    // is sent, not for being on the page
+    const startsClosed = Boolean(props.initiallyClosed) && !props.draft?.screenshot;
     useEffect(() => {
-        if (creating) setCapture({
+        if (creating && !startsClosed) setCapture({
             device: props.draft.device ?? getDeviceInfo(),
-            screenshot: props.draft.screenshot ?? captureCommentScreenshot(position, rootElement)
+            screenshot: props.draft.screenshot ?? captureCommentScreenshot(position, rootElement, props.draft.drawing)
         });
-    }, [creating, position, rootElement, props.draft]);
+    }, [creating, startsClosed, position, rootElement, props.draft]);
     const [omitScreenshot, setOmitScreenshot] = useState(props.draft?.omitScreenshot ?? false);
     // The reviewer's own image, sent instead of the automatic screenshot
     const attachment = useAttachedImage(props.draft?.image, { pastedName: t.attachments.pastedImage });
@@ -198,7 +257,7 @@ export function CommentBubble(props: CommentBubbleProps) {
         if (omitted && cancelCommentScreenshot(capture?.screenshot)) {
             setCapture(current => current && { ...current, screenshot: undefined });
         } else if (!omitted && capture && !capture.screenshot) {
-            setCapture({ ...capture, screenshot: captureCommentScreenshot(position, rootElement) });
+            setCapture({ ...capture, screenshot: captureCommentScreenshot(position, rootElement, drawing) });
         }
     };
     const mutation = creating ? create : reply;
@@ -206,7 +265,7 @@ export function CommentBubble(props: CommentBubbleProps) {
     const messagesCount = commentItem?.thread.items.filter(item => !item.deleted && !item.pending).length ?? 0;
     const sending = Boolean(commentItem?.pending);
 
-    const handleSubmit = async (text: string, mentions?: import('./@types/Comments').Mention[]) => {
+    const handleSubmit = async (text: string, mentions?: Mention[]) => {
         if (props.commentItem) {
             const sentImage = attachment.image;
             attachment.remove();
@@ -220,33 +279,64 @@ export function CommentBubble(props: CommentBubbleProps) {
             return;
         }
 
-        const draft = props.draft;
+        await createComment(text, mentions, capture, false);
+    };
+
+    // `quiet`: sent from the inbox, its form closed (`send`)
+    const createComment = async (text: string, mentions: Mention[] | undefined, sent: typeof capture, quiet: boolean) => {
+        const draft = props.draft!;
         const quotedText = draft.position.type === 'text'
             ? draft.position.text.trim().slice(0, commentTextMaxLength)
             : undefined;
         const localId = newLocalId();
         const posting = create.mutateAsync({
             localId,
+            draftKey,
             position: draft.position,
             kind: rewriting ? 'rewrite' : undefined,
             text,
             mentions,
             quotedText: quotedText || undefined,
             // The original viewport, alongside the automatic capture, even after resizing.
-            device: capture?.device ?? getDeviceInfo(),
-            screenshot: attachment.screenshotFor(omitScreenshot, capture?.screenshot)
+            device: sent?.device ?? getDeviceInfo(),
+            screenshot: attachment.screenshotFor(omitScreenshot, sent?.screenshot),
+            ...(draft.drawing ? { drawing: draft.drawing } : {})
         });
-        // The draft pin makes way for the comment's, shown at once with its thread open
-        onCreated?.(localId);
+        // The draft pin makes way for the comment's, shown at once with its thread open (unless sent from the inbox)
+        onCreated?.(localId, quiet);
         try {
             await posting;
         } catch (error) {
-            // After the composer has put the text back
-            window.setTimeout(() => onSendFailed?.(error, { omitScreenshot, image: attachment.image }), 0);
+            // After the composer (or `send`) has put the text back
+            window.setTimeout(() => onSendFailed?.(error, { omitScreenshot, image: attachment.image, drawing: draft.drawing }, quiet), 0);
             throw error;
         }
         announce(rewriting ? t.pin.suggestionPosted : t.pin.commentPosted);
     };
+
+    // Sent from the inbox, as the composer sends it: the form's text moves into the send (`startSend`) and comes back
+    // if it fails. A guest without a name, or an image still being read, needs the form.
+    const { needsName } = useProjectViewer();
+    useImperativeHandle(props.ref, () => ({
+        send: () => {
+            const text = drafts.get(draftKey) ?? '';
+            const trimmed = text.trim();
+            if (!creating || !trimmed || attachment.reading || (needsName && !getGuestName())) return false;
+            const mentions = drafts.details(draftKey)?.mentions ?? [];
+            const leading = text.length - text.trimStart().length;
+            const selected = mentions.filter(mention => mention.end <= text.trimEnd().length)
+                .map(mention => ({ userId: mention.userId, start: mention.start - leading, end: mention.end - leading }));
+            // A new capture of its anchor, as opening its form takes, with the anchor in the window first
+            const screenshot = omitScreenshot || attachment.image
+                ? undefined
+                : revealAnchor(position).then(() => captureCommentScreenshot(position, rootElement, drawing));
+            const sent = { device: getDeviceInfo(), screenshot };
+            const id = drafts.startSend(draftKey, text, mentions);
+            void createComment(trimmed, selected, sent, true)
+                .then(() => drafts.settleSend(draftKey, id, true), () => drafts.settleSend(draftKey, id, false));
+            return true;
+        }
+    }));
 
     const [open, setOpen] = useState(creating ? !props.initiallyClosed : continuesDraft);
     // Until it is closed: opening it again animates as usual
@@ -269,18 +359,61 @@ export function CommentBubble(props: CommentBubbleProps) {
         onOpenStateChange(openStateId, open);
         return () => onOpenStateChange(openStateId, false);
     }, [openStateId, open, onOpenStateChange]);
+    // A mouse resting on the pin opens a read-only preview of the thread, which closes when the
+    // pointer leaves the pin and the preview; a click (on either) opens the thread itself (uier #308).
+    // Touch and the keyboard open the thread at once, as before.
+    const [previewing, setPreviewing] = useState(false);
+    const preview = previewing && !open;
+    // The last time the popover opened, it was a preview: closing it leaves the focus where it is
+    const previewedRef = useRef(false);
+    const previewTimer = useRef<number>(undefined);
+    useEffect(() => () => window.clearTimeout(previewTimer.current), []);
+    useEffect(() => {
+        if (!open) return;
+        window.clearTimeout(previewTimer.current);
+        previewedRef.current = false;
+        setPreviewing(false);
+    }, [open]);
+    const canPreview = Boolean(commentItem) && !sending;
+    const handlePreviewEnter = (event: PointerEvent) => {
+        if (event.pointerType !== 'mouse' || !canPreview || open) return;
+        window.clearTimeout(previewTimer.current);
+        // Not while a button is held (a drag, a text selection)
+        if (previewing || event.buttons) return;
+        previewTimer.current = window.setTimeout(() => {
+            // Not while choosing a place for a comment: the pins are part of the page then
+            if (isPointing()) return;
+            previewedRef.current = true;
+            setPreviewing(true);
+        }, previewDelay);
+    };
+    const handlePreviewLeave = (event: PointerEvent) => {
+        if (event.pointerType !== 'mouse') return;
+        window.clearTimeout(previewTimer.current);
+        if (previewing) previewTimer.current = window.setTimeout(() => setPreviewing(false), previewCloseDelay);
+    };
+    // A click keeps it open, as the thread with its reply box and actions
+    const handlePinClick = (event: MouseEvent) => {
+        window.clearTimeout(previewTimer.current);
+        if (!preview) return;
+        // Instead of the popover's own toggle, which would close it
+        event.preventDefault();
+        handleOpenChange(true);
+    };
+
     const handleOpenChange = (open: boolean) => {
         setContinuing(false);
         setExpanded(false);
-        if (open && creating) setCapture({ device: getDeviceInfo(), screenshot: captureCommentScreenshot(position, rootElement) });
+        if (open && creating) setCapture({ device: getDeviceInfo(), screenshot: captureCommentScreenshot(position, rootElement, drawing) });
         if (!open) {
             mutation.reset();
             rewrite.reset();
             setReading(false);
             // A new comment with text stays on the page as a draft pin; reopening it brings the text
-            // back. A rewrite whose text is still the selected text has nothing to keep.
+            // back. A rewrite whose text is still the selected text has nothing to keep. A drawing is
+            // something to keep by itself: Discard removes it.
             const text = drafts.get(draftKey)?.trim();
-            if (creating && (!text?.length || (rewriting && text === selectedText?.trim()))) {
+            if (creating && !drawingDraft && (!text?.length || (rewriting && text === selectedText?.trim()))) {
                 drafts.delete(draftKey);
                 onCanceled?.();
             }
@@ -325,6 +458,8 @@ export function CommentBubble(props: CommentBubbleProps) {
                 scrollAnchorIntoView(position, lastRect, 'auto', closedLayer);
             }
             setReading(autoOpenReading);
+            // A draft resumed from the toolbar or the inbox: a new capture, as opening it by its pin takes
+            if (creating && !open) setCapture({ device: getDeviceInfo(), screenshot: captureCommentScreenshot(position, rootElement, drawing) });
             setOpen(true);
             onAutoOpened?.();
         }
@@ -347,6 +482,13 @@ export function CommentBubble(props: CommentBubbleProps) {
     const pinLeft = bubbleLeft(lastRect);
     const { top: pinTop, upsideDown } = bubbleTop(lastRect, creating ? props.draftPinOffset ?? 0 : 0, pinLeft, rootElement);
     const placement = popoverPlacement(pinLeft, pinTop, upsideDown);
+    // Whose thread it is: the people in it beside the pin, on the side with room (uier #307)
+    const participants = commentItem && !sending ? threadParticipants(commentItem, t.common.guest) : [];
+    const participantsReach = Math.max(bubbleHalfSize + participantsGap, bubbleHalfHitArea()) + participantsWidth(participants);
+    const participantsSide = pinLeft + participantsReach <= document.documentElement.clientWidth - bubbleWindowMargin ? 'right' : 'left';
+    const participantsText = participants.length
+        ? t.pin.participants(new Intl.ListFormat(language, { type: 'conjunction' }).format(participants.map(person => person.isMe ? t.pin.participantsYou : person.name)))
+        : undefined;
 
     // Bounded by the space the window has left, so the reply box always stays visible
     const popoverClassName = cx(
@@ -362,7 +504,16 @@ export function CommentBubble(props: CommentBubbleProps) {
         floatingShadowClassName
     );
 
-    // A pasted image file is attached to a new comment, instead of its screenshot
+    // A saved thread is a part of the toolbar that can be reviewed on uier's own pages; the comment
+    // being written and a preview are not
+    const surface = commentItem && !preview ? toolbarSurface('uier-thread', popoverClassName) : { className: popoverClassName, onCloseAutoFocus: undefined };
+    const handleCloseAutoFocus = (event: Event) => {
+        // A preview never had the focus: it stays where it is, not on the pin
+        if (previewedRef.current) event.preventDefault();
+        else surface.onCloseAutoFocus?.(event);
+    };
+
+    // A pasted (or dropped, `onImageDrop`) image file is attached to a new comment, instead of its screenshot
     const composer = (
         <div className="shrink-0" onPaste={attachment.handlePaste}>
             {creating && (
@@ -372,7 +523,23 @@ export function CommentBubble(props: CommentBubbleProps) {
                     omitted={omitScreenshot}
                     onOmittedChange={handleOmittedChange}
                     attachment={attachment}
-                    actions={<ExpandComposerButton expanded={expanded} onExpandedChange={setExpanded} />} />
+                    actions={<>
+                        {drawingDraft && onEditDrawing && placementState === 'exact' && (
+                            <IconTooltip label={t.canvas.editDrawing}>
+                                <IconButton
+                                    variant="plain"
+                                    size="xs"
+                                    type="button"
+                                    data-uier-edit-drawing=""
+                                    aria-label={t.canvas.editDrawing}
+                                    className={composerIconButtonClassName}
+                                    onClick={onEditDrawing}>
+                                    <DrawIcon size={16} />
+                                </IconButton>
+                            </IconTooltip>
+                        )}
+                        <ExpandComposerButton expanded={expanded} onExpandedChange={setExpanded} />
+                    </>} />
             )}
             <CommentComposer
                 commentId={commentItem?.id}
@@ -392,6 +559,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                 // is there already, so the thread keeps its size and the focus stays in it
                 waiting={sending}
                 attachments={<ComposerAttachButton attachment={attachment} reply={!creating} />}
+                onImageDrop={file => void attachment.attach(file)}
                 // A rewrite's form: the quoted text, the suggestions, then the suggested text in its box
                 beforeText={rewriting && selectedText ? (
                     <RewriteSuggestions
@@ -400,6 +568,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                         onPick={(suggestion) => composerRef.current?.replaceText(suggestion)} />
                 ) : undefined}
                 onSubmit={handleSubmit}
+                discardable={drawingDraft}
                 onDiscard={creating ? handleDiscard : attachment.remove} />
             {!creating && attachment.error && <p role="alert" className="m-0 px-3 pb-2 text-xs text-destructive">{attachment.error}</p>}
         </div>
@@ -418,8 +587,17 @@ export function CommentBubble(props: CommentBubbleProps) {
                     commentId={commentItem?.id}
                     onClick={commentItem ? () => setOpen(true) : undefined} />
             )}
-            {isCommentArea(position) && lastRect && !closedLayer && (
-                <CommentAreaHighlight rect={lastRect} commentId={commentItem?.id} active={open} />
+            {isCommentArea(position) && lastRect && !closedLayer && drawing && (
+                <DrawingLayer
+                    data-uier-drawing-comment={commentItem?.id ?? ''}
+                    className={onToolbar ? 'z-[74]' : 'z-[47]'}
+                    shapes={drawing.shapes}
+                    left={lastRect.left}
+                    top={lastRect.top} />
+            )}
+            {/* A drawing marks its area itself: the outline only while its thread is open (or previewed) */}
+            {isCommentArea(position) && lastRect && !closedLayer && (!drawing || open || preview) && (
+                <CommentAreaHighlight rect={lastRect} commentId={commentItem?.id} active={open || preview} />
             )}
             <Popper
                 container={rootElement}
@@ -430,6 +608,8 @@ export function CommentBubble(props: CommentBubbleProps) {
                         // Names the pin when it opens the thread a comment on the toolbar is in
                         id={commentItem && !sending ? toolbarPinId(commentItem.id) : undefined}
                         data-uier-comment={commentItem?.id ?? newCommentDraftKey}
+                        // Which of the page's drafts it is (`newDraftKey`)
+                        data-uier-draft={creating ? draftKey : undefined}
                         {...holdsLayers}
                         // The same number as the thread header, the inbox and the app ("Comment #6, 3 messages")
                         aria-label={creating
@@ -437,9 +617,16 @@ export function CommentBubble(props: CommentBubbleProps) {
                             : sending
                                 ? t.pin.commentSending
                                 : t.pin.label(commentItem.number, messagesCount, commentItem.resolved)}
+                        aria-description={participantsText}
                         onFocus={handleFocus}
+                        onPointerEnter={handlePreviewEnter}
+                        onPointerLeave={handlePreviewLeave}
+                        onClick={handlePinClick}
                         className={cx(
+                            // The pin's shape, so the focus ring follows it: round but for the sharp corner
+                            // (top-left, bottom-left when upside down)
                             'group fixed cursor-pointer rounded-full pointer-coarse:p-1.5',
+                            upsideDown ? 'rounded-bl-none' : 'rounded-tl-none',
                             // A hovered or focused pin comes in front of the pins it overlaps
                             onToolbar ? 'z-[75] hover:z-[76] focus-visible:z-[76]' : 'z-[48] hover:z-[49] focus-visible:z-[49]',
                             sending && 'opacity-70',
@@ -461,26 +648,45 @@ export function CommentBubble(props: CommentBubbleProps) {
                             upsideDown={upsideDown}
                             style={{ display: 'block' }}
                             className="group-hover:scale-110 group-hover:brightness-75" />
+                        <PinParticipants people={participants} side={participantsSide} />
                     </button>
                 )}
-                aria-label={creating ? newLabel : sending ? t.pin.sendingComment : t.pin.thread}
+                aria-label={creating ? newLabel : sending ? t.pin.sendingComment : preview ? t.pin.threadPreview : t.pin.thread}
                 {...holdsLayers}
-                // A saved thread is a part of the toolbar that can be reviewed on uier's own pages; the
-                // comment being written is not
-                {...(commentItem ? toolbarSurface('uier-thread', popoverClassName) : { className: popoverClassName })}
-                // A saved thread: R, S and A act on it (`threadShortcuts.ts`)
-                {...(commentItem && { 'data-uier-thread-scope': '' })}
+                {...surface}
+                // Passed through to the Radix popover content, like `collisionPadding`
+                {...{ onCloseAutoFocus: handleCloseAutoFocus }}
+                // A saved thread: R, S and A act on it (`threadShortcuts.ts`); not on a preview
+                {...(commentItem && !preview && { 'data-uier-thread-scope': '' })}
+                {...(preview && {
+                    'data-uier-preview': '',
+                    // The focus stays where it is (the page's, or another thread's reply box)
+                    onOpenAutoFocus: (event: Event) => event.preventDefault(),
+                    onPointerEnter: handlePreviewEnter,
+                    onPointerLeave: handlePreviewLeave,
+                    onClick: handlePinClick
+                })}
                 side={placement.side}
                 sideOffset={placement.sideOffset}
                 align={placement.align}
                 alignOffset={placement.alignOffset}
-                open={open && !expanded}
-                // Not while expanded: the popover makes way for the modal, which has the focus now
-                onOpenChange={next => { if (next || !expandedRef.current) handleOpenChange(next); }}
+                open={(open || preview) && !expanded}
+                // Not while expanded: the popover makes way for the modal, which has the focus now.
+                // A preview (Escape, a press outside) just closes.
+                onOpenChange={next => {
+                    if (!next && preview) setPreviewing(false);
+                    else if (next || !expandedRef.current) handleOpenChange(next);
+                }}
                 // Passed through to the Radix popover content (the Popper's own value is derived from the offsets)
                 {...{ collisionPadding: popoverCollisionPadding }}
             >
-                {commentItem && (
+                {/* Read-only: its controls take no presses or focus, and a click anywhere opens the thread */}
+                {commentItem && preview && (
+                    <div inert className="min-h-0 flex-1 overflow-hidden">
+                        <CommentThread commentItem={commentItem} onPage />
+                    </div>
+                )}
+                {commentItem && !preview && (
                     <>
                         {/* Focusable so the thread can be scrolled with the keyboard */}
                         <div
@@ -494,7 +700,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                         <Divider className="shrink-0" />
                     </>
                 )}
-                {composer}
+                {!preview && composer}
             </Popper>
         </>
     );

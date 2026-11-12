@@ -89,8 +89,19 @@ test('the assignee picks the agent working with them, edits its session, model a
     thread = await openComment(page, 'Checkout button fails');
     const saved = thread.getByRole('button', { name: 'Agent: Claude. Change agent', exact: true });
     await expect(saved).toContainText('Opus 5.5');
-    await expect(thread.getByRole('link', { name: 'Open in T3 Code' })).toHaveAttribute('href', sessionUrl);
     await expect(saved.locator('[data-agent-reasoning]')).toHaveText('xhigh');
+    // The session link shows only once the agent is clicked: with its details at the top of the menu
+    await expect(thread.getByRole('link', { name: 'Open in T3 Code' })).toHaveCount(0);
+    await saved.click();
+    const agentMenu = page.getByRole('menu').filter({ has: page.getByRole('menuitem', { name: 'Session and model', exact: true }) });
+    await animationsFinished(agentMenu);
+    await expect(agentMenu.locator('[data-agent-details] [data-agent-model]')).toHaveText('Opus 5.5');
+    await expect(agentMenu.locator('[data-agent-details] [data-agent-reasoning]')).toHaveText('xhigh reasoning');
+    await expect(agentMenu.getByRole('menuitem', { name: 'Open in T3 Code', exact: true })).toHaveAttribute('href', sessionUrl);
+    await expectNoAxeViolations(page, { include: ['[role="menu"]'] });
+    await page.screenshot({ path: testInfo.outputPath('agent-menu.png') });
+    await page.keyboard.press('Escape');
+    await expect(agentMenu).toBeHidden();
     // The model and reasoning level truncate inside the Assignee field instead of running past it on a phone
     const [button, field] = await Promise.all([saved.boundingBox(), saved.locator('xpath=..').boundingBox()]);
     expect(button!.x + button!.width).toBeLessThanOrEqual(field!.x + field!.width + 1);
@@ -187,6 +198,9 @@ test('the avatars on a row show the assignee and their agent on hover, focus or 
         await expect(card.locator('[data-agent-model]')).toHaveText('Opus 5.5');
         await expect(card.locator('[data-agent-model]')).toHaveAttribute('title', 'claude-opus-5-5');
         await expect(card).toContainText('high reasoning');
+        // The reasoning level as signal bars, the word only for screen readers
+        await expect(card.locator('[data-agent-reasoning] svg')).toBeVisible();
+        await expect(card.locator('[data-agent-reasoning] .sr-only')).toHaveText(' reasoning');
         await expect(card.locator('[data-agent-since]')).toHaveText(/^Started (just now|\d+ min ago)$/);
         await expect(session).toHaveText(`Session ${sessionId}`);
         await expect(card.getByRole('link', { name: 'Open in Codex' })).toHaveAttribute('href', sessionUrl);
@@ -211,6 +225,10 @@ test('the avatars on a row show the assignee and their agent on hover, focus or 
     await avatars.hover();
     await expectCard();
     await animationsFinished(card);
+    // The agent's avatar is centred on its header line, and when it started sits at the right of that line
+    const [agentAvatar, header, since] = await Promise.all([card.locator('[data-agent="claude"]').boundingBox(), card.locator('[data-agent-header]').boundingBox(), card.locator('[data-agent-since]').boundingBox()]);
+    expect(Math.abs((agentAvatar!.y + agentAvatar!.height / 2) - (header!.y + header!.height / 2))).toBeLessThanOrEqual(2);
+    expect(Math.abs((since!.x + since!.width) - (header!.x + header!.width))).toBeLessThanOrEqual(1);
     // The list and the card: the thread beside the list has its own checks
     await expectNoAxeViolations(page, { include: ['[aria-label="Comments"]', '[aria-label="Assignee details"]'] });
     await page.screenshot({ path: testInfo.outputPath('assignee-card.png') });

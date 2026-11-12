@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { createContext, useContext, useEffect, useEffectEvent, useRef, useState, useTransition, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 import { CircleCheckIcon, FlagIcon, RotateCcwIcon, UserIcon, XIcon } from 'lucide-react';
 import { commentAssignees } from '@uier/toolbar/agents';
@@ -47,6 +49,7 @@ export function SelectComment({ comment, tabbable = true, className }: {
     tabbable?: boolean;
     className?: string;
 }) {
+    const { t } = useAppI18n();
     const selection = useContext(Selection);
     if (!selection || !comment.permissions.triage) return null;
     const checked = selection.ids.has(comment.id);
@@ -57,7 +60,7 @@ export function SelectComment({ comment, tabbable = true, className }: {
         // row starts selecting
         <div className={cn('relative z-10 flex h-5 shrink-0 items-center', className, !selection.active && 'pointer-coarse:pointer-events-none')}>
             {/* Only set to take it out: an explicit `undefined` would replace Base UI's own tab index */}
-            <Checkbox aria-label={`Select comment ${comment.number === undefined ? comment.id : `#${comment.number}`}`} {...!tabbable && { tabIndex: -1 }}
+            <Checkbox aria-label={t("Select comment {value0}", { value0: comment.number === undefined ? comment.id : `#${comment.number}` })} {...!tabbable && { tabIndex: -1 }}
                 checked={checked} disabled={selection.pending || (!checked && selection.ids.size >= limit)}
                 // Shift extends a range: keep the click from selecting the page's text between the two boxes, but take the focus
                 onMouseDown={event => { if (event.shiftKey) { event.preventDefault(); event.currentTarget.focus(); } }}
@@ -68,12 +71,12 @@ export function SelectComment({ comment, tabbable = true, className }: {
     );
 }
 /** `current`: the thread's assignee now; their agent stays only while they stay the assignee */
-function patchFor(operation: TriageOperation, assignees: AssigneeOption[], current?: ProjectCommentView['assignees']): Partial<ProjectCommentView> {
+function patchFor(operation: TriageOperation, assignees: AssigneeOption[], current?: ProjectCommentView['assignees'], t: import('@/src/lib/i18n/types').AppTranslator = text => text): Partial<ProjectCommentView> {
     if (operation.kind === 'status') return { resolved: operation.resolved };
     if (operation.kind === 'priority') return { priority: operation.priority };
     const person = assignees.find(person => person.userId === operation.assigneeId);
     const existing = current?.find(person => person.id === operation.assigneeId);
-    const people = operation.assigneeId ? [existing ?? { id: operation.assigneeId, name: person?.name ?? 'Former member', avatarUrl: person?.avatarUrl }] : [];
+    const people = operation.assigneeId ? [existing ?? { id: operation.assigneeId, name: person?.name ?? t("Former member"), avatarUrl: person?.avatarUrl }] : [];
     return { assignees: people, assignee: people[0] };
 }
 function snapshot(operation: TriageOperation, comments: ProjectCommentView[]): BulkTriageInput {
@@ -91,18 +94,21 @@ function snapshot(operation: TriageOperation, comments: ProjectCommentView[]): B
  *
  * Only the explicit, visible selection enters a batch. Polls and later filter changes never extend it.
  */
-export function TriageSelection({ projectId, scope, shown, assignees, barClassName, lineClassName, summary, actions, children }: {
+export function TriageSelection({ projectId, scope, shown, assignees, barClassName, lineClassName, reserveLine = false, summary, actions, children }: {
     projectId: string; scope: string; shown: ProjectCommentView[]; assignees: AssigneeOption[];
     /** Hides the count line and the selection bar while one thread takes the whole width */
     barClassName?: string;
     /** The count line only: its width, as wide as the filters' header above it */
     lineClassName?: string;
+    /** Live inboxes keep this row's space when the last unread thread is read or a new unread thread arrives. */
+    reserveLine?: boolean;
     /** At the start of the count line: the unread count; leave it empty when there is none */
     summary?: ReactNode;
     /** Right after the summary, beside the unread count it acts on (Mark all as read); empty when there is nothing to act on */
     actions?: ReactNode;
     children: ReactNode;
 }) {
+    const { t } = useAppI18n();
     const [selection, setSelection] = useState<{ scope: string; ids: string[] }>({ scope, ids: [] });
     // A batch ran (or Select shown results was used): the bar stays, with nothing selected too, until Clear selection or Escape
     const [explicit, setExplicit] = useState(false);
@@ -167,14 +173,14 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
         // The bar stays for the outcome and the next action, with the threads that need attention still selected
         setExplicit(true);
         start(async () => {
-            for (const item of batch.items) update({ id: item.id, patch: patchFor(batch, assignees, originals.get(item.id) && commentAssignees(originals.get(item.id)!)) });
+            for (const item of batch.items) update({ id: item.id, patch: patchFor(batch, assignees, originals.get(item.id) && commentAssignees(originals.get(item.id)!), t) });
             const rollback = (id: string) => {
                 const original = originals.get(id);
                 if (original) update({ id, patch: { priority: original.priority, resolved: original.resolved, inProgress: original.inProgress, assignees: commentAssignees(original), assignee: original.assignee } });
             };
             try {
                 const response = await triageCommentsAction(projectId, batch);
-                if (!response?.ok) throw new Error(response?.error ?? 'Could not save this batch.');
+                if (!response?.ok) throw new Error(response?.error ?? t("Could not save this batch."));
                 const { results, counts } = response.data;
                 start(() => { for (const item of results) {
                     if (!item.saved) rollback(item.id);
@@ -182,7 +188,7 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
                         const people = item.saved.assignees.map(person => {
                             const known = commentAssignees(originals.get(item.id) ?? {}).find(current => current.id === person.id);
                             const option = assignees.find(option => option.userId === person.id);
-                            return { ...known, id: person.id, name: known?.name ?? option?.name ?? 'Former member', avatarUrl: option?.avatarUrl,
+                            return { ...known, id: person.id, name: known?.name ?? option?.name ?? t("Former member"), avatarUrl: option?.avatarUrl,
                                 agents: person.agents, agent: person.agents[0] };
                         });
                         update({ id: item.id, patch: { assignees: people, assignee: people[0],
@@ -192,17 +198,17 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
                 const failed = results.filter(item => item.outcome !== 'success' && item.outcome !== 'noop').map(item => item.id);
                 setDetails(results.filter(item => failed.includes(item.id)).map(item => ({ id: item.id,
                     label: originals.get(item.id)?.number === undefined ? item.id : `#${originals.get(item.id)!.number}`,
-                    outcome: item.outcome === 'conflict' ? 'Stale' : item.outcome === 'unavailable' ? 'Unavailable' : 'Failed' })));
+                    outcome: item.outcome === 'conflict' ? t("Stale") : item.outcome === 'unavailable' ? t("Unavailable") : t("Failed") })));
                 setSelection(current => current.scope === originalScope ? { scope: originalScope, ids: failed } : current);
                 const retryIds = new Set(results.filter(item => item.outcome === 'failure').map(item => item.id));
                 if (retryIds.size && scopeRef.current === originalScope) setRetry({ scope: originalScope, batch: { ...batch, items: batch.items.filter(item => retryIds.has(item.id)) } as BulkTriageInput });
-                setResult(`${counts.success} changed, ${counts.noop} unchanged, ${counts.conflict} stale, ${counts.unavailable} unavailable, ${counts.failure} failed.${counts.conflict ? ' Review stale threads before starting a new action.' : ''}`);
+                setResult(t("{changed} changed, {unchanged} unchanged, {stale} stale, {unavailable} unavailable, {failed} failed.", { changed: counts.success, unchanged: counts.noop, stale: counts.conflict, unavailable: counts.unavailable, failed: counts.failure }) + (counts.conflict ? t(" Review stale threads before starting a new action.") : ''));
             } catch {
                 start(() => { for (const item of batch.items) rollback(item.id); });
                 setDetails([]);
                 setSelection(current => current.scope === originalScope ? { scope: originalScope, ids: batch.items.map(item => item.id) } : current);
                 if (scopeRef.current === originalScope) setRetry({ scope: originalScope, batch });
-                setResult('The batch could not be confirmed. Retry with the same submission keys.');
+                setResult(t("The batch could not be confirmed. Retry with the same submission keys."));
             }
             if (scopeRef.current === originalScope) resultRef.current?.focus();
         });
@@ -360,61 +366,60 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
             style={{ '--selection-bar': open ? `calc(${barHeight}px + 1rem)` : '0px' } as CSSProperties} onClickCapture={tapToSelect}>
             {/* The count line: the unread count and Mark all as read. Selecting starts from the rows (a box, x, a long press) */}
             {/* No side padding: it lines up with the search and Filter row above, in both views */}
-            {/* With nothing to show (no unread count) it takes no room, not even the column's gap: `sr-only` takes it
-                out of the flow and keeps its status mounted for announcements */}
-            <div className={cn('flex min-w-0 min-h-8 flex-wrap items-center gap-x-3 gap-y-1', barClassName, lineClassName, quiet && 'sr-only min-h-0')}>
+            {/* Keep the live row's height, including touch targets, through read/unread changes. Other lists may collapse it. */}
+            <div className={cn('flex min-w-0 min-h-8 flex-wrap items-center gap-x-3 gap-y-1', reserveLine && 'pointer-coarse:min-h-11', barClassName, lineClassName, quiet && !reserveLine && 'sr-only min-h-0')}>
                 <span role="status" className="text-sm text-muted-foreground tabular-nums">{summary}</span>
                 {actions}
             </div>
             {/* Floating over the end of the comments (after them on screen, `order-last`), before them in the focus order */}
             {open && (
-                <div ref={barRef} role="group" aria-label="Selected feedback actions"
+                <div ref={barRef} role="group" aria-label={t("Selected feedback actions")}
                     className={cn('sticky bottom-[max(1rem,env(safe-area-inset-bottom))] z-20 order-last flex max-w-full flex-col gap-1 self-center rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-md @max-xl/comments:w-full',
                         'animate-in fade-in-0 slide-in-from-bottom-2 duration-150 ease-out motion-reduce:animate-none', barClassName)}>
                     {/* Above the actions, so they stay where they are when an outcome appears */}
                     <div className={cn('flex flex-wrap items-center gap-x-3 gap-y-1 px-2 py-1', !outcome && 'sr-only')}>
                         {/* Stays mounted for announcements */}
                         <p ref={resultRef} role="status" tabIndex={-1} className="m-0 flex-1 text-sm text-muted-foreground outline-none">{result}</p>
-                        {details.length > 0 && <ul aria-label="Threads needing attention" className="m-0 w-full list-inside list-disc text-sm text-muted-foreground">
+                        {details.length > 0 && <ul aria-label={t("Threads needing attention")} className="m-0 w-full list-inside list-disc text-sm text-muted-foreground">
                             {details.map(item => <li key={item.id}>{item.label}: {item.outcome}</li>)}
                         </ul>}
-                        {retryBatch && retryBatch.items.length > 0 && <Button size="sm" variant="outline" className="pointer-coarse:min-h-11" disabled={pending} onClick={() => run(retryBatch)}>Retry failed threads</Button>}
+                        {retryBatch && retryBatch.items.length > 0 && <Button size="sm" variant="outline" className="pointer-coarse:min-h-11" disabled={pending} onClick={() => run(retryBatch)}>{t("Retry failed threads")}</Button>}
                         {!active && !pending && (
-                            <Button size="icon-sm" variant="ghost" aria-label="Dismiss" className="-my-1 pointer-coarse:size-11" onClick={end}><XIcon /></Button>
+                            <Button size="icon-sm" variant="ghost" aria-label={t("Dismiss")} className="-my-1 pointer-coarse:size-11" onClick={end}><XIcon /></Button>
                         )}
                     </div>
                     {(active || pending) && (
                         <div className="flex flex-wrap items-center gap-1 @xl/comments:flex-nowrap">
-                            <Button size="icon-sm" variant="ghost" aria-label="Clear selection" className="pointer-coarse:size-11" disabled={pending} onClick={end}><XIcon /></Button>
+                            <Button size="icon-sm" variant="ghost" aria-label={t("Clear selection")} className="pointer-coarse:size-11" disabled={pending} onClick={end}><XIcon /></Button>
                             <div className="flex min-h-8 items-center gap-2.5 pr-2 pl-1">
                                 <Checkbox className="pointer-coarse:after:-inset-3.5" checked={allChecked} indeterminate={ids.size > 0 && !allChecked} disabled={pending || !eligible.length}
-                                    aria-label={eligible.length > limit ? 'Select first 50 shown' : 'Select shown results'}
+                                    aria-label={eligible.length > limit ? t("Select first 50 shown") : t("Select shown results")}
                                     onCheckedChange={() => { setExplicit(true); setSelection({ scope, ids: allChecked ? [] : firstShown.map(comment => comment.id) }); }} />
                                 {pending
-                                    ? <span role="status" className="flex items-center gap-2 text-sm whitespace-nowrap"><Spinner />Saving {pendingCount} threads</span>
-                                    : <span role="status" className="text-sm whitespace-nowrap tabular-nums">{ids.size} selected</span>}
+                                    ? <span role="status" className="flex items-center gap-2 text-sm whitespace-nowrap"><Spinner />{t("Saving {count} threads", { count: pendingCount })}</span>
+                                    : <span role="status" className="text-sm whitespace-nowrap tabular-nums">{t("{count} selected", { count: ids.size })}</span>}
                             </div>
                             <Separator orientation="vertical" className="data-vertical:h-5 data-vertical:self-center @max-xl/comments:hidden" />
                             {/* On a narrow screen the actions take a line of their own */}
                             <div className="flex items-center gap-1 @max-xl/comments:w-full @max-xl/comments:justify-between">
-                                <Select items={{ unassigned: 'Unassign', ...Object.fromEntries(availableAssignees.map(person => [person.userId, person.name])) }} value={null}
+                                <Select items={{ unassigned: t("Unassign"), ...Object.fromEntries(availableAssignees.map(person => [person.userId, person.name])) }} value={null}
                                     onValueChange={value => value && begin({ kind: 'assignment', assigneeId: value === 'unassigned' ? null : value })}>
-                                    <SelectTrigger size="sm" className={cn('border-transparent hover:bg-muted data-placeholder:text-foreground dark:bg-transparent', actionClassName)} aria-label="Assign selected" disabled={pending || !ids.size}>
-                                        <UserIcon data-icon="inline-start" aria-hidden="true" /><SelectValue placeholder="Assign" />
+                                    <SelectTrigger size="sm" className={cn('border-transparent hover:bg-muted data-placeholder:text-foreground dark:bg-transparent', actionClassName)} aria-label={t("Assign selected")} disabled={pending || !ids.size}>
+                                        <UserIcon data-icon="inline-start" aria-hidden="true" /><SelectValue placeholder={t("Assign")} />
                                     </SelectTrigger>
-                                    <SelectContent side="top" alignItemWithTrigger={false}><SelectGroup><SelectItem className="pointer-coarse:min-h-11" value="unassigned">Unassign</SelectItem>{availableAssignees.map(person => <SelectItem className="pointer-coarse:min-h-11" key={person.userId} value={person.userId}>{person.name}</SelectItem>)}</SelectGroup></SelectContent>
+                                    <SelectContent side="top" alignItemWithTrigger={false}><SelectGroup><SelectItem className="pointer-coarse:min-h-11" value="unassigned">{t("Unassign")}</SelectItem>{availableAssignees.map(person => <SelectItem className="pointer-coarse:min-h-11" key={person.userId} value={person.userId}>{person.name}</SelectItem>)}</SelectGroup></SelectContent>
                                 </Select>
-                                <Select items={priorityLabels} value={null} onValueChange={value => value && begin({ kind: 'priority', priority: value })}>
-                                    <SelectTrigger size="sm" className={cn('border-transparent hover:bg-muted data-placeholder:text-foreground dark:bg-transparent', actionClassName)} aria-label="Prioritize selected" disabled={pending || !ids.size}>
-                                        <FlagIcon data-icon="inline-start" aria-hidden="true" /><SelectValue placeholder="Priority" />
+                                <Select items={Object.fromEntries(Object.entries(priorityLabels).map(([value, label]) => [value, t(label)]))} value={null} onValueChange={value => value && begin({ kind: 'priority', priority: value })}>
+                                    <SelectTrigger size="sm" className={cn('border-transparent hover:bg-muted data-placeholder:text-foreground dark:bg-transparent', actionClassName)} aria-label={t("Prioritize selected")} disabled={pending || !ids.size}>
+                                        <FlagIcon data-icon="inline-start" aria-hidden="true" /><SelectValue placeholder={t("Priority")} />
                                     </SelectTrigger>
-                                    <SelectContent side="top" alignItemWithTrigger={false}><SelectGroup>{priorities.map(value => <SelectItem className="pointer-coarse:min-h-11" key={value} value={value}><PriorityFlag priority={value} />{priorityLabels[value]}</SelectItem>)}</SelectGroup></SelectContent>
+                                    <SelectContent side="top" alignItemWithTrigger={false}><SelectGroup>{priorities.map(value => <SelectItem className="pointer-coarse:min-h-11" key={value} value={value}><PriorityFlag priority={value} />{t(priorityLabels[value])}</SelectItem>)}</SelectGroup></SelectContent>
                                 </Select>
-                                <Button size="sm" variant="ghost" aria-label="Mark selected as done" className={actionClassName} disabled={pending || !ids.size} onClick={() => begin({ kind: 'status', resolved: true })}>
-                                    <CircleCheckIcon data-icon="inline-start" />Done
+                                <Button size="sm" variant="ghost" aria-label={t("Mark selected as done")} className={actionClassName} disabled={pending || !ids.size} onClick={() => begin({ kind: 'status', resolved: true })}>
+                                    <CircleCheckIcon data-icon="inline-start" />{t("Done")}
                                 </Button>
-                                <Button size="sm" variant="ghost" aria-label="Reopen selected" className={actionClassName} disabled={pending || !ids.size} onClick={() => begin({ kind: 'status', resolved: false })}>
-                                    <RotateCcwIcon data-icon="inline-start" />Reopen
+                                <Button size="sm" variant="ghost" aria-label={t("Reopen selected")} className={actionClassName} disabled={pending || !ids.size} onClick={() => begin({ kind: 'status', resolved: false })}>
+                                    <RotateCcwIcon data-icon="inline-start" />{t("Reopen")}
                                 </Button>
                             </div>
                         </div>

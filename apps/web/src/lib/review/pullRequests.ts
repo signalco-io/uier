@@ -17,6 +17,6 @@ export async function setProjectCommentPullRequest(project: DbProject, actor: Pr
         if (remove && existing && existing.addedBy !== addedBy) throw apiErrors.forbidden('You can only remove pull requests you linked.');
         if (remove ? !existing : existing) return comment;
         if (!remove && links.length >= 20) throw apiErrors.invalidRequest('A thread can have at most 20 manually linked pull requests.');
-        return { ...withThreadActivity(comment, addedBy, actor.kind === 'member' && Boolean(actor.agent)), pullRequests: remove ? links.filter(saved => saved !== existing) : [...links, { url: link.url, addedBy }] };
+        return { ...withThreadActivity(comment, addedBy), pullRequests: remove ? links.filter(saved => saved !== existing) : [...links, { url: link.url, addedBy }] };
     });
 }

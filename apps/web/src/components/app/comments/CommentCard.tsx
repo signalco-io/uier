@@ -1,6 +1,9 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { commentKindIcon, commentKindLabel, type FeedbackTypeSnapshot } from '@uier/toolbar/feedback-types';
+import { localizedKindLabel } from './kindLabel';
 import { FeedbackTypeIcon } from '../FeedbackTypeIcon';
 
 import { PriorityControl } from './PriorityControl';
@@ -72,13 +75,15 @@ import { VerificationControl } from './VerificationControl';
 import { StateBadge, StateMenu, type CommentStatus } from './CommentStatus';
 import { useStatusChange, type ResolveExit } from './useStatusChange';
 import { MessageImage } from './MessageImage';
+import { ReactionList, ReactionPicker } from './MessageReactions';
 import { ReplyComposer } from './ReplyComposer';
+import { preloadMessageEditor } from './MessageComposer';
 import { ThreadActivity } from './ThreadActivity';
 import { AssigneesControl } from './AssigneesControl';
 import { MessageAgent } from './MessageAgent';
 import { appCommentDrafts } from './replyDrafts';
 import { MessageEditor } from './MessageEditor';
-import type { MessageMention } from './MentionTextarea';
+import type { MessageMention } from './MentionEditor';
 import { useKeyShortcutLabel, useKeyShortcuts } from '../keyboard/keys';
 import {
     markCommentReadAction,
@@ -104,13 +109,14 @@ const privateHint = 'Only workspace admins and the author can see this thread. O
  * It is the Mark as read button; Mark as unread is in the More actions menu.
  */
 function UnreadDot({ disabled, onRead }: { disabled: boolean; onRead: () => void }) {
+    const { t } = useAppI18n();
     return (
         <Tooltip>
-            <TooltipTrigger render={<Button variant="ghost" size="icon-xs" aria-label="Unread. Mark as read" disabled={disabled} onClick={onRead}
+            <TooltipTrigger render={<Button variant="ghost" size="icon-xs" aria-label={t("Unread. Mark as read")} disabled={disabled} onClick={onRead}
                     className="-mx-1.5 shrink-0 pointer-coarse:min-h-11 pointer-coarse:min-w-11" />}>
                 <span aria-hidden="true" className="size-2 rounded-full bg-[hsl(var(--brand-accent))]" />
             </TooltipTrigger>
-            <TooltipContent>Mark as read</TooltipContent>
+            <TooltipContent>{t("Mark as read")}</TooltipContent>
         </Tooltip>
     );
 }
@@ -128,12 +134,13 @@ const detailValueClass = 'm-0 flex min-h-8 min-w-0 flex-wrap items-center pointe
 
 /** "Feedback", "Bug report" or "Suggested rewrite" above the first message, as in the toolbar */
 function KindLabel({ kind, feedbackType }: { kind: DbCommentKind; feedbackType?: FeedbackTypeSnapshot }) {
+    const { t } = useAppI18n();
     if (kind === 'comment')
         return null;
     return (
         <span className="inline-flex items-center gap-1 text-xs font-medium text-secondary-foreground">
             {kind === 'rewrite' ? <ReplaceIcon aria-hidden="true" className="size-3.5" /> : <FeedbackTypeIcon icon={commentKindIcon(kind, feedbackType)} className="size-3.5" />}
-            {commentKindLabel(kind, feedbackType)}
+            {localizedKindLabel(kind, feedbackType, t)}
         </span>
     );
 }
@@ -155,21 +162,22 @@ function Message({ author, agent, avatarName, avatarUrl, createdAt, meta, action
     children: ReactNode;
 }) {
     return (
-        <div className="flex gap-2.5">
-            <Avatar size="sm" aria-hidden="true" className="mt-0.5">
+        // The avatar is centred on the header row, however tall its actions make it (44px on touch; uier #281)
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-1">
+            <Avatar size="sm" aria-hidden="true" className="self-center">
                 {avatarUrl && <AvatarImage src={avatarUrl} alt="" />}
                 <AvatarFallback className="font-semibold text-foreground">{initials(avatarName)}</AvatarFallback>
             </Avatar>
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <div className="flex min-h-7 items-center justify-between gap-2">
-                    <div className="flex min-w-0 items-center gap-2 text-sm">
-                        <span className="truncate font-medium">{author}</span>
-                        {agent}
-                        <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums"><RelativeTime value={createdAt} /></span>
-                        {meta}
-                    </div>
-                    {actions}
+            <div className="flex min-h-7 items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2 text-sm">
+                    <span className="truncate font-medium">{author}</span>
+                    {agent}
+                    <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums"><RelativeTime value={createdAt} /></span>
+                    {meta}
                 </div>
+                {actions}
+            </div>
+            <div className="col-start-2 flex min-w-0 flex-col gap-1">
                 {children}
             </div>
         </div>
@@ -178,7 +186,8 @@ function Message({ author, agent, avatarName, avatarUrl, createdAt, meta, action
 
 /** The text of a message with its Markdown, "(edited)" after it as in the toolbar */
 function MessageText({ text, mentions, edited }: { text: string; mentions?: MessageMentionRange[]; edited: boolean }) {
-    return <MessageMarkdown text={text} mentions={mentions} suffix={edited && <span className="font-normal text-muted-foreground"> (edited)</span>} />;
+    const { t } = useAppI18n();
+    return <MessageMarkdown text={text} mentions={mentions} suffix={edited && <span className="font-normal text-muted-foreground">{t(" (edited)")}</span>} />;
 }
 
 /**
@@ -205,6 +214,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     startVerifying?: boolean;
     className?: string;
 }) {
+    const { t } = useAppI18n();
     const router = useRouter();
     const updateComment = useCommentUpdate();
     const drafts = useMemo(() => appCommentDrafts(projectId, userId, comment.id), [projectId, userId, comment.id]);
@@ -251,6 +261,16 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const [verifying, setVerifying] = useState(startVerifying);
     const statusTrigger = useRef<HTMLButtonElement>(null);
     const { permissions, source } = comment;
+    // The message editor is its own chunk: it loads while the page is idle, so Reply and Edit open with it
+    useEffect(() => {
+        if (!permissions.reply && !permissions.edit) return;
+        if (typeof window.requestIdleCallback === 'function') {
+            const id = window.requestIdleCallback(preloadMessageEditor);
+            return () => window.cancelIdleCallback(id);
+        }
+        const timeout = setTimeout(preloadMessageEditor, 500);
+        return () => clearTimeout(timeout);
+    }, [permissions.reply, permissions.edit]);
     const statusChange = useStatusChange(projectId, comment, {
         onMove,
         onVerify: () => setVerifying(true)
@@ -259,8 +279,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
         if (next !== 'ready') setVerifying(false);
         statusChange.change(next);
     };
-    const author = comment.author.isMe ? 'You' : comment.author.name;
-    const label = comment.deleted ? 'Deleted comment' : `Comment by ${comment.author.isMe ? 'you' : comment.author.name}`;
+    const author = comment.author.isMe ? t("You") : comment.author.name;
+    const label = comment.deleted ? t("Deleted comment") : t("Comment by {value0}", { value0: comment.author.isMe ? t("you") : comment.author.name });
     const unread = Boolean(comment.activity?.unread);
     // Only someone else's activity can be unread
     const canMarkUnread = !unread && Boolean(comment.activity?.lastOtherSequence);
@@ -271,8 +291,16 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     // R, S and A: reply, the status menu and the assignee menu of the thread on screen (not of one a phone keeps
     // hidden until its row is chosen). The menus open as Enter opens them, with their first item highlighted.
     const assigneeTrigger = useRef<HTMLButtonElement>(null);
-    // The reply box itself: an open message editor in the same card is another textarea
-    const replyField = useRef<HTMLTextAreaElement>(null);
+    // The reply box itself: an open message editor in the same card is another text box
+    const replyField = useRef<{ focus: () => void }>(null);
+    // Escape closes the empty reply box: the focus goes back to Reply, which takes its place
+    const replyButton = useRef<HTMLButtonElement>(null);
+    const focusReplyButton = useRef(false);
+    useEffect(() => {
+        if (replying || !focusReplyButton.current) return;
+        focusReplyButton.current = false;
+        replyButton.current?.focus();
+    }, [replying]);
     const shown = () => Boolean(cardRef.current?.checkVisibility());
     const openMenu = (trigger: HTMLButtonElement | null) => {
         if (!trigger || trigger.disabled || !shown()) return false;
@@ -294,20 +322,21 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     // Before the page link: the environment's name; the address itself is in the link
     const sourceText = source.available
         ? source.label !== source.origin ? source.label : undefined
-        : `${source.label}${source.origin && source.origin !== source.label ? ` · ${source.origin}` : ''} · Original source unavailable`;
+        : t("{value0}{value1} · Original source unavailable", { value0: source.label, value1: source.origin && source.origin !== source.label ? ` · ${source.origin}` : '' });
 
 
-    const run = (action: () => Promise<ActionState>, success?: string, patch?: Partial<ProjectCommentView>) => startTransition(async () => {
+    const run = (action: () => Promise<ActionState>, success?: string, patch?: Partial<ProjectCommentView>, done?: () => void) => startTransition(async () => {
         if (patch) updateComment({ id: comment.id, patch });
         let result: ActionState;
         try { result = await action(); }
-        catch { toast.error('Could not save the change. Try again.'); return; }
+        catch { toast.error(t("Could not save the change. Try again.")); return; }
         if (result && !result.ok) {
             toast.error(result.error);
             return;
         }
         if (success)
             toast.success(success);
+        done?.();
         // The server action already revalidates this page and returns its fresh snapshot.
     });
 
@@ -315,7 +344,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
         commitSearch();
         const result = await filterCommentAuthorAction(projectId, comment.id, itemId);
         if (!result?.ok) {
-            toast.error(result?.error ?? 'Could not filter by this author.');
+            toast.error(result?.error ?? t("Could not filter by this author."));
             return;
         }
         const params = new URLSearchParams(window.location.search);
@@ -328,9 +357,9 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
         try {
             if (!source.available) return;
             await navigator.clipboard.writeText(new URL(reviewLink, window.location.href).toString());
-            toast.success('Link copied. It opens the page at this comment.');
+            toast.success(t("Link copied. It opens the page at this comment."));
         } catch {
-            toast.error('Couldn\'t copy the link.');
+            toast.error(t("Couldn't copy the link."));
         }
     };
 
@@ -352,7 +381,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const saveEdit = (text: string) => startTransition(async () => {
         let result: ActionState;
         try { result = await drafts.run('edit', () => editCommentAction(projectId, comment.id, text)); }
-        catch { result = { ok: false, error: 'Could not save the change. Try again.' }; }
+        catch { result = { ok: false, error: t("Could not save the change. Try again.") }; }
         if (result && !result.ok) {
             setEditError(result.error);
             return;
@@ -389,7 +418,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
             } : current) } });
             let result: ActionState;
             try { result = await drafts.run(`edit-reply:${item.id}`, () => editCommentReplyAction(projectId, comment.id, item.id, sent, expectedText, sentMentions)); }
-            catch { result = { ok: false, error: 'Could not save the change. Try again.' }; }
+            catch { result = { ok: false, error: t("Could not save the change. Try again.") }; }
             // The tried text stays in the field with the reason, as the toolbar keeps it
             if (result && !result.ok) {
                 if (drafts.details(`edit-reply:${item.id}`))
@@ -402,15 +431,18 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     };
 
     const reply = (item: ProjectCommentMessage) => {
-        const name = item.author.isMe ? 'You' : item.author.name;
+        const name = item.author.isMe ? t("You") : item.author.name;
         const edit = editingReply?.id === item.id && item.editable ? editingReply : undefined;
         const editable = item.editable;
+        const target = !item.deleted && !item.pending ? { projectId, commentId: comment.id, itemId: item.id, reactions: item.reactions } : undefined;
         return (
             <Message author={name} agent={!item.deleted && <MessageAgent author={item.author} />} avatarName={item.author.name} avatarUrl={item.author.avatarUrl} createdAt={item.createdAt}
-                actions={!item.deleted && !edit && (item.canDelete || item.canFilterAuthor || editable) && (
+                actions={!item.deleted && !edit && (<div className="flex shrink-0 items-center gap-0.5">
+                    {target && permissions.react && <ReactionPicker target={target} disabled={pending} />}
+                    {(item.canDelete || item.canFilterAuthor || editable) && (
                     <DropdownMenu>
                         <DropdownMenuTrigger render={<Button variant="ghost" size="icon-xs" disabled={pending} className="text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11"
-                                data-reply-actions={item.id} aria-label={`More actions for reply by ${item.author.isMe ? 'you' : item.author.name}`} />}>
+                                data-reply-actions={item.id} aria-label={t("More actions for reply by {value0}", { value0: item.author.isMe ? t("you") : item.author.name })} />}>
                             <MoreHorizontalIcon />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-auto min-w-48">
@@ -421,45 +453,49 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                         setEditingReply({ id: item.id, expectedText: drafts.details(`edit-reply:${item.id}`)!.originalText!, text: editable.text, mentions: editable.mentions });
                                     }}>
                                         <PencilIcon />
-                                        Edit
+                                        {t("Edit")}
                                     </DropdownMenuItem>
                                 )}
                                 {item.canFilterAuthor && (
                                     <DropdownMenuItem onClick={() => filterAuthor(item.id)}>
                                         <UserIcon />
-                                        More from this author
+                                        {t("More from this author")}
                                     </DropdownMenuItem>
                                 )}
                                 {item.canDelete && (
                                     <DropdownMenuItem variant="destructive" onClick={() => setConfirmingReply(item.id)}>
                                         <Trash2Icon />
-                                        Delete reply
+                                        {t("Delete reply")}
                                     </DropdownMenuItem>
                                 )}
                             </DropdownMenuGroup>
                         </DropdownMenuContent>
                     </DropdownMenu>
-                )}>
+                    )}
+                </div>)}>
                 {item.deleted
-                    ? <p className="m-0 text-sm text-muted-foreground">Reply deleted</p>
+                    ? <p className="m-0 text-sm text-muted-foreground">{t("Reply deleted")}</p>
                     : edit
-                        ? <MessageEditor drafts={drafts} draftKey={`edit-reply:${item.id}`} mentionsIn={{ projectId, commentId: comment.id }} label="Edit reply"
+                        ? <MessageEditor drafts={drafts} draftKey={`edit-reply:${item.id}`} mentionsIn={{ projectId, commentId: comment.id }} label={t("Edit reply")}
                             text={edit.text} mentions={edit.mentions} error={edit.error}
                             onCancel={() => closeReplyEdit(item.id)} onSave={(text, mentions) => saveReply(item, edit.expectedText, text, mentions)} />
-                        : <><MessageText text={item.text} mentions={item.mentions} edited={item.edited} />{item.pending && <span role="status" className="text-xs text-muted-foreground">Sending...</span>}</>}
+                        : <><MessageText text={item.text} mentions={item.mentions} edited={item.edited} />{item.pending && <span role="status" className="text-xs text-muted-foreground">{t("Sending...")}</span>}</>}
                 {!item.deleted && item.screenshot && <MessageImage image={item.screenshot} reply />}
+                {target && !edit && <ReactionList target={target} canReact={Boolean(permissions.react)} />}
             </Message>
         );
     };
 
     const { anchor } = comment;
+    // The first message's reactions (older snapshots have no message id: no reactions until the next refresh)
+    const firstTarget = !comment.deleted && comment.messageId ? { projectId, commentId: comment.id, itemId: comment.messageId, reactions: comment.reactions } : undefined;
     return (
         <Card ref={cardRef} role="article" aria-label={label} className={cn('@container/comment gap-0 py-0', className)}>
             <div className="flex flex-col gap-4 px-4 py-3">
                 {/* Status, public id and unread on the left; Copy and More actions on the right, on one line at any width */}
                 <div className="flex items-center gap-2">
                     {onBack && (
-                        <Button variant="ghost" size="icon-sm" aria-label="Back to comments" onClick={onBack}
+                        <Button variant="ghost" size="icon-sm" aria-label={t("Back to comments")} onClick={onBack}
                             className="-ml-2 shrink-0 @3xl/comments:hidden pointer-coarse:min-h-11 pointer-coarse:min-w-11">
                             <ArrowLeftIcon />
                         </Button>
@@ -470,7 +506,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                             : <StateBadge status={statusChange.status} />}
                         {comment.number !== undefined && (
                             <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                                <span className="sr-only">Comment </span>#{comment.number}
+                                <span className="sr-only">{t("Comment ")}</span>#{comment.number}
                             </span>
                         )}
                         {unread && (
@@ -478,16 +514,16 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                 onRead={() => run(() => markCommentReadAction(projectId, comment.id, comment.activity!.sequence), undefined,
                                     { activity: { ...comment.activity!, readSequence: comment.activity!.sequence, unread: false } })} />
                         )}
-                        {comment.archivedAt && <Badge variant="outline" className="text-muted-foreground">Archived</Badge>}
+                        {comment.archivedAt && <Badge variant="outline" className="text-muted-foreground">{t("Archived")}</Badge>}
                         {comment.private && (
                             <Tooltip>
                                 {/* No background, so it sits quietly beside the number; the lock and the tooltip carry it */}
                                 <TooltipTrigger render={<Badge variant="ghost" tabIndex={0} className="cursor-default text-muted-foreground outline-none hover:bg-transparent dark:hover:bg-transparent" />}>
                                     <LockIcon aria-hidden="true" data-icon="inline-start" />
-                                    Private
-                                    <span className="sr-only">. {privateHint}</span>
+                                    {t("Private")}
+                                    <span className="sr-only">. {t(privateHint)}</span>
                                 </TooltipTrigger>
-                                <TooltipContent className="max-w-64">{privateHint}</TooltipContent>
+                                <TooltipContent className="max-w-64">{t(privateHint)}</TooltipContent>
                             </Tooltip>
                         )}
                     </div>
@@ -495,11 +531,11 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                         <CopyMenu copyIssue={copyIssue} canCopyLink={source.available} onCopyLink={copyLink} />
                         <DropdownMenu>
                             <Tooltip>
-                                <TooltipTrigger render={<DropdownMenuTrigger render={<Button ref={threadActions} variant="ghost" size="icon-sm" disabled={pending} aria-label={`More actions for the ${label.toLowerCase()}`}
+                                <TooltipTrigger render={<DropdownMenuTrigger render={<Button ref={threadActions} variant="ghost" size="icon-sm" disabled={pending} aria-label={t("More actions for the {value0}", { value0: label.toLowerCase() })}
                                     className="text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11" />} />}>
                                     {pending ? <Spinner /> : <MoreHorizontalIcon />}
                                 </TooltipTrigger>
-                                <TooltipContent>More actions</TooltipContent>
+                                <TooltipContent>{t("More actions")}</TooltipContent>
                             </Tooltip>
                             <DropdownMenuContent align="end" className="min-w-48" finalFocus={() => {
                                 if (!editChosen.current) return true;
@@ -510,9 +546,9 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                     <DropdownMenuItem
                                         onClick={() => run(
                                             () => updateNotificationAction(projectId, comment.id, !comment.following),
-                                            comment.following ? 'You no longer follow this thread.' : 'You follow this thread now.', { following: !comment.following })}>
+                                            comment.following ? t("You no longer follow this thread.") : t("You follow this thread now."), { following: !comment.following })}>
                                         {comment.following ? <BellOffIcon /> : <BellIcon />}
-                                        {comment.following ? 'Unfollow thread' : 'Follow thread'}
+                                        {comment.following ? t("Unfollow thread") : t("Follow thread")}
                                     </DropdownMenuItem>
                                     {canMarkUnread && (
                                         <DropdownMenuItem onClick={() => {
@@ -521,7 +557,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                                 { activity: { ...comment.activity!, readSequence: Math.max(0, comment.activity!.lastOtherSequence - 1), unread: true } });
                                         }}>
                                             <MailIcon />
-                                            Mark as unread
+                                            {t("Mark as unread")}
                                         </DropdownMenuItem>
                                     )}
                                     {permissions.resolve && (
@@ -529,7 +565,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                             () => setCommentArchivedAction(projectId, comment.id, !comment.archivedAt), undefined,
                                             { archivedAt: comment.archivedAt ? undefined : new Date().toISOString() })}>
                                             {comment.archivedAt ? <ArchiveRestoreIcon /> : <ArchiveIcon />}
-                                            {comment.archivedAt ? 'Restore comment' : 'Archive comment'}
+                                            {comment.archivedAt ? t("Restore comment") : t("Archive comment")}
                                         </DropdownMenuItem>
                                     )}
                                     {permissions.edit && (
@@ -541,22 +577,22 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                                 setEditing(true);
                                             }}>
                                             <PencilIcon />
-                                            Edit
+                                            {t("Edit")}
                                         </DropdownMenuItem>
                                     )}
                                     {permissions.makePrivate && (
                                         <DropdownMenuItem
                                             onClick={() => run(
                                                 () => setCommentPrivateAction(projectId, comment.id, !comment.private),
-                                                comment.private ? 'Everyone with access sees this comment again.' : 'Only admins and the author see this comment now.')}>
+                                                comment.private ? t("Everyone with access sees this comment again.") : t("Only admins and the author see this comment now."))}>
                                             {comment.private ? <LockOpenIcon /> : <LockIcon />}
-                                            {comment.private ? 'Make public' : 'Make private'}
+                                            {comment.private ? t("Make public") : t("Make private")}
                                         </DropdownMenuItem>
                                     )}
                                     {comment.canFilterAuthor && (
                                         <DropdownMenuItem onClick={() => filterAuthor()}>
                                             <UserIcon />
-                                            More from this author
+                                            {t("More from this author")}
                                         </DropdownMenuItem>
                                     )}
                                 </DropdownMenuGroup>
@@ -565,7 +601,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem variant="destructive" onClick={() => setConfirmingDelete(true)}>
                                             <Trash2Icon />
-                                            Delete
+                                            {t("Delete")}
                                         </DropdownMenuItem>
                                     </>
                                 )}
@@ -581,19 +617,19 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                     A properties list: every row is one control tall (44px on touch screens), labels and values centred on it,
                     and a ghost control pulled left by its padding so its text starts where plain text does. */}
                 <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 text-sm" data-thread-details>
-                    <dt className={detailLabelClass}>Page</dt>
+                    <dt className={detailLabelClass}>{t("Page")}</dt>
                     <dd className={`${detailValueClass} gap-x-2`}>
                         {sourceText && <span className="min-w-0 truncate text-xs text-muted-foreground">{sourceText}</span>}
                         {source.available ? (
                             <a href={reviewLink} target="_blank" rel="noopener"
                                 className="-mx-1 inline-flex min-w-0 items-center gap-1 rounded-md px-1 text-sm underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none pointer-coarse:min-h-11">
-                                <span className="sr-only">Open on </span>
+                                <span className="sr-only">{t("Open on ")}</span>
                                 <span className="truncate font-mono text-xs">{comment.url.replace(/^https?:\/\//, '')}</span>
                                 <ArrowUpRightIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
                             </a>
                         ) : <span className="truncate font-mono text-xs">{comment.path}</span>}
                     </dd>
-                    <dt className={detailLabelClass}>On</dt>
+                    <dt className={detailLabelClass}>{t("On")}</dt>
                     {/* The selector beside the label while it fits, else on its own line; padded so its first line sits where a one-line row's does */}
                     <dd className="m-0 flex min-h-8 min-w-0 flex-wrap items-baseline gap-x-2 py-1.5 pointer-coarse:min-h-11 pointer-coarse:py-3">
                         <span className="min-w-0 break-words">{anchor.label}</span>
@@ -604,11 +640,11 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                             <blockquote className="m-0 mt-1 line-clamp-4 basis-full border-l-2 border-border pl-2.5 text-secondary-foreground">{anchor.text}</blockquote>
                         )}
                     </dd>
-                    <dt className={detailLabelClass}>Assignees</dt>
+                    <dt className={detailLabelClass}>{t("Assignees")}</dt>
                     <dd className={detailValueClass}>
                         <AssigneesControl projectId={projectId} comment={comment} userId={userId} options={assignees} trigger={assigneeTrigger} shortcut={assigneeShortcut} />
                     </dd>
-                    <dt className={detailLabelClass}>Priority</dt>
+                    <dt className={detailLabelClass}>{t("Priority")}</dt>
                     <dd className={detailValueClass}><PriorityControl projectId={projectId} commentId={comment.id} priority={comment.priority} canEdit={permissions.triage} /></dd>
                     <ThreadPullRequests projectId={projectId} comment={comment} />
                 </dl>
@@ -619,16 +655,18 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                 {/* The messages, one under the other like a chat */}
                 <ol className="m-0 flex list-none flex-col gap-3 border-t p-0 pt-4">
                     <li>
-                        <Message author={comment.deleted ? 'Deleted' : author} agent={!comment.deleted && <MessageAgent author={comment.author} />} avatarName={comment.author.name} avatarUrl={comment.author.avatarUrl} createdAt={comment.createdAt}
-                            meta={<CommentDevice device={comment.device} context={comment.reproduction} />}>
+                        <Message author={comment.deleted ? t("Deleted") : author} agent={!comment.deleted && <MessageAgent author={comment.author} />} avatarName={comment.author.name} avatarUrl={comment.author.avatarUrl} createdAt={comment.createdAt}
+                            meta={<CommentDevice device={comment.device} context={comment.reproduction} />}
+                            actions={firstTarget && permissions.react && !editing && <ReactionPicker target={firstTarget} disabled={pending} />}>
                             <KindLabel kind={comment.kind} feedbackType={comment.feedbackType} />
                             {comment.deleted
-                                ? <p className="m-0 text-sm text-muted-foreground">Comment deleted</p>
+                                ? <p className="m-0 text-sm text-muted-foreground">{t("Comment deleted")}</p>
                                 : editing
-                                    ? <MessageEditor drafts={drafts} draftKey="edit" label="Edit comment" text={comment.text} error={editError} pending={pending}
+                                    ? <MessageEditor drafts={drafts} draftKey="edit" label={t("Edit comment")} text={comment.text} error={editError} pending={pending}
                                         onCancel={closeEdit} onSave={text => saveEdit(text)} />
                                     : <MessageText text={comment.displayText} mentions={comment.displayMentions} edited={comment.edited} />}
                             {comment.screenshot && <MessageImage image={comment.screenshot} />}
+                            {firstTarget && !editing && <ReactionList target={firstTarget} canReact={Boolean(permissions.react)} />}
                         </Message>
                     </li>
                     {comment.replies.map(item => <li key={item.id}>{reply(item)}</li>)}
@@ -636,9 +674,9 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
 
                 {/* Reply's icon lines up with the message text: past the 24px avatar and its 10px gap, less the button's 6px padding */}
                 {permissions.reply && (replying
-                    ? <ReplyComposer projectId={projectId} userId={userId} userName={assignees.find(person => person.userId === userId)?.name} comment={comment} textareaRef={replyField} onClose={() => setReplying(false)} />
-                    : <Button variant="ghost" size="sm" className="ml-7 self-start text-muted-foreground hover:text-foreground pointer-coarse:min-h-11" aria-keyshortcuts={replyShortcut} onClick={() => setReplying(true)}>
-                        <ReplyIcon data-icon="inline-start" />Reply
+                    ? <ReplyComposer projectId={projectId} userId={userId} userName={assignees.find(person => person.userId === userId)?.name} comment={comment} fieldRef={replyField} onClose={() => { focusReplyButton.current = true; setReplying(false); }} />
+                    : <Button ref={replyButton} variant="ghost" size="sm" className="ml-7 self-start text-muted-foreground hover:text-foreground pointer-coarse:min-h-11" aria-keyshortcuts={replyShortcut} onClick={() => setReplying(true)}>
+                        <ReplyIcon data-icon="inline-start" />{t("Reply")}
                     </Button>)}
 
                 {/* The issues it is linked to, quiet as in the toolbar */}
@@ -647,7 +685,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                         {comment.integrationLinks.map(link => (
                             <a key={link.provider} href={link.url} target="_blank" rel="noopener noreferrer"
                                 className="inline-flex min-h-6 items-center px-2 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground pointer-coarse:min-h-11">
-                                Open in {integrationLabels[link.provider] ?? link.provider}
+                                {t("Open in ")}{integrationLabels[link.provider] ?? link.provider}
                             </a>
                         ))}
                     </div>
@@ -662,22 +700,24 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
             }}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>{confirmingReply ? 'Delete this reply?' : 'Delete this comment?'}</AlertDialogTitle>
+                        <AlertDialogTitle>{confirmingReply ? t("Delete this reply?") : t("Delete this comment?")}</AlertDialogTitle>
                         <AlertDialogDescription>
-                            {confirmingReply ? 'The reply is deleted for everyone. An empty thread is removed too.' : comment.replies.length
-                                ? `The comment and its ${comment.replies.length} ${comment.replies.length === 1 ? 'reply are' : 'replies are'} deleted for everyone.`
-                                : 'The comment is deleted for everyone.'}
+                            {confirmingReply ? t("The reply is deleted for everyone. An empty thread is removed too.") : comment.replies.length
+                                ? comment.replies.length === 1 ? t("The comment and its reply are deleted for everyone.") : t("The comment and its {count} replies are deleted for everyone.", { count: comment.replies.length })
+                                : t("The comment is deleted for everyone.")}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel>{t("Cancel")}</AlertDialogCancel>
                         <AlertDialogAction onClick={() => {
                             const itemId = confirmingReply;
                             setConfirmingDelete(false);
                             setConfirmingReply(undefined);
-                            run(() => itemId ? deleteCommentReplyAction(projectId, comment.id, itemId) : deleteCommentAction(projectId, comment.id), itemId ? 'Reply deleted.' : 'Comment deleted.');
+                            run(() => itemId ? deleteCommentReplyAction(projectId, comment.id, itemId) : deleteCommentAction(projectId, comment.id), itemId ? t("Reply deleted.") : t("Comment deleted."),
+                                // A deleted thread is gone from every list, My work's board too (it keeps threads changed there)
+                                undefined, itemId ? undefined : () => startTransition(() => updateComment({ id: comment.id, removed: true })));
                         }}>
-                            Delete
+                            {t("Delete")}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

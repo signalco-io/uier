@@ -92,6 +92,8 @@ reply sync is off. The React settings serialize booleans, never grants or source
 
 The shared API suites are
 `integrationSignals.api.spec.ts`, `integrationCredentials.api.spec.ts` and `integrations.api.spec.ts`.
+Credential-lease expiry assertions use the issued `lease.until`: acquisition advances the clock
+while reading storage and checking authority, so the call's start time is not its issuance time.
 Azure DevOps (`azure-devops/`) uses Microsoft Entra delegated OAuth with one grant per project
 connection, so its work items are written as the connecting admin. It mirrors each thread into one work
 item's text field rather than its Discussion, sets the mapped state only when the uier status changes,
@@ -107,3 +109,5 @@ as Notion refuses them in option names); built-in values retain their original l
 existing database options remain stable.
 Slack notification titles also use the saved custom label, retaining the existing Feedback, Bug and
 Suggested rewrite titles for built-in kinds. Labels remain literal, bounded text.
+
+Signed-in integration setup, status badges, capability descriptions, confirmation dialogs and results use the [app language](localization.md). Provider names, remote destination names, mapped fields and configuration snippets remain unchanged. Machine operation ids are never translated.

@@ -45,3 +45,5 @@ guests, and `usedOf` counts; `public-project.api.spec.ts` the account link for e
 page, with axe checks in light and dark.
 `app.spec.ts` and `users.spec.ts` include Usage in the account, admin workspace and commenter
 workspace navigation expectations, retaining the checks that restrict management tabs to admins.
+
+Usage labels and limit descriptions use the [app language](localization.md). Counts use Intl.NumberFormat and reset times use Intl.RelativeTimeFormat for the viewer’s language, including Croatian plural forms.

@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useTransition, type RefObject } from 'react';
 import { ChevronDownIcon, UserIcon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -20,11 +22,12 @@ export function AssigneesControl({ projectId, comment, userId, options, trigger,
     projectId: string; comment: ProjectCommentView; userId: string; options: AssigneeOption[];
     trigger: RefObject<HTMLButtonElement | null>; shortcut?: string;
 }) {
+    const { t } = useAppI18n();
     const people = commentAssignees(comment);
     const [pending, start] = useTransition();
     const update = useCommentUpdate();
-    const name = (person: ProjectAssignee) => person.id === userId ? 'You' : person.name;
-    const assigned = people.length ? `Assigned to ${people.map(person => person.id === userId ? 'you' : person.name).join(', ')}` : 'Unassigned';
+    const name = (person: ProjectAssignee) => person.id === userId ? t("You") : person.name;
+    const assigned = people.length ? t("Assigned to {value0}", { value0: people.map(person => person.id === userId ? t("you") : person.name).join(', ') }) : t("Unassigned");
     const change = (ids: string[], mode: 'add' | 'remove' | 'replace') => start(async () => {
         const next = mode === 'replace' ? [] : mode === 'remove' ? people.filter(person => !ids.includes(person.id))
             : [...people, ...options.filter(person => ids.includes(person.userId) && !people.some(current => current.id === person.userId))
@@ -33,8 +36,8 @@ export function AssigneesControl({ projectId, comment, userId, options, trigger,
         try {
             const result = await updateCommentAssigneesAction(projectId, comment.id, ids, mode);
             if (result?.ok) return;
-            toast.error(result?.error ?? 'Could not change the assignees. Try again.');
-        } catch { toast.error('Could not change the assignees. Try again.'); }
+            toast.error(result?.error ?? t("Could not change the assignees. Try again."));
+        } catch { toast.error(t("Could not change the assignees. Try again.")); }
         update({ id: comment.id, patch: { assignees: people, assignee: people[0] } });
     });
     const avatar = people.length === 1 ? <PersonAvatar assignee={people[0]!} /> : !people.length && <UserIcon aria-hidden="true" className="size-4" />;
@@ -42,16 +45,16 @@ export function AssigneesControl({ projectId, comment, userId, options, trigger,
         <div className="flex min-w-0 flex-wrap items-center gap-1">
             {/* The avatar and the name are one menu button, pulled left by its padding so the avatar keeps its place */}
             {comment.permissions.assign ? <DropdownMenu>
-                <DropdownMenuTrigger ref={trigger} render={<Button variant="ghost" size="sm" aria-label={`${people.length > 1 ? `${people.length} people. ` : ''}${assigned}. Change assignee`} aria-keyshortcuts={shortcut}
+                <DropdownMenuTrigger ref={trigger} render={<Button variant="ghost" size="sm" aria-label={t("{assigned}. Change assignee", { assigned: people.length > 1 ? t("{count} people. {assigned}", { count: people.length, assigned }) : assigned })} aria-keyshortcuts={shortcut}
                     data-unset={people.length ? undefined : ''} className={cn('-ml-1.5 h-7 min-w-0 gap-1.5 px-1.5 font-normal pointer-coarse:min-h-11', !people.length && unsetValueClass)} />}>
                     {avatar}
-                    <span className="truncate">{people.length === 1 ? name(people[0]!) : people.length ? `${people.length} people` : 'Unassigned'}</span>
+                    <span className="truncate">{people.length === 1 ? name(people[0]!) : people.length ? t("{count} people", { count: people.length }) : t("Unassigned")}</span>
                     {/* The chevron only invites a first pick; once someone is assigned the name reads as the button */}
                     {!people.length && <ChevronDownIcon aria-hidden="true" data-icon="inline-end" />}
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="max-h-72 min-w-48 overflow-y-auto">
                     <DropdownMenuGroup>
-                        <DropdownMenuLabel>Assign to</DropdownMenuLabel>
+                        <DropdownMenuLabel>{t("Assign to")}</DropdownMenuLabel>
                         {options.filter(option => comment.eligibleAssigneeIds.includes(option.userId)).map(option => <DropdownMenuCheckboxItem key={option.userId}
                             checked={people.some(person => person.id === option.userId)} disabled={pending} closeOnClick={false}
                             className="pointer-coarse:min-h-11"
@@ -61,12 +64,12 @@ export function AssigneesControl({ projectId, comment, userId, options, trigger,
                     </DropdownMenuGroup>
                     <DropdownMenuSeparator />
                     <DropdownMenuGroup>
-                        {people.length > 0 && <DropdownMenuItem disabled={pending} onClick={() => change([], 'replace')}>Unassign</DropdownMenuItem>}
-                        <DropdownMenuItem>Done</DropdownMenuItem>
+                        {people.length > 0 && <DropdownMenuItem disabled={pending} onClick={() => change([], 'replace')}>{t("Unassign")}</DropdownMenuItem>}
+                        <DropdownMenuItem>{t("Done")}</DropdownMenuItem>
                     </DropdownMenuGroup>
                 </DropdownMenuContent>
-            </DropdownMenu> : people.length ? <>{avatar}<span>{people.length === 1 ? name(people[0]!) : `${people.length} people`}</span></>
-                : <span data-unset="" className="inline-flex items-center gap-1.5 text-muted-foreground">{avatar}Unassigned</span>}
+            </DropdownMenu> : people.length ? <>{avatar}<span>{people.length === 1 ? name(people[0]!) : t("{count} people", { count: people.length })}</span></>
+                : <span data-unset="" className="inline-flex items-center gap-1.5 text-muted-foreground">{avatar}{t("Unassigned")}</span>}
             {people.length === 1 && <AgentControl projectId={projectId} comment={comment} assignee={people[0]!} editable={people[0]!.id === userId && comment.permissions.agent} />}
         </div>
         {people.length > 1 && people.map(person => <div key={person.id} data-assignment={person.id} className="flex min-w-0 flex-wrap items-center gap-1.5">

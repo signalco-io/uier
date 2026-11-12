@@ -1,3 +1,4 @@
+import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
@@ -11,9 +12,12 @@ import { GOOGLE_SIGN_IN_COOKIE_NAME } from '@/src/lib/app/google/cookie';
 import { getGoogleLink } from '@/src/lib/app/google/link';
 import { GoogleLinkForm } from './GoogleLinkForm';
 
-export const metadata: Metadata = {
-    title: 'Confirm your email'
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return {
+    title: t('Confirm your email')
 };
+}
 
 /**
  * Google is not authoritative for this address (not Gmail, not a Workspace domain), so the person
@@ -21,23 +25,22 @@ export const metadata: Metadata = {
  * account already uses the address.
  */
 async function GoogleLinkPageContent() {
+    const { t } = await getAppI18n();
     const link = await getGoogleLink((await cookies()).get(GOOGLE_SIGN_IN_COOKIE_NAME)?.value);
 
     if (!link) {
         return (
-            <AuthCard title="This sign-in has expired" description="Start again with Google, or sign in with your email.">
-                <Link href={`${KnownPages.AppSignIn}?add=1`} className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'w-full')}>Sign in again</Link>
+            <AuthCard title={t("This sign-in has expired")} description={t("Start again with Google, or sign in with your email.")}>
+                <Link href={`${KnownPages.AppSignIn}?add=1`} className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'w-full')}>{t("Sign in again")}</Link>
             </AuthCard>
         );
     }
 
     return (
         <AuthCard
-            title="Confirm your email"
+            title={t("Confirm your email")}
             description={<>
-                Confirm <span className="font-medium text-foreground">{link.email}</span> once with an email code
-                to finish signing in with Google.
-            </>}>
+                {t("Confirm")}{' '}<span className="font-medium text-foreground">{link.email}</span> {t("once with an email code to finish signing in with Google.")}{' '}</>}>
             <GoogleLinkForm email={link.email} next={link.next} />
         </AuthCard>
     );

@@ -9,15 +9,21 @@ function stable(value: unknown): string {
 }
 /**
  * Opaque content revision. Future workflow fields participate automatically; delivery bookkeeping
- * does not, nor do the bounded history, transient agent presence and generated title (`aiTitle`).
+ * does not, nor do the bounded history, transient agent presence, message reactions, query indexes and generated title (`aiTitle`).
  */
 export function commentRevision(comment: DbComment) {
     const content = Object.fromEntries(Object.entries(comment).filter(([key]) => !key.startsWith('_')
-        && !key.startsWith('sync') && !key.startsWith('notification') && key !== 'aiTitle' && key !== 'history'));
+        && !key.startsWith('sync') && !key.startsWith('notification') && key !== 'aiTitle' && key !== 'history' && key !== 'queryMetadata'));
     if (comment.assigneeAgent) {
         const { workingUntil: _, ...agent } = comment.assigneeAgent;
         content.assigneeAgent = agent;
     }
     if (comment.assigneeAgents) content.assigneeAgents = comment.assigneeAgents.map(({ workingUntil: _, ...agent }) => agent);
+    // Reactions are not content: a reaction never makes a triage or verification guard stale
+    if (Array.isArray(comment.thread?.items)) content.thread = { ...comment.thread, items: comment.thread.items.map(item => {
+        if (typeof item !== 'object' || item === null) return item;
+        const { reactions: _, ...content } = item;
+        return content;
+    }) };
     return createHash('sha256').update(stable(content)).digest('hex');
 }

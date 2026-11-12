@@ -1,24 +1,23 @@
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
-import { KnownPageLinks } from '@/src/knownPages';
-import { PageHeader } from '@/src/components/app/PageHeader';
-import { SettingsLayout, settingsTabs } from '@/src/components/app/SettingsLayout';
-import { accountSections } from '@/src/components/app/account/accountSections';
+import { AccountFrame } from '@/src/components/app/account/AccountFrame';
+import { Skeleton } from '@/src/components/ui/skeleton';
 import { requireAppContext } from '@/src/lib/app/context';
 
-/** The account: its sections beside the chosen one (above it on small screens), like a project's settings */
-async function AccountLayoutContent({ children }: LayoutProps<'/app/account'>) {
+async function AccountEmail() {
     const { user } = await requireAppContext();
-    return (
-        <>
-            <PageHeader title="Account" description={<span className="font-mono text-[13px]">{user.email}</span>} />
-            <SettingsLayout tabs={settingsTabs(accountSections, KnownPageLinks.account)} label="Account">
-                {children}
-            </SettingsLayout>
-        </>
-    );
+    return <span className="font-mono text-[13px]">{user.email}</span>;
 }
 
-export default function AccountLayout(props: Parameters<typeof AccountLayoutContent>[0]) {
-    return <Suspense fallback={<PageLoading title="Loading account" />}><AccountLayoutContent {...props} /></Suspense>;
+/** The sections stay available on client navigation; private account data still authorizes per request. */
+export default function AccountLayout({ children }: LayoutProps<'/app/account'>) {
+    return <Suspense fallback={<PageLoading title="Loading account" />}>
+        <AccountFrame email={
+            <Suspense fallback={<Skeleton className="h-5 w-64 max-w-full animate-none" />}>
+                <AccountEmail />
+            </Suspense>
+        }>
+            {children}
+        </AccountFrame>
+    </Suspense>;
 }

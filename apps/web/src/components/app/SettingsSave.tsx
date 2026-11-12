@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useState } from 'react';
 import { Button } from '@/src/components/ui/button';
 import { Spinner } from '@/src/components/ui/spinner';
@@ -42,6 +44,7 @@ export function SaveFooter({ formId, state, pending, dirty, onDiscard }: {
     dirty: boolean;
     onDiscard: () => void;
 }) {
+    const { t } = useAppI18n();
     return (
         <>
             {/* A failed save keeps the changes, so its error shows while they do; Discard clears both */}
@@ -49,14 +52,13 @@ export function SaveFooter({ formId, state, pending, dirty, onDiscard }: {
                 {dirty
                     ? state && !state.ok
                         ? <FormMessage state={state} />
-                        : <p className="m-0 flex items-center gap-2 text-sm font-medium"><span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-[hsl(var(--brand-warning))]" />Unsaved changes</p>
+                        : <p className="m-0 flex items-center gap-2 text-sm font-medium"><span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-[hsl(var(--brand-warning))]" />{t("Unsaved changes")}</p>
                     : state?.ok && <FormMessage state={state} />}
             </div>
-            {dirty && !pending && <Button variant="ghost" onClick={onDiscard}>Discard</Button>}
+            {dirty && !pending && <Button variant="ghost" onClick={onDiscard}>{t("Discard")}</Button>}
             <Button type="submit" form={formId} disabled={!dirty || pending}>
                 {pending && <Spinner data-icon="inline-start" />}
-                Save
-            </Button>
+                {t("Save")}{' '}</Button>
         </>
     );
 }

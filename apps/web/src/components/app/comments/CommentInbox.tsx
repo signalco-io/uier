@@ -245,8 +245,10 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
             </LayoutMotion>
             {selected && (
                 <div ref={detailRef}
-                    // Where the page scrolls (below lg) it opens and stays in view under the sticky top bar; from lg at the top of the panel
-                    className={cn('min-w-0 scroll-mt-16 lg:scroll-mt-4 @3xl/comments:sticky @3xl/comments:top-14 @3xl/comments:max-h-[calc(100svh-5rem-var(--selection-bar,0px))] @3xl/comments:overflow-y-auto @3xl/comments:rounded-xl lg:@3xl/comments:top-0',
+                    // Where the page scrolls (below lg) it opens and stays in view under the sticky top bar (3rem); from lg at the
+                    // top of the panel (its 3rem bar and 1rem frame are outside the scroller). Stuck, it keeps the page gutter from
+                    // the top and the bottom, the gap it has from the panel's side (uier #312)
+                    className={cn('min-w-0 scroll-mt-16 lg:scroll-mt-4 @3xl/comments:sticky @3xl/comments:top-[calc(3rem+var(--page-gutter))] @3xl/comments:max-h-[calc(100svh-3rem-2*var(--page-gutter)-var(--selection-bar,0px))] @3xl/comments:overflow-y-auto @3xl/comments:rounded-xl lg:@3xl/comments:top-(--page-gutter) lg:@3xl/comments:max-h-[calc(100svh-4rem-2*var(--page-gutter)-var(--selection-bar,0px))]',
                         !opened && '@max-3xl/comments:hidden')}>
                     <CommentCard key={selected.id}
                         projectId={projectId}

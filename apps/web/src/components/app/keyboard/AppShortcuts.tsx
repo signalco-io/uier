@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { createContext, useContext, useEffect, useEffectEvent, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { isSearchKey, isShortcutsHelpKey, sequenceTimeoutMs, shortcutLetter } from '@uier/toolbar/keyboard';
@@ -8,6 +10,7 @@ import { setUrlSearchParams } from '@/src/hooks/use-url-search-params';
 import { startToolbarComment } from '../../toolbar/ToolbarScript';
 import { isShortcutTarget, useShortcutsEnabled } from './keys';
 import { ShortcutsDialog } from './ShortcutsDialog';
+import { rememberCommentsView } from '../comments/commentsView';
 
 const ShortcutsHelp = createContext<() => void>(() => {});
 
@@ -26,11 +29,12 @@ const modifierKeys = new Set(['Shift', 'Control', 'Alt', 'Meta', 'CapsLock']);
 /**
  * The app's shortcuts that work on every page: `?` shows them all (`ShortcutsDialog`), `/` goes to the
  * page's search (a field marked `data-shortcut-search`), C starts a comment with uier's own toolbar, and G followed by I, B,
- * M or P goes to the project's inbox or board, My work or Projects. The comments list and board, My
+ * M or P goes to the project's inbox or board (on My work, its list or board), My work or Projects. The comments list and board, My
  * work and the open thread add their own (`useKeyShortcuts`). Single keys, so they can be turned off
  * (WCAG 2.1.4) and never act while typing, in a menu or a dialog, or in the review toolbar.
  */
 export function AppShortcuts({ children }: { children: ReactNode }) {
+    const { t } = useAppI18n();
     const router = useRouter();
     const pathname = usePathname();
     const enabled = useShortcutsEnabled();
@@ -41,15 +45,21 @@ export function AppShortcuts({ children }: { children: ReactNode }) {
     const go = (letter: string) => {
         if (letter === 'm') router.push(KnownPages.AppMyWork);
         else if (letter === 'p') router.push(KnownPages.AppProjects);
-        else if (letter === 'i' || letter === 'b') {
+        else if ((letter === 'i' || letter === 'b') && pathname === KnownPages.AppMyWork) {
+            // My work has List and Board too, remembered apart from the projects' choice
+            const view = letter === 'b' ? 'board' : 'list';
+            rememberCommentsView(view, 'my-work');
+            setUrlSearchParams({ view, comment: undefined }, { history: 'push' });
+        } else if (letter === 'i' || letter === 'b') {
             // Only on a project's pages: the inbox and the board are its comments
             const project = projectOf(pathname);
             if (!project) return false;
             const href = KnownPageLinks.project(project);
-            const view = letter === 'b' ? 'board' : undefined;
-            // On its comments the view changes in place, like the List and Board toggle, and keeps the filters
+            const view = letter === 'b' ? 'board' : 'list';
+            // Remembered like the List and Board toggle. On its comments the view changes in place and keeps the filters
+            rememberCommentsView(view);
             if (pathname === href) setUrlSearchParams({ view, comment: undefined }, { history: 'push' });
-            else router.push(`${href}${view ? '?view=board' : ''}#comments`);
+            else router.push(`${href}?view=${view}#comments`);
         } else return false;
         return true;
     };

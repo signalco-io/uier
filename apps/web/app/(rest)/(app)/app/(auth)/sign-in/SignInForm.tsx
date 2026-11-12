@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useActionState, useId, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { InfoIcon, MailCheckIcon, MailIcon } from 'lucide-react';
@@ -32,6 +34,7 @@ function signInHref(next: string | undefined, email: boolean, addingAccount = fa
  * "Check your email" status; the sign-in page's {@link SignInCodeStep} says that in the card's header.
  */
 export function SignInCodeForm({ sent, next, announce = true, addingAccount = false }: { sent: SignInLinkSent; next?: string; announce?: boolean; addingAccount?: boolean }) {
+    const { t } = useAppI18n();
     const id = useId();
     const [state, formAction, pending] = useActionState(confirmSignInCodeAction, null);
     const [code, setCode] = useState('');
@@ -42,7 +45,7 @@ export function SignInCodeForm({ sent, next, announce = true, addingAccount = fa
             {announce && (
                 <Alert role="status">
                     <MailCheckIcon />
-                    <AlertTitle><h2 className="m-0 text-sm font-medium">Check your email</h2></AlertTitle>
+                    <AlertTitle><h2 className="m-0 text-sm font-medium">{t("Check your email")}</h2></AlertTitle>
                     <AlertDescription><p className="m-0"><SentTo sent={sent} /></p></AlertDescription>
                 </Alert>
             )}
@@ -51,9 +54,9 @@ export function SignInCodeForm({ sent, next, announce = true, addingAccount = fa
                     <InfoIcon />
                     <AlertDescription>
                         <p className="m-0">
-                            No email is sent on this deployment.{' '}
-                            <Link href={sent.devLink} className="font-medium text-foreground underline underline-offset-4">Open the sign-in link</Link>
-                            {' '}or type this code: <code data-sign-in-code>{sent.devCode}</code>
+                            {t("No email is sent on this deployment.")}{' '}
+                            <Link href={sent.devLink} className="font-medium text-foreground underline underline-offset-4">{t("Open the sign-in link")}</Link>
+                            {' '}{t("or type this code:")}{' '}<code data-sign-in-code>{sent.devCode}</code>
                         </p>
                     </AlertDescription>
                 </Alert>
@@ -62,20 +65,19 @@ export function SignInCodeForm({ sent, next, announce = true, addingAccount = fa
                 <input type="hidden" name="requestId" value={sent.requestId} />
                 <FieldGroup>
                     <Field data-invalid={invalid || undefined}>
-                        <FieldLabel htmlFor={`${id}-code`}>Sign-in code</FieldLabel>
+                        <FieldLabel htmlFor={`${id}-code`}>{t("Sign-in code")}</FieldLabel>
                         <Input id={`${id}-code`} name="code" type="text" inputMode="numeric"
                             autoComplete="one-time-code" pattern="[0-9]{8}" maxLength={8} required autoFocus
                             value={code} onChange={event => setCode(event.target.value.replace(/\s/g, ''))}
                             aria-invalid={invalid || undefined} aria-describedby={`${id}-hint`} />
-                        <FieldDescription id={`${id}-hint`}>Enter the 8-digit code. It works only in this browser.</FieldDescription>
+                        <FieldDescription id={`${id}-hint`}>{t("Enter the 8-digit code. It works only in this browser.")}</FieldDescription>
                     </Field>
                     <FormMessage state={state} />
                     <Button type="submit" size="lg" className="w-full" disabled={pending}>
                         {pending && <Spinner data-icon="inline-start" />}
-                        Sign in
-                    </Button>
+                        {t("Sign in")}{' '}</Button>
                     {/* A fresh navigation resets the email form, even on the same route. */}
-                    <a href={signInHref(next, true, addingAccount)} className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'w-full')}>Ask for a new email</a>
+                    <a href={signInHref(next, true, addingAccount)} className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'w-full')}>{t("Ask for a new email")}</a>
                 </FieldGroup>
             </form>
         </div>
@@ -84,16 +86,16 @@ export function SignInCodeForm({ sent, next, announce = true, addingAccount = fa
 
 /** Where the code and link went, and for how long they work */
 function SentTo({ sent }: { sent: SignInLinkSent }) {
+    const { t } = useAppI18n();
     return <>
-        We sent a code and a sign-in link to <span className="font-medium text-foreground">{sent.email}</span>.
-        They work once and expire in 15 minutes.
-    </>;
+        {t("We sent a code and a sign-in link to")}{' '}<span className="font-medium text-foreground">{sent.email}</span>{t(". They work once and expire in 15 minutes.")}{' '}</>;
 }
 
 /** The sign-in card once the email is sent: its own header, then the code field (focused) */
 function SignInCodeStep({ sent, next, addingAccount }: { sent: SignInLinkSent; next?: string; addingAccount?: boolean }) {
+    const { t } = useAppI18n();
     return (
-        <AuthCard title="Check your email" description={<span role="status"><SentTo sent={sent} /></span>}>
+        <AuthCard title={t("Check your email")} description={<span role="status"><SentTo sent={sent} /></span>}>
             <SignInCodeForm addingAccount={addingAccount} sent={sent} next={next} announce={false} />
         </AuthCard>
     );
@@ -109,6 +111,7 @@ function SignInCodeStep({ sent, next, addingAccount }: { sent: SignInLinkSent; n
 export function SignInForm({ next, alternatives, problems, withEmail = false, lastUsed, addingAccount = false }: {
     next?: string; alternatives?: ReactNode; problems?: ReactNode; withEmail?: boolean; lastUsed?: SignInMethod; addingAccount?: boolean;
 }) {
+    const { t } = useAppI18n();
     const id = useId();
     const [state, formAction, pending] = useActionState(requestSignInAction, null);
     const [emailOpen, setEmailOpen] = useState(withEmail);
@@ -120,7 +123,7 @@ export function SignInForm({ next, alternatives, problems, withEmail = false, la
     }
 
     return (
-        <AuthCard title={addingAccount ? "Add account" : "Sign in"} description={addingAccount ? "Sign in to another account. Your other accounts stay signed in." : <>Choose how to sign in.<br />New here? Signing in creates your account.</>}>
+        <AuthCard title={addingAccount ? t("Add account") : t("Sign in")} description={addingAccount ? t("Sign in to another account. Your other accounts stay signed in.") : <>{t("Choose how to sign in.")}<br />{t("New here? Signing in creates your account.")}</>}>
             {problems}
             <div className="flex flex-col gap-3">
                 <PasskeySignIn next={next} autofill={emailOpen} lastUsed={lastUsed === 'passkey'} />
@@ -128,12 +131,12 @@ export function SignInForm({ next, alternatives, problems, withEmail = false, la
                 {emailOpen ? (
                     <>
                         {/* first:hidden: no "or" when email is the only way this browser can sign in */}
-                        <FieldSeparator className="my-2 first:hidden *:data-[slot=field-separator-content]:bg-card">or</FieldSeparator>
+                        <FieldSeparator className="my-2 first:hidden *:data-[slot=field-separator-content]:bg-card">{t("or")}</FieldSeparator>
                         <form action={formAction}>
                             {next && <input type="hidden" name="next" value={next} />}
                             <FieldGroup>
                                 <Field>
-                                    <FieldLabel htmlFor={`${id}-email`}>Email</FieldLabel>
+                                    <FieldLabel htmlFor={`${id}-email`}>{t("Email")}</FieldLabel>
                                     <Input
                                         id={`${id}-email`}
                                         name="email"
@@ -143,25 +146,23 @@ export function SignInForm({ next, alternatives, problems, withEmail = false, la
                                         autoComplete="email webauthn"
                                         autoFocus
                                         required
-                                        placeholder="you@example.com"
+                                        placeholder={t("you@example.com")}
                                         aria-describedby={`${id}-email-hint`} />
-                                    <FieldDescription id={`${id}-email-hint`}>We will send you a code and a link.</FieldDescription>
+                                    <FieldDescription id={`${id}-email-hint`}>{t("We will send you a code and a link.")}</FieldDescription>
                                 </Field>
                                 <FormMessage state={state} />
                                 <Button type="submit" size="lg" className="w-full" disabled={pending}>
                                     {pending && <Spinner data-icon="inline-start" />}
-                                    Email me a sign-in code
-                                </Button>
+                                    {t("Email me a sign-in code")}{' '}</Button>
                             </FieldGroup>
                         </form>
                     </>
                 ) : (
                     // A link, so it opens the form before hydration too (a full navigation to ?with=email)
                     <a href={signInHref(next, true, addingAccount)} onClick={(event) => { event.preventDefault(); setEmailOpen(true); }}
-                        aria-label="Sign in with email" aria-describedby={lastUsed === 'email' ? LAST_USED_ID : undefined} data-slot="button" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'relative w-full')}>
+                        aria-label={t("Sign in with email")} aria-describedby={lastUsed === 'email' ? LAST_USED_ID : undefined} data-slot="button" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'relative w-full')}>
                         <MailIcon data-icon="inline-start" />
-                        Email
-                        {lastUsed === 'email' && <LastUsedBadge />}
+                        {t("Email")}{' '}{lastUsed === 'email' && <LastUsedBadge />}
                     </a>
                 )}
             </div>

@@ -9,6 +9,7 @@ import { useInkContainer } from '../InkScope';
 import { inSection, type CommentsPageFilter } from './CommentsFilter';
 import { pageKeyPath, type InboxPage } from './useInboxComments';
 import { toolbarSurface } from '../../toolbarReview';
+import { useIconTooltip } from '../IconTooltip';
 import { useMessages, type Messages } from '../../i18n';
 
 /** Comments from addresses the project no longer has, or saved without one */
@@ -62,7 +63,8 @@ function GroupLabel({ children }: { children: ReactNode }) {
 }
 
 /**
- * Where the inbox's comments are from, in one control, like the app's location filter: the
+ * Where the inbox's comments are from, in one control the width of the inbox, like the app's location filter (this
+ * page shows its path, its full address in a tooltip): the
  * environment (when the project has several) on the left and the pages on the right. Pages can be
  * searched; sections with several pages (`/blog/…`) and a typed path list every page under it.
  */
@@ -83,8 +85,12 @@ export function LocationPicker({ value, pages, currentPath, currentCount, otherC
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState('');
     const environmentLabel = environment && [...environment.options, ...historyEnvironments(t)].find(item => item.id === environment.value)?.label;
-    const summary = [environmentLabel, pageLabel(value, t)].filter(Boolean).join(' · ');
+    // This page shows its path ("This page, /pricing" to a screen reader), its full address in the tooltip
+    const current = value === 'current';
+    const summary = [environmentLabel, current ? currentPath : pageLabel(value, t)].filter(Boolean).join(' · ');
+    const spoken = [environmentLabel, current ? `${t.locations.thisPage}, ${currentPath}` : pageLabel(value, t)].filter(Boolean).join(' · ');
     const name = environment ? t.locations.environmentAndPage : t.locations.pages;
+    const { triggerProps, tooltip } = useIconTooltip(current ? `${window.location.origin}${currentPath}` : summary);
 
     const { sections, shown, typed } = useMemo(() => {
         const query = search.trim().toLowerCase();
@@ -141,7 +147,7 @@ export function LocationPicker({ value, pages, currentPath, currentCount, otherC
         }
     } as HTMLAttributes<HTMLDivElement>;
 
-    return (
+    return <>
         <Popper
             container={container ?? undefined}
             open={open}
@@ -156,11 +162,11 @@ export function LocationPicker({ value, pages, currentPath, currentCount, otherC
             {...toolbarSurface('uier-locations', cx('z-[55] grid gap-0 rounded-xl p-0',
                 environment ? 'w-[min(36rem,calc(100vw-2rem))] sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)]' : 'w-[min(22rem,calc(100vw-2rem))]'))}
             trigger={(
-                <Button variant="outlined" aria-label={`${name}: ${summary}`} className="min-w-36 max-w-full flex-1 justify-between rounded-md font-normal"
+                <Button variant="outlined" aria-label={`${name}: ${spoken}`} {...triggerProps} className="w-full justify-between rounded-md font-normal"
                     startDecorator={value === 'current' || value.startsWith('page:') ? <File size={14} aria-hidden="true" className="shrink-0 text-muted-foreground" />
                         : value.startsWith('section:') ? sectionIcon : <Globe size={14} aria-hidden="true" className="shrink-0 text-muted-foreground" />}
                     endDecorator={<ExpandDown size={14} aria-hidden="true" className="shrink-0 text-muted-foreground" />}>
-                    <span className="min-w-0 flex-1 truncate text-left">{summary}</span>
+                    <span className={cx('min-w-0 flex-1 truncate text-left', current && 'font-mono text-[13px]')}>{summary}</span>
                 </Button>
             )}>
             {environment && (
@@ -227,5 +233,6 @@ export function LocationPicker({ value, pages, currentPath, currentCount, otherC
                 </div>
             </div>
         </Popper>
-    );
+        {tooltip}
+    </>;
 }

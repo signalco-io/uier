@@ -1,3 +1,4 @@
+import { getAppI18n } from '@/src/lib/i18n/server';
 import { Section } from '@/src/components/app/PageHeader';
 import { GoogleLogo } from '@/src/components/app/SignInProviderLogos';
 import { isGoogleSignInConfigured } from '@/src/lib/app/google/config';
@@ -8,6 +9,7 @@ import { GoogleAccountControls } from './GoogleAccountControls';
 
 /** The linked Google account. Hidden where Google sign-in is off, unless one is linked (unlinking always works). */
 export async function GoogleAccount({ userId }: { userId: string }) {
+    const { t } = await getAppI18n();
     const [account, session] = await Promise.all([getGoogleAccount(userId), getSessionSignIn()]);
     const configured = isGoogleSignInConfigured();
     if (!account && !configured)
@@ -16,7 +18,7 @@ export async function GoogleAccount({ userId }: { userId: string }) {
     const recentSignIn = session?.userId === userId
         && Date.now() - session.signedInAt * 1000 <= PASSKEY_RECENT_SIGN_IN_SECONDS * 1000;
     return (
-        <Section icon={<GoogleLogo />} id="google" title="Google account" description="Sign in with Google instead of an email code. Email sign-in always stays available.">
+        <Section icon={<GoogleLogo />} id="google" title={t("Google account")} description={t("Sign in with Google instead of an email code. Email sign-in always stays available.")}>
             <GoogleAccountControls linkedEmail={account ? account.email : null} configured={configured} recentSignIn={recentSignIn} />
         </Section>
     );

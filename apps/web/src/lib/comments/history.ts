@@ -1,3 +1,5 @@
+import { englishAppTranslator } from '../i18n/translate';
+import type { AppTranslator } from '../i18n/types';
 import { randomUUID } from 'node:crypto';
 import { agentLabels, type AgentKind } from '@uier/toolbar/agents';
 import { commentPriority, priorityLabels } from '@uier/toolbar/triage';
@@ -65,28 +67,30 @@ export function withThreadHistory(previous: DbComment, next: DbComment, actorId:
 }
 
 /** Fresh member directory only. Guest DTOs omit history entirely; private-period entries stay restricted. */
-export function threadHistoryView(comment: DbComment, viewer: { member: boolean; authorId?: string; admin?: boolean }, names: Map<string, string>): ThreadHistoryEntry[] | undefined {
+export function threadHistoryView(comment: DbComment, viewer: { member: boolean; authorId?: string; admin?: boolean }, names: Map<string, string>, t: AppTranslator = englishAppTranslator): ThreadHistoryEntry[] | undefined {
     if (!viewer.member) return undefined;
-    const person = (id: string) => names.get(id) ?? 'Former member';
+    const person = (id: string) => names.get(id) ?? t('Former member');
     return comment.history?.filter(entry => !entry.private || viewer.admin || Boolean(viewer.authorId && viewer.authorId === comment.authorId)).map(entry => {
         const who = entry.actorId === 'system:ai-title' ? 'AI' : entry.actorId === 'system:uier' ? 'uier'
-            : entry.actorId.startsWith('integration:') ? integrationLabels[entry.actorId.slice(12) as keyof typeof integrationLabels] ?? 'Connected service'
+            : entry.actorId.startsWith('integration:') ? integrationLabels[entry.actorId.slice(12) as keyof typeof integrationLabels] ?? t('Connected service')
                 : entry.actorId.startsWith('user:') ? person(entry.actorId.slice(5))
-                    : comment.thread.items.find(item => !item.deletedAt && item.authorId === entry.actorId)?.authorName ?? 'Reviewer';
-        const target = entry.userId ? person(entry.userId) : 'someone';
-        const agent = entry.agentKind ? agentLabels[entry.agentKind] : 'an AI agent';
+                    : comment.thread.items.find(item => !item.deletedAt && item.authorId === entry.actorId)?.authorName ?? t('Reviewer');
+        const target = entry.userId ? person(entry.userId) : t('someone');
+        const agent = entry.agentKind ? agentLabels[entry.agentKind] : t('an AI agent');
         const actions: Record<HistoryAction, string> = {
-            'pull-request-linked': 'linked a pull request', 'pull-request-removed': 'removed a pull request link',
-            archived: 'archived the thread', restored: 'restored the thread',
-            assigned: `assigned ${target}`, unassigned: `unassigned ${target}`,
-            status: `changed status to ${entry.status ? feedbackStageLabels[entry.status] : 'Open'}`,
-            'verification-requested': 'requested verification', 'verification-confirmed': 'confirmed the fix',
-            'verification-rejected': 'rejected the fix', 'verification-canceled': 'canceled verification',
-            priority: `changed priority to ${entry.priority ? priorityLabels[entry.priority] : 'Normal'}`,
-            'title-written': 'wrote the title', 'title-edited': 'edited the title', 'title-cleared': 'cleared the title',
-            'agent-attached': `attached ${agent} under ${target}`, 'agent-updated': `updated ${agent} under ${target}`,
-            'agent-removed': `removed ${agent} from ${target}`, public: 'made the thread public', private: 'made the thread private', moved: 'moved the thread'
+            'pull-request-linked': t('linked a pull request'), 'pull-request-removed': t('removed a pull request link'),
+            archived: t('archived the thread'), restored: t('restored the thread'),
+            assigned: t('assigned {person}', { person: target }), unassigned: t('unassigned {person}', { person: target }),
+            status: t('changed status to {status}', { status: t(entry.status ? feedbackStageLabels[entry.status] : 'Open') }),
+            'verification-requested': t('requested verification'), 'verification-confirmed': t('confirmed the fix'),
+            'verification-rejected': t('rejected the fix'), 'verification-canceled': t('canceled verification'),
+            priority: t('changed priority to {priority}', { priority: t(entry.priority ? priorityLabels[entry.priority] : 'Normal') }),
+            'title-written': t('wrote the title'), 'title-edited': t('edited the title'), 'title-cleared': t('cleared the title'),
+            'agent-attached': t('attached {agent} under {person}', { agent, person: target }),
+            'agent-updated': t('updated {agent} under {person}', { agent, person: target }),
+            'agent-removed': t('removed {agent} from {person}', { agent, person: target }),
+            public: t('made the thread public'), private: t('made the thread private'), moved: t('moved the thread')
         };
-        return { id: entry.id, at: entry.at, description: `${who} ${actions[entry.action]}.` };
+        return { id: entry.id, at: entry.at, description: t('{actor} {action}.', { actor: who, action: actions[entry.action] }) };
     });
 }

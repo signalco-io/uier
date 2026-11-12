@@ -26,7 +26,7 @@ the existing authorized HTTP projection; reconnect also refetches to cover misse
 
 The initial cross-instance source polls compact Cosmos metadata (`id`, visibility and `_etag`)
 every two seconds while sockets are active. Concurrent subscriptions in one instance share the
-partition read. Creation, edits, replies, assignment, status, screenshots and hard deletion are
+partition read. Creation, edits, replies, reactions, assignment, status, screenshots and hard deletion are
 detected regardless of which API, MCP or integration process committed them. This is metadata
 polling behind a WebSocket transport, not a durable event log or a delivery guarantee. Per-reviewer
 read cursors live separately and converge through safety reads. There is no additional provider,
@@ -56,6 +56,7 @@ customer's site and calls `/api/review/<code>` on uier.io, implemented in
 | `GET`, `POST /api/review/<code>/comments` | the comments of a page (`?path=`) or of every page (`?scope=site`, the inbox) the reviewer can see, a new comment (`authorName` from guests) |
 | `POST /api/review/<code>/comments/<id>/replies`, `PATCH`/`DELETE /api/review/<code>/comments/<id>`, `PATCH`/`DELETE .../replies/<itemId>` | replies (`{ text, screenshot?, mentions?, idempotencyKey? }`), archive (`{ archived }`) or status (`{ status }`: `open`, `in-progress` or `done`; or the earlier `{ resolved }`, exactly one operation; see [In progress](#in-progress)), editing messages (`text`, `expectedText`), deleting |
 | `GET /api/review/<code>/comments/<id>/replies/<itemId>/screenshot` | the reply image, with the same thread visibility and private Blob read contract as the original screenshot |
+| `POST /api/review/<code>/comments/<id>/reactions` | `{ itemId, emoji, reacted, authorName? }`: adds or removes the reviewer's own emoji reaction to one message (the quick set of `@uier/toolbar/reactions`); `200` the thread. Who may reply may react; see [message reactions](../apps/web/docs/reactions.md) |
 | `GET /api/review/<code>/comments/<id>/screenshot` | the comment's screenshot, for reviewers who can see the comment |
 | `PATCH /api/review/<code>/comments/<id>/anchor` | reattach with `{ path, position, expectedRevision }`; author/admin, saved page and original allowed origin only |
 | `POST /api/review/<code>/comments/<id>/screenshot` | supply or replace saved evidence, with `{ screenshot, expectedRevision }`; author or workspace admin only |
@@ -300,8 +301,9 @@ find the thread in either. `sourcePath` is the same page as it was addressed, fo
 | --- | --- | --- |
 | `GET /api/comments?path=/x` | | `200` comments of the page, newest first (max. 200 and 1 MB), resolved ones included (`resolved: true`) |
 | `GET /api/comments?scope=site` | | `200` comments of every page of the domain, newest first, with the same limits (the toolbar's inbox) |
-| `POST /api/comments` | `{ path, sourcePath?, position, kind?, text, quotedText?, check?, device?, screenshot? }` | `201` the new comment, with `screenshot: { width, height }` when it has one (see [Screenshots](review-workflow.md#screenshots)). `kind` is `comment` (default; `position` is a point, an area or a text selection: a point is `{ "type": "point", selector, xNormal, yNormal }`, fractions of the element's box, and an area adds `widthNormal` and `heightNormal`, both above 0 and within the element, with the point as its top-left corner; a point or a text selection in a menu, popover or dialog may add `layer: { opener, label? }`, the selector of the page element that opens it and that element's name, up to 120 characters), `rewrite` (a suggested replacement for selected text: `position` is a text selection, `text` the suggested text, `quotedText` the original), or `feedback` / `bug` with `position: { "type": "page" }` (about the page, no pin). `check` is the page check a comment was posted from, `{ type, id, count? }`: `type` is `accessibility`, `seo` or `web-vitals`, `id` the rule or check (`image-alt`, `canonical`, `lcp`; lowercase letters, digits and hyphens, up to 64), and `count`, only on one comment for several of the check's elements on the page (the panels' "Comment on all"), how many it covers (a whole number from 2 to 10,000; nothing else is accepted beside these three). It is saved as sent, returned with the comment and never changes; comments without `count` are about one element or the page |
+| `POST /api/comments` | `{ path, sourcePath?, position, kind?, text, quotedText?, check?, drawing?, device?, screenshot? }` | `201` the new comment, with `screenshot: { width, height }` when it has one (see [Screenshots](review-workflow.md#screenshots)). `kind` is `comment` (default; `position` is a point, an area or a text selection: a point is `{ "type": "point", selector, xNormal, yNormal }`, fractions of the element's box, and an area adds `widthNormal` and `heightNormal`, both above 0 and within the element, with the point as its top-left corner; a point or a text selection in a menu, popover or dialog may add `layer: { opener, label? }`, the selector of the page element that opens it and that element's name, up to 120 characters), `rewrite` (a suggested replacement for selected text: `position` is a text selection, `text` the suggested text, `quotedText` the original), or `feedback` / `bug` with `position: { "type": "page" }` (about the page, no pin). `check` is the page check a comment was posted from, `{ type, id, count? }`: `type` is `accessibility`, `seo` or `web-vitals`, `id` the rule or check (`image-alt`, `canonical`, `lcp`; lowercase letters, digits and hyphens, up to 64), and `count`, only on one comment for several of the check's elements on the page (the panels' "Comment on all"), how many it covers (a whole number from 2 to 10,000; nothing else is accepted beside these three). It is saved as sent, returned with the comment and never changes; comments without `count` are about one element or the page. `drawing`, only with `kind: comment` on an area, is what the toolbar's [canvas mode](../packages/toolbar/docs/canvas-mode.md) drew: `{ version: 1, width, height, shapes }`, the shapes from the area's top-left corner with the brand's colour names, checked by `parseDrawing` of `@uier/toolbar/drawing` (200 shapes, 6,000 points, 32,000 characters) and returned with the comment |
 | `POST /api/comments/{id}/replies` | `{ text, screenshot?, idempotencyKey? }` | `201` the updated comment; anyone may reply |
+| `POST /api/comments/{id}/reactions` | `{ itemId, emoji, reacted }` | `200` the updated comment; adds or removes the visitor's own reaction to one message; anyone who can reply |
 | `PATCH /api/comments/{id}/replies/{itemId}` | `{ text, expectedText }` | `200` the updated thread; the message's author only. Includes the first message. A stale edit gets `409` and does not overwrite newer text |
 | `PATCH /api/comments/{id}/anchor` | `{ path, position, expectedRevision }` | `200` updated thread; author only, exact saved page and validated element/text selector. `expectedRevision` is `anchorContext.revision` or `null`; stale anchors return `409` |
 | `PATCH /api/comments/{id}` | `{ resolved }`, `{ status }` or `{ archived }` | `200` the updated comment; author only. `status` is `open`, `in-progress` or `done` ([In progress](#in-progress)) |
@@ -418,7 +420,7 @@ carry no IP-derived data:
 
 | Limit | Value |
 | --- | --- |
-| Request body | 16 KB (`413`); a new comment or reply with an image about 700 KB |
+| Request body | 16 KB (`413`); a reply with an image about 700 KB; a new comment with an image and a drawing about 800 KB |
 | Screenshots | PNG, JPEG or WebP, 512 KB and 4096 px on a side; 300 per domain or project per day |
 | Comment / reply text | 1-1000 characters after trimming, at least one visible character; bidirectional override characters are removed; quoted text up to 1000 |
 | Path / selectors / selected text | 512 / 1024 / 2000 characters |
@@ -774,3 +776,10 @@ precedes storage limits. Activity summaries exclude archived threads from ordina
 badges and add a separate authorized `archived` count. Authorized direct reads, images and v1 exports
 remain compatible; exports add `archivedAt` and an Archived label without changing status/stage.
 No production data migration is required.
+
+## Versioned filtering and ordering
+
+The [comment query backend reference](../apps/web/docs/comment-query.md) documents project,
+workspace, public and review query/count/options/capability endpoints, single-thread detail reads,
+versioned expressions, execution budgets, live keyset cursors, saved views and expiring query links.
+Current app and toolbar screens keep using their existing APIs until the UI migration.

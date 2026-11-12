@@ -172,7 +172,7 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     await setThreadStatus(reviewed, thread, 'Done');
     await reviewed.getByRole('button', { name: /^Inbox/ }).click();
     const inbox = reviewed.getByRole('complementary', { name: 'Comments' });
-    await inbox.getByRole('button', { name: /^Done/ }).click();
+    await inbox.getByRole('button', { name: /^Done \d/ }).click();
     await setThreadStatus(reviewed, inbox.getByRole('article'), 'Open');
     await expect(commentBubble(reviewed, 2)).toBeVisible();
     await inbox.getByRole('button', { name: /^Active \d/ }).click();
@@ -184,7 +184,12 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     // Archive uses the same closed worker transport as list reloads and workflow changes.
     await (await threadOptions(reviewed, inbox.getByRole('article'))).getByRole('button', { name: 'Archive comment', exact: true }).click();
     await expect(commentBubble(reviewed, 2)).toHaveCount(0);
-    await inbox.getByRole('button', { name: 'Archive 1', exact: true }).click();
+    // Archive is folded under the Done tab's menu
+    await inbox.getByRole('button', { name: 'Done and archive', exact: true }).click();
+    const doneMenu = reviewed.getByRole('dialog', { name: 'Done and archive' });
+    await doneMenu.getByRole('button', { name: /^Archive/ }).click();
+    await expect(doneMenu).toBeHidden();
+    await expect(inbox.getByRole('button', { name: 'Archive 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(inbox.getByRole('article')).toContainText('Strict CSP extension feedback');
     await (await threadOptions(reviewed, inbox.getByRole('article'))).getByRole('button', { name: 'Restore comment', exact: true }).click();
     await expect(commentBubble(reviewed, 2)).toBeVisible();
@@ -211,14 +216,14 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     expect(await worker.evaluate(() => performance.timeOrigin)).not.toBe(workerStartedAt);
     await reviewed.reload();
     await reviewed.getByRole('button', { name: 'New comment', exact: true }).click();
-    await expect(reviewed.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Recovered extension draft');
+    await expect(reviewed.getByRole('textbox', { name: 'Comment', exact: true })).toHaveText('Recovered extension draft', { useInnerText: true });
     if (proxy) {
         proxy.dropNextReviewWrite();
         await reviewed.getByRole('textbox', { name: 'Comment', exact: true }).press('Enter');
         await expect(reviewed.getByRole('dialog', { name: 'New comment', exact: true }).getByRole('alert')).toContainText('Check your connection');
         await reviewed.reload();
         await reviewed.getByRole('button', { name: 'New comment', exact: true }).click();
-        await expect(reviewed.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Recovered extension draft');
+        await expect(reviewed.getByRole('textbox', { name: 'Comment', exact: true })).toHaveText('Recovered extension draft', { useInnerText: true });
     }
     await reviewed.getByRole('textbox', { name: 'Comment', exact: true }).press('Enter');
     await expect(reviewed.getByText('Recovered extension draft', { exact: true })).toBeVisible();

@@ -1,3 +1,7 @@
+
+'use client';
+
+import { useAppI18n } from '@/src/lib/i18n/client';
 import Link from 'next/link';
 import { CheckIcon } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
@@ -16,8 +20,9 @@ export function OnboardingSteps({ current, hrefs = {}, className }: {
     hrefs?: Partial<Record<OnboardingStepNumber, string>>;
     className?: string;
 }) {
+    const { t } = useAppI18n();
     return (
-        <ol aria-label="Onboarding progress" className={cn('@container m-0 flex list-none items-center gap-3 p-0', className)}>
+        <ol aria-label={t("Onboarding progress")} className={cn('@container m-0 flex list-none items-center gap-3 p-0', className)}>
             {onboardingStepLabels.map((label, index) => {
                 const number = (index + 1) as OnboardingStepNumber;
                 const done = number < current;
@@ -33,9 +38,9 @@ export function OnboardingSteps({ current, hrefs = {}, className }: {
                         {done ? <CheckIcon className="size-3.5" /> : number}
                     </span>
                     <span className={cn('min-w-0 truncate text-sm font-medium', !done && !active && 'text-muted-foreground', !active && '@max-[40rem]:sr-only')}>
-                        <span className="sr-only">Step {number} of {onboardingStepLabels.length}: </span>
-                        {label}
-                        {done && <span className="sr-only"> (done)</span>}
+                        <span className="sr-only">{t("Step {number} of {total}:", { number, total: onboardingStepLabels.length })}{' '}</span>
+                        {t(label)}
+                        {done && <span className="sr-only">{' '}{t("(done)")}</span>}
                     </span>
                 </>;
                 return (

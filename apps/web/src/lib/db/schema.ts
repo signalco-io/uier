@@ -87,7 +87,16 @@ export type AgentSource = { credentialId: string; name: string; kind?: 'credenti
  */
 export type DbMessageAgent = { kind: import('@uier/toolbar/agents').AgentKind; model?: string; reasoning?: string };
 
+/**
+ * The people who reacted to a message with one emoji of the quick set (`@uier/toolbar/reactions`), oldest first:
+ * their author ids (`user:<id>` for a member, the visitor hash of a guest) and, for a project's guest, the name
+ * they gave. Never in a DTO as stored: `comments/reactions.ts` projects counts and names.
+ */
+export type DbReaction = { emoji: import('@uier/toolbar/reactions').ReactionId; by: { id: string; name?: string }[] };
+
 export type DbThreadItem = {
+    /** Reactions to the message (`comments/reactions.ts`); missing means none. Not content: no activity, history or revision. */
+    reactions?: DbReaction[];
     /** Optional image, stored separately under the parent thread and this item id. */
     screenshot?: DbCommentScreenshot;
     /** Server-only deduplication/echo identity. Never grants project access. */
@@ -158,6 +167,8 @@ export type DbVerification = {
 };
 
 export type DbComment = {
+    /** Internal normalized query fields, committed atomically with the comment; never a public DTO. */
+    queryMetadata?: import('../repo/queryMetadata').CommentQueryMetadata;
     /** Bounded audit history, independent of notification delivery and unread cursors. */
     pullRequests?: { url: string; addedBy: string }[];
     history?: import('../comments/history').DbThreadHistoryEntry[];
@@ -221,6 +232,12 @@ export type DbComment = {
      * (added later: older documents have none). Read through `commentCheck`
      */
     check?: import('@uier/toolbar/feedback-types').CommentCheck;
+    /**
+     * Shapes drawn on the page with the comment (the toolbar's canvas mode), from the top-left corner of
+     * its area, as the API parsed them; added later, so older documents have none. Read through
+     * `commentDrawing`. Removed with the comment.
+     */
+    drawing?: import('@uier/toolbar/drawing').CommentDrawing;
     thread: { items: DbThreadItem[] };
     /**
      * Project comments: the thread's title, written by AI from its first message after it was saved

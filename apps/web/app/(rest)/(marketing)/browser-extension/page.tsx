@@ -7,6 +7,7 @@ import { KnownPages } from '../../../../src/knownPages';
 import { extensionRelease, firefoxExtensionRelease } from '../../../../src/lib/extension/release';
 import { guides } from '../../../../src/lib/guides';
 import { publicPageMetadata } from '../../../../src/lib/metadata';
+import { BrowserExtensionCover } from './BrowserExtensionCover';
 
 // The published extension as docs/browser-extension.md and its receipts record it, in the words of
 // the app's setup tab (BrowserExtensionGuide) and docs/browser-extension-listing.md: signed-in members
@@ -23,21 +24,24 @@ const browsers = ['Chrome', 'Microsoft Edge'];
 export default function BrowserExtensionPage() {
     return (
         <main className="flex flex-col pb-16">
-            <PageHeader
-                title={extensionPage.title}
-                lead="Review your project’s sites without adding the script or changing the site’s security headers.">
-                <div className="flex flex-wrap items-center gap-2.5">
-                    <ExtensionStoreButton />
-                    <Button variant="outlined" size="lg" href={guides.browserExtension.path}>Read the setup guide</Button>
-                </div>
-                <FirefoxExtensionNotice />
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted-foreground">
-                    <span id="supported-browsers">Supported browsers, on desktop:</span>
-                    <ul aria-labelledby="supported-browsers" className="flex flex-wrap gap-2">
-                        {browsers.map(name => <li key={name}><Chip>{name} {minimumBrowserVersion} or later</Chip></li>)}
-                    </ul>
-                </div>
-            </PageHeader>
+            <div className="grid grid-cols-1 items-end gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,440px)] lg:gap-16">
+                <PageHeader
+                    title={extensionPage.title}
+                    lead="Review your project’s sites without adding the script or changing the site’s security headers.">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                        <ExtensionStoreButton />
+                        <Button variant="outlined" size="lg" href={guides.browserExtension.path}>Read the setup guide</Button>
+                    </div>
+                    <FirefoxExtensionNotice />
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted-foreground">
+                        <span id="supported-browsers">Supported browsers, on desktop:</span>
+                        <ul aria-labelledby="supported-browsers" className="flex flex-wrap gap-2">
+                            {browsers.map(name => <li key={name}><Chip>{name} {minimumBrowserVersion} or later</Chip></li>)}
+                        </ul>
+                    </div>
+                </PageHeader>
+                <BrowserExtensionCover />
+            </div>
 
             <ExtensionSpecimens />
 

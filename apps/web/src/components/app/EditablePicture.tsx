@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useRef, useState, useTransition, type ClipboardEvent, type ComponentProps, type DragEvent } from 'react';
 import { PencilIcon } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
@@ -63,6 +65,7 @@ export function usePictureUpload({ endpoint, fileLabel, failed, onSaved, onPendi
     /** Drops and pastes are ignored (the picker's trigger is disabled) */
     disabled?: boolean;
 }) {
+    const { t } = useAppI18n();
     const input = useRef<HTMLInputElement>(null);
     const [pending, startTransition] = useTransition();
     const [error, setError] = useState<string>();
@@ -84,12 +87,12 @@ export function usePictureUpload({ endpoint, fileLabel, failed, onSaved, onPendi
                 const response = await fetch(endpoint, { method, body });
                 if (!response.ok) {
                     const result = await response.json().catch(() => null) as { message?: unknown } | null;
-                    setError(typeof result?.message === 'string' ? result.message : `${failed} Try again.`);
+                    setError(typeof result?.message === 'string' ? t(result.message) : t("{failed} Try again.", { failed: failed }));
                     return;
                 }
                 await onSaved(method, response);
             } catch {
-                setError(`${failed} Check your connection and try again.`);
+                setError(t("{failed} Check your connection and try again.", { failed: failed }));
             } finally {
                 busy.current = false;
                 onPendingChange?.(false);
@@ -103,7 +106,7 @@ export function usePictureUpload({ endpoint, fileLabel, failed, onSaved, onPendi
         if (!file) return;
         // An empty type is left to the server, which reads the format from the file itself
         if (file.type && !acceptedTypes.includes(file.type)) {
-            setError(AVATAR_TYPE_ERROR);
+            setError(t(AVATAR_TYPE_ERROR));
             return;
         }
         send('POST', file);
@@ -127,7 +130,7 @@ export function usePictureUpload({ endpoint, fileLabel, failed, onSaved, onPendi
             if (!carriesFiles(event.dataTransfer)) return;
             // Always handled, so a file dropped on a disabled picker is not opened by the browser instead
             event.preventDefault();
-            event.dataTransfer.dropEffect = disabled ? 'none' : 'copy';
+            event.dataTransfer.dropEffect = disabled ? "none" : "copy";
         },
         onDragLeave: (event: DragEvent<HTMLElement>) => {
             if (carriesFiles(event.dataTransfer)) mark(event.currentTarget, -1);

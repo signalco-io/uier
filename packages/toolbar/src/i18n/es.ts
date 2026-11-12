@@ -48,6 +48,7 @@ export const es: Messages = {
         accessibility: 'Accesibilidad',
         seo: 'SEO',
         about: 'Acerca de uier',
+        draw: 'Dibujar en la página',
         collapse: 'Contraer la barra'
     },
     profile: {
@@ -80,7 +81,9 @@ export const es: Messages = {
         languageSavedAccount: 'Tu elección se guarda en tu cuenta de uier.',
         languageSavedBrowser: 'Tu elección se queda en este navegador.',
         languageNotSaved: 'No se pudo guardar tu idioma. Inténtalo de nuevo.',
-        languageNotLoaded: 'No se pudo cargar este idioma. Elígelo de nuevo para volver a intentarlo.'
+        languageNotLoaded: 'No se pudo cargar este idioma. Elígelo de nuevo para volver a intentarlo.',
+        environment: 'Entorno',
+        environmentHint: 'Abre esta página en el entorno que elijas.'
     },
     shortcutList: {
         addComment: 'Añadir comentario',
@@ -94,13 +97,18 @@ export const es: Messages = {
         showShortcuts: 'Mostrar atajos',
         send: 'Enviar un comentario',
         newLine: 'Nueva línea en un comentario',
+        bold: 'Negrita',
+        italic: 'Cursiva',
+        strikethrough: 'Tachado',
+        code: 'Código',
         moveToolbar: 'Moverse por la barra',
         moveMenu: 'Moverse por un menú',
         close: 'Cerrar',
         leftArrow: 'Flecha izquierda',
         rightArrow: 'Flecha derecha',
         upArrow: 'Flecha arriba',
-        downArrow: 'Flecha abajo'
+        downArrow: 'Flecha abajo',
+        command: 'Comando'
     },
     notice: {
         exitReview: 'Salir de la revisión',
@@ -230,6 +238,16 @@ export const es: Messages = {
     activity: {
         toggle: (count: number) => `Actividad (${count})`,
         label: 'Actividad de la conversación'
+    },
+    reactions: {
+        add: 'Añadir reacción',
+        label: 'Reacciones',
+        names: { 'thumbs-up': 'Pulgar arriba', 'thumbs-down': 'Pulgar abajo', laugh: 'Risa', hooray: 'Hurra', confused: 'Confusión', heart: 'Corazón', rocket: 'Cohete', eyes: 'Ojos' },
+        count: (name: string, count: number) => `${name}, ${count} ${p(count, 'reacción', 'reacciones')}`,
+        people: (people: string) => `Reaccionaron: ${people}`,
+        you: 'Tú',
+        others: (count: number) => `${count} ${p(count, 'persona más', 'personas más')}`,
+        notSaved: 'Reacción no guardada'
     },
     feedbackTypes: {
         comment: 'Comentario',
@@ -363,8 +381,6 @@ export const es: Messages = {
         saving: 'Guardando...',
         keysSend: 'Intro para enviar. Mayús+Intro para una línea nueva.',
         keysSave: 'Intro para guardar. Mayús+Intro para una línea nueva.',
-        draftLifetime: (days: number) => `El texto sin enviar se queda en este navegador ${days} días después de tu último cambio.`,
-        draftSaved: 'Borrador guardado en este navegador',
         collapseTip: 'Volver al formulario pequeño',
         expandTip: 'Ampliar para escribir con más espacio',
         collapse: 'Reducir',
@@ -416,7 +432,10 @@ export const es: Messages = {
         suggestionPlaceholder: 'Tu versión del texto...',
         commentPlaceholder: 'Deja tu opinión...',
         postSuggestion: 'Publicar sugerencia',
-        postComment: 'Publicar comentario'
+        postComment: 'Publicar comentario',
+        participants: (people: string) => `En esta conversación: ${people}`,
+        participantsYou: 'tú',
+        threadPreview: 'Vista previa de la conversación'
     },
     feedback: {
         typesOff: 'Los tipos de opinión están desactivados en este proyecto. Puedes seguir dejando un comentario fijado.',
@@ -513,6 +532,44 @@ export const es: Messages = {
         label: 'Texto seleccionado',
         rewrite: 'Reescribir'
     },
+    canvas: {
+        panel: 'Herramientas de dibujo',
+        surface: 'Dibujo',
+        surfaceHelp: 'Dibuja con un puntero. Con el teclado: elige una herramienta y pulsa Intro aquí para añadirla. Tab va a las formas; las flechas mueven una, Alt y las flechas cambian su tamaño.',
+        started: 'Dibujando en la página. Elige una herramienta, dibuja y después Comentar.',
+        tools: { select: 'Seleccionar', pen: 'Bolígrafo', marker: 'Rotulador', brush: 'Pincel', line: 'Línea', arrow: 'Flecha', rectangle: 'Rectángulo', ellipse: 'Elipse', diamond: 'Rombo', text: 'Nota', blur: 'Desenfocar', eraser: 'Borrador' },
+        shapes: { pen: 'Trazo de bolígrafo', marker: 'Trazo de rotulador', brush: 'Trazo de pincel', line: 'Línea', arrow: 'Flecha', rectangle: 'Rectángulo', ellipse: 'Elipse', diamond: 'Rombo', text: 'Nota', blur: 'Zona desenfocada' },
+        /** A shape in the drawing, by its place: "Rectangle 2" */
+        shape: (name: string, number: number) => `${name} ${number}`,
+        style: 'Estilo',
+        color: 'Color',
+        background: 'Fondo',
+        none: 'Ninguno',
+        fill: 'Relleno del fondo',
+        fills: { semi: 'Translúcido', solid: 'Opaco' },
+        outline: 'Contorno',
+        outlines: { solid: 'Continuo', dashed: 'Discontinuo', dotted: 'Punteado' },
+        width: 'Grosor',
+        widths: { s: 'Fino', m: 'Medio', l: 'Grueso', xl: 'Muy grueso' },
+        edges: 'Bordes',
+        edgeStyles: { clean: 'Limpios', sketchy: 'A mano' },
+        colors: { ink: 'Tinta', white: 'Blanco', red: 'Rojo', amber: 'Ámbar', green: 'Verde', blue: 'Azul', violet: 'Violeta' },
+        undo: 'Deshacer',
+        redo: 'Rehacer',
+        deleteShape: 'Eliminar forma',
+        discard: 'Descartar',
+        comment: 'Comentar',
+        textNote: 'Nota',
+        added: (name: string) => `Añadido: ${name}`,
+        deleted: (name: string) => `Eliminado: ${name}`,
+        undone: 'Deshecho',
+        redone: 'Rehecho',
+        discarded: 'Dibujo descartado',
+        full: 'El dibujo está lleno. Quita una forma para añadir otra.',
+        tooLarge: 'Este dibujo es demasiado grande para guardarlo. Quita algunas formas.',
+        pointerOnly: 'Esta herramienta dibuja con un puntero. Elige otra herramienta para añadir una forma con el teclado.',
+        editDrawing: 'Editar dibujo'
+    },
     hint: {
         title: 'Prueba uier en esta página',
         dismiss: 'Cerrar',
@@ -530,13 +587,14 @@ export const es: Messages = {
         move: (label: string) => `Mover el panel «${label}»`,
         moveTip: 'Arrastra al otro lado o usa las flechas',
         moved: (label: string, side: 'left' | 'right') => `${label} movido a la ${side === 'left' ? 'izquierda' : 'derecha'}.`,
-        moveTo: (side: 'left' | 'right') => `Mover a la ${side === 'left' ? 'izquierda' : 'derecha'}`
+        moveTo: (side: 'left' | 'right') => `Mover a la ${side === 'left' ? 'izquierda' : 'derecha'}`,
+        /** The menu of a panel's title: the other panels to show in its place */
+        switch: 'Cambiar de panel'
     },
     inbox: {
         label: 'Comentarios',
         search: 'Buscar comentarios',
         reviewing: (environment: string) => `Revisando ${environment}. Las opiniones nuevas se quedan aquí.`,
-        unread: 'Sin leer',
         assignedToMe: 'Asignados a mí',
         reviewBrief: 'Indicaciones de revisión',
         close: 'Cerrar el panel lateral',
@@ -552,6 +610,8 @@ export const es: Messages = {
         activeOne: (status: string) => `Activos: ${status}`,
         showComments: 'Mostrar comentarios',
         activeStatuses: 'Estados activos',
+        /** The menu beside the Done tab: Done or Archive */
+        doneStatuses: 'Hechos y archivo',
         onThisPage: ' en esta página',
         noArchived: (where: string) => `No hay comentarios archivados${where}`,
         noMatches: (where: string) => `Sin resultados${where}`,
@@ -572,6 +632,10 @@ export const es: Messages = {
         commentNumber: (number: number) => `Comentario #${number}`,
         comment: 'Comentario',
         olderNotListed: 'Los comentarios más antiguos no aparecen.',
+        drafts: 'Borradores',
+        draftComment: 'Borrador de comentario',
+        draftRewrite: 'Borrador de sugerencia de reescritura',
+        draftDiscarded: 'Borrador descartado',
         unreadCount: (count: number) => `${count} sin leer`,
         markAllRead: 'Marcar todo como leído',
         markedRead: (count: number) => `${count} ${p(count, 'conversación marcada como leída', 'conversaciones marcadas como leídas')}.`,

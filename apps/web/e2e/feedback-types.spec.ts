@@ -112,14 +112,14 @@ test('custom kinds keep their icon, placeholder and drafts across the feedback m
         await expect(form.getByRole('button', { name: 'Bug report', exact: true })).toHaveCount(0);
         await form.getByRole('button', { name: 'Feature request', exact: true }).click();
         const text = form.getByRole('textbox', { name: 'Feature request', exact: true });
-        await expect(text).toHaveAttribute('placeholder', 'What would help your work?');
+        await expect(text).toHaveAttribute('aria-placeholder', 'What would help your work?');
         await text.fill('Keep my custom type draft');
         await form.getByRole('button', { name: 'Feedback', exact: true }).click();
         await form.getByRole('textbox', { name: 'Feedback', exact: true }).fill('A separate default draft');
         await form.getByRole('button', { name: 'Feature request', exact: true }).click();
-        await expect(text).toHaveValue('Keep my custom type draft');
+        await expect(text).toHaveText('Keep my custom type draft', { useInnerText: true });
         await form.getByRole('button', { name: 'Expand' , exact: true }).click();
-        await expect(text).toHaveValue('Keep my custom type draft');
+        await expect(text).toHaveText('Keep my custom type draft', { useInnerText: true });
         await animationsFinished(form);
         await expectNoAxeViolations(page, { include: ['#uier-toolbar'] });
         expect(await form.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
@@ -145,7 +145,7 @@ test('custom kinds keep their icon, placeholder and drafts across the feedback m
         await visit();
         await toolbar(page).getByRole('button', { name: 'Send feedback', exact: true }).click();
         await expect(form.getByRole('button', { name: 'Feature request', exact: true })).toHaveCount(0);
-        await expect(form.getByRole('textbox', { name: 'Feedback', exact: true })).toHaveValue('A separate default draft');
+        await expect(form.getByRole('textbox', { name: 'Feedback', exact: true })).toHaveText('A separate default draft', { useInnerText: true });
         await page.screenshot({ path: testInfo.outputPath('configured-feedback.png') });
         // The server rejects a stale form, and turning every page type off leaves point mode available.
         const disabled = await page.request.post(`/api/review/${project}/comments`, { headers: {

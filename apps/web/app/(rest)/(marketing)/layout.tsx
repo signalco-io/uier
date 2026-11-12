@@ -1,4 +1,5 @@
 import { ClientProvider } from '@/src/components/providers/ClientProvider';
+import { PublicNotifications } from '@/src/components/providers/PublicNotifications';
 import { Container } from '@signalco/ui-primitives/Container';
 import { PageNav } from '@signalco/ui/Nav';
 import { Button } from '@signalco/ui-primitives/Button';
@@ -8,8 +9,8 @@ import { KnownPages } from '../../../src/knownPages';
 import { ToolbarScript } from '../../../src/components/toolbar/ToolbarScript';
 
 const navLinks = [
-    { text: 'How it works', href: KnownPages.HowItWorks },
     { text: 'Features', href: KnownPages.Features },
+    { text: 'Compare', href: KnownPages.Compare },
     { text: 'FAQ', href: KnownPages.Faq }
 ];
 
@@ -18,6 +19,7 @@ export default function RootMarketingLayout({ children, }: {
 }) {
     return (
         <ClientProvider>
+            <PublicNotifications />
             {/* /app: signed-out visitors go to sign in (proxy.ts), signed-in people straight into the app.
                 These pages are static, so the label does not depend on the session. */}
             <PageNav logo={<Logo size={18} />} links={navLinks}>

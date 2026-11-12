@@ -1,3 +1,4 @@
+import { getAppI18n } from '@/src/lib/i18n/server';
 import { getAppContext } from '@/src/lib/app/context';
 import { getProject } from '@/src/lib/app/projects';
 import { hasProjectAccess, loadWorkspaceAccess } from '@/src/lib/app/access';
@@ -20,13 +21,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ proj
         // selecting members instead of loading both again through listProjectMembers.
         const members = () => listMembersWithUsers(context.workspace.id).then(entries => membersWithProjectAccess(entries, project, access));
         const query = parseCommentsQuery(Object.fromEntries(new URL(request.url).searchParams));
-        const snapshot = await loadAppCommentsSnapshot(context, project, query, members);
+        const { t } = await getAppI18n();
+        const snapshot = await loadAppCommentsSnapshot(context, project, query, members, t);
         if (!snapshot) throw apiErrors.notFound();
-        return Response.json({ revision: snapshot.revision }, { headers: { 'Cache-Control': 'private, no-store', Vary: 'Cookie' } });
+        return Response.json({ revision: snapshot.revision }, { headers: { 'Cache-Control': 'private, no-store', Vary: 'Cookie, Accept-Language' } });
     } catch (error) {
         const response = errorResponse(error);
         response.headers.set('Cache-Control', 'private, no-store');
-        response.headers.set('Vary', 'Cookie');
+        response.headers.set('Vary', 'Cookie, Accept-Language');
         return response;
     }
 }

@@ -148,6 +148,13 @@ export async function processIntegrationDelivery(candidate: IntegrationSync, bas
             feedback.context.discussion = feedback.context.discussion.map(withoutAgent);
             feedback.markdown = feedbackMarkdown(feedback.context);
         }
+        if (feedback && [feedback.context.feedback, ...feedback.context.discussion].some(item => item?.reactions)) {
+            // Reactions stay in uier: they never request a sync, so a tracker would keep a stale count
+            const withoutReactions = <T extends FeedbackMessage | null>(item: T): T => { if (!item?.reactions) return item; const { reactions: _reactions, ...rest } = item; return rest as T; };
+            feedback.context.feedback = withoutReactions(feedback.context.feedback);
+            feedback.context.discussion = feedback.context.discussion.map(withoutReactions);
+            feedback.markdown = feedbackMarkdown(feedback.context);
+        }
         if (feedback && source) {
             const echoes = new Set(source.thread.items.filter(item => item.integrationSource?.provider === connection.provider
                 && item.integrationSource.connectionId === connection.id).map(item => item.id));

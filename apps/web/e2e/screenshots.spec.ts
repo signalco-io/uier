@@ -364,7 +364,7 @@ test('screenshots: the reviewer attaches their own image instead, from the text 
     await pasteImage(textbox, pngImage);
     const remove = dialog.getByRole('button', { name: 'Remove attached image image.png' });
     await expect(remove).toBeVisible();
-    await expect(textbox).toHaveValue('A pasted picture.');
+    await expect(textbox).toHaveText('A pasted picture.', { useInnerText: true });
     await remove.click();
     await expect(dialog.getByRole('button', { name: 'Omit screenshot' })).toHaveAttribute('aria-pressed', 'false');
     await pasteImage(textbox, pngImage);
@@ -424,7 +424,7 @@ test('screenshots: nothing is sent while an attached image is still being read',
     await release();
     await expect(draft.getByRole('button', { name: 'Remove attached image evidence.png' })).toBeVisible();
     expect(posts).toHaveLength(0);
-    await expect(draft.getByRole('textbox', { name: 'Comment' })).toHaveValue('Wait for my picture.');
+    await expect(draft.getByRole('textbox', { name: 'Comment' })).toHaveText('Wait for my picture.', { useInnerText: true });
     const body = nextCreatedComment(page);
     await draft.getByRole('button', { name: 'Post comment' }).click();
     expect((await body).screenshot).toBe(pngImage);
@@ -444,7 +444,7 @@ test('screenshots: nothing is sent while an attached image is still being read',
     await release();
     await expect(dialog.getByRole('button', { name: 'Remove attached image image.png' })).toBeVisible();
     expect(posts).toHaveLength(1);
-    await expect(textbox).toHaveValue('Wait for this one too.');
+    await expect(textbox).toHaveText('Wait for this one too.', { useInnerText: true });
     const feedback = nextCreatedComment(page);
     await textbox.press('Enter');
     expect((await feedback).screenshot).toBe(pngImage);
@@ -474,7 +474,7 @@ test('screenshots: an attached image belongs to the feedback it was sent with', 
     await expect(dialog).toBeHidden();
     release();
     await openFeedback();
-    await expect(textbox).toHaveValue('Kept with its image.');
+    await expect(textbox).toHaveText('Kept with its image.', { useInnerText: true });
     await expect(removeButton('image.png')).toBeVisible();
 
     // Opened again while it is on its way: a clean form, and the image attached there stays when it is saved
@@ -502,7 +502,7 @@ test('screenshots: an attached image belongs to the feedback it was sent with', 
     await pasteImage(textbox, pngImage);
     await expect(removeButton('image.png')).toBeVisible();
     release();
-    await expect(textbox).toHaveValue('Sent with the second image.');
+    await expect(textbox).toHaveText('Sent with the second image.', { useInnerText: true });
     await expect(removeButton('image.png')).toBeVisible();
     await expect(removeButton('second.png')).toHaveCount(0);
     await context.close();

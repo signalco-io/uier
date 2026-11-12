@@ -91,7 +91,7 @@ test('owner checks installation, shares a review, replies and resolves; the name
         await expect(commentBubbles(guest.page)).toHaveCount(0);
         await guest.page.getByRole('button', { name: 'Expand toolbar' }).click();
         await guest.page.locator(`[data-uier-comment="${saved.id}"]`).click();
-        await expect(thread(guest.page).getByRole('textbox', { name: 'Reply' })).toHaveValue('Keep this unsent follow-up.');
+        await expect(thread(guest.page).getByRole('textbox', { name: 'Reply' })).toHaveText('Keep this unsent follow-up.', { useInnerText: true });
         await expect(thread(guest.page)).toContainText('Status: Open');
 
         await page.goto(`/app/projects/${projectId}`);

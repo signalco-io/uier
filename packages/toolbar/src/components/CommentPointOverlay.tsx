@@ -125,6 +125,14 @@ function frameRects() {
     return rects;
 }
 
+/** How many point overlays are on the page (one at a time; reattaching uses one too) */
+let pointing = 0;
+
+/** Whether point mode is on: a pin's hover preview does not open while a place is being chosen */
+export function isPointing() {
+    return pointing > 0;
+}
+
 /**
  * A frame's presses go to its own document, where the window's listeners do not see them: while
  * pointing, a transparent shield over each frame takes them, and the frame is what gets pinned.
@@ -255,6 +263,10 @@ export function CommentPointOverlay({ onPoint }: CommentPointOverlayProps) {
     // On uier's own pages the toolbar's popovers stay open while they are pointed at. A layout
     // effect: the hold ends before the new comment's text box takes the focus (`autoFocus`)
     useLayoutEffect(() => holdToolbarLayers(), []);
+    useLayoutEffect(() => {
+        pointing++;
+        return () => { pointing--; };
+    }, []);
 
     useEffect(() => {
         const move = (event: PointerEvent) => handlePointerMove(event);

@@ -7,14 +7,19 @@ const maxDraftRecordLength = 64_000;
 export const draftLifetimeMs = 7 * 24 * 60 * 60 * 1000;
 export type DraftDetails = {
     mentions?: Mention[];
-    anchor?: { kind: 'comment' | 'rewrite'; position: CommentAnchor };
+    /** `drawing`: a canvas mode comment's area; its shapes stay in memory */
+    anchor?: { kind: 'comment' | 'rewrite' | 'drawing'; position: CommentAnchor };
     originalText?: string;
 };
 /** Text being sent in the background: the form is empty, the text stays here until the send settles */
 type Sending = { id: string; text: string; mentions?: Mention[]; anchor?: string };
 type Attempt = { content: string; key: string };
 type Recovery = { text: string; mentions?: Mention[]; attempt?: Attempt };
-type RecordValue = DraftDetails & { text: string; updatedAt: number; attempt?: Attempt; sending?: Sending[]; recoveries?: Recovery[] };
+/**
+ * `unsettled`: the texts (trimmed) of sends this page never saw settle (`recoverSending`). Saved or not, the page's
+ * comments tell: one of yours with the same text means it was saved (`CommentsGlobal`).
+ */
+type RecordValue = DraftDetails & { text: string; updatedAt: number; attempt?: Attempt; sending?: Sending[]; recoveries?: Recovery[]; unsettled?: string[] };
 const maxTextLength = 1000;
 
 /** Sent text back in the draft, before what was written meanwhile (when both fit) */
@@ -30,18 +35,50 @@ function withSentText(value: RecordValue, text: string, mentions: Mention[] = []
 function recoverSending(value: RecordValue): RecordValue {
     const { sending, ...rest } = value;
     let recovered: RecordValue = rest;
+    const unsettled: string[] = [];
     if (Array.isArray(sending)) {
         for (const entry of [...sending].reverse()) {
-            if (entry && typeof entry.text === 'string' && entry.text.length <= maxTextLength)
+            if (entry && typeof entry.text === 'string' && entry.text.length <= maxTextLength) {
                 recovered = withSentText(recovered, entry.text, Array.isArray(entry.mentions) ? entry.mentions : undefined);
+                unsettled.push(entry.text.trim());
+            }
         }
     }
-    return recovered;
+    return unsettled.length ? { ...recovered, unsettled } : recovered;
+}
+
+/**
+ * The page is being left (reloaded or navigated away): a send that fails now was cut off by leaving, its outcome
+ * unknown, so it is kept `unsettled` like one that never settled. Benign when the page stays after all (a cancelled
+ * `beforeunload`): such a draft goes on a later load only when the page's comments show it was saved.
+ */
+let leaving = false;
+let watchingUnload = false;
+function watchUnload() {
+    if (watchingUnload || typeof window === 'undefined') return;
+    watchingUnload = true;
+    const leave = () => { leaving = true; };
+    window.addEventListener('beforeunload', leave, { capture: true });
+    window.addEventListener('pagehide', leave, { capture: true });
+    window.addEventListener('pageshow', () => { leaving = false; }, { capture: true });
 }
 
 const memory = new Map<string, Map<string, RecordValue>>();
 const listeners = new Map<string, Set<() => void>>();
-const notify = (key: string) => listeners.get(key)?.forEach(listener => listener());
+/** Listeners of every draft in a scope (a page's store, `subscribeAll`), by the scope's prefix */
+const scopeListeners = new Map<string, Set<() => void>>();
+/** Changes on every write, so `subscribeAll` subscribers have a snapshot to compare (`version`) */
+let version = 0;
+const notify = (key: string) => {
+    version++;
+    listeners.get(key)?.forEach(listener => listener());
+    for (const [prefix, subscriptions] of scopeListeners) if (key.startsWith(prefix)) subscriptions.forEach(listener => listener());
+};
+/** Every scope whose prefix starts with `prefix` (sign-out and clearing): its drafts changed */
+const notifyScopes = (prefix: string) => {
+    version++;
+    for (const [scope, subscriptions] of scopeListeners) if (scope.startsWith(prefix)) subscriptions.forEach(listener => listener());
+};
 const pendingSends = new Map<string, Promise<unknown>>();
 export function clearDraftMemory() { memory.clear(); pendingSends.clear(); }
 
@@ -54,11 +91,13 @@ export function clearDraftScopes(scope: string[]) {
         for (const key of keys) if (key?.startsWith(prefix)) storage().removeItem(key);
     } catch { /* Memory is still cleared when storage is blocked. */ }
     for (const key of listeners.keys()) if (key.startsWith(prefix)) notify(key);
+    notifyScopes(prefix);
 }
 
 /** Small text/anchor records only. Captures and device details never enter synchronous storage. */
 export function createDraftStore(scope: string[], onWrite?: () => void, persistent = true) {
     const prefix = `${draftStoragePrefix}${JSON.stringify(scope)}:`;
+    watchUnload();
     const values = memory.get(prefix) ?? new Map<string, RecordValue>();
     memory.set(prefix, values);
     let available = persistent;
@@ -94,7 +133,7 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
                 || (typeof l === 'object' && l !== null && selector(l.opener)
                     && (l.label === undefined || (typeof l.label === 'string' && l.label.length <= 120))
                     && (l.nested === undefined || (Array.isArray(l.nested) && l.nested.length > 0 && l.nested.length <= 7 && l.nested.every(selector))));
-            if (!p || !['comment', 'rewrite'].includes(a.kind) || !layer(p.layer)
+            if (!p || !['comment', 'rewrite', 'drawing'].includes(a.kind) || !layer(p.layer)
                 || !(p.type === 'point' ? selector(p.selector) && fraction(p.xNormal) && fraction(p.yNormal)
                     && ((p.widthNormal === undefined && p.heightNormal === undefined) || (fraction(p.widthNormal) && fraction(p.heightNormal)))
                     : p.type === 'text' && selector(p.startSelector) && (p.endSelector === undefined || selector(p.endSelector)) && typeof p.text === 'string' && p.text.length <= 2000
@@ -110,6 +149,8 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
                 return false;
             })) delete value.mentions;
         }
+        if (value.unsettled !== undefined && (!Array.isArray(value.unsettled) || value.unsettled.length > 20
+            || value.unsettled.some(text => typeof text !== 'string' || text.length > maxTextLength))) delete value.unsettled;
         if (value.recoveries !== undefined) {
             value.recoveries = Array.isArray(value.recoveries)
                 ? value.recoveries.filter(entry => entry && typeof entry.text === 'string' && entry.text.length <= maxTextLength)
@@ -137,6 +178,23 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
         }
     } catch { available = false; }
     return {
+        /** Every draft of this scope (the page): its composers', and new comments' (`keys`) */
+        subscribeAll(listener: () => void) {
+            const subscriptions = scopeListeners.get(prefix) ?? new Set<() => void>();
+            scopeListeners.set(prefix, subscriptions);
+            subscriptions.add(listener);
+            return () => { subscriptions.delete(listener); if (!subscriptions.size) scopeListeners.delete(prefix); };
+        },
+        /** A snapshot for `subscribeAll`: changes whenever a draft does */
+        version: () => version,
+        /** The keys of this scope's drafts (in browser storage, or in memory only), unread and unchecked */
+        keys() {
+            const keys = new Set(values.keys());
+            try {
+                for (const key of storageKeys()) if (key?.startsWith(prefix)) keys.add(key.slice(prefix.length));
+            } catch { available = false; }
+            return [...keys];
+        },
         subscribe(key: string, listener: () => void) {
             const fullKey = prefix + key;
             const subscriptions = listeners.get(fullKey) ?? new Set<() => void>();
@@ -163,6 +221,7 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
                 }
             } catch { available = false; }
             for (const key of listeners.keys()) if (key.startsWith(reviewerPrefix)) notify(key);
+            notifyScopes(reviewerPrefix);
         },
         /** Empties the draft for a send in the background, keeping its text until `settleSend` */
         startSend(key: string, text: string, mentions: Mention[]) {
@@ -183,7 +242,9 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
                 remove(key);
                 return;
             }
-            write(key, saved ? rest : { ...withSentText(rest, entry.text, entry.mentions), updatedAt: Date.now() });
+            if (saved) { write(key, rest); return; }
+            const failed: RecordValue = { ...withSentText(rest, entry.text, entry.mentions), updatedAt: Date.now() };
+            write(key, leaving ? { ...failed, unsettled: [...(failed.unsettled ?? []), entry.text.trim()] } : failed);
         },
         available: () => available,
         pending: (key: string) => pendingSends.has(prefix + key),

@@ -111,7 +111,7 @@ test('new and retained toolbar bundles share the same bounded size limit', async
     const source = join(directory, 'source.js');
     const review = join(directory, 'review.js');
     const output = join(directory, 'public');
-    const oversized = Buffer.alloc(1_000_001, 'x');
+    const oversized = Buffer.alloc(1_500_001, 'x');
     const id = createHash('sha256').update(oversized).digest('hex');
     const server = createServer((request, response) => {
         response.end(request.url === '/toolbar/manifest.json'
@@ -121,7 +121,7 @@ test('new and retained toolbar bundles share the same bounded size limit', async
     await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
     try {
         await writeFile(source, 'console.log("loader");');
-        await writeFile(review, oversized.subarray(0, 1_000_000));
+        await writeFile(review, oversized.subarray(0, 1_500_000));
         await publishToolbar(source, output, { dependencies: [review] });
         await writeFile(review, oversized);
         await expect(publishToolbar(source, output, { dependencies: [review] })).rejects.toThrow('Toolbar bundle exceeds its size limit');

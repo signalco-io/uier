@@ -1,5 +1,6 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
 import { useActionState, useId, useState } from 'react';
 import { PencilIcon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -19,14 +20,15 @@ import { updateClientAction } from './actions';
 
 /** Edit a client (admins): its name, which every project of the client follows, description, icon and colour */
 export function ClientEditDialog({ client, workspaceId, className }: { client: ClientSummary; workspaceId: string; className?: string }) {
+    const { t } = useAppI18n();
     const [open, setOpen] = useState(false);
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <Tooltip>
-                <TooltipTrigger render={<DialogTrigger render={<Button variant="ghost" size="icon-sm" aria-label={`Edit ${client.name}`} className={className} />} />}>
+                <TooltipTrigger render={<DialogTrigger render={<Button variant="ghost" size="icon-sm" aria-label={t("Edit {value0}", { value0: client.name })} className={className} />} />}>
                     <PencilIcon />
                 </TooltipTrigger>
-                <TooltipContent>Edit client</TooltipContent>
+                <TooltipContent>{t("Edit client")}</TooltipContent>
             </Tooltip>
             <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto">
                 {/* The content unmounts when closed, so every opening starts from the saved client */}
@@ -37,6 +39,7 @@ export function ClientEditDialog({ client, workspaceId, className }: { client: C
 }
 
 function ClientForm({ client, workspaceId, onSaved }: { client: ClientSummary; workspaceId: string; onSaved: () => void }) {
+    const { t } = useAppI18n();
     const id = useId();
     const [uploading, setUploading] = useState(false);
     const [name, setName] = useState(client.name);
@@ -46,7 +49,7 @@ function ClientForm({ client, workspaceId, onSaved }: { client: ClientSummary; w
     const [state, formAction, pending] = useActionState<Awaited<ReturnType<typeof updateClientAction>>, FormData>(async (previous, formData) => {
         const result = await updateClientAction(previous, formData);
         if (result?.ok) {
-            toast.success(`${result.data.name} is saved.`);
+            toast.success(t("{value0} is saved.", { value0: result.data.name }));
             onSaved();
         }
         return result;
@@ -58,8 +61,8 @@ function ClientForm({ client, workspaceId, onSaved }: { client: ClientSummary; w
                 <ClientAvatarEditor client={{ ...client, name: name || client.name, icon, color }} workspaceId={workspaceId}
                     onIconChange={setIcon} onColorChange={setColor} onPendingChange={setUploading} disabled={pending || uploading} />
                 <div className="flex min-w-0 flex-col gap-1">
-                    <DialogTitle>Edit client</DialogTitle>
-                    <DialogDescription>Every project of this client shows the changes.</DialogDescription>
+                    <DialogTitle>{t("Edit client")}</DialogTitle>
+                    <DialogDescription>{t("Every project of this client shows the changes.")}</DialogDescription>
                 </div>
             </DialogHeader>
             <input type="hidden" name="clientId" value={client.id} />
@@ -67,7 +70,7 @@ function ClientForm({ client, workspaceId, onSaved }: { client: ClientSummary; w
             <input type="hidden" name="color" value={color ?? ''} />
             <FieldGroup>
                 <Field>
-                    <FieldLabel htmlFor={`${id}-name`}>Client name</FieldLabel>
+                    <FieldLabel htmlFor={`${id}-name`}>{t("Client name")}</FieldLabel>
                     <Input
                         id={`${id}-name`}
                         name="name"
@@ -77,7 +80,7 @@ function ClientForm({ client, workspaceId, onSaved }: { client: ClientSummary; w
                         maxLength={MAX_CLIENT_NAME_LENGTH} />
                 </Field>
                 <Field>
-                    <FieldLabel htmlFor={`${id}-description`}>Description (optional)</FieldLabel>
+                    <FieldLabel htmlFor={`${id}-description`}>{t("Description (optional)")}</FieldLabel>
                     <Textarea
                         id={`${id}-description`}
                         name="description"
@@ -89,11 +92,9 @@ function ClientForm({ client, workspaceId, onSaved }: { client: ClientSummary; w
             </FieldGroup>
             <FormMessage state={state} />
             <DialogFooter>
-                <DialogClose render={<Button type="button" variant="outline" disabled={uploading} />}>Cancel</DialogClose>
+                <DialogClose render={<Button type="button" variant="outline" disabled={uploading} />}>{t("Cancel")}</DialogClose>
                 <Button type="submit" disabled={pending || uploading}>
-                    {pending && <Spinner data-icon="inline-start" />}
-                    Save
-                </Button>
+                    {pending && <Spinner data-icon="inline-start" />}{t("Save")}</Button>
             </DialogFooter>
         </form>
     );

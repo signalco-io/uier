@@ -110,7 +110,7 @@ test('uier inbox elements support pointer and keyboard anchors, panel movement a
     await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
     await toolbar(page).getByRole('button', { name: /^Inbox/ }).click();
     const inbox = page.getByRole('complementary', { name: 'Comments' });
-    const search = inbox.getByRole('searchbox', { name: 'Search comments' });
+    const search = inbox.getByRole('button', { name: 'Search comments', exact: true });
     await animationsFinished(inbox);
     await toolbar(page).getByRole('button', { name: 'Add comment' }).click();
     await pointAt(page, search);

@@ -105,7 +105,7 @@ test('the board is one tab stop: the arrows move between cards and columns, J an
     await page.keyboard.press('r');
     await expect(thread.getByRole('textbox', { name: 'Reply', exact: true })).toBeFocused();
     await page.keyboard.type('jk');
-    await expect(thread.getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue('jk');
+    await expect(thread.getByRole('textbox', { name: 'Reply', exact: true })).toHaveText('jk', { useInnerText: true });
     await expect(thread).toContainText(`Comment #${second}`);
 });
 
@@ -150,7 +150,7 @@ test('the list: J and K from the open thread, R, S, A and /, and ? lists them wi
     const box = thread.getByRole('textbox', { name: 'Reply', exact: true });
     await expect(box).toBeFocused();
     await page.keyboard.type('jsa?/');
-    await expect(box).toHaveValue('jsa?/');
+    await expect(box).toHaveText('jsa?/', { useInnerText: true });
     await expect(thread).toContainText(await rowText(1));
     await box.fill('');
     // With the first message's editor open too, R still goes to the reply box
@@ -252,7 +252,7 @@ test('one switch for the app and its toolbar: turned off on either side, the oth
     const feedbackText = feedback.getByRole('textbox', { name: 'Feedback', exact: true });
     await feedbackText.focus();
     await page.keyboard.type('Clear copy c');
-    await expect(feedbackText).toHaveValue('Clear copy c');
+    await expect(feedbackText).toHaveText('Clear copy c', { useInnerText: true });
     await expect(pointMode).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(feedback).toBeHidden();
@@ -323,7 +323,7 @@ test('the sidebar, the tabs and My work are one tab stop each; G then I, B, M or
     await expect(page.getByRole('region', { name: 'Open comments', exact: true })).toBeVisible();
     await page.keyboard.press('g');
     await page.keyboard.press('i');
-    await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBeNull();
+    await expect.poll(() => new URL(page.url()).searchParams.get('view')).toBe('list');
     await expect(commentRows(page)).toHaveCount(2);
 
     // On a focused card, M after G goes to My work instead of opening the card's Move

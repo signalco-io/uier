@@ -16,7 +16,7 @@
   state, `#number`, the unread dot (the Mark as read button, "Unread. Mark as read") and, on a private thread, the
   Private badge (a ghost badge with no background, muted lock and text; focusable; its tooltip says only workspace admins and the author see it, `canSeeComment`) on the first line with
   Copy and More actions at its right, on one line at any width. The state badge is the status menu ("Status:
-  Open. Change status") with Open, In progress, Ready to verify and Done, each enabled by the person's permissions
+  Open. Change status"; on a touch screen a 32 px pill with roomier sides whose hit area reaches 44 px, uier #280) with Open, In progress, Ready to verify and Done, each enabled by the person's permissions
   (`allowedStatuses`): Ready to verify opens the Request verification form (`VerificationControl`, whose submit has
   the same name), Open and In progress from Ready to verify cancel the check and land there, and Done there reads
   Done without verification. Copy is one menu with Copy
@@ -38,7 +38,8 @@
   "Open on ..."), Priority (`PriorityControl`: the flag and the name; for those who can triage a menu of the
   four, each with its flag, the current one checked) and Assignee (a 20px avatar, or a person icon while unassigned,
   and the name, together one menu button for those who can assign, with a chevron only while unassigned; then the AI agent working with the assignee, `AgentControl`: "with",
-  the agent's logo, Claude, its model by name and reasoning level ("Opus 5.5 · xhigh"), or Add agent for the assignee; an attached agent's button has no chevron), the verification, every message, Reply (its icon in line with the message text) and the quiet Open in ....
+  the agent's logo, Claude, its model by name and reasoning level ("Opus 5.5 · xhigh"), or Add agent for the assignee; an attached agent's button has no chevron; clicking it shows the agent's details as on the
+assignee card, with Open in T3 Code or another desktop session link, at the top of the assignee's menu or in a hover/click popover for others), the verification, every message, Reply (its icon in line with the message text) and the quiet Open in ....
   A message an AI agent wrote for its author through MCP reads "You via", the agent's logo and "Claude" after the
   author (`MessageAgent`, a ghost button whose hover or click popover says "Claude wrote this for you.", the model,
   reasoning level and connection; [AI agents](assignee-agents.md)). The first message's time is followed by
@@ -112,19 +113,24 @@
   `e2e/editing.spec.ts` checks that missing client hints fall back to parsed browser and OS names,
   without sending the raw user-agent string or exposing reproduction details on public feedback.
 - Every place the app takes a message uses one composer, `comments/MessageComposer.tsx`, laid out as the toolbar's
-  `CommentComposer`: one box (shadcn `InputGroup`) with the text and, inside it under the text, the hint ("@ to mention",
-  or the character count from 900 of 1000) on the left and the buttons on the right (the surface's cancel, Discard while
+  `CommentComposer`: one box (shadcn `InputGroup`) with the text and, inside it under the text, the character count
+  (from 900 of 1000; no visible "@ to mention" hint, uier #287) on the left and the buttons on the right (the surface's cancel, Discard while
   there is text, then the send icon button with its tooltip or a Save text button); under the box the mention list,
   the error and notices. No visible keyboard hint ([uier #175](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_B5Zp66h_oPH67ZI1HAbRV)):
   the keyboard shortcuts dialog lists Enter, Shift+Enter and Esc under "The open thread", and the field is
   described to screen readers as "Type @ to mention someone with access. Enter to send. Shift+Enter for a new line."
   (save and Escape for editors). It takes the focus with the caret at the end. Surfaces switch features off through props
-  (`mentionsIn`, `onCancel`/`escapeCancels`, `onDiscard`); don't add another reply box or a variant layout. The
+  (`mentionsIn`, `onCancel`/`escapeCancels`, `onEscapeEmpty`, `onDiscard`); don't add another reply box or a variant layout. The
   Request verification form (`VerificationControl`) is a form of labelled fields, not a message, and stays one.
+- Each message (`Message` in `CommentCard.tsx`) is a two-column grid: the 24px avatar is centred on its header row
+  (name, via, time, device and the actions, 44px tall on touch screens), the text under the header (uier #281).
+- Reactions (`comments/MessageReactions.tsx`, kept apart from `Message`): Add reaction in each message's header actions
+  (before a reply's More actions) and the reaction pills under the message, after its image. See [Message reactions](reactions.md).
 - Under the messages, Reply is a quiet ghost button with the reply icon, aligned with the message text (R opens it).
   `comments/ReplyComposer.tsx` is the lazy inline reply form it opens in List, Board and the inbox: the shared composer
-  with mentions, Close reply, Discard and the Post reply send button (Enter sends, Shift+Enter adds a line, Escape is
-  left to the thread). It shares the toolbar's draft/mention logic and browser-only attachment reader. `replyCommentAction` validates the payload,
+  with mentions, Discard and the Post reply send button (Enter sends, Shift+Enter adds a line). It has no close button
+  (uier #288): Escape in the empty field closes it and gives the focus back to Reply (`onEscapeEmpty`); with text,
+  Escape is left to the thread and the draft is kept. It shares the toolbar's draft/mention logic and browser-only attachment reader. `replyCommentAction` validates the payload,
   resolves current app authority and forwards trusted request headers to `replyToProjectComment`;
   `commentParticipantsAction` rechecks the thread before returning names/opaque ids without email.
   Replies preserve status and unread state; `CommentUpdates` appends pending messages and action
@@ -149,10 +155,13 @@
   member may edit (`canEditItem`, as the toolbar allows: its author or an admin; the view carries its saved text
   and mentions as `editable` only then). Edit turns the message into `MessageEditor` in place: the saved text with
   Cancel and Save in the shared composer (Enter saves, Shift+Enter adds a line, Escape cancels), and the menu takes the
-  focus back when it closes. `useMentionTextarea` (`MentionTextarea.tsx`) gives the composer's field its `@` mentions,
-  Enter and Escape; mentions move with the text.
-  After a chosen mention the caret is placed in a layout effect, in the same commit as the new value, so typing straight
-  on continues after the name; a deferred move (`requestAnimationFrame`) once let later keys land before the name.
+  focus back when it closes. `MessageComposer`'s field is the toolbar's rich [message editor](../../../packages/toolbar/docs/message-editor.md)
+  (`@uier/toolbar/editor`, loaded with `React.lazy` and preloaded by `CommentCard` when the thread can be replied to or
+  edited; an `aria-hidden` placeholder holds its place until then): Markdown typed in it formats as it is written and
+  what is saved is Markdown. `useMentionEditor` (`MentionEditor.tsx`) gives it its `@` mentions, Enter and Escape;
+  each mention is one node that moves with the text. A chosen mention and a space go in the `@` query's place with
+  the caret after them in one change, so typing straight on continues after the name. `fieldRef` is the editor's
+  handle, for R to focus the reply box.
   App edits use that same draft store/scope (`replyDrafts.ts`), with `edit` for the first message and
   `edit-reply:<itemId>` for each reply. `MessageEditor` writes text and mentions synchronously, including empty
   text; `CommentCard` restores open editors after hydration when the current view still allows editing.

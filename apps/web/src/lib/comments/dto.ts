@@ -1,9 +1,11 @@
 import { commentCheck, feedbackTypeSnapshot, isCommentKind } from '@uier/toolbar/feedback-types';
+import { commentDrawing } from '@uier/toolbar/drawing';
 import { commentPriority, type CommentPriority } from '@uier/toolbar/triage';
 import type { DbComment, DbCommentKind, DbCommentLayer, DbCommentPosition, DbDeviceSize, DbThreadItem } from '../db/schema';
 import { pagePath, sourcePagePath, storedPagePath, storedSourcePath, type PageStatePolicy } from '@uier/toolbar/page-state';
 import { displayName } from './visitor';
 import { MAX_LIST_RESPONSE_BYTES } from './limits';
+import { reactionViews } from './reactions';
 
 export type CommentAuthorDto = {
     name: string;
@@ -18,6 +20,8 @@ export type CommentThreadItemDto = {
     author: CommentAuthorDto;
     createdAt?: string;
     editedAt?: string;
+    /** Emoji reactions to the message (`comments/reactions.ts`); missing when it has none */
+    reactions?: import('@uier/toolbar/reactions').MessageReaction[];
 } | CommentDeletedThreadItemDto;
 
 /** The first item after its author deleted it while others had replied: no text and no author */
@@ -45,6 +49,8 @@ export type CommentDto = {
     feedbackType?: import('@uier/toolbar/feedback-types').FeedbackTypeSnapshot;
     /** The page check it was posted from (`count`: how many of its elements one comment covers); missing on every other comment */
     check?: import('@uier/toolbar/feedback-types').CommentCheck;
+    /** Shapes drawn on the page with it (canvas mode), from its area's top-left corner; visible like the comment */
+    drawing?: import('@uier/toolbar/drawing').CommentDrawing;
     thread: { items: CommentThreadItemDto[] };
     /** The coarse size and the viewport (width, height in CSS pixels) the comment was left from */
     device?: { size?: DbDeviceSize; windowSize?: [number, number] };
@@ -171,6 +177,7 @@ function toThreadItemDto(item: DbThreadItem, visitorAuthorId: string | undefined
         return { id: String(item.id), deleted: true, createdAt: optionalString(item.createdAt) };
 
     const authorId = optionalString(item.authorId);
+    const reactions = reactionViews(item, visitorAuthorId, names);
     return {
         id: String(item.id),
         text: optionalString(item.text) ?? '',
@@ -180,7 +187,8 @@ function toThreadItemDto(item: DbThreadItem, visitorAuthorId: string | undefined
             : item.authorName ? { name: item.authorName } : {}) },
         createdAt: optionalString(item.createdAt),
         editedAt: optionalString(item.editedAt),
-        ...(item.screenshot ? { screenshot: { width: item.screenshot.width, height: item.screenshot.height } } : {})
+        ...(item.screenshot ? { screenshot: { width: item.screenshot.width, height: item.screenshot.height } } : {}),
+        ...(reactions ? { reactions } : {})
     };
 }
 
@@ -193,6 +201,8 @@ export function toCommentDto(comment: DbComment, visitorAuthorId: string | undef
     const position = toPositionDto(comment.position);
     if (!position)
         return null;
+    // Only on an area, where it is drawn
+    const drawing = position.type === 'point' && position.widthNormal !== undefined ? commentDrawing(comment.drawing) : undefined;
 
     const items = Array.isArray(comment.thread?.items) ? comment.thread.items : [];
     const authorId = optionalString(comment.authorId);
@@ -217,6 +227,7 @@ export function toCommentDto(comment: DbComment, visitorAuthorId: string | undef
         kind: isCommentKind(comment.kind) ? comment.kind : 'comment',
         ...(feedbackTypeSnapshot(comment.feedbackType, comment.kind) ? { feedbackType: feedbackTypeSnapshot(comment.feedbackType, comment.kind) } : {}),
         ...(commentCheck(comment.check) ? { check: commentCheck(comment.check) } : {}),
+        ...(drawing ? { drawing } : {}),
         thread: {
             items: items
                 .filter(item => typeof item === 'object' && item !== null && item.id != null)

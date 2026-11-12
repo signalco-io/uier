@@ -1,7 +1,9 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { useActionState, useId } from 'react';
-import { toolbarLanguageLabel, toolbarLanguages, type ToolbarLanguage } from '@uier/toolbar/languages';
+import { toolbarLanguageNames, toolbarLanguages, type ToolbarLanguage } from '@uier/toolbar/languages';
 import { Field, FieldDescription, FieldLabel } from '@/src/components/ui/field';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { SaveFooter, useSettingsDraft } from '@/src/components/app/SettingsSave';
@@ -11,9 +13,9 @@ import { setToolbarLanguageAction } from './actions';
 /** The account's choice, or `default`: each project's language (the project's, else its workspace's) */
 type Choice = 'default' | ToolbarLanguage;
 
-const options = [
+const languageOptions = [
     { value: 'default', label: 'Project default' },
-    ...toolbarLanguages.map(language => ({ value: language, label: toolbarLanguageLabel(language) }))
+    ...toolbarLanguages.map(language => ({ value: language, label: toolbarLanguageNames[language] }))
 ] satisfies { value: Choice; label: string }[];
 
 /**
@@ -21,18 +23,20 @@ const options = [
  * Options. Project default goes back to each project's language. One save.
  */
 export function ToolbarLanguageForm({ language }: { language: ToolbarLanguage | null }) {
+    const { t } = useAppI18n();
+    const options = languageOptions.map(option => ({ ...option, label: t(option.label) }));
     const formId = useId();
     const [state, formAction, pending] = useActionState(setToolbarLanguageAction, null);
     const { draft, dirty, update, discard } = useSettingsDraft<{ language: Choice }>({ language: language ?? 'default' }, state);
     return (
         <Section
             id="toolbar-language"
-            title="Toolbar language"
+            title={t("Toolbar language")}
             footer={<SaveFooter formId={formId} state={state} pending={pending} dirty={dirty} onDiscard={discard} />}>
             <form id={formId} action={formAction}>
                 <input type="hidden" name="toolbarLanguage" value={draft.language} />
                 <Field>
-                    <FieldLabel htmlFor={`${formId}-language`}>Language</FieldLabel>
+                    <FieldLabel htmlFor={`${formId}-language`}>{t("Language")}</FieldLabel>
                     <Select value={draft.language} items={options} disabled={pending}
                         onValueChange={value => update(current => ({ ...current, language: options.find(option => option.value === value)?.value ?? 'default' }))}>
                         <SelectTrigger id={`${formId}-language`} className="w-full max-w-md">
@@ -40,13 +44,12 @@ export function ToolbarLanguageForm({ language }: { language: ToolbarLanguage | 
                         </SelectTrigger>
                         <SelectContent>
                             <SelectGroup>
-                                {options.map(option => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+                                {options.map(option => <SelectItem key={option.value} value={option.value}>{t(option.label)}</SelectItem>)}
                             </SelectGroup>
                         </SelectContent>
                     </Select>
                     <FieldDescription>
-                        The review toolbar&apos;s language on every site you review, also chosen in the toolbar&apos;s Options. Project default uses each project&apos;s language, set by its admins, else the workspace&apos;s, else English.
-                    </FieldDescription>
+                        {t("The review toolbar's language on every site you review, also chosen in the toolbar's Options. Project default uses each project's language, set by its admins, else the workspace's, else English.")}{' '}</FieldDescription>
                 </Field>
             </form>
         </Section>

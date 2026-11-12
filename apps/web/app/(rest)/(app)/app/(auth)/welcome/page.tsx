@@ -1,3 +1,4 @@
+import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
@@ -10,15 +11,19 @@ import { AuthCard } from '@/src/components/app/AuthCard';
 import { WelcomeForm } from './WelcomeForm';
 import { welcomeWorkspace } from './welcomeWorkspace';
 
-export const metadata: Metadata = {
-    title: 'Welcome'
+export async function generateMetadata(): Promise<Metadata> {
+    const { t } = await getAppI18n();
+    return {
+    title: t('Welcome')
 };
+}
 
 /**
  * The first-run step of a new account (`/app` sends it here once): its name and, when the account got a
  * workspace of its own, that workspace's stored name (Personal for newly created workspaces).
  */
 async function WelcomePageContent() {
+    const { t } = await getAppI18n();
     const context = await requireAppContext();
     const { user } = context;
     if (!user.welcomePending)
@@ -30,7 +35,7 @@ async function WelcomePageContent() {
     const workspaceName = workspace?.name;
 
     return (
-        <AuthCard title="Welcome to uier" description="Check how others see you. You can change this later.">
+        <AuthCard title={t("Welcome to uier")} description={t("Check how others see you. You can change this later.")}>
             <WelcomeForm name={name} workspaceName={workspaceName} />
         </AuthCard>
     );

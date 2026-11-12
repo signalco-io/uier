@@ -25,7 +25,8 @@ import {
     MAX_THREAD_ITEMS,
     PREVIEW_COMMENT_TTL_SECONDS
 } from './limits';
-import { enforceNewCommentLimits, enforceReplyLimits, enforceScreenshotLimits, rateLimitIpBucket, usageLinks, type RateLimitSubject, type RewriteLimitSubject } from './rateLimits';
+import { enforceNewCommentLimits, enforceReactionLimits, enforceReplyLimits, enforceScreenshotLimits, rateLimitIpBucket, usageLinks, type RateLimitSubject, type RewriteLimitSubject } from './rateLimits';
+import { withReaction, type ReactionInput } from './reactions';
 import type { ParsedScreenshot } from './screenshot';
 import type { CreateCommentInput, ReplyInput, UpdateCommentInput } from './validation';
 import { HEADLINE_COMMENT_ID, STEP_COMMENT_ID, PUBLIC_PROJECT_PARTITION, USER_FEEDBACK_PROJECT_ID, isPrivateAppFeedback } from './publicProject';
@@ -101,6 +102,13 @@ async function toDto(comment: DbComment, context: CommentsApiContext): Promise<C
     if (!dto)
         throw new Error(`Comment ${comment.id} can't be represented`);
     return { ...dto, ...publicVerification(comment, context, names), activity: readActivity(comment, context.visitor.authorId, context.visitor.authorId ? await getReadSequence(context.domain, context.visitor.authorId, comment.id) : 0) };
+}
+
+/** Single visible thread, independent of the recent list window. */
+export async function getComment(context: CommentsApiContext, id: string) {
+    const stored = await getCommentsStore().get(context.domain, id);
+    if (!stored) throw apiErrors.notFound();
+    return toDto(stored.comment, context);
 }
 
 export function assertCommentAuthor(comment: DbComment, context: CommentsApiContext) {
@@ -274,7 +282,8 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
     const store = getCommentsStore();
     const subject = rateLimitSubject(context);
     const attempt = submission(context.domain, subject.authorId, input.idempotencyKey, {
-        operation: 'create', path: input.path, position: input.position, kind: input.kind, text: input.text, quotedText: input.quotedText
+        operation: 'create', path: input.path, position: input.position, kind: input.kind, text: input.text, quotedText: input.quotedText,
+        ...(input.drawing ? { drawing: input.drawing } : {})
     });
     const recovered = await recoverSubmission(store, attempt);
     if (recovered) return toDto(recovered, context);
@@ -305,6 +314,7 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
         kind: input.kind,
         ...(feedbackType ? { feedbackType } : {}),
         ...(input.check ? { check: input.check } : {}),
+        ...(input.drawing ? { drawing: input.drawing } : {}),
         thread: { items: [firstItem] },
         device: compactDevice(input.device),
         resolved: false,
@@ -368,6 +378,20 @@ export async function replyToComment(context: CommentsApiContext, id: string, in
     if (!stored)
         throw apiErrors.notFound();
     return toDto(stored.comment, context);
+}
+
+/**
+ * Adds or removes the visitor's own reaction to one message: anyone who can reply to the thread. Only the
+ * message's reactions change: no unread activity, notification or `updatedAt` (`comments/reactions.ts`).
+ */
+export async function setCommentReaction(context: CommentsApiContext, id: string, input: ReactionInput) {
+    const store = getCommentsStore();
+    await enforceReactionLimits(store, rateLimitSubject(context));
+    const updated = await updateComment(store, context, id, comment => {
+        assertVisible(comment, context);
+        return withReaction(comment, input, { id: writerId(context) });
+    });
+    return toDto(updated, context);
 }
 
 export async function updateCommentResolved(context: CommentsApiContext, id: string, input: UpdateCommentInput) {

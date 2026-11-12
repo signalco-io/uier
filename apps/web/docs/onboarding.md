@@ -36,3 +36,13 @@ popover before choosing Invite; clicking that link navigates to Review settings.
   both assets for one year after last release as current; deployment builds carry forward the
   verified uier.io archive. New and retained bundles share a 1,000,000-byte uncompressed size limit.
   Keep the manifest no-store and content-addressed JavaScript immutable with anonymous CORS.
+
+The new-project steps, installation diagnostics and platform instructions follow the app language. Platform/product names and code snippets remain unchanged; only their surrounding guidance is translated. The saved toolbar language is independent of the app language.
+
+On Projects → Create project, `NewProjectHeader` and `OnboardingSteps` reuse the already-selected
+client language, so the instructions and progress appear before the form's authorized workspace reads.
+`NewProjectFields` retains the admin/public-workspace checks and the existing project/client sources,
+behind the existing `PageLoading`; it does not cache suggestions. Completed form markup and the
+max-width container are unchanged. The production-build instant suite covers empty workspaces and
+existing client suggestions on desktop, mobile and tablet; ordinary onboarding tests still exercise
+creation and all installation steps. Direct loads retain the outer request-language shell.

@@ -127,8 +127,12 @@ export function useInboxComments(filter: CommentsFilter) {
     const siteCapped = scope !== 'current' && ((filter.unread ? activity?.unread ?? 0 : (activity?.total ?? 0) + (activity?.archived ?? 0)) > (siteQuery.data?.length ?? 0)
         || (siteQuery.data?.length ?? 0) >= commentsListMaxLength);
 
+    // This page's own drafts (new comments not sent yet) are listed with it: this page, every page or its section
+    const listsThisPage = showCurrent && (scope === 'current' || scope === 'all' || (scope.startsWith('section:') && inSection(pageKeyPath(scope), path)));
+
     return {
         scope,
+        listsThisPage,
         comments,
         state,
         counts,

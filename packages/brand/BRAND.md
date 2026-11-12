@@ -161,7 +161,8 @@ amber and red. Each dot or ring is at least 3:1 against its surface in both mode
 
 `tokens.css` overrides the signalco minimal theme (`--foreground`, `--border`, `--muted`,
 `--ring`, `--radius`, ...) and adds `--brand-accent`, `--brand-accent-text`,
-`--brand-selection`, `--brand-success`, `--brand-warning`, `--brand-in-progress` and `--brand-ready`, plus the app's sidebar
+`--brand-selection`, `--brand-success`, `--brand-warning`, `--brand-in-progress` and `--brand-ready`, the drawing colours
+`--brand-draw-*` (see "The review layer"), plus the app's sidebar
 (`--sidebar`: Ink 100 on light, Surface on dark; `--sidebar-accent`: Ink 200 / Border for hover
 and the current item). Components use the semantic classes (`text-muted-foreground`,
 `border-border`, `bg-primary`, `bg-sidebar`) or these variables.
@@ -176,6 +177,8 @@ work under an assignee (Claude, Codex, ChatGPT, Cursor) show their product's one
 paper on a bordered circle, as do the connected apps and access tokens in Account → Coding agents; in
 compact assignment groups they are small badges on their person's avatar edge. People remain separate groups, and hover cards indent smaller agent avatars beneath
 their person. A generic agent is Lucide's bot.
+The browser extension page's cover shows the official Chrome, Microsoft Edge and Firefox logos in their
+own colours on bordered tiles, each with its name written under it.
 They are third-party marks: never recoloured, redrawn or used as uier's.
 
 ## Typography
@@ -265,6 +268,14 @@ corner as a small white badge with ink text and outline, so it never reads as th
 more digits get a smaller size to stay inside the pin. The pin's name says both: "Comment #12, 3 messages".
 A commented text range gets the blue 20 % tint. A commented area gets a dashed blue outline, with
 the same tint while its thread is open. The inbox shows the unread count as a blue pill.
+
+**Drawings** (the toolbar's canvas mode) are a reviewer's marks on the page, saved with a comment. They
+use seven colours of their own, the same in light and dark because they are drawn on the reviewed page and
+into its screenshot, never in uier's theme: Ink `#0A0A0A`, White, Red `#DC2626`, Amber `#F59E0B`, Green
+`#22C55E`, Blue `#2E5BFF` and Violet `#7C3BED` (`--brand-draw-ink` … `--brand-draw-violet`). Red is the
+first choice. A selected shape gets the accent's dashed outline and white handles, like a commented area. The
+drawing tools are an ink panel like the pill; the drawing marks its area itself, so the dashed area outline shows
+only while its thread is open.
 
 ## Components
 

@@ -13,6 +13,12 @@ licenses in each `package.json`, the root `LICENSE` and the README "License" sec
 repository's `SECURITY.md` and `CONTRIBUTING.md` as counterparts; keep them saying the same thing.
 `e2e/pages.spec.ts` checks them.
 
+`/security` has a cover beside its header (under it below `lg`): `security/SecurityCover.tsx`, the
+mark inside a large shield with fading outlines over a dot grid. It is static inline SVG and CSS
+drawn only from the brand tokens (so it follows light and dark), `aria-hidden`, with a fixed height
+per breakpoint so it never shifts the page. It belongs to this page only; other pages' covers are
+their own.
+
 The security controls distinguish Pulumi deletion protection from Azure management locks and
 state that approving reviews are not required. Renovate can automerge only selected development
 type/browser-test dependencies after three days. Keep those controls aligned with `renovate.json`,

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Notion and Linear filtering references</title>
+  <style>
+    :root { color-scheme: light dark; font-family: var(--font-sans, system-ui, sans-serif); }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--foreground, CanvasText); }
+    h1 { margin: 0 0 8px; font-size: 22px; font-weight: 600; letter-spacing: -.025em; }
+    p { margin: 0; line-height: 1.5; }
+    .intro { color: var(--muted-foreground, GrayText); font-size: 14px; }
+    .choices { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0 12px; }
+    button { font: inherit; font-size: 13px; padding: 8px 11px; min-height: 36px; border: 1px solid var(--border, GrayText); border-radius: var(--radius, 8px); background: var(--background, Canvas); color: var(--foreground, CanvasText); cursor: pointer; }
+    button[aria-pressed="true"] { background: var(--foreground, CanvasText); color: var(--background, Canvas); border-color: var(--foreground, CanvasText); }
+    button:focus-visible, a:focus-visible { outline: 2px solid var(--ring, Highlight); outline-offset: 3px; }
+    .caption { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; margin-bottom: 8px; }
+    .caption strong { font-size: 15px; font-weight: 600; }
+    .caption a { font-size: 12px; color: var(--muted-foreground, GrayText); }
+    .screen { max-height: 520px; overflow: auto; border: 1px solid var(--border, GrayText); border-radius: var(--radius, 12px); }
+    img { display: block; width: 100%; height: auto; }
+    .note { font-size: 13px; margin-top: 10px; color: var(--muted-foreground, GrayText); }
+    .takeaway { padding: 14px 16px; margin-top: 16px; border-radius: var(--radius, 12px); background: var(--muted, Canvas); border: 1px solid var(--border, GrayText); font-size: 14px; }
+    .takeaway strong { font-weight: 600; }
+    [hidden] { display: none !important; }
+    @media (pointer: coarse) { button { min-height: 44px; } }
+    @media (max-width: 480px) { .screen { max-height: 420px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Filtering and ordering references</h1>
+    <p class="intro">Seven browser captures. Notion is a live public database; Linear shows official static product examples.</p>
+    <nav class="choices" aria-label="Choose a reference screenshot">
+      <button type="button" data-panel="notion-filter" aria-pressed="true">Notion · filter</button>
+      <button type="button" data-panel="notion-sorts" aria-pressed="false">Notion · sort rules</button>
+      <button type="button" data-panel="notion-picker" aria-pressed="false">Notion · sort picker</button>
+      <button type="button" data-panel="notion-board" aria-pressed="false">Notion · board</button>
+      <button type="button" data-panel="linear-filter" aria-pressed="false">Linear · chips</button>
+      <button type="button" data-panel="linear-advanced" aria-pressed="false">Linear · advanced</button>
+      <button type="button" data-panel="linear-order" aria-pressed="false">Linear · ordering</button>
+    </nav>
+    <section id="notion-filter" class="panel" aria-label="Notion status filtering">
+      <div class="caption"><strong>Operator and multiple status values</strong><a href="https://notion.notion.site/c6f0e5eea97c418fa88fbddc87fd8781?v=4f9a20c46742426ba7210a71d8998976" target="_blank" rel="noreferrer">Open public database ↗</a></div>
+      <div class="screen"><img src="assets/notion-live-status-filter.png" alt="Live Notion status filter with operator and checkbox values"></div>
+      <p class="note">Live interaction. The active condition stays visible below the view tabs. Scroll the image to inspect the full capture.</p>
+    </section>
+    <section id="notion-sorts" class="panel" aria-label="Notion multiple sorts" hidden>
+      <div class="caption"><strong>Ordered rules and type-specific directions</strong><a href="https://www.notion.com/help/views-filters-and-sorts" target="_blank" rel="noreferrer">Notion source ↗</a></div>
+      <div class="screen"><img src="assets/notion-live-multiple-sorts.png" alt="Live Notion sorts: Priority ascending, then Project name A to Z"></div>
+      <p class="note">Live interaction. Two rules share one popover; the closed control summarizes their count. Visitor changes were reset afterward.</p>
+    </section>
+    <section id="notion-picker" class="panel" aria-label="Notion sort property picker" hidden>
+      <div class="caption"><strong>A searchable property picker</strong><a href="https://www.notion.com/templates/notion-projects-and-tasks" target="_blank" rel="noreferrer">Official template ↗</a></div>
+      <div class="screen"><img src="assets/notion-live-sort-picker.png" alt="Live Notion searchable sort property menu"></div>
+      <p class="note">Live interaction. Start with a field, then show the directions appropriate to that field.</p>
+    </section>
+    <section id="notion-board" class="panel" aria-label="Notion public board" hidden>
+      <div class="caption"><strong>The accessible public project board</strong><a href="https://notion.notion.site/c6f0e5eea97c418fa88fbddc87fd8781?v=97fc1d441eb747cca6f300078be5b5cc" target="_blank" rel="noreferrer">Open public board ↗</a></div>
+      <div class="screen"><img src="assets/notion-live-board.png" alt="Live Notion project board with Planning, In Progress and Paused columns"></div>
+      <p class="note">Live interaction. Header controls remain available on the board. Notion views have independent settings.</p>
+    </section>
+    <section id="linear-filter" class="panel" aria-label="Linear filter chips" hidden>
+      <div class="caption"><strong>Compact property, operator and value chips</strong><a href="https://linear.app/docs/filters" target="_blank" rel="noreferrer">Linear source ↗</a></div>
+      <div class="screen"><img src="assets/linear-filter-chips.png" alt="Linear official example with assignee and label filter chips"></div>
+      <p class="note">Official static example, captured in the browser. The query remains readable while the issue list stays in view.</p>
+    </section>
+    <section id="linear-advanced" class="panel" aria-label="Linear advanced conditions" hidden>
+      <div class="caption"><strong>Visible OR logic and a nested AND group</strong><a href="https://linear.app/docs/filters#advanced-filters" target="_blank" rel="noreferrer">Linear source ↗</a></div>
+      <div class="screen"><img src="assets/linear-advanced-filter.png" alt="Linear official advanced conditions with an AND group inside OR rules"></div>
+      <p class="note">Official static example, captured in the browser. Group boundaries explain the query's meaning.</p>
+    </section>
+    <section id="linear-order" class="panel" aria-label="Linear ordering options" hidden>
+      <div class="caption"><strong>Ordering is a distinct view setting</strong><a href="https://linear.app/docs/display-options" target="_blank" rel="noreferrer">Linear source ↗</a></div>
+      <div class="screen"><img src="assets/linear-display-ordering.png" alt="Linear official display options with layout, grouping, ordering and sort direction"></div>
+      <p class="note">Official static example, captured in the browser. This establishes one ordering field and reversal, not a multi-key editor.</p>
+    </section>
+    <p class="takeaway"><strong>For uier:</strong> compact chips for common filters, All/Any groups for complex logic, and ordered sort rules. Use the same query in the app and toolbar, with controls sized for each surface.</p>
+  </main>
+  <script>
+    document.querySelectorAll('[data-panel]').forEach(button => {
+      button.addEventListener('click', () => {
+        document.querySelectorAll('[data-panel]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
+        document.querySelectorAll('.panel').forEach(panel => { panel.hidden = panel.id !== button.dataset.panel; });
+      });
+    });
+  </script>
+</body>
+</html>

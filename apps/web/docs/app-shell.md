@@ -4,9 +4,13 @@ The shell and each request-dependent segment use the boundaries described in
 [Cache Components](cache-components.md). The initial shell contains no private data. Proxy completes
 document access decisions before it streams; pages and actions retain their own checks.
 
-- **Notification landmark.** App pages mount only the shadcn Sonner toaster. The shared
-  `ClientProvider` disables its signalco notification container in the app layout; public pages
-  keep it. Both containers otherwise expose the same "Notifications alt+T" region, even when empty.
+`ClientProvider` owns theme and document-policy handling. Its next-themes initializer stays inert;
+the root layout owns the fixed hash-authorized theme script. The Next app has no React Query provider;
+the separately bundled review toolbar owns its own query cache.
+
+- **Notification landmark.** App pages mount only the shadcn Sonner toaster. The public layout
+  mounts `PublicNotifications` inside the theme provider; `ClientProvider` does not import that
+  notification implementation into app routes. Both containers otherwise expose the same "Notifications alt+T" region, even when empty.
   `e2e/app.spec.ts` checks one notification region and axe `landmark-unique` on the project, projects
   list and account pages. This rule is outside the WCAG tags used by the general accessibility scan.
 - **Layout.** `(shell)/layout.tsx` is the sidebar (`AppSidebar`: workspace switcher (its menu lists the
@@ -17,7 +21,8 @@ document access decisions before it streams; pages and actions retain their own 
   its name starts with the labels above; the email is in the account menu, with Keyboard shortcuts). The navigation's
   links are one tab stop (the current page's): ↓ and ↑, Home and End move between them; `LinkTabs` move with ← and →
   ([keyboard](keyboard.md)). The layout also holds `AppShortcuts`, the inset panel with the breadcrumbs
-  (`AppBreadcrumbs`, from the path: one line, a long name cut short) and the one invite dialog (`InviteProvider`; `InviteButton` and
+  (`AppBreadcrumbs`, from the path: one line, a long name cut short; a project's crumb starts with its `ProjectMark`,
+  the site's favicon, uier #279) and the one invite dialog (`InviteProvider`; `InviteButton` and
   `useInvite()` open it). The sidebar is docked from `lg` (1024 px: landscape tablets and wider), where the panel keeps
   its frame and scrolls inside it; narrower (phones, tablets in portrait) it is a sheet behind the top bar's toggle
   (`useIsMobile`, `hooks/use-mobile.ts`, in step with the `lg:` classes of `ui/sidebar.tsx` and the shell layout) and the
@@ -42,11 +47,12 @@ document access decisions before it streams; pages and actions retain their own 
   as "Feedback on uier" beside their own workspaces to switch back to. Every account is in another workspace too
   (`getAppContext` creates its own when it has none), so there is always one to switch to. A project's header is
   `projects/[projectId]/layout.tsx` (the favicon in `PageHeader`'s `media`, beside both the name and the row under it: client (a link to the projects list filtered to it, `KnownPageLinks.clientProjects`, on the Done tab for a done project; uier #241), then who can comment (`ProjectAccessInfo`: its popover has the guest links and Invite for admins; for those who configure the project the label is a link to Who can comment in Review settings, `KnownPageLinks.projectAccessSettings`, and the popover opens on hover only, so Who can comment there shows the guest links too), Open
-  review and the settings cog (`ProjectSettingsButton`, an icon link with a tooltip, current on the settings pages),
-  then the `ProjectTabs`: Comments, [Page checks](page-checks.md) and Install (Settings → Installation and the onboarding
+  review, then the `ProjectTabs` with the settings cog at their right end (`ProjectSettingsButton`, a small icon link
+  styled like a tab, with a tooltip, underlined and current on the settings pages; uier #282): Comments, [Page checks](page-checks.md) and Install (Settings → Installation and the onboarding
   install step) until a comment from one of the project's addresses arrives (`hasProjectFeedback`); after that Install is
   gone; the tabs' line runs to the inset panel's edges, a divider between the header and the page (uier #237): a 1px
-  line whose shadow `clip-path` keeps to its row, so it adds no sideways scrolling); its pages render the comments,
+  line whose shadow `clip-path` keeps to its row, so it adds no sideways scrolling); the Comments label lines up with the
+  page content and the tabs show no loading spinner (uier #272); its pages render the comments,
   page checks, install guide or settings under it.
 - **Sidebar project order.** `ProjectOrderMenu` has two labelled radio groups: Sort (Recent activity, Recently
   created, Name) and Group (None, Client once an active project has one, Status). Only Group → Status lists the done
@@ -81,7 +87,7 @@ document access decisions before it streams; pages and actions retain their own 
   the only project (not when opened from a team). It never offers the invitation link where email is
   sent: the link signs in as the invited address.
 
-- `ProjectMark` (project cards, the sidebar, the project header) shows the site's favicon, on a light tile
+- `ProjectMark` (project cards, the sidebar, the project header, the breadcrumbs) shows the site's favicon, on a light tile
   in both themes, with the project's first letter until one loads or when the site has none. It takes the
   project's id and address and loads `/api/projects/<id>/icon?site=<address>` (`projectIconUrl`), so the
   browser never contacts the site and app pages need no `img-src https:`. The route answers members only,
@@ -114,7 +120,7 @@ document access decisions before it streams; pages and actions retain their own 
   named "11 open comments" for screen readers; uier #167), shown only while something is open (uier #169). No footer and no text button. The page renders both the active and the done list (and
   each one's empty state), and `ProjectStatusTabs` (`projects/ProjectStatusTabs.tsx`) shows the one `?status=`
   names. Active and Done are `LinkTabs` with `query`: a click writes the address with `setUrlSearchParams`
-  (`push`), so the other list shows at once with no server request, no spinner and no space kept for one;
+  (`push`), so the other list shows at once with no server request;
   Back, Forward and reload keep the tab, and opening a tab in a new window loads its href. Open counts come
   from `loadProjectUsage` for every listed project. `ClientFilter` still navigates (server filter) and keeps
   the status from the current address. Its menu and trigger show each client's `ClientMark` beside the name; All
@@ -130,9 +136,22 @@ document access decisions before it streams; pages and actions retain their own 
   browser extension tab is one line and the setup guide (`BrowserExtensionGuide`).
 - **My work** (`/app/my-work`, `lib/app/myWork.ts`, in the sidebar right after Projects) lists what needs the signed-in
   member across the workspace's projects they can see: open threads assigned to them, open threads that mention them
-  (`mentionsMe`), then other unread threads; each thread once, in the first group it belongs to, newest first. It
-  reads the same authorized snapshot as each project's comments page (`loadProjectComments`) and stores nothing; a
-  row opens its thread on its project's page (`?comment=`). `e2e/my-work.spec.ts` covers it.
+  (`mentionsMe`), then other unread threads; each thread once, in the first group it belongs to. Each group uses a project list's order (`compareCommentOrder`:
+  priority, then number, highest first; uier #292), newest first between projects' threads that tie. It
+  reads the same authorized snapshot as each project's comments page (`loadProjectComments`), with each listed project's
+  people to assign from the same member list, and stores nothing; a row opens its thread on its project's page (`?comment=`).
+  List and Board in the header ([uier #294](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fmy-work&comment=comment_UFce1oOdSATj5MRS9lRNt); `MyWorkBoard.tsx`) show the same threads on the comments board instead
+  ([comments inbox](comments-inbox.md)): one column per status, no Archive (My work leaves archived threads out), each column
+  in its default order (no project's saved sorts apply, and nobody gets a sort menu), and each card names its project. A card
+  opens its thread in the board's sheet with its project's people, and a move (drag, or Move) is saved in the thread's own
+  project with its own permissions (`allowedStatuses` reads each thread's, `useStatusChanger` takes each thread's project).
+  A thread changed on the board (moved, read in the sheet, archived) that stops needing you stays there with those changes
+  until My work is loaded again, so a card dropped on Done stays put and the open thread stays open; a deleted one goes
+  (`removed` in `CommentUpdates`). That holds for the last thread too: the page always renders `MyWorkViews`, which shows
+  the empty state itself, and hides List/Board only while that empty state shows (`data-my-work-empty`). The choice works like a project's (`?view=`, list too, G then I or B) but is remembered
+  on its own (`commentsView.ts`, scope `my-work`): choosing Board for a project's triage leaves My work's grouped lists alone,
+  and the other way round. On the board the header takes the columns' width (`--board-width`, `data-header-wide`).
+  `e2e/my-work.spec.ts` covers it.
 
 ### Idle comments refreshes
 
@@ -200,3 +219,5 @@ next live account, or sign-in when none remains. The shell sends only menu field
 never session credentials. `AccountSessionBoundary` reconciles other tabs on focus/visibility,
 reconnect, pageshow and account-change events. See [sign-in](sign-in.md#several-accounts-in-one-browser)
 for credential isolation and [account switching coverage](../e2e/account-switching.spec.ts).
+
+Project/workspace tabs, project lists and My work use the app language. Titles made from a project, client, workspace or person’s saved name remain unchanged. Request-specific translations run inside the Cache Components content boundary; the static loading shell can start in English before the app provider is available.

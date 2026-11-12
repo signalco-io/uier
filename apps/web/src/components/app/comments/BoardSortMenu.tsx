@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import { ArrowUpDownIcon } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { Button } from '@/src/components/ui/button';
@@ -46,7 +48,8 @@ export function BoardSortMenu({ status, sort, onChange, className }: {
     /** Beside another header button (Archive's Collapse): its spacing */
     className?: string;
 }) {
-    const column = status === 'archive' ? 'Archive' : commentStatusLabels[status];
+    const { t } = useAppI18n();
+    const column = status === 'archive' ? t("Archive") : t(commentStatusLabels[status]);
     const usual = sort === defaultBoardSort(status);
     return (
         <DropdownMenu>
@@ -54,21 +57,21 @@ export function BoardSortMenu({ status, sort, onChange, className }: {
                 <TooltipTrigger render={(
                     <DropdownMenuTrigger render={(
                         // Takes no more height than the column's name; 44 px to tap on a touch screen
-                        <Button variant="ghost" size={usual ? 'icon-xs' : 'xs'} aria-label={`Sort ${column}: ${boardSortLabels[sort]}`} data-board-sort={status}
+                        <Button variant="ghost" size={usual ? 'icon-xs' : 'xs'} aria-label={t("Sort {value0}: {value1}", { value0: column, value1: t(boardSortLabels[sort]) })} data-board-sort={status}
                             className={cn('relative -my-1 -mr-1.5 ml-auto font-normal text-muted-foreground hover:text-foreground',
                                 'after:absolute after:-inset-2.5 pointer-fine:after:hidden', className)} />
                     )} />
                 )}>
                     <ArrowUpDownIcon />
-                    {!usual && shortLabels[sort]}
+                    {!usual && t(shortLabels[sort])}
                 </TooltipTrigger>
-                <TooltipContent side="bottom">{`Sort ${column}`}</TooltipContent>
+                <TooltipContent side="bottom">{t("Sort {value0}", { value0: column })}</TooltipContent>
             </Tooltip>
             <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuRadioGroup value={sort} onValueChange={(next: BoardSort) => { if (next !== sort) onChange(next); }}>
-                    <DropdownMenuLabel>{`Sort ${column}`}</DropdownMenuLabel>
+                    <DropdownMenuLabel>{t("Sort {value0}", { value0: column })}</DropdownMenuLabel>
                     {boardSortOptions(status).map(option => (
-                        <DropdownMenuRadioItem key={option} value={option} closeOnClick>{boardSortLabels[option]}</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem key={option} value={option} closeOnClick>{t(boardSortLabels[option])}</DropdownMenuRadioItem>
                     ))}
                 </DropdownMenuRadioGroup>
             </DropdownMenuContent>

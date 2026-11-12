@@ -181,6 +181,7 @@ Run from the repository root (each one runs the matching script in every package
 | `pnpm typecheck` | TypeScript checks |
 | `pnpm test` | All API tests and essential browser journeys against the built app (`next start` on `PORT`, default 4004, in-memory comments store) |
 | `pnpm test:full` | All API and desktop/mobile browser regression tests |
+| `PORT=4314 pnpm test:instant` | Dedicated production test build and meaningful instant UI contracts on desktop, mobile and tablet ([rig](../apps/web/instant-nav.rig.md)); never deploy this artifact |
 | `pnpm -C packages/brand icons` | Re-render the PNG icon set in `apps/web/public` from the brand mark |
 
 Before the first `pnpm test`, install the Playwright browser:
@@ -205,6 +206,11 @@ second run on 5104 would collide with it. Two test runs in the same checkout sha
 and `playwright-report/`, so run them one after another there.
 
 An existing server on that port is never reused, inside or outside CI.
+
+For locked navigation checks, build with `UIER_INSTANT_TEST=1 pnpm build`, then run
+`PORT=4404 pnpm -C apps/web exec playwright test --config=playwright.instant.config.ts`.
+The [production navigation rig](../apps/web/instant-nav.rig.md) defines users, contracts and
+artifact checks. The testing API is excluded from ordinary and deployment builds.
 
 ### Test categories
 

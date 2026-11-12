@@ -96,7 +96,7 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     and that environment's pages on the right: a relative URL, or a section such as `/blog/*` for every page under it;
     people: all, assigned to me, opened by me; only unread) and List/Board, then the status tabs (Active,
     Done and All, with counts; Active, the default, is everything not done. Open, In progress and Ready to verify fold
-    under Active, in the menu beside it, and the tab then reads "Active: In progress"; `?status=` keeps any other choice). Filters in effect show under the bar, each with a clear button. Each
+    under Active, in the menu beside it, and the tab then reads "Active: In progress"; Archive folds under Done the same way; `?status=` keeps any other choice). Filters in effect show under the bar, each with a clear button. Each
     comment is a compact row: number, first line, author, page path (what it was left on, such as "Link in
     navigation", is in the thread's On row), then priority other than Normal (its flag, named for screen readers),
     status (a dot in the status's colour and its name, Open too, so an Active list shows where each thread is: Open ink, In progress sky, Ready to verify violet, Done green; board cards leave it to their column, and board column headers, the status menu, the Status filter and the toolbar's thread use the same colours), the assignee's avatar, age and an unread dot. A row opens its thread (`?comment=<id>`): beside the list on
@@ -247,6 +247,12 @@ Thread messages show their Markdown in the app (the open thread, the board's she
 (pin popovers and the inbox), since coding agents reply in it. Messages are stored as written; only
 the display changes.
 
+Writing one is formatted too ([uier #290](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_ZYXUeIP2kFtRsvOBe6Lzk)): every composer, in the toolbar and in the app, is a
+rich text editor. Markdown typed while writing becomes formatting (`# `, `- `, `1. `, `> `, `---`,
+`**bold**`, `*italic*`, `` `code` ``), Ctrl/⌘+B, I, E and Shift+X format the selection, pasted Markdown
+is formatted, and what is saved is Markdown, so threads, emails and connected services get the same text
+as before. Enter still sends and Shift+Enter adds a line ([editor note](../packages/toolbar/docs/message-editor.md)).
+
 - Supported: paragraphs, with every line break kept as in plain text; bold, italic, `~~strikethrough~~`,
   inline code and fenced code blocks; links, `<https://…>` and bare http(s) addresses; ordered and
   unordered lists; block quotes (a quote ends at its last `>` line, so a reply typed under it stays
@@ -266,7 +272,8 @@ the display changes.
   Markdown themselves) get the text as it was written.
 
 The parser is `@uier/toolbar/markdown`, small and written for this subset: no HTML pass-through and no
-dependency in the toolbar bundle ([toolbar note](../packages/toolbar/docs/message-markdown.md)).
+dependency ([toolbar note](../packages/toolbar/docs/message-markdown.md)). The editor reads and writes
+messages with it; it is built on ProseMirror ([editor note](../packages/toolbar/docs/message-editor.md)).
 
 ### Assignment and mentions
 
@@ -518,7 +525,7 @@ network result. Image revisions prevent stale replacements. These actions count 
 image budget. They cannot erase copies someone already downloaded.
 
 It is sent with `POST /api/comments` (or the review API) as `screenshot`, a data URL; the body of a new comment
-may then be up to about 700 KB. The server checks the image type and header dimensions, then decodes
+may then be up to about 700 KB (about 800 KB with a [drawing](../packages/toolbar/docs/canvas-mode.md)). The server checks the image type and header dimensions, then decodes
 with a 4096² pixel limit and re-encodes only the first frame without metadata or trailing bytes.
 Undecodable images are rejected. Newly encoded PNG, JPEG or WebP output must stay within 512 KB
 and 4096 px on a side; an oversized PNG is retried as WebP. Binary bytes live in private Azure Blob Storage,
@@ -544,10 +551,12 @@ and thread/item. Pinned drafts retain their element/text anchor and return as cl
 for stale-edit protection. Closing a composer keeps its draft. Discard (Cancel for edits), a
 successful submission and toolbar sign-out remove it; sign-out clears that reviewer's project
 drafts on every page of the current site. Drafts on another reviewed origin must be cleared there.
-Expired drafts are ignored and pruned when the toolbar next opens. A comment, rewrite, reply or edit composer that
-reopens with kept text says "Draft saved in this browser" (the feedback form just shows the text again); nothing is sent to uier before posting, so the cue makes no other claim.
+Expired drafts are ignored and pruned when the toolbar next opens. A composer that reopens with kept text just
+shows the text again, with no line about the saved draft; nothing is sent to uier before posting.
 While a new comment or rewrite draft pin is closed, **Resume draft** above the toolbar pill scrolls to the pin
-and opens it with its text, after a reload too. Browser/site scripts can read
+and opens it with its text, after a reload too. A page can have several: each new comment or rewrite is a draft of
+its own, and the toolbar's inbox lists the page's drafts above its threads, to resume, post or discard each
+([uier #296](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fmy-work&comment=comment_SfAne_dyH6incZms-P4n2), [toolbar note](../packages/toolbar/docs/composer-popovers.md#several-drafts-on-a-page)). Browser/site scripts can read
 local storage: do not type secrets into feedback. If storage is blocked or full, the draft stays
 in memory and the composer explains that the page must stay open.
 

@@ -1,3 +1,5 @@
+import { englishAppTranslator } from '../i18n/translate';
+import type { AppTranslator } from '../i18n/types';
 import { toolbarPartLabel } from '@uier/toolbar/feedback-context';
 import type { DbCommentKind, DbCommentPosition } from '../db/schema';
 
@@ -31,39 +33,39 @@ function tagOf(part: string) {
  * part of uier's own toolbar (`#uier-toolbar>>>div.uier-thread>…`). Saved selectors come from
  * reviewers' browsers: only their tag names and toolbar part names are read, and the result is plain text.
  */
-export function elementLabel(selector: string) {
+export function elementLabel(selector: string, t: AppTranslator = englishAppTranslator) {
     const part = toolbarPartLabel(selector);
     if (part) {
         const tag = tagOf(selector.split(',')[0]?.split('>').at(-1) ?? '');
-        return `${(tag && tagWords[tag]) ?? 'Element'} in uier ${part}`;
+        return t('{element} in uier {part}', { element: t((tag && tagWords[tag]) ?? 'Element'), part: t(part) });
     }
     // The first of alternative selectors (`a,b`), then its parts from the outermost
     const parts = (selector.split(',')[0] ?? '').split('>').map(part => part.trim()).filter(Boolean);
     const tags = parts.map(tagOf);
     const tag = tags.at(-1);
-    const word = (tag && tagWords[tag]) ?? 'Element';
+    const word = t((tag && tagWords[tag]) ?? 'Element');
     const place = tags.slice(0, -1).reverse().find(ancestor => ancestor && places[ancestor] && ancestor !== tag);
-    return place ? `${word} in ${places[place]}` : word;
+    return place ? t('{element} in {place}', { element: word, place: t(places[place]!) }) : word;
 }
 
 /** ", after opening Account": the anchor is in a menu, popover or dialog that a page element opens */
-function openedFrom(position: DbCommentPosition) {
+function openedFrom(position: DbCommentPosition, t: AppTranslator) {
     if (position.type === 'page' || !position.layer) return '';
     const name = position.layer.label?.replace(/\s+/g, ' ').trim();
-    return name ? `, after opening “${name}”` : ', in a menu or dialog';
+    return name ? t(', after opening “{name}”', { name }) : t(', in a menu or dialog');
 }
 
-export function commentAnchor(position: DbCommentPosition, kind: DbCommentKind | undefined, quotedText?: string): CommentAnchorView {
+export function commentAnchor(position: DbCommentPosition, kind: DbCommentKind | undefined, quotedText?: string, t: AppTranslator = englishAppTranslator): CommentAnchorView {
     if (position.type === 'text') {
         const text = (quotedText || position.text).replace(/\s+/g, ' ').trim();
-        return { type: 'text', label: `${kind === 'rewrite' ? 'Suggested rewrite of selected text' : 'Selected text'}${openedFrom(position)}`, text };
+        return { type: 'text', label: `${t(kind === 'rewrite' ? 'Suggested rewrite of selected text' : 'Selected text')}${openedFrom(position, t)}`, text };
     }
     if (position.type === 'point') {
-        const element = elementLabel(position.selector);
+        const element = elementLabel(position.selector, t);
         const area = typeof position.widthNormal === 'number' && typeof position.heightNormal === 'number';
         return area
-            ? { type: 'area', label: `Area of ${element.charAt(0).toLowerCase()}${element.slice(1)}${openedFrom(position)}`, selector: position.selector }
-            : { type: 'element', label: `${element}${openedFrom(position)}`, selector: position.selector };
+            ? { type: 'area', label: `${t('Area of {element}', { element: element.charAt(0).toLowerCase() + element.slice(1) })}${openedFrom(position, t)}`, selector: position.selector }
+            : { type: 'element', label: `${element}${openedFrom(position, t)}`, selector: position.selector };
     }
-    return { type: 'page', label: kind === 'bug' ? 'Bug report about the page' : 'Whole page' };
+    return { type: 'page', label: t(kind === 'bug' ? 'Bug report about the page' : 'Whole page') };
 }

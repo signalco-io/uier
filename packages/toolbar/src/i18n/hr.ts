@@ -48,6 +48,7 @@ export const hr: Messages = {
         accessibility: 'Pristupačnost',
         seo: 'SEO',
         about: 'O uieru',
+        draw: 'Crtaj po stranici',
         collapse: 'Sažmi traku'
     },
     profile: {
@@ -80,7 +81,9 @@ export const hr: Messages = {
         languageSavedAccount: 'Vaš se odabir sprema u vaš uier račun.',
         languageSavedBrowser: 'Vaš odabir ostaje u ovom pregledniku.',
         languageNotSaved: 'Jezik nije spremljen. Pokušajte ponovno.',
-        languageNotLoaded: 'Ovaj jezik nije se mogao učitati. Odaberite ga ponovno da biste pokušali opet.'
+        languageNotLoaded: 'Ovaj jezik nije se mogao učitati. Odaberite ga ponovno da biste pokušali opet.',
+        environment: 'Okruženje',
+        environmentHint: 'Otvara ovu stranicu u odabranom okruženju.'
     },
     shortcutList: {
         addComment: 'Dodaj komentar',
@@ -94,13 +97,18 @@ export const hr: Messages = {
         showShortcuts: 'Prikaži prečace',
         send: 'Pošalji komentar',
         newLine: 'Novi redak u komentaru',
+        bold: 'Podebljano',
+        italic: 'Kurziv',
+        strikethrough: 'Precrtano',
+        code: 'Kod',
         moveToolbar: 'Kretanje po traci',
         moveMenu: 'Kretanje po izborniku',
         close: 'Zatvori',
         leftArrow: 'Strelica lijevo',
         rightArrow: 'Strelica desno',
         upArrow: 'Strelica gore',
-        downArrow: 'Strelica dolje'
+        downArrow: 'Strelica dolje',
+        command: 'Command'
     },
     notice: {
         exitReview: 'Završi pregled',
@@ -230,6 +238,16 @@ export const hr: Messages = {
     activity: {
         toggle: (count: number) => `Aktivnost (${count})`,
         label: 'Aktivnost rasprave'
+    },
+    reactions: {
+        add: 'Dodaj reakciju',
+        label: 'Reakcije',
+        names: { 'thumbs-up': 'Palac gore', 'thumbs-down': 'Palac dolje', laugh: 'Smijeh', hooray: 'Hura', confused: 'Zbunjenost', heart: 'Srce', rocket: 'Raketa', eyes: 'Oči' },
+        count: (name: string, count: number) => `${name}, ${p(count, `${count} reakcija`, `${count} reakcije`, `${count} reakcija`)}`,
+        people: (people: string) => `Reagirali: ${people}`,
+        you: 'Vi',
+        others: (count: number) => `još ${p(count, `${count} osoba`, `${count} osobe`, `${count} osoba`)}`,
+        notSaved: 'Reakcija nije spremljena'
     },
     feedbackTypes: {
         comment: 'Komentar',
@@ -363,8 +381,6 @@ export const hr: Messages = {
         saving: 'Spremanje...',
         keysSend: 'Enter za slanje. Shift+Enter za novi redak.',
         keysSave: 'Enter za spremanje. Shift+Enter za novi redak.',
-        draftLifetime: (days: number) => `Neposlani tekst ostaje u ovom pregledniku ${days} ${p(days, 'dan', 'dana', 'dana')} nakon vaše zadnje promjene.`,
-        draftSaved: 'Skica je spremljena u ovom pregledniku',
         collapseTip: 'Natrag na manji obrazac',
         expandTip: 'Proširite za više prostora za pisanje',
         collapse: 'Smanji',
@@ -416,7 +432,10 @@ export const hr: Messages = {
         suggestionPlaceholder: 'Vaša verzija teksta...',
         commentPlaceholder: 'Ostavite povratnu informaciju...',
         postSuggestion: 'Objavi prijedlog',
-        postComment: 'Objavi komentar'
+        postComment: 'Objavi komentar',
+        participants: (people: string) => `U ovoj raspravi: ${people}`,
+        participantsYou: 'vi',
+        threadPreview: 'Pregled rasprave'
     },
     feedback: {
         typesOff: 'Vrste povratnih informacija isključene su za ovaj projekt. I dalje možete ostaviti prikvačeni komentar.',
@@ -513,6 +532,44 @@ export const hr: Messages = {
         label: 'Označeni tekst',
         rewrite: 'Preoblikuj'
     },
+    canvas: {
+        panel: 'Alati za crtanje',
+        surface: 'Crtež',
+        surfaceHelp: 'Crtajte pokazivačem. Tipkovnicom: odaberite alat i ovdje pritisnite Enter da ga dodate. Tab vodi do oblika; strelice pomiču oblik, a Alt i strelice mijenjaju mu veličinu.',
+        started: 'Crtate po stranici. Odaberite alat, crtajte, zatim Komentiraj.',
+        tools: { select: 'Odaberi', pen: 'Olovka', marker: 'Marker', brush: 'Kist', line: 'Linija', arrow: 'Strelica', rectangle: 'Pravokutnik', ellipse: 'Elipsa', diamond: 'Romb', text: 'Bilješka', blur: 'Zamućenje', eraser: 'Gumica' },
+        shapes: { pen: 'Potez olovkom', marker: 'Potez markerom', brush: 'Potez kistom', line: 'Linija', arrow: 'Strelica', rectangle: 'Pravokutnik', ellipse: 'Elipsa', diamond: 'Romb', text: 'Bilješka', blur: 'Zamućeno područje' },
+        /** A shape in the drawing, by its place: "Rectangle 2" */
+        shape: (name: string, number: number) => `${name} ${number}`,
+        style: 'Stil',
+        color: 'Boja',
+        background: 'Pozadina',
+        none: 'Bez',
+        fill: 'Ispuna pozadine',
+        fills: { semi: 'Prozirna', solid: 'Puna' },
+        outline: 'Obrub',
+        outlines: { solid: 'Puni', dashed: 'Isprekidani', dotted: 'Točkasti' },
+        width: 'Debljina',
+        widths: { s: 'Tanka', m: 'Srednja', l: 'Debela', xl: 'Vrlo debela' },
+        edges: 'Rubovi',
+        edgeStyles: { clean: 'Uredni', sketchy: 'Skicirani' },
+        colors: { ink: 'Tinta', white: 'Bijela', red: 'Crvena', amber: 'Jantarna', green: 'Zelena', blue: 'Plava', violet: 'Ljubičasta' },
+        undo: 'Poništi',
+        redo: 'Ponovi',
+        deleteShape: 'Izbriši oblik',
+        discard: 'Odbaci',
+        comment: 'Komentiraj',
+        textNote: 'Bilješka',
+        added: (name: string) => `Dodano: ${name}`,
+        deleted: (name: string) => `Izbrisano: ${name}`,
+        undone: 'Poništeno',
+        redone: 'Ponovljeno',
+        discarded: 'Crtež je odbačen',
+        full: 'Crtež je pun. Uklonite oblik da biste dodali drugi.',
+        tooLarge: 'Ovaj je crtež prevelik za spremanje. Uklonite nekoliko oblika.',
+        pointerOnly: 'Ovaj alat crta pokazivačem. Odaberite drugi alat da biste oblik dodali tipkovnicom.',
+        editDrawing: 'Uredi crtež'
+    },
     hint: {
         title: 'Isprobajte uier na ovoj stranici',
         dismiss: 'Zatvori',
@@ -530,13 +587,14 @@ export const hr: Messages = {
         move: (label: string) => `Pomakni ploču „${label}”`,
         moveTip: 'Povucite na drugu stranu ili upotrijebite strelice',
         moved: (label: string, side: 'left' | 'right') => `${label}: premješteno ${side === 'left' ? 'lijevo' : 'desno'}.`,
-        moveTo: (side: 'left' | 'right') => `Premjesti ${side === 'left' ? 'lijevo' : 'desno'}`
+        moveTo: (side: 'left' | 'right') => `Premjesti ${side === 'left' ? 'lijevo' : 'desno'}`,
+        /** The menu of a panel's title: the other panels to show in its place */
+        switch: 'Promijeni ploču'
     },
     inbox: {
         label: 'Komentari',
         search: 'Pretraži komentare',
         reviewing: (environment: string) => `Pregledavate ${environment}. Nove povratne informacije ostaju ovdje.`,
-        unread: 'Nepročitano',
         assignedToMe: 'Dodijeljeno meni',
         reviewBrief: 'Upute za pregled',
         close: 'Zatvori bočnu ploču',
@@ -552,6 +610,8 @@ export const hr: Messages = {
         activeOne: (status: string) => `Aktivno: ${status}`,
         showComments: 'Prikaži komentare',
         activeStatuses: 'Aktivni statusi',
+        /** The menu beside the Done tab: Done or Archive */
+        doneStatuses: 'Gotovo i arhiva',
         onThisPage: ' na ovoj stranici',
         noArchived: (where: string) => `Nema arhiviranih komentara${where}`,
         noMatches: (where: string) => `Nema rezultata${where}`,
@@ -572,6 +632,10 @@ export const hr: Messages = {
         commentNumber: (number: number) => `Komentar #${number}`,
         comment: 'Komentar',
         olderNotListed: 'Stariji komentari nisu navedeni.',
+        drafts: 'Skice',
+        draftComment: 'Skica komentara',
+        draftRewrite: 'Skica prijedloga teksta',
+        draftDiscarded: 'Skica odbačena',
         unreadCount: (count: number) => `${count} ${p(count, 'nepročitan', 'nepročitana', 'nepročitanih')}`,
         markAllRead: 'Označi sve kao pročitano',
         markedRead: (count: number) => `${count} ${p(count, 'rasprava označena', 'rasprave označene', 'rasprava označeno')} kao pročitano.`,

@@ -8,12 +8,16 @@ import { botIdPath, proxyBotId } from './src/lib/botIdProxy';
 import { KnownPages } from './src/knownPages';
 import { appPageAccess } from './src/lib/app/pageAccess';
 import { cookieNames, readMigratingCookie } from './src/lib/cookieNames';
+import { isIntegrationCatalogKey } from './src/lib/integrations/catalog';
 
 /** App pages that work signed out */
 const publicAppPaths = ['/app/sign-in', '/app/invitation', '/app/connect/error'];
 // OAuth routes strip transient codes and states themselves, including when the session expired.
 const integrationReturns = new Set(['/app/notion/callback', '/app/github/setup', '/app/github/callback',
     '/app/linear/callback', '/app/slack/callback', '/app/azure-devops/callback']);
+// Published files share this directory with the provider route.
+const integrationAssets = new Set(['azure-devops-showcase.png', 'github-feature.png', 'github-showcase.png',
+    'icon-white.png', 'icon.png', 'linear-showcase.png', 'notion-showcase.png', 'slack-showcase.png']);
 
 /**
  * Signed-out visitors of an app page go to sign in, and come back to the same page afterwards
@@ -72,6 +76,16 @@ export async function proxy(request: NextRequest) {
     // An HTTP redirect here would replace flight data without updating the client's route.
     if (request.headers.has('rsc') || request.headers.has('next-action')
         || request.headers.get('accept')?.includes('text/x-component')) return finish(next());
+    // Reject unknown public guides before the URL-dependent page begins streaming.
+    const integrationGuide = /^\/integrations\/([^/]+)$/.exec(pathname);
+    if (integrationGuide) {
+        let provider: string;
+        try { provider = decodeURIComponent(integrationGuide[1]!); }
+        catch { return finish(next()); } // Next handles malformed path encoding.
+        const metadataImage = /^opengraph-image(?:-[a-z0-9]+)?$/.test(provider);
+        if (!isIntegrationCatalogKey(provider) && !integrationAssets.has(provider) && !metadataImage)
+            return finish(NextResponse.rewrite(new URL('/_not-found', request.url), { status: 404, request: { headers: requestHeaders } }));
+    }
     if (!appPage || integrationReturns.has(pathname) || (pathname !== KnownPages.AppSignIn && publicAppPaths.some(path => pathname === path || pathname.startsWith(`${path}/`))))
         return finish(next());
     if (pathname.endsWith('/screenshot')) return finish(next());

@@ -26,6 +26,8 @@ import { getCommentItemRects, resolveAnchorElement } from './hooks/useCommentIte
 import { isCommentArea, type CommentItemPosition } from './components/@types/Comments';
 import { toolbarReviewTarget, toolbarReviewSurfaces } from './toolbarReview';
 import { getToolbarHost } from './mount';
+import type { CommentDrawing } from './drawing';
+import { paintDrawing } from './canvas/paint';
 
 /** A screenshot sent to the API as a data URL; shown only on saved feedback. */
 export type CapturedScreenshot = {
@@ -37,6 +39,12 @@ export type CapturedScreenshot = {
 
 /** A part of the window, in CSS pixels */
 export type ScreenshotRegion = { left: number; top: number; width: number; height: number };
+
+/**
+ * A comment's drawing (canvas mode), painted over the screenshot: its area's top-left corner in the
+ * window, measured with the region (docs/canvas-mode.md)
+ */
+export type ScreenshotDrawing = { drawing: CommentDrawing; left: number; top: number };
 
 /** Room around the commented element or text */
 const regionPadding = 24;
@@ -463,8 +471,11 @@ async function farFromWindow(view: { width: number; height: number }, slice: () 
  * A screenshot of a region of the window. Page feedback excludes the toolbar host; comments
  * reviewing uier's own controls include its review surfaces, without annotations or instructions.
  */
-export async function captureScreenshot(region: ScreenshotRegion, exclude: Element | null, includeToolbar = false, signal?: AbortSignal): Promise<CapturedScreenshot> {
-    if (runtimeAdapters()) return runtimeAdapters()!.capture(region);
+export async function captureScreenshot(region: ScreenshotRegion, exclude: Element | null, includeToolbar = false, signal?: AbortSignal, drawing?: ScreenshotDrawing): Promise<CapturedScreenshot> {
+    if (runtimeAdapters()) {
+        const captured = await runtimeAdapters()!.capture(region);
+        return drawing ? withDrawing(captured, region, drawing, signal) : captured;
+    }
     // As the page is now, like the region (measured just before)
     const view = windowSize();
     const scroll = { x: window.scrollX, y: window.scrollY };
@@ -547,23 +558,51 @@ export async function captureScreenshot(region: ScreenshotRegion, exclude: Eleme
     const crop = document.createElement('canvas');
     crop.width = Math.max(1, Math.round(region.width * scale * fit));
     crop.height = Math.max(1, Math.round(region.height * scale * fit));
-    crop.getContext('2d')?.drawImage(
+    const context = crop.getContext('2d');
+    context?.drawImage(
         page,
         region.left * scale, region.top * scale, region.width * scale, region.height * scale,
         0, 0, crop.width, crop.height);
+    if (context && drawing) {
+        const pixels = scale * fit;
+        paintDrawing(context, drawing.drawing, (drawing.left - region.left) * pixels, (drawing.top - region.top) * pixels, pixels);
+    }
     return encodeScreenshotInBackground(crop, signal);
+}
+
+/** A screenshot taken without the toolbar (a packaged client's), with the drawing painted over it */
+async function withDrawing(captured: CapturedScreenshot, region: ScreenshotRegion, drawing: ScreenshotDrawing, signal?: AbortSignal) {
+    const image = new Image();
+    image.src = captured.dataUrl;
+    await image.decode();
+    signal?.throwIfAborted();
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const context = canvas.getContext('2d');
+    if (!context) return captured;
+    context.drawImage(image, 0, 0);
+    const pixels = canvas.width / Math.max(1, region.width);
+    paintDrawing(context, drawing.drawing, (drawing.left - region.left) * pixels, (drawing.top - region.top) * pixels, pixels);
+    return encodeScreenshotInBackground(canvas, signal);
 }
 
 const runningCaptures = new WeakMap<Promise<string | undefined>, AbortController>();
 
-/** Start once from the feedback event, keep the promise with the draft, and never block text on failure. */
-export function captureCommentScreenshot(position: CommentItemPosition, rootElement: HTMLElement | undefined): Promise<string | undefined> {
+/**
+ * Start once from the feedback event, keep the promise with the draft, and never block text on failure.
+ * A comment's drawing is painted over its area.
+ */
+export function captureCommentScreenshot(position: CommentItemPosition, rootElement: HTMLElement | undefined, drawing?: CommentDrawing): Promise<string | undefined> {
     const controller = new AbortController();
+    // Where the drawing's area is now, like the region
+    const area = drawing ? getCommentItemRects(position)[0] : undefined;
+    const overlay = drawing && area ? { drawing, left: area.left, top: area.top } : undefined;
     const capture = (async () => {
         let timeout: number | undefined;
         try {
             const includeToolbar = Boolean(toolbarReviewTarget(resolveAnchorElement(position)));
-            const image = captureScreenshot(commentRegion(position), includeToolbar ? null : toolbarHost(rootElement), includeToolbar, controller.signal);
+            const image = captureScreenshot(commentRegion(position), includeToolbar ? null : toolbarHost(rootElement), includeToolbar, controller.signal, overlay);
             return await Promise.race([
                 image.then(image => image.dataUrl),
                 new Promise<undefined>(resolve => { timeout = window.setTimeout(resolve, 15_000); })

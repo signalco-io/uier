@@ -4,7 +4,7 @@
   settings page itself), Review, Environments, Installation, People and teams, Integrations, Notifications and
   Danger zone, listed by `projectSettingsSections` and linked with `KnownPageLinks.projectSettings(id, section)`.
   The layout shows them with `SettingsLayout` (`LinkTabs` `side`: a column beside the section, a row above it on
-  small screens) and the breadcrumbs end with the section. `settingsContext.ts` loads the viewer and project once per request;
+  small screens; while that row scrolls, an edge fades out as long as more sections are hidden past it) and the breadcrumbs end with the section. `settingsContext.ts` loads the viewer and project once per request;
   admin-only sections call `configurableProject` (404 for commenters and the uier workspace). Commenters see
   Installation and Notifications, and the settings page redirects them to Notifications. Integrations is a grid of
   the services not connected yet (logo, one line, Connect, Details) above the connected ones, each a row with its
@@ -16,13 +16,15 @@
   `?onboarding=1` redirects to Settings → Installation (the toolbar still links there).
 - **One save per settings page.** General (name, client, [thread titles](ai-titles.md) and rewrite instructions), Review (who can comment, `#who-can-comment`, where the project header's access label leads, with the project's `GuestReviewLinks` under it while the saved access is Anyone with the link and the project has an address, so touch and keyboard users reach them without the hover popover; the brief and, in a collapsed
   Advanced section, the page state) and Environments (the site addresses table) are each one form in one card
-  (`ProjectSettingsForms.tsx`) with one server action (`updateProjectGeneralAction`, `updateProjectReviewAction`,
+  (`ProjectGeneralForm.tsx`, `ProjectReviewForm.tsx`, `ProjectSitesForm.tsx`) with one server action (`updateProjectGeneralAction`, `updateProjectReviewAction`,
   `updateProjectSitesAction`) that parses every field with the existing schemas before writing, checks the admin role
   (`adminProject`) and the public project (`assertMutableProject`), and writes only what changed. The card footer is
   `SaveFooter` (`components/app/SettingsSave.tsx`): "Unsaved changes", Discard and a Save that stays off until
   something changed; `useSettingsDraft` compares the draft with the saved values and starts over from the server's
   values after a save. Long cards pass `stickyFooter` to `Section`, so Save stays in reach. Switches save at once
   (project emails, comment excerpts); radios and text wait for Save. Account's Profile uses the same footer.
+- **Usage** (General, `#usage`) is a grid of label/value cells; each cell spans two rows of the grid (`grid-rows-subgrid`),
+  so a label that wraps keeps the numbers of its row on one line.
 - The board's column sorts are the project's too, but they are chosen on the board, from each column's header, by
   everyone who triages the project, and saved at once ([column sorts](comments-inbox.md#board-column-sorts)).
 
@@ -76,7 +78,7 @@ as written. `toolbar-language.api.spec.ts` and `toolbar-language.spec.ts` cover 
 ### Toolbar features
 
 Review settings → Toolbar features lets project admins simplify the toolbar's optional tools:
-Accessibility, SEO and Text rewrites. Comments, page feedback (subject to the existing Feedback types
+Accessibility, SEO, Text rewrites and Drawing on the page (the toolbar's canvas mode). Comments, page feedback (subject to the existing Feedback types
 setting), the inbox and account/options controls stay available. These choices share the Review page's
 Save/Discard draft and admin/project checks; they change visibility, not endpoint permissions.
 
@@ -149,3 +151,10 @@ accessibility, guest projection and actual server-action replay as a commenter a
 
 The Review save action checks admin and project authority before parsing feedback types or other
 settings, so unauthorized submissions receive the access refusal even when their settings are malformed.
+
+Settings pages import their own client form entry modules. The email switches and danger-zone
+controls are separate from General, Review and Environments, so an account email preference does not
+import every project editor. Keep these imports direct rather than adding a client barrel. The
+controlled forms share only `keepFormValues.ts` for suppressing React’s action reset.
+
+Project settings and installation copy use the app language from the account preference, then the browser, then English. Toolbar language remains a separate setting: changing the app language never changes a project’s review language. Built-in choices are translated where shown; addresses, environment labels, custom feedback types and project names stay as saved.

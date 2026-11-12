@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
 import { createProject, setProjectAccess, signIn, uniqueEmail, openComment } from './support/app';
-import { openThread, toolbar, threadOptions } from './support/toolbar';
+import { inboxSearch, openThread, toolbar, threadOptions } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
@@ -36,7 +36,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
             await expect(composer).toHaveAttribute('aria-activedescendant', /.+/);
             await composer.press('Enter');
         }
-        await expect(composer).toHaveValue(`Please review @${name} `);
+        await expect(composer).toHaveText(`Please review @${name} `, { useInnerText: true });
         // Picking an identity does not submit the composer.
         await expect(page.locator('[data-uier-comment="new"]')).toBeVisible();
         await page.screenshot({ path: testInfo.outputPath(`mention-${colorScheme}.png`) });
@@ -63,9 +63,9 @@ for (const colorScheme of ['light', 'dark'] as const) {
         const inbox = page.getByRole('complementary', { name: 'Comments' });
         await inbox.getByRole('button', { name: 'Assigned to me', exact: true }).click();
         await expect(inbox.getByRole('article')).toHaveCount(1);
-        await inbox.getByRole('searchbox', { name: 'Search comments' }).fill('missing');
+        await (await inboxSearch(inbox)).fill('missing');
         await expect(inbox.getByRole('article')).toHaveCount(0);
-        await inbox.getByRole('searchbox', { name: 'Search comments' }).fill('');
+        await (await inboxSearch(inbox)).fill('');
         await (await threadOptions(page, inbox.getByRole('article'))).getByRole('button', { name: 'Assigned to you. Change assignee', exact: true }).click();
         await inbox.getByRole('button', { name: 'Unassign', exact: true }).click();
         await expect(inbox.getByRole('article')).toHaveCount(0);

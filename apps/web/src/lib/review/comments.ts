@@ -110,7 +110,7 @@ export function canMakeCommentPrivate(actor: ProjectActor) {
 }
 
 /** Actors come from resolveActor/memberActor or mcpProject, which recheck current access. */
-function commentRateLimitSubject(request: Request, project: DbProject, actor: ProjectActor, authorId: string): RateLimitSubject {
+export function commentRateLimitSubject(request: Request, project: DbProject, actor: ProjectActor, authorId: string): RateLimitSubject {
     return {
         domain: projectPartition(project.id), authorId, ipBucket: rateLimitIpBucket(request),
         // Anyone can join the public feedback project; enrollment raises only its new comments.
@@ -211,7 +211,8 @@ export async function createProjectComment(request: Request, project: DbProject,
     const partition = projectPartition(project.id);
     const attempt = submission(partition, authorId, input.idempotencyKey, {
         operation: 'create', path: input.path, position: input.position, kind: input.kind, text: input.text, mentions: input.mentions ?? [],
-        quotedText: input.quotedText, authorName: actor.kind === 'guest' ? input.authorName : undefined, origin: input.origin
+        quotedText: input.quotedText, authorName: actor.kind === 'guest' ? input.authorName : undefined, origin: input.origin,
+        ...(input.drawing ? { drawing: input.drawing } : {})
     });
     const recovered = await recoverSubmission(store, attempt);
     if (recovered) return visibleOrThrow(recovered, actor);
@@ -238,6 +239,7 @@ export async function createProjectComment(request: Request, project: DbProject,
         kind: input.kind,
         ...(feedbackType ? { feedbackType } : {}),
         ...(input.check ? { check: input.check } : {}),
+        ...(input.drawing ? { drawing: input.drawing } : {}),
         thread: {
             items: [{
                 id: `item_${nanoid()}`,
@@ -381,9 +383,9 @@ async function appendProjectReply(request: Request, project: DbProject, actor: P
 }
 
 /** Applies a change to a comment the actor can see, after `allowed` says the actor may make it */
-export async function changeComment(project: DbProject, actor: ProjectActor, id: string, allowed: (comment: DbComment) => boolean, change: (comment: DbComment) => DbComment | Promise<DbComment>, attempt?: Submission, guard?: CommentChangeGuard, store: CommentsStore = getCommentsStore(), options: { ephemeral?: boolean } = {}) {
+export async function changeComment(project: DbProject, actor: ProjectActor, id: string, allowed: (comment: DbComment) => boolean, change: (comment: DbComment) => DbComment | Promise<DbComment>, attempt?: Submission, guard?: CommentChangeGuard, store: CommentsStore = getCommentsStore(), options: { ephemeral?: boolean; requireComments?: boolean } = {}) {
     const authorize = async (comment: DbComment) => {
-        await refreshMutationActor(project, actor, guard?.requireComments);
+        await refreshMutationActor(project, actor, guard?.requireComments || options.requireComments);
         visibleOrThrow(comment, actor);
         if (guard?.triage && !canTriageProject(project, actor)) throw apiErrors.notFound();
         if (!allowed(comment))
@@ -430,7 +432,7 @@ export async function setProjectCommentPriority(project: DbProject, actor: Proje
     priority = parsed.data;
     if (!idempotencyKeySchema.safeParse(idempotencyKey).success) throw apiErrors.invalidRequest('Use a valid submission key.');
     return changeComment(project, actor, id, () => canTriageProject(project, actor), comment =>
-        commentPriority(comment.priority) === priority ? comment : { ...withThreadActivity(comment, actorAuthorId(actor)!, actor.kind === 'member' && Boolean(actor.agent)), priority },
+        commentPriority(comment.priority) === priority ? comment : { ...withThreadActivity(comment, actorAuthorId(actor)!), priority },
         submission(projectPartition(project.id), actorAuthorId(actor)!, idempotencyKey, { operation: 'priority', id, priority, ...guardFingerprint(guard) }), guard, store);
 }
 
@@ -578,7 +580,7 @@ export async function editProjectCommentItem(project: DbProject, actor: ProjectA
             if (edited.thread.items[0]?.id === itemId) delete updated.aiTitle;
             const existing = new Set(previous?.mentions?.map(mention => mention.userId));
             const recipients = mentionRecipients(mentions.filter(mention => !existing.has(mention.userId)));
-            return recipients.length ? withNotificationEvent(withThreadActivity(updated, actorAuthorId(actor)!, actor.kind === 'member' && Boolean(actor.agent)), actorAuthorId(actor)!, 'mention', nowIso(), recipients, actor.kind === 'member' ? actor.agent : undefined, { itemId }) : updated;
+            return recipients.length ? withNotificationEvent(withThreadActivity(updated, actorAuthorId(actor)!), actorAuthorId(actor)!, 'mention', nowIso(), recipients, actor.kind === 'member' ? actor.agent : undefined, { itemId }) : updated;
         });
 }
 

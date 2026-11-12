@@ -96,3 +96,11 @@ independently revocable under Account → Coding agents → Access tokens, with 
 Revoking an OAuth connection offers to revoke its created tokens too, checked by default; the
 grant and selected tokens are removed atomically against the shared creation guard.
 See [MCP connector](mcp-connector.md) for atomic audit/retry storage and creation limits.
+
+The access forms have separate client entry modules (`TeamEditor`, `TeamProjectForm`, `TeamLifecycle`,
+`BulkTeamForm`, `MemberAccessForm`, `CopyAccessToTeam` and `ProjectAccessButtons`). Pages import only the
+forms they render; shared fields, confirmation and impact previews live in their own small modules.
+`accessFormData.ts` holds the shared view types and pure current-value projection. Keep server
+authorization and revision checks in the actions and services.
+
+The app translates access controls, previews and activity descriptions at presentation time. Stored role/action ids and user-defined names stay unchanged. `describeAccessEvent` receives the request translator and language; list conjunctions use `Intl.ListFormat`, and management counts use `Intl.PluralRules` (including Croatian one/few/other). Its default English formatter remains available to API/export callers. `management-language.api.spec.ts` covers names and count forms.

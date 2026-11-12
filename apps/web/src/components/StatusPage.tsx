@@ -7,9 +7,10 @@ import { Pin } from '@uier/brand/Pin';
  * A page that stands in for one that is not there (404) or failed (error): the logo, a browser
  * frame with a pin on the empty spot, what happened and where to go next.
  */
-export function StatusPage({ code, title, note, description, actions }: {
+export function StatusPage({ code, title, note, description, actions, homeLabel = 'uier home' }: {
     /** Machine text for the address bar: "404", an error ID */
     code: string;
+    homeLabel?: string;
     title: string;
     /** The pinned comment on the empty spot */
     note: string;
@@ -18,7 +19,7 @@ export function StatusPage({ code, title, note, description, actions }: {
 }) {
     return (
         <main className="flex min-h-svh flex-col items-center px-4 py-8">
-            <Link href="/" aria-label="uier home" className="rounded-md">
+            <Link href="/" aria-label={homeLabel} className="rounded-md">
                 <Logo size={20} />
             </Link>
             <div className="flex w-full max-w-md flex-1 flex-col items-center justify-center gap-10 py-12">

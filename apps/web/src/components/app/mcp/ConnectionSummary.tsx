@@ -1,5 +1,7 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
+
 import type { ReactNode } from 'react';
 import { EyeIcon, LayoutGridIcon, PencilIcon } from 'lucide-react';
 import { inferAgentKind } from '@uier/toolbar/agents';
@@ -62,6 +64,7 @@ export function ConnectionReach({ children }: { children: ReactNode }) {
  * in uier. Read as a list with commas ("Read feedback, Reply to feedback").
  */
 export function ScopeBadges({ scopes }: { scopes: readonly string[] }) {
+    const { t } = useAppI18n();
     return (
         <p className="m-0 flex flex-wrap gap-1.5">
             {scopes.map((scope, index) => {
@@ -70,7 +73,7 @@ export function ScopeBadges({ scopes }: { scopes: readonly string[] }) {
                 return (
                     <Badge key={scope} variant="outline" className="font-normal" data-scope={scope}>
                         {option && <Icon aria-hidden="true" data-icon="inline-start" className="text-muted-foreground" />}
-                        {option?.label ?? scope}
+                        {option ? t(option.label) : scope}
                         {index < scopes.length - 1 && <span className="sr-only">, </span>}
                     </Badge>
                 );

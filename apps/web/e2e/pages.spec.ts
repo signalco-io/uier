@@ -17,6 +17,8 @@ test('security page publishes the reporting contact and the controls', async ({ 
     expect(response?.status()).toBe(200);
     await expect(page).toHaveTitle(`Security · ${brand.name}`);
     await expect(page.getByRole('heading', { level: 1, name: 'Security' })).toBeVisible();
+    // The shield cover is decorative: visible, hidden from assistive technology
+    await expect(page.getByRole('main').locator('[aria-hidden="true"]').filter({ has: page.locator('svg') }).first()).toBeVisible();
     await expect(page.getByRole('link', { name: 'Report a vulnerability' })).toHaveAttribute('href', `mailto:${brand.contact.security}`);
     await expect(page.getByRole('main').getByRole('link', { name: brand.contact.security })).toHaveAttribute('href', `mailto:${brand.contact.security}`);
     await expect(page.getByRole('region', { name: 'How uier is protected' }).getByRole('heading', { level: 3 })).not.toHaveCount(0);
