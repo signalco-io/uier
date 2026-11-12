@@ -14,7 +14,3 @@ export function moveMentions<T extends Mention>(before: string, after: string, m
     });
 }
 
-export function mentionQuery(text: string, caret: number) {
-    const match = /(?:^|\s)@([^@\n]{0,80})$/.exec(text.slice(0, caret));
-    return match ? { start: caret - match[1]!.length - 1, end: caret, search: match[1]!.toLocaleLowerCase() } : undefined;
-}

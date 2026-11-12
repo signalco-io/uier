@@ -99,7 +99,7 @@ test('a modal menu stays open while the toolbar is used, pinned into and typed a
     await composer.focus();
     // The composer's focus is not focus outside the menu, and its letters are not the menu's typeahead
     await composer.pressSequentially('Explain sign out');
-    await expect(composer).toHaveValue('Explain sign out');
+    await expect(composer).toHaveText('Explain sign out', { useInnerText: true });
     await expect(composer).toBeFocused();
     await expect(menu).toBeVisible();
     expect(await page.evaluate(() => document.body.dataset.chosen)).toBeUndefined();

@@ -75,13 +75,15 @@ import { VerificationControl } from './VerificationControl';
 import { StateBadge, StateMenu, type CommentStatus } from './CommentStatus';
 import { useStatusChange, type ResolveExit } from './useStatusChange';
 import { MessageImage } from './MessageImage';
+import { ReactionList, ReactionPicker } from './MessageReactions';
 import { ReplyComposer } from './ReplyComposer';
+import { preloadMessageEditor } from './MessageComposer';
 import { ThreadActivity } from './ThreadActivity';
 import { AssigneesControl } from './AssigneesControl';
 import { MessageAgent } from './MessageAgent';
 import { appCommentDrafts } from './replyDrafts';
 import { MessageEditor } from './MessageEditor';
-import type { MessageMention } from './MentionTextarea';
+import type { MessageMention } from './MentionEditor';
 import { useKeyShortcutLabel, useKeyShortcuts } from '../keyboard/keys';
 import {
     markCommentReadAction,
@@ -160,21 +162,22 @@ function Message({ author, agent, avatarName, avatarUrl, createdAt, meta, action
     children: ReactNode;
 }) {
     return (
-        <div className="flex gap-2.5">
-            <Avatar size="sm" aria-hidden="true" className="mt-0.5">
+        // The avatar is centred on the header row, however tall its actions make it (44px on touch; uier #281)
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-1">
+            <Avatar size="sm" aria-hidden="true" className="self-center">
                 {avatarUrl && <AvatarImage src={avatarUrl} alt="" />}
                 <AvatarFallback className="font-semibold text-foreground">{initials(avatarName)}</AvatarFallback>
             </Avatar>
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <div className="flex min-h-7 items-center justify-between gap-2">
-                    <div className="flex min-w-0 items-center gap-2 text-sm">
-                        <span className="truncate font-medium">{author}</span>
-                        {agent}
-                        <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums"><RelativeTime value={createdAt} /></span>
-                        {meta}
-                    </div>
-                    {actions}
+            <div className="flex min-h-7 items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2 text-sm">
+                    <span className="truncate font-medium">{author}</span>
+                    {agent}
+                    <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums"><RelativeTime value={createdAt} /></span>
+                    {meta}
                 </div>
+                {actions}
+            </div>
+            <div className="col-start-2 flex min-w-0 flex-col gap-1">
                 {children}
             </div>
         </div>
@@ -258,6 +261,16 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const [verifying, setVerifying] = useState(startVerifying);
     const statusTrigger = useRef<HTMLButtonElement>(null);
     const { permissions, source } = comment;
+    // The message editor is its own chunk: it loads while the page is idle, so Reply and Edit open with it
+    useEffect(() => {
+        if (!permissions.reply && !permissions.edit) return;
+        if (typeof window.requestIdleCallback === 'function') {
+            const id = window.requestIdleCallback(preloadMessageEditor);
+            return () => window.cancelIdleCallback(id);
+        }
+        const timeout = setTimeout(preloadMessageEditor, 500);
+        return () => clearTimeout(timeout);
+    }, [permissions.reply, permissions.edit]);
     const statusChange = useStatusChange(projectId, comment, {
         onMove,
         onVerify: () => setVerifying(true)
@@ -278,8 +291,16 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     // R, S and A: reply, the status menu and the assignee menu of the thread on screen (not of one a phone keeps
     // hidden until its row is chosen). The menus open as Enter opens them, with their first item highlighted.
     const assigneeTrigger = useRef<HTMLButtonElement>(null);
-    // The reply box itself: an open message editor in the same card is another textarea
-    const replyField = useRef<HTMLTextAreaElement>(null);
+    // The reply box itself: an open message editor in the same card is another text box
+    const replyField = useRef<{ focus: () => void }>(null);
+    // Escape closes the empty reply box: the focus goes back to Reply, which takes its place
+    const replyButton = useRef<HTMLButtonElement>(null);
+    const focusReplyButton = useRef(false);
+    useEffect(() => {
+        if (replying || !focusReplyButton.current) return;
+        focusReplyButton.current = false;
+        replyButton.current?.focus();
+    }, [replying]);
     const shown = () => Boolean(cardRef.current?.checkVisibility());
     const openMenu = (trigger: HTMLButtonElement | null) => {
         if (!trigger || trigger.disabled || !shown()) return false;
@@ -304,7 +325,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
         : t("{value0}{value1} · Original source unavailable", { value0: source.label, value1: source.origin && source.origin !== source.label ? ` · ${source.origin}` : '' });
 
 
-    const run = (action: () => Promise<ActionState>, success?: string, patch?: Partial<ProjectCommentView>) => startTransition(async () => {
+    const run = (action: () => Promise<ActionState>, success?: string, patch?: Partial<ProjectCommentView>, done?: () => void) => startTransition(async () => {
         if (patch) updateComment({ id: comment.id, patch });
         let result: ActionState;
         try { result = await action(); }
@@ -315,6 +336,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
         }
         if (success)
             toast.success(success);
+        done?.();
         // The server action already revalidates this page and returns its fresh snapshot.
     });
 
@@ -412,9 +434,12 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
         const name = item.author.isMe ? t("You") : item.author.name;
         const edit = editingReply?.id === item.id && item.editable ? editingReply : undefined;
         const editable = item.editable;
+        const target = !item.deleted && !item.pending ? { projectId, commentId: comment.id, itemId: item.id, reactions: item.reactions } : undefined;
         return (
             <Message author={name} agent={!item.deleted && <MessageAgent author={item.author} />} avatarName={item.author.name} avatarUrl={item.author.avatarUrl} createdAt={item.createdAt}
-                actions={!item.deleted && !edit && (item.canDelete || item.canFilterAuthor || editable) && (
+                actions={!item.deleted && !edit && (<div className="flex shrink-0 items-center gap-0.5">
+                    {target && permissions.react && <ReactionPicker target={target} disabled={pending} />}
+                    {(item.canDelete || item.canFilterAuthor || editable) && (
                     <DropdownMenu>
                         <DropdownMenuTrigger render={<Button variant="ghost" size="icon-xs" disabled={pending} className="text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11"
                                 data-reply-actions={item.id} aria-label={t("More actions for reply by {value0}", { value0: item.author.isMe ? t("you") : item.author.name })} />}>
@@ -446,7 +471,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                             </DropdownMenuGroup>
                         </DropdownMenuContent>
                     </DropdownMenu>
-                )}>
+                    )}
+                </div>)}>
                 {item.deleted
                     ? <p className="m-0 text-sm text-muted-foreground">{t("Reply deleted")}</p>
                     : edit
@@ -455,11 +481,14 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                             onCancel={() => closeReplyEdit(item.id)} onSave={(text, mentions) => saveReply(item, edit.expectedText, text, mentions)} />
                         : <><MessageText text={item.text} mentions={item.mentions} edited={item.edited} />{item.pending && <span role="status" className="text-xs text-muted-foreground">{t("Sending...")}</span>}</>}
                 {!item.deleted && item.screenshot && <MessageImage image={item.screenshot} reply />}
+                {target && !edit && <ReactionList target={target} canReact={Boolean(permissions.react)} />}
             </Message>
         );
     };
 
     const { anchor } = comment;
+    // The first message's reactions (older snapshots have no message id: no reactions until the next refresh)
+    const firstTarget = !comment.deleted && comment.messageId ? { projectId, commentId: comment.id, itemId: comment.messageId, reactions: comment.reactions } : undefined;
     return (
         <Card ref={cardRef} role="article" aria-label={label} className={cn('@container/comment gap-0 py-0', className)}>
             <div className="flex flex-col gap-4 px-4 py-3">
@@ -627,7 +656,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                 <ol className="m-0 flex list-none flex-col gap-3 border-t p-0 pt-4">
                     <li>
                         <Message author={comment.deleted ? t("Deleted") : author} agent={!comment.deleted && <MessageAgent author={comment.author} />} avatarName={comment.author.name} avatarUrl={comment.author.avatarUrl} createdAt={comment.createdAt}
-                            meta={<CommentDevice device={comment.device} context={comment.reproduction} />}>
+                            meta={<CommentDevice device={comment.device} context={comment.reproduction} />}
+                            actions={firstTarget && permissions.react && !editing && <ReactionPicker target={firstTarget} disabled={pending} />}>
                             <KindLabel kind={comment.kind} feedbackType={comment.feedbackType} />
                             {comment.deleted
                                 ? <p className="m-0 text-sm text-muted-foreground">{t("Comment deleted")}</p>
@@ -636,6 +666,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                         onCancel={closeEdit} onSave={text => saveEdit(text)} />
                                     : <MessageText text={comment.displayText} mentions={comment.displayMentions} edited={comment.edited} />}
                             {comment.screenshot && <MessageImage image={comment.screenshot} />}
+                            {firstTarget && !editing && <ReactionList target={firstTarget} canReact={Boolean(permissions.react)} />}
                         </Message>
                     </li>
                     {comment.replies.map(item => <li key={item.id}>{reply(item)}</li>)}
@@ -643,8 +674,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
 
                 {/* Reply's icon lines up with the message text: past the 24px avatar and its 10px gap, less the button's 6px padding */}
                 {permissions.reply && (replying
-                    ? <ReplyComposer projectId={projectId} userId={userId} userName={assignees.find(person => person.userId === userId)?.name} comment={comment} textareaRef={replyField} onClose={() => setReplying(false)} />
-                    : <Button variant="ghost" size="sm" className="ml-7 self-start text-muted-foreground hover:text-foreground pointer-coarse:min-h-11" aria-keyshortcuts={replyShortcut} onClick={() => setReplying(true)}>
+                    ? <ReplyComposer projectId={projectId} userId={userId} userName={assignees.find(person => person.userId === userId)?.name} comment={comment} fieldRef={replyField} onClose={() => { focusReplyButton.current = true; setReplying(false); }} />
+                    : <Button ref={replyButton} variant="ghost" size="sm" className="ml-7 self-start text-muted-foreground hover:text-foreground pointer-coarse:min-h-11" aria-keyshortcuts={replyShortcut} onClick={() => setReplying(true)}>
                         <ReplyIcon data-icon="inline-start" />{t("Reply")}
                     </Button>)}
 
@@ -682,7 +713,9 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                             const itemId = confirmingReply;
                             setConfirmingDelete(false);
                             setConfirmingReply(undefined);
-                            run(() => itemId ? deleteCommentReplyAction(projectId, comment.id, itemId) : deleteCommentAction(projectId, comment.id), itemId ? t("Reply deleted.") : t("Comment deleted."));
+                            run(() => itemId ? deleteCommentReplyAction(projectId, comment.id, itemId) : deleteCommentAction(projectId, comment.id), itemId ? t("Reply deleted.") : t("Comment deleted."),
+                                // A deleted thread is gone from every list, My work's board too (it keeps threads changed there)
+                                undefined, itemId ? undefined : () => startTransition(() => updateComment({ id: comment.id, removed: true })));
                         }}>
                             {t("Delete")}
                         </AlertDialogAction>

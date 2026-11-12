@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { brand } from '@uier/brand';
-import { addToolbarScript, animationsFinished, commentBubble, commentBubbles, isolatedOrigin, newVisitor, openLanding, openThread, selectText, selectionToolbar, toolbar, copyFromThread } from './support/toolbar';
+import { addToolbarScript, animationsFinished, inboxSearch, commentBubble, commentBubbles, isolatedOrigin, newVisitor, openLanding, openThread, selectText, selectionToolbar, toolbar, copyFromThread } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
 // Review links, the review session and the toolbar's own controls (collapse, profile, options).
@@ -150,7 +150,7 @@ test('collapse hides page annotations, preserves reply text and restores current
         return pin && heading ? Math.abs(pin.y + pin.height / 2 - (heading.y + heading.height * 0.25 + 17)) : Infinity;
     }).toBeLessThan(2);
     await pointPin.click();
-    await expect(openThread(page).getByRole('textbox', { name: 'Reply' })).toHaveValue('Keep this unsent reply');
+    await expect(openThread(page).getByRole('textbox', { name: 'Reply' })).toHaveText('Keep this unsent reply', { useInnerText: true });
     await page.keyboard.press('Escape');
 
     // The remembered collapsed state hides saved annotations from the first render after reload.
@@ -175,9 +175,9 @@ test('collapse hides page annotations, preserves reply text and restores current
     await expand.click();
     await page.getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
     const inbox = page.getByRole('complementary', { name: 'Comments' });
-    await inbox.getByRole('searchbox', { name: 'Search comments' }).fill('Heading placement');
+    await (await inboxSearch(inbox)).fill('Heading placement');
     await collapse.click();
-    await expect(inbox.getByRole('searchbox', { name: 'Search comments' })).toHaveValue('Heading placement');
+    await expect(inbox.getByRole('button', { name: 'Search comments: Heading placement', exact: true })).toBeVisible();
     await expect(inbox.getByRole('article')).toHaveCount(1);
     await inbox.getByRole('button', { name: 'Show on page' }).click();
     await expect(collapse).toBeVisible();
@@ -189,7 +189,7 @@ test('collapse hides page annotations, preserves reply text and restores current
 test('collapse preserves a new comment draft without posting it', async ({ browser }, testInfo) => {
     const { context, page } = await newVisitor(browser, testInfo);
     await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
-    await page.getByRole('main').getByRole('link', { name: 'How it works' }).focus();
+    await page.getByRole('main').getByRole('link', { name: 'See features' }).focus();
     await page.getByRole('button', { name: 'Add comment' }).focus();
     await page.keyboard.press('Enter');
     await openThread(page).getByRole('textbox', { name: 'Comment', exact: true }).fill('Keep this unsent comment');
@@ -200,7 +200,7 @@ test('collapse preserves a new comment draft without posting it', async ({ brows
     await page.getByRole('button', { name: 'Expand toolbar' }).click();
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'New comment', exact: true }).click();
-    await expect(openThread(page).getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Keep this unsent comment');
+    await expect(openThread(page).getByRole('textbox', { name: 'Comment', exact: true })).toHaveText('Keep this unsent comment', { useInnerText: true });
     const saved = await page.evaluate(async () => await (await fetch('/api/comments?path=/')).json() as unknown[]);
     expect(saved).toHaveLength(0);
     await context.close();
@@ -244,7 +244,7 @@ test('the profile shows the guest name; signing out forgets it', async ({ browse
     await expect(options(page)).toBeHidden();
 
     // The first comment gives the visitor a guest name
-    await page.getByRole('main').getByRole('link', { name: 'How it works' }).focus();
+    await page.getByRole('main').getByRole('link', { name: 'See features' }).focus();
     await page.getByRole('button', { name: 'Add comment' }).focus();
     await page.keyboard.press('Enter');
     const composer = page.getByRole('textbox', { name: 'Comment', exact: true });

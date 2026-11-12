@@ -72,7 +72,8 @@ async function dragWithTouch(page: Page, card: Locator, target: Locator) {
     await expect(dragPreview(page)).toBeVisible();
     await expect(card).not.toHaveAttribute('data-hold');
     const to = (await target.boundingBox())!;
-    const end = { x: to.x + to.width / 2, y: to.y + 40 };
+    // On a phone the column beside only peeks in at the window's edge: aim at the part on screen
+    const end = { x: Math.min(to.x + to.width / 2, page.viewportSize()!.width - 12), y: to.y + 40 };
     for (let step = 1; step <= 10; step++)
         await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: start.x + (end.x - start.x) * step / 10, y: start.y + (end.y - start.y) * step / 10 }] });
     await expect(target).toHaveAttribute('data-drop', 'over');
@@ -163,11 +164,11 @@ function pageParts(page: Page) {
 const boardStatuses = ['Open', 'In progress', 'Ready to verify', 'Done'];
 
 test('the board widens on a wide window, the filters and project headers and the count line with it; the page stays in the reading column', async ({ page, request }, testInfo) => {
-    test.skip(testInfo.project.name.startsWith('Mobile'), 'Desktop windows; a phone shows one column either way');
+    test.skip(testInfo.project.name.startsWith('Mobile'), 'Desktop windows; a phone has its own test');
     // The window the feedback came from
     await page.setViewportSize({ width: 1674, height: 1366 });
     const { column } = await board(page, request);
-    const grid = page.locator('[data-page-width="wide"]');
+    const grid = page.locator('[data-board-scroll]');
     const columns = () => Promise.all(boardStatuses.map(name => placement(column(name))));
     const atBoard = await pageParts(page);
     const view = page.getByRole('group', { name: 'View', exact: true });
@@ -175,19 +176,23 @@ test('the board widens on a wide window, the filters and project headers and the
     // The project header: its mark (the first part of the title's row) and the settings button at the row's end
     const mark = page.getByRole('heading', { level: 1 }).locator('xpath=../../*[1]');
     const settings = page.getByRole('main').getByLabel('Settings', { exact: true });
-    // The count line under the filters: the guests' threads are unread, so it shows their count (uier #187)
+    // The count line: the guests' threads are unread, so it shows their count (uier #187). With this room it is in the
+    // search row, left of Filter (uier #300)
     const unread = page.getByRole('status').filter({ hasText: /^\d+ unread$/ });
     const countLine = unread.locator('xpath=..');
-    // The filters and project headers and the count line span the board's columns: search, the project's mark and the
-    // unread count start with the first, the view toggle, the settings button and the count line end with the last
+    const filter = page.getByRole('button', { name: /^Filter/ });
+    // The filters and project headers span the board's columns: search and the project's mark start with the first,
+    // the view toggle and the settings button end with the last; the count line is between search and Filter
     const headerSpans = async (first: Locator, last: Locator) => {
         const left = (await placement(first)).left, right = (await placement(last)).right;
         expect((await placement(search)).left).toBeCloseTo(left, 0);
         expect((await placement(view)).right).toBeCloseTo(right, 0);
         expect((await placement(mark)).left).toBeCloseTo(left, 0);
         expect((await placement(settings)).right).toBeCloseTo(right, 0);
-        expect((await placement(unread)).left).toBeCloseTo(left, 0);
-        expect((await placement(countLine)).right).toBeCloseTo(right, 0);
+        const searchBox = (await search.boundingBox())!, lineBox = (await countLine.boundingBox())!, filterBox = (await filter.boundingBox())!;
+        expect(lineBox.x).toBeGreaterThan(searchBox.x + searchBox.width);
+        expect(lineBox.x + lineBox.width).toBeLessThanOrEqual(filterBox.x);
+        expect(Math.abs((lineBox.y + lineBox.height / 2) - (filterBox.y + filterBox.height / 2))).toBeLessThan(4);
     };
     // The page keeps the reading width, 64rem with the 32 px gutters, centred
     const comments = atBoard[1]!;
@@ -221,7 +226,7 @@ test('the board widens on a wide window, the filters and project headers and the
     const atList = await pageParts(page);
     expect(atList[1]).toEqual(atBoard[1]);
     // The list with its thread beside it is the wide element now
-    const split = page.locator('[data-page-width="wide"]');
+    const split = list.locator('xpath=..');
     await headerSpans(list, split);
 
     // On a very wide window the columns stop at 20rem and the row is centred; the page keeps the reading width
@@ -273,8 +278,10 @@ test('the board widens on a wide window, the filters and project headers and the
     expect(laptopHeader.view.right).toBeCloseTo(laptopComments!.right, 0);
     expect(laptopHeader.mark.left).toBeCloseTo(laptopComments!.left, 0);
     expect(laptopHeader.settings.right).toBeCloseTo(laptopComments!.right, 0);
-    expect((await placement(unread)).left).toBeCloseTo(laptopComments!.left, 0);
-    expect((await placement(countLine)).right).toBeCloseTo(laptopComments!.right, 0);
+    // The count line stays in the search row, left of Filter
+    const laptopLine = (await countLine.boundingBox())!, laptopFilter = (await filter.boundingBox())!;
+    expect(laptopLine.x + laptopLine.width).toBeLessThanOrEqual(laptopFilter.x);
+    expect(Math.abs((laptopLine.y + laptopLine.height / 2) - (laptopFilter.y + laptopFilter.height / 2))).toBeLessThan(4);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1280);
     await grid.evaluate(element => { element.scrollLeft = element.scrollWidth; });
     await expect(archive).toBeInViewport({ ratio: 1 });
@@ -378,14 +385,80 @@ test('a long thread scrolls in the board\'s sheet on a short window, down to Rep
     expect(await sheet.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
 });
 
-test('on a phone the board stacks its columns without scrolling sideways', async ({ page, request }, testInfo) => {
+test('on a phone the board keeps its columns in one row that scrolls sideways, the next one peeking in', async ({ page, request }, testInfo) => {
     test.skip(!testInfo.project.name.startsWith('Mobile'), 'The phone layout');
     const { column } = await board(page, request);
+    const width = page.viewportSize()!.width;
     const open = (await column('Open').boundingBox())!;
+    const inProgress = (await column('In progress').boundingBox())!;
     const done = (await column('Done').boundingBox())!;
-    expect(done.y).toBeGreaterThan(open.y + open.height);
+    expect(inProgress.y).toBeCloseTo(open.y, 0);
     expect(done.width).toBeCloseTo(open.width, 0);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()!.width);
+    // Near the phone's width, lined up with the page, and the next column starts on screen
+    expect(open.x).toBeCloseTo(16, 0);
+    expect(open.width).toBeGreaterThan(width * 0.6);
+    expect(inProgress.x).toBeLessThan(width);
+    // The board scrolls sideways (a swipe), the page does not
+    const grid = page.locator('[data-board-scroll]');
+    expect(await grid.evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+});
+
+test('the List/Board choice is remembered and kept in the address; a view in the address wins', async ({ page, request }) => {
+    const { project, column } = await board(page, request);
+    const list = page.getByRole('list', { name: 'Comments', exact: true });
+    const view = () => new URL(page.url()).searchParams.get('view');
+
+    await page.getByRole('button', { name: 'List', exact: true }).click();
+    await expect(list).toBeVisible();
+    expect(view()).toBe('list');
+    // Opened again without a view: the remembered one, written to the address
+    await page.goto(`/app/projects/${project}`);
+    await expect.poll(view).toBe('list');
+    await expect(list).toBeVisible();
+
+    await page.getByRole('button', { name: 'Board', exact: true }).click();
+    await expect.poll(view).toBe('board');
+    await page.goto(`/app/projects/${project}`);
+    await expect.poll(view).toBe('board');
+    await expect(column('Open').getByRole('listitem')).toHaveCount(2);
+
+    // A link's view wins and is not remembered
+    await page.goto(`/app/projects/${project}?view=list`);
+    await expect(list).toBeVisible();
+    await page.goto(`/app/projects/${project}`);
+    await expect.poll(view).toBe('board');
+
+    // Without the cookie the server paints the list, never a loading state; an older localStorage-only Board choice
+    // then switches once after hydration and moves into the cookie
+    await page.context().clearCookies({ name: /uier_comments_view$/ });
+    let release!: () => void;
+    const hydration = new Promise<void>(resolve => { release = resolve; });
+    await page.route('**/_next/static/**/*.js', async route => { await hydration; await route.continue(); });
+    try {
+        await page.goto(`/app/projects/${project}`, { waitUntil: 'commit' });
+        await expect(list).toBeVisible();
+        await expect(page.locator('#comments').getByRole('status', { name: 'Loading project', exact: true })).toHaveCount(0);
+    } finally { release(); }
+    await page.waitForLoadState('load');
+    await page.unroute('**/_next/static/**/*.js');
+    await expect(column('Open').getByRole('listitem')).toHaveCount(2);
+    await expect.poll(view).toBe('board');
+    await expect.poll(async () => (await page.context().cookies()).find(cookie => cookie.name.endsWith('uier_comments_view'))?.value).toBe('board');
+
+    // The request-readable cookie still remembers the view when localStorage is blocked.
+    await page.addInitScript(() => Object.defineProperty(window, 'localStorage', { get() { throw new DOMException('Blocked', 'SecurityError'); } }));
+    await page.goto(`/app/projects/${project}`);
+    await expect(column('Open').getByRole('listitem')).toHaveCount(2);
+    await expect.poll(view).toBe('board');
+    // With neither store available there is no memory; choosing a view still works in the address.
+    await page.context().clearCookies({ name: /uier_comments_view$/ });
+    await page.goto(`/app/projects/${project}`);
+    await expect(list).toBeVisible();
+    expect(view()).toBeNull();
+    await page.getByRole('button', { name: 'Board', exact: true }).click();
+    await expect.poll(view).toBe('board');
+    await expect(column('Open').getByRole('listitem')).toHaveCount(2);
 });
 
 test('board cards drag with the mouse between the columns they can move to', async ({ page, request }, testInfo) => {
@@ -498,7 +571,7 @@ test('In progress is a column between Open and Ready to verify; cards move in an
     await expect(column('In progress').getByRole('listitem')).toHaveCount(1);
     await page.getByRole('button', { name: 'List', exact: true }).click();
     const tabs = page.getByRole('group', { name: 'Status', exact: true });
-    await expect(tabs.locator('[aria-pressed]')).toHaveText([/^Active \d+$/, /^Done \d+$/, /^All \d+$/, /^Archive \d+$/]);
+    await expect(tabs.locator('[aria-pressed]')).toHaveText([/^Active \d+$/, /^Done \d+$/, /^All \d+$/]);
     await chooseActiveStatus(page, /^In progress \d+$/);
     await expect(page).toHaveURL(/status=in-progress/);
     const row = page.locator('[data-comment-id]').filter({ hasText: 'Second board thread' });
@@ -537,7 +610,7 @@ test('the list shows Active by default, every status but Done, and each row says
     await page.goto(`/app/projects/${project}`);
     const tabs = page.getByRole('group', { name: 'Status', exact: true });
     const toggles = tabs.locator('[aria-pressed]');
-    await expect(toggles).toHaveText([/^Active 2$/, /^Done 1$/, /^All 3$/, /^Archive 0$/]);
+    await expect(toggles).toHaveText([/^Active 2$/, /^Done 1$/, /^All 3$/]);
     await expect(tabs.getByRole('button', { name: 'Active 2', exact: true })).toHaveAttribute('aria-pressed', 'true');
     const rows = page.locator('[data-comment-id]');
     const row = (text: string) => rows.filter({ hasText: text });
@@ -720,7 +793,7 @@ test('board cards move when held and moved on a touch screen; a long press held 
     await expect(selectionBar(page)).toHaveCount(0);
     // No Move on a card: held then moved it drags, a tap opens the thread and its status menu
     await expect.poll(() => moveShown(column('Open').getByRole('button', { name: `Move comment #${comments[0]!.number}`, exact: true }))).toBe(false);
-    // The phone stacks the columns: In progress is the one below Open, on the screen
+    // In progress is the column beside Open, peeking in at the phone's edge
     await dragWithTouch(page, card('Open', 'First board thread'), column('In progress'));
     await expect(column('In progress').getByRole('listitem')).toHaveCount(1);
     await expect(dragPreview(page)).toHaveCount(0);

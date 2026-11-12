@@ -62,7 +62,12 @@ const groups: { title: string; shortcuts: Shortcut[] }[] = [
             // In the reply box and a message being edited (MessageComposer); no hint under the box repeats them
             { label: 'Send or save a message', keys: ['Enter'] },
             { label: 'New line', keys: ['Shift', 'Enter'] },
-            { label: 'Cancel an edit', keys: ['Esc'] }
+            // Formatting in a message (`@uier/toolbar/editor`); Markdown typed as you write formats it too
+            { label: 'Bold', keys: ['mod', 'B'] },
+            { label: 'Italic', keys: ['mod', 'I'] },
+            { label: 'Strikethrough', keys: ['mod', 'Shift', 'X'] },
+            { label: 'Code', keys: ['mod', 'E'] },
+            { label: 'Cancel an edit or close an empty reply', keys: ['Esc'] }
         ]
     },
     {
@@ -113,7 +118,9 @@ export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenC
                     <DialogTitle>{t('Keyboard shortcuts')}</DialogTitle>
                     <DialogDescription>{t('They never act while you type in a field.')}</DialogDescription>
                 </DialogHeader>
-                <div className="-mx-6 grid min-h-0 gap-x-8 gap-y-5 overflow-y-auto px-6 sm:grid-cols-2">
+                {/* It scrolls on a short window: the keyboard can scroll it too */}
+                <div role="region" aria-label={t('Keyboard shortcuts')} tabIndex={0}
+                    className="-mx-6 grid min-h-0 gap-x-8 gap-y-5 overflow-y-auto px-6 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring sm:grid-cols-2">
                     {groups.map(group => (
                         <section key={t(group.title)} aria-label={t(group.title)} className="flex flex-col gap-2">
                             <h3 className="m-0 text-xs font-medium text-muted-foreground">{t(group.title)}</h3>

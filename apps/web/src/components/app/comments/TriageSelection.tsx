@@ -94,12 +94,14 @@ function snapshot(operation: TriageOperation, comments: ProjectCommentView[]): B
  *
  * Only the explicit, visible selection enters a batch. Polls and later filter changes never extend it.
  */
-export function TriageSelection({ projectId, scope, shown, assignees, barClassName, lineClassName, summary, actions, children }: {
+export function TriageSelection({ projectId, scope, shown, assignees, barClassName, lineClassName, reserveLine = false, summary, actions, children }: {
     projectId: string; scope: string; shown: ProjectCommentView[]; assignees: AssigneeOption[];
     /** Hides the count line and the selection bar while one thread takes the whole width */
     barClassName?: string;
     /** The count line only: its width, as wide as the filters' header above it */
     lineClassName?: string;
+    /** Live inboxes keep this row's space when the last unread thread is read or a new unread thread arrives. */
+    reserveLine?: boolean;
     /** At the start of the count line: the unread count; leave it empty when there is none */
     summary?: ReactNode;
     /** Right after the summary, beside the unread count it acts on (Mark all as read); empty when there is nothing to act on */
@@ -364,9 +366,8 @@ export function TriageSelection({ projectId, scope, shown, assignees, barClassNa
             style={{ '--selection-bar': open ? `calc(${barHeight}px + 1rem)` : '0px' } as CSSProperties} onClickCapture={tapToSelect}>
             {/* The count line: the unread count and Mark all as read. Selecting starts from the rows (a box, x, a long press) */}
             {/* No side padding: it lines up with the search and Filter row above, in both views */}
-            {/* With nothing to show (no unread count) it takes no room, not even the column's gap: `sr-only` takes it
-                out of the flow and keeps its status mounted for announcements */}
-            <div className={cn('flex min-w-0 min-h-8 flex-wrap items-center gap-x-3 gap-y-1', barClassName, lineClassName, quiet && 'sr-only min-h-0')}>
+            {/* Keep the live row's height, including touch targets, through read/unread changes. Other lists may collapse it. */}
+            <div className={cn('flex min-w-0 min-h-8 flex-wrap items-center gap-x-3 gap-y-1', reserveLine && 'pointer-coarse:min-h-11', barClassName, lineClassName, quiet && !reserveLine && 'sr-only min-h-0')}>
                 <span role="status" className="text-sm text-muted-foreground tabular-nums">{summary}</span>
                 {actions}
             </div>

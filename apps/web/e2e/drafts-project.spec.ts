@@ -32,25 +32,25 @@ test('authorized reviewer, project and canonical query/hash scopes survive SPA n
     await (await start()).fill('Member view B');
     await page.reload();
     await page.getByRole('button', { name: 'New comment', exact: true }).click();
-    await expect(page.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Member view B');
+    await expect(page.getByRole('textbox', { name: 'Comment', exact: true })).toHaveText('Member view B', { useInnerText: true });
     await page.evaluate(url => history.replaceState(null, '', url), view);
     await page.getByRole('button', { name: 'New comment', exact: true }).click();
-    await expect(page.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Member view A');
+    await expect(page.getByRole('textbox', { name: 'Comment', exact: true })).toHaveText('Member view A', { useInnerText: true });
     await page.evaluate(url => history.replaceState(null, '', url), view.replace('#/catalog', '#!/details'));
     await expect(page.locator('[data-uier-comment="new"]')).toHaveCount(0);
     await page.goto(`${site.origin()}/${otherProject}/search?review=true&tab=a#/catalog`);
     await expect(page.getByRole('button', { name: 'Add comment', exact: true })).toBeVisible();
-    await expect(await start()).toHaveValue('');
+    await expect(await start()).toHaveText('', { useInnerText: true });
     await page.goto(`${site.origin()}${view}`);
     await page.getByRole('button', { name: 'New comment', exact: true }).click();
-    await expect(page.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Member view A');
+    await expect(page.getByRole('textbox', { name: 'Comment', exact: true })).toHaveText('Member view A', { useInnerText: true });
     // Remove the authorized member token without signing out, to prove a guest cannot read member drafts.
     await page.evaluate(project => localStorage.removeItem(`uier:review-token:${project}`), project);
     await page.context().clearCookies({ name: '__Secure-uier_review_sso' });
     await page.reload();
     await expect(page.getByRole('button', { name: 'Add comment', exact: true })).toBeVisible();
     await expect(page.locator('[data-uier-comment="new"]')).toHaveCount(0);
-    await expect(await start()).toHaveValue('');
+    await expect(await start()).toHaveText('', { useInnerText: true });
 });
 
 test('a guest project review recovers lost create/reply responses across reload with one saved item', async ({ page, request }) => {
@@ -77,7 +77,7 @@ test('a guest project review recovers lost create/reply responses across reload 
     await expect(draft.getByRole('alert')).toContainText('Check your connection');
     await page.reload();
     await page.getByRole('button', { name: 'New comment', exact: true }).click();
-    await expect(draft.getByRole('textbox', { name: 'Comment', exact: true })).toHaveValue('Guest feedback, once');
+    await expect(draft.getByRole('textbox', { name: 'Comment', exact: true })).toHaveText('Guest feedback, once', { useInnerText: true });
     await page.unroute(endpoint);
     await draft.getByRole('button', { name: 'Post comment' }).click();
     const thread = page.getByRole('dialog', { name: 'Comment thread', exact: true });
@@ -99,10 +99,10 @@ test('a guest project review recovers lost create/reply responses across reload 
     const inbox = page.getByRole('complementary', { name: 'Comments' });
     const card = inbox.getByRole('article').filter({ hasText: 'Guest feedback, once' });
     await card.getByRole('button', { name: 'Reply', exact: true }).click();
-    await expect(card.getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue('Guest reply, once');
+    await expect(card.getByRole('textbox', { name: 'Reply', exact: true })).toHaveText('Guest reply, once', { useInnerText: true });
     await page.unroute(replyEndpoint);
     await card.getByRole('button', { name: 'Post reply' }).click();
-    await expect(card.getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue('');
+    await expect(card.getByRole('textbox', { name: 'Reply', exact: true })).toHaveText('', { useInnerText: true });
     // Sent in the background
     await expect.poll(async () => (await (await read()).json())[0].thread.items.length).toBe(2);
 });

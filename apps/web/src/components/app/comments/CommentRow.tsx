@@ -103,7 +103,7 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
             <div className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1">
                 {/* Who wrote it starts the title line, before "#12 …"; centred on its first line, like the unread dot */}
                 <span className="flex h-5 shrink-0 items-center gap-2">
-                    {unread && <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-[hsl(var(--brand-accent))]" />}
+                    <span aria-hidden="true" className={cn('size-2 shrink-0 rounded-full bg-[hsl(var(--brand-accent))]', !unread && 'invisible')} />
                     <AuthorAvatar author={comment.author} deleted={comment.deleted} onPress={openFromAvatars} />
                 </span>
                 <div className="flex min-w-0 items-baseline gap-2">
@@ -127,7 +127,7 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                 {/* The selection box, under the author's own avatar (past the unread dot's room). The slot stays when the box is
                     hidden or absent, so the path never moves */}
                 <span className="flex h-5 items-center gap-2 self-center">
-                    {unread && <span aria-hidden="true" className="w-2 shrink-0" />}
+                    <span aria-hidden="true" className="w-2 shrink-0" />
                     <span className="flex w-5 shrink-0 justify-center"><SelectComment comment={comment} tabbable={tabbable} /></span>
                 </span>
                 <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">

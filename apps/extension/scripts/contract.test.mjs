@@ -11,4 +11,6 @@ test('broker v1 permits review operations and refuses open fetches and credentia
     assert(!allowedExtensionOperation('comments', 'PUT'));
     assert(!allowedExtensionOperation('comments/id/screenshot', 'DELETE'));
     assert(allowedExtensionOperation('comments/comment_id/replies/item_id', 'DELETE'));
+    assert(allowedExtensionOperation('comments/comment_id/reactions', 'POST'));
+    assert(!allowedExtensionOperation('comments/comment_id/reactions', 'PATCH'));
 });

@@ -22,7 +22,7 @@ import { effectiveRewriteInstructions } from '../rewrite/settings';
 import { getWorkspace } from '../app/workspaces';
 import { getUser } from '../app/users';
 import { setUserToolbarLanguage, toolbarLanguageInfo, userToolbarLanguageSchema } from '../app/toolbarLanguage';
-import { MAX_COMMENT_BODY_BYTES } from '../comments/limits';
+import { MAX_COMMENT_BODY_BYTES, MAX_NEW_COMMENT_BODY_BYTES } from '../comments/limits';
 import { screenshotResponse } from '../comments/screenshot';
 import { newSourcePath } from '../comments/dto';
 import { projectOrigins, projectReviewOrigin } from '../app/projects';
@@ -127,8 +127,8 @@ const createSchema = createCommentSchema.safeExtend({ path: reviewPathSchema, au
 
 export async function createReviewComment(context: ReviewApiContext) {
     const { request, project, actor, siteOrigin } = context;
-    // A screenshot makes the body larger than other writes
-    const input = await parseJsonBody(request, createSchema, MAX_COMMENT_BODY_BYTES);
+    // A screenshot and a drawing make the body larger than other writes
+    const input = await parseJsonBody(request, createSchema, MAX_NEW_COMMENT_BODY_BYTES);
     assertNotToolbarAnchor(siteOrigin, input.position);
     const authorName = writerName(actor, input.authorName);
     const origin = projectReviewOrigin(project, request, siteOrigin)!;

@@ -20,7 +20,7 @@ test('selected mentions recover with their draft and an unchanged lost-response 
     await composer.fill('Please review @');
     await page.getByRole('listbox', { name: 'Mention people' }).getByRole('option').first().click();
     const text = `Please review @${name} `;
-    await expect(composer).toHaveValue(text);
+    await expect(composer).toHaveText(text, { useInnerText: true });
     let drop = true;
     let originalId = '';
     await page.route(`**/api/review/${projectId}/comments`, async route => {
@@ -35,12 +35,12 @@ test('selected mentions recover with their draft and an unchanged lost-response 
     await page.getByRole('button', { name: 'Post comment', exact: true }).click();
     // The draft is back with its text (a toast says it too)
     await expect(page.getByRole('dialog', { name: 'New comment', exact: true }).getByRole('alert')).toContainText('Check your connection');
-    await expect(composer).toHaveValue(text);
+    await expect(composer).toHaveText(text, { useInnerText: true });
     await page.reload();
     const recovered = page.locator('[data-uier-comment="new"]');
     await expect(recovered).toBeVisible();
     await recovered.click();
-    await expect(composer).toHaveValue(text);
+    await expect(composer).toHaveText(text, { useInnerText: true });
     const response = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === `/api/review/${projectId}/comments`);
     await page.getByRole('button', { name: 'Post comment', exact: true }).click();
     const saved = await (await response).json() as { id: string; thread: { items: { mentions?: { userId: string; name: string }[] }[] } };

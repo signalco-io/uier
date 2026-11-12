@@ -12,7 +12,8 @@ The `changed` callback receives why reconciliation is needed:
 - `foreground`: the view became visible/online or received focus.
 - `ended`: a previously ready session ended, which can mean revoked access.
 
-A `change` reason wins over other reasons in the same notification window. Existing toolbar
+Every write to a thread's document changes its etag, so message reactions arrive like any other change
+([reactions](reactions.md)). A `change` reason wins over other reasons in the same notification window. Existing toolbar
 callbacks ignore the reason and keep their own foreground/HTTP scheduler. The app refreshes true
 changes immediately and compares its authorized server revision for other signals, so an unchanged
 idle view need not rerender the entire shell. Its current-page authorization and comment checks

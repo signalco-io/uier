@@ -24,6 +24,7 @@ import type { MessageAgentView } from '../agents';
 import { AgentMark } from './AgentMark';
 import { useIconTooltip } from './IconTooltip';
 import { MessageMarkdown } from './MessageMarkdown';
+import { ReactionList, ReactionPicker } from './MessageReactions';
 
 /**
  * "via Claude" after a message's author, with the agent's logo: it wrote the message for them through a
@@ -165,6 +166,8 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                         )}
                         {first && <CommentDevice device={comment.device} reproduction={comment.reproduction} />}
                     </Row>
+                    <Row spacing={0.5} className="shrink-0">
+                    {!editing && <ReactionPicker comment={comment} item={threadItem} disabled={pending} />}
                     {(canDelete || canEdit) && !editing && (
                         <CommentThreadItemMenu
                             triggerRef={menuRef}
@@ -185,6 +188,7 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                                 setEditing({ originalText: snapshot?.originalText ?? text });
                             } : undefined} />
                     )}
+                    </Row>
                 </Row>
                 <Stack spacing={1} className="min-w-0">
                     {first && <CommentKindLabel kind={comment.kind} feedbackType={comment.feedbackType} />}
@@ -204,6 +208,7 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                     ) : <MessageMarkdown text={text} mentions={mentions}
                         suffix={threadItem.editedAt && <span className="font-normal text-muted-foreground">{t.thread.edited}</span>} />}
                     {(first || threadItem.screenshot) && <CommentScreenshot comment={comment} itemId={first ? undefined : threadItem.id} />}
+                    {!editing && <ReactionList comment={comment} item={threadItem} />}
                     <CommentsErrorMessage error={error} />
                 </Stack>
             </div>

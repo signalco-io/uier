@@ -12,6 +12,7 @@ import { MAX_THREAD_ITEMS } from '../comments/limits';
 import { commentAnchor, type CommentAnchorView } from './commentAnchor';
 import { projectCommentRouting } from './projectCommentRouting';
 import { commentSourcePath } from '../comments/dto';
+import { reactionViews } from '../comments/reactions';
 import { getReadSequence, loadReadSequences } from '../comments/readState';
 import type { DbComment, DbCommentKind, DbDeviceSize } from '../db/schema';
 import { toReproductionContext, type ReproductionContext } from '../comments/reproduction';
@@ -84,6 +85,8 @@ export type ProjectCommentMessage = {
      */
     editable?: { text: string; mentions: import('../db/schema').DbMention[] };
     pending?: boolean;
+    /** Emoji reactions to the message (`comments/reactions.ts`); missing when it has none */
+    reactions?: import('@uier/toolbar/reactions').MessageReaction[];
 };
 
 export type ProjectAssignee = { id: string; name: string; avatarUrl?: string; agent?: import('@uier/toolbar/agents').AssigneeAgentView; agents?: import('@uier/toolbar/agents').AssigneeAgentView[] };
@@ -148,13 +151,18 @@ export type ProjectCommentView = {
     quotedText?: string;
     deleted: boolean;
     edited: boolean;
+    /** The first message's id, for its reactions (missing in older snapshots) */
+    messageId?: string;
+    /** Emoji reactions to the first message; missing when it has none */
+    reactions?: import('@uier/toolbar/reactions').MessageReaction[];
     replies: ProjectCommentMessage[];
     /** A message (not deleted) mentions the signed-in member */
     mentionsMe: boolean;
     canFilterAuthor: boolean;
     /** `agent`: the signed-in member is the assignee, so they choose the agent working under them */
     /** `title`: can give the thread its own title (as for priority) */
-    permissions: { resolve: boolean; edit: boolean; delete: boolean; makePrivate: boolean; assign: boolean; agent: boolean; reply: boolean; triage: boolean; title: boolean };
+    /** `react`: may add emoji reactions to its messages (who may reply, also when the thread is full) */
+    permissions: { resolve: boolean; edit: boolean; delete: boolean; makePrivate: boolean; assign: boolean; agent: boolean; reply: boolean; react?: boolean; triage: boolean; title: boolean };
 };
 
 const deviceSizes: readonly DbDeviceSize[] = ['desktop', 'tablet', 'mobile'];
@@ -214,6 +222,11 @@ function messageAuthor(item: import('../db/schema').DbThreadItem, names: Map<str
     };
 }
 
+function reactionsOf(item: import('../db/schema').DbThreadItem, myId: string | undefined, names: Map<string, string>) {
+    const reactions = reactionViews(item, myId, names);
+    return reactions ? { reactions } : {};
+}
+
 function toView(comment: DbComment, project: DbProject, actor: ProjectActor, names: Map<string, string>, participants: Map<string, string>, members: Awaited<ReturnType<typeof listProjectMembers>>, readSequence = 0, avatars = memberAvatars(members), titles = false, t: AppTranslator = englishAppTranslator): ProjectCommentView | null {
     const items = Array.isArray(comment.thread?.items) ? comment.thread.items : [];
     const [first, ...replies] = items;
@@ -268,6 +281,8 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         quotedText: first.deletedAt ? undefined : first.quotedText,
         deleted: Boolean(first.deletedAt),
         edited: Boolean(first.editedAt),
+        messageId: String(first.id),
+        ...reactionsOf(first, myId, names),
         mentionsMe: actor.kind === 'member' && items.some(item => !item.deletedAt && Boolean(item.mentions?.some(mention => mention.userId === actor.userId))),
         canFilterAuthor: actor.kind === 'member' && actor.isAdmin && Boolean(first.authorId ?? comment.authorId) && !first.deletedAt,
         replies: replies.map(reply => ({
@@ -281,6 +296,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
             edited: Boolean(reply.editedAt),
             canDelete: actor.kind === 'member' && actor.isAdmin && canDeleteItem(reply, actor),
             canFilterAuthor: actor.kind === 'member' && actor.isAdmin && Boolean(reply.authorId) && !reply.deletedAt,
+            ...reactionsOf(reply, myId, names),
             ...(actor.kind === 'member' && canEditItem(reply, actor)
                 ? { editable: { text: reply.text, mentions: (reply.mentions ?? []).map(({ userId, start, end }) => ({ userId, start, end })) } }
                 : {})
@@ -295,7 +311,8 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
             title: canTriageProject(project, actor) && !first.deletedAt,
             assign: actor.kind === 'member',
             agent: actor.kind === 'member' && assignedUserIds(comment).includes(actor.userId),
-            reply: project.access !== 'disabled' && items.length < MAX_THREAD_ITEMS
+            reply: project.access !== 'disabled' && items.length < MAX_THREAD_ITEMS,
+            react: project.access !== 'disabled'
         }
     };
 }

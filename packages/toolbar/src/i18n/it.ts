@@ -48,6 +48,7 @@ export const it: Messages = {
         accessibility: 'Accessibilità',
         seo: 'SEO',
         about: 'Informazioni su uier',
+        draw: 'Disegna sulla pagina',
         collapse: 'Comprimi la barra'
     },
     profile: {
@@ -80,7 +81,9 @@ export const it: Messages = {
         languageSavedAccount: 'La tua scelta viene salvata nel tuo account uier.',
         languageSavedBrowser: 'La tua scelta resta in questo browser.',
         languageNotSaved: 'Non è stato possibile salvare la lingua. Riprova.',
-        languageNotLoaded: 'Non è stato possibile caricare questa lingua. Sceglila di nuovo per riprovare.'
+        languageNotLoaded: 'Non è stato possibile caricare questa lingua. Sceglila di nuovo per riprovare.',
+        environment: 'Ambiente',
+        environmentHint: 'Apre questa pagina nell’ambiente scelto.'
     },
     shortcutList: {
         addComment: 'Aggiungi commento',
@@ -94,13 +97,18 @@ export const it: Messages = {
         showShortcuts: 'Mostra le scorciatoie',
         send: 'Invia un commento',
         newLine: 'Nuova riga in un commento',
+        bold: 'Grassetto',
+        italic: 'Corsivo',
+        strikethrough: 'Barrato',
+        code: 'Codice',
         moveToolbar: 'Muoviti nella barra',
         moveMenu: 'Muoviti in un menu',
         close: 'Chiudi',
         leftArrow: 'Freccia sinistra',
         rightArrow: 'Freccia destra',
         upArrow: 'Freccia su',
-        downArrow: 'Freccia giù'
+        downArrow: 'Freccia giù',
+        command: 'Comando'
     },
     notice: {
         exitReview: 'Esci dalla revisione',
@@ -230,6 +238,16 @@ export const it: Messages = {
     activity: {
         toggle: (count: number) => `Attività (${count})`,
         label: 'Attività della discussione'
+    },
+    reactions: {
+        add: 'Aggiungi reazione',
+        label: 'Reazioni',
+        names: { 'thumbs-up': 'Pollice in su', 'thumbs-down': 'Pollice in giù', laugh: 'Risata', hooray: 'Evviva', confused: 'Confuso', heart: 'Cuore', rocket: 'Razzo', eyes: 'Occhi' },
+        count: (name: string, count: number) => `${name}, ${count} ${p(count, 'reazione', 'reazioni')}`,
+        people: (people: string) => `Hanno reagito: ${people}`,
+        you: 'Tu',
+        others: (count: number) => `${count} ${p(count, 'altra persona', 'altre persone')}`,
+        notSaved: 'Reazione non salvata'
     },
     feedbackTypes: {
         comment: 'Commento',
@@ -363,8 +381,6 @@ export const it: Messages = {
         saving: 'Salvataggio...',
         keysSend: 'Invio per inviare. Maiusc+Invio per una nuova riga.',
         keysSave: 'Invio per salvare. Maiusc+Invio per una nuova riga.',
-        draftLifetime: (days: number) => `Il testo non inviato resta in questo browser per ${days} giorni dopo l’ultima modifica.`,
-        draftSaved: 'Bozza salvata in questo browser',
         collapseTip: 'Torna al modulo ridotto',
         expandTip: 'Espandi per avere più spazio per scrivere',
         collapse: 'Riduci',
@@ -416,7 +432,10 @@ export const it: Messages = {
         suggestionPlaceholder: 'La tua versione del testo...',
         commentPlaceholder: 'Lascia un feedback...',
         postSuggestion: 'Pubblica suggerimento',
-        postComment: 'Pubblica commento'
+        postComment: 'Pubblica commento',
+        participants: (people: string) => `In questa discussione: ${people}`,
+        participantsYou: 'tu',
+        threadPreview: 'Anteprima della discussione'
     },
     feedback: {
         typesOff: 'I tipi di feedback sono disattivati per questo progetto. Puoi comunque lasciare un commento fissato.',
@@ -513,6 +532,44 @@ export const it: Messages = {
         label: 'Testo selezionato',
         rewrite: 'Riscrivi'
     },
+    canvas: {
+        panel: 'Strumenti di disegno',
+        surface: 'Disegno',
+        surfaceHelp: 'Disegna con un puntatore. Con la tastiera: scegli uno strumento e premi Invio qui per aggiungerlo. Tab porta alle forme; le frecce ne spostano una, Alt e le frecce la ridimensionano.',
+        started: 'Stai disegnando sulla pagina. Scegli uno strumento, disegna, poi Commenta.',
+        tools: { select: 'Seleziona', pen: 'Penna', marker: 'Evidenziatore', brush: 'Pennello', line: 'Linea', arrow: 'Freccia', rectangle: 'Rettangolo', ellipse: 'Ellisse', diamond: 'Rombo', text: 'Nota', blur: 'Sfocatura', eraser: 'Gomma' },
+        shapes: { pen: 'Tratto di penna', marker: 'Tratto di evidenziatore', brush: 'Tratto di pennello', line: 'Linea', arrow: 'Freccia', rectangle: 'Rettangolo', ellipse: 'Ellisse', diamond: 'Rombo', text: 'Nota', blur: 'Area sfocata' },
+        /** A shape in the drawing, by its place: "Rectangle 2" */
+        shape: (name: string, number: number) => `${name} ${number}`,
+        style: 'Stile',
+        color: 'Colore',
+        background: 'Sfondo',
+        none: 'Nessuno',
+        fill: 'Riempimento dello sfondo',
+        fills: { semi: 'Traslucido', solid: 'Pieno' },
+        outline: 'Contorno',
+        outlines: { solid: 'Continuo', dashed: 'Tratteggiato', dotted: 'Punteggiato' },
+        width: 'Spessore',
+        widths: { s: 'Sottile', m: 'Medio', l: 'Spesso', xl: 'Molto spesso' },
+        edges: 'Bordi',
+        edgeStyles: { clean: 'Netti', sketchy: 'A mano' },
+        colors: { ink: 'Inchiostro', white: 'Bianco', red: 'Rosso', amber: 'Ambra', green: 'Verde', blue: 'Blu', violet: 'Viola' },
+        undo: 'Annulla',
+        redo: 'Ripeti',
+        deleteShape: 'Elimina forma',
+        discard: 'Scarta',
+        comment: 'Commenta',
+        textNote: 'Nota',
+        added: (name: string) => `Aggiunto: ${name}`,
+        deleted: (name: string) => `Eliminato: ${name}`,
+        undone: 'Annullato',
+        redone: 'Ripetuto',
+        discarded: 'Disegno scartato',
+        full: 'Il disegno è pieno. Rimuovi una forma per aggiungerne un’altra.',
+        tooLarge: 'Questo disegno è troppo grande per essere salvato. Rimuovi alcune forme.',
+        pointerOnly: 'Questo strumento disegna con un puntatore. Scegli un altro strumento per aggiungere una forma con la tastiera.',
+        editDrawing: 'Modifica disegno'
+    },
     hint: {
         title: 'Prova uier in questa pagina',
         dismiss: 'Chiudi',
@@ -530,13 +587,14 @@ export const it: Messages = {
         move: (label: string) => `Sposta il pannello «${label}»`,
         moveTip: 'Trascina sull’altro lato o usa le frecce',
         moved: (label: string, side: 'left' | 'right') => `${label} spostato a ${side === 'left' ? 'sinistra' : 'destra'}.`,
-        moveTo: (side: 'left' | 'right') => `Sposta a ${side === 'left' ? 'sinistra' : 'destra'}`
+        moveTo: (side: 'left' | 'right') => `Sposta a ${side === 'left' ? 'sinistra' : 'destra'}`,
+        /** The menu of a panel's title: the other panels to show in its place */
+        switch: 'Cambia pannello'
     },
     inbox: {
         label: 'Commenti',
         search: 'Cerca nei commenti',
         reviewing: (environment: string) => `Stai revisionando ${environment}. I nuovi feedback restano qui.`,
-        unread: 'Non letti',
         assignedToMe: 'Assegnati a me',
         reviewBrief: 'Indicazioni per la revisione',
         close: 'Chiudi il pannello laterale',
@@ -552,6 +610,8 @@ export const it: Messages = {
         activeOne: (status: string) => `Attivi: ${status}`,
         showComments: 'Mostra commenti',
         activeStatuses: 'Stati attivi',
+        /** The menu beside the Done tab: Done or Archive */
+        doneStatuses: 'Fatti e archivio',
         onThisPage: ' in questa pagina',
         noArchived: (where: string) => `Nessun commento archiviato${where}`,
         noMatches: (where: string) => `Nessun risultato${where}`,
@@ -572,6 +632,10 @@ export const it: Messages = {
         commentNumber: (number: number) => `Commento #${number}`,
         comment: 'Commento',
         olderNotListed: 'I commenti più vecchi non sono elencati.',
+        drafts: 'Bozze',
+        draftComment: 'Bozza di commento',
+        draftRewrite: 'Bozza di riscrittura suggerita',
+        draftDiscarded: 'Bozza scartata',
         unreadCount: (count: number) => `${count} ${p(count, 'non letto', 'non letti')}`,
         markAllRead: 'Segna tutto come letto',
         markedRead: (count: number) => `${count} ${p(count, 'discussione segnata come letta', 'discussioni segnate come lette')}.`,

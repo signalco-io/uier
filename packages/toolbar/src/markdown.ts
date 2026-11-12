@@ -17,18 +17,21 @@
  * as the text they were written as.
  */
 
-export type MarkdownMention = { start: number; end: number; name?: string };
+/** `id` (the person's) comes back on the mention's node, for a caller that edits the text (`editor/`) */
+export type MarkdownMention = { start: number; end: number; name?: string; id?: string };
 
 export type MarkdownInline =
     | { type: 'text'; text: string }
-    | { type: 'mention'; text: string }
+    | { type: 'mention'; text: string; id?: string }
     | { type: 'code'; text: string }
     | { type: 'strong' | 'em' | 'del'; children: MarkdownInline[] }
     /** `href` is an allowed URL; `title` is the full address, when the text shows something else */
     | { type: 'link'; href: string; title?: string; children: MarkdownInline[] };
 
 export type MarkdownBlock =
-    | { type: 'paragraph' | 'heading'; children: MarkdownInline[] }
+    | { type: 'paragraph'; children: MarkdownInline[] }
+    /** `level`: 1 to 6, the number of `#` (a setext `=` underline is 1, `-` is 2); shown the same, kept for editing */
+    | { type: 'heading'; level: number; children: MarkdownInline[] }
     | { type: 'code'; text: string; language?: string }
     | { type: 'quote'; children: MarkdownBlock[] }
     | { type: 'list'; ordered: boolean; start: number; items: MarkdownBlock[][] }
@@ -56,7 +59,7 @@ export function safeHref(value: string): string | undefined {
 
 // --- Mentions: each range becomes one private use character that the text does not contain
 
-type Mentions = { base: number; texts: string[] };
+type Mentions = { base: number; texts: string[]; ids: (string | undefined)[] };
 
 function substituteMentions(text: string, mentions: readonly MarkdownMention[] | undefined): { text: string; mentions?: Mentions } {
     const valid: MarkdownMention[] = [];
@@ -84,7 +87,7 @@ function substituteMentions(text: string, mentions: readonly MarkdownMention[] |
     });
     return {
         text: result + text.slice(at),
-        mentions: { base, texts: valid.map(mention => mention.name === undefined ? text.slice(mention.start, mention.end) : `@${mention.name}`) }
+        mentions: { base, texts: valid.map(mention => mention.name === undefined ? text.slice(mention.start, mention.end) : `@${mention.name}`), ids: valid.map(mention => mention.id) }
     };
 }
 
@@ -167,7 +170,7 @@ function parseBlocks(lines: string[], depth: number, mentions: Mentions | undefi
 
         const heading = headingPattern.exec(line);
         if (heading) {
-            blocks.push({ type: 'heading', children: parseInline(heading[2] ?? '', mentions) });
+            blocks.push({ type: 'heading', level: heading[1]!.length, children: parseInline(heading[2] ?? '', mentions) });
             index++;
             continue;
         }
@@ -197,11 +200,11 @@ function parseBlocks(lines: string[], depth: number, mentions: Mentions | undefi
         // A paragraph: up to a blank line or another block; a setext underline makes it a heading
         const content = [line];
         index++;
-        let heading2 = false;
+        let setext = 0;
         while (index < lines.length && !isBlank(lines[index]!)) {
             const next = lines[index]!;
             if (setextPattern.test(next)) {
-                heading2 = true;
+                setext = next.trim().startsWith('=') ? 1 : 2;
                 index++;
                 break;
             }
@@ -211,7 +214,8 @@ function parseBlocks(lines: string[], depth: number, mentions: Mentions | undefi
         }
         // Lines lose their indentation; spaces at line ends go in parseInline (code keeps them)
         const text = content.map((contentLine, lineIndex) => lineIndex === content.length - 1 ? contentLine.trim() : contentLine.trimStart()).join('\n');
-        blocks.push({ type: heading2 ? 'heading' : 'paragraph', children: parseInline(text, mentions) });
+        const children = parseInline(text, mentions);
+        blocks.push(setext ? { type: 'heading', level: setext, children } : { type: 'paragraph', children });
     }
     return blocks;
 }
@@ -459,7 +463,8 @@ function parseInline(text: string, mentions: Mentions | undefined): MarkdownInli
 
         if (mentionIndex(mentions, char) >= 0) {
             flush();
-            append({ type: 'mention', text: mentions!.texts[mentionIndex(mentions, char)]! });
+            const id = mentions!.ids[mentionIndex(mentions, char)];
+            append({ type: 'mention', text: mentions!.texts[mentionIndex(mentions, char)]!, ...(id === undefined ? {} : { id }) });
             index++;
             continue;
         }

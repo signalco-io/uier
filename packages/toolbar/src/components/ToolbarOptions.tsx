@@ -9,7 +9,7 @@ import { Stack } from '@signalco/ui-primitives/Stack';
 import { Row } from '@signalco/ui-primitives/Row';
 import { Divider } from '@signalco/ui-primitives/Divider';
 import { cx } from '@signalco/ui-primitives/cx';
-import { ArrowLeft, Check, Close, ExternalLink, Globe, LayoutList, LogOut, MoreHorizontal, Reset } from '@signalco/ui-icons';
+import { ArrowLeft, Check, Close, ExternalLink, Globe, Layers, LayoutList, LogOut, MoreHorizontal, Reset } from '@signalco/ui-icons';
 import { BRAND_URL, Mark } from '@uier/brand';
 import { useDrafts } from '../hooks/useDrafts';
 import { useVisitor } from '../hooks/useVisitor';
@@ -28,6 +28,8 @@ import { AttentionDot, checksButtonLabel } from './checks/ChecksAttention';
 import { useMessages, type Messages } from '../i18n';
 import { useLanguageChoice } from '../hooks/useLanguageChoice';
 import { toolbarLanguageNames, toolbarLanguages } from '../languages';
+import { useProjectViewer } from '../project/ProjectGate';
+import { environmentLink, switchableEnvironments } from '../review';
 
 type ToolbarOptionsProps = {
     /** The reviewed project in the uier app (a review of a project's site, or a link with a project code) */
@@ -128,13 +130,29 @@ function LanguageOption({ selected, disabled, lang, onClick, children }: { selec
 }
 
 /**
+ * One of the project's environments in the Environment view: a link to this page there, in this tab (the UI kit
+ * opens another origin in a new one), or, for the one being reviewed, a check (`aria-current`) that only closes
+ * the options. The host follows a label of its own.
+ */
+function EnvironmentOption({ origin, label, href, current, onCurrent }: { origin: string; label: string; href?: string; current: boolean; onCurrent: () => void }) {
+    const host = new URL(origin).host;
+    const content = <>
+        <span className="truncate">{label}</span>
+        {label !== origin && <span className="ml-auto max-w-40 shrink-0 truncate pl-3 font-normal text-muted-foreground">{host}</span>}
+    </>;
+    return current
+        ? <OptionButton icon={<Check size={16} />} aria-current="true" onClick={onCurrent}>{content}</OptionButton>
+        : <OptionButton icon={null} href={href} target="_self">{content}</OptionButton>;
+}
+
+/**
  * The toolbar's options: the switches (single-key shortcuts on or off) in their own group, then the actions
  * (the keyboard shortcuts' list, also on `?`, view the project, exit the review, sign out; only the ones that
  * apply), and always a link to uier.io, since the toolbar shows on other people's sites. ↑ and ↓ move
  * between its buttons.
  */
 export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shortcutsRequested = false, onShortcutsRequestHandled, triggerRef, pageChecks }: ToolbarOptionsProps) {
-    const { rootElement, mode } = useContext(CommentsBootstrapperContext);
+    const { rootElement, mode, review } = useContext(CommentsBootstrapperContext);
     const t = useMessages();
     const languages = useLanguageChoice();
     // Dark like the pill it opens from
@@ -148,14 +166,20 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
     const [showingShortcuts, setShowingShortcuts] = useState(false);
     // The languages in place of the options (Language)
     const [showingLanguage, setShowingLanguage] = useState(false);
+    // The project's environments in place of the options (Environment), when there is another to open
+    const [showingEnvironment, setShowingEnvironment] = useState(false);
+    const environments = switchableEnvironments(useProjectViewer().environments);
+    const currentEnvironment = environments.find(item => item.origin === window.location.origin);
     const confirmRef = useRef<HTMLButtonElement>(null);
     const shortcutsHeadingRef = useRef<HTMLHeadingElement>(null);
     const shortcutsButtonRef = useRef<HTMLButtonElement>(null);
     const languageHeadingRef = useRef<HTMLHeadingElement>(null);
     const languageButtonRef = useRef<HTMLButtonElement>(null);
+    const environmentHeadingRef = useRef<HTMLHeadingElement>(null);
+    const environmentButtonRef = useRef<HTMLButtonElement>(null);
     // The button that showed a view is gone: the view's heading takes the focus, and its button again after
     // it (opened on the shortcuts, `onOpenAutoFocus` does it once the popover is there)
-    const shownRef = useRef<'shortcuts' | 'language' | null>(null);
+    const shownRef = useRef<'shortcuts' | 'language' | 'environment' | null>(null);
     useEffect(() => {
         if (!open) {
             shownRef.current = null;
@@ -163,10 +187,12 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
         }
         if (showingShortcuts) shortcutsHeadingRef.current?.focus();
         else if (showingLanguage) languageHeadingRef.current?.focus();
+        else if (showingEnvironment) environmentHeadingRef.current?.focus();
         else if (shownRef.current === 'shortcuts') shortcutsButtonRef.current?.focus();
         else if (shownRef.current === 'language') languageButtonRef.current?.focus();
-        shownRef.current = showingShortcuts ? 'shortcuts' : showingLanguage ? 'language' : null;
-    }, [open, showingShortcuts, showingLanguage]);
+        else if (shownRef.current === 'environment') environmentButtonRef.current?.focus();
+        shownRef.current = showingShortcuts ? 'shortcuts' : showingLanguage ? 'language' : showingEnvironment ? 'environment' : null;
+    }, [open, showingShortcuts, showingLanguage, showingEnvironment]);
     const name = visitor.data?.name;
     // Account sessions on uier's own pages are managed by the app's account menu. Clearing a
     // guest cookie here would leave that account signed in while claiming to have signed it out.
@@ -178,6 +204,7 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
             setConfirmingSignOut(false);
             setShowingShortcuts(false);
             setShowingLanguage(false);
+            setShowingEnvironment(false);
             signOut.reset();
         }
     };
@@ -186,6 +213,7 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
         if (!shortcutsRequested) return;
         setConfirmingSignOut(false);
         setShowingLanguage(false);
+        setShowingEnvironment(false);
         setShowingShortcuts(true);
         setOpen(true);
         onShortcutsRequestHandled?.();
@@ -244,7 +272,7 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
             side="top"
             sideOffset={12}
             align="end"
-            aria-label={showingShortcuts ? t.options.keyboardShortcuts : showingLanguage ? t.options.language : t.options.label}
+            aria-label={showingShortcuts ? t.options.keyboardShortcuts : showingLanguage ? t.options.language : showingEnvironment ? t.options.environment : t.options.label}
             onKeyDown={moveFocusInMenu}
             // Opened on the shortcuts (`?`): their heading has the focus, not the switch that turns them off.
             // Radix props passed through the Popper to the popover content.
@@ -308,6 +336,21 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
                         {t.options.allOptions}
                     </OptionButton>
                 </Stack>
+            ) : showingEnvironment ? (
+                <Stack spacing={1} className="pt-2">
+                    <h2 ref={environmentHeadingRef} tabIndex={-1} className="m-0 rounded-md px-2 text-sm font-semibold text-foreground outline-none">{t.options.environment}</h2>
+                    <Stack role="group" aria-label={t.options.environment}>
+                        {environments.map(item => (
+                            <EnvironmentOption key={item.origin} origin={item.origin} label={item.label} current={item === currentEnvironment}
+                                href={environmentLink(item.origin, review)} onCurrent={() => handleOpenChange(false)} />
+                        ))}
+                    </Stack>
+                    <p className="m-0 px-2 text-xs text-muted-foreground">{t.options.environmentHint}</p>
+                    <Divider role="separator" className="my-1" />
+                    <OptionButton icon={<ArrowLeft size={16} />} onClick={() => setShowingEnvironment(false)}>
+                        {t.options.allOptions}
+                    </OptionButton>
+                </Stack>
             ) : confirmingSignOut ? (
                 <Stack spacing={1} className="p-2">
                     <p className="m-0 text-sm text-foreground">
@@ -344,6 +387,13 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
                         {t.options.language}
                         <span lang={languages.state.language} className="ml-auto pl-3 font-normal text-muted-foreground">{toolbarLanguageNames[languages.state.language]}</span>
                     </OptionButton>
+                    {/* Only with another environment to open; the one being reviewed is named */}
+                    {environments.length > 1 && (
+                        <OptionButton ref={environmentButtonRef} icon={<Layers size={16} />} onClick={() => setShowingEnvironment(true)}>
+                            {t.options.environment}
+                            {currentEnvironment && <span className="ml-auto max-w-40 truncate pl-3 font-normal text-muted-foreground">{currentEnvironment.label}</span>}
+                        </OptionButton>
+                    )}
                     <Divider role="separator" className="my-1" />
                     {pageChecks && (pageChecks.accessibility || pageChecks.seo) && <>
                         {pageChecks.accessibility && (

@@ -385,7 +385,7 @@ test('every comment keeps the viewport it was left from', async ({ browser }, te
 
     /** Leaves a comment with the keyboard; returns the viewport it was left from */
     const comment = async (text: string) => {
-        await page.getByRole('main').getByRole('link', { name: 'How it works' }).focus();
+        await page.getByRole('main').getByRole('link', { name: 'See features' }).focus();
         await page.getByRole('button', { name: 'Add comment' }).focus();
         await page.keyboard.press('Enter');
         const composer = page.getByRole('textbox', { name: 'Comment', exact: true });

@@ -23,7 +23,7 @@ export function shortcutThread(root: ShadowRoot) {
 export function actOnThread(thread: HTMLElement, letter: 'r' | 's' | 'a') {
     if (letter === 'r') {
         // The reply box comes after the messages (an edited message has a text box of its own)
-        const box = [...thread.querySelectorAll<HTMLTextAreaElement>('textarea')].at(-1);
+        const box = [...thread.querySelectorAll<HTMLElement>('[data-uier-editor]')].at(-1);
         if (box) {
             box.focus();
             return true;

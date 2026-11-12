@@ -49,6 +49,7 @@ export const en = {
         accessibility: 'Accessibility',
         seo: 'SEO',
         about: 'About uier',
+        draw: 'Draw on the page',
         collapse: 'Collapse toolbar'
     },
     profile: {
@@ -82,7 +83,10 @@ export const en = {
         languageSavedAccount: 'Your choice is saved to your uier account.',
         languageSavedBrowser: 'Your choice stays in this browser.',
         languageNotSaved: 'Your language could not be saved. Try again.',
-        languageNotLoaded: 'This language could not be loaded. Choose it to try again.'
+        languageNotLoaded: 'This language could not be loaded. Choose it to try again.',
+        /** Options → Environment: the project's other addresses, the same page on each */
+        environment: 'Environment',
+        environmentHint: 'Opens this page on the environment you choose.'
     },
     shortcutList: {
         addComment: 'Add comment',
@@ -96,13 +100,18 @@ export const en = {
         showShortcuts: 'Show shortcuts',
         send: 'Send a comment',
         newLine: 'New line in a comment',
+        bold: 'Bold',
+        italic: 'Italic',
+        strikethrough: 'Strikethrough',
+        code: 'Code',
         moveToolbar: 'Move along the toolbar',
         moveMenu: 'Move in a menu',
         close: 'Close',
         leftArrow: 'Left arrow',
         rightArrow: 'Right arrow',
         upArrow: 'Up arrow',
-        downArrow: 'Down arrow'
+        downArrow: 'Down arrow',
+        command: 'Command'
     },
     notice: {
         exitReview: 'Exit review',
@@ -234,6 +243,20 @@ export const en = {
     activity: {
         toggle: (count: number) => `Activity (${count})`,
         label: 'Thread activity'
+    },
+    reactions: {
+        /** The button that opens the quick set of emoji, and the set's name */
+        add: 'Add reaction',
+        label: 'Reactions',
+        names: { 'thumbs-up': 'Thumbs up', 'thumbs-down': 'Thumbs down', laugh: 'Laugh', hooray: 'Hooray', confused: 'Confused', heart: 'Heart', rocket: 'Rocket', eyes: 'Eyes' },
+        /** A reaction button's name: "Thumbs up, 2 reactions" (its pressed state says whether one is yours) */
+        count: (name: string, count: number) => `${name}, ${count} ${s(count, 'reaction', 'reactions')}`,
+        /** Who reacted: "You, Ana and 2 others reacted"; `people` is already a list in the language's own form */
+        people: (people: string) => `${people} reacted`,
+        you: 'You',
+        /** The last item of that list, for the people not named */
+        others: (count: number) => `${count} ${s(count, 'other', 'others')}`,
+        notSaved: 'Reaction not saved'
     },
     feedbackTypes: {
         comment: 'Comment',
@@ -369,8 +392,6 @@ export const en = {
         saving: 'Saving...',
         keysSend: 'Enter to send. Shift+Enter for a new line.',
         keysSave: 'Enter to save. Shift+Enter for a new line.',
-        draftLifetime: (days: number) => `Unsent text stays in this browser for ${days} days after your last change.`,
-        draftSaved: 'Draft saved in this browser',
         collapseTip: 'Back to the smaller form',
         expandTip: 'Expand for more room to write',
         collapse: 'Collapse',
@@ -424,7 +445,12 @@ export const en = {
         suggestionPlaceholder: 'Your version of the text...',
         commentPlaceholder: 'Leave feedback...',
         postSuggestion: 'Post suggestion',
-        postComment: 'Post comment'
+        postComment: 'Post comment',
+        /** The pin's description: the people in its thread, a list ("Ana, Ben and you") */
+        participants: (people: string) => `In this thread: ${people}`,
+        participantsYou: 'you',
+        /** The thread a mouse previews over its pin, read-only (uier #308) */
+        threadPreview: 'Comment thread preview'
     },
     feedback: {
         typesOff: 'Feedback types are turned off for this project. You can still leave a pinned comment.',
@@ -523,6 +549,44 @@ export const en = {
         label: 'Selected text',
         rewrite: 'Rewrite'
     },
+    canvas: {
+        panel: 'Drawing tools',
+        surface: 'Drawing',
+        surfaceHelp: 'Draw with a pointer. With the keyboard: choose a tool, then press Enter here to add it. Tab goes to the shapes; the arrow keys move one, Alt and the arrow keys resize it.',
+        started: 'Drawing on the page. Choose a tool, draw, then Comment.',
+        tools: { select: 'Select', pen: 'Pen', marker: 'Marker', brush: 'Brush', line: 'Line', arrow: 'Arrow', rectangle: 'Rectangle', ellipse: 'Ellipse', diamond: 'Diamond', text: 'Text note', blur: 'Blur', eraser: 'Eraser' },
+        shapes: { pen: 'Pen line', marker: 'Marker line', brush: 'Brush line', line: 'Line', arrow: 'Arrow', rectangle: 'Rectangle', ellipse: 'Ellipse', diamond: 'Diamond', text: 'Text note', blur: 'Blurred area' },
+        /** A shape in the drawing, by its place: "Rectangle 2" */
+        shape: (name: string, number: number) => `${name} ${number}`,
+        style: 'Style',
+        color: 'Colour',
+        background: 'Background',
+        none: 'None',
+        fill: 'Background fill',
+        fills: { semi: 'Translucent', solid: 'Solid' },
+        outline: 'Outline',
+        outlines: { solid: 'Solid', dashed: 'Dashed', dotted: 'Dotted' },
+        width: 'Width',
+        widths: { s: 'Thin', m: 'Medium', l: 'Bold', xl: 'Extra bold' },
+        edges: 'Edges',
+        edgeStyles: { clean: 'Clean', sketchy: 'Sketchy' },
+        colors: { ink: 'Ink', white: 'White', red: 'Red', amber: 'Amber', green: 'Green', blue: 'Blue', violet: 'Violet' },
+        undo: 'Undo',
+        redo: 'Redo',
+        deleteShape: 'Delete shape',
+        discard: 'Discard',
+        comment: 'Comment',
+        textNote: 'Text note',
+        added: (name: string) => `${name} added`,
+        deleted: (name: string) => `${name} deleted`,
+        undone: 'Undone',
+        redone: 'Redone',
+        discarded: 'Drawing discarded',
+        full: 'The drawing is full. Remove a shape to add another.',
+        tooLarge: 'This drawing is too large to save. Remove some shapes.',
+        pointerOnly: 'This tool draws with a pointer. Choose another tool to add a shape with the keyboard.',
+        editDrawing: 'Edit drawing'
+    },
     hint: {
         title: 'Try uier on this page',
         dismiss: 'Dismiss',
@@ -541,13 +605,14 @@ export const en = {
         move: (label: string) => `Move ${/^[A-Z][a-z]/.test(label) ? label[0]!.toLowerCase() + label.slice(1) : label} panel`,
         moveTip: 'Drag to the other side, or use the arrow keys',
         moved: (label: string, side: 'left' | 'right') => `${label} moved to the ${side}.`,
-        moveTo: (side: 'left' | 'right') => `Move to the ${side}`
+        moveTo: (side: 'left' | 'right') => `Move to the ${side}`,
+        /** The menu of a panel's title: the other panels to show in its place */
+        switch: 'Switch panel'
     },
     inbox: {
         label: 'Comments',
         search: 'Search comments',
         reviewing: (environment: string) => `Reviewing ${environment}. New feedback stays here.`,
-        unread: 'Unread',
         assignedToMe: 'Assigned to me',
         reviewBrief: 'Review brief',
         close: 'Close sidebar',
@@ -564,6 +629,8 @@ export const en = {
         activeOne: (status: string) => `Active: ${status}`,
         showComments: 'Show comments',
         activeStatuses: 'Active statuses',
+        /** The menu beside the Done tab: Done or Archive */
+        doneStatuses: 'Done and archive',
         /** Each `where` ends the sentence: " on this page", or nothing for every page */
         onThisPage: ' on this page',
         noArchived: (where: string) => `No archived comments${where}`,
@@ -585,6 +652,11 @@ export const en = {
         commentNumber: (number: number) => `Comment #${number}`,
         comment: 'Comment',
         olderNotListed: 'Older comments are not listed.',
+        /** This page's new comments not sent yet, above its threads (uier #296) */
+        drafts: 'Drafts',
+        draftComment: 'Draft comment',
+        draftRewrite: 'Draft rewrite suggestion',
+        draftDiscarded: 'Draft discarded',
         unreadCount: (count: number) => `${count} unread`,
         markAllRead: 'Mark all as read',
         markedRead: (count: number) => `${count} ${s(count, 'thread', 'threads')} marked as read.`,

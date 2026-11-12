@@ -1,5 +1,6 @@
 import { cache } from 'react';
 import { cookies } from 'next/headers';
+import { connection } from 'next/server';
 import { cookieName, cookieNames, readMigratingCookie } from '../cookieNames';
 import type { DbUser } from './model';
 import { sessionEmailProof, sessionSignedInAt, sessionToken, sessionUser } from './sessionIdentity';
@@ -34,9 +35,18 @@ export async function endSession(all = false) {
 }
 
 /** Public account-menu fields only. Credentials never leave HttpOnly cookie state. */
-export const getBrowserAccounts = cache(async () => (await browserSessions(await cookies())).map(({ user, active }) => ({
-    id: user.id, name: user.name, email: user.email, avatarUrl: avatarUrl(user), active
-})));
+export const getBrowserAccounts = cache(async () => {
+    await connection();
+    return (await browserSessions(await cookies())).map(({ user, active }) => ({
+        id: user.id, name: user.name, email: user.email, avatarUrl: avatarUrl(user), active
+    }));
+});
+
+async function currentSessionCookie() {
+    // Expiry and migration deadlines must use the navigation's clock, never a prefetched shell's.
+    await connection();
+    return readMigratingCookie(await cookies(), cookieNames.session);
+}
 
 /** How this browser signed in last, kept after sign-out, or `undefined` */
 export async function getLastSignInMethod() {
@@ -46,15 +56,15 @@ export async function getLastSignInMethod() {
 
 /** The session's user id and sign-in time, or `null` */
 export const getSessionSignIn = cache(async () => {
-    return sessionSignedInAt(readMigratingCookie(await cookies(), cookieNames.session));
+    return sessionSignedInAt(await currentSessionCookie());
 });
 
 /** The email this browser's sign-in proved for `user` and when, or `null` (`emailProof.ts`) */
 export async function getSessionEmailProof(user: DbUser) {
-    return sessionEmailProof(readMigratingCookie(await cookies(), cookieNames.session), user);
+    return sessionEmailProof(await currentSessionCookie(), user);
 }
 
 /** The signed-in user, or `null` (an invalid, expired or orphaned session counts as signed out) */
 export const getSessionUser = cache(async () => {
-    return sessionUser(readMigratingCookie(await cookies(), cookieNames.session));
+    return sessionUser(await currentSessionCookie());
 });

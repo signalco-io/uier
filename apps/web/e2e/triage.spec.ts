@@ -148,13 +148,14 @@ test('selection stays quiet until it is used, by pointer, keyboard or a long pre
     for (const index of [0, 1, 2]) await expect(box(index)).toHaveCSS('opacity', '0');
     // On a touch screen a tap where the box is goes through to the row; screen readers still find the box
     await expect(box(0)).toHaveCSS('pointer-events', mobile ? 'none' : 'auto');
-    // The count line shows the guests' unread threads; once they are read it shows nothing, so it takes no room (and no gap)
+    // The count line shows the guests' unread threads; once they are read it shows nothing. With room it is in the search
+    // row (uier #300) and then takes no room; on a phone it keeps its own row's height, so the comments stay where they are
     const countLine = await page.getByRole('status').filter({ hasText: /^\d+ unread$/ }).locator('xpath=..').elementHandle();
     const countLineShown = () => countLine!.evaluate(element => getComputedStyle(element).position !== 'absolute');
     expect(await countLineShown()).toBe(true);
     await page.getByRole('button', { name: 'Mark all as read', exact: true }).press('Enter');
     await expect(page.getByRole('button', { name: 'Mark all as read', exact: true })).toHaveCount(0);
-    await expect.poll(countLineShown).toBe(false);
+    await expect.poll(countLineShown).toBe(mobile);
     if (!mobile) {
         // Its room is kept: the box (and the assignee and status before it) stay where they are when it shows
         const atRest = await boxPlace(box(1));
@@ -484,18 +485,18 @@ test('search, selection and priority preserve reply drafts in their original thr
     await expect(page.getByText('1 changed, 0 unchanged, 0 stale, 0 unavailable, 0 failed.', { exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Clear search', exact: true }).click();
     original = await openComment(page, comments[0]!.number);
-    await expect(await openReply(original)).toHaveValue(draft);
+    await expect(await openReply(original)).toHaveText(draft, { useInnerText: true });
     await backToComments(page);
     // The board opens the same thread in a sheet
     await page.getByRole('button', { name: 'Board', exact: true }).click();
     original = await openComment(page, comments[0]!.number);
-    await expect(await openReply(original)).toHaveValue(draft);
+    await expect(await openReply(original)).toHaveText(draft, { useInnerText: true });
     await page.reload();
     await original.getByRole('button', { name: 'Reply', exact: true }).click();
-    await expect(original.getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue(draft);
+    await expect(original.getByRole('textbox', { name: 'Reply', exact: true })).toHaveText(draft, { useInnerText: true });
     await page.keyboard.press('Escape');
     await expect(original).toBeHidden();
     const other = await openComment(page, comments[1]!.number);
     await other.getByRole('button', { name: 'Reply', exact: true }).click();
-    await expect(other.getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue('');
+    await expect(other.getByRole('textbox', { name: 'Reply', exact: true })).toHaveText('', { useInnerText: true });
 });

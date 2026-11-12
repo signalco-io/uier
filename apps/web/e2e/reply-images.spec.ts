@@ -45,7 +45,7 @@ test('reply images can be picked, removed, retried and expanded in toolbar and a
         if (fail) { fail = false; await route.abort('failed'); } else await route.continue();
     });
     await form.getByRole('button', { name: 'Post reply', exact: true }).click();
-    await expect(form.getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue('Toolbar reply image');
+    await expect(form.getByRole('textbox', { name: 'Reply', exact: true })).toHaveText('Toolbar reply image', { useInnerText: true });
     await expect(form.getByRole('button', { name: 'Remove attached image evidence.png' })).toBeVisible();
     // Image bytes must never be written into the local draft/attempt record.
     expect(await page.evaluate(() => JSON.stringify({ ...localStorage }))).not.toContain('data:image');
@@ -86,7 +86,7 @@ test('reply images can be picked, removed, retried and expanded in toolbar and a
         } else await route.continue();
     });
     await appForm.getByRole('button', { name: 'Post reply', exact: true }).click();
-    await expect(appForm.getByRole('textbox', { name: 'Reply', exact: true })).toHaveValue('App reply image');
+    await expect(appForm.getByRole('textbox', { name: 'Reply', exact: true })).toHaveText('App reply image', { useInnerText: true });
     await expect(appForm.getByRole('button', { name: 'Remove attached image pasted-reply-evidence-on-the-reviewed-page.png' })).toBeVisible();
     await page.unroute('**/app/projects/**');
     await appForm.getByRole('button', { name: 'Post reply', exact: true }).click();

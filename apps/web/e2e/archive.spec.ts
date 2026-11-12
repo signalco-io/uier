@@ -45,7 +45,15 @@ test('app archive stays separate from Done and All, reloads and restores the pri
     await expect(tabs.getByRole('button', { name: 'Done 0', exact: true })).toBeVisible();
     await tabs.getByRole('button', { name: 'All 0', exact: true }).click();
     await expect(page.locator('[data-comment-row]')).toHaveCount(0);
-    await tabs.getByRole('button', { name: 'Archive 1', exact: true }).click();
+    // Archive is folded under Done (uier #302): its menu picks it, the Done tab then names it, and pressing it goes back to Done
+    await expect(tabs.locator('[aria-pressed]')).toHaveText([/^Active \d+$/, /^Done 0$/, /^All 0$/]);
+    await tabs.getByRole('button', { name: 'Done and archive', exact: true }).click();
+    const doneMenu = page.getByRole('menu');
+    await animationsFinished(doneMenu);
+    await expect(doneMenu.getByRole('menuitemradio')).toHaveText([/^Done\s*0$/, /^Archive\s*1$/]);
+    await doneMenu.getByRole('menuitemradio', { name: 'Archive 1', exact: true }).click();
+    await expect(page).toHaveURL(/status=archived/);
+    await expect(tabs.getByRole('button', { name: 'Archive 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await page.reload();
     card = await openComment(page, 1);
     await expect(card.getByText('Archived', { exact: true })).toBeVisible();
@@ -59,7 +67,10 @@ test('app archive stays separate from Done and All, reloads and restores the pri
     await card.getByRole('button', { name: /^More actions for the comment/ }).click();
     await page.getByRole('menuitem', { name: 'Restore comment', exact: true }).click();
     await expect(page.getByText('Nothing archived', { exact: true })).toBeVisible();
-    await tabs.getByRole('button', { name: 'Done 1', exact: true }).click();
+    // Pressing the tab again while it shows Archive goes back to Done
+    await tabs.getByRole('button', { name: 'Archive 0', exact: true }).click();
+    await expect(page).toHaveURL(/status=done/);
+    await expect(tabs.getByRole('button', { name: 'Done 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
     card = await openComment(page, 1);
     await expect(card).toContainText('Keep this feedback for later');
     await expect(card.getByRole('button', { name: /^Status: Done/ })).toBeVisible();
@@ -82,6 +93,8 @@ test('the board shows Archive as its last column, collapsed until someone expand
 
     // Archiving from the board's sheet moves the card out of its column; the count follows
     let thread = await openComment(page, 1);
+    // The emulated mouse stays where the card was, which on a phone is over the thread's device icon: away from it, so its hover card stays shut
+    await page.mouse.move(0, page.viewportSize()!.height - 1);
     await thread.getByRole('button', { name: /^More actions for the comment/ }).click();
     await page.getByRole('menuitem', { name: 'Archive comment', exact: true }).click();
     await expect(thread.getByText('Archived', { exact: true })).toBeVisible();
@@ -150,7 +163,13 @@ test('toolbar archive removes the pin, restores from Archive and rolls back a fa
     await expect(tabs.getByRole('button', { name: 'Active 0', exact: true })).toBeVisible();
     await tabs.getByRole('button', { name: 'All 0', exact: true }).click();
     await expect(inbox.getByRole('article')).toHaveCount(0);
-    await tabs.getByRole('button', { name: 'Archive 1', exact: true }).click();
+    // Archive is folded under Done, as in the app
+    await tabs.getByRole('button', { name: 'Done and archive', exact: true }).click();
+    const doneMenu = page.getByRole('dialog', { name: 'Done and archive' });
+    await expect(doneMenu.getByRole('button')).toHaveText([/^Done\s*0$/, /^Archive\s*1$/]);
+    await doneMenu.getByRole('button', { name: /^Archive/ }).click();
+    await expect(doneMenu).toBeHidden();
+    await expect(tabs.getByRole('button', { name: 'Archive 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
     const archived = inbox.getByRole('article');
     await expect(archived).toContainText('Keep this feedback for later');
     for (const colorScheme of ['light', 'dark'] as const) {
@@ -199,6 +218,7 @@ test('toolbar page and site windows retain active feedback behind 1001 newer arc
     const inbox = page.getByRole('complementary', { name: 'Comments' });
     await expect(inbox).toContainText('Keep this feedback for later');
     await expect.poll(() => [...scopes].sort()).toEqual(['page:exclude', 'page:only', 'site:exclude', 'site:only']);
-    await inbox.getByRole('button', { name: /^Archive / }).click();
+    await inbox.getByRole('button', { name: 'Done and archive', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Done and archive' }).getByRole('button', { name: /^Archive / }).click();
     await expect(inbox.getByRole('article')).toHaveCount(200);
 });

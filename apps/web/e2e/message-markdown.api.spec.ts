@@ -70,7 +70,7 @@ test('thread messages read the Markdown subset agents write', () => {
     // A quote ends at its last `>` line, so a reply typed under it stays outside
     expect(parseMarkdown('> The total\n> is cut off\nAgreed')).toEqual([{ type: 'quote', children: [paragraph(text('The total\nis cut off'))] }, paragraph(text('Agreed'))]);
     expect(parseMarkdown('## Summary ##\nTitle\n===\n\n---\n#hashtag')).toEqual([
-        { type: 'heading', children: [text('Summary')] }, { type: 'heading', children: [text('Title')] }, { type: 'rule' }, paragraph(text('#hashtag'))]);
+        { type: 'heading', level: 2, children: [text('Summary')] }, { type: 'heading', level: 1, children: [text('Title')] }, { type: 'rule' }, paragraph(text('#hashtag'))]);
     // Bare addresses link without the punctuation after them; `<…>` autolinks; mailto
     expect(links(parseMarkdown('See https://uier.io/app?x=1. (https://example.com/a_(b)) <https://ok.example> <team@uier.io> [mail](mailto:team@uier.io)'))
         .map(({ href, children }) => [href, children.map(child => 'text' in child ? child.text : '').join('')])).toEqual([

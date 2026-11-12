@@ -56,6 +56,17 @@ function Spec({ children }: PropsWithChildren) {
     return <span className="font-mono text-[11px] text-muted-foreground">{children}</span>;
 }
 
+/** The canvas mode's drawing colours (`--brand-draw-*`, BRAND.md "The review layer") */
+const drawingSwatches = [
+    { token: '--brand-draw-ink', name: 'Ink' },
+    { token: '--brand-draw-white', name: 'White', bordered: true },
+    { token: '--brand-draw-red', name: 'Red' },
+    { token: '--brand-draw-amber', name: 'Amber' },
+    { token: '--brand-draw-green', name: 'Green' },
+    { token: '--brand-draw-blue', name: 'Blue' },
+    { token: '--brand-draw-violet', name: 'Violet' }
+];
+
 const radii = [
     { px: 4, className: 'rounded-[4px]', use: 'checkbox, tag' },
     { px: 6, className: 'rounded-sm', use: 'small button, menu item' },
@@ -174,6 +185,15 @@ export default function BrandPage() {
                     <span className="inline-flex items-center gap-2">an <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[hsl(var(--brand-accent))] px-1.5 text-[11px] font-semibold text-white">3</span> unread count</span>
                     <span>and a <a href="#color" className="text-[hsl(var(--brand-accent-text))] underline underline-offset-2">link</a>.</span>
                     <span className="text-secondary-foreground">Primary buttons and pins stay ink. Blue is never a background.</span>
+                </div>
+                <p className="max-w-[720px] text-sm leading-relaxed text-muted-foreground">
+                    Drawings on the page (the toolbar&apos;s canvas mode) use seven of these colours as their own tokens. They are the same in
+                    light and dark: a drawing is on the reviewed page and in its screenshot, not in uier&apos;s theme.
+                </p>
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-7">
+                    {drawingSwatches.map(swatch => (
+                        <TokenSwatch key={swatch.token} token={swatch.token} name={swatch.name} role="drawing" bordered={swatch.bordered} />
+                    ))}
                 </div>
             </Section>
 

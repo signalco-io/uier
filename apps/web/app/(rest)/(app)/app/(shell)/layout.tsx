@@ -64,7 +64,7 @@ async function AppShellLayoutContent({ children }: PropsWithChildren) {
                     <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-2 border-b bg-background px-3 lg:static">
                         <SidebarTrigger />
                         <Separator orientation="vertical" className="mr-1 data-vertical:h-4 data-vertical:self-center" />
-                        <AppBreadcrumbs projectNames={Object.fromEntries(projects.map(project => [project.id, project.name]))} />
+                        <AppBreadcrumbs projects={Object.fromEntries(projects.map(project => [project.id, { name: project.name, url: project.urls[0] }]))} />
                     </header>
                     <div className="flex-1 lg:overflow-y-auto">
                         {/* While an element marked data-page-width="wide" is in it, this is a container, so the column can

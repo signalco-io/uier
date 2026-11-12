@@ -38,6 +38,26 @@ test('unsupported browser languages use English', async ({ browser, baseURL }) =
     await context.close();
 });
 
+test('denied app documents keep HTTP 404, localization and the review account hint', async ({ page }) => {
+    const email = uniqueEmail('localized-unavailable');
+    await signIn(page, email);
+    await page.goto('/app/account');
+    await choose(section(page), page, 'Hrvatski', 'Save');
+    await expect(page.locator('[data-app-language]')).toHaveAttribute('lang', 'hr');
+    const t = await translator('hr');
+    const project = await page.goto('/app/projects/aaaaaaaaaaaa');
+    expect(project?.status()).toBe(404);
+    expect(project?.headers()['cache-control']).toContain('no-store');
+    await expect(page.getByRole('heading', { name: t('This page is not here'), exact: true })).toBeVisible();
+    await expect(page.locator('[data-app-language]')).toHaveAttribute('lang', 'hr');
+    const review = await page.goto('/app/review/aaaaaaaaaaaa?comment=comment_missing');
+    expect(review?.status()).toBe(404);
+    await expect(page.getByRole('heading', { name: t('This review link is unavailable'), exact: true })).toBeVisible();
+    await expect(page.getByText(email, { exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: t('Use another account'), exact: true }))
+        .toHaveAttribute('href', '/app/sign-in?add=1&next=%2Fapp%2Freview%2Faaaaaaaaaaaa%3Fcomment%3Dcomment_missing');
+});
+
 test('profile choice survives reload, follows the account and resets to the browser independently of toolbar language', async ({ page, context, browser, baseURL }) => {
     await signIn(page, uniqueEmail('app-language'));
     const de = await translator('de');

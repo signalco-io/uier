@@ -94,14 +94,16 @@ test('Markdown in thread messages reads as formatted text in the app and the too
     await expect(thread.getByRole('listitem').first().locator('strong')).toHaveText('total');
     await expectFormatted(thread.locator('[data-markdown]').filter({ hasText: 'Fixed in abc1234' }));
 
-    // A mention inside bold stays the person's name
+    // Markdown typed in the reply box formats as it is written; a mention after bold stays the person's name
     const input = await openReply(thread);
-    await input.fill('**Thanks** @');
+    await input.pressSequentially('**Thanks** @');
+    await expect(input.locator('strong')).toHaveText('Thanks');
     const option = thread.getByRole('listbox', { name: 'Mention people' }).getByRole('option').first();
     if (mobile) await option.tap(); else await option.click();
-    await expect(input).toHaveValue(`**Thanks** @${name} `);
+    await expect(input).toHaveText(`Thanks @${name}`, { useInnerText: true });
     await input.press('End');
     await input.pressSequentially('for `#12`');
+    await expect(input.locator('code')).toHaveText('#12');
     await thread.getByRole('button', { name: 'Post reply', exact: true }).click();
     const own = thread.getByRole('listitem').filter({ hasText: `Thanks @${name} for #12` });
     await expect(own.locator('[data-mention]')).toHaveText(`@${name}`);

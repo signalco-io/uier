@@ -7,7 +7,7 @@
   reviewer authorization still apply.
 
 - `GET /api/review/<code>` includes `project.toolbarFeatures` only when the reviewer can comment:
-  the effective optional tool IDs (`accessibility`, `seo`, `rewrite`). Missing project settings enable
+  the effective optional tool IDs (`accessibility`, `seo`, `rewrite`, `draw`). Missing project settings enable
   every current tool. Members get the project's list; signed-out reviewers get its intersection with
   the signed-out list. Only the effective array is projected, never either stored audience's settings.
   The server derives membership through the existing actor resolution, and comments-off and invited-only
@@ -54,6 +54,13 @@
   Deleting a reply or thread removes its images, with failed cleanup retried by the existing orphan sweep.
   `e2e/reply-images.api.spec.ts` covers sanitization, isolation, privacy, deletion, budgets and receipt recovery;
   `blob-screenshots.api.spec.ts` also checks live/deleted reply Blob ownership during sweeps.
+- A new comment may carry `drawing`, the shapes the toolbar's canvas mode drew (canvas mode,
+  `packages/toolbar/docs/canvas-mode.md`), in both comments APIs: only with `kind: comment` on an area (a point with
+  `widthNormal`/`heightNormal`), and only what `parseDrawing` of `@uier/toolbar/drawing` accepts (shape types,
+  the brand's colour names, bounded numbers and plain note text; 200 shapes, 6,000 points, 32,000 JSON characters).
+  It is stored on the comment as parsed, part of the submission fingerprint, never changed after, and the
+  DTO returns it (`commentDrawing`, only on an area) with the comment's own visibility. A new comment's request
+  budget (`MAX_NEW_COMMENT_BODY_BYTES`) is a reply's (`MAX_COMMENT_BODY_BYTES`) plus `MAX_DRAWING_BYTES` for it. `e2e/canvas-drawing.api.spec.ts` covers it.
 - A new comment's `screenshot` is either the automatic capture or the reviewer's own attached image
   (toolbar Attach image or paste). The API cannot tell them apart and needs not: `comments/validation.ts`
   parses (`parseScreenshot`) and re-encodes (`sanitizeScreenshot`) every one under the same limits and image budget.
@@ -66,6 +73,9 @@
   `sourcePath` keeps the page's trailing slashes for links: `newSourcePath` stores it only for the same page key,
   and every navigable link (app cards, member redirects, reproduction, notifications, Copy issue) goes through
   `commentSourcePath`, which falls back to the key. Never group, query or authorize by it.
+
+Message reactions (`POST .../comments/<id>/reactions`, `review/reactions.ts`) follow the reply permission and change
+only the message and the etag: no activity, history, sync, `updatedAt` or `commentRevision`. See [Message reactions](reactions.md).
 
 Assignment eligibility lives in `review/participants.ts` and is rechecked inside optimistic
 comment mutations. Mentions store selected account ids with UTF-16 text ranges; review DTOs

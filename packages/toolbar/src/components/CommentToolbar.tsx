@@ -11,6 +11,7 @@ import { Down, Drag, Edit, Inbox, Info } from '@signalco/ui-icons';
 import { Mark } from '@uier/brand';
 import type { ToolbarMode } from '../config';
 import { CommentIcon } from './CommentIcon';
+import { DrawIcon } from './canvas/CanvasIcons';
 import { InkScope } from './InkScope';
 import { ToolbarProfile } from './ToolbarProfile';
 import { ToolbarOptions } from './ToolbarOptions';
@@ -47,6 +48,11 @@ type CommentToolbarProps = {
     hintButtonRef?: Ref<HTMLButtonElement>;
     /** `fromKeyboard` is set when the button was activated with the keyboard (Enter or Space) */
     onAddPointComment: (fromKeyboard: boolean) => void;
+    /** Canvas mode is on (Draw on the page is pressed) */
+    drawing?: boolean;
+    drawButtonRef?: Ref<HTMLButtonElement>;
+    /** Draw on the page: canvas mode (only when the project shows the tool) */
+    onDraw?: () => void;
     onCancelPointComment: () => void;
     /** A draft pin with text is closed: "Resume draft", above the pill, opens it again */
     onResumeDraft?: () => void;
@@ -98,7 +104,7 @@ function countText(count: number, capped: boolean) {
 
 export function CommentToolbar({
     mode, creatingPointComment, collapsed, commentsCount = 0, commentsCountCapped = false, hintOpen, showAbout = true, hintId, projectUrl,
-    addButtonRef, inboxButtonRef, hintButtonRef, sidebarOpen = false, onAddPointComment, onCancelPointComment, onResumeDraft, onToggleSidebar, onFeedbackOpen,
+    addButtonRef, inboxButtonRef, hintButtonRef, sidebarOpen = false, onAddPointComment, drawing = false, drawButtonRef, onDraw, onCancelPointComment, onResumeDraft, onToggleSidebar, onFeedbackOpen,
     checksPanels = [], onChecksPanelChange, accessibilityAvailable = false, checksAttention, accessibilityButtonRef, seoButtonRef, optionsButtonRef,
     feedbackRequested = false, onFeedbackRequestHandled, onMoveStart, onToggleHint, onCollapsedChange, onExitReview,
     shortcutsRequested = false, onShortcutsRequestHandled
@@ -243,6 +249,21 @@ export function CommentToolbar({
                                 <CommentIcon icon="add" size={24} variant="outlined" aria-hidden="true" />
                             </IconButton>
                             </IconTooltip>
+                            {onDraw && (
+                                <IconTooltip label={t.toolbar.draw}>
+                                <IconButton
+                                    ref={drawButtonRef}
+                                    data-uier-draw-button=""
+                                    aria-label={t.toolbar.draw}
+                                    aria-pressed={drawing}
+                                    // Pressed: white on the black pill, like Add comment in point mode
+                                    variant={drawing ? 'solid' : 'plain'}
+                                    className="rounded-full"
+                                    onClick={onDraw}>
+                                    <DrawIcon size={24} />
+                                </IconButton>
+                                </IconTooltip>
+                            )}
                             <ToolbarFeedback key={path} onOpen={onFeedbackOpen} openRequested={feedbackRequested} onOpenRequestHandled={onFeedbackRequestHandled} />
                             <IconTooltip label={t.toolbar.inbox}>
                             <IconButton

@@ -53,9 +53,11 @@ export function movedPatch(comment: ProjectCommentView, next: CommentStatus, now
  * Status changes for any thread of the list: Open, In progress and Done, Open or In progress from
  * Ready to verify (cancels the check, then the thread is there; each shown at once and rolled back on
  * failure) and Ready to verify (`onVerify`). The board uses one for every card it moves;
- * `useStatusChange` binds it to one thread.
+ * `useStatusChange` binds it to one thread. `projectId` is the threads' project, or each thread's own where the
+ * board shows several projects' threads (My work): the change is saved there, with that project's permissions.
  */
-export function useStatusChanger(projectId: string) {
+export function useStatusChanger(projectId: string | ((comment: ProjectCommentView) => string)) {
+    const projectOf = (comment: ProjectCommentView) => typeof projectId === 'string' ? projectId : projectId(comment);
     const { t } = useAppI18n();
     const updateComment = useCommentUpdate();
     const [pending, startTransition] = useTransition();
@@ -64,7 +66,7 @@ export function useStatusChanger(projectId: string) {
         const exit = onMove?.(status);
         // Start saving immediately, then move the card once its exit has played.
         try {
-            const request = setCommentStatusAction(projectId, comment.id, status)
+            const request = setCommentStatusAction(projectOf(comment), comment.id, status)
                 .catch(() => ({ ok: false as const, error: t("Could not save the change. Try again.") }));
             if (exit) await exit.finished;
             startTransition(() => updateComment({ id: comment.id, patch: movedPatch(comment, status) }));
@@ -83,7 +85,7 @@ export function useStatusChanger(projectId: string) {
         // In Open or In progress at once; `useOptimistic` puts the check back if canceling fails
         if (comment.verification) updateComment({ id: comment.id, patch: movedPatch(comment, status) });
         try {
-            const result = await verificationCommentAction(projectId, comment.id, {
+            const result = await verificationCommentAction(projectOf(comment), comment.id, {
                 action: 'cancel', override: false, status, expectedRevision: comment.verification?.revision ?? null, idempotencyKey: crypto.randomUUID()
             });
             if (result && !result.ok) toast.error(t(result.error));

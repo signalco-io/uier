@@ -65,7 +65,7 @@ test('environment labels, isolation, alias sharing, history, direct links and pe
     const inbox = page.getByRole('complementary', { name: 'Comments', exact: true });
     await expect(inbox).toContainText('Reviewing Production');
     // All environments, not the reviewed one: like the app's filter, the picker names only a chosen environment
-    await expect(inboxPages(page)).toHaveAccessibleName('Environment and page: This page');
+    await expect(inboxPages(page)).toHaveAccessibleName(`Environment and page: This page, ${path}`);
     await expect(inbox.getByRole('region', { name: 'This page', exact: true }).getByRole('article')).toHaveCount(1);
     await chooseInboxPages(page, /^All pages/);
     await expect(inbox.getByRole('article')).toHaveCount(3);
@@ -167,6 +167,42 @@ test('environment labels, isolation, alias sharing, history, direct links and pe
     expect(deniedGuest.status()).toBe(401);
 });
 
+
+test('toolbar Options switch the page to another environment, keeping its path, query and hash', async ({ page }) => {
+    await signIn(page, uniqueEmail('environment-switch'));
+    const production = site.origin('production'), staging = site.origin('staging');
+    const projectId = await createProject(page, { urls: [production, staging], name: 'Environment switch' });
+    await page.goto(`/app/projects/${projectId}/settings/environments`);
+    const settings = page.getByRole('region', { name: 'Site addresses', exact: true });
+    await hydrated(settings.locator('form'));
+    await settings.getByLabel(`Label for ${production.replace(/^https?:\/\//, '')}`, { exact: true }).fill('Production');
+    await settings.getByLabel(`Label for ${staging.replace(/^https?:\/\//, '')}`, { exact: true }).fill('Staging');
+    await settings.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(settings.getByRole('status')).toContainText('Saved.');
+    await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${production}/${projectId}/same`)}`);
+    await expect(page).toHaveURL(new RegExp('production\\.localhost'));
+    await expect(page.getByRole('button', { name: 'Add comment' })).toBeVisible();
+    // The page's own state, as a single-page app would leave it (the review link is gone from the address)
+    await page.evaluate(path => history.replaceState(null, '', path), `/${projectId}/same?tab=a+b&flag#details`);
+
+    await page.getByRole('button', { name: 'Options', exact: true }).click();
+    const options = page.getByRole('dialog', { name: 'Options' });
+    const environment = options.getByRole('button', { name: /^Environment/ });
+    await expect(environment).toContainText('Production');
+    await environment.click();
+    const view = page.getByRole('dialog', { name: 'Environment' });
+    await expect(view.getByRole('heading', { name: 'Environment' })).toBeFocused();
+    const environments = view.getByRole('group', { name: 'Environment' });
+    await expect(environments.getByRole('button', { name: /^Production/ })).toHaveAttribute('aria-current', 'true');
+    const target = environments.getByRole('link', { name: /^Staging/ });
+    await expect(target).toContainText(staging.replace(/^https?:\/\//, ''));
+    await expectNoAxeViolations(page);
+    await target.click();
+    // Only the origin changes; the review link comes along, so the toolbar opens there too
+    await expect(page).toHaveURL(new RegExp(`^${staging.replace(/[.]/g, '\\.')}/${projectId}/same\\?tab=a\\+b&flag&toolbar-code=[A-Za-z0-9_-]+#details$`));
+    await page.getByRole('button', { name: 'Options', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: 'Options' }).getByRole('button', { name: /^Environment/ })).toContainText('Staging');
+});
 
 test('same-origin posting and default filters retain a secondary API origin', async ({ page, request, baseURL }) => {
     await signIn(page, uniqueEmail('same-origin-environment'));

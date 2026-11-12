@@ -11,6 +11,14 @@ development hosts remain explicitly scoped. Inline event handlers are denied wit
 root layout emits the shared hash-authorized initializer before the page content. It skips both
 verification bridges without reading theme storage. Theme changes still use next-themes.
 App HTML and private data stay `no-store`; [Cache Components](cache-components.md) describes the shells.
+Session identity, recent-sign-in/email-proof checks and browser account menus wait for `connection()`
+before checking expiry or migration deadlines. A prefetched shell must not freeze those clock-based
+authorization decisions. Unknown public integration guides are rejected in Proxy before their URL-specific
+content streams, preserving HTTP 404; the page independently validates its provider for RSC navigation.
+The internal unavailable entries live under `(rest)/(app-errors)`, outside the app's request-language
+layout, so their synchronous `notFound()` fixes HTTP 404 before localized content streams. Proxy still
+uses the same paths and access preflight; pages/actions/APIs retain their own checks. The generic
+error retains its request nonce marker and the review error retains its account-switch return address.
 
 The verification bridges keep Next's client instrumentation (`instrumentation-client.ts`) so BotID
 initializes before their protected proof requests. They have no app/theme/analytics providers.
@@ -41,7 +49,11 @@ HSTS is one year with subdomains. Do not add `preload` or submit to the preload 
 has observed this policy operating successfully.
 
 `src/lib/cookieNames.ts` centralizes HTTPS `__Host-` / `__Secure-` names, local HTTP names and
-bounded legacy reads. The fixed migration cutoff is 30 October 2026 UTC; legacy sign-in bindings
+lifetimes. `__Host-uier_comments_view` is a browser-readable, Secure, SameSite=Lax presentation
+preference with Path=/ and a one-year lifetime; only `list` and `board` are accepted. It grants no
+access and is read request-scoped. The local HTTP name is `uier_comments_view`.
+
+The registry also defines bounded legacy reads. The fixed migration cutoff is 30 October 2026 UTC; legacy sign-in bindings
 stop being accepted 15 minutes later, session/SSO cookies after 30 days, visitor/workspace cookies
 after 365 days. Never reset this date on a rebuild. Prefer the new name even when its value is
 invalid; do not resurrect a legacy identity. New writes use only the chosen current name; sign-out

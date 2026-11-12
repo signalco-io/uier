@@ -42,7 +42,7 @@ test('C starts and ends point mode, but not while typing or when the page handle
     const text = newComment(page).getByRole('textbox', { name: 'Comment', exact: true });
     await expect(text).toBeFocused();
     await page.keyboard.type('Clear copy');
-    await expect(text).toHaveValue('Clear copy');
+    await expect(text).toHaveText('Clear copy', { useInnerText: true });
     await expect(add).toHaveAttribute('aria-pressed', 'false');
     await newComment(page).getByRole('button', { name: 'Discard', exact: true }).click();
     await expect(newComment(page)).toHaveCount(0);
@@ -77,7 +77,7 @@ test('C starts and ends point mode, but not while typing or when the page handle
 test('feedback typing stays inside the shadow root when the page has a C shortcut', async ({ browser }, info) => {
     const { context, page } = await newVisitor(browser, info);
     await openLanding(page, isolatedOrigin(info), { dismissHint: true });
-    // A common host-page guard cannot see the textarea: target is the shadow host.
+    // A common host-page guard cannot see the text box: target is the shadow host.
     await page.evaluate(() => {
         document.addEventListener('keydown', event => {
             if (event.key !== 'c' || (event.target as Element).matches('input, textarea')) return;
@@ -90,14 +90,14 @@ test('feedback typing stays inside the shadow root when the page has a C shortcu
     const text = feedback.getByRole('textbox', { name: 'Feedback', exact: true });
     await text.focus();
     await page.keyboard.type('Clear copy c');
-    await expect(text).toHaveValue('Clear copy c');
+    await expect(text).toHaveText('Clear copy c', { useInnerText: true });
     await expect(page.locator('body')).not.toHaveAttribute('data-page-shortcut');
     await expect(instruction(page)).toHaveCount(0);
     await feedback.getByRole('button', { name: 'Expand', exact: true }).click();
     await text.focus();
     await page.keyboard.press('End');
     await page.keyboard.type(' c');
-    await expect(text).toHaveValue('Clear copy c c');
+    await expect(text).toHaveText('Clear copy c c', { useInnerText: true });
     await expect(page.locator('body')).not.toHaveAttribute('data-page-shortcut');
     // Escape collapses first, then closes the feedback popover.
     await page.keyboard.press('Escape');
@@ -221,17 +221,17 @@ test('the pill is one tab stop, ? lists the shortcuts, and G then I, /, J, K, R 
     await expect(inbox.getByRole('searchbox', { name: 'Search comments' })).toBeFocused();
     await expect(inbox.getByRole('searchbox', { name: 'Search comments' })).toHaveValue('');
 
-    // The status tabs: one tab stop, ← and → move between the tabs (past the Active statuses menu, which Tab reaches), Enter chooses
+    // The status tabs: one tab stop, ← and → move between the tabs (past the Active statuses and Done and archive menus, which Tab reaches), Enter chooses
     const tabs = inbox.getByRole('group', { name: 'Show comments' });
     const statuses = tabs.getByRole('button', { name: 'Active statuses', exact: true });
-    await expect(tabs.locator('button:not([tabindex="-1"])')).toHaveCount(2);
+    await expect(tabs.locator('button:not([tabindex="-1"])')).toHaveCount(3);
     const active = tabs.getByRole('button', { name: /^Active \d/ });
     await active.focus();
     await page.keyboard.press('Tab');
     await expect(statuses).toBeFocused();
     await active.focus();
     await page.keyboard.press('ArrowRight');
-    const done = tabs.getByRole('button', { name: /^Done/ });
+    const done = tabs.getByRole('button', { name: /^Done \d/ });
     await expect(done).toBeFocused();
     await expect(active).toHaveAttribute('aria-pressed', 'true');
     // The menu: ↓ moves between Active and its statuses, Escape closes only the menu
@@ -275,6 +275,6 @@ test('the pill is one tab stop, ? lists the shortcuts, and G then I, /, J, K, R 
     const reply = mine.getByRole('textbox', { name: 'Reply', exact: true });
     await expect(reply).toBeFocused();
     await page.keyboard.type('jk');
-    await expect(reply).toHaveValue('jk');
+    await expect(reply).toHaveText('jk', { useInnerText: true });
     await context.close();
 });

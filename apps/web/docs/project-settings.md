@@ -4,7 +4,7 @@
   settings page itself), Review, Environments, Installation, People and teams, Integrations, Notifications and
   Danger zone, listed by `projectSettingsSections` and linked with `KnownPageLinks.projectSettings(id, section)`.
   The layout shows them with `SettingsLayout` (`LinkTabs` `side`: a column beside the section, a row above it on
-  small screens) and the breadcrumbs end with the section. `settingsContext.ts` loads the viewer and project once per request;
+  small screens; while that row scrolls, an edge fades out as long as more sections are hidden past it) and the breadcrumbs end with the section. `settingsContext.ts` loads the viewer and project once per request;
   admin-only sections call `configurableProject` (404 for commenters and the uier workspace). Commenters see
   Installation and Notifications, and the settings page redirects them to Notifications. Integrations is a grid of
   the services not connected yet (logo, one line, Connect, Details) above the connected ones, each a row with its
@@ -23,6 +23,8 @@
   something changed; `useSettingsDraft` compares the draft with the saved values and starts over from the server's
   values after a save. Long cards pass `stickyFooter` to `Section`, so Save stays in reach. Switches save at once
   (project emails, comment excerpts); radios and text wait for Save. Account's Profile uses the same footer.
+- **Usage** (General, `#usage`) is a grid of label/value cells; each cell spans two rows of the grid (`grid-rows-subgrid`),
+  so a label that wraps keeps the numbers of its row on one line.
 - The board's column sorts are the project's too, but they are chosen on the board, from each column's header, by
   everyone who triages the project, and saved at once ([column sorts](comments-inbox.md#board-column-sorts)).
 
@@ -76,7 +78,7 @@ as written. `toolbar-language.api.spec.ts` and `toolbar-language.spec.ts` cover 
 ### Toolbar features
 
 Review settings → Toolbar features lets project admins simplify the toolbar's optional tools:
-Accessibility, SEO and Text rewrites. Comments, page feedback (subject to the existing Feedback types
+Accessibility, SEO, Text rewrites and Drawing on the page (the toolbar's canvas mode). Comments, page feedback (subject to the existing Feedback types
 setting), the inbox and account/options controls stay available. These choices share the Review page's
 Save/Discard draft and admin/project checks; they change visibility, not endpoint permissions.
 

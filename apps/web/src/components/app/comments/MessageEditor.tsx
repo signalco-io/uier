@@ -5,7 +5,7 @@ import { useAppI18n } from '@/src/lib/i18n/client';
 import { useState, useSyncExternalStore } from 'react';
 import type { appCommentDrafts } from './replyDrafts';
 import { FieldDescription } from '@/src/components/ui/field';
-import type { MessageMention } from './MentionTextarea';
+import type { MessageMention } from './MentionEditor';
 import { MessageComposer } from './MessageComposer';
 
 const emptyMentions: MessageMention[] = [];

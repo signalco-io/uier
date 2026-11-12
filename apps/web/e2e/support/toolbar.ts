@@ -40,6 +40,14 @@ export const inboxPages = (page: Page) => page.getByRole('complementary', { name
 /** The open location picker's pages (each named with its count: "/about, 3 comments") */
 export const inboxPageOptions = (page: Page) => page.getByRole('dialog', { name: /^(Pages|Environment and page)$/ }).getByRole('group', { name: 'Pages' });
 
+/** The open inbox's search field: its search button in the title row opens it first when it is closed */
+export async function inboxSearch(inbox: Locator) {
+    const field = inbox.getByRole('searchbox', { name: 'Search comments' });
+    if (!await field.isVisible()) await inbox.locator('[data-uier-inbox-search]').click();
+    await expect(field).toBeFocused();
+    return field;
+}
+
 /**
  * Chooses which pages the open inbox lists: `/^This page/`, `/^All pages/` or another page's path
  * (the options' names end with their count)

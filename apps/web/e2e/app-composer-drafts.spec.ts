@@ -30,19 +30,19 @@ test('app comment edits survive reload and thread remount, then clear on cancel 
     const threadUrl = page.url();
     await page.goto('/app/projects');
     await page.goto(threadUrl);
-    await expect(editor).toHaveValue('An unfinished edit');
+    await expect(editor).toHaveText('An unfinished edit', { useInnerText: true });
     await page.reload();
-    await expect(editor).toHaveValue('An unfinished edit');
+    await expect(editor).toHaveText('An unfinished edit', { useInnerText: true });
     // An intentionally empty edit is a draft too, rather than a fallback to the original message.
     await editor.fill('');
     await page.reload();
-    await expect(editor).toHaveValue('');
+    await expect(editor).toHaveText('', { useInnerText: true });
     await card.getByRole('button', { name: 'Cancel', exact: true }).click();
     await page.reload();
     await expect(editor).toHaveCount(0);
     await card.getByRole('button', { name: /^More actions for the / }).click();
     await page.getByRole('menuitem', { name: 'Edit', exact: true }).click();
-    await expect(editor).toHaveValue('A thread for local drafts');
+    await expect(editor).toHaveText('A thread for local drafts', { useInnerText: true });
     // A slow save must clear only the submitted draft, never text typed while its response was pending.
     let release!: () => void;
     const held = new Promise<void>(resolve => { release = resolve; });
@@ -62,7 +62,7 @@ test('app comment edits survive reload and thread remount, then clear on cancel 
     await expect(card.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
     await page.unroute('**/app/projects/**');
     await page.reload();
-    await expect(editor).toHaveValue('Newer unsent text');
+    await expect(editor).toHaveText('Newer unsent text', { useInnerText: true });
     await card.getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(editor).toHaveCount(0);
     await page.reload();
@@ -89,13 +89,13 @@ test('same-build refresh retains app and toolbar composers; deployment skew relo
     const text = feedback.getByRole('textbox', { name: 'Feedback', exact: true });
     await text.fill('Toolbar feedback before a deployment');
     await page.evaluate(() => {
-        Object.assign(window, { draftDocument: true, feedbackField: document.querySelector('#uier-toolbar')?.shadowRoot?.querySelector('textarea') });
+        Object.assign(window, { draftDocument: true, feedbackField: document.querySelector('#uier-toolbar')?.shadowRoot?.querySelector('[data-uier-editor]') });
     });
     const refreshed = page.waitForResponse(response => new URL(response.url()).pathname === `/app/projects/${project}` && response.request().headers().rsc === '1');
     appSocket.send('{"type":"comments.changed"}');
     await refreshed;
-    await expect(reply).toHaveValue('App reply before a deployment');
-    await expect(text).toHaveValue('Toolbar feedback before a deployment');
+    await expect(reply).toHaveText('App reply before a deployment', { useInnerText: true });
+    await expect(text).toHaveText('Toolbar feedback before a deployment', { useInnerText: true });
     expect(await page.evaluate(() => (window as unknown as { feedbackField: HTMLElement }).feedbackField.isConnected)).toBe(true);
     await expect(page.locator('#uier-toolbar')).toHaveCount(1);
 
@@ -117,10 +117,10 @@ test('same-build refresh retains app and toolbar composers; deployment skew relo
     await expect.poll(() => page.evaluate(() => 'draftDocument' in window).catch(() => true), { timeout: 15_000 }).toBe(false);
     await hydrated(card.getByRole('button', { name: 'Reply', exact: true }));
     await card.getByRole('button', { name: 'Reply', exact: true }).click();
-    await expect(reply).toHaveValue('App reply before a deployment');
+    await expect(reply).toHaveText('App reply before a deployment', { useInnerText: true });
     await appNavigation(page);
     await page.getByRole('button', { name: 'Give feedback', exact: true }).click();
-    await expect(text).toHaveValue('Toolbar feedback before a deployment');
+    await expect(text).toHaveText('Toolbar feedback before a deployment', { useInnerText: true });
     await feedback.getByRole('button', { name: 'Discard', exact: true }).click();
     await text.press('Escape');
     await expect(feedback).toBeHidden();
@@ -129,8 +129,8 @@ test('same-build refresh retains app and toolbar composers; deployment skew relo
     await page.reload();
     await hydrated(card.getByRole('button', { name: 'Reply', exact: true }));
     await card.getByRole('button', { name: 'Reply', exact: true }).click();
-    await expect(reply).toHaveValue('');
+    await expect(reply).toHaveText('', { useInnerText: true });
     await appNavigation(page);
     await page.getByRole('button', { name: 'Give feedback', exact: true }).click();
-    await expect(text).toHaveValue('');
+    await expect(text).toHaveText('', { useInnerText: true });
 });

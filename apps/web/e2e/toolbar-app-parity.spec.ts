@@ -72,11 +72,12 @@ test('In progress set in the toolbar reads the same in the app, and back', async
     const thread = openThread(page);
     await setThreadStatus(page, thread, 'In progress');
     await expect(thread.getByRole('group', { name: 'Messages' })).toContainText('Status: In progress');
-    // The inbox's status tabs are the app's: Active, Done and All, with In progress in the Active statuses menu
+    // The inbox's status tabs are the app's: Active, Done and All, with In progress in the Active statuses menu and
+    // Archive in Done's
     await page.getByRole('button', { name: /^Inbox/ }).click();
     const inbox = page.getByRole('complementary', { name: 'Comments' });
     const tabs = inbox.getByRole('group', { name: 'Show comments' });
-    await expect(tabs.getByRole('button')).toHaveText([/^Active/, '', /^Done/, /^All/, /^Archive/]);
+    await expect(tabs.getByRole('button')).toHaveText([/^Active/, '', /^Done/, '', /^All/]);
     await expect(tabs.getByRole('button', { name: 'Active 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await tabs.getByRole('button', { name: 'Active statuses', exact: true }).click();
     const statusMenu = page.getByRole('dialog', { name: 'Active statuses' });

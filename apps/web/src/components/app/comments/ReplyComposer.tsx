@@ -10,7 +10,7 @@ import { appCommentDrafts } from './replyDrafts';
 import { Button } from '@/src/components/ui/button';
 import { FieldDescription } from '@/src/components/ui/field';
 import { replyCommentAction } from './actions';
-import type { MessageMention } from './MentionTextarea';
+import type { MessageMention } from './MentionEditor';
 import { MessageComposer } from './MessageComposer';
 import { useCommentUpdate } from './CommentUpdates';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
@@ -18,14 +18,18 @@ import type { ProjectCommentView } from '../../../lib/app/projectComments';
 const emptyMentions: MessageMention[] = [];
 const maxLength = 1000;
 
-/** Mounted only for the card whose Reply action was opened: the shared `MessageComposer` with the thread's seven-day draft. */
-export function ReplyComposer({ projectId, userId, userName, comment, textareaRef, onClose }: {
+/**
+ * Mounted only for the card whose Reply action was opened: the shared `MessageComposer` with the thread's seven-day
+ * draft. It has no close button: Escape in the empty field closes it (uier #288); with text, Escape is left to the thread.
+ */
+export function ReplyComposer({ projectId, userId, userName, comment, fieldRef, onClose }: {
     projectId: string; userId: string;
     /** The signed-in user's name, for the pending reply's avatar (the reply itself reads "You") */
     userName?: string;
     comment: ProjectCommentView;
     /** The reply box, for R to focus it rather than another open editor in the card */
-    textareaRef?: RefObject<HTMLTextAreaElement | null>;
+    fieldRef?: RefObject<{ focus: () => void } | null>;
+    /** Escape in the empty field */
     onClose: () => void;
 }) {
     const { t } = useAppI18n();
@@ -86,10 +90,10 @@ export function ReplyComposer({ projectId, userId, userName, comment, textareaRe
     };
 
     return <MessageComposer label={t("Reply")} formLabel={t("Reply to thread")} name="reply" placeholder={t("Reply...")}
-        value={text} mentions={mentions} onValueChange={setText} mentionsIn={{ projectId, commentId: comment.id }} maxLength={maxLength} textareaRef={textareaRef}
-        attachments={<ReplyAttachment attachment={attachment} />} onPaste={attachment.handlePaste} holdSubmit={attachment.reading}
+        value={text} mentions={mentions} onValueChange={setText} mentionsIn={{ projectId, commentId: comment.id }} maxLength={maxLength} fieldRef={fieldRef}
+        attachments={<ReplyAttachment attachment={attachment} />} onPaste={attachment.handlePaste} onImageDrop={file => void attachment.attach(file)} holdSubmit={attachment.reading}
         submitLabel={t("Post reply")} submitVerb="send" onSubmit={submit} pending={pending}
-        cancelLabel={t("Close reply")} onCancel={onClose}
+        onEscapeEmpty={onClose}
         onDiscard={() => { attachment.remove(); drafts.delete(key); setError(undefined); setAnnouncement(t("Draft discarded")); }}
         error={(attachment.error && t(attachment.error)) || (error && t("{value0} Your draft is kept. Try sending again.", { value0: error }))} announcement={announcement}
         notices={<>

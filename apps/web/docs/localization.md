@@ -23,6 +23,9 @@ field through the user document's etag. Inputs stay disabled while saving; a fai
   deduplicates reads within that render. Locale, account data and request headers have no shared data cache.
 - Keep language reads beneath the [Cache Components](cache-components.md) Suspense boundaries. The app's
   static layout streams an `AppLanguage` child which supplies the resolved language and selected catalog.
+  The shared component is `src/components/app/AppLanguage.tsx`. Dedicated internal error entries in
+  `(rest)/(app-errors)` use it inside their not-found content, after the synchronous HTTP 404 decision,
+  so language resolution cannot start a successful document response for a denied route.
 - `useAppI18n()` supplies `{ t, language }` in client components. Shared public specimens default to English
   without importing catalogs, authentication or live app controls. `lang` is on the app's server-rendered
   container; the provider also updates the document language during navigation and restores it on exit.
@@ -52,3 +55,5 @@ profile/toolbar writes, catalog key/placeholder completeness and localized gener
 cross-browser account preferences, explicit English, browser reset, navigation and delayed/failed saves.
 Feature suites continue to use English by default. Translation catalogs are server resources; do not import
 them into a client entry. Preserve the narrow client entry points of settings and access forms.
+The browser suite also checks Croatian denied-project/review documents: HTTP 404, localized content,
+private no-store, the active-account hint and the original account-switch return address.

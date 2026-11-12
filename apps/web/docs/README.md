@@ -38,12 +38,16 @@ Product contracts, API references and runbooks stay in the repository's [`docs/`
 - [Clients](clients.md): client documents, names, appearance and visibility.
 - [Page and mutation responsiveness](responsiveness.md): realtime refresh, URL state, optimistic updates, `LinkTabs` spinners.
 - [Cache Components](cache-components.md): static shells, request-scoped authorization, cache boundaries and verification.
+- [Partial Prefetching](partial-prefetching.md): link policies, shared shells and production navigation verification.
 - [Keyboard navigation and shortcuts](keyboard.md): composites with one tab stop, the shortcuts, `?` and the switch.
 
 ## Comments and review
 
+- [Project comments CLS](project-comments-cls.md): measured layout-shift sources, fixes and production-build regression.
+
 - [Comments inbox and board](comments-inbox.md): rows, keyboard, the board and drag and drop.
 - [The open thread](comment-thread.md): `CommentCard`, message Markdown, reading when shown, the reply composer.
+- [Message reactions](reactions.md): emoji reactions to each message, their storage, permissions, API and views.
 - [Comment query backend](comment-query.md): versioned queries, Cosmos execution, capabilities, cursors and saved views.
 - [Comment filters and priority](comment-filters.md): the filter bar and `PriorityFlag`.
 - [App triage](triage.md): search, priority and bulk triage.
