@@ -11,13 +11,15 @@
   Clear filters clears it too) and `onView` for its own List/Board memory, and leaves out `environments` (no Environment
   and page filter) and `statusCounts` (no status tabs, and no Status filter on its board, which groups by category).
   A project's comments pass neither `projects` nor `onView`.
-- The comments' filter bar (`CommentFilters.tsx`): search on the left, then at the right end of that row the filters in
+- The comments' filter bar (`CommentFilters.tsx`): search on the left, the status tabs right after it in the list
+  ([uier #345](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_HcT9BzAEZpgzuwyUbwB_8); below), then at the right end of that row the filters in
   effect, one Filter button (a popover with Status on the board only (below), Priority, Environment
   and page, People (Everyone, Assigned to me, Unassigned, Opened by me) and Only unread (plus the open thread); its badge counts the
   filters in effect) and List/Board (on a touch screen the search, Filter and the List/Board group are one height, 44 px:
-  the group's 3 px padding around 38 px tabs; uier #277), then the status tabs
-  (list only, `StatusTabs`: Active, Done and All, with counts; on a phone, below `sm`, the group fills the width and
-  the tabs share the room, uier #278. Active, the default with no `?status=`, is every status
+  the group's 3 px padding around 38 px tabs; uier #277). The status tabs
+  (list only, `StatusTabs`: Active, Done and All, with counts) follow the search in the same row and wrap with it when the
+  row runs out of room; on a phone, below `sm`, they take their own line under the row (before the filters in effect),
+  the group fills the width and the tabs share the room, uier #278. Active, the default with no `?status=`, is every status
   but Done; `statusMatches` in `commentLabels.ts`). Open, In progress and Ready to verify fold under Active
   (`activeStatusFilters`) to keep the tabs narrow: the "Active statuses" button beside the Active tab (24px wide, the WCAG 2.5.8 minimum; wider on touch) opens a menu of
   Active and the three, each with its count, and a choice closes it. The Active tab then names the choice ("Active: In
@@ -43,12 +45,14 @@
   with their status dots and counts) and the same "Active: In progress 4" tab, and the same Done tab with Archive in its "Done and archive" menu (`doneStatusFilters`
   in `CommentsFilter.tsx`); underlined like the toolbar's other tabs. Site-wide
   counts come from the activity summary, Open as its not-done count less In progress and Ready to verify. Neither view has "15 of 93 comments": the
-  list's status tabs and the board's columns already count what is shown. Where the comments are at least 42rem wide
-  (`@2xl/comments`, `countLineInHeader` in `CommentFilters.tsx`; uier #300) the count line is in the search row instead, right-aligned
+  list's status tabs and the board's columns already count what is shown. Where the comments are at least 56rem wide
+  (`@4xl/comments`, `countLineInHeader` in `CommentFilters.tsx`; uier #300; 42rem before the status tabs joined the row. The
+  query measures the reading column, at most 60rem, while the header itself is then as wide as the list with its thread) the count line is in the search row instead, right-aligned
   just left of the filters in effect and Filter (`CommentFilters`' `countLine`), and `TriageSelection`'s own line is hidden there: an
   unread count appearing or going to zero changes only that spot (the filters in effect are right-aligned against Filter, so they
-  stay too), and with no unread count it is `sr-only`. That width fits the search's minimum, the count, Filter and List/Board on
-  one line. Narrower (a phone), the count line keeps its own row under the status tabs. There a populated project inbox keeps the count line's
+  stay too), and with no unread count it is `sr-only`. That width fits the search's minimum, the status tabs (with a folded status
+  named, "Active: In progress 4"), the count, Filter and List/Board on one line. Narrower (a phone, a tablet), the count line
+  keeps its own row under the search row. There a populated project inbox keeps the count line's
   32 px height (44 px on touch) when it has no unread count, so automatic reads and incoming unread feedback do not move the list or board.
   Empty projects hide it; callers without `reserveLine` retain the collapsed `sr-only` line. Its status stays mounted
   for announcements. The count line has no side padding of its own and takes the filters header's width, so its

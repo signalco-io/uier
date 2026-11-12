@@ -34,11 +34,12 @@ import { ProjectMark } from '../projects/ProjectMark';
 
 /**
  * From this width of the comments (`@container/comments`) the count line (the unread count and Mark all as read) is in
- * the search row, left of Filter; under it the count line keeps its own row under the status tabs (`TriageSelection`,
- * which this hides from here). Wide enough for the search's minimum, the count, Filter and List/Board on one line, so
- * the count appearing or going to zero never wraps the row.
+ * the search row, left of Filter; under it the count line keeps its own row under the search row (`TriageSelection`,
+ * which this hides from here). Wide enough for the search's minimum, the status tabs, the count, Filter and List/Board
+ * on one line, so the count appearing or going to zero never wraps the row. The query measures the reading column (at
+ * most 60rem); from 48rem the header is as wide as the list with its thread (`ProjectComments`), wider than that.
  */
-export const countLineInHeader = '@2xl/comments:hidden';
+export const countLineInHeader = '@4xl/comments:hidden';
 
 /** A status tab grows into the room a full-width group has on a phone */
 const statusTab = 'grow sm:grow-0';
@@ -161,13 +162,18 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
                         </InputGroupAddon>
                     )}
                 </InputGroup>
+                {/* Active (the default, every status but Done), Done and All, right after the search (uier #345); on a phone on
+                    their own line under the row, before the filters in effect. The board shows the statuses side by side,
+                    with Archive as its last column. Open, In progress and Ready to verify fold under Active, Archive under
+                    Done: each menu picks one, and the tab then names it. */}
+                {view === 'list' && statusCounts && <StatusTabs status={status ?? 'active'} counts={statusCounts} onStatus={value => go({ status: value === 'active' ? undefined : value })} />}
                 {(active > 0 || countLine) && (
                     // Right-aligned against Filter: the count line first, so the filters in effect stay where they are
                     // when the count appears or goes to zero
                     <div className={cn('flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:justify-end',
-                        active > 0 ? 'order-last basis-full sm:order-none sm:flex-1 sm:basis-0' : 'hidden @2xl/comments:flex @2xl/comments:flex-1')}>
+                        active > 0 ? 'order-last basis-full sm:order-none sm:flex-1 sm:basis-0' : 'hidden @4xl/comments:flex @4xl/comments:flex-1')}>
                         {countLine && (
-                            <div className={cn('hidden shrink-0 items-center gap-x-3 @2xl/comments:flex', !countLine.summary && !countLine.actions && '@2xl/comments:sr-only')}>
+                            <div className={cn('hidden shrink-0 items-center gap-x-3 @4xl/comments:flex', !countLine.summary && !countLine.actions && '@4xl/comments:sr-only')}>
                                 <span role="status" className="text-sm text-muted-foreground tabular-nums">{countLine.summary}</span>
                                 {countLine.actions}
                             </div>
@@ -295,10 +301,6 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
                     go({ view: next, comment: undefined, ...(status === 'archived' ? { status: undefined } : {}) });
                 }} />
             </div>
-            {/* Active (the default, every status but Done), Done and All; the board shows the statuses side by side,
-                with Archive as its last column.
-                Open, In progress and Ready to verify fold under Active, Archive under Done: each menu picks one, and the tab then names it. */}
-            {view === 'list' && statusCounts && <StatusTabs status={status ?? 'active'} counts={statusCounts} onStatus={value => go({ status: value === 'active' ? undefined : value })} />}
         </div>
     );
 }
@@ -322,7 +324,7 @@ function StatusTabs({ status, counts, onStatus }: {
     const doneShown = isDoneStatusFilter(status);
     const doneValue = doneShown ? status : 'done';
     return (
-        <div className="-mx-1 -my-0.5 max-w-[calc(100%+0.5rem)] overflow-x-auto px-1 py-0.5">
+        <div className="order-last -mx-1 -my-0.5 max-w-[calc(100%+0.5rem)] basis-[calc(100%+0.5rem)] overflow-x-auto px-1 py-0.5 sm:order-none sm:shrink-0 sm:basis-auto">
             {/* Full width on a phone, the tabs sharing the room (uier #278); still scrolls when their words don't fit */}
             <ToggleGroup size="sm" spacing={0.5} aria-label={t("Status")} className={cn(segmentedGroup, 'w-max min-w-full sm:min-w-0')}
                 value={[activeShown ? 'active' : doneShown ? 'done' : status]}
