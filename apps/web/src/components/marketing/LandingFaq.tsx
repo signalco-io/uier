@@ -46,19 +46,19 @@ const questions: Question[] = [
     },
     {
         question: 'Do I need an account?',
-        answer: <>Not on this page: here you comment as a guest. Your first comment sets a cookie that lets you resolve and delete your own comments, and only yours. To review your own site you sign in with a code sent to your email, with Google or Microsoft, or with a passkey. There is no password.</>
+        answer: <>You can try this page as a guest without an account. A guest identity lets you manage your own feedback; authorized uier staff can moderate it. To review your own site you sign in with a code sent to your email, with Google or Microsoft, or with a passkey. There is no password. Project access settings determine whether reviewers must sign in.</>
     },
     {
         question: 'Who can see my comments?',
-        answer: <>On this page, everyone who opens it: comments here are public. You show up as a guest name such as &ldquo;Guest 3F2A&rdquo;. Do not post personal information. On your own site the project decides: only the people you invite, or anyone with the review link.</>
+        answer: <>Guest feedback on our public pages is public, under a name such as &ldquo;Guest 3F2A&rdquo;. Signed-in feedback on uier is private to you and the uier team. On your own site the project decides who can review it; a private thread is visible only to its author and workspace admins.</>
     },
     {
         question: 'What is saved with a comment?',
-        answer: <>The text, the page and where on it the comment is pinned, the time, a screenshot of the spot when capture works, and the device it came from: its size, the window size, the browser, the operating system and settings such as touch input or a dark colour scheme. Not the browser&rsquo;s user-agent string or your IP address. The <InlineLink href={KnownPages.LegalPrivacyPolicy}>privacy policy</InlineLink> has the details.</>
+        answer: <>The text, page, anchor and time, plus a screenshot when capture works. A screenshot can include visible sensitive content; omit it before posting or redact a saved image later. Later redaction cannot recall copies. Members can see available browser, operating-system and device context; public and guest views show only coarse device and window sizes. A requested rewrite sends the selected text, your instruction and configured style guidance to Anthropic. The <InlineLink href={KnownPages.LegalPrivacyPolicy}>privacy policy</InlineLink> has the details.</>
     },
     {
         question: 'How long are comments kept?',
-        answer: <>Visitor threads on this site: 90 days after their last change, then they are deleted automatically. Our starter threads and their replies do not expire. Comments in your projects stay until you delete them. You can delete your own comments at any time.</>
+        answer: <>Feedback in uier&rsquo;s own feedback projects expires 90 days after its last change, including signed-in feedback; our starter threads and their replies do not expire. Feedback in customer projects stays until deleted. Removing one message can preserve other people&rsquo;s replies; a separate authorized whole-thread deletion removes the discussion. Done and Archive keep the feedback.</>
     },
     {
         question: 'What does it cost?',

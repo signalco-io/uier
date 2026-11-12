@@ -16,12 +16,13 @@ overload the service and do not post personal data.
 
 ## Scope
 
-- [uier.io](https://uier.io), its comments API (`/api/comments`), authenticated MCP connector (`/api/mcp`) with its OAuth sign-in (`/api/oauth/*`, the `/.well-known/oauth-*` documents and the consent page under `/app/connect/`) and the toolbar bundle (`/toolbar.js`)
+- [uier.io](https://uier.io), its comments API (`/api/comments/*`), project review API (`/api/review/*`), authenticated MCP connector (`/api/mcp`) with its OAuth sign-in (`/api/oauth/*`, the `/.well-known/oauth-*` documents and the consent page under `/app/connect/`)
+- the supported toolbar bundles (`/toolbar.js`, `/review.js`, `/audit.js`), published desktop extension and its session/site APIs (`/api/extension/*`)
 - the code in this repository
 
 The controls that are in place are described on [uier.io/security](https://uier.io/security).
 
-The unreleased browser extension uses separate revocable sessions, exact project/site bindings,
+The published desktop browser extension uses separate revocable sessions, exact project/site bindings,
 an isolated content script and a closed worker broker. An extension ID or CORS origin never grants
-identity or bypasses browser verification. Production client registration is disabled by default.
-See [the design and hosted release gate](docs/browser-extension.md).
+identity or bypasses browser verification. Browser availability and release evidence are recorded in
+[the extension guide](docs/browser-extension.md); reporting scope does not promise a release on every browser.

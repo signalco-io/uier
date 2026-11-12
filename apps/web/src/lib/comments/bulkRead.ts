@@ -10,8 +10,7 @@ export const bulkReadSchema = z.object({ threads: z.array(z.object({
     sequence: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)
 })).min(1).max(MAX_LIST_COMMENTS).refine(threads => new Set(threads.map(thread => thread.id)).size === threads.length, 'Duplicate comment id.') });
 
-// 200 maximum-length ids plus safe integer cursors exceed the ordinary 16 KiB body limit.
-export const MAX_BULK_READ_BYTES = 48 * 1024;
+export { MAX_BULK_READ_BYTES } from './limits';
 export type ReadThreadInput = z.infer<typeof bulkReadSchema>['threads'][number];
 
 /** Validate the whole batch before writing. Missing, hidden and failed writes all stay unacknowledged. */

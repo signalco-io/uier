@@ -19,9 +19,26 @@ for (const document of documents) {
             await expect(page.getByRole('listitem').filter({ hasText: /^Deleted data can stay in backups for up to seven days\.$/ })).toBeVisible();
             await expect(page.getByRole('listitem').filter({ hasText: /^Passkeys: until you remove them on your Account page, or with your account\./ })).toBeVisible();
             await expect(page.getByText(/Your fingerprint, face or screen lock only unlocks the passkey on your device; none of it reaches us\./)).toBeVisible();
+            await expect(page.getByRole('main')).toContainText('including signed-in feedback');
+            await expect(page.getByRole('main')).toContainText('X-Uier-Visitor');
+            await expect(page.getByRole('main')).toContainText('Signed-in feedback on our site and app is private');
         }
-        if (document.path === '/legal/cookie-policy')
+        if (document.path === '/legal/cookie-policy') {
             await expect(page.getByRole('main').getByText('__Host-uier_passkey_challenge', { exact: true })).toBeVisible();
+            await expect(page.getByRole('main')).toContainText('Web Analytics collection is disabled and its browser SDK is not loaded');
+            await expect(page.getByRole('main')).toContainText('X-Uier-Visitor');
+            await expect(page.getByRole('main')).not.toContainText('so only you can resolve or delete');
+        }
+        if (document.path === '/legal/terms-of-service') {
+            const main = page.getByRole('main');
+            await expect(main).toContainText('site owner’s authority');
+            await expect(main).toContainText('including screenshots');
+            await expect(main).toContainText('A separate whole-thread deletion removes the discussion');
+            await expect(main).toContainText('Feedback you leave while signed in to uier is private');
+            await expect(main).toContainText('whether left as a guest or while signed in');
+            await expect(main).toContainText('backups for up to seven days');
+            await expect(main).not.toContainText('not available yet');
+        }
 
         // The legal navigation lists every document and marks this one
         const nav = page.getByRole('navigation', { name: 'Legal documents' });

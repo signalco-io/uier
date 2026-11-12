@@ -21,6 +21,24 @@ test('landing page renders', { tag: ['@smoke', '@mobile-smoke'] }, async ({ page
     await expect(page.getByText(new RegExp(`© \\d{4} ${brand.name}`))).toBeVisible();
 });
 
+test('the homepage explains capture limits, private feedback and requested rewrite inputs', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /Website feedback.*client comments.*report bugs/);
+    const main = page.getByRole('main');
+    await expect(main).toContainText('capture and browser details can be unavailable');
+    const questions = page.getByRole('region', { name: 'Questions' });
+    for (const title of ['Who can see my comments?', 'What is saved with a comment?', 'How long are comments kept?'])
+        await questions.locator('summary').filter({ hasText: title }).click();
+    await expect(questions).toContainText('Signed-in feedback on uier is private');
+    await expect(questions).toContainText('A screenshot can include visible sensitive content');
+    await expect(questions).toContainText('Later redaction cannot recall copies');
+    await expect(questions).toContainText('your instruction and configured style guidance to Anthropic');
+    await expect(questions).toContainText('including signed-in feedback');
+    await expect(questions).toContainText('Done and Archive keep the feedback');
+    await expect(main.locator('#hero-comment-anchor')).toHaveCount(1);
+    await expect(main.locator('#first-step-comment-anchor')).toHaveCount(1);
+});
+
 test('landing page sends security headers', async ({ request }) => {
     const response = await request.get('/');
     const csp = response.headers()['content-security-policy'];

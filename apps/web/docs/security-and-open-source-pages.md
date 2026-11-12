@@ -22,7 +22,17 @@ their own.
 The security controls distinguish Pulumi deletion protection from Azure management locks and
 state that approving reviews are not required. Renovate can automerge only selected development
 type/browser-test dependencies after three days. Keep those controls aligned with `renovate.json`,
-workflow SHA pins and the current main ruleset; do not claim the pending credential rollout is active.
+workflow SHA pins and the current main ruleset. The completed credential rollout's dated activation
+and boundary evidence is in [the rollout record](../../../docs/ci-credential-rollout.md).
+
+The public controls distinguish guest cookies/storage/header identity, project review tokens and
+background member sign-in. Status permission, message removal and whole-thread deletion are separate;
+workspace admins include uier staff in the feedback projects. Public/guest context is coarse; members
+can read available reproduction details. uier feedback has a 90-day TTL even when signed in; customer
+project feedback stays until deleted. Input sizes come from `comments/limits.ts` (the bulk-read module
+re-exports its unchanged limit), so screenshot/drawing bodies cannot drift behind a blanket 16 KB
+claim. Markdown is rendered by the shared parser without executing raw HTML. Reporting scope matches
+`SECURITY.md`, including review/extension APIs and all three supported bundles.
 
 The continuous-backup control and privacy retention line describe the verified live
 `Continuous7Days` policy in West Europe. Keep the seven-day wording aligned with the

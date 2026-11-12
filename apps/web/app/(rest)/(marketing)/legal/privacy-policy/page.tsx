@@ -47,8 +47,8 @@ export default function PrivacyPolicyPage() {
             <h2>In short</h2>
             <ul>
                 <li>Reading the site sets no cookies and stores nothing in your browser.</li>
-                <li>Comments you leave with the toolbar on {brand.domain} are public. Anyone who opens the page can read them.</li>
-                <li>Visitor threads are deleted automatically 90 days after their last change. Our starter threads and their replies stay until we remove them.</li>
+                <li>Guest feedback on our public pages is public. Feedback you leave while signed in to {brand.name} is private to you and the uier team.</li>
+                <li>Feedback in uier&rsquo;s own feedback projects expires 90 days after its last change, including signed-in feedback. Our starter threads and their replies stay until we remove them.</li>
                 <li>
                     Comments in a project, on a site that uses {brand.name}, are visible only to the people the
                     project allows, and stay until they are deleted.
@@ -103,7 +103,7 @@ export default function PrivacyPolicyPage() {
                     automatically in your browser when you start a comment, rewrite, feedback or bug report. It can
                     include what is visible in that part of the page. The comment box says that a screenshot will be
                     attached; choose Omit screenshot before posting to send only the text, and no image is sent. The
-                    image is sent only when you post the feedback; discarding an unsent comment saves no image. Replies keep the original screenshot. On saved feedback,
+                    image is sent only when you post the feedback; discarding an unsent comment saves no image. Replies can also include images you attach. On saved feedback,
                     its author or a workspace admin can supply an uploaded or pasted image, or save a redacted replacement.
                     We read clipboard images only when you choose Paste image or paste an image into saved feedback.
                     Every image is decoded and re-encoded on our server before storage. We keep only the first frame
@@ -114,14 +114,14 @@ export default function PrivacyPolicyPage() {
                 </li>
             </ul>
             <p>
-                Other visitors see the text, the time, the device size, the window size (so a reviewer can see
+                On public guest feedback, other visitors see the text, the time, the device size, the window size (so a reviewer can see
                 the page as you saw it), the screenshot if there is one, and a guest name such as &ldquo;Guest
                 3F2A&rdquo;, derived from the author id. If you are signed in on {brand.domain}, comments and replies show your current account name.
-                Feedback on app pages is private to its author and the uier team. Public and guest views never expose the author id, browser,
+                Signed-in feedback on our site and app is private to its author and the uier team. Public and guest views never expose the author id, browser,
                 operating system, device model, input, colour scheme, reduced motion, page language, pixel ratio or capture-start time.
                 Authorized members of a project can view and copy those reproduction details for that project, except the author id. Unsupported browser details are shown
                 as unknown. The copied page link contains only the stored page path and any approved view state, with no review tokens. Comments on the public
-                site are public, so do not put personal information in them.
+                site left as a guest are public, so do not put personal information in them.
             </p>
 
             <h3>Teams and workspace access</h3>
@@ -169,9 +169,11 @@ export default function PrivacyPolicyPage() {
             <p>
                 Starting a draft keeps a random visitor token in local storage to recover a lost response.
                 Opening a thread without an existing guest identity or session creates no identity. Your first
-                comment, reply or explicit Mark as read action sets the <code>__Host-uier_visitor</code> cookie. It holds a random token that
-                lets the server recognise your comments and read state, so only you can resolve or delete your comments. We store a hash of
-                the token, never the token itself. The <a href={KnownPages.LegalCookiePolicy}>cookie policy</a> has
+                comment, reply or explicit Mark as read or Mark all as read action can set the <code>__Host-uier_visitor</code> cookie. The toolbar
+                also sends its local visitor token in the <code>X-Uier-Visitor</code> header. An existing cookie takes
+                precedence. The token recognises your feedback and read state; the server checks each action&rsquo;s
+                author, member and admin permissions separately. We store a hash of the token, never the token
+                itself. The <a href={KnownPages.LegalCookiePolicy}>cookie policy</a> has
                 the details.
             </p>
 
@@ -268,9 +270,9 @@ export default function PrivacyPolicyPage() {
             </p>
             <p>
                 Every account automatically joins the uier feedback project as a commenter, so you can review
-                uier and find your feedback in the app. No invitation email is sent for this membership. Other
-                members can see your display name on public feedback; your email is not included in toolbar
-                participant suggestions. Private app feedback remains visible only to its author and the team.
+                uier and find your feedback in the app. No invitation email is sent for this membership. This
+                signed-in feedback is visible only to its author and the uier team. Your email is not included
+                in toolbar participant suggestions. Guest feedback on public pages is kept separately.
             </p>
 
             <h3>Comments in projects</h3>
@@ -669,7 +671,7 @@ export default function PrivacyPolicyPage() {
 
             <h2>How long we keep it</h2>
             <ul>
-                <li>Visitor threads: 90 days after their last change, then they are deleted automatically. Our starter threads and their replies do not expire. You can delete your own messages earlier in the toolbar.</li>
+                <li>Threads in uier&rsquo;s own feedback projects, including signed-in feedback: 90 days after their last change, then they expire automatically. Our starter threads and their replies do not expire. You can delete your own messages earlier in the toolbar.</li>
                 <li>Read cursors: removed when their thread is deleted, and expire no later than a thread with automatic expiry. Otherwise member cursors stay until removed with the account or project on request; guest cursors expire one year after the last acknowledgement that advances the cursor.</li>
                 <li>Screenshots: as long as their comment, and on {brand.domain} at most 90 days after they were taken. Deleting a comment, or its text, removes access to its screenshot and deletes the stored image. Failed image deletes are retried by a scheduled sweep once an unreferenced image is over an hour old. Legacy public-feedback copies are removed when the migrated thread is deleted or its screenshot is replaced. Cleanup intents contain only thread identifiers and expire one day after successful cleanup.</li>
                 <li>Coding tool connections: until you revoke them, 30 days after the tool last renewed its access, or one year after you allowed them, whichever comes first. A tool&rsquo;s access tokens last one hour; its refresh tokens are replaced on each use and last at most 30 days, and the hash of a used one is kept for a day to detect reuse. Pending sign-in requests: 10 minutes. Sign-in codes: valid for 60 seconds, their hashes kept for 10 minutes. Descriptions of tools that registered themselves: 30 days after their last sign-in; published descriptions: cached for up to 24 hours. Expired records are deleted automatically. Attribution stays with the feedback.</li>
@@ -682,7 +684,7 @@ export default function PrivacyPolicyPage() {
                 <li>Your account and workspace: until you ask us to delete them.</li>
                 <li>Your profile picture: until you replace or remove it on your Account page, or with your account.</li>
                 <li>Projects: until a workspace admin deletes them or you ask us to. Deletion and transfer intents contain only identifiers and expire one day after the deletion or transfer completes; the reserved code and public id contain no names or content and are kept.</li>
-                <li>Comments in projects: until their author or a project admin deletes them, or the project is deleted.</li>
+                <li>Comments in customer projects: until their author or a project admin deletes them, or the project is deleted.</li>
                 <li>Deleted data can stay in backups for up to seven days.</li>
                 <li>Sign-in links: until you use them, at most 15 minutes.</li>
                 <li>A linked Google account: until you unlink it or ask us to delete your account. Google sign-ins in progress: at most 10 minutes. A Google account waiting for an email code: at most 15 minutes.</li>
@@ -699,8 +701,9 @@ export default function PrivacyPolicyPage() {
                 You can ask us for a copy of your data, to correct or delete it, to restrict or object to how we use
                 it, and to receive it in a portable format. You can delete your own comments and replies with the
                 toolbar at any time. For anything else, email <a href={`mailto:${brand.contact.privacy}`}>{brand.contact.privacy}</a>.
-                Comments on {brand.domain} are anonymous, so tell us the page and the comment you mean: we have no
-                other way to link a comment to you. For your app account, write from the email address you sign in with.
+                For guest feedback, tell us the page and the comment you mean: without its browser identity, we
+                cannot link that feedback to you. For your account and signed-in feedback, write from the email
+                address you sign in with.
             </p>
             <p>You can also complain to the data protection authority where you live or work.</p>
 
