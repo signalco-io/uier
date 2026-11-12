@@ -2,6 +2,9 @@ import { expect, test } from '@playwright/test';
 import { NextRequest, NextResponse } from 'next/server.js';
 import { GET, POST } from '../app/api/account/sessions/route';
 import { GET as appTicket } from '../app/api/realtime/ticket/route';
+import { projectLinkAccounts } from '../src/lib/app/projectLinkAccounts';
+import { createWorkspace } from '../src/lib/app/workspaces';
+import { loadAppContext } from '../src/lib/app/requestContext';
 import { proxy } from '../proxy';
 import { addBrowserSession, browserSessions, switchBrowserAccount, removeBrowserAccount, writeBrowserSessions, MAX_BROWSER_ACCOUNTS,
     ACCOUNT_LIMIT_MESSAGE, type AccountCookieWriter } from '../src/lib/app/browserAccounts';
@@ -305,4 +308,38 @@ test('app APIs authorize only the active account even when another project owner
     expect((await appTicket(ticketRequest())).status).toBe(200);
     jar.values.set(primary(), 'invalid');
     expect((await appTicket(ticketRequest())).status).toBe(401);
+});
+
+
+test('project links offer only live signed-in accounts with access, including another workspace of the active account', async () => {
+    const jar = new Jar();
+    const a = await account(jar, 'link-owner');
+    const own = await loadAppContext(a.user);
+    const project = await createProject(own!, { name: 'Private link target', urls: ['https://example.com'] });
+    const next = `/app/projects/${project.id}?comment=comment_test&view=board`;
+    expect(await projectLinkAccounts(jar, next)).toEqual([]);
+    const secondWorkspace = await createWorkspace(a.user, 'Another workspace');
+    jar.values.set(cookieName(cookieNames.workspace), secondWorkspace.id);
+    expect(await projectLinkAccounts(jar, next)).toMatchObject([{ userId: a.user.id, workspaceId: project.workspaceId }]);
+    await account(jar, 'link-other');
+    expect(await projectLinkAccounts(jar, next)).toMatchObject([{ userId: a.user.id, workspaceId: project.workspaceId }]);
+    const response = await proxy(new NextRequest(`${origin}${next}`, { headers: { cookie: jar.header() } }));
+    expect(response.status).toBe(307);
+    expect(new URL(response.headers.get('location')!).searchParams.get('next')).toBe(next);
+    const review = await proxy(new NextRequest(`${origin}/app/review/${project.id}?url=https%3A%2F%2Fexample.com&comment=comment_test`, { headers: { cookie: jar.header() } }));
+    expect(new URL(review.headers.get('location')!).pathname).toBe('/app/switch-project-account');
+    for (const invalid of ['/app/projects/missing00000', '//outside.example/app/projects/test', '/app/account', '/app/projects/new'])
+        expect(await projectLinkAccounts(jar, invalid)).toEqual([]);
+    await getAppStore().delete(own!.member.pk, own!.member.id);
+    expect(await projectLinkAccounts(jar, next)).toEqual([]);
+    // Restore the same session's access to test invalid credentials independently.
+    await getAppStore().create(own!.member);
+    // A forged or expired parked identity cannot reveal even this known project's existence.
+    for (const token of ['invalid', signToken('session', { uid: a.user.id }, -1)]) {
+        jar.values.set(cookieName(cookieNames.account1), token);
+        expect(await projectLinkAccounts(jar, next)).toEqual([]);
+        const denied = await proxy(new NextRequest(`${origin}${next}`, { headers: { cookie: jar.header() } }));
+        expect(denied.status).toBe(404);
+        expect(denied.headers.get('location')).toBeNull();
+    }
 });

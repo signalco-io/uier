@@ -221,3 +221,5 @@ reconnect, pageshow and account-change events. See [sign-in](sign-in.md#several-
 for credential isolation and [account switching coverage](../e2e/account-switching.spec.ts).
 
 Project/workspace tabs, project lists and My work use the app language. Titles made from a project, client, workspace or person’s saved name remain unchanged. Request-specific translations run inside the Cache Components content boundary; the static loading shell can start in English before the app provider is available.
+
+Project links opened under the wrong account/workspace offer an explicit selection through `/app/switch-project-account`. Document preflight and RSC page reads share the project access checks; Proxy overwrites the internal original-link header to preserve the path and query. The selection page sits outside the sidebar shell.

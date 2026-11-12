@@ -68,3 +68,5 @@ restore an account. `__Secure-uier_review_sso` continues to use its own purpose 
 path; an explicit final sign-out writes a `review-sign-out` marker which authorizes no identity.
 The marker lets a foreground toolbar clear its saved review identity when third-party cookies are
 available; blocked cookies/frames retain the explicit authenticated review-link flow.
+
+Project-link account offers use only validated live browser sessions and current project/team membership. Selection repeats those checks before writing account/workspace cookies. Ordinary APIs and screenshot routes never try parked accounts. Unknown targets receive the existing 404 without account hints.

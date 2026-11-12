@@ -66,3 +66,5 @@ workspaces on desktop, mobile and tablet with the production-build navigation lo
   for all selected profiles. Reconnect and replace it to change the selection. See [MCP connector](mcp-connector.md).
 
 Account controls, profile messages, appearance choices, workspace access and section labels use the [app language](localization.md). App language and Toolbar language are separate saved preferences; native language names remain readable in every language.
+
+Project and review links can offer a signed-in browser account with live access to the target project. The switch page rechecks session expiry, workspace membership and project/team access before selection, then selects that account and workspace and continues to the original path and query. Missing or inaccessible projects retain the ordinary unavailable response. No parked credential authorizes an app read. Coverage: `account-sessions.api.spec.ts` and `account-switching.spec.ts`.

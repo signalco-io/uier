@@ -19,3 +19,5 @@ review-link exchange. The app's account switch does not override that choice.
 
 `apps/web/e2e/account-switching.spec.ts` covers selection, loss of access and final sign-out on
 foreground; `review-sso.spec.ts` keeps the blocked-cookie, origin and nonce boundary coverage.
+
+App review links under another signed-in account/workspace now offer an explicit switch in the app before continuing to the review target. The existing active-account SSO companion is updated through the same browser-account switch; toolbar identity and blocked-frame behavior are unchanged.

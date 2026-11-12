@@ -5,7 +5,7 @@ import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { requireAppContext } from '@/src/lib/app/context';
-import { getVisibleProject } from '@/src/lib/app/projects';
+import { getVisibleProjectForPage as getVisibleProject } from '@/src/lib/app/projectLinkPage';
 import { configuredEnvironments } from '@/src/lib/app/environments';
 import { listPageChecks } from '@/src/lib/pageChecks/store';
 import { pageCheckRow } from '@/src/lib/pageChecks/model';

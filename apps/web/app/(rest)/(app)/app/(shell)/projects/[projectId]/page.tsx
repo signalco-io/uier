@@ -6,7 +6,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { KnownPageLinks } from '@/src/knownPages';
 import { requireAppContext } from '@/src/lib/app/context';
-import { getVisibleProject } from '@/src/lib/app/projects';
+import { getVisibleProjectForPage as getVisibleProject } from '@/src/lib/app/projectLinkPage';
 import { loadAppCommentsSnapshot } from '@/src/lib/app/appCommentsSnapshot';
 import { ProjectComments } from '@/src/components/app/comments/ProjectComments';
 import { parseCommentsQuery } from '@/src/components/app/comments/commentsQuery';

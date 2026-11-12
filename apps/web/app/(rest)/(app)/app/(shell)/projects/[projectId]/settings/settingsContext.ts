@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import { notFound } from 'next/navigation';
 import { requireAppContext } from '@/src/lib/app/context';
-import { getVisibleProject } from '@/src/lib/app/projects';
+import { getVisibleProjectForPage as getVisibleProject } from '@/src/lib/app/projectLinkPage';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 
 /** The viewer and the project of a settings page; admins configure it (the uier workspace's settings are fixed) */

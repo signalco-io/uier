@@ -6,7 +6,7 @@ import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { KnownPageLinks, onboardingSteps, type OnboardingStep } from '@/src/knownPages';
 import { requireAppContext } from '@/src/lib/app/context';
-import { getVisibleProject } from '@/src/lib/app/projects';
+import { getVisibleProjectForPage as getVisibleProject } from '@/src/lib/app/projectLinkPage';
 import { appBaseUrl } from '@/src/lib/app/request';
 import { BrowserExtensionNote } from '@/src/components/app/projects/BrowserExtensionGuide';
 import { InstallationCheckStep } from '@/src/components/app/projects/InstallationCheckStep';
