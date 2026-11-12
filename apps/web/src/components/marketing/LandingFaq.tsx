@@ -34,7 +34,7 @@ const questions: Question[] = [
     },
     {
         question: 'Does it connect to my issue tracker?',
-        answer: <>Yes, in a project. A workspace admin connects GitHub, Linear, Notion or Azure DevOps, and each shared thread becomes an issue, a page or a work item with its page context. Slack gets a message for each new thread. Private feedback stays in {brand.name}. <InlineLink href={KnownPages.Integrations}>Integrations</InlineLink> has the setup for each service.</>
+        answer: <>The app has project setup for GitHub, Linear, Notion, Slack and Azure DevOps. A workspace admin chooses the destination for shared feedback; private threads stay in {brand.name}. Availability and verified workflows differ: Azure DevOps delivery and optional reply import still need hosted verification. Each <InlineLink href={KnownPages.Integrations}>integration guide</InlineLink> records its checked scope and setup.</>
     },
     {
         question: 'Can developers and AI agents use the feedback?',

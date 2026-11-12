@@ -4,6 +4,8 @@ export const KnownPages = {
     Compare: '/compare',
     ClientReviewGuide: '/guides/client-website-reviews',
     NextJsGuide: '/guides/nextjs',
+    ReviewChecklist: '/guides/website-review-checklist',
+    BugReportTemplate: '/guides/website-bug-report-template',
     HowItWorks: '/#how-it-works',
     Features: '/#features',
     GetStarted: '/#get-started',

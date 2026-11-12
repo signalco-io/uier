@@ -2,10 +2,12 @@ import { FileCodeIcon, MessagesSquareIcon, MousePointerClickIcon, PuzzleIcon } f
 import { Button } from '@signalco/ui-primitives/Button';
 import { brand } from '@uier/brand';
 import { IntegrationLogo } from '@/src/components/app/integrations/IntegrationLogo';
-import { InlineLink, PageSection } from '@/src/components/marketing/ContentPage';
+import { InlineLink, PageSection, Panel, Tile } from '@/src/components/marketing/ContentPage';
 import { FixVerificationSpecimen } from '@/src/components/marketing/FixVerificationSpecimen';
 import { BoardSpecimen, PinnedSpecimen } from '@/src/components/marketing/LandingSpecimens';
-import { GuideCard, GuideHeader, GuidePicture, GuideStep, GuideSteps, StepText, Tips } from '@/src/components/marketing/guides/GuideLayout';
+import { CodeWindow, GuideCard, GuideHeader, GuidePicture, GuideStep, GuideSteps, StepText, Tips } from '@/src/components/marketing/guides/GuideLayout';
+import { CopyableGuideText } from '@/src/components/marketing/guides/CopyableGuideText';
+import { clientReviewBrief } from '@/src/lib/guides/reviewResources';
 import { InstallMethodSpecimen, ReviewLinkSpecimen, SiteAddressesSpecimen, StatusFlowSpecimen, WhoCanCommentSpecimen } from '@/src/components/marketing/guides/GuideSpecimens';
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 import type { IntegrationProviderId } from '@/src/lib/integrations/model';
@@ -27,6 +29,8 @@ const sections = {
     feedback: { id: 'keep-feedback-attached-to-the-page', title: 'Keep feedback attached to the page', number: 5 },
     triage: { id: 'choose-the-next-step', title: 'Choose the next step', number: 6 },
     verify: { id: 'check-the-fix-with-the-reporter', title: 'Check the fix with the reporter', number: 7 },
+    brief: { id: 'agree-a-review-brief', title: 'Agree a review brief' },
+    rounds: { id: 'plan-review-rounds-and-handoff', title: 'Plan review rounds and handoff' },
     integrations: { id: 'keep-the-team-s-work-in-one-place', title: 'Keep the team’s work in one place' }
 };
 
@@ -105,6 +109,22 @@ export default function ClientReviewGuide() {
                 <GuidePicture className="rounded-2xl border py-6"><StatusFlowSpecimen /></GuidePicture>
             </GuideStep>
         </GuideSteps>
+
+        <PageSection {...sections.brief} lead="Name the pages, journeys, environments and reviewers for this round. Agree what is outside it.">
+            <StepText>Use the project&rsquo;s review brief for the instructions reviewers need. Invite named reviewers when sign-in and membership matter; choose guest links deliberately, and explain the visibility before sharing one.</StepText>
+            <CopyableGuideText text={clientReviewBrief} label="Copy example review brief">
+                <CodeWindow file="client-review-brief.md" label="Example client review brief" code={clientReviewBrief} />
+            </CopyableGuideText>
+            <StepText muted>This is a fictional brief you can adapt. The <InlineLink href={guides.reviewChecklist.path}>review checklist</InlineLink> expands the checks; the <InlineLink href={guides.bugReport.path}>bug-report template</InlineLink> helps describe each finding.</StepText>
+        </PageSection>
+
+        <PageSection {...sections.rounds} lead="These are agreed team practices, not a mandatory approval workflow enforced by uier.">
+            <Panel className="lg:grid-cols-3">
+                <Tile title="First round"><p>Check the agreed content and journeys. Keep one problem per thread, ask for missing context and assign the next action.</p></Tile>
+                <Tile title="Fix-check round"><p>Review the deployed changes in the original environment. Request a named reviewer&rsquo;s verification where needed; ordinary Done remains available.</p></Tile>
+                <Tile title="Handoff"><p>List unresolved threads, their owners, priority and the next decision. Record areas not checked. Agree the site-level acceptance separately; confirming one fix does not approve the whole release.</p></Tile>
+            </Panel>
+        </PageSection>
 
         <PageSection
             {...sections.integrations}

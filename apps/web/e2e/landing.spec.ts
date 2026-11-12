@@ -7,7 +7,7 @@ import { animationsFinished, showcaseHint, toolbar } from './support/toolbar';
 test('landing page renders', { tag: ['@smoke', '@mobile-smoke'] }, async ({ page }) => {
     const response = await page.goto('/');
     expect(response?.status()).toBe(200);
-    await expect(page).toHaveTitle(`${brand.name} · ${brand.tagline}`);
+    await expect(page).toHaveTitle(`Website feedback for client reviews and bug reports · ${brand.name}`);
     await expect(page.getByRole('heading', { level: 1, name: brand.tagline })).toBeVisible();
     // Get started opens the app like the navigation's Sign in: sign in, or the app when signed in
     const getStarted = page.getByRole('link', { name: 'Get started' });
@@ -26,6 +26,8 @@ test('the homepage explains capture limits, private feedback and requested rewri
     await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /Website feedback.*client comments.*report bugs/);
     const main = page.getByRole('main');
     await expect(main).toContainText('capture and browser details can be unavailable');
+    await expect(main).toContainText('hosted checks for Azure DevOps delivery and optional reply import are still pending');
+    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', `${brand.name} · ${brand.tagline}`);
     const questions = page.getByRole('region', { name: 'Questions' });
     for (const title of ['Who can see my comments?', 'What is saved with a comment?', 'How long are comments kept?'])
         await questions.locator('summary').filter({ hasText: title }).click();

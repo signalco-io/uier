@@ -27,6 +27,7 @@ export const metadata = {
     ...publicPageMetadata('/', {
         description: 'Website feedback on the page: collect client comments, report bugs and hand the context to your team or coding agent.'
     }),
+    title: { absolute: `Website feedback for client reviews and bug reports · ${brand.name}` },
     verification: { other: { 'msvalidate.01': '16CF0F06FF0F10896508557122F1DA5C' } }
 };
 
@@ -70,7 +71,7 @@ const features: { title: string; text: ReactNode; visual: ReactNode; wide?: bool
     },
     {
         title: 'Send it where your team works',
-        text: <>Send shared threads to GitHub, Linear, Notion, Azure DevOps or Slack with their page context, or copy one as a Markdown issue. More on <InlineLink href={KnownPages.Integrations}>integrations</InlineLink>.</>,
+        text: <>Copy a thread as a Markdown issue or connect a service for shared feedback. Check each <InlineLink href={KnownPages.Integrations}>integration&rsquo;s availability and verified scope</InlineLink>; hosted checks for Azure DevOps delivery and optional reply import are still pending.</>,
         visual: <IntegrationsSpecimen />
     },
     {

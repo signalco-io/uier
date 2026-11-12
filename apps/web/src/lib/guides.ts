@@ -17,6 +17,18 @@ export const guides = {
         path: '/guides/browser-extension',
         section: 'Guides'
     },
+    reviewChecklist: {
+        title: 'Website review checklist',
+        description: 'Scope a human review, check content and journeys, and turn findings into a clear handoff.',
+        path: '/guides/website-review-checklist',
+        section: 'Guides'
+    },
+    bugReport: {
+        title: 'Website bug-report template',
+        description: 'Copy a practical report template, follow a filled example and give a developer enough context to reproduce a bug.',
+        path: '/guides/website-bug-report-template',
+        section: 'Guides'
+    },
     index: {
         title: 'Guides',
         description: 'Practical guides for installing uier and reviewing a live website with your team or client.',
