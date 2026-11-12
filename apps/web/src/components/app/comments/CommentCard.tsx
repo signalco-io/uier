@@ -110,17 +110,24 @@ const privateHint = 'Only workspace admins and the author can see this thread. O
 /**
  * The blue dot of a thread with activity the reader has not read (the toolbar's `UnreadDot`).
  * It is the Mark as read button; Mark as unread is in the More actions menu.
+ * Marking read or unread doesn't make the line jump (uier #371): the dot fades and scales while its room opens or
+ * closes (its 12 px and the line's 8 px gap), so the badges after it slide. Hidden, it is `inert` and out of the
+ * accessibility tree. No motion on the first render or with reduced motion.
  */
-function UnreadDot({ disabled, onRead }: { disabled: boolean; onRead: () => void }) {
+function UnreadDot({ shown, disabled, onRead }: { shown: boolean; disabled: boolean; onRead: () => void }) {
     const { t } = useAppI18n();
     return (
-        <Tooltip>
-            <TooltipTrigger render={<Button variant="ghost" size="icon-xs" aria-label={t("Unread. Mark as read")} disabled={disabled} onClick={onRead}
-                    className="-mx-1.5 shrink-0 pointer-coarse:min-h-11 pointer-coarse:min-w-11" />}>
-                <span aria-hidden="true" className="size-2 rounded-full bg-[hsl(var(--brand-accent))]" />
-            </TooltipTrigger>
-            <TooltipContent>{t("Mark as read")}</TooltipContent>
-        </Tooltip>
+        <span data-unread-shown={shown} aria-hidden={shown ? undefined : true} inert={!shown}
+            className={cn('flex shrink-0 justify-center transition-[width,margin,opacity,scale] duration-150 ease-out motion-reduce:transition-none',
+                shown ? 'w-3 scale-100 opacity-100' : '-mr-2 w-0 scale-50 opacity-0')}>
+            <Tooltip>
+                <TooltipTrigger render={<Button variant="ghost" size="icon-xs" aria-label={t("Unread. Mark as read")} disabled={disabled} onClick={onRead}
+                        className="-mx-1.5 shrink-0 pointer-coarse:min-h-11 pointer-coarse:min-w-11" />}>
+                    <span aria-hidden="true" className="size-2 rounded-full bg-[hsl(var(--brand-accent))]" />
+                </TooltipTrigger>
+                <TooltipContent>{t("Mark as read")}</TooltipContent>
+            </Tooltip>
+        </span>
     );
 }
 
@@ -514,8 +521,9 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                 <span className="sr-only">{t("Comment ")}</span>#{comment.number}
                             </span>
                         )}
-                        {unread && (
-                            <UnreadDot disabled={pending}
+                        {/* Kept while the thread can be unread, so marking it read or unread animates (uier #371) */}
+                        {(unread || canMarkUnread) && (
+                            <UnreadDot shown={unread} disabled={pending || !unread}
                                 onRead={() => run(() => markCommentReadAction(projectId, comment.id, comment.activity!.sequence), undefined,
                                     { activity: { ...comment.activity!, readSequence: comment.activity!.sequence, unread: false } })} />
                         )}
