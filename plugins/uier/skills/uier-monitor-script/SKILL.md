@@ -5,7 +5,7 @@ description: Recreate monitor.mjs, the watcher and state helper of the uier-moni
 
 # Recreate the uier monitor helper
 
-This skill carries `monitor.mjs` version 1.4.0, sha256 `3ea7ba84f982a53e476c316ac63dab7eefdac829484c7c3aab510a31f2998ac4`. It needs Node 18 or later
+This skill carries `monitor.mjs` version 1.4.0, sha256 `8c390972bebadfbdf05311d65a6db72e333eab69c39957b750e98d6206f084e8`. It needs Node 18 or later
 and has no dependencies. The uier-monitor skill runs it as `ROOT/monitor.mjs`, where `ROOT` is
 `$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor`.
 
@@ -20,7 +20,7 @@ and has no dependencies. The uier-monitor skill runs it as `ROOT/monitor.mjs`, w
 
 2. Only when this file isn't on disk, write the code below to `$ROOT/monitor.mjs` exactly as shown.
 3. Check it: `node "$ROOT/monitor.mjs" version` must print version 1.4.0 and sha256
-   `3ea7ba84f982a53e476c316ac63dab7eefdac829484c7c3aab510a31f2998ac4`. If the hash differs, write the file again; never patch it by hand.
+   `8c390972bebadfbdf05311d65a6db72e333eab69c39957b750e98d6206f084e8`. If the hash differs, write the file again; never patch it by hand.
 
 Don't edit the code here. Its source is `.claude/skills/uier-monitor/scripts/monitor.mjs` in the uier
 repository, and `build-script-skill.mjs` next to it writes this file.
@@ -729,7 +729,7 @@ async function watch(options) {
                 lastGithub = Date.now();
                 const deployed = pollDeploys(state, seen, found, updates) ?? [];
                 pollPullRequests(state, seen, found, updates);
-                for (const release of deployed) await closeDeployed(ctx, state, seen, found, updates, release, log);
+                for (const release of deployed) await closeDeployed(ctx, state, seen, found, updates, release, log, () => readJson(join(dir, 'state.json'), {}));
             }
             failures = 0;
             delete seen.pollError;
@@ -1064,9 +1064,12 @@ function once(seen, key) {
 
 // The groups a merged PR or a deploy entry belongs to.
 function groupsOf(state, pr, entry = null) {
+    if (entry?.groups?.length) return [...new Set(entry.groups.filter(Boolean))];
+    if (pr === undefined || pr === null || pr === '') return [];
     const saved = state.prs?.[pr] ?? {};
-    const ids = entry?.groups?.length ? entry.groups : saved.groups?.length ? saved.groups : [saved.group];
-    const fromGroups = Object.entries(state.groups ?? {}).filter(([, group]) => String(group.pr) === String(pr)).map(([id]) => id);
+    const ids = saved.groups?.length ? saved.groups : [saved.group];
+    const fromGroups = Object.entries(state.groups ?? {})
+        .filter(([, group]) => group.pr !== undefined && group.pr !== null && String(group.pr) === String(pr)).map(([id]) => id);
     return [...new Set([...ids, ...fromGroups].filter(Boolean))];
 }
 
@@ -1157,7 +1160,9 @@ function pollDeploys(state, seen, found, updates = []) {
 // verify?: { reviewerId, expectedRevision, fixUrl?, summary? } } } }. The reply may use {sha}, {sha7} and
 // {commitUrl}, filled with the merge commit. Once a deploy contains the merge, the watcher posts each
 // reply and sets Done (or requests verification, or keeps the status), records the stages, drops the
-// deploy entry and reports one quiet `closed` event. Anything it can't do wakes the orchestrator.
+// deploy entry and reports one quiet `closed` event. It checks that each group's draft, each item's
+// round and the deploy entry are unchanged right before writing and again under the state lock before
+// recording. Anything it can't do, including a conflict on a key, wakes the orchestrator.
 
 function closingPlan(state, entry) {
     if (state.watch?.writes !== 'available' || !state.project?.id || !entry.sha) return null;
@@ -1168,22 +1173,21 @@ function closingPlan(state, entry) {
         const closing = state.groups?.[group]?.closing;
         const drafts = Object.entries(closing?.items ?? {});
         if (!drafts.length) return null;
+        const groupSig = digest(closing);
         for (const [commentId, draft] of drafts) {
             if (typeof draft?.reply !== 'string' || !draft.reply.trim()) return null;
             if (draft.verify && (typeof draft.verify.reviewerId !== 'string' || !draft.verify.reviewerId)) return null;
-            plan.push({ group, commentId, draft, closing });
+            plan.push({ group, groupSig, commentId, draft, closing, round: state.items?.[commentId]?.round ?? 1 });
         }
     }
     return { groups, plan };
 }
 
-async function idempotentWrite(ctx, name, args) {
-    try { return await tool(ctx, name, args); }
-    catch (error) {
-        // A conflict on the same key means an earlier attempt (or the orchestrator) already wrote it.
-        if (error.fromTool && error.code === 'conflict') return null;
-        throw error;
-    }
+// The plan still matches this state: the same draft per group, round per item, and a pending deploy entry.
+function planCurrent(state, planned, sha) {
+    if (!(state.deploys?.pending ?? []).some(item => item.sha === sha)) return false;
+    return planned.plan.every(({ group, groupSig, commentId, round }) => state.groups?.[group]?.closing
+        && digest(state.groups[group].closing) === groupSig && (state.items?.[commentId]?.round ?? 1) === round);
 }
 
 function sessionThreads(group) {
@@ -1192,7 +1196,7 @@ function sessionThreads(group) {
     return [...new Set(ids.filter(id => typeof id === 'string' && id))];
 }
 
-async function closeDeployed(ctx, state, seen, found, updates, { entry, run }, log = () => {}) {
+async function closeDeployed(ctx, state, seen, found, updates, { entry, run }, log = () => {}, fresh = () => state) {
     const planned = ctx ? closingPlan(state, entry) : null;
     if (!planned) {
         if (once(seen, `deployed:${entry.sha}`)) found.push({ type: 'deployed', sha: entry.sha, pr: entry.pr,
@@ -1205,10 +1209,9 @@ async function closeDeployed(ctx, state, seen, found, updates, { entry, run }, l
     const fill = text => text.replaceAll('{sha}', sha).replaceAll('{sha7}', sha.slice(0, 7)).replaceAll('{commitUrl}', commitUrl);
     const progress = (seen.closing ??= {});
     const closed = [];
-    for (const { group, commentId, draft, closing } of planned.plan) {
+    for (const { group, commentId, draft, closing, round } of planned.plan) {
         const item = state.items?.[commentId] ?? {};
         const number = item.number ?? commentId;
-        const round = item.round ?? 1;
         const key = action => `um-${projectId}-${number}-${action}-${round}`.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 128);
         const sig = digest([draft, closing.agent, closing.model, closing.reasoning]);
         let record = progress[`${commentId}:${round}`];
@@ -1216,27 +1219,30 @@ async function closeDeployed(ctx, state, seen, found, updates, { entry, run }, l
         // Reported once; the orchestrator closes it itself or changes the draft to retry.
         if (record.failed) return;
         const stage = draft.verify ? 'ready' : draft.status === 'keep' ? null : 'done';
+        // The orchestrator may have patched the state since this cycle read it: plan again next cycle.
+        if ((!record.replied || !record.finished) && !planCurrent(fresh(), planned, sha)) return;
         try {
             if (!record.replied) {
                 const text = fill(draft.reply);
                 if (text.length > 1000) throw Object.assign(new Error('The reply is longer than 1000 characters.'), { fromTool: true, code: 'too_long' });
                 const agent = draft.agent ?? closing.agent, model = draft.model ?? closing.model, reasoning = draft.reasoning ?? closing.reasoning;
-                await idempotentWrite(ctx, 'reply_to_feedback', { projectId, commentId, idempotencyKey: key('reply'), text,
+                await tool(ctx, 'reply_to_feedback', { projectId, commentId, idempotencyKey: key('reply'), text,
                     ...(agent ? { agent } : {}), ...(model ? { model: String(model) } : {}), ...(reasoning ? { reasoning: String(reasoning) } : {}) });
                 record.replied = Date.now();
             }
             if (!record.finished) {
-                if (draft.verify) await idempotentWrite(ctx, 'request_feedback_verification', { projectId, commentId, idempotencyKey: key('verify'),
+                if (draft.verify) await tool(ctx, 'request_feedback_verification', { projectId, commentId, idempotencyKey: key('verify'),
                     expectedRevision: draft.verify.expectedRevision ?? null, reviewerId: draft.verify.reviewerId,
                     ...(draft.verify.fixUrl ? { fixUrl: String(draft.verify.fixUrl) } : {}),
                     ...(draft.verify.summary ? { summary: String(draft.verify.summary).slice(0, 500) } : {}) });
-                else if (stage === 'done') await idempotentWrite(ctx, 'set_feedback_status', { projectId, commentId, idempotencyKey: key('done'), status: 'done' });
+                else if (stage === 'done') await tool(ctx, 'set_feedback_status', { projectId, commentId, idempotencyKey: key('done'), status: 'done' });
                 record.finished = Date.now();
             }
             closed.push({ group, commentId, number, stage });
         } catch (error) {
-            // Network or server trouble: the next cycle tries again with the same keys.
+            // Network or server trouble: the next cycle tries again with the same keys and input.
             if (!error.fromTool || ['rate_limited', 'server_error'].includes(error.code)) { log(`closing #${number}: ${error.message}`); return; }
+            // Anything else, a conflict included (a stale revision, or the key used with other input), needs a look.
             record.failed = error.code ?? error.kind;
             log(`closing #${number}: ${record.failed} ${error.message}`);
             found.push({ type: 'close-failed', pr: entry.pr, sha, commentId, number, step: record.replied ? 'status' : 'reply',
@@ -1246,6 +1252,12 @@ async function closeDeployed(ctx, state, seen, found, updates, { entry, run }, l
     }
     const at = new Date().toISOString();
     updates.push(next => {
+        // Under the state lock: record only what still matches; otherwise the orchestrator decides.
+        if (!planCurrent(next, planned, sha)) {
+            if (once(seen, `stale:${sha}`)) found.push({ type: 'close-failed', pr: entry.pr, sha, code: 'state-changed',
+                numbers: closed.map(item => item.number), message: 'The replies went out, but the draft, round or deploy entry changed meanwhile, so nothing was recorded.' });
+            return;
+        }
         for (const { commentId, stage } of closed) {
             const item = next.items?.[commentId];
             if (!item) continue;
@@ -1258,12 +1270,12 @@ async function closeDeployed(ctx, state, seen, found, updates, { entry, run }, l
             Object.assign(group, { state: 'closed', closedAt: at, closedBy: 'watcher' });
             delete group.closing;
         }
-        if (next.prs?.[entry.pr]) next.prs[entry.pr].state = 'deployed';
-        if (next.deploys?.pending) next.deploys.pending = next.deploys.pending.filter(item => item.sha !== sha);
+        if (entry.pr !== undefined && next.prs?.[entry.pr]) next.prs[entry.pr].state = 'deployed';
+        next.deploys.pending = next.deploys.pending.filter(item => item.sha !== sha);
+        if (once(seen, `closed:${sha}`)) found.push({ type: 'closed', quiet: true, pr: entry.pr, sha, groups: planned.groups,
+            numbers: closed.map(item => item.number), stages: closed.map(item => item.stage ?? 'kept'),
+            threads: planned.groups.flatMap(id => sessionThreads(next.groups?.[id])) });
     });
-    if (once(seen, `closed:${sha}`)) found.push({ type: 'closed', quiet: true, pr: entry.pr, sha, groups: planned.groups,
-        numbers: closed.map(item => item.number), stages: closed.map(item => item.stage ?? 'kept'),
-        threads: planned.groups.flatMap(id => sessionThreads(state.groups?.[id])) });
 }
 
 // Apply the watcher's own bookkeeping to fresh state under the same lock `patch` uses.
@@ -1291,7 +1303,8 @@ function checkState(rollup, required) {
 
 // In T3, T3 follows a PR until auto-merge is on; from then on, and in every other harness, the
 // watcher does. It wakes the orchestrator only when a PR needs a decision: failed checks, a conflict,
-// requested changes, a close, or passing checks without auto-merge. Merges are recorded quietly.
+// requested changes, a close, a branch behind a strict base, or passing checks without auto-merge.
+// Merges are recorded quietly.
 function pollPullRequests(state, seen, found, updates = []) {
     const t3 = state.harness?.prWatch === true;
     const open = Object.entries(state.prs ?? {}).filter(([, pr]) => (!pr.state || pr.state === 'open') && (!t3 || pr.autoMerge === true));
@@ -1301,7 +1314,7 @@ function pollPullRequests(state, seen, found, updates = []) {
     seen.prs ??= {};
     for (const [number, saved] of open) {
         const pr = githubJson(['pr', 'view', number, '--repo', state.repo?.slug, '--json',
-            'state,mergeable,headRefOid,statusCheckRollup,reviewDecision,mergeCommit,autoMergeRequest'], cwd);
+            'state,mergeable,mergeStateStatus,headRefOid,statusCheckRollup,reviewDecision,mergeCommit,autoMergeRequest'], cwd);
         if (!pr) continue;
         if (pr.state === 'MERGED' && pr.mergeCommit?.oid) {
             updates.push(recordMerge(number, pr.mergeCommit.oid, groupsOf(state, number)));
@@ -1309,13 +1322,16 @@ function pollPullRequests(state, seen, found, updates = []) {
             continue;
         }
         const checks = checkState(pr.statusCheckRollup ?? [], required);
-        const signature = [pr.state, pr.mergeable, checks, pr.headRefOid, pr.reviewDecision ?? ''].join('|');
+        const signature = [pr.state, pr.mergeable, pr.mergeStateStatus ?? '', checks, pr.headRefOid, pr.reviewDecision ?? ''].join('|');
         if (seen.prs[number] === signature) continue;
         seen.prs[number] = signature;
         const autoMerge = Boolean(pr.autoMergeRequest) || saved.autoMerge === true;
+        // With a strict up-to-date rule, a PR that fell behind waits until its branch is updated.
+        const behind = state.workflow?.strict === true && pr.mergeStateStatus === 'BEHIND';
         if (pr.state !== 'OPEN' || checks === 'failure' || pr.mergeable === 'CONFLICTING' || pr.reviewDecision === 'CHANGES_REQUESTED'
-            || (checks === 'success' && !autoMerge))
-            found.push({ type: 'pr', pr: Number(number), state: pr.state.toLowerCase(), checks, mergeable: pr.mergeable, head: pr.headRefOid });
+            || behind || (checks === 'success' && !autoMerge))
+            found.push({ type: 'pr', pr: Number(number), state: pr.state.toLowerCase(), checks, mergeable: pr.mergeable,
+                ...(behind ? { behind: true } : {}), head: pr.headRefOid });
     }
 }
 
@@ -1338,14 +1354,26 @@ function worktreeList(cwd) {
     }))).filter(entry => entry.worktree);
 }
 
-// Worktrees of the monitor's own finished groups (merged, closed or cancelled). Only clean ones
-// whose commits are all in the group's recorded head can go: nothing unpushed is ever removed.
+// Whether a commit is published: on a remote branch, or in the head of the group's PR that GitHub
+// reports as merged or closed (GitHub keeps that head after the branch is deleted).
+function published(state, cwd, head, prNumber) {
+    const remote = spawnSync('git', ['branch', '-r', '--contains', head], { cwd, encoding: 'utf8' });
+    if (remote.status === 0 && remote.stdout.trim()) return true;
+    if (!prNumber || !state.repo?.slug) return false;
+    try {
+        const pr = githubJson(['pr', 'view', String(prNumber), '--repo', state.repo.slug, '--json', 'state,headRefOid'], cwd);
+        return ['MERGED', 'CLOSED'].includes(pr?.state) && contains(cwd, head, pr.headRefOid);
+    } catch { return false; }
+}
+
+// Worktrees of the monitor's own finished groups (merged, closed or cancelled). Only clean ones whose
+// commits are published can go: nothing unpushed is ever removed, nor this checkout or the main one.
 function removableWorktrees(state, cwd, here = process.cwd()) {
     const finished = new Map();
     for (const [id, group] of Object.entries(state.groups ?? {})) {
         const pr = group.pr ? state.prs?.[group.pr] : null;
         if (group.branch && (FINISHED_GROUP.has(group.state) || MERGED_PR.has(String(pr?.state ?? '').toLowerCase())))
-            finished.set(group.branch, { group: id, heads: [group.head, pr?.head].filter(Boolean) });
+            finished.set(group.branch, { group: id, pr: group.pr });
     }
     const all = worktreeList(cwd);
     const current = resolve(here);
@@ -1359,7 +1387,7 @@ function removableWorktrees(state, cwd, here = process.cwd()) {
         const status = spawnSync('git', ['status', '--porcelain'], { cwd: path, encoding: 'utf8' });
         if (status.status !== 0) return [{ ...base, removable: false, reason: 'git status failed' }];
         if (status.stdout.trim()) return [{ ...base, removable: false, reason: 'uncommitted or untracked files' }];
-        if (!match.heads.some(head => contains(cwd, entry.HEAD, head))) return [{ ...base, removable: false, reason: 'commits not in the recorded head' }];
+        if (!entry.HEAD || !published(state, cwd, entry.HEAD, match.pr)) return [{ ...base, removable: false, reason: 'commits not published' }];
         return [{ ...base, removable: true }];
     });
 }

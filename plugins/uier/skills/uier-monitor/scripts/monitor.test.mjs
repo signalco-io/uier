@@ -397,11 +397,13 @@ test('the watcher closes drafted comments after their deploy and reports one qui
     assert.equal(f.calls[0].args.model, 'claude-opus-5-5');
     assert.equal(f.calls[1].args.status, 'done');
     assert.equal(f.calls[2].args.idempotencyKey, 'um-project0001-62-reply-2');
+    // The event comes with the bookkeeping, under the state lock.
+    assert.equal(f.found.length, 0);
+    await f.context.updateState('/state', f.updates);
     assert.equal(f.found.length, 1);
     assert.equal(f.found[0].type, 'closed');
     assert.equal(f.found[0].quiet, true);
     assert.deepEqual([...f.found[0].threads].sort(), ['thread-fix', 'thread-review']);
-    await f.context.updateState('/state', f.updates);
     const next = f.files.get('/state/state.json');
     assert.equal(next.items.c1.stage, 'done');
     assert.equal(next.items.c2.stage, 'in-progress'); // status "keep" leaves it
@@ -413,18 +415,56 @@ test('the watcher closes drafted comments after their deploy and reports one qui
     assert.equal(next.updatedAt, undefined);
 });
 
-test('closing requests verification, treats a used key as written, and reports a refused write once', async () => {
-    const verified = closingFixture({ verify: true, fail: { name: 'set_feedback_status', code: 'conflict' } });
+async function applyUpdates(f) {
+    await f.context.updateState('/state', f.updates);
+    return f.files.get('/state/state.json');
+}
+
+test('closing requests verification, and reports refused writes and conflicts once without recording them', async () => {
+    const verified = closingFixture({ verify: true });
     await verified.context.closeDeployed({}, verified.state, verified.seen, verified.found, verified.updates, { entry: verified.state.deploys.pending[0] });
     const request = verified.calls.find(call => call.name === 'request_feedback_verification');
     assert.equal(request.args.reviewerId, 'u_reviewer');
     assert.equal(request.args.expectedRevision, null);
+    assert.equal((await applyUpdates(verified)).items.c2.stage, 'ready');
     assert.equal(verified.found[0].type, 'closed');
-    const refused = closingFixture({ fail: { name: 'reply_to_feedback', code: 'forbidden', message: 'needs feedback:reply' } });
-    for (let cycle = 0; cycle < 2; cycle++)
-        await refused.context.closeDeployed({}, refused.state, refused.seen, refused.found, refused.updates, { entry: refused.state.deploys.pending[0] });
-    assert.deepEqual(refused.found.map(event => [event.type, event.number, event.step, event.quiet]), [['close-failed', 61, 'reply', undefined]]);
-    assert.equal(refused.updates.length, 0);
+    for (const fail of [{ name: 'reply_to_feedback', code: 'forbidden', message: 'needs feedback:reply' },
+        { name: 'set_feedback_status', code: 'conflict', message: 'That key was used with other input.' }]) {
+        const refused = closingFixture({ fail });
+        for (let cycle = 0; cycle < 2; cycle++)
+            await refused.context.closeDeployed({}, refused.state, refused.seen, refused.found, refused.updates, { entry: refused.state.deploys.pending[0] });
+        assert.deepEqual(refused.found.map(event => [event.type, event.number, event.code, event.quiet]), [['close-failed', 61, fail.code, undefined]]);
+        assert.equal(refused.updates.length, 0);
+    }
+});
+
+test('closing checks the state before writing and under the lock, and records nothing stale', async () => {
+    // Patched before the writes: nothing is written; the next cycle plans again from the new state.
+    const before = closingFixture();
+    const patched = structuredClone(before.state);
+    patched.items.c1.round = 2;
+    await before.context.closeDeployed({}, before.state, before.seen, before.found, before.updates, { entry: before.state.deploys.pending[0] }, () => {}, () => patched);
+    assert.equal(before.calls.length, 0);
+    assert.equal(before.updates.length, 0);
+    // Patched during the writes: the replies went out, but the bookkeeping refuses and wakes the orchestrator.
+    const during = closingFixture();
+    await during.context.closeDeployed({}, during.state, during.seen, during.found, during.updates, { entry: during.state.deploys.pending[0] });
+    const file = during.files.get('/state/state.json');
+    file.items.c1.round = 2;
+    file.groups.g61.closing.items.c1.reply = 'A newer draft';
+    const next = await applyUpdates(during);
+    assert.equal(next.items.c1.stage, 'in-progress');
+    assert.equal(next.groups.g61.closing.items.c1.reply, 'A newer draft');
+    assert.equal(next.deploys.pending.length, 2);
+    assert.deepEqual(during.found.map(event => [event.type, event.code]), [['close-failed', 'state-changed']]);
+});
+
+test('a deploy entry with explicit groups closes only those, and entries without a PR infer none', () => {
+    const { context } = runtime();
+    const state = { groups: { a: { pr: undefined, closing: {} }, b: { closing: {} }, c: { pr: 9 } }, prs: { 9: { group: 'c' } } };
+    assert.deepEqual([...context.groupsOf(state, undefined, { sha: 's', groups: ['a'] })], ['a']);
+    assert.deepEqual([...context.groupsOf(state, undefined, { sha: 's' })], []);
+    assert.deepEqual([...context.groupsOf(state, 9, { sha: 's' })], ['c']);
 });
 
 test('without a draft or write access the deploy wakes the orchestrator as before', async () => {
@@ -466,7 +506,7 @@ test('PR polling wakes only for decisions and leaves T3-watched PRs to T3 until 
     context.githubJson = args => { viewed.push(args[2]); return answer; };
     context.repoCwd = () => '/repo';
     const passing = [{ __typename: 'CheckRun', name: 'CI OK', status: 'COMPLETED', conclusion: 'SUCCESS' }];
-    const state = { workflow: { requiredChecks: ['CI OK'] }, harness: { prWatch: true }, prs: { 1: { state: 'open', autoMerge: true }, 2: { state: 'open' } } };
+    const state = { workflow: { requiredChecks: ['CI OK'], strict: false }, harness: { prWatch: true }, prs: { 1: { state: 'open', autoMerge: true }, 2: { state: 'open' } } };
     const seen = {}, found = [];
     answer = { state: 'OPEN', mergeable: 'MERGEABLE', headRefOid: 'h1', statusCheckRollup: passing, autoMergeRequest: { enabledAt: 'x' } };
     context.pollPullRequests(state, seen, found);
@@ -480,6 +520,17 @@ test('PR polling wakes only for decisions and leaves T3-watched PRs to T3 until 
     answer = { state: 'OPEN', mergeable: 'MERGEABLE', headRefOid: 'h3', statusCheckRollup: passing };
     context.pollPullRequests(state, seen, found);
     assert.equal(found.at(-1).pr, 2); // passing without auto-merge needs the orchestrator
+    // A branch behind its base matters only when the base requires up-to-date branches.
+    state.prs[1].state = 'open';
+    state.prs[2].state = 'merged';
+    answer = { state: 'OPEN', mergeable: 'MERGEABLE', mergeStateStatus: 'BEHIND', headRefOid: 'h4', statusCheckRollup: passing, autoMergeRequest: {} };
+    const count = found.length;
+    context.pollPullRequests(state, seen, found);
+    assert.equal(found.length, count);
+    state.workflow.strict = true;
+    answer = { ...answer, headRefOid: 'h5' };
+    context.pollPullRequests(state, seen, found);
+    assert.equal(found.at(-1).behind, true);
 });
 
 test('quiet events ride along without waking the orchestrator', async () => {
@@ -532,21 +583,28 @@ test('a wake outage is tracked while delivery fails and reported once after it r
     assert.equal(output[1].wakeOutage, undefined);
 });
 
-test('cleanup offers only clean, fully pushed worktrees of finished groups', () => {
+test('cleanup offers only clean worktrees of finished groups whose commits are published', () => {
     const { context } = runtime();
     context.resolve = path => path;
+    // h1 is on a remote branch; h6 is only in its merged PR's head on GitHub; 'local' is nowhere.
+    context.spawnSync = (_command, args, options) => args[0] === 'branch'
+        ? { status: 0, stdout: args[3] === 'h1' ? '  origin/uier/1-done\n' : '' }
+        : { status: 0, stdout: options.cwd === '/wt/dirty' ? ' M file\n' : '' };
+    context.githubJson = args => ({ 6: { state: 'MERGED', headRefOid: 'h6' }, 3: { state: 'MERGED', headRefOid: 'h3' } })[args[2]] ?? null;
+    context.contains = (_cwd, sha, head) => sha === head;
     context.worktreeList = () => [{ worktree: '/repo' }, { worktree: '/wt/done', branch: 'refs/heads/uier/1-done', HEAD: 'h1' },
         { worktree: '/wt/dirty', branch: 'refs/heads/uier/2-dirty', HEAD: 'h2' }, { worktree: '/wt/ahead', branch: 'refs/heads/uier/3-ahead', HEAD: 'local' },
-        { worktree: '/wt/open', branch: 'refs/heads/uier/4-open', HEAD: 'h4' }, { worktree: '/wt/here', branch: 'refs/heads/uier/5-here', HEAD: 'h5' }];
-    context.spawnSync = (_command, _args, options) => ({ status: 0, stdout: options.cwd === '/wt/dirty' ? ' M file\n' : '' });
-    context.contains = (_cwd, sha, head) => sha === head;
-    const state = { groups: {
+        { worktree: '/wt/open', branch: 'refs/heads/uier/4-open', HEAD: 'h4' }, { worktree: '/wt/here', branch: 'refs/heads/uier/5-here', HEAD: 'h5' },
+        { worktree: '/wt/merged', branch: 'refs/heads/uier/6-merged', HEAD: 'h6' }, { worktree: '/wt/cancelled', branch: 'refs/heads/uier/7-cancelled', HEAD: 'h7' }];
+    const state = { repo: { slug: 'org/repo' }, groups: {
         g1: { state: 'closed', branch: 'uier/1-done', head: 'h1' }, g2: { state: 'closed', branch: 'uier/2-dirty', head: 'h2' },
-        g3: { state: 'merged', branch: 'uier/3-ahead', head: 'h3' }, g4: { state: 'pr', branch: 'uier/4-open', head: 'h4', pr: 4 },
-        g5: { state: 'closed', branch: 'uier/5-here', head: 'h5' } }, prs: { 4: { state: 'open' } } };
+        g3: { state: 'merged', branch: 'uier/3-ahead', head: 'h3', pr: 3 }, g4: { state: 'pr', branch: 'uier/4-open', head: 'h4', pr: 4 },
+        g5: { state: 'closed', branch: 'uier/5-here', head: 'h5' }, g6: { state: 'closed', branch: 'uier/6-merged', pr: 6 },
+        g7: { state: 'cancelled', branch: 'uier/7-cancelled', head: 'h7' } }, prs: { 4: { state: 'open' } } };
     const result = context.removableWorktrees(state, '/repo', '/wt/here/sub');
     assert.deepEqual(result.map(entry => [entry.path, entry.removable, entry.reason ?? null]), [
-        ['/wt/done', true, null], ['/wt/dirty', false, 'uncommitted or untracked files'], ['/wt/ahead', false, 'commits not in the recorded head']]);
+        ['/wt/done', true, null], ['/wt/dirty', false, 'uncommitted or untracked files'], ['/wt/ahead', false, 'commits not published'],
+        ['/wt/merged', true, null], ['/wt/cancelled', false, 'commits not published']]);
 });
 
 for (const detached of [false, true]) test(`standalone persistent watcher delivers through a local CLI${detached ? ' after detaching' : ''} and retains its inbox`,

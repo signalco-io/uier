@@ -52,5 +52,6 @@
   the comments.
 - `prs.*.autoMerge`: set when auto-merge is on; in T3 the watcher follows the PR from then on.
 - `deploys.pending`: merges waiting for their deploy. An entry without `sha` is a PR waiting to merge.
+  Its `groups` decide which groups the watcher closes; an entry without a `pr` (push mode) must list them.
 - `mainFailures`: tests that fail on the base branch too, for the main-fix group.
 - `watcherUpdatedAt`: when the watcher last wrote its own bookkeeping. `updatedAt` stays yours.

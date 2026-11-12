@@ -133,7 +133,7 @@ writes. Each wake:
 | `pr` (watcher) or a PR wake (T3) | Merging |
 | `merged` | Quiet in most repositories: the watcher already recorded it. Loud only with `workflow.strict`: update the other PRs (Merging) |
 | `closed` (quiet) | The watcher closed these comments after their deploy. Archive the listed `threads` (T3 `t3_thread_organize`, `action: "archive"`); nothing else |
-| `close-failed` | Close those comments yourself (Closing in uier), then remove the group's `closing` and its deploy entry |
+| `close-failed` | Close those comments yourself (Closing in uier), then remove the group's `closing` and its deploy entry. A `conflict` may mean the earlier write went through or a verification revision is stale: read the comment first. `state-changed`: the replies went out but nothing was recorded; record each comment's stage |
 | `deployed`, `deploy-failed`, `deploy-missing`, `pr-closed` | Deploys |
 | `timer` | Release held small fixes |
 | `heartbeat` | Nothing to handle; consider a context reset |
@@ -359,12 +359,14 @@ When the review passes (or the PR needs none):
 - **Conflicts** (`mergeable: CONFLICTING`): start a rebase session (Sessions). Check that auto-merge
   is still on after it pushes.
 - **Strict repositories only:** turn on auto-merge only when no other open PR of yours that shares
-  files is ahead of it. On a `merged` event, `gh pr update-branch <n>` each other open PR of yours
-  that shares files with it (CI runs again); conflicts need a rebase session.
+  files is ahead of it. A strict rule holds back every PR behind the base, so on a `merged` event, or
+  a `pr` event with `behind: true`, run `gh pr update-branch <n>` for each other open PR of yours
+  (CI runs again); conflicts need a rebase session.
 - **Failed checks:** save the log tail (`gh run view <run> --log-failed | tail -n 80 > STATE/logs/<pr>-ci.log`).
   A test in `workflow.knownFlaky`, or a timeout unrelated to the change: re-run once
   (`gh run rerun <run> --failed`). Otherwise a follow-up with that file.
-- **Push mode:** the session already pushed; add its commit to `deploys.pending` with its groups.
+- **Push mode:** the session already pushed; add `{ "sha", "groups" }` to `deploys.pending`. The
+  watcher closes exactly the groups an entry lists.
 
 ## Deploys
 
@@ -409,8 +411,9 @@ uier, or the person must hear that it didn't. Never note a failed write in the s
 
 Every write except `link_feedback_pull_request` takes an `idempotencyKey`:
 `um-<projectId>-<number>-<action>-<round>`, for example `um-uier00000001-61-reply-1`. Reuse the same
-key and input when retrying. A conflict on a key means the earlier write went through. The watcher
-uses the same keys (`reply`, `done`, `verify`) when it closes comments.
+key and input when retrying. A conflict on a key usually means the earlier write went through. The
+watcher uses the same keys (`reply`, `done`, `verify`) when it closes comments, and reports any
+conflict to you as `close-failed` rather than assuming.
 
 ## Closing in uier
 
@@ -446,7 +449,8 @@ write `groups.<id>.closing`:
   verification instead.
 - With `watch.writes: "available"`, the watcher posts them once a deploy contains the merge, records
   each item's stage, marks the group closed, drops the deploy entry and sends you a quiet `closed`
-  event. Changing a draft retries one the watcher reported as `close-failed`.
+  event. It writes only while the draft, each item's `round` and the deploy entry are unchanged, so
+  a new round or an edited draft wins. Changing a draft retries one reported as `close-failed`.
 
 **Closing yourself** (no draft, `deployed` or `close-failed`): write the reply and the status as
 above, record `stage` (`done` or `ready`), mark the group `closed`, archive its session threads (T3
