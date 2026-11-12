@@ -57,9 +57,20 @@ test('reply images can be picked, removed, retried and expanded in toolbar and a
     await page.getByRole('button', { name: 'Close screenshot', exact: true }).click();
     await page.unroute(endpoint);
 
+    // Until the image arrives its thumbnail keeps its size and shows a placeholder (uier #352)
+    let releaseImage!: () => void;
+    const imageHeld = new Promise<void>(resolve => { releaseImage = resolve; });
+    const appImage = (url: URL) => url.pathname.startsWith('/app/projects/') && url.pathname.endsWith('/screenshot');
+    await page.route(appImage, async route => { await imageHeld; await route.continue(); });
     await page.goto(`/app/projects/${projectId}?comment=${comment.id}`);
     await inBackground(page);
     const card = page.getByRole('article', { name: /^Comment by/ });
+    const replyThumbnail = card.getByRole('button', { name: 'Image attached to reply', exact: true });
+    await expect(replyThumbnail.locator('[data-image-placeholder]')).toBeVisible();
+    expect((await replyThumbnail.boundingBox())!.height).toBeGreaterThan(60);
+    releaseImage();
+    await expect(replyThumbnail.locator('[data-image-placeholder]')).toHaveCount(0);
+    await page.unroute(appImage);
     await expect(card.getByRole('button', { name: 'Image attached to reply', exact: true })).toBeVisible();
     await card.getByRole('button', { name: 'Image attached to reply', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Reply image', exact: true }).getByRole('img', { name: 'Expanded reply image' })).toBeVisible();
