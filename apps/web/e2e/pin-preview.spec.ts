@@ -63,8 +63,24 @@ test('a pin shows the avatars of the people in its thread, on the side with room
     await expect(stack.locator('[data-uier-participants-more]')).toHaveAttribute('data-uier-participants-more', '+2');
     const shape = (await pin.locator('svg').boundingBox())!;
     const stackBox = (await stack.boundingBox())!;
-    expect(stackBox.x).toBeGreaterThanOrEqual(shape.x + shape.width);
+    // Tucked partly under the pin, behind it, the author in front of the others (uier #317)
+    expect(stackBox.x).toBeLessThan(shape.x + shape.width);
+    expect(stackBox.x).toBeGreaterThan(shape.x + shape.width / 2);
     expect(Math.abs(stackBox.y + stackBox.height / 2 - (shape.y + shape.height / 2))).toBeLessThan(2);
+    const layers = await stack.locator('[data-uier-participant], [data-uier-participants-more]')
+        .evaluateAll(avatars => avatars.map(avatar => Number(getComputedStyle(avatar).zIndex)));
+    expect(layers).toEqual([...layers].sort((a, b) => b - a));
+    expect(new Set(layers).size).toBe(layers.length);
+    // A hovered pin slides them out a little, still overlapping
+    if (!testInfo.project.use.hasTouch) {
+        const avatars = stack.locator('[data-uier-participant]');
+        const before = (await avatars.first().boundingBox())!;
+        await pin.hover();
+        await expect.poll(async () => (await avatars.first().boundingBox())!.x).toBeGreaterThan(before.x + 4);
+        const [first, second] = [(await avatars.first().boundingBox())!, (await avatars.nth(1).boundingBox())!];
+        expect(second.x).toBeLessThan(first.x + first.width);
+        await page.mouse.move(0, 0);
+    }
 
     // Near the right edge, the avatars go on the pin's left and stay in the window
     const edge = await postComment(page, { position: { type: 'point', selector: 'main>section:nth-of-type(2)', xNormal: 0.99, yNormal: 0.1 }, text: 'Near the edge.' });

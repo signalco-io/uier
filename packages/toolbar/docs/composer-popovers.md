@@ -155,8 +155,11 @@ A saved comment's pin shows the people in its thread beside it (`PinParticipants
 the author, then everyone who replied, in the order they first wrote (`threadParticipants`: a message an AI agent
 wrote for someone counts as theirs; deleted and unsent messages do not count). A small overlapping stack of 20 px
 avatars with the same letters as the messages' avatars, ink (the dark tokens) like the pin; past three people, the
-first two and "+N". It sits 6 px right of the pin, past the message count badge, centred on it, or on its left when
-the window has no room on the right, so it never leaves the window. It is part of the pin's button (hovering and
+first two and "+N". It sits behind the pin and its message count badge, tucked 8 px under its right edge and
+centred on it, or on its left when the window has no room on the right, so it never leaves the window. The author
+is in front, each next avatar further back, 9 px overlapping; hovering or focusing the pin slides them out a little
+(the first 6 px, each next 3 px more, still overlapping) and reduced motion jumps there without the slide
+([uier #317](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2F&comment=comment_QR5QRD8w6bKTBnW6X-m79)). It is part of the pin's button (hovering and
 pressing it are the pin's) and decorative: the letters are generated content (`content: attr(...)`), so the pin's
 text and name stay its number and message count, and its description names the people ("In this thread: you,
 Ana, and Ben"). Drafts and comments still being sent have none.
@@ -217,6 +220,6 @@ instruction and suggestions kept in the modal and back. `new-comment-after-threa
 animation, the same element once saved). `screenshots.spec.ts`: Attach image in the text box.
 `showcase.spec.ts` (desktop and mobile): a pin at the bottom and right edges is upside down, its thread inside
 the window, clear of the pill and the pin.
-`pin-preview.spec.ts`: the people beside a pin (the author first, "+N", its description, the left side at the
+`pin-preview.spec.ts`: the people beside a pin (the author first and in front, tucked under the pin, sliding out on hover, "+N", its description, the left side at the
 right edge; desktop and mobile), the hover preview (read-only, the focus kept, closing on leave, a click in it or
 on the pin opening the thread; desktop) and a tap opening the thread at once (mobile).
