@@ -8,7 +8,10 @@ clients, saved panels, dismissals and stored comments. New security check IDs st
 
 `components/checks/SecurityPanel.tsx` uses the existing panel shell, summary filters, docking,
 keyboard/touch controls, guest names and finding actions. The tabs are Page snapshot, Page security,
-Response headers and Before consent. The summary counts individual passed checks, suggestions to
+Response headers and Before consent. Each tab's limits are behind the info button at the end of the
+tab row, not a paragraph in it (`data-uier-security-limits`, `data-uier-security-header-scope`), and its
+section headings, which repeated the tab's name, are for screen readers only. Before consent keeps its
+instructions in view. The summary counts individual passed checks, suggestions to
 review and notes. It is not a grade, a security certification or a legal compliance verdict.
 
 ## Research and scope
@@ -57,7 +60,10 @@ The page's toolbar host and inline thread contents are excluded by the shared no
 ## Response headers
 
 Only **Check response headers** requests a response. It makes one same-origin GET of the current
-address with `credentials: omit`, `mode: same-origin`, `redirect: manual`, `cache: no-store`,
+address with a pristine `fetch`: the one of a hidden `about:blank` frame added for the request and removed
+after it (`pristineFetch.ts`), so a page that wraps its own `window.fetch` cannot add credentials, cookies or
+headers to it (a page embedding uier is not trusted). Where no such frame can be made, the headers are Not
+checked. The request has `credentials: omit`, `mode: same-origin`, `redirect: manual`, `cache: no-store`,
 `referrerPolicy: no-referrer` and a five-second timeout. The body is cancelled without reading it.
 The hash and uier's `toolbar-code`, `uier-token`, `uier-comment` and `review` controls are removed.
 Action-like or credential-bearing paths/queries are skipped, including encoded forms. No redirect

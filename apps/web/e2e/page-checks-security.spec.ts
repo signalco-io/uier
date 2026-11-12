@@ -3,7 +3,7 @@ import { build } from 'esbuild';
 import { resolve } from 'node:path';
 import { createProject, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, showChecksTab, toolbar } from './support/toolbar';
+import { animationsFinished, showChecksTab, toolbar, openPageCheck } from './support/toolbar';
 import { expectNoAxeViolations } from './accessibility';
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
@@ -21,7 +21,7 @@ async function openPanel(page: Page) {
     if (test.info().project.use.isMobile) {
         await toolbar(page).getByRole('button', { name: 'Options', exact: true }).click();
         await page.getByRole('dialog', { name: 'Options' }).getByRole('button', { name: /^Security and compliance/ }).click();
-    } else await toolbar(page).getByRole('button', { name: /^Security and compliance/ }).click();
+    } else await openPageCheck(page, /^Security and compliance/);
     const panel = page.getByRole('complementary', { name: 'Security and compliance', exact: true });
     await expect(section(panel, 'snapshot')).toHaveAttribute('data-uier-section-status', 'done', { timeout: 20_000 });
     return panel;
@@ -122,25 +122,30 @@ test('CSP denial and action-like addresses remain unmeasured without replaying p
     expect(actions).toEqual([]);
 });
 
-test('closing the panel aborts a pending header request and cannot publish its stale result', async ({ page }) => {
+test('the header request ignores a fetch the page wrapped; closing the panel aborts it and cannot publish its stale result', async ({ page }) => {
     const f = await visit(page);
+    // A page that wraps fetch (to add its credentials, say) does not see the request: it is the toolbar's own
     await page.evaluate(path => {
         const original = window.fetch;
         window.fetch = (input, init) => {
-            if (new URL(String(input), location.href).pathname !== path || init?.credentials !== 'omit') return original(input, init);
-            return new Promise((_resolve, reject) => init.signal!.addEventListener('abort', () => {
-                document.documentElement.dataset.headerAborted = 'true';
-                reject(init.signal!.reason);
-            }, { once: true }));
+            if (new URL(String(input), location.href).pathname === path) document.documentElement.dataset.wrappedFetch = 'true';
+            return original(input, { ...init, credentials: 'include' });
         };
     }, f.path);
+    // The response never comes
+    const requested = new Promise<void>(resolve => {
+        void page.route(`${f.origin}${f.path}`, () => resolve());
+    });
+    const failed = page.waitForEvent('requestfailed', request => request.url().startsWith(`${f.origin}${f.path}`));
     const panel = await openPanel(page);
     await showChecksTab(panel, 'headers');
     await panel.locator('[data-uier-security-headers]').click();
+    await requested;
     await expect(section(panel, 'headers')).toHaveAttribute('data-uier-section-status', 'checking');
     await panel.locator('[data-uier-panel-close]').click();
     await expect(panel).not.toBeVisible();
-    await expect(page.locator('html')).toHaveAttribute('data-header-aborted', 'true');
+    await failed;
+    await expect(page.locator('html')).not.toHaveAttribute('data-wrapped-fetch');
     const reopened = await openPanel(page);
     await showChecksTab(reopened, 'headers');
     await expect(section(reopened, 'headers')).toHaveCount(0);
