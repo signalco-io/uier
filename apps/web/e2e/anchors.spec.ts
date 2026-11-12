@@ -333,9 +333,14 @@ test('dragging in point mode comments on the area', async ({ browser }, testInfo
     expect(Math.abs(pin.x + pin.width / 2 - (area.x + area.width + 16))).toBeLessThanOrEqual(2);
     expect(Math.abs(pin.y + pin.height / 2 - (area.y + area.height + 16))).toBeLessThanOrEqual(2);
 
-    // Back on the same area after a reload
+    // Back on the same area after a reload: outlined only while its pin is hovered (uier #375)
     await page.reload();
+    await expect(page.locator(`[data-uier-comment="${saved!.id}"]`)).toBeVisible();
+    await expect(outline).toHaveCount(0);
+    await page.locator(`[data-uier-comment="${saved!.id}"]`).hover();
     await expectBox(outline, area);
+    await page.mouse.move(0, 0);
+    await expect(outline).toHaveCount(0);
     await expectNoAxeViolations(page);
 
     await context.close();
