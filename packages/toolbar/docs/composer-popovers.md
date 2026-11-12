@@ -162,6 +162,18 @@ it, off-screen until scrolled to. The pin's button has the pin's shape (round, w
 corner: top-left, or bottom-left upside down), so its focus ring follows the pin, not a circle
 ([uier #286](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_1z_xazrZorbfQTPCYKfJ2)).
 
+Pins that would overlap (comments on the same element, or on elements close together) move apart just enough that
+each is whole and can be pressed, its people included (`src/pinLayout.ts`,
+[uier #367](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_ZLqfVrY3yni86N80l9OWY)).
+Every pin, saved, being sent or a draft, reports where it would be by itself (`usePinShift`, one layout per mounted
+toolbar); they are placed oldest first by number, drafts last, so a new pin never moves the ones already there. A pin
+that would overlap goes just beside the pins in its way, to the right, else to the left, or to the next row below (above
+an upside-down pin) once its row has grown long or reaches the window's edge, kept inside the window; pins clear of
+others stay where they are. Pins keep 4 px apart, measured by their hit areas, so touch pins (44 px) spread
+further. A draft on the same element as a saved pin goes beside it this way too. The layout is computed once after
+the pins that moved have reported, before the browser paints, and scrolling (which moves every pin alike) renders no
+pin twice.
+
 The popover, a thread or a new comment's form, opens beside its pin on the side with room (right, else left;
 `popoverPlacement`), down from the pin's top, or up from its bottom when the pin is upside down, and shifts up
 or down to stay inside the window and clear of the pill. It never covers the pin. A window too narrow for
@@ -255,6 +267,8 @@ instruction and suggestions kept in the modal and back. `new-comment-after-threa
 animation, the same element once saved). `screenshots.spec.ts`: Attach image in the text box.
 `showcase.spec.ts` (desktop and mobile): a pin at the bottom and right edges is upside down, its thread inside
 the window, clear of the pill and the pin.
+`pin-numbers.spec.ts` (desktop and mobile): pins on the same and nearby spots apart, the oldest on its anchor, each
+opening its own thread; `pin-layout.api.spec.ts`: the layout itself (least move, order, window edges, rows, touch).
 `pin-preview.spec.ts`: the people beside a pin (the author first and in front, tucked under the pin, sliding out on hover, "+N", its description, the left side at the
 right edge; desktop and mobile), the hover preview (read-only, the focus kept, the status shown and the other controls
 hidden, closing on leave, a click in it or on the pin opening the thread, a message's avatar naming its author; a long

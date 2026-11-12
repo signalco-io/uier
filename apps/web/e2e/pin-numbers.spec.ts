@@ -3,8 +3,8 @@ import type { Locator, Page } from '@playwright/test';
 import { commentBubble, commentBubbles, isolatedOrigin, newVisitor, openLanding, openThread } from './support/toolbar';
 
 /** A point comment on the first element matching `target`, saved by its exact `nth-of-type` path */
-async function postComment(page: Page, target: string, text: string) {
-    return await page.evaluate(async ({ target, text }) => {
+async function postComment(page: Page, target: string, text: string, xNormal = 0.5) {
+    return await page.evaluate(async ({ target, text, xNormal }) => {
         const parts: string[] = [];
         for (let node = document.querySelector(target); node && node !== document.documentElement; node = node.parentElement) {
             const siblings = [...node.parentElement!.children].filter(other => other.tagName === node!.tagName);
@@ -14,10 +14,10 @@ async function postComment(page: Page, target: string, text: string) {
         const response = await fetch('/api/comments', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ path: '/', position: { type: 'point', selector, xNormal: 0.5, yNormal: 0.5 }, text })
+            body: JSON.stringify({ path: '/', position: { type: 'point', selector, xNormal, yNormal: 0.5 }, text })
         });
         return response.status;
-    }, { target, text });
+    }, { target, text, xNormal });
 }
 
 /** The box of an element's own text (the number fills the pin, its digits do not) */
@@ -87,6 +87,47 @@ test('pins keep their issue number after replies; the message count is a separat
     await page.getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
     const sidebar = page.getByRole('complementary', { name: 'Comments' });
     await expect(sidebar.getByRole('article', { name: 'Comment #1' })).toContainText('Maybe four words.');
+
+    await context.close();
+});
+
+test('pins on the same or nearby spots move apart, each whole and pressable (uier #367)', async ({ browser }, testInfo) => {
+    const { context, page } = await newVisitor(browser, testInfo);
+    await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
+    // Three on the same spot, one a few pixels beside them
+    for (const text of ['First.', 'Second.', 'Third.']) expect(await postComment(page, 'h1', text)).toBe(201);
+    const near = await page.locator('h1').evaluate(element => 0.5 + 6 / element.getBoundingClientRect().width);
+    expect(await postComment(page, 'h1', 'Fourth.', near)).toBe(201);
+    await page.reload();
+
+    const pins = [1, 2, 3, 4].map(number => page.getByRole('button', { name: `Comment #${number}, 1 message`, exact: true }));
+    await expect(commentBubbles(page)).toHaveCount(4);
+    // Each pin and the avatar beside it, clear of every other pin
+    const boxes = await Promise.all(pins.map(async pin => {
+        const shape = (await pin.locator('svg').boundingBox())!;
+        const people = (await pin.locator('[data-uier-participants]').boundingBox())!;
+        const left = Math.min(shape.x, people.x);
+        const right = Math.max(shape.x + shape.width, people.x + people.width);
+        return { left, right, top: shape.y, bottom: shape.y + shape.height };
+    }));
+    for (const [index, a] of boxes.entries()) {
+        for (const b of boxes.slice(index + 1)) {
+            expect(a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top, JSON.stringify([a, b])).toBe(true);
+        }
+    }
+    // The oldest stays on its spot, 16 px below and right of the anchor
+    const anchor = (await page.locator('h1').boundingBox())!;
+    const first = (await pins[0]!.locator('svg').boundingBox())!;
+    expect(Math.abs(first.x + first.width / 2 - (anchor.x + anchor.width / 2 + 16))).toBeLessThan(2);
+
+    // Each opens its own thread: nothing covers it
+    for (const [index, pin] of pins.entries()) {
+        await pin.click();
+        const thread = openThread(page);
+        await expect(thread.getByText(`Comment #${index + 1}`, { exact: true })).toBeVisible();
+        await page.keyboard.press('Escape');
+        await expect(thread).toBeHidden();
+    }
 
     await context.close();
 });

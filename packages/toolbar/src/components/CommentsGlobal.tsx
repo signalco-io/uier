@@ -997,7 +997,6 @@ export function CommentsGlobal({
                         autoOpen={resumingDraft === creatingComment.key}
                         onAutoOpened={handleDraftResumed}
                         onOpenStateChange={handleDraftOpenState}
-                        draftPinOffset={pinnedComments.some(comment => resolveAnchorElement(comment.position) === resolveAnchorElement(creatingComment.position)) ? 36 : 0}
                         onCreated={(localId, quiet) => { if (activePath.current === path) handleCreated(localId, creatingComment.key, quiet); }}
                         onSendFailed={(error, choice, quiet) => { if (activePath.current === path) restoreCreatingComment(creatingComment, error, choice, quiet); }}
                         onEditDrawing={creatingComment.kind === 'drawing' && !canvas ? () => resumeDrawing(creatingComment) : undefined}

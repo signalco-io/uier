@@ -24,6 +24,7 @@ import { statusLabel } from './CommentThreadHeader';
 import { selectedWorkflowStatus, useWorkflowStatuses } from '../hooks/useWorkflowStatus';
 import { feedbackStage } from '../verification';
 import { PinParticipants, participantsTuck, participantsWidth, threadParticipants } from './PinParticipants';
+import { usePinShift, type PinBox } from '../pinLayout';
 import { RewriteSuggestions, useRewriteSuggestionsState } from './RewriteSuggestions';
 import { ComposerAttachButton, ComposerAttachmentsHeader, composerIconButtonClassName, useAttachedImage, type AttachedImage } from './ComposerAttachments';
 import { ComposerModal, ExpandComposerButton } from './ComposerModal';
@@ -69,6 +70,32 @@ function bubbleLeft(rect: DOMRect | undefined) {
     return max > min ? Math.min(Math.max(left, min), max) : left;
 }
 
+/**
+ * The pin by itself, for the page's pin layout (`pinLayout.ts`): its hit area, its count badge and the
+ * people beside it (`participantsReach`, on the right where it fits), kept in the window like `bubbleLeft`
+ */
+function pinBox(x: number, y: number, upsideDown: boolean, participantsReach: number, number: number | undefined): PinBox {
+    const half = bubbleHalfHitArea();
+    const right = Math.max(half, bubbleHalfSize + bubbleBadgeOverhang);
+    const minX = half + bubbleWindowMargin;
+    const maxX = document.documentElement.clientWidth - right - bubbleWindowMargin;
+    const reachesLeft = participantsReach > 0 && x + participantsReach > document.documentElement.clientWidth - bubbleWindowMargin;
+    return {
+        x,
+        y,
+        left: reachesLeft ? Math.max(half, participantsReach) : half,
+        right: reachesLeft ? right : Math.max(right, participantsReach),
+        half,
+        // Saved pins by their number, older first; drafts and comments being sent after them
+        order: number ?? Number.POSITIVE_INFINITY,
+        upsideDown,
+        minX,
+        maxX,
+        minY: half + bubbleWindowMargin,
+        maxY: document.documentElement.clientHeight - half - bubbleWindowMargin
+    };
+}
+
 /** The toolbar pill's box (`CommentToolbar`), in the shadow root that holds `rootElement` */
 function toolbarPillRect(rootElement: HTMLElement | null | undefined) {
     const root = rootElement?.getRootNode();
@@ -82,9 +109,9 @@ function toolbarPillRect(rootElement: HTMLElement | null | undefined) {
  * still on the point), and kept inside the window and above the pill. An anchor below the window
  * keeps its bubble below it, off-screen until scrolled to.
  */
-function bubbleTop(rect: DOMRect | undefined, offset: number, left: number, rootElement: HTMLElement | null | undefined): { top: number; upsideDown: boolean } {
+function bubbleTop(rect: DOMRect | undefined, left: number, rootElement: HTMLElement | null | undefined): { top: number; upsideDown: boolean } {
     const bottom = rect?.bottom ?? 0;
-    const below = bottom + 16 + offset;
+    const below = bottom + 16;
     const height = document.documentElement.clientHeight;
     const halfHitArea = bubbleHalfHitArea();
     let max = height - halfHitArea - bubbleWindowMargin;
@@ -97,7 +124,7 @@ function bubbleTop(rect: DOMRect | undefined, offset: number, left: number, root
     if (below <= max || bottom > height + 1) {
         return { top: below, upsideDown: false };
     }
-    return { top: Math.min(bottom - 16 - offset, max), upsideDown: true };
+    return { top: Math.min(bottom - 16, max), upsideDown: true };
 }
 
 type PopoverPlacement = { side: 'top' | 'right' | 'bottom' | 'left'; align: 'start' | 'end'; sideOffset: number; alignOffset: number };
@@ -178,8 +205,6 @@ type CommentBubbleProps = {
     /** Opened with J or K, going from thread to thread: the messages take the focus, not the reply box */
     autoOpenReading?: boolean;
     initiallyClosed?: boolean;
-    /** Keep a recovered draft reachable beside saved pins on the same element. */
-    draftPinOffset?: number;
     onAutoOpened?: () => void;
     /** It pressed the opener of a closed layer its pin is in: its thread opens once that layer has rendered */
     onAutoOpenStep?: () => void;
@@ -487,17 +512,23 @@ export function CommentBubble(props: CommentBubbleProps) {
         scrollAnchorIntoView(position, lastRect, prefersReducedMotion() ? 'auto' : 'smooth', closedLayer);
     };
 
-    // The commented element is not on the page (anymore), e.g. a different layout on this device
-    if (!lastRect && !creating) {
-        return null;
-    }
-
-    const pinLeft = bubbleLeft(lastRect);
-    const { top: pinTop, upsideDown } = bubbleTop(lastRect, creating ? props.draftPinOffset ?? 0 : 0, pinLeft, rootElement);
-    const placement = popoverPlacement(pinLeft, pinTop, upsideDown);
+    // Where the pin would be by itself, and how far it moves so it does not overlap the page's other pins
+    // (uier #367); the commented element not on the page (anymore) has no pin
+    const placed = Boolean(lastRect) || creating;
+    const naturalLeft = bubbleLeft(lastRect);
+    const { top: naturalTop, upsideDown } = bubbleTop(lastRect, naturalLeft, rootElement);
     // Whose thread it is: the people in it beside the pin, on the side with room (uier #307)
     const participants = commentItem && !sending ? threadParticipants(commentItem, t.common.guest) : [];
     const participantsReach = bubbleHalfSize - participantsTuck + participantsWidth(participants);
+    const shift = usePinShift(rootElement, placed ? pinBox(naturalLeft, naturalTop, upsideDown, participants.length ? participantsReach : 0, commentItem?.number) : undefined);
+
+    if (!placed) {
+        return null;
+    }
+
+    const pinLeft = naturalLeft + shift.dx;
+    const pinTop = naturalTop + shift.dy;
+    const placement = popoverPlacement(pinLeft, pinTop, upsideDown);
     const participantsSide = pinLeft + participantsReach <= document.documentElement.clientWidth - bubbleWindowMargin ? 'right' : 'left';
     const participantsText = participants.length
         ? t.pin.participants(new Intl.ListFormat(language, { type: 'conjunction' }).format(participants.map(person => person.isMe ? t.pin.participantsYou : person.name)))
