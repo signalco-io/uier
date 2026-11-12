@@ -122,8 +122,22 @@ node "$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor/moni
   replies, transitions and deployed PRs. Reassignment, agent removal, stop-work and auth/lease
   errors bypass the delay. Identical poll errors notify once per outage. Lease renewal continues
   during batching and while an inbox is waiting to be consumed.
+- **The watcher does the bookkeeping.** It records merges in `state.json` itself (the deploy entry,
+  the PR and group state) and, when the orchestrator drafted the closing replies at approval, posts
+  them once a deploy contains the merge, sets Done or asks for verification, and marks the group
+  closed. These quiet events wake no one; they ride along with the next wake. It also records the In
+  progress move its own agent attachment causes, rather than reporting it as drift. Without a draft
+  or a token that can write, the orchestrator closes comments itself as before. When wake delivery
+  fails, `status` shows it and the next context reports the gap once.
+- **Merges don't wait in line.** `main` doesn't require PRs to be up to date, so a reviewed PR gets
+  auto-merge at once, even when another open PR changes the same files. GitHub refuses a real
+  conflict, and only then does a rebase session run. In T3 the orchestrator stops watching a PR
+  once auto-merge is on; the watcher follows it and wakes the orchestrator only for failed checks,
+  a conflict, requested changes or a close.
 - **The state file is the memory.** Every decision goes into `state.json`, so a fresh session can take
-  over at any time. In T3 the orchestrator starts one about every 40 wakes to keep its context small.
+  over at any time. In T3 the orchestrator starts one every 15 wakes to keep its context small: a
+  fresh session starts near 100k tokens and each wake adds several thousand that every later model
+  call re-reads.
   It reads `M context` once, then `M context --take` for events and changed active records, instead
   of repeatedly loading the full state. Each section prints at most 25 changed records; `more`
   identifies unread ids, which stay due on the next read. `M detail items <id>`, `groups <id>` or
@@ -131,17 +145,25 @@ node "$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor/moni
   runtime evidence. Routing, scope, release restrictions and pending writes remain visible; closed
   history and transcripts remain on disk. A recovery packet is written before the inbox is drained.
 - **Sessions.** Up to 6 run at once. A slot frees as soon as a session opens its PR; CI, merges and
-  deploys don't hold one. Small fixes in the same area share one session and one PR, and simple
+  deploys don't hold one. Before starting one with less than 15 GiB free, the orchestrator removes
+  worktrees of finished groups that are clean and fully pushed (`monitor.mjs cleanup --apply`). When
+  a session hits a usage limit, its group and new sessions move to the other provider until the
+  reset. Follow-ups for a PR go back to the session that wrote it while its context is fresh. Small fixes in the same area share one session and one PR, and simple
   fixes collect for two quiet minutes, up to ten minutes from the first held item or five items.
   The orchestrator triages the whole incoming batch before starting sessions, releases all due
   groups together, and starts urgent fixes or follow-ups immediately. Required checks are unchanged.
 - **Models in T3.** UI work runs on the newest Claude Opus and backend work and investigations on the
-  newest GPT sol. Image generation runs on GPT sol at xhigh, redesign and branding on Opus at xhigh.
-  Effort follows size: medium for simple fixes, high for rearrangements and new simple components,
-  xhigh for complex work.
-- **Testing.** The smallest fixes run typecheck and the closest test file, and CI runs the full suite.
-  Larger fixes run `pnpm test` once before the PR.
-- **Closing.** After a deploy that contains the merge, it replies with the commit, PR and session.
+  newest GPT sol. Complex UI (size L), redesigns and branding run on the newest Claude Fable at high
+  when the Claude instance offers Fable (not every plan does), and on Opus at xhigh otherwise. Image
+  generation runs on GPT sol at xhigh. Effort follows size: medium for simple fixes, high for
+  rearrangements and new simple components, xhigh for complex work.
+- **Testing.** Sessions iterate on one spec and one project, then widen once before handing over.
+  The smallest fixes run typecheck and the closest test file, and CI runs the full suite. Larger
+  fixes run `pnpm test` once before the PR. A session rebases only when `main` moved, and re-tests
+  after a clean rebase only when the incoming commits touched its files or the lockfile. Tests were
+  about 80% of session command time and rebasing under 1% (November 2026).
+- **Closing.** After a deploy that contains the merge, the watcher (or the orchestrator, without a
+  draft) replies with the commit, PR and session.
   Then it marks the comment done, or asks for verification when the result is a judgment call.
   uier doesn't let you verify a check your own account requested, so for your own comments the
   reply says what to check and the comment is marked done. Pass `reviewer=<account id>` to have
@@ -152,11 +174,14 @@ node "$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor/moni
 The skill reads this section at start. It takes precedence over what the skill detects.
 
 - Pull requests target `main`. The only required check is **CI OK**. Squash merge, auto-merge is
-  allowed, and branches are deleted on merge.
+  allowed, and branches are deleted on merge. PRs don't have to be up to date before merging
+  (`strict: false`), and there is no merge queue.
 - Deploys: `.github/workflows/deploy.yml` runs on every push to `main` except changes limited to
   `*.md`, `LICENSE`, `renovate.json`, `.github/ISSUE_TEMPLATE/**`, `.claude/**` and `.agents/**`.
   Runs coalesce: a newer push replaces a waiting run. A Pulumi plugin download that fails with
-  HTTP 503 is transient, so re-run the failed jobs.
+  HTTP 503 is transient. Re-run the whole run (`gh run rerun <id>`, `rerun: all`): the deploy job
+  downloads a build artifact named after the attempt, so re-running only the failed jobs can't find it.
+- Known flaky test: `launch.spec.ts:67` (the installation check's 5 s timeout). Re-run it once.
 - Infrastructure (`infra/`, `.github/workflows/`) and secrets: open the PR, then ask before merging.
 - Ports: give each session `PORT=4000+c`, where `c` is one of 104, 204, … 904. Tests start local
   stand-ins on `PORT+1000` to `PORT+9000`, so two live sessions must never share `PORT` mod 1000
@@ -166,13 +191,20 @@ The skill reads this section at start. It takes precedence over what the skill d
   `source ~/.nvm/nvm.sh && nvm use`.
 - Area notes: [apps/web](../apps/web/docs/README.md) and [packages/toolbar](../packages/toolbar/docs/README.md);
   brand rules in [BRAND.md](../packages/brand/BRAND.md). Name one to three notes in each brief.
+- Files that many PRs change at once: `packages/toolbar/AGENTS.md` (one-line code-map rows only),
+  `apps/web/docs/comments-inbox.md` and the toolbar's `src/i18n/*.ts` catalogs. Sessions add to them
+  rather than rewrite, as the fix-session rules say.
 - The pre-PR check is `pnpm test`, which needs a fresh `pnpm build`. For focused runs, see
   [while implementing](development.md#while-implementing).
 - Replies name the site as `uier.io`.
 
 ## Changing the skill
 
-Edit `plugins/uier/skills/uier-monitor/SKILL.md` and its `scripts/monitor.mjs`. After a change to the script,
+Edit `plugins/uier/skills/uier-monitor/SKILL.md`, its `references/` and its `scripts/monitor.mjs`.
+`SKILL.md` holds what the orchestrator needs on every wake, since every model call re-reads it; first
+start, waiting modes, the token and workflow detection live in `references/start.md`, the fix
+session rules in `references/fix-session.md` and the state fields in `references/state.md`. After a
+change to the script,
 bump `VERSION` in it and `MONITOR_VERSION` in `SKILL.md`, then run:
 
 ```bash

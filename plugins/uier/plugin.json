@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "uier",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Connect website feedback to your coding agent, with skills to monitor a uier project and carry fixes through review and deployment.",
   "author": {
     "name": "signalco",

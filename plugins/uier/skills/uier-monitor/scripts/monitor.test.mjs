@@ -133,7 +133,8 @@ function runtime() {
         withLock: async (_dir, _name, action) => action(), stateDir: () => '/state',
         print: value => output.push(structuredClone(value)), watcherPid: () => null, logger: () => () => {},
         connection: () => ({}), keepLeases: async () => {}, pollUier: async () => {},
-        pollDeploys() {}, pollPullRequests() {}, wakeUrl: () => 'https://wake.example/secret'
+        pollDeploys() {}, pollPullRequests() {}, wakeUrl: () => 'https://wake.example/secret',
+        diskFree: () => null, repoCwd: () => '/repo'
     });
     files.set('/state/state.json', { project: { id: 'project' } });
     return { context, files, output, advance: ms => { now += ms; } };
@@ -340,6 +341,307 @@ test('repeated unchanged poll failures notify once until the service recovers', 
     };
     await context.watch({ persistent: true, 'notify-file': '/private/url', 'batch-seconds': 0 });
     assert.equal(wakes, 2);
+});
+
+test('options may come before the command, so a shell function can append --state', () => {
+    const { context } = runtime();
+    const parsed = context.parseArgs(['--state', '/state', 'context', '--take']);
+    assert.equal(parsed.command, 'context');
+    assert.equal(parsed.opts.state, '/state');
+    assert.equal(parsed.opts.take, true);
+    const patch = context.parseArgs(['patch', '-', '--state', '/state']);
+    assert.deepEqual([patch.command, [...patch.opts._], patch.opts.state], ['patch', ['-'], '/state']);
+    const call = context.parseArgs(['--project', 'p1', 'call', 'set_feedback_status', '{"a":1}']);
+    assert.deepEqual([call.command, [...call.opts._], call.opts.project], ['call', ['set_feedback_status', '{"a":1}'], 'p1']);
+    assert.equal(context.parseArgs([]).command, 'help');
+});
+
+// runtime() stubs the GitHub polls; put the real ones back where a test exercises them.
+function restore(context, ...names) {
+    for (const name of names) {
+        const start = source.indexOf(`function ${name}(`);
+        vm.runInContext(source.slice(start, source.indexOf('\n}\n', start) + 3), context);
+    }
+}
+
+function closingFixture({ writes = 'available', verify = false, fail = null } = {}) {
+    const { context, files } = runtime();
+    const calls = [];
+    context.tool = async (_ctx, name, args) => {
+        calls.push({ name, args: structuredClone(args) });
+        if (fail?.name === name) { const error = new Error(fail.message ?? 'refused'); error.fromTool = true; error.code = fail.code; throw error; }
+        return {};
+    };
+    const sha = 'abcdef1234567890';
+    const state = {
+        project: { id: 'project0001' }, repo: { slug: 'org/repo' }, watch: { writes },
+        items: { c1: { number: 61, stage: 'in-progress' }, c2: { number: 62, stage: 'in-progress', round: 2 } },
+        groups: { g61: { state: 'merged', pr: 7, threadId: 'thread-fix', reviewThreadId: 'thread-review', closing: {
+            agent: 'claude', model: 'claude-opus-5-5', reasoning: 'medium',
+            items: { c1: { reply: 'Fixed in [`{sha7}`]({commitUrl}). Done.' },
+                c2: verify ? { reply: 'Check it: {sha}', verify: { reviewerId: 'u_reviewer', expectedRevision: null, fixUrl: 'https://site/page' } }
+                    : { reply: 'Part one shipped.', status: 'keep' } } } } },
+        prs: { 7: { group: 'g61', state: 'merged' } },
+        deploys: { pending: [{ pr: 7, sha, groups: ['g61'] }, { pr: 8, sha: 'other' }] }
+    };
+    files.set('/state/state.json', structuredClone(state));
+    return { context, files, calls, state, sha, seen: {}, found: [], updates: [] };
+}
+
+test('the watcher closes drafted comments after their deploy and reports one quiet event', async () => {
+    const f = closingFixture();
+    await f.context.closeDeployed({}, f.state, f.seen, f.found, f.updates, { entry: f.state.deploys.pending[0], run: { id: 1 } });
+    assert.deepEqual(f.calls.map(call => call.name), ['reply_to_feedback', 'set_feedback_status', 'reply_to_feedback']);
+    assert.equal(f.calls[0].args.text, 'Fixed in [`abcdef1`](https://github.com/org/repo/commit/abcdef1234567890). Done.');
+    assert.equal(f.calls[0].args.idempotencyKey, 'um-project0001-61-reply-1');
+    assert.equal(f.calls[0].args.model, 'claude-opus-5-5');
+    assert.equal(f.calls[1].args.status, 'done');
+    assert.equal(f.calls[2].args.idempotencyKey, 'um-project0001-62-reply-2');
+    // The event comes with the bookkeeping, under the state lock.
+    assert.equal(f.found.length, 0);
+    await f.context.updateState('/state', f.updates);
+    assert.equal(f.found.length, 1);
+    assert.equal(f.found[0].type, 'closed');
+    assert.equal(f.found[0].quiet, true);
+    assert.deepEqual([...f.found[0].threads].sort(), ['thread-fix', 'thread-review']);
+    const next = f.files.get('/state/state.json');
+    assert.equal(next.items.c1.stage, 'done');
+    assert.equal(next.items.c2.stage, 'in-progress'); // status "keep" leaves it
+    assert.equal(next.groups.g61.state, 'closed');
+    assert.equal('closing' in next.groups.g61, false);
+    assert.equal(next.prs[7].state, 'deployed');
+    assert.deepEqual(next.deploys.pending.map(entry => entry.pr), [8]);
+    assert.ok(next.watcherUpdatedAt);
+    assert.equal(next.updatedAt, undefined);
+});
+
+async function applyUpdates(f) {
+    await f.context.updateState('/state', f.updates);
+    return f.files.get('/state/state.json');
+}
+
+test('closing requests verification, and reports refused writes and conflicts once without recording them', async () => {
+    const verified = closingFixture({ verify: true });
+    await verified.context.closeDeployed({}, verified.state, verified.seen, verified.found, verified.updates, { entry: verified.state.deploys.pending[0] });
+    const request = verified.calls.find(call => call.name === 'request_feedback_verification');
+    assert.equal(request.args.reviewerId, 'u_reviewer');
+    assert.equal(request.args.expectedRevision, null);
+    assert.equal((await applyUpdates(verified)).items.c2.stage, 'ready');
+    assert.equal(verified.found[0].type, 'closed');
+    for (const fail of [{ name: 'reply_to_feedback', code: 'forbidden', message: 'needs feedback:reply' },
+        { name: 'set_feedback_status', code: 'conflict', message: 'That key was used with other input.' }]) {
+        const refused = closingFixture({ fail });
+        for (let cycle = 0; cycle < 2; cycle++)
+            await refused.context.closeDeployed({}, refused.state, refused.seen, refused.found, refused.updates, { entry: refused.state.deploys.pending[0] });
+        assert.deepEqual(refused.found.map(event => [event.type, event.number, event.code, event.quiet]), [['close-failed', 61, fail.code, undefined]]);
+        assert.equal(refused.updates.length, 0);
+    }
+});
+
+test('closing checks the state before writing and under the lock, and records nothing stale', async () => {
+    // Patched before the writes: nothing is written; the next cycle plans again from the new state.
+    const before = closingFixture();
+    const patched = structuredClone(before.state);
+    patched.items.c1.round = 2;
+    await before.context.closeDeployed({}, before.state, before.seen, before.found, before.updates, { entry: before.state.deploys.pending[0] }, () => {}, () => patched);
+    assert.equal(before.calls.length, 0);
+    assert.equal(before.updates.length, 0);
+    // Patched during the writes: the replies went out, but the bookkeeping refuses and wakes the orchestrator.
+    const during = closingFixture();
+    await during.context.closeDeployed({}, during.state, during.seen, during.found, during.updates, { entry: during.state.deploys.pending[0] });
+    const file = during.files.get('/state/state.json');
+    file.items.c1.round = 2;
+    file.groups.g61.closing.items.c1.reply = 'A newer draft';
+    const next = await applyUpdates(during);
+    assert.equal(next.items.c1.stage, 'in-progress');
+    assert.equal(next.groups.g61.closing.items.c1.reply, 'A newer draft');
+    assert.equal(next.deploys.pending.length, 2);
+    assert.deepEqual(during.found.map(event => [event.type, event.code]), [['close-failed', 'state-changed']]);
+    // A new round while the reply is in flight: the old status write never goes out.
+    const inFlight = closingFixture();
+    const reply = inFlight.context.tool;
+    inFlight.context.tool = async (ctx, name, args) => {
+        const result = await reply(ctx, name, args);
+        if (name === 'reply_to_feedback') inFlight.files.get('/state/state.json').items.c1.round = 2;
+        return result;
+    };
+    await inFlight.context.closeDeployed({}, inFlight.state, inFlight.seen, inFlight.found, inFlight.updates,
+        { entry: inFlight.state.deploys.pending[0] }, () => {}, () => inFlight.files.get('/state/state.json'));
+    assert.deepEqual(inFlight.calls.map(call => call.name), ['reply_to_feedback']);
+    assert.equal(inFlight.updates.length, 0);
+});
+
+test('closing follows the deploy entry it planned for and removes only that one', async () => {
+    // The entry keeps its merge commit but now closes another group: no writes, nothing removed.
+    const replaced = closingFixture();
+    const file = replaced.files.get('/state/state.json');
+    file.groups.g62 = { state: 'merged', closing: { items: { c2: { reply: 'Other' } } } };
+    file.deploys.pending[0] = { pr: 7, sha: replaced.sha, groups: ['g62'] };
+    await replaced.context.closeDeployed({}, replaced.state, replaced.seen, replaced.found, replaced.updates,
+        { entry: replaced.state.deploys.pending[0] }, () => {}, () => replaced.files.get('/state/state.json'));
+    assert.equal(replaced.calls.length, 0);
+    assert.equal(replaced.updates.length, 0);
+    // Replaced after the writes: nothing is recorded and the replacement entry stays.
+    const late = closingFixture();
+    await late.context.closeDeployed({}, late.state, late.seen, late.found, late.updates, { entry: late.state.deploys.pending[0] });
+    late.files.get('/state/state.json').deploys.pending[0].groups = ['g62'];
+    const next = await applyUpdates(late);
+    assert.equal(next.groups.g61.state, 'merged');
+    assert.deepEqual(next.deploys.pending.map(entry => entry.groups ?? null), [['g62'], null]);
+    assert.deepEqual(late.found.map(event => [event.type, event.code]), [['close-failed', 'state-changed']]);
+    // Another entry with the same merge commit (a push) stays when this one closes.
+    const shared = closingFixture();
+    shared.files.get('/state/state.json').deploys.pending.push({ sha: shared.sha, groups: ['g99'] });
+    await shared.context.closeDeployed({}, shared.state, shared.seen, shared.found, shared.updates, { entry: shared.state.deploys.pending[0] });
+    assert.deepEqual((await applyUpdates(shared)).deploys.pending.map(entry => entry.groups ?? entry.pr), [8, ['g99']]);
+});
+
+test('a deploy entry with explicit groups closes only those, and entries without a PR infer none', () => {
+    const { context } = runtime();
+    const state = { groups: { a: { pr: undefined, closing: {} }, b: { closing: {} }, c: { pr: 9 } }, prs: { 9: { group: 'c' } } };
+    assert.deepEqual([...context.groupsOf(state, undefined, { sha: 's', groups: ['a'] })], ['a']);
+    assert.deepEqual([...context.groupsOf(state, undefined, { sha: 's' })], []);
+    assert.deepEqual([...context.groupsOf(state, 9, { sha: 's' })], ['c']);
+});
+
+test('without a draft or write access the deploy wakes the orchestrator as before', async () => {
+    for (const fixture of [closingFixture({ writes: 'missing' }), (() => { const f = closingFixture(); delete f.state.groups.g61.closing; return f; })()]) {
+        await fixture.context.closeDeployed({}, fixture.state, fixture.seen, fixture.found, fixture.updates, { entry: fixture.state.deploys.pending[0], run: { id: 9, url: 'u' } });
+        assert.equal(fixture.calls.length, 0);
+        assert.deepEqual(fixture.found.map(event => [event.type, event.quiet]), [['deployed', undefined]]);
+    }
+});
+
+test('merges are recorded by the watcher and stay quiet unless branches must be up to date', async () => {
+    for (const strict of [false, true, undefined]) {
+        const { context, files } = runtime();
+        restore(context, 'pollPullRequests');
+        context.githubJson = args => args[0] === 'pr' ? { state: 'MERGED', mergeCommit: { oid: 'merge-sha' } } : [];
+        context.repoCwd = () => '/repo';
+        const state = { workflow: { strict }, repo: { slug: 'org/repo' }, harness: { prWatch: true },
+            groups: { g1: { state: 'pr', pr: 5 } }, prs: { 5: { group: 'g1', state: 'open', autoMerge: true } }, deploys: { pending: [] } };
+        files.set('/state/state.json', structuredClone(state));
+        const seen = {}, found = [], updates = [];
+        context.pollPullRequests(state, seen, found, updates);
+        assert.equal(found[0].type, 'merged');
+        assert.equal(found[0].quiet, strict === false ? true : undefined);
+        await context.updateState('/state', updates);
+        const next = files.get('/state/state.json');
+        assert.deepEqual(next.deploys.pending.map(entry => [entry.pr, entry.sha, [...entry.groups]]), [[5, 'merge-sha', ['g1']]]);
+        assert.equal(next.prs[5].state, 'merged');
+        assert.equal(next.groups.g1.state, 'merged');
+        context.pollPullRequests(state, seen, found, updates);
+        assert.equal(found.length, 1);
+    }
+});
+
+test('PR polling wakes only for decisions and leaves T3-watched PRs to T3 until auto-merge is on', () => {
+    const { context } = runtime();
+    restore(context, 'pollPullRequests');
+    let answer;
+    const viewed = [];
+    context.githubJson = args => { viewed.push(args[2]); return answer; };
+    context.repoCwd = () => '/repo';
+    const passing = [{ __typename: 'CheckRun', name: 'CI OK', status: 'COMPLETED', conclusion: 'SUCCESS' }];
+    const state = { workflow: { requiredChecks: ['CI OK'], strict: false }, harness: { prWatch: true }, prs: { 1: { state: 'open', autoMerge: true }, 2: { state: 'open' } } };
+    const seen = {}, found = [];
+    answer = { state: 'OPEN', mergeable: 'MERGEABLE', headRefOid: 'h1', statusCheckRollup: passing, autoMergeRequest: { enabledAt: 'x' } };
+    context.pollPullRequests(state, seen, found);
+    assert.deepEqual(viewed, ['1']);
+    assert.equal(found.length, 0); // auto-merge takes it from here
+    answer = { ...answer, headRefOid: 'h2', mergeable: 'CONFLICTING' };
+    context.pollPullRequests(state, seen, found);
+    assert.equal(found[0].mergeable, 'CONFLICTING');
+    state.harness.prWatch = false;
+    state.prs[1].state = 'merged';
+    answer = { state: 'OPEN', mergeable: 'MERGEABLE', headRefOid: 'h3', statusCheckRollup: passing };
+    context.pollPullRequests(state, seen, found);
+    assert.equal(found.at(-1).pr, 2); // passing without auto-merge needs the orchestrator
+    // A branch behind its base matters only when the base requires up-to-date branches.
+    state.prs[1].state = 'open';
+    state.prs[2].state = 'merged';
+    answer = { state: 'OPEN', mergeable: 'MERGEABLE', mergeStateStatus: 'BEHIND', headRefOid: 'h4', statusCheckRollup: passing, autoMergeRequest: {} };
+    const count = found.length;
+    context.pollPullRequests(state, seen, found);
+    assert.equal(found.length, count);
+    state.workflow.strict = true;
+    answer = { ...answer, headRefOid: 'h5' };
+    context.pollPullRequests(state, seen, found);
+    assert.equal(found.at(-1).behind, true);
+});
+
+test('quiet events ride along without waking the orchestrator', async () => {
+    const { context, files, advance } = runtime();
+    let cycles = 0, wakes = 0;
+    context.pollDeploys = (_state, _seen, found) => { if (cycles === 0) found.push({ type: 'merged', pr: 1, sha: 's', quiet: true }); return []; };
+    context.fetch = async () => { wakes++; return { ok: true }; };
+    context.sleep = async ms => {
+        advance(Math.max(ms, 60_000)); cycles++;
+        if (cycles === 3) context.pollUier = async (_ctx, _state, _seen, found) => { found.push({ type: 'reply', commentId: 'c', at: 'x' }); };
+        if (cycles === 6) files.get('/state/state.json').stopped = true;
+    };
+    await context.watch({ persistent: true, 'notify-file': '/private/url', 'batch-seconds': 0 });
+    // Three quiet cycles sent nothing; the first person's reply woke it once, with the merge attached.
+    assert.equal(wakes, 1);
+    const inbox = files.get('/state/inbox.json');
+    assert.equal(inbox[0].type, 'merged');
+    assert.ok(inbox.slice(1).every(event => event.type === 'reply'));
+});
+
+test('the watcher records its own Open to In progress change instead of reporting drift', async () => {
+    const f = fixture({ mine: { stage: 'open', decision: 'accepted' }, theirs: { stage: 'open', decision: 'accepted' } },
+        [{ id: 'mine', stage: 'in-progress' }, { id: 'theirs', stage: 'in-progress' }]);
+    f.seen.attached = { mine: Date.now() };
+    const updates = [];
+    await f.reconcile(null, f.state, f.seen, f.found, updates);
+    assert.deepEqual(f.found.map(event => [event.type, event.commentId]), [['drift', 'theirs']]);
+    assert.equal(updates.length, 1);
+    updates[0](f.state);
+    assert.equal(f.state.items.mine.stage, 'in-progress');
+});
+
+test('a wake outage is tracked while delivery fails and reported once after it recovers', async () => {
+    const { context, files, output } = runtime();
+    let ok = false;
+    context.fetch = async () => ({ ok });
+    const events = [{ type: 'reply', commentId: 'thread', foundAt: 'one' }];
+    files.set('/state/inbox.json', events);
+    await context.notifyInbox('/state', {}, events, '/private/url', 1_000);
+    await context.notifyInbox('/state', {}, events, '/private/url', 70_000);
+    assert.equal(files.get('/state/notification.json').failures, 2);
+    ok = true;
+    await context.notifyInbox('/state', {}, events, '/private/url', 140_000);
+    const saved = files.get('/state/notification.json');
+    assert.equal(saved.failingSince, undefined);
+    assert.equal(saved.lastOutage.failures, 2);
+    await context.contextCommand({ take: true });
+    await context.contextCommand({ take: true });
+    assert.equal(output[0].wakeOutage.failures, 2);
+    assert.equal(output[1].wakeOutage, undefined);
+});
+
+test('cleanup offers only clean worktrees of finished groups whose commits are published', () => {
+    const { context } = runtime();
+    context.resolve = path => path;
+    // h1 is on a remote branch; h6 is only in its merged PR's head on GitHub; 'local' is nowhere.
+    context.spawnSync = (_command, args, options) => args[0] === 'branch'
+        ? { status: 0, stdout: args[3] === 'h1' ? '  origin/uier/1-done\n' : '' }
+        : { status: 0, stdout: options.cwd === '/wt/dirty' ? ' M file\n' : '' };
+    context.githubJson = args => ({ 6: { state: 'MERGED', headRefOid: 'h6' }, 3: { state: 'MERGED', headRefOid: 'h3' } })[args[2]] ?? null;
+    context.contains = (_cwd, sha, head) => sha === head;
+    context.worktreeList = () => [{ worktree: '/repo' }, { worktree: '/wt/done', branch: 'refs/heads/uier/1-done', HEAD: 'h1' },
+        { worktree: '/wt/dirty', branch: 'refs/heads/uier/2-dirty', HEAD: 'h2' }, { worktree: '/wt/ahead', branch: 'refs/heads/uier/3-ahead', HEAD: 'local' },
+        { worktree: '/wt/open', branch: 'refs/heads/uier/4-open', HEAD: 'h4' }, { worktree: '/wt/here', branch: 'refs/heads/uier/5-here', HEAD: 'h5' },
+        { worktree: '/wt/merged', branch: 'refs/heads/uier/6-merged', HEAD: 'h6' }, { worktree: '/wt/cancelled', branch: 'refs/heads/uier/7-cancelled', HEAD: 'h7' }];
+    const state = { repo: { slug: 'org/repo' }, groups: {
+        g1: { state: 'closed', branch: 'uier/1-done', head: 'h1' }, g2: { state: 'closed', branch: 'uier/2-dirty', head: 'h2' },
+        g3: { state: 'merged', branch: 'uier/3-ahead', head: 'h3', pr: 3 }, g4: { state: 'pr', branch: 'uier/4-open', head: 'h4', pr: 4 },
+        g5: { state: 'closed', branch: 'uier/5-here', head: 'h5' }, g6: { state: 'closed', branch: 'uier/6-merged', pr: 6 },
+        g7: { state: 'cancelled', branch: 'uier/7-cancelled', head: 'h7' } }, prs: { 4: { state: 'open' } } };
+    const result = context.removableWorktrees(state, '/repo', '/wt/here/sub');
+    assert.deepEqual(result.map(entry => [entry.path, entry.removable, entry.reason ?? null]), [
+        ['/wt/done', true, null], ['/wt/dirty', false, 'uncommitted or untracked files'], ['/wt/ahead', false, 'commits not published'],
+        ['/wt/merged', true, null], ['/wt/cancelled', false, 'commits not published']]);
 });
 
 for (const detached of [false, true]) test(`standalone persistent watcher delivers through a local CLI${detached ? ' after detaching' : ''} and retains its inbox`,

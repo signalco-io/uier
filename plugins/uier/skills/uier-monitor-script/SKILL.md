@@ -5,7 +5,7 @@ description: Recreate monitor.mjs, the watcher and state helper of the uier-moni
 
 # Recreate the uier monitor helper
 
-This skill carries `monitor.mjs` version 1.3.0, sha256 `316a81f29667dee76f33ba70d6ca5758bf1c1f821d235ed405d57c55c1cc5c21`. It needs Node 18 or later
+This skill carries `monitor.mjs` version 1.4.0, sha256 `3ba3a939910b7b661dbe2c2d4b98cc85d60509b45d3221ee53db344529951549`. It needs Node 18 or later
 and has no dependencies. The uier-monitor skill runs it as `ROOT/monitor.mjs`, where `ROOT` is
 `$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor`.
 
@@ -19,8 +19,8 @@ and has no dependencies. The uier-monitor skill runs it as `ROOT/monitor.mjs`, w
    ```
 
 2. Only when this file isn't on disk, write the code below to `$ROOT/monitor.mjs` exactly as shown.
-3. Check it: `node "$ROOT/monitor.mjs" version` must print version 1.3.0 and sha256
-   `316a81f29667dee76f33ba70d6ca5758bf1c1f821d235ed405d57c55c1cc5c21`. If the hash differs, write the file again; never patch it by hand.
+3. Check it: `node "$ROOT/monitor.mjs" version` must print version 1.4.0 and sha256
+   `3ba3a939910b7b661dbe2c2d4b98cc85d60509b45d3221ee53db344529951549`. If the hash differs, write the file again; never patch it by hand.
 
 Don't edit the code here. Its source is `.claude/skills/uier-monitor/scripts/monitor.mjs` in the uier
 repository, and `build-script-skill.mjs` next to it writes this file.
@@ -32,9 +32,9 @@ repository, and `build-script-skill.mjs` next to it writes this file.
 // tokens while nothing happens, plus small helpers for the monitor's state file.
 // No dependencies; Node 18 or later. Run `node monitor.mjs help`.
 //
-// Source of truth: .claude/skills/uier-monitor/scripts/monitor.mjs in the uier repository.
+// Source of truth: plugins/uier/skills/uier-monitor/scripts/monitor.mjs in the uier repository.
 // After an edit, bump VERSION (and MONITOR_VERSION in SKILL.md), then run
-// `node .claude/skills/uier-monitor/scripts/build-script-skill.mjs` to refresh the copy in the
+// `node plugins/uier/skills/uier-monitor/scripts/build-script-skill.mjs` to refresh the copy in the
 // uier-monitor-script skill, which recreates this file where the scripts folder is missing.
 
 import { spawn, spawnSync } from 'node:child_process';
@@ -44,19 +44,22 @@ import { dirname, join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.3.0';
+const VERSION = '1.4.0';
 const DEFAULT_ENDPOINT = 'https://uier.io/api/mcp';
 const KEYCHAIN_SERVICE = 'uier-mcp';
-const BOOLEAN_FLAGS = new Set(['replace', 'screenshots', 'help', 'persistent', 'take', 'detach']);
+const BOOLEAN_FLAGS = new Set(['replace', 'screenshots', 'help', 'persistent', 'take', 'detach', 'apply']);
 const SLOT_STATES = new Set(['building', 'fixing', 'reviewing']);
 const FAILED = new Set(['failure', 'timed_out', 'startup_failure', 'action_required', 'error']);
 const DAY = 86_400_000;
 const LEASE_RENEW_MS = 115_000;  // uier's lease lasts five minutes; renew about every two
 const LEASE_CYCLE_MS = 60_000;   // the longest wait between cycles while a lease is live
+const MERGED_PR = new Set(['merged', 'deployed', 'closed', 'closed-out', 'done']);
+const FINISHED_GROUP = new Set(['merged', 'closed', 'cancelled', 'done', 'closed-out']);
 
 const HELP = `uier monitor helper ${VERSION}
 
 Usage: node monitor.mjs <command> [--state DIR | --project ID] [options]
+Options may come before or after the command.
 
   version                 Print the version and this file's sha256.
   check                   Test the uier token, show who it acts as, whether it can keep the
@@ -73,11 +76,14 @@ Usage: node monitor.mjs <command> [--state DIR | --project ID] [options]
                           FILE holds its HTTPS URL, with mode 0600. No idle heartbeat
                           invokes the model; failed delivery retries the same durable batch.
                           Add --detach to run independently of the terminal/harness lifetime.
+                          Records merges itself, closes comments after their deploy when the
+                          group has a closing draft, and wakes only for what needs a decision.
   take                    Print and clear inbox.json.
   context [--take]         Compact active snapshot; --take consumes events and prints only
                           changed state since the last context. Saves a recovery receipt.
   detail SECTION ID...     Read selected items, groups or PRs, or a named top-level field.
-  status                  Compact view of sessions, leases, queue, PRs, deploys and open questions.
+  status                  Compact view of sessions, leases, queue, PRs, deploys, open questions,
+                          wake delivery and free disk space.
   patch '<json>' | -      Apply a JSON merge patch (RFC 7386) to state.json.
   packet ID... [--out DIR] [--screenshots]
                           Save feedback packets (and screenshots) as files for fix sessions.
@@ -85,6 +91,8 @@ Usage: node monitor.mjs <command> [--state DIR | --project ID] [options]
                           writes the MCP connection can't make (projectId defaults to the state's).
   token --from-file FILE [--account ID]
                           Store a uier access token in the system keychain.
+  cleanup [--apply]       List (or remove) worktrees of finished groups that are clean and
+                          fully pushed, and show free disk space.
   stop                    Stop a running watcher.
 
 --project ID uses <git common dir>/uier-monitor/ID as the state directory.
@@ -93,22 +101,28 @@ project id, its workspace id or "default"). UIER_MCP_URL overrides ${DEFAULT_END
 `;
 
 const { command, opts } = parseArgs(process.argv.slice(2));
-const commands = { help: () => print(HELP), version, check, watch, take, context: contextCommand, detail, status, patch, packet, call, token, stop };
+const commands = { help: () => print(HELP), version, check, watch, take, context: contextCommand, detail, status, patch, packet, call, token, cleanup, stop };
 
 // ---------------------------------------------------------------- arguments and files
 
+// The command is the first word that isn't an option or an option's value, so a shell function
+// that appends `--state DIR` (or a caller that puts it first) works for every command.
 function parseArgs(argv) {
-    const [name = 'help', ...rest] = argv;
+    let name;
     const options = { _: [] };
-    for (let index = 0; index < rest.length; index++) {
-        const arg = rest[index];
-        if (!arg.startsWith('--')) { options._.push(arg); continue; }
+    for (let index = 0; index < argv.length; index++) {
+        const arg = argv[index];
+        if (!arg.startsWith('--')) {
+            if (name === undefined) name = arg;
+            else options._.push(arg);
+            continue;
+        }
         const [key, inline] = arg.slice(2).split(/=(.*)/s);
         if (inline !== undefined) options[key] = inline;
-        else if (!BOOLEAN_FLAGS.has(key) && index + 1 < rest.length && !rest[index + 1].startsWith('--')) options[key] = rest[++index];
+        else if (!BOOLEAN_FLAGS.has(key) && index + 1 < argv.length && !argv[index + 1].startsWith('--')) options[key] = argv[++index];
         else options[key] = true;
     }
-    return { command: name, opts: options };
+    return { command: name ?? 'help', opts: options };
 }
 
 function print(value) {
@@ -213,17 +227,19 @@ function activeContext(state) {
     const groups = Object.fromEntries(Object.entries(state.groups ?? {}).filter(([, group]) =>
         group.prLinkPending?.length || (!['closed', 'cancelled', 'done', 'closed-out'].includes(group.state)
             && (!group.items?.length || group.items.some(id => items[id]))))
-        .map(([id, group]) => [id, pick(group, ['items', 'state', 'size', 'class', 'areas', 'provider', 'model', 'effort',
-            'taskId', 'threadId', 'branch', 'port', 'pr', 'head', 'dependsOnPr', 'prLinkPending', 'agentLease',
-            'providerBlocked', 'holdUntil', 'firstHeldAt', 'lastAcceptedAt', 'dependsOn', 'dependencyCondition', 'note'])]));
+        .map(([id, group]) => [id, { ...pick(group, ['items', 'state', 'size', 'class', 'areas', 'provider', 'model', 'effort',
+            'taskId', 'threadId', 'threads', 'branch', 'port', 'pr', 'head', 'dependsOnPr', 'prLinkPending', 'agentLease',
+            'providerBlocked', 'holdUntil', 'firstHeldAt', 'lastAcceptedAt', 'dependsOn', 'dependencyCondition', 'note']),
+            // The drafted replies stay on disk; the orchestrator only needs to know one exists.
+            ...(group.closing ? { closing: 'drafted' } : {}) }]));
     const prs = Object.fromEntries(Object.entries(state.prs ?? {}).filter(([, pr]) =>
         !['merged', 'closed', 'closed-out', 'deployed', 'done'].includes(String(pr.state).toLowerCase()))
         .map(([id, pr]) => [id, pick(pr, ['group', 'groups', 'state', 'head', 'autoMerge', 'review', 'reviewTaskId', 'taskId',
             'blocked', 'mergeCommit', 'checks', 'flags', 'held', 'approvedByPerson', 'note'])]));
     const known = new Set(['project', 'repo', 'me', 'scope', 'max', 'harness', 'workflow', 'watch', 'items', 'groups',
-        'prs', 'deploys', 'restrictions', 'updatedAt', 'stopped']);
+        'prs', 'deploys', 'restrictions', 'limits', 'updatedAt', 'watcherUpdatedAt', 'stopped']);
     return {
-        config: { ...pick(state, ['project', 'repo', 'me', 'scope', 'max', 'workflow', 'restrictions', 'stopped']),
+        config: { ...pick(state, ['project', 'repo', 'me', 'scope', 'max', 'workflow', 'restrictions', 'limits', 'stopped']),
             harness: pick(state.harness, ['kind', 'prWatch', 'threadId', 'routing', 'mcpActingAs', 'orchestratorInstance',
                 'claudeInstance', 'providerPreference']),
             watch: pick(state.watch, ['wakes', 'wakeAt', 'lease', 'writes', 'writer', 'mode', 'enabled', 'stopped', 'scheduledTaskId']) },
@@ -261,6 +277,17 @@ async function contextCommand(options) {
         const saved = readJson(join(dir, 'context.json'), null);
         const previous = options.take ? saved?.baseline : null;
         const result = contextPacket(state, events, previous);
+        // Tell the orchestrator once about a stretch when its wakes could not be delivered. Only the
+        // watcher writes notification.json; the receipt remembers which outage was reported.
+        const outage = readJson(join(dir, 'notification.json'), {}).lastOutage;
+        result.outageReported = saved?.outageReported;
+        if (outage?.until && outage.until !== saved?.outageReported) {
+            result.packet.wakeOutage = pick(outage, ['since', 'until', 'failures']);
+            result.outageReported = outage.until;
+        }
+        // Sessions fill the disk with worktrees; say so before the next one starts.
+        const free = diskFree(repoCwd(state));
+        if (free !== null && free < 20) result.packet.diskLowGiB = free;
         result.recovery = events.length ? result.packet : saved?.recovery;
         if (!events.length && result.recovery && !(Date.parse(state.updatedAt) > Date.parse(result.recovery.now)))
             result.packet.recoverFrom = join(dir, 'context.json');
@@ -610,8 +637,10 @@ async function notifyInbox(dir, state, events, target, now = Date.now()) {
     const options = typeof target === 'string' ? { 'notify-file': target } : target;
     const path = join(dir, 'notification.json');
     let previous = readJson(path, {});
+    // Delivery health survives batch resets: `status` shows a running outage, context reports a past one.
+    const health = pick(previous, ['failingSince', 'failures', 'lastOutage']);
     if (!events.length) {
-        if (previous.batch) writeJson(path, {});
+        if (previous.batch) writeJson(path, health);
         return;
     }
     const eventKeys = events.map(digest);
@@ -624,16 +653,19 @@ async function notifyInbox(dir, state, events, target, now = Date.now()) {
     if (previous.deliveredAt && !stalled) return;
     if (!stalled && previous.attemptedAt && now - previous.attemptedAt < 60_000) return;
     const batch = !previous.batch || stalled ? digest({ events, now }) : previous.batch;
-    const pending = { batch, eventKeys, attemptedAt: now };
+    const pending = { ...health, batch, eventKeys, attemptedAt: now };
     writeJson(path, pending);
-    try {
-        if (!await sendWake(dir, state, batch, options)) return { delivered: false };
-        writeJson(path, { ...pending, deliveredAt: now });
-        return { delivered: true };
-    } catch {
-        // Fetch errors can contain the bearer URL. Never print them or copy them into state.
+    let delivered = false;
+    try { delivered = await sendWake(dir, state, batch, options); }
+    catch { /* Fetch errors can contain the bearer URL. Never print them or copy them into state. */ }
+    if (!delivered) {
+        writeJson(path, { ...pending, failingSince: health.failingSince ?? now, failures: (health.failures ?? 0) + 1 });
         return { delivered: false };
     }
+    const { failingSince, failures, ...rest } = pending;
+    writeJson(path, { ...rest, deliveredAt: now, ...(failingSince ? { lastOutage: {
+        since: new Date(failingSince).toISOString(), until: new Date(now).toISOString(), failures } } : {}) });
+    return { delivered: true };
 }
 
 async function watch(options) {
@@ -685,15 +717,19 @@ async function watch(options) {
         const settings = state.watch ?? {};
         if (state.stopped || settings.stopped || settings.enabled === false) { release(); return; }
         const found = [];
+        // Bookkeeping the watcher does itself (merges, closings, its own stage changes), applied to
+        // fresh state under the state lock at the end of the cycle.
+        const updates = [];
         if (ctx === undefined) ctx = connection(state);
         // Lease trouble never blocks the rest of the cycle.
         if (ctx && state.project?.id) await keepLeases(ctx, state, seen, found, log).catch(error => log(`lease error: ${error.message}`));
         try {
-            if (ctx && state.project?.id) await pollUier(ctx, state, seen, found, Math.max(5, Number(settings.reconcileMinutes) || 15) * 60_000);
+            if (ctx && state.project?.id) await pollUier(ctx, state, seen, found, Math.max(5, Number(settings.reconcileMinutes) || 15) * 60_000, updates);
             if (Date.now() - lastGithub >= 55_000) {
                 lastGithub = Date.now();
-                pollDeploys(state, seen, found);
-                if (state.harness?.prWatch !== true) pollPullRequests(state, seen, found);
+                const deployed = pollDeploys(state, seen, found, updates) ?? [];
+                pollPullRequests(state, seen, found, updates);
+                for (const release of deployed) await closeDeployed(ctx, state, seen, found, updates, release, log, () => readJson(join(dir, 'state.json'), {}));
             }
             failures = 0;
             delete seen.pollError;
@@ -705,8 +741,9 @@ async function watch(options) {
                 found.push({ type: 'error', message: String(error.message).slice(0, 300) });
             }
         }
+        if (updates.length) await updateState(dir, updates).catch(error => log(`state update failed: ${error.message}`));
         const now = Date.now();
-        if (!found.length) {
+        if (!found.some(item => !item.quiet)) {
             const wakeAt = Date.parse(settings.wakeAt ?? '');
             const maxMinutes = Number(options['max-minutes']) || Number(settings.maxMinutes) || 110;
             const fallbackAt = seen.lastFallbackAt ?? startedAt;
@@ -719,11 +756,13 @@ async function watch(options) {
         prune(seen, now);
         const stamped = found.map(item => ({ ...item, foundAt: new Date(now).toISOString() }));
         const inbox = await enqueue(dir, stamped);
-        if (inbox.length && batchStarted === null) batchStarted = now;
-        if (!inbox.length) batchStarted = null;
+        // Quiet events (merges and closings the watcher handled) ride along with the next wake.
+        const loud = inbox.filter(item => !item.quiet);
+        if (loud.length && batchStarted === null) batchStarted = now;
+        if (!loud.length) batchStarted = null;
         seen.heartbeatAt = new Date(now).toISOString();
         writeJson(join(dir, 'watch.json'), seen);
-        if (inbox.length && (urgentEvents(inbox) || now - batchStarted >= batchMs)) {
+        if (loud.length && (urgentEvents(loud) || now - batchStarted >= batchMs)) {
             if (options.persistent) {
                 const delivery = await notifyInbox(dir, state, inbox, options, now);
                 if (delivery) log(delivery.delivered ? 'wake delivered; waiting for inbox acknowledgement' : 'wake delivery failed; inbox retained');
@@ -735,14 +774,14 @@ async function watch(options) {
                 return;
             }
         }
-        if (options.persistent && !inbox.length) await notifyInbox(dir, state, [], options, now);
+        if (options.persistent && !loud.length) await notifyInbox(dir, state, [], options, now);
         const interval = ctx && leasesLive(state, seen) ? Math.min(intervalMs, LEASE_CYCLE_MS) : intervalMs;
         await sleep(batchStarted === null || now - batchStarted >= batchMs ? interval : Math.min(interval, batchMs - (now - batchStarted)));
     }
 }
 
 function prune(seen, now) {
-    for (const key of ['others', 'reported', 'drift', 'failedRuns', 'flags', 'pendingSince', 'leaseReported']) {
+    for (const key of ['others', 'reported', 'drift', 'failedRuns', 'flags', 'pendingSince', 'leaseReported', 'attached']) {
         for (const [id, at] of Object.entries(seen[key] ?? {})) if (now - Number(at) > 30 * DAY) delete seen[key][id];
     }
 }
@@ -755,7 +794,7 @@ function isMyId(id, state) {
     return Boolean(id) && (id === state.me?.id || (state.me?.also ?? []).some(account => account.id === id));
 }
 
-async function pollUier(ctx, state, seen, found, reconcileMs) {
+async function pollUier(ctx, state, seen, found, reconcileMs, updates = []) {
     const projectId = state.project.id;
     if (!seen.cursor) {
         seen.cursor = (await tool(ctx, 'list_feedback_events', { projectId, cursor: null })).cursor;
@@ -779,7 +818,7 @@ async function pollUier(ctx, state, seen, found, reconcileMs) {
         if (!result.hasMore) break;
     }
     if (seen.forceReconcile || !seen.reconciledAt || Date.now() - Date.parse(seen.reconciledAt) >= reconcileMs) {
-        await reconcile(ctx, state, seen, found);
+        await reconcile(ctx, state, seen, found, updates);
         seen.reconciledAt = new Date().toISOString();
         seen.forceReconcile = false;
     }
@@ -820,7 +859,7 @@ function classify(event, state, seen) {
 }
 
 // Compare current state too, including closed threads that may have a missed reply.
-async function reconcile(ctx, state, seen, found) {
+async function reconcile(ctx, state, seen, found, updates = []) {
     const now = Date.now();
     const open = await allPages(ctx, 'list_feedback', { projectId: state.project.id, status: 'all' });
     const listed = new Set();
@@ -851,6 +890,11 @@ async function reconcile(ctx, state, seen, found) {
             seen.reported[entry.id] = now;
             found.push({ type: 'untracked', commentId: entry.id, number: entry.number, stage: entry.stage, priority: entry.priority, private: entry.private, assignee: entry.assignee?.id ?? null });
         } else if (item.decision !== 'skipped' && item.stage && entry.stage !== item.stage) {
+            // The watcher's own attachment moves Open to In progress: record it, don't wake anyone.
+            if (item.stage === 'open' && entry.stage === 'in-progress' && seen.attached?.[entry.id]) {
+                updates.push(next => { if (next.items?.[entry.id]?.stage === 'open') next.items[entry.id].stage = 'in-progress'; });
+                continue;
+            }
             const key = `${entry.id}:${item.stage}>${entry.stage}`;
             if (seen.drift[key]) continue;
             seen.drift[key] = now;
@@ -947,6 +991,7 @@ async function keepLeases(ctx, state, seen, found, log) {
                     ...(lease.sessionUrl ? { sessionUrl: String(lease.sessionUrl) } : {}),
                     ...(lease.model ? { model: String(lease.model) } : {}), ...(lease.reasoning ? { reasoning: String(lease.reasoning) } : {}) });
                 Object.assign(records[commentId], { attached: true, attachedAt: Date.now() });
+                (seen.attached ??= {})[commentId] = Date.now();
                 log(`lease ${group} ${commentId}: attached ${lease.agent ?? ''} ${lease.model ?? ''} ${lease.reasoning ?? ''}`);
             }
             await tool(ctx, 'set_feedback_agent_working', { projectId, commentId, idempotencyKey: leaseKey(state, commentId, 'work'), working: true, ...(lease.sessionId ? { sessionId: String(lease.sessionId) } : {}) });
@@ -1017,9 +1062,42 @@ function once(seen, key) {
     return true;
 }
 
-function pollDeploys(state, seen, found) {
+// The groups a merged PR or a deploy entry belongs to.
+function groupsOf(state, pr, entry = null) {
+    if (entry?.groups?.length) return [...new Set(entry.groups.filter(Boolean))];
+    if (pr === undefined || pr === null || pr === '') return [];
+    const saved = state.prs?.[pr] ?? {};
+    const ids = saved.groups?.length ? saved.groups : [saved.group];
+    const fromGroups = Object.entries(state.groups ?? {})
+        .filter(([, group]) => group.pr !== undefined && group.pr !== null && String(group.pr) === String(pr)).map(([id]) => id);
+    return [...new Set([...ids, ...fromGroups].filter(Boolean))];
+}
+
+// Record a merge in the state: the PR, its groups and a deploy entry with the merge commit. Idempotent.
+function recordMerge(pr, sha, groups) {
+    return next => {
+        const number = Number(pr);
+        next.deploys ??= {};
+        const pending = (next.deploys.pending ??= []);
+        const entry = pending.find(item => Number(item.pr) === number);
+        if (entry) { if (!entry.sha) entry.sha = sha; if (!entry.groups?.length && groups.length) entry.groups = groups; }
+        else if (!pending.some(item => item.sha === sha)) pending.push({ pr: number, sha, groups, since: new Date().toISOString() });
+        const saved = next.prs?.[pr];
+        if (saved && (!saved.state || saved.state === 'open')) Object.assign(saved, { state: 'merged', mergeCommit: sha });
+        for (const id of groups) if (next.groups?.[id]?.state === 'pr') next.groups[id].state = 'merged';
+    };
+}
+
+// Without a strict up-to-date rule a merge needs nothing from the orchestrator: the watcher records
+// it and the deploy closes the comments. With one, other open PRs need their branches updated.
+function mergeEvent(state, pr, sha) {
+    return { type: 'merged', pr: Number(pr), sha, ...(state.workflow?.strict === false ? { quiet: true } : {}) };
+}
+
+// Returns the entries whose deploy succeeded; closeDeployed decides whether the watcher closes them.
+function pollDeploys(state, seen, found, updates = []) {
     const pending = state.deploys?.pending ?? [];
-    if (!pending.length) return;
+    if (!pending.length) return [];
     const cwd = repoCwd(state);
     const slug = state.repo?.slug;
     const deploy = state.workflow?.deploy ?? { kind: 'none' };
@@ -1027,15 +1105,16 @@ function pollDeploys(state, seen, found) {
     for (const entry of pending) {
         if (entry.sha || !entry.pr) continue;
         const pr = githubJson(['pr', 'view', String(entry.pr), '--repo', slug, '--json', 'state,mergeCommit'], cwd);
-        if (pr?.state === 'MERGED' && pr.mergeCommit?.oid && once(seen, `merged:${entry.pr}`)) found.push({ type: 'merged', pr: entry.pr, sha: pr.mergeCommit.oid });
+        if (pr?.state === 'MERGED' && pr.mergeCommit?.oid) {
+            // Re-derived every cycle until the state has it, so a failed state write is never lost.
+            updates.push(recordMerge(entry.pr, pr.mergeCommit.oid, groupsOf(state, entry.pr, entry)));
+            if (once(seen, `merged:${entry.pr}`)) found.push(mergeEvent(state, entry.pr, pr.mergeCommit.oid));
+        }
         else if (pr?.state === 'CLOSED' && once(seen, `closed:${entry.pr}`)) found.push({ type: 'pr-closed', pr: entry.pr });
     }
     const waiting = pending.filter(entry => entry.sha);
-    if (!waiting.length) return;
-    if (deploy.kind === 'none') {
-        for (const entry of waiting) if (once(seen, `deployed:${entry.sha}`)) found.push({ type: 'deployed', sha: entry.sha, pr: entry.pr, how: 'no deploy step' });
-        return;
-    }
+    if (!waiting.length) return [];
+    if (deploy.kind === 'none') return waiting.map(entry => ({ entry, run: null }));
     spawnSync('git', ['fetch', '--quiet', 'origin', branch], { cwd });
     let releases;
     if (deploy.kind === 'actions') {
@@ -1052,17 +1131,15 @@ function pollDeploys(state, seen, found) {
             return { id: item.id, sha: item.sha, url: latest?.environment_url ?? latest?.target_url, attempt: 1,
                 state: status === 'success' || status === 'inactive' ? 'success' : status === 'failure' || status === 'error' ? 'failure' : 'running' };
         });
-    } else return;
+    } else return [];
+    const deployed = [];
     for (const entry of waiting) {
         // Time the deploy from when the watcher first saw the entry; a since the orchestrator wrote
         // only counts when it is earlier, so a guessed future time can't delay deploy-missing.
         const firstSeen = ((seen.pendingSince ??= {})[entry.sha] ??= Date.now());
         const including = releases.filter(release => contains(cwd, entry.sha, release.sha));
         const success = including.find(release => release.state === 'success');
-        if (success) {
-            if (once(seen, `deployed:${entry.sha}`)) found.push({ type: 'deployed', sha: entry.sha, pr: entry.pr, run: success.id, url: success.url });
-            continue;
-        }
+        if (success) { deployed.push({ entry, run: success }); continue; }
         if (including.some(release => release.state === 'running')) continue;
         const failed = including.find(release => release.state === 'failure');
         if (failed) {
@@ -1073,6 +1150,152 @@ function pollDeploys(state, seen, found) {
         if (!including.length && Date.now() - since > 20 * 60_000 && once(seen, `missing:${entry.sha}`))
             found.push({ type: 'deploy-missing', sha: entry.sha, pr: entry.pr });
     }
+    return deployed;
+}
+
+// ---------------------------------------------------------------- closing after a deploy
+//
+// When the orchestrator approves a PR it drafts the closing for each comment in
+// groups.<id>.closing = { agent?, model?, reasoning?, items: { <commentId>: { reply, status?: "done" | "keep",
+// verify?: { reviewerId, expectedRevision, fixUrl?, summary? } } } }. The reply may use {sha}, {sha7} and
+// {commitUrl}, filled with the merge commit. Once a deploy contains the merge, the watcher posts each
+// reply and sets Done (or requests verification, or keeps the status), records the stages, drops the
+// deploy entry and reports one quiet `closed` event. It checks that each group's draft, each item's
+// round and the deploy entry are unchanged right before writing and again under the state lock before
+// recording. Anything it can't do, including a conflict on a key, wakes the orchestrator.
+
+function closingPlan(state, entry) {
+    if (state.watch?.writes !== 'available' || !state.project?.id || !entry.sha) return null;
+    const groups = groupsOf(state, entry.pr, entry);
+    if (!groups.length) return null;
+    const plan = [];
+    for (const group of groups) {
+        const closing = state.groups?.[group]?.closing;
+        const drafts = Object.entries(closing?.items ?? {});
+        if (!drafts.length) return null;
+        const groupSig = digest(closing);
+        for (const [commentId, draft] of drafts) {
+            if (typeof draft?.reply !== 'string' || !draft.reply.trim()) return null;
+            if (draft.verify && (typeof draft.verify.reviewerId !== 'string' || !draft.verify.reviewerId)) return null;
+            plan.push({ group, groupSig, commentId, draft, closing, round: state.items?.[commentId]?.round ?? 1 });
+        }
+    }
+    return { groups, plan };
+}
+
+// The deploy entry the plan was made for, when this state still matches the plan: the same entry
+// (merge commit and PR) closing the same groups, the same draft per group and the same round per item.
+function planCurrent(state, planned, entry) {
+    const current = (state.deploys?.pending ?? []).find(item => item.sha === entry.sha && String(item.pr ?? '') === String(entry.pr ?? ''));
+    if (!current) return null;
+    const groups = groupsOf(state, current.pr, current);
+    if (groups.length !== planned.groups.length || groups.some(id => !planned.groups.includes(id))) return null;
+    return planned.plan.every(({ group, groupSig, commentId, round }) => state.groups?.[group]?.closing
+        && digest(state.groups[group].closing) === groupSig && (state.items?.[commentId]?.round ?? 1) === round) ? current : null;
+}
+
+function sessionThreads(group) {
+    const ids = [group?.threadId, ...(Array.isArray(group?.threads) ? group.threads : []),
+        ...Object.entries(group ?? {}).filter(([key, value]) => /ThreadId$/.test(key) && typeof value === 'string').map(([, value]) => value)];
+    return [...new Set(ids.filter(id => typeof id === 'string' && id))];
+}
+
+async function closeDeployed(ctx, state, seen, found, updates, { entry, run }, log = () => {}, fresh = () => state) {
+    const planned = ctx ? closingPlan(state, entry) : null;
+    if (!planned) {
+        if (once(seen, `deployed:${entry.sha}`)) found.push({ type: 'deployed', sha: entry.sha, pr: entry.pr,
+            ...(run ? { run: run.id, url: run.url } : { how: 'no deploy step' }) });
+        return;
+    }
+    const projectId = state.project.id;
+    const sha = entry.sha;
+    const commitUrl = state.repo?.slug ? `https://github.com/${state.repo.slug}/commit/${sha}` : '';
+    const fill = text => text.replaceAll('{sha}', sha).replaceAll('{sha7}', sha.slice(0, 7)).replaceAll('{commitUrl}', commitUrl);
+    const progress = (seen.closing ??= {});
+    const closed = [];
+    for (const { group, commentId, draft, closing, round } of planned.plan) {
+        const item = state.items?.[commentId] ?? {};
+        const number = item.number ?? commentId;
+        const key = action => `um-${projectId}-${number}-${action}-${round}`.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 128);
+        const sig = digest([draft, closing.agent, closing.model, closing.reasoning]);
+        let record = progress[`${commentId}:${round}`];
+        if (!record || record.sig !== sig) record = progress[`${commentId}:${round}`] = { sig, at: Date.now() };
+        // Reported once; the orchestrator closes it itself or changes the draft to retry.
+        if (record.failed) return;
+        const stage = draft.verify ? 'ready' : draft.status === 'keep' ? null : 'done';
+        // The orchestrator may have patched the state since this cycle read it, also while a write was
+        // in flight: check before every write, and plan again next cycle when it changed.
+        try {
+            if (!record.replied) {
+                if (!planCurrent(fresh(), planned, entry)) return;
+                const text = fill(draft.reply);
+                if (text.length > 1000) throw Object.assign(new Error('The reply is longer than 1000 characters.'), { fromTool: true, code: 'too_long' });
+                const agent = draft.agent ?? closing.agent, model = draft.model ?? closing.model, reasoning = draft.reasoning ?? closing.reasoning;
+                await tool(ctx, 'reply_to_feedback', { projectId, commentId, idempotencyKey: key('reply'), text,
+                    ...(agent ? { agent } : {}), ...(model ? { model: String(model) } : {}), ...(reasoning ? { reasoning: String(reasoning) } : {}) });
+                record.replied = Date.now();
+            }
+            if (!record.finished) {
+                if (!planCurrent(fresh(), planned, entry)) return;
+                if (draft.verify) await tool(ctx, 'request_feedback_verification', { projectId, commentId, idempotencyKey: key('verify'),
+                    expectedRevision: draft.verify.expectedRevision ?? null, reviewerId: draft.verify.reviewerId,
+                    ...(draft.verify.fixUrl ? { fixUrl: String(draft.verify.fixUrl) } : {}),
+                    ...(draft.verify.summary ? { summary: String(draft.verify.summary).slice(0, 500) } : {}) });
+                else if (stage === 'done') await tool(ctx, 'set_feedback_status', { projectId, commentId, idempotencyKey: key('done'), status: 'done' });
+                record.finished = Date.now();
+            }
+            closed.push({ group, commentId, number, stage });
+        } catch (error) {
+            // Network or server trouble: the next cycle tries again with the same keys and input.
+            if (!error.fromTool || ['rate_limited', 'server_error'].includes(error.code)) { log(`closing #${number}: ${error.message}`); return; }
+            // Anything else, a conflict included (a stale revision, or the key used with other input), needs a look.
+            record.failed = error.code ?? error.kind;
+            log(`closing #${number}: ${record.failed} ${error.message}`);
+            found.push({ type: 'close-failed', pr: entry.pr, sha, commentId, number, step: record.replied ? 'status' : 'reply',
+                code: record.failed, message: String(error.detail ?? error.message).slice(0, 200) });
+            return;
+        }
+    }
+    const at = new Date().toISOString();
+    updates.push(next => {
+        // Under the state lock: record only what still matches; otherwise the orchestrator decides.
+        const current = planCurrent(next, planned, entry);
+        if (!current) {
+            if (once(seen, `stale:${sha}`)) found.push({ type: 'close-failed', pr: entry.pr, sha, code: 'state-changed',
+                numbers: closed.map(item => item.number), message: 'The replies went out, but the draft, round or deploy entry changed meanwhile, so nothing was recorded.' });
+            return;
+        }
+        for (const { commentId, stage } of closed) {
+            const item = next.items?.[commentId];
+            if (!item) continue;
+            if (stage) item.stage = stage;
+            item.closedAt = at;
+        }
+        for (const id of planned.groups) {
+            const group = next.groups?.[id];
+            if (!group) continue;
+            Object.assign(group, { state: 'closed', closedAt: at, closedBy: 'watcher' });
+            delete group.closing;
+        }
+        if (entry.pr !== undefined && next.prs?.[entry.pr]) next.prs[entry.pr].state = 'deployed';
+        next.deploys.pending = next.deploys.pending.filter(item => item !== current);
+        if (once(seen, `closed:${sha}`)) found.push({ type: 'closed', quiet: true, pr: entry.pr, sha, groups: planned.groups,
+            numbers: closed.map(item => item.number), stages: closed.map(item => item.stage ?? 'kept'),
+            threads: planned.groups.flatMap(id => sessionThreads(next.groups?.[id])) });
+    });
+}
+
+// Apply the watcher's own bookkeeping to fresh state under the same lock `patch` uses.
+// updatedAt stays the orchestrator's, so recovery receipts still tell whether it saw a packet.
+async function updateState(dir, updates) {
+    if (!updates.length) return;
+    await withLock(dir, 'state', () => {
+        const file = join(dir, 'state.json');
+        const next = readJson(file, {});
+        for (const update of updates) update(next);
+        next.watcherUpdatedAt = new Date().toISOString();
+        writeJson(file, next);
+    });
 }
 
 function checkState(rollup, required) {
@@ -1085,24 +1308,110 @@ function checkState(rollup, required) {
     return 'success';
 }
 
-function pollPullRequests(state, seen, found) {
-    const open = Object.entries(state.prs ?? {}).filter(([, pr]) => !pr.state || pr.state === 'open');
+// In T3, T3 follows a PR until auto-merge is on; from then on, and in every other harness, the
+// watcher does. It wakes the orchestrator only when a PR needs a decision: failed checks, a conflict,
+// requested changes, a close, a branch behind a strict base, or passing checks without auto-merge.
+// Merges are recorded quietly.
+function pollPullRequests(state, seen, found, updates = []) {
+    const t3 = state.harness?.prWatch === true;
+    const open = Object.entries(state.prs ?? {}).filter(([, pr]) => (!pr.state || pr.state === 'open') && (!t3 || pr.autoMerge === true));
     if (!open.length) return;
     const cwd = repoCwd(state);
     const required = state.workflow?.requiredChecks ?? [];
     seen.prs ??= {};
-    for (const [number] of open) {
+    for (const [number, saved] of open) {
         const pr = githubJson(['pr', 'view', number, '--repo', state.repo?.slug, '--json',
-            'state,mergeable,headRefOid,statusCheckRollup,reviewDecision,mergeCommit'], cwd);
+            'state,mergeable,mergeStateStatus,headRefOid,statusCheckRollup,reviewDecision,mergeCommit,autoMergeRequest'], cwd);
         if (!pr) continue;
+        if (pr.state === 'MERGED' && pr.mergeCommit?.oid) {
+            updates.push(recordMerge(number, pr.mergeCommit.oid, groupsOf(state, number)));
+            if (once(seen, `merged:${number}`)) found.push(mergeEvent(state, number, pr.mergeCommit.oid));
+            continue;
+        }
         const checks = checkState(pr.statusCheckRollup ?? [], required);
-        const signature = [pr.state, pr.mergeable, checks, pr.headRefOid, pr.reviewDecision ?? ''].join('|');
+        const signature = [pr.state, pr.mergeable, pr.mergeStateStatus ?? '', checks, pr.headRefOid, pr.reviewDecision ?? ''].join('|');
         if (seen.prs[number] === signature) continue;
         seen.prs[number] = signature;
-        if (pr.state !== 'OPEN' || checks !== 'pending' || pr.mergeable === 'CONFLICTING' || pr.reviewDecision === 'CHANGES_REQUESTED')
-            found.push({ type: 'pr', pr: Number(number), state: pr.state.toLowerCase(), checks, mergeable: pr.mergeable, head: pr.headRefOid,
-                ...(pr.mergeCommit?.oid ? { sha: pr.mergeCommit.oid } : {}) });
+        const autoMerge = Boolean(pr.autoMergeRequest) || saved.autoMerge === true;
+        // With a strict up-to-date rule, a PR that fell behind waits until its branch is updated.
+        const behind = state.workflow?.strict === true && pr.mergeStateStatus === 'BEHIND';
+        if (pr.state !== 'OPEN' || checks === 'failure' || pr.mergeable === 'CONFLICTING' || pr.reviewDecision === 'CHANGES_REQUESTED'
+            || behind || (checks === 'success' && !autoMerge))
+            found.push({ type: 'pr', pr: Number(number), state: pr.state.toLowerCase(), checks, mergeable: pr.mergeable,
+                ...(behind ? { behind: true } : {}), head: pr.headRefOid });
     }
+}
+
+// ---------------------------------------------------------------- disk and worktrees
+
+// Free space in GiB on the file system that holds path, or null when df can't tell.
+function diskFree(path) {
+    const result = spawnSync('df', ['-Pk', path], { encoding: 'utf8' });
+    if (result.status !== 0) return null;
+    const kilobytes = Number(result.stdout.trim().split('\n').pop().trim().split(/\s+/)[3]);
+    return Number.isFinite(kilobytes) ? Math.round(kilobytes / 1024 / 1024 * 10) / 10 : null;
+}
+
+function worktreeList(cwd) {
+    const result = spawnSync('git', ['worktree', 'list', '--porcelain'], { cwd, encoding: 'utf8' });
+    if (result.status !== 0) return [];
+    return result.stdout.split(/\n\n+/).map(block => Object.fromEntries(block.split('\n').filter(Boolean).map(line => {
+        const space = line.indexOf(' ');
+        return space < 0 ? [line, true] : [line.slice(0, space), line.slice(space + 1)];
+    }))).filter(entry => entry.worktree);
+}
+
+// Whether a commit is published: on a remote branch, or in the head of the group's PR that GitHub
+// reports as merged or closed (GitHub keeps that head after the branch is deleted).
+function published(state, cwd, head, prNumber) {
+    const remote = spawnSync('git', ['branch', '-r', '--contains', head], { cwd, encoding: 'utf8' });
+    if (remote.status === 0 && remote.stdout.trim()) return true;
+    if (!prNumber || !state.repo?.slug) return false;
+    try {
+        const pr = githubJson(['pr', 'view', String(prNumber), '--repo', state.repo.slug, '--json', 'state,headRefOid'], cwd);
+        return ['MERGED', 'CLOSED'].includes(pr?.state) && contains(cwd, head, pr.headRefOid);
+    } catch { return false; }
+}
+
+// Worktrees of the monitor's own finished groups (merged, closed or cancelled). Only clean ones whose
+// commits are published can go: nothing unpushed is ever removed, nor this checkout or the main one.
+function removableWorktrees(state, cwd, here = process.cwd()) {
+    const finished = new Map();
+    for (const [id, group] of Object.entries(state.groups ?? {})) {
+        const pr = group.pr ? state.prs?.[group.pr] : null;
+        if (group.branch && (FINISHED_GROUP.has(group.state) || MERGED_PR.has(String(pr?.state ?? '').toLowerCase())))
+            finished.set(group.branch, { group: id, pr: group.pr });
+    }
+    const all = worktreeList(cwd);
+    const current = resolve(here);
+    return all.slice(1).flatMap(entry => {
+        const branch = typeof entry.branch === 'string' ? entry.branch.replace(/^refs\/heads\//, '') : null;
+        const match = branch ? finished.get(branch) : null;
+        const path = entry.worktree;
+        if (!match || current === path || current.startsWith(`${path}/`)) return [];
+        const base = { path, branch, group: match.group };
+        if (entry.locked) return [{ ...base, removable: false, reason: 'locked' }];
+        const status = spawnSync('git', ['status', '--porcelain'], { cwd: path, encoding: 'utf8' });
+        if (status.status !== 0) return [{ ...base, removable: false, reason: 'git status failed' }];
+        if (status.stdout.trim()) return [{ ...base, removable: false, reason: 'uncommitted or untracked files' }];
+        if (!entry.HEAD || !published(state, cwd, entry.HEAD, match.pr)) return [{ ...base, removable: false, reason: 'commits not published' }];
+        return [{ ...base, removable: true }];
+    });
+}
+
+function cleanup(options) {
+    const dir = stateDir(options);
+    const state = readJson(join(dir, 'state.json'), {});
+    const cwd = repoCwd(state);
+    const before = diskFree(cwd);
+    const worktrees = removableWorktrees(state, cwd);
+    if (options.apply) for (const entry of worktrees.filter(item => item.removable)) {
+        // Without --force git refuses anything with changes; ignored files such as node_modules go.
+        const result = spawnSync('git', ['worktree', 'remove', entry.path], { cwd, encoding: 'utf8' });
+        if (result.status === 0) entry.removed = true;
+        else Object.assign(entry, { removable: false, reason: (result.stderr || 'git worktree remove failed').trim().slice(0, 200) });
+    }
+    print({ applied: Boolean(options.apply), freeGiB: { before, after: options.apply ? diskFree(cwd) : before }, worktrees });
 }
 
 // ---------------------------------------------------------------- status
@@ -1115,14 +1424,21 @@ function status(options) {
     const inbox = readJson(join(dir, 'inbox.json'), []);
     const pid = watcherPid(dir);
     const watcher = pid ? readJson(join(dir, 'watch.pid'), {}) : {};
+    const notification = readJson(join(dir, 'notification.json'), {});
+    const free = diskFree(repoCwd(state));
+    const since = at => new Date(at).toISOString().slice(0, 16).replace('T', ' ');
     const items = state.items ?? {};
     const label = ids => (ids ?? []).map(id => `#${items[id]?.number ?? id}`).join(' ');
     const groups = Object.entries(state.groups ?? {});
     const lines = [
         `${state.project?.name ?? '?'} (${state.project?.id ?? '?'}) · ${state.repo?.slug ?? '?'} → ${state.repo?.base ?? '?'} · ${state.workflow?.mode ?? '?'}${state.workflow?.autoMerge ? ' + auto-merge' : ''} · ${state.harness?.kind ?? '?'}`,
         `watcher ${pid ? `running (pid ${pid}, ${watcher.persistent ? 'persistent' : 'one-shot'}, v${watcher.version ?? '?'})` : 'stopped'} · heartbeat ${seen.heartbeatAt ?? 'never'} · uier ${connection(state) ? 'token' : 'no token (fallback)'} · inbox ${inbox.length} · reconciled ${seen.reconciledAt ?? 'never'} · wakes ${state.watch?.wakes ?? 0}${state.watch?.wakeAt ? ` · timer ${state.watch.wakeAt}` : ''}`,
-        `sessions ${groups.filter(([, group]) => SLOT_STATES.has(group.state)).length}/${state.max ?? 6}`
+        `sessions ${groups.filter(([, group]) => SLOT_STATES.has(group.state)).length}/${state.max ?? 6}${free === null ? '' : ` · disk ${free} GiB free${free < 15 ? ' (low: run cleanup --apply)' : ''}`}`
     ];
+    if (notification.failingSince) lines.push(`wake delivery failing since ${since(notification.failingSince)} UTC (${notification.failures ?? 1} tries); the inbox is kept`);
+    else if (notification.deliveredAt && inbox.some(item => !item.quiet) && Date.now() - notification.deliveredAt > 10 * 60_000)
+        lines.push(`wake delivered ${Math.round((Date.now() - notification.deliveredAt) / 60_000)} min ago but not taken yet (a busy or stopped thread, or a usage limit); it is sent again after 30 min`);
+    if (notification.lastOutage) lines.push(`last wake outage ${notification.lastOutage.since.slice(0, 16).replace('T', ' ')}–${notification.lastOutage.until.slice(11, 16)} UTC (${notification.lastOutage.failures} tries)`);
     for (const [id, group] of groups) {
         if (['closed', 'cancelled'].includes(group.state)) continue;
         lines.push(`  ${id} ${group.state} ${label(group.items)} · ${group.class ?? '?'}/${group.size ?? '?'} · ${group.model ?? ''} ${group.effort ?? ''}${group.port ? ` · port ${group.port}` : ''}${group.pr ? ` · PR #${group.pr}` : ''}${group.note ? ` · ${group.note}` : ''}`);

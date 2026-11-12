@@ -55,3 +55,11 @@ attribute alternative, reload recovery, multi-invoker native popovers and class-
 `e2e/toolbar-anchors.api.spec.ts` checks semantic selectors, legacy selectors, restricted attributes and
 length limits. Attribute selectors use exact, quoted values for role, aria-label and the identity data
 attributes listed in `anchorSelector.ts`; the API keeps arbitrary attributes/operators out.
+
+## Resolving positions
+
+`hooks/useCommentItemRects.tsx` resolves positions to rectangles and pin placements. Offsets are verified, then
+a lazy, whitespace-free page index is shared by every comment, with one record per text node. Exact, restored,
+missing and ambiguous results persist until the DOM version changes; geometry and visibility are remeasured on
+layout frames (the versions are `hooks/useLayoutVersion.ts`). No pin for a missing, ambiguous or hidden anchor
+(the saved opener of a closed layer is the one fallback, above), and it never throws.

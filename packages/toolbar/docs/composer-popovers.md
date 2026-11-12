@@ -25,6 +25,12 @@ Markdown typed in it formats as it is written, and a dropped image file is attac
 (`onImageDrop`). Its draft API is unchanged: `CommentComposer` keeps the Markdown and the mention ranges in
 `useDrafts` under its `draftKey`, and `initialText`/`initialMentions` start an edit.
 
+`CommentComposer` is one bordered box: the text box (it grows with its text; Enter sends, Shift+Enter is a new
+line, `enterKeyHint`), its `attachments` (Attach image), a hint or a counter, Discard while there is text, and Send.
+Discard and Send are plain icon buttons with their tooltips: an X, since Discard has no labeled button beside
+Send, and Send, since Enter sends. They are 44 px on touch screens. `beforeText` goes between the quote and the
+box ([a rewrite's suggestions](#a-rewrite)). Screenshots and Attach image: [screenshots](screenshots.md#the-form).
+
 ### A rewrite
 
 A rewrite suggestion (the selected text's **Rewrite**) is the same form, one card with one spacing
@@ -37,6 +43,8 @@ plain button), Enter in it asks for suggestions instead of posting (its `keydown
 submission), and its buttons are `type="button"`. A picked suggestion replaces the text as if typed. The
 instruction and the suggestions belong to the popover's owner (`useRewriteSuggestionsState` in `CommentBubble`),
 like the attached image: Expand and Collapse keep them; closing the popover or Discard clears them.
+`components/RewriteSuggestions.tsx` and `hooks/useRewriteSuggestions.tsx` ask `POST /api/rewrite` (with a
+project, its review API) for the suggestions.
 
 ### A drawing
 
@@ -62,6 +70,12 @@ not listed as unsent; one that was not saved stays. A plain failed send (an erro
 The authorized reviewer, API, project and canonical page scope never includes a build id.
 Screenshots, attached images and device details stay in memory. The app's own feedback-mode toolbar is
 loaded on demand again with Give feedback after a document reload; this reuses the same draft keys.
+
+`hooks/useDrafts.tsx` keeps the text, anchor and edit snapshots, scoped to the API, project, authorized
+reviewer, canonical page and item. `draftStorage.ts` handles expiry, Discard, clearing on sign-out, blocked
+storage (the draft stays in memory), stable submission identities and a page's list (`keys`, `subscribeAll`).
+Captures stay in memory and are taken again when a form reopens. Storage and retries for every client:
+[draft recovery](../../../docs/review-workflow.md#draft-recovery-and-submission-retries).
 
 `apps/web/e2e/drafts.spec.ts` covers every toolbar composer, reloads, separate feedback kinds and edit snapshots;
 `drafts-project.spec.ts` covers reviewer/project/page isolation. `app-composer-drafts.spec.ts` covers the toolbar
