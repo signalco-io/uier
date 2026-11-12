@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { appNavigation, createProject, openBoardMove, openComment, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { appNavigation, createProject, openBoardMove, openComment, openCommentFilters, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { expectNoAxeViolations } from './accessibility';
@@ -123,6 +123,79 @@ test('My work shows its threads on a board: each card names its project, moves s
     await expect(page.getByRole('list', { name: 'Unread', exact: true })).toContainText('Checkout total is wrong');
 });
 
+test('My work searches, filters by project and sorts its lists and board columns, like a project', async ({ page, request }) => {
+    await signIn(page, uniqueEmail('my-work-filters'));
+    const shop = await createProject(page, { urls: [site.origin()], name: 'Shop' });
+    const blog = await createProject(page, { urls: [site.origin('blog')], name: 'Blog' });
+    // Oldest first: the shop's thread, then the blog's two
+    for (const [project, origin, text] of [[shop, site.origin(), 'Checkout total is wrong'], [blog, site.origin('blog'), 'Typo in the post title'], [blog, site.origin('blog'), 'Broken image in the footer']] as const) {
+        await setProjectAccess(page, project, 'Anyone with the link');
+        const headers = await verifiedReviewHeaders(request, project, origin);
+        const response = await request.post(`/api/review/${project}/comments`, { headers, data: {
+            path: `/${project}/pricing`, text, authorName: 'Guest', position: { type: 'page' }, kind: 'feedback'
+        } });
+        expect(response.status()).toBe(201);
+    }
+    const unread = page.getByRole('list', { name: 'Unread', exact: true });
+    const chooseProject = async (name: string) => {
+        const filters = await openCommentFilters(page);
+        await filters.getByRole('combobox', { name: 'Project', exact: true }).click();
+        await page.getByRole('option', { name, exact: true }).click();
+        await expect(page.getByRole('listbox')).toHaveCount(0);
+        await page.keyboard.press('Escape');
+        await expect(filters).toBeHidden();
+    };
+    const titles = () => unread.getByRole('listitem').allInnerTexts().then(rows => rows.map(row => ['Checkout total is wrong', 'Typo in the post title', 'Broken image in the footer'].find(title => row.includes(title))));
+
+    await page.goto('/app/my-work');
+    await expect(unread.getByRole('listitem')).toHaveCount(3);
+    // Search, as on a project's comments (`/` goes to it)
+    await page.keyboard.press('/');
+    await expect(page.getByRole('searchbox', { name: 'Search feedback' })).toBeFocused();
+    await page.keyboard.type('typo');
+    await expect(unread.getByRole('listitem')).toHaveCount(1);
+    await expect(unread).toContainText('Typo in the post title');
+    await expect.poll(() => new URL(page.url()).searchParams.get('q')).toBe('typo');
+    await page.getByRole('button', { name: 'Clear search' }).click();
+    await expect(unread.getByRole('listitem')).toHaveCount(3);
+
+    // The Filter popover has a Project filter; the filter in effect shows beside it and clears there
+    await chooseProject('Blog');
+    await expect(unread.getByRole('listitem')).toHaveCount(2);
+    await expect(unread).not.toContainText('Checkout total is wrong');
+    await expect.poll(() => new URL(page.url()).searchParams.get('project')).toBe(blog);
+    // Nothing matches: say so, and clear the filters from there
+    await page.getByRole('searchbox', { name: 'Search feedback' }).fill('checkout');
+    await expect(page.getByText('No comments match these filters.')).toBeVisible();
+    await page.getByRole('button', { name: 'Clear filters' }).click();
+    await expect(unread.getByRole('listitem')).toHaveCount(3);
+    await expect(page.getByRole('group', { name: 'Filters in effect' })).toHaveCount(0);
+
+    // Each list has its sort, remembered in this browser for My work
+    await expect.poll(titles).toEqual(['Broken image in the footer', 'Typo in the post title', 'Checkout total is wrong']);
+    await page.getByRole('button', { name: 'Sort Unread: Priority' }).click();
+    await page.getByRole('menuitemradio', { name: 'Oldest first' }).click();
+    await expect.poll(titles).toEqual(['Checkout total is wrong', 'Typo in the post title', 'Broken image in the footer']);
+    await page.reload();
+    await expect.poll(titles).toEqual(['Checkout total is wrong', 'Typo in the post title', 'Broken image in the footer']);
+    await animationsFinished(page.locator('body'));
+    await expectNoAxeViolations(page);
+
+    // The board has the same search and Filter, and each column its sort
+    await page.getByRole('button', { name: 'Board', exact: true }).click();
+    const open = page.getByRole('region', { name: 'Open comments', exact: true });
+    await expect(open.getByRole('listitem')).toHaveCount(3);
+    await chooseProject('Shop');
+    await expect(open.getByRole('listitem')).toHaveCount(1);
+    await page.getByRole('button', { name: 'Project: Shop, clear filter' }).click();
+    await expect(open.getByRole('listitem')).toHaveCount(3);
+    await expect(open.getByRole('listitem').first()).toContainText('Broken image in the footer');
+    await page.getByRole('button', { name: 'Sort Open: Priority' }).click();
+    await page.getByRole('menuitemradio', { name: 'Oldest first' }).click();
+    await expect(open.getByRole('listitem').first()).toContainText('Checkout total is wrong');
+    await expect(page.getByRole('button', { name: 'Sort Open: Oldest first' })).toBeVisible();
+});
+
 test('My work keeps its board and open thread when the last thread there stops needing you', async ({ page, request }) => {
     await signIn(page, uniqueEmail('my-work-board-last'));
     const project = await createProject(page, { urls: [site.origin()], name: 'Shop' });
@@ -151,6 +224,36 @@ test('My work keeps its board and open thread when the last thread there stops n
     await page.reload();
     await expect(page.getByText('Nothing needs you', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Board', exact: true })).toHaveCount(0);
+});
+
+test('My work keeps the open thread when its last card is archived, so it can be restored', async ({ page, request }) => {
+    await signIn(page, uniqueEmail('my-work-archive-last'));
+    const project = await createProject(page, { urls: [site.origin()], name: 'Shop' });
+    await setProjectAccess(page, project, 'Anyone with the link');
+    const headers = await verifiedReviewHeaders(request, project, site.origin());
+    const response = await request.post(`/api/review/${project}/comments`, { headers, data: {
+        path: `/${project}/pricing`, text: 'Checkout total is wrong', authorName: 'Guest', position: { type: 'page' }, kind: 'feedback'
+    } });
+    expect(response.status()).toBe(201);
+    const card = page.locator('[data-board-card]').filter({ hasText: 'Checkout total is wrong' });
+
+    await page.goto('/app/my-work?view=board');
+    await card.getByRole('link').first().click();
+    const thread = page.getByRole('dialog').getByRole('article');
+    await expect(thread).toContainText('Checkout total is wrong');
+    // Away from the card, so no hover card covers the thread's menu on a phone
+    await page.mouse.move(0, page.viewportSize()!.height - 1);
+    await thread.getByRole('button', { name: /^More actions for the comment/ }).click();
+    await page.getByRole('menuitem', { name: 'Archive comment', exact: true }).click();
+    // The board has no card left, but its sheet stays open on the archived thread, with Restore
+    await expect(thread.getByText('Archived', { exact: true })).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    await expect(thread).toContainText('Checkout total is wrong');
+    await thread.getByRole('button', { name: /^More actions for the comment/ }).click();
+    await page.getByRole('menuitem', { name: 'Restore comment', exact: true }).click();
+    await expect(thread.getByText('Archived', { exact: true })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(card).toBeVisible();
 });
 
 test('My work says so when nothing needs you', async ({ page }) => {

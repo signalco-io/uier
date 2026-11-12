@@ -41,9 +41,12 @@ const shortLabels: Record<BoardSort, string> = {
  * at a time. It is the project's (saved for everyone who opens the board), so a column in another order than
  * its default says which beside the icon. Only for the people who may change it.
  */
-export function BoardSortMenu({ status, sort, onChange, className, label }: {
-    label?: string;
+export function BoardSortMenu({ status, label, group = false, sort, onChange, className }: {
     status: BoardColumn;
+    /** What it sorts: a custom status's name, or My work's group */
+    label?: string;
+    /** Sorts a My work group, not a board column (which sorts like an active one): no `data-board-sort` */
+    group?: boolean;
     sort: BoardSort;
     onChange: (sort: BoardSort) => void;
     /** Beside another header button (Archive's Collapse): its spacing */
@@ -58,7 +61,7 @@ export function BoardSortMenu({ status, sort, onChange, className, label }: {
                 <TooltipTrigger render={(
                     <DropdownMenuTrigger render={(
                         // Takes no more height than the column's name; 44 px to tap on a touch screen
-                        <Button variant="ghost" size={usual ? 'icon-xs' : 'xs'} aria-label={t("Sort {value0}: {value1}", { value0: column, value1: t(boardSortLabels[sort]) })} data-board-sort={status}
+                        <Button variant="ghost" size={usual ? 'icon-xs' : 'xs'} aria-label={t("Sort {value0}: {value1}", { value0: column, value1: t(boardSortLabels[sort]) })} data-board-sort={group ? undefined : status}
                             className={cn('relative -my-1 -mr-1.5 ml-auto font-normal text-muted-foreground hover:text-foreground',
                                 'after:absolute after:-inset-2.5 pointer-fine:after:hidden', className)} />
                     )} />

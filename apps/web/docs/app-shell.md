@@ -141,17 +141,33 @@ the separately bundled review toolbar owns its own query cache.
   priority, then number, highest first; uier #292), newest first between projects' threads that tie. It
   reads the same authorized snapshot as each project's comments page (`loadProjectComments`), with each listed project's
   people to assign from the same member list, and stores nothing; a row opens its thread on its project's page (`?comment=`).
+  Rows and board cards name their project with its icon before the name (`ProjectMark` from the project's first address,
+  its initial until the icon loads or without one; `CommentRow`'s `projectUrl`, `BoardProject`'s `url`;
+  [uier #339](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fmy-work&comment=comment_ywLI_trKSqzLKf8y0Zu8-)).
   List and Board in the header ([uier #294](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fmy-work&comment=comment_UFce1oOdSATj5MRS9lRNt); `MyWorkBoard.tsx`) show the same threads on the comments board instead
   ([comments inbox](comments-inbox.md)): one column per status, no Archive (My work leaves archived threads out), each column
-  in its default order (no project's saved sorts apply, and nobody gets a sort menu), and each card names its project. A card
+  in its own sort (below; no project's saved sorts apply), and each card names its project. A card
   opens its thread in the board's sheet with its project's people, and a move (drag, or Move) is saved in the thread's own
   project with its own permissions (`allowedStatuses` reads each thread's, `useStatusChanger` takes each thread's project).
   A thread changed on the board (moved, read in the sheet, archived) that stops needing you stays there with those changes
   until My work is loaded again, so a card dropped on Done stays put and the open thread stays open; a deleted one goes
   (`removed` in `CommentUpdates`). That holds for the last thread too: the page always renders `MyWorkViews`, which shows
-  the empty state itself, and hides List/Board only while that empty state shows (`data-my-work-empty`). The choice works like a project's (`?view=`, list too, G then I or B) but is remembered
+  the empty state itself, with no search, Filter or List/Board while it shows (`data-my-work-empty`). The choice works like a project's (`?view=`, list too, G then I or B) but is remembered
   on its own (`commentsView.ts`, scope `my-work`): choosing Board for a project's triage leaves My work's grouped lists alone,
-  and the other way round. On the board the header takes the columns' width (`--board-width`, `data-header-wide`).
+  and the other way round. On the board the page header and the filters take the columns' width (`--board-width`, `data-header-wide`).
+- **My work's search, filters and sorts** ([uier #341](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fmy-work&comment=comment_CiCbLz-eGLRCCw2eBhTDk), `MyWorkViews` in `MyWorkBoard.tsx`):
+  under the page header, in the lists and on the board, the comments' own filter row (`CommentFilters`): search (`/` goes there),
+  Filter and List/Board. Filter has a Project filter first (`projects`/`project`: the projects with a thread here, by name, each
+  with its icon; `?project=`, "Project: Shop" in the filters in effect), then Priority, People and Only unread as in a project.
+  It has no Environment and page filter (each project has its own environments and paths), no status tabs (the groups are
+  mostly open threads) and no count line. Everything filters what is loaded at once and stays in the address (`?q=`,
+  `?priority=`, `?people=`, `?unread=`, `?project=`), using a project's matching (`applyFilters` in `ProjectComments.tsx`).
+  A list with nothing matching is left out; nothing matching anywhere shows "Nothing here" with Clear filters. On the board that message replaces only
+  the columns: the board stays mounted (columns hidden), so a thread archived from the last card keeps its sheet and Restore. Each list's
+  heading (`MyWorkGroups` in `MyWorkList.tsx`) and each board column's ends with its sort (`BoardSortMenu`, a list offering an
+  active column's choices: Priority, the default, Newest first, Oldest first, Recently updated; Done adds Recently
+  completed). The sorts are this person's, remembered in this browser (`myWorkSorts.ts`, `uier:my-work-sorts`, only choices
+  other than the defaults), not saved on any project.
   `e2e/my-work.spec.ts` covers it.
 
 ### Idle comments refreshes

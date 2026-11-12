@@ -6,6 +6,11 @@
   (`PriorityLabel`, `role="img"` named "High priority", no tooltip, like the row's Private lock). It is coloured
   through `stroke`, because highlighted menu and select items set the text colour of everything in them.
   `e2e/priority-flag.spec.ts` covers it.
+- `CommentFilters` also serves My work ([app shell](app-shell.md)), which lists several projects: it passes `projects` and
+  `project` for a Project filter (first in the popover, each project with its `ProjectMark`; the chip reads "Project: Shop";
+  Clear filters clears it too) and `onView` for its own List/Board memory, and leaves out `environments` (no Environment
+  and page filter) and `statusCounts` (no status tabs, and no Status filter on its board, which groups by category).
+  A project's comments pass neither `projects` nor `onView`.
 - The comments' filter bar (`CommentFilters.tsx`): search on the left, then at the right end of that row the filters in
   effect, one Filter button (a popover with Status on the board only (below), Priority, Environment
   and page, People (Everyone, Assigned to me, Unassigned, Opened by me) and Only unread (plus the open thread); its badge counts the

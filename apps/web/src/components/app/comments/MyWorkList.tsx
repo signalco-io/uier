@@ -1,11 +1,66 @@
 'use client';
 
+import { useAppI18n } from '@/src/lib/i18n/client';
 import { useRef, useState, type ReactNode } from 'react';
+import { AtSignIcon, MailIcon, UserIcon } from 'lucide-react';
 import { rovingIndex } from '@uier/toolbar/keyboard';
 import { KnownPageLinks } from '../../../knownPages';
 import type { MyWorkItem } from '../../../lib/app/myWork';
+import type { BoardSort } from '../../../lib/app/boardSort';
 import { useKeyShortcuts } from '../keyboard/keys';
 import { CommentRow } from './CommentRow';
+import { BoardSortMenu } from './BoardSortMenu';
+import { sortBoardColumn } from './commentOrder';
+import { myWorkSortColumn, type MyWorkGroup, type MyWorkSorts } from './myWorkSorts';
+
+/** Each of My work's lists: its heading, what it holds and its icon */
+const groupLabels: Record<MyWorkGroup, { title: string; description: string; icon: ReactNode }> = {
+    assigned: { title: 'Assigned to you', description: 'Open threads you are the assignee of', icon: <UserIcon /> },
+    mentions: { title: 'Mentions you', description: 'Open threads whose messages mention you', icon: <AtSignIcon /> },
+    unread: { title: 'Unread', description: 'Other threads with activity you have not read', icon: <MailIcon /> }
+};
+
+/** The items in a sort (`sortBoardColumn`): ties keep the order they came in */
+function sortItems(items: readonly MyWorkItem[], sort: BoardSort) {
+    const byId = new Map(items.map(item => [item.comment.id, item]));
+    return sortBoardColumn(items.map(item => item.comment), sort).map(comment => byId.get(comment.id)!);
+}
+
+/**
+ * My work's lists (assigned to you, mentioning you, unread), each with its count and, at the right end of its heading,
+ * its sort (`BoardSortMenu`, a board column's choices: priority by default, newest, oldest, recently updated). A list
+ * with nothing in it (or nothing matching the filters) is left out. J and K go to the next and the previous row across them.
+ */
+export function MyWorkGroups({ groups, sorts, onSort }: {
+    groups: Record<MyWorkGroup, MyWorkItem[]>;
+    sorts: MyWorkSorts;
+    onSort: (group: MyWorkGroup, sort: BoardSort) => void;
+}) {
+    const { t } = useAppI18n();
+    return (
+        <MyWorkKeys>
+            {(Object.keys(groupLabels) as MyWorkGroup[]).map(group => {
+                const items = groups[group];
+                if (!items.length) return null;
+                const { title, description, icon } = groupLabels[group];
+                const id = `my-work-${group}`;
+                return (
+                    <section key={group} aria-labelledby={id} className="flex flex-col gap-2">
+                        <div className="flex items-baseline gap-2 px-1">
+                            <span aria-hidden="true" className="self-center text-muted-foreground [&_svg]:size-4">{icon}</span>
+                            <h2 id={id} className="m-0 text-base font-semibold">{t(title)}</h2>
+                            <span className="text-sm text-muted-foreground tabular-nums">{items.length}</span>
+                            <p className="m-0 ml-auto hidden text-sm text-muted-foreground sm:block">{t(description)}</p>
+                            <BoardSortMenu status={myWorkSortColumn(group)} label={t(title)} group sort={sorts[group]} onChange={sort => onSort(group, sort)}
+                                className="mr-0 self-center sm:ml-0" />
+                        </div>
+                        <MyWorkList label={t(title)} items={sortItems(items, sorts[group])} />
+                    </section>
+                );
+            })}
+        </MyWorkKeys>
+    );
+}
 
 /** The rows' links in a list or on the page, in order */
 const rowLinks = (container: Element) => [...container.querySelectorAll<HTMLElement>('[data-comment-row] a[href]')];
@@ -35,9 +90,9 @@ export function MyWorkList({ label, items }: { label: string; items: MyWorkItem[
                 links[next]!.focus({ preventScroll: true });
                 links[next]!.closest('li')?.scrollIntoView({ block: 'nearest' });
             }}>
-            {items.map(({ projectId, projectName, comment }) => (
+            {items.map(({ projectId, projectName, projectUrl, comment }) => (
                 <li key={comment.id} className="min-w-0" data-my-work-row={comment.id}>
-                    <CommentRow comment={comment} project={projectName} projectId={projectId} tabbable={comment.id === tabStop}
+                    <CommentRow comment={comment} project={projectName} projectId={projectId} projectUrl={projectUrl} tabbable={comment.id === tabStop}
                         href={`${KnownPageLinks.project(projectId)}?comment=${encodeURIComponent(comment.id)}#comments`} />
                 </li>
             ))}

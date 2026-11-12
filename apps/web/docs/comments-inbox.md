@@ -308,8 +308,10 @@ are in [the CLS investigation](project-comments-cls.md).
 `CommentBoard` takes each card's project (`projectOf`: id, name, people to assign) instead of one project id, and
 `archive` is optional. A project's board passes its own project for every card; My work (`MyWorkBoard`, [uier #294](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fmy-work&comment=comment_UFce1oOdSATj5MRS9lRNt))
 passes each thread's, so the card names its project, a move is saved in that project with the thread's own permissions,
-and the sheet opens the thread with that project's people. My work has no Archive column and no sort menus. The List/Board
-toggle is one component (`CommentsViewToggle`) in both places. See [app shell](app-shell.md) for what My work's board shows.
+and the sheet opens the thread with that project's people. My work has no Archive column; its columns' sort menus change
+My work's own sorts, not a project's (`onSort` from `MyWorkBoard`, remembered in the browser). The List/Board toggle is one
+component (`CommentsViewToggle`) in both places, in `CommentFilters`' row (My work passes `onView` to remember its own).
+Cards and rows of several projects show the project's icon before its name (`BoardProject`'s `url`, `CommentRow`'s `projectUrl`). See [app shell](app-shell.md) for what My work's board shows.
 
 ## App language
 

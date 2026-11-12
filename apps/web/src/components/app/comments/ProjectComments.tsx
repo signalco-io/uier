@@ -51,8 +51,8 @@ const emptyStatus: Record<StatusFilter, { title: string; description: string }> 
     all: { title: 'Nothing here', description: 'No comments match these filters.' }
 };
 
-/** `openId`: Only unread keeps the open thread while it is read (opening it reads it), until another is opened */
-function applyFilters(comments: ProjectCommentView[], query: CommentsQuery, userId: string, openId?: string) {
+/** `openId`: Only unread keeps the open thread while it is read (opening it reads it), until another is opened. My work filters with it too */
+export function applyFilters(comments: ProjectCommentView[], query: CommentsQuery, userId: string, openId?: string) {
     return comments.filter(comment => {
         if (query.priority && comment.priority !== query.priority) return false;
         if (!matchesFeedbackSearch({ path: comment.path, number: comment.number, context: comment.title ? [comment.title] : undefined, messages: [{ text: comment.text, quotedText: comment.quotedText, deleted: comment.deleted }, ...comment.replies] }, query.q ?? '')) return false;
