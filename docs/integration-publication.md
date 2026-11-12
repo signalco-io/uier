@@ -15,19 +15,28 @@ reply acceptance remains separate from implementation and local tests.
 
 ## Provider status
 
-Publication progress updated on 30 October 2026. Provider registrations and distribution settings
-were verified on 29 October; Notion's completed draft, creator profile and review submission were
-verified on 30 October.
+Summary reconciled on 12 November 2026 against the dated records below; no provider console or
+hosted acceptance was repeated during that reconciliation. Registrations/distribution were verified
+on 29 October, Notion's submission on 30 October, Azure DevOps registration/deployment on 31 October,
+and optional Notion/Slack reply permissions on 2 November. Newer provider decisions must be recorded
+before changing an availability or approval claim.
 
 | Provider | Public installation | Directory or Marketplace review |
 | --- | --- | --- |
 | GitHub | Public [uier for GitHub](https://github.com/apps/uier-for-github), owned by signalco-io. Start setup from a uier project's Settings. | Draft listing created. Not submitted. Direct Marketplace installation onboarding, listing fields, webhook, security checklist and Marketplace Developer Agreement remain gates. |
 | Linear | Public OAuth application in the dedicated uier workspace. | Directory submission on hold. The operator confirmed there is no registered company, so the published formal-company criterion is not met. Public OAuth installation remains available. |
 | Notion | Public uier connection, installable in any workspace. | Submitted for review on 30 October. Notion displayed the success confirmation. Awaiting provider review; no approval or published listing is claimed. |
-| Azure DevOps | Not registered. A multitenant Microsoft Entra app is needed; see [setup](integration-setup.md#azure-devops). | Microsoft has no Azure DevOps directory review for OAuth apps. Publisher verification in Entra is optional and not started. |
+| Azure DevOps | Multitenant Entra application registered and production credentials deployed on 31 October. Client authentication passed; hosted user consent, Settings, refresh and work-item delivery remain pending. See the [activation receipt](integration-activation.md#azure-devops-registration-31-october-2026). | Microsoft has no Azure DevOps directory review for OAuth apps. Publisher verification in Entra is optional and not recorded. Registration does not establish delegated delivery acceptance. |
 | Slack | Public unlisted distribution is enabled. | Not submitted. Slack requires at least 10 active installed workspaces throughout review. The 29 October dashboard reported zero; the controlled installation is not evidence of ten active customer workspaces. |
 
 Do not certify untested behavior or create artificial installations to meet a review threshold.
+
+The public guides show a dated installation/listing status separately from checked workflow scope,
+using `apps/web/src/lib/integrations/publication.ts`. They keep Azure DevOps delegated acceptance,
+Slack's first expiry-driven refresh and hosted imported-reply/edit/delete acceptance visible. All
+five adapters implement optional reply sync, including Slack; the old notification-only receipts
+do not establish that later workflow. Features stay aligned with the shared catalog and adapter
+capabilities; these disclosures do not enable or disable a connection.
 Keep the dedicated uier workspace/account boundaries used during registration. Private review
 contacts use the owner's business account; no credentials or authorization receipts belong in
 listing text, images, forms or this record.

@@ -8,6 +8,7 @@ import { Chip, InlineLink, PageHeader, PageSection, Panel, Tile } from '../../..
 import { IntegrationLogo } from '../../../../../src/components/app/integrations/IntegrationLogo';
 import { KnownPages } from '../../../../../src/knownPages';
 import { integrationCatalog, isIntegrationCatalogKey } from '../../../../../src/lib/integrations/catalog';
+import { integrationEvidenceUrl, integrationPublication, integrationPublicationUrl, replySyncQualification } from '@/src/lib/integrations/publication';
 
 type Props = { params: Promise<{ provider: string }> };
 
@@ -26,6 +27,7 @@ async function IntegrationContent({ params }: Props) {
     const { provider } = await params;
     if (!isIntegrationCatalogKey(provider)) notFound();
     const integration = integrationCatalog[provider];
+    const publication = integrationPublication[provider];
     return <main className="flex flex-col pb-16">
         <PageHeader title={integration.title} lead={integration.description} media={<IntegrationLogo provider={provider} className="size-12 rounded-xl p-2.5" />}>
             <div className="flex flex-wrap items-center gap-2.5">
@@ -33,6 +35,15 @@ async function IntegrationContent({ params }: Props) {
                 <Button variant="outlined" size="lg" href={`mailto:${brand.contact.email}`}>Get help</Button>
             </div>
         </PageHeader>
+        <PageSection id="availability" title="Availability and verification"
+            lead={<>Last recorded checks: <time dateTime={publication.recordedOn}>{publication.recordedLabel}</time>. Installation and directory approval are separate.</>}>
+            <Panel className="md:grid-cols-2">
+                <Tile title="Installation and listing"><p>{publication.installation}</p></Tile>
+                <Tile title="Checked workflow"><p>{publication.verification}</p></Tile>
+            </Panel>
+            <p className="text-sm leading-relaxed text-muted-foreground">{replySyncQualification}</p>
+            <p className="text-sm leading-relaxed text-muted-foreground"><InlineLink href={integrationEvidenceUrl}>Read the verification record</InlineLink> and <InlineLink href={integrationPublicationUrl}>listing status</InlineLink> for the recorded scope and remaining checks.</p>
+        </PageSection>
         <PageSection id="overview" title={integration.result} lead={integration.detail} wide>
             {/* A static product illustration, not a screenshot of a customer workspace. */}
             <img src={`/integrations/${provider}-showcase.png`} width={1600} height={1000}

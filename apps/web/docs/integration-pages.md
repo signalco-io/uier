@@ -12,6 +12,11 @@ which opens uier's own toolbar feedback form: public on the showcase, private on
 Listing illustrations come from `scripts/render-integration-listings.mjs`, existing brand vectors
 and Geist fonts. They contain no customer data and are labelled illustrations. Keep permissions,
 privacy limits and directory status aligned with the adapters and `docs/integration-publication.md`.
+`src/lib/integrations/publication.ts` records dated publication/acceptance scope separately from
+capabilities. Each public provider page shows the actual receipt date, installation/listing state,
+verified workflow and pending hosted reply-sync qualification before setup. These are evidence
+disclosures, not runtime feature flags. Update the dated repository records first when a new
+provider acceptance or listing decision justifies a stronger claim. Never refresh dates on build.
 `e2e/integration-pages.spec.ts` covers the public guides, their features and settings, the logos, the suggestion
 form, support/setup links and accessibility.
 

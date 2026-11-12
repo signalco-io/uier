@@ -27,7 +27,8 @@ const shared = [
     <Rule><strong>A workspace admin connects</strong> each project and chooses its destination.</Rule>,
     <Rule><strong>Nothing is copied before you save a destination.</strong> Existing feedback waits for a backfill.</Rule>,
     <Rule>Two-way status sync and reply sync <strong>stay off until you turn them on.</strong></Rule>,
-    <Rule><strong>Disconnect stops future sync</strong> and keeps the copies already made.</Rule>
+    <Rule><strong>Disconnect stops future sync</strong> and keeps the copies already made.</Rule>,
+    <Rule><strong>Check availability in each guide.</strong> Provider listings and hosted verification have separate gates. Azure DevOps delivery and the optional reply-import workflow still need hosted verification.</Rule>
 ];
 
 export default function IntegrationsPage() {
