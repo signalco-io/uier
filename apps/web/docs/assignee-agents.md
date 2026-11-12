@@ -78,7 +78,8 @@ Heartbeats are not durable agent events: no activity history, email or `feedback
 `useAgentWorking` (`@uier/toolbar/agent-working`) expires mounted indicators locally with one cleanup-safe
 timer (also for a group of expiry times) and no extra reads, even offline. `AgentAvatar`, `AssigneeCard`, the thread's `AgentControl` and
 the toolbar's `CommentAssignment` show the small spinner and accessible working text; reduced motion
-keeps the indicator still. Coverage includes lease expiry/retry/ownership, realtime updates and draft preservation, and indicators
+keeps the indicator still. The spinner's badge is inverted (`bg-foreground` with a `text-background` spinner: ink on
+light, paper on dark) so the tiny indicator stands out on the avatar in both themes (uier #359). Coverage includes lease expiry/retry/ownership, realtime updates and draft preservation, and indicators
 on list, board, My work, thread, hover card and toolbar.
 
 ## Desktop session links
