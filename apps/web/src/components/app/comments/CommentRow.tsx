@@ -20,6 +20,7 @@ import { defaultStatusWorkflow, statusForComment, workflowStatusLabel } from '..
 import { commentStatus, StateDot } from './CommentStatus';
 import { PriorityLabel } from './PriorityFlag';
 import { commentPullRequestLinks, PullRequestCard } from './ThreadPullRequests';
+import { ProjectMark } from '../projects/ProjectMark';
 
 
 /** The row's title: the thread's AI title, else the first line of the first message */
@@ -44,7 +45,7 @@ export const commentRowId = (id: string) => `comment-row-${id}`;
  * hovered, focused or selecting (a long press selects the row on a touch screen), but keeps its room, so nothing moves when it appears. The whole row opens the thread (a link to `?comment=<id>`, so it can also
  * open in a new tab).
  */
-export function CommentRow({ comment, href, selected, onOpen, card = false, preview = false, actions, describedBy, keyShortcuts, project, projectId, tabbable = true }: {
+export function CommentRow({ comment, href, selected, onOpen, card = false, preview = false, actions, describedBy, keyShortcuts, project, projectId, projectUrl, tabbable = true }: {
     comment: ProjectCommentView;
     href: string;
     /** Its thread is open (`opened`), or shown beside the list until another is chosen (`beside`, wide layouts only) */
@@ -68,6 +69,8 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
     project?: string;
     /** The thread's project: with it, the linked pull request mark shows the pull requests on hover or tap */
     projectId?: string;
+    /** The project's first address, for its icon beside `project` (`ProjectMark`; its initial without one) */
+    projectUrl?: string;
     /**
      * Its link and selection box are in the Tab order. The inbox list keeps only one row there (a roving
      * tab stop) and moves between rows with the arrow keys.
@@ -134,6 +137,8 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                         {comment.kind !== 'comment' && <span role="img" aria-label={localizedKindLabel(comment.kind, comment.feedbackType, t)} title={localizedKindLabel(comment.kind, comment.feedbackType, t)} className="flex shrink-0">
                             {comment.kind === 'rewrite' ? <ReplaceIcon aria-hidden="true" className="size-3.5" /> : <FeedbackTypeIcon icon={commentKindIcon(comment.kind, comment.feedbackType)} className="size-3.5" />}
                         </span>}
+                        {/* Its project's icon beside the project's name, where rows of several projects are listed together (uier #339) */}
+                        {project && <ProjectMark name={project} projectId={projectId} url={projectUrl} />}
                         <span className="truncate">
                             {project && <><span className="font-medium text-foreground">{project}</span><span aria-hidden="true"> · </span></>}
                             <span className="sr-only">{t("Page ")}</span>

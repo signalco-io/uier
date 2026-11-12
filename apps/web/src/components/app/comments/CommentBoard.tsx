@@ -188,7 +188,7 @@ function BoardCard({ project, comment, href, opened, moving, tabbable, onOpen, o
                 'data-hold:scale-[0.98]',
                 isDragging && 'opacity-40')}>
             {canMove && <span id={shortcutId} hidden>{t("Press M to move it to another column.")}</span>}
-            <CommentRow card comment={comment} projectId={project.id} project={project.name} href={href} selected={opened ? 'opened' : undefined} onOpen={onOpen} tabbable={tabbable}
+            <CommentRow card comment={comment} projectId={project.id} project={project.name} projectUrl={project.url} href={href} selected={opened ? 'opened' : undefined} onOpen={onOpen} tabbable={tabbable}
                 describedBy={canMove ? shortcutId : undefined} keyShortcuts={canMove ? 'M' : undefined}
                 actions={canMove && (
                     // While the move saves, Move keeps the focus it was given but offers no other column
@@ -320,7 +320,8 @@ function ArchiveColumn({ label = 'Archive', count, sort, onSort, expanded, dimme
  * where the card names it (`name`). Moves are saved there with that thread's permissions, and its thread opens in the
  * sheet with that project's people to assign.
  */
-export type BoardProject = { id: string; name?: string; assignees: AssigneeOption[] };
+/** `name` and `url` (its first address, for its icon) name the project on its cards, where a board mixes projects (My work) */
+export type BoardProject = { id: string; name?: string; url?: string; assignees: AssigneeOption[] };
 
 /**
  * Open, In progress, Ready to verify and Done side by side, as compact cards, with one tab stop: the arrow keys move
@@ -617,7 +618,7 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, so
                         {drag && (
                             // The lifted card: floating, like a menu (BRAND.md, "Borders and elevation")
                             <div inert aria-hidden="true" data-drag-preview={drag.comment.id} className="rounded-lg bg-card shadow-md ring-1 ring-foreground/10">
-                                <CommentRow card preview comment={drag.comment} project={projectOf(drag.comment).name} href={hrefFor(drag.comment.id)} />
+                                <CommentRow card preview comment={drag.comment} project={projectOf(drag.comment).name} projectUrl={projectOf(drag.comment).url} href={hrefFor(drag.comment.id)} />
                             </div>
                         )}
                     </DragOverlay>,

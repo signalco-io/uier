@@ -141,6 +141,9 @@ the separately bundled review toolbar owns its own query cache.
   priority, then number, highest first; uier #292), newest first between projects' threads that tie. It
   reads the same authorized snapshot as each project's comments page (`loadProjectComments`), with each listed project's
   people to assign from the same member list, and stores nothing; a row opens its thread on its project's page (`?comment=`).
+  Rows and board cards name their project with its icon before the name (`ProjectMark` from the project's first address,
+  its initial until the icon loads or without one; `CommentRow`'s `projectUrl`, `BoardProject`'s `url`;
+  [uier #339](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fmy-work&comment=comment_ywLI_trKSqzLKf8y0Zu8-)).
   List and Board in the header ([uier #294](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fmy-work&comment=comment_UFce1oOdSATj5MRS9lRNt); `MyWorkBoard.tsx`) show the same threads on the comments board instead
   ([comments inbox](comments-inbox.md)): one column per status, no Archive (My work leaves archived threads out), each column
   in its default order (no project's saved sorts apply, and nobody gets a sort menu), and each card names its project. A card

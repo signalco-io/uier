@@ -95,7 +95,7 @@ export function MyWorkBoard({ items, assignees, userId, empty }: {
     const byId = new Map(shown.map(item => [item.comment.id, item]));
     const projectOf = (comment: ProjectCommentView): BoardProject => {
         const item = byId.get(comment.id) ?? seen.byId[comment.id];
-        return { id: item?.projectId ?? '', name: item?.projectName, assignees: (item && seen.assignees[item.projectId]) ?? [] };
+        return { id: item?.projectId ?? '', name: item?.projectName, url: item?.projectUrl, assignees: (item && seen.assignees[item.projectId]) ?? [] };
     };
     // A project list's order (priority, then number), newest first between projects' threads that tie
     const comments = orderComments(shown.map(item => item.comment).sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')));

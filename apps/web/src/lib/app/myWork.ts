@@ -7,7 +7,8 @@ import { listVisibleProjects } from './projects';
 import { listProjectMembers } from './members';
 import { compareCommentOrder } from '../../components/app/comments/commentOrder';
 
-export type MyWorkItem = { projectId: string; projectName: string; comment: ProjectCommentView };
+/** `projectUrl`: the project's first address, for its icon (`ProjectMark`) */
+export type MyWorkItem = { projectId: string; projectName: string; projectUrl?: string; comment: ProjectCommentView };
 
 export type MyWork = {
     /** Open threads assigned to the signed-in member */
@@ -41,7 +42,7 @@ export async function loadMyWork(context: AppContext, t: AppTranslator = english
             members
         ]);
         options.set(project.id, people.map(({ member, name, avatarUrl }) => ({ userId: member.userId, name, avatarUrl })));
-        return comments.map(comment => ({ projectId: project.id, projectName: project.name, comment }));
+        return comments.map(comment => ({ projectId: project.id, projectName: project.name, projectUrl: project.urls[0], comment }));
     }));
     const items = perProject.flat().filter(item => !item.comment.archivedAt).sort((a, b) => (b.comment.createdAt ?? '').localeCompare(a.comment.createdAt ?? ''))
         .sort((a, b) => compareCommentOrder(a.comment, b.comment));
