@@ -79,3 +79,15 @@ Archive (`status=archived`) is a separate list scope, chosen from the menu besid
 workflow statuses, without archived threads. Archive uses the same search, people, page, priority,
 unread, author and environment filters. The board excludes archived cards and offers Archive as a
 separate list. The toolbar's `archived` scope follows the same rule; its `all` filter excludes archive.
+
+## Label filter
+
+The Filter popover offers one Label (`?label=<stable id>`) on project lists/boards and My work.
+Its chip names the selected label and clears it; Clear filters also removes it. It combines with
+priority, people, status, search and location, and applies before status counts and board grouping.
+Unavailable IDs yield an empty match with an explicit removable chip, never an unfiltered list.
+My work offers catalogs from its visible projects (limited by its Project filter); label names
+authored by admins remain as saved. App label writes optimistically update the thread, rows, cards
+and filters together and roll back on failure. Labels do not change sorting or status categories.
+The shared query backend also supports the member-only `labels` set field before paging, totals
+and facets; see [comment query](comment-query.md). Toolbar filtering is follow-up work.

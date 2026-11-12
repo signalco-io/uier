@@ -1,3 +1,5 @@
+import { workspaceThreadLabels } from '@/src/lib/app/threadLabels';
+import { WorkspaceThreadLabelsForm } from './WorkspaceThreadLabelsForm';
 import { workspaceStatusWorkflow } from '@/src/lib/app/statusWorkflows';
 import { WorkspaceStatusWorkflowForm } from './WorkspaceStatusWorkflowForm';
 
@@ -42,6 +44,7 @@ async function WorkspaceSettingsPageContent() {
                 <WorkspaceAiTitlesForm enabled={workspaceAiTitles(context.workspace)} />
                 <WorkspaceRewriteInstructionsForm instructions={workspaceRewriteInstructions(context.workspace)} />
                 <WorkspaceFeedbackTypesForm types={workspaceFeedbackTypes(context.workspace)} />
+                <WorkspaceThreadLabelsForm labels={workspaceThreadLabels(context.workspace)} />
                 <WorkspaceStatusWorkflowForm workflow={workspaceStatusWorkflow(context.workspace)} />
                 <WorkspaceDomainsSection context={context} />
             </div>

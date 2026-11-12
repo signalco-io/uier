@@ -1,3 +1,4 @@
+import { threadLabelsSchema } from './threadLabelSchema';
 import { statusWorkflowSchema } from './statusWorkflowSchema';
 import { feedbackTypesSchema } from './feedbackTypeSchema';
 import { nanoid } from 'nanoid';
@@ -183,6 +184,16 @@ export async function setWorkspaceStatusWorkflow(workspaceId: string, userId: st
     if ((await getMember(workspaceId, userId))?.role !== 'admin') throw new UserFacingError('Only admins can do this.');
     const statusWorkflow = statusWorkflowSchema.parse(value);
     const updated = await updateDoc<DbWorkspace>(workspacePk(workspaceId), workspaceId, workspace => ({ ...workspace, statusWorkflow }));
+    if (!updated) throw new UserFacingError('This workspace is unavailable or your access changed.');
+    return updated;
+}
+
+/** Label catalogs follow the status workflow's current-admin and managed-workspace checks. */
+export async function setWorkspaceThreadLabels(workspaceId: string, userId: string, value: unknown) {
+    assertMutableWorkspace(workspaceId);
+    if ((await getMember(workspaceId, userId))?.role !== 'admin') throw new UserFacingError('Only admins can do this.');
+    const threadLabels = threadLabelsSchema.parse(value);
+    const updated = await updateDoc<DbWorkspace>(workspacePk(workspaceId), workspaceId, workspace => ({ ...workspace, threadLabels }));
     if (!updated) throw new UserFacingError('This workspace is unavailable or your access changed.');
     return updated;
 }

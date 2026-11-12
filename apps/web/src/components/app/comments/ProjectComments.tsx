@@ -2,6 +2,7 @@
 
 import { useAppI18n } from '@/src/lib/i18n/client';
 
+import type { ThreadLabel } from '../../../lib/app/threadLabel';
 import { defaultStatusWorkflow, type StatusWorkflow } from '../../../lib/app/statusWorkflow';
 import { commentAssignees } from '@uier/toolbar/agents';
 import { useEffect, useLayoutEffect, useOptimistic, useRef, useState, useTransition } from 'react';
@@ -54,6 +55,7 @@ const emptyStatus: Record<StatusFilter, { title: string; description: string }> 
 /** `openId`: Only unread keeps the open thread while it is read (opening it reads it), until another is opened. My work filters with it too */
 export function applyFilters(comments: ProjectCommentView[], query: CommentsQuery, userId: string, openId?: string) {
     return comments.filter(comment => {
+        if (query.label && !comment.labels?.some(label => label.id === query.label)) return false;
         if (query.priority && comment.priority !== query.priority) return false;
         if (!matchesFeedbackSearch({ path: comment.path, number: comment.number, context: comment.title ? [comment.title] : undefined, messages: [{ text: comment.text, quotedText: comment.quotedText, deleted: comment.deleted }, ...comment.replies] }, query.q ?? '')) return false;
         if (query.unread && !comment.activity?.unread && comment.id !== openId) return false;
@@ -70,6 +72,7 @@ export function applyFilters(comments: ProjectCommentView[], query: CommentsQuer
 }
 
 type ProjectCommentsProps = {
+    labels?: ThreadLabel[];
     workflow?: StatusWorkflow;
     initialView?: CommentsView;
     revision: string;
@@ -94,7 +97,7 @@ type ProjectCommentsProps = {
 };
 
 /** The project's comments in a list (a status tab) or on a board (a column per status), filtered by people and page. */
-export function ProjectComments({ workflow = defaultStatusWorkflow, projectId, revision, access, isAdmin, comments: savedComments, query: serverQuery, userId, assignees, installHref, environments, authorFilter, searchWindowCapped = false, boardSorts: savedSorts, boardArchiveExpanded: savedArchiveExpanded = false, canSortBoard, initialView }: ProjectCommentsProps) {
+export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow, projectId, revision, access, isAdmin, comments: savedComments, query: serverQuery, userId, assignees, installHref, environments, authorFilter, searchWindowCapped = false, boardSorts: savedSorts, boardArchiveExpanded: savedArchiveExpanded = false, canSortBoard, initialView }: ProjectCommentsProps) {
     const { t } = useAppI18n();
     // The presentation filters and the open thread change with the address at once, even while a
     // change waits for the server (`useUrlSearchParams`)
@@ -131,7 +134,7 @@ export function ProjectComments({ workflow = defaultStatusWorkflow, projectId, r
     const commitSearch = () => { setUrlSearchParams({ q: search || undefined }); };
     const clearFilters = () => {
         setSearchDraft({ url: urlKey, value: '' });
-        setUrlSearchParams({ q: undefined, priority: undefined, status: undefined, people: undefined, page: undefined, unread: undefined }, { history: 'push' });
+        setUrlSearchParams({ q: undefined, label: undefined, priority: undefined, status: undefined, people: undefined, page: undefined, unread: undefined }, { history: 'push' });
         document.getElementById('feedback-search')?.focus();
     };
     const [optimisticComments, updateComment] = useOptimistic(savedComments, (current, update: CommentUpdate) => current.map(comment => applyCommentUpdate(comment, update)));
@@ -278,7 +281,7 @@ export function ProjectComments({ workflow = defaultStatusWorkflow, projectId, r
             and so does the count line under it. */}
         <div ref={containerRef} data-page-width={comments.length ? 'wide' : undefined} className="@container/comments flex flex-col gap-2">
             <div data-header-wide={headerWide} className={cn('flex min-w-0 flex-col gap-2', threadOnly && '@max-3xl/comments:hidden', wideClassName)}>
-            <CommentFilters search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} historySources={historySources} unread={Boolean(query.unread)} unreadCount={scopeComments.filter(comment => comment.activity?.unread).length} view={board ? 'board' : 'list'} status={query.status} statusCounts={statusCounts} people={query.people} page={query.page} pages={pages}
+            <CommentFilters labels={labels} label={query.label} search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} historySources={historySources} unread={Boolean(query.unread)} unreadCount={scopeComments.filter(comment => comment.activity?.unread).length} view={board ? 'board' : 'list'} status={query.status} statusCounts={statusCounts} people={query.people} page={query.page} pages={pages}
                 countLine={comments.length > 0 ? { summary: unreadSummary, actions: unreadActions } : undefined} />
             {searchWindowCapped && <p className="m-0 text-sm text-muted-foreground">{t("Search covers up to 1,000 recent threads in this environment and author scope. Narrow the environment or author to find older feedback.")}</p>}
             </div>

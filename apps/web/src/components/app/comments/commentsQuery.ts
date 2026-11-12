@@ -4,6 +4,7 @@ import type { CommentsView, PeopleFilter, StatusFilter } from './commentLabels';
 export type CommentsQuery = {
     q?: string;
     priority?: CommentPriority;
+    label?: string;
     environment?: string;
     author?: string;
     unread?: boolean;
@@ -27,6 +28,7 @@ export function parseCommentsQuery(params: Record<string, string | string[] | un
     return {
         q: value('q')?.slice(0, MAX_FEEDBACK_SEARCH) || undefined,
         priority: priorities.includes(value('priority') as CommentPriority) ? commentPriority(value('priority')) : undefined,
+        label: /^label_[a-zA-Z0-9_-]{1,64}$/.test(value('label') ?? '') ? value('label') : undefined,
         environment: value('environment'),
         author: value('author'),
         unread: value('unread') === 'true',

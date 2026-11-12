@@ -1,3 +1,4 @@
+import { setWorkspaceThreadLabels } from '../src/lib/app/workspaces';
 import { defaultFeedbackTypes } from '@uier/toolbar/feedback-types';
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
@@ -1013,4 +1014,37 @@ test('MCP custom status writes validate effective IDs and keep receipt retries a
         expect(data(await set({ statusId: 'rejected' }))).toMatchObject({ archivedAt: expect.any(String), resolved: true });
         expect((await getCommentsStore().get(f.comment.domain, f.comment.id))!.comment.archiveStatusId).toBe('rejected');
     } finally { await client.close(); }
+});
+
+test('MCP labels expose descriptions, filter feedback, enforce scopes, and replay add/remove receipts without losing later changes', async () => {
+    const f = await fixture();
+    const labels = [
+        { id: 'label_bug', name: 'Bug', color: 'red', description: 'A reproducible failure.' },
+        { id: 'label_design', name: 'Design', color: 'violet', icon: 'paintbrush', description: 'Visual feedback.' }
+    ];
+    await setWorkspaceThreadLabels(f.context.workspace.id, f.user.id, labels);
+    const create = async (scopes: string[]) => connect((await createMcpCredential(f.context, { name: 'Labels', projectIds: [f.project.id], scopes, days: 7 })).token);
+    const read = await create(['feedback:read']);
+    const write = await create(['feedback:read', 'feedback:assign']);
+    const args = { projectId: f.project.id, commentId: f.comment.id };
+    const call = (name: string, input: Record<string, unknown>) => write.callTool({ name, arguments: input }).then(data);
+    try {
+        expect(data(await read.callTool({ name: 'list_feedback_labels', arguments: { projectId: f.project.id } })).labels).toEqual(labels);
+        expect(data(await read.callTool({ name: 'list_feedback_labels', arguments: { projectId: f.other.id } })).error).toBe('not_found');
+        expect(data(await read.callTool({ name: 'set_feedback_labels', arguments: { ...args, labelIds: ['label_bug'], mode: 'add', idempotencyKey: idempotencyKey() } })).error).toBe('forbidden');
+        const key = idempotencyKey();
+        expect((await call('set_feedback_labels', { ...args, labelIds: ['label_bug'], mode: 'add', idempotencyKey: key })).labels).toEqual([labels[0]]);
+        await call('set_feedback_labels', { ...args, labelIds: ['label_design'], mode: 'add', idempotencyKey: idempotencyKey() });
+        expect((await call('list_feedback', { projectId: f.project.id, labelId: 'label_bug' })).items).toMatchObject([{ id: f.comment.id, labels }]);
+        const packet = await call('get_feedback', args);
+        expect(packet.labels).toEqual(labels);
+        const batch = await call('get_feedback_batch', { projectId: f.project.id, commentIds: [f.comment.id] });
+        expect(JSON.stringify(batch)).toContain('A reproducible failure.');
+        await call('set_feedback_labels', { ...args, labelIds: ['label_bug'], mode: 'remove', idempotencyKey: idempotencyKey() });
+        await call('set_feedback_labels', { ...args, labelIds: ['label_bug'], mode: 'add', idempotencyKey: key });
+        expect((await call('list_feedback', { projectId: f.project.id, labelId: 'label_bug' })).items).toEqual([]);
+        expect((await call('set_feedback_labels', { ...args, labelIds: ['label_design'], mode: 'add', idempotencyKey: key })).error).toBe('conflict');
+        expect((await call('set_feedback_labels', { ...args, labelIds: ['label_foreign'], mode: 'add', idempotencyKey: idempotencyKey() })).error).toBe('invalid_request');
+        expect((await call('get_feedback', args)).labels).toEqual([labels[1]]);
+    } finally { await read.close(); await write.close(); }
 });

@@ -8,7 +8,7 @@ import type { CommentQueryMetadata } from './queryMetadata';
 export type CommentQueryMessage = Pick<DbThreadItem, 'id' | 'text' | 'quotedText' | 'authorId' | 'authorName' | 'mentions' | 'deletedAt' | 'createdAt'>;
 export type CommentQueryCandidate = Pick<DbComment,
     'id' | 'domain' | 'projectId' | 'path' | 'pageStateVersion' | 'sourcePath' | 'origin' | 'private' | 'authorId' |
-    'assigneeId' | 'assigneeIds' | 'priority' | 'resolved' | 'inProgress' | 'archivedAt' | 'number' | 'kind' |
+    'labelIds' | 'assigneeId' | 'assigneeIds' | 'priority' | 'resolved' | 'inProgress' | 'archivedAt' | 'number' | 'kind' |
     'feedbackType' | 'check' | 'createdAt' | 'updatedAt' | 'completedAt' | 'activity' | 'manualTitle'> & {
     revision: string;
     hasScreenshot: boolean;
@@ -82,7 +82,7 @@ export function toCommentQueryCandidate(comment: DbComment, revision: string): C
             }), ...(item.createdAt ? { createdAt: item.createdAt } : {})
         })) }
     };
-    const fields = ['projectId', 'pageStateVersion', 'sourcePath', 'origin', 'private', 'authorId', 'assigneeId', 'assigneeIds',
+    const fields = ['labelIds', 'projectId', 'pageStateVersion', 'sourcePath', 'origin', 'private', 'authorId', 'assigneeId', 'assigneeIds',
         'priority', 'resolved', 'inProgress', 'archivedAt', 'number', 'kind', 'feedbackType', 'check', 'createdAt', 'updatedAt',
         'completedAt', 'activity', 'manualTitle', 'aiTitle', 'device', 'queryMetadata'] as const;
     for (const field of fields) {
@@ -99,7 +99,7 @@ export function toCommentQueryCandidate(comment: DbComment, revision: string): C
 
 /** A SELECT projection with the same shape as toCommentQueryCandidate, never SELECT *. */
 export const commentCandidateProjection = `c.id, c.domain, c.projectId, c.path, c.pageStateVersion, c.sourcePath, c.origin,
- c.private, c.authorId, c.assigneeId, c.assigneeIds, c.priority, c.resolved, c.inProgress, c.archivedAt, c.number, c.kind,
+ c.labelIds, c.private, c.authorId, c.assigneeId, c.assigneeIds, c.priority, c.resolved, c.inProgress, c.archivedAt, c.number, c.kind,
  c.feedbackType, c.check, c.createdAt, c.updatedAt, c.completedAt, c.activity, c.manualTitle, c.aiTitle, c.device, c.queryMetadata,
  c._etag AS revision, {"type": c.position.type} AS position,
  {"outcome": c.verification.outcome, "fixUrl": c.verification.fixUrl} AS verification,

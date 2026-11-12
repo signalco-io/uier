@@ -123,3 +123,15 @@ custom names/descriptions are discoverable through MCP `list_feedback_statuses`.
 custom-status slice does not add a query field or reinterpret saved definitions.
 
 Custom status writes do not change category filters or paging. The review comment DTO includes `workflowStatusId` and `archiveStatusId`; removed IDs fall back to the effective category default in the toolbar menu.
+
+## Labels
+
+The `labels` field is a member-only set of effective label IDs. It supports `includesAny`,
+`includesAll`, `includesNone`, `isEmpty` and `isNotEmpty`, with exact totals/facets and named options
+from authorized matching rows. It is not sortable. The candidate source projects only assigned
+IDs; the evaluator intersects them with the current effective catalog before pagination. Labels
+remain residual predicates so arbitrary All/Any/Not expressions retain their complete candidate
+set. Removed definitions do not remain queryable as current labels. Guests cannot request label
+filters, facets or options. `thread-labels.api.spec.ts` covers filtering, pagination and authority.
+Label option-name enrichment shares one workspace load per workspace within the request while
+resolving each source project's own override. No workspace data is cached across requests.

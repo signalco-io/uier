@@ -56,6 +56,7 @@ import {
 } from '@/src/components/ui/dropdown-menu';
 import { Spinner } from '@/src/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
+import { ThreadLabelsControl } from './ThreadLabelsControl';
 import { ThreadTitle } from './ThreadTitle';
 import { ThreadPullRequests } from './ThreadPullRequests';
 import type { MessageMentionRange, ProjectCommentMessage, ProjectCommentView } from '../../../lib/app/projectComments';
@@ -656,6 +657,8 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                     </dd>
                     <dt className={detailLabelClass}>{t("Priority")}</dt>
                     <dd className={detailValueClass}><PriorityControl projectId={projectId} commentId={comment.id} priority={comment.priority} canEdit={permissions.triage} /></dd>
+                    <dt className={detailLabelClass}>{t('Labels')}</dt>
+                    <dd className={detailValueClass}><ThreadLabelsControl projectId={projectId} commentId={comment.id} labels={comment.labels ?? []} available={comment.availableLabels ?? []} canEdit={permissions.triage} /></dd>
                     <ThreadPullRequests projectId={projectId} comment={comment} />
                 </dl>
 

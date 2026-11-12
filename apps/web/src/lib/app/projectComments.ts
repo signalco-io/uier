@@ -1,3 +1,5 @@
+import { effectiveThreadLabels } from './threadLabels';
+import { labelsForComment, type ThreadLabel } from './threadLabel';
 import { effectiveStatusWorkflow } from './statusWorkflows';
 import type { StatusWorkflow } from './statusWorkflow';
 import { englishAppTranslator } from '../i18n/translate';
@@ -95,6 +97,9 @@ export type ProjectAssignee = { id: string; name: string; avatarUrl?: string; ag
 
 /** A comment as the app shows it */
 export type ProjectCommentView = {
+    labels?: ThreadLabel[];
+    availableLabels?: ThreadLabel[];
+    labelIds?: string[];
     workflow?: StatusWorkflow;
     workflowStatusId?: string;
     archiveStatusId?: string;
@@ -270,6 +275,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         archivedAt: comment.archivedAt,
         resolved: comment.resolved === true,
         inProgress: comment.inProgress === true && comment.resolved !== true,
+        labelIds: comment.labelIds,
         workflowStatusId: comment.workflowStatusId,
         archiveStatusId: comment.archiveStatusId,
         private: comment.private === true,
@@ -337,7 +343,8 @@ export async function loadProjectComment(context: AppContext, project: DbProject
     const participants = new Map(members.filter(({ user }) => user).map(({ member, name }) => [member.userId, name]));
     const workflow = effectiveStatusWorkflow(context.workspace, project);
     const view = toView(comment, project, actor, names, participants, members, readSequence, memberAvatars(members), aiTitlesEnabled(context.workspace, project));
-    return view ? { ...view, workflow, following: subscriptions[0]?.following ?? isNotificationParticipant(comment, `user:${context.user.id}`), integrationLinks: integrationLinks.get(id) } : null;
+    const labels = effectiveThreadLabels(context.workspace, project);
+    return view ? { ...view, workflow, labels: labelsForComment(labels, view), availableLabels: labels, following: subscriptions[0]?.following ?? isNotificationParticipant(comment, `user:${context.user.id}`), integrationLinks: integrationLinks.get(id) } : null;
 }
 
 /** Every comment of the project the app user can see (all pages), newest first */
@@ -369,7 +376,8 @@ export async function loadProjectComments(context: AppContext, project: DbProjec
     const following = new Map(subscriptions.map(subscription => [subscription.threadId, subscription.following]));
     const participated = new Set(comments.filter(comment => isNotificationParticipant(comment, `user:${context.user.id}`)).map(comment => comment.id));
     const workflow = effectiveStatusWorkflow(context.workspace, project);
-    return views.map(view => ({ ...view, workflow, following: following.get(view.id) ?? participated.has(view.id), integrationLinks: integrationLinks.get(view.id) }));
+    const labels = effectiveThreadLabels(context.workspace, project);
+    return views.map(view => ({ ...view, workflow, labels: labelsForComment(labels, view), availableLabels: labels, following: following.get(view.id) ?? participated.has(view.id), integrationLinks: integrationLinks.get(view.id) }));
 }
 
 export type ProjectUsage = {
