@@ -42,7 +42,20 @@ function recoverSending(value: RecordValue): RecordValue {
 
 const memory = new Map<string, Map<string, RecordValue>>();
 const listeners = new Map<string, Set<() => void>>();
-const notify = (key: string) => listeners.get(key)?.forEach(listener => listener());
+/** Listeners of every draft in a scope (a page's store, `subscribeAll`), by the scope's prefix */
+const scopeListeners = new Map<string, Set<() => void>>();
+/** Changes on every write, so `subscribeAll` subscribers have a snapshot to compare (`version`) */
+let version = 0;
+const notify = (key: string) => {
+    version++;
+    listeners.get(key)?.forEach(listener => listener());
+    for (const [prefix, subscriptions] of scopeListeners) if (key.startsWith(prefix)) subscriptions.forEach(listener => listener());
+};
+/** Every scope whose prefix starts with `prefix` (sign-out and clearing): its drafts changed */
+const notifyScopes = (prefix: string) => {
+    version++;
+    for (const [scope, subscriptions] of scopeListeners) if (scope.startsWith(prefix)) subscriptions.forEach(listener => listener());
+};
 const pendingSends = new Map<string, Promise<unknown>>();
 export function clearDraftMemory() { memory.clear(); pendingSends.clear(); }
 
@@ -55,6 +68,7 @@ export function clearDraftScopes(scope: string[]) {
         for (const key of keys) if (key?.startsWith(prefix)) storage().removeItem(key);
     } catch { /* Memory is still cleared when storage is blocked. */ }
     for (const key of listeners.keys()) if (key.startsWith(prefix)) notify(key);
+    notifyScopes(prefix);
 }
 
 /** Small text/anchor records only. Captures and device details never enter synchronous storage. */
@@ -138,6 +152,23 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
         }
     } catch { available = false; }
     return {
+        /** Every draft of this scope (the page): its composers', and new comments' (`keys`) */
+        subscribeAll(listener: () => void) {
+            const subscriptions = scopeListeners.get(prefix) ?? new Set<() => void>();
+            scopeListeners.set(prefix, subscriptions);
+            subscriptions.add(listener);
+            return () => { subscriptions.delete(listener); if (!subscriptions.size) scopeListeners.delete(prefix); };
+        },
+        /** A snapshot for `subscribeAll`: changes whenever a draft does */
+        version: () => version,
+        /** The keys of this scope's drafts (in browser storage, or in memory only), unread and unchecked */
+        keys() {
+            const keys = new Set(values.keys());
+            try {
+                for (const key of storageKeys()) if (key?.startsWith(prefix)) keys.add(key.slice(prefix.length));
+            } catch { available = false; }
+            return [...keys];
+        },
         subscribe(key: string, listener: () => void) {
             const fullKey = prefix + key;
             const subscriptions = listeners.get(fullKey) ?? new Set<() => void>();
@@ -164,6 +195,7 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
                 }
             } catch { available = false; }
             for (const key of listeners.keys()) if (key.startsWith(reviewerPrefix)) notify(key);
+            notifyScopes(reviewerPrefix);
         },
         /** Empties the draft for a send in the background, keeping its text until `settleSend` */
         startSend(key: string, text: string, mentions: Mention[]) {

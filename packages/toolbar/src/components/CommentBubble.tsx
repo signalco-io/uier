@@ -1,6 +1,6 @@
 'use client';
 
-import { useContext, useEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
+import { useContext, useEffect, useImperativeHandle, useMemo, useRef, useState, type MouseEvent, type PointerEvent, type Ref } from 'react';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Divider } from '@signalco/ui-primitives/Divider';
 import { cx } from '@signalco/ui-primitives/cx';
@@ -28,7 +28,9 @@ import { IconTooltip } from './IconTooltip';
 import { DrawingLayer } from './canvas/DrawingLayer';
 import { DrawIcon } from './canvas/CanvasIcons';
 import { commentDrawing, type CommentDrawing } from '../drawing';
-import { CommentDraft, CommentItem, CommentItemPosition, commentTextMaxLength, floatingShadowClassName, isCommentArea } from './@types/Comments';
+import { useProjectViewer } from '../project/ProjectGate';
+import { getGuestName } from '../project/projectSession';
+import { CommentDraft, CommentItem, CommentItemPosition, commentTextMaxLength, floatingShadowClassName, isCommentArea, type Mention } from './@types/Comments';
 
 // Bubble (the pin) half size, how far its message count badge reaches past the right edge (Pin,
 // @uier/brand) and its minimal distance from the window edges
@@ -139,7 +141,18 @@ function scrollAnchorIntoView(position: CommentItemPosition, rect: DOMRect | und
     resolveAnchorElement(position)?.scrollIntoView({ block: 'center', behavior });
 }
 
+/** A draft pin's actions from outside its popover: the inbox's drafts (CommentsGlobal) */
+export type CommentDraftHandle = {
+    /**
+     * Sends the draft as it is, without opening its form: its text, mentions, attached image or a new capture of its
+     * anchor. `false` when it needs its form (a guest's name, an image still being read, nothing to send).
+     */
+    send: () => boolean;
+};
+
 type CommentBubbleProps = {
+    /** A draft's actions from outside it (the inbox) */
+    ref?: Ref<CommentDraftHandle>;
     /** Opens the thread once the pin is on the page (a comment that was just posted, or a comment link) */
     autoOpen?: boolean;
     /** Opened with J or K, going from thread to thread: the messages take the focus, not the reply box */
@@ -152,15 +165,21 @@ type CommentBubbleProps = {
     onAutoOpenStep?: () => void;
     /** With the comment's id, or a draft's key (see hooks/useDrafts.tsx) */
     onOpenStateChange?: (commentId: string, open: boolean) => void;
-    /** The comment was sent: its temporary id, its pin shown at once (see hooks/useComments.tsx) */
-    onCreated?: (localId: string) => void;
+    /**
+     * The comment was sent: its temporary id, its pin shown at once (see hooks/useComments.tsx). `quiet`: sent from
+     * the inbox (`CommentDraftHandle.send`), so its thread does not open on the page.
+     */
+    onCreated?: (localId: string, quiet: boolean) => void;
     /**
      * A comment just sent from a draft: its thread is open from the start, in place of the draft's
      * popover, without the opening animation (one popover that goes on, not one closing and another opening)
      */
     continuesDraft?: boolean;
-    /** Sending failed: the draft (its text is back, the choice to omit its screenshot, its attached image and its drawing) should be on the page again */
-    onSendFailed?: (error: unknown, choice: { omitScreenshot: boolean; image?: AttachedImage; drawing?: CommentDrawing }) => void;
+    /**
+     * Sending failed: the draft (its text is back, the choice to omit its screenshot, its attached image and its drawing)
+     * should be on the page again; `quiet` (sent from the inbox) with its form closed
+     */
+    onSendFailed?: (error: unknown, choice: { omitScreenshot: boolean; image?: AttachedImage; drawing?: CommentDrawing }, quiet: boolean) => void;
     onCanceled?: () => void;
     /** A drawing's draft: back to canvas mode with its shapes (Edit drawing) */
     onEditDrawing?: () => void;
@@ -184,7 +203,7 @@ export function CommentBubble(props: CommentBubbleProps) {
     const drawingDraft = props.draft?.kind === 'drawing';
     const savedDrawing = commentItem?.drawing;
     const drawing = useMemo(() => props.draft ? props.draft.drawing : commentDrawing(savedDrawing), [props.draft, savedDrawing]);
-    const draftKey = commentItem ? commentItem.id : (rewriting ? newRewriteDraftKey : drawingDraft ? newDrawingDraftKey : newCommentDraftKey);
+    const draftKey = commentItem ? commentItem.id : props.draft.draftKey ?? (rewriting ? newRewriteDraftKey : drawingDraft ? newDrawingDraftKey : newCommentDraftKey);
     const t = useMessages();
     const language = useToolbarLanguage();
     const newLabel = rewriting ? t.pin.newRewrite : t.pin.newComment;
@@ -204,12 +223,15 @@ export function CommentBubble(props: CommentBubbleProps) {
     const lastRect = lowestRect(placementRects);
     const { create, reply } = useComments();
     const [capture, setCapture] = useState<{ device: ReturnType<typeof getDeviceInfo>; screenshot: Promise<string | undefined> | undefined }>();
+    // A draft pin that starts closed (restored, or one of several on the page) is captured when its form opens or it
+    // is sent, not for being on the page
+    const startsClosed = Boolean(props.initiallyClosed) && !props.draft?.screenshot;
     useEffect(() => {
-        if (creating) setCapture({
+        if (creating && !startsClosed) setCapture({
             device: props.draft.device ?? getDeviceInfo(),
             screenshot: props.draft.screenshot ?? captureCommentScreenshot(position, rootElement, props.draft.drawing)
         });
-    }, [creating, position, rootElement, props.draft]);
+    }, [creating, startsClosed, position, rootElement, props.draft]);
     const [omitScreenshot, setOmitScreenshot] = useState(props.draft?.omitScreenshot ?? false);
     // The reviewer's own image, sent instead of the automatic screenshot
     const attachment = useAttachedImage(props.draft?.image, { pastedName: t.attachments.pastedImage });
@@ -227,7 +249,7 @@ export function CommentBubble(props: CommentBubbleProps) {
     const messagesCount = commentItem?.thread.items.filter(item => !item.deleted && !item.pending).length ?? 0;
     const sending = Boolean(commentItem?.pending);
 
-    const handleSubmit = async (text: string, mentions?: import('./@types/Comments').Mention[]) => {
+    const handleSubmit = async (text: string, mentions?: Mention[]) => {
         if (props.commentItem) {
             const sentImage = attachment.image;
             attachment.remove();
@@ -241,34 +263,61 @@ export function CommentBubble(props: CommentBubbleProps) {
             return;
         }
 
-        const draft = props.draft;
+        await createComment(text, mentions, capture, false);
+    };
+
+    // `quiet`: sent from the inbox, its form closed (`send`)
+    const createComment = async (text: string, mentions: Mention[] | undefined, sent: typeof capture, quiet: boolean) => {
+        const draft = props.draft!;
         const quotedText = draft.position.type === 'text'
             ? draft.position.text.trim().slice(0, commentTextMaxLength)
             : undefined;
         const localId = newLocalId();
         const posting = create.mutateAsync({
             localId,
+            draftKey,
             position: draft.position,
             kind: rewriting ? 'rewrite' : undefined,
             text,
             mentions,
             quotedText: quotedText || undefined,
             // The original viewport, alongside the automatic capture, even after resizing.
-            device: capture?.device ?? getDeviceInfo(),
-            screenshot: attachment.screenshotFor(omitScreenshot, capture?.screenshot),
+            device: sent?.device ?? getDeviceInfo(),
+            screenshot: attachment.screenshotFor(omitScreenshot, sent?.screenshot),
             ...(draft.drawing ? { drawing: draft.drawing } : {})
         });
-        // The draft pin makes way for the comment's, shown at once with its thread open
-        onCreated?.(localId);
+        // The draft pin makes way for the comment's, shown at once with its thread open (unless sent from the inbox)
+        onCreated?.(localId, quiet);
         try {
             await posting;
         } catch (error) {
-            // After the composer has put the text back
-            window.setTimeout(() => onSendFailed?.(error, { omitScreenshot, image: attachment.image, drawing: draft.drawing }), 0);
+            // After the composer (or `send`) has put the text back
+            window.setTimeout(() => onSendFailed?.(error, { omitScreenshot, image: attachment.image, drawing: draft.drawing }, quiet), 0);
             throw error;
         }
         announce(rewriting ? t.pin.suggestionPosted : t.pin.commentPosted);
     };
+
+    // Sent from the inbox, as the composer sends it: the form's text moves into the send (`startSend`) and comes back
+    // if it fails. A guest without a name, or an image still being read, needs the form.
+    const { needsName } = useProjectViewer();
+    useImperativeHandle(props.ref, () => ({
+        send: () => {
+            const text = drafts.get(draftKey) ?? '';
+            const trimmed = text.trim();
+            if (!creating || !trimmed || attachment.reading || (needsName && !getGuestName())) return false;
+            const mentions = drafts.details(draftKey)?.mentions ?? [];
+            const leading = text.length - text.trimStart().length;
+            const selected = mentions.filter(mention => mention.end <= text.trimEnd().length)
+                .map(mention => ({ userId: mention.userId, start: mention.start - leading, end: mention.end - leading }));
+            // A new capture of its anchor, as opening its form takes
+            const sent = { device: getDeviceInfo(), screenshot: omitScreenshot || attachment.image ? undefined : captureCommentScreenshot(position, rootElement, drawing) };
+            const id = drafts.startSend(draftKey, text, mentions);
+            void createComment(trimmed, selected, sent, true)
+                .then(() => drafts.settleSend(draftKey, id, true), () => drafts.settleSend(draftKey, id, false));
+            return true;
+        }
+    }));
 
     const [open, setOpen] = useState(creating ? !props.initiallyClosed : continuesDraft);
     // Until it is closed: opening it again animates as usual
@@ -390,6 +439,8 @@ export function CommentBubble(props: CommentBubbleProps) {
                 scrollAnchorIntoView(position, lastRect, 'auto', closedLayer);
             }
             setReading(autoOpenReading);
+            // A draft resumed from the toolbar or the inbox: a new capture, as opening it by its pin takes
+            if (creating && !open) setCapture({ device: getDeviceInfo(), screenshot: captureCommentScreenshot(position, rootElement, drawing) });
             setOpen(true);
             onAutoOpened?.();
         }
@@ -538,6 +589,8 @@ export function CommentBubble(props: CommentBubbleProps) {
                         // Names the pin when it opens the thread a comment on the toolbar is in
                         id={commentItem && !sending ? toolbarPinId(commentItem.id) : undefined}
                         data-uier-comment={commentItem?.id ?? newCommentDraftKey}
+                        // Which of the page's drafts it is (`newDraftKey`)
+                        data-uier-draft={creating ? draftKey : undefined}
                         {...holdsLayers}
                         // The same number as the thread header, the inbox and the app ("Comment #6, 3 messages")
                         aria-label={creating

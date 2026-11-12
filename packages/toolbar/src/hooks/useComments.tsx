@@ -59,6 +59,8 @@ export type CreateCommentInput = {
     device?: CommentDeviceInfo;
     /** A screenshot of the commented part of the page, a data URL (see src/screenshot.ts); awaited while sending */
     screenshot?: string | Promise<string | undefined>;
+    /** The draft it was written in (one of several on the page): its submission key is kept there. Never sent. */
+    draftKey?: string;
 };
 
 type ReplyInput = { commentId: string; text: string; mentions?: Mention[]; screenshot?: string; imageKey?: string };
@@ -324,10 +326,10 @@ export function useComments(refreshOnMount = false): {
 
     const create = useMutation({
         mutationFn: (input: CreateCommentInput) => {
-            const key = input.drawing ? newDrawingDraftKey : input.kind === 'rewrite' ? newRewriteDraftKey : isFeedbackTypeId(input.kind) ? `${feedbackDraftKey}:${input.kind}` : newCommentDraftKey;
+            const key = input.draftKey ?? (input.drawing ? newDrawingDraftKey : input.kind === 'rewrite' ? newRewriteDraftKey : isFeedbackTypeId(input.kind) ? `${feedbackDraftKey}:${input.kind}` : newCommentDraftKey);
             // The same content is the same attempt (a retry the API can recognize), whatever its local id.
             // A drawing is in it by its fingerprint: the attempt is kept in the draft's small record.
-            const { device: _device, screenshot: _screenshot, idempotencyKey: _identity, localId: _local, feedbackType: _type, drawing, ...content } = input;
+            const { device: _device, screenshot: _screenshot, idempotencyKey: _identity, localId: _local, feedbackType: _type, draftKey: _draft, drawing, ...content } = input;
             return createComment(path, pageState, { ...input, idempotencyKey: drafts.attempt(key, JSON.stringify({ path, ...content, ...(drawing ? { drawing: drawingFingerprint(drawing) } : {}) })) });
         },
         onMutate: (input: CreateCommentInput) => {

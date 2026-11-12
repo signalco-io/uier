@@ -14,6 +14,7 @@ import { MarkAllRead } from './MarkAllRead';
 import { InboxSearch } from './InboxSearch';
 import { RestoredPanelContext } from '../../openPanel';
 import { useMessages } from '../../i18n';
+import { InboxDrafts, type InboxDraft } from './InboxDrafts';
 
 export type CommentsSidebarProps = {
     /**
@@ -25,6 +26,11 @@ export type CommentsSidebarProps = {
     onClose: () => void;
     /** Closes the inbox and opens the thread on its pin */
     onShowOnPage: (commentId: string) => void;
+    /** This page's unsent comments, listed above its threads (`InboxDrafts`) */
+    pageDrafts?: InboxDraft[];
+    onResumeDraft?: (draftKey: string) => void;
+    onSendDraft?: (draftKey: string) => void;
+    onDiscardDraft?: (draftKey: string) => void;
     /** A shortcut asked for the inbox (G then I) or its search (`/`): the focus goes there, each time `key` changes */
     focusRequest?: { target: 'inbox' | 'search'; key: number };
 };
@@ -34,7 +40,7 @@ export type CommentsSidebarProps = {
  * (the environment, then this page by default, all pages, a section or another page) with the
  * unread and assigned filters, then the status tabs right above the comments.
  */
-export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, onShowOnPage, focusRequest }: CommentsSidebarProps) {
+export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, onShowOnPage, pageDrafts = [], onResumeDraft, onSendDraft, onDiscardDraft, focusRequest }: CommentsSidebarProps) {
     const t = useMessages();
     const { isMember, environment, environmentOptions, setEnvironment, environmentLabel } = useProjectViewer();
     const { data: activity } = useActivitySummary();
@@ -84,7 +90,7 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
                 className={cx(hidding
                     ? 'animate-out fade-out fill-mode-forwards duration-150 ease-in motion-safe:data-[side=left]:slide-out-to-left motion-safe:data-[side=right]:slide-out-to-right'
                     : !restored && 'animate-in fade-in duration-200 ease-out motion-safe:data-[side=left]:slide-in-from-left motion-safe:data-[side=right]:slide-in-from-right')}>
-                <Stack ref={contentRef} tabIndex={0} className="h-full overflow-y-auto rounded-b-2xl outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+                <Stack ref={contentRef} tabIndex={0} data-uier-inbox-scroll="" className="h-full overflow-y-auto rounded-b-2xl outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
                     <Stack spacing={2} className="shrink-0 px-4 pt-3">
                         <CommentsSidebarHeader onClose={handleClose} autoFocus={!restored}
                             search={<InboxSearch value={filter.keywords ?? ''} onChange={keywords => setFilter({ ...filter, keywords })}
@@ -121,6 +127,14 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
                     </Stack>
                     {/* Filters and comments share a scroll area, including short keyboard/orientation viewports. */}
                     <div className="shrink-0 p-3">
+                        {/* This page's drafts first, while it is listed with what is not done yet; they are not threads, so
+                            the unread and assigned filters leave them out */}
+                        {inbox.listsThisPage && !filter.unread && !filter.assignedToMe && (filter.status === 'unresolved' || filter.status === 'all')
+                            && onResumeDraft && onSendDraft && onDiscardDraft && (
+                            <div className="mb-4 empty:hidden">
+                                <InboxDrafts drafts={pageDrafts} keywords={filter.keywords} onResume={onResumeDraft} onSend={onSendDraft} onDiscard={onDiscardDraft} />
+                            </div>
+                        )}
                         <CommentsSidebarCommentsList
                             inbox={inbox}
                             filter={filter}
