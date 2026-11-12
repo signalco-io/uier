@@ -37,9 +37,7 @@ export function AgentAvatar({ kind, workingUntil, className, compact = false }: 
         <span {...working ? { role: 'img', 'aria-label': t("{value0} is working now", { value0: agentLabels[kind] }) } : { 'aria-hidden': true }} data-agent={kind}
             className={cn('relative flex size-5 shrink-0 items-center justify-center rounded-full border bg-background text-foreground', className)}>
             <AgentMark kind={kind} className="size-3/5" />
-            {working && <span data-agent-working="" className={cn('absolute -right-1 -bottom-0.5 flex items-center justify-center rounded-full bg-foreground text-background', compact ? 'size-2' : 'size-3')}>
-                <Spinner className={cn('motion-reduce:animate-none', compact ? 'size-1.5' : 'size-2.5')} />
-            </span>}
+            {working && <Spinner data-agent-working="" className={cn('absolute -right-1 -bottom-0.5 text-foreground motion-reduce:animate-none', compact ? 'size-2' : 'size-3')} />}
         </span>
     );
 }
@@ -90,7 +88,7 @@ function OverflowCount({ count, workingUntil, compact = false }: { count: number
     const working = useAgentWorking(workingUntil);
     return <span data-assignee-overflow="" data-count={`+${count}`} className={cn('relative flex items-center justify-center rounded-full border bg-background font-medium text-foreground after:content-[attr(data-count)]',
         compact ? '-ml-1 size-4 text-[9px] ring-2 ring-background' : 'size-5 text-[10px]')}>
-        {working && <span data-agent-working="" className="absolute -right-1 -bottom-0.5 flex size-2 items-center justify-center rounded-full bg-foreground text-background"><Spinner className="size-1.5 motion-reduce:animate-none" /></span>}
+        {working && <Spinner data-agent-working="" className="absolute -right-1 -bottom-0.5 size-2 text-foreground motion-reduce:animate-none" />}
     </span>;
 }
 

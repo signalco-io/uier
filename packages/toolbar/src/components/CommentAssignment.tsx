@@ -38,9 +38,7 @@ function AgentAvatar({ kind, workingUntil }: { kind: AgentKind; workingUntil?: s
     const working = useAgentWorking(workingUntil);
     return <span aria-hidden="true" data-agent={kind} className="relative -ml-0.5 flex size-3 shrink-0 items-center justify-center rounded-full border bg-background text-foreground ring-1 ring-background first:ml-0">
         <AgentMark kind={kind} size={8} />
-        {working && <span data-agent-working="" className="absolute -right-1 -bottom-0.5 flex size-2 items-center justify-center rounded-full bg-foreground text-background">
-            <LoaderSpinner size={6} className="motion-safe:animate-spin" />
-        </span>}
+        {working && <LoaderSpinner data-agent-working="" size={8} className="absolute -right-1 -bottom-0.5 text-foreground motion-safe:animate-spin" />}
     </span>;
 }
 
@@ -59,7 +57,7 @@ function AssigneeAvatar({ person }: { person: Assignee }) {
 function OverflowCount({ count, workingUntil, compact = false }: { count: number; workingUntil: (string | undefined)[]; compact?: boolean }) {
     const working = useAgentWorking(workingUntil);
     return <span aria-hidden="true" data-count={`+${count}`} className={cx('relative flex items-center justify-center rounded-full border bg-background text-foreground after:content-[attr(data-count)]', compact ? '-ml-0.5 size-3 text-[8px]' : 'size-6 text-[10px]')}>
-        {working && <span data-agent-working="" className="absolute -right-1 -bottom-0.5 flex size-2 items-center justify-center rounded-full bg-foreground text-background"><LoaderSpinner size={6} className="motion-safe:animate-spin" /></span>}
+        {working && <LoaderSpinner data-agent-working="" size={8} className="absolute -right-1 -bottom-0.5 text-foreground motion-safe:animate-spin" />}
     </span>;
 }
 
