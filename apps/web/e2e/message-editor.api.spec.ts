@@ -114,3 +114,93 @@ test('plain text of risky characters reads back unchanged (seeded)', () => {
         expect(flat(markdownToDoc(saved)), JSON.stringify(saved)).toBe(flat(written));
     }
 });
+
+// What a textblock shows: each character with its marks; spaces keep only code (Markdown writes them outside
+// other marks) and the spaces at a line's edges go (the parser drops them)
+function shown(block: Node) {
+    const parts: string[] = [];
+    block.forEach(child => {
+        const names = (space: boolean) => child.marks
+            .filter(mark => !space || mark.type === schema.marks.code)
+            .map(mark => mark.type.name + (mark.attrs.href ? `(${mark.attrs.href as string})` : '')).join('+');
+        if (child.type === schema.nodes.hard_break) parts.push('\n');
+        else if (child.type === schema.nodes.mention) parts.push(`${child.attrs.id as string}:${names(false)}`);
+        else for (const char of child.text ?? '') parts.push(`${char}:${names(/\s/.test(char))}`);
+    });
+    return parts.join('|').replace(/^(?:\s:\|)+|(?:\|\s:)+$/g, '').replace(/(?:\|\s:)*\|\n\|(?:\s:\|)*/g, '|\n|');
+}
+
+const strong = () => schema.marks.strong.create();
+const em = () => schema.marks.em.create();
+const strike = () => schema.marks.strike.create();
+const code = () => schema.marks.code.create();
+const link = (href = 'https://uier.io/pricing') => schema.marks.link.create({ href });
+const marked = (value: string, ...marks: ReturnType<typeof strong>[]) => schema.text(value, marks);
+const mention = (...marks: ReturnType<typeof strong>[]) => schema.nodes.mention.create({ id: 'user-ana', label: '@Ana' }, null, marks);
+
+test('overlapping and adjacent formatting reads back as it was written', () => {
+    const cases: [string, Node, string][] = [
+        // uier #290 review: bold `ab`, then italic `bc`; `**a*b****c*` read back with literal asterisks
+        ['bold ab, italic bc', doc(paragraph(marked('a', strong()), marked('b', strong(), em()), marked('c', em()))), '**a*b***_c_'],
+        ['italic ab, bold bc', doc(paragraph(marked('a', em()), marked('b', strong(), em()), marked('c', strong()))), '*a**b***__c__'],
+        ['overlapping words', doc(paragraph(marked('Ship ', strong()), marked('the', strong(), em()), marked(' fix', em()), text(' today'))), '**Ship *the*** *fix* today'],
+        ['bold then italic', doc(paragraph(marked('bold', strong()), marked('italic', em()))), '**bold***italic*'],
+        ['italic then bold', doc(paragraph(marked('italic', em()), marked('bold', strong()))), '*italic***bold**'],
+        ['ending together', doc(paragraph(marked('very ', strong()), marked('important', strong(), em()), text('!'))), '**very *important***!'],
+        ['next to punctuation', doc(paragraph(text('('), marked('bold, ', strong()), marked('both', strong(), em()), marked(')', em()), text('.'))), '(**bold, *both***_)_.'],
+        ['strikethrough', doc(paragraph(marked('old ', strike()), marked('price', strike(), strong()), marked(' now', strong()))), '~~old **price**~~ **now**'],
+        ['a link', doc(paragraph(text('see '), marked('the ', strong()), marked('pricing', strong(), link()), marked(' page', link()))), 'see **the [pricing](https://uier.io/pricing)** [page](https://uier.io/pricing)'],
+        ['code', doc(paragraph(marked('run ', strong()), marked('pnpm dev', code()), marked(' now', strong()))), '**run** `pnpm dev` **now**'],
+        ['a mention', doc(paragraph(marked('ask ', strong()), mention(strong(), em()), marked(' today', em()))), '**ask *@Ana*** *today*'],
+        ['three marks', doc(paragraph(marked('a ', strong()), marked('b ', strong(), em()), marked('c ', strong(), em(), strike()), marked('d', em(), strike()), marked(' e', strike()))), '**a *b ~~c~~*** ~~*d* e~~'],
+        // Spaces at the end of a mark go after its delimiter, also when they are a node of their own
+        ['spaces before a closing delimiter', doc(paragraph(text('a'), marked('cb  ', strike()), marked(' ', strike(), strong()))), 'a~~cb~~   '],
+        ['a heading', doc(schema.nodes.heading.create({ level: 2 }, [marked('a', strong()), marked('b', strong(), em()), marked('c', em())])), '## **a*b***_c_']
+    ];
+    for (const [name, written, markdown] of cases) {
+        const saved = docToMarkdown(written);
+        expect(saved.text, name).toBe(markdown);
+        const read = markdownToDoc(saved.text, saved.mentions).firstChild!;
+        expect(read.type, name).toBe(written.firstChild!.type);
+        expect(shown(read), `${name}: ${saved.text}`).toBe(shown(written.firstChild!));
+    }
+});
+
+test('formatting that overlaps inside a word keeps what Markdown can hold, never stray delimiters', () => {
+    // Inside `xabcy`, bold `ab` and italic `bc` have no CommonMark form: the italic ends where the bold does
+    const written = doc(paragraph(text('x'), marked('a', strong()), marked('b', strong(), em()), marked('c', em()), text('y')));
+    const saved = docToMarkdown(written).text;
+    expect(saved).toBe('x**a*b***cy');
+    expect(shown(markdownToDoc(saved).firstChild!)).toBe(shown(doc(paragraph(text('x'), marked('a', strong()), marked('b', strong(), em()), text('cy'))).firstChild!));
+});
+
+test('formatting on words reads back as it was written (seeded)', () => {
+    let seed = 2901;
+    const random = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+    const pick = <T,>(items: readonly T[]) => items[Math.floor(random() * items.length)]!;
+    const words = ['one', 'two', 'b', '(see', 'it)', 'end.', 'a,', '@', 'x_y', '2*3', '"q"', '-'];
+    const kinds = [strong, em, strike, code, () => link(), () => link('https://uier.io/a')];
+    for (let run = 0; run < 3000; run++) {
+        const count = 2 + Math.floor(random() * 5);
+        const tokens = Array.from({ length: count }, () => pick(words));
+        const marks: (readonly ReturnType<typeof strong>[])[] = tokens.map(() => []);
+        for (let range = 1 + Math.floor(random() * 3); range > 0; range--) {
+            const start = Math.floor(random() * count);
+            const end = start + 1 + Math.floor(random() * (count - start));
+            const mark = pick(kinds)();
+            for (let index = start; index < end; index++) marks[index] = mark.addToSet(marks[index]!);
+        }
+        const content: Node[] = [];
+        tokens.forEach((token, index) => {
+            // Code holds no other mark here but a link (as the editor's schema allows it)
+            const own = marks[index]!.some(mark => mark.type === schema.marks.code)
+                ? marks[index]!.filter(mark => mark.type === schema.marks.code || mark.type === schema.marks.link) : marks[index]!;
+            const spaceMarks = index + 1 < count ? own.filter(mark => mark.isInSet(marks[index + 1]!)) : [];
+            content.push(token === '@' ? mention(...own.filter(mark => mark.type !== schema.marks.code)) : marked(token, ...own));
+            if (index + 1 < count) content.push(marked(' ', ...spaceMarks.filter(mark => mark.type !== schema.marks.code)));
+        });
+        const written = doc(paragraph(...content));
+        const saved = docToMarkdown(written);
+        expect(shown(markdownToDoc(saved.text, saved.mentions).firstChild!), JSON.stringify(saved.text)).toBe(shown(written.firstChild!));
+    }
+});

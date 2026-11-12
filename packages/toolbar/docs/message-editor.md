@@ -45,10 +45,18 @@ saved as Markdown, shown by `MessageMarkdown` as before ([Message Markdown](mess
   this), so the editor reads a message exactly as threads show it. Saving (`docToMarkdown`) writes Markdown that
   reads back as the same document and escapes only what would otherwise become formatting: `2 * 3`, `snake_case`
   and addresses stay as typed; `*word*` typed as text is saved as `\*word\*`; a line that would start a block gets
-  a backslash. Mentions are saved as their `@Name` with UTF-16 ranges, the same as before. Known limits, all from
-  CommonMark: emphasis that ends with punctuation right before a letter or a mention cannot close and is saved as
-  typed text; a link whose text is an address shows its real address (the parser's rule); two lists of one kind
-  next to each other become one.
+  a backslash. Mentions are saved as their `@Name` with UTF-16 ranges, the same as before.
+- Formatting that overlaps or touches other formatting: marks that start together open the longest lasting first
+  (outside), spaces at a mark's edges go outside its delimiters, and a mark that has to close for another one to
+  end opens again after it. Delimiters next to each other can join into one run that the parser splits its own way
+  (bold `ab` and italic `bc` in `abc` as `**a*b****c*`), so a paragraph or heading with formatting is read back
+  (`textblockLines`) and, when it differs, written again with `_` for some of its emphasis (`**a*b***_c_`), then
+  with the marks in the schema's order. Plain paragraphs are not read back. Known limits, all from CommonMark:
+  emphasis that ends with punctuation right before a letter or a mention cannot close and is saved as typed text,
+  and so is bold or italic with strikethrough that starts or ends together inside a word (`a**~~b~~**c`); formatting
+  that overlaps inside a word (bold `ab` and italic `bc` in `xabcy`) has no form, so the mark that would open again
+  ends there (`x**a*b***cy`); a link whose text is an address shows its real address (the parser's rule); two lists
+  of one kind next to each other become one.
 - Controlled: `value` and `mentions` in, `onChange(markdown, mentions)` out. A new `value` from outside (sent,
   discarded, a restored draft, another tab) replaces the document; the editor's own changes never do. Drafts keep
   storing the Markdown and the mention ranges (`CommentComposer`'s `setText`, the app's draft stores), so
@@ -73,7 +81,9 @@ saved as Markdown, shown by `MessageMarkdown` as before ([Message Markdown](mess
 
 ## Tests
 
-- `apps/web/e2e/message-editor.api.spec.ts`: formatted Markdown read and written back unchanged, typed text that
+- `apps/web/e2e/message-editor.api.spec.ts`: formatted Markdown read and written back unchanged, overlapping and
+  adjacent formatting (bold, italic, strikethrough, code, links and mentions, next to punctuation, in a heading),
+  overlap inside a word, a seeded check of formatting on words, typed text that
   only gets the backslashes it needs, heading and list edge cases, mentions in and out of formatting, and a seeded
   check of plain text in risky characters.
 - `apps/web/e2e/message-editor.spec.ts` (desktop and mobile): Markdown typed in the toolbar's feedback form, the

@@ -192,8 +192,15 @@ function linkDestination(href: string) {
     return depth === 0 && !/[\s<>]/.test(href) ? href : `<${href.replace(/[<>\s]/g, encodeURIComponent)}>`;
 }
 
-const openMarker = (mark: Mark) => mark.type === marks.link ? '[' : mark.type === marks.strong ? '**' : mark.type === marks.em ? '*' : mark.type === marks.strike ? '~~' : '';
-const closeMarker = (mark: Mark) => mark.type === marks.link ? `](${linkDestination(mark.attrs.href as string)})` : openMarker(mark);
+const isEmphasis = (mark: Mark) => mark.type === marks.strong || mark.type === marks.em;
+/** A mark's opening delimiter; emphasis with `_` when `underscore` (where a `*` would join the delimiter next to it) */
+function openMarker(mark: Mark, underscore = false) {
+    if (mark.type === marks.link) return '[';
+    if (mark.type === marks.strike) return '~~';
+    const char = underscore ? '_' : '*';
+    return mark.type === marks.strong ? char + char : mark.type === marks.em ? char : '';
+}
+const closeMarker = (mark: Mark, underscore = false) => mark.type === marks.link ? `](${linkDestination(mark.attrs.href as string)})` : openMarker(mark, underscore);
 const notCode = (mark: Mark) => mark.type !== marks.code;
 
 /** The parser reads a mention as one character that is neither a space nor punctuation, like a letter */
@@ -234,99 +241,242 @@ function escapeLineStart(line: Line) {
     if (position !== undefined && position < first.length) line[0] = `${first.slice(0, position)}\\${first.slice(position)}`;
 }
 
+/** An open mark while writing: its closing delimiter and the number of its opening (`span`) */
+type OpenMark = { mark: Mark; close: string; span: number };
+/**
+ * Emphasis closed right before emphasis opens, with nothing between them: `**a*b***` and `*c*` would be one run
+ * of `*` that the parser splits its own way. `reopened` are the opened marks that were open before it.
+ */
+type Joint = { index: number; closed: number; opened: number; reopened: Mark[] };
+type InlineOptions = {
+    /** Emphasis openings (`span`) written with `_` */
+    underscore?: ReadonlySet<number>;
+    /** Marks left out from a child on, as long as they last (where they could not be written) */
+    drop?: ReadonlyMap<number, readonly Mark[]>;
+    /** Marks that open together in the schema's order, instead of the longest lasting first (outside) */
+    schemaOrder?: boolean;
+};
+
 /** A textblock's inline content as lines (hard breaks end a line), marks as their delimiters */
-function inlineLines(block: Node): Line[] {
+function inlineLines(block: Node, options: InlineOptions = {}): { lines: Line[]; joints: Joint[]; emphasis: number[]; spans: number; shape: string } {
     const children: Node[] = [];
     block.forEach(child => { children.push(child); });
+    // The marks each child is written with: code is a span of its own, and dropped marks stay out while they last
+    let dropped: readonly Mark[] = [];
+    const written = children.map((child, index) => {
+        const own = child.marks.filter(notCode);
+        dropped = dropped.filter(mark => mark.isInSet(own)).concat(options.drop?.get(index) ?? []);
+        return own.filter(mark => !mark.isInSet(dropped));
+    });
+    /** How many children from `index` on have the mark (the outer of two marks opened together lasts longer) */
+    const extent = (mark: Mark, index: number) => {
+        let end = index;
+        while (end < children.length && mark.isInSet(written[end]!)) end++;
+        return end - index;
+    };
+
     const lines: Line[] = [[]];
     let line = lines[0]!;
-    let active: Mark[] = [];
-    const write = (text: string) => { if (text) line.push(text); };
-    /** Closes the open marks from the first one `keep` does not have */
-    const closeTo = (keep: readonly Mark[]) => {
-        const index = active.findIndex(mark => !mark.isInSet(keep));
-        if (index < 0) return;
-        for (let open = active.length - 1; open >= index; open--) write(closeMarker(active[open]!));
-        active = active.slice(0, index);
+    let active: OpenMark[] = [];
+    let spans = 0;
+    const joints: Joint[] = [];
+    const emphasis: number[] = [];
+    // Spaces wait for the delimiters next to them: a closing one goes before them and an opening one after,
+    // where they keep working (`**a** b`, never `**a **b`)
+    let spaces = '';
+    // The mark whose closing delimiter was written last, while nothing has followed it
+    let closed: OpenMark | undefined;
+    const write = (text: string) => {
+        if (!text) return;
+        // One string with the text before it, so the start of a line is checked as a whole (`escapeLineStart`)
+        const last = line.length - 1;
+        if (typeof line[last] === 'string') line[last] += text;
+        else line.push(text);
+        closed = undefined;
     };
-    const open = (wanted: readonly Mark[]) => {
-        for (const mark of wanted) {
-            if (mark.isInSet(active)) continue;
-            write(openMarker(mark));
-            active.push(mark);
+    const writeSpaces = () => {
+        write(spaces);
+        spaces = '';
+    };
+    /** Closes the open marks from the first one `keep` does not have; returns the marks closed */
+    const closeTo = (keep: readonly Mark[]) => {
+        const index = active.findIndex(open => !open.mark.isInSet(keep));
+        if (index < 0) return [];
+        const closing = active.slice(index);
+        for (let open = closing.length - 1; open >= 0; open--) write(closing[open]!.close);
+        active = active.slice(0, index);
+        closed = closing[0];
+        return closing.map(open => open.mark);
+    };
+    /** Opens the child's marks that are not open, the longest lasting first */
+    const open = (index: number, closedHere: readonly Mark[]) => {
+        const opening = written[index]!
+            .filter(mark => !active.some(open => open.mark.eq(mark)))
+            .map((mark, order) => ({ mark, order, extent: extent(mark, index) }))
+            .sort((a, b) => (options.schemaOrder ? 0 : b.extent - a.extent) || a.order - b.order);
+        for (const { mark } of opening) {
+            const span = spans++;
+            const underscore = options.underscore?.has(span) ?? false;
+            if (isEmphasis(mark)) emphasis.push(span);
+            if (closed && isEmphasis(closed.mark) && isEmphasis(mark))
+                joints.push({ index, closed: closed.span, opened: span, reopened: closedHere.filter(mark => isEmphasis(mark) && mark.isInSet(written[index]!)) });
+            write(openMarker(mark, underscore));
+            active.push({ mark, close: closeMarker(mark, underscore), span });
         }
     };
     /** The first character after `index`'s node: a delimiter (punctuation) when the marks change */
-    const nextChar = (index: number, own: readonly Mark[]) => {
+    const nextChar = (index: number) => {
         const next = children[index + 1];
         if (!next || next.type === nodes.hard_break) return undefined;
-        if (!Mark.sameSet(next.marks.filter(notCode), own.filter(notCode)) || next.marks.some(mark => mark.type === marks.code)) return '*';
+        if (!Mark.sameSet(written[index + 1]!, written[index]!) || next.marks.some(mark => mark.type === marks.code)) return '*';
         return next.isText ? next.text![0] : mentionChar;
     };
 
     children.forEach((node, index) => {
         if (node.type === nodes.hard_break) {
             closeTo([]);
+            writeSpaces();
             lines.push(line = []);
+            closed = undefined;
             return;
         }
-        const own = node.marks.filter(notCode);
-        const code = node.marks.some(mark => mark.type === marks.code);
-        const next = children[index + 1];
-        const closesAfter = !next || next.type === nodes.hard_break || active.concat(own).some(mark => !mark.isInSet(next.marks));
+        const own = written[index]!;
+        const closedHere = closeTo(own);
         if (node.type === nodes.mention) {
-            closeTo(own);
-            open(own);
+            writeSpaces();
+            open(index, closedHere);
             line.push({ mention: node.attrs.id as string, label: node.attrs.label as string });
+            closed = undefined;
             return;
         }
         let text = node.text ?? '';
-        closeTo(own);
-        if (code) {
+        if (node.marks.some(mark => mark.type === marks.code)) {
             // Code keeps its spaces: the span is padded when it needs to be (`codeSpan`)
-            open(own);
+            writeSpaces();
+            open(index, closedHere);
             write(codeSpan(text));
             return;
         }
-        if (!text.trim()) {
-            // Spaces alone never open a mark (`** **` would not be bold)
-            write(text);
-            return;
-        }
-        // Spaces at the edges go outside the delimiters, where they keep them working
+        // Spaces alone never open a mark (`** **` would not be bold)
         const leading = /^\s*/.exec(text)![0];
-        if (leading && own.some(mark => !mark.isInSet(active))) {
-            write(leading);
-            text = text.slice(leading.length);
-        }
-        open(own);
-        const trailing = closesAfter ? /\s*$/.exec(text)![0] : '';
+        spaces += leading;
+        text = text.slice(leading.length);
+        if (!text) return;
+        writeSpaces();
+        open(index, closedHere);
+        const trailing = /\s*$/.exec(text)![0];
         if (trailing) text = text.slice(0, -trailing.length);
-        write(escapeText(text, lastChar(line), trailing ? '*' : nextChar(index, own), active.some(mark => mark.type === marks.link)));
-        if (trailing) {
-            closeTo(next && next.type !== nodes.hard_break ? next.marks.filter(notCode) : []);
-            write(trailing);
-        }
+        // Before spaces, a closing delimiter can come first (`\\` stays a backslash before it)
+        write(escapeText(text, lastChar(line), trailing ? '*' : nextChar(index), active.some(open => open.mark.type === marks.link)));
+        spaces += trailing;
     });
     closeTo([]);
+    writeSpaces();
     lines.forEach(escapeLineStart);
-    return lines;
+    return { lines, joints, emphasis, spans, shape: inlineShape(children, index => children[index]!.marks.filter(mark => !notCode(mark) || mark.isInSet(written[index]!))) };
+}
+
+/** Lines as text, with each mention's range in it */
+function linesText(lines: readonly Line[]): { text: string; mentions: EditorMention[] } {
+    let text = '';
+    const mentions: EditorMention[] = [];
+    lines.forEach((line, index) => {
+        if (index > 0) text += '\n';
+        for (const part of line) {
+            if (typeof part === 'string') {
+                text += part;
+                continue;
+            }
+            mentions.push({ userId: part.mention, start: text.length, end: text.length + part.label.length });
+            text += part.label;
+        }
+    });
+    return { text, mentions };
+}
+
+/**
+ * A textblock's inline content as what it shows: each character with its marks, spaces without the marks
+ * Markdown writes outside them, and no spaces at the edges of a line, where the parser drops them
+ */
+function inlineShape(children: readonly Node[], marksOf = (index: number) => children[index]!.marks) {
+    const parts: string[] = [];
+    children.forEach((child, index) => {
+        const markNames = (spaces: boolean) => marksOf(index).filter(mark => !spaces || !notCode(mark)).map(mark => mark.type.name + (mark.attrs.href ? `(${mark.attrs.href as string})` : '')).join();
+        if (child.type === nodes.hard_break) parts.push('\n');
+        else if (child.type === nodes.mention) parts.push(`@${child.attrs.id as string}:${markNames(false)}`);
+        else for (const char of child.text ?? '') parts.push(/\s/.test(char) ? `${char}:${markNames(true)}` : `${char}:${markNames(false)}`);
+    });
+    const blank = (part: string | undefined) => part !== undefined && /^\s:$/.test(part);
+    return parts.filter((part, index) => {
+        if (!blank(part)) return true;
+        let before = index - 1;
+        while (blank(parts[before])) before--;
+        let after = index + 1;
+        while (blank(parts[after])) after++;
+        return before >= 0 && after < parts.length && parts[before] !== '\n' && parts[after] !== '\n';
+    }).join('|');
+}
+
+/**
+ * A paragraph's or heading's lines (`finish` adds what the block adds), read back when they have delimiters.
+ * Delimiters next to each other can join into runs the parser splits its own way (`**a*b***` and `*c*`), and
+ * one next to punctuation may not open or close: when the lines read back differently, `_` is tried for some
+ * emphasis, then the marks in the schema's order. When nothing reads back (marks that overlap inside a word,
+ * like bold `ab` and italic `bc` in `xabcx`), a reopened mark ends there instead, and failing that, the first
+ * lines stay (CommonMark's limits, `message-editor.md`).
+ */
+function textblockLines(block: Node, finish: (lines: Line[]) => Line[] = lines => lines) {
+    const plain = inlineLines(block);
+    const first = finish(plain.lines);
+    if (!plain.spans) return first;
+    const readsBack = (lines: Line[], shape: string) => {
+        const { text, mentions } = linesText(lines);
+        const read = markdownToDoc(text, mentions).firstChild;
+        if (read?.type !== block.type || (block.type === nodes.heading && read.attrs.level !== block.attrs.level)) return false;
+        const children: Node[] = [];
+        read.forEach(child => { children.push(child); });
+        return inlineShape(children) === shape;
+    };
+    if (readsBack(first, plain.shape)) return first;
+    const attempt = (options: InlineOptions, shape: string) => {
+        const lines = finish(inlineLines(block, options).lines);
+        return readsBack(lines, shape) ? lines : undefined;
+    };
+    /** `_` for some emphasis: with few, every set of them, the smallest first; with more, one side of every joint (both sides would join again) */
+    const underscored = (written: ReturnType<typeof inlineLines>, drop?: ReadonlyMap<number, readonly Mark[]>) => {
+        const { emphasis, joints } = written;
+        const choices = emphasis.length <= 3
+            ? Array.from({ length: 2 ** emphasis.length - 1 }, (_, bits) => emphasis.filter((__, index) => (bits + 1) & (1 << (emphasis.length - 1 - index))))
+                .sort((a, b) => a.length - b.length)
+            : [joints.map(joint => joint.opened), joints.map(joint => joint.closed)].filter(choice => choice.length);
+        for (const choice of choices) {
+            const lines = attempt({ drop, underscore: new Set(choice) }, written.shape);
+            if (lines) return lines;
+        }
+        return undefined;
+    };
+    const dropping = () => {
+        const drop = new Map(plain.joints.filter(joint => joint.reopened.length).map(joint => [joint.index, joint.reopened]));
+        if (!drop.size) return undefined;
+        const written = inlineLines(block, { drop });
+        return attempt({ drop }, written.shape) ?? underscored(written, drop);
+    };
+    return underscored(plain) ?? attempt({ schemaOrder: true }, plain.shape) ?? dropping() ?? first;
 }
 
 const prefixed = (prefix: string, line: Line): Line => [prefix, ...line];
 
 function blockLines(block: Node): Line[] {
     switch (block.type) {
-        case nodes.paragraph: return block.content.size ? inlineLines(block) : [];
-        case nodes.heading: {
-            const [line = []] = inlineLines(block);
+        case nodes.paragraph: return block.content.size ? textblockLines(block) : [];
+        case nodes.heading: return textblockLines(block, ([line = []]) => {
             // Closing `#`s would be read as the heading's end (spaces after them can be a part of their own)
             let lastIndex = line.length - 1;
             while (lastIndex > 0 && typeof line[lastIndex] === 'string' && !(line[lastIndex] as string).trim()) lastIndex--;
             const last = line[lastIndex];
             if (typeof last === 'string' && /[ \t]#+[ \t]*$/.test(last)) line[lastIndex] = last.replace(/#+([ \t]*)$/, closing => `\\${closing}`);
             return [prefixed('#'.repeat(block.attrs.level as number) + (line.length ? ' ' : ''), line)];
-        }
+        });
         case nodes.code_block: {
             const text = block.textContent;
             const longest = Math.max(2, ...Array.from(text.matchAll(/`+/g), match => match[0].length));
@@ -385,20 +535,7 @@ function blocksLines(parent: Node): Line[] {
 /** The Markdown of a document (or of block content), with each mention's range in it */
 export function docToMarkdown(doc: Node | Fragment): { text: string; mentions: EditorMention[] } {
     const parent = doc instanceof Fragment ? nodes.doc.create(null, doc) : doc;
-    let text = '';
-    const mentions: EditorMention[] = [];
-    blocksLines(parent).forEach((line, index) => {
-        if (index > 0) text += '\n';
-        for (const part of line) {
-            if (typeof part === 'string') {
-                text += part;
-                continue;
-            }
-            mentions.push({ userId: part.mention, start: text.length, end: text.length + part.label.length });
-            text += part.label;
-        }
-    });
-    return { text, mentions };
+    return linesText(blocksLines(parent));
 }
 
 /** Copied content as Markdown text (for other apps; the editor itself pastes its own HTML) */
