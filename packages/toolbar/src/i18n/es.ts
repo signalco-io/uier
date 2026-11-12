@@ -8,7 +8,14 @@ const p = (count: number, one: string, other: string) => plural('es', count, one
 
 export const es: Messages = {
     consentPanel: {
-        title: 'Consentimiento y cookies',
+        security: "Seguridad de la página",
+        headers: "Cabeceras de respuesta",
+        checkHeaders: "Comprobar cabeceras",
+        checkingHeaders: "Comprobando cabeceras…",
+        passed: "Comprobaciones superadas",
+        headerScope: "Una petición GET anónima de esta página, sin cookies ni redirecciones. No se lee el cuerpo. La respuesta puede diferir de la página cargada. Volver a comprobar borra estos resultados.",
+        securityLimits: "Observaciones para revisar, no una certificación de seguridad o cumplimiento legal. No se inspeccionan las cabeceras de navegación originales, la configuración TLS, vulnerabilidades del servidor ni cookies HttpOnly o de terceros. No se buscan archivos sensibles.",
+        title: 'Seguridad y cumplimiento',
         toReview: 'Por revisar',
         notes: 'Notas',
         snapshot: 'Estado de la página',
@@ -58,7 +65,7 @@ export const es: Messages = {
             `${badge} ${count === 1 && !capped ? 'conversación sin leer' : 'conversaciones sin leer'}${count > 99 && !capped ? `, ${count} en total` : ''}`,
         accessibility: 'Accesibilidad',
         seo: 'SEO',
-        consent: 'Consentimiento y cookies',
+        consent: 'Seguridad y cumplimiento',
         about: 'Acerca de uier',
         draw: 'Dibujar en la página',
         collapse: 'Contraer la barra'
@@ -823,7 +830,7 @@ export const es: Messages = {
         image: 'Imagen'
     },
     checks: {
-        kinds: { consent: 'Consentimiento y cookies', accessibility: 'Accesibilidad', seo: 'SEO', 'web-vitals': 'Core Web Vitals' },
+        kinds: { consent: 'Seguridad y cumplimiento', accessibility: 'Accesibilidad', seo: 'SEO', 'web-vitals': 'Core Web Vitals' },
         highlight: 'Resaltar',
         notAnIssue: 'No es un problema',
         postedAs: (label: string, number: number | undefined) => `${label}${number !== undefined ? ` como #${number}` : ''}`,

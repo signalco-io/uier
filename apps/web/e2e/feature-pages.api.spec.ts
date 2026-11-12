@@ -63,8 +63,8 @@ test('the page checks page publishes its own canonical, description and social c
     const links = [...html.matchAll(/<link\b[^>]*>/g)].map(match => match[0]).filter(tag => attribute(tag, 'rel') === 'canonical');
     expect(links.map(tag => attribute(tag, 'href'))).toEqual([canonical]);
     expect(meta(html, 'og:url')).toBe(canonical);
-    expect(meta(html, 'og:title')).toBe(`Accessibility and SEO checks · ${brand.name}`);
-    expect(meta(html, 'description')).toMatch(/accessibility and SEO in your browser/);
+    expect(meta(html, 'og:title')).toBe(`Accessibility, SEO and security checks · ${brand.name}`);
+    expect(meta(html, 'description')).toMatch(/accessibility, SEO, security and consent evidence in your browser/);
     expect(meta(html, 'robots') ?? '').not.toMatch(/noindex/i);
     const image = new URL(meta(html, 'og:image')!);
     expect(image.pathname).toMatch(/^\/features\/page-checks\/opengraph-image/);

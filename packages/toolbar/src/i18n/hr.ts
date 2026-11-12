@@ -8,7 +8,14 @@ const p = (count: number, one: string, few: string, other: string) => pluralHr(c
 
 export const hr: Messages = {
     consentPanel: {
-        title: 'Privola i kolačići',
+        security: "Sigurnost stranice",
+        headers: "Zaglavlja odgovora",
+        checkHeaders: "Provjerite zaglavlja odgovora",
+        checkingHeaders: "Provjera zaglavlja odgovora…",
+        passed: "Prošle provjere",
+        headerScope: "Jedan anonimni GET ove stranice, bez kolačića ili preusmjeravanja. Tijelo se ne čita. Odgovor se može razlikovati od učitane stranice. Ponovna provjera briše ove rezultate.",
+        securityLimits: "Nalazi stranice za pregled, a ne potvrda sigurnosti ili pravne usklađenosti. Izvorna navigacijska zaglavlja, postavke TLS-a, ranjivosti poslužitelja te HttpOnly kolačići i kolačići trećih strana ne provjeravaju se. Osjetljive datoteke ne traže se.",
+        title: 'Sigurnost i usklađenost',
         toReview: 'Za pregled',
         notes: 'Napomene',
         snapshot: 'Snimka stranice',
@@ -58,7 +65,7 @@ export const hr: Messages = {
             `${badge} ${capped ? 'nepročitanih rasprava' : p(count, 'nepročitana rasprava', 'nepročitane rasprave', 'nepročitanih rasprava')}${count > 99 && !capped ? `, ukupno ${count}` : ''}`,
         accessibility: 'Pristupačnost',
         seo: 'SEO',
-        consent: 'Privola i kolačići',
+        consent: 'Sigurnost i usklađenost',
         about: 'O uieru',
         draw: 'Crtaj po stranici',
         collapse: 'Sažmi traku'
@@ -823,7 +830,7 @@ export const hr: Messages = {
         image: 'Slika'
     },
     checks: {
-        kinds: { consent: 'Privola i kolačići', accessibility: 'Pristupačnost', seo: 'SEO', 'web-vitals': 'Core Web Vitals' },
+        kinds: { consent: 'Sigurnost i usklađenost', accessibility: 'Pristupačnost', seo: 'SEO', 'web-vitals': 'Core Web Vitals' },
         highlight: 'Istakni',
         notAnIssue: 'Nije problem',
         postedAs: (label: string, number: number | undefined) => `${label}${number !== undefined ? ` kao #${number}` : ''}`,

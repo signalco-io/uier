@@ -1,6 +1,6 @@
 # Page-check panels
 
-Accessibility, SEO and [Consent and cookies](page-checks-consent.md) report on the page under review, opened from the pill like the inbox
+Accessibility, SEO and [Security and compliance](page-checks-security.md) report on the page under review, opened from the pill like the inbox
 ([uier #174](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_C_nKFJTsza8hv7_NCXjTq)).
 Every issue they find has a quick action that posts it as a comment in one click.
 
@@ -18,13 +18,13 @@ Text rewrites use the same feature list on the selection toolbar and saved draft
 `toolbar-features.spec.ts` covers desktop/mobile controls, restored panels, guests leaving feedback with
 all optional tools hidden, and the absent audit download.
 
-- **Accessibility**, **SEO** and **Consent and cookies** are buttons in the pill after Inbox, from 640 px wide (where panels dock
+- **Accessibility**, **SEO** and **Security and compliance** are buttons in the pill after Inbox, from 640 px wide (where panels dock
   beside the page). Narrower, the pill keeps its width and the tools are the first rows of Options; closing a
   panel gives the focus back to the button that opened it (Options there).
 - Each panel is a `DockablePanel` (`uier-panel-accessibility`, `uier-panel-seo`, `uier-panel-consent`): ink, docked on its own
   side, Close has the focus when it opens (never Check again beside it; both are small icon buttons, the handle's size,
   [uier #297](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_sHphgXGmcH-cClEsQH-Rs)), Escape closes it. On uier's own pages the panels are
-  reviewable parts (`toolbarParts.ts`, "accessibility panel", "SEO panel", "consent and cookies panel").
+  reviewable parts (`toolbarParts.ts`, "accessibility panel", "SEO panel", "security and compliance panel").
 - **Two at once** ([uier #247](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_0noiz5-nVbRxXdaqpC2sH)): the inbox and the checks panels share the dock, one panel
   on each side. `CommentsGlobal` keeps the open panels oldest first (`openPanels`) and `fitPanels`
   (`src/openPanel.ts`) keeps what fits: opening a panel closes only an open one on its side, so two
@@ -32,7 +32,7 @@ all optional tools hidden, and the absent audit download.
   swaps their sides (`DockablePanel`, both are announced), so both stay open. Two fit side by side from
   688 px (two 320 px panels with their margins, `panelsSideBySide`); narrower, one is open at a time and
   the newest stays (also when the window narrows). Reattach still closes the checks panels.
-- While its panel is open, a button (Inbox, Accessibility, SEO, Consent and cookies) is highlighted: the UI kit's `soft`
+- While its panel is open, a button (Inbox, Accessibility, SEO, Security and compliance) is highlighted: the UI kit's `soft`
   variant, as About's hint, on the ink pill in both colour schemes. It says so with `aria-expanded` and names
   its panel in `aria-controls` (a disclosure, so no `aria-pressed` beside it). The Options rows on a phone
   have no state: one panel is open there and it covers the page.
@@ -43,10 +43,13 @@ all optional tools hidden, and the absent audit download.
   checks the page when it has no report of the current page (and none is running); **Check again** runs it again. A report of
   another page (after a client-side navigation) says so.
 
-Consent and cookies uses the same panel shell, menu, docking, guest name and finding actions. Its two
-sections run only when the panel opens or the reviewer starts an observation. It performs no background
-storage reads, makes no verdict about consent, and never contributes to the site-wide Accessibility/SEO
-summary. Its entry points follow the independent `consent` toolbar feature.
+Security and compliance uses the same panel shell, menu, docking, guest name and finding actions.
+Its [security snapshot and response headers](page-checks-security.md) join the retained
+[consent inventory and observation](page-checks-consent.md). It performs no background storage or
+security work. Response headers require an explicit anonymous request; consent timing requires a
+reviewer-started observation. Unknown results stay notes. It makes no security/compliance verdict
+and never contributes to the site-wide Accessibility/SEO summary. Its entry points keep the stable
+`consent` toolbar feature and panel ID.
 
 ## In the background
 

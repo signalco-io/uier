@@ -36,7 +36,7 @@ async function hasTools(page: Page, mobile: boolean, accessibility: boolean, seo
     const scope = mobile ? page.getByRole('dialog', { name: 'Options', exact: true }) : toolbar(page);
     await expect(scope.getByRole('button', { name: /^Accessibility/ })).toHaveCount(accessibility ? 1 : 0);
     await expect(scope.getByRole('button', { name: /^SEO/ })).toHaveCount(seo ? 1 : 0);
-    await expect(scope.getByRole('button', { name: /^Consent and cookies/ })).toHaveCount(consent ? 1 : 0);
+    await expect(scope.getByRole('button', { name: /^Security and compliance/ })).toHaveCount(consent ? 1 : 0);
     if (mobile) {
         await animationsFinished(scope);
         await page.keyboard.press('Escape');
@@ -109,7 +109,7 @@ test('guest tools can be hidden while members keep them and guests still leave f
     await settings(page, project);
     await review(page).getByRole('radio', { name: 'Anyone with the link', exact: true }).check();
     await guestTools(page).getByRole('checkbox', { name: 'Follow project tools', exact: true }).uncheck();
-    for (const feature of ['Accessibility', 'SEO', 'Consent and cookies', 'Text rewrites', 'Drawing on the page']) await guestTools(page).getByRole('checkbox', { name: feature, exact: true }).uncheck();
+    for (const feature of ['Accessibility', 'SEO', 'Security and compliance', 'Text rewrites', 'Drawing on the page']) await guestTools(page).getByRole('checkbox', { name: feature, exact: true }).uncheck();
     await save(page);
     const destination = `${site.origin()}/${project}/pricing?page-checks`;
     await page.goto(`/app/review/${project}?url=${encodeURIComponent(destination)}`);
@@ -210,8 +210,8 @@ test('consent works on its own and performs no storage inventory before its pane
     await toolbar(page).getByRole('button', { name: /^Inbox/ }).click();
     await expect(page.getByRole('complementary', { name: 'Comments', exact: true })).toBeVisible();
     expect(await page.evaluate(() => Reflect.get(window, '__consentInventoryCalls'))).toBe(0);
-    await openChecks(page, mobile, /^Consent and cookies/);
-    const panel = page.getByRole('complementary', { name: 'Consent and cookies', exact: true });
+    await openChecks(page, mobile, /^Security and compliance/);
+    const panel = page.getByRole('complementary', { name: 'Security and compliance', exact: true });
     await expect(panel.locator('[data-uier-section="consent-snapshot"]')).toHaveAttribute('data-uier-section-status', 'done', { timeout: 20_000 });
     await expect(panel).toContainText('inventory_probe');
     expect(await page.evaluate(() => Reflect.get(window, '__consentInventoryCalls'))).toBeGreaterThan(0);

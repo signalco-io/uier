@@ -4,8 +4,8 @@ import { pageCardImage } from '@/src/lib/social/SocialCard';
 // The page's social card: the same title and description as its metadata in page.tsx
 const card: PageCard = {
     section: 'Features',
-    title: 'Accessibility and SEO checks',
-    description: 'The review toolbar checks every page you review for accessibility and SEO in your browser. Post a finding as a comment in one click.',
+    title: 'Accessibility, SEO and security checks',
+    description: 'Review accessibility, SEO, security and consent evidence in your browser. Post a finding as a comment in one click.',
     path: '/features/page-checks'
 };
 

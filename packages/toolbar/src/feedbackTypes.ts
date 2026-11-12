@@ -54,7 +54,7 @@ export type CommentCheck = { type: CommentCheckType; id: string; count?: number 
 export const commentCheckIdPattern = /^[a-z0-9][a-z0-9-]{0,63}$/;
 /** The most elements one comment says it covers; a larger group is sent as this many */
 export const commentCheckCountMax = 10_000;
-export const commentCheckLabels: Record<CommentCheckType, string> = { accessibility: 'Accessibility', seo: 'SEO', consent: 'Consent and cookies', 'web-vitals': 'Core Web Vitals' };
+export const commentCheckLabels: Record<CommentCheckType, string> = { accessibility: 'Accessibility', seo: 'SEO', consent: 'Security and compliance', 'web-vitals': 'Core Web Vitals' };
 
 /** Whether a check's `count` is one this version keeps: a whole number of elements from 2 */
 export function isCommentCheckCount(value: unknown): value is number {

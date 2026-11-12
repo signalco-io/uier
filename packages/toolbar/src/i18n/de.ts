@@ -7,7 +7,14 @@ const p = (count: number, one: string, other: string) => plural('de', count, one
 
 export const de: Messages = {
     consentPanel: {
-        title: 'Einwilligung und Cookies',
+        security: "Seitensicherheit",
+        headers: "Antwortheader",
+        checkHeaders: "Antwortheader prüfen",
+        checkingHeaders: "Antwortheader werden geprüft…",
+        passed: "Bestandene Prüfungen",
+        headerScope: "Ein anonymer GET dieser Seite, ohne Cookies oder Weiterleitungen. Der Inhalt wird nicht gelesen. Die Antwort kann von der geladenen Seite abweichen. Erneut prüfen löscht diese Ergebnisse.",
+        securityLimits: "Seitenbefunde zur Prüfung, keine Bestätigung von Sicherheit oder Rechtskonformität. Ursprüngliche Navigationsheader, TLS-Konfiguration, Serverlücken sowie HttpOnly- und Drittanbieter-Cookies werden nicht geprüft. Vertrauliche Dateien werden nicht abgerufen.",
+        title: 'Sicherheit und Compliance',
         toReview: 'Zu prüfen',
         notes: 'Hinweise',
         snapshot: 'Seitenaufnahme',
@@ -57,7 +64,7 @@ export const de: Messages = {
             `${badge} ungelesene ${count === 1 && !capped ? 'Diskussion' : 'Diskussionen'}${count > 99 && !capped ? `, insgesamt ${count}` : ''}`,
         accessibility: 'Barrierefreiheit',
         seo: 'SEO',
-        consent: 'Einwilligung und Cookies',
+        consent: 'Sicherheit und Compliance',
         about: 'Über uier',
         draw: 'Auf der Seite zeichnen',
         collapse: 'Leiste einklappen'
@@ -822,7 +829,7 @@ export const de: Messages = {
         image: 'Bild'
     },
     checks: {
-        kinds: { consent: 'Einwilligung und Cookies', accessibility: 'Barrierefreiheit', seo: 'SEO', 'web-vitals': 'Core Web Vitals' },
+        kinds: { consent: 'Sicherheit und Compliance', accessibility: 'Barrierefreiheit', seo: 'SEO', 'web-vitals': 'Core Web Vitals' },
         highlight: 'Hervorheben',
         notAnIssue: 'Kein Problem',
         postedAs: (label: string, number: number | undefined) => `${label}${number !== undefined ? ` als #${number}` : ''}`,

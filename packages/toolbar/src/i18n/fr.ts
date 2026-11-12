@@ -7,7 +7,14 @@ const p = (count: number, one: string, other: string) => plural('fr', count, one
 
 export const fr: Messages = {
     consentPanel: {
-        title: 'Consentement et cookies',
+        security: "Sécurité de la page",
+        headers: "En-têtes de réponse",
+        checkHeaders: "Vérifier les en-têtes",
+        checkingHeaders: "Vérification des en-têtes…",
+        passed: "Vérifications réussies",
+        headerScope: "Une requête GET anonyme de cette page, sans cookies ni redirections. Le corps n’est pas lu. La réponse peut différer de la page chargée. Revérifier efface ces résultats.",
+        securityLimits: "Des observations à examiner, sans certification de sécurité ou de conformité juridique. Les en-têtes de navigation initiaux, la configuration TLS, les failles serveur et les cookies HttpOnly ou tiers ne sont pas inspectés. Aucun fichier sensible n’est sondé.",
+        title: 'Sécurité et conformité',
         toReview: 'À examiner',
         notes: 'Notes',
         snapshot: 'Instantané de la page',
@@ -57,7 +64,7 @@ export const fr: Messages = {
             `${badge} ${count === 1 && !capped ? 'discussion non lue' : 'discussions non lues'}${count > 99 && !capped ? `, ${count} au total` : ''}`,
         accessibility: 'Accessibilité',
         seo: 'SEO',
-        consent: 'Consentement et cookies',
+        consent: 'Sécurité et conformité',
         about: 'À propos d’uier',
         draw: 'Dessiner sur la page',
         collapse: 'Replier la barre'
@@ -822,7 +829,7 @@ export const fr: Messages = {
         image: 'Image'
     },
     checks: {
-        kinds: { consent: 'Consentement et cookies', accessibility: 'Accessibilité', seo: 'SEO', 'web-vitals': 'Core Web Vitals' },
+        kinds: { consent: 'Sécurité et conformité', accessibility: 'Accessibilité', seo: 'SEO', 'web-vitals': 'Core Web Vitals' },
         highlight: 'Mettre en évidence',
         notAnIssue: 'Pas un problème',
         postedAs: (label: string, number: number | undefined) => `${label}${number !== undefined ? ` sous le #${number}` : ''}`,

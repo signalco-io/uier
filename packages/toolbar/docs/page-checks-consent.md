@@ -1,13 +1,13 @@
-# Consent and cookies
+# Consent inventory and observation
 
-The toolbar's **Consent and cookies** page tool sits beside Accessibility and SEO (Options on a
+The toolbar's **Security and compliance** page tool sits beside Accessibility and SEO (Options on a
 phone, and in the panel-title menu). The independent `consent` toolbar feature controls it. The
 shared panel components provide docking, Close/focus, Check again, summary filters, guest names,
 Comment on a finding, reported findings and browser-local Not an issue/Restore.
 
-`src/checks/lazy/consent.ts` runs in the pinned audit asset; `components/checks/ConsentPanel.tsx`
+`src/checks/lazy/consent.ts` runs in the pinned audit asset; `components/checks/SecurityPanel.tsx`
 defines the sections and shows them. Clients without an audit adapter omit this tool, like Accessibility. No background scan, remote classification service, extra
-dependency or extension permission. The collector makes no network requests, clears no storage,
+dependency or extension permission. The consent collector makes no network requests, clears no storage,
 changes no consent and patches no page APIs.
 
 ## Page snapshot
@@ -35,7 +35,7 @@ changes no consent and patches no page APIs.
   outside the page's provider domain are labelled third party; arbitrary hosts are not classified
   by guessing public suffixes. Tag-manager presence alone is not treated as a tracker request.
 - All existing storage has unknown creation/consent timing. Likely analytics/marketing names and
-  known-host requests are suggestions **To review**. There are no green compliance/pass results.
+  known-host requests are suggestions **To review**. Consent findings have no green compliance/pass results. The separate security checks can pass individual observations ([security scope](page-checks-security.md)).
 
 ## Before consent
 
@@ -68,7 +68,7 @@ stay in memory. Site-wide page summaries exclude all consent sections. A reviewe
 post a finding with `{ type: 'consent', id: 'consent-…' }`; its text contains names/metadata only,
 within the existing 1,000-character comment limit. Values never enter reports, logs or payloads.
 
-The panel always states its limits: HttpOnly/third-party cookies, frame storage,
+The consent tabs always state their limits: HttpOnly/third-party cookies, frame storage,
 IndexedDB, Cache Storage and server-side tracking are not inspected. Earlier consent and activity
 before the toolbar loaded are unknown. It examines this page, never crawls the site, and makes no
 legal-compliance claims.
@@ -90,3 +90,6 @@ new names versus existing-value changes, host-only resource reporting, observati
 Check again, comment persistence, dismissal/restore, responsive fit and axe. The toolbar-features
 suite covers hiding the tool for guests and customized configurations. API coverage verifies its
 comment-check contract and packet label.
+
+The renamed tool also has Page security and Response headers tabs. Their evidence, request controls
+and limitations are documented in [Security and compliance](page-checks-security.md).

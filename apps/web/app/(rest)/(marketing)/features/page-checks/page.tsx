@@ -13,8 +13,8 @@ import { KnownPages } from '../../../../../src/knownPages';
 // the view and what is stored, and the privacy policy's "Page suggestions". Change this page with
 // them. The checks never change a thread's status, and automated checks find only some issues.
 
-const title = 'Accessibility and SEO checks';
-const description = 'The review toolbar checks every page you review for accessibility and SEO in your browser. Post a finding as a comment in one click.';
+const title = 'Accessibility, SEO and security checks';
+const description = 'Review accessibility, SEO, security and consent evidence in your browser. Post a finding as a comment in one click.';
 
 export const metadata = publicPageMetadata(KnownPages.PageChecks, { title, description });
 
@@ -25,7 +25,7 @@ const steps = [
     },
     {
         title: 'Open a panel',
-        text: 'Accessibility and SEO sit in the toolbar after the inbox; on a phone they are in Options. A summary comes first, then each section with what it found.'
+        text: 'Accessibility, SEO and Security and compliance sit after the inbox; on a phone they are in Options. Security and consent checks run when you open their panel or start a check. A summary comes first, then each section with what it found.'
     },
     {
         title: 'Comment in one click',
@@ -33,7 +33,7 @@ const steps = [
     },
     {
         title: 'Check the fix',
-        text: 'The finding’s thread can run its check again on the page where it was found. A person still decides whether the fix is done.'
+        text: 'Accessibility and SEO findings can run their check again in the thread. Security and consent findings need another check from their panel. A person still decides whether the fix is done.'
     }
 ];
 
@@ -107,11 +107,12 @@ const limits = [
     'Core Web Vitals are measured in your browser, on your device and connection, while you use the page. They are not your visitors’ data.',
     'The background accessibility audit skips pages with more than 1,500 elements and browsers that ask to save data. Opening the panel checks the page then.',
     'Content in frames is not audited. Generic link text and alt text wording are checked in English only.',
+    'Security and consent checks need review in their panel and do not certify security or legal compliance.',
     'A check never changes a thread’s status. Confirming a fix is up to a person.'
 ];
 
 const tryIt = [
-    'Open Accessibility or SEO in the toolbar at the bottom of this window. On a phone, they are in Options.',
+    'Open Accessibility, SEO or Security and compliance in the toolbar at the bottom of this window. On a phone, they are in Options.',
     'Highlight a finding to see where it is. Comment posts it on this page, where comments are public.',
     'For your own site, create a project and review it with the toolbar.'
 ];
@@ -127,11 +128,11 @@ const questions: Question[] = [
     },
     {
         question: 'Can a fixed finding be checked again?',
-        answer: <>Yes. Its thread has Check again, which runs that one check on the page where it was found. While the thread is ready to verify, it runs on its own when the thread opens. The reviewer still decides; <InlineLink href={KnownPages.FixVerification}>Fix verification</InlineLink> explains how.</>
+        answer: <>Accessibility and SEO findings have Check again in their thread, which runs that one check on the page where it was found. While the thread is ready to verify, it runs on its own when the thread opens. The reviewer still decides; <InlineLink href={KnownPages.FixVerification}>Fix verification</InlineLink> explains how.</>
     },
     {
         question: 'Does it work in the browser extension?',
-        answer: <>Yes, both panels work in the <InlineLink href={KnownPages.BrowserExtension}>browser extension</InlineLink>. AI suggestions are not in it, and its reviews are not included in the app&rsquo;s Page checks yet.</>
+        answer: <>Yes, the panels work in the <InlineLink href={KnownPages.BrowserExtension}>browser extension</InlineLink>. AI suggestions are not in it, and its reviews are not included in the app&rsquo;s Page checks yet.</>
     },
     {
         question: 'Who can see the Page checks in the app?',
@@ -148,7 +149,7 @@ export default function PageChecksPage() {
         <main className="flex flex-col pb-16">
             <PageHeader
                 title="Check each page as you review it"
-                lead="The toolbar checks every page you review for accessibility and SEO, in your browser. Post what it finds as a comment in one click, and see your pages together in the app.">
+                lead="Check accessibility and SEO as you review, then open Security and compliance for page security and consent evidence. Post findings as comments. The app brings accessibility and SEO summaries together.">
                 <div className="flex flex-wrap items-center gap-2.5">
                     <Button variant="solid" size="lg" href={KnownPages.App}>Get started</Button>
                     <Button variant="outlined" size="lg" href="#how-it-works">How it works</Button>
@@ -198,6 +199,19 @@ export default function PageChecksPage() {
             </PageSection>
 
             <PageSection
+                id="security"
+                title="Security and compliance"
+                lead="Evidence from the page for a person to review. Checks run when you open the panel or start them.">
+                <CheckList items={[
+                    'Page security: HTTPS, declared HTTP resources and form targets, cross-origin scripts without integrity declarations, optional browser-exposed cookie flags and recorded source-map requests.',
+                    'Response headers: explicitly request this page without cookies to inspect CSP, HSTS, X-Content-Type-Options, frame protection and Referrer-Policy. The anonymous response may differ from the page you loaded.',
+                    'Consent: cookie and storage names, known consent-platform markers, and a 15-second observation you start before choosing consent. Cookie and storage values are not included in findings.',
+                    'Unknowns stay visible. HttpOnly cookies, third-party storage, TLS details and server vulnerabilities are not inspected. Sensitive files are not probed. Findings do not certify security or legal compliance.',
+                    'These reports stay in the browser and do not enter the app’s site-wide summary. You can explicitly post a finding as a comment.'
+                ]} />
+            </PageSection>
+
+            <PageSection
                 id="findings"
                 title="From finding to comment"
                 lead="Every finding has its actions on its row. The comment says what was found and where, so whoever fixes it needs nothing from the panel.">
@@ -239,7 +253,7 @@ export default function PageChecksPage() {
             <PageSection
                 id="try-it"
                 title="Try it"
-                lead="The toolbar on this page has both panels. No account needed.">
+                lead="The toolbar on this page has the three panels. No account needed.">
                 <ol className="flex flex-col gap-4">
                     {tryIt.map((step, index) => (
                         <li key={step} className="flex items-baseline gap-4">
