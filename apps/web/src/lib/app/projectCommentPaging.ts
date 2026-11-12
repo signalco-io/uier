@@ -20,7 +20,9 @@ export type ProjectCommentPaging = {
     matchedTotal: number;
     unreadCount: number;
 };
-export type ProjectCommentPageInput = { lane?: CommentLane; cursor?: string; depths?: Partial<Record<CommentLane, number>>; archiveExpanded?: boolean; openId?: string; signal?: AbortSignal; revisionOnly?: boolean; budgetFallback?: boolean };
+export type ProjectCommentPageInput = { lane?: CommentLane; cursor?: string; depths?: Partial<Record<CommentLane, number>>; archiveExpanded?: boolean; openId?: string; signal?: AbortSignal; revisionOnly?: boolean; budgetFallback?: boolean;
+    /** Every id in `lane`, not one page of it (Archive all in a board column, uier #357); with `revisionOnly`, no rows are read */
+    allIds?: boolean };
 
 /** No open-thread id in the ordinary key: opening a card must not restart its column. */
 export function projectCommentPageKey(query: CommentsQuery, sorts: Record<BoardColumn, BoardSort>, archiveExpanded: boolean, workflow: StatusWorkflow = defaultStatusWorkflow, projectId = '') {

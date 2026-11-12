@@ -140,6 +140,16 @@ Provider titles are never read, so none shows. Rows without a project id and the
 including My work and the board's drag preview. Deleted messages lose their links; an edited or newly
 saved reply updates the mark through the existing comment refresh.
 
+## Board Archive all
+
+A board column with cards has Archive all (`ArchiveAllButton.tsx`), a small icon button left of its sort, for the
+people who may triage the project (uier #357). It asks first ("Archive 30 threads in Open?"), then archives every
+thread in the column under the board's filters, the ones the column has not loaded yet too: `boardColumnThreadsAction`
+lists the lane's ids on the server (`allIds` in `loadProjectCommentPages`, no rows read), and the client archives them
+50 at a time through `triageCommentsAction`, the selection bar's bulk action. Loaded cards leave at once; a toast says
+how many were archived and offers Retry when some were not. Archive itself has none. `e2e/archive.spec.ts` covers a
+column larger than its first page.
+
 ## Board column sorts
 
 The orders above are the board's defaults. Each column can have its own sort instead, saved on the project

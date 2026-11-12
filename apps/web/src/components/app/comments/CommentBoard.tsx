@@ -23,6 +23,7 @@ import { commentStatus, commentStatuses, GlowingStateDot, StateMenu, type Commen
 import { allowedStatuses, movedPatch, useStatusChanger } from './useStatusChange';
 import type { BoardColumn as BoardColumnKey, BoardSort } from '../../../lib/app/boardSort';
 import { BoardSortMenu } from './BoardSortMenu';
+import { ArchiveAllButton, type ArchiveAllScope } from './ArchiveAllButton';
 import { sortBoardColumn } from './commentOrder';
 import type { useOpenComment } from './CommentInbox';
 import { LayoutMotion, motionSettled } from './LayoutMotion';
@@ -215,7 +216,7 @@ type ColumnState = 'idle' | 'home' | 'target' | 'over' | 'refused';
  * one under it is highlighted, and the others are dimmed and refuse it. Its header ends with the column's
  * sort for the people who may change it (`onSort`).
  */
-function BoardColumn({ status, definition, columnIds, count, state, sort, onSort, children }: {
+function BoardColumn({ status, definition, columnIds, count, state, sort, onSort, archiveAll, children }: {
     status: CommentStatus;
     definition: WorkflowStatus;
     columnIds: string[];
@@ -223,6 +224,8 @@ function BoardColumn({ status, definition, columnIds, count, state, sort, onSort
     state: ColumnState;
     sort: BoardSort;
     onSort?: (status: BoardColumnKey, sort: BoardSort) => void;
+    /** Archive all (uier #357), for the people who may triage */
+    archiveAll?: ArchiveAllScope;
     children: ReactNode;
 }) {
     // A placeholder changes a column's height, and on narrow screens moves the columns below it
@@ -240,7 +243,9 @@ function BoardColumn({ status, definition, columnIds, count, state, sort, onSort
                     <span className="truncate" title={definition.description || definition.label}>{workflowStatusLabel(definition, t)}</span>
                     <span className="font-normal tabular-nums text-muted-foreground">{count}</span>
                 </h3>
-                {onSort && <BoardSortMenu label={workflowStatusLabel(definition, t)} status={status} sort={sort} onChange={next => onSort(status, next)} />}
+                {/* Archive all, left of the sort, while the column has cards (uier #357) */}
+                {archiveAll && count > 0 && <ArchiveAllButton scope={archiveAll} lane={definition.id} label={workflowStatusLabel(definition, t)} count={count} />}
+                {onSort && <BoardSortMenu label={workflowStatusLabel(definition, t)} status={status} sort={sort} onChange={next => onSort(status, next)} className={archiveAll && count > 0 ? 'ml-0' : undefined} />}
             </div>
             {children}
         </section>
@@ -341,7 +346,7 @@ export type BoardProject = { id: string; name?: string; url?: string; assignees:
  * it from the column's header. Archive is the last column (`archive`), collapsed unless the project expands it; My work,
  * which leaves archived threads out, has none.
  */
-export function CommentBoard({ projectOf, columns: categoryColumns, workflow, verificationEnabled, sorts, onSort, archive, allComments, userId, openComment, paging, detailRevision }: {
+export function CommentBoard({ projectOf, columns: categoryColumns, workflow, verificationEnabled, sorts, onSort, archiveAll, archive, allComments, userId, openComment, paging, detailRevision }: {
     workflow?: StatusWorkflow;
     verificationEnabled?: boolean;
     /** Each thread's project (`BoardProject`) */
@@ -353,6 +358,8 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
     sorts: Record<BoardColumnKey, BoardSort>;
     /** Changes a column's sort (Archive's too) for everyone; missing for people who may not */
     onSort?: (status: BoardColumnKey, sort: BoardSort) => void;
+    /** Archive all in a column's header (a project's board, for the people who may triage) */
+    archiveAll?: ArchiveAllScope;
     /** The archived threads, in Archive's sort, and whether their column is expanded; missing for no Archive column */
     archive?: { comments: ProjectCommentView[]; expanded: boolean; onExpandedChange: (expanded: boolean) => void };
     /** Every thread the board's sheet can open, archived ones too */
@@ -589,7 +596,7 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
                         const slot = <li key="placeholder" aria-hidden="true" data-drop-placeholder="" style={{ height: drag?.height }}
                             className="rounded-lg border border-dashed border-foreground/30 bg-background/60" />;
                         return (
-                            <BoardColumn key={status} status={categoryOf(status)} definition={definition(status)} columnIds={statuses} count={paging?.[status]?.total ?? cards.length} state={state} sort={sorts[categoryOf(status)]} onSort={onSort}>
+                            <BoardColumn key={status} status={categoryOf(status)} definition={definition(status)} columnIds={statuses} count={paging?.[status]?.total ?? cards.length} state={state} sort={sorts[categoryOf(status)]} onSort={onSort} archiveAll={archiveAll}>
                                 {cards.length || placeholder >= 0 ? (
                                     <VirtualCommentList items={cards} control={paging?.[status]} focusedId={focusId ?? tabStop?.id}
                                         label={t("{value0} comments list", { value0: workflowStatusLabel(definition(status), t) })}

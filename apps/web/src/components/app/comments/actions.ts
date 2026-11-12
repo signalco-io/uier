@@ -12,9 +12,12 @@ import { changeFixVerification } from '../../../lib/review/fixVerification';
 import { fixVerificationSchema } from '../../../lib/review/fixVerificationSchema';
 
 import { triageProjectComments } from '../../../lib/review/bulkTriage';
+import { loadAppCommentsSnapshot } from '../../../lib/app/appCommentsSnapshot';
+import { orderedStatuses } from '../../../lib/app/statusWorkflow';
+import { parseCommentsQuery } from './commentsQuery';
 import { bulkTriageSchema } from '../../../lib/review/bulkTriageSchema';
 import { projectIdSchema } from '../../../lib/app/validation';
-import { agentCommentActionSchema, assignCommentsPeopleActionSchema, boardArchiveActionSchema, boardSortActionSchema, priorityCommentActionSchema } from './actionSchemas';
+import { agentCommentActionSchema, assignCommentsPeopleActionSchema, boardArchiveActionSchema, boardColumnActionSchema, boardSortActionSchema, priorityCommentActionSchema } from './actionSchemas';
 import { saveProjectBoardArchive, saveProjectBoardSort } from '../../../lib/app/projectBoard';
 import type { BoardColumn, BoardSort } from '../../../lib/app/boardSort';
 import { setProjectCommentAgent } from '../../../lib/review/assigneeAgent';
@@ -42,7 +45,8 @@ import {
     setProjectCommentPrivate,
     setProjectCommentStatus,
     setProjectCommentPriority,
-    setProjectCommentTitle
+    setProjectCommentTitle,
+    canTriageProject
 } from '../../../lib/review/comments';
 import { markThreadRead, markThreadUnread } from '../../../lib/comments/readState';
 import { actorAuthorId } from '../../../lib/review/actor';
@@ -268,6 +272,24 @@ export async function setCommentAgentAction(projectId: string, commentId: string
     return commentAction(agentCommentActionSchema, { projectId, commentId, agent, idempotencyKey, agentId, add },
         ({ project, actor }, input) => setProjectCommentAgent(project, actor, input.commentId, input.agent, { idempotencyKey: input.idempotencyKey, agentId: input.agentId, add: input.add }));
 }
+/**
+ * Every thread in one board column under the board's filters, not only the cards it has loaded (Archive all,
+ * uier #357). The person archives them with `triageCommentsAction`, 50 at a time; Archive itself is not a column
+ * to archive.
+ */
+export async function boardColumnThreadsAction(projectId: string, params: Record<string, string>, lane: string) {
+    return actionResult(async () => {
+        const input = parseActionInput(boardColumnActionSchema, { projectId, params, lane });
+        const { context, project, actor } = await commentContext(input.projectId);
+        if (!canTriageProject(project, actor)) throw new UserFacingError('Only project members can archive feedback.');
+        const query = parseCommentsQuery({ ...input.params, view: 'board' });
+        const data = await loadAppCommentsSnapshot(context, project, query, undefined, undefined, { lane: input.lane, allIds: true, revisionOnly: true });
+        if (!data) throw new UserFacingError('This view is no longer available.');
+        if (orderedStatuses(data.workflow).find(status => status.id === input.lane)?.category === 'archive') throw new UserFacingError('These threads are archived already.');
+        return data.paging.lanes[input.lane]?.ids ?? [];
+    });
+}
+
 export async function triageCommentsAction(projectId: string, batch: unknown) {
     return actionResult(async () => {
         const id = parseActionInput(projectIdSchema, projectId);

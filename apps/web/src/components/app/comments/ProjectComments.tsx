@@ -346,6 +346,7 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
                 </Empty>
             ) : board ? (
                 <CommentBoard workflow={workflow} projectOf={() => ({ id: projectId, assignees })} columns={columns} sorts={boardSorts} onSort={canSortBoard ? changeSort : undefined}
+                    archiveAll={canSortBoard ? { projectId, params: Object.fromEntries(Object.entries(query).flatMap(([key, value]) => value === undefined ? [] : [[key, String(value)]])) } : undefined}
                     archive={{ comments: archived, expanded: archiveExpanded, onExpandedChange: changeArchive }}
                     allComments={scopeComments} userId={userId} openComment={openComment}
                     detailRevision={pager.data.revision} paging={Object.fromEntries(orderedStatuses(workflow).map(status => [status.id, pageControl(status.id)]))} />

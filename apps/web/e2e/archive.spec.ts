@@ -2,7 +2,8 @@ import type { CommentItem } from '../../../packages/toolbar/src/components/@type
 import { expect, test, type Page } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { startReviewedSite } from './support/reviewedSite';
-import { backToComments, createProject, openComment, signIn, uniqueEmail } from './support/app';
+import { backToComments, createProject, openComment, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { verifiedReviewHeaders } from './support/reviewVerification';
 import { animationsFinished, commentBubble, expectInboxListed, openThread, threadOptions } from './support/toolbar';
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
@@ -145,6 +146,50 @@ test('the board shows Archive as its last column, collapsed until someone expand
     await expect(archive.getByRole('button', { name: 'Archive 0', exact: true })).toBeFocused();
     await page.reload();
     await expect(archive.getByRole('button', { name: 'Archive 0', exact: true })).toHaveAttribute('aria-expanded', 'false');
+});
+
+test('Archive all in a board column archives every thread in it, the ones not loaded yet too, after a confirmation', async ({ page, request }) => {
+    test.setTimeout(90_000);
+    await signIn(page, uniqueEmail('archive-all'));
+    const projectId = await createProject(page, { urls: [site.origin()] });
+    await setProjectAccess(page, projectId, 'Anyone with the link');
+    // More than a column's first page (25), so some are not loaded when Archive all runs (uier #357)
+    let headers = await verifiedReviewHeaders(request, projectId, site.origin());
+    for (let index = 0; index < 30; index++) {
+        // A visitor may post only so often: a new one every ten comments
+        if (index && index % 10 === 0) headers = await verifiedReviewHeaders(request, projectId, site.origin());
+        const response = await request.post(`/api/review/${projectId}/comments`, { headers, data: {
+            path: `/${projectId}/pricing`, text: `Column feedback ${index}`, authorName: 'Reviewer', position: { type: 'page' }, kind: 'feedback'
+        } });
+        expect(response.status(), await response.text()).toBe(201);
+    }
+    await page.goto(`/app/projects/${projectId}?view=board`);
+    const column = (name: string) => page.getByRole('region', { name: `${name} comments`, exact: true });
+    const open = column('Open');
+    await expect(open.getByRole('heading')).toHaveText('Open30');
+    await expect(open.locator('[data-comment-window]')).toHaveAttribute('data-loaded-count', '25');
+    // A column with cards glows around its dot (uier #356); an empty one does not, and has no Archive all
+    await expect(open.locator('[data-status-glow]')).toHaveCount(1);
+    await expect(column('Done').locator('[data-status-glow]')).toHaveCount(0);
+    await expect(column('Done').getByRole('button', { name: /^Archive all/ })).toHaveCount(0);
+
+    // Cancel changes nothing
+    await open.getByRole('button', { name: 'Archive all in Open', exact: true }).click();
+    let dialog = page.getByRole('alertdialog');
+    await expect(dialog.getByRole('heading')).toHaveText('Archive 30 threads in Open?');
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await expect(open.getByRole('heading')).toHaveText('Open30');
+
+    await open.getByRole('button', { name: 'Archive all in Open', exact: true }).click();
+    dialog = page.getByRole('alertdialog');
+    await dialog.getByRole('button', { name: 'Archive all', exact: true }).click();
+    await expect(page.getByText('30 threads archived.', { exact: true })).toBeVisible();
+    await expect(open.getByText('Nothing open.', { exact: true })).toBeVisible();
+    await expect(column('Archived').getByRole('button', { name: 'Archive 30', exact: true })).toBeVisible();
+    await page.reload();
+    await expect(open.getByRole('heading')).toHaveText('Open0');
+    await expect(column('Archived').getByRole('button', { name: 'Archive 30', exact: true })).toBeVisible();
 });
 
 test('toolbar archive removes the pin, restores from Archive and rolls back a failed save', async ({ page }) => {
