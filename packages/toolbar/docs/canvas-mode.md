@@ -44,7 +44,10 @@ Shift to 15° steps.
 centre): Select, Pen, Marker, Brush, Line, Arrow, Rectangle, Ellipse, Diamond, Text note, Blur, Eraser;
 Style (a popover: colour, background and its fill, outline, width, edges: clean or sketchy); Undo,
 Redo, Delete; Discard and Comment. A selected shape's style changes with the popover, and the next shapes
-take it.
+take it. Blur has no style: with the Blur tool or a blurred area selected, Style is
+`aria-disabled` and its tooltip and description say why ("Blur has no colour or width"); it opens nothing
+([uier #314](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_DnOBAJNJAzRTeqesg43fD)).
+Select and Eraser keep it: their style goes to the selected shape or the next ones.
 
 - Shapes are kept in the content coordinates of one scroll container, the session's frame
   (`canvas/finish.ts`): the page, or the scrolled element the first shape is drawn over (an app whose main

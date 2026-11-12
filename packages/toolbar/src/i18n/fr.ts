@@ -541,6 +541,7 @@ export const fr: Messages = {
         /** A shape in the drawing, by its place: "Rectangle 2" */
         shape: (name: string, number: number) => `${name} ${number}`,
         style: 'Style',
+        noStyle: 'Le flou n’a ni couleur ni épaisseur',
         color: 'Couleur',
         background: 'Fond',
         none: 'Aucun',

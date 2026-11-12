@@ -542,6 +542,7 @@ export const es: Messages = {
         /** A shape in the drawing, by its place: "Rectangle 2" */
         shape: (name: string, number: number) => `${name} ${number}`,
         style: 'Estilo',
+        noStyle: 'El desenfoque no tiene color ni grosor',
         color: 'Color',
         background: 'Fondo',
         none: 'Ninguno',
