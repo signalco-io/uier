@@ -8,6 +8,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { ChevronDownIcon, ListFilterIcon, SearchIcon, UserIcon, XIcon } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { setUrlSearchParams, urlWith } from '@/src/hooks/use-url-search-params';
+import { useViewVisible } from '@/src/hooks/use-view-visible';
 import { Badge } from '@/src/components/ui/badge';
 import { Button } from '@/src/components/ui/button';
 import { Checkbox } from '@/src/components/ui/checkbox';
@@ -86,6 +87,8 @@ export function CommentFilters({ className, unread, unreadCount, view, status, s
 }) {
     const { t } = useAppI18n();
     const searchRef = useRef<HTMLInputElement>(null);
+    // A hidden project page Next keeps after navigating away gives up the id, so clearing filters focuses this one
+    const visible = useViewVisible();
     const searchShortcut = useKeyShortcutLabel('/');
     const [filtersOpen, setFiltersOpen] = useState(false);
     const router = useRouter();
@@ -122,7 +125,7 @@ export function CommentFilters({ className, unread, unreadCount, view, status, s
             <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <InputGroup className="min-w-0 flex-1 sm:max-w-80 sm:min-w-48 pointer-coarse:min-h-11">
                     <InputGroupAddon><SearchIcon /></InputGroupAddon>
-                    <InputGroupInput ref={searchRef} id="feedback-search" type="search" aria-label={t("Search feedback")} maxLength={MAX_FEEDBACK_SEARCH} className="pointer-coarse:min-h-11"
+                    <InputGroupInput ref={searchRef} id={visible ? 'feedback-search' : undefined} type="search" aria-label={t("Search feedback")} maxLength={MAX_FEEDBACK_SEARCH} className="pointer-coarse:min-h-11"
                         // `/` goes here from the page (`AppShortcuts`)
                         data-shortcut-search="" aria-keyshortcuts={searchShortcut}
                         placeholder={t("Search feedback")} value={search} onChange={event => onSearch(event.target.value)} />

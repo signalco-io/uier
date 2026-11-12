@@ -366,6 +366,9 @@ export function CommentBoard({ projectOf, columns, sorts, onSort, archive, allCo
     const reducedMotion = useSyncExternalStore(subscribeReducedMotion, () => window.matchMedia(reducedMotionQuery).matches, () => false);
     // The lifted card goes to the body, above the sheet and out of any clipping container
     const client = useSyncExternalStore(subscribeNothing, () => true, () => false);
+    // dnd-kit names its live region and drag instructions after this id: a project's board Next keeps hidden after
+    // navigating away must not repeat them (uier #328), and server and client still agree on it
+    const boardId = useId();
     const sensors = useSensors(
         useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
         // Held, then moved: a swipe over the cards still scrolls the page, and a long press held still selects the card
@@ -496,7 +499,7 @@ export function CommentBoard({ projectOf, columns, sorts, onSort, archive, allCo
 
     return (
         <>
-            <DndContext id="comment-board" sensors={sensors} collisionDetection={pointerWithin}
+            <DndContext id={boardId} sensors={sensors} collisionDetection={pointerWithin}
                 accessibility={{ announcements: boardAnnouncements(t), screenReaderInstructions: { draggable: t("To move a comment to another column, focus it and press M.") } }}
                 onDragStart={({ active }) => {
                     const comment = draggedComment(active);

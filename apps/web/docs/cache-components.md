@@ -120,6 +120,24 @@ instant validator reports that it cannot validate those entries when a denied re
 This is an error-route diagnostic, not a deferred product route; their production prerender metadata
 and HTTP responses retain 404. No validation is disabled for the app.
 
+## Hidden routes (Activity)
+
+Cache Components keeps up to three visited routes in the document under a hidden `<Activity>`
+(`display: none`) instead of unmounting them (`01-app/02-guides/preserving-ui-state.md` in Next's bundled docs).
+Their DOM stays queryable, so a kept project page used to add a second h1 and repeat `comments-title`
+for page checks ([uier #324](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_RLnLWusRvffjIsAuALPVX),
+[uier #328](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_yoSU6NY4KIOUigdkq7kca)).
+
+- An id that ARIA or a label refers to comes from `useId` (client components), never a fixed string:
+  `CommentsSection`'s heading, the board's `DndContext`.
+- `useViewVisible` (`src/hooks/use-view-visible.ts`) is false while the view is hidden: Activity runs
+  layout effect cleanups when it hides one. `PageTitle` (`PageHeader`'s h1) passes `untilShown`, so a view
+  mounted while hidden (Next refreshing a kept route) renders its title as a plain block too; the server
+  and hydration still render the h1. Fixed anchor and focus ids (`#comments`, `#feedback-search`) are
+  dropped while hidden, so links, scrolling and `getElementById` reach the visible page.
+- `app-navigation.spec.ts` keeps one project page hidden behind another and checks one h1 and no repeated
+  id, then goes back.
+
 ## Client bundle boundaries
 
 Keep client entry-point splits inside the existing server Suspense boundaries. Pages still resolve
