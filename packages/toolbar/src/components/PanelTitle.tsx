@@ -4,9 +4,10 @@ import { Button } from '@signalco/ui-primitives/Button';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Typography } from '@signalco/ui-primitives/Typography';
 import { cx } from '@signalco/ui-primitives/cx';
-import { Check, ExpandDown } from '@signalco/ui-icons';
+import { Check, ExpandDown, Inbox } from '@signalco/ui-icons';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { useInkContainer } from './InkScope';
+import { AccessibilityIcon, SeoIcon } from './checks/ChecksIcons';
 import { floatingShadowClassName } from './@types/Comments';
 import { toolbarSurface } from '../toolbarReview';
 import { moveFocusInMenu } from '../focusKeys';
@@ -18,6 +19,12 @@ export const PanelSwitchContext = createContext<{
     panels: { id: DockPanelId; label: string }[];
     switchTo: (from: DockPanelId, to: DockPanelId) => void;
 } | undefined>(undefined);
+
+/** Each panel's icon, the one on its toolbar button */
+function PanelIcon({ id }: { id: DockPanelId }) {
+    const Icon = id === 'accessibility' ? AccessibilityIcon : id === 'seo' ? SeoIcon : Inbox;
+    return <Icon size={16} aria-hidden="true" className="shrink-0" />;
+}
 
 /**
  * A docked panel's title (h2). With other panels to show, it is a menu button: the panels, this one checked; choosing
@@ -57,7 +64,8 @@ export function PanelTitle({ id, title }: { id: DockPanelId; title: string }) {
                 }}
                 trigger={(
                     <Button variant="plain" size="sm" data-uier-panel-switch=""
-                        className="h-7 max-w-full gap-1 px-1.5 text-base font-semibold text-foreground pointer-coarse:h-11"
+                        className="h-7 max-w-full gap-1.5 px-1.5 text-base font-semibold text-foreground pointer-coarse:h-11"
+                        startDecorator={<PanelIcon id={id} />}
                         endDecorator={<ExpandDown size={14} aria-hidden="true" className="shrink-0 text-muted-foreground" />}>
                         <span className="min-w-0 truncate">{title}</span>
                     </Button>
@@ -65,7 +73,8 @@ export function PanelTitle({ id, title }: { id: DockPanelId; title: string }) {
                 <Stack role="group" aria-label={t.panel.switch}>
                     {panels.map(panel => (
                         <Button key={panel.id} ref={panel.id === id ? currentRef : undefined} variant="plain" size="sm" fullWidth
-                            className="justify-start font-normal pointer-coarse:min-h-11" aria-pressed={panel.id === id}
+                            className="justify-start gap-2 font-normal pointer-coarse:min-h-11" aria-pressed={panel.id === id}
+                            startDecorator={<PanelIcon id={panel.id} />}
                             endDecorator={<Check size={14} aria-hidden="true" className={cx('ml-auto shrink-0 text-muted-foreground', panel.id !== id && 'invisible')} />}
                             onClick={() => choose(panel.id)}>
                             {panel.label}
