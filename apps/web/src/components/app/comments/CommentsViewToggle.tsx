@@ -14,7 +14,7 @@ export const segmentedItem = 'h-[26px] min-w-[26px] shrink-0 rounded-md px-2.5 t
 /**
  * List and Board, as icon-only tabs; the tooltip and the accessible name say which. On a touch screen the group, not each
  * tab, takes the 44 px of the search and Filter beside it (its 3 px padding around 38 px tabs; uier #277). A project's
- * comments (`CommentFilters`) and My work (`MyWorkViewToggle`) keep the choice in the address and remember it.
+ * comments (`CommentFilters`) and My work (`MyWorkViews`, through `CommentFilters`' `onView`) keep the choice in the address and remember it.
  */
 export function CommentsViewToggle({ view, onChange, className }: { view: CommentsView; onChange: (view: CommentsView) => void; className?: string }) {
     const { t } = useAppI18n();

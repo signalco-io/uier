@@ -31,7 +31,7 @@ handler): it listens on the document in the bubble phase, after React's handlers
 | Key | What | Where |
 | --- | --- | --- |
 | ? | The shortcuts dialog (`ShortcutsDialog`; also the account menu's Keyboard shortcuts) | everywhere |
-| / | The page's search (an input marked `data-shortcut-search`, the first visible) | Comments, Teams |
+| / | The page's search (an input marked `data-shortcut-search`, the first visible) | Comments, My work, Teams |
 | C | Comment on this page: uier's own toolbar starts placing a comment, as its + button does (`startToolbarComment`); Give feedback keeps opening its feedback form | everywhere |
 | G then I, B | The project's comments as the list or the board; in place on its comments page (keeps the filters); on My work, its lists or its board | a project's pages, My work |
 | G then M, P | My work, Projects | everywhere |

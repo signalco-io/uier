@@ -28,6 +28,7 @@ import { StateDot } from './CommentStatus';
 import { useKeyShortcutLabel } from '../keyboard/keys';
 import { rememberCommentsView } from './commentsView';
 import { CommentsViewToggle, segmentedGroup, segmentedItem } from './CommentsViewToggle';
+import { ProjectMark } from '../projects/ProjectMark';
 
 /**
  * From this width of the comments (`@container/comments`) the count line (the unread count and Mark all as read) is in
@@ -54,11 +55,16 @@ function FilterChip({ name, value, icon, onClear }: { name?: string; value: stri
     );
 }
 
+/** A project the Project filter offers, where comments of several projects are listed together (My work) */
+export type FilterProject = { id: string; name: string; url?: string };
+
 /**
  * Search, one Filter button (priority, environment and page, people, unread) and the status tabs;
  * the filters in effect show left of the Filter button, each named, with its own clear button. All kept in the URL.
+ * Comments of several projects (My work) pass `projects` for a Project filter (`?project=`) and leave out what only
+ * one project has (`environments`, `statusCounts`).
  */
-export function CommentFilters({ className, unread, unreadCount, view, status, statusCounts, people, page, pages, environment, environments, historySources, author, search, onSearch, priority, countLine }: {
+export function CommentFilters({ className, unread, unreadCount, view, onView, status, statusCounts, people, page, pages = [], environment, environments, historySources, author, search, onSearch, priority, countLine, project, projects }: {
     /** The header's width: the list's or the board's (ProjectComments) */
     className?: string;
     /**
@@ -71,19 +77,26 @@ export function CommentFilters({ className, unread, unreadCount, view, status, s
     priority?: CommentPriority;
     author?: AuthorFilter;
     environment?: string;
-    environments: EnvironmentOption[];
+    /** A project's environments: without them (several projects) there is no Environment and page filter */
+    environments?: EnvironmentOption[];
     /** Which of "removed" and "unknown" have comments, when known */
     historySources?: string[];
     unread: boolean;
     unreadCount: number;
     view: CommentsView;
-    status: StatusFilter;
-    /** Comments in each status with the other filters applied */
-    statusCounts: Record<StatusFilter, number>;
+    /** Where the List/Board choice goes instead of a project's comments' (My work remembers its own) */
+    onView?: (view: CommentsView) => void;
+    status?: StatusFilter;
+    /** Comments in each status with the other filters applied; without them the list has no status tabs */
+    statusCounts?: Record<StatusFilter, number>;
     people: PeopleFilter;
-    page: string | undefined;
+    page?: string;
     /** Relative URLs (paths) that have comments, with how many */
-    pages: PageCount[];
+    pages?: PageCount[];
+    /** The chosen project's id (`?project=`), with `projects` */
+    project?: string;
+    /** The projects to filter by, where comments of several projects are listed together (My work) */
+    projects?: FilterProject[];
 }) {
     const { t } = useAppI18n();
     const searchRef = useRef<HTMLInputElement>(null);
@@ -105,13 +118,16 @@ export function CommentFilters({ className, unread, unreadCount, view, status, s
     };
 
     const environmentLabel = environment && environment !== 'all'
-        ? environments.find(option => option.id === environment)?.label
+        ? environments?.find(option => option.id === environment)?.label
             ?? (environment === 'removed' ? t("Removed addresses") : environment === 'unknown' ? t("Source not recorded") : environment)
         : undefined;
     const pagePrefix = page ? pageFilterBase(page) : undefined;
-    // The list's status tabs show its status; the board's is a filter like the others, in the Filter popover (uier #335)
-    const boardStatus = view === 'board' ? boardStatusFilter(status) : undefined;
+    // The list's status tabs show its status; the board's is a filter like the others, in the Filter popover (uier #335).
+    // Only a project's board (with `statusCounts`): My work's board groups by category and has no status filter
+    const boardStatus = view === 'board' && statusCounts && status ? boardStatusFilter(status) : undefined;
+    const projectLabel = project ? projects?.find(option => option.id === project)?.name : undefined;
     const chips = [
+        projectLabel && { key: 'project', name: t('Project'), value: projectLabel, clear: () => go({ project: undefined }) },
         boardStatus && { key: 'status', name: t('Status'), value: t(statusFilterLabels[boardStatus]), clear: () => go({ status: undefined }) },
         priority && { key: 'priority', name: t('Priority'), value: t(priorityLabels[priority]), clear: () => go({ priority: undefined }) },
         unread && { key: 'unread', value: t('Only unread'), clear: () => go({ unread: undefined }) },
@@ -170,7 +186,29 @@ export function CommentFilters({ className, unread, unreadCount, view, status, s
                     <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)]">
                         <PopoverHeader><PopoverTitle>{t("Filter comments")}</PopoverTitle></PopoverHeader>
                         <FieldGroup className="gap-4">
-                            {view === 'board' && (
+                            {projects && (
+                                <Field>
+                                    <FieldLabel htmlFor="filter-project">{t("Project")}</FieldLabel>
+                                    <Select items={{ all: t("All projects"), ...Object.fromEntries(projects.map(option => [option.id, option.name])) }} value={projectLabel ? project : 'all'} onValueChange={value => go({ project: value === 'all' ? undefined : value ?? undefined })}>
+                                        <SelectTrigger id="filter-project" aria-label={t("Project")} className="w-full pointer-coarse:min-h-11">
+                                            <SelectValue>{(value: string) => {
+                                                const chosen = projects.find(option => option.id === value);
+                                                return chosen ? <><ProjectMark name={chosen.name} projectId={chosen.id} url={chosen.url} /><span className="truncate">{chosen.name}</span></> : t("All projects");
+                                            }}</SelectValue>
+                                        </SelectTrigger>
+                                        <SelectContent><SelectGroup>
+                                            <SelectItem className="pointer-coarse:min-h-11" value="all">{t("All projects")}</SelectItem>
+                                            {projects.map(option => (
+                                                <SelectItem className="pointer-coarse:min-h-11" key={option.id} value={option.id}>
+                                                    <ProjectMark name={option.name} projectId={option.id} url={option.url} />
+                                                    <span className="truncate">{option.name}</span>
+                                                </SelectItem>
+                                            ))}
+                                        </SelectGroup></SelectContent>
+                                    </Select>
+                                </Field>
+                            )}
+                            {view === 'board' && statusCounts && (
                                 <Field>
                                     <FieldLabel htmlFor="filter-status">{t("Status")}</FieldLabel>
                                     <Select items={{ all: t("All statuses"), ...Object.fromEntries(boardStatusFilters.map(value => [value, t(statusFilterLabels[value])])) }} value={boardStatus ?? 'all'}
@@ -199,11 +237,13 @@ export function CommentFilters({ className, unread, unreadCount, view, status, s
                                     </SelectGroup></SelectContent>
                                 </Select>
                             </Field>
-                            <Field>
-                                <FieldTitle>{t("Environment and page")}</FieldTitle>
-                                <LocationFilter environment={environment} environments={environments} historySources={historySources} page={page} pages={pages} triggerClassName="w-full max-w-none"
-                                    onEnvironment={value => go({ environment: value })} onPage={value => go({ page: value })} />
-                            </Field>
+                            {environments && (
+                                <Field>
+                                    <FieldTitle>{t("Environment and page")}</FieldTitle>
+                                    <LocationFilter environment={environment} environments={environments} historySources={historySources} page={page} pages={pages} triggerClassName="w-full max-w-none"
+                                        onEnvironment={value => go({ environment: value })} onPage={value => go({ page: value })} />
+                                </Field>
+                            )}
                             <Field>
                                 <FieldLabel htmlFor="filter-people">{t("People")}</FieldLabel>
                                 <Select items={Object.fromEntries(Object.entries(peopleFilterLabels).map(([key, label]) => [key, t(label)]))} value={people} onValueChange={value => go({ people: value === 'all' ? undefined : value ?? undefined })}>
@@ -227,7 +267,7 @@ export function CommentFilters({ className, unread, unreadCount, view, status, s
                             </Field>
                             {active > 0 && (
                                 <Button variant="ghost" size="sm" className="self-start pointer-coarse:min-h-11"
-                                    onClick={() => { go({ priority: undefined, unread: undefined, environment: undefined, page: undefined, people: undefined, author: undefined, ...(boardStatus ? { status: undefined } : {}) }); setFiltersOpen(false); }}>
+                                    onClick={() => { go({ priority: undefined, unread: undefined, environment: undefined, page: undefined, people: undefined, author: undefined, ...(boardStatus ? { status: undefined } : {}), ...(projects ? { project: undefined } : {}) }); setFiltersOpen(false); }}>
                                     {t("Clear filters")}
                                 </Button>
                             )}
@@ -237,6 +277,7 @@ export function CommentFilters({ className, unread, unreadCount, view, status, s
                 {/* A new layout starts with no thread open (the board would open it in a sheet over itself). The choice is
                     remembered as the default and kept in the address, list too, so it wins over the remembered one there */}
                 <CommentsViewToggle view={view} onChange={next => {
+                    if (onView) return onView(next);
                     rememberCommentsView(next);
                     go({ view: next, comment: undefined, ...(status === 'archived' ? { status: undefined } : {}) });
                 }} />
@@ -244,7 +285,7 @@ export function CommentFilters({ className, unread, unreadCount, view, status, s
             {/* Active (the default, every status but Done), Done and All; the board shows the statuses side by side,
                 with Archive as its last column.
                 Open, In progress and Ready to verify fold under Active, Archive under Done: each menu picks one, and the tab then names it. */}
-            {view === 'list' && <StatusTabs status={status} counts={statusCounts} onStatus={value => go({ status: value === 'active' ? undefined : value })} />}
+            {view === 'list' && statusCounts && <StatusTabs status={status ?? 'active'} counts={statusCounts} onStatus={value => go({ status: value === 'active' ? undefined : value })} />}
         </div>
     );
 }
