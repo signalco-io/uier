@@ -7,6 +7,17 @@ import { pluralHr } from './plural';
 const p = (count: number, one: string, few: string, other: string) => pluralHr(count, one, few, other);
 
 export const hr: Messages = {
+    consentPanel: {
+        title: 'Privola i kolačići',
+        toReview: 'Za pregled',
+        notes: 'Napomene',
+        snapshot: 'Snimka stranice',
+        before: 'Prije privole',
+        observe: 'Promatraj 15 sekundi',
+        observing: 'Promatranje…',
+        instructions: 'Počnite u novoj sesiji preglednika prije odabira. Pričekajte 15 sekundi prije nego što odaberete privolu. Ova provjera ne mijenja vaš odabir i ne briše pohranu.',
+        limits: 'Samo ova stranica. Kolačići HttpOnly i trećih strana, pohrana okvira, IndexedDB, predmemorija i praćenje na poslužitelju ovdje nisu vidljivi. Ranije privole i aktivnosti prije učitavanja alatne trake nisu poznate. Samo nazivi; vrijednosti se nikad ne šalju. Kategorije su pretpostavke. Nalaze treba pregledati; ovo nije procjena pravne usklađenosti. Nazivi su skraćeni kako bi sakrili identifikatore.'
+    },
     common: {
         cancel: 'Odustani',
         close: 'Zatvori',
@@ -47,6 +58,7 @@ export const hr: Messages = {
             `${badge} ${capped ? 'nepročitanih rasprava' : p(count, 'nepročitana rasprava', 'nepročitane rasprave', 'nepročitanih rasprava')}${count > 99 && !capped ? `, ukupno ${count}` : ''}`,
         accessibility: 'Pristupačnost',
         seo: 'SEO',
+        consent: 'Privola i kolačići',
         about: 'O uieru',
         draw: 'Crtaj po stranici',
         collapse: 'Sažmi traku'
@@ -811,7 +823,7 @@ export const hr: Messages = {
         image: 'Slika'
     },
     checks: {
-        kinds: { accessibility: 'Pristupačnost', seo: 'SEO', 'web-vitals': 'Core Web Vitals' },
+        kinds: { consent: 'Privola i kolačići', accessibility: 'Pristupačnost', seo: 'SEO', 'web-vitals': 'Core Web Vitals' },
         highlight: 'Istakni',
         notAnIssue: 'Nije problem',
         postedAs: (label: string, number: number | undefined) => `${label}${number !== undefined ? ` kao #${number}` : ''}`,

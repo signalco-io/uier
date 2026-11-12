@@ -30,12 +30,13 @@ async function openChecks(page: Page, mobile: boolean, name: RegExp) {
     const scope = mobile ? page.getByRole('dialog', { name: 'Options', exact: true }) : toolbar(page);
     await scope.getByRole('button', { name }).click();
 }
-async function hasTools(page: Page, mobile: boolean, accessibility: boolean, seo: boolean) {
+async function hasTools(page: Page, mobile: boolean, accessibility: boolean, seo: boolean, consent = true) {
     await expect(toolbar(page)).toBeVisible();
     if (mobile) await toolbar(page).getByRole('button', { name: 'Options', exact: true }).click();
     const scope = mobile ? page.getByRole('dialog', { name: 'Options', exact: true }) : toolbar(page);
     await expect(scope.getByRole('button', { name: /^Accessibility/ })).toHaveCount(accessibility ? 1 : 0);
     await expect(scope.getByRole('button', { name: /^SEO/ })).toHaveCount(seo ? 1 : 0);
+    await expect(scope.getByRole('button', { name: /^Consent and cookies/ })).toHaveCount(consent ? 1 : 0);
     if (mobile) {
         await animationsFinished(scope);
         await page.keyboard.press('Escape');
@@ -108,7 +109,7 @@ test('guest tools can be hidden while members keep them and guests still leave f
     await settings(page, project);
     await review(page).getByRole('radio', { name: 'Anyone with the link', exact: true }).check();
     await guestTools(page).getByRole('checkbox', { name: 'Follow project tools', exact: true }).uncheck();
-    for (const feature of ['Accessibility', 'SEO', 'Text rewrites']) await guestTools(page).getByRole('checkbox', { name: feature, exact: true }).uncheck();
+    for (const feature of ['Accessibility', 'SEO', 'Consent and cookies', 'Text rewrites', 'Drawing on the page']) await guestTools(page).getByRole('checkbox', { name: feature, exact: true }).uncheck();
     await save(page);
     const destination = `${site.origin()}/${project}/pricing?page-checks`;
     await page.goto(`/app/review/${project}?url=${encodeURIComponent(destination)}`);
@@ -128,7 +129,7 @@ test('guest tools can be hidden while members keep them and guests still leave f
         await guest.page.goto(`${destination}&review=true`);
         const info = await (await infoPromise).json();
         expect(info).toMatchObject({ canComment: true, project: { toolbarFeatures: [] }, viewer: { kind: 'guest' } });
-        await hasTools(guest.page, mobile, false, false);
+        await hasTools(guest.page, mobile, false, false, false);
         await selectText(guest.page, await guest.page.getByRole('heading', { level: 1 }).innerText());
         await expect(selectionToolbar(guest.page).getByRole('button', { name: 'Add comment', exact: true })).toBeVisible();
         await expect(selectionToolbar(guest.page).getByRole('button', { name: 'Rewrite', exact: true })).toHaveCount(0);
@@ -185,4 +186,33 @@ test('custom project tools apply to mobile options, selection actions and rememb
     await openChecks(page, mobile, /^Accessibility/);
     await expect(page.getByRole('complementary', { name: 'Accessibility', exact: true })).toBeVisible();
     await expect(toolbar(page).getByRole('button', { name: 'Add comment', exact: true })).toBeVisible();
+});
+
+test('consent works on its own and performs no storage inventory before its panel opens', async ({ page }, testInfo) => {
+    test.setTimeout(90_000);
+    const mobile = testInfo.project.use.isMobile === true;
+    await signIn(page, uniqueEmail('consent-only'));
+    const project = await createProject(page, { urls: [site.origin()] });
+    await settings(page, project);
+    await projectTools(page).getByRole('checkbox', { name: 'Show all current and future tools', exact: true }).uncheck();
+    for (const feature of ['Accessibility', 'SEO', 'Text rewrites', 'Drawing on the page']) {
+        await projectTools(page).getByRole('checkbox', { name: feature, exact: true }).uncheck();
+    }
+    await save(page);
+    await page.addInitScript(() => {
+        if (!location.hostname.endsWith('.localhost')) return;
+        let calls = 0;
+        Object.defineProperty(window, 'cookieStore', { configurable: true, value: { getAll: async () => { calls++; return [{ name: 'inventory_probe' }]; } } });
+        Object.defineProperty(window, '__consentInventoryCalls', { get: () => calls });
+    });
+    await page.goto(`/app/review/${project}?url=${encodeURIComponent(`${site.origin()}/${project}/plain`)}`);
+    await hasTools(page, mobile, false, false, true);
+    await toolbar(page).getByRole('button', { name: /^Inbox/ }).click();
+    await expect(page.getByRole('complementary', { name: 'Comments', exact: true })).toBeVisible();
+    expect(await page.evaluate(() => Reflect.get(window, '__consentInventoryCalls'))).toBe(0);
+    await openChecks(page, mobile, /^Consent and cookies/);
+    const panel = page.getByRole('complementary', { name: 'Consent and cookies', exact: true });
+    await expect(panel.locator('[data-uier-section="consent-snapshot"]')).toHaveAttribute('data-uier-section-status', 'done', { timeout: 20_000 });
+    await expect(panel).toContainText('inventory_probe');
+    expect(await page.evaluate(() => Reflect.get(window, '__consentInventoryCalls'))).toBeGreaterThan(0);
 });

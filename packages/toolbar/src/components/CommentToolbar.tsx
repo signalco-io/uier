@@ -17,7 +17,7 @@ import { ToolbarProfile } from './ToolbarProfile';
 import { ToolbarOptions } from './ToolbarOptions';
 import { ToolbarFeedback } from './ToolbarFeedback';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
-import { AccessibilityIcon, SeoIcon } from './checks/ChecksIcons';
+import { AccessibilityIcon, SeoIcon, ConsentIcon } from './checks/ChecksIcons';
 import type { ChecksAttention, ChecksPanelId } from './checks/PageChecks';
 import { AttentionDot, checksButtonLabel } from './checks/ChecksAttention';
 import { useToolbarMovement, useToolbarNotice } from '../hooks/useReviewMovement';
@@ -68,6 +68,7 @@ type CommentToolbarProps = {
     checksAttention?: ChecksAttention;
     accessibilityButtonRef?: Ref<HTMLButtonElement>;
     seoButtonRef?: Ref<HTMLButtonElement>;
+    consentButtonRef?: Ref<HTMLButtonElement>;
     /** Options, where the panels' buttons are on a narrow screen */
     optionsButtonRef?: Ref<HTMLButtonElement>;
     /** The feedback dialog opened */
@@ -105,7 +106,7 @@ function countText(count: number, capped: boolean) {
 export function CommentToolbar({
     mode, creatingPointComment, collapsed, commentsCount = 0, commentsCountCapped = false, hintOpen, showAbout = true, hintId, projectUrl,
     addButtonRef, inboxButtonRef, hintButtonRef, sidebarOpen = false, onAddPointComment, drawing = false, drawButtonRef, onDraw, onCancelPointComment, onResumeDraft, onToggleSidebar, onFeedbackOpen,
-    checksPanels = [], onChecksPanelChange, accessibilityAvailable = false, checksAttention, accessibilityButtonRef, seoButtonRef, optionsButtonRef,
+    checksPanels = [], onChecksPanelChange, accessibilityAvailable = false, checksAttention, accessibilityButtonRef, seoButtonRef, consentButtonRef, optionsButtonRef,
     feedbackRequested = false, onFeedbackRequestHandled, onMoveStart, onToggleHint, onCollapsedChange, onExitReview,
     shortcutsRequested = false, onShortcutsRequestHandled
 }: CommentToolbarProps) {
@@ -128,6 +129,7 @@ export function CommentToolbar({
     const toggleChecks = (panel: ChecksPanelId) => onChecksPanelChange(panel, !checksPanels.includes(panel));
     const accessibilityOpen = checksPanels.includes('accessibility');
     const seoOpen = checksPanels.includes('seo');
+    const consentOpen = checksPanels.includes('consent');
     const capped = commentsCountCapped;
     const badgeText = commentsCount > 99 && !capped ? '99+' : countText(commentsCount, capped);
     const commentsLabel = commentsCount ? t.toolbar.unread(badgeText, commentsCount, capped) : undefined;
@@ -313,6 +315,21 @@ export function CommentToolbar({
                             </IconButton>
                             </IconTooltip>
                             )}
+                            {roomy && accessibilityAvailable && features.includes('consent') && (
+                            <IconTooltip label={t.toolbar.consent}>
+                            <IconButton
+                                ref={consentButtonRef}
+                                variant={consentOpen ? 'soft' : 'plain'}
+                                className="relative rounded-full"
+                                aria-label={checksButtonLabel('consent', checksAttention)}
+                                aria-expanded={consentOpen}
+                                aria-controls={consentOpen ? 'uier-panel-consent' : undefined}
+                                onClick={() => toggleChecks('consent')}>
+                                <ConsentIcon />
+                                <AttentionDot panel="consent" attention={checksAttention} className="absolute right-1.5 top-1.5" />
+                            </IconButton>
+                            </IconTooltip>
+                            )}
                             {showAbout && (
                                 <IconTooltip label={t.toolbar.about}>
                                 <IconButton
@@ -331,7 +348,7 @@ export function CommentToolbar({
                             <ToolbarProfile />
                             <ToolbarOptions projectUrl={projectUrl} onExitReview={onExitReview} onResetPosition={movement.custom ? resetPosition : undefined}
                                 triggerRef={optionsButtonRef}
-                                pageChecks={roomy ? undefined : { accessibility: accessibilityAvailable && features.includes('accessibility'), seo: features.includes('seo'), attention: checksAttention, onOpen: panel => onChecksPanelChange(panel, true) }}
+                                pageChecks={roomy ? undefined : { accessibility: accessibilityAvailable && features.includes('accessibility'), seo: features.includes('seo'), consent: accessibilityAvailable && features.includes('consent'), attention: checksAttention, onOpen: panel => onChecksPanelChange(panel, true) }}
                                 shortcutsRequested={shortcutsRequested} onShortcutsRequestHandled={onShortcutsRequestHandled} />
                             <IconTooltip label={t.toolbar.collapse}>
                             <IconButton

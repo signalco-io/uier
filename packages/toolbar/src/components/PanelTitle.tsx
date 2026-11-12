@@ -7,7 +7,7 @@ import { cx } from '@signalco/ui-primitives/cx';
 import { Check, ExpandDown, Inbox } from '@signalco/ui-icons';
 import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { useInkContainer } from './InkScope';
-import { AccessibilityIcon, SeoIcon } from './checks/ChecksIcons';
+import { AccessibilityIcon, SeoIcon, ConsentIcon } from './checks/ChecksIcons';
 import { floatingShadowClassName } from './@types/Comments';
 import { toolbarSurface } from '../toolbarReview';
 import { moveFocusInMenu } from '../focusKeys';
@@ -22,7 +22,7 @@ export const PanelSwitchContext = createContext<{
 
 /** Each panel's icon, the one on its toolbar button */
 function PanelIcon({ id }: { id: DockPanelId }) {
-    const Icon = id === 'accessibility' ? AccessibilityIcon : id === 'seo' ? SeoIcon : Inbox;
+    const Icon = id === 'accessibility' ? AccessibilityIcon : id === 'seo' ? SeoIcon : id === 'consent' ? ConsentIcon : Inbox;
     return <Icon size={16} aria-hidden="true" className="shrink-0" />;
 }
 

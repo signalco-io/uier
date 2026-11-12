@@ -527,6 +527,7 @@ const messages = {
     "Teams you archive move here. They grant no access until you restore them.": "Teams you archive move here. They grant no access until you restore them.",
     "Teams: {items}": "Teams: {items}",
     "Tell uier which site you want to review. Then add the script and invite a reviewer.": "Tell uier which site you want to review. Then add the script and invite a reviewer.",
+    "Consent and cookies": "Consent and cookies",
     "Text rewrites": "Text rewrites",
     "The API responded, but browser verification failed. Check frame-src and retry.": "The API responded, but browser verification failed. Check frame-src and retry.",
     "The browser blocked a required uier script. Check script-src in the security headers.": "The browser blocked a required uier script. Check script-src in the security headers.",

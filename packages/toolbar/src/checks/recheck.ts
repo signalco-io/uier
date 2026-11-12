@@ -38,7 +38,7 @@ function severalElements(check: CommentCheck) {
  */
 export function canRecheck(comment: CommentItem, vitals?: WebVitals): boolean {
     const { check } = comment;
-    if (!check) return false;
+    if (!check || check.type === 'consent') return false;
     if (check.type === 'web-vitals') {
         const name = vitalNames[check.id];
         return Boolean(name && vitals?.[name].supported);
@@ -147,7 +147,7 @@ function recheckVital(id: string, vitals: WebVitals): Recheck | undefined {
 
 async function run(comment: CommentItem, path: string, signal: AbortSignal, vitals?: WebVitals): Promise<Recheck | undefined> {
     const { check } = comment;
-    if (!check) return undefined;
+    if (!check || check.type === 'consent') return undefined;
     if (check.type === 'web-vitals') return vitals && recheckVital(check.id, vitals);
     let target: Target = {};
     if (severalElements(check)) target = { several: true };

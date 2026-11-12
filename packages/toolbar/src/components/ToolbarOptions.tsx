@@ -22,7 +22,7 @@ import { toolbarConfig } from '../config';
 import { setShortcutsEnabled, toolbarShortcuts, useKeyboardLikely, useShortcutsEnabled } from '../shortcuts';
 import { moveFocusInMenu } from '../focusKeys';
 import { keepMovedFocus, toolbarSurface } from '../toolbarReview';
-import { AccessibilityIcon, SeoIcon } from './checks/ChecksIcons';
+import { AccessibilityIcon, SeoIcon, ConsentIcon } from './checks/ChecksIcons';
 import type { ChecksAttention, ChecksPanelId } from './checks/PageChecks';
 import { AttentionDot, checksButtonLabel } from './checks/ChecksAttention';
 import { useMessages, type Messages } from '../i18n';
@@ -42,7 +42,7 @@ type ToolbarOptionsProps = {
     onShortcutsRequestHandled?: () => void;
     triggerRef?: Ref<HTMLButtonElement>;
     /** A narrow screen: the Accessibility (where it can load) and SEO panels open from here, not from the pill */
-    pageChecks?: { accessibility: boolean; seo: boolean; attention?: ChecksAttention; onOpen: (panel: ChecksPanelId) => void };
+    pageChecks?: { accessibility: boolean; seo: boolean; consent: boolean; attention?: ChecksAttention; onOpen: (panel: ChecksPanelId) => void };
 };
 
 /** The keyboard shortcuts, by what they do (`toolbarShortcuts`); the single keys are marked off while they are */
@@ -395,7 +395,7 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
                         </OptionButton>
                     )}
                     <Divider role="separator" className="my-1" />
-                    {pageChecks && (pageChecks.accessibility || pageChecks.seo) && <>
+                    {pageChecks && (pageChecks.accessibility || pageChecks.seo || pageChecks.consent) && <>
                         {pageChecks.accessibility && (
                             <OptionButton icon={<AccessibilityIcon size={16} />} onClick={() => handleOpenPanel('accessibility')}
                                 aria-label={checksButtonLabel('accessibility', pageChecks.attention)}>
@@ -407,6 +407,11 @@ export function ToolbarOptions({ projectUrl, onExitReview, onResetPosition, shor
                             aria-label={checksButtonLabel('seo', pageChecks.attention)}>
                             {t.toolbar.seo}
                             <AttentionDot panel="seo" attention={pageChecks.attention} className="ml-auto ring-0" />
+                        </OptionButton>}
+                        {pageChecks.consent && <OptionButton icon={<ConsentIcon size={16} />} onClick={() => handleOpenPanel('consent')}
+                            aria-label={checksButtonLabel('consent', pageChecks.attention)}>
+                            {t.toolbar.consent}
+                            <AttentionDot panel="consent" attention={pageChecks.attention} className="ml-auto ring-0" />
                         </OptionButton>}
                         <Divider role="separator" className="my-1" />
                     </>}

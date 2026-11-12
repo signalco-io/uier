@@ -64,6 +64,7 @@ type SectionsStore = {
     path: string;
     definitions: readonly SectionDefinition[];
     states: ReadonlyMap<string, SectionState>;
+    cancel: (definition: SectionDefinition) => void;
     /** Checks one section now (a newer check of the same section replaces a running one) */
     run: (definition: SectionDefinition) => Promise<void>;
     /** A panel opened: its sections without a report of this page; `again` (Check again): all of them, and `manual` reports are dropped */
@@ -124,6 +125,19 @@ export function useSectionsStore(path: string, definitions: readonly SectionDefi
             });
     }, []);
 
+    const cancel = useCallback((definition: SectionDefinition) => {
+        const control = controls.current.get(definition.id);
+        if (!control) return;
+        control.abort();
+        controls.current.delete(definition.id);
+        ranFor.current.delete(definition.id);
+        setStates(current => {
+            const state = current.get(definition.id);
+            if (!state) return current;
+            return new Map(current).set(definition.id, { ...state, status: state.report ? 'done' : 'idle' });
+        });
+    }, []);
+
     const runPanel = useCallback((panel: ChecksPanelId, { again = false }: { again?: boolean } = {}) => {
         for (const definition of definitions) {
             if (definition.panel !== panel) continue;
@@ -161,7 +175,7 @@ export function useSectionsStore(path: string, definitions: readonly SectionDefi
 
     const cancelBackground = useCallback(() => background.current?.abort(), []);
 
-    return { path, definitions, states, run, runPanel, runBackground, cancelBackground };
+    return { path, definitions, states, run, cancel, runPanel, runBackground, cancelBackground };
 }
 
 export const SectionsContext = createContext<SectionsStore | undefined>(undefined);
@@ -178,16 +192,18 @@ export function usePageLayerVisible() {
 }
 
 /** A section's state and its check, for its component: `const section = useSection(crawlerSection)` */
-export function useSection<Report extends AnySectionReport>(definition: SectionDefinition<Report>): SectionState<Report> & { run: () => void } {
+export function useSection<Report extends AnySectionReport>(definition: SectionDefinition<Report>): SectionState<Report> & { run: () => void; cancel: () => void } {
     const store = useContext(SectionsContext);
     const state = (store?.states.get(definition.id) ?? idle) as SectionState<Report>;
-    return { ...state, run: () => { void store?.run(definition); } };
+    const cancelRun = store?.cancel;
+    const cancel = useCallback(() => cancelRun?.(definition), [cancelRun, definition]);
+    return { ...state, run: () => { void store?.run(definition); }, cancel };
 }
 
 /** What a report adds to its panel's indicator when its definition does not say */
 function defaultAttention(panel: ChecksPanelId, report: AnySectionReport) {
     const warnings = report.checks.filter(check => check.state === 'warn');
-    return panel === 'seo' ? warnings.length : warnings.reduce((total, check) => total + Math.max(1, check.issues.length), 0);
+    return panel !== 'accessibility' ? warnings.length : warnings.reduce((total, check) => total + Math.max(1, check.issues.length), 0);
 }
 
 /** A panel's sections that have a report of this page (`only`: of these sections, a tab's) */

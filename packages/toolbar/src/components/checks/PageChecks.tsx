@@ -17,6 +17,7 @@ import { useComments } from '../../hooks/useComments';
 import { useAnnounce } from '../Announcer';
 import type { CommentItem } from '../@types/Comments';
 import { AccessibilityPanel, type AccessibilityState } from './AccessibilityPanel';
+import { ConsentPanel } from './ConsentPanel';
 import { SeoPanel, seoChecks, tally, vitalChecks } from './SeoPanel';
 import { ChecksContext, type PostedComment } from './ChecksParts';
 import { ElementHighlight } from './ElementHighlight';
@@ -27,7 +28,7 @@ import { GuestNameProvider, useGuestNameGate } from './GuestName';
 import { useIssueComment } from './useIssueComment';
 import { messages } from '../../i18n';
 
-export type ChecksPanelId = 'accessibility' | 'seo';
+export type ChecksPanelId = 'accessibility' | 'seo' | 'consent';
 export type ShownComment = Extract<PostedComment, { status: 'posted' }>;
 /** What each panel's report of this page found to act on (accessibility issues, SEO checks to look at); none before a report */
 export type ChecksAttention = Partial<Record<ChecksPanelId, number>>;
@@ -56,7 +57,7 @@ export function PageChecks(props: {
     onAttentionChange?: (attention: ChecksAttention) => void;
 }) {
     const features = useToolbarFeatures();
-    if (!features.includes('accessibility') && !features.includes('seo')) return null;
+    if (!features.includes('accessibility') && !features.includes('seo') && !features.includes('consent')) return null;
     return <GuestNameProvider><PageChecksPanels {...props} panels={props.panels.filter(panel => features.includes(panel))} /></GuestNameProvider>;
 }
 
@@ -73,11 +74,12 @@ function PageChecksPanels({ panels, collapsed, onClose, onShowComment, onAttenti
     panelsRef.current = panels;
     const accessibilityOpen = panels.includes('accessibility');
     const seoOpen = panels.includes('seo');
+    const consentOpen = panels.includes('consent');
     const announce = useAnnounce();
     const [accessibility, setAccessibility] = useState<AccessibilityState>({ checking: false });
     const [seo, setSeo] = useState<SeoReport>();
     // The sections whose checks run on demand, in the audit asset: their reports, kept like the two above
-    const enabledSections = useMemo(() => sectionDefinitions.filter(definition => definition.panel === 'seo' ? seoAvailable : accessibilityAvailable), [seoAvailable, accessibilityAvailable]);
+    const enabledSections = useMemo(() => sectionDefinitions.filter(definition => definition.panel === 'accessibility' ? accessibilityAvailable : features.includes(definition.panel)), [features, accessibilityAvailable]);
     const sections = useSectionsStore(path, enabledSections);
     const [posted, setPosted] = useState<ReadonlyMap<string, PostedComment>>(() => new Map());
     // The element outlined from a panel's issue, while that panel is open
@@ -255,6 +257,7 @@ function PageChecksPanels({ panels, collapsed, onClose, onShowComment, onAttenti
     };
     useEffect(() => opened('accessibility', accessibilityOpen), [accessibilityOpen]);
     useEffect(() => opened('seo', seoOpen), [seoOpen]);
+    useEffect(() => opened('consent', consentOpen), [consentOpen]);
     /** Stops waiting for the page to settle: the panels waiting check it now, except `except` (it checks it itself) */
     function stopSettling(except?: ChecksPanelId) {
         const waiting = settle.current;
@@ -352,6 +355,14 @@ function PageChecksPanels({ panels, collapsed, onClose, onShowComment, onAttenti
                         })} />
                 </ChecksContext>
             )}
+            {consentOpen && (
+                <ChecksContext value={actions('consent')}>
+                    <ConsentPanel onClose={() => onClose('consent')} onCheck={checkNow('consent', () => {
+                        setHighlighted(undefined);
+                        sections.runPanel('consent', { again: true });
+                    })} />
+                </ChecksContext>
+            )}
             {/* What was marked "Not an issue" in this browser is not counted */}
             {onAttentionChange && (
                 <ChecksAttentionReporter
@@ -359,6 +370,7 @@ function PageChecksPanels({ panels, collapsed, onClose, onShowComment, onAttenti
                     accessibilitySections={sectionsAttention(shownSections, 'accessibility')}
                     seo={shownSeo?.path === path ? shownSeo : undefined}
                     seoSections={sectionsAttention(shownSections, 'seo')}
+                    consentSections={sectionsAttention(shownSections, 'consent')}
                     onChange={onAttentionChange} />
             )}
             <PageSummaryReporter path={path}
@@ -376,17 +388,18 @@ function PageChecksPanels({ panels, collapsed, onClose, onShowComment, onAttenti
  * is used), each with what its panel's on-demand sections found. Its own component, so Core Web
  * Vitals' updates re-render only it.
  */
-function ChecksAttentionReporter({ accessibility, accessibilitySections, seo, seoSections, onChange }: {
+function ChecksAttentionReporter({ accessibility, accessibilitySections, seo, seoSections, consentSections, onChange }: {
     accessibility?: number;
     accessibilitySections: number;
     seo?: SeoReport;
     seoSections: number;
+    consentSections: number;
     onChange: (attention: ChecksAttention) => void;
 }) {
     const vitals = vitalChecks(useWebVitals());
     const seoCount = seo ? tally(seoChecks(seo, vitals), 'warn') + seoSections : seoSections || undefined;
     // Without the audit's report, only what the sections found (none: no dot and no count)
     const accessibilityCount = accessibility === undefined ? accessibilitySections || undefined : accessibility + accessibilitySections;
-    useEffect(() => onChange({ accessibility: accessibilityCount, seo: seoCount }), [accessibilityCount, seoCount]);
+    useEffect(() => onChange({ accessibility: accessibilityCount, seo: seoCount, consent: consentSections || undefined }), [accessibilityCount, seoCount, consentSections]);
     return null;
 }

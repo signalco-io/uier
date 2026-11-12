@@ -6,6 +6,17 @@
 const s = (count: number, one: string, other: string) => count === 1 ? one : other;
 
 export const en = {
+    consentPanel: {
+        title: 'Consent and cookies',
+        toReview: 'To review',
+        notes: 'Notes',
+        snapshot: 'Page snapshot',
+        before: 'Before consent',
+        observe: 'Observe for 15 seconds',
+        observing: 'Observing…',
+        instructions: 'Start in a fresh browser session before choosing. Wait 15 seconds before making a consent choice. This check does not change your choice or clear storage.',
+        limits: 'This page only. HttpOnly and third-party cookies, frame storage, IndexedDB, cache storage and server-side tracking are not visible here. Earlier consent and activity before the toolbar loaded are unknown. Names only; values are never sent. Categories are hints. Findings need review, not a legal compliance verdict. Names are shortened to hide identifiers.'
+    },
     common: {
         cancel: 'Cancel',
         close: 'Close',
@@ -48,6 +59,7 @@ export const en = {
             `${badge} unread ${count === 1 && !capped ? 'thread' : 'threads'}${count > 99 && !capped ? `, ${count} in total` : ''}`,
         accessibility: 'Accessibility',
         seo: 'SEO',
+        consent: 'Consent and cookies',
         about: 'About uier',
         draw: 'Draw on the page',
         collapse: 'Collapse toolbar'
@@ -838,7 +850,7 @@ export const en = {
         image: 'Image'
     },
     checks: {
-        kinds: { accessibility: 'Accessibility', seo: 'SEO', 'web-vitals': 'Core Web Vitals' },
+        kinds: { consent: 'Consent and cookies', accessibility: 'Accessibility', seo: 'SEO', 'web-vitals': 'Core Web Vitals' },
         highlight: 'Highlight',
         notAnIssue: 'Not an issue',
         /** "Comment posted as #12" */

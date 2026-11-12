@@ -37,6 +37,12 @@ issue.
   reasons under "axe-core could not decide:" and ends "A person needs to check this." with the standard
   and the rule's page.
 
+Consent and cookies also uses the finding controls: `review: true` on its findings, the shared
+Comment and Not an issue actions, stable `consent` check IDs and browser-local dismissal. The panel
+counts suggestions under **To review**, never as legal violations or automatic passes. It cannot
+automatically re-check a thread: consent timing requires another reviewer-controlled observation
+([scope and evidence](page-checks-consent.md)).
+
 ## Comment on all
 
 - Every `IssueList` (a rule's elements, an SEO check's, a section's `CheckItem`) offers **Comment on all
