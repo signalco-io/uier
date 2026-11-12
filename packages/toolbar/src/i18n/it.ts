@@ -542,6 +542,7 @@ export const it: Messages = {
         /** A shape in the drawing, by its place: "Rectangle 2" */
         shape: (name: string, number: number) => `${name} ${number}`,
         style: 'Stile',
+        noStyle: 'La sfocatura non ha colore né spessore',
         color: 'Colore',
         background: 'Sfondo',
         none: 'Nessuno',

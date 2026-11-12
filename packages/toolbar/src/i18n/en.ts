@@ -559,6 +559,8 @@ export const en = {
         /** A shape in the drawing, by its place: "Rectangle 2" */
         shape: (name: string, number: number) => `${name} ${number}`,
         style: 'Style',
+        /** The Style button's tooltip and description when the tool or shape (Blur) has no style */
+        noStyle: 'Blur has no colour or width',
         color: 'Colour',
         background: 'Background',
         none: 'None',

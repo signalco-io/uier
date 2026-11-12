@@ -92,6 +92,16 @@ test('canvas mode: draw shapes and a note, undo and redo, comment, and see the d
     await style.getByRole('radiogroup', { name: 'Outline' }).getByRole('radio', { name: 'Dashed' }).click();
     await expect(style.getByRole('radiogroup', { name: 'Outline' }).getByRole('radio', { name: 'Dashed' })).toHaveAttribute('aria-checked', 'true');
     await page.keyboard.press('Escape');
+    // Blur has no style: the button says why and opens nothing
+    await panel(page).getByRole('button', { name: 'Blur' }).click();
+    const styleButton = panel(page).getByRole('button', { name: 'Style' });
+    await expect(styleButton).toHaveAttribute('aria-disabled', 'true');
+    await expect(styleButton).toHaveAccessibleDescription('Blur has no colour or width');
+    await styleButton.focus();
+    await page.keyboard.press('Enter');
+    await expect(style).toHaveCount(0);
+    await panel(page).getByRole('button', { name: 'Pen' }).click();
+    await expect(styleButton).not.toHaveAttribute('aria-disabled');
 
     await panel(page).getByRole('button', { name: 'Comment' }).click();
     await expect(panel(page)).toHaveCount(0);

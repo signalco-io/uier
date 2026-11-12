@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Divider } from '@signalco/ui-primitives/Divider';
@@ -13,7 +13,7 @@ import { rovingIndex } from '../../keyboard';
 import { useRovingFocus } from '../../focusKeys';
 import { useMessages } from '../../i18n';
 import { InkScope, useInkContainer } from '../InkScope';
-import { IconTooltip } from '../IconTooltip';
+import { IconTooltip, useIconTooltip } from '../IconTooltip';
 import { floatingShadowClassName } from '../@types/Comments';
 import { drawColor } from './DrawingLayer';
 import { ArrowIcon, BlurIcon, BrushIcon, DiamondIcon, EllipseIcon, EraserIcon, LineIcon, MarkerIcon, PenIcon, RectangleIcon, SelectIcon, StyleIcon, TextIcon } from './CanvasIcons';
@@ -105,18 +105,26 @@ function StylePopover({ style, settings, onChange }: { style: DrawingStyle; sett
     const t = useMessages();
     const container = useInkContainer();
     const [open, setOpen] = useState(false);
+    // Blur has no colour, width or outline: the button stays focusable and says why instead of opening empty
+    const disabled = !Object.values(settings).some(Boolean);
+    const tip = useIconTooltip(disabled ? t.canvas.noStyle : t.canvas.style);
+    const reasonId = useId();
     const colorOptions = drawingColors.map(color => ({ value: color, label: t.canvas.colors[color], content: <Swatch color={color} /> }));
     return (
         <Popper
             container={container ?? undefined}
-            open={open}
-            onOpenChange={setOpen}
+            open={open && !disabled}
+            onOpenChange={next => setOpen(next && !disabled)}
             side="bottom"
             sideOffset={8}
             aria-label={t.canvas.style}
             className={cx('z-[53] flex w-64 flex-col gap-3 rounded-xl p-3', floatingShadowClassName)}
             trigger={(
-                <IconButton variant={open ? 'soft' : 'plain'} className="rounded-full" aria-label={t.canvas.style} aria-expanded={open}>
+                <IconButton variant={open && !disabled ? 'soft' : 'plain'} className={cx('rounded-full', disabled && 'cursor-default opacity-40')} {...tip.triggerProps}
+                    aria-label={t.canvas.style} aria-expanded={open && !disabled} aria-disabled={disabled || undefined}
+                    aria-describedby={disabled ? reasonId : undefined} data-uier-canvas-style="">
+                    {tip.tooltip}
+                    {disabled && <span id={reasonId} hidden>{t.canvas.noStyle}</span>}
                     <span className="relative">
                         <StyleIcon />
                         <span aria-hidden="true" className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full border border-background" style={{ background: drawColor(style.color) }} />

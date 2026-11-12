@@ -541,6 +541,7 @@ export const de: Messages = {
         /** A shape in the drawing, by its place: "Rectangle 2" */
         shape: (name: string, number: number) => `${name} ${number}`,
         style: 'Stil',
+        noStyle: 'Weichzeichnen hat keine Farbe oder Breite',
         color: 'Farbe',
         background: 'Hintergrund',
         none: 'Keiner',
