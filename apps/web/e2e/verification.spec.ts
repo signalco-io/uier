@@ -1,3 +1,4 @@
+import { enableProjectVerification } from './support/app';
 import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 import { backToComments, createProject, openComment, selectThread, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
@@ -11,6 +12,7 @@ test.afterAll(async () => { await site.close(); });
 async function fixture(page: Page, request: APIRequestContext) {
     await signIn(page, uniqueEmail('verification'));
     const project = await createProject(page, { urls: [site.origin()] });
+    await enableProjectVerification(page, project);
     await setProjectAccess(page, project, 'Anyone with the link');
     const headers = await verifiedReviewHeaders(request, project, site.origin());
     const response = await request.post(`/api/review/${project}/comments`, { headers, data: {
@@ -60,10 +62,12 @@ for (const colorScheme of ['light', 'dark'] as const) {
         try {
             await guest.goto(`${site.origin()}/${f.project}/checkout?review=true`);
             await expect(toolbar(guest)).toBeVisible();
-            await guest.getByRole('button', { name: /^Inbox/ }).click();
+            if (await guest.getByRole('button', { name: /^Inbox/ }).getAttribute('aria-expanded') !== 'true') await guest.getByRole('button', { name: /^Inbox/ }).click();
             const inbox = guest.getByRole('complementary', { name: 'Comments' });
-            await inbox.getByRole('button', { name: /^Ready to verify/ }).click();
-            await expect(inbox.getByRole('button', { name: /^Ready to verify/ })).toHaveAttribute('aria-pressed', 'true');
+            await inbox.getByRole('button', { name: 'Active statuses', exact: true }).click();
+            await guest.getByRole('dialog', { name: 'Active statuses', exact: true }).getByRole('button', { name: /^Ready to verify/ }).click();
+            await expect(guest.getByRole('dialog', { name: 'Active statuses', exact: true })).toBeHidden();
+            await expect(inbox.getByRole('button', { name: /^Active: Ready to verify/ })).toHaveAttribute('aria-pressed', 'true');
             await expect(inbox.getByRole('article')).toHaveCount(1);
             await expectNoAxeViolations(guest);
             await guest.screenshot({ path: testInfo.outputPath(`verification-inbox-${colorScheme}.png`) });
@@ -80,8 +84,10 @@ for (const colorScheme of ['light', 'dark'] as const) {
             await page.keyboard.press('Escape');
             await expect(page.getByRole('region', { name: 'Ready to verify comments', exact: true }).getByRole('listitem')).toHaveCount(1);
             await guest.reload();
-            await guest.getByRole('button', { name: /^Inbox/ }).click();
-            await inbox.getByRole('button', { name: /^Ready to verify/ }).click();
+            if (await guest.getByRole('button', { name: /^Inbox/ }).getAttribute('aria-expanded') !== 'true') await guest.getByRole('button', { name: /^Inbox/ }).click();
+            await inbox.getByRole('button', { name: 'Active statuses', exact: true }).click();
+            await guest.getByRole('dialog', { name: 'Active statuses', exact: true }).getByRole('button', { name: /^Ready to verify/ }).click();
+            await expect(guest.getByRole('dialog', { name: 'Active statuses', exact: true })).toBeHidden();
             const confirm = inbox.getByRole('button', { name: 'Confirm fix', exact: true });
             await confirm.focus();
             const confirmed = guest.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === `/api/review/${f.project}/comments/${f.comment.id}/verification`);
@@ -96,7 +102,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
             await page.screenshot({ path: testInfo.outputPath(`verification-${colorScheme}.png`) });
             await expectNoAxeViolations(page);
             await guest.reload();
-            await guest.getByRole('button', { name: /^Inbox/ }).click();
+            if (await guest.getByRole('button', { name: /^Inbox/ }).getAttribute('aria-expanded') !== 'true') await guest.getByRole('button', { name: /^Inbox/ }).click();
             await inbox.getByRole('button', { name: /^Done \d/ }).click();
             await expect(inbox.getByRole('article')).toContainText('Fix confirmed by Original reviewer');
         } finally { await guestContext.close(); }
@@ -118,7 +124,8 @@ test('ordinary Done and Reopen stay unconfirmed and retain replies, search and s
     const done = await openComment(page, 'Checkout needs a fix');
     await expect(done).toContainText('Done without reviewer confirmation');
     await expect(done.getByRole('button', { name: 'Confirm fix', exact: true })).toHaveCount(0);
-    await page.keyboard.press('Escape');
+    await backToComments(page);
+    await page.reload();
     await selectThread(page, f.comment.number);
     await page.getByRole('button', { name: 'Reopen selected', exact: true }).click();
     await expect(page.getByRole('region', { name: 'Open comments', exact: true }).getByRole('listitem')).toHaveCount(1);
@@ -161,7 +168,7 @@ test('members request and cancel from the toolbar using the existing participant
     const ready = inbox.getByRole('button', { name: 'Status: Ready to verify. Change status', exact: true });
     await ready.click();
     const statusMenu = page.getByRole('dialog', { name: 'Status', exact: true });
-    await expect(statusMenu.getByRole('button')).toHaveText(['Open', 'In progress', 'Ready to verify', 'Done without verification']);
+    await expect(statusMenu.getByRole('button')).toHaveText(['Open', 'In progress', 'Ready to verify', 'Done without verification', 'Archive']);
     await page.keyboard.press('Escape');
     await expect(ready).toBeFocused();
     await setThreadStatus(page, inbox.getByRole('article'), 'In progress');
@@ -196,4 +203,63 @@ test('the status menu lists every status; Open and In progress from Ready to ver
     await expect(card).toContainText('Request canceled.');
     await page.reload();
     await expect(card.getByRole('button', { name: 'Status: In progress. Change status', exact: true })).toBeVisible();
+});
+
+test('verification is off by default, and disabling it leaves pending threads reachable and closable in app and toolbar', async ({ page, request, baseURL }) => {
+    test.setTimeout(90_000);
+    const site = await startReviewedSite(baseURL!);
+    try {
+        await signIn(page, uniqueEmail('verification-toggle'));
+        const project = await createProject(page, { name: 'Optional verification', urls: [site.origin()] });
+        await setProjectAccess(page, project, 'Anyone with the link');
+        await page.goto(`/app/projects/${project}/settings/review`);
+        const review = page.getByRole('region', { name: 'Review', exact: true });
+        const toggle = review.getByRole('checkbox', { name: 'Enable fix verification', exact: true });
+        await expect(toggle).not.toBeChecked();
+        await expect(review.getByRole('group', { name: 'Ready to verify', exact: true })).toHaveCount(0);
+        await enableProjectVerification(page, project);
+        await expect(toggle).toBeChecked();
+        await review.getByRole('combobox', { name: 'Status defaults', exact: true }).click();
+        await page.getByRole('option', { name: 'Project override', exact: true }).click();
+        await review.getByRole('button', { name: 'Add status to Ready to verify', exact: true }).click();
+        await review.getByRole('group', { name: 'Ready to verify', exact: true }).getByLabel('Status name', { exact: true }).last().fill('QA');
+        await review.getByRole('button', { name: 'Save', exact: true }).click();
+        await expect(review.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+        const headers = await verifiedReviewHeaders(request, project, site.origin());
+        const response = await request.post(`/api/review/${project}/comments`, { headers, data: {
+            path: `/${project}/checkout`, text: 'Pending when verification turns off', authorName: 'Original reviewer', position: { type: 'page' }, kind: 'feedback'
+        } });
+        expect(response.status()).toBe(201);
+        const comment = await response.json();
+        await page.goto(`/app/projects/${project}?view=board`);
+        const card = await openComment(page, comment.number);
+        const form = await openRequestForm(page, card);
+        await form.getByRole('button', { name: 'Request verification', exact: true }).click();
+        await expect(card.getByRole('button', { name: /^Status: Ready to verify/ })).toBeVisible();
+        await page.goto(`/app/projects/${project}/settings/review`);
+        await toggle.uncheck();
+        await review.getByRole('button', { name: 'Save', exact: true }).click();
+        await expect(review.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+        await page.reload();
+        await expect(toggle).not.toBeChecked();
+        await page.goto(`/app/projects/${project}?view=board&status=ready`);
+        await expect(page.getByRole('region', { name: 'Ready to verify comments', exact: true })).toHaveCount(0);
+        await expect(page.getByRole('region', { name: 'QA comments', exact: true })).toHaveCount(0);
+        const dormant = await openComment(page, comment.number);
+        await dormant.getByRole('button', { name: /^Status: Open/ }).click();
+        await expect(page.getByRole('menuitem', { name: 'Ready to verify', exact: true })).toHaveCount(0);
+        await expect(page.getByRole('menuitem', { name: 'QA', exact: true })).toHaveCount(0);
+        await page.keyboard.press('Escape');
+        await page.goto(`/app/review/${project}?url=${encodeURIComponent(`${site.origin()}/${project}/checkout`)}`);
+        await page.getByRole('button', { name: /^Inbox/ }).click();
+        const thread = page.getByRole('complementary', { name: 'Comments' }).getByRole('article');
+        await thread.getByRole('button', { name: /^Status: Open/ }).click();
+        const menu = page.getByRole('dialog', { name: 'Status', exact: true });
+        await expect(menu.getByRole('button', { name: 'Ready to verify', exact: true })).toHaveCount(0);
+        await expect(menu.getByRole('button', { name: 'QA', exact: true })).toHaveCount(0);
+        await menu.getByRole('button', { name: 'Done', exact: true }).click();
+        const saved = await request.get(`/api/review/${project}/comments/${comment.id}`, { headers });
+        await expect.poll(async () => (await (await request.get(`/api/review/${project}/comments/${comment.id}`, { headers })).json()).resolved).toBe(true);
+        expect(saved.ok()).toBe(true);
+    } finally { await site.close(); }
 });

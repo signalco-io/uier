@@ -16,7 +16,7 @@ import type { ToolbarLanguageInfo } from '../languages';
 
 /** GET /api/review/<project> (apps/web/src/lib/review/routes.ts) */
 export type ReviewInfo = {
-    project: { id: string; name: string; access: 'invited' | 'guests' | 'disabled'; brief?: string; feedbackTypes?: FeedbackType[]; toolbarFeatures?: ToolbarFeature[]; pageState?: PageStatePolicy; environments?: { origin: string; label: string; group?: string }[]; environmentOptions?: { id: string; label: string }[] };
+    project: { verificationEnabled?: boolean; id: string; name: string; access: 'invited' | 'guests' | 'disabled'; brief?: string; feedbackTypes?: FeedbackType[]; toolbarFeatures?: ToolbarFeature[]; pageState?: PageStatePolicy; environments?: { origin: string; label: string; group?: string }[]; environmentOptions?: { id: string; label: string }[] };
     viewer: { kind: 'member' | 'guest' | 'anonymous'; name?: string; isAdmin?: boolean; draftScope?: string };
     canComment: boolean;
     /** Review link of the project on uier: signs in and comes back (add `url`) */
@@ -78,6 +78,7 @@ export async function loadReviewInfo() {
 export type ProjectViewer = {
     publicId?: string;
     access?: ReviewInfo['project']['access'];
+    verificationEnabled?: boolean;
     brief?: string;
     feedbackTypes?: FeedbackType[];
     toolbarFeatures?: ToolbarFeature[];
@@ -234,7 +235,7 @@ function ProjectEnvironmentProvider({ info, children }: PropsWithChildren<{ info
     return <ProjectViewerContext.Provider value={{
         publicId: info.project.id,
         toolbarFeatures: info.project.toolbarFeatures,
-        access: info.project.access, brief: info.project.brief, feedbackTypes: info.project.feedbackTypes,
+        verificationEnabled: info.project.verificationEnabled === true, access: info.project.access, brief: info.project.brief, feedbackTypes: info.project.feedbackTypes,
         isMember: info.viewer.kind === 'member', draftScope: info.viewer.draftScope,
         needsName: info.viewer.kind !== 'member', pageState: info.project.pageState ?? defaultPageStatePolicy,
         currentEnvironment, environment, environmentLabel: current?.label, environmentOptions: options, setEnvironment,

@@ -1,3 +1,4 @@
+import { enableProjectVerification } from './support/app';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { createProject, hydrated, openBoardMove, openComment, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
@@ -26,6 +27,7 @@ test('workspace statuses inherit, project overrides save/discard, and board/menu
     try {
         await signIn(page, uniqueEmail('custom-status'));
         const project = await createProject(page, { name: 'Custom workflow', urls: [site.origin()] });
+        await enableProjectVerification(page, project);
         await setProjectAccess(page, project, 'Anyone with the link');
         await page.goto('/app/workspace/settings');
         const workspace = page.getByRole('region', { name: 'Statuses', exact: true });
@@ -109,6 +111,7 @@ test('toolbar custom status menu groups descriptions and persists moves within a
     try {
         await signIn(page, uniqueEmail('toolbar-workflow'));
         const project = await createProject(page, { urls: [site.origin()] });
+        await enableProjectVerification(page, project);
         await page.goto(`/app/projects/${project}/settings/review`);
         const review = page.getByRole('region', { name: 'Review', exact: true });
         await hydrated(review.locator('form'));

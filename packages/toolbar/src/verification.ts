@@ -6,8 +6,8 @@ export type VerificationDetails = {
     decision?: { kind: 'confirm' | 'reject' | 'cancel'; actor: string; at: string; override: boolean };
 };
 export type VerificationPermissions = { selfId?: string; request: boolean; respond: boolean; cancel: boolean; override: boolean; defaultReviewer: boolean };
-export function readyForReview(comment: { resolved?: boolean; verification?: { outcome: VerificationOutcome } }) {
-    return !comment.resolved && comment.verification?.outcome === 'pending';
+export function readyForReview(comment: { verificationEnabled?: boolean; resolved?: boolean; verification?: { outcome: VerificationOutcome } }) {
+    return comment.verificationEnabled !== false && !comment.resolved && comment.verification?.outcome === 'pending';
 }
 
 /**
@@ -24,10 +24,10 @@ export const feedbackStageLabels: Record<FeedbackStage, string> = { open: 'Open'
 export type FeedbackStatusTarget = Exclude<FeedbackStage, 'ready'>;
 export const feedbackStatusTargets = ['open', 'in-progress', 'done'] as const satisfies readonly FeedbackStatusTarget[];
 
-export function feedbackStage(comment: { resolved?: boolean; inProgress?: boolean; verification?: { outcome: VerificationOutcome } }): FeedbackStage {
+export function feedbackStage(comment: { verificationEnabled?: boolean; resolved?: boolean; inProgress?: boolean; verification?: { outcome: VerificationOutcome } }): FeedbackStage {
     return comment.resolved ? 'done' : readyForReview(comment) ? 'ready' : comment.inProgress ? 'in-progress' : 'open';
 }
-export function feedbackStatus(comment: { resolved?: boolean; inProgress?: boolean; verification?: { outcome: VerificationOutcome } }) {
+export function feedbackStatus(comment: { verificationEnabled?: boolean; resolved?: boolean; inProgress?: boolean; verification?: { outcome: VerificationOutcome } }) {
     return feedbackStageLabels[feedbackStage(comment)];
 }
 function displayTime(value: string) {
@@ -44,7 +44,7 @@ export function verificationDescription(v: VerificationDetails) {
 }
 
 /** Optimistic boolean status changes cannot display a stale current verification claim. */
-export function displayedVerification(comment: { resolved?: boolean; verification?: VerificationDetails }) {
+export function displayedVerification(comment: { verificationEnabled?: boolean; resolved?: boolean; verification?: VerificationDetails }) {
     const v = comment.verification;
     return v && comment.resolved && v.outcome === 'pending' ? { ...v, outcome: 'unconfirmed' as const }
         : v && !comment.resolved && v.outcome === 'confirmed' ? { ...v, outcome: 'reopened' as const } : v;

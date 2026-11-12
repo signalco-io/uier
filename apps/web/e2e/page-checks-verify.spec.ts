@@ -1,3 +1,4 @@
+import { enableProjectVerification } from './support/app';
 import { expect, test, type Page } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
@@ -28,6 +29,7 @@ test('a finding posted from a panel is checked again in its thread: still found,
     test.setTimeout(90_000);
     await signIn(page, uniqueEmail('verify-panel'));
     const project = await createProject(page, { urls: [origin()] });
+        await enableProjectVerification(page, project);
     await memberReview(page, project);
 
     // The Accessibility panel posts the image's finding, the SEO panel the link's
@@ -84,6 +86,7 @@ test('a Ready to verify thread checks its finding when it opens; a check that ca
     test.setTimeout(120_000);
     await signIn(page, uniqueEmail('verify-ready'));
     const project = await createProject(page, { urls: [origin()] });
+        await enableProjectVerification(page, project);
     await setProjectAccess(page, project, 'Anyone with the link');
     // A guest posted the findings (with their checks, as the panels do), so a member can ask them to verify
     const headers = await verifiedReviewHeaders(request, project, origin());

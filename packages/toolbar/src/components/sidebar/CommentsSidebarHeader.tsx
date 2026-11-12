@@ -1,6 +1,5 @@
 import { Fragment, useContext, useId, useRef, useState } from 'react';
 import { IconTooltip, useIconTooltip } from '../IconTooltip';
-import { useProjectViewer } from '../../project/ProjectGate';
 import { Row } from '@signalco/ui-primitives/Row';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
@@ -9,6 +8,7 @@ import { cx } from '@signalco/ui-primitives/cx';
 import { ExpandDown, PanelRightClose } from '@signalco/ui-icons';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Stack } from '@signalco/ui-primitives/Stack';
+import { useProjectViewer } from '../../project/ProjectGate';
 import { activeStatusFilters, doneStatusFilters, isActiveStatusFilter, isDoneStatusFilter, type CommentsStatusFilter } from './CommentsFilter';
 import { CommentsBootstrapperContext } from '../CommentsBootstrapperContext';
 import { StatusDot } from '../CommentThreadHeader';
@@ -82,6 +82,7 @@ export function CommentsStatusTabs({ status, counts, unread = {}, onStatusChange
     // One tab stop, like tabs: the chosen one; ← and → move between them, Enter or Space chooses
     const ref = useRef<HTMLDivElement>(null);
     const roving = useRovingFocus(ref, { orientation: 'horizontal', preferred: () => ref.current?.querySelector<HTMLElement>('[aria-pressed="true"]') });
+    const verificationEnabled = useProjectViewer().verificationEnabled === true;
     const activeShown = isActiveStatusFilter(status);
     const activeValue = activeShown ? status : 'unresolved';
     const activeLabel = activeValue === 'unresolved' ? statusLabels.unresolved : t.inbox.activeOne(statusLabels[activeValue]);
@@ -100,7 +101,7 @@ export function CommentsStatusTabs({ status, counts, unread = {}, onStatusChange
                     onClick={() => onStatusChange('unresolved')}>
                     {activeLabel} <span className="font-normal tabular-nums text-muted-foreground">{counts[activeValue]}</span><TabUnread unread={unread[activeValue]} />
                 </Button>
-                <StatusesMenu label={t.inbox.activeStatuses} values={['unresolved', ...activeStatusFilters]} status={status} counts={counts} unread={unread} unreadId={unreadId} onStatusChange={onStatusChange} />
+                <StatusesMenu label={t.inbox.activeStatuses} values={['unresolved', ...activeStatusFilters.filter(value => verificationEnabled || value !== 'ready')]} status={status} counts={counts} unread={unread} unreadId={unreadId} onStatusChange={onStatusChange} />
             </Row>
             <Row className="-mb-px">
                 <Button size="sm" variant="plain" aria-pressed={doneShown} aria-describedby={described(doneValue)}

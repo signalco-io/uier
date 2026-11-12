@@ -3,6 +3,7 @@ import { setProjectCommentWorkflowStatus } from './comments';
 import { feedbackStatusTargets } from '@uier/toolbar/verification';
 import { workflowStatusIdSchema } from '../app/statusWorkflowSchema';
 import { defaultFeedbackTypes, type FeedbackType } from '@uier/toolbar/feedback-types';
+import { orderedStatuses } from '../app/statusWorkflow';
 import { loadStatusWorkflow } from '../app/statusWorkflows';
 import { loadFeedbackTypes } from '../app/feedbackTypes';
 import { changeFixVerification } from './fixVerification';
@@ -78,7 +79,8 @@ function writerName(actor: ProjectActor, authorName: string | undefined) {
 /** Workflow names, descriptions and defaults are member-only configuration. */
 export async function getReviewStatuses({ project, actor }: ReviewApiContext) {
     if (actor.kind !== 'member') throw apiErrors.forbidden('Only project members can view status workflows.');
-    return Response.json(await loadStatusWorkflow(project));
+    const workflow = await loadStatusWorkflow(project);
+    return Response.json({ ...workflow, statuses: orderedStatuses(workflow) });
 }
 
 /**
@@ -87,7 +89,7 @@ export async function getReviewStatuses({ project, actor }: ReviewApiContext) {
  * the project's admins, and saved threads show their own type snapshot.
  */
 export function reviewProjectDto(project: PublicProject, canComment: boolean, feedbackTypes: readonly FeedbackType[] = defaultFeedbackTypes, isMember = false) {
-    return { id: project.publicId, name: project.name, access: project.access, pageState: pageStatePolicy(project.pageState), ...(canComment ? { toolbarFeatures: resolveToolbarFeatures(project.toolbarFeatures, isMember), brief: project.brief, feedbackTypes: feedbackTypes.filter(type => type.enabled), environments: configuredEnvironments(project), environmentOptions: environmentOptions(project) } : {}) };
+    return { verificationEnabled: project.verificationEnabled === true, id: project.publicId, name: project.name, access: project.access, pageState: pageStatePolicy(project.pageState), ...(canComment ? { toolbarFeatures: resolveToolbarFeatures(project.toolbarFeatures, isMember), brief: project.brief, feedbackTypes: feedbackTypes.filter(type => type.enabled), environments: configuredEnvironments(project), environmentOptions: environmentOptions(project) } : {}) };
 }
 
 /** GET /api/review/<code>: the project, the reviewer and whether they can comment */

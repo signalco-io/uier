@@ -173,6 +173,7 @@ export async function createProject(context: AppContext, { name, urls, clientNam
 
 export type ProjectUpdate = Partial<{
     threadLabels: DbProject['threadLabels'];
+    verificationEnabled: boolean;
     statusWorkflow: DbProject['statusWorkflow'];
     toolbarFeatures: DbProject['toolbarFeatures'];
     rewriteInstructions: import('./inheritedSettings').ProjectSetting<string> | undefined;
@@ -193,6 +194,7 @@ export type ProjectUpdate = Partial<{
 
 export async function updateProject(workspaceId: string, projectId: string, update: ProjectUpdate) {
     assertMutableProject(workspaceId, projectId);
+    if (update.verificationEnabled !== undefined) update = { ...update, verificationEnabled: z.boolean().parse(update.verificationEnabled) };
     if (update.rewriteInstructions !== undefined)
         update = { ...update, rewriteInstructions: projectRewriteInstructionsSchema.parse(update.rewriteInstructions) };
     if (update.toolbarFeatures !== undefined) update = { ...update, toolbarFeatures: toolbarFeatureVisibilitySchema.parse(update.toolbarFeatures) };

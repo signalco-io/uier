@@ -35,7 +35,11 @@ export function allowedQueryFields(sources: QuerySource[]): FieldId[] {
     return queryFields.filter(field => (!memberOnly.includes(field) || member(sources)) && (!identifiedOnly.includes(field) || sources.every(s => actorAuthorId(s.actor))) && (!adminOnly.includes(field) || admin(sources)));
 }
 export function capabilities(sources: QuerySource[]) {
-    return { ...queryCapabilities(allowedQueryFields(sources)), namedAuthors: admin(sources), pagination: 'live-keyset' as const,
+    const contract = queryCapabilities(allowedQueryFields(sources));
+    if (!sources.some(source => source.project?.verificationEnabled === true)) {
+        contract.fields = contract.fields.map(field => field.id === 'status' ? { ...field, values: field.values?.filter(value => value !== 'ready') } : field);
+    }
+    return { ...contract, namedAuthors: admin(sources), pagination: 'live-keyset' as const,
         totals: 'exact' as const, facetable: allowedQueryFields(sources).filter(field => ['enum', 'set', 'boolean'].includes(fieldRegistry[field].type) && (!['author', 'openedBy'].includes(field) || admin(sources))), optionsPageSize: 100, pageSize: 100 };
 }
 function conditions(expression: Expression | undefined): Condition[] {
@@ -84,7 +88,7 @@ export function queryRow(candidate: CommentQueryCandidate, source: QuerySource, 
     const excerpt = first && !first.deletedAt ? (first.text ?? '').slice(0, 240) : '';
     const text = items.flatMap(item => [item.text ?? '', item.quotedText ?? '']).join('\n');
     const authorName = (id: string | undefined, fallback?: string) => id?.startsWith('user:') ? names.get(id.slice(5)) ?? 'Former member' : fallback ?? 'Guest';
-    const status = candidate.resolved ? 'done' : candidate.verification?.outcome === 'pending' ? 'ready' : candidate.inProgress ? 'in-progress' : 'open';
+    const status = candidate.resolved ? 'done' : (!source.project || source.project.verificationEnabled === true) && candidate.verification?.outcome === 'pending' ? 'ready' : candidate.inProgress ? 'in-progress' : 'open';
     const priority = ['urgent', 'high', 'low'].includes(candidate.priority ?? '') ? candidate.priority! : 'normal';
     const assignees = candidate.assigneeIds ?? (candidate.assigneeId ? [candidate.assigneeId] : []);
     const environment = source.project ? feedbackSource(source.project, candidate.origin).environment : candidate.origin || 'unknown';
@@ -162,7 +166,7 @@ async function matchingRows(query: QueryDocument, context: QueryExecutionContext
             const evaluation: EvaluationContext = { viewerId, evaluationTime, currentPage: context.currentPage, currentEnvironment: context.currentEnvironment };
             const [candidates, reads, workspace, names] = await Promise.all([
                 getCommentsStore().queryCandidates(source.domain, { origin: locationOriginFilter(query, source, context.currentEnvironment), visibility: commentVisibilityFilter(source.domain, source.actor),
-                    archive: query.collection === 'archived' ? 'only' : 'exclude', predicate: compileCandidatePredicate(query, evaluation),
+                    archive: query.collection === 'archived' ? 'only' : 'exclude', predicate: compileCandidatePredicate(query, evaluation, !source.project || source.project.verificationEnabled === true),
                     maxRequestCharge: Math.max(1, Math.floor(10000 / Math.max(1, context.sources.length))), signal }),
                 loadReadSequences(source.domain, viewerId), source.project ? getWorkspace(source.project.workspaceId) : null,
                 source.project ? participantNames(source.project) : new Map<string, string>()

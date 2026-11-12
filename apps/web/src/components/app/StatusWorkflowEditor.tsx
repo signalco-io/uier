@@ -9,7 +9,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet 
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
-export function StatusWorkflowEditor({ value, onChange, disabled = false }: { value: StatusWorkflow; onChange: (value: StatusWorkflow) => void; disabled?: boolean }) {
+export function StatusWorkflowEditor({ value, onChange, disabled = false, verificationEnabled = true }: { verificationEnabled?: boolean; value: StatusWorkflow; onChange: (value: StatusWorkflow) => void; disabled?: boolean }) {
     const { t } = useAppI18n();
     const id = useId();
     const change = (status: WorkflowStatus, patch: Partial<WorkflowStatus>) => onChange({ ...value, statuses: value.statuses.map(item => item.id === status.id ? { ...item, ...patch } : item) });
@@ -29,7 +29,7 @@ export function StatusWorkflowEditor({ value, onChange, disabled = false }: { va
     };
     return <FieldGroup>
         <FieldDescription>{t('Statuses keep their category. Filters and verification follow the category. Removed statuses return existing threads to a status in the same category.')}</FieldDescription>
-        {statusCategories.map(category => {
+        {statusCategories.filter(category => verificationEnabled || category !== 'ready').map(category => {
             const statuses = value.statuses.filter(status => status.category === category);
             return <FieldSet key={category} disabled={disabled} className="min-w-0 rounded-xl border p-4">
                 <FieldLegend variant="label">{t(statusCategoryLabels[category])}</FieldLegend>

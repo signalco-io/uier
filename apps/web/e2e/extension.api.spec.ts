@@ -395,7 +395,7 @@ test('extension site lists page through the broker: the second page continues af
 test('extension workflow discovery uses the allowed GET operation and current member authority', async () => {
     const { getReviewStatuses } = await import('../src/lib/review/routes');
     const GET = extensionHandler(async request => getReviewStatuses(await extensionReviewContext(request)));
-    const { defaultStatusWorkflow } = await import('../src/lib/app/statusWorkflow');
+    const { defaultStatusWorkflow, orderedStatuses } = await import('../src/lib/app/statusWorkflow');
     const { allowedExtensionOperation, extensionOperation } = await import('@uier/toolbar/extension-contract');
     const f = await fixture();
     const workflow = { ...structuredClone(defaultStatusWorkflow), statuses: [...defaultStatusWorkflow.statuses,
@@ -407,7 +407,7 @@ test('extension workflow discovery uses the allowed GET operation and current me
     for (const method of ['POST', 'PATCH', 'DELETE']) expect(allowedExtensionOperation('statuses', method)).toBe(false);
     const response = await GET(request('review/statuses', scoped.token));
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual(workflow);
+    expect(await response.json()).toEqual({ ...workflow, verificationEnabled: false, statuses: orderedStatuses({ ...workflow, verificationEnabled: false }) });
     await getAppStore().delete(workspacePk(f.project.workspaceId), memberId(f.user.id));
     expect((await GET(request('review/statuses', scoped.token))).status).toBe(401);
 });

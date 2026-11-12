@@ -6,7 +6,7 @@ type Compiled = { sql: string; exact: boolean; test: (record: QueryRecord, candi
 const residual: Compiled = { sql: 'true', exact: false, test: () => true };
 
 /** Every emitted expression is Boolean, including for missing Cosmos properties under NOT. */
-export function compileCandidatePredicate(query: QueryDocument, context: EvaluationContext): CommentCandidatePredicate | undefined {
+export function compileCandidatePredicate(query: QueryDocument, context: EvaluationContext, verificationEnabled = true): CommentCandidatePredicate | undefined {
     const parameters: SqlParameter[] = [];
     const param = (value: SqlParameter['value']) => { const name = `@q${parameters.length}`; parameters.push({ name, value }); return name; };
     const resolve = (input: unknown) => input && typeof input === 'object' && 'relative' in input ? context.viewerId : input;
@@ -14,7 +14,7 @@ export function compileCandidatePredicate(query: QueryDocument, context: Evaluat
         const scalar: Partial<Record<Condition['field'], string>> = {
             page: 'c.path', number: 'c.number', openedBy: 'c.authorId',
             private: 'IIF(c.private = true, true, false)',
-            status: 'IIF(c.resolved = true, "done", IIF(c.verification.outcome = "pending", "ready", IIF(c.inProgress = true, "in-progress", "open")))',
+            status: verificationEnabled ? 'IIF(c.resolved = true, "done", IIF(c.verification.outcome = "pending", "ready", IIF(c.inProgress = true, "in-progress", "open")))' : 'IIF(c.resolved = true, "done", IIF(c.inProgress = true, "in-progress", "open"))',
             priority: 'IIF(c.priority IN ("urgent", "high", "low"), c.priority, "normal")'
         };
         const column = scalar[condition.field];
@@ -138,7 +138,7 @@ export function compileCandidatePredicate(query: QueryDocument, context: Evaluat
     return { clause: compiled.sql, parameters, test: candidate => compiled.test({
         id: candidate.id, scopeKey: candidate.domain,
         fields: { page: candidate.path, number: candidate.number, openedBy: candidate.authorId, private: candidate.private === true,
-            status: candidate.resolved ? 'done' : candidate.verification?.outcome === 'pending' ? 'ready' : candidate.inProgress ? 'in-progress' : 'open',
+            status: candidate.resolved ? 'done' : verificationEnabled && candidate.verification?.outcome === 'pending' ? 'ready' : candidate.inProgress ? 'in-progress' : 'open',
             priority: ['urgent', 'high', 'low'].includes(candidate.priority ?? '') ? candidate.priority : 'normal' }, searchText: ''
     }, candidate) };
 }

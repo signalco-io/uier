@@ -38,7 +38,7 @@ async function fixture() {
     const otherOwner = await findOrCreateUser(`integration-other-${id}@example.com`);
     const workspaceId = `w_${owner.id}`;
     const bindings = Object.fromEntries(providers.map(provider => [provider, { connectionId: `${provider}_${id}`, since: old }]));
-    const project: DbProject = { type: 'project', pk: workspacePk(workspaceId), id, workspaceId,
+    const project: DbProject = { verificationEnabled: true, type: 'project', pk: workspacePk(workspaceId), id, workspaceId,
         name: `Integration project ${id}`, urls: ['https://reviewed.example'], status: 'active', access: 'invited',
         createdBy: owner.id, createdAt: old, updatedAt: old, integrations: bindings };
     await store.create(project);

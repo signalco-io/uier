@@ -67,8 +67,9 @@ export type FilterProject = { id: string; name: string; url?: string };
  * Comments of several projects (My work) pass `projects` for a Project filter (`?project=`) and leave out what only
  * one project has (`environments`, `statusCounts`).
  */
-export function CommentFilters({ className, unread, unreadCount, view, onView, status, statusCounts, statusUnread, people, page, pages = [], environment, environments, historySources, author, search, onSearch, priority, countLine, project, projects, labels, label }: {
+export function CommentFilters({ className, unread, unreadCount, view, onView, status, statusCounts, statusUnread, people, page, pages = [], environment, environments, historySources, author, search, onSearch, priority, countLine, project, projects, labels, label, verificationEnabled = false }: {
     /** The header's width: the list's or the board's (ProjectComments) */
+    verificationEnabled?: boolean;
     className?: string;
     /**
      * The count line's unread count and Mark all as read, shown in the search row left of Filter when the comments are
@@ -168,7 +169,7 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
                     their own line under the row, before the filters in effect. The board shows the statuses side by side,
                     with Archive as its last column. Open, In progress and Ready to verify fold under Active, Archive under
                     Done: each menu picks one, and the tab then names it. */}
-                {view === 'list' && statusCounts && <StatusTabs status={status ?? 'active'} counts={statusCounts} unread={statusUnread ?? {}} onStatus={value => go({ status: value === 'active' ? undefined : value })} />}
+                {view === 'list' && statusCounts && <StatusTabs verificationEnabled={verificationEnabled} status={status ?? 'active'} counts={statusCounts} unread={statusUnread ?? {}} onStatus={value => go({ status: value === 'active' ? undefined : value })} />}
                 {(active > 0 || countLine) && (
                     // Right-aligned against Filter: the count line first, so the filters in effect stay where they are
                     // when the count appears or goes to zero
@@ -224,14 +225,14 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
                             {view === 'board' && statusCounts && (
                                 <Field>
                                     <FieldLabel htmlFor="filter-status">{t("Status")}</FieldLabel>
-                                    <Select items={{ all: t("All statuses"), ...Object.fromEntries(boardStatusFilters.map(value => [value, t(statusFilterLabels[value])])) }} value={boardStatus ?? 'all'}
+                                    <Select items={{ all: t("All statuses"), ...Object.fromEntries(boardStatusFilters.filter(value => verificationEnabled || value !== 'ready').map(value => [value, t(statusFilterLabels[value])])) }} value={boardStatus ?? 'all'}
                                         onValueChange={value => go({ status: value === 'all' ? undefined : value ?? undefined })}>
                                         <SelectTrigger id="filter-status" aria-label={t("Status filter")} className="w-full pointer-coarse:min-h-11">
                                             <SelectValue>{(value: typeof boardStatusFilters[number] | 'all') => value === 'all' ? t("All statuses") : <><StateDot status={value} />{t(statusFilterLabels[value])}</>}</SelectValue>
                                         </SelectTrigger>
                                         <SelectContent><SelectGroup>
                                             <SelectItem className="pointer-coarse:min-h-11" value="all">{t("All statuses")}</SelectItem>
-                                            {boardStatusFilters.map(value => <SelectItem className="pointer-coarse:min-h-11" key={value} value={value}>
+                                            {boardStatusFilters.filter(value => verificationEnabled || value !== 'ready').map(value => <SelectItem className="pointer-coarse:min-h-11" key={value} value={value}>
                                                 <StateDot status={value} />{t(statusFilterLabels[value])}<span className="ml-auto tabular-nums text-muted-foreground">{statusCounts[value]}</span>
                                             </SelectItem>)}
                                         </SelectGroup></SelectContent>
@@ -325,10 +326,11 @@ function TabUnread({ unread }: { unread?: boolean }) {
  * notification; the Active menu keeps them. A tab whose comments include unread ones has the unread dot after its
  * count, chosen or not (`unread`, uier #346), and so do the menus' items.
  */
-function StatusTabs({ status, counts, unread, onStatus }: {
+function StatusTabs({ status, counts, unread, onStatus, verificationEnabled }: {
     status: StatusFilter;
     counts: Record<StatusFilter, number>;
     unread: Partial<Record<StatusFilter, boolean>>;
+    verificationEnabled: boolean;
     onStatus: (status: StatusFilter) => void;
 }) {
     const { t } = useAppI18n();
@@ -355,7 +357,7 @@ function StatusTabs({ status, counts, unread, onStatus }: {
                 <ToggleGroupItem value="active" aria-describedby={described(activeValue)} className={cn(segmentedItem, statusTab)}>
                     {activeLabel} <span className="tabular-nums text-muted-foreground">{counts[activeValue]}</span><TabUnread unread={unread[activeValue]} />
                 </ToggleGroupItem>
-                <StatusesMenu label={t("Active statuses")} values={['active', ...activeStatusFilters]} status={status} counts={counts} unread={unread} unreadId={unreadId} onStatus={onStatus} />
+                <StatusesMenu label={t("Active statuses")} values={['active', ...activeStatusFilters.filter(value => verificationEnabled || value !== 'ready')]} status={status} counts={counts} unread={unread} unreadId={unreadId} onStatus={onStatus} />
                 <ToggleGroupItem value="done" aria-describedby={described(doneValue)} className={cn(segmentedItem, statusTab)}>
                     {t(statusFilterLabels[doneValue])} <span className="tabular-nums text-muted-foreground">{counts[doneValue]}</span><TabUnread unread={unread[doneValue]} />
                 </ToggleGroupItem>

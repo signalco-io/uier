@@ -15,3 +15,5 @@ says Done without verification there, and its Open and In progress cancel the ch
 Workflow mutations refresh all lists/activity, preserve failed details and never auto-acknowledge
 activity. Ready remains in Open counts, with its own filter. The extension contract adds the
 same narrowly allowed verification POST; retain all supported older routes.
+
+The review project and comment DTOs include `verificationEnabled`. The setting is off unless explicitly enabled on the project. When off, status menus and the inbox Active filter omit Ready (including custom Ready entries), request/check controls are hidden, and a pending thread displays Open or In progress. A remembered Ready filter falls back to Active. Ordinary Done still closes that thread without confirmation. Re-enabling resumes requests that remain pending; no migration changes their stored evidence.

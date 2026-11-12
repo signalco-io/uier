@@ -12,7 +12,7 @@ function usableAuthor(comment: DbComment, project: DbProject, members: Map<strin
 export function verificationPermissions(comment: DbComment, project: DbProject, actor: ProjectActor, members: Map<string, string>): VerificationPermissions {
     const me = actor.kind === 'member' ? `user:${actor.userId}` : actor.kind === 'guest' ? actor.visitorId : undefined;
     const v = comment.verification;
-    const enabled = project.access !== 'disabled';
+    const enabled = project.access !== 'disabled' && project.verificationEnabled === true;
     const pending = enabled && !comment.resolved && v?.outcome === 'pending';
     const distinct = Boolean(me && me !== v?.requester);
     return { ...(actor.kind === 'member' ? { selfId: actor.userId } : {}), request: enabled && actor.kind === 'member',
@@ -24,7 +24,7 @@ export function verificationPermissions(comment: DbComment, project: DbProject, 
 /** Only display names; private guest identities remain in the server record. */
 export function verificationDetails(comment: DbComment, project: DbProject, actor: ProjectActor, members: Map<string, string>): VerificationDetails | undefined {
     const v = comment.verification;
-    if (!v) return;
+    if (!v || (project.verificationEnabled !== true && v.outcome === 'pending')) return;
     const name = (id: string) => id.startsWith('user:') ? members.get(id.slice(5)) ?? 'Former member'
         : id === comment.authorId && !comment.thread.items[0]?.deletedAt ? comment.thread.items[0]?.authorName || 'Guest' : 'Unavailable reviewer';
     const fixOrigin = v.fixUrl ? new URL(v.fixUrl).origin : undefined;

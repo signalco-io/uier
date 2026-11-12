@@ -1,3 +1,4 @@
+import { enableProjectVerification } from './support/app';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { commentRows, createProject, openBoardMove, openComment, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
@@ -48,6 +49,7 @@ async function expectDot(scope: Locator, status: Status) {
 test('each status shows its own colour in the board, the list, the status menu and the filter, light and dark', async ({ page, request }) => {
     await signIn(page, uniqueEmail('status-colors'));
     const project = await createProject(page, { urls: [site.origin()] });
+        await enableProjectVerification(page, project);
     await setProjectAccess(page, project, 'Anyone with the link');
     const headers = await verifiedReviewHeaders(request, project, site.origin());
     const numbers = {} as Record<Status, number>;

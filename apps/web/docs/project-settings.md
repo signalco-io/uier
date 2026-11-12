@@ -190,6 +190,8 @@ Coverage: `status-workflow{,.api}.spec.ts` and `mcp.api.spec.ts`.
 
 The review API workflow endpoint is member-only. Guests retain ordinary category actions without receiving workspace/project workflow names, descriptions or defaults.
 
+Project Review has **Enable fix verification**, off by default (also when absent on older projects). It participates in Save/Discard, is admin-only, and older forms leave it untouched. Project status editing retains hidden Ready definitions while verification is off. See [the pending-thread behavior](fix-verification.md#project-opt-in).
+
 ## Thread labels
 
 Admins define up to 50 labels in Workspace settings → Labels or Project settings → Review → Labels.

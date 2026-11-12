@@ -46,6 +46,7 @@ export function CommentVerification({ comment, open, onOpenChange, returnFocus, 
     useEffect(() => {
         if (restoreFocus && !verification.isPending) { trigger.current?.focus(); setRestoreFocus(false); }
     }, [restoreFocus, verification.isPending]);
+    if (comment.verificationEnabled !== true) return null;
     if (!v && !open && !verification.error) return null;
     const reviewers = people.data?.filter(person => person.id !== p?.selfId) ?? [];
     // Nobody but you can check it: say so instead of an empty choice

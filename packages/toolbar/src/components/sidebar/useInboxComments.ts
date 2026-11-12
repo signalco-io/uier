@@ -45,6 +45,8 @@ export function pageKeyPath(key: CommentsPageFilter) {
  * list (`?scope=site`). A project's lists load in pages as the inbox scrolls (`more`).
  */
 export function useInboxComments(filter: CommentsFilter) {
+    const verificationEnabled = useProjectViewer().verificationEnabled === true;
+    if (!verificationEnabled && filter.status === 'ready') filter = { ...filter, status: 'unresolved' };
     const { path, query: pageQuery } = useComments();
     const siteQuery = useSiteComments(true, Boolean(filter.unread));
     const siteMore = useMoreSiteComments(siteQuery, Boolean(filter.unread));

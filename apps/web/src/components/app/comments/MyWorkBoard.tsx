@@ -67,6 +67,7 @@ export function MyWorkViews({ assigned, mentions, unread, assignees, userId, emp
     // The search waits a moment before it goes into the address, like a project's
     const urlKey = searchParams.toString();
     const query = parseCommentsQuery(Object.fromEntries(searchParams));
+    if (query.status === 'ready' && ![...assigned, ...mentions, ...unread].some(item => item.comment.verificationEnabled)) query.status = 'active';
     const [searchDraft, setSearchDraft] = useState({ url: urlKey, value: query.q ?? '' });
     const search = searchDraft.url === urlKey ? searchDraft.value : query.q ?? '';
     useEffect(() => {
@@ -94,7 +95,7 @@ export function MyWorkViews({ assigned, mentions, unread, assignees, userId, emp
     };
     const labels = [...new Map(items.filter(item => !project || item.projectId === project).flatMap(item => item.comment.availableLabels ?? []).map(label => [label.id, label])).values()];
     const header = (
-        <CommentFilters labels={labels} label={query.label} className={cn(view === 'board' && boardHeader)} search={search} onSearch={value => setSearchDraft({ url: urlKey, value })}
+        <CommentFilters verificationEnabled={items.some(item => (!project || item.projectId === project) && item.comment.verificationEnabled)} labels={labels} label={query.label} className={cn(view === 'board' && boardHeader)} search={search} onSearch={value => setSearchDraft({ url: urlKey, value })}
             priority={query.priority} people={query.people} unread={Boolean(query.unread)} unreadCount={items.filter(item => item.comment.activity?.unread).length}
             project={project} projects={projects} view={view}
             onView={next => {
@@ -206,7 +207,7 @@ export function MyWorkBoard({ items, assignees, userId, empty, header, noMatch, 
                 {!onBoard.length && noMatch}
                 {/* Mounted with no card too, only its columns hidden, so a thread archived from the last card keeps its sheet (and Restore) */}
                 <div className={onBoard.length ? 'contents' : 'hidden'}>
-                    <CommentBoard projectOf={projectOf} columns={columns} sorts={sorts} onSort={(column, sort) => { if (column !== 'archive') onSort(column, sort); }}
+                    <CommentBoard verificationEnabled={onBoard.some(comment => comment.verificationEnabled)} projectOf={projectOf} columns={columns} sorts={sorts} onSort={(column, sort) => { if (column !== 'archive') onSort(column, sort); }}
                         allComments={comments} userId={userId} openComment={openComment} />
                 </div>
             </div>

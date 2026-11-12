@@ -114,6 +114,7 @@ function eligibleEvents(delivery: NotificationDelivery, context: NonNullable<Awa
         && (!context.memberSince || event.at >= context.memberSince)
         && (!subscription?.since || event.at >= subscription.since)
         // An agent starting or stopping work is thread activity (unread, MCP events), never an email.
+        && (context.project.verificationEnabled === true || event.kind !== 'verification-requested')
         && event.kind !== 'workflow-status' && event.kind !== 'agent' && event.kind !== 'archived' && event.kind !== 'restored'
         && (event.kind === 'comment' ? actor.kind === 'member' && (actor.isAdmin || actor.userId === context.project.createdBy || event.recipients?.includes(delivery.actorId))
             : event.kind === 'mention' || event.kind === 'assignment' ? Boolean(event.recipients?.includes(delivery.actorId))

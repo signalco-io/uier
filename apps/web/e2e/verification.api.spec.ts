@@ -34,7 +34,7 @@ const previousLocal = process.env.UIER_LOCAL;
 test.beforeEach(() => { process.env.UIER_LOCAL = '1'; });
 test.afterEach(() => { if (previousLocal === undefined) delete process.env.UIER_LOCAL; else process.env.UIER_LOCAL = previousLocal; });
 async function fixture(authorId = `user:${reviewer.userId}`) {
-    const project = { id: randomUUID().replaceAll('-', '').slice(0, 12), access: 'guests' } as DbProject;
+    const project = { verificationEnabled: true, id: randomUUID().replaceAll('-', '').slice(0, 12), access: 'guests' } as DbProject;
     await persistProjectAccess(project, [developer, reviewer, stranger, admin]);
     await getAppStore().create<DbProjectRef>({ type: 'project-ref', id: project.id, pk: `project:${project.id}`, workspaceId: project.workspaceId });
     const store = getMemoryCommentsStore();
@@ -249,4 +249,38 @@ test('legacy same-origin boolean status ends pending verification without exposi
     expect(JSON.stringify(dto)).not.toContain('legacy-guest-hash');
     const stored = (await f.store.get(f.comment.domain, f.comment.id))!.comment;
     expect(stored.verification!.decision).toBeUndefined();
+});
+
+test('missing project opt-in suspends existing checks without hiding threads or confirming fixes', async () => {
+    const { updateProject } = await import('../src/lib/app/projects');
+    const { toReviewCommentDto } = await import('../src/lib/review/dto');
+    const { feedbackStage } = await import('@uier/toolbar/verification');
+    const { setProjectCommentWorkflowStatus, setProjectCommentStatus } = await import('../src/lib/review/comments');
+    const { loadStatusWorkflow } = await import('../src/lib/app/statusWorkflows');
+    const { orderedStatuses } = await import('../src/lib/app/statusWorkflow');
+    const f = await fixture();
+    const originalRequest = f.request();
+    const asked = await f.ask(originalRequest);
+    const off = (await updateProject(f.project.workspaceId, f.project.id, { verificationEnabled: false }))!;
+    // A project saved before the setting existed has exactly the same disabled behavior.
+    const legacy = { ...off }; delete legacy.verificationEnabled;
+    const suspended = toReviewCommentDto(asked, developer, new Map(), off.urls, 0, members, legacy)!;
+    expect(suspended.verification).toBeUndefined();
+    expect(suspended.verificationPermissions).toMatchObject({ request: false, respond: false, override: false });
+    expect(feedbackStage(suspended)).toBe('open');
+    expect(feedbackStage({ ...suspended, inProgress: true })).toBe('in-progress');
+    expect((await f.store.get(asked.domain, asked.id))!.comment.verification).toEqual(asked.verification);
+    expect(orderedStatuses(await loadStatusWorkflow(off)).some(status => status.category === 'ready')).toBe(false);
+    await expect(f.ask(originalRequest)).rejects.toThrow('Mark the comment done instead');
+    await expect(f.ask(f.request(asked.verification!.revision))).rejects.toThrow('Mark the comment done instead');
+    await expect(f.decide(asked)).rejects.toThrow('Mark the comment done instead');
+    await expect(setProjectCommentWorkflowStatus(off, developer, asked.id, 'ready')).rejects.toThrow('Mark the comment done instead');
+    const summary = await projectActivity(asked.domain, undefined, () => true, 'exclude', false);
+    expect(summary.summary).toMatchObject({ ready: 0, open: 1 });
+    await updateProject(off.workspaceId, off.id, { verificationEnabled: true });
+    expect(verificationPermissions(asked, { ...off, verificationEnabled: true }, developer, members).request).toBe(true);
+    await updateProject(off.workspaceId, off.id, { verificationEnabled: false });
+    const done = await setProjectCommentStatus(off, developer, asked.id, 'done');
+    expect(done.resolved).toBe(true);
+    expect(done.verification?.outcome).toBe('unconfirmed');
 });

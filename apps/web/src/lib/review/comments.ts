@@ -405,6 +405,9 @@ async function appendProjectReply(request: Request, project: DbProject, actor: P
 
 /** Applies a change to a comment the actor can see, after `allowed` says the actor may make it */
 export async function changeComment(project: DbProject, actor: ProjectActor, id: string, allowed: (comment: DbComment) => boolean, change: (comment: DbComment, currentProject: DbProject) => DbComment | Promise<DbComment>, attempt?: Submission, guard?: CommentChangeGuard, store: CommentsStore = getCommentsStore(), options: { ephemeral?: boolean; requireComments?: boolean } = {}) {
+    const checkVerification = (currentProject: DbProject) => {
+        if (guard?.requireVerification && currentProject.verificationEnabled !== true) throw apiErrors.invalidRequest('Fix verification is off for this project. Mark the comment done instead.');
+    };
     let authorizedProject: DbProject | undefined;
     const authorize = async (comment: DbComment) => {
         const currentProject = await refreshMutationActor(project, actor, guard?.requireComments || options.requireComments);
@@ -412,6 +415,7 @@ export async function changeComment(project: DbProject, actor: ProjectActor, id:
         if (guard?.triage && !canTriageProject(project, actor)) throw apiErrors.notFound();
         if (!allowed(comment))
             throw apiErrors.forbidden('You can\'t change this comment.');
+        checkVerification(currentProject);
         authorizedProject = currentProject;
         return currentProject;
     };
@@ -423,6 +427,7 @@ export async function changeComment(project: DbProject, actor: ProjectActor, id:
             visibleOrThrow(comment, actor);
             if (!allowed(comment)) throw apiErrors.forbidden();
             if (guard?.triage && !canTriageProject(currentProject, actor)) throw apiErrors.notFound();
+            checkVerification(currentProject);
         }
         if (guard?.revision && commentRevision(comment) !== guard.revision) throw apiErrors.conflict();
         if (guard && guard.value(comment) !== guard.expected) throw apiErrors.conflict();
@@ -449,6 +454,8 @@ export type CommentChangeGuard = {
     onResult?: (changed: boolean) => void;
     triage?: boolean;
     requireComments?: boolean;
+    /** Live mode authority also applies to receipt replays. */
+    requireVerification?: boolean;
 };
 function guardFingerprint(guard?: CommentChangeGuard) {
     return guard ? { expected: guard.expected, revision: guard.revision } : {};
@@ -720,8 +727,9 @@ export async function setProjectCommentWorkflowStatus(project: DbProject, actor:
             const updated = { ...withThreadActivity(comment, actorId), archivedAt: comment.archivedAt ?? nowIso(), archiveStatusId: target.id };
             return withNotificationEvent(updated, actorId, comment.archivedAt ? 'workflow-status' : 'archived', nowIso(), undefined, actor.kind === 'member' ? actor.agent : undefined, detail);
         }
+        if (target.category === 'ready' && currentProject.verificationEnabled !== true) throw apiErrors.invalidRequest('Fix verification is off for this project. Mark the comment done instead.');
         if (target.category === 'ready' && from !== 'ready') throw apiErrors.invalidRequest('Request verification and choose a reviewer first.');
-        if (from === 'ready' && target.category !== 'ready' && target.category !== 'done')
+        if (currentProject.verificationEnabled === true && from === 'ready' && target.category !== 'ready' && target.category !== 'done')
             throw apiErrors.invalidRequest('Cancel the verification request before changing its category.');
         if (from === target.category && comment.workflowStatusId === target.id) return comment;
         const updated = { ...(target.category === 'ready' ? comment : withOrdinaryStage(comment, target.category)), workflowStatusId: target.id };

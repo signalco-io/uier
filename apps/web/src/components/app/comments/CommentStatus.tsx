@@ -17,7 +17,7 @@ export type CommentStatus = FeedbackStage;
 export const commentStatuses = feedbackStages;
 export const commentStatusLabels: Record<CommentStatus, string> = feedbackStageLabels;
 
-export function commentStatus(comment: Pick<ProjectCommentView, 'resolved' | 'inProgress' | 'verification'>): CommentStatus {
+export function commentStatus(comment: Pick<ProjectCommentView, 'resolved' | 'inProgress' | 'verification' | 'verificationEnabled'>): CommentStatus {
     return feedbackStage(comment);
 }
 
@@ -71,7 +71,7 @@ export function StateMenu({ status, allowed, disabled, onChange, triggerRef, tri
     const current = comment ? statusForComment(workflow, comment, false).id : status;
     const currentStatus = workflow.statuses.find(option => option.id === current);
     const label = currentStatus ? workflowStatusLabel(currentStatus, t) : t(commentStatusLabels[status]);
-    const options = orderedStatuses(workflow).filter(option => option.category !== 'archive');
+    const options = orderedStatuses(workflow).filter(option => option.category !== 'archive' && (option.category !== 'ready' || comment?.verificationEnabled === true));
     return (
         <DropdownMenu>
             {trigger ? <DropdownMenuTrigger render={trigger} disabled={disabled} /> : (

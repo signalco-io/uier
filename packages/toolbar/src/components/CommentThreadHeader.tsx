@@ -65,11 +65,12 @@ export function CommentStatusBadge({ stage, label }: { stage: FeedbackStage; lab
  * (again while a check is pending); from Ready to verify, Done says Done without verification. S moves
  * the focus to the badge (`data-uier-status`); Enter or Space opens it, the current status focused.
  */
-function CommentStatusMenu({ stage, allowed, pending, shortcut, onChange, statuses, selectedId, canArchive, archived, onRestore }: {
+function CommentStatusMenu({ stage, allowed, pending, shortcut, onChange, statuses, selectedId, canArchive, archived, onRestore, verificationEnabled }: {
     stage: FeedbackStage;
     allowed: Record<FeedbackStage, boolean>;
     pending: boolean;
     shortcut: boolean;
+    verificationEnabled: boolean;
     archived: boolean; onRestore: () => void;
     statuses?: WorkflowStatus[]; selectedId?: string; canArchive: boolean;
     onChange: (stage: FeedbackStage | 'archive', statusId?: string) => void;
@@ -80,7 +81,7 @@ function CommentStatusMenu({ stage, allowed, pending, shortcut, onChange, status
     const currentRef = useRef<HTMLButtonElement>(null);
     // Ready to verify waits for the menu to close: its form then takes the focus
     const requesting = useRef<string | false>(false);
-    const options = [...feedbackStages, 'archive' as const].flatMap(category => statuses?.filter(status => status.category === category) ?? (category === 'archive' ? [] : [{ id: category, category, label: t.status[category], description: '' }]));
+    const options = [...feedbackStages, 'archive' as const].filter(category => verificationEnabled || category !== 'ready').flatMap(category => statuses?.filter(status => status.category === category) ?? (category === 'archive' ? [] : [{ id: category, category, label: t.status[category], description: '' }]));
     const localizedOptions = options.map(option => ({ ...option, label: statusLabel(option, t) }));
     const selected = localizedOptions.find(option => option.id === selectedId) ?? localizedOptions.find(option => option.category === stage);
     const label = selected?.label ?? t.status[stage];
@@ -346,7 +347,7 @@ export function CommentThreadHeader({ comment, onMarkedUnread, onRequestVerifica
             <Row spacing={1} justifyContent="space-between" className="flex-nowrap">
                 <Row spacing={1} className="min-w-0 flex-wrap gap-y-1">
                     {canChangeStatus
-                        ? <CommentStatusMenu stage={stage} allowed={allowed} statuses={custom.workflow.data?.statuses} selectedId={selectedStatus?.id} canArchive={canResolve} archived={Boolean(comment.archivedAt)} onRestore={() => void handleArchive(false)} shortcut={shortcuts}
+                        ? <CommentStatusMenu verificationEnabled={comment.verificationEnabled === true} stage={stage} allowed={allowed} statuses={custom.workflow.data?.statuses} selectedId={selectedStatus?.id} canArchive={canResolve} archived={Boolean(comment.archivedAt)} onRestore={() => void handleArchive(false)} shortcut={shortcuts}
                             pending={archive.isPending || custom.mutation.isPending || resolve.isPending || progress.isPending || verificationMutation.isPending}
                             onChange={(next, statusId) => void handleStage(next, statusId)} />
                         : <CommentStatusBadge stage={stage} label={selectedStatus ? statusLabel(selectedStatus, t) : undefined} />}

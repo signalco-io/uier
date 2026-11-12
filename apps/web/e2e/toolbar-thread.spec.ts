@@ -1,3 +1,4 @@
+import { enableProjectVerification } from './support/app';
 import { expect, test, type Page } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
 import { createProject, signIn, uniqueEmail } from './support/app';
@@ -12,6 +13,7 @@ test.afterAll(async () => { await site.close(); });
 async function memberThread(page: Page) {
     await signIn(page, uniqueEmail('popover'));
     const projectId = await createProject(page, { urls: [site.origin()] });
+    await enableProjectVerification(page, projectId);
     await page.goto(`/app/review/${projectId}?url=${encodeURIComponent(`${site.origin()}/${projectId}/pricing`)}`);
     await page.getByRole('button', { name: 'Add comment', exact: true }).click();
     const heading = (await page.getByRole('heading', { level: 1 }).boundingBox())!;

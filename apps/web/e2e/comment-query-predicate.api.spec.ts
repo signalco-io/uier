@@ -129,3 +129,14 @@ test('location selectors push exact pages and separator-aware sections before ca
     for (const path of ['/a', '/a/b', '/a?x=1', '/a#tab']) expect(section.test(candidate({ path }))).toBe(true);
     expect(section.test(candidate({ path: '/another' }))).toBe(false);
 });
+
+test('disabled verification status predicates include dormant pending checks in ordinary stages', () => {
+    const pending = candidate({ verification: { outcome: 'pending' } });
+    const open = query({ field: 'status', operator: 'isAnyOf', value: ['open'] });
+    const disabled = compileCandidatePredicate(open, {}, false)!;
+    expect(disabled.clause).not.toContain('c.verification');
+    expect(disabled.test(pending)).toBe(true);
+    expect(disabled.test({ ...pending, inProgress: true })).toBe(false);
+    expect(compileCandidatePredicate(open, {}, true)!.test(pending)).toBe(false);
+    expect(compileCandidatePredicate(query({ field: 'status', operator: 'isAnyOf', value: ['in-progress'] }), {}, false)!.test({ ...pending, inProgress: true })).toBe(true);
+});

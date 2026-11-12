@@ -472,6 +472,8 @@ meaning. The generated connector skill lists the discovery tool and treats descr
 
 `set_feedback_status` results include `archivedAt` (or `null`), so a custom Archive status write reports its archive state.
 
+Fix verification is a per-project opt-in, off when absent. `list_feedback_statuses` reports `verificationEnabled` and omits Ready definitions when off; lists and packets project dormant requests as Open/In progress. `request_feedback_verification` refuses with “Fix verification is off for this project. Mark the comment done instead.” Custom Ready IDs are refused too. Ordinary approved `set_feedback_status` Done remains available and does not record reviewer confirmation. Existing request revisions/evidence are retained, and requests resume on re-enable unless closed in the meantime.
+
 ### Thread labels
 
 `list_feedback_labels` (`feedback:read`) returns the project's effective workspace/project catalog

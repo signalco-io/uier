@@ -10,7 +10,7 @@ import { withThreadActivity } from '../comments/activity';
 import { apiErrors } from '../comments/http';
 import { submission } from '../comments/submissions';
 import { withNotificationEvent } from '../notifications/events';
-import { actorAuthorId, refreshMutationActor, type ProjectActor } from './actor';
+import { actorAuthorId, type ProjectActor } from './actor';
 import { assertEligibleParticipant } from './participants';
 import { changeComment, projectPartition } from './comments';
 import { fixVerificationSchema } from './fixVerificationSchema';
@@ -39,8 +39,7 @@ export async function changeFixVerification(project: DbProject, actor: ProjectAc
     const me = actorAuthorId(actor);
     if (!me) throw apiErrors.forbidden('Sign in or use your original guest identity.');
     const attempt = submission(projectPartition(project.id), me, input.idempotencyKey, { operation: 'verification', id, ...input });
-    return changeComment(project, actor, id, () => true, async comment => {
-        const currentProject = await refreshMutationActor(project, actor, true);
+    return changeComment(project, actor, id, () => true, async (comment, currentProject) => {
         const workflow = await loadStatusWorkflow(currentProject);
         const selected = 'statusId' in input && input.statusId ? workflow.statuses.find(status => status.id === input.statusId) : undefined;
         if ('statusId' in input && input.statusId && !selected) throw apiErrors.invalidRequest('This status is no longer available.');
@@ -88,5 +87,5 @@ export async function changeFixVerification(project: DbProject, actor: ProjectAc
         if (selected && selected.category !== category) throw apiErrors.invalidRequest('Choose a status in the target category.');
         updated.workflowStatusId = (selected ?? defaultStatus(workflow, category)).id;
         return withNotificationEvent(updated, me, input.action === 'confirm' ? 'verification-confirmed' : input.action === 'reject' ? 'verification-rejected' : 'verification-canceled', now, [v.requester, v.reviewer], actor.kind === 'member' ? actor.agent : undefined, { verificationOverride: input.override === true });
-    }, attempt, { expected: null, value: () => null, requireComments: true }, store);
+    }, attempt, { expected: null, value: () => null, requireComments: true, requireVerification: input.action !== 'cancel' }, store);
 }
