@@ -141,6 +141,22 @@ last check-in, the activity feed, comments closed per day, the median time from 
 the wakes of the last 24 hours. The totals above the cards count every monitor that isn't stopped or
 inactive.
 
+#### Feedback on the dashboard
+
+uier's staff review the dashboard with uier itself. Start it on its default port with the project's
+public id and open the address it prints:
+
+```bash
+node plugins/uier/skills/uier-monitor/scripts/dashboard.mjs --dev --review 4qkVLP8gA_7ly406tHc-Q
+```
+
+`--review` loads the toolbar for the **uier monitor dashboard** project (`uier00000003`, in the uier
+workspace, staff only). The project's addresses are `http://127.0.0.1:4780` and
+`http://localhost:4780`, so the toolbar only works on the default port. The comments are in the app
+under the uier workspace, and `/uier-monitor uier monitor dashboard` resolves them like any other
+project's once your uier connection includes the project. Anyone else passes their own project's id; the page loads nothing from uier without the
+flag.
+
 **How it finds monitors.** The helper announces each monitor with one small file in
 `~/.uier-monitor/monitors` (`UIER_MONITOR_HOME` moves the folder), written when the watcher starts
 and on every `patch`. The file holds the state folder's path, the project's id and name and the

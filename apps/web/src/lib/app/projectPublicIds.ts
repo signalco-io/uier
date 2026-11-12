@@ -37,6 +37,19 @@ export async function ensureProjectPublicId(project: DbProject, store: AppStore 
 }
 
 /**
+ * A project provisioned with a public id chosen in code: claims the lookup for that id. Create-only,
+ * so it never takes an id that names another project.
+ */
+export async function claimProjectPublicId(project: Pick<PublicProject, 'id' | 'workspaceId' | 'publicId'>, store: AppStore = getAppStore()) {
+    const ref: DbProjectPublicRef = { type: 'project-public-ref', id: project.publicId, pk: publicRefPk(project.publicId),
+        workspaceId: project.workspaceId, projectId: project.id, ttl: -1 };
+    if (await store.create(ref)) return;
+    const current = (await store.get<DbProjectPublicRef>(ref.pk, ref.id))?.doc;
+    if (current?.type !== 'project-public-ref' || current.projectId !== project.id)
+        throw new Error('A provisioned project’s public id names another project');
+}
+
+/**
  * Whether a project document is the project. One in a transfer (`transfer`) exists in two workspaces
  * and is the project only where its code points; every other document is, without another read.
  * Every read that takes the workspace from the person (`getProject`, `listProjects`, team grants,

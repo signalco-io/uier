@@ -443,6 +443,10 @@ Standard deployments remain unattended and do not remove locks or Pulumi protect
 
 The public workspace has no Users page, invitations, member removal or project creation. Its
 project settings are fixed; each member can still manage their own notification preference.
+Its projects are provisioned in code on each instance's first use (`provisionPublicProject`): the
+two feedback projects and `uier00000003`, the staff-only project for feedback on the
+[monitor's dashboard](uier-monitor.md#feedback-on-the-dashboard). Add another the same way, in a
+reviewed change, never by writing to the `app` container.
 An old invitation cannot assign an admin role. Customer workspaces keep their usual rules.
 
 **Add or remove staff:** the list is production-only and is the only source of public-project

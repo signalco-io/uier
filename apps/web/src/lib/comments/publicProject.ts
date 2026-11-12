@@ -6,11 +6,11 @@ import { memberId, projectRefPk, userPk, workspacePk, type AppDoc, type DbMember
 import type { DbComment } from '../db/schema';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { isLocalRuntime } from './environment';
-import { PUBLIC_PROJECT_ID, PUBLIC_WORKSPACE_ID, USER_FEEDBACK_PROJECT_ID, publicProjectMember } from './publicProjectPolicy';
-import { ensureProjectPublicId, type PublicProject } from '../app/projectPublicIds';
+import { MONITOR_DASHBOARD_PROJECT_ID, MONITOR_DASHBOARD_PUBLIC_ID, MONITOR_DASHBOARD_URLS, PUBLIC_PROJECT_ID, PUBLIC_WORKSPACE_ID, USER_FEEDBACK_PROJECT_ID, publicProjectMember } from './publicProjectPolicy';
+import { claimProjectPublicId, ensureProjectPublicId, type PublicProject } from '../app/projectPublicIds';
 import { cleanupThread } from './cleanup';
 
-export { PUBLIC_PROJECT_ID, PUBLIC_WORKSPACE_ID, USER_FEEDBACK_PROJECT_ID, isUierFeedbackProject } from './publicProjectPolicy';
+export { MONITOR_DASHBOARD_PROJECT_ID, MONITOR_DASHBOARD_PUBLIC_ID, PUBLIC_PROJECT_ID, PUBLIC_WORKSPACE_ID, USER_FEEDBACK_PROJECT_ID, isUierFeedbackProject, isUierProvisionedProject } from './publicProjectPolicy';
 export const PUBLIC_PROJECT_PARTITION = `project:${PUBLIC_PROJECT_ID}`;
 export const USER_FEEDBACK_PARTITION = `project:${USER_FEEDBACK_PROJECT_ID}`;
 export const HEADLINE_COMMENT_ID = 'comment_uier_headline';
@@ -18,6 +18,7 @@ export const STEP_COMMENT_ID = 'comment_uier_first_step';
 const workspaceId = PUBLIC_WORKSPACE_ID;
 const createdAt = '2026-10-25T00:00:00.000Z';
 const splitAt = '2026-11-09T00:00:00.000Z';
+const dashboardAt = '2026-11-12T00:00:00.000Z';
 
 // The page key may carry query or hash state after the pathname
 const appPagePattern = new RegExp(`^${KnownPages.App}(?:[/?#]|$)`);
@@ -161,6 +162,22 @@ async function provisionUserFeedbackProject(app: AppStore, comments: CommentsSto
     await ensureProjectPublicId(project, app);
 }
 
+/**
+ * The monitor dashboard's project, where uier's staff review the uier monitor's local dashboard with
+ * the toolbar it loads. Create-only like the others; the public id is claimed before the project
+ * that publishes it exists, the order `ensureProjectPublicId` keeps.
+ */
+async function provisionMonitorDashboardProject(app: AppStore) {
+    const project: PublicProject = {
+        id: MONITOR_DASHBOARD_PROJECT_ID, pk: workspacePk(workspaceId), type: 'project', workspaceId,
+        name: `${brand.name} monitor dashboard`, urls: MONITOR_DASHBOARD_URLS, status: 'active', access: 'invited',
+        createdBy: 'system', createdAt: dashboardAt, updatedAt: dashboardAt, publicId: MONITOR_DASHBOARD_PUBLIC_ID, ttl: -1
+    };
+    await claimProjectPublicId(project, app);
+    await app.create(project);
+    await app.create<DbProjectRef>({ id: project.id, pk: projectRefPk(project.id), type: 'project-ref', workspaceId, ttl: -1 });
+}
+
 /** The public project and initial threads, provisioned in the deployment's own containers. */
 export async function provisionPublicProject(app: AppStore, comments: CommentsStore, legacyDomain?: string) {
     const project: DbProject = {
@@ -218,6 +235,7 @@ export async function provisionPublicProject(app: AppStore, comments: CommentsSt
         }
     }
     await provisionUserFeedbackProject(app, comments);
+    await provisionMonitorDashboardProject(app);
     return await ensureProjectPublicId(project, app);
 }
 

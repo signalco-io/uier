@@ -3,14 +3,15 @@ import { expect, test } from '@playwright/test';
 import { KnownPageLinks } from '../src/knownPages';
 import { getAppStore } from '../src/lib/app/store';
 import { getMemoryCommentsStore } from '../src/lib/repo/memoryCommentsStore';
-import { HEADLINE_COMMENT_ID, STEP_COMMENT_ID, PUBLIC_PROJECT_ID, PUBLIC_PROJECT_PARTITION, PUBLIC_WORKSPACE_ID, USER_FEEDBACK_PARTITION, USER_FEEDBACK_PROJECT_ID, provisionPublicProject, joinPublicProject } from '../src/lib/comments/publicProject';
+import { HEADLINE_COMMENT_ID, STEP_COMMENT_ID, PUBLIC_PROJECT_ID, PUBLIC_PROJECT_PARTITION, PUBLIC_WORKSPACE_ID, USER_FEEDBACK_PARTITION, USER_FEEDBACK_PROJECT_ID, MONITOR_DASHBOARD_PROJECT_ID, MONITOR_DASHBOARD_PUBLIC_ID, provisionPublicProject, joinPublicProject } from '../src/lib/comments/publicProject';
 import { memberId, userPk, workspacePk, type DbMember, type DbProject, type DbUser } from '../src/lib/app/model';
 import type { DbComment } from '../src/lib/db/schema';
 import { findOrCreateUser } from '../src/lib/app/users';
 import { randomToken, signToken, sha256Hex } from '../src/lib/app/tokens';
 import { resolveActor, memberActor } from '../src/lib/review/actor';
 import { ensureOwnWorkspace, getMember } from '../src/lib/app/workspaces';
-import { createProject, updateProject } from '../src/lib/app/projects';
+import { createProject, updateProject, findProject, findReviewProject, projectOrigins } from '../src/lib/app/projects';
+import { claimProjectPublicId, isProjectPublicId } from '../src/lib/app/projectPublicIds';
 import { inviteToWorkspace, removeMember, acceptInvitation } from '../src/lib/app/invitations';
 import type { AppContext } from '../src/lib/app/context';
 import { isPublicProjectStaff } from '../src/lib/comments/publicProjectPolicy';
@@ -294,6 +295,40 @@ test('staff normalization, concurrent joins and allowlist removal replace hand-s
     process.env.UIER_STAFF_EMAILS = 'invalid address;@@;';
     expect((await findOrCreateUser(user.email)).id).toBe(user.id);
     expect(await joinPublicProject(user)).toMatchObject({ role: 'commenter', projects: [USER_FEEDBACK_PROJECT_ID] });
+}));
+
+test('the monitor dashboard project is provisioned once, for staff only, and only its fixed public id is a review code', async () => staffRuntime(async () => {
+    const app = getAppStore();
+    await Promise.all(Array.from({ length: 3 }, () => provisionPublicProject(app, getMemoryCommentsStore())));
+    const project = (await app.get<DbProject>(workspacePk(PUBLIC_WORKSPACE_ID), MONITOR_DASHBOARD_PROJECT_ID))!.doc;
+    expect(project).toMatchObject({ type: 'project', name: 'uier monitor dashboard', status: 'active', access: 'invited', publicId: MONITOR_DASHBOARD_PUBLIC_ID, ttl: -1 });
+    // The dashboard's own addresses: the review API answers the toolbar there and nowhere else.
+    expect(projectOrigins(project)).toEqual(['http://127.0.0.1:4780', 'http://localhost:4780']);
+    expect(isProjectPublicId(MONITOR_DASHBOARD_PUBLIC_ID)).toBe(true);
+
+    // The embed's public id reaches the project; its predictable code is not a review code.
+    expect((await findReviewProject(MONITOR_DASHBOARD_PUBLIC_ID))?.id).toBe(MONITOR_DASHBOARD_PROJECT_ID);
+    expect(await findReviewProject(MONITOR_DASHBOARD_PROJECT_ID)).toBeNull();
+    expect((await findProject(MONITOR_DASHBOARD_PROJECT_ID))?.id).toBe(MONITOR_DASHBOARD_PROJECT_ID);
+    // The id is never taken from, or by, another project.
+    await expect(claimProjectPublicId({ id: 'other0000001', workspaceId: PUBLIC_WORKSPACE_ID, publicId: MONITOR_DASHBOARD_PUBLIC_ID }, app)).rejects.toThrow();
+    await expect(claimProjectPublicId(project as DbProject & { publicId: string }, app)).resolves.toBeUndefined();
+
+    // Staff are its only members: every other account's membership names the user feedback project alone.
+    const user = await findOrCreateUser(`dashboard-${randomUUID()}@example.com`);
+    expect(await memberActor(project, user.id)).toBeNull();
+    process.env.UIER_STAFF_EMAILS = user.email;
+    await joinPublicProject(user);
+    expect(await memberActor(project, user.id)).toMatchObject({ kind: 'member', isAdmin: true });
+    process.env.UIER_STAFF_EMAILS = '';
+    expect(await memberActor(project, user.id)).toBeNull();
+
+    // Create-only: a later instance changes nothing, and the feedback projects stay as they were.
+    const before = await app.get<DbProject>(project.pk, project.id);
+    await provisionPublicProject(app, getMemoryCommentsStore());
+    expect(await app.get<DbProject>(project.pk, project.id)).toEqual(before);
+    expect((await app.get<DbProject>(project.pk, USER_FEEDBACK_PROJECT_ID))?.doc.access).toBe('invited');
+    expect((await app.get<DbProject>(project.pk, PUBLIC_PROJECT_ID))?.doc.access).toBe('guests');
 }));
 
 test('anonymous reads get real starter threads; visitors cannot remove or resolve them', async ({ request }) => {

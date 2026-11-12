@@ -183,7 +183,7 @@ New projects receive a public id at creation. Existing projects receive one on t
 internal service read, including uier's feedback project. An optimistic update keeps concurrent
 requests on one durable id; failed claims never resolve. No bulk data migration is required.
 Previously shared random 12-character project codes and installed embeds remain supported. The
-fixed `uier00000001` and `uier00000002` values are internal-only at the review API; copy its new link or script from the
+fixed `uier00000001`, `uier00000002` and `uier00000003` values (uier's own projects) are internal-only at the review API; copy its new link or script from the
 app. The same-origin public showcase continues through `/api/comments`.
 
 Deleting a project replaces its code and public id claims with retired claims that name no project.
