@@ -8,6 +8,7 @@ import { DatabaseAccount, SqlResourceSqlDatabase, SqlResourceSqlContainer, SqlRe
 import { FederatedIdentityCredential, UserAssignedIdentity } from '@pulumi/azure-native/managedidentity/index.js';
 import { nextJsApp } from './vercel.js';
 import { caaRecord, dnsRecord } from './cloudflare.js';
+import { emailRouting } from './emailRouting.js';
 import { acsEmail, acsEmailReports } from './email.js';
 import { integrationEnvironment } from './integrations.js';
 import { productionCosmosEnvironment, productionCosmosIdentity } from './productionCosmosIdentity.js';
@@ -348,6 +349,8 @@ const up = async () => {
             sensitive: true,
         }, { ...envVarOptions, ...preservePreviewValue(existingEnvironment, 'ANTHROPIC_API_KEY', 'vercel-uier-env-anthropic') });
     }
+    // Keep asynchronous routing discovery and resource registration attached to the stack.
+    return emailRouting();
 };
 
 export default up;
