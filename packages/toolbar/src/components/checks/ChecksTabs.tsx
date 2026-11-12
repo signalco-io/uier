@@ -54,8 +54,9 @@ export function ChecksTabs({ panel, label, tabs, filtered }: {
     return <>
         {!filtered && (
             // Its line runs across the whole panel (out of its 16 px padding), between the panel's header and its
-            // content, and its sections sit closer to it than the panel's other parts are to each other
-            <div ref={ref} role="tablist" aria-label={label} data-uier-tabs={panel} className="-mx-4 -mb-4 flex flex-wrap gap-x-3 border-b px-4"
+            // content, and its sections sit closer to it than the panel's other parts are to each other. It sits close
+            // under the summary too: the tabs' own height already spaces their names from the tiles
+            <div ref={ref} role="tablist" aria-label={label} data-uier-tabs={panel} className="-mx-4 -mb-4 -mt-2 flex flex-wrap gap-x-3 border-b px-4"
                 onFocus={roving.onFocus} onKeyDown={roving.onKeyDown}>
                 {tabs.map(tab => {
                     const active = tab.id === current;

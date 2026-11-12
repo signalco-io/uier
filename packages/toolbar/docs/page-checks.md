@@ -136,7 +136,8 @@ Both panels share one layout (`components/checks/ChecksParts.tsx`), so they read
   **Page** (Page and Core Web Vitals), **Content** (headings, links, images), **Sharing** and **Search**
   (Crawlers, Structured data, AI search); Sharing and Search only where the audit asset is. They look like
   the inbox's status tabs (underlined), over a line across the whole panel that parts its header from
-  the tab's content, 8 px above the first section
+  the tab's content, 8 px above the first section and 4 px under the summary (the tab buttons' own height spaces
+  their names from the tiles; [uier #327](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_DtMPKwYHBnlMeXAGBThfm))
   ([uier #245](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_DGGEw_t-OP-ESUVRu0paQ)), and are ARIA tabs: one tab stop, ← and → move and show the tab they
   reach (`useRovingFocus`, not the UI kit's Radix tabs, whose arrow keys fail in a shadow root). A tab whose
   sections found something to act on has the button's amber dot (`data-uier-tab-attention`) and a name that
