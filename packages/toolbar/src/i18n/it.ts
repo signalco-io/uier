@@ -595,7 +595,6 @@ export const it: Messages = {
     inbox: {
         label: 'Commenti',
         search: 'Cerca nei commenti',
-        reviewing: (environment: string) => `Stai revisionando ${environment}. I nuovi feedback restano qui.`,
         assignedToMe: 'Assegnati a me',
         reviewBrief: 'Indicazioni per la revisione',
         close: 'Chiudi il pannello laterale',

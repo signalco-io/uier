@@ -594,7 +594,6 @@ export const de: Messages = {
     inbox: {
         label: 'Kommentare',
         search: 'Kommentare durchsuchen',
-        reviewing: (environment: string) => `Sie prüfen ${environment}. Neues Feedback bleibt hier.`,
         assignedToMe: 'Mir zugewiesen',
         reviewBrief: 'Review-Briefing',
         close: 'Seitenleiste schließen',
