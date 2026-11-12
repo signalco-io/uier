@@ -90,7 +90,7 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
         ctrlKey: event.ctrlKey, metaKey: event.metaKey, shiftKey: event.shiftKey, altKey: event.altKey
     }));
     return (
-        <div data-comment-row="" className={cn('group/row relative flex min-w-0 gap-2.5 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/60 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring',
+        <div data-comment-row="" className={cn('group/row relative flex min-w-0 gap-2.5 rounded-lg py-2.5 pr-3 pl-4 transition-colors hover:bg-muted/60 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring',
             selected === 'opened' && 'bg-muted hover:bg-muted',
             selected === 'beside' && '@3xl/comments:bg-muted @3xl/comments:hover:bg-muted',
             // On dark the surface is as dark as the column: the page's black sets a card apart from it
@@ -99,11 +99,12 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
             'has-[[data-slot=checkbox][data-checked]]:bg-muted/60',
             // A long press selects a row that has a box on a touch screen: no text selection or link menu there
             'pointer-coarse:has-[[data-slot=checkbox]]:select-none pointer-coarse:has-[[data-slot=checkbox]]:[-webkit-touch-callout:none]')}>
-            {/* Two columns: the unread dot and the author over the selection box, then the title over the meta line, so the page path lines up with "#12 …" */}
+            {/* Two columns: the author over the selection box, then the title over the meta line, so the page path lines up with "#12 …" */}
             <div className="grid min-w-0 flex-1 grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1">
-                {/* Who wrote it starts the title line, before "#12 …"; centred on its first line, like the unread dot */}
-                <span className="flex h-5 shrink-0 items-center gap-2">
-                    <span aria-hidden="true" className={cn('size-2 shrink-0 rounded-full bg-[hsl(var(--brand-accent))]', !unread && 'invisible')} />
+                {/* Who wrote it starts the title line, before "#12 …"; centred on its first line. The unread dot sits in the
+                    row's left padding beside it (uier #330), so reading the row moves nothing and a read row has no empty gutter */}
+                <span className="relative flex h-5 shrink-0 items-center">
+                    {unread && <span aria-hidden="true" className="absolute top-1/2 right-full mr-1 size-2 -translate-y-1/2 rounded-full bg-[hsl(var(--brand-accent))]" />}
                     <AuthorAvatar author={comment.author} deleted={comment.deleted} onPress={openFromAvatars} />
                 </span>
                 <div className="flex min-w-0 items-baseline gap-2">
@@ -124,12 +125,9 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                     <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums"><RelativeTime value={comment.createdAt} short /></span>
                     {actions}
                 </div>
-                {/* The selection box, under the author's own avatar (past the unread dot's room). The slot stays when the box is
-                    hidden or absent, so the path never moves */}
-                <span className="flex h-5 items-center gap-2 self-center">
-                    <span aria-hidden="true" className="w-2 shrink-0" />
-                    <span className="flex w-5 shrink-0 justify-center"><SelectComment comment={comment} tabbable={tabbable} /></span>
-                </span>
+                {/* The selection box, under the author's own avatar. The slot stays when the box is hidden or absent, so the
+                    path never moves */}
+                <span className="flex h-5 w-5 items-center justify-center self-center"><SelectComment comment={comment} tabbable={tabbable} /></span>
                 <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
                     <p className="m-0 flex min-w-0 flex-1 items-center gap-1.5">
                         {comment.kind !== 'comment' && <span role="img" aria-label={localizedKindLabel(comment.kind, comment.feedbackType, t)} title={localizedKindLabel(comment.kind, comment.feedbackType, t)} className="flex shrink-0">
