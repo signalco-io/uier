@@ -426,7 +426,7 @@ summaries or 25 list summaries, and leaves the collapsed archive bodies unloaded
 These are serialized snapshot bytes and local in-memory service timings, not deployed HTTP latency,
 compressed transfer or Cosmos RU. `project-paging-load.spec.ts` separately records production-build
 HTML bytes, DOM size, mounted rows and hydration time with 2,000 real API-created single-message
-threads. `project-comment-page-routes.api.spec.ts` covers the HTTP authorization, origin, schema, depths and cursor boundaries. `project-comment-paging.spec.ts` and the shared tablet journey check refresh batching, off-page unread dots, scroll/retry/selection/search/detail behavior on
+threads. `project-comment-page-routes.api.spec.ts` covers the HTTP authorization, origin, schema, depths and cursor boundaries against the running server, with HTTP-provisioned fixtures and server-minted session cookies; it needs no browser or imported Next.js request scope. `project-comment-paging.spec.ts` and the shared tablet journey check refresh batching, off-page unread dots, scroll/retry/selection/search/detail behavior on
 desktop, mobile and tablet. Timing targets still need deployed measurements.
 
 The browser baseline is `10a39b764cba91a178fc9ee24e532cf3afda0f24` (merged custom statuses and
