@@ -143,7 +143,9 @@ assignee card, with Open in T3 Code or another desktop session link, at the top 
   the attach button, with Remove; reading holds Enter/send, Discard clears the image, and failed sends restore
   it unless a newer image was attached. Image bytes never enter draft or idempotency storage. Reply images
   use the same thumbnail/expanded dialog (`MessageImage`) as the first message, each through its authorized
-  thread/reply image route. The thumbnail button keeps the name "Screenshot of the commented part of the page"
+  thread/reply image route. The thumbnail takes its final size from the saved width and height before the image
+  arrives (at most 224 px high and the column's width), shows a pulsing `Skeleton` (`data-image-placeholder`, still with
+  reduced motion) until the image has loaded or failed, then fades the image in, so nothing jumps when it loads (uier #352). The thumbnail button keeps the name "Screenshot of the commented part of the page"
   (the toolbar's `screenshot.alt`); the image inside says only what it shows, "Commented part of the page"
   (`screenshot.imageAlt`), because screen readers already announce an image and the alt-text check flags "Screenshot of".
   `e2e/reply-images.spec.ts` covers picker, paste, retry, both surfaces, reload,
