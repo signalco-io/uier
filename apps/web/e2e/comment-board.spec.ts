@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Locator, type Page, type Route } from '@playwright/test';
-import { commentRowLink, createProject, heldForDrag, longPress, openBoardMove, openComment, selectionBar, setProjectAccess, signIn, uniqueEmail, type ProjectAccessLabel } from './support/app';
+import { commentRowLink, createProject, openCommentFilters, selectThread, heldForDrag, longPress, openBoardMove, openComment, selectionBar, setProjectAccess, signIn, uniqueEmail, type ProjectAccessLabel } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { expectNoAxeViolations } from './accessibility';
@@ -298,6 +298,32 @@ test('the board widens on a wide window, the filters and project headers and the
     await headerSpans(column('Open'), archive);
     await archive.getByRole('button', { name: 'Collapse Archive', exact: true }).click();
     await expect(archive.getByRole('button', { name: 'Archive 0', exact: true })).toBeVisible();
+});
+
+test('the board filters by status from Filter, and Select shown results takes only that status (uier #335)', async ({ page, request }) => {
+    const { project, comments, column } = await board(page, request);
+    const bar = selectionBar(page);
+    await selectThread(page, comments[0]!.number);
+    await bar.getByRole('button', { name: 'Mark selected as done', exact: true }).click();
+    await expect(column('Done').getByRole('listitem')).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    await (await openCommentFilters(page)).getByRole('combobox', { name: 'Status filter', exact: true }).click();
+    await page.getByRole('option', { name: /^Done/ }).click();
+    await page.keyboard.press('Escape');
+    expect(new URL(page.url()).searchParams.get('status')).toBe('done');
+    await expect(column('Open').getByRole('listitem')).toHaveCount(0);
+    await expect(column('Done').getByRole('listitem')).toHaveCount(1);
+    const chip = page.getByRole('button', { name: 'Status: Done, clear filter', exact: true });
+    await expect(chip).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Filter 1', exact: true })).toBeVisible();
+    await selectThread(page, comments[0]!.number);
+    await bar.getByRole('checkbox', { name: 'Select shown results', exact: true }).check();
+    await expect(bar.getByText('1 selected', { exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await chip.click();
+    await expect(column('Open').getByRole('listitem')).toHaveCount(1);
+    await expect(column('Done').getByRole('listitem')).toHaveCount(1);
+    expect(new URL(page.url()).pathname).toBe(`/app/projects/${project}`);
 });
 
 test('board cards are darker than their column on dark', async ({ page, request }) => {

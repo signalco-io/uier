@@ -11,8 +11,10 @@ const items = <T extends z.ZodType>(schema: T) => z.array(schema).min(1).max(MAX
 export const bulkTriageSchema = z.discriminatedUnion('kind', [
     z.object({ kind: z.literal('priority'), priority: z.enum(priorities), items: items(item.extend({ expected: z.enum(priorities) })) }).strict(),
     z.object({ kind: z.literal('assignment'), assigneeId: userIdSchema.nullable(), items: items(item.extend({ expected: userIdSchema.nullable(), revision: z.string().regex(/^[a-f0-9]{64}$/).optional() })) }).strict(),
-    z.object({ kind: z.literal('status'), resolved: z.boolean(), items: items(item.extend({ expected: z.boolean(), revision: z.string().regex(/^[a-f0-9]{64}$/) })) }).strict()
+    z.object({ kind: z.literal('status'), resolved: z.boolean(), items: items(item.extend({ expected: z.boolean(), revision: z.string().regex(/^[a-f0-9]{64}$/) })) }).strict(),
+    /** Archive only (uier #333): restoring stays a per-thread action in the thread's menu */
+    z.object({ kind: z.literal('archive'), items: items(item) }).strict()
 ]);
 export type BulkTriageInput = z.infer<typeof bulkTriageSchema>;
 export type TriageOperation = { kind: 'priority'; priority: import('@uier/toolbar/triage').CommentPriority }
-    | { kind: 'assignment'; assigneeId: string | null } | { kind: 'status'; resolved: boolean };
+    | { kind: 'assignment'; assigneeId: string | null } | { kind: 'status'; resolved: boolean } | { kind: 'archive' };

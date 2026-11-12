@@ -7,7 +7,7 @@
   through `stroke`, because highlighted menu and select items set the text colour of everything in them.
   `e2e/priority-flag.spec.ts` covers it.
 - The comments' filter bar (`CommentFilters.tsx`): search on the left, then at the right end of that row the filters in
-  effect, one Filter button (a popover with Priority, Environment
+  effect, one Filter button (a popover with Status on the board only (below), Priority, Environment
   and page, People (Everyone, Assigned to me, Unassigned, Opened by me) and Only unread (plus the open thread); its badge counts the
   filters in effect) and List/Board (on a touch screen the search, Filter and the List/Board group are one height, 44 px:
   the group's 3 px padding around 38 px tabs; uier #277), then the status tabs
@@ -60,6 +60,13 @@
   as well as the check mark. Each option has a `title` with its full label, since long paths are
   truncated.
 
+
+The board has no status tabs: its Filter popover starts with Status (uier #335, `boardStatusFilters` and `boardStatusFilter` in
+`commentLabels.ts`): All statuses, then Open, In progress, Ready to verify and Done, each with its status dot and count. It
+is the list's `?status=`, so a status chosen in one view stays in the other; Active and All show every column on the board.
+A status narrows the board to that column: the other columns stay, empty, as drop targets, Archive's cards hide, and
+Select shown results takes only what is shown. It shows in effect as "Status: Done", counts in Filter's badge, and Clear
+filters (or its chip) goes back to every column. `comment-board.spec.ts` covers it.
 
 Archive (`status=archived`) is a separate list scope, chosen from the menu beside the Done tab. All includes ordinary
 workflow statuses, without archived threads. Archive uses the same search, people, page, priority,
