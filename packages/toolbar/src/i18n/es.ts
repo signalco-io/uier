@@ -8,15 +8,15 @@ const p = (count: number, one: string, other: string) => plural('es', count, one
 
 export const es: Messages = {
     consentPanel: {
-        title: "Consentimiento y cookies",
-        toReview: "Por revisar",
-        notes: "Notas",
-        snapshot: "Estado de la página",
-        before: "Antes del consentimiento",
-        observe: "Observar durante 15 segundos",
-        observing: "Observando…",
-        instructions: "Empieza en una sesión nueva del navegador antes de elegir. Espera 15 segundos antes de elegir una opción de consentimiento. Esta comprobación no cambia tu elección ni borra el almacenamiento.",
-        limits: "Solo esta página. Aquí no se ven las cookies HttpOnly ni de terceros, el almacenamiento de marcos, IndexedDB, la caché ni el seguimiento del servidor. Se desconocen los consentimientos anteriores y la actividad previa a la barra. Solo nombres; nunca se envían valores. Las categorías son orientativas. Revisa los resultados; no son un veredicto de cumplimiento legal."
+        title: 'Consentimiento y cookies',
+        toReview: 'Por revisar',
+        notes: 'Notas',
+        snapshot: 'Estado de la página',
+        before: 'Antes del consentimiento',
+        observe: 'Observar durante 15 segundos',
+        observing: 'Observando…',
+        instructions: 'Empieza en una sesión nueva del navegador antes de elegir. Espera 15 segundos antes de elegir una opción de consentimiento. Esta comprobación no cambia tu elección ni borra el almacenamiento.',
+        limits: 'Solo esta página. Aquí no se ven las cookies HttpOnly ni de terceros, el almacenamiento de marcos, IndexedDB, la caché ni el seguimiento del servidor. Se desconocen los consentimientos anteriores y la actividad previa a la barra. Solo nombres; nunca se envían valores. Las categorías son orientativas. Revisa los resultados; no son un veredicto de cumplimiento legal. Los nombres se acortan para ocultar identificadores.'
     },
     common: {
         cancel: 'Cancelar',
@@ -58,7 +58,7 @@ export const es: Messages = {
             `${badge} ${count === 1 && !capped ? 'conversación sin leer' : 'conversaciones sin leer'}${count > 99 && !capped ? `, ${count} en total` : ''}`,
         accessibility: 'Accesibilidad',
         seo: 'SEO',
-        consent: "Consentimiento y cookies",
+        consent: 'Consentimiento y cookies',
         about: 'Acerca de uier',
         draw: 'Dibujar en la página',
         collapse: 'Contraer la barra'
@@ -823,7 +823,7 @@ export const es: Messages = {
         image: 'Imagen'
     },
     checks: {
-        kinds: { consent: "Consentimiento y cookies", accessibility: 'Accesibilidad', seo: 'SEO', 'web-vitals': 'Core Web Vitals' },
+        kinds: { consent: 'Consentimiento y cookies', accessibility: 'Accesibilidad', seo: 'SEO', 'web-vitals': 'Core Web Vitals' },
         highlight: 'Resaltar',
         notAnIssue: 'No es un problema',
         postedAs: (label: string, number: number | undefined) => `${label}${number !== undefined ? ` como #${number}` : ''}`,

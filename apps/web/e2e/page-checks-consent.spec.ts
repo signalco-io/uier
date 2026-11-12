@@ -90,6 +90,45 @@ test('names-only inventory, timing limits, comments and dismissals use the page-
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
+test('identifiers in cookie and storage names are shortened before display and posting', async ({ page }) => {
+    test.setTimeout(150_000);
+    const fixtures: [string, string, string][] = [
+        ['profile.reviewer@example.com', 'profile.reviewer@example.com', '…'],
+        ['account:123e4567-e89b-12d3-a456-426614174000', '123e4567-e89b-12d3-a456-426614174000', 'account:…'],
+        ['CognitoIdentityServiceProvider.shortClient.alice.idToken', 'shortClient', '….…'],
+        ['shortAccount-login.windows.net-idtoken-shortClient-shortTenant', 'shortAccount', '…-login.windows.net-…'],
+        ['firebase:authUser:shortApiKey:shortApp', 'shortApiKey', 'firebase:authUser:…'],
+        ['@@auth0spajs@@::shortClient::audience::scope', 'shortClient', '@@auth0spajs@@:…'],
+        ['a0.spajs.txs.shortClient', 'shortClient', 'a0.spajs.txs.…'],
+        ['hex:abcdef0123456789', 'abcdef0123456789', 'hex:…'],
+        ['base64:AbCdEfGhIjKlMnOp==', 'AbCdEfGhIjKlMnOp', 'base64:…'],
+        ['digits:12345678', '12345678', 'digits:…']
+    ];
+    await page.addInitScript(fixtures => {
+        if (!location.hostname.startsWith('fixture-consent.')) return;
+        for (const [key] of fixtures) localStorage.setItem(key, 'private-value');
+        document.cookie = 'cookie.reviewer@example.com=private-value; path=/';
+        sessionStorage.setItem('uier:own-session', 'private-value');
+        localStorage.setItem('uier:own-local', 'private-value');
+    }, fixtures);
+    const project = await memberReview(page);
+    const panel = await openPanel(page);
+    await expect(panel).toContainText('Names are shortened to hide identifiers');
+    await expect(panel).not.toContainText('uier:own-');
+    const snapshot = section(panel, 'snapshot');
+    for (const [, raw, display] of fixtures) {
+        await expect(panel).not.toContainText(raw);
+        const row = named(snapshot, display).first();
+        await expect(row).toBeVisible();
+        const next = page.waitForRequest(request => request.method() === 'POST' && new URL(request.url()).pathname === `/api/review/${project}/comments`);
+        await row.getByRole('button', { name: 'Comment', exact: true }).click();
+        const payload = (await next).postData()!;
+        for (const [, identifier] of fixtures) expect(payload).not.toContain(identifier);
+        expect(payload).not.toContain('reviewer@example.com');
+        await expect(row).toContainText(/(Comment posted|Bug report sent) as #/);
+    }
+});
+
 test('before-choice observation distinguishes new storage names and tracker hosts from existing data', async ({ page }) => {
     test.setTimeout(90_000);
     await page.route('https://www.google-analytics.com/**', route => route.fulfill({ status: 204, headers: { 'Access-Control-Allow-Origin': '*' } }));
@@ -106,6 +145,8 @@ test('before-choice observation distinguishes new storage names and tracker host
             document.cookie = '_fbp=private-new-cookie-342; path=/';
             document.cookie = 'existing=private-changed-value-342; path=/';
             localStorage.setItem('new_name', 'private-new-local-342');
+            localStorage.setItem('uier:observation-write', 'private-own-value');
+            sessionStorage.setItem('uier:observation-session', 'private-own-value');
             void fetch('https://www.google-analytics.com/g/collect?private=private-query-342');
         }, 1500);
     });
@@ -114,6 +155,7 @@ test('before-choice observation distinguishes new storage names and tracker host
     await expect(named(observation, '_fbp')).toContainText('A new name appeared');
     await expect(named(observation, 'new_name')).toContainText('Local storage');
     await expect(named(observation, 'existing')).toHaveCount(0);
+    await expect(observation).not.toContainText('uier:');
     await expect(named(observation, 'www.google-analytics.com')).toContainText('Third party (known provider)');
     await expect(observation).not.toContainText('private-query-342');
     await expect(observation).not.toContainText('private-new-cookie-342');
@@ -151,8 +193,8 @@ test('exposed cookie metadata is used and a pending observation is cancelled whe
     await memberReview(page);
     let panel = await openPanel(page);
     await expect(named(section(panel, 'snapshot'), 'session_cookie')).toContainText('Browser session');
-    await expect(named(section(panel, 'snapshot'), 'persistent_cookie')).toContainText(new URL(origin()).hostname);
-    await expect(named(section(panel, 'snapshot'), 'persistent_cookie')).toContainText('2030-01-01');
+    await expect(named(section(panel, 'snapshot'), '…')).toContainText(new URL(origin()).hostname);
+    await expect(named(section(panel, 'snapshot'), '…')).toContainText('2030-01-01');
     await showChecksTab(panel, 'before-consent');
     await panel.locator('[data-uier-consent-observe]').click();
     await expect(section(panel, 'observation')).toHaveAttribute('data-uier-section-status', 'checking');

@@ -1,4 +1,5 @@
 import { pageCheck, pageIssue, type SectionContext, type SectionReport } from './api';
+import { redactName } from './redactName';
 import { words } from './locale';
 
 // Page-side evidence only. Never retain cookie values, read storage values, request resources,
@@ -12,7 +13,7 @@ const categories: [RegExp, Category][] = [
     [/^(?:_ga(?:_|$)|_gid$|_gat(?:_|$)|_hj|_clck$|_clsk$|mp_)/, 'analytics'],
     [/^(?:_fbp$|_fbc$|_gcl_|IDE$|test_cookie$)/, 'marketing'],
     [/^(?:CookieConsent$|OptanonConsent$|OptanonAlertBoxClosed$|euconsent-v2$|cookieyes-consent$)/, 'consent'],
-    [/^(?:theme$|color-scheme$|uier:)/, 'preferences']
+    [/^(?:theme$|color-scheme$)/, 'preferences']
 ];
 const category = (name: string): Category => categories.find(([pattern]) => pattern.test(name))?.[1] ?? 'unknown';
 
@@ -39,7 +40,8 @@ async function inventory(signal: AbortSignal): Promise<Inventory> {
     signal.throwIfAborted();
     const result: Inventory = { items: [], unavailable: [], limited: false };
     const add = (kind: StoredName['kind'], name: string, metadata: Pick<StoredName, 'domain' | 'expires'> = {}) => {
-        result.items.push({ kind, name: name.slice(0, 160), ...metadata, category: category(name) });
+        if (kind !== 'cookie' && name.startsWith('uier:')) return;
+        result.items.push({ kind, name: redactName(name), ...metadata, category: category(name) });
     };
     // Some engines expose optional cookie attributes that document.cookie does not. Select fields explicitly:
     // never spread its items (which also contain values) into a report, console or request.
@@ -115,7 +117,7 @@ function storageChecks(context: SectionContext, data: Inventory, observed = fals
     const t = words().consent;
     return data.items.map(item => {
         const id = `consent-${observed ? 'observed-' : ''}${idFor(nameKey(item))}`;
-        const name = item.name.replace(/[\r\n`]/g, ' ');
+        const name = redactName(item.name);
         const lifetime = item.kind === 'session' ? t.tabSession : item.kind === 'local' ? t.persistent
             : item.expires === null ? t.browserSession : typeof item.expires === 'number' && Number.isFinite(item.expires)
                 ? t.expires(new Date(item.expires).toISOString()) : t.unknownLifetime;
@@ -124,7 +126,7 @@ function storageChecks(context: SectionContext, data: Inventory, observed = fals
         const issue = pageIssue(context.path, { type: 'consent', id }, undefined, `${name}: ${reason}`,
             `${t.title}: ${reason}\n\`${name}\`\n${value}\n${t.reviewOnly}`.slice(0, 1000));
         issue.review = true;
-        return pageCheck(id, item.name, observed || item.category === 'analytics' || item.category === 'marketing' ? 'warn' : 'none', reason, { value, issues: [issue] });
+        return pageCheck(id, name, observed || item.category === 'analytics' || item.category === 'marketing' ? 'warn' : 'none', reason, { value, issues: [issue] });
     });
 }
 
