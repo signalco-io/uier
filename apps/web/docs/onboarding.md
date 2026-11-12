@@ -28,7 +28,10 @@ popover before choosing Invite; clicking that link navigates to Review settings.
 
 - `InstallationCheck` checks the actual configured site through a nonce/window/origin-bound browser handshake.
   Script/API configuration, comments reads and browser verification must succeed before confirming. Missing evidence
-  is inconclusive. Do not replace this with a server fetch/proxy or add test comments. Advanced headers stay in `InstallGuide`.
+  is inconclusive. Installation browser tests wait for a terminal result within the app's 30-second
+  handshake budget (plus scheduling margin), then require success; popup creation alone is not readiness.
+  `installation.spec.ts` delays a real verification response beyond five seconds to cover cold/loaded runs.
+  Do not replace this with a server fetch/proxy or add test comments. Advanced headers stay in `InstallGuide`.
 - `integration.ts` owns default and pinned HTML/Next.js snippets from `@uier/toolbar/bundle`.
   `InstallGuide` offers both with the update/support policy. Constructed review sheets remove
   `unsafe-inline` from its style CSP sources. `scripts/toolbar-assets.mjs` publishes identical

@@ -1,6 +1,7 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { pageStateSettings, projectPublicId, createProject, setProjectAccess, signIn, uniqueEmail, openComment } from './support/app';
+import { expectInstallationSuccess } from './support/installation';
 import { startReviewedSite } from './support/reviewedSite';
 import { animationsFinished, commentBubbles, newVisitor, selectText, selectionToolbar, setThreadStatus, toolbar, copyFromThread } from './support/toolbar';
 
@@ -64,7 +65,7 @@ test('owner checks installation, shares a review, replies and resolves; the name
     const popupOpened = page.waitForEvent('popup');
     await check.getByRole('button', { name: 'Check installation', exact: true }).click();
     const checked = await popupOpened;
-    await expect(check.getByRole('status', { name: 'Installation result' })).toHaveAttribute('data-result', 'success');
+    await expectInstallationSuccess(check);
     const shared = await check.getByRole('link', { name: 'Open checked review' }).getAttribute('href');
     expect(shared).toBe(`${origin}/?toolbar-code=${publicId}`);
     await checked.close();

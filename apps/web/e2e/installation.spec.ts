@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { expectInstallationSuccess } from './support/installation';
 import { startReviewedSite } from './support/reviewedSite';
 import { projectPublicId, createProject, openOnboardingStep, signIn, uniqueEmail } from './support/app';
 import { expectNoAxeViolations } from './accessibility';
@@ -14,12 +15,22 @@ async function setup(page: Page, label: string) {
     return { projectId, check: page.getByRole('region', { name: 'Check installation' }) };
 }
 
-test('checks the actual project toolbar, API and browser verification, then provides a clean review link', async ({ page }) => {
+test('checks the actual project toolbar, API and browser verification, then provides a clean review link even with slow verification', async ({ page, context }) => {
     const { projectId, check } = await setup(page, 'installed');
+    // A valid cold/load-bound handshake can exceed Playwright's default 5 s assertion budget.
+    // Delay the real response, retaining the nonce/origin-bound browser verification path.
+    let delayedVerification = false;
+    await context.route(`**/api/review/${await projectPublicId(page, projectId)}/verification`, async route => {
+        const response = await route.fetch();
+        await new Promise(resolve => setTimeout(resolve, 6_000));
+        delayedVerification = true;
+        await route.fulfill({ response });
+    });
     const opened = page.waitForEvent('popup');
     await check.getByRole('button', { name: 'Check installation', exact: true }).click();
     const popup = await opened;
-    await expect(check.getByRole('status', { name: 'Installation result' })).toHaveAttribute('data-result', 'success');
+    await expectInstallationSuccess(check);
+    expect(delayedVerification).toBe(true);
     expect(await popup.evaluate(() => window.opener)).toBeNull();
     await expect(popup.getByRole('button', { name: 'Add comment' })).toBeVisible();
     expect(popup.url()).not.toMatch(/uier-token|uier-check/);
@@ -55,7 +66,7 @@ test('a successful check does not carry over to another selected address', async
     const opened = page.waitForEvent('popup');
     await check.getByRole('button', { name: 'Check installation', exact: true }).click();
     const popup = await opened;
-    await expect(check.getByRole('status', { name: 'Installation result' })).toHaveAttribute('data-result', 'success');
+    await expectInstallationSuccess(check);
     await check.getByRole('combobox', { name: 'Site to check' }).click();
     await page.getByRole('option', { name: site.origin('missing-script'), exact: true }).click();
     await expect(check.getByRole('status', { name: 'Installation result' })).toHaveCount(0);
