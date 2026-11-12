@@ -402,6 +402,7 @@ Filter changes keep URL/history controls immediate, cancel stale page requests a
 Socket/action refreshes send one `depths` map and rebuild all loaded lanes from a single scan,
 capped at eight pages (200 rows) per lane. A fresh RSC first page can be reused until deeper pages
 are loaded; deeper refreshes need one additional HTTP request, rather than one request per page.
+Loading another page preserves the full-window revision baseline, so a router refresh with that page response’s revision still rebuilds every loaded lane.
 Scroll and composers remain mounted while moved/deleted rows leave. Enrichment reuses the scan
 request’s read cursors and subscriptions; a thread becoming private between scan and canonical
 read is skipped. Idle revision checks use routing metadata without

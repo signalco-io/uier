@@ -9,7 +9,7 @@ import type { StatusWorkflow } from '@/src/lib/app/statusWorkflow';
 import type { BoardColumn, BoardSort } from '@/src/lib/app/boardSort';
 
 type Snapshot = Pick<NonNullable<Awaited<ReturnType<typeof loadAppCommentsSnapshot>>>, 'comments' | 'paging' | 'revision' | 'projectId' | 'userId'> & { openedComment?: ProjectCommentView };
-function mergePage(current: Snapshot, next: Snapshot, lane: CommentLane): Snapshot {
+export function mergePage(current: Snapshot, next: Snapshot, lane: CommentLane): Snapshot {
     const page = next.paging.lanes[lane];
     if (!page) return current;
     const rows = new Map(current.comments.map(comment => [comment.id, comment]));
@@ -20,7 +20,8 @@ function mergePage(current: Snapshot, next: Snapshot, lane: CommentLane): Snapsh
         lanes[id] = id === lane ? { ...metadata, ids: [...new Set([...(lanes[id]?.ids ?? []), ...metadata.ids])] }
             : lanes[id] ? { ...lanes[id]!, total: metadata.total } : metadata;
     }
-    return { ...next, comments: [...rows.values()], openedComment: next.openedComment ?? current.openedComment,
+    // A continuation refreshes one lane only; preserve the full-window refresh baseline.
+    return { ...next, revision: current.revision, comments: [...rows.values()], openedComment: next.openedComment ?? current.openedComment,
         paging: { ...next.paging, lanes } };
 }
 

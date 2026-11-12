@@ -256,3 +256,20 @@ test('label filters count and page off-page assignments against the effective ca
     expect(removed.paging.statusCounts.open).toBe(0);
     expect(removed.comments).toHaveLength(0);
 });
+
+test('merging a continuation preserves the full-window revision and other lane rows', async () => {
+    const { mergePage } = await import('../src/components/app/comments/useProjectCommentPages');
+    const f = await fixture();
+    for (let i = 0; i < 30; i++) await f.store.create(f.row(i));
+    await f.store.create(f.row(100, { resolved: true }));
+    const first = await f.load();
+    await f.store.create(f.row(101, { resolved: true }));
+    const next = await f.load({}, { lane: 'open', cursor: first.paging.lanes.open!.nextCursor! });
+    expect(next.revision).not.toBe(first.revision);
+    const merged = mergePage(first, next, 'open');
+    expect(merged.revision).toBe(first.revision);
+    expect(merged.revision).not.toBe(next.revision);
+    expect(merged.paging.lanes.open?.ids).toHaveLength(30);
+    expect(merged.paging.lanes.done?.ids).toEqual(first.paging.lanes.done?.ids);
+    expect(merged.comments.some(row => row.id === 'row-00101')).toBe(false);
+});
