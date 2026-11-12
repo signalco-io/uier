@@ -59,6 +59,7 @@ test('account preference is validated and persisted independently of toolbar lan
 
 test('all app catalogs are complete and preserve interpolation names', async () => {
     const source = await loadAppCatalog('en');
+    for (const key of ["Enable fix verification", "Ask a reviewer to confirm fixes before marking them done. When off, pending checks stay in Open or In progress and can be marked done."]) expect(source[key]).toBe(key);
     const placeholders = (text: string) => [...new Set(text.match(/\{[A-Za-z0-9_]+\}/g) ?? [])].sort();
     expect(Object.keys(source).length).toBeGreaterThan(900);
     for (const language of appLanguages) {

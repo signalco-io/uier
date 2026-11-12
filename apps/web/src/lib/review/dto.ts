@@ -47,6 +47,7 @@ export function messageMentions(item: DbThreadItem, names: Map<string, string>) 
 export type ReviewAssignee = { id?: string; name: string; isMe: boolean; unavailable: boolean; agent?: import('@uier/toolbar/agents').AssigneeAgentView; agents?: import('@uier/toolbar/agents').AssigneeAgentView[] };
 
 export type ReviewCommentDto = CommentDto & {
+    verificationEnabled?: boolean;
     workflowStatusId?: string; archiveStatusId?: string;
     history?: ThreadHistoryEntry[];
     source?: FeedbackSource;
@@ -81,6 +82,7 @@ export function toReviewCommentDto(comment: DbComment, actor: ProjectActor, name
     const items = Array.isArray(comment.thread?.items) ? comment.thread.items : [];
     return {
         ...dto,
+        verificationEnabled: project?.verificationEnabled === true,
         workflowStatusId: comment.workflowStatusId, archiveStatusId: comment.archiveStatusId,
         ...(actor.kind === 'member' ? { history: threadHistoryView(comment, { member: true, authorId, admin: actor.isAdmin }, participants) } : {}),
         ...(project ? { verification: verificationDetails(comment, project, actor, participants), verificationPermissions: verificationPermissions(comment, project, actor, participants) } : {}),

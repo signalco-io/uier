@@ -99,6 +99,6 @@ export async function unreadReviewComment({ project, actor }: ReviewApiContext, 
 
 export async function reviewActivitySummary({ project, actor, request, siteOrigin }: ReviewApiContext) {
     const filter = environmentFilter(project, environmentSelection(project, new URL(request.url).searchParams.get('environment'), projectReviewOrigin(project, request, siteOrigin)));
-    const { summary } = await projectActivity(`project:${project.id}`, actorAuthorId(actor), comment => canSeeComment(comment, actor) && matchesOrigin(comment.origin, filter));
+    const { summary } = await projectActivity(`project:${project.id}`, actorAuthorId(actor), comment => canSeeComment(comment, actor) && matchesOrigin(comment.origin, filter), 'exclude', project.verificationEnabled === true);
     return Response.json(summary);
 }

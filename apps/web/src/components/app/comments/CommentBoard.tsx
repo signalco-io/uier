@@ -337,8 +337,9 @@ export type BoardProject = { id: string; name?: string; url?: string; assignees:
  * it from the column's header. Archive is the last column (`archive`), collapsed unless the project expands it; My work,
  * which leaves archived threads out, has none.
  */
-export function CommentBoard({ projectOf, columns: categoryColumns, workflow, sorts, onSort, archive, allComments, userId, openComment }: {
+export function CommentBoard({ projectOf, columns: categoryColumns, workflow, verificationEnabled, sorts, onSort, archive, allComments, userId, openComment }: {
     workflow?: StatusWorkflow;
+    verificationEnabled?: boolean;
     /** Each thread's project (`BoardProject`) */
     projectOf: (comment: ProjectCommentView) => BoardProject;
     /** Each column's cards, in its sort */
@@ -354,7 +355,7 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, so
     openComment: ReturnType<typeof useOpenComment>;
 }) {
     const { t } = useAppI18n();
-    const definitions = orderedStatuses(workflow ?? defaultStatusWorkflow).filter(status => status.category !== 'archive');
+    const definitions = orderedStatuses(workflow ?? defaultStatusWorkflow).filter(status => status.category !== 'archive' && (status.category !== 'ready' || (verificationEnabled ?? (workflow ? workflow.verificationEnabled === true : allComments.some(comment => comment.verificationEnabled)))));
     const statuses = definitions.map(status => status.id);
     const definition = (id: string) => definitions.find(status => status.id === id)!;
     const categoryOf = (id: string) => definition(id).category as CommentStatus;

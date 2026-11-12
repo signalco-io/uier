@@ -131,7 +131,7 @@ test('query summaries and facet counts exclude private data and heavy server rec
 
 test('options search matches display labels and guest fix-link filters respect source visibility', async () => {
     const domain = `service-query-${randomUUID()}`, store = getCommentsStore();
-    const project = { id: 'project-options', name: 'Checkout redesign', workspaceId: 'unused', urls: ['https://live.example', 'https://preview.example'], access: 'guests' } as import('../src/lib/app/model').DbProject;
+    const project = { verificationEnabled: true, id: 'project-options', name: 'Checkout redesign', workspaceId: 'unused', urls: ['https://live.example', 'https://preview.example'], access: 'guests' } as import('../src/lib/app/model').DbProject;
     try {
         await store.create(record(domain, 'options', { origin: 'https://live.example', verification: { id: 'fix', revision: 'v1', requester: 'user:a', reviewer: 'user:b', requestedAt: '2026-01-01T00:00:00Z', outcome: 'pending', fixUrl: 'https://preview.example/fix' } }));
         // Display labels for semantic enums are searchable even though they differ from IDs.

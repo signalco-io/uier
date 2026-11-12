@@ -46,7 +46,7 @@ async function fixture() {
     const b = await findOrCreateUser(`agent-b-${id}@example.com`);
     const workspaceId = `w_${owner.id}`;
     const old = '2026-01-01T00:00:00.000Z';
-    const project: DbProject = { type: 'project', id, pk: workspacePk(workspaceId), workspaceId, name: `Agents ${id}`, urls: ['https://reviewed.example'],
+    const project: DbProject = { verificationEnabled: true, type: 'project', id, pk: workspacePk(workspaceId), workspaceId, name: `Agents ${id}`, urls: ['https://reviewed.example'],
         status: 'active', access: 'guests', createdBy: owner.id, createdAt: old, updatedAt: old };
     await getAppStore().create(project);
     await getAppStore().create<DbProjectRef>({ type: 'project-ref', id, pk: projectRefPk(id), workspaceId });

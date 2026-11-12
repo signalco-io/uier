@@ -38,7 +38,8 @@ import { keepValues } from './keepFormValues';
 type ProjectToolbarLanguage = 'workspace' | ToolbarLanguage;
 
 /** Review: who can comment, the toolbar's language, the brief and, under Advanced, the page state; one save */
-export function ProjectReviewForm({ projectId, access, brief, policy, suggestions, guestLinks, feedbackTypes, workspaceTypes, threadLabels, workspaceLabels, statusWorkflow, workspaceWorkflow, toolbarLanguage, workspaceToolbarLanguage, toolbarFeatures }: {
+export function ProjectReviewForm({ projectId, access, brief, policy, suggestions, guestLinks, feedbackTypes, workspaceTypes, threadLabels, workspaceLabels, statusWorkflow, workspaceWorkflow, toolbarLanguage, workspaceToolbarLanguage, toolbarFeatures, verificationEnabled = false }: {
+    verificationEnabled?: boolean;
     projectId: string;
     access: ProjectAccess;
     /** The project's own toolbar language, or the workspace's */
@@ -64,6 +65,7 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
     const saved = pageStatePolicy(policy);
     const { draft, dirty, update, discard } = useSettingsDraft({
         access,
+        verificationEnabled,
         toolbarLanguage,
         toolbarFeatures: toolbarFeatures ?? {},
         brief: brief ?? '',
@@ -94,6 +96,7 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
             <form id={formId} action={formAction} onResetCapture={keepValues}>
                 <input type="hidden" name="threadLabels" value={draft.labelsMode === 'workspace' ? 'workspace' : JSON.stringify({ mode: 'replace', value: draft.labels })} />
                 <input type="hidden" name="statusWorkflow" value={draft.workflowMode === 'workspace' ? 'workspace' : JSON.stringify({ mode: 'replace', value: draft.workflow })} />
+                <input type="hidden" name="verificationEnabled" value={String(draft.verificationEnabled)} />
                 <input type="hidden" name="projectId" value={projectId} />
                 <input type="hidden" name="feedbackTypes" value={draft.feedbackTypesMode === 'workspace' ? 'workspace' : JSON.stringify({ mode: 'replace', value: draft.feedbackTypes })} />
                 <input type="hidden" name="access" value={draft.access} />
@@ -135,6 +138,12 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
                         </Select>
                         <FieldDescription>{t("What reviewers see the toolbar in. People who choose their own language in the toolbar's Options keep it. Change the workspace default in")}{' '}<Link href={KnownPages.AppSettings} className="underline underline-offset-4 hover:text-foreground">{t("Workspace settings")}</Link>.
                         </FieldDescription>
+                    </Field>
+                    <FieldSeparator />
+                    <Field orientation="horizontal">
+                        <Checkbox id={`${formId}-verification`} checked={draft.verificationEnabled} disabled={pending} onCheckedChange={value => update(current => ({ ...current, verificationEnabled: value === true }))} />
+                        <div><FieldLabel htmlFor={`${formId}-verification`}>{t('Enable fix verification')}</FieldLabel>
+                            <FieldDescription>{t('Ask a reviewer to confirm fixes before marking them done. When off, pending checks stay in Open or In progress and can be marked done.')}</FieldDescription></div>
                     </Field>
                     <FieldSeparator />
                     <ToolbarFeaturesFields value={draft.toolbarFeatures} onChange={toolbarFeatures => update(current => ({ ...current, toolbarFeatures }))} guests={draft.access === 'guests'} disabled={pending} />
@@ -196,7 +205,7 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
                                 <SelectContent><SelectGroup><SelectItem value="workspace">{t('Workspace defaults')}</SelectItem><SelectItem value="replace">{t('Project override')}</SelectItem></SelectGroup></SelectContent>
                             </Select>
                         </Field>
-                        <StatusWorkflowEditor value={draft.workflowMode === 'workspace' ? workspaceWorkflow : draft.workflow} onChange={workflow => update(current => ({ ...current, workflow }))} disabled={draft.workflowMode === 'workspace' || pending} />
+                        <StatusWorkflowEditor verificationEnabled={draft.verificationEnabled} value={draft.workflowMode === 'workspace' ? workspaceWorkflow : draft.workflow} onChange={workflow => update(current => ({ ...current, workflow }))} disabled={draft.workflowMode === 'workspace' || pending} />
                     </FieldSet>
                     <FieldSeparator />
                     <Collapsible open={advanced} onOpenChange={setAdvanced} className="flex flex-col gap-4">

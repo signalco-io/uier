@@ -150,6 +150,7 @@ export async function updateProjectReviewAction(_: ActionState, formData: FormDa
         });
         const update: ProjectUpdate = {};
         if (formData.has('threadLabels') && JSON.stringify(threadLabels) !== JSON.stringify(project.threadLabels)) update.threadLabels = threadLabels;
+        if (formData.has('verificationEnabled')) update.verificationEnabled = z.enum(['true', 'false']).parse(formData.get('verificationEnabled')) === 'true';
         if (formData.has('statusWorkflow') && JSON.stringify(statusWorkflow) !== JSON.stringify(project.statusWorkflow)) update.statusWorkflow = statusWorkflow;
         if (formData.has('feedbackTypes') && JSON.stringify(feedbackTypes) !== JSON.stringify(project.feedbackTypes))
             update.feedbackTypes = feedbackTypes;

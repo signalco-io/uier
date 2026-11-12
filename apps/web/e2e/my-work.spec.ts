@@ -73,7 +73,7 @@ test('My work shows its threads on a board: each card names its project, moves s
     await page.getByRole('button', { name: 'Board', exact: true }).click();
     await expect.poll(view).toBe('board');
     // The statuses as columns, no Archive (My work leaves archived threads out), each card with its project
-    await expect(page.getByRole('region', { name: /comments$/ })).toHaveText([/^Open/, /^In progress/, /^Ready to verify/, /^Done/]);
+    await expect(page.getByRole('region', { name: /comments$/ })).toHaveText([/^Open/, /^In progress/, /^Done/]);
     await expect(column('Open').getByRole('listitem')).toHaveCount(2);
     await expect(card('Typo in the post title')).toContainText('Blog');
     await expect(card('Checkout total is wrong')).toContainText('Shop');

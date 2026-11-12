@@ -326,3 +326,14 @@ export async function openReply(thread: Locator) {
     if (!(await input.isVisible())) await thread.getByRole('button', { name: 'Reply', exact: true }).click();
     return input;
 }
+
+
+/** Opt in only fixtures that exercise reviewer verification; ordinary projects remain off. */
+export async function enableProjectVerification(page: Page, projectId: string) {
+    await page.goto(`/app/projects/${projectId}/settings/review`);
+    const review = page.getByRole('region', { name: 'Review', exact: true });
+    await hydrated(review.locator('form'));
+    await review.getByRole('checkbox', { name: 'Enable fix verification', exact: true }).check();
+    await review.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(review.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+}

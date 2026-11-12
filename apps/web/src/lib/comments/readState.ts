@@ -90,15 +90,15 @@ export type ActivitySummary = {
 
 /** No text or actor ids are returned to the browser. Authorization/visibility stays server-side. */
 export async function projectActivity(domain: string, reviewerId: string | undefined,
-    visible: (comment: DbCommentActivity) => boolean = comment => isVisible(comment, { visitor: { authorId: reviewerId } }), archive: ArchiveFilter = 'exclude') {
+    visible: (comment: DbCommentActivity) => boolean = comment => isVisible(comment, { visitor: { authorId: reviewerId } }), archive: ArchiveFilter = 'exclude', verificationEnabled = true) {
     const [records, reads] = await Promise.all([getCommentsStore().listActivity(domain), loadReadSequences(domain, reviewerId)]);
     const visibleRecords = records.filter(visible);
     const comments = visibleRecords.filter(comment => matchesArchive(comment, archive)).sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
     const unreadIds = comments.filter(comment => readActivity(comment, reviewerId, reads.get(comment.id)).unread).map(comment => comment.id);
     const unread = new Set(unreadIds);
-    const unreadIn = (stage: ReturnType<typeof feedbackStage>) => comments.filter(comment => unread.has(comment.id) && feedbackStage(comment) === stage).length;
+    const unreadIn = (stage: ReturnType<typeof feedbackStage>) => comments.filter(comment => unread.has(comment.id) && feedbackStage({ ...comment, verificationEnabled }) === stage).length;
     return {
-        summary: { archived: visibleRecords.filter(comment => Boolean(comment.archivedAt)).length, unread: unreadIds.length, inProgress: comments.filter(comment => feedbackStage(comment) === 'in-progress').length, ready: comments.filter(readyForReview).length, open: comments.filter(comment => !comment.resolved).length,
+        summary: { archived: visibleRecords.filter(comment => Boolean(comment.archivedAt)).length, unread: unreadIds.length, inProgress: comments.filter(comment => feedbackStage({ ...comment, verificationEnabled }) === 'in-progress').length, ready: comments.filter(comment => readyForReview({ ...comment, verificationEnabled })).length, open: comments.filter(comment => !comment.resolved).length,
             done: comments.filter(comment => comment.resolved).length, total: comments.length,
             unreadOpen: unreadIn('open'), unreadInProgress: unreadIn('in-progress'), unreadReady: unreadIn('ready'), unreadDone: unreadIn('done'),
             unreadArchived: visibleRecords.filter(comment => comment.archivedAt && readActivity(comment, reviewerId, reads.get(comment.id)).unread).length } satisfies ActivitySummary,

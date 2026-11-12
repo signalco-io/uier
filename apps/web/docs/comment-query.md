@@ -124,6 +124,8 @@ custom-status slice does not add a query field or reinterpret saved definitions.
 
 Custom status writes do not change category filters or paging. The review comment DTO includes `workflowStatusId` and `archiveStatusId`; removed IDs fall back to the effective category default in the toolbar menu.
 
+Project status predicates and their native Cosmos/memory pushdown use the current `verificationEnabled` setting. With verification off, pending requests are Open/In progress, Ready is absent from status capabilities/options, and counters/facets use the same projection. This leaves the durable request intact and keeps its thread queryable.
+
 ## Labels
 
 The `labels` field is a member-only set of effective label IDs. It supports `includesAny`,

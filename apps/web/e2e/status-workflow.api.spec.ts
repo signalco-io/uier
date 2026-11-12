@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test } from '@playwright/test';
-import { defaultStatusWorkflow, statusForComment, type StatusWorkflow } from '../src/lib/app/statusWorkflow';
+import { defaultStatusWorkflow, orderedStatuses, statusForComment, type StatusWorkflow } from '../src/lib/app/statusWorkflow';
 import { statusWorkflowSchema } from '../src/lib/app/statusWorkflowSchema';
 import { effectiveStatusWorkflow, loadStatusWorkflow } from '../src/lib/app/statusWorkflows';
 import { setWorkspaceStatusWorkflow } from '../src/lib/app/workspaces';
@@ -27,7 +27,7 @@ const previous = process.env.UIER_LOCAL;
 test.beforeEach(() => { process.env.UIER_LOCAL = '1'; });
 test.afterEach(() => { if (previous === undefined) delete process.env.UIER_LOCAL; else process.env.UIER_LOCAL = previous; });
 async function fixture() {
-    const project = await persistProjectAccess({ id: randomUUID().replaceAll('-', '').slice(0, 12) } as DbProject);
+    const project = await persistProjectAccess({ verificationEnabled: true, id: randomUUID().replaceAll('-', '').slice(0, 12) } as DbProject);
     const workspace: DbWorkspace = { type: 'workspace', id: project.workspaceId, pk: workspacePk(project.workspaceId), name: 'Workflow', createdBy: 'admin', createdAt: new Date().toISOString(), aiTitles: false };
     await getAppStore().create(workspace);
     const create = (idempotencyKey?: string) => createProjectComment(new Request('http://127.0.0.1'), project, member, { path: '/workflow', origin: project.urls[0]!, position: { type: 'page' }, kind: 'feedback', text: 'Workflow feedback', idempotencyKey });
@@ -43,7 +43,7 @@ test('configuration validates categories, IDs, names, bounded text and category-
         { ...value, statuses: [...value.statuses, value.statuses[0]] },
         ...[{ label: 'Open' }, { label: 'x'.repeat(41) }, { description: 'x'.repeat(501) }, { label: 'a\u202e' }, { id: '../bad' }, { category: 'unknown' }].map(patch => ({ ...value, statuses: [...value.statuses.slice(0, -1), { ...value.statuses.at(-1), ...patch }] }))
     ]) expect(statusWorkflowSchema.safeParse(invalid).success).toBe(false);
-    expect(effectiveStatusWorkflow({ statusWorkflow: { ...value, statuses: [] } }, {})).toEqual(defaultStatusWorkflow);
+    expect(effectiveStatusWorkflow({ statusWorkflow: { ...value, statuses: [] } }, {})).toEqual({ ...defaultStatusWorkflow, verificationEnabled: false });
 });
 
 test('admins save live workspace defaults; independent project overrides and clearing overrides preserve other settings', async () => {
@@ -52,11 +52,11 @@ test('admins save live workspace defaults; independent project overrides and cle
     await expect(setWorkspaceStatusWorkflow(f.workspace.id, 'outsider', workflow())).rejects.toThrow('Only admins');
     await expect(setWorkspaceStatusWorkflow(f.workspace.id, admin.userId, { ...workflow(), doneStatusId: 'open' })).rejects.toThrow();
     await setWorkspaceStatusWorkflow(f.workspace.id, admin.userId, workflow());
-    expect(await loadStatusWorkflow(f.project)).toEqual(workflow());
+    expect(await loadStatusWorkflow(f.project)).toEqual({ ...workflow(), verificationEnabled: true });
     const own = (await updateProject(f.workspace.id, f.project.id, { statusWorkflow: { mode: 'replace', value: defaultStatusWorkflow } }))!;
-    expect(await loadStatusWorkflow(own)).toEqual(defaultStatusWorkflow);
+    expect(await loadStatusWorkflow(own)).toEqual({ ...defaultStatusWorkflow, verificationEnabled: true });
     const inherited = (await updateProject(f.workspace.id, f.project.id, { statusWorkflow: undefined }))!;
-    expect(await loadStatusWorkflow(inherited)).toEqual(workflow());
+    expect(await loadStatusWorkflow(inherited)).toEqual({ ...workflow(), verificationEnabled: true });
     expect((await getAppStore().get<DbWorkspace>(f.workspace.pk, f.workspace.id))!.doc.aiTitles).toBe(false);
 });
 
@@ -161,5 +161,5 @@ test('review workflow endpoint returns configuration only to current project mem
     const authorized = await get({ Authorization: `Bearer ${token}` });
     expect(authorized.status).toBe(200);
     expect(authorized.headers.get('Cache-Control')).toBe('no-store');
-    expect(await authorized.json()).toEqual(workflow());
+    expect(await authorized.json()).toEqual({ ...workflow(), verificationEnabled: true, statuses: orderedStatuses(workflow()) });
 });

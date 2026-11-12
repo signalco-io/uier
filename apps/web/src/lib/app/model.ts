@@ -206,6 +206,8 @@ export type DbProject = AppDoc & {
     aiTitles?: 'on' | 'off';
     /** Missing inherits the workspace. Empty replace intentionally uses no style guidance. */
     rewriteInstructions?: import('./inheritedSettings').ProjectSetting<string>;
+    /** Per-project opt-in. Missing and false both disable fix verification. */
+    verificationEnabled?: boolean;
     /** Missing inherits live workspace statuses; replace keeps the project's complete workflow. */
     threadLabels?: { mode: 'replace'; value: import('./threadLabel').ThreadLabel[] };
     statusWorkflow?: { mode: 'replace'; value: import('./statusWorkflow').StatusWorkflow };

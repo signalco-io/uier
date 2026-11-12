@@ -100,6 +100,7 @@ export type ProjectCommentView = {
     labels?: ThreadLabel[];
     availableLabels?: ThreadLabel[];
     labelIds?: string[];
+    verificationEnabled?: boolean;
     workflow?: StatusWorkflow;
     workflowStatusId?: string;
     archiveStatusId?: string;
@@ -250,6 +251,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
     const firstText = mentionText(first, participants);
     const title = threadTitle(comment, titles);
     return {
+        verificationEnabled: project.verificationEnabled === true,
         verification: verificationDetails(comment, project, actor, participants),
         verificationPermissions: verificationPermissions(comment, project, actor, participants),
         priority: commentPriority(comment.priority),

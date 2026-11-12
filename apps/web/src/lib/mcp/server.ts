@@ -210,13 +210,13 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         const items = comments.filter(comment => (input.labelId === undefined || labelsForComment(labels, comment).some(label => label.id === input.labelId))
             && (input.priority === undefined || commentPriority(comment.priority) === input.priority)
             && (input.status === 'all' || (input.status === 'open' ? !comment.resolved
-                : feedbackStage(comment) === (input.status === 'resolved' ? 'done' : input.status)))
+                : feedbackStage({ ...comment, verificationEnabled: project.verificationEnabled === true }) === (input.status === 'resolved' ? 'done' : input.status)))
             && comment.thread.items.some(item => !item.deletedAt && item.text.toLocaleLowerCase().includes(search)))
             .map(comment => {
                 const first = comment.thread.items[0];
                 const { path, source, assignee, assignees, activity } = projectCommentRouting(comment, project, participants, authorId, reads.get(comment.id));
                 return { verification: verificationDetails(comment, project, actor, participants), id: comment.id, number: comment.number, kind: comment.kind ?? 'comment', ...(feedbackTypeSnapshot(comment.feedbackType, comment.kind) ? { feedbackType: feedbackTypeSnapshot(comment.feedbackType, comment.kind) } : {}),
-                    ...(commentCheck(comment.check) ? { check: commentCheck(comment.check) } : {}), priority: commentPriority(comment.priority), workflowStatus: statusForComment(workflow, comment), labels: labelsForComment(labels, comment), archivedAt: comment.archivedAt, resolved: Boolean(comment.resolved), stage: feedbackStage(comment), private: Boolean(comment.private),
+                    ...(commentCheck(comment.check) ? { check: commentCheck(comment.check) } : {}), priority: commentPriority(comment.priority), workflowStatus: statusForComment(workflow, comment), labels: labelsForComment(labels, comment), archivedAt: comment.archivedAt, resolved: Boolean(comment.resolved), stage: feedbackStage({ ...comment, verificationEnabled: project.verificationEnabled === true }), private: Boolean(comment.private),
                     title: threadTitle(comment, titles)?.text, summary: first?.deletedAt ? 'Comment deleted' : first?.text.slice(0, 240), updatedAt: comment.updatedAt,
                     path, environment: { id: source.environment, label: source.label }, anchorType: comment.position.type, assignee: assignee ?? null, assignees,
                     authorKind: first && !first.deletedAt ? first.authorId?.startsWith('user:') ? 'member' : 'guest' : undefined,
@@ -304,11 +304,11 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
     }, annotations: writeAnnotations }, input => safely(async () => {
         const { project, actor, user } = await mcpProject(identity, input.projectId, 'feedback:status');
         const saved = await setProjectCommentArchived(project, actor, input.commentId, input.archived, key(identity, input.idempotencyKey));
-        return result({ actingAs: actingAsFor(user), commentId: saved.id, archivedAt: saved.archivedAt ?? null, resolved: Boolean(saved.resolved), stage: feedbackStage(saved) });
+        return result({ actingAs: actingAsFor(user), commentId: saved.id, archivedAt: saved.archivedAt ?? null, resolved: Boolean(saved.resolved), stage: feedbackStage({ ...saved, verificationEnabled: project.verificationEnabled === true }) });
     }));
     server.registerTool('set_feedback_status', { description: `Set an ordinary human-approved status without reviewer confirmation. Send exactly one of statusId (from list_feedback_statuses), status (open, in-progress or done) or resolved (true: Done; false: reopens a Done thread to Open and leaves an In progress thread as it is). Leaving Ready to verify ends the pending check without confirmation. Replaying a key does not overwrite subsequent status changes. ${untrusted}`, inputSchema: {
         ...write,
-        statusId: workflowStatusIdSchema.optional().describe('Effective custom status ID from list_feedback_statuses. Ready requires a verification request; within Ready it preserves the check.'),
+        statusId: workflowStatusIdSchema.optional().describe('Ready statuses are available only when project fix verification is enabled. Effective custom status ID from list_feedback_statuses. Ready requires a verification request; within Ready it preserves the check.'),
         status: z.enum(feedbackStatusTargets).optional().describe('open, in-progress (someone is working on it) or done. Ready to verify is request_feedback_verification.'),
         resolved: z.boolean().optional().describe('The earlier Done/Open switch, kept for existing clients: true is done; false reopens a Done thread and keeps In progress.')
     }, annotations: writeAnnotations }, input => safely(async () => {
@@ -320,9 +320,9 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
             : input.status !== undefined
             ? await setProjectCommentStatus(project, actor, input.commentId, input.status, key(identity, input.idempotencyKey))
             : await setProjectCommentResolved(project, actor, input.commentId, input.resolved!, key(identity, input.idempotencyKey));
-        return result({ actingAs, commentId: saved.id, resolved: Boolean(saved.resolved), stage: feedbackStage(saved), archivedAt: saved.archivedAt ?? null });
+        return result({ actingAs, commentId: saved.id, resolved: Boolean(saved.resolved), stage: feedbackStage({ ...saved, verificationEnabled: project.verificationEnabled === true }), archivedAt: saved.archivedAt ?? null });
     }));
-    server.registerTool('request_feedback_verification', { description: `Request a human-approved fix check from the original author or another eligible member. The thread becomes Ready to verify, which still counts as Open; this does not confirm the fix. Read the current verification revision first. ${untrusted}`, inputSchema: {
+    server.registerTool('request_feedback_verification', { description: `Only available when the project has fix verification enabled. If it is off, mark the comment done instead. Request a human-approved fix check from the original author or another eligible member. The thread becomes Ready to verify, which still counts as Open; this does not confirm the fix. Read the current verification revision first. ${untrusted}`, inputSchema: {
         ...write, statusId: workflowStatusIdSchema.optional(), expectedRevision: z.string().min(1).max(128).nullable(), reviewerId: z.union([z.literal('author'), userIdSchema]),
         summary: z.string().trim().max(500).optional(), fixUrl: z.string().trim().max(2048).optional()
     }, annotations: writeAnnotations }, input => safely(async () => {
@@ -340,7 +340,7 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         const actingAs = actingAsFor(user);
         const saved = await changeFixVerification(project, actor, input.commentId, { action: 'cancel', statusId: input.statusId, expectedRevision: input.expectedRevision, idempotencyKey: key(identity, input.idempotencyKey),
             ...(input.status ? { status: input.status } : {}) });
-        return result({ actingAs, commentId: saved.id, saved: true, revision: saved.verification?.revision, stage: feedbackStage(saved) });
+        return result({ actingAs, commentId: saved.id, saved: true, revision: saved.verification?.revision, stage: feedbackStage({ ...saved, verificationEnabled: project.verificationEnabled === true }) });
     }));
     server.registerTool('link_feedback_pull_request', { description: `Attach a GitHub, GitLab or Azure DevOps pull request URL to a visible thread. Requires feedback:assign and current project triage permission. Repeating a canonical URL is a no-op and preserves the original linker. Link the PR as soon as you open it for authorized feedback work. ${untrusted}`, inputSchema: {
         ...thread, url: z.string().trim().min(1).max(2048)
@@ -362,11 +362,11 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
             : await setProjectCommentAssignee(project, actor, input.commentId, input.assigneeId!, key(identity, input.idempotencyKey));
         return result({ actingAs, commentId: saved.id, assigneeId: saved.assigneeId ?? null, assigneeIds: assignedUserIds(saved) });
     }));
-    const agentResult = (saved: Awaited<ReturnType<typeof setProjectCommentAgent>>, user: DbUser, agentId?: string) => {
+    const agentResult = (saved: Awaited<ReturnType<typeof setProjectCommentAgent>>, user: DbUser, verificationEnabled: boolean, agentId?: string) => {
         const actingAs = actingAsFor(user);
         const agents = assigneeAgentViews(saved, user.id);
         const selected = agentId ? agents.find(agent => agent.id === agentId) : agents[0];
-        return result({ actingAs, commentId: saved.id, assigneeId: user.id, assigneeIds: assignedUserIds(saved), agent: selected ?? null, agents, stage: feedbackStage(saved) });
+        return result({ actingAs, commentId: saved.id, assigneeId: user.id, assigneeIds: assignedUserIds(saved), agent: selected ?? null, agents, stage: feedbackStage({ ...saved, verificationEnabled }) });
     };
     server.registerTool('set_feedback_agent', { description: `When you start working on feedback assigned to the connection owner, attach yourself as the AI agent working under them, with your session id, model and reasoning level when you know them; call again to update them (an omitted detail is cleared). Pass add: true to attach another agent under your own assignment, then use its returned id as agentId to update, clear or report its working lease. Without add or agentId, existing calls act on the first agent under you. Then call set_feedback_agent_working with working: true to report that you are actively working now. Attaching yourself moves Open feedback to In progress when this connection can also change status (feedback:status); feedback that is In progress, Ready to verify or Done keeps its status, and updating or clearing the agent never changes it. Only the assignee's own connection can: feedback assigned to someone else is refused. For unassigned feedback, pass assignToMe only when the person explicitly asked to take it. ${untrusted}`, inputSchema: {
         ...write,
@@ -383,7 +383,7 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         const kind = input.agent ?? connectionAgent();
         return agentResult(await setProjectCommentAgent(project, actor, input.commentId, { kind, sessionId: input.sessionId, sessionUrl: input.sessionUrl, model: input.model, reasoning: input.reasoning },
             { idempotencyKey: key(identity, input.idempotencyKey), assignToMe: input.assignToMe, startWork: identity.scopes.includes('feedback:status'), agentId: input.agentId, add: input.add }),
-            user, input.add ? attachmentId(key(identity, input.idempotencyKey)) : input.agentId);
+            user, project.verificationEnabled === true, input.add ? attachmentId(key(identity, input.idempotencyKey)) : input.agentId);
     }));
     server.registerTool('set_feedback_agent_working', { description: `Report whether you are actively working now, separately from the thread's In progress status, which never changes here. First attach this connection and session with set_feedback_agent. working: true starts or renews a five-minute lease; renew every two minutes with a fresh idempotency key while working. Retry the same action with its original key; a retry never extends the lease. working: false clears the indicator but keeps you attached. Detaching, changing agent/session or changing assignee ends it too. No unread activity, email or agent event is recorded for these transient heartbeats. ${untrusted}`, inputSchema: {
         ...write,
@@ -396,11 +396,11 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         const target = assignedAgents(saved).find(agent => agent.assigneeId === user.id
             && agent.connector?.credentialId === identity.connection.id && agent.sessionId === (input.sessionId?.trim() || undefined)
             && (!input.agentId || agent.id === input.agentId));
-        return agentResult(saved, user, target?.id ?? 'missing');
+        return agentResult(saved, user, project.verificationEnabled === true, target?.id ?? 'missing');
     }));
     server.registerTool('clear_feedback_agent', { description: `Remove the AI agent and any active working indicator under the connection owner on feedback assigned to them, for example when you stop working on it. Feedback assigned to someone else is refused. ${untrusted}`, inputSchema: { ...write, agentId: agentIdSchema.optional().describe('The attachment under you to remove; omitted means the first agent under your own assignment.') }, annotations: writeAnnotations }, input => safely(async () => {
         const { project, actor, user } = await mcpProject(identity, input.projectId, 'feedback:assign');
-        return agentResult(await setProjectCommentAgent(project, actor, input.commentId, null, { idempotencyKey: key(identity, input.idempotencyKey), agentId: input.agentId }), user, input.agentId ?? 'removed');
+        return agentResult(await setProjectCommentAgent(project, actor, input.commentId, null, { idempotencyKey: key(identity, input.idempotencyKey), agentId: input.agentId }), user, project.verificationEnabled === true, input.agentId ?? 'removed');
     }));
     server.registerResource('feedback_screenshot', new ResourceTemplate('uier://projects/{projectId}/feedback/{commentId}/screenshot', { list: undefined }), { description: 'Untrusted saved screenshot. Requires screenshots:read and current access to this feedback.', mimeType: 'application/octet-stream' }, async (uri, variables) => {
         try {

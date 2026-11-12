@@ -1,3 +1,4 @@
+import { enableProjectVerification } from './support/app';
 import { expect, test, type APIRequestContext, type Locator, type Page, type Route } from '@playwright/test';
 import { commentRowLink, createProject, openCommentFilters, selectThread, heldForDrag, longPress, openBoardMove, openComment, selectionBar, setProjectAccess, signIn, uniqueEmail, type ProjectAccessLabel } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
@@ -12,6 +13,7 @@ test.afterAll(async () => { await site.close(); });
 async function board(page: Page, request: APIRequestContext, { access }: { access?: ProjectAccessLabel } = {}) {
     await signIn(page, uniqueEmail('board'));
     const project = await createProject(page, { urls: [site.origin()] });
+    await enableProjectVerification(page, project);
     await setProjectAccess(page, project, 'Anyone with the link');
     const headers = await verifiedReviewHeaders(request, project, site.origin());
     const comments: { id: string; number: number }[] = [];

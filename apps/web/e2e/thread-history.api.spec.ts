@@ -25,7 +25,7 @@ test.beforeEach(() => { process.env.UIER_LOCAL = '1'; });
 test.afterEach(() => { if (previousLocal === undefined) delete process.env.UIER_LOCAL; else process.env.UIER_LOCAL = previousLocal; });
 
 async function fixture(fields: Partial<DbComment> = {}) {
-    const project = { id: randomUUID().replaceAll('-', '').slice(0, 12), access: 'guests' } as DbProject;
+    const project = { verificationEnabled: true, id: randomUUID().replaceAll('-', '').slice(0, 12), access: 'guests' } as DbProject;
     await persistProjectAccess(project, [author, colleague, admin]);
     const store = getMemoryCommentsStore();
     const comment: DbComment = { id: `comment_${randomUUID()}`, domain: `project:${project.id}`, projectId: project.id,

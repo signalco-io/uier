@@ -61,6 +61,7 @@ export function VerificationControl({ projectId, userId, comment, formOpen, onFo
         if (restoreFocus && !pending) { returnFocus?.current?.focus(); setRestoreFocus(false); }
     }, [restoreFocus, pending, returnFocus]);
     const responses = ready && (p?.respond || p?.override || p?.cancel);
+    if (comment.verificationEnabled !== true) return null;
     if (!v && !formOpen && !responses && !pending && !error && !notice) return null;
     const send = (action: 'request' | 'confirm' | 'reject' | 'cancel', override = false) => start(async () => {
         const fallback = document.querySelector<HTMLInputElement>('input[data-shortcut-search]');

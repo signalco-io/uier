@@ -30,7 +30,7 @@ test.beforeEach(() => { process.env.UIER_LOCAL = '1'; });
 test.afterEach(() => { if (previousLocal === undefined) delete process.env.UIER_LOCAL; else process.env.UIER_LOCAL = previousLocal; });
 
 async function fixture(authorId = `user:${reviewer.userId}`, stored: Partial<DbComment> = {}) {
-    const project = { id: randomUUID().replaceAll('-', '').slice(0, 12), access: 'guests' } as DbProject;
+    const project = { verificationEnabled: true, id: randomUUID().replaceAll('-', '').slice(0, 12), access: 'guests' } as DbProject;
     await persistProjectAccess(project, [developer, reviewer, admin]);
     await getAppStore().create<DbProjectRef>({ type: 'project-ref', id: project.id, pk: `project:${project.id}`, workspaceId: project.workspaceId });
     const store = getMemoryCommentsStore();

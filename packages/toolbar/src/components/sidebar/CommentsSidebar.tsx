@@ -42,7 +42,7 @@ export type CommentsSidebarProps = {
  */
 export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, onShowOnPage, pageDrafts = [], onResumeDraft, onSendDraft, onDiscardDraft, focusRequest }: CommentsSidebarProps) {
     const t = useMessages();
-    const { isMember, environment, environmentOptions, setEnvironment } = useProjectViewer();
+    const { verificationEnabled, isMember, environment, environmentOptions, setEnvironment } = useProjectViewer();
     const { data: activity } = useActivitySummary();
     const unread = activity?.unread ?? 0;
     const inbox = useInboxComments(filter);
@@ -122,7 +122,7 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
                         <CommentsStatusTabs
                             counts={inbox.counts}
                             unread={inbox.unread}
-                            status={filter.status}
+                            status={verificationEnabled !== true && filter.status === 'ready' ? 'unresolved' : filter.status}
                             onStatusChange={(status) => setFilter({ ...filter, status })} />
                     </Stack>
                     {/* Filters and comments share a scroll area, including short keyboard/orientation viewports. */}

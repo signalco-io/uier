@@ -208,6 +208,7 @@ export type CommentItem = {
     resolved: boolean;
     /** In progress, only when set; `feedbackStage` (`../../verification`) gives the status */
     inProgress?: boolean;
+    verificationEnabled?: boolean;
     workflowStatusId?: string;
     archiveStatusId?: string;
     /**

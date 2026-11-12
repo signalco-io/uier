@@ -63,3 +63,5 @@ The custom-status editor uses the management catalog in all six languages. Uncha
 status labels are translated in rows, boards and menus; renamed and custom labels and descriptions
 remain as saved by members (`workflowStatusLabel`). Categories retain their localized workflow
 labels independently of those names.
+
+Project Review’s fix-verification label and explanation belong to the management catalog in all six languages.
