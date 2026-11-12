@@ -14,6 +14,7 @@ import { finishDrawing, frameOf, shapesInFrame, type CanvasFrame } from '../canv
 import type { CommentDrawing, DrawingShape } from '../drawing';
 import { getCommentPlacement, resolveAnchorElement, selectionTextMaxLength, textOffsetWithin, useCommentItemRects } from '../hooks/useCommentItemRects';
 import { CommentsSidebar } from './sidebar/CommentsSidebar';
+import { inboxFocusEvent } from './sidebar/CommentsSidebarCommentsList';
 import { PageChecks, type ChecksAttention, type ChecksPanelId, type ShownComment } from './checks/PageChecks';
 import { auditAvailable } from '../checks/axeLoader';
 import { CommentToolbar } from './CommentToolbar';
@@ -561,12 +562,15 @@ export function CommentsGlobal({
         const root = rootElement?.getRootNode();
         if (!(root instanceof ShadowRoot)) return false;
         if (sidebarOpen) {
-            const cards = [...root.querySelectorAll<HTMLElement>('#uier-panel-inbox [data-uier-thread-scope]')];
-            const from = cards.findIndex(card => card.contains(root.activeElement));
-            const next = from < 0 ? cards.at(step > 0 ? 0 : -1) : cards[from + step];
-            next?.focus({ preventScroll: true });
-            next?.scrollIntoView({ block: 'nearest' });
-            return cards.length > 0;
+            // The list is virtualized: it renders the cards near the view, so it is asked for one by its index
+            const list = root.querySelector<HTMLElement>('#uier-panel-inbox [data-uier-inbox-list]');
+            const count = Number(list?.dataset.count ?? 0);
+            if (!list || !count) return false;
+            const focused = root.activeElement?.closest<HTMLElement>('[data-uier-inbox-index]');
+            const from = focused && list.contains(focused) ? Number(focused.dataset.uierInboxIndex) : -1;
+            const next = from < 0 ? (step > 0 ? 0 : count - 1) : from + step;
+            if (next >= 0 && next < count) list.dispatchEvent(new CustomEvent(inboxFocusEvent, { detail: next }));
+            return true;
         }
         const from = pinnedComments.findIndex(comment => activeThreads.has(comment.id));
         const next = from < 0 ? pinnedComments.at(step > 0 ? 0 : -1) : pinnedComments[from + step];

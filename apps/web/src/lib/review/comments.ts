@@ -18,6 +18,7 @@ import { projectOrigins } from '../app/projects';
 import type { ArchiveFilter } from '../repo/archiveFilter';
 import type { OriginFilter } from '../repo/originFilter';
 import type { VisibilityFilter } from '../repo/visibilityFilter';
+import type { CommentPageCursor } from '../repo/commentPage';
 import { threadActivity, withThreadActivity } from '../comments/activity';
 import { nanoid } from 'nanoid';
 import { moveMentions } from '@uier/toolbar/mentions';
@@ -187,6 +188,18 @@ export async function listProjectComments(project: DbProject, actor: ProjectActo
         : await store.list(partition, path, MAX_PROJECT_COMMENTS, originFilter, authorId, archive);
     onWindow?.(comments.length >= MAX_PROJECT_COMMENTS);
     return comments.filter(comment => canSeeComment(comment, actor));
+}
+
+/**
+ * One keyset page of the comments the actor can see (`repo/commentPage.ts`), of one page or every page (`path`
+ * undefined): visibility, origin, archive and the cursor apply in storage before the limit, and each thread is checked
+ * again. `stored` is what storage returned, whose last record the next page continues after.
+ */
+export async function listProjectCommentsPage(project: DbProject, actor: ProjectActor, page: { limit: number; before?: CommentPageCursor },
+    path?: string, originFilter?: OriginFilter, archive: ArchiveFilter = 'all') {
+    const domain = projectPartition(project.id);
+    const stored = await getCommentsStore().listPage(domain, { ...page, path, originFilter, archive, visibility: commentVisibilityFilter(domain, actor) });
+    return { comments: stored.filter(comment => canSeeComment(comment, actor)), stored };
 }
 
 export async function getProjectComment(project: DbProject, actor: ProjectActor, id: string) {

@@ -1,4 +1,5 @@
-import { ReactNode, useContext, useDeferredValue, useEffect, useState } from 'react';
+import { ReactNode, RefObject, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
 import { Stack } from '@signalco/ui-primitives/Stack';
 import { Button } from '@signalco/ui-primitives/Button';
 import { ArrowUpRight, File, MapPin } from '@signalco/ui-icons';
@@ -20,11 +21,17 @@ import type { useInboxComments } from './useInboxComments';
 /** How long the search waits after the last keystroke before it announces the count */
 const countAnnouncementDelayMs = 500;
 
-/**
- * Threads the list renders with the inbox; the rest follow in a background render React splits into
- * short slices, so a long inbox opens without one long task (e2e/launch-performance.spec.ts)
- */
-const firstThreads = 20;
+/** A card's height until it is measured */
+const estimatedCardHeight = 240;
+/** The space between cards */
+const cardGap = 8;
+/** Cards rendered above and below the visible ones, so J and K always find the next one */
+const overscan = 4;
+/** How close to the last loaded card (in cards) the next page starts loading */
+const loadMoreAhead = 5;
+
+/** J and K ask the list for a card by its index (`data-uier-inbox-index`); it scrolls there and focuses it */
+export const inboxFocusEvent = 'uier:inbox-focus';
 
 function emptyText(filter: CommentsFilter, t: Messages) {
     const where = (filter.page ?? 'current') === 'current' ? t.inbox.onThisPage : '';
@@ -123,9 +130,121 @@ function OtherPage({ comment }: { comment: CommentItem }) {
     );
 }
 
+/**
+ * Where the list starts in its scroll area: below the filters and the drafts, which can change their height
+ * (wrapping, a draft added), so it is measured again whenever something above it or the area resizes
+ */
+function useScrollMargin(listRef: RefObject<HTMLElement | null>, scrollRef: RefObject<HTMLElement | null>) {
+    const [margin, setMargin] = useState(0);
+    useLayoutEffect(() => {
+        const list = listRef.current;
+        const scroller = scrollRef.current;
+        if (!list || !scroller) return;
+        const measure = () => setMargin(Math.round(list.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop));
+        measure();
+        const observer = new ResizeObserver(measure);
+        for (let node: Element | null = list; node && node !== scroller; node = node.parentElement) {
+            observer.observe(node);
+            for (let sibling = node.previousElementSibling; sibling; sibling = sibling.previousElementSibling) observer.observe(sibling);
+        }
+        observer.observe(scroller);
+        return () => observer.disconnect();
+    }, [listRef, scrollRef]);
+    return margin;
+}
+
+/**
+ * The cards, virtualized: only those in view (and a few around them) are rendered, measured as they render, so a
+ * long inbox stays light. The card with the focus stays rendered while it scrolls away (a reply being written, menus).
+ * Near the end the next page of the list loads (`useMoreSiteComments`, or `useMorePageComments` for This page).
+ */
+function VirtualCards({ comments, scrollRef, more, renderCard }: {
+    comments: CommentItem[];
+    scrollRef: RefObject<HTMLElement | null>;
+    more: ReturnType<typeof useInboxComments>['more'];
+    renderCard: (comment: CommentItem, position: { index: number; setSize: number }) => ReactNode;
+}) {
+    const listRef = useRef<HTMLDivElement>(null);
+    const scrollMargin = useScrollMargin(listRef, scrollRef);
+    const [focused, setFocused] = useState<string>();
+    const focusedIndex = focused === undefined ? -1 : comments.findIndex(comment => commentKey(comment) === focused);
+    const virtualizer = useVirtualizer({
+        count: comments.length,
+        getScrollElement: () => scrollRef.current,
+        estimateSize: () => estimatedCardHeight,
+        gap: cardGap,
+        overscan,
+        scrollMargin,
+        getItemKey: index => commentKey(comments[index]!),
+        rangeExtractor: range => {
+            const indexes = defaultRangeExtractor(range);
+            return focusedIndex >= 0 && !indexes.includes(focusedIndex) ? [...indexes, focusedIndex].sort((a, b) => a - b) : indexes;
+        }
+    });
+    const items = virtualizer.getVirtualItems();
+    const last = items.at(-1)?.index ?? -1;
+
+    // The next page, once the reader is near the end of what is loaded
+    const nearEnd = last >= comments.length - 1 - loadMoreAhead;
+    useEffect(() => {
+        if (nearEnd && more.hasMore && !more.loading && !more.error) more.loadMore();
+    }, [nearEnd, more.hasMore, more.loading, more.error, comments.length]);
+
+    // J and K (`CommentsGlobal`): the card at an index, scrolled to first when it is not rendered
+    const [pendingFocus, setPendingFocus] = useState<number>();
+    const cardAt = (index: number) => listRef.current?.querySelector<HTMLElement>(`[data-uier-inbox-index="${index}"]`);
+    useEffect(() => {
+        const list = listRef.current;
+        if (!list) return;
+        const focusCard = (event: Event) => {
+            const index = (event as CustomEvent<number>).detail;
+            const card = cardAt(index);
+            if (card) {
+                card.focus({ preventScroll: true });
+                card.scrollIntoView({ block: 'nearest' });
+                return;
+            }
+            virtualizer.scrollToIndex(index, { align: 'auto' });
+            setPendingFocus(index);
+        };
+        list.addEventListener(inboxFocusEvent, focusCard);
+        return () => list.removeEventListener(inboxFocusEvent, focusCard);
+    }, [virtualizer]);
+    useEffect(() => {
+        if (pendingFocus === undefined) return;
+        const card = cardAt(pendingFocus);
+        if (!card) return;
+        card.focus({ preventScroll: true });
+        card.scrollIntoView({ block: 'nearest' });
+        setPendingFocus(undefined);
+    });
+
+    const setSize = more.hasMore ? -1 : comments.length;
+    return (
+        <div ref={listRef} role="feed" aria-busy={more.loading} data-uier-inbox-list="" data-count={comments.length}
+            className="relative w-full" style={{ height: virtualizer.getTotalSize() }}
+            onFocus={event => {
+                const card = (event.target as Element).closest<HTMLElement>('[data-uier-card-key]');
+                if (card) setFocused(card.dataset.uierCardKey);
+            }}>
+            {items.map(item => {
+                const comment = comments[item.index]!;
+                return (
+                    <div key={item.key} data-index={item.index} data-uier-card-key={item.key as string} ref={virtualizer.measureElement}
+                        className="absolute top-0 left-0 w-full" style={{ transform: `translateY(${item.start - scrollMargin}px)` }}>
+                        {renderCard(comment, { index: item.index, setSize })}
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
 type CommentsSidebarCommentsListProps = {
     inbox: ReturnType<typeof useInboxComments>;
     filter: CommentsFilter;
+    /** The inbox's scroll area, which the list is virtualized in */
+    scrollRef: RefObject<HTMLElement | null>;
     onShowOnPage: (commentId: string) => void;
     /** Lists every page (from "this page" with nothing to show) */
     onShowAllPages: () => void;
@@ -136,11 +255,16 @@ type CommentsSidebarCommentsListProps = {
  * on its pin; another page's links to its thread there. With nothing on this page, it offers the
  * other pages' matching comments.
  */
-export function CommentsSidebarCommentsList({ inbox, filter, onShowOnPage, onShowAllPages }: CommentsSidebarCommentsListProps) {
-    const { comments, state, scope, otherCount, siteCapped, isCurrentPage, loading } = inbox;
+export function CommentsSidebarCommentsList({ inbox, filter, scrollRef, onShowOnPage, onShowAllPages }: CommentsSidebarCommentsListProps) {
+    const { comments, state, scope, otherCount, siteCapped, isCurrentPage, loading, more } = inbox;
     const t = useMessages();
-    const shownCount = useDeferredValue(comments?.length ?? 0, Math.min(comments?.length ?? 0, firstThreads));
     const searching = Boolean(filter.keywords?.trim());
+
+    // Nothing listed yet, but older pages may have some: load them (a filter that matches only older comments)
+    const empty = !state.isPending && !(state.error && !comments) && !comments?.length;
+    useEffect(() => {
+        if (empty && more.hasMore && !more.loading && !more.error) more.loadMore();
+    }, [empty, more.hasMore, more.loading, more.error]);
 
     // The count is announced once the typing stopped and the lists have loaded, so screen readers
     // don't hear a count for every keystroke
@@ -164,6 +288,8 @@ export function CommentsSidebarCommentsList({ inbox, filter, onShowOnPage, onSho
                 <Button variant="outlined" size="sm" onClick={() => state.refetch()}>{t.common.retry}</Button>
             </Stack>
         );
+    } else if (!comments?.length && more.hasMore && !more.error) {
+        content = <div className="p-1 text-sm text-muted-foreground">{t.inbox.loading}</div>;
     } else if (!comments?.length) {
         content = (
             <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
@@ -177,20 +303,19 @@ export function CommentsSidebarCommentsList({ inbox, filter, onShowOnPage, onSho
         );
     } else {
         content = (
-            <Stack spacing={2}>
-                {comments.slice(0, shownCount).map((comment) => (
-                    <CommentErrorBoundary key={commentKey(comment)} commentId={comment.id}>
-                        {/* J and K move between the cards (focusable for that), R, S and A act on the one with the focus */}
-                        <article aria-label={comment.number !== undefined ? t.inbox.commentNumber(comment.number) : t.inbox.comment} tabIndex={-1} data-uier-thread-scope=""
-                            className="scroll-my-3 overflow-hidden rounded-xl border bg-card outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                            <InboxThread comment={comment} />
-                            {isCurrentPage(comment)
-                                ? !comment.archivedAt && !comment.resolved && comment.position.type !== 'page' && <ShowOnPage comment={comment} onShowOnPage={onShowOnPage} />
-                                : <OtherPage comment={comment} />}
-                        </article>
-                    </CommentErrorBoundary>
-                ))}
-            </Stack>
+            <VirtualCards comments={comments} scrollRef={scrollRef} more={more} renderCard={(comment, { index, setSize }) => (
+                <CommentErrorBoundary commentId={comment.id}>
+                    {/* J and K move between the cards (focusable for that), R, S and A act on the one with the focus */}
+                    <article aria-label={comment.number !== undefined ? t.inbox.commentNumber(comment.number) : t.inbox.comment} tabIndex={-1} data-uier-thread-scope=""
+                        aria-posinset={index + 1} aria-setsize={setSize} data-uier-inbox-index={index}
+                        className="scroll-my-3 overflow-hidden rounded-xl border bg-card outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                        <InboxThread comment={comment} />
+                        {isCurrentPage(comment)
+                            ? !comment.archivedAt && !comment.resolved && comment.position.type !== 'page' && <ShowOnPage comment={comment} onShowOnPage={onShowOnPage} />
+                            : <OtherPage comment={comment} />}
+                    </article>
+                </CommentErrorBoundary>
+            )} />
         );
     }
 
@@ -198,6 +323,14 @@ export function CommentsSidebarCommentsList({ inbox, filter, onShowOnPage, onSho
         <section aria-label={pageLabel(scope, t)}>
             <Stack spacing={2}>
                 {content}
+                {/* The next page on its way, or why it did not come */}
+                {Boolean(comments?.length) && more.loading && <div className="p-1 text-sm text-muted-foreground">{t.inbox.loading}</div>}
+                {more.error && (
+                    <Stack spacing={1} alignItems="start" className="p-1 text-sm">
+                        <CommentsErrorMessage error={more.error} />
+                        <Button variant="outlined" size="sm" onClick={() => more.loadMore()}>{t.common.retry}</Button>
+                    </Stack>
+                )}
                 {siteCapped && <div className="px-1 text-xs text-muted-foreground">{t.inbox.olderNotListed}</div>}
             </Stack>
             {/* Always there, so screen readers announce the count when a search changes it */}

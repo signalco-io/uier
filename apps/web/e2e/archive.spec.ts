@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { startReviewedSite } from './support/reviewedSite';
 import { backToComments, createProject, openComment, signIn, uniqueEmail } from './support/app';
-import { animationsFinished, commentBubble, openThread, threadOptions } from './support/toolbar';
+import { animationsFinished, commentBubble, expectInboxListed, openThread, threadOptions } from './support/toolbar';
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
 test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(baseURL!); });
@@ -220,5 +220,5 @@ test('toolbar page and site windows retain active feedback behind 1001 newer arc
     await expect.poll(() => [...scopes].sort()).toEqual(['page:exclude', 'page:only', 'site:exclude', 'site:only']);
     await inbox.getByRole('button', { name: 'Done and archive', exact: true }).click();
     await page.getByRole('dialog', { name: 'Done and archive' }).getByRole('button', { name: /^Archive / }).click();
-    await expect(inbox.getByRole('article')).toHaveCount(200);
+    await expectInboxListed(inbox, 200);
 });

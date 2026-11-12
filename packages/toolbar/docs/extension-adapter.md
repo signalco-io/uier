@@ -16,7 +16,9 @@ shared retry/draft recovery behavior. Keep HTTP status parsing outside that tran
 
 Comment list queries allow `archive` alongside the existing page/site/environment filters. The shared
 runtime requests separate `archive=exclude` and `archive=only` windows in packaged clients too;
-the worker must forward both so reloads can load ordinary threads and the Archive view. Archive/restore PATCHes retain the existing comment route and
+the worker must forward both so reloads can load ordinary threads and the Archive view. The inbox's paged lists add
+`limit` and `before` (the `next` of the page before; see [realtime](realtime.md)), which the contract allows
+for the same list route; `extension.api.spec.ts` checks a second page through the broker. Archive/restore PATCHes retain the existing comment route and
 server authority. `extension.api.spec.ts` checks the closed query contract; the unchanged-production-ZIP
 runtime suite checks comment reload, archive and restore under strict CSP.
 

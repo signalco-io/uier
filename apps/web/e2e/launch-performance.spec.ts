@@ -6,7 +6,7 @@ import { pngImage } from './support/images';
 import { auditAssetPath, auditRuns, observeAuditRuns } from './support/auditRuns';
 import { startReviewedSite } from './support/reviewedSite';
 import { verifiedReviewHeaders } from './support/reviewVerification';
-import { chooseInboxPages, newVisitor, toolbar } from './support/toolbar';
+import { chooseInboxPages, expectInboxListed, newVisitor, toolbar } from './support/toolbar';
 
 // Local regression budgets and methodology are in docs/mvp-launch-verification.md.
 // Measurements include browser event-to-next-frame timing, not Playwright round-trip time.
@@ -29,7 +29,7 @@ test('many missing and ambiguous text anchors share an index and never search ag
     const comments = Array.from({ length: 40 }, (_, i) => ({ ...saved, id: `${saved.id}_${i}`, number: i + 1,
         position: { ...saved.position, text: i < 30 ? `AbsentAnchor${i}` : 'every plan includes the toolbar' } }));
     const guest = await newVisitor(browser, testInfo);
-    await guest.page.route(`**/api/review/${projectId}/comments?*`, route => route.fulfill({ json: comments }));
+    await guest.page.route(`**/api/review/${projectId}/comments?*`, route => route.fulfill({ json: new URL(route.request().url()).searchParams.get('archive') === 'only' ? [] : comments }));
     await guest.page.addInitScript(() => {
         const walker = Document.prototype.createTreeWalker;
         Document.prototype.createTreeWalker = function (root, what, filter) {
@@ -46,8 +46,12 @@ test('many missing and ambiguous text anchors share an index and never search ag
         await guest.page.goto(`${site.origin()}/${projectId}/pricing?review=true&layout=html-scroll`);
         await toolbar(guest.page).getByRole('button', { name: /^Inbox/ }).click();
         const inbox = guest.page.getByRole('complementary', { name: 'Comments' });
-        await expect(inbox.getByRole('article')).toHaveCount(40);
-        await expect(inbox.getByText('Several targets match. Choose the intended target to reattach.').first()).toBeVisible();
+        await expectInboxListed(inbox, 40);
+        // The ambiguous ones are last: the list renders the cards near its view
+        await expect.poll(async () => {
+            await inbox.locator('[data-uier-inbox-scroll]').evaluate(element => { element.scrollTop = element.scrollHeight; });
+            return await inbox.getByText('Several targets match. Choose the intended target to reattach.').count();
+        }).toBeGreaterThan(0);
         await inbox.getByRole('button', { name: 'Close sidebar' }).click();
         const measure = () => guest.page.evaluate(() => ({ indexes: performance.getEntriesByName('page-text-index').length,
             searches: performance.getEntriesByName('anchor-text-search').length }));
@@ -167,9 +171,11 @@ test('inactive review and a 100-thread inbox stay within measured bundle, reques
         await guest.page.getByRole('button', { name: /^Inbox/ }).click();
         const inbox = guest.page.getByRole('complementary', { name: 'Comments' });
         // This page has 80 of them; all pages list the 100
-        await expect(inbox.getByRole('article')).toHaveCount(80);
+        await expectInboxListed(inbox, 80);
         await chooseInboxPages(guest.page, /^All pages/);
-        await expect(inbox.getByRole('article')).toHaveCount(100);
+        await expectInboxListed(inbox, 100);
+        // Virtualized: only the cards near the view are rendered
+        expect(await inbox.getByRole('article').count()).toBeLessThan(40);
         // Filters can fill a short mobile viewport. Scroll saved evidence into view before
         // checking its lazy image; offscreen images must stay unloaded.
         await inbox.getByRole('article').first().scrollIntoViewIfNeeded();

@@ -47,6 +47,11 @@
             "development": "./dist-dev/pageState.js",
             "default": "./dist/pageState.js"
         },
+        "./page-sections": {
+            "types": "./src/pageSections.ts",
+            "development": "./dist-dev/pageSections.js",
+            "default": "./dist/pageSections.js"
+        },
         "./mentions": {
             "types": "./src/mentions.ts",
             "development": "./dist-dev/mentions.js",
@@ -154,6 +159,7 @@
         "@signalco/ui-themes-minimal": "0.1.3",
         "@tailwindcss/postcss": "4.3.5",
         "@tanstack/react-query": "5.107.1",
+        "@tanstack/react-virtual": "3.14.26",
         "@types/react": "19.3.0",
         "@types/react-dom": "19.3.0",
         "@uier/brand": "workspace:*",

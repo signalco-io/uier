@@ -1,5 +1,5 @@
 import { useProjectViewer } from '../../project/ProjectGate';
-import { useActivitySummary, useComments, useSiteComments } from '../../hooks/useComments';
+import { noMoreComments, useActivitySummary, useComments, useMorePageComments, useMoreSiteComments, useSiteComments, type MoreComments } from '../../hooks/useComments';
 import { CommentItem, commentsListMaxLength } from '../@types/Comments';
 import { CommentsFilter, CommentsPageFilter, CommentsStatusFilter, inboxPageKey, inSection, matchesSearch, matchesStatus } from './CommentsFilter';
 
@@ -23,6 +23,14 @@ export type InboxListState = {
 /** Newest first (ISO 8601 times sort as text) */
 const newestFirst = (a: CommentItem, b: CommentItem) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '');
 
+/** This page's list and the site list's threads of this page that it does not have (`undefined` while it loads) */
+function withSiteThreads(page: CommentItem[] | undefined, site: CommentItem[] | undefined) {
+    if (!page || !site?.length) return page;
+    const listed = new Set(page.map(comment => comment.id));
+    const more = site.filter(comment => !listed.has(comment.id));
+    return more.length ? [...page, ...more].sort(newestFirst) : page;
+}
+
 /** The path of a `page:<environment>|<path>` key, or a section's base path */
 export function pageKeyPath(key: CommentsPageFilter) {
     return key.startsWith('page:') ? key.slice(key.indexOf('|') + 1) : key.startsWith('section:') ? key.slice('section:'.length) : '';
@@ -32,13 +40,15 @@ export function pageKeyPath(key: CommentsPageFilter) {
  * The inbox's comments for the chosen pages (this page by default, all pages or one other page),
  * searched and filtered by status, with the counts of the status tabs and the page picker.
  *
- * This page comes from its own list (the one its pins use), or the site's unread list when only
- * unread threads are shown (it includes old threads); other pages from the site's list
- * (`GET /api/comments?scope=site`), which has the newest comments only.
+ * This page comes from its own list (the one its pins use) with the threads of this page the site's list loaded, or
+ * the site's unread list when only unread threads are shown (it includes old threads); other pages from the site's
+ * list (`?scope=site`). A project's lists load in pages as the inbox scrolls (`more`).
  */
 export function useInboxComments(filter: CommentsFilter) {
     const { path, query: pageQuery } = useComments();
     const siteQuery = useSiteComments(true, Boolean(filter.unread));
+    const siteMore = useMoreSiteComments(siteQuery, Boolean(filter.unread));
+    const pageMore = useMorePageComments(pageQuery);
     const { data: activity } = useActivitySummary();
     const { environment, currentEnvironment } = useProjectViewer();
 
@@ -49,7 +59,9 @@ export function useInboxComments(filter: CommentsFilter) {
     const isThisPage = filter.page === `page:|${path}` || filter.page === `page:${currentEnvironment ?? ''}|${path}`;
     const scope: CommentsPageFilter = showCurrent && isThisPage ? 'current' : filter.page ?? 'current';
     const currentQuery = filter.unread ? siteQuery : pageQuery;
-    const current = showCurrent ? (filter.unread ? siteQuery.data?.filter(isCurrentPage) : pageQuery.data) : [];
+    // This page's list, with the threads of this page that the site's list loaded beyond it (each list loads its own
+    // pages, so either can reach older ones): by id, this page's version first
+    const current = showCurrent ? (filter.unread ? siteQuery.data?.filter(isCurrentPage) : withSiteThreads(pageQuery.data, siteQuery.data?.filter(isCurrentPage))) : [];
     const others = siteQuery.data?.filter(comment => !isCurrentPage(comment));
     const currentSearched = current?.filter(comment => matchesSearch(comment, filter));
     const othersSearched = others?.filter(comment => matchesSearch(comment, filter));
@@ -123,9 +135,14 @@ export function useInboxComments(filter: CommentsFilter) {
     const currentCount = withStatus(currentSearched)?.length ?? 0;
     const otherCount = withStatus(othersSearched)?.length ?? 0;
 
-    // The site's list has the newest comments only
-    const siteCapped = scope !== 'current' && ((filter.unread ? activity?.unread ?? 0 : (activity?.total ?? 0) + (activity?.archived ?? 0)) > (siteQuery.data?.length ?? 0)
-        || (siteQuery.data?.length ?? 0) >= commentsListMaxLength);
+    // Older pages load as the inbox scrolls (`more`): this page's list for This page (the unread one is the site's,
+    // one page), the site's list for every other scope
+    const more: MoreComments = scope === 'current' ? (filter.unread ? noMoreComments : pageMore) : siteMore;
+    // What the site's list could not load: the unread list and the public API have one page, a project's site list
+    // the API's newest comments (`MAX_PROJECT_COMMENTS`)
+    const siteLength = siteQuery.data?.length ?? 0;
+    const siteCapped = scope !== 'current' && !siteMore.hasMore && ((filter.unread ? activity?.unread ?? 0 : (activity?.total ?? 0) + (activity?.archived ?? 0)) > siteLength
+        || (!siteMore.paged && siteLength >= commentsListMaxLength));
 
     // This page's own drafts (new comments not sent yet) are listed with it: this page, every page or its section
     const listsThisPage = showCurrent && (scope === 'current' || scope === 'all' || (scope.startsWith('section:') && inSection(pageKeyPath(scope), path)));
@@ -141,6 +158,7 @@ export function useInboxComments(filter: CommentsFilter) {
         currentCount,
         otherCount,
         siteCapped,
+        more,
         isCurrentPage,
         loading: pageQuery.isPending || siteQuery.isPending
     };

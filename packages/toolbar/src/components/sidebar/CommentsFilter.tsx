@@ -32,9 +32,7 @@ export function isDoneStatusFilter(status: CommentsStatusFilter) {
 export type CommentsPageFilter = 'current' | 'all' | `page:${string}` | `section:${string}`;
 
 /** Whether a page (a relative URL, which can carry its saved query) is in the section `base`, as the app's `/blog/*` filter */
-export function inSection(base: string, path: string) {
-    return path === base || path.startsWith(`${base}/`) || path.startsWith(`${base}?`) || path.startsWith(`${base}#`);
-}
+export { inSection } from '../../pageSections';
 
 export type CommentsFilter = {
     keywords?: string;

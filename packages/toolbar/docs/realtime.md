@@ -12,6 +12,13 @@ The `changed` callback receives why reconciliation is needed:
 - `foreground`: the view became visible/online or received focus.
 - `ended`: a previously ready session ended, which can mean revoked access.
 
+A project's lists (the site's and this page's) load in pages (`getPagedList` in `hooks/useComments.tsx`): the review
+API answers `?limit=` with `{ comments, next }`, and the toolbar follows `next` only, never a page's length, since a
+response cut at its size limit is short too. A refresh reloads as many pages as the reader scrolled to, each from the
+`next` of the one before, so a comment added meanwhile never repeats or skips a card. A page that arrives after a
+refresh of its list started is dropped, and the list asks again. The inbox merges the site list's threads of this page
+into this page's list by id, so All pages, sections and This page list every loaded one.
+
 Every write to a thread's document changes its etag, so message reactions arrive like any other change
 ([reactions](reactions.md)). A `change` reason wins over other reasons in the same notification window. Existing toolbar
 callbacks ignore the reason and keep their own foreground/HTTP scheduler. The app refreshes true

@@ -50,7 +50,7 @@ a key keeps it), while the toolbar is expanded and the shortcuts are on. `toolba
 | C | Point mode, or a comment on the selected text. The page can start the same with `startUierComment()` (the `uier:start-comment` event; uier's app does on its own C, which then starts and never ends point mode) |
 | G then I | Opens the inbox (the focus on Close, as when it opens) |
 | / | Opens the inbox and its search popover (the search icon in its title row), the field focused with its text selected |
-| J, K | The next or the previous thread: the inbox's cards while it is open (focusable, `tabIndex=-1`), else the pins' threads in page order. A pin's thread opened this way focuses its messages (`autoOpenReading`), not the reply box, so the keys go on |
+| J, K | The next or the previous thread: the inbox's cards while it is open (focusable, `tabIndex=-1`; the list is virtualized, so `CommentsGlobal` asks it for the card by its index, `data-uier-inbox-index` and `inboxFocusEvent`, and it scrolls to one that is not rendered before focusing it), else the pins' threads in page order. A pin's thread opened this way focuses its messages (`autoOpenReading`), not the reply box, so the keys go on |
 | R | The reply box of the thread with the focus (an inbox card's Reply opens it first) |
 | S | Moves the focus to that thread's status menu; Enter opens it with the current status focused, ↑ ↓ choose |
 | A | Opens the people to assign in that thread, the first focused (`assignShortcutEvent` on the header) |

@@ -29,7 +29,7 @@ export function extensionOperation(url: string, apiOrigin: string, publicId: str
     if (!allowedExtensionOperation(path, method)) throw new Error('Unsupported review operation');
     if (target.search.length > 4096) throw new Error('Review query is too long');
     for (const key of target.searchParams.keys()) {
-        if (!['path', 'scope', 'unread', 'environment', 'commentId', 'archive'].includes(key)) throw new Error('Unsupported review query');
+        if (!['path', 'scope', 'unread', 'environment', 'commentId', 'archive', 'limit', 'before'].includes(key)) throw new Error('Unsupported review query');
     }
     return { path, query: target.search };
 }

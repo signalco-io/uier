@@ -8,6 +8,7 @@ import { commentSequenceId, isCommentDocument, screenshotDocumentId, syncTombsto
 import { syncPendingPageLimit, type AppendResult, type CommentsStore, type ConditionalWriteResult, type StoredComment } from './commentsStore';
 import { candidateBudget, CommentQueryBudgetError, throwIfQueryAborted, toCommentQueryCandidate, validateCandidatePredicate, type CommentQueryCandidate } from './commentQuerySource';
 import { withCommentQueryMetadata } from './queryMetadata';
+import { isAfterCursor, newestCommentFirst } from './commentPage';
 
 /** Safety net so a long-running dev/test server can't grow without bounds */
 const MAX_COMMENTS_PER_DOMAIN = 5000;
@@ -176,6 +177,16 @@ export function getMemoryCommentsStore(): CommentsStore {
                 .filter(comment => matchesOrigin(comment.origin, originFilter) && matchesAuthor(comment, authorId) && matchesArchive(comment, archive))
                 .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
                 .slice(0, limit)
+                .map(clone);
+        },
+        async listPage(domain, { limit, before, path, originFilter, authorId, archive, visibility }) {
+            return domainComments(domain)
+                .filter(comment => typeof comment.path === 'string' && typeof comment.createdAt === 'string'
+                    && (path === undefined || pathMatches(comment, path)) && matchesVisibility(comment, visibility)
+                    && matchesOrigin(comment.origin, originFilter) && matchesAuthor(comment, authorId) && matchesArchive(comment, archive)
+                    && isAfterCursor(comment, before))
+                .sort(newestCommentFirst)
+                .slice(0, Math.max(1, Math.min(1000, Math.trunc(limit))))
                 .map(clone);
         },
         async get(domain, id): Promise<StoredComment | null> {
