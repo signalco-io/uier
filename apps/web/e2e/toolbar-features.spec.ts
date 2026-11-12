@@ -4,7 +4,7 @@ import { createProject, hydrated, openProjectInvite, projectPublicId, signIn, un
 import { auditAssetPath } from './support/auditRuns';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, newVisitor, selectText, selectionToolbar, toolbar } from './support/toolbar';
+import { animationsFinished, newVisitor, openPageCheck, pageChecksButton, selectText, selectionToolbar, toolbar } from './support/toolbar';
 
 test.use({ actionTimeout: 15_000 });
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
@@ -26,17 +26,27 @@ async function save(page: Page) {
     return action;
 }
 async function openChecks(page: Page, mobile: boolean, name: RegExp) {
-    if (mobile) await toolbar(page).getByRole('button', { name: 'Options', exact: true }).click();
-    const scope = mobile ? page.getByRole('dialog', { name: 'Options', exact: true }) : toolbar(page);
-    await scope.getByRole('button', { name }).click();
+    if (!mobile) return await openPageCheck(page, name);
+    await toolbar(page).getByRole('button', { name: 'Options', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Options', exact: true }).getByRole('button', { name }).click();
 }
+/** The page tools shown: in Options on a phone; in the pill's Page checks menu, or as the one tool's own button */
 async function hasTools(page: Page, mobile: boolean, accessibility: boolean, seo: boolean, consent = true) {
     await expect(toolbar(page)).toBeVisible();
+    const count = [accessibility, seo, consent].filter(Boolean).length;
     if (mobile) await toolbar(page).getByRole('button', { name: 'Options', exact: true }).click();
-    const scope = mobile ? page.getByRole('dialog', { name: 'Options', exact: true }) : toolbar(page);
+    else {
+        await expect(pageChecksButton(page)).toHaveCount(count > 1 ? 1 : 0);
+        if (count > 1) await pageChecksButton(page).click();
+    }
+    const scope = mobile ? page.getByRole('dialog', { name: 'Options', exact: true }) : count > 1 ? page.getByRole('dialog', { name: 'Page checks' }) : toolbar(page);
     await expect(scope.getByRole('button', { name: /^Accessibility/ })).toHaveCount(accessibility ? 1 : 0);
     await expect(scope.getByRole('button', { name: /^SEO/ })).toHaveCount(seo ? 1 : 0);
     await expect(scope.getByRole('button', { name: /^Security and compliance/ })).toHaveCount(consent ? 1 : 0);
+    if (!mobile && count > 1) {
+        await page.keyboard.press('Escape');
+        await expect(scope).toBeHidden();
+    }
     if (mobile) {
         await animationsFinished(scope);
         await page.keyboard.press('Escape');

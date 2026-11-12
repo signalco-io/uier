@@ -6,7 +6,7 @@ import { pngImage } from './support/images';
 import { auditAssetPath, auditRuns, observeAuditRuns } from './support/auditRuns';
 import { startReviewedSite } from './support/reviewedSite';
 import { verifiedReviewHeaders } from './support/reviewVerification';
-import { chooseInboxPages, expectInboxListed, newVisitor, toolbar } from './support/toolbar';
+import { chooseInboxPages, expectInboxListed, newVisitor, pageCheckItem, pageChecksButton, toolbar } from './support/toolbar';
 
 // Local regression budgets and methodology are in docs/mvp-launch-verification.md.
 // Measurements include browser event-to-next-frame timing, not Playwright round-trip time.
@@ -329,10 +329,10 @@ test('the background checks audit a long page in short tasks while the page stay
             await cdp.send('Emulation.setCPUThrottlingRate', { rate: cpu });
             await guest.page.goto(`${site.origin()}/${projectId}/pricing?sections=250&page-checks&host-probe=1&toolbar-code=${projectId}`);
             await expect(toolbar(guest.page)).toBeVisible();
-            const button = toolbar(guest.page).getByRole('button', { name: /^Accessibility/ });
+            const button = pageChecksButton(guest.page);
             // The page's own button, pressed until the audit has said what it found
             const deadline = Date.now() + 60_000;
-            while (!/issues? found$/.test(await button.getAttribute('aria-label') ?? '')) {
+            while (!/\baccessibility\b/.test(await button.getAttribute('data-uier-attention-panels') ?? '')) {
                 expect(Date.now()).toBeLessThan(deadline);
                 await guest.page.locator('#host-probe').press('Space');
             }
@@ -363,10 +363,11 @@ test('the background checks audit a long page in short tasks while the page stay
     try {
         await guest.page.goto(`${site.origin()}/${projectId}/pricing?sections=1000&page-checks&toolbar-code=${projectId}`);
         // The SEO check ran in the background: so would the audit have
-        await expect(toolbar(guest.page).getByRole('button', { name: /^SEO, \d+ to look at$/ })).toBeVisible({ timeout: 20_000 });
+        await expect(pageChecksButton(guest.page)).toHaveAttribute('data-uier-attention-panels', /\bseo\b/, { timeout: 20_000 });
         await guest.page.waitForTimeout(1_000);
         expect(auditRequests).toHaveLength(0);
-        const button = toolbar(guest.page).getByRole('button', { name: /^Accessibility/ });
+        await pageChecksButton(guest.page).click();
+        const button = pageCheckItem(guest.page, /^Accessibility/);
         await expect(button).toHaveAccessibleName('Accessibility');
         // Asked for, the panel checks the whole page at once
         await button.click();

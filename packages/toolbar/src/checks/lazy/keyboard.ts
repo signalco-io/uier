@@ -35,7 +35,8 @@ function nativelyFocusable(element: Element) {
 
 /** Its tabindex when the Tab key stops on it: focusable, not disabled, rendered and not negative */
 function tabIndexOf(element: Element): number | undefined {
-    if (!element.matches(focusable)) return undefined;
+    // A focus trap's guard (Radix, the toolbar's menus' too, briefly after one closes) hands the focus on: never a stop
+    if (!element.matches(focusable) || element.hasAttribute('data-radix-focus-guard')) return undefined;
     const own = element.hasAttribute('tabindex');
     const index = (element as HTMLElement).tabIndex;
     if (own ? !(index >= 0) : !nativelyFocusable(element)) return undefined;

@@ -88,3 +88,14 @@ export function FocusIcon(props: IconProps) {
         </Icon>
     );
 }
+
+/** Page checks (the pill's button for Accessibility, SEO and Security and compliance): a page with a check mark */
+export function PageChecksIcon(props: IconProps) {
+    return (
+        <Icon {...props}>
+            <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" />
+            <path d="M14 3v5h5" />
+            <path d="m9 14.5 2 2 4-4" />
+        </Icon>
+    );
+}

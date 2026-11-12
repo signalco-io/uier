@@ -3,7 +3,7 @@ import { expectNoAxeViolations } from './accessibility';
 import { createProject, signIn, uniqueEmail } from './support/app';
 import { longAlt } from './support/fixtures/content';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, showChecksTab, toolbar } from './support/toolbar';
+import { animationsFinished, openPageCheck, pageCheckName, pageChecksButton, showChecksTab, toolbar } from './support/toolbar';
 
 // The Accessibility panel's Alt text, Zoom and text spacing, and Motion sections
 // (packages/toolbar/docs/page-checks-content.md) on the reviewed site's `fixture-content` origin
@@ -34,8 +34,7 @@ async function memberReview(page: Page, label: string, query = '') {
 const accessibilityPanel = (page: Page) => page.getByRole('complementary', { name: 'Accessibility' });
 
 async function openAccessibility(page: Page) {
-    const button = toolbar(page).getByRole('button', { name: /^Accessibility/ });
-    if (await button.count()) await button.click();
+    if (await pageChecksButton(page).count()) await openPageCheck(page, /^Accessibility/);
     else {
         await toolbar(page).getByRole('button', { name: 'Options', exact: true }).tap();
         await page.getByRole('dialog', { name: 'Options' }).getByRole('button', { name: /^Accessibility/ }).tap();
@@ -79,8 +78,7 @@ test('the Alt text section lists every image with its alt text and flags the one
     test.skip(testInfo.project.use.isMobile === true, 'Desktop layout');
     test.setTimeout(90_000);
     const project = await memberReview(page, 'alt-text');
-    const button = toolbar(page).getByRole('button', { name: /^Accessibility/ });
-    await expect(button).toHaveAccessibleName(/^Accessibility, \d+ issues? found$/, { timeout: 20_000 });
+    await expect(pageChecksButton(page)).toHaveAttribute('data-uier-attention-panels', /\baccessibility\b/, { timeout: 20_000 });
     const panel = await openAccessibility(page);
     await showChecksTab(panel, 'screenReader');
     const section = panel.locator('[data-uier-section="altText"]');
@@ -157,7 +155,7 @@ test('the Alt text section lists every image with its alt text and flags the one
     // The flags count on the button: the audit's issues and the four flags (the panel's other sections add theirs)
     const audit = issueCount(await panel.getByRole('status').textContent());
     const sections = await panel.locator('[data-uier-section="reflow"], [data-uier-section="motion"]').locator('[data-uier-check-state="warn"] li').count();
-    await expect(button).toHaveAccessibleName(`Accessibility, ${audit + 4 + sections} issues found`);
+    await expect.poll(() => pageCheckName(page, /^Accessibility/)).toBe(`Accessibility, ${audit + 4 + sections} issues found`);
 
     await animationsFinished(panel);
     await expectNoAxeViolations(page, { include: ['#uier-toolbar'] });

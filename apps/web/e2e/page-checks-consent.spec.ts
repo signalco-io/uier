@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, showChecksTab, toolbar } from './support/toolbar';
+import { animationsFinished, showChecksTab, toolbar, openPageCheck } from './support/toolbar';
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
 test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(new URL(baseURL!).origin); });
@@ -24,7 +24,7 @@ async function openPanel(page: Page) {
     if (test.info().project.use.isMobile) {
         await toolbar(page).getByRole('button', { name: 'Options', exact: true }).click();
         await page.getByRole('dialog', { name: 'Options' }).getByRole('button', { name: /^Security and compliance/ }).click();
-    } else await toolbar(page).getByRole('button', { name: /^Security and compliance/ }).click();
+    } else await openPageCheck(page, /^Security and compliance/);
     const panel = page.getByRole('complementary', { name: 'Security and compliance' });
     await expect(section(panel, 'snapshot')).toHaveAttribute('data-uier-section-status', 'done', { timeout: 20_000 });
     await showChecksTab(panel, 'snapshot');

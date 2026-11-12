@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page, type Request } from '@playwright
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, showChecksTab, toolbar } from './support/toolbar';
+import { animationsFinished, showChecksTab, toolbar, openPageCheck } from './support/toolbar';
 
 // The Accessibility panel's Keyboard and Screen reader sections (packages/toolbar/docs/page-checks-keyboard.md)
 // on a project's site on another origin (`fixture-keyboard`, e2e/support/fixtures/keyboard.ts): the tab
@@ -32,7 +32,7 @@ async function openPanel(page: Page, label: string) {
     const project = await createProject(page, { urls: [fixtureOrigin()] });
     await page.goto(`/app/review/${project}?url=${encodeURIComponent(`${fixtureOrigin()}/${project}/keyboard`)}`);
     await expect(toolbar(page)).toBeVisible();
-    await toolbar(page).getByRole('button', { name: /^Accessibility/ }).click();
+    await openPageCheck(page, /^Accessibility/);
     const panel = page.getByRole('complementary', { name: 'Accessibility' });
     const keyboard = panel.locator('[data-uier-section="keyboard"]');
     await expect(keyboard).toHaveAttribute('data-uier-section-status', 'done', { timeout: 20_000 });
@@ -137,7 +137,7 @@ test('the Keyboard section reports the tab order and draws it on the page while 
     await panel.getByRole('button', { name: 'Close Accessibility panel' }).click();
     await expect(panel).toBeHidden();
     await expect(layer).toHaveCount(0);
-    await toolbar(page).getByRole('button', { name: /^Accessibility/ }).click();
+    await openPageCheck(page, /^Accessibility/);
     await expect(tools.getByRole('button', { name: 'Show tab order' })).toHaveAttribute('aria-pressed', 'false');
     await expect(layer).toHaveCount(0);
 });

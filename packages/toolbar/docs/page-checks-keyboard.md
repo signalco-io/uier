@@ -40,6 +40,9 @@ inline threads are left out (`isToolbarNode`).
   under 2 px that clips its overflow). A field whose label can be seen is not hidden (a styled
   checkbox). Hidden in-page links to a target on the page ("Skip to content") are left out and
   counted in the reason: they usually show on focus, which the focus check below confirms.
+  A focus trap's guards (`data-radix-focus-guard`, which Radix puts on the page's body while one of its
+  popovers is open, the toolbar's menus' too, and briefly after it closes) hand the focus on and are never
+  stops, so a panel opened from a menu does not count them.
 
 **Show tab order** (`aria-pressed`) draws the order over the page: each stop's number centred on its
 element's top-left corner (kept 10 px inside the window), and a line with an arrow from each stop to

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useContext, Ref, useEffect, useRef, useSyncExternalStore } from 'react';
+import React, { useCallback, useContext, Ref, useEffect, useRef, useSyncExternalStore } from 'react';
 import { IconTooltip, useIconTooltip } from './IconTooltip';
 import { Row } from '@signalco/ui-primitives/Row';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
@@ -20,6 +20,7 @@ import { CommentsBootstrapperContext } from './CommentsBootstrapperContext';
 import { AccessibilityIcon, SeoIcon, ConsentIcon } from './checks/ChecksIcons';
 import type { ChecksAttention, ChecksPanelId } from './checks/PageChecks';
 import { AttentionDot, checksButtonLabel } from './checks/ChecksAttention';
+import { PageChecksMenu } from './checks/PageChecksMenu';
 import { useToolbarMovement, useToolbarNotice } from '../hooks/useReviewMovement';
 import { canReviewToolbar, holdsLayersAttribute } from '../toolbarReview';
 import { addCommentShortcut, useShortcutsEnabled } from '../shortcuts';
@@ -127,9 +128,19 @@ export function CommentToolbar({
     // A phone's pill keeps its width: the panels open from Options there
     const roomy = useSyncExternalStore(subscribeRoomy, isRoomy);
     const toggleChecks = (panel: ChecksPanelId) => onChecksPanelChange(panel, !checksPanels.includes(panel));
-    const accessibilityOpen = checksPanels.includes('accessibility');
-    const seoOpen = checksPanels.includes('seo');
-    const consentOpen = checksPanels.includes('consent');
+    // The page tools this review shows, in the pill's order
+    const checkTools = ([
+        accessibilityAvailable && features.includes('accessibility') && 'accessibility',
+        features.includes('seo') && 'seo',
+        accessibilityAvailable && features.includes('consent') && 'consent'
+    ] as const).filter((panel): panel is ChecksPanelId => Boolean(panel));
+    // One button opens them all: closing any of their panels gives it the focus back
+    const pageChecksButtonRef = useCallback((element: HTMLButtonElement | null) => {
+        for (const ref of [accessibilityButtonRef, seoButtonRef, consentButtonRef]) {
+            if (typeof ref === 'function') ref(element);
+            else if (ref) (ref as { current: HTMLButtonElement | null }).current = element;
+        }
+    }, [accessibilityButtonRef, seoButtonRef, consentButtonRef]);
     const capped = commentsCountCapped;
     const badgeText = commentsCount > 99 && !capped ? '99+' : countText(commentsCount, capped);
     const commentsLabel = commentsCount ? t.toolbar.unread(badgeText, commentsCount, capped) : undefined;
@@ -284,51 +295,26 @@ export function CommentToolbar({
                                 {badge}
                             </IconButton>
                             </IconTooltip>
-                            {/* The page's checks, docked like the inbox (components/checks/PageChecks.tsx) */}
-                            {roomy && accessibilityAvailable && features.includes('accessibility') && (
-                                <IconTooltip label={t.toolbar.accessibility}>
+                            {/* The page's checks, docked like the inbox (components/checks/PageChecks.tsx): behind one Page checks
+                                button when there are several (uier #353), else the one tool's own button */}
+                            {roomy && checkTools.length > 1 && (
+                                <PageChecksMenu tools={checkTools} openPanels={checksPanels} attention={checksAttention}
+                                    onToggle={toggleChecks} buttonRef={pageChecksButtonRef} />
+                            )}
+                            {roomy && checkTools.length === 1 && (
+                                <IconTooltip label={t.toolbar[checkTools[0]!]}>
                                 <IconButton
-                                    ref={accessibilityButtonRef}
-                                    variant={accessibilityOpen ? 'soft' : 'plain'}
+                                    ref={pageChecksButtonRef}
+                                    variant={checksPanels.includes(checkTools[0]!) ? 'soft' : 'plain'}
                                     className="relative rounded-full"
-                                    aria-label={checksButtonLabel('accessibility', checksAttention)}
-                                    aria-expanded={accessibilityOpen}
-                                    aria-controls={accessibilityOpen ? 'uier-panel-accessibility' : undefined}
-                                    onClick={() => toggleChecks('accessibility')}>
-                                    <AccessibilityIcon />
-                                    <AttentionDot panel="accessibility" attention={checksAttention} className="absolute right-1.5 top-1.5" />
+                                    aria-label={checksButtonLabel(checkTools[0]!, checksAttention)}
+                                    aria-expanded={checksPanels.includes(checkTools[0]!)}
+                                    aria-controls={checksPanels.includes(checkTools[0]!) ? `uier-panel-${checkTools[0]}` : undefined}
+                                    onClick={() => toggleChecks(checkTools[0]!)}>
+                                    {checkTools[0] === 'accessibility' ? <AccessibilityIcon /> : checkTools[0] === 'seo' ? <SeoIcon /> : <ConsentIcon />}
+                                    <AttentionDot panel={checkTools[0]!} attention={checksAttention} className="absolute right-1.5 top-1.5" />
                                 </IconButton>
                                 </IconTooltip>
-                            )}
-                            {roomy && features.includes('seo') && (
-                            <IconTooltip label={t.toolbar.seo}>
-                            <IconButton
-                                ref={seoButtonRef}
-                                variant={seoOpen ? 'soft' : 'plain'}
-                                className="relative rounded-full"
-                                aria-label={checksButtonLabel('seo', checksAttention)}
-                                aria-expanded={seoOpen}
-                                aria-controls={seoOpen ? 'uier-panel-seo' : undefined}
-                                onClick={() => toggleChecks('seo')}>
-                                <SeoIcon />
-                                <AttentionDot panel="seo" attention={checksAttention} className="absolute right-1.5 top-1.5" />
-                            </IconButton>
-                            </IconTooltip>
-                            )}
-                            {roomy && accessibilityAvailable && features.includes('consent') && (
-                            <IconTooltip label={t.toolbar.consent}>
-                            <IconButton
-                                ref={consentButtonRef}
-                                variant={consentOpen ? 'soft' : 'plain'}
-                                className="relative rounded-full"
-                                aria-label={checksButtonLabel('consent', checksAttention)}
-                                aria-expanded={consentOpen}
-                                aria-controls={consentOpen ? 'uier-panel-consent' : undefined}
-                                onClick={() => toggleChecks('consent')}>
-                                <ConsentIcon />
-                                <AttentionDot panel="consent" attention={checksAttention} className="absolute right-1.5 top-1.5" />
-                            </IconButton>
-                            </IconTooltip>
                             )}
                             {showAbout && (
                                 <IconTooltip label={t.toolbar.about}>

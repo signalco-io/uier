@@ -1,9 +1,9 @@
-import { expect, test, type Page, type Request } from '@playwright/test';
+import { expect, test, type Locator, type Page, type Request } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { auditAssetPath, auditRuns, observeAuditRuns } from './support/auditRuns';
 import { startReviewedSite } from './support/reviewedSite';
-import { animationsFinished, chooseInboxPages, commentBubble, inboxPages, openThread, setThreadStatus, showChecksTab, toolbar } from './support/toolbar';
+import { animationsFinished, chooseInboxPages, commentBubble, expectPageCheckExpanded, inboxPages, openPageCheck, openThread, pageCheckName, pageChecksButton, setThreadStatus, showChecksTab, toolbar } from './support/toolbar';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 
 // The toolbar's Accessibility and SEO panels (packages/toolbar/docs/page-checks.md) on a project's
@@ -41,17 +41,16 @@ test('the Accessibility panel audits the page in the background without the tool
     const project = await memberReview(page, 'a11y-panel');
 
     // Checked in the background once the page loaded: the buttons say what was found, with a dot
-    const button = toolbar(page).getByRole('button', { name: /^Accessibility/ });
-    await expect(button).toHaveAccessibleName(/^Accessibility, \d+ issues? found$/, { timeout: 20_000 });
-    await expect(button.locator('[data-uier-attention="accessibility"]')).toBeVisible();
-    const seoButton = toolbar(page).getByRole('button', { name: /^SEO/ });
-    await expect(seoButton).toHaveAccessibleName(/^SEO, \d+ to look at$/);
-    await expect(seoButton.locator('[data-uier-attention="seo"]')).toBeVisible();
+    await expect(pageChecksButton(page)).toHaveAttribute('data-uier-attention-panels', /\baccessibility\b/, { timeout: 20_000 });
+    expect(await pageCheckName(page, /^Accessibility/)).toMatch(/^Accessibility, \d+ issues? found$/);
+    await expect(pageChecksButton(page).locator('[data-uier-attention="page-checks"]')).toBeVisible();
+    await expect(pageChecksButton(page)).toHaveAttribute('data-uier-attention-panels', /\bseo\b/);
+    expect(await pageCheckName(page, /^SEO/)).toMatch(/^SEO, \d+ to look at$/);
+    await expect(pageChecksButton(page).locator('[data-uier-attention="page-checks"]')).toBeVisible();
     expect(auditRequests).toHaveLength(1);
 
     // The panel opens with the report, without checking again
-    await button.click();
-    await expect(button).toHaveAttribute('aria-expanded', 'true');
+    await openPageCheck(page, /^Accessibility/);
     const panel = page.getByRole('complementary', { name: 'Accessibility' });
     await expect(panel.getByRole('button', { name: 'Close Accessibility panel' })).toBeFocused();
     // Check again is the same small icon button as Close, and never takes the focus (uier #297)
@@ -60,6 +59,8 @@ test('the Accessibility panel audits the page in the background without the tool
     expect([checkAgainBox?.width, checkAgainBox?.height]).toEqual([closeBox?.width, closeBox?.height]);
     await expect(panel.getByRole('status')).toHaveText(/^\d+ issues? found\.$/);
     expect(auditRequests).toHaveLength(1);
+    // Its item in the Page checks menu says the panel is open
+    await expectPageCheckExpanded(page, /^Accessibility/, true);
 
     // By impact, with the rule, its help link and the element; the toolbar itself is left out
     const imageRule = panel.locator('[data-uier-rule="image-alt"]');
@@ -152,25 +153,25 @@ test('the Accessibility panel audits the page in the background without the tool
     await expect(panel).toBeHidden();
     await expect(openThread(page)).toContainText('Images must have alternative text');
     await page.keyboard.press('Escape');
-    await button.click();
+    await openPageCheck(page, /^Accessibility/);
     await expect(panel.locator('[data-uier-rule="image-alt"]').getByRole('listitem').filter({ hasText: 'img#plan-chart' })).toContainText(/Comment posted as #1/);
     expect(auditRequests).toHaveLength(1);
     await page.keyboard.press('Escape');
     await expect(panel).toBeHidden();
-    await expect(button).toBeFocused();
+    await expect(pageChecksButton(page)).toBeFocused();
 
     // The title is a menu of the panels: SEO shows in this one's place, its Close focused (uier #299)
-    await button.click();
+    await openPageCheck(page, /^Accessibility/);
     await panel.getByRole('heading', { name: 'Accessibility' }).getByRole('button').click();
     const panels = page.getByRole('dialog', { name: 'Switch panel' });
-    await expect(panels.getByRole('button')).toHaveText(['Comments', 'Accessibility', 'SEO']);
+    await expect(panels.getByRole('button')).toHaveText(['Comments', 'Accessibility', 'SEO', 'Security and compliance']);
     await expect(panels.getByRole('button', { name: 'Accessibility' })).toBeFocused();
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
     await expect(panel).toBeHidden();
     const seoPanel = page.getByRole('complementary', { name: 'SEO' });
     await expect(seoPanel.getByRole('button', { name: 'Close SEO panel' })).toBeFocused();
-    await expect(seoButton).toHaveAttribute('aria-expanded', 'true');
+    await expectPageCheckExpanded(page, /^SEO/, true);
     await seoPanel.getByRole('heading', { name: 'SEO' }).getByRole('button').click();
     await page.getByRole('dialog', { name: 'Switch panel' }).getByRole('button', { name: 'Comments' }).click();
     await expect(seoPanel).toBeHidden();
@@ -183,7 +184,7 @@ test('the Accessibility panel\'s Issues tab has a placeholder on a page without 
     const project = await createProject(page, { urls: [site.origin()] });
     // Without `?page-checks`, the page has nothing axe-core reports
     await page.goto(`/app/review/${project}?url=${encodeURIComponent(`${site.origin()}/${project}/pricing`)}`);
-    await toolbar(page).getByRole('button', { name: /^Accessibility/ }).click();
+    await openPageCheck(page, /^Accessibility/);
     const panel = page.getByRole('complementary', { name: 'Accessibility' });
     await expect(panel.getByRole('status')).toHaveText('No issues found.', { timeout: 20_000 });
     await expect(panel.locator('[data-uier-issues-empty]')).toHaveText('Nothing to fix here. The other tabs cover what automated checks cannot judge.');
@@ -199,8 +200,7 @@ test('the SEO panel reports the head, headings, links, images and Core Web Vital
     // A guest: the panel asks for the name comments are posted with
     await page.context().clearCookies();
     await page.goto(`${site.origin()}/${project}/pricing?review=true&page-checks`);
-    const button = toolbar(page).getByRole('button', { name: /^SEO/ });
-    await button.click();
+    await openPageCheck(page, /^SEO/);
     const panel = page.getByRole('complementary', { name: 'SEO' });
     await expect(panel.getByRole('button', { name: 'Close SEO panel' })).toBeFocused();
 
@@ -307,7 +307,7 @@ test('the SEO panel reports the head, headings, links, images and Core Web Vital
 
     // After a client-side navigation, the same finding on another page is not marked as posted
     await page.evaluate(() => history.pushState({}, '', `${location.pathname}/annual${location.search}`));
-    await button.click();
+    await openPageCheck(page, /^SEO/);
     await expect(check('description')).toHaveAttribute('data-uier-check-state', 'warn');
     await expect(check('description').getByRole('button', { name: 'Comment' })).toBeVisible();
     await expect(check('description')).not.toContainText(/sent as #1/);
@@ -338,8 +338,7 @@ test('a finding that is already reported stays marked after a reload, until its 
     test.skip(testInfo.project.use.isMobile === true, 'Desktop layout');
     test.setTimeout(60_000);
     const project = await memberReview(page, 'reported-findings');
-    const button = toolbar(page).getByRole('button', { name: /^SEO/ });
-    await button.click();
+    await openPageCheck(page, /^SEO/);
     const panel = page.getByRole('complementary', { name: 'SEO' });
     const check = (id: string) => panel.locator(`[data-uier-check="${id}"]`);
 
@@ -376,7 +375,7 @@ test('a finding that is already reported stays marked after a reload, until its 
     // Once the thread is done, the finding (still on the page) can be reported again
     await setThreadStatus(page, thread, 'Done');
     await page.keyboard.press('Escape');
-    await button.click();
+    await openPageCheck(page, /^SEO/);
     await expect(check('levels').getByRole('button', { name: 'Comment' })).toBeVisible();
     await expect(check('levels')).not.toContainText('Reported');
     await expect(check('description')).toContainText('Reported as #1');
@@ -390,7 +389,7 @@ test('an open panel stays open on the next page and shows that page', async ({ p
     await setProjectAccess(page, project, 'Anyone with the link');
     await page.context().clearCookies();
     await page.goto(`${site.origin()}/${project}/pricing?review=true&page-checks`);
-    await toolbar(page).getByRole('button', { name: /^SEO/ }).click();
+    await openPageCheck(page, /^SEO/);
     const panel = page.getByRole('complementary', { name: 'SEO' });
     // Folded, but in the panel: its text says which page was checked
     const outline = panel.locator('ol[aria-label="Headings outline"]');
@@ -428,7 +427,7 @@ test('an open panel stays open on the next page and shows that page', async ({ p
     await expect(panel).toBeHidden();
 
     // A page opened anew (not from the site) starts without a panel
-    await toolbar(page).getByRole('button', { name: /^SEO/ }).click();
+    await openPageCheck(page, /^SEO/);
     await expect(panel).toBeVisible();
     await page.goto(`${site.origin()}/${project}/pricing?page-checks`);
     await expect(toolbar(page)).toBeVisible();
@@ -441,42 +440,42 @@ test('panels docked on different sides stay open together, highlight their butto
     await page.setViewportSize({ width: 1280, height: 800 });
     await memberReview(page, 'two-panels');
     const inboxButton = toolbar(page).getByRole('button', { name: /^Inbox/ });
-    const seoButton = toolbar(page).getByRole('button', { name: /^SEO/ });
-    const accessibilityButton = toolbar(page).getByRole('button', { name: /^Accessibility/ });
     const inbox = page.getByRole('complementary', { name: 'Comments' });
     const seo = page.getByRole('complementary', { name: 'SEO' });
     const accessibility = page.getByRole('complementary', { name: 'Accessibility' });
-    const background = (button: typeof seoButton) => button.evaluate(element => getComputedStyle(element).backgroundColor);
-    const plain = await background(seoButton);
+    // The Page checks button stands for the SEO and Accessibility panels in the pill
+    const checksButton = pageChecksButton(page);
+    const background = (button: Locator) => button.evaluate(element => getComputedStyle(element).backgroundColor);
+    const plain = await background(checksButton);
 
     // An open panel's button is highlighted, and says it is expanded
-    await seoButton.click();
+    await openPageCheck(page, /^SEO/);
     await expect(seo).toBeVisible();
-    await expect(seoButton).toHaveAttribute('aria-expanded', 'true');
-    await expect.poll(() => background(seoButton)).not.toBe(plain);
+    await expectPageCheckExpanded(page, /^SEO/, true);
+    await expect.poll(() => background(checksButton)).not.toBe(plain);
     await expect.poll(() => background(inboxButton)).toBe(plain);
 
     // Both on the right: the inbox takes the SEO panel's place
     await inboxButton.click();
     await expect(inbox).toBeVisible();
     await expect(seo).toBeHidden();
-    await expect(seoButton).toHaveAttribute('aria-expanded', 'false');
+    await expectPageCheckExpanded(page, /^SEO/, false);
     await expect.poll(() => background(inboxButton)).not.toBe(plain);
-    await expect.poll(() => background(seoButton)).toBe(plain);
+    await expect.poll(() => background(checksButton)).toBe(plain);
 
     // On the left, the inbox stays open beside the SEO panel
     await inbox.getByRole('button', { name: 'Move comments panel' }).press('ArrowLeft');
     await expect(inbox).toHaveAttribute('data-side', 'left');
-    await seoButton.click();
+    await openPageCheck(page, /^SEO/);
     await expect(seo).toHaveAttribute('data-side', 'right');
     await expect(inbox).toBeVisible();
     await expect(inboxButton).toHaveAttribute('aria-expanded', 'true');
-    await expect(seoButton).toHaveAttribute('aria-expanded', 'true');
+    await expectPageCheckExpanded(page, /^SEO/, true);
     await expect.poll(() => background(inboxButton)).not.toBe(plain);
-    await expect.poll(() => background(seoButton)).not.toBe(plain);
+    await expect.poll(() => background(checksButton)).not.toBe(plain);
 
     // The Accessibility panel replaces only the one on its side
-    await accessibilityButton.click();
+    await openPageCheck(page, /^Accessibility/);
     await expect(accessibility).toBeVisible();
     await expect(seo).toBeHidden();
     await expect(inbox).toBeVisible();
@@ -494,7 +493,7 @@ test('panels docked on different sides stay open together, highlight their butto
     await page.reload();
     await expect(accessibility).toBeVisible();
     await expect(inbox).toBeVisible();
-    await expect(accessibilityButton).toHaveAttribute('aria-expanded', 'true');
+    await expectPageCheckExpanded(page, /^Accessibility/, true);
     await expect(inboxButton).toHaveAttribute('aria-expanded', 'true');
 
     // Where two do not fit side by side, the one opened last stays
@@ -519,10 +518,10 @@ test('a guest with both checks panels open is asked for the name in the panel th
     await page.goto(`${site.origin()}/${project}/pricing?review=true&page-checks`);
     const seo = page.getByRole('complementary', { name: 'SEO' });
     const accessibility = page.getByRole('complementary', { name: 'Accessibility' });
-    await toolbar(page).getByRole('button', { name: /^SEO/ }).click();
+    await openPageCheck(page, /^SEO/);
     await seo.getByRole('button', { name: 'Move SEO panel' }).press('ArrowLeft');
     await expect(seo).toHaveAttribute('data-side', 'left');
-    await toolbar(page).getByRole('button', { name: /^Accessibility/ }).click();
+    await openPageCheck(page, /^Accessibility/);
     await expect(accessibility).toHaveAttribute('data-side', 'right');
     await expect(seo).toBeVisible();
     const seoName = seo.getByRole('textbox', { name: 'Your name' });
@@ -575,7 +574,7 @@ test('a panel that stays open shows the page it reached, never the previous one,
         await route.continue();
     });
     await page.goto(`${site.origin()}/${project}/pricing?review=true&page-checks`);
-    await toolbar(page).getByRole('button', { name: /^Accessibility/ }).click();
+    await openPageCheck(page, /^Accessibility/);
     const accessibility = page.getByRole('complementary', { name: 'Accessibility' });
     await expect(accessibility.getByRole('status')).toHaveText('Checking this page...');
     await page.evaluate(() => history.pushState({}, '', `${location.pathname.replace(/\/pricing$/, '/team')}${location.search}`));
@@ -648,7 +647,7 @@ test('a background audit nobody needs any more stops: collapsed while it loads o
     }
     // Expanded again, the page is checked from the start, to the end
     await expand();
-    await expect(pill.getByRole('button', { name: /^Accessibility/ })).toHaveAccessibleName(/^Accessibility, \d+ issues? found$/, { timeout: 30_000 });
+    await expect(pageChecksButton(page)).toHaveAttribute('data-uier-attention-panels', /\baccessibility\b/, { timeout: 30_000 });
 
     // Exit review while axe-core loads: it never runs on the page left without the toolbar
     requested = page.waitForRequest(isAudit);

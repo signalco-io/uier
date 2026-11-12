@@ -35,6 +35,8 @@ app share:
   and the inbox's status tabs (← →, the chosen tab is the stop; Enter or Space chooses). The Active statuses menu button beside
   Active keeps its own tab stop (`data-roving-skip`, outside the arrows, as in the app); its menu moves with ↑ ↓ and Escape closes only the menu.
   So does a panel's title menu (`PanelTitle`, the other panels to show).
+  So does the pill's Page checks menu (`PageChecksMenu`, Accessibility, SEO and Security and compliance); a panel it
+  opens takes the focus, and closing that panel gives it back to Page checks.
 - `moveFocusInMenu`: ↑ and ↓, Home and End between the buttons and links of a popover that reads like a menu,
   as its content's `onKeyDown`: Options, a thread's status menu, Thread options, a message's options, Copy, and the people to assign.
   From the popover itself (where Radix leaves the focus in the shadow root) ↓ goes to the first. Text fields

@@ -4,7 +4,7 @@ import { expectNoAxeViolations } from './accessibility';
 import { createProject, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { startReviewedSite } from './support/reviewedSite';
 import { verifiedReviewHeaders } from './support/reviewVerification';
-import { animationsFinished, commentBubble, openThread, showChecksTab, threadOptions, toolbar } from './support/toolbar';
+import { animationsFinished, commentBubble, openThread, showChecksTab, threadOptions, toolbar, openPageCheck } from './support/toolbar';
 
 // A comment posted from a page check runs that check again in its thread, on the page it was posted
 // on (packages/toolbar/docs/page-checks-verify.md). The page is `fixtures/verify.ts`: an image
@@ -33,7 +33,7 @@ test('a finding posted from a panel is checked again in its thread: still found,
     await memberReview(page, project);
 
     // The Accessibility panel posts the image's finding, the SEO panel the link's
-    await toolbar(page).getByRole('button', { name: /^Accessibility/ }).click();
+    await openPageCheck(page, /^Accessibility/);
     const accessibility = page.getByRole('complementary', { name: 'Accessibility' });
     await expect(accessibility.getByRole('button', { name: 'Close Accessibility panel' })).toBeFocused();
     const image = accessibility.locator('[data-uier-rule="image-alt"]').getByRole('listitem').filter({ hasText: 'img#verify-chart' });
@@ -41,7 +41,7 @@ test('a finding posted from a panel is checked again in its thread: still found,
     await expect(image).toContainText(/Comment posted as #1/);
     await page.keyboard.press('Escape');
     await expect(accessibility).toBeHidden();
-    await toolbar(page).getByRole('button', { name: /^SEO/ }).click();
+    await openPageCheck(page, /^SEO/);
     const seo = page.getByRole('complementary', { name: 'SEO' });
     await expect(seo.getByRole('button', { name: 'Close SEO panel' })).toBeFocused();
     await showChecksTab(seo, 'content');
