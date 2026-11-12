@@ -1,13 +1,15 @@
 # Extension listing worksheet
 
 Copy and artwork for the public [Chrome Web Store listing](https://chromewebstore.google.com/detail/uier/kplfcfnpeljpkbcjgpaefpmggipfpemj).
-Change the dashboard and this worksheet together. Account, reviewer access and disclosure setup
+The contact update in this worksheet still needs the owner to set contact@uier.io in the
+Chrome Web Store developer dashboard and Mozilla Add-ons Developer Hub; changing repository
+metadata does not update either live listing. Account, reviewer access and disclosure setup
 is recorded in the [release runbook](browser-extension-release.md).
 
 Firefox uses the same runtime with separate [Mozilla metadata](../apps/extension-firefox/amo-metadata.json)
 and [release controls](browser-extension-firefox-release.md). Version 0.1.5 is submitted and awaiting
 review as of 10 November 2026; this does not make it publicly installable. Its category is **Web
-Development**, language **English (US)**, support email **contact@signalco.io**, and homepage/privacy
+Development**, language **English (US)**, prepared support email **contact@uier.io**, and homepage/privacy
 addresses match the table below. The production icon and a native Firefox screenshot from the
 isolated fictional demo project are saved in Developer Hub. The release receipt retains the exact
 ZIP and reviewer source, AGPL license, screenshot and native acceptance evidence.
@@ -23,6 +25,7 @@ storage. Both keep access tokens, proofs, bindings and drafts in private session
 | Summary | Review configured project sites with uier. Signed-in project membership required. |
 | Category / language | Productivity / English; confirm the dashboard's current choices |
 | Homepage | https://uier.io |
+| Support email | contact@uier.io |
 | Support | https://github.com/signalco-io/uier/issues |
 | Privacy policy | https://uier.io/legal/privacy-policy |
 

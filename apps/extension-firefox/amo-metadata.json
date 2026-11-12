@@ -5,7 +5,7 @@
   "description": { "en-US": "Review sites configured in your uier projects without adding a script. Pin feedback to elements, text or areas, attach a viewport screenshot, reply and resolve comments. Each reviewer signs in and needs access to the project. The extension requests temporary access to the reviewed tab and communicates with uier.io. See https://uier.io/legal/privacy-policy for privacy details." },
   "categories": { "firefox": ["web-development"] },
   "homepage": { "en-US": "https://uier.io" },
-  "support_email": { "en-US": "contact@signalco.io" },
+  "support_email": { "en-US": "contact@uier.io" },
   "privacy_policy": { "en-US": "Privacy policy: https://uier.io/legal/privacy-policy" },
   "version": {
     "compatibility": ["firefox"],

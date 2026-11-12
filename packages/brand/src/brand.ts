@@ -24,11 +24,11 @@ export const brand = {
     parent: { name: 'signalco', url: 'https://signalco.io' },
     repository: 'https://github.com/signalco-io/uier',
     issues: 'https://github.com/signalco-io/uier/issues',
-    /** uier has no mailboxes of its own: these are signalco's (listed on signalco.io/contact). */
+    /** Public uier contact addresses, shared by the site, policies and support material. */
     contact: {
-        email: 'contact@signalco.io',
-        security: 'security@signalco.io',
-        privacy: 'gdpr@signalco.io'
+        email: 'contact@uier.io',
+        security: 'security@uier.io',
+        privacy: 'privacy@uier.io'
     },
     /** Public profiles. uier has no social accounts of its own; X is signalco's. */
     social: {

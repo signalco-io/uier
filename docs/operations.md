@@ -63,7 +63,8 @@ do not use the dashboard's conflicting-record deletion or create a second policy
 
 The program imports the existing routing settings, verified destination, all existing API-managed
 rules (including disabled ones) and disabled catch-all before adding missing exact forwarding
-rules for `contact@uier.io`, `security@uier.io` and `privacy@uier.io`. All are protected. Existing
+rules for `contact@uier.io`, `security@uier.io` and `privacy@uier.io`. These public contact
+addresses are forwarded by the Pulumi-managed rules. All are protected. Existing
 rules retain their live name, priority, enabled flag, matchers and actions; conflicting requested
 aliases stop the run rather than change an import. Worker-managed rules also stop adoption.
 
@@ -365,7 +366,7 @@ A ruleset on `main` requires a pull request with a passing **`CI OK`** check and
 
 [`/.well-known/security.txt`](https://uier.io/.well-known/security.txt) is a static UTF-8 text
 file in `apps/web/public/.well-known/`, following [RFC 9116](https://www.rfc-editor.org/rfc/rfc9116.html).
-It publishes the existing `security@signalco.io` reporting contact and links to the repository's
+It publishes the `security@uier.io` reporting contact and links to the repository's
 [security policy](../SECURITY.md). `/security.txt` permanently redirects to the canonical path.
 
 Review the contact and policy when renewing the fixed `Expires` date, keeping the new expiry

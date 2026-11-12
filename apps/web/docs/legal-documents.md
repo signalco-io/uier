@@ -9,3 +9,8 @@ same pull request. The token creation/revocation counter contains no token metad
 90 days after its last update; creation audit receipts expire after 30 days. The SLA states that there are no service commitments; do not add uptime targets
 or credits before they are decided. `e2e/legal.spec.ts` checks each document, the legal navigation
 and the footer links.
+
+Public contact addresses come from `brand.contact`: privacy requests use privacy@uier.io and
+general questions use contact@uier.io. The privacy, cookie, terms and acceptable-use policies
+have an effective date of 12 November 2026 for this contact update. Keep the displayed addresses
+and mailto links aligned with the brand constants.
