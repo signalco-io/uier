@@ -81,7 +81,10 @@ drawing is in memory, [canvas mode](canvas-mode.md)), and each comment's submiss
 - Resume draft closes the inbox, unless the draft is on a part of it, and opens the form on its pin with its text,
   focused, like Resume draft above the pill.
 - Post comment sends the draft as it is, without its form (`CommentDraftHandle.send` on its pin, the composer's
-  steps: its text and mentions, its attached image or a new capture of its anchor, its submission key). No form or
+  steps: its text and mentions, its attached image or a new capture of its anchor, its submission key). An anchor
+  outside the window is scrolled into view first, as Resume draft does, and captured once that has settled (a frame),
+  so the screenshot is of its anchor, not of the window it was not in (`revealAnchor`); an anchor not on the page is
+  captured as its form would (the window). No form or
   thread opens (`quiet`): its card goes, its thread is in the list and its pin on the page. A failed send is like a
   form's: the text is back, the draft is listed again (its pin closed, the error in its form) and the toast says why.
   A guest without a name, or an image still being read, opens its form instead.
@@ -89,7 +92,8 @@ drawing is in memory, [canvas mode](canvas-mode.md)), and each comment's submiss
   card, else the inbox.
 
 `apps/web/e2e/multiple-drafts.spec.ts` (desktop and mobile) covers two drafts on a page, a reload, the inbox's list
-under Active (none under Done), Resume draft, a failed and a successful post from the inbox and Discard.
+under Active (none under Done), Resume draft, a failed and a successful post from the inbox and Discard, and the
+screenshot of an offscreen draft posted from the inbox.
 
 ## Capture responsiveness
 

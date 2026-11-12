@@ -7,7 +7,7 @@ import { cx } from '@signalco/ui-primitives/cx';
 import { Pin } from '@uier/brand';
 import { useMessages, useToolbarLanguage } from '../i18n';
 import { newLocalId, useComments } from '../hooks/useComments';
-import { lowestRect, resolveAnchorElement, useCommentPlacement } from '../hooks/useCommentItemRects';
+import { getCommentPlacement, lowestRect, resolveAnchorElement, useCommentPlacement } from '../hooks/useCommentItemRects';
 import { cancelCommentScreenshot, captureCommentScreenshot } from '../screenshot';
 import { newCommentDraftKey, newDrawingDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
 import { CommentThread } from './CommentThread';
@@ -139,6 +139,22 @@ function scrollAnchorIntoView(position: CommentItemPosition, rect: DOMRect | und
         return;
     }
     resolveAnchorElement(position)?.scrollIntoView({ block: 'center', behavior });
+}
+
+/**
+ * Brings a draft's anchor into the window when it is outside it, as Resume draft does, so its screenshot is of its
+ * anchor and not of whatever the window shows: the capture measures its region in the window. Resolves once the
+ * scroll has settled (the next frame; soon, when the tab is hidden). An anchor that is not on the page is not
+ * scrolled to: its capture is of the window, as the form's would be.
+ */
+function revealAnchor(position: CommentItemPosition): Promise<void> {
+    const { rects, state } = getCommentPlacement(position);
+    if (!rects.length || rects.every(rect => rect.top >= 0 && rect.bottom <= window.innerHeight)) return Promise.resolve();
+    scrollAnchorIntoView(position, lowestRect(rects), 'auto', state === 'closed');
+    return new Promise(resolve => {
+        requestAnimationFrame(() => resolve());
+        window.setTimeout(resolve, 100);
+    });
 }
 
 /** A draft pin's actions from outside its popover: the inbox's drafts (CommentsGlobal) */
@@ -310,8 +326,11 @@ export function CommentBubble(props: CommentBubbleProps) {
             const leading = text.length - text.trimStart().length;
             const selected = mentions.filter(mention => mention.end <= text.trimEnd().length)
                 .map(mention => ({ userId: mention.userId, start: mention.start - leading, end: mention.end - leading }));
-            // A new capture of its anchor, as opening its form takes
-            const sent = { device: getDeviceInfo(), screenshot: omitScreenshot || attachment.image ? undefined : captureCommentScreenshot(position, rootElement, drawing) };
+            // A new capture of its anchor, as opening its form takes, with the anchor in the window first
+            const screenshot = omitScreenshot || attachment.image
+                ? undefined
+                : revealAnchor(position).then(() => captureCommentScreenshot(position, rootElement, drawing));
+            const sent = { device: getDeviceInfo(), screenshot };
             const id = drafts.startSend(draftKey, text, mentions);
             void createComment(trimmed, selected, sent, true)
                 .then(() => drafts.settleSend(draftKey, id, true), () => drafts.settleSend(draftKey, id, false));

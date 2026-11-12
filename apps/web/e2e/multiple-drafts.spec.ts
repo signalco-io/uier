@@ -98,3 +98,27 @@ test('several drafts wait on a page and the inbox lists them to resume, post or 
     await expect.poll(() => page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('uier:draft:v1:')))).toEqual([]);
     await context.close();
 });
+
+test('a draft posted from the inbox has a screenshot of its anchor, scrolled into view first', async ({ browser }, info) => {
+    const { context, page } = await newVisitor(browser, info);
+    await openLanding(page, isolatedOrigin(info), { dismissHint: true });
+    const anchor = page.getByRole('heading', { level: 2 }).last();
+    await leaveDraft(page, anchor, 'Draft far down the page');
+    // Its anchor is out of the window when it is posted
+    await page.evaluate(() => window.scrollTo(0, 0));
+    const view = await page.evaluate(() => ({ width: document.documentElement.clientWidth, height: document.documentElement.clientHeight }));
+    expect((await anchor.boundingBox())!.y).toBeGreaterThan(view.height);
+    await openInbox(page);
+    const posted = page.waitForResponse(response => response.request().method() === 'POST' && new URL(response.url()).pathname === '/api/comments');
+    await draftCards(page).getByRole('button', { name: 'Post comment' }).click();
+    expect((await posted).status()).toBe(201);
+    // The region around its anchor, not the window it was not in
+    const [saved] = await page.evaluate(async () => (await fetch('/api/comments?path=/')).json()) as CommentDto[];
+    expect(saved!.screenshot).toBeDefined();
+    const scale = await page.evaluate(() => Math.min(window.devicePixelRatio, 2));
+    expect(saved!.screenshot!.height).toBeLessThan(view.height * scale * 0.75);
+    const box = (await anchor.boundingBox())!;
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.y + box.height).toBeLessThanOrEqual(view.height);
+    await context.close();
+});
