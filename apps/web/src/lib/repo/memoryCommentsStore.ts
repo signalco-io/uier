@@ -98,8 +98,8 @@ export function getMemoryCommentsStore(): CommentsStore {
                 if (performance.now() - start > budget.durationMs) throw new CommentQueryBudgetError();
                 const comment = commentOf(entry, true);
                 if (!comment || typeof comment.path !== 'string' || !matchesVisibility(comment, options.visibility)
-                    || !matchesOrigin(comment.origin, options.origin) || !matchesArchive(comment, options.archive)) continue;
-                const candidate = toCommentQueryCandidate(comment, String(entry.version));
+                    || !matchesOrigin(comment.origin, options.origin) || !matchesAuthor(comment, options.authorId) || !matchesArchive(comment, options.archive)) continue;
+                const candidate = toCommentQueryCandidate(comment, String(entry.version), options.includeText !== false);
                 if (options.predicate && !options.predicate.test(candidate)) continue;
                 bytes += Buffer.byteLength(JSON.stringify(candidate));
                 candidates.push(candidate);

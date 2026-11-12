@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
-import { backToComments, openReply, commentRowLink, commentRows, createProject, inBackground, longPress, openComment, openCommentFilters, selectionBar, selectShownResults, selectThread, rowOf, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { backToComments, openReply, commentRowLink, commentRows, createProject, hydrated, inBackground, longPress, openComment, openCommentFilters, selectionBar, selectShownResults, selectThread, rowOf, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { toolbar, animationsFinished, threadOptions } from './support/toolbar';
@@ -25,7 +25,9 @@ async function fixture(page: Page, request: APIRequestContext, count = 3) {
         expect(response.status()).toBe(201); comments.push(await response.json());
     }
     await page.goto(`/app/projects/${project}`);
-    await expect(commentRows(page)).toHaveCount(count);
+    await hydrated(page.getByRole('button', { name: 'List', exact: true }));
+    if (count <= 20) await expect(commentRows(page)).toHaveCount(count);
+    else await expect(page.locator('[data-comment-window]')).toHaveAttribute('data-loaded-count', '25');
     return { project, headers, comments };
 }
 const selected = (page: Page, number: number) => page.getByRole('checkbox', { name: `Select comment #${number}`, exact: true });
@@ -308,11 +310,13 @@ test('selection resets on search and view changes, and the bar passes accessibil
     await expect(bar.getByRole('checkbox', { name: 'Select shown results', exact: true })).toHaveAttribute('aria-checked', 'mixed');
     await page.getByRole('searchbox', { name: 'Search feedback' }).fill('checkout');
     await expect(bar).toHaveCount(0);
+    await expect(commentRows(page)).toHaveCount(1);
     await selectThread(page, comments[0]!.number);
     await page.getByRole('button', { name: 'Board', exact: true }).click();
     await expect(bar).toHaveCount(0);
     await expect(page.getByRole('checkbox', { name: /^Select comment #/, checked: true })).toHaveCount(0);
     await page.goBack();
+    await expect(page.getByRole('button', { name: 'List', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(bar).toHaveCount(0);
     // x on a row, then Shift+Tab: the bar comes before the comments in the focus order, though it floats over the end of the list
     const firstLink = commentRowLink(page, comments[0]!.number);
@@ -407,7 +411,9 @@ test('member toolbar thread and inbox priorities persist and guests can only rea
     await expect(inbox.getByRole('article')).toContainText('Priority: High');
     await page.reload();
     await expect(toolbar(page)).toBeVisible();
-    await toolbar(page).getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
+    const inboxToggle = toolbar(page).getByRole('button', { name: /^Inbox(?:,|$)/ });
+    // Open panels now restore on reload; only open the inbox when it is still closed.
+    if (await inboxToggle.getAttribute('aria-expanded') !== 'true') await inboxToggle.click();
     await expect(inbox.getByRole('article')).toContainText('Priority: High');
     await expect((await threadOptions(page, inbox.getByRole('article'))).getByRole('button', { name: 'Priority: High. Change priority', exact: true })).toBeVisible();
     const guest = await browser.newContext();
@@ -426,11 +432,20 @@ test('member toolbar thread and inbox priorities persist and guests can only rea
 test('selection caps at the first 50 shown and leaves the remaining result untouched', async ({ page, request }) => {
     test.setTimeout(60_000);
     const { project, headers, comments } = await fixture(page, request, 51);
+    const window = page.locator('[data-comment-window]');
+    await window.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    await expect(window).toHaveAttribute('data-loaded-count', '50');
+    await window.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    await expect(window).toHaveAttribute('data-loaded-count', '51');
+    await window.evaluate(element => { element.scrollTop = 0; });
     await selectShownResults(page, 'Select first 50 shown');
     await expect(page.getByText('50 selected', { exact: true })).toBeVisible();
     // The first 50 in the list's order: by number, highest first, so the oldest one is left out
+    await commentRowLink(page, comments[50]!.number).focus();
+    await page.keyboard.press('End');
     await expect(selected(page, comments[0]!.number)).not.toBeChecked();
     await expect(selected(page, comments[0]!.number)).toBeDisabled();
+    await page.keyboard.press('Home');
     await expect(selected(page, comments[50]!.number)).toBeChecked();
     await page.getByRole('combobox', { name: 'Prioritize selected' }).click();
     await page.getByRole('option', { name: 'Low', exact: true }).click();
@@ -465,7 +480,7 @@ test('partial status batches retain stale visible threads for review and a new e
     } finally { pending.release(); await page.unrouteAll({ behavior: 'wait' }); }
 });
 
-test('search and selection stay local at the capped 1000-thread window', async ({ page, request }, testInfo) => {
+test('search and selection query the complete project without a page navigation', async ({ page, request }, testInfo) => {
     test.setTimeout(90_000);
     const { project } = await fixture(page, request, 0);
     let next = 0;
@@ -484,13 +499,14 @@ test('search and selection stay local at the capped 1000-thread window', async (
         }
     }));
     await page.reload();
-    await expect(commentRows(page)).toHaveCount(1000);
-    await expect(page.getByText('Search covers up to 1,000 recent threads', { exact: false })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Active 1000', exact: true })).toBeVisible();
+    await expect(page.locator('[data-comment-window]')).toHaveAttribute('data-loaded-count', '25');
+    expect(await commentRows(page).count()).toBeLessThan(25);
     const requests: string[] = [];
     page.on('request', request => { if (new URL(request.url()).pathname === `/app/projects/${project}` && request.headers().rsc === '1' && !request.headers()['next-router-prefetch']) requests.push(request.url()); });
     await page.route(`**/app/projects/${project}?*`, route => route.request().method() === 'GET' ? route.abort() : route.continue());
     const start = Date.now();
-    await page.getByRole('searchbox', { name: 'Search feedback' }).fill('feedback /window/999');
+    await page.getByRole('searchbox', { name: 'Search feedback' }).fill('feedback /window/0');
     await expect(commentRows(page)).toHaveCount(1);
     const searchMs = Date.now() - start;
     expect(searchMs).toBeLessThan(2500);
@@ -500,7 +516,7 @@ test('search and selection stay local at the capped 1000-thread window', async (
     await page.getByRole('option', { name: 'Urgent', exact: true }).click();
     await expect(commentRows(page)).toHaveCount(0);
     expect(requests).toEqual([]);
-    await testInfo.attach('search-window-performance', { body: JSON.stringify({ threads: 1000, searchMs, serverRequests: requests.length }), contentType: 'application/json' });
+    await testInfo.attach('paged-search-performance', { body: JSON.stringify({ threads: 1000, searchMs, serverRequests: requests.length }), contentType: 'application/json' });
 });
 
 

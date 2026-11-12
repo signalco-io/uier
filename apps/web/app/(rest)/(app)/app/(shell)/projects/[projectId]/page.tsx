@@ -30,10 +30,12 @@ async function ProjectPageContent({ params, searchParams }: PageProps<'/app/proj
     if (!project)
         notFound();
 
-    const [snapshot, initialView] = await Promise.all([
-        loadAppCommentsSnapshot(context, project, parseCommentsQuery(await searchParams), undefined, t),
-        getCommentsView()
-    ]);
+    const [search, initialView] = await Promise.all([searchParams, getCommentsView()]);
+    const query = parseCommentsQuery(search);
+    if (!search.view && initialView) query.view = initialView;
+    const snapshot = await loadAppCommentsSnapshot(context, project, query, undefined, t, {
+        openId: typeof search.comment === 'string' ? search.comment : undefined, budgetFallback: true
+    });
     if (!snapshot) notFound();
     return (
         <CommentsSection title={t("Comments")}>

@@ -11,7 +11,7 @@ import { markCommentsReadAction } from './actions';
 import { useCommentUpdate } from './CommentUpdates';
 
 /** Inputs are the rendered, filtered snapshot, including its activity cursors. */
-export function MarkAllRead({ projectId, threads }: { projectId: string; threads: ReadThreadInput[] }) {
+export function MarkAllRead({ projectId, threads, shownOnly = false }: { projectId: string; threads: ReadThreadInput[]; shownOnly?: boolean }) {
     const { t } = useAppI18n();
     const [pending, startTransition] = useTransition();
     const updateComment = useCommentUpdate();
@@ -45,6 +45,6 @@ export function MarkAllRead({ projectId, threads }: { projectId: string; threads
     // Beside the unread count: a small filled button with the unread accent on its icon, so it reads as that count's action
     return <Button size="xs" variant="secondary" className="pointer-coarse:min-h-11" disabled={pending} onClick={() => run(threads)}>
         <CheckCheckIcon data-icon="inline-start" aria-hidden="true" className="text-[hsl(var(--brand-accent-text))]" />
-        {pending ? t("Marking as read…") : t("Mark all as read")}
+        {pending ? t("Marking as read…") : t(shownOnly ? "Mark shown as read" : "Mark all as read")}
     </Button>;
 }

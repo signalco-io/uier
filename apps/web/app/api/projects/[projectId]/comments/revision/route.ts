@@ -22,7 +22,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ proj
         const members = () => listMembersWithUsers(context.workspace.id).then(entries => membersWithProjectAccess(entries, project, access));
         const query = parseCommentsQuery(Object.fromEntries(new URL(request.url).searchParams));
         const { t } = await getAppI18n();
-        const snapshot = await loadAppCommentsSnapshot(context, project, query, members, t);
+        const snapshot = await loadAppCommentsSnapshot(context, project, query, members, t, { revisionOnly: true });
         if (!snapshot) throw apiErrors.notFound();
         return Response.json({ revision: snapshot.revision }, { headers: { 'Cache-Control': 'private, no-store', Vary: 'Cookie, Accept-Language' } });
     } catch (error) {

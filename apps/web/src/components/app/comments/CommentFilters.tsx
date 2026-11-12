@@ -299,6 +299,8 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
                 {/* A new layout starts with no thread open (the board would open it in a sheet over itself). The choice is
                     remembered as the default and kept in the address, list too, so it wins over the remembered one there */}
                 <CommentsViewToggle view={view} onChange={next => {
+                    // Preserve the current implicit view in the history entry before remembering the next one.
+                    if (!new URLSearchParams(window.location.search).has('view')) setUrlSearchParams({ view });
                     if (onView) return onView(next);
                     rememberCommentsView(next);
                     go({ view: next, comment: undefined, ...(status === 'archived' ? { status: undefined } : {}) });

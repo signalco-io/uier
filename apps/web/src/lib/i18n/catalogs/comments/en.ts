@@ -1,5 +1,12 @@
 // App discussion and page-check source phrases. Translate wording, never saved member content.
 const messages = {
+    "This search is too large. Narrow the environment or author and try again.": "This search is too large. Narrow the environment or author and try again.",
+    "Comments could not be refreshed. Your loaded comments are still shown.": "Comments could not be refreshed. Your loaded comments are still shown.",
+    "More comments could not be loaded.": "More comments could not be loaded.",
+
+    "Mark shown as read": "Mark shown as read",
+    "Load more": "Load more",
+    "Loading comments": "Loading comments",
     " (admin override for {reviewer})": " (admin override for {reviewer})",
     " (edited)": " (edited)",
     " (this page)": " (this page)",

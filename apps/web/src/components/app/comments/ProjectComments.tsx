@@ -3,7 +3,7 @@
 import { useAppI18n } from '@/src/lib/i18n/client';
 
 import type { ThreadLabel } from '../../../lib/app/threadLabel';
-import { defaultStatusWorkflow, type StatusWorkflow } from '../../../lib/app/statusWorkflow';
+import { defaultStatusWorkflow, statusForComment, orderedStatuses, type StatusWorkflow } from '../../../lib/app/statusWorkflow';
 import { commentAssignees } from '@uier/toolbar/agents';
 import { useEffect, useLayoutEffect, useOptimistic, useRef, useState, useTransition } from 'react';
 import { toast } from 'sonner';
@@ -39,6 +39,8 @@ import { matchesFeedbackSearch } from '@uier/toolbar/triage';
 import { CommentsSearchNavigationProvider } from './CommentsSearchNavigation';
 import { MarkAllRead } from './MarkAllRead';
 import { RealtimeComments } from './RealtimeComments';
+import { useProjectCommentPages } from './useProjectCommentPages';
+import type { ProjectCommentPaging, CommentLane } from '@/src/lib/app/projectCommentPaging';
 
 
 /** A status tab with nothing in it (All always has something once the other filters match) */
@@ -76,7 +78,8 @@ type ProjectCommentsProps = {
     workflow?: StatusWorkflow;
     initialView?: CommentsView;
     revision: string;
-    searchWindowCapped?: boolean;
+    paging: ProjectCommentPaging;
+    openedComment?: ProjectCommentView;
     /** Each board column's sort, saved on the project for everyone (`lib/app/boardSort.ts`) */
     boardSorts: Record<BoardColumn, BoardSort>;
     /** Whether the board's Archive column is expanded, saved on the project for everyone like the sorts */
@@ -97,7 +100,7 @@ type ProjectCommentsProps = {
 };
 
 /** The project's comments in a list (a status tab) or on a board (a column per status), filtered by people and page. */
-export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow, projectId, revision, access, isAdmin, comments: savedComments, query: serverQuery, userId, assignees, installHref, environments, authorFilter, searchWindowCapped = false, boardSorts: savedSorts, boardArchiveExpanded: savedArchiveExpanded = false, canSortBoard, initialView }: ProjectCommentsProps) {
+export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow, projectId, revision, access, isAdmin, comments: savedComments, query: serverQuery, userId, assignees, installHref, environments, authorFilter, boardSorts: savedSorts, boardArchiveExpanded: savedArchiveExpanded = false, canSortBoard, initialView, paging: savedPaging, openedComment: savedOpenedComment }: ProjectCommentsProps) {
     const { t } = useAppI18n();
     // The presentation filters and the open thread change with the address at once, even while a
     // change waits for the server (`useUrlSearchParams`)
@@ -118,8 +121,8 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
     }, [explicit, initialView]);
     const containerRef = useRef<HTMLDivElement>(null);
     const openComment = useOpenComment(containerRef);
-    // Environment and author are authorized server scopes. Presentation filters only use
-    // the already authorized snapshot and never need another database round trip.
+    // Environment and author navigate through authorization; presentation filters fetch fresh
+    // summary pages while their URL controls update immediately.
     const urlKey = searchParams.toString();
     const urlQuery = parseCommentsQuery(Object.fromEntries(searchParams));
     const [searchDraft, setSearchDraft] = useState({ url: urlKey, value: urlQuery.q ?? '' });
@@ -137,11 +140,6 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
         setUrlSearchParams({ q: undefined, label: undefined, priority: undefined, status: undefined, people: undefined, page: undefined, unread: undefined }, { history: 'push' });
         document.getElementById('feedback-search')?.focus();
     };
-    const [optimisticComments, updateComment] = useOptimistic(savedComments, (current, update: CommentUpdate) => current.map(comment => applyCommentUpdate(comment, update)));
-    // Priority first (Urgent to Low), then number, highest first: the list, selection and keyboard follow this
-    // order. The board's columns each follow the project's sort for them, by default this one in active columns
-    // and the completion history in Done.
-    const comments = orderComments(optimisticComments);
     // A column's new sort shows at once, and goes back with an error if saving it fails
     const [boardSorts, showSort] = useOptimistic(savedSorts, (current, change: { status: BoardColumn; sort: BoardSort }) => ({ ...current, [change.status]: change.sort }));
     const [, startSorting] = useTransition();
@@ -165,15 +163,31 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
             if (result && !result.ok) toast.error(result.error);
         });
     };
+    const pager = useProjectCommentPages({ projectId, userId, comments: savedComments, revision, paging: savedPaging, openedComment: savedOpenedComment },
+        { ...query, q: urlQuery.q }, boardSorts, archiveExpanded, workflow, openComment.openId);
+    const [optimisticComments, updateComment] = useOptimistic(pager.data.comments, (current, update: CommentUpdate) => current.map(comment => applyCommentUpdate(comment, update)));
+    // Priority first (Urgent to Low), then number, highest first: the list, selection and keyboard follow this
+    // order. The board's columns each follow the project's sort for them, by default this one in active columns
+    // and the completion history in Done.
+    const comments = orderComments(optimisticComments.map(comment => ({ ...comment, workflow })));
     const board = query.view === 'board' && query.status !== 'archived';
     // An open thread that is not loaded (deleted, or outside a new author or environment scope) is
     // closed, so it cannot reopen later when the scope changes back. The board has Archive as its last column.
-    const scopeComments = board ? comments : comments.filter(comment => Boolean(comment.archivedAt) === (query.status === 'archived'));
     const openId = openComment.openId;
+    const openScope = JSON.stringify([projectId, userId, query.environment, query.author, board, query.status === 'archived']);
+    const listedScope = board ? comments : comments.filter(comment => Boolean(comment.archivedAt) === (query.status === 'archived'));
+    const freshOpen = listedScope.find(comment => comment.id === openId) ?? (pager.data.openedComment?.id === openId ? pager.data.openedComment : undefined)
+        ?? (savedOpenedComment?.id === openId ? savedOpenedComment : undefined);
+    const [heldOpen, setHeldOpen] = useState<{ scope: string; key: string; comment: ProjectCommentView }>();
+    const freshKey = freshOpen ? JSON.stringify(freshOpen) : undefined;
+    if (freshOpen && (heldOpen?.scope !== openScope || heldOpen.key !== freshKey)) setHeldOpen({ scope: openScope, key: freshKey!, comment: freshOpen });
+    const retained = freshOpen ?? (heldOpen?.scope === openScope && heldOpen.comment.id === openId ? { ...heldOpen.comment, summary: true } : undefined);
+    const keepsOpen = retained && (board || Boolean(retained.archivedAt) === (query.status === 'archived'));
+    const scopeComments = keepsOpen && !listedScope.some(comment => comment.id === retained.id) ? [...listedScope, retained] : listedScope;
     useEffect(() => {
-        if (!openId || scopeComments.some(comment => comment.id === openId)) return;
+        if (!openId || pager.loading || scopeComments.some(comment => comment.id === openId)) return;
         setUrlSearchParams({ comment: undefined });
-    }, [openId, scopeComments]);
+    }, [openId, scopeComments, pager.loading]);
     const installText = query.environment === 'all'
         ? t("Set up reviews and open a review link to leave the first comment.")
         : t("This environment has no feedback. Choose another environment, or set up reviews and open a review link to leave the first comment.");
@@ -224,19 +238,21 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
         </Empty>
     );
 
-    // Each page with its number of comments, for the page search
-    const pages = [...scopeComments.reduce((counts, comment) => counts.set(comment.path, (counts.get(comment.path) ?? 0) + 1), new Map<string, number>())]
-        .map(([path, count]) => ({ path, count }));
-    // "Removed addresses" and "Source not recorded" show only when they have comments; known only with every environment loaded
-    const historySources = query.environment === 'all' && !searchWindowCapped
-        ? [...new Set(comments.map(comment => comment.source.environment).filter(id => id === 'removed' || id === 'unknown'))]
-        : undefined;
-    const filtered = applyFilters(comments, query, userId, openId);
-    const statusCounts = Object.fromEntries((Object.keys(statusFilterLabels) as StatusFilter[])
-        .map(filter => [filter, filtered.filter(comment => statusMatches(filter, commentStatus(comment), comment.archivedAt)).length])) as Record<StatusFilter, number>;
-    // Each status tab's unread dot, chosen or not (uier #346)
-    const statusUnread = Object.fromEntries((Object.keys(statusFilterLabels) as StatusFilter[])
-        .map(filter => [filter, filtered.some(comment => comment.activity?.unread && statusMatches(filter, commentStatus(comment), comment.archivedAt))]));
+    const pages = pager.data.paging.pages;
+    const historySources = query.environment === 'all' ? pager.data.paging.historySources : undefined;
+    // Search is evaluated on the complete thread on the server; summaries omit replies.
+    const filtered = applyFilters(comments, { ...query, q: undefined }, userId, openId);
+    const delta = (matches: (comment: ProjectCommentView) => boolean) => filtered.filter(matches).length - pager.data.comments.filter(matches).length;
+    const statusCounts = Object.fromEntries((Object.keys(statusFilterLabels) as StatusFilter[]).map(filter => [filter,
+        Math.max(0, pager.data.paging.statusCounts[filter] + delta(comment => statusMatches(filter, commentStatus(comment), comment.archivedAt)))])) as Record<StatusFilter, number>;
+    const statusUnread = Object.fromEntries((Object.keys(statusFilterLabels) as StatusFilter[]).map(filter => [filter,
+        pager.data.paging.statusUnread[filter] + delta(comment => Boolean(comment.activity?.unread) && statusMatches(filter, commentStatus(comment), comment.archivedAt)) > 0]));
+    const totalFor = (lane: CommentLane) => lane === 'list' && !board ? statusCounts[query.status]
+        : Math.max(0, (pager.data.paging.lanes[lane]?.total ?? 0) + delta(comment => statusForComment(workflow, comment).id === lane));
+    const pageControl = (lane: CommentLane) => ({ total: totalFor(lane), hasMore: Boolean(pager.data.paging.lanes[lane]?.nextCursor),
+        loading: pager.loading || pager.loadingLanes.has(lane), error: Boolean(pager.error) || pager.failedLanes.has(lane), loadMore: () => { if (pager.error) pager.retry(); else void pager.loadMore(lane); } });
+    const budgetExceeded = pager.error === 'budget' || pager.data.paging.queryTooExpensive;
+    const populated = pager.data.paging.scopeTotal > 0 || Boolean(budgetExceeded);
     // Where the open thread takes the whole width, it takes the filters' place too
     const threadOnly = Boolean(openComment.openId) && !board && scopeComments.some(comment => comment.id === openComment.openId);
     // The board's status filter (uier #335) narrows its columns to one; the others stay, empty, as drop targets
@@ -251,15 +267,17 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
     // What the board shows: its columns, and Archive's cards while it is expanded
     const boardShown = [...commentStatuses.flatMap(status => columns[status]), ...(archiveExpanded ? archived : [])];
     // Nothing to show: the board still shows its columns while only Archive has threads
-    const nothingShown = board ? !shown.length && !archived.length : !shown.length;
+    const nothingShown = board ? !shown.length && !statusCounts.archived : !shown.length;
     // What the header takes the width of: the list with its thread beside it, or the board (see below)
     // Search and live updates must not recenter the controls when their result becomes empty.
-    const headerWide = !comments.length ? undefined : board ? 'board' : 'list';
+    const headerWide = !populated ? undefined : board ? 'board' : 'list';
     // The header's width, which the count line under it takes too (uier #187)
     const wideClassName = cn(headerWide === 'list' && '@3xl/comments:w-[min(var(--page-wide),96rem)] @3xl/comments:mx-[calc((100%-min(var(--page-wide),96rem))/2)]',
         headerWide === 'board' && 'md:w-[min(var(--page-wide),max(100%,var(--board-width)))] md:mx-[calc((100%-min(var(--page-wide),max(100%,var(--board-width))))/2)]');
-    const unreadShown = (board ? boardShown : shown).filter(comment => comment.activity?.unread).length;
-    // Keep matching cards mounted, including their independent reply drafts. Selection resets per scope.
+    const unreadShown = Math.max(0, pager.data.paging.unreadCount + delta(comment => Boolean(comment.activity?.unread)
+        && (board ? comment.archivedAt ? archiveExpanded && !boardStatus : !boardStatus || commentStatus(comment) === boardStatus
+            : statusMatches(query.status, commentStatus(comment), comment.archivedAt))));
+    // Keep the open composer mounted while page windows revalidate. Selection resets per scope.
     // Only the unread count: the list's status tabs and the board's columns already count what is shown
     // The count toggles Only unread (uier #193), like the toolbar's Unread toggle; while the filter is on it stays,
     // at 0 too, so it can be turned off where it was turned on
@@ -270,8 +288,8 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
             {t("{count} unread", { count: unreadShown })}
         </Toggle>
     );
-    const unreadActions = unreadShown > 0 && <MarkAllRead projectId={projectId} threads={(board ? boardShown : shown).flatMap(comment => comment.activity?.unread ? [{ id: comment.id, sequence: comment.activity.sequence }] : [])} />;
-    const selectionScope = JSON.stringify([projectId, query.environment, query.author, query.unread, query.people, query.page, query.status, query.q, query.priority, query.view]);
+    const unreadActions = unreadShown > 0 && <MarkAllRead projectId={projectId} shownOnly={unreadShown > (board ? boardShown : shown).filter(comment => comment.activity?.unread).length} threads={(board ? boardShown : shown).flatMap(comment => comment.activity?.unread ? [{ id: comment.id, sequence: comment.activity.sequence }] : [])} />;
+    const selectionScope = JSON.stringify([projectId, userId, query.environment, query.author, query.unread, query.people, query.page, query.status, query.q, query.priority, query.label, query.view]);
     return (
         <CommentUpdatesProvider value={updateComment}>
         <RealtimeComments projectId={projectId} revision={revision} environment={serverQuery.environment} author={serverQuery.author} />
@@ -282,21 +300,24 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
             the columns don't fit, it stays at the panel's width less the gutters (`page-wide`), the board's visible part.
             The project header above takes the same width from `data-header-wide` (the project layout, which sets `--board-width`),
             and so does the count line under it. */}
-        <div ref={containerRef} data-page-width={comments.length ? 'wide' : undefined} className="@container/comments flex flex-col gap-2">
+        <div ref={containerRef} data-page-width={populated ? 'wide' : undefined} aria-busy={pager.loading || undefined} className="@container/comments flex flex-col gap-2">
             <div data-header-wide={headerWide} className={cn('flex min-w-0 flex-col gap-2', threadOnly && '@max-3xl/comments:hidden', wideClassName)}>
-            <CommentFilters verificationEnabled={workflow.verificationEnabled === true} labels={labels} label={query.label} search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} historySources={historySources} unread={Boolean(query.unread)} unreadCount={scopeComments.filter(comment => comment.activity?.unread).length} view={board ? 'board' : 'list'} status={query.status} statusCounts={statusCounts} statusUnread={statusUnread} people={query.people} page={query.page} pages={pages}
-                countLine={comments.length > 0 ? { summary: unreadSummary, actions: unreadActions } : undefined} />
-            {searchWindowCapped && <p className="m-0 text-sm text-muted-foreground">{t("Search covers up to 1,000 recent threads in this environment and author scope. Narrow the environment or author to find older feedback.")}</p>}
+            <CommentFilters verificationEnabled={workflow.verificationEnabled === true} labels={labels} label={query.label} search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} historySources={historySources} unread={Boolean(query.unread)} unreadCount={pager.data.paging.unreadCount} view={board ? 'board' : 'list'} status={query.status} statusCounts={pager.data.paging.queryTooExpensive ? undefined : statusCounts} statusUnread={statusUnread} people={query.people} page={query.page} pages={pages}
+                countLine={populated ? { summary: unreadSummary, actions: unreadActions } : undefined} />
+            {(pager.error || budgetExceeded) && <p role="status" className="m-0 text-sm text-muted-foreground">
+                {budgetExceeded ? t('This search is too large. Narrow the environment or author and try again.') : t('Comments could not be refreshed. Your loaded comments are still shown.')}
+                <Button variant="ghost" onClick={pager.retry}>{t('Try again')}</Button>
+            </p>}
             </div>
             <TriageSelection projectId={projectId} scope={selectionScope} shown={board ? boardShown : shown} assignees={assignees}
-                barClassName={cn(threadOnly && '@max-3xl/comments:hidden', !comments.length && 'hidden')}
+                barClassName={cn(threadOnly && '@max-3xl/comments:hidden', !populated && 'hidden')}
                 // With room (uier #300) the count line is in the search row, left of Filter (`CommentFilters`): this row
                 // only shows, keeping its height through read/unread changes, where the header is narrower than that
-                lineClassName={cn(wideClassName, comments.length > 0 && countLineInHeader)}
-                reserveLine={comments.length > 0}
+                lineClassName={cn(wideClassName, populated && countLineInHeader)}
+                reserveLine={populated}
                 summary={unreadSummary}
                 actions={unreadActions}>
-            {!comments.length ? emptyState : !filtered.length ? (
+            {pager.data.paging.queryTooExpensive ? null : !populated ? emptyState : pager.data.paging.matchedTotal + delta(() => true) === 0 ? (
                 <Empty className="border">
                     <EmptyHeader>
                         <EmptyMedia variant="icon">
@@ -320,10 +341,11 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
             ) : board ? (
                 <CommentBoard workflow={workflow} projectOf={() => ({ id: projectId, assignees })} columns={columns} sorts={boardSorts} onSort={canSortBoard ? changeSort : undefined}
                     archive={{ comments: archived, expanded: archiveExpanded, onExpandedChange: changeArchive }}
-                    allComments={scopeComments} userId={userId} openComment={openComment} />
+                    allComments={scopeComments} userId={userId} openComment={openComment}
+                    detailRevision={pager.data.revision} paging={Object.fromEntries(orderedStatuses(workflow).map(status => [status.id, pageControl(status.id)]))} />
             ) : (
                 <CommentInbox projectId={projectId} comments={shown} allComments={scopeComments} assignees={assignees} userId={userId} label={t("Comments")}
-                    keeps={status => statusMatches(query.status, status, query.status === 'archived' ? 'archived' : undefined)} readLeaves={Boolean(query.unread)} openComment={openComment} />
+                    keeps={status => statusMatches(query.status, status, query.status === 'archived' ? 'archived' : undefined)} readLeaves={Boolean(query.unread)} openComment={openComment} detailRevision={pager.data.revision} paging={pageControl('list')} />
             )}
             </TriageSelection>
         </div>

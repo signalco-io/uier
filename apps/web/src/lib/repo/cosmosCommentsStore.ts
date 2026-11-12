@@ -11,7 +11,7 @@ import { commentSequenceId, isCommentDocument, screenshotDocumentId, syncTombsto
 import { cosmosDataContainerComments } from '../db/client';
 import { cosmosMeasurement, cosmosPoint, cosmosQueryAll } from '../db/diagnostics';
 import { syncPendingPageLimit, type AppendResult, type CommentsStore, type ConditionalWriteResult, type StoredComment } from './commentsStore';
-import { candidateBudget, commentCandidateProjection, CommentQueryBudgetError, normalizeCandidate, throwIfQueryAborted, validateCandidatePredicate, type CommentQueryCandidate } from './commentQuerySource';
+import { candidateBudget, commentCandidateProjectionFor, CommentQueryBudgetError, normalizeCandidate, throwIfQueryAborted, validateCandidatePredicate, type CommentQueryCandidate } from './commentQuerySource';
 import { withCommentQueryMetadata } from './queryMetadata';
 
 function errorCode(error: unknown): number | string | undefined {
@@ -51,6 +51,7 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
             throwIfQueryAborted(options.signal);
             const visibility = visibilitySql(options.visibility);
             const origin = originSql(options.origin);
+            const author = authorSql(options.authorId);
             const container = getContainer();
             const deadline = AbortSignal.timeout(budget.durationMs);
             const signal = options.signal ? AbortSignal.any([options.signal, deadline]) : deadline;
@@ -58,10 +59,10 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
             // There is no TOP: a resource budget rejects the entire operation rather than returning
             // a recent window that could falsely appear to be the complete filtered result.
             const iterator = container.items.query<CommentQueryCandidate>({
-                query: `SELECT ${commentCandidateProjection} FROM c WHERE c.domain = @domain AND IS_STRING(c.path)`
-                    + visibility.clause + origin.clause + archiveSql(options.archive)
+                query: `SELECT ${commentCandidateProjectionFor(options.includeText !== false)} FROM c WHERE c.domain = @domain AND IS_STRING(c.path)`
+                    + visibility.clause + origin.clause + author.clause + archiveSql(options.archive)
                     + (options.predicate ? ` AND (${options.predicate.clause})` : ''),
-                parameters: [{ name: '@domain', value: domain }, ...visibility.parameters, ...origin.parameters,
+                parameters: [{ name: '@domain', value: domain }, ...visibility.parameters, ...origin.parameters, ...author.parameters,
                     ...(options.predicate?.parameters ?? [])]
             }, { partitionKey: domain, maxItemCount: 100, abortSignal: signal });
             const measurement = cosmosMeasurement({ operation: 'comments.query-candidates', container: container.id, partition: 'single' });

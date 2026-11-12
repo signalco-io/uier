@@ -1,3 +1,4 @@
+import { projectPagingJourney } from './support/projectPaging';
 import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 import { appNavigation, closeAppNavigation, commentRowLink, commentRows, createProject, heldForDrag, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
@@ -159,4 +160,9 @@ test('comparison tables stay within the page on portrait and landscape tablets',
         await region.evaluate(element => { element.scrollLeft = element.scrollWidth; });
         await expect(region.getByRole('columnheader', { name: 'Pastel', exact: true })).toBeInViewport();
     }
+});
+
+// Uses the same depth-refresh and document-scroll assertions as desktop and phones.
+test('project paging keeps tablet columns and the document-scrolling inbox bounded', async ({ page, request }, testInfo) => {
+    await projectPagingJourney(page, request, testInfo, site.origin());
 });

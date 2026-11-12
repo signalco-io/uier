@@ -1,10 +1,12 @@
 # App triage
 
 `@uier/toolbar/triage` owns the pure priority vocabulary/default and deterministic literal word matcher.
-`ProjectComments` searches only the server-authorized snapshot (200-character `q`, debounced
-replaceState), alongside local filters. Environment/author still navigate. `loadProjectComments`'s
-window callback discloses the 1,000-thread storage cap even if hidden rows shrink the client snapshot.
-Never send deleted or ineligible text to client search.
+`ProjectComments` searches the complete authorized project on the server (200-character `q`,
+debounced replaceState) and fetches bounded summary pages. Environment/author still navigate.
+Selection uses explicitly loaded matching rows; pagination and realtime arrivals never extend an
+existing selection. Counts cover the full match, independently of the loaded/virtualized window.
+See [paged project comments](comments-inbox.md#paged-project-comments). Deleted or ineligible text
+never participates in search or leaves the server.
 
 `review/comments.ts` owns priority, assignment and status writes. `bulkTriageSchema.ts` validates one
 operation and 1–50 distinct ids/keys; `bulkTriage.ts` runs at most four shared mutations concurrently.
