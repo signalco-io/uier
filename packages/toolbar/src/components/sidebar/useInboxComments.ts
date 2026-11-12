@@ -106,6 +106,10 @@ export function useInboxComments(filter: CommentsFilter) {
         archived: withStatus(scoped, 'archived')?.length ?? 0
     };
 
+    // Which tabs' listed comments include unread ones: each tab's unread dot, chosen or not (uier #346)
+    const unread = Object.fromEntries((Object.keys(counts) as CommentsStatusFilter[])
+        .map(status => [status, Boolean(withStatus(scoped, status)?.some(comment => comment.activity?.unread))])) as Record<CommentsStatusFilter, boolean>;
+
     // Site-wide totals come from the full authorized projection, never the capped text window.
     if (scope === 'all' && activity && !filter.keywords?.trim() && !filter.unread && !filter.assignedToMe) {
         // `open` here is every status but Done: Active
@@ -117,6 +121,17 @@ export function useInboxComments(filter: CommentsFilter) {
         counts.resolved = activity.done;
         counts.all = activity.total;
         counts.archived = activity.archived ?? counts.archived;
+        // The tabs' unread dots from the same summary, for the threads not loaded yet (uier #346)
+        if (activity.unreadOpen !== undefined) {
+            const open = activity.unreadOpen, inProgress = activity.unreadInProgress ?? 0, ready = activity.unreadReady ?? 0, done = activity.unreadDone ?? 0;
+            unread.open = open > 0;
+            unread['in-progress'] = inProgress > 0;
+            unread.ready = ready > 0;
+            unread.unresolved = open + inProgress + ready > 0;
+            unread.resolved = done > 0;
+            unread.all = open + inProgress + ready + done > 0;
+            unread.archived = (activity.unreadArchived ?? 0) > 0;
+        }
     }
 
     // Other pages in the order of their newest comment, counted with the search and status
@@ -153,6 +168,7 @@ export function useInboxComments(filter: CommentsFilter) {
         comments,
         state,
         counts,
+        unread,
         pages: [...pages.values()],
         currentPath: path,
         currentCount,

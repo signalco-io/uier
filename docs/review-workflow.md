@@ -94,8 +94,8 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     alone is wider: its columns grow to 20rem each (four fill a 1674 px window with the sidebar open) and centre beyond that.
     Above them: search, one Filter button (priority; environment and page in one control, with environments on the left
     and that environment's pages on the right: a relative URL, or a section such as `/blog/*` for every page under it;
-    people: all, assigned to me, opened by me; only unread) and List/Board, then the status tabs (Active,
-    Done and All, with counts; Active, the default, is everything not done. Open, In progress and Ready to verify fold
+    people: all, assigned to me, opened by me; only unread) and List/Board, with the status tabs right after the search (Active,
+    Done and All, with counts; on a phone on their own line under it; Active, the default, is everything not done. Open, In progress and Ready to verify fold
     under Active, in the menu beside it, and the tab then reads "Active: In progress"; Archive folds under Done the same way; `?status=` keeps any other choice). Filters in effect show under the bar, each with a clear button. Each
     comment is a compact row: number, first line, author, page path (what it was left on, such as "Link in
     navigation", is in the thread's On row), then priority other than Normal (its flag, named for screen readers),

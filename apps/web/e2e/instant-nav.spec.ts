@@ -1,6 +1,8 @@
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { instant } from '@next/playwright';
-import { appNavigation, createProject, hydrated, signIn, uniqueEmail } from './support/app';
+import { appNavigation, createProject, hydrated, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { verifiedReviewHeaders } from './support/reviewVerification';
+import { startReviewedSite } from './support/reviewedSite';
 
 async function capture(page: Page, info: TestInfo, name: string) {
     const path = info.outputPath(`${name}.png`);
@@ -89,4 +91,55 @@ test('Status initial load already provides its useful shell', async ({ page, bas
     }, { baseURL });
     await expect(page.locator('time')).toBeVisible();
     await expect(page.getByRole('status').filter({ hasText: 'All services are operational.' })).toBeVisible();
+});
+
+test('A project\'s Comments and Page checks tabs load as wide as they will be, shaped like each page', async ({ page, request, baseURL }, info) => {
+    test.setTimeout(60_000);
+    const site = await startReviewedSite(new URL(baseURL!).origin);
+    try {
+        await signIn(page, uniqueEmail('instant-tabs'));
+        const project = await createProject(page, { urls: [site.origin()], name: 'Shop' });
+        await setProjectAccess(page, project, 'Anyone with the link');
+        const response = await request.post(`/api/review/${project}/comments`, { headers: await verifiedReviewHeaders(request, project, site.origin()), data: {
+            path: `/${project}/pricing`, text: 'Checkout total is wrong', authorName: 'Guest', position: { type: 'page' }, kind: 'feedback'
+        } });
+        expect(response.status()).toBe(201);
+        const header = page.locator('main [data-header-wide]').filter({ visible: true }).first();
+        const title = page.getByRole('heading', { level: 1, name: 'Shop', exact: true });
+        const width = async () => ({ header: (await header.boundingBox())!.width, title: (await title.boundingBox())!.x });
+
+        // From another of the project's pages, so neither tab has been shown (and kept) before
+        await page.goto(`/app/projects/${project}/install`);
+        const comments = page.getByRole('link', { name: 'Comments', exact: true });
+        await hydrated(comments);
+        let loading!: Awaited<ReturnType<typeof width>>;
+        await instant(page, async () => {
+            await comments.click();
+            const status = page.getByRole('status', { name: 'Loading project', exact: true });
+            await expect(status).toBeVisible();
+            // The search row, the status tabs and the list, before any comment is shown
+            await expect(page.getByRole('searchbox')).toHaveCount(0);
+            await capture(page, info, 'comments-loading');
+            loading = await width();
+        });
+        await expect(page.getByRole('list', { name: 'Comments', exact: true })).toBeVisible();
+        await capture(page, info, 'comments-loaded');
+        // As wide as the loaded comments, and the project's name stays where it was
+        const loaded = await width();
+        expect(Math.abs(loading.header - loaded.header)).toBeLessThanOrEqual(1);
+        expect(Math.abs(loading.title - loaded.title)).toBeLessThanOrEqual(1);
+
+        const checks = page.getByRole('link', { name: 'Page checks', exact: true });
+        await hydrated(checks);
+        await instant(page, async () => {
+            await checks.click();
+            await expect(page.getByRole('status', { name: 'Loading page checks', exact: true })).toBeVisible();
+            await capture(page, info, 'page-checks-loading');
+            loading = await width();
+        });
+        await expect(page.getByRole('region', { name: 'Page checks', exact: true })).toBeVisible();
+        const checked = await width();
+        expect(Math.abs(loading.header - checked.header)).toBeLessThanOrEqual(1);
+        expect(Math.abs(loading.title - checked.title)).toBeLessThanOrEqual(1);
+    } finally { await site.close(); }
 });

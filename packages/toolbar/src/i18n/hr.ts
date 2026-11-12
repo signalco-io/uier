@@ -632,6 +632,8 @@ export const hr: Messages = {
         activeStatuses: 'Aktivni statusi',
         /** The menu beside the Done tab: Done or Archive */
         doneStatuses: 'Gotovo i arhiva',
+        /** A status tab's description when its comments include unread ones (its dot, uier #346) */
+        hasUnread: 'Nepročitano',
         onThisPage: ' na ovoj stranici',
         noArchived: (where: string) => `Nema arhiviranih komentara${where}`,
         noMatches: (where: string) => `Nema rezultata${where}`,

@@ -848,7 +848,11 @@ export function useCommentsRefresh(expanded: boolean) {
 
 export { activityQueryKey };
 /** `open`: not done, so In progress and Ready to verify count there too */
-export type ActivitySummary = { archived?: number; unread: number; inProgress?: number; ready: number; open: number; done: number; total: number };
+/** `unread*`: the unread threads in each status and in Archive (`unreadOpen` only Open itself); an API without them leaves them out */
+export type ActivitySummary = {
+    archived?: number; unread: number; inProgress?: number; ready: number; open: number; done: number; total: number;
+    unreadOpen?: number; unreadInProgress?: number; unreadReady?: number; unreadDone?: number; unreadArchived?: number;
+};
 
 export function useActivitySummary() {
     const { environment, draftScope } = useProjectViewer();

@@ -18,7 +18,8 @@ their logo, card and legal links in the shell. The signed-in shell initially sho
 inset-panel placeholders; personalized navigation and page content replace them. Nested project,
 workspace and account segments have their own boundaries, so an existing layout can remain visible
 while the destination loads. `PageLoading` uses the UI kit's skeletons with fixed dimensions and an
-accessible status label. No private names, permissions, comments or form values are prerendered.
+accessible status label; a project's layout, Comments and Page checks have skeletons shaped like their pages
+([app shell](app-shell.md), `ProjectLoading`, `CommentsLoading`, `PageChecksLoading`). No private names, permissions, comments or form values are prerendered.
 
 Two client-navigation shells reuse the already-resolved app language instead of waiting for another
 server language read. Projects → Create project shows the heading, instructions and onboarding

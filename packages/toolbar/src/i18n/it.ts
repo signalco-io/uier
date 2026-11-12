@@ -632,6 +632,8 @@ export const it: Messages = {
         activeStatuses: 'Stati attivi',
         /** The menu beside the Done tab: Done or Archive */
         doneStatuses: 'Fatti e archivio',
+        /** A status tab's description when its comments include unread ones (its dot, uier #346) */
+        hasUnread: 'Da leggere',
         onThisPage: ' in questa pagina',
         noArchived: (where: string) => `Nessun commento archiviato${where}`,
         noMatches: (where: string) => `Nessun risultato${where}`,

@@ -652,6 +652,8 @@ export const en = {
         activeStatuses: 'Active statuses',
         /** The menu beside the Done tab: Done or Archive */
         doneStatuses: 'Done and archive',
+        /** A status tab's description when its comments include unread ones (its dot, uier #346) */
+        hasUnread: 'Unread',
         /** Each `where` ends the sentence: " on this page", or nothing for every page */
         onThisPage: ' on this page',
         noArchived: (where: string) => `No archived comments${where}`,

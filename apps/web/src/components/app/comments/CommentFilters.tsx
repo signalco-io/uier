@@ -5,7 +5,7 @@ import { ThreadLabelMark } from '../ThreadLabelBadge';
 import { useAppI18n } from '@/src/lib/i18n/client';
 
 import { priorities, priorityLabels, MAX_FEEDBACK_SEARCH, type CommentPriority } from '@uier/toolbar/triage';
-import { Fragment, useRef, useState } from 'react';
+import { Fragment, useId, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { ChevronDownIcon, ListFilterIcon, SearchIcon, UserIcon, XIcon } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
@@ -34,11 +34,12 @@ import { ProjectMark } from '../projects/ProjectMark';
 
 /**
  * From this width of the comments (`@container/comments`) the count line (the unread count and Mark all as read) is in
- * the search row, left of Filter; under it the count line keeps its own row under the status tabs (`TriageSelection`,
- * which this hides from here). Wide enough for the search's minimum, the count, Filter and List/Board on one line, so
- * the count appearing or going to zero never wraps the row.
+ * the search row, left of Filter; under it the count line keeps its own row under the search row (`TriageSelection`,
+ * which this hides from here). Wide enough for the search's minimum, the status tabs, the count, Filter and List/Board
+ * on one line, so the count appearing or going to zero never wraps the row. The query measures the reading column (at
+ * most 60rem); from 48rem the header is as wide as the list with its thread (`ProjectComments`), wider than that.
  */
-export const countLineInHeader = '@2xl/comments:hidden';
+export const countLineInHeader = '@4xl/comments:hidden';
 
 /** A status tab grows into the room a full-width group has on a phone */
 const statusTab = 'grow sm:grow-0';
@@ -66,7 +67,7 @@ export type FilterProject = { id: string; name: string; url?: string };
  * Comments of several projects (My work) pass `projects` for a Project filter (`?project=`) and leave out what only
  * one project has (`environments`, `statusCounts`).
  */
-export function CommentFilters({ className, unread, unreadCount, view, onView, status, statusCounts, people, page, pages = [], environment, environments, historySources, author, search, onSearch, priority, countLine, project, projects, labels, label }: {
+export function CommentFilters({ className, unread, unreadCount, view, onView, status, statusCounts, statusUnread, people, page, pages = [], environment, environments, historySources, author, search, onSearch, priority, countLine, project, projects, labels, label }: {
     /** The header's width: the list's or the board's (ProjectComments) */
     className?: string;
     /**
@@ -93,6 +94,8 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
     status?: StatusFilter;
     /** Comments in each status with the other filters applied; without them the list has no status tabs */
     statusCounts?: Record<StatusFilter, number>;
+    /** The statuses whose comments (with the other filters applied) include unread ones: their tabs show the unread dot */
+    statusUnread?: Partial<Record<StatusFilter, boolean>>;
     people: PeopleFilter;
     page?: string;
     /** Relative URLs (paths) that have comments, with how many */
@@ -161,13 +164,18 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
                         </InputGroupAddon>
                     )}
                 </InputGroup>
+                {/* Active (the default, every status but Done), Done and All, right after the search (uier #345); on a phone on
+                    their own line under the row, before the filters in effect. The board shows the statuses side by side,
+                    with Archive as its last column. Open, In progress and Ready to verify fold under Active, Archive under
+                    Done: each menu picks one, and the tab then names it. */}
+                {view === 'list' && statusCounts && <StatusTabs status={status ?? 'active'} counts={statusCounts} unread={statusUnread ?? {}} onStatus={value => go({ status: value === 'active' ? undefined : value })} />}
                 {(active > 0 || countLine) && (
                     // Right-aligned against Filter: the count line first, so the filters in effect stay where they are
                     // when the count appears or goes to zero
                     <div className={cn('flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:justify-end',
-                        active > 0 ? 'order-last basis-full sm:order-none sm:flex-1 sm:basis-0' : 'hidden @2xl/comments:flex @2xl/comments:flex-1')}>
+                        active > 0 ? 'order-last basis-full sm:order-none sm:flex-1 sm:basis-0' : 'hidden @4xl/comments:flex @4xl/comments:flex-1')}>
                         {countLine && (
-                            <div className={cn('hidden shrink-0 items-center gap-x-3 @2xl/comments:flex', !countLine.summary && !countLine.actions && '@2xl/comments:sr-only')}>
+                            <div className={cn('hidden shrink-0 items-center gap-x-3 @4xl/comments:flex', !countLine.summary && !countLine.actions && '@4xl/comments:sr-only')}>
                                 <span role="status" className="text-sm text-muted-foreground tabular-nums">{countLine.summary}</span>
                                 {countLine.actions}
                             </div>
@@ -295,12 +303,18 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
                     go({ view: next, comment: undefined, ...(status === 'archived' ? { status: undefined } : {}) });
                 }} />
             </div>
-            {/* Active (the default, every status but Done), Done and All; the board shows the statuses side by side,
-                with Archive as its last column.
-                Open, In progress and Ready to verify fold under Active, Archive under Done: each menu picks one, and the tab then names it. */}
-            {view === 'list' && statusCounts && <StatusTabs status={status ?? 'active'} counts={statusCounts} onStatus={value => go({ status: value === 'active' ? undefined : value })} />}
         </div>
     );
+}
+
+/**
+ * A status tab's or menu item's unread dot (uier #346): shown whenever its comments include unread ones, chosen or not,
+ * like a row's (the brand accent). Assistive tech hears "Unread" as the tab's description (`aria-describedby`), so
+ * its name stays its label and count.
+ */
+function TabUnread({ unread }: { unread?: boolean }) {
+    if (!unread) return null;
+    return <span aria-hidden="true" data-tab-unread="" className="size-1.5 shrink-0 rounded-full bg-[hsl(var(--brand-accent))]" />;
 }
 
 /**
@@ -308,11 +322,13 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
  * (Open, In progress, Ready to verify), which the Active tab then shows ("Active: In progress"); pressing that tab
  * goes back to every active status. Done holds Archive the same way (uier #302): its menu picks Done or Archive, the
  * tab then reads "Archive", and pressing it goes back to Done. The tabs have no status dot, so none reads as a
- * notification; the Active menu keeps them.
+ * notification; the Active menu keeps them. A tab whose comments include unread ones has the unread dot after its
+ * count, chosen or not (`unread`, uier #346), and so do the menus' items.
  */
-function StatusTabs({ status, counts, onStatus }: {
+function StatusTabs({ status, counts, unread, onStatus }: {
     status: StatusFilter;
     counts: Record<StatusFilter, number>;
+    unread: Partial<Record<StatusFilter, boolean>>;
     onStatus: (status: StatusFilter) => void;
 }) {
     const { t } = useAppI18n();
@@ -321,9 +337,13 @@ function StatusTabs({ status, counts, onStatus }: {
     const activeLabel = activeValue === 'active' ? t(statusFilterLabels.active) : `${t(statusFilterLabels.active)}: ${t(statusFilterLabels[activeValue])}`;
     const doneShown = isDoneStatusFilter(status);
     const doneValue = doneShown ? status : 'done';
+    // What a tab with the unread dot is described by
+    const unreadId = useId();
+    const described = (value: StatusFilter) => unread[value] ? unreadId : undefined;
     return (
-        <div className="-mx-1 -my-0.5 max-w-[calc(100%+0.5rem)] overflow-x-auto px-1 py-0.5">
+        <div className="order-last -mx-1 -my-0.5 max-w-[calc(100%+0.5rem)] basis-[calc(100%+0.5rem)] overflow-x-auto px-1 py-0.5 sm:order-none sm:shrink-0 sm:basis-auto">
             {/* Full width on a phone, the tabs sharing the room (uier #278); still scrolls when their words don't fit */}
+            <span id={unreadId} hidden>{t("Unread")}</span>
             <ToggleGroup size="sm" spacing={0.5} aria-label={t("Status")} className={cn(segmentedGroup, 'w-max min-w-full sm:min-w-0')}
                 value={[activeShown ? 'active' : doneShown ? 'done' : status]}
                 // Pressing Active or Done again while it shows one of its folded choices unpresses it: back to Active or Done
@@ -332,16 +352,16 @@ function StatusTabs({ status, counts, onStatus }: {
                     else if (activeShown && status !== 'active') onStatus('active');
                     else if (doneShown && status !== 'done') onStatus('done');
                 }}>
-                <ToggleGroupItem value="active" className={cn(segmentedItem, statusTab)}>
-                    {activeLabel} <span className="tabular-nums text-muted-foreground">{counts[activeValue]}</span>
+                <ToggleGroupItem value="active" aria-describedby={described(activeValue)} className={cn(segmentedItem, statusTab)}>
+                    {activeLabel} <span className="tabular-nums text-muted-foreground">{counts[activeValue]}</span><TabUnread unread={unread[activeValue]} />
                 </ToggleGroupItem>
-                <StatusesMenu label={t("Active statuses")} values={['active', ...activeStatusFilters]} status={status} counts={counts} onStatus={onStatus} />
-                <ToggleGroupItem value="done" className={cn(segmentedItem, statusTab)}>
-                    {t(statusFilterLabels[doneValue])} <span className="tabular-nums text-muted-foreground">{counts[doneValue]}</span>
+                <StatusesMenu label={t("Active statuses")} values={['active', ...activeStatusFilters]} status={status} counts={counts} unread={unread} unreadId={unreadId} onStatus={onStatus} />
+                <ToggleGroupItem value="done" aria-describedby={described(doneValue)} className={cn(segmentedItem, statusTab)}>
+                    {t(statusFilterLabels[doneValue])} <span className="tabular-nums text-muted-foreground">{counts[doneValue]}</span><TabUnread unread={unread[doneValue]} />
                 </ToggleGroupItem>
-                <StatusesMenu label={t("Done and archive")} values={doneStatusFilters} status={status} counts={counts} onStatus={onStatus} />
-                <ToggleGroupItem value="all" className={cn(segmentedItem, statusTab)}>
-                    {t(statusFilterLabels.all)} <span className="tabular-nums text-muted-foreground">{counts.all}</span>
+                <StatusesMenu label={t("Done and archive")} values={doneStatusFilters} status={status} counts={counts} unread={unread} unreadId={unreadId} onStatus={onStatus} />
+                <ToggleGroupItem value="all" aria-describedby={described('all')} className={cn(segmentedItem, statusTab)}>
+                    {t(statusFilterLabels.all)} <span className="tabular-nums text-muted-foreground">{counts.all}</span><TabUnread unread={unread.all} />
                 </ToggleGroupItem>
             </ToggleGroup>
         </div>
@@ -352,11 +372,14 @@ function StatusTabs({ status, counts, onStatus }: {
  * The chevron beside a status tab: a menu of the tab's own filter, then the ones folded under it, each with its count
  * (Active, then Open, In progress and Ready to verify with their status dots; Done, then Archive); a choice closes it
  */
-function StatusesMenu({ label, values, status, counts, onStatus }: {
+function StatusesMenu({ label, values, status, counts, unread, unreadId, onStatus }: {
     label: string;
     values: readonly StatusFilter[];
     status: StatusFilter;
     counts: Record<StatusFilter, number>;
+    unread: Partial<Record<StatusFilter, boolean>>;
+    /** The tabs' "Unread" description */
+    unreadId: string;
     onStatus: (status: StatusFilter) => void;
 }) {
     const { t } = useAppI18n();
@@ -374,10 +397,12 @@ function StatusesMenu({ label, values, status, counts, onStatus }: {
                     {values.map((value, index) => (
                         <Fragment key={value}>
                             {index === 1 && <DropdownMenuSeparator />}
-                            <DropdownMenuRadioItem value={value} closeOnClick className="pointer-coarse:min-h-11">
+                            <DropdownMenuRadioItem value={value} closeOnClick aria-describedby={unread[value] ? unreadId : undefined} className="pointer-coarse:min-h-11">
                                 {(activeStatusFilters as readonly StatusFilter[]).includes(value) && <StateDot status={value as typeof activeStatusFilters[number]} />}
                                 {t(statusFilterLabels[value])}
                                 <span className="ml-auto tabular-nums text-muted-foreground">{counts[value]}</span>
+                                {/* Its own room, so the counts line up whether or not an item has unread comments */}
+                                <span className="flex w-1.5 shrink-0 justify-center"><TabUnread unread={unread[value]} /></span>
                             </DropdownMenuRadioItem>
                         </Fragment>
                     ))}

@@ -78,8 +78,15 @@ export async function markThreadUnread(comment: DbComment, reviewerId: string) {
     throw apiErrors.conflict();
 }
 
-/** `open`: not done, so In progress and Ready to verify count there too */
-export type ActivitySummary = { archived: number; unread: number; inProgress: number; ready: number; open: number; done: number; total: number };
+/**
+ * `open`: not done, so In progress and Ready to verify count there too. The `unread*` counts are the unread threads in
+ * each status (`unreadOpen` only Open itself) and in Archive, so the inbox's status tabs show their unread dot for
+ * threads it has not loaded (uier #346). Flat numbers: an account's summaries add up key by key.
+ */
+export type ActivitySummary = {
+    archived: number; unread: number; inProgress: number; ready: number; open: number; done: number; total: number;
+    unreadOpen: number; unreadInProgress: number; unreadReady: number; unreadDone: number; unreadArchived: number;
+};
 
 /** No text or actor ids are returned to the browser. Authorization/visibility stays server-side. */
 export async function projectActivity(domain: string, reviewerId: string | undefined,
@@ -88,9 +95,13 @@ export async function projectActivity(domain: string, reviewerId: string | undef
     const visibleRecords = records.filter(visible);
     const comments = visibleRecords.filter(comment => matchesArchive(comment, archive)).sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
     const unreadIds = comments.filter(comment => readActivity(comment, reviewerId, reads.get(comment.id)).unread).map(comment => comment.id);
+    const unread = new Set(unreadIds);
+    const unreadIn = (stage: ReturnType<typeof feedbackStage>) => comments.filter(comment => unread.has(comment.id) && feedbackStage(comment) === stage).length;
     return {
         summary: { archived: visibleRecords.filter(comment => Boolean(comment.archivedAt)).length, unread: unreadIds.length, inProgress: comments.filter(comment => feedbackStage(comment) === 'in-progress').length, ready: comments.filter(readyForReview).length, open: comments.filter(comment => !comment.resolved).length,
-            done: comments.filter(comment => comment.resolved).length, total: comments.length } satisfies ActivitySummary,
+            done: comments.filter(comment => comment.resolved).length, total: comments.length,
+            unreadOpen: unreadIn('open'), unreadInProgress: unreadIn('in-progress'), unreadReady: unreadIn('ready'), unreadDone: unreadIn('done'),
+            unreadArchived: visibleRecords.filter(comment => comment.archivedAt && readActivity(comment, reviewerId, reads.get(comment.id)).unread).length } satisfies ActivitySummary,
         unreadIds
     };
 }
