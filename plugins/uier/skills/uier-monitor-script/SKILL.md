@@ -5,7 +5,7 @@ description: Recreate monitor.mjs, the watcher and state helper of the uier-moni
 
 # Recreate the uier monitor helper
 
-This skill carries `monitor.mjs` version 1.4.0, sha256 `8c390972bebadfbdf05311d65a6db72e333eab69c39957b750e98d6206f084e8`. It needs Node 18 or later
+This skill carries `monitor.mjs` version 1.4.0, sha256 `3ba3a939910b7b661dbe2c2d4b98cc85d60509b45d3221ee53db344529951549`. It needs Node 18 or later
 and has no dependencies. The uier-monitor skill runs it as `ROOT/monitor.mjs`, where `ROOT` is
 `$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor`.
 
@@ -20,7 +20,7 @@ and has no dependencies. The uier-monitor skill runs it as `ROOT/monitor.mjs`, w
 
 2. Only when this file isn't on disk, write the code below to `$ROOT/monitor.mjs` exactly as shown.
 3. Check it: `node "$ROOT/monitor.mjs" version` must print version 1.4.0 and sha256
-   `8c390972bebadfbdf05311d65a6db72e333eab69c39957b750e98d6206f084e8`. If the hash differs, write the file again; never patch it by hand.
+   `3ba3a939910b7b661dbe2c2d4b98cc85d60509b45d3221ee53db344529951549`. If the hash differs, write the file again; never patch it by hand.
 
 Don't edit the code here. Its source is `.claude/skills/uier-monitor/scripts/monitor.mjs` in the uier
 repository, and `build-script-skill.mjs` next to it writes this file.
@@ -1183,11 +1183,15 @@ function closingPlan(state, entry) {
     return { groups, plan };
 }
 
-// The plan still matches this state: the same draft per group, round per item, and a pending deploy entry.
-function planCurrent(state, planned, sha) {
-    if (!(state.deploys?.pending ?? []).some(item => item.sha === sha)) return false;
+// The deploy entry the plan was made for, when this state still matches the plan: the same entry
+// (merge commit and PR) closing the same groups, the same draft per group and the same round per item.
+function planCurrent(state, planned, entry) {
+    const current = (state.deploys?.pending ?? []).find(item => item.sha === entry.sha && String(item.pr ?? '') === String(entry.pr ?? ''));
+    if (!current) return null;
+    const groups = groupsOf(state, current.pr, current);
+    if (groups.length !== planned.groups.length || groups.some(id => !planned.groups.includes(id))) return null;
     return planned.plan.every(({ group, groupSig, commentId, round }) => state.groups?.[group]?.closing
-        && digest(state.groups[group].closing) === groupSig && (state.items?.[commentId]?.round ?? 1) === round);
+        && digest(state.groups[group].closing) === groupSig && (state.items?.[commentId]?.round ?? 1) === round) ? current : null;
 }
 
 function sessionThreads(group) {
@@ -1219,10 +1223,11 @@ async function closeDeployed(ctx, state, seen, found, updates, { entry, run }, l
         // Reported once; the orchestrator closes it itself or changes the draft to retry.
         if (record.failed) return;
         const stage = draft.verify ? 'ready' : draft.status === 'keep' ? null : 'done';
-        // The orchestrator may have patched the state since this cycle read it: plan again next cycle.
-        if ((!record.replied || !record.finished) && !planCurrent(fresh(), planned, sha)) return;
+        // The orchestrator may have patched the state since this cycle read it, also while a write was
+        // in flight: check before every write, and plan again next cycle when it changed.
         try {
             if (!record.replied) {
+                if (!planCurrent(fresh(), planned, entry)) return;
                 const text = fill(draft.reply);
                 if (text.length > 1000) throw Object.assign(new Error('The reply is longer than 1000 characters.'), { fromTool: true, code: 'too_long' });
                 const agent = draft.agent ?? closing.agent, model = draft.model ?? closing.model, reasoning = draft.reasoning ?? closing.reasoning;
@@ -1231,6 +1236,7 @@ async function closeDeployed(ctx, state, seen, found, updates, { entry, run }, l
                 record.replied = Date.now();
             }
             if (!record.finished) {
+                if (!planCurrent(fresh(), planned, entry)) return;
                 if (draft.verify) await tool(ctx, 'request_feedback_verification', { projectId, commentId, idempotencyKey: key('verify'),
                     expectedRevision: draft.verify.expectedRevision ?? null, reviewerId: draft.verify.reviewerId,
                     ...(draft.verify.fixUrl ? { fixUrl: String(draft.verify.fixUrl) } : {}),
@@ -1253,7 +1259,8 @@ async function closeDeployed(ctx, state, seen, found, updates, { entry, run }, l
     const at = new Date().toISOString();
     updates.push(next => {
         // Under the state lock: record only what still matches; otherwise the orchestrator decides.
-        if (!planCurrent(next, planned, sha)) {
+        const current = planCurrent(next, planned, entry);
+        if (!current) {
             if (once(seen, `stale:${sha}`)) found.push({ type: 'close-failed', pr: entry.pr, sha, code: 'state-changed',
                 numbers: closed.map(item => item.number), message: 'The replies went out, but the draft, round or deploy entry changed meanwhile, so nothing was recorded.' });
             return;
@@ -1271,7 +1278,7 @@ async function closeDeployed(ctx, state, seen, found, updates, { entry, run }, l
             delete group.closing;
         }
         if (entry.pr !== undefined && next.prs?.[entry.pr]) next.prs[entry.pr].state = 'deployed';
-        next.deploys.pending = next.deploys.pending.filter(item => item.sha !== sha);
+        next.deploys.pending = next.deploys.pending.filter(item => item !== current);
         if (once(seen, `closed:${sha}`)) found.push({ type: 'closed', quiet: true, pr: entry.pr, sha, groups: planned.groups,
             numbers: closed.map(item => item.number), stages: closed.map(item => item.stage ?? 'kept'),
             threads: planned.groups.flatMap(id => sessionThreads(next.groups?.[id])) });

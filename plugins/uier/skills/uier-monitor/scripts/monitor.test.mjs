@@ -457,6 +457,43 @@ test('closing checks the state before writing and under the lock, and records no
     assert.equal(next.groups.g61.closing.items.c1.reply, 'A newer draft');
     assert.equal(next.deploys.pending.length, 2);
     assert.deepEqual(during.found.map(event => [event.type, event.code]), [['close-failed', 'state-changed']]);
+    // A new round while the reply is in flight: the old status write never goes out.
+    const inFlight = closingFixture();
+    const reply = inFlight.context.tool;
+    inFlight.context.tool = async (ctx, name, args) => {
+        const result = await reply(ctx, name, args);
+        if (name === 'reply_to_feedback') inFlight.files.get('/state/state.json').items.c1.round = 2;
+        return result;
+    };
+    await inFlight.context.closeDeployed({}, inFlight.state, inFlight.seen, inFlight.found, inFlight.updates,
+        { entry: inFlight.state.deploys.pending[0] }, () => {}, () => inFlight.files.get('/state/state.json'));
+    assert.deepEqual(inFlight.calls.map(call => call.name), ['reply_to_feedback']);
+    assert.equal(inFlight.updates.length, 0);
+});
+
+test('closing follows the deploy entry it planned for and removes only that one', async () => {
+    // The entry keeps its merge commit but now closes another group: no writes, nothing removed.
+    const replaced = closingFixture();
+    const file = replaced.files.get('/state/state.json');
+    file.groups.g62 = { state: 'merged', closing: { items: { c2: { reply: 'Other' } } } };
+    file.deploys.pending[0] = { pr: 7, sha: replaced.sha, groups: ['g62'] };
+    await replaced.context.closeDeployed({}, replaced.state, replaced.seen, replaced.found, replaced.updates,
+        { entry: replaced.state.deploys.pending[0] }, () => {}, () => replaced.files.get('/state/state.json'));
+    assert.equal(replaced.calls.length, 0);
+    assert.equal(replaced.updates.length, 0);
+    // Replaced after the writes: nothing is recorded and the replacement entry stays.
+    const late = closingFixture();
+    await late.context.closeDeployed({}, late.state, late.seen, late.found, late.updates, { entry: late.state.deploys.pending[0] });
+    late.files.get('/state/state.json').deploys.pending[0].groups = ['g62'];
+    const next = await applyUpdates(late);
+    assert.equal(next.groups.g61.state, 'merged');
+    assert.deepEqual(next.deploys.pending.map(entry => entry.groups ?? null), [['g62'], null]);
+    assert.deepEqual(late.found.map(event => [event.type, event.code]), [['close-failed', 'state-changed']]);
+    // Another entry with the same merge commit (a push) stays when this one closes.
+    const shared = closingFixture();
+    shared.files.get('/state/state.json').deploys.pending.push({ sha: shared.sha, groups: ['g99'] });
+    await shared.context.closeDeployed({}, shared.state, shared.seen, shared.found, shared.updates, { entry: shared.state.deploys.pending[0] });
+    assert.deepEqual((await applyUpdates(shared)).deploys.pending.map(entry => entry.groups ?? entry.pr), [8, ['g99']]);
 });
 
 test('a deploy entry with explicit groups closes only those, and entries without a PR infer none', () => {
