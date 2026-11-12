@@ -3,6 +3,7 @@ import { brand } from '@uier/brand';
 import { integrationCatalog, isIntegrationCatalogKey } from '../src/lib/integrations/catalog';
 import { assertAccessibility } from './accessibility';
 import { toolbar } from './support/toolbar';
+import { integrationPublication, replySyncQualification } from '../src/lib/integrations/publication';
 
 test('the integrations index leads to the five setup guides', async ({ page }) => {
     await page.goto('/integrations');
@@ -33,6 +34,15 @@ for (const provider of ['notion', 'github', 'linear', 'azure-devops', 'slack']) 
         await expect(page.getByRole('region', { name: 'What it does' }).getByText('Optional', { exact: true })).toHaveCount(integration.features.filter(feature => feature.optional).length);
         await expect(page.getByRole('region', { name: 'What you can configure' }).locator('dt')).toHaveText(integration.settings.map(setting => setting.name + (setting.required ? 'Required' : '')));
         await expect(page.getByRole('main').getByRole('link', { name: /^Set up / })).toHaveAttribute('href', '/app');
+        const qualification = page.getByRole('region', { name: 'Availability and verification' });
+        const evidence = integrationPublication[provider as keyof typeof integrationPublication];
+        await expect(qualification.locator('time')).toHaveAttribute('datetime', evidence.recordedOn);
+        await expect(qualification).toContainText(replySyncQualification);
+        await expect(qualification.getByRole('link', { name: 'Read the verification record' })).toHaveAttribute('href', `${brand.repository}/blob/main/docs/integration-activation.md`);
+        if (provider === 'azure-devops')
+            await expect(qualification).toContainText('real work-item delivery are still pending verification');
+        if (provider === 'slack')
+            await expect(qualification).toContainText('has not been submitted to Slack Marketplace');
         await expect(page.getByRole('region', { name: 'Access and data' }).getByText('Private feedback and the public uier showcase are excluded.')).toBeVisible();
         await expect(page.getByRole('main').getByRole('link', { name: 'privacy policy', exact: true })).toHaveAttribute('href', '/legal/privacy-policy');
         await expect(page.getByRole('main').getByRole('link', { name: 'Get help', exact: true })).toHaveAttribute('href', `mailto:${brand.contact.email}`);
