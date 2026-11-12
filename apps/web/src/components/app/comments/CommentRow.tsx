@@ -18,6 +18,7 @@ import { AssigneeCard } from './AssigneeCard';
 import { AuthorAvatar } from './AuthorAvatar';
 import { defaultStatusWorkflow, statusForComment, workflowStatusLabel } from '../../../lib/app/statusWorkflow';
 import { commentStatus, StateDot } from './CommentStatus';
+import { ThreadLabelBadge } from '../ThreadLabelBadge';
 import { PriorityLabel } from './PriorityFlag';
 import { commentPullRequestLinks, PullRequestCard } from './ThreadPullRequests';
 import { ProjectMark } from '../projects/ProjectMark';
@@ -129,9 +130,12 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                     <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums"><RelativeTime value={comment.createdAt} short /></span>
                     {actions}
                 </div>
+                {Boolean(comment.labels?.length) && <div className="col-start-2 flex min-w-0 flex-wrap gap-1" role="group" aria-label={t('Labels')}>
+                    {comment.labels!.map(label => <ThreadLabelBadge key={label.id} label={label} />)}
+                </div>}
                 {/* The selection box, under the author's own avatar. The slot stays when the box is hidden or absent, so the
                     path never moves */}
-                <span className="flex h-5 w-5 items-center justify-center self-center"><SelectComment comment={comment} tabbable={tabbable} /></span>
+                <span className="col-start-1 flex h-5 w-5 items-center justify-center self-center"><SelectComment comment={comment} tabbable={tabbable} /></span>
                 <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
                     <p className="m-0 flex min-w-0 flex-1 items-center gap-1.5">
                         {comment.kind !== 'comment' && <span role="img" aria-label={localizedKindLabel(comment.kind, comment.feedbackType, t)} title={localizedKindLabel(comment.kind, comment.feedbackType, t)} className="flex shrink-0">

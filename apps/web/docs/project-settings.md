@@ -189,3 +189,25 @@ activity and MCP events; existing category APIs, filters and verification retain
 Coverage: `status-workflow{,.api}.spec.ts` and `mcp.api.spec.ts`.
 
 The review API workflow endpoint is member-only. Guests retain ordinary category actions without receiving workspace/project workflow names, descriptions or defaults.
+
+## Thread labels
+
+Admins define up to 50 labels in Workspace settings → Labels or Project settings → Review → Labels.
+Each has a stable `label_<random id>`, a unique name (40 characters), a description (optional, up to
+500 characters), an optional curated Lucide icon and a brand-token palette color (Ink by default;
+Blue, Sky, Violet, Green, Amber or Red). No arbitrary colors, SVG, URLs or control characters.
+The editor uses the page's Save/Discard draft; validation retains failed drafts.
+
+This follows the configurable status workflow's **workspace defaults with project replacement**
+pattern: `DbWorkspace.threadLabels` is the default catalog, a missing `DbProject.threadLabels`
+follows it live, and `{ mode: 'replace', value: [] }` explicitly chooses no labels. Switching back
+to Workspace defaults removes the override. No append mode. `threadLabelSchema.ts` validates
+settings actions and persistence; `threadLabels.ts` resolves against the owning workspace.
+Old forms preserve the setting. Actions check admin/project authority before parsing; managed
+public projects retain their existing settings restrictions.
+
+Thread assignments store IDs only. Renaming/recoloring a definition updates its display; removing
+it (including by override or transfer) hides it on existing threads without rewriting them.
+Definitions and descriptions are member-only and are omitted from guest review/bootstrap DTOs.
+The first slice adds app controls, filtering and MCP; toolbar controls and saved board swim lanes
+remain follow-up work. `thread-labels.api.spec.ts` and `thread-labels.spec.ts` cover these contracts.

@@ -233,6 +233,9 @@ always comes from the completed page render, not the earlier check. Session/acce
 checks use the normal server page to reconcile. Hidden/offline views never refresh from late check
 responses. A full five-minute shell safety refresh keeps unrelated sidebar changes bounded;
 [app shell](app-shell.md#idle-comments-refreshes) describes the cost and freshness tradeoff.
+The fingerprint includes the effective label catalog once at snapshot level and omits each
+comment's duplicate `availableLabels`, like its duplicate `workflow`. Per-thread labels and IDs
+still detect assignment changes; catalog edits still change the snapshot revision.
 
 ## Archive
 
@@ -336,3 +339,23 @@ Rows and threads show custom labels; built-in labels retain localization. The bo
 reveals and settles an offscreen card before keyboard-opening Move, so horizontal scrolling
 from a previous move cannot anchor its menu outside a mobile viewport. My work keeps category
 lanes, with project-specific status choices in each thread. See [custom status settings](project-settings.md#custom-statuses).
+
+## Thread labels
+
+App thread details show Labels after Priority. People who can triage can use Edit labels to add
+or remove one from the effective catalog; the menu includes descriptions, checked selections and
+the configured brand color/icon. At most 20 labels per thread. Rows and board cards show the
+current names as bordered badges. Names and descriptions are untrusted text, never markup.
+The same badges appear in My work. No success toast for the in-place change; failures show an error.
+
+`review/threadLabels.ts` performs atomic add/remove under the current comment ETag, rechecking
+project membership, visibility and the current catalog on every write attempt. It uses triage
+permission (members; staff only on uier feedback projects), advances activity and records one
+label-change history entry, without sending email or changing status/verification/assignments.
+No-op calls preserve comment activity/history. Receipts retain the usual actor/partition/key
+scope and replay without overwriting later edits, even if a definition was removed. New adds
+reject foreign/removed IDs; removing can clear a retired ID. New adds prune retired IDs so they
+cannot consume all available slots. Existing guest DTOs and exports omit labels.
+
+This slice leaves board columns and their paging unchanged. Label swim lanes and their saved
+project setting, plus toolbar label controls, are deferred.

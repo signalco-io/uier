@@ -1,4 +1,5 @@
 'use server';
+import { projectThreadLabelsSchema } from '../../../lib/app/threadLabelSchema';
 import { projectStatusWorkflowSchema } from '../../../lib/app/statusWorkflowSchema';
 
 import { toolbarFeatureVisibilitySchema } from '../../../lib/app/toolbarFeatures';
@@ -130,6 +131,8 @@ export async function updateProjectReviewAction(_: ActionState, formData: FormDa
     return await actionResult(async () => {
         const { context, project } = await adminProject(formData.get('projectId'));
         assertMutableProject(context.workspace.id, project.id);
+        const threadLabels = formData.has('threadLabels') && formData.get('threadLabels') !== 'workspace'
+            ? projectThreadLabelsSchema.parse(JSON.parse(String(formData.get('threadLabels')))) : undefined;
         const statusWorkflow = formData.has('statusWorkflow') && formData.get('statusWorkflow') !== 'workspace'
             ? projectStatusWorkflowSchema.parse(JSON.parse(String(formData.get('statusWorkflow')))) : undefined;
         const feedbackTypes = formData.has('feedbackTypes')
@@ -146,6 +149,7 @@ export async function updateProjectReviewAction(_: ActionState, formData: FormDa
             hashRouting: formData.get('hashRouting') === 'true'
         });
         const update: ProjectUpdate = {};
+        if (formData.has('threadLabels') && JSON.stringify(threadLabels) !== JSON.stringify(project.threadLabels)) update.threadLabels = threadLabels;
         if (formData.has('statusWorkflow') && JSON.stringify(statusWorkflow) !== JSON.stringify(project.statusWorkflow)) update.statusWorkflow = statusWorkflow;
         if (formData.has('feedbackTypes') && JSON.stringify(feedbackTypes) !== JSON.stringify(project.feedbackTypes))
             update.feedbackTypes = feedbackTypes;

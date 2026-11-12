@@ -269,6 +269,8 @@ export type DbComment = {
      */
     inProgress?: boolean;
     /** Custom status IDs refine the semantic workflow; archive keeps the ordinary ID for restore. */
+    /** Member-managed IDs from the effective workspace/project label catalog. */
+    labelIds?: string[];
     workflowStatusId?: string;
     archiveStatusId?: string;
     /** sha256 of the visitor token (missing on old documents) */

@@ -1,6 +1,8 @@
 'use client';
 
 import { useAppI18n } from '@/src/lib/i18n/client';
+import { ThreadLabelsEditor } from '../ThreadLabelsEditor';
+import type { ThreadLabel } from '../../../lib/app/threadLabel';
 import { StatusWorkflowEditor } from '../StatusWorkflowEditor';
 import type { StatusWorkflow } from '../../../lib/app/statusWorkflow';
 import { ToolbarFeaturesFields } from './ToolbarFeaturesFields';
@@ -36,7 +38,7 @@ import { keepValues } from './keepFormValues';
 type ProjectToolbarLanguage = 'workspace' | ToolbarLanguage;
 
 /** Review: who can comment, the toolbar's language, the brief and, under Advanced, the page state; one save */
-export function ProjectReviewForm({ projectId, access, brief, policy, suggestions, guestLinks, feedbackTypes, workspaceTypes, statusWorkflow, workspaceWorkflow, toolbarLanguage, workspaceToolbarLanguage, toolbarFeatures }: {
+export function ProjectReviewForm({ projectId, access, brief, policy, suggestions, guestLinks, feedbackTypes, workspaceTypes, threadLabels, workspaceLabels, statusWorkflow, workspaceWorkflow, toolbarLanguage, workspaceToolbarLanguage, toolbarFeatures }: {
     projectId: string;
     access: ProjectAccess;
     /** The project's own toolbar language, or the workspace's */
@@ -49,6 +51,8 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
     brief?: string;
     policy?: PageStatePolicy;
     suggestions: QueryFieldSuggestion[];
+    threadLabels?: DbProject['threadLabels'];
+    workspaceLabels: ThreadLabel[];
     statusWorkflow?: DbProject['statusWorkflow'];
     workspaceWorkflow: StatusWorkflow;
     feedbackTypes?: DbProject['feedbackTypes'];
@@ -63,6 +67,8 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
         toolbarLanguage,
         toolbarFeatures: toolbarFeatures ?? {},
         brief: brief ?? '',
+        labelsMode: threadLabels ? 'replace' as const : 'workspace' as const,
+        labels: threadLabels?.value ?? workspaceLabels,
         workflowMode: statusWorkflow ? 'replace' as const : 'workspace' as const,
         workflow: statusWorkflow?.value ?? workspaceWorkflow,
         feedbackTypesMode: feedbackTypes ? 'replace' as const : 'workspace' as const,
@@ -86,6 +92,7 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
             stickyFooter
             footer={<SaveFooter formId={formId} state={state} pending={pending} dirty={dirty} onDiscard={discard} />}>
             <form id={formId} action={formAction} onResetCapture={keepValues}>
+                <input type="hidden" name="threadLabels" value={draft.labelsMode === 'workspace' ? 'workspace' : JSON.stringify({ mode: 'replace', value: draft.labels })} />
                 <input type="hidden" name="statusWorkflow" value={draft.workflowMode === 'workspace' ? 'workspace' : JSON.stringify({ mode: 'replace', value: draft.workflow })} />
                 <input type="hidden" name="projectId" value={projectId} />
                 <input type="hidden" name="feedbackTypes" value={draft.feedbackTypesMode === 'workspace' ? 'workspace' : JSON.stringify({ mode: 'replace', value: draft.feedbackTypes })} />
@@ -142,6 +149,21 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
                                 : draft.access === 'invited' ? t("Invited people read it in the toolbar.") : t("Anyone with the review link reads it in the toolbar.")}
                             {' '}{t("Plain text, up to")}{' '}{MAX_PROJECT_BRIEF_LENGTH}{' '}{t("characters.")}{' '}</FieldDescription>
                     </Field>
+                    <FieldSeparator />
+                    <FieldSet>
+                        <FieldLegend variant="label">{t('Labels')}</FieldLegend>
+                        <FieldDescription>{t('Projects inherit workspace labels or use their own set.')}</FieldDescription>
+                        <Field>
+                            <FieldLabel htmlFor={`${formId}-labels`}>{t('Label defaults')}</FieldLabel>
+                            <Select value={draft.labelsMode} items={[{ value: 'workspace', label: t('Workspace defaults') }, { value: 'replace', label: t('Project override') }]} disabled={pending}
+                                onValueChange={mode => { if (mode) update(current => ({ ...current, labelsMode: mode })); }}>
+                                <SelectTrigger id={`${formId}-labels`} className="w-full max-w-md pointer-coarse:min-h-11"><SelectValue /></SelectTrigger>
+                                <SelectContent><SelectGroup><SelectItem value="workspace">{t('Workspace defaults')}</SelectItem><SelectItem value="replace">{t('Project override')}</SelectItem></SelectGroup></SelectContent>
+                            </Select>
+                            <FieldDescription>{t("Workspace defaults follow future workspace changes. An override keeps this project's own list.")}</FieldDescription>
+                        </Field>
+                        <ThreadLabelsEditor value={draft.labelsMode === 'workspace' ? workspaceLabels : draft.labels} onChange={labels => update(current => ({ ...current, labels }))} disabled={draft.labelsMode === 'workspace' || pending} />
+                    </FieldSet>
                     <FieldSeparator />
                     <FieldSet>
                         <FieldLegend variant="label">{t("Feedback types")}</FieldLegend>

@@ -1,6 +1,6 @@
 /** Versioned, storage-independent comment query vocabulary. No authorization lives here. */
 export const queryFields = [
-    'status', 'priority', 'assignee', 'openedBy', 'author', 'mentions', 'agents', 'project',
+    'status', 'priority', 'labels', 'assignee', 'openedBy', 'author', 'mentions', 'agents', 'project',
     'environment', 'page', 'title', 'text', 'unread', 'private', 'screenshot', 'replies',
     'fixLink', 'created', 'updated', 'completed', 'archived', 'number', 'kind', 'verification',
     'device', 'browser', 'width', 'height'
@@ -21,7 +21,7 @@ export type Condition = { field: FieldId; operator: OperatorId; value?: QueryVal
 export type Expression = { all: Expression[] } | { any: Expression[] } | { not: Expression } | Condition;
 export type QueryScope = { kind: 'project'; projectId: string } | { kind: 'workspace'; workspaceId: string } | { kind: 'public' };
 export type PageExpression = { kind: 'current' } | { kind: 'exact' | 'section'; path: string };
-export type SortField = Exclude<FieldId, 'assignee' | 'author' | 'mentions' | 'agents' | 'text' | 'unread' | 'private' | 'screenshot' | 'fixLink'>;
+export type SortField = Exclude<FieldId, 'labels' | 'assignee' | 'author' | 'mentions' | 'agents' | 'text' | 'unread' | 'private' | 'screenshot' | 'fixLink'>;
 export type SortRule = { field: SortField; direction: 'asc' | 'desc' };
 export type QueryDocument = {
     version: 1;
@@ -68,6 +68,7 @@ export type QueryField = {
 export const fieldRegistry: Readonly<Record<FieldId, QueryField>> = {
     status: { type: 'enum', operators: enumOperators, sortable: true, values: ['open', 'in-progress', 'ready', 'done'] },
     priority: { type: 'enum', operators: enumOperators, sortable: true, values: ['urgent', 'high', 'normal', 'low'] },
+    labels: { type: 'set', operators: setOperators, sortable: false },
     assignee: { type: 'set', operators: setOperators, sortable: false, relativeMe: true },
     openedBy: { type: 'enum', operators: enumOperators, sortable: true, relativeMe: true, restricted: true },
     author: { type: 'set', operators: setOperators, sortable: false, relativeMe: true, restricted: true },

@@ -1,4 +1,6 @@
 'use server';
+import { changeProjectCommentLabels } from '../../../lib/review/threadLabels';
+import { labelsCommentActionSchema } from './actionSchemas';
 
 import { setProjectCommentWorkflowStatus } from '../../../lib/review/comments';
 import { workflowCommentActionSchema } from './actionSchemas';
@@ -290,4 +292,9 @@ export async function setCommentPullRequestAction(projectId: string, commentId: 
 export async function setCommentWorkflowStatusAction(projectId: string, commentId: string, statusId: string) {
     return commentAction(workflowCommentActionSchema, { projectId, commentId, statusId },
         ({ project, actor }, input) => setProjectCommentWorkflowStatus(project, actor, input.commentId, input.statusId));
+}
+
+export async function changeCommentLabelsAction(projectId: string, commentId: string, labelIds: string[], mode: 'add' | 'remove', idempotencyKey: string) {
+    return commentAction(labelsCommentActionSchema, { projectId, commentId, labelIds, mode, idempotencyKey },
+        ({ project, actor }, input) => changeProjectCommentLabels(project, actor, input.commentId, input.labelIds, input.mode, input.idempotencyKey));
 }

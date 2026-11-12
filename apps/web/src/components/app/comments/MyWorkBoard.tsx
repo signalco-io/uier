@@ -77,7 +77,7 @@ export function MyWorkViews({ assigned, mentions, unread, assignees, userId, emp
     const commitSearch = () => { setUrlSearchParams({ q: search || undefined }); };
     const clearFilters = () => {
         setSearchDraft({ url: urlKey, value: '' });
-        setUrlSearchParams({ q: undefined, priority: undefined, people: undefined, unread: undefined, project: undefined }, { history: 'push' });
+        setUrlSearchParams({ q: undefined, label: undefined, priority: undefined, people: undefined, unread: undefined, project: undefined }, { history: 'push' });
         document.getElementById('feedback-search')?.focus();
     };
 
@@ -92,8 +92,9 @@ export function MyWorkViews({ assigned, mentions, unread, assignees, userId, emp
         const kept = new Set(applyFilters(list.map(item => item.comment), { ...query, q: search }, userId, openId).map(comment => comment.id));
         return list.filter(item => kept.has(item.comment.id) && (!project || item.projectId === project));
     };
+    const labels = [...new Map(items.filter(item => !project || item.projectId === project).flatMap(item => item.comment.availableLabels ?? []).map(label => [label.id, label])).values()];
     const header = (
-        <CommentFilters className={cn(view === 'board' && boardHeader)} search={search} onSearch={value => setSearchDraft({ url: urlKey, value })}
+        <CommentFilters labels={labels} label={query.label} className={cn(view === 'board' && boardHeader)} search={search} onSearch={value => setSearchDraft({ url: urlKey, value })}
             priority={query.priority} people={query.people} unread={Boolean(query.unread)} unreadCount={items.filter(item => item.comment.activity?.unread).length}
             project={project} projects={projects} view={view}
             onView={next => {

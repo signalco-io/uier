@@ -12,6 +12,7 @@ import { integrationLabels } from '../integrations/model';
 export const MAX_THREAD_HISTORY = 200;
 type HistoryAction = 'archived' | 'restored' | 'assigned' | 'unassigned' | 'status' | 'verification-requested' | 'verification-confirmed'
     | 'verification-rejected' | 'verification-canceled' | 'priority' | 'title-written' | 'title-edited' | 'title-cleared'
+    | 'labels'
     | 'pull-request-linked' | 'pull-request-removed'
     | 'agent-attached' | 'agent-updated' | 'agent-removed' | 'public' | 'private' | 'moved';
 export type DbThreadHistoryEntry = {
@@ -34,6 +35,7 @@ export function withThreadHistory(previous: DbComment, next: DbComment, actorId:
     };
     for (const link of next.pullRequests ?? []) if (!previous.pullRequests?.some(old => old.url === link.url)) add('pull-request-linked');
     for (const link of previous.pullRequests ?? []) if (!next.pullRequests?.some(saved => saved.url === link.url)) add('pull-request-removed');
+    if (JSON.stringify([...(previous.labelIds ?? [])].sort()) !== JSON.stringify([...(next.labelIds ?? [])].sort())) add('labels');
     const before = assignedUserIds(previous), after = assignedUserIds(next);
     for (const userId of before) if (!after.includes(userId)) add('unassigned', { userId });
     for (const userId of after) if (!before.includes(userId)) add('assigned', { userId });
@@ -84,6 +86,7 @@ export function threadHistoryView(comment: DbComment, viewer: { member: boolean;
         const agent = entry.agentKind ? agentLabels[entry.agentKind] : t('an AI agent');
         const actions: Record<HistoryAction, string> = {
             'pull-request-linked': t('linked a pull request'), 'pull-request-removed': t('removed a pull request link'),
+            labels: t('changed labels'),
             archived: t('archived the thread'), restored: t('restored the thread'),
             assigned: t('assigned {person}', { person: target }), unassigned: t('unassigned {person}', { person: target }),
             status: t('changed status to {status}', { status: entry.statusLabel ?? t(entry.status ? feedbackStageLabels[entry.status] : 'Open') }),

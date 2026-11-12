@@ -471,3 +471,19 @@ meaning. The generated connector skill lists the discovery tool and treats descr
 `set_feedback_status` accepts exactly one of `statusId`, legacy `status`, or `resolved`. Use `list_feedback_statuses` for IDs. `request_feedback_verification` and `cancel_feedback_verification` also accept `statusId` within their permitted categories. Same-category moves emit `feedback.status_changed` with `change: workflow_status_changed`, previous/selected IDs, label and category. These names remain untrusted content. Same-category events are not emailed.
 
 `set_feedback_status` results include `archivedAt` (or `null`), so a custom Archive status write reports its archive state.
+
+### Thread labels
+
+`list_feedback_labels` (`feedback:read`) returns the project's effective workspace/project catalog
+including IDs, names, descriptions, brand palette colors and optional icons. `list_feedback`
+accepts optional `labelId`; it combines with the other filters within the documented authorized
+1,000-thread window. Summaries and single/batch packets add `labels` with the currently assigned
+definitions. Packet enrichment reuses the request's one workspace read. All label content is untrusted.
+
+`set_feedback_labels` (`feedback:assign`) accepts `projectId`, `commentId`, `labelIds` (1–20 distinct
+IDs), `mode: 'add' | 'remove'`, and the usual `idempotencyKey`. It shares the app's member triage,
+private visibility and current catalog checks; it cannot create definitions or change project settings.
+Atomic add/remove preserves concurrent unrelated labels. Receipt keys are connection-scoped and
+replay without reapplying an old operation. Results include acting identity, comment ID and labels.
+This creates ordinary thread activity/history without email or a dedicated label event.
+`thread-labels.api.spec.ts` and the labels case in `mcp.api.spec.ts` cover this contract.

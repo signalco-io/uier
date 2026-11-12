@@ -119,6 +119,7 @@ export type DbWorkspace = AppDoc & {
     /** Admin-only style guidance for rewrite suggestions. Never project/reviewer DTO data. */
     rewriteInstructions?: string;
     /** Default statuses within the five semantic categories. Missing keeps the built-in workflow. */
+    threadLabels?: import('./threadLabel').ThreadLabel[];
     statusWorkflow?: import('./statusWorkflow').StatusWorkflow;
     /** Defaults for each project's Give feedback form. Missing keeps the standard types. */
     feedbackTypes?: import('@uier/toolbar/feedback-types').FeedbackType[];
@@ -206,6 +207,7 @@ export type DbProject = AppDoc & {
     /** Missing inherits the workspace. Empty replace intentionally uses no style guidance. */
     rewriteInstructions?: import('./inheritedSettings').ProjectSetting<string>;
     /** Missing inherits live workspace statuses; replace keeps the project's complete workflow. */
+    threadLabels?: { mode: 'replace'; value: import('./threadLabel').ThreadLabel[] };
     statusWorkflow?: { mode: 'replace'; value: import('./statusWorkflow').StatusWorkflow };
     /** Missing inherits the workspace list; replace keeps a project's own list. */
     feedbackTypes?: import('./inheritedSettings').ProjectSetting<import('@uier/toolbar/feedback-types').FeedbackType[]>;

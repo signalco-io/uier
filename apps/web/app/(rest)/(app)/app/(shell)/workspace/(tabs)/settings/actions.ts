@@ -1,4 +1,5 @@
 'use server';
+import { setWorkspaceThreadLabels } from '@/src/lib/app/workspaces';
 import { setWorkspaceStatusWorkflow } from '@/src/lib/app/workspaces';
 
 import { revalidatePath } from 'next/cache';
@@ -53,6 +54,14 @@ export async function setWorkspaceStatusWorkflowAction(_: ActionState, formData:
     return actionResult(async () => {
         const context = await appContextOrThrow({ admin: true });
         await setWorkspaceStatusWorkflow(context.workspace.id, context.user.id, JSON.parse(String(formData.get('statusWorkflow') ?? 'null')));
+        revalidatePath('/app', 'layout');
+    }, 'Saved.');
+}
+
+export async function setWorkspaceThreadLabelsAction(_: ActionState, formData: FormData): Promise<ActionState> {
+    return actionResult(async () => {
+        const context = await appContextOrThrow({ admin: true });
+        await setWorkspaceThreadLabels(context.workspace.id, context.user.id, JSON.parse(String(formData.get('threadLabels') ?? 'null')));
         revalidatePath('/app', 'layout');
     }, 'Saved.');
 }

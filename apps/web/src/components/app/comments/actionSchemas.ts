@@ -1,3 +1,4 @@
+import { threadLabelIdsSchema, threadLabelModeSchema } from '../../../lib/app/threadLabelSchema';
 import { workflowStatusIdSchema } from '../../../lib/app/statusWorkflowSchema';
 import { MAX_SCREENSHOT_BYTES } from '../../../lib/comments/limits';
 import { priorities } from '@uier/toolbar/triage';
@@ -44,3 +45,5 @@ export const boardSortActionSchema = z.object({ projectId: projectIdSchema }).an
 export const boardArchiveActionSchema = z.object({ projectId: projectIdSchema, expanded: z.boolean() });
 
 export const workflowCommentActionSchema = commentActionSchema.extend({ statusId: workflowStatusIdSchema });
+
+export const labelsCommentActionSchema = commentActionSchema.extend({ labelIds: threadLabelIdsSchema, mode: threadLabelModeSchema, idempotencyKey: idempotencyKeySchema });

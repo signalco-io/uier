@@ -37,3 +37,7 @@ must include a timezone offset or Z. Dates are resolved against a pinned `evalua
 Bounds: 64 KiB serialized UTF-8; 100 leaves; eight group levels; 100 values/set; eight distinct
 registered scalar sort keys; 1,000 quick-search characters and 50 search terms. These bounds
 reject requests; they never truncate result sets or remove clauses.
+
+The member-only `labels` set field uses stable label IDs with the standard set operators and
+cannot be sorted. Server adapters resolve current definitions and enforce member capability
+before evaluating it; the pure contract stores no label definitions or authorization.

@@ -471,6 +471,8 @@ against the live connection.
 | --- | --- | --- |
 | `create_access_token` | `tokens:create` | Create a named, one-workspace token for 1–30 days within this connection’s projects and operations; return its secret only once |
 | `list_projects` | `feedback:read` | Projects the selected accounts can still access, with the acting account and workspace; optional `workspaceId` filter |
+| `list_feedback_labels` | `feedback:read` | Effective label IDs, names, brand colors, optional icons and descriptions |
+| `set_feedback_labels` | `feedback:assign` | Add/remove approved label IDs with a stable retry key |
 | `list_feedback_statuses` | `feedback:read` | Effective ordered status IDs, categories, labels, descriptions and new-comment/Done/Archive defaults |
 | `list_feedback` | `feedback:read` | Routing summaries with page, environment, anchor, assignment, author kind, unread and screenshot filters within a 1000-thread window |
 | `get_feedback` | `feedback:read` | Thread, anchor, original reproduction context and authorized screenshot reference |
@@ -1250,3 +1252,25 @@ meaning. Ready to verify still requires `request_feedback_verification`; its `st
 Ready status, and cancellation can select an Open or In progress `statusId`. Same-category moves
 keep verification and completion history and emit activity/events with the selected status.
 Custom IDs are validated again on each write attempt, and MCP retries retain receipt semantics.
+
+### Thread labels
+
+Workspace admins define labels and projects can inherit them or replace the catalog, like statuses.
+Labels and descriptions are untrusted member content.
+
+| Tool | Scope | Input and result |
+| --- | --- | --- |
+| `list_feedback_labels` | `feedback:read` | `projectId`; returns `labels` with `id`, `name`, `color` (brand palette), optional `icon` and `description`. |
+| `set_feedback_labels` | `feedback:assign` | `projectId`, `commentId`, 1–20 distinct `labelIds`, `mode` (`add` or `remove`), and stable `idempotencyKey`. Returns `actingAs`, `commentId`, `labels`. |
+
+Read the definitions before choosing IDs. Add/remove only after the person approves the triage
+operation. Other labels are preserved; repeat the exact key and input for a retry. Reusing a key
+with different input is a conflict. Current project access, private visibility and member triage
+permissions apply even on receipt replay. Only staff can triage uier's feedback projects.
+Definitions are managed in settings, with no MCP catalog-write tool.
+
+`list_feedback` accepts optional `labelId`, combined with its existing filters in the authorized
+1,000-thread window. Summaries and single/batch packets add the assigned `labels` with descriptions.
+Renaming a definition updates existing display; removing it hides it without deleting the thread
+or changing its status. A later add rejects an unavailable ID. Reads never acknowledge activity.
+Label writes create thread activity/history without email or a dedicated label webhook event.

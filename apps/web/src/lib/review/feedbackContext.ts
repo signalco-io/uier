@@ -1,3 +1,5 @@
+import { effectiveThreadLabels } from '../app/threadLabels';
+import { labelsForComment } from '../app/threadLabel';
 import { effectiveStatusWorkflow } from '../app/statusWorkflows';
 import { getWorkspace } from '../app/workspaces';
 import { aiTitlesEnabled } from '../titles/settings';
@@ -81,6 +83,6 @@ export function createProjectFeedbackExportReader(project: DbProject, actor: Pro
                 ? KnownPageLinks.projectCommentScreenshot(project.id, comment.id)
                 : `/api/review/${encodeURIComponent(project.publicId ?? project.id)}/comments/${encodeURIComponent(comment.id)}/screenshot`, baseUrl).href : undefined
         });
-        return actor.kind === 'member' ? { ...packet, workflowStatus: statusForComment(await (workflow ??= loadWorkspace().then(workspace => effectiveStatusWorkflow(workspace, project))), comment) } : packet;
+        return actor.kind === 'member' ? { ...packet, labels: labelsForComment(effectiveThreadLabels(await loadWorkspace(), project), comment), workflowStatus: statusForComment(await (workflow ??= loadWorkspace().then(workspace => effectiveStatusWorkflow(workspace, project))), comment) } : packet;
     };
 }

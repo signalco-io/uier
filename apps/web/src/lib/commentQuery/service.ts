@@ -14,6 +14,8 @@ import { getCommentsStore } from '../repo/commentsStore';
 import { CommentQueryBudgetError, type CommentQueryCandidate } from '../repo/commentQuerySource';
 import { threadTitle } from '../titles/model';
 import { aiTitlesEnabled } from '../titles/settings';
+import { effectiveThreadLabels } from '../app/threadLabels';
+import { labelsForComment, type ThreadLabel } from '../app/threadLabel';
 import type { DbComment } from '../db/schema';
 import { compileCandidatePredicate } from './predicate';
 import type { OriginFilter } from '../repo/originFilter';
@@ -24,7 +26,7 @@ export type QueryExecutionContext = { sources: QuerySource[]; scope: QueryDocume
 export type QueryPage = { size?: number; cursor?: string };
 export type QueryItem = { id: string; scopeKey: string; projectId?: string; number?: number; path: string; title?: { text: string; ai: boolean }; excerpt: string; status: string; priority: string; unread: boolean; replies: number; screenshot: boolean; private: boolean; createdAt?: string; updatedAt?: string; completedAt?: string; archivedAt?: string; environment: string; revision: string };
 type Row = { record: QueryRecord; item: QueryItem };
-const memberOnly: readonly FieldId[] = ['assignee', 'mentions', 'agents'];
+const memberOnly: readonly FieldId[] = ['labels', 'assignee', 'mentions', 'agents'];
 const identifiedOnly: readonly FieldId[] = ['openedBy', 'author', 'unread'];
 const adminOnly: readonly FieldId[] = ['device', 'browser', 'width', 'height'];
 const admin = (sources: QuerySource[]) => sources.every(s => s.actor.kind === 'member' && s.actor.isAdmin);
@@ -74,7 +76,7 @@ function hasVisibleFixLink(candidate: CommentQueryCandidate, source: QuerySource
     } catch { return false; }
 }
 const person = (id: string) => id.startsWith('user:') ? id : `user:${id}`;
-export function queryRow(candidate: CommentQueryCandidate, source: QuerySource, titles: boolean, readSequence: number, names: Map<string, string> = new Map()): Row {
+export function queryRow(candidate: CommentQueryCandidate, source: QuerySource, titles: boolean, readSequence: number, names: Map<string, string> = new Map(), labels: ThreadLabel[] = []): Row {
     const items = candidate.thread.items.filter(item => !item.deletedAt);
     // The title model reads only these fields. The source deliberately omits heavy anchors/screenshots.
     const title = threadTitle(candidate as DbComment, titles);
@@ -91,6 +93,7 @@ export function queryRow(candidate: CommentQueryCandidate, source: QuerySource, 
     const archived = candidate.archivedAt ? validTime(candidate.archivedAt, candidate.updatedAt, candidate.createdAt) : undefined;
     const unread = readActivity(candidate as DbComment, actorAuthorId(source.actor), readSequence).unread;
     const record: QueryRecord = { id: candidate.id, scopeKey: source.domain, fields: {
+        ...(source.actor.kind === 'member' ? { labels: labelsForComment(labels, candidate).map(label => label.id) } : {}),
         status, priority, assignee: assignees.map(person), openedBy: candidate.authorId,
         author: [...new Set([candidate.authorId, ...items.map(item => item.authorId)].filter(Boolean))],
         mentions: [...new Set(items.flatMap(item => item.mentions?.map(mention => person(mention.userId)) ?? []))],
@@ -167,10 +170,11 @@ async function matchingRows(query: QueryDocument, context: QueryExecutionContext
             candidatesSeen += candidates.length;
             bytes += Buffer.byteLength(JSON.stringify(candidates));
             if (candidatesSeen > 100000 || bytes > 32 * 1024 * 1024 || performance.now() - started > 5000) throw new CommentQueryBudgetError();
+            const labels = source.project ? effectiveThreadLabels(workspace, source.project) : [];
             for (const candidate of candidates) {
                 signal.throwIfAborted();
                 if (performance.now() - started > 5000) throw new CommentQueryBudgetError();
-                const row = queryRow(candidate, source, source.project ? aiTitlesEnabled(workspace, source.project) : false, reads.get(candidate.id) ?? 0, names);
+                const row = queryRow(candidate, source, source.project ? aiTitlesEnabled(workspace, source.project) : false, reads.get(candidate.id) ?? 0, names, labels);
                 if (evaluateQuery(row.record, query, evaluation)) rows.push(row);
             }
         }
@@ -216,7 +220,16 @@ export async function queryOptions(query: QueryDocument, context: QueryExecution
     const values = result.facets[field] ?? [];
     const labels = new Map<string, string>([['open', 'Open'], ['in-progress', 'In progress'], ['ready', 'Ready to verify'], ['done', 'Done'],
         ['urgent', 'Urgent'], ['high', 'High'], ['normal', 'Normal'], ['low', 'Low'], ['unknown', 'Source not recorded'], ['removed', 'Removed address']]);
+    const workspaces = new Map<string, ReturnType<typeof getWorkspace>>();
     for (const source of context.sources) if (source.project) {
+        if (field === 'labels') {
+            let workspace = workspaces.get(source.project.workspaceId);
+            if (!workspace) {
+                workspace = getWorkspace(source.project.workspaceId);
+                workspaces.set(source.project.workspaceId, workspace);
+            }
+            for (const label of effectiveThreadLabels(await workspace, source.project)) labels.set(label.id, label.name);
+        }
         if (field === 'project') labels.set(source.project.id, source.project.name);
         if (field === 'environment') for (const option of environmentOptions(source.project)) labels.set(option.id, option.label);
         if (['assignee', 'mentions', 'author', 'openedBy'].includes(field)) for (const [id, name] of await participantNames(source.project)) labels.set(person(id), name);

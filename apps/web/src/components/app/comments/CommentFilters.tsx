@@ -1,5 +1,7 @@
 'use client';
 
+import type { ThreadLabel } from '../../../lib/app/threadLabel';
+import { ThreadLabelMark } from '../ThreadLabelBadge';
 import { useAppI18n } from '@/src/lib/i18n/client';
 
 import { priorities, priorityLabels, MAX_FEEDBACK_SEARCH, type CommentPriority } from '@uier/toolbar/triage';
@@ -64,7 +66,7 @@ export type FilterProject = { id: string; name: string; url?: string };
  * Comments of several projects (My work) pass `projects` for a Project filter (`?project=`) and leave out what only
  * one project has (`environments`, `statusCounts`).
  */
-export function CommentFilters({ className, unread, unreadCount, view, onView, status, statusCounts, people, page, pages = [], environment, environments, historySources, author, search, onSearch, priority, countLine, project, projects }: {
+export function CommentFilters({ className, unread, unreadCount, view, onView, status, statusCounts, people, page, pages = [], environment, environments, historySources, author, search, onSearch, priority, countLine, project, projects, labels, label }: {
     /** The header's width: the list's or the board's (ProjectComments) */
     className?: string;
     /**
@@ -75,6 +77,8 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
     search: string;
     onSearch: (value: string) => void;
     priority?: CommentPriority;
+    labels?: ThreadLabel[];
+    label?: string;
     author?: AuthorFilter;
     environment?: string;
     /** A project's environments: without them (several projects) there is no Environment and page filter */
@@ -127,6 +131,7 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
     const boardStatus = view === 'board' && statusCounts && status ? boardStatusFilter(status) : undefined;
     const projectLabel = project ? projects?.find(option => option.id === project)?.name : undefined;
     const chips = [
+        label && { key: 'label', name: t('Label'), value: labels?.find(item => item.id === label)?.name ?? t('Unavailable label'), clear: () => go({ label: undefined }) },
         projectLabel && { key: 'project', name: t('Project'), value: projectLabel, clear: () => go({ project: undefined }) },
         boardStatus && { key: 'status', name: t('Status'), value: t(statusFilterLabels[boardStatus]), clear: () => go({ status: undefined }) },
         priority && { key: 'priority', name: t('Priority'), value: t(priorityLabels[priority]), clear: () => go({ priority: undefined }) },
@@ -237,6 +242,14 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
                                     </SelectGroup></SelectContent>
                                 </Select>
                             </Field>
+                            {Boolean(labels?.length || label) && <Field>
+                                <FieldLabel htmlFor="filter-label">{t('Label')}</FieldLabel>
+                                <Select value={label ?? 'all'} items={[{ value: 'all', label: t('All labels') }, ...(labels ?? []).map(item => ({ value: item.id, label: item.name })), ...(label && !labels?.some(item => item.id === label) ? [{ value: label, label: t('Unavailable label') }] : [])]}
+                                    onValueChange={value => go({ label: value === 'all' ? undefined : value ?? undefined })}>
+                                    <SelectTrigger id="filter-label" aria-label={t('Label filter')} className="w-full pointer-coarse:min-h-11"><SelectValue /></SelectTrigger>
+                                    <SelectContent><SelectGroup><SelectItem value="all" className="pointer-coarse:min-h-11">{t('All labels')}</SelectItem>{(labels ?? []).map(item => <SelectItem key={item.id} value={item.id} className="pointer-coarse:min-h-11"><ThreadLabelMark label={item} />{item.name}</SelectItem>)}{label && !labels?.some(item => item.id === label) && <SelectItem value={label}>{t('Unavailable label')}</SelectItem>}</SelectGroup></SelectContent>
+                                </Select>
+                            </Field>}
                             {environments && (
                                 <Field>
                                     <FieldTitle>{t("Environment and page")}</FieldTitle>
