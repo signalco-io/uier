@@ -85,6 +85,36 @@ test('find, select, assign, prioritize and complete feedback in list and board @
     expect(new URL(page.url()).pathname).toBe(`/app/projects/${project}`);
 });
 
+test('the bar archives the selected threads, offers Done only while one is not done, and assigns with avatars (uier #333, #334)', async ({ page, request }) => {
+    const { project, comments } = await fixture(page, request);
+    const bar = selectionBar(page);
+    const done = bar.getByRole('button', { name: 'Mark selected as done', exact: true });
+    await selectThread(page, comments[0]!.number);
+    await expect(done).toBeVisible();
+    await expect(bar.getByRole('button', { name: 'Archive selected', exact: true })).toBeVisible();
+    // Each person in Assign selected has their avatar beside the name; Unassign has none
+    await bar.getByRole('combobox', { name: 'Assign selected', exact: true }).click();
+    const people = page.getByRole('option').filter({ hasNotText: 'Unassign' });
+    await expect(people.first().locator('[data-slot="avatar"]')).toBeVisible();
+    await expect(page.getByRole('option', { name: 'Unassign', exact: true }).locator('[data-slot="avatar"]')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await done.click();
+    await expect(commentRows(page)).toHaveCount(2);
+    await page.goto(`/app/projects/${project}?status=done`);
+    await expect(commentRows(page)).toHaveCount(1);
+    await selectThread(page, comments[0]!.number);
+    // Every selected thread is done already: no Done, the rest stay
+    await expect(bar.getByText('1 selected', { exact: true })).toBeVisible();
+    await expect(done).toHaveCount(0);
+    await expect(bar.getByRole('button', { name: 'Reopen selected', exact: true })).toBeVisible();
+    await bar.getByRole('button', { name: 'Archive selected', exact: true }).click();
+    await expect(page.getByText('1 changed, 0 unchanged, 0 stale, 0 unavailable, 0 failed.', { exact: true })).toBeVisible();
+    await expect(commentRows(page)).toHaveCount(0);
+    await page.goto(`/app/projects/${project}?status=archived`);
+    await expect(commentRows(page)).toHaveCount(1);
+    await expect(commentRowLink(page, comments[0]!.number)).toBeVisible();
+});
+
 test('search covers replies, quotes, paths and numbers with local URL history and combined filters', async ({ page, request }) => {
     const { project, headers, comments } = await fixture(page, request);
     const reply = await request.post(`/api/review/${project}/comments/${comments[1]!.id}/replies`, { headers, data: { text: 'Card declined', authorName: 'Reviewer' } });
@@ -248,12 +278,16 @@ test('selection stays quiet until it is used, by pointer, keyboard or a long pre
         await expect(bar.getByText('2 selected', { exact: true })).toBeVisible();
         expect(new URL(page.url()).searchParams.get('comment')).toBeNull();
         for (const control of [bar.getByRole('button', { name: 'Clear selection', exact: true }), bar.getByRole('combobox', { name: 'Assign selected', exact: true }),
-            bar.getByRole('combobox', { name: 'Prioritize selected', exact: true }), bar.getByRole('button', { name: 'Mark selected as done', exact: true }), bar.getByRole('button', { name: 'Reopen selected', exact: true })])
+            bar.getByRole('combobox', { name: 'Prioritize selected', exact: true }), bar.getByRole('button', { name: 'Mark selected as done', exact: true }), bar.getByRole('button', { name: 'Reopen selected', exact: true }),
+            bar.getByRole('button', { name: 'Archive selected', exact: true })])
             expect((await control.boundingBox())!.height).toBeGreaterThanOrEqual(44);
         // The bar fits the phone: its actions take a line of their own
         const barBox = (await bar.boundingBox())!;
         expect(barBox.x).toBeGreaterThanOrEqual(0);
         expect(barBox.x + barBox.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+        // Archive, the last action, still fits inside it
+        const archiveBox = (await bar.getByRole('button', { name: 'Archive selected', exact: true }).boundingBox())!;
+        expect(archiveBox.x + archiveBox.width).toBeLessThanOrEqual(barBox.x + barBox.width);
         // Clear selection gives the focus to the row last selected
         await bar.getByRole('button', { name: 'Clear selection', exact: true }).tap();
         await expect(bar).toHaveCount(0);
@@ -286,10 +320,10 @@ test('selection resets on search and view changes, and the bar passes accessibil
     await page.keyboard.press('x');
     await expect(first).toBeChecked();
     await page.keyboard.press('Shift+Tab');
-    await expect(bar.getByRole('button', { name: 'Reopen selected', exact: true })).toBeFocused();
+    await expect(bar.getByRole('button', { name: 'Archive selected', exact: true })).toBeFocused();
     await bar.getByRole('checkbox', { name: 'Select shown results', exact: true }).check();
     await expect(first).toBeChecked();
-    for (const action of ['Mark selected as done', 'Reopen selected']) await expect(bar.getByRole('button', { name: action, exact: true })).toBeEnabled();
+    for (const action of ['Mark selected as done', 'Reopen selected', 'Archive selected']) await expect(bar.getByRole('button', { name: action, exact: true })).toBeEnabled();
     // The bar floats: the list keeps its place, and the bar sits at the end of the comments, never above them
     const list = page.getByRole('list', { name: 'Comments', exact: true });
     expect((await bar.boundingBox())!.y).toBeGreaterThan((await list.boundingBox())!.y);

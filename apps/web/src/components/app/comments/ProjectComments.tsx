@@ -23,7 +23,7 @@ import { CommentFilters, countLineInHeader } from './CommentFilters';
 import { pageMatches } from './pageFilter';
 import { CommentInbox, useOpenComment } from './CommentInbox';
 import { CommentBoard } from './CommentBoard';
-import { statusFilterLabels, statusMatches, type AuthorFilter, type StatusFilter } from './commentLabels';
+import { boardStatusFilter, statusFilterLabels, statusMatches, type AuthorFilter, type StatusFilter } from './commentLabels';
 import { commentStatus, commentStatuses, type CommentStatus } from './CommentStatus';
 import { parseCommentsQuery, type CommentsQuery } from './commentsQuery';
 import { rememberCommentsView, storedCommentsView } from './commentsView';
@@ -233,13 +233,15 @@ export function ProjectComments({ workflow = defaultStatusWorkflow, projectId, r
         .map(filter => [filter, filtered.filter(comment => statusMatches(filter, commentStatus(comment), comment.archivedAt)).length])) as Record<StatusFilter, number>;
     // Where the open thread takes the whole width, it takes the filters' place too
     const threadOnly = Boolean(openComment.openId) && !board && scopeComments.some(comment => comment.id === openComment.openId);
-    const shown = board ? filtered.filter(comment => !comment.archivedAt) : filtered.filter(comment => statusMatches(query.status, commentStatus(comment), comment.archivedAt));
+    // The board's status filter (uier #335) narrows its columns to one; the others stay, empty, as drop targets
+    const boardStatus = board ? boardStatusFilter(query.status) : undefined;
+    const shown = board ? filtered.filter(comment => !comment.archivedAt && (!boardStatus || commentStatus(comment) === boardStatus)) : filtered.filter(comment => statusMatches(query.status, commentStatus(comment), comment.archivedAt));
     // The board's columns, one per status in order (each thread in exactly one), each in the project's sort for it
     const columns = Object.fromEntries(commentStatuses.map(status => [status,
         sortBoardColumn(shown.filter(comment => commentStatus(comment) === status), boardSorts[status])])) as Record<CommentStatus, ProjectCommentView[]>;
     // The board's last column, in the project's sort for it: by default like Done but by when each was archived
     // (`compareArchivedOrder`), ties in the list's order
-    const archived = board ? sortBoardColumn(filtered.filter(comment => comment.archivedAt), boardSorts.archive) : [];
+    const archived = board && !boardStatus ? sortBoardColumn(filtered.filter(comment => comment.archivedAt), boardSorts.archive) : [];
     // What the board shows: its columns, and Archive's cards while it is expanded
     const boardShown = [...commentStatuses.flatMap(status => columns[status]), ...(archiveExpanded ? archived : [])];
     // Nothing to show: the board still shows its columns while only Archive has threads

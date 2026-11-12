@@ -121,6 +121,8 @@ test('batch validation rejects duplicate, invalid, empty, oversized and malforme
         { kind: 'status', resolved: true, items: [{ id: item.id, expected: false, idempotencyKey: item.idempotencyKey }] },
         { kind: 'priority', priority: 'high', items: [{ ...item, id: '$sequence' }] },
         { kind: 'delete', items: [item] },
+        { kind: 'archive', items: [item] },
+        { kind: 'archive', archived: false, items: [{ id: item.id, idempotencyKey: item.idempotencyKey }] },
         { kind: 'priority', priority: 'high', items: [{ ...item, extra: 'x'.repeat(32000) }] }
     ]) await expect(triageProjectComments(project, alice, batch)).rejects.toMatchObject({ code: 'invalid_request' });
     expect((await store.get(comment!.domain, comment!.id))!.etag).toBe(initial);
@@ -139,6 +141,24 @@ test('mixed batch reports changed, no-op, stale and indistinguishable unavailabl
     expect(result.results[3]).toEqual({ id: comments[3]!.id, outcome: 'unavailable' });
     expect(result.results[4]).toEqual({ id: 'comment_missing', outcome: 'unavailable' });
     expect((await triageProjectComments(project, alice, input)).counts).toEqual(result.counts);
+});
+
+test('archive batches use the thread archive service: changed, unchanged, unavailable, and replays keep their outcome (uier #333)', async () => {
+    const { project, store, comments } = await fixture(3);
+    const archive = (comment: DbComment) => ({ id: comment.id, idempotencyKey: randomUUID() });
+    const first = await triageProjectComments(project, alice, { kind: 'archive', items: [archive(comments[0]!)] });
+    expect(first.counts).toMatchObject({ success: 1, noop: 0 });
+    expect(first.results[0]!.saved?.archivedAt).toEqual(expect.any(String));
+    const privateStored = (await store.get(comments[2]!.domain, comments[2]!.id))!;
+    await store.replace({ ...privateStored.comment, private: true }, privateStored.etag);
+    const input = { kind: 'archive', items: [archive(comments[0]!), archive(comments[1]!), archive(comments[2]!)] };
+    const result = await triageProjectComments(project, alice, input);
+    expect(result.results.map(item => item.outcome)).toEqual(['noop', 'success', 'unavailable']);
+    const archived = (await store.get(comments[1]!.domain, comments[1]!.id))!.comment;
+    expect(archived.archivedAt).toBe(result.results[1]!.saved?.archivedAt);
+    expect(archived.resolved).toBe(false);
+    expect((await store.get(comments[2]!.domain, comments[2]!.id))!.comment.archivedAt).toBeUndefined();
+    expect((await triageProjectComments(project, alice, input)).results.map(item => item.outcome)).toEqual(['noop', 'noop', 'unavailable']);
 });
 
 test('interrupted commits retry with durable receipts; a successful replay preserves later work', async () => {

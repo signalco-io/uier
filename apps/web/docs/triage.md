@@ -45,9 +45,11 @@ anything is selected, or after a batch or Select shown results (`explicit`), and
 checked row is tinted. The selection bar (`role="group"`, "Selected feedback actions") floats instead of
 pushing a row into the layout: `sticky` at the bottom of the scrolling panel, after the comments on screen
 (`order-last`) but before them in the focus order. It has Clear selection, Select shown results (or
-Select first 50 shown) with the count, then Assign, Priority, Done and Reopen, whose accessible names stay
-"Assign selected", "Prioritize selected", "Mark selected as done" and "Reopen selected"; under `@xl/comments`
-the actions take a line of their own without their icons. The outcome, the threads needing attention and
+Select first 50 shown) with the count, then Assign, Priority, Done, Reopen and Archive, whose accessible names stay
+"Assign selected", "Prioritize selected", "Mark selected as done", "Reopen selected" and "Archive selected";
+under `@xl/comments` the actions take a line of their own without their icons, wrapping when they don't fit and
+growing to share each line. Done hides while every selected thread is done already, Archive while every one is
+archived (uier #333). Assign lists each person with their avatar (`PersonAvatar`) beside the name (uier #334). The outcome, the threads needing attention and
 Retry failed threads show above the actions, so they never move. The thread beside the list keeps clear of
 the bar through `--selection-bar`.
 
@@ -61,6 +63,11 @@ shown row without one); a focused box keeps it and stays shown, since the key pr
 opened thread), touch taps, the bar on a phone, focus and axe in both themes; `comment-board.spec.ts` a long press on a
 card that neither lifts nor opens it. `longPress` in `e2e/support/app.ts` holds a finger with CDP touch events until a
 condition holds; `heldForDrag` waits for a held card's `data-hold` before moving it.
+
+Bulk Archive (`kind: 'archive'`, ids and keys only) calls the thread's own `setProjectCommentArchived` per thread,
+so the permission (`canResolveComment`), receipt and activity match the thread menu's Archive; a thread archived
+already counts as unchanged. It only archives: Restore stays in the thread's menu. The board's Archive column
+and the list's Archive scope then show the threads.
 
 Bulk assignment retains the single-target replacement action: it replaces every assignee with the
 selected person (Unassigned clears all). The app sends the content revision with the assignment
