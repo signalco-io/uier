@@ -65,3 +65,7 @@ unmount the open composer. Column totals come from the server, with optimistic d
 loaded rows being changed. Idle revision checks omit bodies and canonical enrichment. Read mutations
 retain their explicit rendered cursors; the paged view labels their partial scope Mark shown as read.
 Below 1024 px the inbox virtualizes against the document viewport and scrolls with the page; board columns retain their independent scrollers. Wider lists use a bounded list scroller. See [paged project comments](comments-inbox.md#paged-project-comments) for limits and measurement boundaries.
+
+The delayed toolbar category-status regression signs out and posts as a guest before holding
+the save. Members use the separate custom workflow mutation, which waits for confirmation
+([toolbar status behavior](../../../packages/toolbar/docs/optimistic-status.md)).

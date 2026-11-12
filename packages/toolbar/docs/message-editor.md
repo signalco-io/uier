@@ -92,3 +92,7 @@ saved as Markdown, shown by `MessageMarkdown` as before ([Message Markdown](mess
 - `apps/web/e2e/message-markdown.spec.ts`: the app's reply box (bold as it is typed, a mention after it, code).
 - Composer tests read the text with `toHaveText(…, { useInnerText: true })`; `e2e/support/composer.ts` selects a
   range in it (`selectText`, `selectedText`).
+
+Bare URL serialization uses the message parser's URL character range, including hyphens in hosts
+and paths. GitLab `/-/merge_requests/` links keep their underscores unescaped so thread PR detection
+recognizes them after posting; `message-editor.api.spec.ts` and `pull-requests.spec.ts` cover this.

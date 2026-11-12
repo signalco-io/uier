@@ -187,9 +187,20 @@ test('failed optimistic status changes restore the card and counts', async ({ pa
 });
 
 test('toolbar status changes appear during a delayed save and roll back on failure', async ({ page, request }) => {
-    const { project, comment } = await fixture(page, request);
-    await page.goto(`/app/review/${project}?url=${encodeURIComponent(`${site.origin()}/${project}/pricing`)}`);
+    const { project } = await fixture(page, request);
+    // Guests use the optimistic category menu; members use the confirmation-based custom workflow menu.
+    await page.context().clearCookies();
+    await page.goto(`${site.origin()}/${project}/guest?toolbar-code=${project}`);
     await expect(toolbar(page)).toBeVisible();
+    await toolbar(page).getByRole('button', { name: 'Send feedback', exact: true }).click();
+    const composer = page.getByRole('dialog', { name: 'Send feedback', exact: true });
+    await composer.getByRole('textbox', { name: 'Your name', exact: true }).fill('Status reviewer');
+    await composer.getByRole('textbox', { name: 'Feedback', exact: true }).fill('Guest status rollback');
+    const created = page.waitForResponse(response => response.request().method() === 'POST'
+        && new URL(response.url()).pathname === `/api/review/${project}/comments`);
+    await composer.getByRole('button', { name: 'Send feedback', exact: true }).click();
+    const comment = await (await created).json() as { id: string };
+    await expect(composer).toBeHidden();
     await toolbar(page).getByRole('button', { name: /^Inbox/ }).click();
     const inbox = page.getByRole('complementary', { name: 'Comments', exact: true });
     await expect(inbox.getByRole('article')).toHaveCount(1);

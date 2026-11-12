@@ -62,3 +62,5 @@ with `reason: "too_fast" | "page_full"`, ...). A member's limit adds **View usag
 
 `apps/web/e2e/review.spec.ts`: review links and the pill's controls. `composer-hints.spec.ts` (desktop and
 mobile): Resume draft.
+
+`review.spec.ts` checks the complete narrow-screen Options action list, including Security and compliance.
