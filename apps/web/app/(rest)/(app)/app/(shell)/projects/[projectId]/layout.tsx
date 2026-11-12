@@ -7,7 +7,7 @@ import { notFound } from 'next/navigation';
 import { Badge } from '@/src/components/ui/badge';
 import { cn } from '@/src/lib/utils';
 import { requireAppContext } from '@/src/lib/app/context';
-import { getVisibleProject } from '@/src/lib/app/projects';
+import { getVisibleProjectForPage as getVisibleProject } from '@/src/lib/app/projectLinkPage';
 import { clientSummary, getClient } from '@/src/lib/app/clients';
 import { PageHeader } from '@/src/components/app/PageHeader';
 import { ProjectTabs } from '@/src/components/app/projects/ProjectTabs';

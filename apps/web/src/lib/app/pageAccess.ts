@@ -17,6 +17,8 @@ import { getTeam } from './teams';
 import { listMembersWithUsers } from './members';
 import { reviewTarget } from './review';
 
+import { projectLinkAccounts, projectLinkSwitchPath } from './projectLinkAccounts';
+
 type PageAccess = { redirect: string } | { status: 404; review?: boolean } | undefined;
 
 /** Finish status/redirect decisions before a static shell can stream. Pages and actions
@@ -57,6 +59,11 @@ export async function appPageAccess(request: NextRequest): Promise<PageAccess> {
         const named = projectClients(projects, clients).find(({ name }) => client === `name:${name}`);
         if (named) return { redirect: KnownPageLinks.clientProjects(named.id, query('status') === 'done' ? 'done' : 'active') };
     }
+    if (pathname === KnownPages.AppSwitchProjectAccount && !(await projectLinkAccounts(request.cookies, query('next'))).length)
+        return { status: 404 };
+    if (/^\/app\/(projects|review)\//.test(pathname)
+        && (await projectLinkAccounts(request.cookies, pathname + request.nextUrl.search)).length)
+        return { redirect: projectLinkSwitchPath(pathname + request.nextUrl.search) };
     const review = /^\/app\/review\/([^/]+)$/.exec(pathname);
     if (review) {
         const target = await reviewTarget(context, review[1]!, query('url') ?? null, query('comment') ?? null);

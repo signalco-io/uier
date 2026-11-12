@@ -43,6 +43,7 @@ export const KnownPages = {
     AppProjects: '/app/projects',
     AppMyWork: '/app/my-work',
     AppReview: '/app/review',
+    AppSwitchProjectAccount: '/app/switch-project-account',
     AppNewProject: '/app/projects/new',
     /** The workspace area: Users, Teams, Clients, Usage, Activity and Settings, each a tab */
     AppWorkspace: '/app/workspace',

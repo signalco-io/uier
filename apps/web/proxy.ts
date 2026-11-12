@@ -50,6 +50,9 @@ export async function proxy(request: NextRequest) {
         : policy.find(header => header.key === 'Content-Security-Policy')!.value;
     const requestHeaders = new Headers(request.headers);
     // Never trust a client-supplied nonce or policy. Next extracts the nonce from the forwarded CSP.
+    requestHeaders.delete('x-uier-project-link');
+    if (/^\/app\/(projects|review)\//.test(pathname))
+        requestHeaders.set('x-uier-project-link', pathname + request.nextUrl.search);
     requestHeaders.delete('x-nonce');
     requestHeaders.set('Content-Security-Policy', csp);
     if (nonce) requestHeaders.set('x-nonce', nonce);

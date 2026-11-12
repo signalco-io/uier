@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { KnownPageLinks, KnownPages } from '@/src/knownPages';
 import { getAppContext } from '@/src/lib/app/context';
+import { offerProjectLinkSwitch } from '@/src/lib/app/projectLinkPage';
 import { reviewTarget } from '@/src/lib/app/review';
 
 // Only a link that cannot open renders (`not-found.tsx`); the others redirect.
@@ -25,6 +26,7 @@ async function ReviewLinkPageContent({ params, searchParams }: PageProps<'/app/r
     if (!context)
         redirect(`${KnownPages.AppSignIn}?${new URLSearchParams({ next: KnownPageLinks.projectReview(projectId, url ?? undefined, comment ?? undefined) })}`);
 
+    await offerProjectLinkSwitch();
     const target = await reviewTarget(context, projectId, url, comment);
     if (!target)
         notFound();

@@ -120,7 +120,7 @@ test('Add account cancellation and a failed sign-in leave the original account s
     await page.goto('/app/sign-in?add=1');
     await page.getByRole('link', { name: 'Sign in with Google' }).click();
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
-    await expect(page.getByRole('alert')).toContainText('Google sign-in was cancelled.');
+    await expect(page.getByRole('main').getByRole('alert')).toContainText('Google sign-in was cancelled.');
     expect((await context.cookies()).find(cookie => cookie.name === 'uier_session')!.value).toBe(original);
     await requestSignInEmail(page, uniqueEmail('bad-code'));
     await page.getByLabel('Sign-in code', { exact: true }).fill('00000000');
@@ -208,4 +208,19 @@ test('toolbar foreground sign-in follows the active account and clears a removed
         await expect(toolbar(review)).toContainText('Sign in to see and leave comments.');
         await review.close();
     } finally { await site.close(); }
+});
+
+
+test('a private project link offers a signed-in account and continues with its original query', async ({ page }) => {
+    const owner = uniqueEmail('link-switch-owner');
+    await signIn(page, owner);
+    const project = await createProject(page, { urls: ['https://example.com'], name: 'Linked project' });
+    await signIn(page, uniqueEmail('link-switch-other'), { from: '/app/sign-in?add=1' });
+    const next = `/app/projects/${project}?view=board&from=shared-link`;
+    await page.goto(next);
+    await expect(page.getByRole('heading', { name: 'Switch account or workspace' })).toBeVisible();
+    await expectNoAxeViolations(page);
+    await page.getByRole('button', { name: new RegExp(owner) }).click();
+    await expect(page).toHaveURL(new RegExp(`/app/projects/${project}\\?view=board&from=shared-link$`));
+    await expect(page.getByRole('heading', { name: 'Linked project', exact: true })).toBeVisible();
 });
