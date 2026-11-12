@@ -55,7 +55,8 @@ export function PanelTitle({ id, title }: { id: DockPanelId; title: string }) {
                 align="start"
                 aria-label={t.panel.switch}
                 onKeyDown={event => { if (event.key === 'Escape') event.stopPropagation(); else moveFocusInMenu(event); }}
-                {...toolbarSurface('uier-panel-switch', cx('z-[70] w-48 max-w-[calc(100vw-1rem)] rounded-xl p-1', floatingShadowClassName))}
+                // As wide as its longest name, on one line (uier #350)
+                {...toolbarSurface('uier-panel-switch', cx('z-[70] w-max min-w-48 max-w-[calc(100vw-1rem)] rounded-xl p-1', floatingShadowClassName))}
                 {...{
                     onOpenAutoFocus: (event: Event) => {
                         event.preventDefault();
@@ -77,7 +78,8 @@ export function PanelTitle({ id, title }: { id: DockPanelId; title: string }) {
                             startDecorator={<PanelIcon id={panel.id} />}
                             endDecorator={<Check size={14} aria-hidden="true" className={cx('ml-auto shrink-0 text-muted-foreground', panel.id !== id && 'invisible')} />}
                             onClick={() => choose(panel.id)}>
-                            {panel.label}
+                            {/* One line, from the start: a name too long for a narrow screen is shortened, not wrapped and centred */}
+                            <span className="min-w-0 flex-1 truncate whitespace-nowrap text-left">{panel.label}</span>
                         </Button>
                     ))}
                 </Stack>

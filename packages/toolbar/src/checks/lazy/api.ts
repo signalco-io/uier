@@ -23,8 +23,8 @@ export type SectionReport<Details = undefined> = {
 
 /** A check's row: its state, name and one-line reason, with what was found, a measurement and its issues */
 export function pageCheck(id: string, label: string, state: CheckState, reason: string,
-    more: { value?: string; measure?: string; issues?: PageIssue[] } = {}): PageCheck {
-    return { id, label, state, reason, value: more.value, measure: more.measure, issues: more.issues ?? [] };
+    more: { value?: string; measure?: string; issues?: PageIssue[]; group?: PageCheck['group'] } = {}): PageCheck {
+    return { id, label, state, reason, value: more.value, measure: more.measure, issues: more.issues ?? [], ...more.group ? { group: more.group } : {} };
 }
 
 /**

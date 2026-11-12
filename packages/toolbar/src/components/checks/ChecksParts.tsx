@@ -322,19 +322,23 @@ export function CheckItem({ check, children }: { check: PageCheck; children?: Re
     );
 }
 
-/** A group of rows under its heading (with a count, and a note on the right), on one card */
-export function CheckSection({ title, count, note, children, ...rest }: Omit<ComponentProps<'section'>, 'title'> & {
+/**
+ * A group of rows under its heading (with a count, and a note on the right), on one card. `hideTitle` keeps the heading
+ * for screen readers only, where the tab above already shows the same name
+ */
+export function CheckSection({ title, count, note, hideTitle = false, children, ...rest }: Omit<ComponentProps<'section'>, 'title'> & {
     title: string;
     count?: number;
     note?: ReactNode;
+    hideTitle?: boolean;
 }) {
     const id = useId();
     // Filtered, a section shows only its checks (no other rows), and none at all without one
     const filtered = useContext(CheckFilterContext) !== undefined;
     return (
         <section aria-labelledby={id} className={cx('flex min-w-0 flex-col gap-1.5', filtered && '[&:not(:has(>ul>li[data-uier-check]))]:hidden')} {...rest}>
-            <div className="flex min-w-0 items-baseline justify-between gap-3 px-1">
-                <h3 id={id} className="m-0 shrink-0 text-sm font-semibold text-foreground">
+            <div className={cx('flex min-w-0 items-baseline justify-between gap-3 px-1', hideTitle && !note && 'contents')}>
+                <h3 id={id} className={cx('m-0 shrink-0 text-sm font-semibold text-foreground', hideTitle && 'sr-only')}>
                     {title}{count !== undefined && <> <span className="font-normal tabular-nums text-muted-foreground">{count}</span></>}
                 </h3>
                 {note && <p className="m-0 min-w-0 text-right text-xs text-muted-foreground">{note}</p>}

@@ -7,6 +7,8 @@ const p = (count: number, one: string, other: string) => plural('de', count, one
 
 export const de: Messages = {
     consentPanel: {
+        about: "Über diesen Tab",
+        groups: { cookie: "Cookies", local: "Lokaler Speicher", session: "Sitzungsspeicher", request: "Anfragen an bekannte Tracker" },
         security: "Seitensicherheit",
         headers: "Antwortheader",
         checkHeaders: "Antwortheader prüfen",
@@ -65,6 +67,7 @@ export const de: Messages = {
         accessibility: 'Barrierefreiheit',
         seo: 'SEO',
         consent: 'Sicherheit und Compliance',
+        pageChecks: 'Seitenprüfungen',
         about: 'Über uier',
         draw: 'Auf der Seite zeichnen',
         collapse: 'Leiste einklappen'
