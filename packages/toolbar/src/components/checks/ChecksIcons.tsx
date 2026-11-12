@@ -4,7 +4,7 @@ import type { SVGAttributes } from 'react';
 type IconProps = SVGAttributes<SVGElement> & { size?: number | undefined };
 
 // Drawn like the UI kit's Lucide icons (24 grid, 1.75 stroke, round caps) in the current text
-// colour: the kit has no accessibility, page-scan, octagon-alert, circle-alert, list-ordered or focus icon.
+// colour: the kit has no accessibility, page-scan, monitor-activity, octagon-alert, circle-alert, list-ordered or focus icon.
 function Icon({ size, children, ...rest }: IconProps) {
     return (
         <svg xmlns="http://www.w3.org/2000/svg" width={size ?? 24} height={size ?? 24} viewBox="0 0 24 24" fill="none"
@@ -89,13 +89,15 @@ export function FocusIcon(props: IconProps) {
     );
 }
 
-/** Page checks (the pill's button for Accessibility, SEO and Security and compliance): a page with a check mark */
+/** Page checks (the pill's button for Accessibility, SEO and Security and compliance): Lucide's monitor-activity,
+ * a screen with a pulse (uier #368) */
 export function PageChecksIcon(props: IconProps) {
     return (
         <Icon {...props}>
-            <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" />
-            <path d="M14 3v5h5" />
-            <path d="m9 14.5 2 2 4-4" />
+            <path d="M12 17v4" />
+            <path d="M18 10h-2.315a1 1 0 0 0-.932.64l-.787 2.034a.5.5 0 0 1-.932 0l-2.068-5.348a.5.5 0 0 0-.932 0l-.787 2.035a1 1 0 0 1-.932.639H6" />
+            <path d="M8 21h8" />
+            <rect x="2" y="3" width="20" height="14" rx="2" />
         </Icon>
     );
 }
