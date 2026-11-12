@@ -32,8 +32,10 @@
   does each menu item ([uier #346](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_xBbWYsilDxsQa0FGcc-0p); `statusUnread` from `ProjectComments`, a 6 px dot in the brand accent like a row's,
   in its own fixed room in the menus so the counts line up). Assistive tech hears "Unread" as the tab's description
   (`aria-describedby`), so a tab's name stays its label and count ("Done 3"). The toolbar's inbox tabs and menus do the
-  same (`TabUnread` in `CommentsSidebarHeader.tsx`, `unread` from `useInboxComments`, the listed comments of the chosen
-  pages; `inbox.hasUnread`). The menu button is a plain button inside the toggle group: Tab reaches it,
+  same (`TabUnread` in `CommentsSidebarHeader.tsx`, `unread` from `useInboxComments`; `inbox.hasUnread`): with All pages
+  and no search, Unread or Assigned to me, where the tabs' counts come from the activity summary, so do the dots (its
+  `unreadOpen`, `unreadInProgress`, `unreadReady`, `unreadDone` and `unreadArchived`, every thread whether loaded or
+  not); otherwise, like the counts, from the listed comments of the chosen pages. The menu button is a plain button inside the toggle group: Tab reaches it,
   the arrow keys move between the tabs only. Each filter in effect shows in the search row, left of the Filter button (uier #209; in the list and the board,
   wrapping only when there is no room; on a phone they go to their own line under the row), named by its filter in muted text ("Priority: Urgent",
   "Environment: Production", "Page: /app/…", "People: Unassigned", "Author: Ana", and "Only unread"), with its own

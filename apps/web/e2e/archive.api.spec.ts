@@ -85,7 +85,9 @@ test('archived lists, unread and counts share visibility and environment scopes'
     expect((await list('&archive=only')).map(comment => comment.id)).toEqual([f.comment.id]);
     expect((await list('&archive=all')).map(comment => comment.id).sort()).toEqual([f.comment.id, ordinary.id].sort());
     expect((await list('&archive=only&unread=true')).map(comment => comment.id)).toEqual([f.comment.id]);
-    expect(await (await reviewActivitySummary(context())).json()).toMatchObject({ archived: 1, total: 1, open: 0, done: 1, unread: 1 });
+    expect(await (await reviewActivitySummary(context())).json()).toMatchObject({ archived: 1, total: 1, open: 0, done: 1, unread: 1,
+        // Each status's unread threads, Archive's too: the inbox's tabs show their unread dot from them (uier #346)
+        unreadOpen: 0, unreadDone: 1, unreadArchived: 1 });
     expect((await projectActivity(f.comment.domain, `user:${author.userId}`)).summary.open).toBe(0);
     await markThreadRead(await f.read(), 'reader', (await f.read()).activity!.sequence);
     expect(await list('&archive=only&unread=true')).toEqual([]);

@@ -121,6 +121,17 @@ export function useInboxComments(filter: CommentsFilter) {
         counts.resolved = activity.done;
         counts.all = activity.total;
         counts.archived = activity.archived ?? counts.archived;
+        // The tabs' unread dots from the same summary, for the threads not loaded yet (uier #346)
+        if (activity.unreadOpen !== undefined) {
+            const open = activity.unreadOpen, inProgress = activity.unreadInProgress ?? 0, ready = activity.unreadReady ?? 0, done = activity.unreadDone ?? 0;
+            unread.open = open > 0;
+            unread['in-progress'] = inProgress > 0;
+            unread.ready = ready > 0;
+            unread.unresolved = open + inProgress + ready > 0;
+            unread.resolved = done > 0;
+            unread.all = open + inProgress + ready + done > 0;
+            unread.archived = (activity.unreadArchived ?? 0) > 0;
+        }
     }
 
     // Other pages in the order of their newest comment, counted with the search and status
