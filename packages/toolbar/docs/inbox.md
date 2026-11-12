@@ -17,7 +17,9 @@ From the top:
   - each with its matching count. The two sides stack on narrow screens.
   Environments and how the choice is kept: [anchor recovery](anchor-recovery.md).
 - Assigned to me (an outlined toggle) and the unread line (`MarkAllRead`): "N unread", the site's unread threads,
-  toggles the unread filter, with Mark all as read beside it. Hidden when nothing is unread. The filters sit closer
+  toggles the unread filter, with Mark all as read beside it. Hidden when nothing is unread. Mark all as read shows
+  whenever something is unread: it reads the listed unread threads, or the site's unread list when none is listed
+  and no search or Assigned to me applies. The filters sit closer
   together than the title and the tabs.
 - The app's status tabs, counted for the chosen pages: Active (the default, everything not done), Done and All.
   The Active statuses menu beside Active chooses Open, In progress or Ready to verify, and the Active tab then

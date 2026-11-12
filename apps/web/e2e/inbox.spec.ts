@@ -95,6 +95,27 @@ test('bulk inbox read follows listed pages/search/status and retries the rendere
     } finally { await author.context.close(); await reader.context.close(); }
 });
 
+test('Mark all as read reads the site\'s unread threads when none of them is listed (uier #372)', async ({ browser }, testInfo) => {
+    const origin = isolatedOrigin(testInfo);
+    const author = await newVisitor(browser, testInfo);
+    const reader = await newVisitor(browser, testInfo);
+    try {
+        const response = await author.context.request.post(`${origin}/api/comments`, { data: { path: '/security', kind: 'feedback', position: { type: 'page' }, text: 'Unread elsewhere' } });
+        expect(response.status()).toBe(201);
+        await reader.page.goto(`${origin}/brand?review=true`);
+        await addToolbarScript(reader.page);
+        const inbox = reader.page.getByRole('button', { name: /^Inbox(?:,|$)/ });
+        await expect(inbox).toHaveAccessibleName('Inbox, 1 unread thread');
+        await inbox.click();
+        const sidebar = reader.page.getByRole('complementary', { name: 'Comments' });
+        // This page and Active list none of them: the button reads the site's unread list
+        await expect(sidebar.getByRole('button', { name: '1 unread', exact: true })).toBeVisible();
+        await sidebar.getByRole('button', { name: 'Mark all as read', exact: true }).click();
+        await expect(inbox).toHaveAccessibleName('Inbox');
+        await expect(sidebar.getByRole('button', { name: /^\d+ unread$/ })).toHaveCount(0);
+    } finally { await author.context.close(); await reader.context.close(); }
+});
+
 test('bulk inbox read sends more than 200 listed threads in sequential bounded requests', async ({ browser }, testInfo) => {
     const origin = isolatedOrigin(testInfo);
     const reader = await newVisitor(browser, testInfo);

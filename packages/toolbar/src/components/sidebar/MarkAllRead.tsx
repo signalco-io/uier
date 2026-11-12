@@ -1,30 +1,37 @@
 import { Approved as CheckCheck } from '@signalco/ui-icons';
 import { Button } from '@signalco/ui-primitives/Button';
 import { cx } from '@signalco/ui-primitives/cx';
-import { useReadComment } from '../../hooks/useComments';
+import { useReadComment, useSiteComments } from '../../hooks/useComments';
 import type { CommentItem } from '../@types/Comments';
 import { useAnnounce } from '../Announcer';
 import { messages, useMessages } from '../../i18n';
 
 /**
  * The inbox's unread line: "N unread", the site's unread threads (the pill's count, in the unread accent), a toggle
- * that lists only them, then Mark all as read beside it for the shown unread threads, a small filled secondary button
- * whose icon takes the unread accent. Renders nothing when nothing is unread (unless the filter is on, so it can be
+ * that lists only them, then Mark all as read beside it, a small filled secondary button whose icon takes the unread
+ * accent. It reads the shown unread threads, or, when none of them is listed (they are on other pages or in another
+ * tab) and no search or Assigned to me narrows the list, the site's unread list, so it is there whenever something is
+ * unread (uier #372). Renders nothing when nothing is unread (unless the filter is on, so it can be
  * turned off) and nothing failed.
  */
-export function MarkAllRead({ comments, unreadTotal, filtering, onFilterChange }: {
+export function MarkAllRead({ comments, unreadTotal, filtering, narrowed, onFilterChange }: {
     comments: CommentItem[];
     /** The site's unread threads */
     unreadTotal: number;
     /** Only unread threads are listed */
     filtering: boolean;
+    /** A search or Assigned to me applies: only the listed threads are read */
+    narrowed: boolean;
     onFilterChange: (unread: boolean) => void;
 }) {
     const read = useReadComment();
     const announce = useAnnounce();
     const t = useMessages();
     const failed = read.data?.failed ?? [];
-    const unread = comments.filter(comment => comment.activity?.unread && !comment.pending);
+    const shown = comments.filter(comment => comment.activity?.unread && !comment.pending);
+    // The site's unread list (the unread filter's), loaded only when the shown list has none of the unread threads
+    const site = useSiteComments(unreadTotal > 0 && !shown.length && !narrowed, true);
+    const unread = shown.length || narrowed ? shown : (site.data ?? []).filter(comment => comment.activity?.unread && !comment.pending);
     const run = (snapshot: CommentItem[]) => read.mutate(snapshot, {
         onSuccess: result => announce(messages().inbox.markedRead(result.reads.length))
     });
