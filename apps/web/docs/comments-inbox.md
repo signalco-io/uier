@@ -5,13 +5,14 @@ the page path separately, so layout changes keep both pieces of information cove
 rows with the status filter it waits for their entrance motion to settle before scanning contrast.
 
 - The comments page is an inbox. `comments/CommentInbox.tsx` lists compact rows (`CommentRow.tsx`). The title line:
-  the unread dot (in the row's left padding, out of the flow, so reading a row moves nothing and a read row has no
-  empty gutter, uier #330), the author (`AuthorAvatar`: a member's picture or initial with the AI agent that wrote it for them
+  the author (`AuthorAvatar`: a member's picture or initial with the AI agent that wrote it for them
   stacked on its edge, a person's outline for a guest, uier's mark on its own starter threads; one image named "By Ana",
   the name in a tooltip, a click on it opens the row; it starts the line, before the number, centred on a card's
   first title line), number, title (`commentTitle`: the [AI title](ai-titles.md), else the first line without its Markdown, `markdownPlainText`; up to two lines on a card)
   and age (`RelativeTime short`: "3 min ago", "2 hr ago", "yesterday", "2 wk ago", the date and time on hover; the
   thread's messages, its activity and other sentences keep whole words; one shared clock ticks every 10 seconds while any age is shown and the tab is visible, and only the ages whose words change re-render). The first minute reads "just now", here and in the toolbar's thread (`CommentTime`), never counting seconds (uier #172).
+  The unread dot overlays the row's top right corner, above the age (out of the flow, so reading a row moves nothing,
+  uier #330, #360), and the row's padding is the same on both sides (`px-3`, uier #354).
   The meta line, one on rows and cards alike, starts under the title, so the path lines up with "#12 …": the selection
   box under the author's avatar, the page path (what it was left on is only in the thread's On row), then private (a 12 px lock, a step smaller than the other marks), a linked pull request, priority other than Normal (`PriorityLabel`: its
   flag alone, named "High priority"), status (`StateDot` and its name, Open too; a board card leaves the status to its column, whose region name screen readers announce), and at its right end
@@ -107,6 +108,8 @@ rows with the status filter it waits for their entrance motion to settle before 
   green (`--brand-success`; BRAND.md, "Status"), always beside the name. List rows, board column headers, the
   thread's status menu (`StateMenu`, `StateBadge`) and the Active statuses menu of the Status filter all use it (the status tabs have none); the
   toolbar's `CommentStatusBadge` uses the same tokens. The dot carries `data-status-dot="<status>"`.
+  A board column with cards shows its dot with a soft glow in the same colour (`GlowingStateDot`, `data-status-glow`;
+  Open's ink at a lower strength), so the columns that hold threads stand out; an empty column has none (uier #356).
   `e2e/status-colors.spec.ts` checks each status's colour in the list, the board, the menu and the filter, in
   light and dark, with axe. It opens the board's Move through `openBoardMove`, as a keyboard user does,
   rather than clicking its visually hidden pointer target.
@@ -136,6 +139,16 @@ Provider titles are never read, so none shows. Rows without a project id and the
 `CommentRow` uses the browser-safe `lib/comments/pullRequestLinks.ts` recognizer for both layouts,
 including My work and the board's drag preview. Deleted messages lose their links; an edited or newly
 saved reply updates the mark through the existing comment refresh.
+
+## Board Archive all
+
+A board column with cards has Archive all (`ArchiveAllButton.tsx`), a small icon button left of its sort, for the
+people who may triage the project (uier #357). It asks first ("Archive 30 threads in Open?"), then archives every
+thread in the column under the board's filters, the ones the column has not loaded yet too: `boardColumnThreadsAction`
+lists the lane's ids on the server (`allIds` in `loadProjectCommentPages`, no rows read), and the client archives them
+50 at a time through `triageCommentsAction`, the selection bar's bulk action. Loaded cards leave at once; a toast says
+how many were archived and offers Retry when some were not. Archive itself has none. `e2e/archive.spec.ts` covers a
+column larger than its first page.
 
 ## Board column sorts
 

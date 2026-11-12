@@ -16,7 +16,9 @@
   effect, one Filter button (a popover with Status on the board only (below), Priority, Environment
   and page, People (Everyone, Assigned to me, Unassigned, Opened by me) and Only unread (plus the open thread); its badge counts the
   filters in effect) and List/Board (on a touch screen the search, Filter and the List/Board group are one height, 44 px:
-  the group's 3 px padding around 38 px tabs; uier #277). The status tabs
+  the group's 3 px padding around 38 px tabs; uier #277). Where the list sits beside its thread (`@3xl/comments`) and on the
+  board (from `md`) the search is as wide as the first column under it, so their edges line up (uier #355:
+  `useFirstColumnWidth` in `ProjectComments.tsx` measures the column into `--first-column`; 20rem until it is measured). The status tabs
   (list only, `StatusTabs`: Active, Done and All, with counts) follow the search in the same row and wrap with it when the
   row runs out of room; on a phone, below `sm`, they take their own line under the row (before the filters in effect),
   the group fills the width and the tabs share the room, uier #278. Active, the default with no `?status=`, is every status

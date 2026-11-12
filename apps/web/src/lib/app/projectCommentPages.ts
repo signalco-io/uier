@@ -115,7 +115,7 @@ export async function loadProjectCommentPages(context: AppContext, project: DbPr
         const remaining = cursor ? rows.filter(row => compare(row, cursor.after) > 0) : rows;
         const depth = input.depths?.[lane] ?? 1;
         if (!Number.isInteger(depth) || depth < 1 || depth > PROJECT_COMMENT_MAX_DEPTH) throw apiErrors.invalidRequest('Invalid column depth.');
-        const size = depth * PROJECT_COMMENT_PAGE_SIZE;
+        const size = input.allIds ? Math.max(rows.length, 1) : depth * PROJECT_COMMENT_PAGE_SIZE;
         const page = remaining.slice(0, size), last = page.at(-1);
         const after = last && { id: last.id, priority: last.priority ?? 'normal', number: last.number, createdAt: last.createdAt,
             updatedAt: last.updatedAt, completedAt: last.completedAt, archivedAt: last.archivedAt };
