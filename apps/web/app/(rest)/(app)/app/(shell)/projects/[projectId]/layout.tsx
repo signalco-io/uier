@@ -1,3 +1,4 @@
+import { orderedStatuses } from '@/src/lib/app/statusWorkflow';
 import { effectiveStatusWorkflow } from '@/src/lib/app/statusWorkflows';
 
 import { getAppI18n } from '@/src/lib/i18n/server';
@@ -43,7 +44,7 @@ async function ProjectLayoutContent({ children, params }: LayoutProps<'/app/proj
     // The board's columns and gaps (20rem a column), the width the comments header and this header take in Board:
     // the statuses, then Archive, a 3rem strip while collapsed and a column like the others when expanded
     const workflow = effectiveStatusWorkflow(context.workspace, project);
-    const columns = workflow.statuses.filter(status => status.category !== 'archive').length;
+    const columns = orderedStatuses(workflow).filter(status => status.category !== 'archive').length;
     const archives = workflow.statuses.filter(status => status.category === 'archive').length;
     const boardWidths = {
         "--board-width-collapsed": `calc(${columns} * 20rem + ${columns + archives - 1}rem + ${archives} * 3rem)`,

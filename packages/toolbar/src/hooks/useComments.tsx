@@ -118,14 +118,14 @@ function withPending(comments: CommentItem[], include: (comment: CommentItem) =>
 }
 
 /** The temporary comment, shown until the API returns the saved one */
-function optimisticComment(path: string, input: CreateCommentInput, authorName: string): CommentItem {
+function optimisticComment(path: string, input: CreateCommentInput, authorName: string, verificationEnabled: boolean): CommentItem {
     const createdAt = new Date().toISOString();
     const id = input.localId ?? newLocalId();
     return {
         id, path, position: input.position, kind: input.kind ?? 'comment', feedbackType: input.feedbackType, check: input.check, drawing: input.drawing, pending: true,
         thread: { items: [{ id: `${id}-0`, text: input.text, mentions: input.mentions, quotedText: input.quotedText, author: { name: authorName, isMe: true }, createdAt, canDelete: false, canEdit: false, pending: true }] },
         device: input.device && { size: input.device.size, windowSize: input.device.windowSize },
-        resolved: false, isMine: true, createdAt,
+        resolved: false, isMine: true, createdAt, verificationEnabled,
         // Nothing to change before it is saved
         permissions: { resolve: false, delete: false, edit: false, assign: false }
     };
@@ -431,7 +431,7 @@ export function useComments(refreshOnMount = false): {
     const { path } = useContext(CommentsBootstrapperContext);
     const client = useQueryClient();
     const drafts = useDrafts();
-    const { currentEnvironment, draftScope, pageState } = useProjectViewer();
+    const { currentEnvironment, draftScope, pageState, verificationEnabled } = useProjectViewer();
     const queryKey = commentsQueryKey(path, currentEnvironment, draftScope);
 
     const query = useQuery({
@@ -473,7 +473,7 @@ export function useComments(refreshOnMount = false): {
             return createComment(path, pageState, { ...input, idempotencyKey: drafts.attempt(key, JSON.stringify({ path, ...content, ...(drawing ? { drawing: drawingFingerprint(drawing) } : {}) })) });
         },
         onMutate: (input: CreateCommentInput) => {
-            const comment = optimisticComment(path, input, authorName());
+            const comment = optimisticComment(path, input, authorName(), verificationEnabled === true);
             pendingComments.set(comment.id, comment);
             client.setQueryData<CommentItem[]>(queryKey, (current) => [comment, ...(current ?? [])]);
             client.setQueryData<CommentItem[]>(siteCommentsQueryKey, (current) => current && [comment, ...current]);

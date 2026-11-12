@@ -1,5 +1,7 @@
 // English source phrases for project, workspace, client and access management.
 const messages = {
+    "Enable fix verification": "Enable fix verification",
+    "Ask a reviewer to confirm fixes before marking them done. When off, pending checks stay in Open or In progress and can be marked done.": "Ask a reviewer to confirm fixes before marking them done. When off, pending checks stay in Open or In progress and can be marked done.",
     "Labels": "Labels",
     "Label name": "Label name",
     "Label description": "Label description",

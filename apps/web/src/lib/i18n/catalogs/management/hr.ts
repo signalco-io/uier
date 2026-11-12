@@ -1,6 +1,8 @@
 import type en from './en';
 
 const messages: Record<keyof typeof en, string> = {
+    "Enable fix verification": "Omogućite provjeru ispravaka",
+    "Ask a reviewer to confirm fixes before marking them done. When off, pending checks stay in Open or In progress and can be marked done.": "Zatražite od pregledavatelja da potvrdi ispravke prije nego što ih označite dovršenima. Kad je ova opcija isključena, provjere na čekanju ostaju u statusu Otvoreno ili U tijeku i možete ih označiti dovršenima.",
     "Labels": "Oznake",
     "Label name": "Naziv oznake",
     "Label description": "Opis oznake",

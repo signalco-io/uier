@@ -1,6 +1,8 @@
 import type en from './en';
 
 const messages: Record<keyof typeof en, string> = {
+    "Enable fix verification": "Attiva la verifica delle correzioni",
+    "Ask a reviewer to confirm fixes before marking them done. When off, pending checks stay in Open or In progress and can be marked done.": "Chiedi a una persona che effettua la revisione di confermare le correzioni prima di contrassegnarle come completate. Se disattivi questa opzione, le verifiche in attesa restano in Aperto o In corso e puoi contrassegnarle come completate.",
     "Labels": "Etichette",
     "Label name": "Nome etichetta",
     "Label description": "Descrizione etichetta",
