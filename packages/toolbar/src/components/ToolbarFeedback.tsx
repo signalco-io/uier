@@ -131,6 +131,22 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
         announce(kind === 'bug' ? t.feedback.bugSent : kind === 'feedback' ? t.feedback.feedbackSent : t.feedback.typeSent(selected.label));
     };
 
+    // A press on the button is outside the popover: kept open here, so its click toggles it closed
+    // (the shadow root retargets the press to the host, which the popover can't tell from its button)
+    const buttonRef = useRef<HTMLButtonElement>(null);
+    const surface = toolbarSurface('uier-feedback', cx('flex max-h-[var(--radix-popover-content-available-height)] w-80 max-w-[calc(100vw-1rem)] flex-col overflow-y-auto rounded-xl p-0', floatingShadowClassName,
+        // Expanding: gone at once, the modal is there
+        expanded && 'data-[state=closed]:animate-none!'));
+    const handleInteractOutside = (event: Event) => {
+        const original = (event as CustomEvent<{ originalEvent?: Event }>).detail?.originalEvent;
+        const target = original?.composedPath()[0];
+        if (target instanceof Node && buttonRef.current?.contains(target)) {
+            event.preventDefault();
+            return;
+        }
+        surface.onInteractOutside(event);
+    };
+
     const tip = useIconTooltip(t.feedback.send);
     if (!selected) return null;
     // A pasted image file is attached instead of the screenshot
@@ -192,12 +208,13 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
             side="top"
             sideOffset={12}
             aria-label={t.feedback.send}
-            {...toolbarSurface('uier-feedback', cx('flex max-h-[var(--radix-popover-content-available-height)] w-80 max-w-[calc(100vw-1rem)] flex-col overflow-y-auto rounded-xl p-0', floatingShadowClassName,
-                // Expanding: gone at once, the modal is there
-                expanded && 'data-[state=closed]:animate-none!'))}
+            {...{ ...surface, onInteractOutside: handleInteractOutside }}
             trigger={(
                 <IconButton
-                    variant="plain"
+                    ref={buttonRef}
+                    // Highlighted while its form is open, however it opened (this button or the page's
+                    // "Give feedback"), like the inbox
+                    variant={open ? 'soft' : 'plain'}
                     className="rounded-full"
                     {...tip.triggerProps}
                     aria-label={t.feedback.send}>

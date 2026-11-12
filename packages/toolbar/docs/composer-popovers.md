@@ -4,6 +4,12 @@ A new comment opens its form in a popover on its pin (`CommentBubble` with a `dr
 reports open theirs from the pill (`ToolbarFeedback`). Both can expand to a modal for focused writing, and a
 posted comment's thread opens in the draft's place.
 
+The pill's feedback button is highlighted (`soft`, like the inbox) while its form is open, however it opened:
+the button, or the page's "Give feedback" (`openUierFeedback()`). Pressing it again closes the form: the press
+reaches the popover as the shadow host (retargeted), so `ToolbarFeedback` keeps the popover open for a press on
+its own button and lets the click toggle it
+([uier #325](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_7raLAPRiP1Uw10hx9_--G)).
+
 ## The form
 
 `ComposerAttachmentsHeader` is the title line: the title, the screenshot toggle (Omit screenshot, a camera icon) and Expand.

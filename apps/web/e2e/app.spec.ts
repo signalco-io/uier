@@ -775,6 +775,12 @@ test('feedback on the app opens uier\'s toolbar and stays private', async ({ pag
     await appNavigation(page);
     await giveFeedback.click();
     await expect(dialog).toBeVisible();
+    // Opened by the page, the toolbar's button shows it open and closes it (uier #325)
+    const feedbackButton = toolbar(page).getByRole('button', { name: 'Send feedback', exact: true });
+    await expect(feedbackButton).toHaveAttribute('aria-expanded', 'true');
+    await feedbackButton.click();
+    await expect(dialog).toBeHidden();
+    await expect(feedbackButton).toHaveAttribute('aria-expanded', 'false');
 
     // All app users are commenters in uier's user feedback project, and see their own feedback
     // under the same identity used by the toolbar. A second account cannot see it.
