@@ -5,7 +5,7 @@ description: Recreate monitor.mjs, the watcher and state helper of the uier-moni
 
 # Recreate the uier monitor helper
 
-This skill carries `monitor.mjs` version 1.4.0, sha256 `3ba3a939910b7b661dbe2c2d4b98cc85d60509b45d3221ee53db344529951549`. It needs Node 18 or later
+This skill carries `monitor.mjs` version 1.5.0, sha256 `1cd9e7264c599b78daa206242f96f3263d2edb8731ba3c4cc37993c41814212b`. It needs Node 18 or later
 and has no dependencies. The uier-monitor skill runs it as `ROOT/monitor.mjs`, where `ROOT` is
 `$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor`.
 
@@ -19,8 +19,8 @@ and has no dependencies. The uier-monitor skill runs it as `ROOT/monitor.mjs`, w
    ```
 
 2. Only when this file isn't on disk, write the code below to `$ROOT/monitor.mjs` exactly as shown.
-3. Check it: `node "$ROOT/monitor.mjs" version` must print version 1.4.0 and sha256
-   `3ba3a939910b7b661dbe2c2d4b98cc85d60509b45d3221ee53db344529951549`. If the hash differs, write the file again; never patch it by hand.
+3. Check it: `node "$ROOT/monitor.mjs" version` must print version 1.5.0 and sha256
+   `1cd9e7264c599b78daa206242f96f3263d2edb8731ba3c4cc37993c41814212b`. If the hash differs, write the file again; never patch it by hand.
 
 Don't edit the code here. Its source is `.claude/skills/uier-monitor/scripts/monitor.mjs` in the uier
 repository, and `build-script-skill.mjs` next to it writes this file.
@@ -40,11 +40,12 @@ repository, and `build-script-skill.mjs` next to it writes this file.
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-const VERSION = '1.4.0';
+const VERSION = '1.5.0';
 const DEFAULT_ENDPOINT = 'https://uier.io/api/mcp';
 const KEYCHAIN_SERVICE = 'uier-mcp';
 const BOOLEAN_FLAGS = new Set(['replace', 'screenshots', 'help', 'persistent', 'take', 'detach', 'apply']);
@@ -96,6 +97,9 @@ Options may come before or after the command.
   stop                    Stop a running watcher.
 
 --project ID uses <git common dir>/uier-monitor/ID as the state directory.
+The watcher announces its state directory in ~/.uier-monitor/monitors (UIER_MONITOR_HOME overrides
+the folder) and keeps an activity history in events.jsonl. dashboard.mjs, next to this file, shows
+every monitor on the machine from those: node dashboard.mjs
 The token comes from UIER_MCP_TOKEN or the keychain (service "${KEYCHAIN_SERVICE}", account: the
 project id, its workspace id or "default"). UIER_MCP_URL overrides ${DEFAULT_ENDPOINT}.
 `;
@@ -193,6 +197,49 @@ function logger(dir) {
     return message => { try { appendFileSync(file, `${new Date().toISOString()} ${message}\n`); } catch { /* best effort */ } };
 }
 
+// ---------------------------------------------------------------- dashboard feed
+// dashboard.mjs reads what these write. Both are best effort: nothing here may stop the monitor.
+
+// Announces this monitor: one small file per state folder under ~/.uier-monitor/monitors, so a
+// dashboard finds every monitor on the machine, whichever repository it runs in.
+function register(dir, state) {
+    try {
+        const home = process.env.UIER_MONITOR_HOME || join(homedir(), '.uier-monitor');
+        const file = join(home, 'monitors', `${createHash('sha256').update(dir).digest('hex').slice(0, 16)}.json`);
+        const entry = { stateDir: dir, project: pick(state.project, ['id', 'name']), repo: state.repo?.slug };
+        const { registeredAt, ...before } = readJson(file, {});
+        if (JSON.stringify(before) !== JSON.stringify(entry)) writeJson(file, { ...entry, registeredAt: new Date().toISOString() });
+    } catch { /* the dashboard is optional */ }
+}
+
+// The activity history (events.jsonl): one JSON line per event, wake and state change.
+function journal(dir, entries) {
+    try {
+        if (!entries.length) return;
+        const file = join(dir, 'events.jsonl');
+        try { if (statSync(file).size > 2_000_000) renameSync(file, `${file}.1`); } catch { /* new journal */ }
+        const at = new Date().toISOString();
+        // An event's own `at` is when it happened in uier; the journal's is when the monitor saw it.
+        appendFileSync(file, entries.map(({ foundAt, at: eventAt, message, ...entry }) => `${JSON.stringify({ at, ...entry,
+            ...(eventAt ? { eventAt } : {}), ...(message ? { message: String(message).slice(0, 200) } : {}) })}\n`).join(''));
+    } catch { /* best effort */ }
+}
+
+// Group state and item decision or stage changes between two states, for the journal.
+function transitions(before, after) {
+    const changes = [];
+    for (const [id, group] of Object.entries(after.groups ?? {})) {
+        const from = before.groups?.[id]?.state;
+        if (group?.state && group.state !== from) changes.push({ type: 'group', group: id, from, to: group.state,
+            numbers: (group.items ?? []).map(item => after.items?.[item]?.number).filter(Boolean), ...(group.pr ? { pr: group.pr } : {}) });
+    }
+    for (const [id, item] of Object.entries(after.items ?? {})) for (const field of ['decision', 'stage']) {
+        const from = before.items?.[id]?.[field];
+        if (item?.[field] && item[field] !== from) changes.push({ type: 'item', number: item.number, field, from, to: item[field] });
+    }
+    return changes;
+}
+
 // ---------------------------------------------------------------- simple commands
 
 function version() {
@@ -207,6 +254,7 @@ async function take(options) {
         if (inbox.length) writeJson(join(dir, 'inbox.json'), []);
         return inbox;
     });
+    if (items.length) journal(dir, [{ type: 'taken', events: items.length }]);
     print({ now: new Date().toISOString(), items });
 }
 
@@ -293,7 +341,10 @@ async function contextCommand(options) {
             result.packet.recoverFrom = join(dir, 'context.json');
         // Persist both the packet and its baseline before draining, so interrupted output is recoverable.
         writeJson(join(dir, 'context.json'), result);
-        if (options.take && events.length) writeJson(join(dir, 'inbox.json'), []);
+        if (options.take && events.length) {
+            writeJson(join(dir, 'inbox.json'), []);
+            journal(dir, [{ type: 'taken', events: events.length }]);
+        }
         return result.packet;
     }));
     print(result);
@@ -318,9 +369,12 @@ async function patch(options) {
     if (change === null || typeof change !== 'object' || Array.isArray(change)) fail('The patch must be a JSON object.');
     await withLock(dir, 'state', () => {
         const file = join(dir, 'state.json');
-        const next = mergePatch(readJson(file, {}), change);
+        const before = readJson(file, {});
+        const next = mergePatch(before, change);
         next.updatedAt = new Date().toISOString();
         writeJson(file, next);
+        journal(dir, transitions(before, next));
+        register(dir, next);
     });
     print('ok');
 }
@@ -342,6 +396,7 @@ function stop(options) {
     if (!pid) { print('not running'); return; }
     try { process.kill(pid, 'SIGTERM'); } catch { /* already gone */ }
     rmSync(join(dir, 'watch.pid'), { force: true });
+    journal(dir, [{ type: 'watcher', event: 'stopped', by: 'stop' }]);
     print(`stopped ${pid}`);
 }
 
@@ -591,7 +646,11 @@ async function enqueue(dir, events) {
     return withLock(dir, 'inbox', () => {
         const before = readJson(join(dir, 'inbox.json'), []);
         const next = coalesceEvents([...before, ...events]);
-        if (next.length !== before.length) writeJson(join(dir, 'inbox.json'), next);
+        if (next.length !== before.length) {
+            writeJson(join(dir, 'inbox.json'), next);
+            // Only what is new: an event found again on every cycle is one line in the history.
+            journal(dir, next.slice(before.length));
+        }
         return next;
     });
 }
@@ -700,7 +759,7 @@ async function watch(options) {
     });
     if (!started) return;
     const release = () => { if (readJson(join(dir, 'watch.pid'), null)?.pid === process.pid) rmSync(join(dir, 'watch.pid'), { force: true }); };
-    for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(signal, () => { log(`stopped by ${signal}`); release(); process.exit(0); });
+    for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(signal, () => { log(`stopped by ${signal}`); journal(dir, [{ type: 'watcher', event: 'stopped', by: signal }]); release(); process.exit(0); });
 
     const startedAt = Date.now();
     const intervalMs = Math.max(30, Number(options.interval) || 60) * 1000;
@@ -710,12 +769,18 @@ async function watch(options) {
     let lastGithub = 0;
     let batchStarted = null;
     log(`watch ${VERSION} started, pid ${process.pid}`);
+    journal(dir, [{ type: 'watcher', event: 'started', pid: process.pid, version: VERSION, persistent: Boolean(options.persistent) }]);
+    register(dir, readJson(join(dir, 'state.json'), {}));
 
     for (;;) {
         const state = readJson(join(dir, 'state.json'), {});
         const seen = readJson(join(dir, 'watch.json'), {});
         const settings = state.watch ?? {};
-        if (state.stopped || settings.stopped || settings.enabled === false) { release(); return; }
+        if (state.stopped || settings.stopped || settings.enabled === false) {
+            journal(dir, [{ type: 'watcher', event: 'stopped', by: 'state' }]);
+            release();
+            return;
+        }
         const found = [];
         // Bookkeeping the watcher does itself (merges, closings, its own stage changes), applied to
         // fresh state under the state lock at the end of the cycle.
@@ -765,10 +830,14 @@ async function watch(options) {
         if (loud.length && (urgentEvents(loud) || now - batchStarted >= batchMs)) {
             if (options.persistent) {
                 const delivery = await notifyInbox(dir, state, inbox, options, now);
-                if (delivery) log(delivery.delivered ? 'wake delivered; waiting for inbox acknowledgement' : 'wake delivery failed; inbox retained');
+                if (delivery) {
+                    log(delivery.delivered ? 'wake delivered; waiting for inbox acknowledgement' : 'wake delivery failed; inbox retained');
+                    journal(dir, [{ type: 'wake', delivered: delivery.delivered, events: loud.length }]);
+                }
             } else {
                 const brief = inbox.map(({ type, number, pr, sha, change }) => ({ type, ...(number ? { number } : {}), ...(pr ? { pr } : {}), ...(sha ? { sha: sha.slice(0, 7) } : {}), ...(change ? { change } : {}) }));
                 log(`wake ${JSON.stringify(brief)}`);
+                journal(dir, [{ type: 'wake', delivered: true, events: inbox.length }]);
                 release();
                 print({ wake: brief, inbox: join(dir, 'inbox.json'), next: 'Run: node monitor.mjs context --take' });
                 return;
@@ -1291,10 +1360,12 @@ async function updateState(dir, updates) {
     if (!updates.length) return;
     await withLock(dir, 'state', () => {
         const file = join(dir, 'state.json');
+        const before = readJson(file, {});
         const next = readJson(file, {});
         for (const update of updates) update(next);
         next.watcherUpdatedAt = new Date().toISOString();
         writeJson(file, next);
+        journal(dir, transitions(before, next));
     });
 }
 

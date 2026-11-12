@@ -42,6 +42,11 @@ For monitoring, use `/uier:uier-monitor <project name or id>` in Claude Code, or
 the uier-monitor skill for that project. Ask for `status` to inspect saved work, or `stop` to stop
 the watcher. The script skill is a helper, not a second monitor to start.
 
+To see what every monitor on your machine is doing, ask for the dashboard, or run
+`node <skill folder>/scripts/dashboard.mjs --open`. It serves a read-only page on
+`http://127.0.0.1:4780`: watcher health, what each monitor waits on, its sessions, pull requests
+and deploys, what needs you, and recent activity.
+
 ## What runs and where data goes
 
 The MCP connector uses `https://uier.io/api/mcp`. It acts as your account within the selection
@@ -63,6 +68,13 @@ remove them. Compact wake receipts and delivery acknowledgements live there too.
 optional detached watcher uses the local `t3` CLI to wake the existing thread only for pending
 work. A harness webhook can serve the same purpose; its private URL stays in a separate `0600`
 file and receives only the project and batch identifiers. This installs no OS service.
+So the dashboard can find monitors in any repository, the helper also writes one small file per
+monitor under `~/.uier-monitor/monitors` (the state folder's path, the project's id and name and
+the repository's name; `UIER_MONITOR_HOME` moves the folder). The dashboard starts only when you
+ask for it. It binds to `127.0.0.1`, answers read requests only, loads nothing from the internet
+(unless you start it with `--review <project id>`, which loads the uier toolbar for that project so
+people can comment on the dashboard) and changes neither the monitor, uier nor the repository. It sends the browser a fixed set of
+fields from the state files, never a token.
 Its separately scoped watcher token can read feedback and screenshots, assign people, link pull
 requests and maintain agent presence; status changes and replies require their separately granted
 operations. On macOS it uses Keychain; elsewhere provide

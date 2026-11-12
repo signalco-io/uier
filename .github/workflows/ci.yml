@@ -310,8 +310,9 @@ jobs:
         run: |
           node .github/scripts/agent-plugins.mjs --check
           node --check plugins/uier/skills/uier-monitor/scripts/monitor.mjs
+          node --check plugins/uier/skills/uier-monitor/scripts/dashboard.mjs
           node plugins/uier/skills/uier-monitor/scripts/build-script-skill.mjs --check
-          node --test .github/scripts/agent-plugins.test.mjs plugins/uier/skills/uier-monitor/scripts/monitor.test.mjs
+          node --test .github/scripts/agent-plugins.test.mjs plugins/uier/skills/uier-monitor/scripts/monitor.test.mjs plugins/uier/skills/uier-monitor/scripts/dashboard.test.mjs
 
   ci-ok:
     # Single required status check: fails if any job failed or was cancelled; skipped jobs are fine.

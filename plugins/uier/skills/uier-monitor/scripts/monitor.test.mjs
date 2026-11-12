@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
 import { once } from 'node:events';
@@ -10,6 +10,10 @@ import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
+
+// The scripts announce themselves to the dashboard; keep that out of the person's own ~/.uier-monitor.
+process.env.UIER_MONITOR_HOME = mkdtempSync(join(tmpdir(), 'uier-monitor-home-'));
+process.on('exit', () => rmSync(process.env.UIER_MONITOR_HOME, { recursive: true, force: true }));
 
 // Exercise the actual standalone script without invoking its CLI or network.
 const source = readFileSync(new URL('./monitor.mjs', import.meta.url), 'utf8')
@@ -679,8 +683,10 @@ for (const detached of [false, true]) test(`standalone persistent watcher delive
         });
         server.listen(0, '127.0.0.1'); await once(server, 'listening');
         const cli = join(dir, 'fake-t3.mjs'), delivered = join(dir, 'delivered.json');
-        writeFileSync(cli, `#!${process.execPath}\nimport {writeFileSync, readFileSync} from 'node:fs';\n`
-            + `writeFileSync(process.env.UM_TEST_WAKE_OUTPUT, JSON.stringify({args:process.argv.slice(2),prompt:readFileSync(0,'utf8')}));\n`, { mode: 0o700 });
+        // Written whole, then renamed: the test reads the file as soon as it exists.
+        writeFileSync(cli, `#!${process.execPath}\nimport {writeFileSync, readFileSync, renameSync} from 'node:fs';\n`
+            + `const out = process.env.UM_TEST_WAKE_OUTPUT;\n`
+            + `writeFileSync(out + '.tmp', JSON.stringify({args:process.argv.slice(2),prompt:readFileSync(0,'utf8')}));\nrenameSync(out + '.tmp', out);\n`, { mode: 0o700 });
         writeFileSync(join(dir, 'state.json'), JSON.stringify({ project: { id: 'fixture' }, me: { name: 'person' } }));
         child = spawn(process.execPath, [fileURLToPath(new URL('./monitor.mjs', import.meta.url)), 'watch', '--state', dir,
             '--persistent', '--thread', 'fixture-thread', '--t3-cli', cli, '--batch-seconds', '0', ...(detached ? ['--detach'] : [])], {
@@ -696,6 +702,15 @@ for (const detached of [false, true]) test(`standalone persistent watcher delive
         assert.equal(JSON.parse(readFileSync(join(dir, 'inbox.json'), 'utf8'))[0].type, 'new');
         assert.equal(JSON.parse(readFileSync(join(dir, 'watch.pid'), 'utf8')).persistent, true);
         assert.ok(JSON.parse(readFileSync(join(dir, 'watch.json'), 'utf8')).heartbeatAt);
+        // The dashboard's feed: the watcher announced the state folder and journaled what it did.
+        // The wake is journaled once its delivery returned, a moment after the CLI wrote its output.
+        const readJournal = () => readFileSync(join(dir, 'events.jsonl'), 'utf8').split('\n').filter(line => line.endsWith('}')).map(line => JSON.parse(line));
+        for (let tries = 0; tries < 200 && !readJournal().some(event => event.type === 'wake'); tries++) await sleep(20);
+        const journal = readJournal();
+        assert.deepEqual(journal.slice(0, 3).map(event => event.type), ['watcher', 'new', 'wake']);
+        assert.ok(journal.every(event => !Number.isNaN(Date.parse(event.at))) && journal[2].delivered === true);
+        assert.ok(readdirSync(join(process.env.UIER_MONITOR_HOME, 'monitors')).filter(name => name.endsWith('.json')).some(name =>
+            JSON.parse(readFileSync(join(process.env.UIER_MONITOR_HOME, 'monitors', name), 'utf8')).stateDir === dir));
         const health = execFileSync(process.execPath, [fileURLToPath(new URL('./monitor.mjs', import.meta.url)),
             'status', '--state', dir], { env: { ...process.env, UIER_MCP_TOKEN: 'fixture-only-token' }, encoding: 'utf8' });
         assert.match(health, /persistent/);
