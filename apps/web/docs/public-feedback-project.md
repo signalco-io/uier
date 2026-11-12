@@ -42,3 +42,6 @@ selection (a cookie), where the menu lists it as current with their own workspac
 The app's on-demand feedback toolbar keeps its host and pill across client navigation, including
 Account sections. Its page-specific composers reset while saved drafts remain scoped to their
 original page. See [client navigation continuity](app-shell.md#client-navigation-continuity).
+
+`showcase.spec.ts` verifies that malformed stored anchors do not break the toolbar and remain
+available in inbox threads. Its active fixtures must not be injected into the separate archive response.

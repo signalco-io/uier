@@ -260,6 +260,8 @@ test('a stored comment that can not be placed does not break the toolbar', async
     // Positions the API refused are added to the list response, like comments stored before it validated them
     if (rejected.length) {
         await page.route('**/api/comments?path=*', async route => {
+            // Archived pages are fetched separately; these fixtures are active comments.
+            if (new URL(route.request().url()).searchParams.get('archive') === 'only') return route.continue();
             const response = await route.fetch();
             const comments = await response.json() as unknown[];
             const now = new Date().toISOString();
@@ -293,7 +295,9 @@ test('a stored comment that can not be placed does not break the toolbar', async
     // The inbox lists all of them; closing it gives the focus back to the Inbox button
     await inbox.click();
     const sidebar = page.getByRole('complementary', { name: 'Comments' });
-    await expect(sidebar.getByText('Broken position')).toHaveCount(3);
+    // Every malformed stored comment remains available as an inbox thread.
+    await expect(sidebar.getByRole('article').filter({ hasText: 'Broken position' })).toHaveCount(3);
+    await expect(sidebar.getByRole('article').filter({ hasText: 'A valid comment' })).toHaveCount(1);
     await page.keyboard.press('Escape');
     await expect(sidebar).toBeHidden();
     await expect(inbox).toBeFocused();
