@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { expectNoAxeViolations } from '../../web/e2e/accessibility';
-import { animationsFinished, commentBubble, openThread, selectText, setThreadStatus, threadOptions, toolbar } from '../../web/e2e/support/toolbar';
+import { animationsFinished, commentBubble, openPageCheck, openThread, pageCheckName, pageChecksButton, selectText, setThreadStatus, threadOptions, toolbar } from '../../web/e2e/support/toolbar';
 import { signIn, createProject, uniqueEmail } from '../../web/e2e/support/app';
 
 import { packageApiProxy } from './packageApi';
@@ -292,10 +292,10 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     const proxied = proxy?.requests.length ?? 0;
     await reviewed.goto(`${origin}/checks`);
     const pill = toolbar(reviewed);
-    // The background checks ran (SEO found what is missing in the head), without the audit
-    await expect(pill.getByRole('button', { name: /^SEO, \d+ to look at$/ })).toBeVisible({ timeout: 20_000 });
-    const accessibility = pill.getByRole('button', { name: 'Accessibility', exact: true });
-    await expect(accessibility).toBeVisible();
+    // The background checks ran (SEO found what is missing in the head), without the audit; both are in the Page checks menu
+    await expect(pageChecksButton(reviewed)).toHaveAttribute('data-uier-attention-panels', /\bseo\b/, { timeout: 20_000 });
+    expect(await pageCheckName(reviewed, /^SEO/)).toMatch(/^SEO, \d+ to look at$/);
+    expect(await pageCheckName(reviewed, /^Accessibility/)).toBe('Accessibility');
     await reviewed.waitForTimeout(1_000);
     // Every script parsed in the reviewed document, including the extension's isolated world
     const debug = await context.newCDPSession(reviewed);
@@ -304,13 +304,13 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     await debug.send('Debugger.enable');
     expect(parsed).toContain('/content.js');
     expect(parsed).not.toContain('/audit.js');
-    await accessibility.click();
+    await openPageCheck(reviewed, /^Accessibility/);
     const checksPanel = reviewed.getByRole('complementary', { name: 'Accessibility' });
     await expect(checksPanel.getByRole('status')).toHaveText(/^\d+ issues? found\.$/, { timeout: 30_000 });
     await expect(checksPanel.locator('[data-uier-rule="image-alt"]')).toContainText('img#chart');
     await expect(checksPanel.locator('[data-uier-rule="button-name"]')).toContainText('button#empty-button');
     await expect(checksPanel).not.toContainText('uier-toolbar');
-    await expect(pill.getByRole('button', { name: /^Accessibility, \d+ issues? found$/ })).toBeVisible();
+    expect(await pageCheckName(reviewed, /^Accessibility/)).toMatch(/^Accessibility, \d+ issues? found$/);
     expect(parsed.filter(path => path === '/audit.js')).toHaveLength(1);
     // Check again reuses the loaded asset
     const checkAgain = checksPanel.getByRole('button', { name: 'Check again' });
@@ -332,8 +332,9 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     await expect(checksPanel).toBeHidden();
     // A smaller page is audited in the background once the toolbar loaded: the button says what it found
     await reviewed.goto(`${origin}/checks?small`);
-    await expect(pill.getByRole('button', { name: /^Accessibility, \d+ issues? found$/ })).toBeVisible({ timeout: 30_000 });
-    await expect(pill.locator('[data-uier-attention="accessibility"]')).toBeVisible();
+    await expect(pageChecksButton(reviewed)).toHaveAttribute('data-uier-attention-panels', /\baccessibility\b/, { timeout: 30_000 });
+    expect(await pageCheckName(reviewed, /^Accessibility/)).toMatch(/^Accessibility, \d+ issues? found$/);
+    await expect(pill.locator('[data-uier-attention="page-checks"]')).toBeVisible();
     // A live embed yields to the extension; a late embed also sees the public ownership probe.
     publicId = otherPublicId; // Existing embed intentionally belongs to another project.
     await reviewed.goto(`${origin}/embedded`);

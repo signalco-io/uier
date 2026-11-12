@@ -35,8 +35,9 @@ function nativelyFocusable(element: Element) {
 
 /** Its tabindex when the Tab key stops on it: focusable, not disabled, rendered and not negative */
 function tabIndexOf(element: Element): number | undefined {
-    // A focus trap's guard (Radix, the toolbar's menus' too, briefly after one closes) hands the focus on: never a stop
-    if (!element.matches(focusable) || element.hasAttribute('data-radix-focus-guard')) return undefined;
+    // The toolbar's own menus' focus guards (on the page's body until a closing menu is gone; src/focusGuards.ts) are not
+    // the page's. The page's own guards are its stops like any other
+    if (!element.matches(focusable) || element.hasAttribute('data-uier-focus-guard')) return undefined;
     const own = element.hasAttribute('tabindex');
     const index = (element as HTMLElement).tabIndex;
     if (own ? !(index >= 0) : !nativelyFocusable(element)) return undefined;

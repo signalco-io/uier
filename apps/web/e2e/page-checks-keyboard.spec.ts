@@ -142,6 +142,31 @@ test('the Keyboard section reports the tab order and draws it on the page while 
     await expect(layer).toHaveCount(0);
 });
 
+test('the toolbar\'s own menu focus guards are left out of the hidden tab stops, a page\'s own guard is reported', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.use.isMobile === true, 'Desktop layout; the menu is in Options on a phone');
+    test.setTimeout(90_000);
+    // Opened from the Page checks menu: its guards are still on the body while it closes, and are not counted
+    const { panel, keyboard } = await openPanel(page, 'keyboard-guards');
+    const hidden = check(keyboard, 'tab-hidden-stop');
+    await expect(hidden.getByRole('listitem')).toHaveCount(1);
+    await expect(hidden.getByRole('listitem')).toContainText('a#ghost-link.ghost');
+
+    // A guard the page's own Radix left behind (a force-mounted, closed popover keeps one) takes the focus: reported
+    await page.evaluate(() => {
+        const guard = document.createElement('span');
+        guard.id = 'page-guard';
+        guard.setAttribute('data-radix-focus-guard', '');
+        guard.tabIndex = 0;
+        guard.style.cssText = 'outline: none; opacity: 0; position: fixed; pointer-events: none;';
+        document.body.prepend(guard);
+    });
+    await panel.getByRole('button', { name: 'Check again' }).click();
+    await expect(keyboard).toHaveAttribute('data-uier-section-status', 'done', { timeout: 20_000 });
+    await showChecksTab(panel, 'keyboard');
+    await expect(hidden.getByRole('listitem')).toHaveCount(2);
+    await expect(hidden.getByRole('listitem').filter({ hasText: 'span#page-guard' })).toHaveCount(1);
+});
+
 /** The focus check's results: the button without a focus style, and the stop that stays hidden; never the ring, the wrapper or the skip link */
 async function expectFocusFindings(keyboard: Locator) {
     const indicators = check(keyboard, 'focus-indicator');
