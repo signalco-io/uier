@@ -435,8 +435,8 @@ export const fr: Messages = {
         dimensions: 'Choisissez une image de 4096 pixels de côté au plus.'
     },
     pin: {
-        label: (number: number | undefined, messages: number | undefined, done: boolean | undefined) =>
-            [number === undefined ? 'Commentaire' : `Commentaire #${number}`, ...(messages === undefined ? [] : [`${messages} ${p(messages, 'message', 'messages')}`]), ...(done ? ['terminé'] : [])].join(', '),
+        label: (number: number | undefined, messages: number | undefined, status: string | undefined) =>
+            [number === undefined ? 'Commentaire' : `Commentaire #${number}`, ...(messages === undefined ? [] : [`${messages} ${p(messages, 'message', 'messages')}`]), ...(status ? [status] : [])].join(', '),
         newComment: 'Nouveau commentaire',
         newRewrite: 'Nouvelle suggestion de réécriture',
         commentSending: 'Commentaire, envoi en cours',

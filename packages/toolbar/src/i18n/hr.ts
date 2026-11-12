@@ -436,8 +436,8 @@ export const hr: Messages = {
         dimensions: 'Odaberite sliku od najviše 4096 piksela po stranici.'
     },
     pin: {
-        label: (number: number | undefined, messages: number | undefined, done: boolean | undefined) =>
-            [number === undefined ? 'Komentar' : `Komentar #${number}`, ...(messages === undefined ? [] : [`${messages} ${p(messages, 'poruka', 'poruke', 'poruka')}`]), ...(done ? ['gotovo'] : [])].join(', '),
+        label: (number: number | undefined, messages: number | undefined, status: string | undefined) =>
+            [number === undefined ? 'Komentar' : `Komentar #${number}`, ...(messages === undefined ? [] : [`${messages} ${p(messages, 'poruka', 'poruke', 'poruka')}`]), ...(status ? [status] : [])].join(', '),
         newComment: 'Novi komentar',
         newRewrite: 'Novi prijedlog teksta',
         commentSending: 'Komentar, šalje se',

@@ -93,3 +93,21 @@ test('the toolbar\'s icon buttons show their names on hover and keyboard focus',
     await expect(tooltip(page, 'Inbox')).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath('toolbar-tooltip.png') });
 });
+
+test('a pin shows its thread\'s status but Open, in its dot and its name (uier #364)', async ({ page }) => {
+    const thread = await memberThread(page);
+    const pin = commentBubble(page, 1, 1);
+    await expect(pin.locator('[data-uier-pin-status]')).toHaveCount(0);
+
+    await thread.getByRole('button', { name: 'Status: Open. Change status', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Status', exact: true }).getByRole('button', { name: 'In progress', exact: true }).click();
+    // At once (optimistic), the status dot on the pin and the status in its name; the pin keeps its size
+    const inProgress = page.getByRole('button', { name: 'Comment #1, 1 message, In progress', exact: true });
+    await expect(inProgress.locator('[data-uier-pin-status="in-progress"]')).toBeVisible();
+    const box = (await inProgress.boundingBox())!;
+    expect(Math.round(box.width)).toBeLessThanOrEqual(44);
+
+    await thread.getByRole('button', { name: 'Status: In progress. Change status', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Status', exact: true }).getByRole('button', { name: 'Open', exact: true }).click();
+    await expect(pin.locator('[data-uier-pin-status]')).toHaveCount(0);
+});

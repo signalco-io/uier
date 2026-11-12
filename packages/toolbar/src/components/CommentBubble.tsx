@@ -19,6 +19,10 @@ import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
 import { holdsLayersAttribute, isToolbarAnchor, pressableToolbarOpener, toolbarPinId, toolbarSurface } from '../toolbarReview';
 import { isPointing } from './CommentPointOverlay';
+import { PinStatus } from './PinStatus';
+import { statusLabel } from './CommentThreadHeader';
+import { selectedWorkflowStatus, useWorkflowStatuses } from '../hooks/useWorkflowStatus';
+import { feedbackStage } from '../verification';
 import { PinParticipants, participantsTuck, participantsWidth, threadParticipants } from './PinParticipants';
 import { RewriteSuggestions, useRewriteSuggestionsState } from './RewriteSuggestions';
 import { ComposerAttachButton, ComposerAttachmentsHeader, composerIconButtonClassName, useAttachedImage, type AttachedImage } from './ComposerAttachments';
@@ -264,6 +268,11 @@ export function CommentBubble(props: CommentBubbleProps) {
     // A deleted first item ("Comment deleted") is not a message, nor is one still on its way
     const messagesCount = commentItem?.thread.items.filter(item => !item.deleted && !item.pending).length ?? 0;
     const sending = Boolean(commentItem?.pending);
+    // The thread's status on its pin and in its name (uier #364): optimistic changes and realtime update the item
+    const workflowStatuses = useWorkflowStatuses();
+    const pinStage = commentItem && !creating && !sending ? feedbackStage(commentItem) : undefined;
+    const pinStatus = commentItem && pinStage && pinStage !== 'open' ? selectedWorkflowStatus(commentItem, pinStage, workflowStatuses.data) : undefined;
+    const statusName = pinStage && pinStage !== 'open' ? (pinStatus ? statusLabel(pinStatus, t) : t.status[pinStage]) : undefined;
 
     const handleSubmit = async (text: string, mentions?: Mention[]) => {
         if (props.commentItem) {
@@ -620,7 +629,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                             ? newLabel
                             : sending
                                 ? t.pin.commentSending
-                                : t.pin.label(commentItem.number, messagesCount, commentItem.resolved)}
+                                : t.pin.label(commentItem.number, messagesCount, statusName)}
                         aria-description={participantsText}
                         onFocus={handleFocus}
                         onPointerEnter={handlePreviewEnter}
@@ -645,13 +654,16 @@ export function CommentBubble(props: CommentBubbleProps) {
                             willChange: 'left, top'
                         }}>
                         {/* The thread's number, the one people quote; the message count is the badge */}
-                        <Pin
-                            aria-hidden="true"
-                            number={creating || sending ? undefined : commentItem.number}
-                            messages={creating || sending ? undefined : messagesCount}
-                            upsideDown={upsideDown}
-                            style={{ display: 'block' }}
-                            className="group-hover:scale-110 group-hover:brightness-75" />
+                        <span className="relative block group-hover:scale-110 group-hover:brightness-75">
+                            <Pin
+                                aria-hidden="true"
+                                number={creating || sending ? undefined : commentItem.number}
+                                messages={creating || sending ? undefined : messagesCount}
+                                upsideDown={upsideDown}
+                                style={{ display: 'block' }} />
+                            {/* Its status at a glance, but Open (uier #364) */}
+                            {pinStage && pinStage !== 'open' && <PinStatus stage={pinStage} />}
+                        </span>
                         <PinParticipants people={participants} side={participantsSide} />
                     </button>
                 )}
