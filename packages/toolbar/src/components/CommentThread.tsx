@@ -2,7 +2,6 @@ import { CommentLabels } from './CommentLabels';
 import { CommentVerification } from './CommentVerification';
 import { CheckRecheck } from './checks/CheckRecheck';
 import { readyForReview } from '../verification';
-import { CommentActivity } from './CommentActivity';
 import { CommentAnchorDetails } from './CommentAnchorDetails';
 import { DraftsProvider } from '../hooks/useDrafts';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -133,7 +132,6 @@ function ThreadContents({ commentItem, reading, onPage, allMessages }: { comment
             {!ready && recheck}
             <CommentVerification statusId={verificationStatusId} comment={commentItem} open={verifying} onOpenChange={setVerifying} returnFocus={optionsRef} evidence={ready && recheck} />
             <CommentAnchorDetails comment={commentItem} />
-            <CommentActivity entries={commentItem.history} />
             {toolbarConfig.project && commentItem.notifications?.eligible && <ThreadNotifications comment={commentItem} />}
             <CommentLabels comment={commentItem} />
             {commentItem.integrationLinks && commentItem.integrationLinks.length > 0 && <nav aria-label={t.thread.connectedServices} className="flex flex-wrap gap-3 text-xs">

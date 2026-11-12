@@ -258,10 +258,6 @@ export const fr: Messages = {
         loadingPeople: 'Chargement des personnes...',
         unassign: 'Retirer l’attribution'
     },
-    activity: {
-        toggle: (count: number) => `Activité (${count})`,
-        label: 'Activité de la discussion'
-    },
     reactions: {
         add: 'Ajouter une réaction',
         label: 'Réactions',

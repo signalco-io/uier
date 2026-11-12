@@ -264,10 +264,6 @@ export const en = {
         loadingPeople: 'Loading people...',
         unassign: 'Unassign'
     },
-    activity: {
-        toggle: (count: number) => `Activity (${count})`,
-        label: 'Thread activity'
-    },
     reactions: {
         /** The button that opens the quick set of emoji, and the set's name */
         add: 'Add reaction',

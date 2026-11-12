@@ -23,7 +23,7 @@ people with Former member and omitting account/actor ids. Guest/public DTOs omit
 from a private period remain visible only to the thread author and admins after publication; current
 thread access is always checked first. Feedback exports and integration packets do not include history.
 `e2e/thread-history.api.spec.ts` covers retention, concurrency/retries, workflow, projection and delivery
-isolation; `thread-history.spec.ts` covers the app/toolbar controls, reloads, themes and accessibility.
+isolation; `thread-history.spec.ts` covers the app controls, reloads, themes and accessibility, and that toolbar threads show no activity.
 
 ## Read cursors and freshness
 
