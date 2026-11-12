@@ -962,3 +962,25 @@ test('MCP archive has an explicit list scope, preserves export status and requir
         expect(await list('only')).toEqual([]);
     } finally { await client.close(); await reader.close(); }
 });
+
+test('MCP reads effective custom status descriptions and per-thread status without widening project access', async () => {
+    const f = await fixture();
+    const { defaultStatusWorkflow } = await import('../src/lib/app/statusWorkflow');
+    const { setProjectCommentWorkflowStatus } = await import('../src/lib/review/comments');
+    const workflow = { ...structuredClone(defaultStatusWorkflow), statuses: [...structuredClone(defaultStatusWorkflow.statuses),
+        { id: 'custom_approved', category: 'open' as const, label: 'Approved', description: 'Approved for implementation.' }] };
+    await updateProject(f.project.workspaceId, f.project.id, { statusWorkflow: { mode: 'replace', value: workflow } });
+    await setProjectCommentWorkflowStatus(f.project, f.actor, f.comment.id, 'custom_approved');
+    const { token } = await createMcpCredential(f.context, { name: 'Statuses', projectIds: [f.project.id], scopes: ['feedback:read'], days: 7 });
+    const client = await connect(token);
+    try {
+        const definitions = data(await client.callTool({ name: 'list_feedback_statuses', arguments: { projectId: f.project.id } }));
+        expect(definitions).toMatchObject({ contentTrust: 'untrusted', initialStatusId: 'open', doneStatusId: 'done', archiveStatusId: 'archive' });
+        expect(definitions.statuses.map((status: { id: string }) => status.id)).toEqual(['open', 'custom_approved', 'in-progress', 'ready', 'done', 'archive']);
+        expect(definitions.statuses[1].description).toBe('Approved for implementation.');
+        const listed = data(await client.callTool({ name: 'list_feedback', arguments: { projectId: f.project.id } }));
+        expect(listed.items[0].workflowStatus.id).toBe('custom_approved');
+        expect(data(await client.callTool({ name: 'get_feedback', arguments: { projectId: f.project.id, commentId: f.comment.id } })).workflowStatus.id).toBe('custom_approved');
+        expect(data(await client.callTool({ name: 'list_feedback_statuses', arguments: { projectId: f.other.id } })).error).toBe('not_found');
+    } finally { await client.close(); }
+});

@@ -41,7 +41,8 @@ const shortLabels: Record<BoardSort, string> = {
  * at a time. It is the project's (saved for everyone who opens the board), so a column in another order than
  * its default says which beside the icon. Only for the people who may change it.
  */
-export function BoardSortMenu({ status, sort, onChange, className }: {
+export function BoardSortMenu({ status, sort, onChange, className, label }: {
+    label?: string;
     status: BoardColumn;
     sort: BoardSort;
     onChange: (sort: BoardSort) => void;
@@ -49,7 +50,7 @@ export function BoardSortMenu({ status, sort, onChange, className }: {
     className?: string;
 }) {
     const { t } = useAppI18n();
-    const column = status === 'archive' ? t("Archive") : t(commentStatusLabels[status]);
+    const column = label ?? (status === 'archive' ? t("Archive") : t(commentStatusLabels[status]));
     const usual = sort === defaultBoardSort(status);
     return (
         <DropdownMenu>

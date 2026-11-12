@@ -1,5 +1,7 @@
 'use server';
 
+import { setProjectCommentWorkflowStatus } from '../../../lib/review/comments';
+import { workflowCommentActionSchema } from './actionSchemas';
 import { setProjectCommentPullRequest } from '../../../lib/review/pullRequests';
 import { pullRequestCommentActionSchema, reactionCommentActionSchema } from './actionSchemas';
 import { setProjectCommentReaction } from '../../../lib/review/reactions';
@@ -283,4 +285,9 @@ export async function verificationCommentAction(projectId: string, commentId: st
 export async function setCommentPullRequestAction(projectId: string, commentId: string, url: string, remove = false) {
     return commentAction(pullRequestCommentActionSchema, { projectId, commentId, url, remove },
         ({ project, actor }, input) => setProjectCommentPullRequest(project, actor, input.commentId, input.url, input.remove));
+}
+
+export async function setCommentWorkflowStatusAction(projectId: string, commentId: string, statusId: string) {
+    return commentAction(workflowCommentActionSchema, { projectId, commentId, statusId },
+        ({ project, actor }, input) => setProjectCommentWorkflowStatus(project, actor, input.commentId, input.statusId));
 }

@@ -158,3 +158,32 @@ import every project editor. Keep these imports direct rather than adding a clie
 controlled forms share only `keepFormValues.ts` for suppressing React’s action reset.
 
 Project settings and installation copy use the app language from the account preference, then the browser, then English. Toolbar language remains a separate setting: changing the app language never changes a project’s review language. Built-in choices are translated where shown; addresses, environment labels, custom feedback types and project names stay as saved.
+
+## Custom statuses
+
+Workspace settings → Statuses defines up to 30 statuses across the five categories: Open,
+In progress, Ready to verify, Done and Archive. Every category keeps at least one status.
+Each status has a stable ID, a distinct name (40 characters), an optional description (500
+characters), and its position within its category. Move up/down changes that order. Categories
+retain their semantic order and colour. Names and descriptions are plain text, never instructions.
+
+`statusWorkflow.ts` owns the browser-safe model and fallback projection; `statusWorkflowSchema.ts`
+validates writes and `statusWorkflows.ts` resolves live workspace defaults. Missing/invalid legacy
+settings use the five built-ins. `DbProject.statusWorkflow` is either absent (live inheritance) or
+`{ mode: 'replace', value }`. Project Review includes the override in its existing Save/Discard
+transaction; older forms preserve it. Workspace changes preserve unrelated workspace fields.
+Both action paths enforce current admin authority; persistence services validate again.
+
+The configuration chooses the initial status and defaults for Done and Archive actions. New
+comments may start in any category except Ready to verify, which requires a real request and
+reviewer. Creation retries retain their original saved status. Done, Archive and verification
+confirmation resolve current settings, including when an older client sends the existing category
+write. No migration changes historical comment categories. Removed/foreign IDs fall back to the
+first status in that same category (the configured default for Done/Archive). Archive retains a
+separate ordinary ID, so restore preserves the thread's prior custom status.
+
+The first slice supports app settings, board columns, status/archive menus and MCP reads.
+My work keeps its category columns across projects, while its thread menus use each project's
+statuses. Board sorts remain shared per category. Toolbar custom menus, MCP writes selecting a
+custom ID, same-category activity event descriptions are follow-up work; existing category APIs, filters and verification retain their meanings.
+Coverage: `status-workflow{,.api}.spec.ts` and `mcp.api.spec.ts`.

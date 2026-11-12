@@ -1,4 +1,5 @@
 'use server';
+import { projectStatusWorkflowSchema } from '../../../lib/app/statusWorkflowSchema';
 
 import { toolbarFeatureVisibilitySchema } from '../../../lib/app/toolbarFeatures';
 import { projectFeedbackTypesSchema } from '../../../lib/app/feedbackTypeSchema';
@@ -129,6 +130,8 @@ export async function updateProjectReviewAction(_: ActionState, formData: FormDa
     return await actionResult(async () => {
         const { context, project } = await adminProject(formData.get('projectId'));
         assertMutableProject(context.workspace.id, project.id);
+        const statusWorkflow = formData.has('statusWorkflow') && formData.get('statusWorkflow') !== 'workspace'
+            ? projectStatusWorkflowSchema.parse(JSON.parse(String(formData.get('statusWorkflow')))) : undefined;
         const feedbackTypes = formData.has('feedbackTypes')
             ? formData.get('feedbackTypes') === 'workspace' ? undefined : projectFeedbackTypesSchema.parse(JSON.parse(String(formData.get('feedbackTypes'))))
             : undefined;
@@ -143,6 +146,7 @@ export async function updateProjectReviewAction(_: ActionState, formData: FormDa
             hashRouting: formData.get('hashRouting') === 'true'
         });
         const update: ProjectUpdate = {};
+        if (formData.has('statusWorkflow') && JSON.stringify(statusWorkflow) !== JSON.stringify(project.statusWorkflow)) update.statusWorkflow = statusWorkflow;
         if (formData.has('feedbackTypes') && JSON.stringify(feedbackTypes) !== JSON.stringify(project.feedbackTypes))
             update.feedbackTypes = feedbackTypes;
         if (toolbarFeatures !== undefined && JSON.stringify(toolbarFeatures) !== JSON.stringify(project.toolbarFeatures ?? {}))

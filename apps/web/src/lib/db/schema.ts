@@ -268,6 +268,9 @@ export type DbComment = {
      * canceled check returns the thread to In progress.
      */
     inProgress?: boolean;
+    /** Custom status IDs refine the semantic workflow; archive keeps the ordinary ID for restore. */
+    workflowStatusId?: string;
+    archiveStatusId?: string;
     /** sha256 of the visitor token (missing on old documents) */
     authorId?: string;
     /** ISO 8601, server time (missing on old documents) */

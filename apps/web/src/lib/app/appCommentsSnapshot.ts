@@ -1,3 +1,4 @@
+import { effectiveStatusWorkflow } from './statusWorkflows';
 import { englishAppTranslator } from '../i18n/translate';
 import type { AppTranslator } from '../i18n/types';
 import { keyedHash } from '../comments/environment';
@@ -23,6 +24,7 @@ export async function loadAppCommentsSnapshot(context: AppContext, project: DbPr
         membersForRequest
     ]);
     const snapshot = {
+        workflow: effectiveStatusWorkflow(context.workspace, project),
         environments: environmentOptions(project), projectId: project.id, access: project.access, isAdmin: context.isAdmin,
         comments, searchWindowCapped, query, authorFilter: author?.filter, userId: context.user.id,
         boardSorts: boardSortsOf(project.boardSorts), boardArchiveExpanded: Boolean(project.boardArchiveExpanded), canSortBoard: canSortProjectBoard(project, appActor(context)),
@@ -32,6 +34,7 @@ export async function loadAppCommentsSnapshot(context: AppContext, project: DbPr
     // to the server revision. Hash the actual rendered view, including time-dependent agent
     // leases, read cursors, current names, titles, access and subscriptions, never raw private rows.
     const revision = keyedHash('app-comments-snapshot', JSON.stringify({ ...snapshot,
+        comments: comments.map(({ workflow: _workflow, ...comment }) => comment),
         query: { environment: query.environment, author: query.author },
         project: { name: project.name, urls: project.urls, status: project.status, clientId: project.clientId },
         workspace: { id: context.workspace.id, name: context.workspace.name }, user: { name: context.user.name }

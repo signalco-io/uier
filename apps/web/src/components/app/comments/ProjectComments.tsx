@@ -2,6 +2,7 @@
 
 import { useAppI18n } from '@/src/lib/i18n/client';
 
+import { defaultStatusWorkflow, type StatusWorkflow } from '../../../lib/app/statusWorkflow';
 import { commentAssignees } from '@uier/toolbar/agents';
 import { useEffect, useLayoutEffect, useOptimistic, useRef, useState, useTransition } from 'react';
 import { toast } from 'sonner';
@@ -69,6 +70,7 @@ function applyFilters(comments: ProjectCommentView[], query: CommentsQuery, user
 }
 
 type ProjectCommentsProps = {
+    workflow?: StatusWorkflow;
     initialView?: CommentsView;
     revision: string;
     searchWindowCapped?: boolean;
@@ -92,7 +94,7 @@ type ProjectCommentsProps = {
 };
 
 /** The project's comments in a list (a status tab) or on a board (a column per status), filtered by people and page. */
-export function ProjectComments({ projectId, revision, access, isAdmin, comments: savedComments, query: serverQuery, userId, assignees, installHref, environments, authorFilter, searchWindowCapped = false, boardSorts: savedSorts, boardArchiveExpanded: savedArchiveExpanded = false, canSortBoard, initialView }: ProjectCommentsProps) {
+export function ProjectComments({ workflow = defaultStatusWorkflow, projectId, revision, access, isAdmin, comments: savedComments, query: serverQuery, userId, assignees, installHref, environments, authorFilter, searchWindowCapped = false, boardSorts: savedSorts, boardArchiveExpanded: savedArchiveExpanded = false, canSortBoard, initialView }: ProjectCommentsProps) {
     const { t } = useAppI18n();
     // The presentation filters and the open thread change with the address at once, even while a
     // change waits for the server (`useUrlSearchParams`)
@@ -308,7 +310,7 @@ export function ProjectComments({ projectId, revision, access, isAdmin, comments
                     </EmptyHeader>
                 </Empty>
             ) : board ? (
-                <CommentBoard projectOf={() => ({ id: projectId, assignees })} columns={columns} sorts={boardSorts} onSort={canSortBoard ? changeSort : undefined}
+                <CommentBoard workflow={workflow} projectOf={() => ({ id: projectId, assignees })} columns={columns} sorts={boardSorts} onSort={canSortBoard ? changeSort : undefined}
                     archive={{ comments: archived, expanded: archiveExpanded, onExpandedChange: changeArchive }}
                     allComments={scopeComments} userId={userId} openComment={openComment} />
             ) : (

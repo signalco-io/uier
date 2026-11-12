@@ -318,3 +318,19 @@ accessible names. `src/lib/i18n/catalogs/comments` holds the six complete catalo
 values and browser-safe label records stay stable; components translate their display labels.
 Custom feedback type names, comments, project names and other member content remain as written.
 Relative times use the app language and the existing shared clock.
+
+## Custom status columns
+
+Project boards resolve the workspace status workflow or project override. Each ordinary status
+gets a column in its category's order; each archive status gets a collapsed/expanded archive
+column, sharing the project's archive expansion choice. Column IDs are status IDs, labels and
+descriptions come from settings, and dots/permissions/sorts continue to use the category. Existing
+card spacing and content stay shared with the inbox. Move, drag targets, keyboard lanes and the
+placeholder follow those IDs. Within-category moves retain completion times and verification.
+A move into Ready to verify opens the existing request form with that destination ID; canceling a
+pending check into a custom Open/In progress status is one conditional write. Archive menus offer
+the configured shortcut and explicit archive destinations; restore retains the ordinary custom ID.
+Rows and threads show custom labels; built-in labels retain localization. The board test helper
+reveals and settles an offscreen card before keyboard-opening Move, so horizontal scrolling
+from a previous move cannot anchor its menu outside a mobile viewport. My work keeps category
+lanes, with project-specific status choices in each thread. See [custom status settings](project-settings.md#custom-statuses).

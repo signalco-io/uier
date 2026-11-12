@@ -1,3 +1,4 @@
+import { effectiveStatusWorkflow } from '@/src/lib/app/statusWorkflows';
 
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
@@ -20,7 +21,6 @@ import { GuestReviewLinks } from '@/src/components/app/projects/GuestReviewLinks
 import { hasProjectFeedback } from '@/src/lib/app/projectComments';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import { KnownPageLinks } from '@/src/knownPages';
-import { feedbackStages } from '@uier/toolbar/verification';
 
 /**
  * A project: its name and Open review (it lists every address), then its tabs with the settings cog at their right
@@ -42,10 +42,12 @@ async function ProjectLayoutContent({ children, params }: LayoutProps<'/app/proj
 
     // The board's columns and gaps (20rem a column), the width the comments header and this header take in Board:
     // the statuses, then Archive, a 3rem strip while collapsed and a column like the others when expanded
-    const columns = feedbackStages.length;
+    const workflow = effectiveStatusWorkflow(context.workspace, project);
+    const columns = workflow.statuses.filter(status => status.category !== 'archive').length;
+    const archives = workflow.statuses.filter(status => status.category === 'archive').length;
     const boardWidths = {
-        "--board-width-collapsed": `calc(${columns} * 20rem + ${columns}rem + 3rem)`,
-        "--board-width-expanded": `calc(${columns + 1} * 20rem + ${columns}rem)`
+        "--board-width-collapsed": `calc(${columns} * 20rem + ${columns + archives - 1}rem + ${archives} * 3rem)`,
+        "--board-width-expanded": `calc(${columns + archives} * 20rem + ${columns + archives - 1}rem)`
     };
 
     return (

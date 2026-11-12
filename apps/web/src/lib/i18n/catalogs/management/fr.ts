@@ -1,6 +1,21 @@
 import type en from './en';
 
 const messages: Record<keyof typeof en, string> = {
+    "Add status to {category}": "Ajouter un statut à {category}",
+    "Archive action uses": "Statut utilisé pour archiver",
+    "Collapse {name}": "Réduire {name}",
+    "Define statuses within the five workflow categories. Projects inherit these defaults or use their own set.": "Définissez des statuts dans les cinq catégories du workflow. Les projets héritent de ces valeurs ou utilisent leurs propres statuts.",
+    "Done action uses": "Statut utilisé pour terminer",
+    "Move down": "Descendre",
+    "Move down {name}": "Descendre {name}",
+    "Move up": "Monter",
+    "Move up {name}": "Monter {name}",
+    "New comments start in": "Statut initial des nouveaux commentaires",
+    "Ready to verify needs a verification request and a reviewer, so new comments cannot start there.": "Prêt à vérifier nécessite une demande et une personne chargée de vérifier. Les nouveaux commentaires ne peuvent donc pas commencer ici.",
+    "Status defaults": "Statuts par défaut",
+    "Status name": "Nom du statut",
+    "Statuses": "Statuts",
+    "Statuses keep their category. Filters and verification follow the category. Removed statuses return existing threads to a status in the same category.": "Les statuts conservent leur catégorie. Les filtres et la vérification suivent la catégorie. Si un statut est supprimé, les fils existants passent à un statut de la même catégorie.",
     " (external)": " (externe)",
     " Added by {value0}.": " Ajouté par {value0}.",
     " Its client, {value0}, becomes that workspace's client with the same name.": " Son client, {value0}, devient le client de cet espace de travail portant le même nom.",

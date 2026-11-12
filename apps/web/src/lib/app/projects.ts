@@ -1,3 +1,4 @@
+import { projectStatusWorkflowSchema } from './statusWorkflowSchema';
 import { toolbarFeatureVisibilitySchema } from './toolbarFeatures';
 import { projectFeedbackTypesSchema } from './feedbackTypeSchema';
 import { customAlphabet } from 'nanoid';
@@ -170,6 +171,7 @@ export async function createProject(context: AppContext, { name, urls, clientNam
 }
 
 export type ProjectUpdate = Partial<{
+    statusWorkflow: DbProject['statusWorkflow'];
     toolbarFeatures: DbProject['toolbarFeatures'];
     rewriteInstructions: import('./inheritedSettings').ProjectSetting<string> | undefined;
     feedbackTypes: DbProject['feedbackTypes'];
@@ -192,6 +194,7 @@ export async function updateProject(workspaceId: string, projectId: string, upda
     if (update.rewriteInstructions !== undefined)
         update = { ...update, rewriteInstructions: projectRewriteInstructionsSchema.parse(update.rewriteInstructions) };
     if (update.toolbarFeatures !== undefined) update = { ...update, toolbarFeatures: toolbarFeatureVisibilitySchema.parse(update.toolbarFeatures) };
+    if (update.statusWorkflow !== undefined) update = { ...update, statusWorkflow: projectStatusWorkflowSchema.parse(update.statusWorkflow) };
     if (update.feedbackTypes !== undefined) update = { ...update, feedbackTypes: projectFeedbackTypesSchema.parse(update.feedbackTypes) };
     return await updateDoc<DbProject>(workspacePk(workspaceId), projectId, project => ({
         ...project,

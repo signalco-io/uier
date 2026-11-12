@@ -1,6 +1,8 @@
 'use client';
 
 import { useAppI18n } from '@/src/lib/i18n/client';
+import { StatusWorkflowEditor } from '../StatusWorkflowEditor';
+import type { StatusWorkflow } from '../../../lib/app/statusWorkflow';
 import { ToolbarFeaturesFields } from './ToolbarFeaturesFields';
 import type { ToolbarFeatureVisibility } from '@uier/toolbar/toolbar-features';
 import type { FeedbackType } from '@uier/toolbar/feedback-types';
@@ -34,7 +36,7 @@ import { keepValues } from './keepFormValues';
 type ProjectToolbarLanguage = 'workspace' | ToolbarLanguage;
 
 /** Review: who can comment, the toolbar's language, the brief and, under Advanced, the page state; one save */
-export function ProjectReviewForm({ projectId, access, brief, policy, suggestions, guestLinks, feedbackTypes, workspaceTypes, toolbarLanguage, workspaceToolbarLanguage, toolbarFeatures }: {
+export function ProjectReviewForm({ projectId, access, brief, policy, suggestions, guestLinks, feedbackTypes, workspaceTypes, statusWorkflow, workspaceWorkflow, toolbarLanguage, workspaceToolbarLanguage, toolbarFeatures }: {
     projectId: string;
     access: ProjectAccess;
     /** The project's own toolbar language, or the workspace's */
@@ -47,6 +49,8 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
     brief?: string;
     policy?: PageStatePolicy;
     suggestions: QueryFieldSuggestion[];
+    statusWorkflow?: DbProject['statusWorkflow'];
+    workspaceWorkflow: StatusWorkflow;
     feedbackTypes?: DbProject['feedbackTypes'];
     workspaceTypes: FeedbackType[];
 }) {
@@ -59,6 +63,8 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
         toolbarLanguage,
         toolbarFeatures: toolbarFeatures ?? {},
         brief: brief ?? '',
+        workflowMode: statusWorkflow ? 'replace' as const : 'workspace' as const,
+        workflow: statusWorkflow?.value ?? workspaceWorkflow,
         feedbackTypesMode: feedbackTypes ? 'replace' as const : 'workspace' as const,
         feedbackTypes: feedbackTypes?.value ?? workspaceTypes,
         queryParameters: saved.queryParameters.join(', '),
@@ -80,6 +86,7 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
             stickyFooter
             footer={<SaveFooter formId={formId} state={state} pending={pending} dirty={dirty} onDiscard={discard} />}>
             <form id={formId} action={formAction} onResetCapture={keepValues}>
+                <input type="hidden" name="statusWorkflow" value={draft.workflowMode === 'workspace' ? 'workspace' : JSON.stringify({ mode: 'replace', value: draft.workflow })} />
                 <input type="hidden" name="projectId" value={projectId} />
                 <input type="hidden" name="feedbackTypes" value={draft.feedbackTypesMode === 'workspace' ? 'workspace' : JSON.stringify({ mode: 'replace', value: draft.feedbackTypes })} />
                 <input type="hidden" name="access" value={draft.access} />
@@ -155,6 +162,19 @@ export function ProjectReviewForm({ projectId, access, brief, policy, suggestion
                             <FeedbackTypesEditor value={draft.feedbackTypesMode === 'workspace' ? workspaceTypes : draft.feedbackTypes}
                                 onChange={types => update(current => ({ ...current, feedbackTypes: types }))} disabled={draft.feedbackTypesMode === 'workspace' || pending} />
                         </FieldGroup>
+                    </FieldSet>
+                    <FieldSeparator />
+                    <FieldSet>
+                        <FieldLegend variant="label">{t('Statuses')}</FieldLegend>
+                        <Field>
+                            <FieldLabel htmlFor={`${formId}-workflow`}>{t('Status defaults')}</FieldLabel>
+                            <Select value={draft.workflowMode} items={[{ value: 'workspace', label: t('Workspace defaults') }, { value: 'replace', label: t('Project override') }]}
+                                onValueChange={mode => { if (mode) update(current => ({ ...current, workflowMode: mode })); }}>
+                                <SelectTrigger id={`${formId}-workflow`} className="w-full"><SelectValue /></SelectTrigger>
+                                <SelectContent><SelectGroup><SelectItem value="workspace">{t('Workspace defaults')}</SelectItem><SelectItem value="replace">{t('Project override')}</SelectItem></SelectGroup></SelectContent>
+                            </Select>
+                        </Field>
+                        <StatusWorkflowEditor value={draft.workflowMode === 'workspace' ? workspaceWorkflow : draft.workflow} onChange={workflow => update(current => ({ ...current, workflow }))} disabled={draft.workflowMode === 'workspace' || pending} />
                     </FieldSet>
                     <FieldSeparator />
                     <Collapsible open={advanced} onOpenChange={setAdvanced} className="flex flex-col gap-4">
