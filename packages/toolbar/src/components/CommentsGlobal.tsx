@@ -243,6 +243,22 @@ export function CommentsGlobal({
     const lastPageFocusRef = useRef<Element | null>(null);
 
     const { path, query: commentItems, reattach } = useComments(true);
+    // A send the page never saw settle (it was reloaded or left meanwhile) comes back as a draft, as it may not have been
+    // saved. Once the page's comments show it was (one of yours with its text), its draft goes: it is not listed as unsent.
+    const loadedComments = commentItems.data;
+    useEffect(() => {
+        if (!loadedComments) return;
+        for (const draftKey of drafts.keys().filter(isPageDraftKey)) {
+            const saved = drafts.details(draftKey);
+            const text = saved?.text.trim();
+            if (!text || !saved?.unsettled?.includes(text)) continue;
+            const sent = loadedComments.some(comment => {
+                const first = comment.thread.items[0];
+                return comment.isMine && first && 'text' in first && first.text.trim() === text;
+            });
+            if (sent) drafts.delete(draftKey);
+        }
+    }, [drafts, loadedComments]);
     const [reattaching, setReattaching] = useState<{ comment: CommentItem; candidate?: CommentAnchor; mode?: 'point' | 'text' }>();
     const requestReattach = (comment: CommentItem) => {
         if (comment.path !== path || !(comment.permissions?.edit ?? comment.isMine)) return;

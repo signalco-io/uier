@@ -122,3 +122,32 @@ test('a draft posted from the inbox has a screenshot of its anchor, scrolled int
     expect(box.y + box.height).toBeLessThanOrEqual(view.height);
     await context.close();
 });
+
+test('a draft sent just before a reload is not listed as unsent once its comment is saved', async ({ browser }, info) => {
+    const { context, page } = await newVisitor(browser, info);
+    await openLanding(page, isolatedOrigin(info), { dismissHint: true });
+    const heading = page.getByRole('heading', { level: 1 });
+    await leaveDraft(page, heading, 'Saved while the page reloaded');
+    await draftPins(page).click();
+    const field = newCommentForm(page).getByRole('textbox', { name: 'Comment', exact: true });
+    await expect(field).toBeFocused();
+    // Saved, but the page is reloaded before it hears back: the send never settles here
+    let saved!: () => void;
+    const reached = new Promise<void>(resolve => { saved = resolve; });
+    await page.route('**/api/comments', async route => {
+        if (route.request().method() !== 'POST') return route.fallback();
+        expect((await route.fetch()).status()).toBe(201);
+        saved();
+    });
+    await field.press('Enter');
+    await reached;
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+    await page.reload();
+    await expect(toolbar(page)).toBeVisible();
+    await expect(draftPins(page)).toHaveCount(0);
+    await openInbox(page);
+    await expect(inbox(page).getByRole('article')).toHaveCount(1);
+    await expect(inbox(page).getByRole('article')).toContainText('Saved while the page reloaded');
+    await expect(draftsHeading(page)).toHaveCount(0);
+    await context.close();
+});

@@ -15,7 +15,11 @@ export type DraftDetails = {
 type Sending = { id: string; text: string; mentions?: Mention[]; anchor?: string };
 type Attempt = { content: string; key: string };
 type Recovery = { text: string; mentions?: Mention[]; attempt?: Attempt };
-type RecordValue = DraftDetails & { text: string; updatedAt: number; attempt?: Attempt; sending?: Sending[]; recoveries?: Recovery[] };
+/**
+ * `unsettled`: the texts (trimmed) of sends this page never saw settle (`recoverSending`). Saved or not, the page's
+ * comments tell: one of yours with the same text means it was saved (`CommentsGlobal`).
+ */
+type RecordValue = DraftDetails & { text: string; updatedAt: number; attempt?: Attempt; sending?: Sending[]; recoveries?: Recovery[]; unsettled?: string[] };
 const maxTextLength = 1000;
 
 /** Sent text back in the draft, before what was written meanwhile (when both fit) */
@@ -31,13 +35,32 @@ function withSentText(value: RecordValue, text: string, mentions: Mention[] = []
 function recoverSending(value: RecordValue): RecordValue {
     const { sending, ...rest } = value;
     let recovered: RecordValue = rest;
+    const unsettled: string[] = [];
     if (Array.isArray(sending)) {
         for (const entry of [...sending].reverse()) {
-            if (entry && typeof entry.text === 'string' && entry.text.length <= maxTextLength)
+            if (entry && typeof entry.text === 'string' && entry.text.length <= maxTextLength) {
                 recovered = withSentText(recovered, entry.text, Array.isArray(entry.mentions) ? entry.mentions : undefined);
+                unsettled.push(entry.text.trim());
+            }
         }
     }
-    return recovered;
+    return unsettled.length ? { ...recovered, unsettled } : recovered;
+}
+
+/**
+ * The page is being left (reloaded or navigated away): a send that fails now was cut off by leaving, its outcome
+ * unknown, so it is kept `unsettled` like one that never settled. Benign when the page stays after all (a cancelled
+ * `beforeunload`): such a draft goes on a later load only when the page's comments show it was saved.
+ */
+let leaving = false;
+let watchingUnload = false;
+function watchUnload() {
+    if (watchingUnload || typeof window === 'undefined') return;
+    watchingUnload = true;
+    const leave = () => { leaving = true; };
+    window.addEventListener('beforeunload', leave, { capture: true });
+    window.addEventListener('pagehide', leave, { capture: true });
+    window.addEventListener('pageshow', () => { leaving = false; }, { capture: true });
 }
 
 const memory = new Map<string, Map<string, RecordValue>>();
@@ -74,6 +97,7 @@ export function clearDraftScopes(scope: string[]) {
 /** Small text/anchor records only. Captures and device details never enter synchronous storage. */
 export function createDraftStore(scope: string[], onWrite?: () => void, persistent = true) {
     const prefix = `${draftStoragePrefix}${JSON.stringify(scope)}:`;
+    watchUnload();
     const values = memory.get(prefix) ?? new Map<string, RecordValue>();
     memory.set(prefix, values);
     let available = persistent;
@@ -125,6 +149,8 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
                 return false;
             })) delete value.mentions;
         }
+        if (value.unsettled !== undefined && (!Array.isArray(value.unsettled) || value.unsettled.length > 20
+            || value.unsettled.some(text => typeof text !== 'string' || text.length > maxTextLength))) delete value.unsettled;
         if (value.recoveries !== undefined) {
             value.recoveries = Array.isArray(value.recoveries)
                 ? value.recoveries.filter(entry => entry && typeof entry.text === 'string' && entry.text.length <= maxTextLength)
@@ -216,7 +242,9 @@ export function createDraftStore(scope: string[], onWrite?: () => void, persiste
                 remove(key);
                 return;
             }
-            write(key, saved ? rest : { ...withSentText(rest, entry.text, entry.mentions), updatedAt: Date.now() });
+            if (saved) { write(key, rest); return; }
+            const failed: RecordValue = { ...withSentText(rest, entry.text, entry.mentions), updatedAt: Date.now() };
+            write(key, leaving ? { ...failed, unsettled: [...(failed.unsettled ?? []), entry.text.trim()] } : failed);
         },
         available: () => available,
         pending: (key: string) => pendingSends.has(prefix + key),

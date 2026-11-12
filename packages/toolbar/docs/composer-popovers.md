@@ -49,7 +49,11 @@ replies use the thread id, and edits use `edit:<commentId>:<itemId>` with the or
 Typing writes immediately; reopening the same box after a reload or toolbar remount restores its text and
 mentions. The kept text is the cue: no composer says "Draft saved in this browser" under its box ([uier #218](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_xQbZJy4bLvce3eONhs0J-),
 [uier #295](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fmy-work&comment=comment_kAQn2JJ3-PFQNEGtg3L2V)). Successful sends/saves and explicit Discard/Cancel clear the appropriate draft; failed or uncertain
-sends retain it. The authorized reviewer, API, project and canonical page scope never includes a build id.
+sends retain it. A send the page never saw settle (it was reloaded or left meanwhile, or failed while it was being
+left) comes back as a draft too, marked `unsettled`: it may have been saved. Once the page's comments are loaded and
+one of yours has its text, it was, and the draft goes (`CommentsGlobal`), so a comment posted just before a reload is
+not listed as unsent; one that was not saved stays. A plain failed send (an error shown in the form) is not marked.
+The authorized reviewer, API, project and canonical page scope never includes a build id.
 Screenshots, attached images and device details stay in memory. The app's own feedback-mode toolbar is
 loaded on demand again with Give feedback after a document reload; this reuses the same draft keys.
 
@@ -92,8 +96,8 @@ drawing is in memory, [canvas mode](canvas-mode.md)), and each comment's submiss
   card, else the inbox.
 
 `apps/web/e2e/multiple-drafts.spec.ts` (desktop and mobile) covers two drafts on a page, a reload, the inbox's list
-under Active (none under Done), Resume draft, a failed and a successful post from the inbox and Discard, and the
-screenshot of an offscreen draft posted from the inbox.
+under Active (none under Done), Resume draft, a failed and a successful post from the inbox and Discard, the
+screenshot of an offscreen draft posted from the inbox, and a comment saved while the page reloaded.
 
 ## Capture responsiveness
 
