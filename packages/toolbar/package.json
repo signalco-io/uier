@@ -57,6 +57,11 @@
             "development": "./dist-dev/mentions.js",
             "default": "./dist/mentions.js"
         },
+        "./color-values": {
+            "types": "./src/colorValues.ts",
+            "development": "./dist-dev/colorValues.js",
+            "default": "./dist/colorValues.js"
+        },
         "./markdown": {
             "types": "./src/markdown.ts",
             "development": "./dist-dev/markdown.js",

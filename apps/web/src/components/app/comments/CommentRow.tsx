@@ -12,6 +12,7 @@ import { commentAssignees } from '@uier/toolbar/agents';
 import { markdownPlainText } from '@uier/toolbar/markdown';
 import { cn } from '@/src/lib/utils';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
+import { ColorText } from './ColorText';
 import { RelativeTime } from './DateTime';
 import { SelectComment } from './TriageSelection';
 import { AssigneeAvatars } from './AgentAvatar';
@@ -133,7 +134,7 @@ export function CommentRow({ comment, href, selected, onOpen, card = false, prev
                             </span>{' '}
                         </>}
                         {comment.number === undefined && <span className="sr-only">{t("Comment: ")}</span>}
-                        {title}
+                        {comment.deleted ? title : <ColorText text={title} />}
                         {unread && <span className="sr-only">{t(", unread")}</span>}
                     </a>
                     <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums"><RelativeTime value={comment.createdAt} short /></span>

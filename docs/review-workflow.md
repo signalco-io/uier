@@ -267,6 +267,10 @@ as before. Enter still sends and Shift+Enter adds a line ([editor note](../packa
 - Mentions are ranges over the text: Markdown never changes or splits them, a name is never read as
   Markdown, and in code a mention shows as `@` and the name.
 - Long code and addresses wrap inside the message on any screen.
+- A colour value (`#ED1C24`, `rgb(10 132 255)`, `hsl(…)`, `oklch(…)` and the other CSS colour functions) has a
+  small swatch of that colour before it, in messages, thread titles and list rows ([uier #389](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_ugDRHyvSZBI4uQQdc2BIZ)). Fenced code
+  blocks stay as written. A number such as `#389` is not read as a colour
+  ([how values are found](../packages/toolbar/docs/message-markdown.md#colour-swatches)).
 - List rows (the app's inbox, board cards and My work) show the first message's first line without
   its Markdown markers. AI titles, emails, digests, feedback packets and connected services (which take
   Markdown themselves) get the text as it was written.

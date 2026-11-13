@@ -1,15 +1,17 @@
-import { Fragment, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { parseMarkdown, type MarkdownBlock, type MarkdownInline, type MarkdownMention } from '../markdown';
+import { ColorText } from './ColorText';
 
 // The app's `MessageMarkdown` (apps/web/src/components/app/comments) renders the same tree: change both together.
+// Colour values in text and code spans get a swatch (`ColorText`); fenced code stays as written.
 // Code has a hairline border as well as the muted surface: in dark mode a popover is the muted colour.
 
 function inlines(nodes: MarkdownInline[]): ReactNode[] {
     return nodes.map((node, index) => {
         switch (node.type) {
-            case 'text': return <Fragment key={index}>{node.text}</Fragment>;
+            case 'text': return <ColorText key={index} text={node.text} />;
             case 'mention': return <span key={index} data-mention="">{node.text}</span>;
-            case 'code': return <code key={index} className="rounded-sm border border-border bg-muted px-1 font-mono text-[13px]">{node.text}</code>;
+            case 'code': return <code key={index} className="rounded-sm border border-border bg-muted px-1 font-mono text-[13px]"><ColorText text={node.text} /></code>;
             case 'strong': return <strong key={index} className="font-semibold">{inlines(node.children)}</strong>;
             case 'em': return <em key={index}>{inlines(node.children)}</em>;
             case 'del': return <del key={index}>{inlines(node.children)}</del>;

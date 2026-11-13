@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { Input } from '@/src/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import { cn } from '@/src/lib/utils';
+import { ColorText } from './ColorText';
 import { setCommentTitleAction } from './actions';
 import { useCommentUpdate } from './CommentUpdates';
 
@@ -31,6 +32,7 @@ function AiMark() {
  * the one AI wrote with the AI mark. Those who can rename (`permissions.title`) click or focus it to edit
  * it in place: Enter or leaving the field saves, Escape cancels, and an empty title shows the AI title
  * again. Without a title, they get Add a title; others get no heading, as the first message shows below.
+ * A colour value in the title has its swatch (`ColorText`), not in the field while editing.
  * It pulls itself 8px up into the card's 16px gap, so it sits close under the status row.
  */
 export function ThreadTitle({ projectId, commentId, title, byAi = false, canRename = false }: {
@@ -61,7 +63,7 @@ export function ThreadTitle({ projectId, commentId, title, byAi = false, canRena
         if (!title) return null;
         return (
             <div className="-mt-4 flex min-w-0 items-start gap-1.5">
-                <h2 className="m-0 min-w-0 text-base font-semibold break-words">{title}</h2>
+                <h2 className="m-0 min-w-0 text-base font-semibold break-words"><ColorText text={title} /></h2>
                 {byAi && <AiMark />}
             </div>
         );
@@ -113,7 +115,7 @@ export function ThreadTitle({ projectId, commentId, title, byAi = false, canRena
             className={cn('-mx-1.5 min-w-0 cursor-text rounded-sm px-1.5 py-0.5 text-left break-words outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 pointer-coarse:min-h-11',
                 !title && 'text-sm font-normal text-muted-foreground')}
             onFocus={begin} onClick={begin}>
-            {title || t("Add a title")}
+            {title ? <ColorText text={title} /> : t("Add a title")}
         </button>
     );
     return (
