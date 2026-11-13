@@ -118,3 +118,4 @@ the later choice; an initial visit without either saved preference still keeps i
 Group by sits to the right of Filter on project inboxes and boards. It is a shared project
 presentation setting, independent of the Label filter: choosing swimlanes does not exclude
 other threads. Only members allowed to triage can save it; label catalogs are unchanged.
+The loading filter row uses the same icon-button variant and size as the loaded status menus, so their chevrons keep their size when comments arrive (uier #381).
