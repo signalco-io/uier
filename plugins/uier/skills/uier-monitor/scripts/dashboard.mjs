@@ -804,7 +804,7 @@ h1, h2, h3, p { margin: 0; }
 .feed { max-height: 280px; overflow: auto; border: 1px solid hsl(var(--border)); border-radius: 12px; }
 .feed .row { display: flex; gap: 10px; padding: 5px 10px; border-top: 1px solid hsl(var(--border)); background: hsl(var(--card)); font-size: 13px; overflow-wrap: anywhere; }
 .feed .row:first-child { border-top: 0; }
-.feed time { flex: none; width: 44px; color: hsl(var(--muted-foreground)); font-variant-numeric: tabular-nums; }
+.feed time { flex: none; min-width: 60px; color: hsl(var(--muted-foreground)); font-variant-numeric: tabular-nums; }
 .feed .quiet { color: hsl(var(--muted-foreground)); }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 12px; }
 .chart { position: relative; }
@@ -922,10 +922,10 @@ function span(ms) {
 }
 function ago(iso) { return iso ? span(Date.now() - Date.parse(iso)) + ' ago' : 'never'; }
 function inTime(iso) { return 'in ' + span(Date.parse(iso) - Date.now()); }
-function clock(iso) {
+function clock(iso, seconds) {
     var at = new Date(iso);
     var day = at.toDateString() === new Date().toDateString() ? '' : at.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) + ' ';
-    return day + at.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', hour12: false });
+    return day + at.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: seconds ? '2-digit' : undefined, hour12: false });
 }
 // A group's comments: the comment icon once, then each number as a link to uier.
 function comments(entries) {
@@ -1078,7 +1078,7 @@ function details(entry) {
         var key = item.at + '|' + words;
         seen[key] = (seen[key] || 0) + 1;
         return h('div', { class: 'row' + (item.quiet ? ' quiet' : ''), 'data-key': key + '|' + seen[key] },
-            h('time', { datetime: item.at, title: item.at ? new Date(item.at).toLocaleString() : null, text: item.at ? clock(item.at) : '' }), h('span', { text: words }));
+            h('time', { datetime: item.at, title: item.at ? new Date(item.at).toLocaleString() : null, text: item.at ? clock(item.at, true) : '' }), h('span', { text: words }));
     }) : h('div', { class: 'row muted', 'data-key': '~none', text: 'Nothing recorded yet.' }));
     var metrics = entry.metrics;
     var cycle = metrics.cycleMinutes === null ? 'No data' : span(metrics.cycleMinutes * 60000);
