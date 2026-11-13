@@ -50,7 +50,7 @@ export const composerIconButtonClassName = 'size-7 shrink-0 rounded-md text-mute
 
 /**
  * The header of a new comment or feedback: its title and `actions` (Expand). The screenshot toggle
- * ({@link ComposerScreenshotToggle}) and Attach ({@link ComposerAttachMenu}) are in the text box's
+ * ({@link ComposerScreenshotToggle}) and Attach (`ComposerAttachMenu`) are in the text box's
  * bottom-left corner. Never a preview: composers stay without images (#81, #92). An attached image's
  * problem shows here.
  */
