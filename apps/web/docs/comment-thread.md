@@ -124,7 +124,8 @@ assignee card, with Open in T3 Code or another desktop session link, at the top 
   Request verification form (`VerificationControl`) is a form of labelled fields, not a message, and stays one.
 - Each message (`Message` in `CommentCard.tsx`) is a two-column grid: the 24px avatar is centred on its header row
   (name, via, time, device and the actions, 44px tall on touch screens), the text under the header (uier #281).
-  A reply that is not saved yet shows "Sending..." (`role="status"`)
+  The name and the time are trimmed to their cap height (`text-box: trim-both cap alphabetic`), so the smaller time
+  centres on the avatar like the name (uier #378). A reply that is not saved yet shows "Sending..." (`role="status"`)
   in its header, right of the time (uier #377).
 - Reactions (`comments/MessageReactions.tsx`, kept apart from `Message`): Add reaction in each message's header actions
   (before a reply's More actions) and the reaction pills under the message, after its image. See [Message reactions](reactions.md).

@@ -182,9 +182,10 @@ function Message({ author, agent, avatarName, avatarUrl, createdAt, status, meta
             </Avatar>
             <div className="flex min-h-7 items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2 text-sm">
-                    <span className="truncate font-medium">{author}</span>
+                    {/* Trimmed to the cap height, so the name and the smaller time centre on the avatar alike (uier #378) */}
+                    <span className="truncate font-medium [text-box:trim-both_cap_alphabetic]">{author}</span>
                     {agent}
-                    <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums"><RelativeTime value={createdAt} /></span>
+                    <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums [text-box:trim-both_cap_alphabetic]"><RelativeTime value={createdAt} /></span>
                     {status}
                     {meta}
                 </div>
@@ -472,7 +473,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
         const target = !item.deleted && !item.pending ? { projectId, commentId: comment.id, itemId: item.id, reactions: item.reactions } : undefined;
         return (
             <Message author={name} agent={!item.deleted && <MessageAgent author={item.author} />} avatarName={item.author.name} avatarUrl={item.author.avatarUrl} createdAt={item.createdAt}
-                status={item.pending && <span role="status" className="shrink-0 text-xs whitespace-nowrap text-muted-foreground">{t("Sending...")}</span>}
+                status={item.pending && <span role="status" className="shrink-0 text-xs whitespace-nowrap text-muted-foreground [text-box:trim-both_cap_alphabetic]">{t("Sending...")}</span>}
                 actions={!item.deleted && !edit && (<div className="flex shrink-0 items-center gap-0.5">
                     {target && permissions.react && <ReactionPicker target={target} disabled={pending} />}
                     {(item.canDelete || item.canFilterAuthor || editable) && (
