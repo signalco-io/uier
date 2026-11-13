@@ -786,6 +786,7 @@ h1, h2, h3, p { margin: 0; }
 .more:hover { color: hsl(var(--foreground)); text-decoration-color: currentColor; }
 .details { display: grid; gap: 14px; padding-top: 12px; border-top: 1px solid hsl(var(--border)); }
 .pipeline { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; align-items: start; }
+.details > .pipeline { padding-bottom: 14px; border-bottom: 1px solid hsl(var(--border)); }
 .column { display: grid; gap: 6px; min-width: 0; padding: 8px; border-radius: 12px; background: hsl(var(--muted)); }
 .column h3 { display: flex; align-items: center; gap: 6px; padding: 0 4px; font-size: 12px; font-weight: 500; }
 .column .empty { padding: 0 4px 2px; font-size: 12px; color: hsl(var(--muted-foreground)); }
