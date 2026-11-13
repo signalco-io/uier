@@ -184,6 +184,35 @@ Run from the repository root (each one runs the matching script in every package
 | `PORT=4314 pnpm test:instant` | Dedicated production test build and meaningful instant UI contracts on desktop, mobile and tablet ([rig](../apps/web/instant-nav.rig.md)); never deploy this artifact |
 | `pnpm -C packages/brand icons` | Re-render the PNG icon set in `apps/web/public` from the brand mark |
 
+### Build caching
+
+Run complete builds with `pnpm build` at the repository root, or
+`pnpm exec turbo run build --filter=@uier/web` for the website and its dependencies.
+The uncached `build:clean` task removes generated `.next` output before compilation or cache
+restoration, preserving `.next/cache` and `.next/dev`. This keeps an ordinary build and an
+instant-navigation test build from serving each other's stale files when switching cached artifacts.
+The web graph then runs the cacheable `build:compile` task (fonts, Next.js and sitemap), then
+the uncached `build` task publishes the toolbar archive and generates the search manifest.
+The final step always reads the current retained archive, refreshes its timestamps and records
+the current commit, including when compilation was restored from cache. Calling the web package's
+`build` script directly only runs that final step; use Turbo to include compilation.
+
+Build inputs exclude internal Markdown notes, browser tests and Playwright configuration.
+Typecheck and test tasks still track their own test inputs. Shared browser targets and the base
+TypeScript configuration invalidate all tasks. Search-index scripts and configuration belong to
+web finalization; deployment and instant-test variables do not invalidate toolbar or extension
+compilation. The web compiler explicitly tracks the plugin skills shipped by the MCP endpoint.
+
+GitHub Actions persists `.turbo/cache` in the credential-free web, extension and release
+build jobs. Keys include the runner platform, lockfile, Node version file and a distinct job/run
+suffix; restore prefixes reuse prior task artifacts, which Turbo validates against each task's
+inputs. Main's production builds seed caches available to new PRs. Fork/PR cache writes
+remain scoped by GitHub's cache rules, and credential-bearing deployment jobs never restore them.
+The separate `.next/cache` compiler cache remains useful when source changes require compilation.
+Local Git worktrees share Turbo's task cache automatically.
+
+### Test setup
+
 Before the first `pnpm test`, install the Playwright browser:
 
 ```bash

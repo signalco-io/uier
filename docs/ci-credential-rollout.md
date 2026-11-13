@@ -204,6 +204,12 @@ with a fresh CLI config directory succeeded before rollout. Only `.vercel/output
 no dotenv file or pulled project environment is uploaded. The production and preview build outputs
 retain the existing toolbar archive behavior.
 
+Build jobs persist Turbo task artifacts separately from Next.js compiler state. Web compilation
+is cacheable, while toolbar archive retention and search-manifest revision stamping run on every
+build after compilation, including cache hits. The blanket `TURBO_FORCE` override is no longer
+needed. Cache restore/save stays in credential-free build jobs; upload jobs still accept only the
+validated prebuilt output and never restore executable caches.
+
 A separate deploy job has no checkout. It validates archive paths, entry types and symbolic links,
 rejects environment files, reconstructs the fixed uier team/project context and installs the pinned
 CLI with lifecycle scripts disabled. It executes only `vercel deploy --prebuilt --archive=tgz`.

@@ -11,7 +11,9 @@
   },
   "scripts": {
     "dev": "node scripts/copy-fonts.mjs && next dev -p ${PORT:-4004}",
-    "build": "node scripts/copy-toolbar.mjs && next build && next-sitemap --config next-sitemap.config.cjs && node ../../.github/scripts/search-index.mjs generate",
+    "build:clean": "node scripts/clean-build.mjs",
+    "build:compile": "node scripts/copy-fonts.mjs && next build && next-sitemap --config next-sitemap.config.cjs",
+    "build": "node scripts/copy-toolbar.mjs && node ../../.github/scripts/search-index.mjs generate",
     "start": "next start -p ${PORT:-4004}",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "playwright test"

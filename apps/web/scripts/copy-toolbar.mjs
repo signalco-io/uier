@@ -1,11 +1,10 @@
-import './copy-fonts.mjs';
 // Copies the production build of the uier toolbar (`@uier/toolbar`, packages/toolbar) to
 // public/toolbar.js and public/toolbar/<sha256>.js (the loader, the review script, the
 // accessibility audit and the languages), with a retention manifest (headers in next.config.ts). The landing page embeds the default like a customer site would.
 //
-// Runs as the first step of `pnpm build`. Turborepo builds `@uier/toolbar` before this app
-// (`^build`), and Vercel builds through Turborepo too (vercel.json `buildCommand`).
-// The copy is generated: it is gitignored and a Turborepo build output.
+// Runs after the cacheable web compilation, even on a cache hit. Turborepo builds
+// `@uier/toolbar` first (`build:compile` -> `^build`); Vercel uses the same graph.
+// The archive reads live assets and the clock, so this finalization is never cached.
 
 import { readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';

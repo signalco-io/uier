@@ -116,6 +116,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Cache Turbo tasks
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .turbo/cache
+          key: turbo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}-web-${{ matrix.suite }}-${{ github.sha }}-${{ github.run_attempt }}
+          restore-keys: |
+            turbo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}-
+
       # Next 16.3+ persists Turbopack's compiler cache. Main's Vercel build seeds it for PRs;
       # Next still invalidates changed sources/configuration and regenerates all build output.
       - name: Cache Next.js compiler
@@ -139,7 +147,7 @@ jobs:
         if: matrix.suite == 'checks'
         run: |
           python3 .github/scripts/test_prebuilt.py
-          node --test .github/scripts/package_prebuilt.test.mjs .github/scripts/search-index.test.mjs .github/scripts/deployment-current.test.mjs
+          node --test .github/scripts/package_prebuilt.test.mjs .github/scripts/search-index.test.mjs .github/scripts/deployment-current.test.mjs .github/scripts/turbo-cache.test.mjs
 
       - name: Package the standalone worker
         if: matrix.suite == 'checks'
@@ -257,6 +265,13 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Cache Turbo tasks
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .turbo/cache
+          key: turbo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}-extension-${{ github.sha }}-${{ github.run_attempt }}
+          restore-keys: |
+            turbo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}-
       - name: Cache Next.js compiler
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:

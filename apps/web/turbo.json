@@ -1,0 +1,47 @@
+{
+    "extends": ["//"],
+    "tasks": {
+        "build:clean": {
+            "cache": false,
+            "inputs": ["scripts/clean-build.mjs"],
+            "outputs": []
+        },
+        "build:compile": {
+            "dependsOn": ["^build", "build:clean"],
+            "inputs": [
+                "$TURBO_DEFAULT$",
+                "!**/*.md",
+                "!e2e/**",
+                "!playwright*.ts",
+                "!scripts/copy-toolbar.mjs",
+                "!scripts/toolbar-assets.mjs",
+                "$TURBO_ROOT$/plugins/uier/skills/**"
+            ],
+            "outputs": [
+                ".next/**",
+                "!.next/cache/**",
+                "!.next/dev/**",
+                "!.next/notification-package/**",
+                "!.next/notification-entry/**",
+                "public/sitemap*.xml",
+                "public/robots.txt",
+                "public/toolbar-fonts/**"
+            ],
+            "env": ["SITE_URL", "UIER_DEPLOYMENT_ENV", "VERCEL_ENV", "VERCEL", "UIER_INSTANT_TEST"]
+        },
+        "build": {
+            "dependsOn": ["build:compile"],
+            "cache": false,
+            "inputs": [
+                "$TURBO_DEFAULT$",
+                "!**/*.md",
+                "!e2e/**",
+                "!playwright*.ts",
+                "$TURBO_ROOT$/.github/scripts/search-index.mjs",
+                "$TURBO_ROOT$/.github/indexnow.json"
+            ],
+            "outputs": ["public/toolbar.js", "public/toolbar/**", "public/search-index.json"],
+            "env": ["UIER_TOOLBAR_RETAIN_FROM", "GITHUB_SHA"]
+        }
+    }
+}
