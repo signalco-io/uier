@@ -258,10 +258,6 @@ export const de: Messages = {
         loadingPeople: 'Personen werden geladen...',
         unassign: 'Zuweisung aufheben'
     },
-    activity: {
-        toggle: (count: number) => `Verlauf (${count})`,
-        label: 'Verlauf der Diskussion'
-    },
     reactions: {
         add: 'Reaktion hinzufügen',
         label: 'Reaktionen',

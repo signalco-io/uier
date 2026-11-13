@@ -259,10 +259,6 @@ export const it: Messages = {
         loadingPeople: 'Caricamento delle persone...',
         unassign: 'Rimuovi assegnazione'
     },
-    activity: {
-        toggle: (count: number) => `Attività (${count})`,
-        label: 'Attività della discussione'
-    },
     reactions: {
         add: 'Aggiungi reazione',
         label: 'Reazioni',

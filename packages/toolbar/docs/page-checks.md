@@ -20,7 +20,7 @@ all optional tools hidden, and the absent audit download.
 
 - **Page checks** is one button in the pill after Inbox, from 640 px wide (where panels dock beside the page;
   `PageChecksMenu`, [uier #353](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_0Di6IvUzeVGM_svuu5xmT)),
-  so the pill does not grow with every tool. It opens a menu (`role="dialog"` "Page checks", a reviewable part,
+  so the pill does not grow with every tool. Its icon is Lucide's monitor-activity (`PageChecksIcon`). It opens a menu (`role="dialog"` "Page checks", a reviewable part,
   "page checks menu") of **Accessibility**, **SEO** and **Security and compliance**, the ones this review shows: each item
   has the tool's icon, its amber dot, the name with its count ("SEO, 2 to look at"), `aria-expanded` and
   `aria-controls`, as the separate buttons had. Choosing one opens its panel (its Close takes the focus) or closes it;

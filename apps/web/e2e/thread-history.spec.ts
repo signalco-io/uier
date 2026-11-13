@@ -10,7 +10,7 @@ test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(baseURL!)
 test.afterAll(async () => { await site.close(); });
 
 for (const colorScheme of ['light', 'dark'] as const) {
-    test(`activity survives reload and fits app and toolbar threads in ${colorScheme}`, async ({ page, request }) => {
+    test(`activity survives reload in app threads and stays out of toolbar threads in ${colorScheme}`, async ({ page, request }) => {
         await page.emulateMedia({ colorScheme });
         const email = uniqueEmail('history');
         const name = email.split('@')[0]!;
@@ -56,14 +56,9 @@ for (const colorScheme of ['light', 'dark'] as const) {
 
         await page.goto(`/app/review/${project}?url=${encodeURIComponent(`${site.origin()}/${project}/pricing`)}&comment=${id}`);
         const toolbarThread = page.getByRole('article').filter({ hasText: 'Track this checkout fix' });
-        const toggle = toolbarThread.getByRole('button', { name: /^Activity/ });
-        await toggle.click();
-        const toolbarLog = toolbarThread.getByRole('list', { name: 'Thread activity' });
-        await expect(toolbarLog).toContainText(`${name} assigned ${name}.`);
-        await expect(toolbarLog).toContainText(`${name} changed status to In progress.`);
-        await expect(toolbarLog.locator('time').first()).toHaveAttribute('datetime', /T/);
-        await expectNoAxeViolations(page, { include: ['#uier-toolbar'] });
-        await toggle.click();
-        await expect(toolbarLog).toBeHidden();
+        // Activity is the app's only (uier #374): the toolbar's thread has no Activity button or log
+        await expect(toolbarThread.getByText('Track this checkout fix')).toBeVisible();
+        await expect(toolbarThread.getByRole('button', { name: /^Activity/ })).toHaveCount(0);
+        await expect(toolbarThread.getByRole('list', { name: 'Thread activity' })).toHaveCount(0);
     });
 }

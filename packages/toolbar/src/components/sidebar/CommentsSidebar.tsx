@@ -116,6 +116,7 @@ export function CommentsSidebar({ filter, onFilterChange: setFilter, onClose, on
                             <MarkAllRead comments={inbox.state.error ? [] : inbox.comments ?? []}
                                 unreadTotal={unread}
                                 filtering={Boolean(filter.unread)}
+                                narrowed={Boolean(filter.keywords?.trim() || filter.assignedToMe)}
                                 onFilterChange={on => setFilter({ ...filter, unread: on, status: 'all', ...(on ? { page: 'all' as const } : {}) })} />
                         </div>
                         </Stack>

@@ -259,10 +259,6 @@ export const hr: Messages = {
         loadingPeople: 'Učitavanje osoba...',
         unassign: 'Ukloni dodjelu'
     },
-    activity: {
-        toggle: (count: number) => `Aktivnost (${count})`,
-        label: 'Aktivnost rasprave'
-    },
     reactions: {
         add: 'Dodaj reakciju',
         label: 'Reakcije',
