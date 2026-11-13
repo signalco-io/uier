@@ -345,7 +345,7 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
                 summary={unreadSummary}
                 actions={unreadActions}>
             {pager.data.paging.queryTooExpensive ? null : !populated ? emptyState : pager.data.paging.matchedTotal + delta(() => true) === 0 ? (
-                <Empty className="border">
+                <Empty className={cn('border', wideClassName)}>
                     <EmptyHeader>
                         <EmptyMedia variant="icon">
                             <SearchXIcon />
@@ -356,7 +356,7 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
                     <EmptyContent><Button variant="outline" className="pointer-coarse:min-h-11" onClick={clearFilters}>{t("Clear filters")}</Button></EmptyContent>
                 </Empty>
             ) : nothingShown ? (
-                <Empty className="border">
+                <Empty className={cn('border', wideClassName)}>
                     <EmptyHeader>
                         <EmptyMedia variant="icon">
                             {query.status === 'active' ? <CircleCheckIcon /> : <CircleDashedIcon />}

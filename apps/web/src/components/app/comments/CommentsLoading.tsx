@@ -88,7 +88,7 @@ function FiltersPlaceholder({ view, status }: { view: CommentsView; status: Stat
                                 <span data-pressed={tab.pressed ? '' : undefined} className={cn('inline-flex items-center justify-center gap-1 text-sm font-medium whitespace-nowrap grow sm:grow-0', segmentedItem)}>
                                     {tab.label} <Skeleton className="h-3 w-4 animate-none" />
                                 </span>
-                                {tab.menu && <span className={cn('inline-flex items-center justify-center -ml-0.5 w-6 min-w-6 px-0 pointer-coarse:min-w-8', segmentedItem)}><ChevronDownIcon className="size-4" /></span>}
+                                {tab.menu && <Button variant="ghost" size="icon-xs" tabIndex={-1} className={cn(segmentedItem, '-ml-0.5 w-6 min-w-6 px-0 pointer-coarse:min-w-8')}><ChevronDownIcon /></Button>}
                             </span>
                         ))}
                     </div>
