@@ -10,12 +10,12 @@ import { apiOrigin, message } from './environment';
 import { followSystemTheme } from './theme';
 import type { UpdateState } from './update';
 
-type Project = { id: string; projectId: string; name: string; access: string };
+type Project = { id: string; projectId: string; name: string; access: string; workspaceName?: string };
 type State = {
     signedIn: boolean; restricted?: boolean; tabId?: number; origin?: string;
     /** An active review in this tab, and the project it uses */
     binding?: boolean; reviewing?: string;
-    canSetUp?: boolean; projects?: Project[];
+    canSetUp?: boolean; projects?: Project[]; account?: { name: string; email: string };
 };
 type Action = 'refresh' | 'sign-in' | 'sign-out' | 'start' | 'exit' | 'install-update';
 
@@ -61,6 +61,17 @@ function Popup() {
     };
     const project = state?.projects?.find(p => p.projectId === selected);
     const reviewing = state?.binding ? state.projects?.find(p => p.projectId === state.reviewing) : undefined;
+    const reviewStatus = state?.binding && <>
+        <div role="status" className="flex flex-col gap-1 rounded-lg border px-3 py-2.5">
+            <p className="m-0 flex items-center gap-2 text-sm font-medium">
+                <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-[hsl(var(--brand-success))]" />
+                <span className="min-w-0 break-words">{reviewing ? <>Reviewing {reviewing.name}</> : 'Review is on'}</span>
+            </p>
+            {reviewing?.workspaceName && <p className="m-0 break-words text-xs text-muted-foreground">{reviewing.workspaceName}</p>}
+            <p className="m-0 text-xs text-muted-foreground">The toolbar stays on this tab when you reload or open other pages of this site.</p>
+        </div>
+        <Button variant="outlined" fullWidth loading={busy === 'exit'} disabled={Boolean(busy)} onClick={() => run('exit', () => message({ type: 'exit', tabId: state.tabId }))}>Exit review</Button>
+    </>;
 
     const errorNotice = error && <div role="alert" className="flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm">
         <Warning size={16} strokeWidth={1.75} aria-hidden="true" className="mt-0.5 shrink-0 text-[hsl(var(--brand-warning))]" />
@@ -111,28 +122,13 @@ function Popup() {
             </div>
             {errorNotice}
         </>;
-    } else if (reviewing || state.binding) {
-        body = <>
-            <div className="flex flex-col gap-1">
-                <Heading>Review this site</Heading>
-                {state.origin && <Site origin={state.origin} />}
-            </div>
-            <div role="status" className="flex flex-col gap-1 rounded-lg border px-3 py-2.5">
-                <p className="m-0 flex items-center gap-2 text-sm font-medium">
-                    <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-[hsl(var(--brand-success))]" />
-                    <span className="min-w-0 truncate">{reviewing ? <>Reviewing {reviewing.name}</> : 'Review is on'}</span>
-                </p>
-                <p className="m-0 text-xs text-muted-foreground">The toolbar stays on this tab when you reload or open other pages of this site.</p>
-            </div>
-            {errorNotice}
-            <Button variant="outlined" fullWidth loading={busy === 'exit'} disabled={Boolean(busy)} onClick={() => run('exit', () => message({ type: 'exit', tabId: state.tabId }))}>Exit review</Button>
-        </>;
     } else if (!state.projects?.length) {
         body = <>
             <div className="flex flex-col gap-1">
                 <Heading>Review this site</Heading>
                 {state.origin && <Site origin={state.origin} />}
             </div>
+            {reviewStatus}
             <div className="flex flex-col items-start gap-3 rounded-lg bg-muted p-4">
                 <div className="flex flex-col gap-1">
                     <p className="m-0 text-sm font-medium">No project includes this address</p>
@@ -152,17 +148,19 @@ function Popup() {
                 <Heading>Review this site</Heading>
                 {state.origin && <Site origin={state.origin} />}
             </div>
+            {reviewStatus}
             <div className="flex flex-col gap-2">
                 <p id="projects-label" className="m-0 text-xs font-medium text-muted-foreground">{many ? 'Choose a project' : 'Project'}</p>
-                <List variant="outlined" role="group" aria-labelledby="projects-label">
+                <List variant="outlined" className="max-h-60 overflow-y-auto" role="group" aria-labelledby="projects-label">
                     {state.projects.map(item => {
                         const isSelected = selected === item.projectId;
                         return <ListItem key={item.projectId} variant="outlined" nodeId={item.projectId} selected={isSelected} onSelected={setSelected}
-                            className="min-h-11 pr-3 pl-3"
+                            disabled={Boolean(busy)} className="min-h-11 pr-3 pl-3"
                             {...({ 'aria-pressed': isSelected } as object)}
-                            label={<span className="flex min-w-0 items-baseline gap-2">
-                                <span className="min-w-0 truncate">{item.name}</span>
-                                {item.access === 'disabled' && <span className="shrink-0 text-xs font-normal text-muted-foreground">Comments off</span>}
+                            label={<span className="flex min-w-0 flex-col py-1 text-left">
+                                <span className="break-words">{item.name}</span>
+                                {item.workspaceName && <span className={isSelected ? "break-words text-xs font-normal text-foreground" : "break-words text-xs font-normal text-muted-foreground"}>{item.workspaceName}</span>}
+                                {item.access === 'disabled' && <span className={isSelected ? "text-xs font-normal text-foreground" : "text-xs font-normal text-muted-foreground"}>Comments off</span>}
                             </span>}
                             endDecorator={<Check size={16} strokeWidth={1.75} aria-hidden="true" className={isSelected ? 'shrink-0' : 'shrink-0 opacity-0'} />} />;
                     })}
@@ -170,8 +168,8 @@ function Popup() {
             </div>
             {errorNotice}
             <div className="flex flex-col gap-2">
-                <Button variant="solid" fullWidth loading={busy === 'start'} disabled={Boolean(busy) || !project || project.access === 'disabled'}
-                    onClick={() => run('start', () => message({ type: 'start', tabId: state.tabId!, projectId: project!.projectId, publicId: project!.id }))}>Start review</Button>
+                <Button variant="solid" fullWidth loading={busy === 'start'} disabled={Boolean(busy) || !project || project.access === 'disabled' || (state.binding && selected === state.reviewing)}
+                    onClick={() => run('start', () => message({ type: 'start', tabId: state.tabId!, projectId: project!.projectId, publicId: project!.id }))}>{state.binding ? 'Switch review' : 'Start review'}</Button>
                 <p className="m-0 text-xs text-muted-foreground">{project?.access === 'disabled'
                     ? 'Comments are turned off for this project.'
                     : many && !project
@@ -186,7 +184,14 @@ function Popup() {
             <Logo size={20} />
             <span className="text-xs text-muted-foreground">Browser extension</span>
         </header>
-        <div className="flex flex-col gap-4 p-4">{updateNotice}{body}</div>
+        <div className="flex flex-col gap-4 p-4">{updateNotice}{body}
+            {state?.signedIn && <div className="flex min-w-0 flex-col gap-2">
+                {state.account && <p className="m-0 break-all text-xs text-muted-foreground">{state.account.email}</p>}
+                <Button variant="outlined" fullWidth loading={busy === 'sign-in'} disabled={Boolean(busy)}
+                    onClick={() => run('sign-in', () => message({ type: 'sign-in' }))}>Switch account</Button>
+                <p className="m-0 text-xs text-muted-foreground">Choose a signed-in account in uier. Switching ends active reviews in all tabs.</p>
+            </div>}
+        </div>
         {state?.signedIn && <footer className="flex items-center justify-between gap-2 border-t px-2 py-2">
             <Button variant="plain" size="sm" className="text-muted-foreground hover:text-foreground" href={`${apiOrigin}/app`} target="_blank" rel="noopener noreferrer"
                 startDecorator={<ExternalLink size={16} strokeWidth={1.75} aria-hidden="true" />}>Open uier</Button>

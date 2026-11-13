@@ -121,6 +121,9 @@ async function signIn() {
     const challenge = btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     const redirectUri = redirectURL();
     const query = new URLSearchParams({ clientId, redirectUri, state, challenge, renewable: 'true', ...(browserKind === 'chrome' ? {} : { extensionOrigin: extensionOrigin() }) });
+    const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+    // Discovery hint only: never send a private page path, query or fragment to consent.
+    if (reviewable(tab?.url)) query.set('siteOrigin', new URL(tab!.url!).origin);
     const result = await launchAuth(`${apiOrigin}/app/extension?${query}`);
     if (!result) throw new Error('Sign-in was cancelled.');
     const url = new URL(result);

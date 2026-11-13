@@ -151,6 +151,17 @@ A Firefox build is not a store publication. Native hosted BotID, screenshot and 
 passed for the exact 0.1.5 CI ZIP. Mozilla approval, signed-store installation and a later automatic
 update remain separate gates. Chrome/Edge receipts below apply to those published versions only.
 
+## Accounts and projects
+
+The popup lists matching projects across the signed-in account's workspaces, with each workspace
+name, and keeps the picker available during a review. **Switch review** replaces that tab's project.
+**Switch account** also works when no project matches: first-party consent shows the browser's live
+signed-in accounts and their matching projects before approval. Cancelling keeps the current
+extension review; approving an account ends its previous reviews in all tabs and clears private
+drafts and proofs. Only the site's origin is sent for discovery, without its path or query.
+The extension still holds one account, and server-side project access and exact-origin checks apply
+again when starting a review. This behavior requires a new extension store release.
+
 ## Updates
 
 The extension packages the toolbar, so toolbar changes reach reviewers only through a store

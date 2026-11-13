@@ -34,6 +34,18 @@ transport from syntactically valid enabled extension origins, while all identity
 live token. No web origin gets that transport grant.
 No app cookie reaches the worker. Read [the design and remaining gates](../../../docs/browser-extension.md).
 
+Consent also offers explicit selection among live browser accounts. An optional validated
+`siteOrigin` query hints which projects to show per account, labelled with workspace names; it
+grants no access and contains no page path. Discovery shares the member-filtered matching-project
+service with the bearer-only extension API, which now adds workspace labels and the current account's
+display identity for the popup. Cookie-bound account selection reloads the original validated
+authorization request, preserving PKCE, state and the stale-approval check. No browser session token
+or another account's identity is exposed to the extension worker or reviewed page.
+`extension-account-switching.spec.ts` covers desktop/mobile selection, handoff preservation and
+accessibility; `extension.api.spec.ts` covers workspace labels and live project-access denial. The
+extension's packaged runtime suite covers unlisted sites, same-address workspace/account choices,
+cancelled sign-in and clearing the previous account's active reviews, proofs and unsent drafts.
+
 `GET /api/extension/version` is public and secret-free: it returns `latestExtensionVersion` from
 `src/lib/extension/release.ts`, the newest version on main, which `release:version` keeps equal to the
 browser packages. Installed packages compare it before asking the browser for a store update

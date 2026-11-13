@@ -11,6 +11,11 @@ The Chrome/Edge and Firefox apps use this adapter through the local
 `@uier/extension-core` package. See [browser-extension.md](../../../docs/browser-extension.md) for
 browser packaging, publication status and hosted gates.
 
+Project selection stays in the trusted popup, including during an active review. Matching projects
+show workspace names; switching projects mounts a fresh runtime through the existing worker binding.
+Account discovery and switching stay in first-party consent, outside the content adapter. Project
+scope and every brokered operation retain their server-side membership and address checks.
+
 Packaged request adapter failures must become CommentsApiError(network_error), preserving the
 shared retry/draft recovery behavior. Keep HTTP status parsing outside that transport catch.
 
