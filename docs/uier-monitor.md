@@ -116,7 +116,10 @@ its name in a small tile while there is none, as in the uier app. uier serves pr
 signed-in members, so the dashboard's server fetches the icon itself from the site in the state file
 (the page's `<link rel="icon">`, then `/favicon.ico`, `/favicon.svg` and `/apple-touch-icon.png`),
 keeps only bytes that are an image and serves it from `/api/icon/…`; the page never contacts the site
-and gets no token. A found icon is kept for a day, a missing one is tried again after 30 minutes.
+and gets no token. Its requests reach only the site's own origin (scheme, host and port, which may be on
+this machine) or public addresses on port 80, 443 or the site's port: declared icons and redirects
+that point at this machine, the local network or a cloud metadata address are refused, host names
+are checked on each connection's own DNS answer, and redirects (at most 5) are checked hop by hop. A found icon is kept for a day, a missing one is tried again after 30 minutes.
 A card shows:
 
 - **Watcher health:** running, waiting (a running watcher with nothing in progress), stopped, not

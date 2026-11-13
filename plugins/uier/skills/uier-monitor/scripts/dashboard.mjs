@@ -15,8 +15,11 @@
 
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
+import { lookup as dnsLookup } from 'node:dns';
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, realpathSync, renameSync, rmSync, statSync, statfsSync, unwatchFile, watchFile, writeFileSync } from 'node:fs';
-import { createServer } from 'node:http';
+import { createServer, request as httpRequest } from 'node:http';
+import { request as httpsRequest } from 'node:https';
+import { BlockList, isIP } from 'node:net';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -486,8 +489,8 @@ export function collect(options = {}) {
 // <link rel="icon">, then its apple-touch-icon, then /favicon.ico, /favicon.svg and
 // /apple-touch-icon.png. uier serves the same icon only to the project's signed-in members, so the
 // dashboard's server fetches it itself, in the background, and the page loads it from
-// /api/icon/<key>. Only the sites in monitors' state files are fetched, never an address the page
-// names. At most 512 KiB of the page and 256 KiB of an icon, which must be an image by its bytes;
+// /api/icon/<key>. Only the sites in monitors' state files are looked up, never an address the page
+// names, and requests reach only the site itself or public addresses (iconRequest). At most 512 KiB of the page and 256 KiB of an icon, which must be an image by its bytes;
 // 10 s in all. An icon is kept for a day, the answer that there is none for 30 minutes.
 
 const ICON_BYTES = 256 * 1024;
@@ -528,26 +531,89 @@ export function iconLinks(html, base) {
     return [...found.icon, ...found.touch];
 }
 
-/** A response body up to `max` bytes: the start of a longer one when `cut`, else null. */
-async function bodyOf(response, max, cut) {
-    const reader = response.body?.getReader();
-    if (!reader) return null;
-    const chunks = [];
-    let size = 0;
-    for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (size + value.length > max) {
-            await reader.cancel().catch(() => {});
-            if (!cut) return null;
-            chunks.push(value.subarray(0, max - size));
-            size = max;
-            break;
-        }
-        chunks.push(value);
-        size += value.length;
+// Where the dashboard may send a request for an icon: the project's own site (its scheme, host and
+// port, which may well be on this machine), or a public address on port 80, 443 or the site's port.
+// A public host name is checked on every connection's own DNS answer, so a name that resolves to this
+// machine, the local network or a cloud metadata address is refused before anything is sent. Redirects
+// are followed by hand, at most 5, each checked again.
+const blocked = new BlockList();
+for (const [network, prefix] of [['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8], ['169.254.0.0', 16],
+    ['172.16.0.0', 12], ['192.0.0.0', 24], ['192.0.2.0', 24], ['192.88.99.0', 24], ['192.168.0.0', 16], ['198.18.0.0', 15],
+    ['198.51.100.0', 24], ['203.0.113.0', 24], ['224.0.0.0', 4], ['240.0.0.0', 4]]) blocked.addSubnet(network, prefix, 'ipv4');
+// BlockList checks IPv4-mapped IPv6 addresses against the IPv4 rules, so ::ffff:0:0/96 needs no rule.
+for (const [network, prefix] of [['::', 128], ['::1', 128], ['64:ff9b::', 96], ['64:ff9b:1::', 48], ['100::', 64],
+    ['2001::', 23], ['2001:db8::', 32], ['2002::', 16], ['fc00::', 7], ['fe80::', 10], ['ff00::', 8]]) blocked.addSubnet(network, prefix, 'ipv6');
+
+/** Whether an IP address is on the public internet (not this machine, a private network, link-local or reserved). */
+export function isPublicAddress(address) {
+    const family = isIP(address);
+    if (!family) return false;
+    const mapped = family === 6 ? /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(address)?.[1] : undefined;
+    return mapped ? !blocked.check(mapped, 'ipv4') : !blocked.check(address, family === 4 ? 'ipv4' : 'ipv6');
+}
+
+/** A connection's DNS lookup that fails unless every address the name resolves to is public. */
+export function publicLookup(hostname, options, callback) {
+    dnsLookup(hostname, { all: true }, (error, addresses) => {
+        if (error) return callback(error);
+        if (!addresses.length || addresses.some(entry => !isPublicAddress(entry.address)))
+            return callback(Object.assign(new Error('The host is not public.'), { code: 'EBLOCKED' }));
+        if (options?.all) return callback(null, addresses);
+        return callback(null, addresses[0].address, addresses[0].family);
+    });
+}
+
+const portOf = url => (url.port ? Number(url.port) : url.protocol === 'https:' ? 443 : 80);
+/** How the dashboard may request `url` for the icon of `site`: 'site', 'public' (checked again on its DNS answer), or false. */
+export function iconRequest(url, site) {
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return false;
+    if (url.origin === site.origin) return 'site';
+    if (![80, 443, portOf(site)].includes(portOf(url))) return false;
+    const host = url.hostname.replace(/^\[|\]$/g, '').replace(/\.$/, '').toLowerCase();
+    if (isIP(host)) return isPublicAddress(host) ? 'public' : false;
+    return host.includes('.') && host !== 'localhost' && !host.endsWith('.localhost') ? 'public' : false;
+}
+
+/** One GET without following redirects: { status, location, body }, or null on any failure or when time runs out. */
+function getOnce(url, how, accept, max, cut, deadline) {
+    return new Promise(done => {
+        let settled = false;
+        const finish = answer => { if (settled) return; settled = true; clearTimeout(timer); done(answer); outgoing.destroy(); };
+        const outgoing = (url.protocol === 'https:' ? httpsRequest : httpRequest)(url, {
+            method: 'GET', agent: false, headers: { accept, 'accept-encoding': 'identity', 'user-agent': `${APP}/${VERSION}` },
+            ...(how === 'public' ? { lookup: publicLookup } : {})
+        }, response => {
+            const status = response.statusCode ?? 0;
+            if ([301, 302, 303, 307, 308].includes(status)) { response.resume(); finish({ status, location: response.headers.location }); return; }
+            const chunks = [];
+            let size = 0;
+            response.on('data', chunk => {
+                if (size + chunk.length > max) { if (cut) chunks.push(chunk.subarray(0, max - size)); finish(cut ? { status, body: Buffer.concat(chunks) } : null); return; }
+                size += chunk.length;
+                chunks.push(chunk);
+            });
+            response.on('end', () => finish({ status, body: Buffer.concat(chunks, size) }));
+            response.on('error', () => finish(null));
+        });
+        const timer = setTimeout(() => finish(null), Math.max(0, deadline - Date.now()));
+        outgoing.on('error', () => finish(null));
+        outgoing.end();
+    });
+}
+
+/** A GET that follows up to 5 redirects, each to an address iconRequest() allows: { url, status, body } or null. */
+async function getFollowing(start, site, accept, max, cut, deadline) {
+    let url = start;
+    for (let hop = 0; hop <= 5; hop++) {
+        const how = iconRequest(url, site);
+        if (!how || Date.now() >= deadline) return null;
+        const answer = await getOnce(url, how, accept, max, cut, deadline);
+        if (!answer) return null;
+        if (answer.location === undefined) return { url, status: answer.status, body: answer.body };
+        try { url = new URL(answer.location, url); } catch { return null; }
+        url.hash = '';
     }
-    return Buffer.concat(chunks, size);
+    return null;
 }
 
 /** The icon of a site, as { type, data }, or null when it has none the dashboard could load. */
@@ -555,23 +621,25 @@ export async function findSiteIcon(site, { timeoutMs = 10_000 } = {}) {
     let start;
     try { start = new URL(site); } catch { return null; }
     if (!['http:', 'https:'].includes(start.protocol)) return null;
-    const signal = AbortSignal.timeout(timeoutMs);
-    const get = (url, accept) => fetch(url, { signal, redirect: 'follow', headers: { accept, 'user-agent': `${APP}/${VERSION}` } });
+    const deadline = Date.now() + timeoutMs;
     const candidates = [];
-    try {
-        const page = await get(start, 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5');
-        const html = page.ok ? await bodyOf(page, PAGE_BYTES, true) : (await page.body?.cancel(), null);
-        if (html) candidates.push(...iconLinks(html.toString('utf8'), page.url || start.href));
-    } catch { if (signal.aborted) return null; }
+    const page = await getFollowing(start, start, 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5', PAGE_BYTES, true, deadline);
+    if (page?.status === 200 && page.body) candidates.push(...iconLinks(page.body.toString('utf8'), page.url.href));
     for (const path of ['/favicon.ico', '/favicon.svg', '/apple-touch-icon.png']) candidates.push(new URL(path, start).href);
-    for (const url of [...new Set(candidates)].slice(0, 8)) {
-        try {
-            const response = await get(url, 'image/avif,image/webp,image/svg+xml,image/png,image/x-icon,image/*;q=0.8,*/*;q=0.5');
-            if (!response.ok) { await response.body?.cancel(); continue; }
-            const data = await bodyOf(response, ICON_BYTES, false);
-            const type = data && iconType(data);
-            if (type) return { type, data };
-        } catch { if (signal.aborted) return null; }
+    for (const href of [...new Set(candidates)].slice(0, 8)) {
+        if (Date.now() >= deadline) return null;
+        let data = null;
+        const url = new URL(href);
+        // A data: icon is in the page already; nothing is requested for it.
+        if (url.protocol === 'data:') {
+            try { const response = await fetch(url); data = Buffer.from(await response.arrayBuffer()); } catch { /* not a data address Node reads */ }
+            if (data && data.length > ICON_BYTES) data = null;
+        } else {
+            const answer = await getFollowing(url, start, 'image/avif,image/webp,image/svg+xml,image/png,image/x-icon,image/*;q=0.8,*/*;q=0.5', ICON_BYTES, false, deadline);
+            data = answer?.status === 200 ? answer.body : null;
+        }
+        const type = data && iconType(data);
+        if (type) return { type, data };
     }
     return null;
 }

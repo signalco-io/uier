@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 // The registry of this test run, never the person's own ~/.uier-monitor.
 const home = mkdtempSync(join(tmpdir(), 'uier-monitor-home-'));
 process.env.UIER_MONITOR_HOME = home;
-const { PAGE, agentOf, collect, createDashboardServer, discover, findSiteIcon, iconLinks, iconType, levels, modelName, projectIcon, reviewOf, sessionLink, snapshot } = await import('./dashboard.mjs');
+const { PAGE, agentOf, collect, createDashboardServer, discover, findSiteIcon, iconLinks, iconRequest, iconType, isPublicAddress, levels, modelName, projectIcon, publicLookup, reviewOf, sessionLink, snapshot } = await import('./dashboard.mjs');
 const monitor = fileURLToPath(new URL('./monitor.mjs', import.meta.url));
 const temporary = [home];
 after(() => { for (const dir of temporary) rmSync(dir, { recursive: true, force: true }); });
@@ -414,5 +414,52 @@ test('a project icon is its site\'s favicon, fetched by the server and served fr
         server.closeAllConnections();
         site.closeAllConnections();
         await Promise.all([new Promise(resolve => server.close(resolve)), new Promise(resolve => site.close(resolve))]);
+    }
+});
+
+test('icon requests reach only the project site itself or public addresses, also through redirects and DNS', async () => {
+    const site = new URL('http://127.0.0.1:4780/');
+    const allowed = href => iconRequest(new URL(href), site);
+    assert.equal(allowed('http://127.0.0.1:4780/favicon.ico'), 'site', 'the site itself, even on this machine');
+    for (const href of ['http://127.0.0.1:4781/', 'http://localhost:4780/', 'http://[::1]:4780/', 'http://169.254.169.254/latest/meta-data/', 'http://10.0.0.1/x.png',
+        'http://192.168.1.1/', 'http://[::ffff:127.0.0.1]/', 'http://[fe80::1]/', 'http://0.0.0.0/', 'http://intranet/', 'http://a.localhost/', 'https://user:pass@example.com/',
+        'https://example.com:8443/', 'file:///etc/passwd', 'ftp://example.com/'])
+        assert.equal(allowed(href), false, href);
+    assert.equal(allowed('https://cdn.example.com/icon.png'), 'public');
+    assert.equal(allowed('http://8.8.8.8:4780/'), 'public', 'a public address on the site\'s own port');
+    for (const address of ['127.0.0.1', '10.1.2.3', '172.20.0.1', '169.254.169.254', '::1', '::ffff:10.0.0.1', 'fd00::1', 'not an address']) assert.equal(isPublicAddress(address), false, address);
+    for (const address of ['8.8.8.8', '2606:4700::1111', '::ffff:1.1.1.1']) assert.equal(isPublicAddress(address), true, address);
+    // A public-looking name that resolves to this machine is refused on the connection's own DNS answer.
+    const refused = await new Promise(done => publicLookup('localhost', { all: true }, error => done(error)));
+    assert.equal(refused?.code, 'EBLOCKED');
+
+    // Another service on this machine, which no icon lookup may reach.
+    const hits = [];
+    const internal = createServer((incoming, outgoing) => { hits.push(incoming.url); outgoing.writeHead(200, { 'content-type': 'image/png' }); outgoing.end(Buffer.from('89504e470d0a1a0a', 'hex')); });
+    internal.listen(0, '127.0.0.1');
+    await once(internal, 'listening');
+    const other = internal.address().port;
+    const fixture = createServer((incoming, outgoing) => {
+        if (incoming.url === '/') {
+            outgoing.writeHead(200, { 'content-type': 'text/html' });
+            outgoing.end(['http://127.0.0.1:OTHER/admin/declared', 'http://localhost:OTHER/admin/named', 'http://[::1]:OTHER/admin/v6', 'http://169.254.169.254/latest/meta-data/',
+                '/to-internal.png', '/to-metadata.png'].map(href => `<link rel="icon" href="${href.replace('OTHER', other)}">`).join(''));
+            return;
+        }
+        if (incoming.url === '/to-internal.png') { outgoing.writeHead(302, { location: `http://127.0.0.1:${other}/admin/redirected` }); outgoing.end(); return; }
+        if (incoming.url === '/to-metadata.png') { outgoing.writeHead(307, { location: 'http://169.254.169.254/latest/meta-data/' }); outgoing.end(); return; }
+        outgoing.writeHead(404); outgoing.end();
+    });
+    fixture.listen(0, '127.0.0.1');
+    await once(fixture, 'listening');
+    try {
+        const started = Date.now();
+        assert.equal(await findSiteIcon(`http://127.0.0.1:${fixture.address().port}`), null);
+        assert.deepEqual(hits, [], 'nothing reached the other service');
+        assert.ok(Date.now() - started < 5000, 'refused addresses are not even tried');
+    } finally {
+        internal.closeAllConnections();
+        fixture.closeAllConnections();
+        await Promise.all([new Promise(resolve => internal.close(resolve)), new Promise(resolve => fixture.close(resolve))]);
     }
 });
