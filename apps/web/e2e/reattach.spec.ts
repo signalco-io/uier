@@ -77,7 +77,8 @@ for (const colorScheme of ['light', 'dark'] as const) {
         await page.reload();
         await expect(page.locator(`[data-uier-comment="${comment.id}"]`)).toHaveCount(1);
         expect((await load()).thread).toEqual(comment.thread);
-        await page.getByRole('button', { name: /^Inbox(?:,|$)/ }).click();
+        // The inbox reopened during reattachment and restores itself across reload.
+        await expect(inbox).toBeVisible();
         await expect(inbox.getByText('Anchor changed 2 times')).toBeVisible();
         await inbox.getByText('Anchor changed 2 times').click();
         await expect(inbox.getByText('Original Text: Original target')).toBeVisible();

@@ -6,3 +6,5 @@ on each ETag retry; project updates also require author/admin rights and the ori
 Retain the original and immediately previous position plus change time/count in `anchorContext`, without
 actor identifiers. DTOs allowlist its fields. It follows comment visibility and retention; no image or
 message is replaced. Keep the privacy policy and toolbar guide aligned with this context.
+
+`e2e/reattach.spec.ts` checks both anchor changes and their context after reload in the restored inbox.
