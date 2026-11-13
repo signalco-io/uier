@@ -61,6 +61,13 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Cache Turbo tasks
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .turbo/cache
+          key: turbo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}-extension-release-${{ steps.resolve.outputs.commit }}-${{ github.run_attempt }}
+          restore-keys: |
+            turbo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}-
       - run: pnpm typecheck && pnpm build && pnpm -C packages/extension test && pnpm -C apps/extension test
       - name: Validate and package every browser target
         run: |

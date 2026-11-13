@@ -11,8 +11,11 @@ website-review checklist and copyable bug-report template
 ([guides](guides.md)). Use the existing `ContentPage` and guide components, snippet generator,
 metadata and social-card helpers; add public routes to SEO, card and footer checks. `SiteStructuredData` connects the homepage `WebSite` to its actual
 signalco publisher. Preserve the homepage Bing verification meta tag after setup.
-`search-index.mjs` generates the public static-page manifest after the sitemap; the production
-workflow skips the IndexNow job when those content hashes have not changed; otherwise it submits
+`search-index.mjs` generates the public static-page manifest in the uncached web `build` task,
+after the cacheable `build:compile` task produces the sitemap and HTML. It records the current
+commit even on a compilation cache hit. Toolbar archive retention also runs in finalization;
+neither step is restored from a task cache. See [build caching](../../../docs/development.md#build-caching).
+The production workflow skips the IndexNow job when those content hashes have not changed; otherwise it submits
 only added, changed and removed public URLs. See
 [search discovery](../../../docs/search-discovery.md) for safeguards and recovery.
 

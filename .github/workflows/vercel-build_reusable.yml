@@ -55,7 +55,7 @@ jobs:
         if: steps.build-cli.outputs.cache-hit != 'true'
         run: npm install --global --ignore-scripts --no-audit --no-fund --prefix "$HOME/.vercel-cli" "vercel@${VERCEL_CLI_VERSION}"
       # Also saved by main's production build, so a new PR can start with a warm compiler.
-      # Cache compiler state only; toolbar retention and deployment packaging always run afresh.
+      # Compiler state complements Turbo's task cache when compilation inputs change.
       - name: Cache Next.js compiler
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
@@ -63,12 +63,18 @@ jobs:
           key: next-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}-${{ github.sha }}
           restore-keys: |
             next-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}-
+      - name: Cache Turbo tasks
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .turbo/cache
+          key: turbo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}-vercel-${{ inputs.production && 'production' || 'preview' }}-${{ github.sha }}-${{ github.run_attempt }}
+          restore-keys: |
+            turbo-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', '.nvmrc') }}-
       - name: Build with public project settings
         env:
           PRODUCTION: ${{ inputs.production }}
           UIER_DEPLOYMENT_ENV: ${{ inputs.production && 'production' || 'preview' }}
           UIER_TOOLBAR_RETAIN_FROM: https://uier.io
-          TURBO_FORCE: "true"
         run: |
           if [ "$PRODUCTION" = "true" ]; then
             node .github/scripts/search-index.mjs capture indexnow-before.json
