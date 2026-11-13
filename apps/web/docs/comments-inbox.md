@@ -414,7 +414,8 @@ Selection and Select shown results use the explicitly loaded matching summaries 
 50-thread batch limit), including loaded rows outside the virtual viewport. Fetching another page or
 a realtime arrival never extends a selection. Counts describe all matches; Mark shown as read acts
 on loaded unread rows while more unread matches exist, and Mark all as read remains when all are loaded.
-Summaries omit replies, screenshots, reproduction details and history. Opening a thread loads its
+Summaries omit replies, screenshots, reproduction details and history; their `outline` keeps only the counts and
+sizes the [loading shell](comment-thread.md) needs. Opening a thread loads its
 fresh canonical detail; a deep link outside the first page works independently. A board sheet remains
 open when its thread moves into a collapsed archive column. Details/composers keep their identity
 through fresh snapshots; deleted/inaccessible details close on a fresh 404.

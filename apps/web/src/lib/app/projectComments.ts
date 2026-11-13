@@ -107,6 +107,12 @@ export type ProjectCommentView = {
     archiveStatusId?: string;
     /** List/board summary: the canonical detail is loaded only when the thread opens. */
     summary?: boolean;
+    /**
+     * A summary's outline of what it leaves out, so the open thread's loading shell (`CommentCardShell`) has the loaded
+     * thread's shape (uier #385): how many replies, reactions on the first message and activity entries, what it was
+     * left on, and the screenshot's size.
+     */
+    outline?: { replies: number; reactions: number; history: number; anchor: CommentAnchorView['type']; screenshot?: { width: number; height: number } };
     pullRequests?: { url: string; canRemove: boolean }[];
     history?: ThreadHistoryEntry[];
     priority: CommentPriority;

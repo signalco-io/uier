@@ -47,6 +47,16 @@ assignee card, with Open in T3 Code or another desktop session link, at the top 
   UI's `openOnHover`, like the project header's access info) lists the reproduction context and copies its
   text; the toolbar shows the same icons and details. The browser icon is the browser's own mark and the
   popover puts a mark beside the operating system too (`DeviceMark.tsx`: `BrowserMark`, `OsMark`). Pending actions show `Spinner`.
+- While an opened thread's detail loads (`PagedCommentCard`: List, Board and the inbox open threads from the row's
+  summary), `comments/CommentCardShell.tsx` stands in its place, shaped like `CommentCard` so nothing moves when the
+  detail arrives (uier #385). What the summary holds is drawn as the card draws it: the status, `#number`, unread dot
+  and Private badge with Copy and More actions, the title, every detail label with Page, Assignees, Priority, Labels and
+  Pull requests (`readStates={false}`: no pull request read of its own), the first message (its first 500 characters),
+  Reply, Open in ... and the Activity footer. What only the detail has pulses as `Skeleton`s sized from the summary's
+  `outline` (`projectCommentPages.ts`): On, the device marks, the screenshot, the first message's reactions and each
+  reply (up to eight). Its controls are `inert` (the card is `role="status"`, "Loading comments", `aria-busy`); Back to
+  comments works at once. A failed load says "This thread could not be loaded." with Try again in the messages' place.
+  `e2e/thread-loading-shell.spec.ts` holds the detail and checks the shell and that the loaded thread keeps its layout.
 - Pull requests (`comments/ThreadPullRequests.tsx`) add a Pull requests row to the details when a current
   message, reply or manual attachment contains a GitHub.com PR, GitLab.com merge request or Azure DevOps Services PR URL.
   Project triagers also see the URL entry field when there are no links.

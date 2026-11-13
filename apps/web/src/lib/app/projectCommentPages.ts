@@ -64,7 +64,9 @@ function summary(view: ProjectCommentView): ProjectCommentView {
     return { ...view, pullRequests, workflow: undefined, availableLabels: undefined, summary: true, text: view.text.slice(0, 500), displayText: view.displayText.slice(0, 500),
         displayMentions: view.displayMentions?.filter(mention => mention.end <= 500), replies: [], history: undefined,
         screenshot: undefined, anchor: { type: 'page', label: '' }, reproduction: { text: '' }, quotedText: undefined, reactions: undefined,
-        verification: view.verification ? { ...view.verification, fixUrl: undefined } : undefined };
+        verification: view.verification ? { ...view.verification, fixUrl: undefined } : undefined,
+        outline: { replies: view.replies.length, reactions: view.reactions?.length ?? 0, history: view.history?.length ?? 0, anchor: view.anchor.type,
+            screenshot: view.screenshot && { width: view.screenshot.width, height: view.screenshot.height } } };
 }
 
 /** One projected, budgeted scan per request. Canonical/enrichment reads are bounded to the selected page(s). */

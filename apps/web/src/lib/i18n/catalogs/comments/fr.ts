@@ -4,6 +4,7 @@ const messages: Record<keyof typeof en, string> = {
     "This search is too large. Narrow the environment or author and try again.": "Cette recherche est trop vaste. Limitez l’environnement ou l’auteur et réessayez.",
     "Comments could not be refreshed. Your loaded comments are still shown.": "Les commentaires n’ont pas pu être actualisés. Les commentaires chargés restent affichés.",
     "More comments could not be loaded.": "Impossible de charger davantage de commentaires.",
+    "This thread could not be loaded.": "Impossible de charger cette discussion.",
     "Mark shown as read": "Marquer les commentaires affichés comme lus",
     "Load more": "Charger plus",
     "Loading comments": "Chargement des commentaires",

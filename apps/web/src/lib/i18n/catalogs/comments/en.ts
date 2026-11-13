@@ -3,6 +3,7 @@ const messages = {
     "This search is too large. Narrow the environment or author and try again.": "This search is too large. Narrow the environment or author and try again.",
     "Comments could not be refreshed. Your loaded comments are still shown.": "Comments could not be refreshed. Your loaded comments are still shown.",
     "More comments could not be loaded.": "More comments could not be loaded.",
+    "This thread could not be loaded.": "This thread could not be loaded.",
 
     "Mark shown as read": "Mark shown as read",
     "Load more": "Load more",

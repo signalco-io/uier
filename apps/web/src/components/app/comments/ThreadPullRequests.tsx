@@ -126,14 +126,15 @@ function usePullRequestStates(element: RefObject<HTMLElement | null>, projectId:
     return states;
 }
 
-function PullRequestValues({ projectId, commentId, links, revision, comment }: {
-    projectId: string; commentId: string; links: PullRequestLink[]; revision: string; comment: ProjectCommentView;
+function PullRequestValues({ projectId, commentId, links, revision, comment, readStates }: {
+    projectId: string; commentId: string; links: PullRequestLink[]; revision: string; comment: ProjectCommentView; readStates: boolean;
 }) {
     const { t } = useAppI18n();
     const value = useRef<HTMLElement>(null);
     const states = usePullRequestStates(value, projectId, commentId, links, revision);
     return (
-        <dd ref={value} className="m-0 flex min-h-8 min-w-0 flex-col items-start pointer-coarse:min-h-11" data-pull-request-links>
+        // Unobserved, it never reads: the loading shell shows only a state the page already knows
+        <dd ref={readStates ? value : undefined} className="m-0 flex min-h-8 min-w-0 flex-col items-start pointer-coarse:min-h-11" data-pull-request-links>
             {links.map(link => {
                 const state = states.find(value => value.url === link.url)?.state;
                 return (
@@ -161,13 +162,13 @@ function PullRequestValues({ projectId, commentId, links, revision, comment }: {
 }
 
 /** One properties row; no extra control or tab stop in a list/board card. */
-export function ThreadPullRequests({ projectId, comment }: { projectId: string; comment: ProjectCommentView }) {
+export function ThreadPullRequests({ projectId, comment, readStates = true }: { projectId: string; comment: ProjectCommentView; readStates?: boolean }) {
     const { t } = useAppI18n();
     const links = commentPullRequestLinks(comment);
     if (!links.length && !comment.permissions.triage) return null;
     return <>
         <dt className="flex h-8 items-center text-muted-foreground pointer-coarse:h-11">{t("Pull requests")}</dt>
-        <PullRequestValues key={`${projectId}:${comment.id}:${links.map(link => link.url).join('\n')}`} projectId={projectId} commentId={comment.id} links={links} revision={comment.revision} comment={comment} />
+        <PullRequestValues key={`${projectId}:${comment.id}:${links.map(link => link.url).join('\n')}`} projectId={projectId} commentId={comment.id} links={links} revision={comment.revision} comment={comment} readStates={readStates} />
     </>;
 }
 

@@ -4,6 +4,7 @@ const messages: Record<keyof typeof en, string> = {
     "This search is too large. Narrow the environment or author and try again.": "Ova je pretraga prevelika. Suzite okruženje ili autora i pokušajte ponovno.",
     "Comments could not be refreshed. Your loaded comments are still shown.": "Komentare nije moguće osvježiti. Učitani komentari i dalje su prikazani.",
     "More comments could not be loaded.": "Nije moguće učitati još komentara.",
+    "This thread could not be loaded.": "Ovu raspravu nije moguće učitati.",
     "Mark shown as read": "Označi prikazano kao pročitano",
     "Load more": "Učitaj više",
     "Loading comments": "Učitavanje komentara",
