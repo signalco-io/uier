@@ -33,6 +33,7 @@ import { apiErrors } from '../comments/http';
 import { MAX_THREAD_ITEMS } from '../comments/limits';
 import { enforceNewCommentLimits, enforceReplyLimits, enforceRewriteLimits, rateLimitIpBucket, usageLinks, type RateLimitSubject } from '../comments/rateLimits';
 import { availableScreenshot, commentTtlSeconds, createWithScreenshot, forgetScreenshot, screenshotDocument, screenshotInfo } from '../comments/service';
+import { attachRecording, prepareCommentRecording, cleanupRemovedRecordings } from '../recordings/service';
 import { KnownPages } from '../../knownPages';
 import { isPrivateAppFeedback, isUierFeedbackProject, PUBLIC_PROJECT_PARTITION, USER_FEEDBACK_PROJECT_ID } from '../comments/publicProject';
 import { isValidId, type CreateCommentInput } from '../comments/validation';
@@ -225,10 +226,10 @@ export async function createProjectComment(request: Request, project: DbProject,
 
     const store = getCommentsStore();
     const partition = projectPartition(project.id);
-    const attempt = submission(partition, authorId, input.idempotencyKey, {
+    const attempt = submission(partition, authorId, input.idempotencyKey ?? input.recordingId, {
         operation: 'create', path: input.path, position: input.position, kind: input.kind, text: input.text, mentions: input.mentions ?? [],
         quotedText: input.quotedText, authorName: actor.kind === 'guest' ? input.authorName : undefined, origin: input.origin,
-        ...(input.drawing ? { drawing: input.drawing } : {})
+        ...(input.drawing ? { drawing: input.drawing } : {}), ...(input.recordingId ? { recordingId: input.recordingId } : {})
     });
     const recovered = await recoverSubmission(store, attempt);
     if (recovered) return visibleOrThrow(recovered, actor);
@@ -237,6 +238,7 @@ export async function createProjectComment(request: Request, project: DbProject,
     const feedbackType = await feedbackTypeForSubmission(project, input.kind);
     await enforceNewCommentLimits(store, commentRateLimitSubject(request, project, actor, authorId), input.path);
     const screenshot = await availableScreenshot(store, partition, input.screenshot);
+    const recording = await prepareCommentRecording(partition, authorId, input.recordingId, store);
 
     const now = nowIso();
     const authorName = actor.kind === 'guest' ? input.authorName : undefined;
@@ -281,10 +283,11 @@ export async function createProjectComment(request: Request, project: DbProject,
     comment.thread.items[0]!.mentions = await validateMentions(project, actor, comment, input.text, input.mentions);
     if (screenshot)
         comment.screenshot = screenshotInfo(screenshot);
+    if (recording) comment.recording = recording.doc.metadata;
     const recorded = withSyncMark(project, null, withNotificationEvent(comment, authorId, 'comment', now, mentionRecipients(comment.thread.items[0]!.mentions), actor.kind === 'member' ? actor.agent : undefined, { itemId: comment.thread.items[0]!.id }));
     await refreshMutationActor(project, actor, true);
     if (attempt) {
-        const saved = await commitNewSubmission(store, attempt, recorded, screenshot ? screenshotDocument(recorded, screenshot) : undefined);
+        const saved = await commitNewSubmission(store, attempt, recorded, screenshot ? screenshotDocument(recorded, screenshot) : undefined, attachRecording(recording, recorded.id));
         queueMcpEventDelivery(project.id);
         queueAiTitles(project, [saved], 'new');
         return visibleOrThrow(saved, actor);
@@ -338,7 +341,7 @@ function parseClaim(claim: MessageAgentClaim) {
  * `writtenBy`: what an MCP connection says about the agent writing the reply. It marks the message only
  * for an MCP actor (one with a connector), and only as `messageAgentFor` decides from the stored thread.
  */
-export type ReplyInput = { screenshot?: ParsedScreenshot; text: string; authorName?: string; mentions?: DbMention[]; idempotencyKey?: string; writtenBy?: MessageAgentClaim };
+export type ReplyInput = { recordingId?: string; screenshot?: ParsedScreenshot; text: string; authorName?: string; mentions?: DbMention[]; idempotencyKey?: string; writtenBy?: MessageAgentClaim };
 
 export async function replyToProjectComment(request: Request, project: DbProject, actor: ProjectActor, id: string, input: ReplyInput) {
     const saved = await appendProjectReply(request, project, actor, id, input);
@@ -358,8 +361,9 @@ async function appendProjectReply(request: Request, project: DbProject, actor: P
 
     const store = getCommentsStore();
     const partition = projectPartition(project.id);
-    const attempt = submission(partition, authorId, input.idempotencyKey ?? (input.screenshot ? nanoid() : undefined), {
+    const attempt = submission(partition, authorId, input.idempotencyKey ?? input.recordingId ?? (input.screenshot ? nanoid() : undefined), {
         ...(input.screenshot ? { image: input.screenshot.data.toString('base64') } : {}),
+        ...(input.recordingId ? { recordingId: input.recordingId } : {}),
         operation: 'reply', id, text: input.text, mentions: input.mentions ?? [], authorName: actor.kind === 'guest' ? input.authorName : undefined
     });
     const recovered = await recoverSubmission(store, attempt);
@@ -371,12 +375,14 @@ async function appendProjectReply(request: Request, project: DbProject, actor: P
 
     await enforceReplyLimits(store, commentRateLimitSubject(request, project, actor, authorId));
     const screenshot = await availableScreenshot(store, partition, input.screenshot);
+    const recording = await prepareCommentRecording(partition, authorId, input.recordingId, store);
 
     const now = nowIso();
     const itemId = `item_${nanoid()}`;
     if (attempt) return await commitReplySubmission(store, attempt, id, comment => ({
         id: itemId, text: input.text, authorId,
         ...(screenshot ? { screenshot: screenshotInfo(screenshot) } : {}),
+        ...(recording ? { recording: recording.doc.metadata } : {}),
         ...(actor.kind === 'member' && actor.agent ? { agent: actor.agent } : {}),
         ...writtenBy(comment),
         authorName: actor.kind === 'guest' ? input.authorName : undefined,
@@ -384,7 +390,7 @@ async function appendProjectReply(request: Request, project: DbProject, actor: P
     }), async comment => { await refreshMutationActor(project, actor, true); return visibleOrThrow(comment, actor); }, async (previous, updated) => {
         const mentions = await validateMentions(project, actor, previous, input.text, input.mentions);
         return withSyncMark(project, previous, withNotificationEvent(updated, authorId, 'reply', now, mentionRecipients(mentions), actor.kind === 'member' ? actor.agent : undefined, { itemId }));
-    }, screenshot ? comment => screenshotDocument(comment, screenshot, itemId) : undefined);
+    }, screenshot ? comment => screenshotDocument(comment, screenshot, itemId) : undefined, attachRecording(recording, id, itemId));
     return await updateComment(store, project, actor, id, async comment => {
         await refreshMutationActor(project, actor, true);
         visibleOrThrow(comment, actor);
@@ -637,15 +643,18 @@ export async function removeProjectComment(project: DbProject, actor: ProjectAct
     const partition = projectPartition(project.id);
     let hadScreenshot = false;
     let previousImageItems: string[] = [];
+    let previous: DbComment | undefined;
     await updateComment(store, project, actor, id, (comment) => {
         visibleOrThrow(comment, actor);
         if (!canDeleteComment(comment, actor))
             throw apiErrors.forbidden('Only the author or an admin can delete this comment.');
         hadScreenshot = Boolean(comment.screenshot);
         previousImageItems = comment.thread.items.filter(item => item.screenshot).map(item => item.id);
+        previous = comment;
         return null;
     }, (comment, etag) => deleteProjectThread(store, project, comment, etag));
     await forgetScreenshot(store, partition, id, hadScreenshot, null, previousImageItems);
+    if (previous) await cleanupRemovedRecordings(previous, null, store);
 }
 
 /**
@@ -659,10 +668,12 @@ export async function deleteProjectCommentItem(project: DbProject, actor: Projec
     const partition = projectPartition(project.id);
     let hadScreenshot = false;
     let previousImageItems: string[] = [];
+    let previous: DbComment | undefined;
     const updated = await updateComment(store, project, actor, id, (comment): DbComment | null => {
         visibleOrThrow(comment, actor);
         hadScreenshot = Boolean(comment.screenshot);
         previousImageItems = comment.thread.items.filter(item => item.screenshot).map(item => item.id);
+        previous = comment;
         const items = threadItems(comment);
         const index = items.findIndex(item => item.id === itemId);
         const item = items[index];
@@ -688,6 +699,7 @@ export async function deleteProjectCommentItem(project: DbProject, actor: Projec
             delete kept.authorId;
             delete kept.device;
             delete kept.screenshot;
+            delete kept.recording;
             return withSyncMark(project, comment, withThreadHistory(comment, kept, actorAuthorId(actor)!));
         }
 
@@ -697,6 +709,7 @@ export async function deleteProjectCommentItem(project: DbProject, actor: Projec
         return withSyncMark(project, comment, { ...comment, thread: { ...comment.thread, items: remaining }, updatedAt: now });
     }, (comment, etag) => deleteProjectThread(store, project, comment, etag));
     await forgetScreenshot(store, partition, id, hadScreenshot, updated, previousImageItems);
+    if (previous) await cleanupRemovedRecordings(previous, updated, store);
     return updated;
 }
 

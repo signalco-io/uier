@@ -18,6 +18,7 @@ export type SecureHeadersExternalUrls = {
     fontSrc?: string[];
     frameSrc?: string[];
     imgSrc?: string[];
+    mediaSrc?: string[];
     connectSrc?: string[];
     frameAncestors?: string[];
 };
@@ -41,7 +42,9 @@ export const knownSecureHeadersExternalUrls = {
 
 // Passkeys use publickey-credentials-create/-get with their default `self` allowlist (the top-level
 // app pages); never list them here as `()`. e2e/passkeys.spec.ts runs both under these headers.
-export const permissionsPolicy = 'camera=(), microphone=(), geolocation=(), display-capture=(), payment=(), usb=()';
+export const restrictedPermissionsPolicy = 'camera=(), microphone=(), geolocation=(), display-capture=(), payment=(), usb=()';
+/** Recording starts only from an explicit browser permission prompt in the top-level review page. */
+export const permissionsPolicy = 'camera=(), microphone=(), geolocation=(), display-capture=(self), payment=(), usb=()';
 
 /** Production analytics 2.0.1 loads /_vercel/insights/script.js and posts to this origin. */
 export function siteExternalUrls(isDevelopment: boolean, isPreview: boolean): SecureHeadersExternalUrls[] {
@@ -49,7 +52,7 @@ export function siteExternalUrls(isDevelopment: boolean, isPreview: boolean): Se
     // The toolbar's watch build in `next dev`, on the port after this app's (next.config.ts)
     const toolbarDevOrigin = process.env.UIER_TOOLBAR_DEV_ORIGIN ?? '';
     return [
-        ...(blobOrigin ? [{ imgSrc: [blobOrigin], connectSrc: [blobOrigin] }] : []),
+        ...(blobOrigin ? [{ imgSrc: [blobOrigin], connectSrc: [blobOrigin], mediaSrc: [blobOrigin] }] : []),
         ...(isPreview ? [knownSecureHeadersExternalUrls.vercelToolbar] : []),
         ...(isDevelopment ? [{
             scriptSrc: [toolbarDevOrigin, 'https://va.vercel-scripts.com'],
@@ -82,7 +85,7 @@ export function combineSecureHeaders(
                 styleSrc: ['\'self\'', ...external('styleSrc'), '\'unsafe-inline\''],
                 fontSrc: ['\'self\'', ...external('fontSrc'), '\'self\' data:'],
                 manifestSrc: '\'self\'',
-                mediaSrc: '\'self\'',
+                mediaSrc: ['\'self\'', 'blob:', ...external('mediaSrc')],
                 childSrc: '\'self\'',
                 frameSrc: ['\'self\'', ...baseSubdomains, ...external('frameSrc')],
                 workerSrc: ['\'self\'', '\'self\' blob:'],

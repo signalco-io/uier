@@ -88,7 +88,7 @@ test('screenshots: cancellation saves nothing and failed capture still saves the
         HTMLCanvasElement.prototype.toBlob = () => { throw new Error('Capture unavailable'); };
     });
     const draft = await startComment(page, 'Keep the feedback if capture fails.', page.getByRole('heading', { level: 1 }));
-    await expect(draft.getByRole('status').filter({ hasText: 'The screenshot could not be taken. Only the text will be sent.' })).toBeVisible();
+    await expect(draft.getByRole('status').filter({ hasText: 'The screenshot could not be taken. You can still send your comment.' })).toBeVisible();
     await expect(draft.getByRole('button', { name: 'Omit screenshot' })).toHaveCount(0);
     await draft.getByRole('button', { name: 'Post comment' }).click();
     const thread = page.getByRole('dialog', { name: 'Comment thread' });
@@ -339,7 +339,7 @@ test('screenshots: the reviewer attaches their own image instead, from the text 
     expect(attachBox.y).toBeGreaterThanOrEqual(text.y + text.height - 1);
     expect(attachBox.x - text.x).toBeLessThan(16);
     expect((await omit.boundingBox())!.y).toBeLessThan(text.y);
-    const input = draft.locator('input[type="file"]');
+    const input = draft.locator('input[type="file"][accept*="image/"]');
     await input.setInputFiles({ name: 'drawing.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg/>') });
     await expect(draft.getByRole('alert')).toContainText('Choose a PNG, JPEG or WebP');
     await input.setInputFiles({ name: 'evidence.png', mimeType: 'image/png', buffer: Buffer.from(pngImage.split(',')[1]!, 'base64') });
@@ -417,7 +417,7 @@ test('screenshots: nothing is sent while an attached image is still being read',
     // A comment: neither Enter nor the button sends the automatic screenshot in its place
     const draft = await startComment(page, 'Wait for my picture.', page.getByRole('heading', { level: 1 }));
     let release = await holdImageReading(page);
-    await draft.locator('input[type="file"]').setInputFiles({ name: 'evidence.png', mimeType: 'image/png', buffer: Buffer.from(pngImage.split(',')[1]!, 'base64') });
+    await draft.locator('input[type="file"][accept*="image/"]').setInputFiles({ name: 'evidence.png', mimeType: 'image/png', buffer: Buffer.from(pngImage.split(',')[1]!, 'base64') });
     await expect(draft.getByRole('status').filter({ hasText: 'Reading your image...' })).toBeAttached();
     await expect(draft.getByRole('button', { name: 'Post comment' })).toBeDisabled();
     await draft.getByRole('textbox', { name: 'Comment' }).press('Enter');
@@ -485,7 +485,7 @@ test('screenshots: an attached image belongs to the feedback it was sent with', 
     await openFeedback();
     await expect(removeButton('image.png')).toHaveCount(0);
     await expect(dialog.getByRole('button', { name: 'Omit screenshot' })).toHaveAttribute('aria-pressed', 'false');
-    await dialog.locator('input[type="file"]').setInputFiles(second);
+    await dialog.locator('input[type="file"][accept*="image/"]').setInputFiles(second);
     await expect(removeButton('second.png')).toBeVisible();
     release();
     await expect(page.getByRole('status').filter({ hasText: 'Feedback sent' })).toBeAttached();

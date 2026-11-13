@@ -2,9 +2,12 @@
 
 import { useAppI18n } from '@/src/lib/i18n/client';
 
-import { type RefObject, useMemo, useState, useSyncExternalStore, useTransition } from 'react';
+import { type RefObject, useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from 'react';
 import { useAttachedImage } from '@uier/toolbar/attachments';
+import { useRecording, uploadRecording } from '@uier/toolbar/recordings';
 import { ReplyAttachment } from './ReplyAttachment';
+import { ReplyRecordingActions, ReplyRecordingPreview } from './ReplyRecording';
+import { recordingProblemMessage } from './recordingMessages';
 import { toast } from 'sonner';
 import { appCommentDrafts } from './replyDrafts';
 import { Button } from '@/src/components/ui/button';
@@ -50,6 +53,15 @@ export function ReplyComposer({ projectId, userId, userName, comment, fieldRef, 
     const [, startTransition] = useTransition();
     const update = useCommentUpdate();
     const attachment = useAttachedImage(undefined, { pastedName: t("Pasted image") });
+    const recording = useRecording();
+    const owner = `${projectId}:${userId}:${comment.id}`;
+    const recordingOwner = useRef(owner);
+    useEffect(() => {
+        if (recordingOwner.current !== owner) {
+            recordingOwner.current = owner;
+            recording.discard();
+        }
+    }, [owner]);
 
     const setText = (value: string, nextMentions: MessageMention[]) => {
         drafts.set(key, value);
@@ -58,14 +70,15 @@ export function ReplyComposer({ projectId, userId, userName, comment, fieldRef, 
     };
     const submit = () => {
         const sentText = drafts.get(key) ?? '';
-        if (!sentText.trim() || drafts.pending(key) || attachment.reading) return;
+        if (!sentText.trim() || drafts.pending(key) || attachment.reading || recording.busy) return;
         const sentImage = attachment.image;
+        const sentRecording = recording.current();
         const sentMentions = drafts.details(key)?.mentions ?? [];
         const leading = sentText.length - sentText.trimStart().length;
         const selectedMentions = sentMentions.filter(mention => mention.end <= sentText.trimEnd().length)
             .map(mention => ({ ...mention, start: mention.start - leading, end: mention.end - leading }));
         const input = { projectId, commentId: comment.id, text: sentText.trim(), mentions: selectedMentions };
-        const idempotencyKey = drafts.attempt(key, JSON.stringify({ ...input, image: sentImage?.key }));
+        const idempotencyKey = drafts.attempt(key, JSON.stringify({ ...input, image: sentImage?.key, recording: sentRecording?.key }));
         const sendId = drafts.startSend(key, sentText, sentMentions);
         setError(undefined);
         setAnnouncement(t("Sending reply..."));
@@ -80,15 +93,27 @@ export function ReplyComposer({ projectId, userId, userName, comment, fieldRef, 
                     previousReplyIds: comment.replies.map(item => item.id) };
                     update({ id: comment.id, ...sent });
                     unsend = onSend?.(sent);
-                    const result = await replyCommentAction({ ...input, idempotencyKey, screenshot: sentImage?.dataUrl });
+                    const recordingId = sentRecording ? await uploadRecording(sentRecording,
+                        new URL(`/api/projects/${encodeURIComponent(projectId)}/recordings`, window.location.href).href,
+                        async <T,>(url: string, init?: { method?: 'POST'; body?: unknown }) => {
+                            const response = await fetch(url, { method: init?.method ?? 'GET', credentials: 'same-origin', cache: 'no-store',
+                                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                                body: init?.body === undefined ? undefined : JSON.stringify(init.body) });
+                            if (!response.ok) throw new Error(t('The recording could not be uploaded.'));
+                            return await response.json() as T;
+                        }, userId).catch(() => { throw new Error(t('The recording could not be uploaded.')); }) : undefined;
+                    const result = await replyCommentAction({ ...input, idempotencyKey, screenshot: sentImage?.dataUrl, recordingId });
                     if (!result?.ok) throw new Error(result?.error ?? t("Could not post the reply. Try again."));
                 });
                 saved = true;
+                if (sentRecording) recording.clear(sentRecording);
                 setAnnouncement(t("Reply posted"));
             } catch (failure) {
                 unsend?.();
                 if (sentImage) attachment.restore(sentImage);
-                const message = failure instanceof Error ? failure.message : t("Could not post the reply. Try again.");
+                const message = failure instanceof Error && failure.message === 'upload'
+                    ? t('The recording could not be uploaded.')
+                    : failure instanceof Error ? failure.message : t("Could not post the reply. Try again.");
                 setError(message);
                 toast.error(t("Your reply was not posted."), { description: t("{value0} Your draft is kept.", { value0: message }) });
                 setAnnouncement(t("Reply not posted. Your draft is kept."));
@@ -101,12 +126,15 @@ export function ReplyComposer({ projectId, userId, userName, comment, fieldRef, 
 
     return <MessageComposer label={t("Reply")} formLabel={t("Reply to thread")} name="reply" placeholder={t("Reply...")}
         value={text} mentions={mentions} onValueChange={setText} mentionsIn={{ projectId, commentId: comment.id }} maxLength={maxLength} fieldRef={fieldRef}
-        attachments={<ReplyAttachment attachment={attachment} />} onPaste={attachment.handlePaste} onImageDrop={file => void attachment.attach(file)} holdSubmit={attachment.reading}
+        attachments={<><ReplyAttachment attachment={attachment} /><ReplyRecordingActions recording={recording} disabled={pending} /></>}
+        onPaste={attachment.handlePaste} onImageDrop={file => void attachment.attach(file)} holdSubmit={attachment.reading || recording.busy}
         submitLabel={t("Post reply")} submitVerb="send" onSubmit={submit} pending={pending}
-        onEscapeEmpty={onClose}
-        onDiscard={() => { attachment.remove(); drafts.delete(key); setError(undefined); setAnnouncement(t("Draft discarded")); }}
-        error={(attachment.error && t(attachment.error)) || (error && t("{value0} Your draft is kept. Try sending again.", { value0: error }))} announcement={announcement}
+        onEscapeEmpty={() => { if (!recording.clip && !recording.busy) onClose(); }}
+        onDiscard={() => { attachment.remove(); recording.discard(); drafts.delete(key); setError(undefined); setAnnouncement(t("Draft discarded")); }}
+        error={(attachment.error && t(attachment.error)) || recordingProblemMessage(recording.error, t)
+            || (error && t("{value0} Your draft is kept. Try sending again.", { value0: error }))} announcement={announcement}
         notices={<>
+            <ReplyRecordingPreview recording={recording} disabled={pending} />
             {!storageAvailable && <FieldDescription role="status">{t("Browser storage is unavailable. Keep this page open to keep your draft.")}</FieldDescription>}
             {recoveries > 0 && <FieldDescription role="status">{t("Earlier unsent text is kept separately because both drafts exceed the character limit.")}
                 <Button variant="ghost" size="sm" className="pointer-coarse:min-h-11" disabled={pending} onClick={() => drafts.restore(key)}>{t("Restore unsent text")}</Button></FieldDescription>}

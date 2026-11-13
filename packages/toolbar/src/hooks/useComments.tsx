@@ -19,6 +19,7 @@ import { pageQueryKeys, pagePath, sourcePagePath, type PageStatePolicy } from '.
 import { getToolbarHost } from '../mount';
 import { subscribeToComments, type RealtimeTicket } from '../realtime';
 import { runtimeAdapters } from '../adapters';
+import { uploadRecording, type RecordingClip } from '../recordings';
 import { completeDeviceInfo } from '../components/info/getDeviceInfo';
 
 export { CommentsApiError, type CommentsApiErrorCode, type CommentsRateLimitReason } from './api';
@@ -28,6 +29,9 @@ export { CommentsApiError, type CommentsApiErrorCode, type CommentsRateLimitReas
 const commentsApiUrl = toolbarConfig.project
     ? `${toolbarConfig.apiUrl}/api/review/${toolbarConfig.project}/comments`
     : `${toolbarConfig.apiUrl}/api/comments`;
+const recordingsApiUrl = toolbarConfig.project
+    ? `${toolbarConfig.apiUrl}/api/review/${toolbarConfig.project}/recordings`
+    : `${toolbarConfig.apiUrl}/api/comments/recordings`;
 
 type AssignInput = { commentId: string } & ({ assigneeId: string | null } | { assigneeIds: string[]; mode?: 'replace' | 'add' | 'remove' });
 
@@ -61,9 +65,10 @@ export type CreateCommentInput = {
     screenshot?: string | Promise<string | undefined>;
     /** The draft it was written in (one of several on the page): its submission key is kept there. Never sent. */
     draftKey?: string;
+    recording?: RecordingClip;
 };
 
-type ReplyInput = { commentId: string; text: string; mentions?: Mention[]; screenshot?: string; imageKey?: string };
+type ReplyInput = { commentId: string; text: string; mentions?: Mention[]; screenshot?: string; imageKey?: string; recording?: RecordingClip };
 
 /*
  * Optimistic comments and replies: shown at once, sent in the background. A list fetched while
@@ -179,10 +184,23 @@ function sourcePath(path: string, policy: PageStatePolicy) {
     return source !== path ? source : undefined;
 }
 
-async function createComment(path: string, policy: PageStatePolicy, { idempotencyKey, position, kind, text, mentions, quotedText, check, drawing, device, screenshot }: CreateCommentInput) {
+/** Every stage of an upload stays with the reviewer who pressed Send. */
+function uploadCommentRecording(recording: RecordingClip, revision: number) {
+    return uploadRecording(recording, recordingsApiUrl, (url, init) => {
+        if (revision !== currentReviewerRevision()) throw new CommentsApiError('sign_in_required', 'The review session changed.', 401);
+        return apiRequest(url, init);
+    }, revision);
+}
+
+async function createComment(path: string, policy: PageStatePolicy, { idempotencyKey, position, kind, text, mentions, quotedText, check, drawing, device, screenshot, recording }: CreateCommentInput) {
+    const revision = currentReviewerRevision();
+    const [image, deviceInfo, recordingId] = await Promise.all([
+        screenshot, device && completeDeviceInfo(device), recording && uploadCommentRecording(recording, revision)
+    ]);
+    if (recording && revision !== currentReviewerRevision()) throw new CommentsApiError('sign_in_required', 'The review session changed.', 401);
     return required(await apiRequest<CommentItem>(commentsApiUrl, {
         method: 'POST',
-        body: { idempotencyKey, path, sourcePath: sourcePath(path, policy), position, kind, text, mentions, quotedText, check, drawing, device: device && await completeDeviceInfo(device), screenshot: await screenshot, authorName: guestAuthorName(), queryKeys: queryKeys(path) }
+        body: { idempotencyKey, path, sourcePath: sourcePath(path, policy), position, kind, text, mentions, quotedText, check, drawing, device: deviceInfo, screenshot: image, recordingId, authorName: guestAuthorName(), queryKeys: queryKeys(path) }
     }));
 }
 
@@ -191,10 +209,13 @@ export function getCommentScreenshot(commentId: string, itemId?: string) {
     return apiImage(`${commentUrl(commentId)}${itemId ? `/replies/${encodeURIComponent(itemId)}` : ''}/screenshot`);
 }
 
-async function replyToComment({ commentId, text, mentions, screenshot, idempotencyKey }: ReplyInput & { idempotencyKey?: string }) {
+async function replyToComment({ commentId, text, mentions, screenshot, recording, idempotencyKey }: ReplyInput & { idempotencyKey?: string }) {
+    const revision = currentReviewerRevision();
+    const recordingId = recording ? await uploadCommentRecording(recording, revision) : undefined;
+    if (recording && revision !== currentReviewerRevision()) throw new CommentsApiError('sign_in_required', 'The review session changed.', 401);
     return required(await apiRequest<CommentItem>(`${commentUrl(commentId)}/replies`, {
         method: 'POST',
-        body: { text, mentions, screenshot, idempotencyKey, authorName: guestAuthorName() }
+        body: { text, mentions, screenshot, recordingId, idempotencyKey, authorName: guestAuthorName() }
     }));
 }
 
@@ -469,8 +490,8 @@ export function useComments(refreshOnMount = false): {
             const key = input.draftKey ?? (input.drawing ? newDrawingDraftKey : input.kind === 'rewrite' ? newRewriteDraftKey : isFeedbackTypeId(input.kind) ? `${feedbackDraftKey}:${input.kind}` : newCommentDraftKey);
             // The same content is the same attempt (a retry the API can recognize), whatever its local id.
             // A drawing is in it by its fingerprint: the attempt is kept in the draft's small record.
-            const { device: _device, screenshot: _screenshot, idempotencyKey: _identity, localId: _local, feedbackType: _type, draftKey: _draft, drawing, ...content } = input;
-            return createComment(path, pageState, { ...input, idempotencyKey: drafts.attempt(key, JSON.stringify({ path, ...content, ...(drawing ? { drawing: drawingFingerprint(drawing) } : {}) })) });
+            const { device: _device, screenshot: _screenshot, idempotencyKey: _identity, localId: _local, feedbackType: _type, draftKey: _draft, recording, drawing, ...content } = input;
+            return createComment(path, pageState, { ...input, idempotencyKey: drafts.attempt(key, JSON.stringify({ path, ...content, recordingKey: recording?.key, ...(drawing ? { drawing: drawingFingerprint(drawing) } : {}) })) });
         },
         onMutate: (input: CreateCommentInput) => {
             const comment = optimisticComment(path, input, authorName(), verificationEnabled === true);
@@ -507,7 +528,7 @@ export function useComments(refreshOnMount = false): {
 
     const reply = useMutation({
         mutationFn: (input: ReplyInput) => drafts.run(input.commentId, () => replyToComment({
-            ...input, idempotencyKey: drafts.attempt(input.commentId, JSON.stringify({ ...input, screenshot: undefined }))
+            ...input, idempotencyKey: drafts.attempt(input.commentId, JSON.stringify({ ...input, screenshot: undefined, recording: undefined, recordingKey: input.recording?.key }))
         })),
         onMutate: (input: ReplyInput) => {
             const item: CommentItemThreadItem = {

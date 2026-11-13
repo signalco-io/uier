@@ -1,11 +1,11 @@
 import type { NextRequest } from 'next/server';
-import { permissionsPolicy } from './secureHeaders';
+import { restrictedPermissionsPolicy } from './secureHeaders';
 import { isLocalRuntime } from './comments/environment';
 
 export const botIdPath = '/149e9513-01fa-4fb0-aad4-566afd725d1b/2d206a39-8ed7-437e-a3be-862e0f06eea3';
 export const botIdHeaders = [
     { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
-    { key: 'Permissions-Policy', value: permissionsPolicy },
+    { key: 'Permissions-Policy', value: restrictedPermissionsPolicy },
     { key: 'X-XSS-Protection', value: '0' },
     { key: 'X-Content-Type-Options', value: 'nosniff' },
     { key: 'X-Frame-Options', value: 'SAMEORIGIN' },

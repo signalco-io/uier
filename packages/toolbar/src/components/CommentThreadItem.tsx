@@ -17,6 +17,7 @@ import { CommentKindLabel } from './CommentKindLabel';
 import { CommentDevice } from './info/CommentDevice';
 import { useReattach } from './CommentAnchorDetails';
 import { CommentScreenshot } from './CommentScreenshot';
+import { CommentRecording } from './CommentRecording';
 import { CommentComposer } from './CommentComposer';
 import { useDrafts } from '../hooks/useDrafts';
 import { CommentItem, CommentItemThreadItem } from './@types/Comments';
@@ -225,6 +226,7 @@ export function CommentThreadItem({ comment, threadItem, first }: { comment: Com
                     ) : <MessageMarkdown text={text} mentions={mentions}
                         suffix={threadItem.editedAt && <span className="font-normal text-muted-foreground">{t.thread.edited}</span>} />}
                     {(first || threadItem.screenshot) && <CommentScreenshot comment={comment} itemId={first ? undefined : threadItem.id} />}
+                    {(first ? comment.recording : threadItem.recording) && <CommentRecording commentId={comment.id} itemId={first ? undefined : threadItem.id} recording={(first ? comment.recording : threadItem.recording)!} />}
                     {!editing && <ReactionList comment={comment} item={threadItem} />}
                     <CommentsErrorMessage error={error} />
                 </Stack>

@@ -25,6 +25,7 @@ recipients' retention explicit. Correcting these disclosures does not change pro
 
 Issue [#289](https://github.com/signalco-io/uier/issues/289) requires owner review of its final legal
 wording before merge. Prepare the tested text for review; do not infer that passing checks approve it.
-The changed documents already carry today's 12 November 2026 effective date. Unchanged policies keep
-their existing dates. `legal.spec.ts` guards the project/privacy distinction, identity fallback,
+The privacy policy's 13 November 2026 update describes explicit screen recordings, browser-memory
+drafts, private video storage, access and cleanup. Its changed wording needs the same owner review
+before merge. Other policies retain their existing dates. `legal.spec.ts` guards the project/privacy distinction, identity fallback,
 analytics status and erasure limitations.

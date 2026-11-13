@@ -480,6 +480,29 @@ renaming the Vercel team or project, or switching the project to the global issu
 `COSMOSDB_COMMENTS_CONTAINER` selects the container (default `comments`). All of these variables are managed by
 Pulumi (see [Infrastructure](operations.md#infrastructure)).
 
+## Screen recordings
+
+Create-comment and reply bodies accept an optional `recordingId`, obtained from the upload flow
+below. The reference is bound to the submitting actor and partition and can be attached to one
+message only. Responses expose only `{ id, contentType, size, duration, width, height }` as
+`recording`, never storage names or signed addresses. Existing screenshot fields remain supported.
+
+For a project toolbar, use `/api/review/<projectId>/recordings`; public same-origin feedback uses
+`/api/comments/recordings`; the signed-in app uses `/api/projects/<projectId>/recordings`.
+
+1. `POST` that base with `{ idempotencyKey?, contentType, size, duration?, width?, height? }` creates
+   or recovers an authorized upload session and returns `{ id, uploadUrl, headers, expiresAt }`.
+2. `PUT` the raw file to `uploadUrl` with the returned storage headers, omitting cookies and all
+   uier authorization headers.
+3. `POST <base>/<id>/complete` inspects the actual bytes and returns validated recording metadata.
+   Send its `id` as `recordingId` with the comment or reply and the normal submission key.
+
+`GET .../comments/<id>/recording` and `GET .../comments/<id>/replies/<itemId>/recording` return
+`{ url, expiresAt }` after current thread access checks. Public routes start at `/api/comments/<id>`;
+app routes at `/api/projects/<projectId>/comments/<id>`. Read URLs last 60 seconds and support
+byte ranges for seeking. Upload/session routes use the same review or app authorization as comments.
+See [recording limits, private storage and cleanup](recordings.md).
+
 ## Page checks
 
 A project member's toolbar checks every page they review in the background, then saves a small summary of

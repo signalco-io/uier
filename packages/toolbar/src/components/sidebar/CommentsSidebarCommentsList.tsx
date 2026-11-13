@@ -1,3 +1,4 @@
+import { useRecording } from '../../recordings';
 import { ReactNode, RefObject, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
 import { Stack } from '@signalco/ui-primitives/Stack';
@@ -82,13 +83,16 @@ function CardFooter({ children }: { children: ReactNode }) {
 /** Share the target page's draft and send lock with its pin, even from another page. */
 function InboxReply({ comment, onClose }: { comment: CommentItem; onClose: () => void }) {
     const { reply } = useComments();
+    const recording = useRecording();
     const announce = useAnnounce();
     const t = useMessages();
     if (comment.pending) return null;
     return <div className="border-t">
         <CommentComposer commentId={comment.id} label={t.inbox.reply} placeholder={t.thread.replyPlaceholder} submitLabel={t.thread.postReply} draftKey={comment.id}
-            autoFocus error={reply.error} onSubmit={async (text, mentions) => {
-                await reply.mutateAsync({ commentId: comment.id, text, mentions });
+            autoFocus error={reply.error} recording={recording} onDiscard={recording.discard} onSubmit={async (text, mentions) => {
+                const sentRecording = recording.current();
+                await reply.mutateAsync({ commentId: comment.id, text, mentions, recording: sentRecording });
+                recording.clear(sentRecording);
                 announce(t.thread.replyPosted);
             }} />
         <Button variant="plain" size="xs" className="mb-2 ml-3" onClick={onClose}>{t.inbox.closeReply}</Button>

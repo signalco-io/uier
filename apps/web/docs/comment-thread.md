@@ -183,6 +183,21 @@ assignee card, with Open in T3 Code or another desktop session link, at the top 
   The reply browser check waits for the saved-reply announcement before its light/dark axe scans,
   so it audits the settled document after action revalidation rather than the optimistic message.
   Never import the toolbar runtime/providers/styles into the app. See `docs/review-workflow.md`.
+  Replies can also attach one screen recording or uploaded MP4/WebM video, up to 60 seconds and 25 MB.
+  `ReplyRecording` uses the browser-only `@uier/toolbar/recordings` hook with app UI controls: explicit
+  Record screen, Stop, Discard and Upload video. Browser capture records no audio and stops when the
+  reviewed document unloads. A stopped or uploaded clip has an inline native-video preview before Send.
+  Record screen and Upload video sit in the reply box until a capture runs or a clip is attached; the
+  running capture (time against the limit, Stop, Discard) and the clip's preview (name, length, Discard)
+  show under the box, so the box keeps one Discard, the draft's.
+  Recording, reading and source selection hold Enter/send. Clips and preview URLs stay in memory;
+  changing the account/thread discards them, and failed sends retain the clip alongside the text.
+  `ReplyComposer` uploads only on Send, with actor-scoped upload identity reused on retries, and passes
+  the finalized `recordingId` through the validated reply action. Root and reply `MessageRecording`
+  players request a short-lived URL only when opened, recheck access when renewing it, and preserve
+  playback position when an expired URL must be refreshed. Metadata crosses the app snapshot, never
+  signed Blob URLs or bytes. `e2e/recording-app.spec.ts` covers file fallback, preview/discard, failed
+  send recovery, private playback renewal, reload and narrow touch layout.
 - A reply's More actions menu (`w-auto min-w-48`, so its items stay on one line) starts with Edit for a message the
   member may edit (`canEditItem`, as the toolbar allows: its author or an admin; the view carries its saved text
   and mentions as `editable` only then). Edit turns the message into `MessageEditor` in place: the saved text with

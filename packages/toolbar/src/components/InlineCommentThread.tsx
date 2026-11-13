@@ -1,3 +1,4 @@
+import { useRecording } from '../recordings';
 import { useContext, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Divider } from '@signalco/ui-primitives/Divider';
@@ -16,6 +17,7 @@ import { useLangAttribute, useMessages } from '../i18n';
 function InlineCommentThread({ comment, target }: { comment: CommentItem; target: HTMLElement }) {
     const { rootElement } = useContext(CommentsBootstrapperContext);
     const { reply } = useComments();
+    const recording = useRecording();
     const announce = useAnnounce();
     const [container, setContainer] = useState<HTMLElement>();
     const t = useMessages();
@@ -52,8 +54,11 @@ function InlineCommentThread({ comment, target }: { comment: CommentItem; target
                 label={t.inline.replyLabel} placeholder={t.thread.replyPlaceholder} submitLabel={t.thread.postReply}
                 draftKey={comment.id} error={reply.error}
                 commentId={comment.id}
+                recording={recording} onDiscard={recording.discard}
                 onSubmit={async (text, mentions) => {
-                    await reply.mutateAsync({ commentId: comment.id, text, mentions });
+                    const sentRecording = recording.current();
+                    await reply.mutateAsync({ commentId: comment.id, text, mentions, recording: sentRecording });
+                    recording.clear(sentRecording);
                     announce(t.thread.replyPosted);
                 }} />
         </section>, container);

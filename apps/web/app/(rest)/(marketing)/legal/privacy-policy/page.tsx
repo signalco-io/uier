@@ -14,7 +14,7 @@ export const metadata = publicPageMetadata('/legal/privacy-policy', {
 
 export default function PrivacyPolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="12 November 2026">
+        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="13 November 2026">
             <p>
                 This policy explains what {brand.domain} collects, why, where it is stored and for how long.
                 {' '}{brand.name} is a {brand.parent.name} project: {brand.parent.name} runs {brand.domain} and is
@@ -34,7 +34,7 @@ export default function PrivacyPolicyPage() {
                 extension local storage to keep you signed in across browser restarts. Access credentials,
                 active tabs and unsent text drafts stay in extension session storage, separate from the
                 reviewed site. Drafts expire after seven days or when the
-                browser session ends, whichever comes first. Images are never stored in drafts.
+                browser session ends, whichever comes first. Images and recordings are never stored in drafts.
                 Sign-out clears both credential stores and revokes the server session. Access credentials
                 last 15 minutes; renewal rotates the refresh credential. The separate server session ends
                 after 30 days without renewal or one year after sign-in. The server stores only hashes of
@@ -124,6 +124,30 @@ export default function PrivacyPolicyPage() {
                 site left as a guest are public, so do not put personal information in them.
             </p>
 
+            <h3>Screen recordings</h3>
+            <p>
+                You can explicitly record a screen, window or tab, or attach an existing MP4 or WebM video,
+                to a comment or reply. Built-in recording asks for browser permission, captures no microphone
+                or tab audio, and ends when the recording page unloads. An uploaded video can contain audio and embedded file metadata.
+                You can preview and discard the recording before sending. Recording files stay in browser
+                memory until you send them; a send uploads the video and its type, size, duration and dimensions.
+            </p>
+            <p>
+                Recordings can include anything visible in the selected surface, including personal or
+                confidential information. They have the same visibility as their comment: guest feedback on
+                our public pages is public, while signed-in feedback and customer projects follow the access
+                rules above. We store video bytes privately in Azure Blob Storage in Europe and only references
+                and metadata in Cosmos DB. Playback uses temporary, read-only links after an access check.
+                Recordings are not sent to our AI providers or copied to connected services automatically.
+            </p>
+            <p>
+                Deleting the message or thread removes access to its recording and schedules deletion of the
+                file. Expired threads and abandoned uploads are cleaned up by a scheduled sweep; failed file
+                deletes are retried. Upload sessions and daily counters contain identifiers and bounded metadata,
+                and expire after cleanup. Done and Archive keep the recording with the thread. Recordings have
+                no in-product redaction; discard a draft before sending or delete the saved message.
+            </p>
+
             <h3>Teams and workspace access</h3>
             <p>
                 We store workspace team names, descriptions, selected project ids, membership ids and an optional
@@ -153,7 +177,7 @@ export default function PrivacyPolicyPage() {
                 local storage. If storage is unavailable, drafts remain only while the page stays open.
             </p>
             <p>
-                Draft images and device details are kept only in memory. Reopening a draft refreshes automatic
+                Draft images, recordings and device details are kept only in memory. Reopening a draft refreshes automatic
                 capture from the current page and viewport, without a composer image preview. Nothing is sent
                 automatically after reload. The server keeps submission hashes and item ids for 30 days to prevent
                 duplicate comments and replies when a response is lost. Receipts contain no message text or images.

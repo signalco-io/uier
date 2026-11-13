@@ -1,5 +1,11 @@
 # Privacy cleanup
 
+Screen recordings use a separate validation/upload path and immutable final Blob objects. Their
+upload records remain in the comment partition with TTL disabled until a durable sweep finishes;
+deleting a message, thread or project attempts immediate final-byte deletion. The scheduled worker
+sweeps expired, unattached and removed recordings in both environments without touching live
+references. See [screen recordings](../../../docs/recordings.md#playback-and-deletion).
+
 `screenshotSchema` parses asynchronously and uses Sharp to decode/re-encode every incoming image,
 with a 4096² pixel cap, first-frame-only output and no metadata. Stored output stays within 512 KiB
 and 4096 px per side. All JSON route validation uses `safeParseAsync`.

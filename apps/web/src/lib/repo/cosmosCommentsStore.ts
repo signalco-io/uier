@@ -7,7 +7,7 @@ import { commentPageCursorSql, completeCommentPage } from './commentPage';
 import { withThreadActivity } from '../comments/activity';
 import { withNotificationEvent } from '../notifications/events';
 import type { Container, DeleteOperation, OperationInput, SqlParameter } from '@azure/cosmos';
-import { commentSequenceId, isCommentDocument, screenshotDocumentId, syncTombstoneId, type DbComment, type DbCommentActivity, type DbCounter, type DbScreenshot, type DbSequence, type DbSubmission, type DbSyncTombstone } from '../db/schema';
+import { commentSequenceId, isCommentDocument, screenshotDocumentId, syncTombstoneId, type DbComment, type DbCommentActivity, type DbCounter, type DbScreenshot, type DbSequence, type DbSubmission, type DbSyncTombstone, type DbRecordingUpload } from '../db/schema';
 import { cosmosDataContainerComments } from '../db/client';
 import { cosmosMeasurement, cosmosPoint, cosmosQueryAll } from '../db/diagnostics';
 import { syncPendingPageLimit, type AppendResult, type CommentsStore, type ConditionalWriteResult, type StoredComment } from './commentsStore';
@@ -227,7 +227,7 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
                 throw error;
             }
         },
-        async commitSubmission(receipt, comment, etag, screenshot) {
+        async commitSubmission(receipt, comment, etag, screenshot, recording) {
             const image = screenshot ? await storeScreenshotBytes(screenshot, getBlobs()) : undefined;
             const prepared = withCommentQueryMetadata(comment);
             const operations: OperationInput[] = [
@@ -235,7 +235,8 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
                 etag
                     ? { operationType: 'Replace', id: comment.id, resourceBody: prepared, ifMatch: etag }
                     : { operationType: 'Create', resourceBody: prepared },
-                ...(image ? [{ operationType: 'Create' as const, resourceBody: image }] : [])
+                ...(image ? [{ operationType: 'Create' as const, resourceBody: image }] : []),
+                ...(recording ? [{ operationType: 'Replace' as const, id: recording.doc.id, resourceBody: recording.doc, ifMatch: recording.etag }] : [])
             ];
             try {
                 const response = await getContainer().items.batch(operations, receipt.domain);
@@ -250,6 +251,32 @@ export function createCosmosCommentsStore(getContainer: () => Container = cosmos
                 if ([404, 409, 412].includes(Number(errorCode(error)))) return 'conflict';
                 throw error;
             }
+        },
+        async getRecordingUpload(domain, id) {
+            try {
+                const { resource, etag } = await getContainer().item(id, domain).read<DbRecordingUpload>();
+                return resource?.type === 'recording-upload' && etag ? { doc: withoutSystemProperties<DbRecordingUpload>(resource as unknown as Record<string, unknown>), etag } : null;
+            } catch (error) { if (errorCode(error) === 404) return null; throw error; }
+        },
+        async createRecordingUpload(doc) { await getContainer().items.create(doc); },
+        async replaceRecordingUpload(doc, etag) {
+            try {
+                await getContainer().item(doc.id, doc.domain).replace(doc, { accessCondition: { type: 'IfMatch', condition: etag } });
+                return 'ok';
+            } catch (error) { if (errorCode(error) === 404) return 'not_found'; if (errorCode(error) === 412) return 'conflict'; throw error; }
+        },
+        async deleteRecordingUpload(domain, id, etag) {
+            try {
+                await getContainer().item(id, domain).delete({ accessCondition: { type: 'IfMatch', condition: etag } });
+                return 'ok';
+            } catch (error) { if (errorCode(error) === 404) return 'not_found'; if (errorCode(error) === 412) return 'conflict'; throw error; }
+        },
+        async listRecordingUploads(continuation) {
+            const page = await cosmosPoint(() => getContainer().items.query<{ domain: string; id: string }>({
+                query: "SELECT c.domain, c.id FROM c WHERE c.type = 'recording-upload'"
+            }, { maxItemCount: 100, continuationToken: continuation }).fetchNext(),
+            { operation: 'comments.recording-metadata', container: getContainer().id, partition: 'cross' });
+            return { items: page.resources, continuation: page.continuationToken || undefined };
         },
         async create(comment) {
             await getContainer().items.create<DbComment>(withCommentQueryMetadata(comment));

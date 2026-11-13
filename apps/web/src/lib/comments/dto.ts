@@ -13,6 +13,7 @@ export type CommentAuthorDto = {
 };
 
 export type CommentThreadItemDto = {
+    recording?: import('../db/schema').DbCommentRecording;
     screenshot?: { width: number; height: number };
     id: string;
     text: string;
@@ -32,6 +33,7 @@ export type CommentDeletedThreadItemDto = {
 };
 
 export type CommentDto = {
+    recording?: import('../db/schema').DbCommentRecording;
     priority: CommentPriority;
     activity?: import('./activity').ReadActivity;
     id: string;
@@ -188,6 +190,7 @@ function toThreadItemDto(item: DbThreadItem, visitorAuthorId: string | undefined
         createdAt: optionalString(item.createdAt),
         editedAt: optionalString(item.editedAt),
         ...(item.screenshot ? { screenshot: { width: item.screenshot.width, height: item.screenshot.height } } : {}),
+        ...(item.recording ? { recording: item.recording } : {}),
         ...(reactions ? { reactions } : {})
     };
 }
@@ -211,6 +214,7 @@ export function toCommentDto(comment: DbComment, visitorAuthorId: string | undef
 
     return {
         id: comment.id,
+        ...(comment.recording ? { recording: comment.recording } : {}),
         path,
         ...(sourcePath !== path ? { sourcePath } : {}),
         position,

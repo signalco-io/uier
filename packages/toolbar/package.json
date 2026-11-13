@@ -145,6 +145,11 @@
             "types": "./src/toolbarFeatures.ts",
             "development": "./dist-dev/toolbarFeatures.js",
             "default": "./dist/toolbarFeatures.js"
+        },
+        "./recordings": {
+            "types": "./src/recordings.ts",
+            "development": "./dist-dev/recordings.js",
+            "default": "./dist/recordings.js"
         }
     },
     "scripts": {

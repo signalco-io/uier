@@ -9,6 +9,7 @@ import { useMessages, useToolbarLanguage } from '../i18n';
 import { newLocalId, useComments } from '../hooks/useComments';
 import { getCommentPlacement, lowestRect, resolveAnchorElement, useCommentPlacement } from '../hooks/useCommentItemRects';
 import { cancelCommentScreenshot, captureCommentScreenshot } from '../screenshot';
+import { useRecording, type RecordingClip } from '../recordings';
 import { newCommentDraftKey, newDrawingDraftKey, newRewriteDraftKey, useDrafts } from '../hooks/useDrafts';
 import { CommentThread } from './CommentThread';
 import { CommentComposer, type CommentComposerHandle } from './CommentComposer';
@@ -224,7 +225,7 @@ type CommentBubbleProps = {
      * Sending failed: the draft (its text is back, the choice to omit its screenshot, its attached image and its drawing)
      * should be on the page again; `quiet` (sent from the inbox) with its form closed
      */
-    onSendFailed?: (error: unknown, choice: { omitScreenshot: boolean; image?: AttachedImage; drawing?: CommentDrawing }, quiet: boolean) => void;
+    onSendFailed?: (error: unknown, choice: { omitScreenshot: boolean; image?: AttachedImage; recording?: RecordingClip; drawing?: CommentDrawing }, quiet: boolean) => void;
     onCanceled?: () => void;
     /** A drawing's draft: back to canvas mode with its shapes (Edit drawing) */
     onEditDrawing?: () => void;
@@ -280,6 +281,7 @@ export function CommentBubble(props: CommentBubbleProps) {
     const [omitScreenshot, setOmitScreenshot] = useState(props.draft?.omitScreenshot ?? false);
     // The reviewer's own image, sent instead of the automatic screenshot
     const attachment = useAttachedImage(props.draft?.image, { pastedName: t.attachments.pastedImage });
+    const recording = useRecording(props.draft?.recording);
     // Omitted while it is taken: its work stops. Attached after all: a new one is taken.
     const handleOmittedChange = (omitted: boolean) => {
         setOmitScreenshot(omitted);
@@ -302,9 +304,11 @@ export function CommentBubble(props: CommentBubbleProps) {
     const handleSubmit = async (text: string, mentions?: Mention[]) => {
         if (props.commentItem) {
             const sentImage = attachment.image;
+            const sentRecording = recording.current();
             attachment.remove();
             try {
-                await reply.mutateAsync({ commentId: props.commentItem.id, text, mentions, screenshot: sentImage?.dataUrl, imageKey: sentImage?.key });
+                await reply.mutateAsync({ commentId: props.commentItem.id, text, mentions, screenshot: sentImage?.dataUrl, imageKey: sentImage?.key, recording: sentRecording });
+                recording.clear(sentRecording);
             } catch (error) {
                 if (sentImage) attachment.restore(sentImage);
                 throw error;
@@ -334,6 +338,7 @@ export function CommentBubble(props: CommentBubbleProps) {
             // The original viewport, alongside the automatic capture, even after resizing.
             device: sent?.device ?? getDeviceInfo(),
             screenshot: attachment.screenshotFor(omitScreenshot, sent?.screenshot),
+            recording: recording.current(),
             ...(draft.drawing ? { drawing: draft.drawing } : {})
         });
         // The draft pin makes way for the comment's, shown at once with its thread open (unless sent from the inbox)
@@ -342,7 +347,7 @@ export function CommentBubble(props: CommentBubbleProps) {
             await posting;
         } catch (error) {
             // After the composer (or `send`) has put the text back
-            window.setTimeout(() => onSendFailed?.(error, { omitScreenshot, image: attachment.image, drawing: draft.drawing }, quiet), 0);
+            window.setTimeout(() => onSendFailed?.(error, { omitScreenshot, image: attachment.image, recording: recording.current(), drawing: draft.drawing }, quiet), 0);
             throw error;
         }
         announce(rewriting ? t.pin.suggestionPosted : t.pin.commentPosted);
@@ -355,7 +360,7 @@ export function CommentBubble(props: CommentBubbleProps) {
         send: () => {
             const text = drafts.get(draftKey) ?? '';
             const trimmed = text.trim();
-            if (!creating || !trimmed || attachment.reading || (needsName && !getGuestName())) return false;
+            if (!creating || !trimmed || attachment.reading || recording.busy || (needsName && !getGuestName())) return false;
             const mentions = drafts.details(draftKey)?.mentions ?? [];
             const leading = text.length - text.trimStart().length;
             const selected = mentions.filter(mention => mention.end <= text.trimEnd().length)
@@ -444,6 +449,8 @@ export function CommentBubble(props: CommentBubbleProps) {
     };
 
     const handleOpenChange = (open: boolean) => {
+        // Keep Stop reachable while the reviewer uses the page being recorded. This stays non-modal.
+        if (!open && (recording.phase === 'choosing' || recording.phase === 'recording')) return;
         setContinuing(false);
         setExpanded(false);
         if (open && creating) setCapture({ device: getDeviceInfo(), screenshot: captureCommentScreenshot(position, rootElement, drawing) });
@@ -456,7 +463,7 @@ export function CommentBubble(props: CommentBubbleProps) {
             // back. A rewrite whose text is still the selected text has nothing to keep. A drawing is
             // something to keep by itself: Discard removes it.
             const text = drafts.get(draftKey)?.trim();
-            if (creating && !drawingDraft && (!text?.length || (rewriting && text === selectedText?.trim()))) {
+            if (creating && !drawingDraft && !recording.current() && (!text?.length || (rewriting && text === selectedText?.trim()))) {
                 drafts.delete(draftKey);
                 onCanceled?.();
             }
@@ -605,6 +612,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                 tall={expanded}
                 error={mutation.error ?? props.draft?.sendError}
                 holdSubmit={attachment.reading}
+                recording={{ ...recording, start: () => { setExpanded(false); return recording.start(); } }}
                 // Replies wait until the comment is saved (they need its id); the reply box
                 // is there already, so the thread keeps its size and the focus stays in it
                 waiting={sending}
@@ -619,7 +627,7 @@ export function CommentBubble(props: CommentBubbleProps) {
                 ) : undefined}
                 onSubmit={handleSubmit}
                 discardable={drawingDraft}
-                onDiscard={creating ? handleDiscard : attachment.remove} />
+                onDiscard={() => { recording.discard(); if (creating) handleDiscard(); else attachment.remove(); }} />
             {!creating && attachment.error && <p role="alert" className="m-0 px-3 pb-2 text-xs text-destructive">{attachment.error}</p>}
         </div>
     );
@@ -711,6 +719,9 @@ export function CommentBubble(props: CommentBubbleProps) {
                 {...surface}
                 // Passed through to the Radix popover content, like `collisionPadding`
                 {...{ onCloseAutoFocus: handleCloseAutoFocus }}
+                {...{ onEscapeKeyDown: (event: Event) => {
+                    if (recording.phase === 'recording') { event.preventDefault(); recording.stop(); }
+                } }}
                 // A saved thread: R, S and A act on it (`threadShortcuts.ts`); not on a preview
                 {...(commentItem && !preview && { 'data-uier-thread-scope': '' })}
                 {...(preview && {

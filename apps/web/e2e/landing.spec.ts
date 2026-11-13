@@ -47,7 +47,8 @@ test('landing page sends security headers', async ({ request }) => {
     expect(csp).toContain('default-src \'self\'');
     expect(csp).toContain('frame-ancestors \'none\'');
     expect(response.headers()['strict-transport-security']).toBe('max-age=31536000; includeSubDomains');
-    expect(response.headers()['permissions-policy']).toBe('camera=(), microphone=(), geolocation=(), display-capture=(), payment=(), usb=()');
+    expect(response.headers()['permissions-policy']).toBe('camera=(), microphone=(), geolocation=(), display-capture=(self), payment=(), usb=()');
+    expect(csp).toContain("media-src 'self' blob:");
     expect(response.headers()['cross-origin-opener-policy']).toBe('same-origin');
     expect(response.headers()['x-xss-protection']).toBe('0');
     expect(csp).not.toMatch(/vercel\.live|vercel\.com|pusher|vitals\.vercel-insights|vercel-scripts/);

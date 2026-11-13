@@ -4,7 +4,7 @@ import { matchesAuthor } from './authorFilter';
 import { matchesVisibility } from './visibilityFilter';
 import { withThreadActivity } from '../comments/activity';
 import { withNotificationEvent } from '../notifications/events';
-import { commentSequenceId, isCommentDocument, screenshotDocumentId, syncTombstoneId, type DbComment, type DbCommentActivity, type DbScreenshot, type DbSequence, type DbSubmission, type DbSyncTombstone } from '../db/schema';
+import { commentSequenceId, isCommentDocument, screenshotDocumentId, syncTombstoneId, type DbComment, type DbCommentActivity, type DbScreenshot, type DbSequence, type DbSubmission, type DbSyncTombstone, type DbRecordingUpload } from '../db/schema';
 import { syncPendingPageLimit, type AppendResult, type CommentsStore, type ConditionalWriteResult, type StoredComment } from './commentsStore';
 import { candidateBudget, CommentQueryBudgetError, throwIfQueryAborted, toCommentQueryCandidate, validateCandidatePredicate, type CommentQueryCandidate } from './commentQuerySource';
 import { withCommentQueryMetadata } from './queryMetadata';
@@ -15,7 +15,7 @@ const MAX_COMMENTS_PER_DOMAIN = 5000;
 
 type MemoryEntry = {
     /** A comment, the domain's comment numbers or a screenshot: as in Cosmos DB, they share the partition */
-    document: DbComment | DbSequence | DbScreenshot | DbSubmission | DbSyncTombstone;
+    document: DbComment | DbSequence | DbScreenshot | DbSubmission | DbSyncTombstone | DbRecordingUpload;
     version: number;
     /** Milliseconds; emulates Cosmos `_ts` (last modification) for TTL */
     modifiedAt: number;
@@ -198,15 +198,48 @@ export function getMemoryCommentsStore(): CommentsStore {
             const document = domainEntries(domain).get(id)?.document;
             return document && 'type' in document && document.type === 'submission' ? clone(document) : null;
         },
-        async commitSubmission(receipt, comment, etag, screenshot) {
+        async commitSubmission(receipt, comment, etag, screenshot, recording) {
             const entries = domainEntries(receipt.domain);
             const previous = entries.get(comment.id);
             if (entries.has(receipt.id) || (etag ? !previous || String(previous.version) !== etag : previous)) return 'conflict';
+            if (recording && String(entries.get(recording.doc.id)?.version) !== recording.etag) return 'conflict';
             // No await between checking and applying: mirrors the Cosmos transaction.
-            for (const document of [receipt, withCommentQueryMetadata(comment), ...(screenshot ? [screenshot] : [])]) {
+            for (const document of [receipt, withCommentQueryMetadata(comment), ...(screenshot ? [screenshot] : []), ...(recording ? [recording.doc] : [])]) {
                 entries.set(document.id, { document: clone(document), version: ++state().version, modifiedAt: Date.now() });
             }
             return 'ok';
+        },
+        async getRecordingUpload(domain, id) {
+            const entry = domainEntries(domain).get(id);
+            return entry && 'type' in entry.document && entry.document.type === 'recording-upload'
+                ? { doc: clone(entry.document), etag: String(entry.version) } : null;
+        },
+        async createRecordingUpload(doc) {
+            const entries = domainEntries(doc.domain);
+            if (entries.has(doc.id)) throw new Error('Recording upload already exists');
+            entries.set(doc.id, { document: clone(doc), version: ++state().version, modifiedAt: Date.now() });
+        },
+        async replaceRecordingUpload(doc, etag) {
+            const entries = domainEntries(doc.domain), previous = entries.get(doc.id);
+            if (!previous) return 'not_found';
+            if (String(previous.version) !== etag) return 'conflict';
+            entries.set(doc.id, { document: clone(doc), version: ++state().version, modifiedAt: Date.now() });
+            return 'ok';
+        },
+        async deleteRecordingUpload(domain, id, etag) {
+            const entries = domainEntries(domain), previous = entries.get(id);
+            if (!previous) return 'not_found';
+            if (String(previous.version) !== etag) return 'conflict';
+            entries.delete(id);
+            return 'ok';
+        },
+        async listRecordingUploads(after) {
+            const all = [...state().domains.keys()].flatMap(domain => [...domainEntries(domain).values()])
+                .flatMap(({ document }) => 'type' in document && document.type === 'recording-upload'
+                    ? [{ domain: document.domain, id: document.id, key: `${document.domain}:${document.id}` }] : [])
+                .filter(item => !after || item.key > after).sort((a, b) => a.key.localeCompare(b.key));
+            const items = all.slice(0, 100);
+            return { items, continuation: all.length > items.length ? items.at(-1)?.key : undefined };
         },
         async create(comment) {
             const entries = domainEntries(comment.domain);

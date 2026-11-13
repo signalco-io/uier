@@ -26,6 +26,7 @@ Start with the [project README](../README.md) to run uier locally or find the ma
 - [Project deletion](project-deletion.md): what deleting a project removes, in what order, what stays and how failed steps are retried.
 - [Project transfer](project-transfer.md): moving a project to another workspace, what moves with it, what stays behind and how an interrupted move is retried.
 - [Screenshot storage](screenshot-storage.md): private Azure Blob bytes, direct reads, migration and cleanup.
+- [Screen recordings](recordings.md): capture, uploads, private playback, limits and cleanup.
 - [API reference and toolbar delivery](api.md): review and public comments routes, limits, storage and bundle caching.
 - [Google sign-in](google-sign-in.md): Sign in with Google, account linking rules, what is stored and creating the Google OAuth client.
 - [Microsoft sign-in](microsoft-sign-in.md): Microsoft login, inbox confirmation, tenant identity and Entra app registration.

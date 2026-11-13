@@ -26,6 +26,7 @@ import { floatingShadowClassName } from './@types/Comments';
 import { toolbarSurface } from '../toolbarReview';
 import { messages, useMessages } from '../i18n';
 import { feedbackTypeText } from '../i18n/format';
+import { useRecording } from '../recordings';
 
 /**
  * The toolbar's feedback button: the project's enabled feedback types about the page,
@@ -59,6 +60,7 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
     const [omitScreenshot, setOmitScreenshot] = useState(false);
     // The reviewer's own image, sent instead of the screenshot; also per feedback
     const attachment = useAttachedImage(undefined, { pastedName: t.attachments.pastedImage });
+    const recording = useRecording();
     const device = useRef<ReturnType<typeof getDeviceInfo>>(undefined);
     const [selectedKind, setKind] = useState<FeedbackTypeId>(() => kinds.reduce<(typeof kinds)[number] | undefined>((latest, type) =>
         (drafts.details(`${feedbackDraftKey}:${type.id}`)?.updatedAt ?? 0) > (drafts.details(`${feedbackDraftKey}:${latest?.id}`)?.updatedAt ?? 0) ? type : latest, kinds[0])?.id ?? 'feedback');
@@ -66,6 +68,7 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
     const kind = selected?.id ?? 'feedback';
 
     const handleOpenChange = (next: boolean) => {
+        if (!next && (recording.phase === 'choosing' || recording.phase === 'recording')) return;
         setOpen(next);
         setExpanded(false);
         if (next) {
@@ -106,7 +109,7 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
     // omit the screenshot back, unless another image was attached meanwhile.
     const handleSubmit = async (text: string, mentions?: import('./@types/Comments').Mention[]) => {
         if (!selected) return;
-        const sent = { image: attachment.image, omitScreenshot };
+        const sent = { image: attachment.image, recording: recording.current(), omitScreenshot };
         const sending = create.mutateAsync({
             position: { type: 'page' },
             kind,
@@ -114,14 +117,18 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
             text,
             mentions,
             device: device.current,
-            screenshot: attachment.screenshotFor(omitScreenshot, screenshot)
+            screenshot: attachment.screenshotFor(omitScreenshot, screenshot),
+            recording: sent.recording
         });
         setOmitScreenshot(false);
         attachment.remove();
+        recording.clear(sent.recording);
         handleOpenChange(false);
         try {
             await sending;
+            recording.clear(sent.recording);
         } catch (error) {
+            if (sent.recording) recording.restore(sent.recording);
             if (!attachment.attached()) {
                 if (sent.image) attachment.restore(sent.image);
                 if (sent.omitScreenshot) setOmitScreenshot(true);
@@ -189,9 +196,11 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
                 autoFocus
                 tall={expanded}
                 holdSubmit={attachment.reading}
+                recording={{ ...recording, start: () => { setExpanded(false); return recording.start(); } }}
                 attachments={<ComposerAttachButton attachment={attachment} />}
                 onImageDrop={file => void attachment.attach(file)}
                 error={create.error}
+                onDiscard={() => { recording.discard(); attachment.remove(); }}
                 onSubmit={handleSubmit} />
         </div>
     );
@@ -209,6 +218,9 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
             sideOffset={12}
             aria-label={t.feedback.send}
             {...{ ...surface, onInteractOutside: handleInteractOutside }}
+            {...{ onEscapeKeyDown: (event: Event) => {
+                if (recording.phase === 'recording') { event.preventDefault(); recording.stop(); }
+            } }}
             trigger={(
                 <IconButton
                     ref={buttonRef}

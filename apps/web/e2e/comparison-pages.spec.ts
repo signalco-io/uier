@@ -18,7 +18,9 @@ for (const pair of pairs) {
         const table = main.getByRole('table');
         await expect(table.getByRole('columnheader')).toHaveText(['Workflow or feature', 'uier', pair.name]);
         await expect(table.getByRole('row').filter({ hasText: pair.advantage })).toHaveCount(1);
-        for (const gap of ['Screen and audio recording', 'Session replay before a report', 'Console and network capture', 'File and design proofing', 'Surveys and request voting']) {
+        const recordingCell = table.getByRole('row').filter({ has: page.getByRole('rowheader', { name: 'Screen and audio recording', exact: true }) }).getByRole('cell').first();
+        await expect(recordingCell).toContainText('Short screen recordings');
+        for (const gap of ['Session replay before a report', 'Console and network capture', 'File and design proofing', 'Surveys and request voting']) {
             const uierCell = table.getByRole('row').filter({ has: page.getByRole('rowheader', { name: gap, exact: true }) }).getByRole('cell').first();
             await expect(uierCell).toContainText('Not supported');
         }
@@ -49,7 +51,8 @@ test('the full matrix retains caveats and source links behind keyboard disclosur
     await expect(scrollingTable).toBeFocused();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await expect(main).toContainText('Unknown is not a missing feature.');
-    await expect(main).toContainText('uier has no screen/audio recorder');
+    await expect(main).toContainText('uier supports short screen recordings with explicit permission.');
+    await expect(main).toContainText('Built-in capture has no audio and ends on full-page navigation.');
 });
 
 test('the hub links every comparison and is linked from the public site', async ({ page }, testInfo) => {

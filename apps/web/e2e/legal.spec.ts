@@ -22,6 +22,9 @@ for (const document of documents) {
             await expect(page.getByRole('main')).toContainText('including signed-in feedback');
             await expect(page.getByRole('main')).toContainText('X-Uier-Visitor');
             await expect(page.getByRole('main')).toContainText('Signed-in feedback on our site and app is private');
+            await expect(page.getByRole('main')).toContainText('captures no microphone or tab audio');
+            await expect(page.getByRole('main')).toContainText('Recordings are not sent to our AI providers');
+            await expect(page.getByRole('heading', { name: 'Screen recordings', exact: true })).toBeVisible();
         }
         if (document.path === '/legal/cookie-policy') {
             await expect(page.getByRole('main').getByText('__Host-uier_passkey_challenge', { exact: true })).toBeVisible();

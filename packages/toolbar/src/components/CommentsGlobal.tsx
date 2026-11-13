@@ -770,7 +770,7 @@ export function CommentsGlobal({
     };
     // It was not posted: the draft, with its text back, is on the page again (closed when it was sent from the
     // inbox, where it is listed again). Others started meanwhile are drafts of their own.
-    const restoreCreatingComment = (sent: CommentDraftState, sendError: unknown, choice: Pick<CommentDraft, 'omitScreenshot' | 'image' | 'drawing'>, quiet: boolean) => {
+    const restoreCreatingComment = (sent: CommentDraftState, sendError: unknown, choice: Pick<CommentDraft, 'omitScreenshot' | 'image' | 'recording' | 'drawing'>, quiet: boolean) => {
         // The draft it was sent from has nothing to show any more
         setCreatingComments(current => current.filter(other => other.key !== sent.key));
         const saved = drafts.details(sent.draftKey);

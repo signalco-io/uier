@@ -546,6 +546,23 @@ image is older than one hour. The sweep pages over image metadata and conditiona
 observed version, preserving concurrent replacements. Migrated public-feedback deletes and image
 replacements also remove their obsolete legacy copy. A site gets at most 300 screenshots a day.
 
+## Screen recordings
+
+Comments and replies can carry one short video alongside their image evidence. **Record screen**
+asks the browser to share a tab, window or screen; the built-in recorder captures no audio. Stop
+opens a preview, and Discard recording removes the clip without removing the written feedback.
+**Upload recording** accepts an existing MP4 or WebM video when browser capture is unavailable.
+Recordings are limited to 60 seconds and 25 MiB. A full-page navigation ends capture; recordings
+do not survive a reload. Browsers and a reviewed site's security policy can restrict capture or
+direct upload/playback.
+
+Only Send uploads the recording. A failed send keeps the text and clip for retry; video bytes and
+temporary storage addresses never enter draft storage. Saved recordings load on request in the
+toolbar or app, under the thread's current permissions. They follow their message's deletion and
+thread expiry rules. Done and Archive retain them. See [screen recordings](recordings.md) for the
+API, upload budgets, storage and cleanup details. Cross-navigation extension recording, video
+redaction and automatic copies to integrations or AI providers are separate features.
+
 ## Draft recovery and submission retries
 
 The toolbar keeps unsent comment, rewrite, page feedback, bug, reply and edit text in the reviewed

@@ -22,6 +22,8 @@ import { getGuestName, setGuestName } from '../project/projectSession';
 import { ComposerFooter } from './ComposerFooter';
 import { messages, useMessages } from '../i18n';
 import { useKeyboardLikely } from '../shortcuts';
+import type { RecordingState } from '../recordings';
+import { ComposerRecordingControls, ComposerRecordingPreview } from './ComposerRecording';
 
 /** Longest guest name the review API accepts */
 const guestNameMaxLength = 80;
@@ -81,6 +83,7 @@ type CommentComposerProps = {
     waiting?: boolean;
     /** In the bottom-left corner of the text box, before its hint (Attach image for new comments and feedback) */
     attachments?: ReactNode;
+    recording?: RecordingState;
     /**
      * Above the text box, after the quote (and a guest's name), in the same form and spacing: a rewrite's
      * suggestions. Its own controls must not submit the form (no nested form; Enter handled there).
@@ -108,7 +111,8 @@ type CommentComposerProps = {
  * box styled like the kit's `Input` (bordered, radius 8, blue focus ring), with its hint or counter and buttons.
  * Enter sends, Shift+Enter adds a new line; Markdown typed and Ctrl/⌘+B, I, E format the text.
  */
-export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, holdSubmit = false, waiting = false, attachments, beforeText, tall = false, error, onSubmit, onImageDrop, onDiscard, discardable = false, initialText, initialMentions, commentId, onCancel }: CommentComposerProps) {
+export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, holdSubmit = false, waiting = false, attachments, recording, beforeText, tall = false, error, onSubmit, onImageDrop, onDiscard, discardable = false, initialText, initialMentions, commentId, onCancel }: CommentComposerProps) {
+    holdSubmit = holdSubmit || Boolean(recording?.busy);
     const formRef = useRef<HTMLFormElement>(null);
     const editorRef = useRef<MarkdownEditorHandle>(null);
     const inputId = useId();
@@ -308,6 +312,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                 {beforeText}
                 {/* One box: the text, then its hint or counter and the buttons; the box shows the focus */}
                 <div className={cx('rounded-lg border border-input bg-background', inputFocusRingClassName)}>
+                {recording && <ComposerRecordingPreview recording={recording} disabled={waiting || busy || sharedPending} />}
                 <MarkdownEditor
                     ref={editorRef}
                     value={text}
@@ -333,6 +338,7 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                 <Row justifyContent="space-between" spacing={1} className={cx('py-1.5 pr-1.5', attachments ? 'pl-1.5' : 'pl-3')}>
                     <Row spacing={1} className="min-w-0">
                     {attachments}
+                    {recording && <ComposerRecordingControls recording={recording} disabled={waiting || busy || sharedPending} />}
                     <span
                         id={counterId}
                         className={cx(

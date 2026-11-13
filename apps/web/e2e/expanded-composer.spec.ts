@@ -50,7 +50,7 @@ test('feedback expands to a modal and back, keeping its text, type, image and sc
 
     // An image attached in the modal is still attached after Collapse, and is sent
     await form.getByRole('button', { name: 'Expand' }).click();
-    await form.locator('input[type="file"]').setInputFiles({ name: 'evidence.png', mimeType: 'image/png', buffer: Buffer.from(pngImage.split(',')[1]!, 'base64') });
+    await form.locator('input[type="file"][accept*="image/"]').setInputFiles({ name: 'evidence.png', mimeType: 'image/png', buffer: Buffer.from(pngImage.split(',')[1]!, 'base64') });
     await expect(form.getByRole('button', { name: 'Remove attached image evidence.png' })).toBeVisible();
     await form.getByRole('button', { name: 'Collapse' }).click();
     await expect.poll(() => isModal(form)).toBe(false);

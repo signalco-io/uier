@@ -77,6 +77,7 @@ import { defaultStatusWorkflow, workflowStatusLabel } from '../../../lib/app/sta
 import { StateBadge, StateMenu, type CommentStatus } from './CommentStatus';
 import { useStatusChange, type ResolveExit } from './useStatusChange';
 import { MessageImage } from './MessageImage';
+import { MessageRecording } from './MessageRecording';
 import { ReactionList, ReactionPicker } from './MessageReactions';
 import { ReplyComposer } from './ReplyComposer';
 import { preloadMessageEditor } from './MessageComposer';
@@ -552,6 +553,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                             onCancel={() => closeReplyEdit(item.id)} onSave={(text, mentions) => saveReply(item, edit.expectedText, text, mentions)} />
                         : <MessageText text={item.text} mentions={item.mentions} edited={item.edited} />}
                 {!item.deleted && item.screenshot && <MessageImage image={item.screenshot} reply />}
+                {!item.deleted && !item.pending && item.recording && <MessageRecording recording={item.recording} projectId={projectId} commentId={comment.id} itemId={item.id} />}
                 {target && !edit && <ReactionList target={target} canReact={Boolean(permissions.react)} />}
             </Message>
         );
@@ -725,6 +727,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                         onCancel={closeEdit} onSave={text => saveEdit(text)} />
                                     : <MessageText text={comment.displayText} mentions={comment.displayMentions} edited={comment.edited} />}
                             {comment.screenshot && <MessageImage image={comment.screenshot} />}
+                            {!comment.deleted && comment.recording && <MessageRecording recording={comment.recording} projectId={projectId} commentId={comment.id} />}
                             {firstTarget && !editing && <ReactionList target={firstTarget} canReact={Boolean(permissions.react)} />}
                         </Message>
                     </li>
