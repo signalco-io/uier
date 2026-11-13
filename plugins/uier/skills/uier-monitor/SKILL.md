@@ -19,7 +19,7 @@ The first argument is the uier project's name or id. Optional words after it:
 | --- | --- |
 | `status` | Print `M status` and change nothing |
 | `dashboard` | Start the local dashboard (Files and the helper), give the person its address and change nothing else. It shows every monitor, so it also works as the only argument, without a project: `/uier-monitor dashboard` |
-| `stop` | Patch `stopped: true` and `watch.stopped: true`, stop the watcher, disable saved monitoring schedules and unwatch PRs; running fix sessions still finish their PRs |
+| `stop` | Patch `stopped: true` and `watch.stopped: true`, stop the watcher, disable saved monitoring schedules and unwatch PRs; in T3 unpin this thread (`t3_thread_organize`, `action: "unpin"`, omit `threadId`) and clear `harness.pinnedAt` with `M patch`; running fix sessions still finish their PRs |
 | `tick` | Resume from the saved state (what a context reset sends) |
 | `max=N` | At most N fix sessions at once; default 6 |
 | `scope=mine` or `scope=assigned` | Only the person's own comments (default), or also comments a member assigned to them |
@@ -103,7 +103,13 @@ names your harness shows, for example `select:` + the uier tools (`list_projects
 `get_feedback_batch`, `assign_feedback`, `set_feedback_status`, `reply_to_feedback`,
 `request_feedback_verification`, `link_feedback_pull_request`, `set_feedback_agent`,
 `clear_feedback_agent`) and in T3 `delegate_task`, `task_status`, `t3_thread_send`,
-`t3_thread_organize`, `link_pull_request`, `watch_pull_request`, `unwatch_pull_request`.
+`t3_thread_organize` (pin, unsettle and unpin this thread), `link_pull_request`, `watch_pull_request`, `unwatch_pull_request`.
+
+**T3 thread.** On first start and every active resume or tick, pin your own orchestrator thread
+with `t3_thread_organize`, `action: "pin"`, omitting `threadId`. After success, record the UTC
+timestamp as `harness.pinnedAt` with `M patch`. On resume or tick also call it with
+`action: "unsettle"` (omit `threadId`). Do this after checking stopped flags; an automated tick
+for a stopped monitor must leave it unpinned. `status` and `dashboard` do not change thread state.
 
 **First start** (no `STATE/state.json`): follow `references/start.md`.
 
@@ -123,6 +129,10 @@ names your harness shows, for example `select:` + the uier tools (`list_projects
 
 You wake when the watcher has work, a fix session finishes, a T3-watched PR changes, or the person
 writes. Each wake:
+
+For an active monitor in T3, only when the harness tells you this thread was settled, call `t3_thread_organize` with
+`action: "unsettle"` and then `action: "pin"`, omitting `threadId` in both calls, and update
+`harness.pinnedAt` after the pin succeeds. Ordinary wakes need no thread lookup or organize call.
 
 1. `M context --take`. It supplies events, changed active items, groups and PRs, removed ids, pending
    deploys, routing and restrictions, and saves the packet in `STATE/context.json` before draining

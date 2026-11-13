@@ -16,6 +16,12 @@ Add `status` to see where things stand, or `stop` to stop watching. Running it a
 the saved state. In Codex, ask it to use the uier-monitor skill for the project. Other options
 (`max=`, `scope=`, `also=`, provider instances) are listed in the skill.
 
+In T3, the orchestrator pins its own thread on first start and every active resume or tick,
+and unsettles it on resume. Ordinary wakes only repeat those actions when the harness reports
+the thread settled. `stop` unpins it; a stopped monitor's automated ticks leave it alone.
+T3 has no settle-behaviour setting yet; [issue #709](https://github.com/signalco-io/uier/issues/709)
+tracks switching to "never" when it becomes available.
+
 The skills live in `plugins/uier/skills/`, with repository discovery aliases in `.claude/skills/`
 and `.agents/skills/`. For another repository, [install the uier plugin](agent-plugins.md) from
 this repository's Claude Code or Codex marketplace. It includes both skills and the MCP connector.

@@ -9,7 +9,7 @@
   "me": { "id": "u_…", "name": "…", "also": [{ "id": "u_…", "name": "…" }], "reviewer": null },
   "scope": "mine",
   "max": 6,
-  "harness": { "kind": "t3", "prWatch": true, "threadId": "…", "fable": ["claudeAgent"], "routing": { "ui": { "provider": "…", "model": "…" } } },
+  "harness": { "kind": "t3", "prWatch": true, "threadId": "…", "pinnedAt": "2026-11-13T09:30:00Z", "fable": ["claudeAgent"], "routing": { "ui": { "provider": "…", "model": "…" } } },
   "workflow": { "mode": "pr", "base": "main", "method": "squash", "autoMerge": true, "strict": false, "mergeQueue": false,
     "requiredChecks": ["CI OK"], "rerun": "all", "knownFlaky": ["launch.spec.ts:67"],
     "deploy": { "kind": "actions", "workflow": "deploy.yml", "branch": "main", "pathsIgnore": ["*.md"] }, "detectedAt": "…" },
@@ -29,6 +29,9 @@
 }
 ```
 
+- `harness.pinnedAt`: UTC timestamp of the last successful T3 orchestrator thread pin. Refresh on
+  start, resume or tick, or when a wake reports the thread settled; clear on stop. It records the
+  last pin, not a live thread-state check.
 - `items.*.decision`: `accepted`, `asked`, `rejected`, `done-already`, `duplicate` or `skipped`.
 - `items.*.stage`: the uier stage you expect (`open`, `in-progress`, `ready`, `done`). The watcher
   reports a person's change as `drift`; it records its own Open to In progress change itself.
