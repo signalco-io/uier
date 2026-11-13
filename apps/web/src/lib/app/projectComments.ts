@@ -96,6 +96,34 @@ export type ProjectCommentMessage = {
 
 export type ProjectAssignee = { id: string; name: string; avatarUrl?: string; agent?: import('@uier/toolbar/agents').AssigneeAgentView; agents?: import('@uier/toolbar/agents').AssigneeAgentView[] };
 
+/**
+ * The shape of a message's text without the text: each line's length in characters, `0` for a blank line (a
+ * paragraph break), at most 40 lines (the rest added to the last). Lengths are of the text as shown, "(edited)" included.
+ */
+export type TextShape = number[];
+
+/** A message the summary leaves out, as the loading shell reserves it: its text's shape, image size and reactions */
+export type MessageOutline = {
+    lines: TextShape; deleted?: boolean; image?: { width: number; height: number }; reactions?: number;
+    /** It has a More actions menu for the viewer (edit, delete or more from its author) */
+    actions?: boolean;
+};
+
+/**
+ * What a list/board summary leaves out, as counts and sizes only (uier #385), so the open thread's loading shell
+ * (`CommentCardShell`) has the loaded thread's shape: every reply, the first message's text past the summary's 500
+ * characters (`rest`) and its reactions, the number of activity entries, what it was left on (its label, the selected
+ * text's length, the selector's) and the screenshot's size. Nothing a viewer of the thread could not see.
+ */
+export type CommentOutline = {
+    replies: MessageOutline[];
+    rest?: TextShape;
+    reactions: number;
+    history: number;
+    anchor: { type: CommentAnchorView['type']; label: string; text?: number; selector?: number };
+    screenshot?: { width: number; height: number };
+};
+
 /** A comment as the app shows it */
 export type ProjectCommentView = {
     labels?: ThreadLabel[];
@@ -107,12 +135,8 @@ export type ProjectCommentView = {
     archiveStatusId?: string;
     /** List/board summary: the canonical detail is loaded only when the thread opens. */
     summary?: boolean;
-    /**
-     * A summary's outline of what it leaves out, so the open thread's loading shell (`CommentCardShell`) has the loaded
-     * thread's shape (uier #385): how many replies, reactions on the first message and activity entries, what it was
-     * left on, and the screenshot's size.
-     */
-    outline?: { replies: number; reactions: number; history: number; anchor: CommentAnchorView['type']; screenshot?: { width: number; height: number } };
+    /** A summary's outline of what it leaves out, so the open thread's loading shell has its shape (`CommentOutline`) */
+    outline?: CommentOutline;
     pullRequests?: { url: string; canRemove: boolean }[];
     history?: ThreadHistoryEntry[];
     priority: CommentPriority;

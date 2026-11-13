@@ -19,6 +19,8 @@ const layout = (card: Locator) => card.evaluate(root => {
         details: at(root.querySelector('dl')),
         labels: [...root.querySelectorAll('dl > dt')].map(label => label.textContent?.trim()),
         messages: at(root.querySelector('ol')),
+        quote: Math.round(root.querySelector('dl blockquote')?.getBoundingClientRect().height ?? 0),
+        items: [...root.querySelectorAll('ol > li')].map(at),
         reply: at(reply),
         footer: at(root.querySelector('[data-slot="card-footer"]')),
         height: Math.round(root.getBoundingClientRect().height)
@@ -31,15 +33,22 @@ test('an opened thread shows a shell shaped like it until its detail arrives', a
     const project = await createProject(page, { urls: [site.origin()] });
     await setProjectAccess(page, project, 'Anyone with the link');
     const headers = await verifiedReviewHeaders(request, project, site.origin());
-    const post = async (text: string) => {
+    const point = { type: 'point', selector: 'h1', xNormal: 0.5, yNormal: 0.5 };
+    // Selected text that wraps in the On row's quote
+    const quote = 'Choose the plan that fits your team. Every plan includes unlimited reviewers, pinned comments on any element and a secure link for guests.';
+    const selection = { type: 'text', text: quote, startSelector: 'h1', startOffset: 0, startType: 'text', endOffset: 6, endType: 'text' };
+    const post = async (text: string, position: object = point) => {
         const response = await request.post(`/api/review/${project}/comments`, { headers, data: {
-            path: `/${project}/pricing`, text, authorName: 'Reviewer', position: { type: 'point', selector: 'h1', xNormal: 0.5, yNormal: 0.5 }
+            path: `/${project}/pricing`, text, authorName: 'Reviewer', position
         } });
         expect(response.status(), await response.text()).toBe(201);
         return await response.json() as { id: string; number: number };
     };
-    const held = await post('Checkout button fails');
-    for (const text of ['First reply', 'Second reply'])
+    const held = await post('Checkout button fails', selection);
+    // A reply of several lines and paragraphs, and more replies than a short thread has: the shell keeps room for all
+    const replies = ['Steps to reproduce:\nOpen the pricing page\nChoose Team\n\nNothing happens after Checkout.',
+        ...Array.from({ length: 8 }, (_, index) => `Reply ${index + 1}`), 'Second reply'];
+    for (const text of replies)
         expect((await request.post(`/api/review/${project}/comments/${held.id}/replies`, { headers, data: { text, authorName: 'Reviewer' } })).ok()).toBe(true);
     const other = await post('Header logo is blurry');
 
@@ -74,8 +83,10 @@ test('an opened thread shows a shell shaped like it until its detail arrives', a
     // What the summary knows is drawn as the thread draws it; the controls wait for the detail
     await expect(shell).toContainText(`#${held.number}`);
     await expect(shell).toContainText('Checkout button fails');
+    await expect(shell).toContainText('Selected text');
     await expect(shell.getByRole('button', { name: 'Reply', includeHidden: true })).toBeAttached();
-    await expect(shell.locator('ol > li')).toHaveCount(3);
+    await expect(shell.locator('ol > li')).toHaveCount(1 + replies.length);
+    await expect(shell.locator('blockquote')).toBeVisible();
     await expect(shell).toContainText('Activity (1)');
     // Back to comments needs no data: it works at once
     if (phone) await expect(shell.getByRole('button', { name: 'Back to comments' })).toBeEnabled();
