@@ -28,7 +28,7 @@
   Thread title field in place (Enter or leaving it saves, Escape cancels and gives focus back; an empty title
   brings the AI title back), and a thread without a title shows a quiet Add a title. Otherwise, without a title
   there is no heading, as the first message shows in full below. Then the details, from the most abstract to the most
-  detailed: Page, On, Assignees, Priority, then Pull requests. Every value still unset or at its default (Unassigned,
+  detailed: Page, On, Assignees, Priority, Labels, then Pull requests. Every value still unset or at its default (Unassigned,
   the default Normal priority, Link a pull request) has one "not set" look (`unsetValue.ts`, `data-unset`): muted text
   with its icon in the same colour, ink on hover for a control; set values are ink. `e2e/thread-details.spec.ts` checks it. On (what it was left on, with the selector or
   the selected text; `SelectorCode` shows a selector longer than 28 characters as its start and end,
