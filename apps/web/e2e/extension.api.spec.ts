@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { issueExtensionCode, exchangeExtensionCode, extensionSession, readScope, validateAuthorization } from '../src/lib/extension/auth';
-import { createScope, extensionReviewContext, matchingProjects } from '../src/lib/extension/review';
+import { createScope, extensionReviewContext, matchingProjects, projectsForSite } from '../src/lib/extension/review';
 import { extensionHandler } from '../src/lib/extension/http';
 import { findOrCreateUser } from '../src/lib/app/users';
-import { ensureOwnWorkspace } from '../src/lib/app/workspaces';
+import { ensureOwnWorkspace, createWorkspace } from '../src/lib/app/workspaces';
 import { createProject, updateProject } from '../src/lib/app/projects';
 import { getAppStore } from '../src/lib/app/store';
 import type { AppContext } from '../src/lib/app/context';
@@ -172,6 +172,29 @@ test('expired handoff is rejected before session creation', async () => {
     await getAppStore().replace({ ...entry.doc, expiresAt: Date.now() - 1 }, entry.etag);
     await expect(exchangeExtensionCode(f.exchange)).rejects.toThrow();
 });
+test('site discovery distinguishes workspaces and never includes another account or revoked project', async () => {
+    const f = await fixture();
+    const workspace = await createWorkspace(f.user, 'Client work');
+    const member = { workspaceId: workspace.id, userId: f.user.id, role: 'admin', projects: 'all' };
+    const second = await createProject({ user: f.user, member, workspace, isAdmin: true } as AppContext,
+        { name: f.project.name, urls: ['https://reviewed.example'] });
+    const foreign = await fixture();
+    const credentials = await exchangeExtensionCode(f.exchange);
+    const matches = await (await matchingProjects(request('projects?origin=https://reviewed.example', credentials.token))).json() as Awaited<ReturnType<typeof projectsForSite>> & { account: { name: string; email: string } };
+    expect(matches.account).toEqual({ name: f.user.name, email: f.user.email });
+    expect(matches.projects).toEqual(expect.arrayContaining([
+        expect.objectContaining({ projectId: f.project.id, workspaceId: f.project.workspaceId, workspaceName: 'Personal' }),
+        expect.objectContaining({ projectId: second.id, workspaceId: workspace.id, workspaceName: 'Client work' })
+    ]));
+    expect(matches.projects).toHaveLength(2);
+    await expect(createScope(request('scope', credentials.token, { projectId: foreign.project.id, origin: 'https://reviewed.example' }))).rejects.toThrow();
+    // Discovery labels grant no authority, and a previously visible selection loses access immediately.
+    await getAppStore().delete(workspacePk(workspace.id), memberId(f.user.id));
+    expect((await projectsForSite(f.user.id, 'https://reviewed.example')).projects.map(project => project.projectId)).toEqual([f.project.id]);
+    await expect(createScope(request('scope', credentials.token, { projectId: second.id, origin: 'https://reviewed.example' }))).rejects.toThrow();
+    expect((await projectsForSite(f.user.id, 'https://reviewed.example.evil.test')).projects).toEqual([]);
+});
+
 test('scoped access derives the origin and rechecks address removal, comments off and revocation', async () => {
     const f = await fixture();
     const credentials = await exchangeExtensionCode(f.exchange);

@@ -21,3 +21,11 @@ review-link exchange. The app's account switch does not override that choice.
 foreground; `review-sso.spec.ts` keeps the blocked-cookie, origin and nonce boundary coverage.
 
 App review links under another signed-in account/workspace now offer an explicit switch in the app before continuing to the review target. The existing active-account SSO companion is updated through the same browser-account switch; toolbar identity and blocked-frame behavior are unchanged.
+
+The extension popup offers **Switch account** even for an unlisted site or an active review. Its
+first-party consent window lists live signed-in browser accounts and their accessible matching
+projects, with workspace names. Selection uses the existing cookie-bound account switch and reloads
+the validated consent request; approval still checks the displayed active account. Only the exact
+site origin is passed as a discovery hint. Cancelling preserves the extension's current sign-in;
+successful approval retires its old credentials, proofs, private drafts and all active reviews.
+The extension retains one account at a time, independently of later app account switches.

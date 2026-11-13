@@ -8,6 +8,10 @@ import { validateAuthorization, type Authorization } from '@/src/lib/extension/a
 import { AuthCard } from '@/src/components/app/AuthCard';
 import { ExtensionConsentForm } from '@/src/components/app/extension/ExtensionConsentForm';
 import { AccountSessionBoundary } from '@/src/components/app/shell/AccountSessionBoundary';
+import { cookies } from 'next/headers';
+import { browserSessions } from '@/src/lib/app/browserAccounts';
+import { originSchema, projectsForSite } from '@/src/lib/extension/review';
+import { ExtensionAccounts } from '@/src/components/app/extension/ExtensionAccounts';
 
 export async function generateMetadata(): Promise<Metadata> {
     const { t } = await getAppI18n();
@@ -18,16 +22,28 @@ export async function generateMetadata(): Promise<Metadata> {
 async function ExtensionConsentContent({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
     const { t } = await getAppI18n();
     const context = await requireAppContext();
+    const params = await searchParams;
     let input: Authorization;
-    try { input = validateAuthorization(await searchParams); }
+    try { input = validateAuthorization(params); }
     catch {
         return <AuthCard title={t("Extension sign-in is unavailable")} description={t("Use the registered uier extension and try again.")} />;
     }
+    const site = originSchema.safeParse(params.siteOrigin);
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(input)) if (typeof value === 'string') query.set(key, value);
+    if (site.success) query.set('siteOrigin', site.data);
+    const accounts = await Promise.all((await browserSessions(await cookies())).map(async session => ({
+        id: session.user.id, name: session.user.name, email: session.user.email, active: session.user.id === context.user.id,
+        projects: site.success ? (await projectsForSite(session.user.id, site.data)).projects.map(project => ({
+            id: project.projectId, name: project.name, workspaceName: project.workspaceName
+        })) : undefined
+    })));
     return (
         <AuthCard
             title={t("Sign in to the uier extension")}
             description={<>{t("Continue as")}{' '}<span className="font-medium text-foreground">{context.user.name}</span>{t(". The extension can review configured sites in projects you can access.")}</>}>
             <AccountSessionBoundary userId={context.user.id} reloadOnChange />
+            <ExtensionAccounts accounts={accounts} next={`/app/extension?${query}`} siteOrigin={site.success ? site.data : undefined} />
             <ul className="m-0 mb-6 flex list-none flex-col gap-3 p-0 text-sm text-muted-foreground">
                 <li className="flex gap-2.5">
                     <MousePointerClickIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-foreground" strokeWidth={1.75} />

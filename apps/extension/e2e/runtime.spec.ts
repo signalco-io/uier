@@ -43,6 +43,124 @@ test.beforeAll(async () => {
 });
 test.afterAll(async () => { await context?.close(); await proxy?.close(); server.closeAllConnections(); await new Promise(done => server.close(done)); await rm(profile, { recursive: true, force: true }); });
 
+test('account and workspace switching finds an unlisted site and replaces an active review', async () => {
+    await context.clearCookies();
+    const app = await context.newPage();
+    const a = uniqueEmail('switch-a'), b = uniqueEmail('switch-b');
+    await signIn(app, a);
+    const first = await createProject(app, { name: 'Shared site', urls: [origin] });
+    await app.goto('/app/projects');
+    await app.getByRole('button', { name: /^Workspace:/ }).click();
+    await app.getByRole('menuitem', { name: 'Create workspace', exact: true }).click();
+    const dialog = app.getByRole('dialog', { name: 'Create workspace' });
+    await dialog.getByLabel('Workspace name').fill('Client work');
+    await dialog.getByRole('button', { name: 'Create workspace', exact: true }).click();
+    await app.waitForURL(/\/app\/projects\/new$/);
+    const second = await createProject(app, { name: 'Shared site', urls: [origin] });
+    await signIn(app, b, { from: '/app/sign-in?add=1' });
+    const bId = await app.evaluate(async () => (await (await fetch('/api/account/sessions')).json()).userId as string);
+    const popup = await context.newPage();
+    await popup.goto(`chrome-extension://${clientId}/popup.html`);
+    const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
+    // This test is independent of any earlier extension login.
+    await popup.evaluate(() => chrome.runtime.sendMessage({ type: 'sign-out' }));
+    await popup.reload();
+    const login = context.waitForEvent('page');
+    await popup.getByRole('button', { name: 'Sign in to uier', exact: true }).click();
+    const auth = await login;
+    await auth.getByRole('button', { name: 'Sign in to uier', exact: true }).click();
+    await expect(popup.getByRole('button', { name: 'Switch account', exact: true })).toBeVisible();
+    const reviewed = await context.newPage();
+    await reviewed.goto(`${origin}/private?secret=not-for-consent#anchor`);
+    await reviewed.bringToFront();
+    const cdp = await context.browser()!.newBrowserCDPSession();
+    const { targetInfos } = await cdp.send('Target.getTargets', { filter: [{ type: 'tab', exclude: false }] });
+    const target = targetInfos.find(target => target.url.startsWith(origin))!;
+    await cdp.send('Extensions.triggerAction', { id: clientId, targetId: target.targetId });
+    const actionPopup = context.pages().find(page => page !== popup && page.url() === `chrome-extension://${clientId}/popup.html`) ?? popup;
+    await actionPopup.reload();
+    await expect(actionPopup.getByText('No project includes this address', { exact: true })).toBeVisible();
+    const switchWindow = context.waitForEvent('page');
+    await actionPopup.getByRole('button', { name: 'Switch account', exact: true }).click();
+    const consent = await switchWindow;
+    await expect(consent.getByRole('region', { name: 'Signed-in accounts' })).toContainText('Shared site · Client work');
+    expect(new URL(consent.url()).searchParams.get('siteOrigin')).toBe(origin);
+    expect(consent.url()).not.toContain('not-for-consent');
+    const accounts = consent.getByRole('region', { name: 'Signed-in accounts' });
+    await accounts.locator('div').filter({ has: consent.getByText(a, { exact: true }) }).getByRole('button', { name: 'Use this account', exact: true }).click();
+    await expect(accounts.locator('div').filter({ has: consent.getByText(a, { exact: true }) }).getByText('active', { exact: true })).toBeVisible();
+    await consent.getByRole('button', { name: 'Sign in to uier', exact: true }).click();
+    const personal = actionPopup.getByRole('button', { name: 'Shared site Personal', exact: true });
+    const client = actionPopup.getByRole('button', { name: 'Shared site Client work', exact: true });
+    await expect(personal).toBeVisible();
+    await expect(client).toBeVisible();
+    await expect(actionPopup.getByRole('button', { name: 'Start review', exact: true })).toBeDisabled();
+    await personal.focus();
+    await personal.press('Enter');
+    await actionPopup.getByRole('button', { name: 'Start review', exact: true }).click();
+    await expect(toolbar(reviewed)).toBeVisible({ timeout: 30_000 });
+    await expect(actionPopup.getByRole('button', { name: 'Exit review', exact: true })).toBeEnabled();
+    await client.click();
+    await actionPopup.getByRole('button', { name: 'Switch review', exact: true }).click();
+    await expect(actionPopup.getByText('Reviewing Shared site', { exact: true })).toBeVisible();
+    await expect.poll(() => worker.evaluate(async () => (Object.values(await chrome.storage.session.get(null)).find((value: any) => value?.projectId && value?.activation) as { projectId: string } | undefined)?.projectId)).toBe(second);
+    const binding = await worker.evaluate(async () => Object.values(await chrome.storage.session.get(null)).find((value: any) => value?.projectId && value?.activation) as { tabId: number; projectId: string });
+    expect(binding.projectId).toBe(second);
+    expect(binding.projectId).not.toBe(first);
+    await expect(reviewed.locator('#uier-toolbar')).toHaveCount(1);
+    await expect(actionPopup.getByRole('button', { name: 'Exit review', exact: true })).toBeEnabled();
+    for (const colorScheme of ['light', 'dark'] as const) {
+        await actionPopup.emulateMedia({ colorScheme });
+        await expect(actionPopup.locator('html')).toHaveClass(colorScheme === 'dark' ? 'dark' : '');
+        await animationsFinished(actionPopup.getByRole('main'));
+        await expectNoAxeViolations(actionPopup);
+    }
+    // An actual unsent draft belongs to A and must leave with its credentials.
+    await reviewed.getByRole('button', { name: 'Add comment', exact: true }).click();
+    const heading = (await reviewed.getByRole('heading', { level: 1 }).boundingBox())!;
+    await reviewed.mouse.click(heading.x + 10, heading.y + 10);
+    await reviewed.getByRole('textbox', { name: 'Comment', exact: true }).fill('Private account A draft');
+    await expect.poll(() => worker.evaluate(async () => Object.entries(await chrome.storage.session.get(null)).some(([key, value]) => key.startsWith('drafts:') && JSON.stringify(value).includes('Private account A draft')))).toBe(true);
+    // Both accounts now have the same address; selecting B still requires a fresh consent.
+    expect(await app.evaluate(async userId => (await fetch('/api/account/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'switch', userId }) })).status, bId)).toBe(200);
+    const third = await createProject(app, { name: 'Shared site', urls: [origin] });
+    await reviewed.bringToFront();
+    await cdp.send('Extensions.triggerAction', { id: clientId, targetId: target.targetId });
+    await actionPopup.reload();
+    const nextWindow = context.waitForEvent('page');
+    await actionPopup.getByRole('button', { name: 'Switch account', exact: true }).click();
+    const nextConsent = await nextWindow;
+    await expect(nextConsent.getByRole('region', { name: 'Signed-in accounts' })).toContainText(a);
+    await expect(nextConsent.getByRole('region', { name: 'Signed-in accounts' })).toContainText(b);
+    await expectNoAxeViolations(nextConsent);
+    // Leave the consent window without approving: the active extension review survives.
+    await nextConsent.close();
+    await expect(actionPopup.getByRole('alert')).toBeVisible();
+    await expect(toolbar(reviewed)).toBeVisible();
+    const retryWindow = context.waitForEvent('page');
+    await actionPopup.getByRole('button', { name: 'Switch account', exact: true }).click();
+    const retryConsent = await retryWindow;
+    await retryConsent.getByRole('button', { name: 'Sign in to uier', exact: true }).click();
+    await expect(actionPopup.getByText(b, { exact: true })).toBeVisible();
+    await expect(reviewed.locator('#uier-toolbar')).toHaveCount(0);
+    const afterSwitch = await worker.evaluate(async () => Object.keys(await chrome.storage.session.get(null)));
+    expect(afterSwitch.some(key => /^(binding|proof|drafts):/.test(key))).toBe(false);
+    const result = await actionPopup.evaluate(({ tabId, projectId, publicId }) => chrome.runtime.sendMessage({ type: 'start', tabId, projectId, publicId }),
+        { tabId: binding.tabId, projectId: second, publicId: 'invalid-public-id' });
+    expect(result.ok).toBe(false);
+    await actionPopup.reload();
+    await expect(actionPopup.getByRole('button', { name: 'Shared site Personal', exact: true })).toBeVisible();
+    await actionPopup.getByRole('button', { name: 'Start review', exact: true }).click();
+    await expect(toolbar(reviewed)).toBeVisible({ timeout: 30_000 });
+    await expect.poll(() => worker.evaluate(async () => (Object.values(await chrome.storage.session.get(null)).find((value: any) => value?.projectId && value?.activation) as { projectId: string } | undefined)?.projectId)).toBe(third);
+    await expect(reviewed.getByText('Private account A draft', { exact: true })).toHaveCount(0);
+    await expect(actionPopup.getByRole('button', { name: 'Exit review', exact: true })).toBeEnabled();
+    await actionPopup.getByRole('button', { name: 'Sign out', exact: true }).click();
+    await context.clearCookies();
+    const idle = await context.newPage();
+    await Promise.all(context.pages().filter(page => page !== idle).map(page => page.close()));
+});
+
 test('packaged isolated runtime uses real sign-in, helper and worker under strict CSP', async ({}, info) => {
     const app = await context.newPage();
     const email = uniqueEmail('extension');
@@ -109,7 +227,7 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     await actionPopup.reload();
 
     await expect(actionPopup.getByRole('button', { name: 'Strict CSP site' })).toBeVisible();
-    await actionPopup.getByRole('button', { name: 'Strict CSP site', exact: true }).click();
+    await actionPopup.getByRole('button', { name: 'Strict CSP site Personal', exact: true }).click();
     await actionPopup.getByRole('button', { name: 'Start review' }).click();
 
     await expect(reviewed.getByRole('navigation', { name: 'uier feedback', exact: true })).toBeVisible({ timeout: 30_000 });
