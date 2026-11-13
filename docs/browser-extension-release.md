@@ -235,21 +235,23 @@ run with **force** supports maintenance releases. Reverted toolbar changes do no
 Comparing with the release tag also includes changes left waiting after an interrupted daily run.
 
 When changes exist, the job opens `chore(extension): release X.Y.Z` from `extension-release/vX.Y.Z`
-and dispatches **CI** on that branch. The bump changes only both browser package versions and the web
-app's `latestExtensionVersion`; a test keeps them equal. Explicit dispatch avoids the approval step
-GitHub otherwise applies to workflows on bot-created PRs. Existing open version PRs are reused and
-their CI is dispatched again, rather than skipping the release because its branch already exists.
-If main advanced, the verified version-only commit is recreated on current main and pushed with an
-exact-head lease. This retains the same PR, includes current toolbar/workflow changes and refuses
-to overwrite a concurrent branch update.
+using `GITHUB_TOKEN`. The bump changes only both browser package versions and the web app's
+`latestExtensionVersion`; a test keeps them equal. After the PR exists, the job recreates that
+verified version-only commit on current main and pushes it with the repository deploy key and an
+exact-head lease. This trusted synchronization starts normal **PR CI**, which satisfies main's
+required check without the manual approval GitHub applies to `GITHUB_TOKEN`-created/updated PR events.
+A separate dispatched CI run does not satisfy that pending PR check. Existing open PRs are reused;
+the fresh commit includes current toolbar/workflow changes and refuses to overwrite concurrent updates.
+Even a same-base retry receives a new commit identity so its trusted push starts a new CI run.
 
 After **CI OK** passes, CI explicitly dispatches **Extension release finish** from main with its run
-ID. A bot-dispatched CI run does not reliably emit `workflow_run`, so this handoff does not depend on
-that event. It verifies the PR belongs to this
+ID. This handoff uses `always()` with an explicit successful **CI OK** result so intentionally
+skipped preview/infra jobs cannot suppress it. It does not depend on `workflow_run`.
+It verifies the PR belongs to this
 repository's Actions bot, contains one commit with exactly the three expected version edits, and
 has **CI OK** on that exact head. A directly handed-off CI run may still be completing its final
-dispatch job; every checked job has already passed. Recovery requires completed successful dispatched
-CI and ignores approval-required PR runs. It merges through main's existing rules, tags
+dispatch job; every checked job has already passed. Recovery requires completed successful PR or
+dispatched CI and ignores approval-required runs. It merges through main's existing rules, tags
 the resulting merge commit, and starts the existing **Extension release** build and store jobs.
 It explicitly dispatches **Deploy** so `/api/extension/version` reports the new version even though
 a `GITHUB_TOKEN` merge does not trigger push workflows. No owner merge, tag or environment approval
@@ -271,11 +273,14 @@ the repository's write-enabled **extension release tags** deploy key. The tag-cr
 allows release owners and `DeployKey` actors. There is only one release deploy key; GitHub's
 ruleset actor covers deploy keys as a class, so review this grant before adding another write key.
 The separate tag-integrity ruleset forbids updates/deletion with no bypass, including for this key.
-The key is exposed only to the tag-push step after candidate and CI validation. It cannot bypass
-main's PR/check rules. GitHub host keys come from its authenticated metadata API.
+The key is exposed only to main's preparation job for the verified branch push and the completion
+job's tag-push step after CI validation. Temporary private-key files are removed after each branch
+push, including failures. The key cannot bypass main's PR/check rules. GitHub host keys come from
+its authenticated metadata API.
 
-The version branch and PR use the job-scoped `GITHUB_TOKEN`. The deploy key is needed only to create
-the protected tag and trigger the release push workflow. No personal access token is stored. Store
+Initial version branch/PR creation and merging use the job-scoped `GITHUB_TOKEN`. The deploy key
+synchronizes the release branch for trusted PR CI and creates the protected release tag. No personal
+access token is stored. Store
 environments keep their existing branch/tag restrictions, credentials, hosted acceptance and enable
 flags; their required-reviewer rules must be absent for daily unattended submission. Set
 `CWS_PUBLISHING_ENABLED=false` or `FIREFOX_PUBLISHING_ENABLED=false` to pause the corresponding publisher.

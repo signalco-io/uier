@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { nextVersion, plan, pullRequestBody, setVersion, versionedText, versionPaths } from './release-plan.mjs';
 import { validateTag } from './store-api.mjs';
@@ -53,7 +53,7 @@ export function validateVersionChange(root, base, head, version) {
 
 export function validateCi(run, { branch, sha, handoff = false }) {
     assert.equal(run.path, '.github/workflows/ci.yml');
-    assert.equal(run.event, 'workflow_dispatch');
+    assert(['pull_request', 'workflow_dispatch'].includes(run.event), 'CI must be a PR or dispatched run');
     assert.equal(run.head_repository.full_name, repository);
     assert.equal(run.head_branch, branch);
     assert.equal(run.head_sha, sha, 'CI must pass on the exact release PR head');
@@ -80,16 +80,41 @@ function inspectCandidate(root, pr, version) {
     assert.deepEqual(files.map(file => file.filename).sort(), [...versionPaths].sort());
 }
 
-export function pushVersion(root, branch, version, previousHead) {
+function trustedPush(root, lease, refspec) {
+    assert(process.env.RELEASE_SSH_KEY, 'The main-only release deploy key is required for trusted PR CI');
+    const directory = mkdtempSync(resolve(process.env.RUNNER_TEMP, 'extension-branch-key-'));
+    const key = resolve(directory, 'key'), hosts = resolve(directory, 'known-hosts');
+    const quote = value => `'${value.replaceAll("'", "'\\''")}'`;
+    try {
+        writeFileSync(key, `${process.env.RELEASE_SSH_KEY.trim()}\n`, { mode: 0o600 });
+        writeFileSync(hosts, gh('api', 'meta', '--jq', '.ssh_keys[] | "github.com " + .') + '\n');
+        execFileSync('git', ['push', ...lease, `git@github.com:${repository}.git`, refspec], {
+            cwd: root, encoding: 'utf8', env: { ...process.env, GIT_SSH_VARIANT: 'ssh',
+                GIT_SSH_COMMAND: `ssh -i ${quote(key)} -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${quote(hosts)}` },
+        });
+    } finally { rmSync(directory, { recursive: true, force: true }); }
+}
+
+export function pushVersion(root, branch, version, previousHead, { base = 'HEAD', trusted = false, initial = false } = {}) {
     assert.equal(releaseBranchVersion(branch), version);
     if (previousHead) assert.match(previousHead, /^[a-f0-9]{40}$/);
-    git(root, 'switch', '--create', branch);
+    assert.equal(git(root, 'status', '--porcelain', '--untracked-files=no'), '', 'The automation checkout must be clean');
+    const parent = git(root, 'rev-parse', base);
+    git(root, 'switch', '--detach', parent);
+    git(root, 'switch', '--force-create', branch);
     setVersion(root, version);
     git(root, 'add', ...versionPaths);
-    git(root, '-c', 'user.name=github-actions[bot]', '-c', 'user.email=41898282+github-actions[bot]@users.noreply.github.com',
-        'commit', '--message', `chore(extension): release ${version}`);
+    // Even a retry on the same base needs a new trusted push to replace approval-required bot CI.
+    const timestamp = Math.max(Math.floor(Date.now() / 1000), previousHead ? Number(git(root, 'show', '-s', '--format=%ct', previousHead)) + 1 : 0);
+    execFileSync('git', ['-c', 'user.name=github-actions[bot]', '-c', 'user.email=41898282+github-actions[bot]@users.noreply.github.com',
+        'commit', '--message', `chore(extension): ${initial ? 'prepare' : 'release'} ${version}`], {
+        cwd: root, encoding: 'utf8', env: { ...process.env, GIT_COMMITTER_DATE: `${timestamp} +0000` },
+    });
+    validateVersionChange(root, parent, 'HEAD', version);
     const lease = previousHead ? [`--force-with-lease=refs/heads/${branch}:${previousHead}`] : [];
-    git(root, 'push', ...lease, 'origin', `${branch}:refs/heads/${branch}`);
+    const refspec = `${branch}:refs/heads/${branch}`;
+    if (trusted) trustedPush(root, lease, refspec);
+    else git(root, 'push', ...lease, 'origin', refspec);
 }
 
 function prepare(root) {
@@ -114,7 +139,7 @@ function prepare(root) {
             const head = git(root, 'rev-parse', 'FETCH_HEAD');
             validateVersionChange(root, `${head}^`, head, version);
         } else {
-            pushVersion(root, branch, version);
+            pushVersion(root, branch, version, undefined, { initial: true });
         }
         const body = resolve(process.env.RUNNER_TEMP, 'extension-release-body.md');
         writeFileSync(body, pullRequestBody(result));
@@ -124,19 +149,14 @@ function prepare(root) {
     }
     inspectCandidate(root, pr, version);
     assert.equal(pr.state, 'open', 'An already merged release PR must be finalized before preparing another');
-    if (git(root, 'rev-parse', `${pr.head.sha}^`) !== main) {
-        // The candidate was verified as one version-only commit. Refresh it onto current main,
-        // preserving its PR and refusing to overwrite any concurrent branch update.
-        pushVersion(root, branch, version, pr.head.sha);
-        const head = git(root, 'rev-parse', 'HEAD');
-        pr = candidate(version);
-        assert.equal(pr.head.sha, head, 'Release branch changed while it was being refreshed');
-        inspectCandidate(root, pr, version);
-        report(`Refreshed ${pr.html_url} onto current main before dispatching CI.`);
-    }
-    // Explicit dispatch avoids GitHub's approval requirement for bot-created pull-request workflows.
-    gh('workflow', 'run', 'ci.yml', '--repo', repository, '--ref', branch);
-    report(`Prepared ${pr.html_url} and dispatched CI. Successful CI will merge, tag and submit extension ${version}.`);
+    // The bot opens the PR, then the repository deploy key synchronizes its verified version-only
+    // commit. That trusted push triggers normal PR CI, which satisfies main's required check.
+    pushVersion(root, branch, version, pr.head.sha, { base: main, trusted: true });
+    const head = git(root, 'rev-parse', 'HEAD');
+    pr = candidate(version);
+    assert.equal(pr.head.sha, head, 'Release branch changed while it was being refreshed');
+    inspectCandidate(root, pr, version);
+    report(`Refreshed ${pr.html_url} onto current main with a trusted push. PR CI will merge, tag and submit extension ${version}.`);
 }
 
 function finish(root) {
@@ -149,7 +169,7 @@ function finish(root) {
     if (runId) assert.match(runId, /^[1-9][0-9]*$/, 'Invalid CI run ID');
     const ci = runId ? api(`actions/runs/${runId}`)
         : api(`actions/workflows/ci.yml/runs?branch=${pr.head.ref}&per_page=100`).workflow_runs
-            .find(item => item.head_sha === pr.head.sha && item.event === 'workflow_dispatch');
+            .find(item => item.head_sha === pr.head.sha && ['pull_request', 'workflow_dispatch'].includes(item.event) && item.conclusion === 'success');
     assert(ci, 'No CI run exists for the release PR');
     validateCi(ci, { branch: pr.head.ref, sha: pr.head.sha, handoff: Boolean(runId) });
     const checks = api(`commits/${pr.head.sha}/check-runs?check_name=CI%20OK&per_page=100`).check_runs;

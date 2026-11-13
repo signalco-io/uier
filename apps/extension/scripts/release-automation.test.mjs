@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import test from 'node:test';
@@ -39,6 +39,7 @@ test('a version candidate can be refreshed onto new main only with its exact pre
     const remote = mkdtempSync(resolve(tmpdir(), 'uier-release-remote-'));
     const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
     const write = (path, text) => { mkdirSync(resolve(root, path, '..'), { recursive: true }); writeFileSync(resolve(root, path), text); };
+    const environment = Object.fromEntries(['PATH', 'RUNNER_TEMP', 'RELEASE_SSH_KEY', 'FIXTURE_RELEASE_REMOTE'].map(name => [name, process.env[name]]));
     try {
         git('init', '-b', 'main'); git('config', 'user.name', 'Release fixture'); git('config', 'user.email', 'release@example.test');
         git('init', '--bare', remote); git('remote', 'add', 'origin', remote);
@@ -48,18 +49,37 @@ test('a version candidate can be refreshed onto new main only with its exact pre
         const original = git('rev-parse', 'HEAD');
         pushVersion(root, pr.head.ref, version);
         const oldHead = git('rev-parse', 'HEAD');
+        // Exercise the deploy-key SSH path against a disposable local bare repository, including
+        // key cleanup and lease rejection. No GitHub credentials or network access are involved.
+        const transport = resolve(root, '.git/transport');
+        mkdirSync(resolve(transport, 'bin'), { recursive: true });
+        writeFileSync(resolve(transport, 'bin/gh'), '#!/bin/sh\nprintf "github.com ssh-ed25519 fixture\\n"\n', { mode: 0o700 });
+        writeFileSync(resolve(transport, 'bin/ssh'), '#!/bin/sh\nexec git receive-pack "$FIXTURE_RELEASE_REMOTE"\n', { mode: 0o700 });
+        Object.assign(process.env, { PATH: `${transport}/bin:${process.env.PATH}`, RUNNER_TEMP: transport,
+            RELEASE_SSH_KEY: 'fixture private key', FIXTURE_RELEASE_REMOTE: remote });
         git('switch', 'main'); git('branch', '-D', pr.head.ref);
         write('toolbar-change.txt', 'New main source\n'); git('add', '.'); git('commit', '-m', 'New main source');
         const main = git('rev-parse', 'HEAD');
-        pushVersion(root, pr.head.ref, version, oldHead);
+        pushVersion(root, pr.head.ref, version, oldHead, { trusted: true });
         assert.equal(git('rev-parse', 'HEAD^'), main);
         validateVersionChange(root, main, git('rev-parse', 'HEAD'), version);
-        const refreshed = git('rev-parse', 'HEAD');
+        let refreshed = git('rev-parse', 'HEAD');
+        pushVersion(root, pr.head.ref, version, refreshed, { base: main, trusted: true });
+        assert.notEqual(git('rev-parse', 'HEAD'), refreshed, 'A same-base retry must emit a new trusted synchronization event');
+        refreshed = git('rev-parse', 'HEAD');
+        assert.equal(git('rev-list', '--count', `${main}..HEAD`), '1');
+        assert.deepEqual(readdirSync(transport), ['bin'], 'Temporary key material must be removed');
         git('switch', 'main'); git('branch', '-D', pr.head.ref);
         write('toolbar-change.txt', 'Another main change\n'); git('add', '.'); git('commit', '-m', 'Another main change');
-        assert.throws(() => pushVersion(root, pr.head.ref, version, original), /Command failed/);
+        assert.throws(() => pushVersion(root, pr.head.ref, version, original, { trusted: true }), /Command failed/);
         assert.equal(git('ls-remote', 'origin', `refs/heads/${pr.head.ref}`).split(/\s/)[0], refreshed);
-    } finally { rmSync(root, { recursive: true, force: true }); rmSync(remote, { recursive: true, force: true }); }
+        assert.deepEqual(readdirSync(transport), ['bin']);
+    } finally {
+        for (const [name, value] of Object.entries(environment)) {
+            if (value === undefined) delete process.env[name]; else process.env[name] = value;
+        }
+        rmSync(root, { recursive: true, force: true }); rmSync(remote, { recursive: true, force: true });
+    }
 });
 
 test('only the repository bot single-commit version PR qualifies for automatic merging', () => {
@@ -77,9 +97,10 @@ test('CI from another head, workflow, repository or event cannot release a versi
     const expected = { branch: pr.head.ref, sha };
     validateCi(ci, expected);
     for (const change of [{ head_sha: 'b'.repeat(40) }, { head_branch: 'main' }, { path: '.github/workflows/other.yml' },
-        { event: 'pull_request' }, { head_repository: { full_name: 'fork/uier' } }, { conclusion: 'failure' }, { status: 'in_progress' }])
+        { event: 'push' }, { head_repository: { full_name: 'fork/uier' } }, { conclusion: 'failure' }, { status: 'in_progress' }])
         assert.throws(() => validateCi({ ...ci, ...change }, expected));
     validateCi({ ...ci, status: 'in_progress', conclusion: null }, { ...expected, handoff: true });
+    validateCi({ ...ci, event: 'pull_request' }, expected);
     assert.throws(() => validateCi({ ...ci, conclusion: 'failure' }, { ...expected, handoff: true }));
 });
 
