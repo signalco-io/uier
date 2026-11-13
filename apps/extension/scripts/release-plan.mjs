@@ -1,16 +1,17 @@
 // Regular releases (docs/browser-extension-release.md, "Regular releases"). `plan` decides whether
 // shipped source changed since the newest release tag; `version X.Y.Z` sets the version everywhere
-// it is recorded. Creating the protected tag stays with release owners.
+// it is recorded. The daily automation merges the version PR after CI and creates its release tag.
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { compareVersions, validateTag } from './store-api.mjs';
 
-/** Source bundled into the packages. Dependency-only updates ship with the next one, or a forced run. */
-export const shippedPaths = ['packages/toolbar/src', 'packages/toolbar/tailwind.config.js', 'packages/extension/src',
-    'packages/extension/scripts/build.mjs', 'packages/extension/scripts/manifest.mjs', 'packages/brand/src', 'packages/brand/tokens.css'];
+/** Only toolbar implementation changes trigger daily releases. Other changes ride the next release. */
+export const shippedPaths = ['packages/toolbar/src', 'packages/toolbar/tailwind.config.js',
+    'packages/toolbar/postcss.config.mjs', 'packages/toolbar/tsup.config.ts'];
 const packages = ['apps/extension/package.json', 'apps/extension-firefox/package.json'];
 const webVersion = 'apps/web/src/lib/extension/release.ts';
+export const versionPaths = [...packages, webVersion];
 const webPattern = /export const latestExtensionVersion = '([^']*)';/;
 
 const git = (root, ...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
@@ -20,17 +21,30 @@ export function recordedVersions(root) {
     return [...packages.map(path => JSON.parse(readFileSync(resolve(root, path), 'utf8')).version), web];
 }
 
+export function versionedText(path, text, version) {
+    validateTag(`extension-v${version}`);
+    const pattern = path === webVersion ? webPattern : /^(  "version": )"[^"]*"/m;
+    if (!pattern.test(text)) throw new Error(`No version field in ${path}`);
+    return text.replace(pattern, path === webVersion
+        ? `export const latestExtensionVersion = '${version}';` : `$1"${version}"`);
+}
+
 export function setVersion(root, version) {
     validateTag(`extension-v${version}`);
-    for (const path of packages) {
+    for (const path of versionPaths) {
         const file = resolve(root, path), text = readFileSync(file, 'utf8');
-        const next = text.replace(/^(  "version": )"[^"]*"/m, `$1"${version}"`);
-        if (next === text && JSON.parse(text).version !== version) throw new Error(`No version field in ${path}`);
-        writeFileSync(file, next);
+        writeFileSync(file, versionedText(path, text, version));
     }
-    const file = resolve(root, webVersion), text = readFileSync(file, 'utf8');
-    if (!webPattern.test(text)) throw new Error(`No latestExtensionVersion in ${webVersion}`);
-    writeFileSync(file, text.replace(webPattern, `export const latestExtensionVersion = '${version}';`));
+}
+
+export function nextVersion(version) {
+    validateTag(`extension-v${version}`);
+    const parts = version.split('.').map(Number);
+    for (let index = 2; index >= 0; index--) {
+        if (parts[index] < 65535) { parts[index]++; return parts.join('.'); }
+        parts[index] = 0;
+    }
+    throw new Error('Extension version space is exhausted');
 }
 
 export function plan(root, { force = false } = {}) {
@@ -42,22 +56,22 @@ export function plan(root, { force = false } = {}) {
     }).sort((a, b) => compareVersions(b.version, a.version));
     const latest = tags[0];
     if (!latest) throw new Error('No extension release tag found.');
-    // Merged but never tagged: the owner still has to create the tag, a new bump would skip a version.
+    git(root, 'merge-base', '--is-ancestor', latest.tag, 'HEAD');
+    if (compareVersions(current, latest.version) < 0) throw new Error('Recorded version is behind the newest release tag');
+    // Recover an interrupted finalization before considering another version.
     if (compareVersions(current, latest.version) > 0) return { state: 'untagged', version: current, tag: latest.tag, changes: [] };
+    const changed = git(root, 'diff', '--name-only', latest.tag, 'HEAD', '--', ...shippedPaths);
+    if (!changed && !force) return { state: 'current', version: current, tag: latest.tag, changes: [] };
     const changes = git(root, 'log', '--format=%h %s', `${latest.tag}..HEAD`, '--', ...shippedPaths).split('\n').filter(Boolean);
-    if (!changes.length && !force) return { state: 'current', version: current, tag: latest.tag, changes };
-    const [major, minor, patch] = latest.version.split('.').map(Number);
-    return { state: 'due', version: `${major}.${minor}.${patch + 1}`, tag: latest.tag, changes };
+    return { state: 'due', version: nextVersion(latest.version), tag: latest.tag, changes };
 }
 
 export function pullRequestBody({ version, tag, changes }, repository = 'https://github.com/signalco-io/uier') {
     return [
         `Prepares extension ${version}. Shipped source changed since \`${tag}\`:`, '',
         ...(changes.length ? changes.map(change => `- ${change}`) : ['- No source changes; a manual run asked for a release.']), '',
-        '## After merging', '',
-        'A release owner creates the protected tag on main, then approves the `extension-production` review in the **Extension release** run:', '',
-        '```sh', `git fetch origin main && git tag -a extension-v${version} -m "uier extension ${version}" origin/main && git push origin extension-v${version}`, '```', '',
-        'Pull requests opened by GitHub Actions start no workflows, so the job dispatched **CI** on this branch. Rerun it there after pushing more commits.',
+        'The daily release automation dispatched **CI** on this branch. After it passes, **Extension release finish** verifies that this PR changes only the three recorded versions, merges it, creates the immutable release tag, and starts store submission and the website deployment.', '',
+        'Store review and signing may still be pending after submission. No release is prepared when the toolbar has no changes since the last release.',
         `See [regular releases](${repository}/blob/main/docs/browser-extension-release.md#regular-releases).`
     ].join('\n');
 }

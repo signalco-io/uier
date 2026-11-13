@@ -154,7 +154,8 @@ update remain separate gates. Chrome/Edge receipts below apply to those publishe
 ## Updates
 
 The extension packages the toolbar, so toolbar changes reach reviewers only through a store
-release ([regular releases](browser-extension-release.md#regular-releases)). It never loads the
+release. The [daily release automation](browser-extension-release.md#regular-releases) ships toolbar
+changes merged to main and skips unchanged days. It never loads the
 toolbar from uier.io: stores forbid remotely hosted code, the reviewed page's CSP would block a page
 script, and the worker's credentials must stay out of the page. Browsers check the store every few
 hours and install a download once the extension is idle, which can wait for a browser restart.
