@@ -219,8 +219,20 @@ test('a private project link offers a signed-in account and continues with its o
     const next = `/app/projects/${project}?view=board&from=shared-link`;
     await page.goto(next);
     await expect(page.getByRole('heading', { name: 'Switch account or workspace' })).toBeVisible();
+    // One row per account: its picture or initial, name and whole email; the workspace is named once (uier #390)
+    await expect(page.getByRole('main')).toContainText('Choose an account to open this link in the Personal workspace.');
+    const choices = page.getByRole('list', { name: 'Accounts that can open this link' }).getByRole('listitem');
+    await expect(choices).toHaveCount(1);
+    const choice = choices.getByRole('button');
+    await expect(choice).toHaveAccessibleName(`${owner.split('@')[0]} ${owner}`);
+    await expect(choice.locator('[data-slot="avatar"]')).toHaveText(owner[0]!.toUpperCase());
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await expectNoAxeViolations(page);
-    await page.getByRole('button', { name: new RegExp(owner) }).click();
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await expect(page.locator('html')).toHaveClass(/dark/);
+    await animationsFinished(page.locator('main'));
+    await expectNoAxeViolations(page);
+    await choice.click();
     await expect(page).toHaveURL(new RegExp(`/app/projects/${project}\\?view=board&from=shared-link$`));
     await expect(page.getByRole('heading', { name: 'Linked project', exact: true })).toBeVisible();
 });
