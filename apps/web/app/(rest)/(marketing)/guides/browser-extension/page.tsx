@@ -202,7 +202,7 @@ export default function BrowserExtensionGuide() {
                 <CheckList items={[
                     'The toolbar hides while it captures.',
                     'The image shows the part of the page the comment is about, or the whole visible page. Content outside the window is not included, so scroll to it first.',
-                    <>The comment box says when a screenshot will be attached. Choose <Label>{extensionRelease.omitScreenshot}</Label> to send that comment as text only.</>,
+                    <>The comment box says when a screenshot will be attached. Turn off <Label>{extensionRelease.screenshotToggle}</Label> to send that comment as text only.</>,
                     'If a screenshot cannot be taken, only the text is sent.',
                     'The author can redact or replace a saved screenshot, and the same image size limits apply as with the script.'
                 ]} />

@@ -12,9 +12,17 @@ async function startComment(page: Page, text: string) {
     await page.mouse.click(box!.x + 20, box!.y + box!.height / 2);
     const draft = page.getByRole('dialog', { name: 'New comment', exact: true });
     await draft.getByRole('textbox', { name: 'Comment', exact: true }).fill(text);
-    const omit = draft.getByRole('button', { name: 'Omit screenshot' });
+    const omit = draft.getByRole('button', { name: 'Attach screenshot' });
     if (await omit.count()) await omit.click();
     return draft;
+}
+
+/** Attach's menu, opened from the composer's text box */
+async function openAttachMenu(page: Page, composer: Locator) {
+    await composer.getByRole('button', { name: 'Attach', exact: true }).click();
+    const menu = page.getByRole('dialog', { name: 'Attach', exact: true });
+    await expect(menu).toBeVisible();
+    return menu;
 }
 
 async function attachRecording(composer: Locator) {
@@ -84,12 +92,19 @@ test('recordings: explicit capture stops tracks and allows preview and discard',
         });
         await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
         const draft = await startComment(page, 'Keep this draft while recording.');
-        await draft.getByRole('button', { name: 'Record screen', exact: true }).click();
+        // One Attach button: its menu has Record screen and Upload recording (and Attach image)
+        const menu = await openAttachMenu(page, draft);
+        await expect(menu.getByRole('button', { name: 'Upload recording', exact: true })).toBeVisible();
+        await expect(menu.getByRole('button', { name: 'Attach image', exact: true })).toBeVisible();
+        await menu.getByRole('button', { name: 'Record screen', exact: true }).click();
+        await expect(menu).toBeHidden();
         await expect(draft.getByRole('button', { name: 'Stop recording', exact: true })).toBeFocused();
         await expect(draft.getByRole('timer')).toHaveText(/^0:0\d \/ 1:00$/);
-        // The capture's controls replace the buttons that start one.
-        await expect(draft.getByRole('button', { name: 'Record screen', exact: true })).toHaveCount(0);
-        await expect(draft.getByRole('button', { name: 'Upload recording', exact: true })).toHaveCount(0);
+        // The bar has a line under it and no note under it (uier #392)
+        const bar = draft.locator('[data-uier-recording-bar]');
+        await expect(bar).toHaveCSS('border-bottom-style', 'solid');
+        await expect(bar.getByRole('status')).toHaveCount(0);
+        await expect(draft.getByText('Recording ends if you reload or leave this page.', { exact: true })).toHaveCount(0);
         await expect(draft.getByRole('button', { name: 'Post comment', exact: true })).toBeDisabled();
         await page.getByRole('heading', { level: 1 }).click();
         await expect(draft.getByRole('button', { name: 'Stop recording', exact: true })).toBeVisible();
@@ -113,8 +128,11 @@ test('recordings: unavailable capture retains file upload and invalid files reta
         await page.addInitScript(() => Object.defineProperty(navigator.mediaDevices, 'getDisplayMedia', { configurable: true, value: undefined }));
         await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
         const draft = await startComment(page, 'A mobile recording can be uploaded.');
-        await expect(draft.getByRole('button', { name: 'Record screen', exact: true })).toHaveCount(0);
-        await expect(draft.getByRole('button', { name: 'Upload recording', exact: true })).toBeVisible();
+        const menu = await openAttachMenu(page, draft);
+        await expect(menu.getByRole('button', { name: 'Record screen', exact: true })).toHaveCount(0);
+        await expect(menu.getByRole('button', { name: 'Upload recording', exact: true })).toBeVisible();
+        await page.keyboard.press('Escape');
+        await expect(menu).toBeHidden();
         await draft.locator('input[type="file"][accept="video/webm,video/mp4"]').setInputFiles({ name: 'text.txt', mimeType: 'text/plain', buffer: Buffer.from('This is not a video.') });
         await expect(draft.getByRole('alert')).toContainText('Choose an MP4 or WebM recording.');
         await expect(draft.getByRole('textbox', { name: 'Comment', exact: true })).toHaveText('A mobile recording can be uploaded.');

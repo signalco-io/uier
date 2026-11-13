@@ -448,7 +448,7 @@ export const it: Messages = {
         regionScreenshot: 'Verrà allegato uno screenshot di questa parte della pagina.',
         attachScreenshot: 'Non verrà allegato nessuno screenshot. Seleziona per allegarne uno.',
         textOnly: (status: string) => `${status} Seleziona per omettere lo screenshot.`,
-        omitScreenshot: 'Senza screenshot',
+        screenshotToggle: 'Allega screenshot',
         attachedToReply: 'Allegata alla tua risposta.',
         sentInstead: 'Inviata al posto dello screenshot.',
         replyImageRemove: 'La tua immagine è allegata alla risposta. Seleziona per rimuoverla.',
@@ -457,6 +457,7 @@ export const it: Messages = {
         attachToReply: 'Allega un’immagine alla tua risposta.',
         attachInstead: 'Allega una tua immagine al posto dello screenshot.',
         attachImage: 'Allega immagine',
+        attach: 'Allega',
         pastedImage: 'Immagine incollata'
     },
     imageProblems: {

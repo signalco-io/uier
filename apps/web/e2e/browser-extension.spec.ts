@@ -67,7 +67,7 @@ test('the setup guide covers installation, reviews, links, headers, screenshots 
     await expect(page.getByRole('region', { name: 'Install the extension' }).getByRole('listitem')).toHaveCount(3);
     await expect(page.getByRole('region', { name: 'Install the extension' }).getByRole('heading', { level: 3, name: 'Firefox', exact: true })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Install the extension' })).toContainText('Firefox Browser Add-ons');
-    await expect(page.getByRole('region', { name: 'Screenshots' }).getByText(extensionRelease.omitScreenshot, { exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Screenshots' }).getByText(extensionRelease.screenshotToggle, { exact: true })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Common problems' }).getByRole('heading', { level: 3 })).toHaveCount(8);
     await expect(page.getByRole('region', { name: 'Common problems' }).getByRole('link', { name: 'service status' })).toHaveAttribute('href', KnownPages.Status);
     await expectSocialMetadata(page, path, guides.browserExtension.title);

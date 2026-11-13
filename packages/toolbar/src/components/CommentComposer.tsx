@@ -23,7 +23,9 @@ import { ComposerFooter } from './ComposerFooter';
 import { messages, useMessages } from '../i18n';
 import { useKeyboardLikely } from '../shortcuts';
 import type { RecordingState } from '../recordings';
-import { ComposerRecordingControls, ComposerRecordingPreview } from './ComposerRecording';
+import { ComposerRecordingPreview } from './ComposerRecording';
+import { ComposerAttachMenu } from './ComposerAttachMenu';
+import type { useAttachedImage } from '../useAttachedImage';
 
 /** Longest guest name the review API accepts */
 const guestNameMaxLength = 80;
@@ -81,9 +83,12 @@ type CommentComposerProps = {
      * its place and can have the focus, but is read-only
      */
     waiting?: boolean;
-    /** In the bottom-left corner of the text box, before its hint (Attach image for new comments and feedback) */
-    attachments?: ReactNode;
+    /** The image the message can carry: Attach image in Attach's menu, its name once attached */
+    image?: { attachment: ReturnType<typeof useAttachedImage>; reply?: boolean };
+    /** The recording the message can carry: Record screen and Upload recording in Attach's menu */
     recording?: RecordingState;
+    /** In the bottom-left corner of the text box, after Attach and before its hint (the screenshot toggle) */
+    attachments?: ReactNode;
     /**
      * Above the text box, after the quote (and a guest's name), in the same form and spacing: a rewrite's
      * suggestions. Its own controls must not submit the form (no nested form; Enter handled there).
@@ -111,7 +116,7 @@ type CommentComposerProps = {
  * box styled like the kit's `Input` (bordered, radius 8, blue focus ring), with its hint or counter and buttons.
  * Enter sends, Shift+Enter adds a new line; Markdown typed and Ctrl/⌘+B, I, E format the text.
  */
-export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, holdSubmit = false, waiting = false, attachments, recording, beforeText, tall = false, error, onSubmit, onImageDrop, onDiscard, discardable = false, initialText, initialMentions, commentId, onCancel }: CommentComposerProps) {
+export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey, quote, autoFocus, pending, holdSubmit = false, waiting = false, image, recording, attachments, beforeText, tall = false, error, onSubmit, onImageDrop, onDiscard, discardable = false, initialText, initialMentions, commentId, onCancel }: CommentComposerProps) {
     holdSubmit = holdSubmit || Boolean(recording?.busy);
     const formRef = useRef<HTMLFormElement>(null);
     const editorRef = useRef<MarkdownEditorHandle>(null);
@@ -335,10 +340,10 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                     }}
                     textClassName={cx('overflow-y-auto rounded-t-lg px-3 pb-1 pt-2.5 text-sm text-foreground', tall ? tallTextClassName : textClassName)}
                     placeholderClassName="px-3 pt-2.5 text-sm text-muted-foreground" />
-                <Row justifyContent="space-between" spacing={1} className={cx('py-1.5 pr-1.5', attachments ? 'pl-1.5' : 'pl-3')}>
+                <Row justifyContent="space-between" spacing={1} className={cx('py-1.5 pr-1.5', image || recording || attachments ? 'pl-1.5' : 'pl-3')}>
                     <Row spacing={1} className="min-w-0">
+                    {(image || recording) && <ComposerAttachMenu image={image} recording={recording} disabled={waiting || busy || sharedPending} />}
                     {attachments}
-                    {recording && <ComposerRecordingControls recording={recording} disabled={waiting || busy || sharedPending} />}
                     <span
                         id={counterId}
                         className={cx(

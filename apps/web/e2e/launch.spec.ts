@@ -80,7 +80,7 @@ test('owner checks installation, shares a review, replies and resolves; the name
         await expect(draft.getByRole('img')).toHaveCount(0);
         // A first-time guest is told an image will be attached, and may omit it (#323)
         await expect(draft.getByRole('status').filter({ hasText: 'A screenshot of this part of the page will be attached.' })).toBeVisible();
-        await expect(draft.getByRole('button', { name: 'Omit screenshot' })).toHaveAttribute('aria-pressed', 'false');
+        await expect(draft.getByRole('button', { name: 'Attach screenshot' })).toHaveAttribute('aria-pressed', 'true');
         const saved = await post(guest.page, () => draft.getByRole('button', { name: 'Post comment' }).click(), publicId);
         expect(saved.screenshot?.width).toBeGreaterThan(0);
         await expectSavedImage(guest.page);

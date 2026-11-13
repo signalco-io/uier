@@ -448,7 +448,7 @@ export const hr: Messages = {
         regionScreenshot: 'Bit će priložena snimka ovog dijela stranice.',
         attachScreenshot: 'Snimka zaslona neće biti priložena. Odaberite kako biste je priložili.',
         textOnly: (status: string) => `${status} Odaberite kako biste izostavili snimku zaslona.`,
-        omitScreenshot: 'Bez snimke zaslona',
+        screenshotToggle: 'Priloži snimku zaslona',
         attachedToReply: 'Priloženo vašem odgovoru.',
         sentInstead: 'Šalje se umjesto snimke zaslona.',
         replyImageRemove: 'Vaša je slika priložena odgovoru. Odaberite kako biste je uklonili.',
@@ -457,6 +457,7 @@ export const hr: Messages = {
         attachToReply: 'Priložite sliku svom odgovoru.',
         attachInstead: 'Priložite vlastitu sliku umjesto snimke zaslona.',
         attachImage: 'Priloži sliku',
+        attach: 'Priloži',
         pastedImage: 'Zalijepljena slika'
     },
     imageProblems: {

@@ -348,7 +348,7 @@ error boundary, so one bad comment never breaks the toolbar.
   either side pins a point where it started. Toolbars without area support show the pin at the area's
   top-left corner.
 - Rewrite suggestions: select text, then **Rewrite**. The form is laid out like a new comment's: the header
-  (Omit screenshot, Expand), the quoted text, the instruction box, then the text box, which starts as the selected
+  (Expand), the quoted text, the instruction box, then the text box, which starts as the selected
   text, to edit into your version. **Suggest** (inside the instruction box; optionally with an instruction such as
   "shorter", Enter there asks too) requests AI suggestions from `POST /api/rewrite`, and picking one replaces the
   text as if it was typed (Ctrl/Cmd+Z brings yours back; a guest's name stays). Expand keeps the instruction and
@@ -377,11 +377,12 @@ error boundary, so one bad comment never breaks the toolbar.
   Revision checks reject stale choices; access/selector/page/project/origin checks run on the server.
   Cross-page migration and automatic AI relocation are not supported.
 - Screenshots are captured automatically when a new element/text comment, rewrite, feedback or bug report starts.
-  There is no camera button or preview while writing. The form's header has a screen icon, **Omit screenshot**: its
-  tooltip says that a screenshot will be attached (or that it is being taken, or could not be taken), and pressing it
-  (a crossed-out screen) posts only the text: no image is sent for that comment. **Attach image** beside it, or
-  pasting an image into the form, sends the reviewer's own PNG, JPEG or WebP (up to 512 KB and 4096 pixels on each
-  side) instead of the screenshot; the header names the file and removes it again. Posting waits for that capture attempt (up to 15 seconds);
+  There is no preview while writing. The text box's corner has **Attach** (a menu: Attach image, Record screen,
+  Upload recording) and the **Attach screenshot** toggle, pressed (ink, with a check) while a screenshot will be
+  attached: its tooltip says so (or that it is being taken, or could not be taken), and turning it off (a crossed-out
+  camera) posts only the text: no image is sent for that comment. **Attach image**, or pasting an image into the
+  form, sends the reviewer's own PNG, JPEG or WebP (up to 512 KB and 4096 pixels on each side) instead of the
+  screenshot; the corner names the file and removes it again. Posting waits for that capture attempt (up to 15 seconds);
   a failed capture still saves the text. Reopening or restoring a draft refreshes its capture and viewport from the current page, and
   discarding it saves no image. Replies and edits keep the original screenshot. Saved threads and the inbox
   show a small thumbnail; click, tap or press Enter to expand it, and close to return focus to the thumbnail.

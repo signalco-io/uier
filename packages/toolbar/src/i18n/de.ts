@@ -447,7 +447,7 @@ export const de: Messages = {
         regionScreenshot: 'Ein Screenshot dieses Teils der Seite wird angehängt.',
         attachScreenshot: 'Es wird kein Screenshot angehängt. Wählen Sie dies, um einen anzuhängen.',
         textOnly: (status: string) => `${status} Wählen Sie dies, um den Screenshot wegzulassen.`,
-        omitScreenshot: 'Screenshot weglassen',
+        screenshotToggle: 'Screenshot anhängen',
         attachedToReply: 'An Ihre Antwort angehängt.',
         sentInstead: 'Wird statt des Screenshots gesendet.',
         replyImageRemove: 'Ihr Bild ist an die Antwort angehängt. Wählen Sie dies, um es zu entfernen.',
@@ -456,6 +456,7 @@ export const de: Messages = {
         attachToReply: 'Ein Bild an Ihre Antwort anhängen.',
         attachInstead: 'Ein eigenes Bild statt des Screenshots anhängen.',
         attachImage: 'Bild anhängen',
+        attach: 'Anhängen',
         pastedImage: 'Eingefügtes Bild'
     },
     imageProblems: {

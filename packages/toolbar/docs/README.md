@@ -36,7 +36,7 @@ Read the note for the area you change, and update it in the same pull request. A
 - [The pill, Options and notices](pill-and-options.md): the pill's buttons, collapsing, the profile and options popovers, moving the pill and docking panels, notices and error messages by the pill.
 - [Point mode, areas and selected text](point-mode.md): picking an element or dragging an area on the page, area outlines, and the toolbar for selected text.
 - [Pins and threads](comment-thread.md): the pin, the thread's layout and header, Copy, Thread options, a message's options, and icon buttons' tooltips.
-- [Screenshots and images](screenshots.md): the automatic capture, Omit screenshot and Attach image in the form, and uploading, pasting and redacting saved images.
+- [Screenshots and images](screenshots.md): the automatic capture, the screenshot toggle and Attach in the form, and uploading, pasting and redacting saved images.
 - [Screen recordings](recordings.md): explicit capture, video uploads, previews, private playback and retry recovery.
 - [Device details](device-details.md): the browser, OS and screen a comment was left from, and their details popover.
 - [Inbox](inbox.md): the inbox's title row, filters, location picker, status tabs, drafts, and its virtualized, paged list.

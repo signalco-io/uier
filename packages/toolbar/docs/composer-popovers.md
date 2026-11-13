@@ -12,10 +12,14 @@ its own button and lets the click toggle it
 
 ## The form
 
-`ComposerAttachmentsHeader` is the title line: the title, the screenshot toggle (Omit screenshot, a camera icon) and Expand.
-Attach image (`ComposerAttachButton`) is in the bottom-left corner of the text box (`CommentComposer`'s
-`attachments`), so it reads as a part of the comment; once an image is attached, its name with a remove button
-takes that place and the screenshot toggle leaves the header (the image replaces the screenshot). Screenshot
+`ComposerAttachmentsHeader` is the title line: the title and Expand (and an attached image's problem).
+The bottom-left corner of the text box holds **Attach** (`ComposerAttachMenu`, a paperclip) and then the screenshot
+toggle (`ComposerScreenshotToggle`, `CommentComposer`'s `attachments`), so both read as a part of the comment
+([uier #391](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_napwWAvckuKEmZr-J0GGQ)). Attach is one button with a menu of what can be added now: Attach image, Record screen
+(where the browser can capture) and Upload recording; an item leaves the menu once its kind is attached, and the
+button goes when nothing is left. The menu renders in the expanded modal's dialog when there is one, else in the ink
+scope or the shadow root. Once an image is attached, its name with a remove button follows Attach and the screenshot
+toggle makes way (the image replaces the screenshot). Screenshot
 rules: [review workflow](../../../docs/review-workflow.md#screenshots). Discard (once there is text) and Send are
 icon buttons in the box's bottom-right corner, an X and a paper plane, each named by its tooltip (`IconTooltip`),
 like every icon button in the form ([uier #289](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_5pAm5RcV57oGHBohkQrzH)).
@@ -30,7 +34,8 @@ preview belong to the form's owner, so expanding and collapsing retain it. Captu
 follow the same send/recovery boundaries as the message; recording bytes never enter the saved draft.
 
 `CommentComposer` is one bordered box: the text box (it grows with its text; Enter sends, Shift+Enter is a new
-line, `enterKeyHint`), its `attachments` (Attach image), a hint or a counter, Discard while there is text, and Send.
+line, `enterKeyHint`), Attach (from `image` and `recording`), its `attachments` (the screenshot toggle), a hint or a
+counter, Discard while there is text, and Send.
 Discard and Send are plain icon buttons with their tooltips: an X, since Discard has no labeled button beside
 Send, and Send, since Enter sends. They are 44 px on touch screens. `beforeText` goes between the quote and the
 box ([a rewrite's suggestions](#a-rewrite)). Screenshots and Attach image: [screenshots](screenshots.md#the-form).
@@ -39,9 +44,9 @@ box ([a rewrite's suggestions](#a-rewrite)). Screenshots and Attach image: [scre
 
 A rewrite suggestion (the selected text's **Rewrite**) is the same form, one card with one spacing
 ([uier #180](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_WMvFpcew7B7-K384zFTL4)):
-the header ("New rewrite suggestion", Omit screenshot, Expand), the quoted text, the instruction box, the
+the header ("New rewrite suggestion", Expand), the quoted text, the instruction box, the
 suggestions once asked for, then the text box with the suggested text (it starts as the selected text), Attach
-image in its corner and Discard and Post suggestion inside it. `RewriteSuggestions` is `CommentComposer`'s
+and Attach screenshot in its corner and Discard and Post suggestion inside it. `RewriteSuggestions` is `CommentComposer`'s
 `beforeText`, inside its form: the instruction is one box like the text box (the AI mark, the field, Suggest as a
 plain button), Enter in it asks for suggestions instead of posting (its `keydown` prevents the form's implicit
 submission), and its buttons are `type="button"`. A picked suggestion replaces the text as if typed. The
@@ -53,7 +58,7 @@ project, its review API) for the suggestions.
 ### A drawing
 
 A drawing's comment ([canvas mode](canvas-mode.md)) is the comment form on the drawing's area, with **Edit
-drawing** (a pen icon button in the header, `data-uier-edit-drawing`) beside Omit screenshot: canvas mode again
+drawing** (a pen icon button in the header, `data-uier-edit-drawing`) beside Expand: canvas mode again
 with the shapes, the text kept for when Comment opens the form again. The drawing stays on the page while the
 form is open. Its draft is its own (`newDrawingDraftKey`, kind `drawing`); the drawing is in memory only, so
 the form keeps it when closed without text, and shows **Discard** even when the text is empty, which removes the
@@ -144,7 +149,7 @@ while the composer keeps typed text and capture completes.
 
 ## Reply images
 
-The thread's reply form uses the same Attach image control and `useAttachedImage` reader as a new comment,
+The thread's reply form uses the same Attach menu (Attach image) and `useAttachedImage` reader as a new comment,
 including file and paste validation, the filename/remove state and holding send while an image is read.
 Replies have no automatic capture: one attached image belongs to that reply and never replaces the first
 message's screenshot. A send clears the attachment; a failed send restores it only without a newer attachment.

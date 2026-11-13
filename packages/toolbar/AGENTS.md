@@ -119,7 +119,8 @@ they behave goes in that note, not here.
 | `components/CommentSelectionPopover.tsx`, `RewriteIcon.tsx` | the toolbar for selected text: Add comment and Rewrite ([point mode](docs/point-mode.md#selected-text)) |
 | `components/RewriteSuggestions.tsx`, `hooks/useRewriteSuggestions.tsx` | AI suggestions in a rewrite's form ([popovers](docs/composer-popovers.md#a-rewrite)) |
 | `components/info/`, `hooks/useHoverPopover.ts` | the browser and device a comment was left from, and their details popover ([device details](docs/device-details.md)) |
-| `src/screenshot.ts`, `components/CommentScreenshot.tsx`, `components/ComposerAttachments.tsx` | capture, Omit screenshot, Attach image and saved thumbnails ([screenshots](docs/screenshots.md)) |
+| `src/screenshot.ts`, `components/CommentScreenshot.tsx`, `components/ComposerAttachments.tsx` | capture, the screenshot toggle and saved thumbnails ([screenshots](docs/screenshots.md)) |
+| `components/ComposerAttachMenu.tsx` | Attach: one menu with Attach image, Record screen and Upload recording ([screenshots](docs/screenshots.md#the-form), [recordings](docs/recordings.md)) |
 | `src/screenshotPolicy.ts`, `src/suppliedScreenshot.ts`, `components/ScreenshotRedaction.tsx`, `hooks/useReplaceScreenshot.ts` | saved images: upload, paste and redaction ([screenshots](docs/screenshots.md#saved-images)) |
 | `components/checks/`, `src/checks/` | the page-check panels and their checks ([page checks](docs/page-checks.md)) |
 | `components/sidebar/` | the inbox: title row, filters, location picker, status tabs, drafts and the paged, virtualized list ([inbox](docs/inbox.md)) |
@@ -198,7 +199,7 @@ text. Drafts are local to each browser origin and expire after seven days.
   the message editor in every composer, [docs/message-editor.md](docs/message-editor.md)). Published files may be
   up to 1.5 MB (`apps/web/scripts/toolbar-assets.mjs`). A large feature-only
   dependency becomes its own pinned asset loaded on use, like axe-core (`dist/audit.js`, [docs/page-checks.md](docs/page-checks.md)).
-- Capture starts automatically for new feedback, and composers say so; Omit screenshot sends that one comment as text only,
+- Capture starts automatically for new feedback, and composers say so; turning off Attach screenshot sends that one comment as text only,
   stops a capture still being taken (`cancelCommentScreenshot`; turning it off again takes a new one)
   (`CommentDraft.omitScreenshot` carries the choice through a failed send, in memory only). An attached own image (`useAttachedImage`,
   checked by `suppliedScreenshot` with the saved-evidence limits) replaces the capture in the create request and stays in memory

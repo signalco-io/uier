@@ -2,7 +2,7 @@
 
 The automatic screenshot of a new comment, the reviewer's own image, and saved images. Formats, limits, storage
 and what every client does are in [review workflow](../../../docs/review-workflow.md#screenshots). The rules that
-apply to every toolbar change (capture, Omit screenshot, attached images, image fetches) are in
+apply to every toolbar change (capture, the screenshot toggle, attached images, image fetches) are in
 [the toolbar guide](../AGENTS.md#rules).
 
 ## Capture
@@ -27,17 +27,20 @@ Restored or reopened drafts refresh the capture without persisting images. A dra
 ## The form
 
 New comment and feedback forms render `ComposerAttachmentsHeader` above (not inside) `CommentComposer`
-(`components/ComposerAttachments.tsx`): the title, then the screenshot toggle, then Expand. The toggle, **Omit
-screenshot**, has its tooltip, `aria-pressed`, a crossed-out camera when pressed, and the read-out capture status
-as its description. Pressed, it leaves `screenshot` out of the request.
+(`components/ComposerAttachments.tsx`): the title and Expand. The screenshot toggle, **Attach screenshot**
+(`ComposerScreenshotToggle`), is in the text box's bottom-left corner after Attach ([uier #391](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_napwWAvckuKEmZr-J0GGQ)). It has its
+tooltip, `aria-pressed` and the read-out capture status as its description. Pressed while the screenshot will be sent
+(also while it is being taken), it is ink (the UI kit's `solid`: `--primary` on `--primary-foreground`, black in
+light and white in dark) with a check and a camera, so the choice shows before sending. Turned off, it is a plain
+crossed-out camera and `screenshot` is left out of the request. It is hidden while a capture that failed is not
+turned off, and while an image is attached.
 
-**Attach image** (`ComposerAttachButton`) sends the reviewer's own image, picked or pasted into the form, as
-`screenshot` instead of the capture. Once one is attached, its name with a remove button takes its place. It is
-in the text box's bottom-left corner (`CommentComposer`'s `attachments`), so it reads as a part of the comment.
-Never an image preview.
+**Attach image**, an item of Attach's menu (`ComposerAttachMenu`), sends the reviewer's own image, picked or pasted
+into the form, as `screenshot` instead of the capture. Once one is attached, its name with a remove button follows
+Attach and the item leaves the menu. Never an image preview.
 
 One [screen recording](recordings.md) can be attached alongside the screenshot or supplied image.
-Record screen and Upload recording are separate controls; a recording has its own preview and limits.
+Record screen and Upload recording are items of the same Attach menu; a recording has its own preview and limits.
 
 ## Saved images
 
@@ -53,5 +56,5 @@ Record screen and Upload recording are separate controls; a recording has its ow
 
 ## Tests
 
-`apps/web/e2e/screenshots.spec.ts`: Attach image in the text box. `screenshot-performance.spec.ts`: capture yields
+`apps/web/e2e/screenshots.spec.ts`: Attach and the screenshot toggle in the text box. `screenshot-performance.spec.ts`: capture yields
 to the browser ([capture responsiveness](composer-popovers.md#capture-responsiveness)).

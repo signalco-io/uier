@@ -48,14 +48,14 @@ test('rewrite: pick a suggestion and post it', async ({ browser }, testInfo) => 
     await expect(draft.locator('blockquote')).toHaveText(selected);
 
     // One form like a new comment's (uier #180): the header, the quoted text, the instruction with
-    // Suggest, then the suggested text's box with Attach image and the send button; no hint under it
+    // Suggest, then the suggested text's box with Attach, the screenshot toggle and the send button; no hint under it
     const instruction = draft.getByRole('textbox', { name: 'Instruction for suggestions' });
     const quoteTop = (await draft.locator('blockquote').boundingBox())!.y;
     const instructionTop = (await instruction.boundingBox())!.y;
     expect(quoteTop).toBeLessThan(instructionTop);
     expect(instructionTop).toBeLessThan((await suggested.boundingBox())!.y);
-    await expect(draft.getByRole('button', { name: 'Omit screenshot' })).toBeVisible();
-    await expect(draft.getByRole('button', { name: 'Attach image' })).toBeVisible();
+    await expect(draft.getByRole('button', { name: 'Attach screenshot' })).toBeVisible();
+    await expect(draft.getByRole('button', { name: 'Attach', exact: true })).toBeVisible();
     await expect(draft.getByText('Shift+Enter for a new line', { exact: true })).toHaveCount(0);
 
     // Suggestions, optionally with an instruction

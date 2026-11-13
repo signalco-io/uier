@@ -53,7 +53,7 @@ test('screenshots: capture automatically, stay out of the composer and expand fr
     const draft = await startComment(page, 'The headline says it well.', page.getByRole('heading', { level: 1 }));
     // Said in words (#323), never previewed
     await expect(draft.getByRole('status').filter({ hasText: 'A screenshot of this part of the page will be attached.' })).toBeVisible();
-    await expect(draft.getByRole('button', { name: 'Omit screenshot' })).toHaveAttribute('aria-pressed', 'false');
+    await expect(draft.getByRole('button', { name: 'Attach screenshot' })).toHaveAttribute('aria-pressed', 'true');
     await expect(draft.getByRole('img')).toHaveCount(0);
     // Submit immediately: the form awaits the capture rather than racing it.
     await draft.getByRole('button', { name: 'Post comment' }).click();
@@ -89,7 +89,7 @@ test('screenshots: cancellation saves nothing and failed capture still saves the
     });
     const draft = await startComment(page, 'Keep the feedback if capture fails.', page.getByRole('heading', { level: 1 }));
     await expect(draft.getByRole('status').filter({ hasText: 'The screenshot could not be taken. You can still send your comment.' })).toBeVisible();
-    await expect(draft.getByRole('button', { name: 'Omit screenshot' })).toHaveCount(0);
+    await expect(draft.getByRole('button', { name: 'Attach screenshot' })).toHaveCount(0);
     await draft.getByRole('button', { name: 'Post comment' }).click();
     const thread = page.getByRole('dialog', { name: 'Comment thread' });
     await expect(thread.getByText('Keep the feedback if capture fails.')).toBeVisible();
@@ -203,7 +203,7 @@ function nextCreatedComment(page: Page) {
         .then(request => request.postDataJSON() as { text: string; screenshot?: string });
 }
 
-test('screenshots: the composer says while one is taken, and Omit screenshot posts only the text', async ({ browser }, testInfo) => {
+test('screenshots: the composer says while one is taken, and turning off Attach screenshot posts only the text', async ({ browser }, testInfo) => {
     const { context, page } = await newVisitor(browser, testInfo);
     // The narrowest supported phone layout
     if (testInfo.project.use.isMobile) await page.setViewportSize({ width: 390, height: 844 });
@@ -224,10 +224,11 @@ test('screenshots: the composer says while one is taken, and Omit screenshot pos
     await expect(disclosure).toBeVisible();
 
     // A real toggle, reached and used with the keyboard
-    const omit = draft.getByRole('button', { name: 'Omit screenshot' });
+    const omit = draft.getByRole('button', { name: 'Attach screenshot' });
     await omit.focus();
-    await page.keyboard.press('Space');
     await expect(omit).toHaveAttribute('aria-pressed', 'true');
+    await page.keyboard.press('Space');
+    await expect(omit).toHaveAttribute('aria-pressed', 'false');
     await expect(draft.getByRole('status').filter({ hasText: 'No screenshot will be attached.' })).toBeVisible();
     await expect(draft.getByRole('img')).toHaveCount(0);
     const box = await omit.boundingBox();
@@ -244,13 +245,13 @@ test('screenshots: the composer says while one is taken, and Omit screenshot pos
 
     // Per comment: the next one has its screenshot again
     const next = await startComment(page, 'This one keeps its screenshot.', page.getByRole('heading', { level: 1 }));
-    await expect(next.getByRole('button', { name: 'Omit screenshot' })).toHaveAttribute('aria-pressed', 'false');
+    await expect(next.getByRole('button', { name: 'Attach screenshot' })).toHaveAttribute('aria-pressed', 'true');
     await next.getByRole('button', { name: 'Post comment' }).click();
     await expect(page.getByRole('dialog', { name: 'Comment thread' }).getByRole('button', { name: 'Screenshot of the commented part of the page' })).toBeVisible();
     await context.close();
 });
 
-test('screenshots: Omit screenshot stops one being taken, and attaching it again takes a new one', async ({ browser }, testInfo) => {
+test('screenshots: turning off Attach screenshot stops one being taken, and turning it on again takes a new one', async ({ browser }, testInfo) => {
     const { context, page } = await newVisitor(browser, testInfo);
     await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
     // Hold the capture before it copies the page (it inlines the page's font files first), and count the final encodings
@@ -271,7 +272,7 @@ test('screenshots: Omit screenshot stops one being taken, and attaching it again
     const capture = () => page.evaluate(() => (window as unknown as { capture: { release: () => void; encoded: number } }).capture);
     const draft = await startComment(page, 'Text only after all.', page.getByRole('heading', { level: 1 }));
     await expect(draft.getByRole('status').filter({ hasText: 'Taking a screenshot...' })).toBeVisible();
-    await draft.getByRole('button', { name: 'Omit screenshot' }).click();
+    await draft.getByRole('button', { name: 'Attach screenshot' }).click();
     await expect(draft.getByRole('status').filter({ hasText: 'No screenshot will be attached.' })).toBeVisible();
     await page.evaluate(() => (window as unknown as { capture: { release: () => void } }).capture.release());
     // Stopped: the page is not drawn or encoded once the fonts arrive (that takes well under a second)
@@ -279,7 +280,7 @@ test('screenshots: Omit screenshot stops one being taken, and attaching it again
     expect((await capture()).encoded).toBe(0);
 
     // Attached after all: a new screenshot, of the page as it is now
-    await draft.getByRole('button', { name: 'Omit screenshot' }).click();
+    await draft.getByRole('button', { name: 'Attach screenshot' }).click();
     await expect(draft.getByRole('status').filter({ hasText: 'A screenshot of this part of the page will be attached.' })).toBeVisible();
     expect((await capture()).encoded).toBe(1);
     const body = nextCreatedComment(page);
@@ -296,9 +297,9 @@ test('screenshots: feedback can be sent without the screenshot of the visible pa
     const dialog = page.getByRole('dialog', { name: 'Send feedback' });
     await dialog.getByRole('textbox').fill('Text only, please.');
     await expect(dialog.getByRole('status').filter({ hasText: 'A screenshot of the visible page will be attached.' })).toBeVisible();
-    await dialog.getByRole('button', { name: 'Omit screenshot' }).click();
+    await dialog.getByRole('button', { name: 'Attach screenshot' }).click();
     await expect(dialog.getByRole('status').filter({ hasText: 'No screenshot will be attached.' })).toBeVisible();
-    const omit = await dialog.getByRole('button', { name: 'Omit screenshot' }).boundingBox();
+    const omit = await dialog.getByRole('button', { name: 'Attach screenshot' }).boundingBox();
     const panel = await dialog.boundingBox();
     expect(omit!.x + omit!.width).toBeLessThanOrEqual(panel!.x + panel!.width);
 
@@ -310,7 +311,7 @@ test('screenshots: feedback can be sent without the screenshot of the visible pa
 
     // Sent: the next feedback has its screenshot again
     await page.getByRole('button', { name: 'Send feedback' }).click();
-    await expect(dialog.getByRole('button', { name: 'Omit screenshot' })).toHaveAttribute('aria-pressed', 'false');
+    await expect(dialog.getByRole('button', { name: 'Attach screenshot' })).toHaveAttribute('aria-pressed', 'true');
     await context.close();
 });
 
@@ -328,17 +329,25 @@ test('screenshots: the reviewer attaches their own image instead, from the text 
     const { context, page } = await newVisitor(browser, testInfo);
     await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
     const draft = await startComment(page, 'This is what I see instead.', page.getByRole('heading', { level: 1 }));
-    // Compact icons: the screenshot toggle in the header (its status read out), Attach image in the
-    // text box's bottom-left corner, as a part of the comment
-    const omit = draft.getByRole('button', { name: 'Omit screenshot' });
+    // Compact icons in the text box's bottom-left corner, as a part of the comment: Attach (a menu with
+    // Attach image), then the screenshot toggle, pressed while the screenshot will be sent (its status read out)
+    const omit = draft.getByRole('button', { name: 'Attach screenshot' });
+    await expect(omit).toHaveAttribute('aria-pressed', 'true');
     await expect(omit).toHaveAccessibleDescription('A screenshot of this part of the page will be attached.');
-    const attach = draft.getByRole('button', { name: 'Attach image' });
-    await expect(attach).toHaveAccessibleDescription(/PNG, JPEG or WebP, up to 512 KB/);
+    const attach = draft.getByRole('button', { name: 'Attach', exact: true });
     const text = (await draft.getByRole('textbox', { name: 'Comment', exact: true }).boundingBox())!;
     const attachBox = (await attach.boundingBox())!;
     expect(attachBox.y).toBeGreaterThanOrEqual(text.y + text.height - 1);
     expect(attachBox.x - text.x).toBeLessThan(16);
-    expect((await omit.boundingBox())!.y).toBeLessThan(text.y);
+    const toggleBox = (await omit.boundingBox())!;
+    expect(toggleBox.y).toBeGreaterThanOrEqual(text.y + text.height - 1);
+    expect(toggleBox.x).toBeGreaterThan(attachBox.x);
+    await attach.click();
+    const menu = page.getByRole('dialog', { name: 'Attach', exact: true });
+    await expect(menu.getByRole('button', { name: 'Attach image', exact: true })).toHaveAccessibleDescription(/PNG, JPEG or WebP, up to 512 KB/);
+    await page.keyboard.press('Escape');
+    await expect(menu).toBeHidden();
+    await expect(draft).toBeVisible();
     const input = draft.locator('input[type="file"][accept*="image/"]');
     await input.setInputFiles({ name: 'drawing.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg/>') });
     await expect(draft.getByRole('alert')).toContainText('Choose a PNG, JPEG or WebP');
@@ -366,7 +375,7 @@ test('screenshots: the reviewer attaches their own image instead, from the text 
     await expect(remove).toBeVisible();
     await expect(textbox).toHaveText('A pasted picture.', { useInnerText: true });
     await remove.click();
-    await expect(dialog.getByRole('button', { name: 'Omit screenshot' })).toHaveAttribute('aria-pressed', 'false');
+    await expect(dialog.getByRole('button', { name: 'Attach screenshot' })).toHaveAttribute('aria-pressed', 'true');
     await pasteImage(textbox, pngImage);
     await expect(remove).toBeVisible();
     const feedback = nextCreatedComment(page);
@@ -375,8 +384,8 @@ test('screenshots: the reviewer attaches their own image instead, from the text 
     await expect(page.getByRole('status').filter({ hasText: 'Feedback sent' })).toBeAttached();
     // Sent: the next feedback has its automatic screenshot again
     await page.getByRole('button', { name: 'Send feedback' }).click();
-    await expect(dialog.getByRole('button', { name: 'Omit screenshot' })).toHaveAttribute('aria-pressed', 'false');
-    await expect(dialog.getByRole('button', { name: 'Attach image' })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Attach screenshot' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(dialog.getByRole('button', { name: 'Attach', exact: true })).toBeVisible();
     await context.close();
 });
 
@@ -484,7 +493,7 @@ test('screenshots: an attached image belongs to the feedback it was sent with', 
     expect((await sent).screenshot).toBe(pngImage);
     await openFeedback();
     await expect(removeButton('image.png')).toHaveCount(0);
-    await expect(dialog.getByRole('button', { name: 'Omit screenshot' })).toHaveAttribute('aria-pressed', 'false');
+    await expect(dialog.getByRole('button', { name: 'Attach screenshot' })).toHaveAttribute('aria-pressed', 'true');
     await dialog.locator('input[type="file"][accept*="image/"]').setInputFiles(second);
     await expect(removeButton('second.png')).toBeVisible();
     release();

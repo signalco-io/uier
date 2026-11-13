@@ -1,43 +1,19 @@
 'use client';
 
-import { useId, useRef } from 'react';
 import { Button } from '@signalco/ui-primitives/Button';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
-import { Close, Upload } from '@signalco/ui-icons';
-import { canRecordScreen, MAX_RECORDING_DURATION, recordingClock, recordingLength, recordingContentTypes, type RecordingState } from '../recordings';
+import { Close } from '@signalco/ui-icons';
+import { MAX_RECORDING_DURATION, recordingClock, recordingLength, type RecordingState } from '../recordings';
 import { useMessages } from '../i18n';
 import { IconTooltip } from './IconTooltip';
 import { composerIconButtonClassName } from './ComposerAttachments';
 import { RecordingIcon } from './RecordingIcon';
 
 /**
- * Record screen and Upload recording, after Attach image in the text box's bottom-left corner. They
- * make way once there is a capture or a clip: its controls are with it, above the text
- * ({@link ComposerRecordingPreview}), so the row never holds two Discard buttons.
- */
-export function ComposerRecordingControls({ recording, disabled }: { recording: RecordingState; disabled?: boolean }) {
-    const t = useMessages().recording;
-    const input = useRef<HTMLInputElement>(null);
-    const limits = useId();
-    const offered = !recording.clip && recording.phase !== 'recording';
-    return <>
-        <span id={limits} className="sr-only">{t.limits} {t.navigation}</span>
-        {offered && canRecordScreen() && <IconTooltip label={t.record}>
-            <IconButton type="button" variant="plain" size="xs" className={composerIconButtonClassName}
-                aria-label={t.record} aria-describedby={limits} disabled={disabled || recording.busy} onClick={() => void recording.start()}><RecordingIcon /></IconButton>
-        </IconTooltip>}
-        {offered && <IconTooltip label={t.upload}>
-            <IconButton type="button" variant="plain" size="xs" className={composerIconButtonClassName}
-                aria-label={t.upload} aria-describedby={limits} disabled={disabled || recording.busy} onClick={() => input.current?.click()}><Upload size={16} aria-hidden="true" /></IconButton>
-        </IconTooltip>}
-        <input ref={input} type="file" accept={recordingContentTypes.join(',')} className="hidden" tabIndex={-1} aria-hidden="true"
-            onChange={event => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void recording.attach(file); }} />
-    </>;
-}
-
-/**
  * Above the text, inside its box: the running capture (time, Stop, Discard), or the clip to review
- * before sending, named with its length and its own Discard.
+ * before sending, named with its length and its own Discard. Record screen and Upload recording are
+ * in Attach's menu (`ComposerAttachMenu`). A line under the capture's bar parts it from the text; that
+ * leaving the page ends the capture is read with Record screen, not shown under the bar.
  */
 export function ComposerRecordingPreview({ recording, disabled }: { recording: RecordingState; disabled?: boolean }) {
     const t = useMessages().recording;
@@ -55,21 +31,20 @@ export function ComposerRecordingPreview({ recording, disabled }: { recording: R
                 {discard}
             </div>
         </section>}
-        {recording.phase === 'recording' && <div className="px-3 pt-2">
+        {recording.phase === 'recording' && <div data-uier-recording-bar="" className="border-b border-border py-1.5 pl-3 pr-1.5">
             <div className="flex min-h-7 items-center gap-2">
                 <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-destructive motion-safe:animate-pulse" />
                 <span role="timer" aria-live="off" className="min-w-0 flex-1 truncate font-mono text-xs tabular-nums">
                     {recordingClock(recording.elapsed)} / {recordingClock(MAX_RECORDING_DURATION)}
                 </span>
-                {/* Focused as it appears: the Record button it replaces had the focus */}
+                {/* Focused as it appears: the capture started from Attach's menu, which had the focus */}
                 <Button type="button" variant="outlined" size="xs" autoFocus className="shrink-0 gap-1.5 rounded-md pointer-coarse:min-h-11"
                     aria-label={t.stop} onClick={recording.stop}
                     startDecorator={<span aria-hidden="true" className="size-2 rounded-[2px] bg-destructive" />}>{t.stopShort}</Button>
                 {discard}
             </div>
-            <p role="status" className="m-0 pt-1 text-xs text-muted-foreground">{t.navigation}</p>
         </div>}
-        {(recording.phase === 'choosing' || recording.phase === 'reading') && <div className="flex min-h-7 items-center gap-2 pl-3 pr-1.5 pt-2">
+        {(recording.phase === 'choosing' || recording.phase === 'reading') && <div className="flex min-h-7 items-center gap-2 border-b border-border py-1.5 pl-3 pr-1.5">
             <p role="status" className="m-0 min-w-0 flex-1 text-xs text-muted-foreground">{recording.phase === 'choosing' ? t.choosing : t.reading}</p>
             {discard}
         </div>}

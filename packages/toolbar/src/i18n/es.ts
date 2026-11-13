@@ -448,7 +448,7 @@ export const es: Messages = {
         regionScreenshot: 'Se adjuntará una captura de esta parte de la página.',
         attachScreenshot: 'No se adjuntará ninguna captura de pantalla. Selecciona para adjuntar una.',
         textOnly: (status: string) => `${status} Selecciona para omitir la captura de pantalla.`,
-        omitScreenshot: 'Sin captura de pantalla',
+        screenshotToggle: 'Adjuntar captura de pantalla',
         attachedToReply: 'Adjunta a tu respuesta.',
         sentInstead: 'Se envía en lugar de la captura de pantalla.',
         replyImageRemove: 'Tu imagen está adjunta a la respuesta. Selecciona para quitarla.',
@@ -457,6 +457,7 @@ export const es: Messages = {
         attachToReply: 'Adjunta una imagen a tu respuesta.',
         attachInstead: 'Adjunta tu propia imagen en lugar de la captura de pantalla.',
         attachImage: 'Adjuntar imagen',
+        attach: 'Adjuntar',
         pastedImage: 'Imagen pegada'
     },
     imageProblems: {

@@ -17,7 +17,7 @@ import { CommentComposer } from './CommentComposer';
 import { defaultFeedbackTypes, type FeedbackTypeId } from '../feedbackTypes';
 import { useProjectViewer } from '../project/ProjectGate';
 import { CommentKindIcon } from './CommentKindLabel';
-import { ComposerAttachButton, ComposerAttachmentsHeader, useAttachedImage } from './ComposerAttachments';
+import { ComposerAttachmentsHeader, ComposerScreenshotToggle, useAttachedImage } from './ComposerAttachments';
 import { ComposerModal, ExpandComposerButton } from './ComposerModal';
 import { useAnnounce } from './Announcer';
 import { getDeviceInfo } from './info/getDeviceInfo';
@@ -160,11 +160,7 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
     const form = (
         <div className="contents" onPaste={attachment.handlePaste}>
             <ComposerAttachmentsHeader
-                page
                 title={<Typography component="h2" level="body2" semiBold className="text-foreground">{t.feedback.send}</Typography>}
-                screenshot={screenshot}
-                omitted={omitScreenshot}
-                onOmittedChange={handleOmittedChange}
                 attachment={attachment}
                 actions={<ExpandComposerButton expanded={expanded} onExpandedChange={setExpanded} />} />
             <div className="bg-card px-3 pt-2">
@@ -197,7 +193,15 @@ export function ToolbarFeedback({ onOpen, openRequested = false, onOpenRequestHa
                 tall={expanded}
                 holdSubmit={attachment.reading}
                 recording={{ ...recording, start: () => { setExpanded(false); return recording.start(); } }}
-                attachments={<ComposerAttachButton attachment={attachment} />}
+                image={{ attachment }}
+                attachments={(
+                    <ComposerScreenshotToggle
+                        page
+                        screenshot={screenshot}
+                        omitted={omitScreenshot}
+                        onOmittedChange={handleOmittedChange}
+                        attachment={attachment} />
+                )}
                 onImageDrop={file => void attachment.attach(file)}
                 error={create.error}
                 onDiscard={() => { recording.discard(); attachment.remove(); }}
