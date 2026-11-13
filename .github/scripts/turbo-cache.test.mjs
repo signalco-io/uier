@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { cleanBuild } from '../../apps/web/scripts/clean-build.mjs';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 function tasks(env = {}) {
@@ -17,6 +20,28 @@ const baseline = tasks();
 const toolbar = '@uier/toolbar#build';
 const compile = '@uier/web#build:compile';
 const finalize = '@uier/web#build';
+
+test('compilation always cleans the previous build before restoring a cached artifact', () => {
+    const clean = '@uier/web#build:clean';
+    assert.equal(baseline.get(clean).resolvedTaskDefinition.cache, false);
+    assert.ok(baseline.get(compile).dependencies.includes(clean));
+});
+
+test('cleaning removes stale generated output while preserving compiler and development state', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'uier-build-clean-'));
+    try {
+        for (const name of ['cache/compiler.bin', 'dev/server.state', 'server/app/stale.html', 'static/stale.js', 'BUILD_ID']) {
+            await mkdir(dirname(join(directory, name)), { recursive: true });
+            await writeFile(join(directory, name), name);
+        }
+        await cleanBuild(directory);
+        assert.deepEqual((await readdir(directory)).sort(), ['cache', 'dev']);
+        assert.equal(await readFile(join(directory, 'cache/compiler.bin'), 'utf8'), 'cache/compiler.bin');
+        assert.equal(await readFile(join(directory, 'dev/server.state'), 'utf8'), 'dev/server.state');
+        await cleanBuild(directory);
+        await cleanBuild(join(directory, 'missing'));
+    } finally { await rm(directory, { recursive: true, force: true }); }
+});
 
 test('deployment revision and archive changes reuse compilation and still finalize the build', () => {
     const changed = tasks({ GITHUB_SHA: 'a'.repeat(40), UIER_TOOLBAR_RETAIN_FROM: 'https://uier.io' });

@@ -109,6 +109,8 @@ test('web finalization stays fresh without forcing compilation', () => {
     assert.deepEqual(tasks.build.dependsOn, ['build:compile']);
     assert.notEqual(tasks['build:compile'].cache, false);
     assert.ok(tasks['build:compile'].dependsOn.includes('^build'));
+    assert.ok(tasks['build:compile'].dependsOn.includes('build:clean'));
+    assert.equal(tasks['build:clean'].cache, false);
 });
 
 test('production freshness checks need no checkout, deployment secrets or environment', () => {

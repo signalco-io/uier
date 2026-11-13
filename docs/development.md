@@ -188,7 +188,10 @@ Run from the repository root (each one runs the matching script in every package
 
 Run complete builds with `pnpm build` at the repository root, or
 `pnpm exec turbo run build --filter=@uier/web` for the website and its dependencies.
-The web graph first runs the cacheable `build:compile` task (fonts, Next.js and sitemap), then
+The uncached `build:clean` task removes generated `.next` output before compilation or cache
+restoration, preserving `.next/cache` and `.next/dev`. This keeps an ordinary build and an
+instant-navigation test build from serving each other's stale files when switching cached artifacts.
+The web graph then runs the cacheable `build:compile` task (fonts, Next.js and sitemap), then
 the uncached `build` task publishes the toolbar archive and generates the search manifest.
 The final step always reads the current retained archive, refreshes its timestamps and records
 the current commit, including when compilation was restored from cache. Calling the web package's
