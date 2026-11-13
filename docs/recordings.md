@@ -2,7 +2,7 @@
 
 A comment or reply can include one recording alongside its image evidence. The toolbar offers
 **Record screen** where the browser supports screen capture and **Upload recording** for an
-existing MP4 or WebM file. The signed-in app offers the same controls on replies. Recording starts
+existing MP4 or WebM file, in the text box's Attach menu. The signed-in app offers the same controls on replies. Recording starts
 only from the reviewer's action and the browser's source picker. Built-in capture requests video
 without audio; uploaded videos can include their existing audio.
 Video files are validated without re-encoding, so uploaded file metadata is preserved. A WebM screen

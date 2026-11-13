@@ -21,7 +21,7 @@ test('feedback expands to a modal and back, keeping its text, type, image and sc
     await form.getByRole('button', { name: 'Bug report', exact: true }).click();
     const text = form.getByRole('textbox', { name: 'Bug report' });
     await text.fill('The pricing table overlaps the footer.');
-    await form.getByRole('button', { name: 'Omit screenshot' }).click();
+    await form.getByRole('button', { name: 'Attach screenshot' }).click();
     await expect.poll(() => isModal(form)).toBe(false);
 
     // Expanded: the same form in a modal, the rest of the page inert behind it, the text box larger and focused
@@ -33,7 +33,7 @@ test('feedback expands to a modal and back, keeping its text, type, image and sc
     await expect(text).toBeFocused();
     await expect(text).toHaveText('The pricing table overlaps the footer.', { useInnerText: true });
     await expect(form.getByRole('button', { name: 'Bug report', exact: true })).toHaveAttribute('aria-pressed', 'true');
-    await expect(form.getByRole('button', { name: 'Omit screenshot' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(form.getByRole('button', { name: 'Attach screenshot' })).toHaveAttribute('aria-pressed', 'false');
     expect((await text.boundingBox())!.height).toBeGreaterThan(small.height);
     expect((await form.boundingBox())!.width).toBeGreaterThan(popover.width);
     await expectNoAxeViolations(page);
@@ -46,7 +46,7 @@ test('feedback expands to a modal and back, keeping its text, type, image and sc
     await expect.poll(() => isModal(form)).toBe(false);
     await expect(text).toBeFocused();
     await expect(text).toHaveText('The pricing table overlaps the footer. On narrow windows.', { useInnerText: true });
-    await expect(form.getByRole('button', { name: 'Omit screenshot' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(form.getByRole('button', { name: 'Attach screenshot' })).toHaveAttribute('aria-pressed', 'false');
 
     // An image attached in the modal is still attached after Collapse, and is sent
     await form.getByRole('button', { name: 'Expand' }).click();

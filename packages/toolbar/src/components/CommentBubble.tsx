@@ -27,7 +27,7 @@ import { feedbackStage } from '../verification';
 import { PinParticipants, participantsTuck, participantsWidth, threadParticipants } from './PinParticipants';
 import { usePinShift, type PinBox } from '../pinLayout';
 import { RewriteSuggestions, useRewriteSuggestionsState } from './RewriteSuggestions';
-import { ComposerAttachButton, ComposerAttachmentsHeader, composerIconButtonClassName, useAttachedImage, type AttachedImage } from './ComposerAttachments';
+import { ComposerAttachmentsHeader, ComposerScreenshotToggle, composerIconButtonClassName, useAttachedImage, type AttachedImage } from './ComposerAttachments';
 import { ComposerModal, ExpandComposerButton } from './ComposerModal';
 import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { IconTooltip } from './IconTooltip';
@@ -576,9 +576,6 @@ export function CommentBubble(props: CommentBubbleProps) {
             {creating && (
                 <ComposerAttachmentsHeader
                     title={<span className="text-sm font-semibold text-foreground">{newLabel}</span>}
-                    screenshot={capture?.screenshot}
-                    omitted={omitScreenshot}
-                    onOmittedChange={handleOmittedChange}
                     attachment={attachment}
                     actions={<>
                         {drawingDraft && onEditDrawing && placementState === 'exact' && (
@@ -616,7 +613,14 @@ export function CommentBubble(props: CommentBubbleProps) {
                 // Replies wait until the comment is saved (they need its id); the reply box
                 // is there already, so the thread keeps its size and the focus stays in it
                 waiting={sending}
-                attachments={<ComposerAttachButton attachment={attachment} reply={!creating} />}
+                image={{ attachment, reply: !creating }}
+                attachments={creating && (
+                    <ComposerScreenshotToggle
+                        screenshot={capture?.screenshot}
+                        omitted={omitScreenshot}
+                        onOmittedChange={handleOmittedChange}
+                        attachment={attachment} />
+                )}
                 onImageDrop={file => void attachment.attach(file)}
                 // A rewrite's form: the quoted text, the suggestions, then the suggested text in its box
                 beforeText={rewriting && selectedText ? (

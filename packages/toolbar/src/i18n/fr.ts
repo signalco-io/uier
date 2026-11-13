@@ -447,7 +447,7 @@ export const fr: Messages = {
         regionScreenshot: 'Une capture de cette partie de la page sera jointe.',
         attachScreenshot: 'Aucune capture d’écran ne sera jointe. Sélectionnez pour en joindre une.',
         textOnly: (status: string) => `${status} Sélectionnez pour omettre la capture d’écran.`,
-        omitScreenshot: 'Sans capture d’écran',
+        screenshotToggle: 'Joindre une capture d’écran',
         attachedToReply: 'Jointe à votre réponse.',
         sentInstead: 'Envoyée à la place de la capture d’écran.',
         replyImageRemove: 'Votre image est jointe à la réponse. Sélectionnez pour la retirer.',
@@ -456,6 +456,7 @@ export const fr: Messages = {
         attachToReply: 'Joindre une image à votre réponse.',
         attachInstead: 'Joindre votre propre image à la place de la capture d’écran.',
         attachImage: 'Joindre une image',
+        attach: 'Joindre',
         pastedImage: 'Image collée'
     },
     imageProblems: {

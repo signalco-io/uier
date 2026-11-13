@@ -460,7 +460,7 @@ export const en = {
         regionScreenshot: 'A screenshot of this part of the page will be attached.',
         attachScreenshot: 'No screenshot will be attached. Select to attach one.',
         textOnly: (status: string) => `${status} Select to omit the screenshot.`,
-        omitScreenshot: 'Omit screenshot',
+        screenshotToggle: 'Attach screenshot',
         attachedToReply: 'Attached to your reply.',
         sentInstead: 'Sent instead of the screenshot.',
         replyImageRemove: 'Your image is attached to the reply. Select to remove it.',
@@ -469,6 +469,7 @@ export const en = {
         attachToReply: 'Attach an image to your reply.',
         attachInstead: 'Attach your own image instead of the screenshot.',
         attachImage: 'Attach image',
+        attach: 'Attach',
         /** The name of an image pasted from the clipboard */
         pastedImage: 'Pasted image'
     },

@@ -41,7 +41,7 @@ test('an image-storage failure still saves the comment and removes uncertain ima
     expect(await memory.getScreenshot(comment.domain, comment.id)).toBeNull();
 });
 
-test('a comment sent without its screenshot (Omit screenshot) stores no image', async () => {
+test('a comment sent without its screenshot (Attach screenshot turned off) stores no image', async () => {
     const memory = getMemoryCommentsStore();
     const comment: DbComment = {
         domain: `capture-${randomUUID()}.localhost`, id: 'comment_capture_omitted', path: '/',

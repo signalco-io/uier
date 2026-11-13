@@ -2,7 +2,8 @@
 
 New comments, feedback, rewrites and replies can include one short recording alongside their image.
 `src/recordings.ts` is the UI-independent browser hook and upload helper, exported as
-`@uier/toolbar/recordings` for the signed-in app. `ComposerRecording.tsx` supplies the toolbar controls;
+`@uier/toolbar/recordings` for the signed-in app. `ComposerAttachMenu.tsx` offers Record screen and Upload
+recording, `ComposerRecording.tsx` shows the capture and the clip;
 `CommentRecording.tsx` plays saved evidence.
 
 ## Capture and attach
@@ -13,9 +14,10 @@ New comments, feedback, rewrites and replies can include one short recording alo
 - **Upload recording** is available independently of capture. MP4 and WebM files must be at most
   25 MiB and 60 seconds. The browser checks file metadata before attaching; the server independently
   inspects the actual container before publishing it.
-- Record screen and Upload recording follow Attach image in the text box's bottom row. A running capture
-  and an attached clip replace them and show above the text, inside the box, each with its own controls;
-  the bottom row never holds a second Discard next to the draft's.
+- Record screen and Upload recording are items of **Attach**'s menu, with Attach image, in the text box's
+  bottom row ([uier #391](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_napwWAvckuKEmZr-J0GGQ)). A running capture and an attached clip take them out of the menu
+  and show above the text, inside the box, each with its own controls; the bottom row never holds a second
+  Discard next to the draft's.
 - While recording, that row shows the elapsed time against the limit (`0:07 / 1:00`), a labelled Stop
   (focused as it appears) and Discard, then the note that leaving the page ends the capture. Outside
   interaction keeps the non-modal composer open, so the reviewer can reproduce a problem on the page and

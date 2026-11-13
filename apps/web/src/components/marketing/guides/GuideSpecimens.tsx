@@ -18,8 +18,8 @@ import { Avatar, floating, StatusBadge, type Stage } from '../LandingSpecimens';
 // - the app: Site addresses (ProjectSettingsForms), the install guide's tabs and Copy the script
 //   (InstallGuide), Who can comment (projectLabels), a review link (GuestReviewLinks) and Check
 //   installation (InstallationCheck);
-// - the toolbar: the pill (ToolbarIllustration), New comment with its screenshot toggle
-//   (CommentBubble, ComposerAttachmentsHeader);
+// - the toolbar: the pill (ToolbarIllustration), New comment with Attach and its screenshot toggle
+//   (CommentBubble, ComposerAttachMenu, ComposerScreenshotToggle);
 // - the extension's popup (packages/extension/src/popup.tsx) in its signed-out, "Review this site"
 //   and reviewing states.
 
@@ -428,21 +428,22 @@ export function ScreenshotSpecimen() {
             </div>
             <div className="flex w-full max-w-[280px] shrink-0 flex-col gap-2">
                 {/* The screenshot toggle's tooltip */}
-                <span className="self-end rounded-md bg-foreground px-2.5 py-1.5 text-[11px] leading-4 text-background">
+                <span className="self-start rounded-md bg-foreground px-2.5 py-1.5 text-[11px] leading-4 text-background">
                     A screenshot of this part of the page will be attached. Select to send only the text.
                 </span>
                 <div className={cx('flex flex-col gap-2 rounded-xl border bg-popover p-3 text-popover-foreground', floating)}>
                     <span className="flex items-center justify-between gap-2">
                         <span className="text-sm font-semibold">New comment</span>
-                        <span className="flex items-center gap-0.5 text-muted-foreground">
-                            <span className="inline-flex size-7 items-center justify-center rounded-md bg-muted text-foreground"><CameraIcon {...icon} size={16} /></span>
-                            <span className="inline-flex size-7 items-center justify-center"><MaximizeIcon {...icon} /></span>
-                        </span>
+                        <span className="inline-flex size-7 items-center justify-center text-muted-foreground"><MaximizeIcon {...icon} /></span>
                     </span>
-                    <span className="flex min-h-20 flex-col justify-between rounded-lg border p-2.5 text-[13px]">
+                    <span className="flex min-h-20 flex-col justify-between gap-2 rounded-lg border p-2.5 text-[13px]">
                         <span>We open on Sundays since May.</span>
                         <span className="flex items-center justify-between text-muted-foreground">
-                            <PaperclipIcon {...icon} />
+                            <span className="flex items-center gap-1">
+                                <PaperclipIcon {...icon} />
+                                {/* Attach screenshot, pressed: ink with a check */}
+                                <span className="inline-flex h-7 items-center gap-0.5 rounded-md bg-primary px-1.5 text-primary-foreground"><CheckIcon {...icon} /><CameraIcon {...icon} size={16} /></span>
+                            </span>
                             <SendIcon {...icon} />
                         </span>
                     </span>

@@ -23,7 +23,7 @@ test('app replies upload and retry a recording, renew private playback and retai
     await page.mouse.click(heading!.x + 20, heading!.y + heading!.height / 2);
     const draft = page.getByRole('dialog', { name: 'New comment', exact: true });
     await draft.getByRole('textbox', { name: 'Comment', exact: true }).fill('Thread for a recorded reproduction');
-    await draft.getByRole('button', { name: 'Omit screenshot', exact: true }).click();
+    await draft.getByRole('button', { name: 'Attach screenshot', exact: true }).click();
     const creation = page.waitForResponse(response => response.request().method() === 'POST' && response.url().endsWith(`/api/review/${projectId}/comments`));
     await draft.getByRole('button', { name: 'Post comment', exact: true }).click();
     const comment = await (await creation).json();
