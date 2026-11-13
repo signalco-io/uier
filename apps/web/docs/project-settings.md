@@ -216,3 +216,5 @@ App controls, filtering and MCP share the catalog with toolbar controls and save
 The board’s Group by label preference is saved as `DbProject.boardGroupByLabel`, independently of the label catalog and its admin-only settings. It follows the board sort/archive triage authority, including staff-only triage on managed feedback projects; staff admins can manage their label catalogs.
 
 Staff admins can configure workspace labels and project label overrides in uier’s own workspace and feedback projects. Other managed settings remain restricted. Existing triage permissions, member-only catalogs, label filters, toolbar controls, MCP label tools and saved board swim lanes apply there too.
+
+The managed-workspace label API regression uses a distinct admin membership and checks its creation, so shared commenter fixtures cannot silently replace its authorization setup.

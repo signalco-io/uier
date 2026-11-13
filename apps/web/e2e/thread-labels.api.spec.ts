@@ -168,11 +168,13 @@ test('managed feedback projects allow label catalogs while retaining unrelated s
     const store = getAppStore();
     const workspace = { ...f.workspace, id: PUBLIC_WORKSPACE_ID, pk: workspacePk(PUBLIC_WORKSPACE_ID) };
     await store.create(workspace);
-    await store.create({ type: 'member', id: memberId(admin.userId), pk: workspace.pk, workspaceId: workspace.id, userId: admin.userId, role: 'admin', projects: 'all', joinedAt: new Date().toISOString() });
+    // Other cases can provision the shared user's managed-workspace membership as a commenter.
+    const managedAdminId = `labels-admin-${randomUUID()}`;
+    expect(await store.create({ type: 'member', id: memberId(managedAdminId), pk: workspace.pk, workspaceId: workspace.id, userId: managedAdminId, role: 'admin', projects: 'all', joinedAt: new Date().toISOString() })).toBe(true);
     await store.create({ type: 'member', id: memberId(member.userId), pk: workspace.pk, workspaceId: workspace.id, userId: member.userId, role: 'commenter', projects: [USER_FEEDBACK_PROJECT_ID], joinedAt: new Date().toISOString() });
     const { renameWorkspace } = await import('../src/lib/app/workspaces');
-    await expect(renameWorkspace(workspace.id, admin.userId, 'Changed')).rejects.toThrow();
-    await setWorkspaceThreadLabels(workspace.id, admin.userId, labels);
+    await expect(renameWorkspace(workspace.id, managedAdminId, 'Changed')).rejects.toThrow();
+    await setWorkspaceThreadLabels(workspace.id, managedAdminId, labels);
     await expect(setWorkspaceThreadLabels(workspace.id, member.userId, labels)).rejects.toThrow('Only admins');
     for (const id of [PUBLIC_PROJECT_ID, USER_FEEDBACK_PROJECT_ID]) {
         const project = { ...f.project, id, pk: workspace.pk, workspaceId: workspace.id };
