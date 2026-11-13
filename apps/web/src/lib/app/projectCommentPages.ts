@@ -1,3 +1,4 @@
+import { selectedGroupLabels } from './projectCommentPaging';
 import { timingSafeEqual } from 'node:crypto';
 import { agentIsWorking } from '@uier/toolbar/agents';
 import { commentPriority, matchesFeedbackSearch } from '@uier/toolbar/triage';
@@ -97,17 +98,18 @@ export async function loadProjectCommentPages(context: AppContext, project: DbPr
     const archiveExpanded = input.archiveExpanded ?? Boolean(project.boardArchiveExpanded);
     const workflow = effectiveStatusWorkflow(context.workspace, project), definitions = orderedStatuses(workflow);
     const stage = (comment: CommentQueryCandidate) => feedbackStage({ ...comment, verificationEnabled: workflow.verificationEnabled === true });
-    const key = projectCommentPageKey(query, sorts, archiveExpanded, workflow, `${project.id}:${context.user.id}`, project.boardGroupByLabel ? labels.map(label => label.id) : false);
+    const key = projectCommentPageKey(query, sorts, archiveExpanded, workflow, `${project.id}:${context.user.id}`, selectedGroupLabels(project, labels));
     const board = query.view === 'board' && query.status !== 'archived';
     const boardStatus = board ? boardStatusFilter(query.status) : undefined;
     const lanes: Partial<Record<CommentLane, CommentPage>> = {};
     const selected = new Set<string>();
-    const groups = project.boardGroupByLabel ? [...labels.map(label => label.id), 'unlabeled'] : [''];
+    const groupLabels = selectedGroupLabels(project, labels);
+    const groups = groupLabels ? [...groupLabels, 'unlabeled'] : [''];
     const laneDefinitions = definitions.flatMap(status => groups.map(label => ({ status, label, id: label ? labelLaneKey(status.id, label) : status.id })));
     const rowsByLane = new Map(laneDefinitions.map(lane => [lane.id, [] as CommentQueryCandidate[]]));
     for (const comment of matching) {
         const status = statusForComment(workflow, comment).id;
-        const assigned = project.boardGroupByLabel ? labelsForComment(labels, comment).map(label => label.id) : [''];
+        const assigned = groupLabels ? labelsForComment(labels, comment).map(label => label.id).filter(id => groupLabels.includes(id)) : [''];
         for (const label of assigned.length ? assigned : ['unlabeled'])
             rowsByLane.get(label ? labelLaneKey(status, label) : status)?.push(comment);
     }

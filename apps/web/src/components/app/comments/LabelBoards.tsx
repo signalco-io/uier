@@ -11,11 +11,11 @@ export function LabelBoards({ grouped, labels, renderBoard }: { grouped: boolean
     const { t } = useAppI18n();
     const [active, setActive] = useState<string>();
     if (!grouped) return renderBoard();
-    const groups = [...labels.map(label => ({ id: label.id, name: label.name })), { id: 'unlabeled', name: t('No labels') }];
+    const groups = [...labels.map(label => ({ id: label.id, name: label.name })), { id: 'unlabeled', name: t('Ungrouped') }];
     const sample = renderBoard(groups[0]!.id);
     const opened = sample.props.allComments.find(comment => comment.id === sample.props.openComment.openId);
-    const owner = groups.find(group => group.id === active && opened && labelLaneMatches(opened.labels, group.id))?.id
-        ?? groups.find(group => opened && labelLaneMatches(opened.labels, group.id))?.id;
+    const owner = groups.find(group => group.id === active && opened && labelLaneMatches(opened.labels, group.id, labels.map(label => label.id)))?.id
+        ?? groups.find(group => opened && labelLaneMatches(opened.labels, group.id, labels.map(label => label.id)))?.id;
     return <div className="space-y-8">{groups.map(group => {
         const board = renderBoard(group.id);
         return <section key={group.id} aria-label={group.name} data-label-lane={group.id}>

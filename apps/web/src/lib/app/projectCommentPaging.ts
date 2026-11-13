@@ -8,7 +8,10 @@ export const PROJECT_COMMENT_PAGE_SIZE = 25;
 export const PROJECT_COMMENT_MAX_DEPTH = 8;
 export type CommentLane = string;
 export const labelLaneKey = (status: string, label: string) => `${status}~${label}`;
-export const labelLaneMatches = (labels: { id: string }[] | undefined, label: string) => label === 'unlabeled' ? !labels?.length : Boolean(labels?.some(value => value.id === label));
+export function selectedGroupLabels(project: { boardGroupByLabel?: boolean; boardGroupLabelIds?: string[] }, labels: { id: string }[]) {
+    return project.boardGroupByLabel ? labels.filter(label => project.boardGroupLabelIds === undefined || project.boardGroupLabelIds.includes(label.id)).map(label => label.id) : false;
+}
+export const labelLaneMatches = (labels: { id: string }[] | undefined, label: string, selected?: string[]) => label === 'unlabeled' ? !labels?.some(value => !selected || selected.includes(value.id)) : Boolean(labels?.some(value => value.id === label));
 export type CommentPage = { ids: string[]; total: number; nextCursor: string | null };
 export type ProjectCommentPaging = {
     key: string;

@@ -1,3 +1,4 @@
+import { selectedGroupLabels } from './projectCommentPaging';
 import { effectiveThreadLabels } from './threadLabels';
 import { effectiveStatusWorkflow } from './statusWorkflows';
 import { englishAppTranslator } from '../i18n/translate';
@@ -28,7 +29,7 @@ export async function loadAppCommentsSnapshot(context: AppContext, project: DbPr
             // The page retains its scope controls without pretending that partial counts are complete.
             // HTTP page requests still report 422, so existing rows survive a failed refresh.
             const paging: ProjectCommentPaging = {
-                key: projectCommentPageKey(query, boardSortsOf(project.boardSorts), page.archiveExpanded ?? Boolean(project.boardArchiveExpanded), workflow, `${project.id}:${context.user.id}`, project.boardGroupByLabel ? effectiveThreadLabels(context.workspace, project).map(label => label.id) : false),
+                key: projectCommentPageKey(query, boardSortsOf(project.boardSorts), page.archiveExpanded ?? Boolean(project.boardArchiveExpanded), workflow, `${project.id}:${context.user.id}`, selectedGroupLabels(project, effectiveThreadLabels(context.workspace, project))),
                 lanes: {}, statusCounts: { active: 0, open: 0, 'in-progress': 0, ready: 0, done: 0, all: 0, archived: 0 },
                 statusUnread: { active: 0, open: 0, 'in-progress': 0, ready: 0, done: 0, all: 0, archived: 0 },
                 scopeTotal: 0, matchedTotal: 0, unreadCount: 0, pages: [], historySources: [], queryTooExpensive: true
@@ -39,6 +40,7 @@ export async function loadAppCommentsSnapshot(context: AppContext, project: DbPr
     ]);
     const snapshot = {
         boardGroupByLabel: Boolean(project.boardGroupByLabel),
+        boardGroupLabelIds: project.boardGroupLabelIds,
         labels: effectiveThreadLabels(context.workspace, project),
         workflow,
         environments: environmentOptions(project), projectId: project.id, access: project.access, isAdmin: context.isAdmin,

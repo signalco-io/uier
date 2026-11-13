@@ -322,11 +322,11 @@ export async function changeCommentLabelsAction(projectId: string, commentId: st
         ({ project, actor }, input) => changeProjectCommentLabels(project, actor, input.commentId, input.labelIds, input.mode, input.idempotencyKey));
 }
 
-export async function setBoardGroupingAction(projectId: string, expanded: boolean) {
+export async function setBoardGroupingAction(projectId: string, expanded: boolean, labelIds?: string[]) {
     return actionResult(async () => {
         const input = parseActionInput(boardArchiveActionSchema, { projectId, expanded });
         const { project, actor } = await commentContext(input.projectId);
-        await saveProjectBoardGrouping(project, actor, input.expanded);
+        await saveProjectBoardGrouping(project, actor, labelIds === undefined ? input.expanded : labelIds);
         revalidatePath(KnownPageLinks.project(input.projectId));
     });
 }

@@ -152,6 +152,11 @@ test('saved label grouping follows triage authority and preserves catalog settin
     await expect(saveProjectBoardGrouping(f.project, member, 'yes' as unknown as boolean)).rejects.toThrow();
     const grouped = await saveProjectBoardGrouping(f.project, member, true);
     expect(grouped.boardGroupByLabel).toBe(true);
+    await expect(saveProjectBoardGrouping(f.project, guest, ['label_bug'])).rejects.toThrow();
+    await expect(saveProjectBoardGrouping(f.project, member, ['invalid'])).rejects.toThrow();
+    const selected = await saveProjectBoardGrouping(grouped, member, ['label_bug', 'label_bug']);
+    expect(selected.boardGroupLabelIds).toEqual(['label_bug']);
+    expect(selected.boardGroupByLabel).toBe(true);
     expect(await loadThreadLabels(grouped)).toEqual(labels);
     const plain = await saveProjectBoardGrouping(grouped, member, false);
     expect(plain.boardGroupByLabel).toBe(false);
