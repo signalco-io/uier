@@ -496,3 +496,10 @@ Label opens the effective catalog to choose the labels that get swimlanes; No gr
 that choice. The project saves selected IDs with the existing triage permission. Older all-label
 preferences keep their meaning until edited. Ungrouped includes threads with no selected label,
 even when they have other labels. Board cards can appear in multiple selected lanes.
+
+List sections use the same selected labels in catalog order, then Ungrouped. Each thread has
+one row, under its first selected label, keeping row IDs, keyboard navigation and the open
+composer unique. The server orders sections before paging and binds the grouping to cursors;
+within each section the existing priority/number order stays. A section heading appears at its
+first loaded row. `thread-labels.spec.ts` covers switching/reloading both views and clearing the
+shared choice; `project-comment-pages.api.spec.ts` covers unselected labels and section paging.

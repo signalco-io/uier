@@ -113,8 +113,14 @@ test('members add/remove thread labels, rows and board show them, and label filt
         await expect(page.locator('[data-label-lane]').filter({ has: page.getByRole('heading', { name: 'Bug', exact: true }) }).locator('[data-board-card]')).toHaveCount(1);
         await page.reload();
         await expect(page.locator('[data-label-lane]')).toHaveCount(2);
+        await page.getByRole('button', { name: 'List', exact: true }).click();
+        await expect(page.locator('[data-label-section]').filter({ hasText: 'Bug' })).toBeVisible();
+        await page.reload();
+        await expect(page.locator('[data-label-section]').filter({ hasText: 'Bug' })).toBeVisible();
         await page.getByRole('button', { name: 'Group by', exact: true }).click();
         await page.getByRole('menuitem', { name: 'No grouping', exact: true }).click();
+        await expect(page.locator('[data-label-section]')).toHaveCount(0);
+        await page.getByRole('button', { name: 'Board', exact: true }).click();
         await expect(page.locator('[data-label-lane]')).toHaveCount(0);
 
         await openComment(page, comment.number);

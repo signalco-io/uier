@@ -372,7 +372,7 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
                     allComments={scopeComments} userId={userId} openComment={openComment}
                     detailRevision={pager.data.revision} paging={Object.fromEntries(orderedStatuses(workflow).map(status => [status.id, pageControl(group ? labelLaneKey(status.id, group) : status.id)]))} />} />
             ) : (
-                <CommentInbox projectId={projectId} comments={shown} allComments={scopeComments} assignees={assignees} userId={userId} label={t("Comments")}
+                <CommentInbox groupLabels={boardGroupByLabel ? groupedLabels : undefined} projectId={projectId} comments={shown} allComments={scopeComments} assignees={assignees} userId={userId} label={t("Comments")}
                     keeps={status => statusMatches(query.status, status, query.status === 'archived' ? 'archived' : undefined)} readLeaves={Boolean(query.unread)} openComment={openComment} detailRevision={pager.data.revision} paging={pageControl('list')} />
             )}
             </TriageSelection>

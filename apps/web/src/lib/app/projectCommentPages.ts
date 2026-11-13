@@ -37,7 +37,7 @@ export { PROJECT_COMMENT_PAGE_SIZE } from './projectCommentPaging';
 import { labelLaneKey, PROJECT_COMMENT_MAX_DEPTH, PROJECT_COMMENT_PAGE_SIZE, projectCommentPageKey, type CommentLane, type CommentPage, type ProjectCommentPaging, type ProjectCommentPageInput } from './projectCommentPaging';
 export type { ProjectCommentPageInput } from './projectCommentPaging';
 
-type Pivot = Pick<ProjectCommentView, 'id' | 'number' | 'createdAt' | 'updatedAt' | 'completedAt' | 'archivedAt'> & { priority?: ProjectCommentView['priority'] };
+type Pivot = Pick<ProjectCommentView, 'id' | 'number' | 'createdAt' | 'updatedAt' | 'completedAt' | 'archivedAt'> & { priority?: ProjectCommentView['priority']; labelIds?: string[] };
 type Cursor = { key: string; after: Pivot; expires: number };
 const stages = feedbackStages;
 const filters: StatusFilter[] = ['active', ...stages, 'all', 'archived'];
@@ -121,7 +121,11 @@ export async function loadProjectCommentPages(context: AppContext, project: DbPr
     for (const lane of choices) {
         const definition = board ? laneDefinitions.find(value => value.id === lane)!.status : undefined;
         const sort = definition ? sorts[definition.category] : undefined;
-        const compare = (a: Pivot, b: Pivot) => (sort ? boardSortOrders[sort](a, b) : compareCommentOrder(a, b)) || compareCommentOrder(a, b) || a.id.localeCompare(b.id);
+        const groupIndex = (row: Pivot) => {
+            const index = groupLabels ? groupLabels.findIndex(id => row.labelIds?.includes(id)) : -1;
+            return index < 0 ? (groupLabels ? groupLabels.length : 0) : index;
+        };
+        const compare = (a: Pivot, b: Pivot) => (!board && groupLabels ? groupIndex(a) - groupIndex(b) : 0) || (sort ? boardSortOrders[sort](a, b) : compareCommentOrder(a, b)) || compareCommentOrder(a, b) || a.id.localeCompare(b.id);
         const rows = (board ? rowsByLane.get(lane)! : matching.filter(comment => statusMatches(query.status, stage(comment), comment.archivedAt))).sort(compare);
         const binding = keyedHash('project-comment-page-binding', JSON.stringify([key, lane, viewerId, project.id, context.isAdmin, project.access, project.urls, query.unread ? input.openId : undefined]));
         const cursor = input.cursor ? readCursor(input.cursor, binding) : undefined;
@@ -131,7 +135,7 @@ export async function loadProjectCommentPages(context: AppContext, project: DbPr
         const size = input.allIds ? Math.max(rows.length, 1) : depth * PROJECT_COMMENT_PAGE_SIZE;
         const page = remaining.slice(0, size), last = page.at(-1);
         const after = last && { id: last.id, priority: last.priority ?? 'normal', number: last.number, createdAt: last.createdAt,
-            updatedAt: last.updatedAt, completedAt: last.completedAt, archivedAt: last.archivedAt };
+            labelIds: last.labelIds, updatedAt: last.updatedAt, completedAt: last.completedAt, archivedAt: last.archivedAt };
         lanes[lane] = { ids: page.map(row => row.id), total: rows.length,
             nextCursor: remaining.length > size && after ? signCursor({ key: binding, after, expires: cursor?.expires ?? Date.now() + 15 * 60_000 }) : null };
         for (const row of page) selected.add(row.id);
