@@ -68,3 +68,11 @@ workspaces on desktop, mobile and tablet with the production-build navigation lo
 Account controls, profile messages, appearance choices, workspace access and section labels use the [app language](localization.md). App language and Toolbar language are separate saved preferences; native language names remain readable in every language.
 
 Project and review links can offer a signed-in browser account with live access to the target project. The switch page rechecks session expiry, workspace membership and project/team access before selection, then selects that account and workspace and continues to the original path and query. Missing or inaccessible projects retain the ordinary unavailable response. No parked credential authorizes an app read. Coverage: `account-sessions.api.spec.ts` and `account-switching.spec.ts`.
+
+The switch page (`switch-project-account/`) is an `AuthCard` like the other pages outside the shell. Each
+account is one row, the submit button of its own form (`AccountChoice`): the profile picture or initial
+(`PersonAvatar`, with the name and picture from `getBrowserAccounts`), the name and the email, then a chevron
+that becomes a spinner while the switch runs. The email is never truncated, since the domain tells one
+person's accounts apart: a long one wraps, before the @ first, and an account whose name is its email shows
+it once. Every choice opens the project's own workspace, so the description names it once instead of each
+row repeating it ([uier #390](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fswitch-project-account&comment=comment_i1j9YVrhB9l6lP51Qxz9H)).
