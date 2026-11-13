@@ -352,8 +352,11 @@ jobs:
     name: "Continue daily extension release"
     needs: ci-ok
     if: >-
-      github.event_name == 'workflow_dispatch' && needs.ci-ok.result == 'success' &&
-      startsWith(github.ref, 'refs/heads/extension-release/v')
+      always() && !cancelled() &&
+      needs.ci-ok.result == 'success' &&
+      ((github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/heads/extension-release/v')) ||
+       (github.event_name == 'pull_request' && github.event.pull_request.user.login == 'github-actions[bot]' &&
+        startsWith(github.head_ref, 'extension-release/v')))
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
@@ -362,7 +365,7 @@ jobs:
       - name: Dispatch finalization from main after CI OK
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_BRANCH: ${{ github.ref_name }}
+          RELEASE_BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
           set -euo pipefail
           version="${RELEASE_BRANCH#extension-release/v}"

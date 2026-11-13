@@ -70,7 +70,7 @@ export function pullRequestBody({ version, tag, changes }, repository = 'https:/
     return [
         `Prepares extension ${version}. Shipped source changed since \`${tag}\`:`, '',
         ...(changes.length ? changes.map(change => `- ${change}`) : ['- No source changes; a manual run asked for a release.']), '',
-        'The daily release automation dispatched **CI** on this branch. After it passes, **Extension release finish** verifies that this PR changes only the three recorded versions, merges it, creates the immutable release tag, and starts store submission and the website deployment.', '',
+        'The daily release automation synchronizes this version-only branch with the repository deploy key to start **CI**. After it passes, **Extension release finish** verifies that this PR changes only the three recorded versions, merges it, creates the immutable release tag, and starts store submission and the website deployment.', '',
         'Store review and signing may still be pending after submission. No release is prepared when the toolbar has no changes since the last release.',
         `See [regular releases](${repository}/blob/main/docs/browser-extension-release.md#regular-releases).`
     ].join('\n');

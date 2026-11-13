@@ -22,12 +22,13 @@ concurrency:
 jobs:
   prepare:
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest # Git and OpenSSH for the trusted release-branch push.
     timeout-minutes: 10
+    environment: extension-release-automation
     permissions:
       contents: write
       pull-requests: write
-      actions: write # Explicit CI dispatch avoids bot-created PR workflow approval.
+      actions: write # Resume finalization of an interrupted, already merged version.
     steps:
       # Credentials stay for the branch push. The job installs nothing and runs only main's scripts.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -42,4 +43,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force }}
+          RELEASE_SSH_KEY: ${{ secrets.EXTENSION_RELEASE_SSH_KEY }}
         run: node apps/extension/scripts/release-automation.mjs prepare
