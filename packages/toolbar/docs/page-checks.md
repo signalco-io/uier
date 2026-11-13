@@ -39,6 +39,12 @@ all optional tools hidden, and the absent audit download.
   swaps their sides (`DockablePanel`, both are announced), so both stay open. Two fit side by side from
   688 px (two 320 px panels with their margins, `panelsSideBySide`); narrower, one is open at a time and
   the newest stays (also when the window narrows). Reattach still closes the checks panels.
+- **Quarters** ([uier #388](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_0-3lpwzgbghwy4WWjb3yN)):
+  panels docked in the top and bottom quarters of a side stay open together, so up to four are open (one per
+  quarter, also on the next page). `fitPanels` keeps those that do not cover each other
+  (`docksOverlap`, with the room `panelRoom` gives: both sides from 688 px, one column from 640 px, where a top
+  and a bottom quarter still fit, else one panel). A panel moved onto others' places swaps with one, or sends
+  several to its old side keeping their halves (`displace` in `DockablePanel`); one with nowhere to go closes.
 - While its panel is open, a button (Inbox, or Page checks while any of its panels is, and that panel's menu item) is
   highlighted: the UI kit's `soft` variant, as About's hint, on the ink pill in both colour schemes. It says so with `aria-expanded` and names
   its panel in `aria-controls` (a disclosure, so no `aria-pressed` beside it). The Options rows on a phone

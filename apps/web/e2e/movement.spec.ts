@@ -99,13 +99,16 @@ test('inbox docks on either side with mouse or touch without losing filters or r
     await page.getByRole('button', { name: /^Inbox/ }).click();
     const inbox = page.getByRole('complementary', { name: 'Comments' });
     const handle = inbox.getByRole('button', { name: 'Move comments panel' });
+    const search = inbox.getByRole('button', { name: /^Search comments/ });
+    await search.click();
     await inbox.getByRole('searchbox').fill('discussion');
     // It slides in: the handle is where it stays once that is over
     await animationsFinished(inbox);
     await drag(page, handle, { x: 70, y: 100 }, Boolean(testInfo.project.use.hasTouch));
     await expect(inbox).toHaveAttribute('data-side', 'left');
     await expect.poll(async () => (await inbox.boundingBox())!.x).toBeLessThan(30);
-    await expect(inbox.getByRole('searchbox')).toHaveValue('discussion');
+    // The search keeps its text (its popover closes when the handle takes the focus)
+    await expect(search).toHaveAccessibleName('Search comments: discussion');
     await drag(page, handle, { x: 920, y: 100 }, Boolean(testInfo.project.use.hasTouch));
     await expect(inbox).toHaveAttribute('data-side', 'right');
     await handle.press('ArrowLeft');
@@ -123,6 +126,37 @@ test('inbox docks on either side with mouse or touch without losing filters or r
     await page.reload();
     await page.getByRole('button', { name: /^Inbox/ }).click();
     await expect(inbox).toHaveAttribute('data-side', 'right');
+    await context.close();
+});
+
+test('a panel docks to a quarter of the page with a drag or the arrow keys, and keeps it', async ({ browser }, testInfo) => {
+    const { context, page } = await newVisitor(browser, testInfo);
+    await page.setViewportSize({ width: 1000, height: 800 });
+    await openLanding(page, isolatedOrigin(testInfo), { dismissHint: true });
+    await page.getByRole('button', { name: /^Inbox/ }).click();
+    const inbox = page.getByRole('complementary', { name: 'Comments' });
+    const handle = inbox.getByRole('button', { name: 'Move comments panel' });
+    await animationsFinished(inbox);
+    // Its centre over the lower third of the left half: the bottom left quarter
+    await drag(page, handle, { x: 70, y: 560 }, Boolean(testInfo.project.use.hasTouch));
+    await expect(inbox).toHaveAttribute('data-dock', 'left-bottom');
+    await expect(inbox).toHaveAttribute('data-side', 'left');
+    await expect.poll(async () => { const box = (await inbox.boundingBox())!; return [Math.round(box.x), Math.round(box.y), Math.round(box.height)]; })
+        .toEqual([16, 408, 376]);
+    // Up goes to the whole side, then to its top quarter; right keeps the quarter
+    await handle.press('ArrowUp');
+    await expect(inbox).toHaveAttribute('data-dock', 'left');
+    await handle.press('ArrowUp');
+    await expect(inbox).toHaveAttribute('data-dock', 'left-top');
+    await handle.press('ArrowRight');
+    await expect(inbox).toHaveAttribute('data-dock', 'right-top');
+    await expect.poll(async () => { const box = (await inbox.boundingBox())!; return [Math.round(box.y), Math.round(box.height)]; }).toEqual([16, 376]);
+    await expectNoAxeViolations(page);
+    // It stays open after a reload, where it was
+    await page.reload();
+    await expect(inbox).toHaveAttribute('data-dock', 'right-top');
+    await handle.press('Home');
+    await expect(inbox).toHaveAttribute('data-dock', 'right');
     await context.close();
 });
 

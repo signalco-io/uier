@@ -1,10 +1,14 @@
 import type { Messages } from './en';
+import type { PanelDock } from '../components/DockablePanel';
 import { pluralHr } from './plural';
 
 // Croatian (Hrvatski). Formal address (vi), sentence case, no exclamation marks (BRAND.md). Counts use
 // the three Croatian forms: 1 komentar, 2 komentara, 5 komentara (21 komentar, 22 komentara).
 
 const p = (count: number, one: string, few: string, other: string) => pluralHr(count, one, few, other);
+
+// Where a panel docks, as the panel messages say it (`panel.moved`, `panel.moveTo`)
+const panelPlaces: Record<PanelDock, string> = { left: 'lijevo', right: 'desno', 'left-top': 'gore lijevo', 'right-top': 'gore desno', 'left-bottom': 'dolje lijevo', 'right-bottom': 'dolje desno' };
 
 export const hr: Messages = {
     consentPanel: {
@@ -606,9 +610,9 @@ export const hr: Messages = {
     },
     panel: {
         move: (label: string) => `Pomakni ploču „${label}”`,
-        moveTip: 'Povucite na drugu stranu ili upotrijebite strelice',
-        moved: (label: string, side: 'left' | 'right') => `${label}: premješteno ${side === 'left' ? 'lijevo' : 'desno'}.`,
-        moveTo: (side: 'left' | 'right') => `Premjesti ${side === 'left' ? 'lijevo' : 'desno'}`,
+        moveTip: 'Povucite na stranu ili u kut ili upotrijebite strelice',
+        moved: (label: string, dock: PanelDock) => `${label}: premješteno ${panelPlaces[dock]}.`,
+        moveTo: (dock: PanelDock) => `Premjesti ${panelPlaces[dock]}`,
         /** The menu of a panel's title: the other panels to show in its place */
         switch: 'Promijeni ploču'
     },

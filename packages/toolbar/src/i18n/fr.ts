@@ -1,9 +1,13 @@
 import type { Messages } from './en';
 import { plural } from './plural';
+import type { PanelDock } from '../components/DockablePanel';
 
 // French (Français). Formal address (vous), sentence case, no exclamation marks (BRAND.md).
 
 const p = (count: number, one: string, other: string) => plural('fr', count, one, other);
+
+// Where a panel docks, as the panel messages say it (`panel.moved`, `panel.moveTo`)
+const panelPlaces: Record<PanelDock, string> = { left: 'à gauche', right: 'à droite', 'left-top': 'en haut à gauche', 'right-top': 'en haut à droite', 'left-bottom': 'en bas à gauche', 'right-bottom': 'en bas à droite' };
 
 export const fr: Messages = {
     consentPanel: {
@@ -605,9 +609,9 @@ export const fr: Messages = {
     },
     panel: {
         move: (label: string) => `Déplacer le panneau « ${label} »`,
-        moveTip: 'Faites glisser de l’autre côté, ou utilisez les flèches',
-        moved: (label: string, side: 'left' | 'right') => `${label} déplacé à ${side === 'left' ? 'gauche' : 'droite'}.`,
-        moveTo: (side: 'left' | 'right') => `Déplacer à ${side === 'left' ? 'gauche' : 'droite'}`,
+        moveTip: 'Faites glisser sur un côté ou dans un coin, ou utilisez les flèches',
+        moved: (label: string, dock: PanelDock) => `${label} déplacé ${panelPlaces[dock]}.`,
+        moveTo: (dock: PanelDock) => `Déplacer ${panelPlaces[dock]}`,
         /** The menu of a panel's title: the other panels to show in its place */
         switch: 'Changer de panneau'
     },

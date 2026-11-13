@@ -1,10 +1,14 @@
 import type { Messages } from './en';
 import { plural } from './plural';
+import type { PanelDock } from '../components/DockablePanel';
 
 // Spanish (Español). Informal address (tú), as Spanish software usually writes, sentence case, no
 // exclamation marks (BRAND.md).
 
 const p = (count: number, one: string, other: string) => plural('es', count, one, other);
+
+// Where a panel docks, as the panel messages say it (`panel.moved`, `panel.moveTo`)
+const panelPlaces: Record<PanelDock, string> = { left: 'a la izquierda', right: 'a la derecha', 'left-top': 'arriba a la izquierda', 'right-top': 'arriba a la derecha', 'left-bottom': 'abajo a la izquierda', 'right-bottom': 'abajo a la derecha' };
 
 export const es: Messages = {
     consentPanel: {
@@ -606,9 +610,9 @@ export const es: Messages = {
     },
     panel: {
         move: (label: string) => `Mover el panel «${label}»`,
-        moveTip: 'Arrastra al otro lado o usa las flechas',
-        moved: (label: string, side: 'left' | 'right') => `${label} movido a la ${side === 'left' ? 'izquierda' : 'derecha'}.`,
-        moveTo: (side: 'left' | 'right') => `Mover a la ${side === 'left' ? 'izquierda' : 'derecha'}`,
+        moveTip: 'Arrastra a un lado o a una esquina, o usa las flechas',
+        moved: (label: string, dock: PanelDock) => `${label} movido ${panelPlaces[dock]}.`,
+        moveTo: (dock: PanelDock) => `Mover ${panelPlaces[dock]}`,
         /** The menu of a panel's title: the other panels to show in its place */
         switch: 'Cambiar de panel'
     },
