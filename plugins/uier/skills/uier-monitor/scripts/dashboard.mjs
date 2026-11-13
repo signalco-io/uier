@@ -769,6 +769,8 @@ h1, h2, h3, p { margin: 0; }
 .alert .dot { position: relative; top: -2px; }
 .line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
 .eyebrow { flex: none; min-width: 76px; font-size: 12px; color: hsl(var(--muted-foreground)); }
+.facts { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; min-width: 0; }
+.fact { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 .chips { display: flex; flex: 1; flex-wrap: wrap; gap: 4px 8px; min-width: 0; }
 .lastnote { margin-top: -4px; font-size: 11px; line-height: 1.4; color: hsl(var(--muted-foreground)); }
 .lastnote.one { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -881,7 +883,14 @@ var ICONS = {
     pr: ['M18 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6z', 'M6 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6z', 'M13 6h3a2 2 0 0 1 2 2v7', 'M6 9v12'],
     comment: ['M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'],
     session: ['M7 7h10v10', 'M7 17 17 7'],
-    agent: ['M12 8V4H8', 'M6 8h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z', 'M2 14h2', 'M20 14h2', 'M15 13v2', 'M9 13v2']
+    agent: ['M12 8V4H8', 'M6 8h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z', 'M2 14h2', 'M20 14h2', 'M15 13v2', 'M9 13v2'],
+    version: ['M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z', 'M7.5 7.5h.01'],
+    persistent: ['M6 16c5 0 7-8 12-8a4 4 0 0 1 0 8c-5 0-7-8-12-8a4 4 0 1 0 0 8'],
+    oneshot: ['M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z'],
+    heartbeat: ['M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2'],
+    wake: ['M4 13a8 8 0 1 0 16 0a8 8 0 1 0-16 0', 'M12 9v4l2 2', 'M5 3 2 6', 'm22 6-3-3', 'M6.38 18.7 4 21', 'M17.64 18.67 20 21'],
+    inbox: ['M22 12h-6l-2 3h-4l-2-3H2', 'M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z'],
+    disk: ['M22 12H2', 'M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z', 'M6 16h.01', 'M10 16h.01']
 };
 var MARKS = {
     claude: 'm4.7144 15.9555 4.7174-2.6471.079-.2307-.079-.1275h-.2307l-.7893-.0486-2.6956-.0729-2.3375-.0971-2.2646-.1214-.5707-.1215-.5343-.7042.0546-.3522.4797-.3218.686.0608 1.5179.1032 2.2767.1578 1.6514.0972 2.4468.255h.3886l.0546-.1579-.1336-.0971-.1032-.0972L6.973 9.8356l-2.55-1.6879-1.3356-.9714-.7225-.4918-.3643-.4614-.1578-1.0078.6557-.7225.8803.0607.2246.0607.8925.686 1.9064 1.4754 2.4893 1.8336.3643.3035.1457-.1032.0182-.0728-.164-.2733-1.3539-2.4467-1.445-2.4893-.6435-1.032-.17-.6194c-.0607-.255-.1032-.4674-.1032-.7285L6.287.1335 6.6997 0l.9957.1336.419.3642.6192 1.4147 1.0018 2.2282 1.5543 3.0296.4553.8985.2429.8318.091.255h.1579v-.1457l.1275-1.706.2368-2.0947.2307-2.6957.0789-.7589.3764-.9107.7468-.4918.5828.2793.4797.686-.0668.4433-.2853 1.8517-.5586 2.9021-.3643 1.9429h.2125l.2429-.2429.9835-1.3053 1.6514-2.0643.7286-.8196.85-.9046.5464-.4311h1.0321l.759 1.1293-.34 1.1657-1.0625 1.3478-.8804 1.1414-1.2628 1.7-.7893 1.36.0729.1093.1882-.0183 2.8535-.607 1.5421-.2794 1.8396-.3157.8318.3886.091.3946-.3278.8075-1.967.4857-2.3072.4614-3.4364.8136-.0425.0304.0486.0607 1.5482.1457.6618.0364h1.621l3.0175.2247.7892.522.4736.6376-.079.4857-1.2142.6193-1.6393-.3886-3.825-.9107-1.3113-.3279h-.1822v.1093l1.0929 1.0686 2.0035 1.8092 2.5075 2.3314.1275.5768-.3218.4554-.34-.0486-2.2039-1.6575-.85-.7468-1.9246-1.621h-.1275v.17l.4432.6496 2.3436 3.5214.1214 1.0807-.17.3521-.6071.2125-.6679-.1214-1.3721-1.9246L14.38 17.959l-1.1414-1.9428-.1397.079-.674 7.2552-.3156.3703-.7286.2793-.6071-.4614-.3218-.7468.3218-1.4753.3886-1.9246.3157-1.53.2853-1.9004.17-.6314-.0121-.0425-.1397.0182-1.4328 1.9672-2.1796 2.9446-1.7243 1.8456-.4128.164-.7164-.3704.0667-.6618.4008-.5889 2.386-3.0357 1.4389-1.882.929-1.0868-.0062-.1579h-.0546l-6.3385 4.1164-1.1293.1457-.4857-.4554.0608-.7467.2307-.2429 1.9064-1.3114Z',
@@ -1074,9 +1083,11 @@ function details(entry) {
     var cycle = metrics.cycleMinutes === null ? 'No data' : span(metrics.cycleMinutes * 60000);
     return h('div', { class: 'details', 'data-key': 'details', 'data-list': true },
         h('div', { class: 'line muted', 'data-key': 'watcher' }, h('span', { class: 'eyebrow', text: 'Watcher' }),
-            h('span', { class: 'num', text: [entry.watcher.version ? 'version ' + entry.watcher.version : '', entry.watcher.persistent === undefined ? '' : entry.watcher.persistent ? 'persistent' : 'one-shot',
-                entry.watcher.heartbeatAt ? 'checked in ' + ago(entry.watcher.heartbeatAt) : '', plural(entry.wakes, 'wake'),
-                entry.inbox.total ? plural(entry.inbox.total, 'event') + ' in the inbox' : '', entry.diskFreeGiB === null ? '' : entry.diskFreeGiB + ' GiB free'].filter(Boolean).join(' · ') }), links),
+            h('span', { class: 'facts num' }, [entry.watcher.version ? ['version', 'version ' + entry.watcher.version] : null,
+                entry.watcher.persistent === undefined ? null : entry.watcher.persistent ? ['persistent', 'persistent'] : ['oneshot', 'one-shot'],
+                entry.watcher.heartbeatAt ? ['heartbeat', 'checked in ' + ago(entry.watcher.heartbeatAt)] : null, ['wake', plural(entry.wakes, 'wake')],
+                entry.inbox.total ? ['inbox', plural(entry.inbox.total, 'event') + ' in the inbox'] : null, entry.diskFreeGiB === null ? null : ['disk', entry.diskFreeGiB + ' GiB free']]
+                .filter(Boolean).map(function (fact) { return h('span', { class: 'fact' }, icon(fact[0]), fact[1]); })), links),
         h('div', { class: 'pipeline', 'data-key': 'pipeline', 'data-list': true }, columns.map(function (stage) {
             var cards = entry.pipeline.filter(function (item) { return item.stage === stage[0]; });
             return h('section', { class: 'column', 'data-key': stage[0], 'data-list': true, 'data-exit': 'finish' },
