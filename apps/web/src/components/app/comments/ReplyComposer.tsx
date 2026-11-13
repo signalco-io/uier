@@ -12,7 +12,7 @@ import { FieldDescription } from '@/src/components/ui/field';
 import { replyCommentAction } from './actions';
 import type { MessageMention } from './MentionEditor';
 import { MessageComposer } from './MessageComposer';
-import { useCommentUpdate } from './CommentUpdates';
+import { useCommentUpdate, type SentReply } from './CommentUpdates';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
 
 const emptyMentions: MessageMention[] = [];
@@ -22,7 +22,7 @@ const maxLength = 1000;
  * Mounted only for the card whose Reply action was opened: the shared `MessageComposer` with the thread's seven-day
  * draft. It has no close button: Escape in the empty field closes it (uier #288); with text, Escape is left to the thread.
  */
-export function ReplyComposer({ projectId, userId, userName, comment, fieldRef, onClose }: {
+export function ReplyComposer({ projectId, userId, userName, comment, fieldRef, onClose, onSend }: {
     projectId: string; userId: string;
     /** The signed-in user's name, for the pending reply's avatar (the reply itself reads "You") */
     userName?: string;
@@ -31,6 +31,11 @@ export function ReplyComposer({ projectId, userId, userName, comment, fieldRef, 
     fieldRef?: RefObject<{ focus: () => void } | null>;
     /** Escape in the empty field */
     onClose: () => void;
+    /**
+     * A reply being sent: the card keeps showing it until the refreshed thread has the saved one, as the optimistic
+     * reply ends with the send (uier #377). The returned function takes it back when the send fails.
+     */
+    onSend?: (sent: SentReply) => () => void;
 }) {
     const { t } = useAppI18n();
     const drafts = useMemo(() => appCommentDrafts(projectId, userId, comment.id), [projectId, userId, comment.id]);
@@ -67,16 +72,21 @@ export function ReplyComposer({ projectId, userId, userName, comment, fieldRef, 
         attachment.remove();
         startTransition(async () => {
             let saved = false;
+            let unsend: (() => void) | undefined;
             try {
                 await drafts.run(key, async () => {
-                    update({ id: comment.id, reply: { id: `pending-${sendId}`, author: { name: userName ?? t("You"), isMe: true }, text: input.text,
-                        mentions: input.mentions.map(({ start, end }) => ({ start, end })), createdAt: new Date().toISOString(), deleted: false, edited: false, canDelete: false, canFilterAuthor: false, pending: true }, previousReplyIds: comment.replies.map(item => item.id) });
+                    const sent: SentReply = { reply: { id: `pending-${sendId}`, author: { name: userName ?? t("You"), isMe: true }, text: input.text,
+                        mentions: input.mentions.map(({ start, end }) => ({ start, end })), createdAt: new Date().toISOString(), deleted: false, edited: false, canDelete: false, canFilterAuthor: false, pending: true },
+                    previousReplyIds: comment.replies.map(item => item.id) };
+                    update({ id: comment.id, ...sent });
+                    unsend = onSend?.(sent);
                     const result = await replyCommentAction({ ...input, idempotencyKey, screenshot: sentImage?.dataUrl });
                     if (!result?.ok) throw new Error(result?.error ?? t("Could not post the reply. Try again."));
                 });
                 saved = true;
                 setAnnouncement(t("Reply posted"));
             } catch (failure) {
+                unsend?.();
                 if (sentImage) attachment.restore(sentImage);
                 const message = failure instanceof Error ? failure.message : t("Could not post the reply. Try again.");
                 setError(message);

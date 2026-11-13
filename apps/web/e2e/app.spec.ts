@@ -1102,8 +1102,20 @@ test('reply from list and board with mentions, keyboard input and local drafts',
             await expect(input).toHaveText('', { useInnerText: true });
             await input.fill('New text while sending');
             await expect(card.getByRole('button', { name: 'Post reply' })).toBeDisabled();
+            // "Sending..." is in the reply's header (uier #377); the saved reply then takes the pending one's place in
+            // the same list item, which never leaves the thread in between
+            const sending = card.getByRole('listitem').filter({ hasText: text.trim() });
+            await expect(sending.getByRole('status')).toHaveText('Sending...');
+            await sending.evaluate(element => {
+                element.setAttribute('data-sent-reply', '');
+                const list = element.parentElement!;
+                new MutationObserver(() => { if (!element.isConnected) list.setAttribute('data-reply-left', ''); }).observe(list, { childList: true });
+            });
             release();
             await expect(card.getByRole('button', { name: 'Post reply' })).toBeEnabled();
+            await expect(sending.getByRole('status')).toHaveCount(0);
+            await expect(card.locator('[data-sent-reply]')).toContainText(text.trim());
+            await expect(card.locator('[data-reply-left]')).toHaveCount(0);
             await expect(input).toHaveText('New text while sending', { useInnerText: true });
             await expect(card.getByText(text.trim(), { exact: true })).toHaveCount(1);
         } finally { release(); }

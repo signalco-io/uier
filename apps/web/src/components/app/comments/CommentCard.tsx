@@ -70,7 +70,7 @@ import { SelectorCode } from './SelectorCode';
 import { updateNotificationAction } from './notificationActions';
 import { CopyIssueResult, CopyMenu, useCopyIssue } from './CopyIssue';
 import { integrationLabels } from './commentLabels';
-import { useCommentUpdate } from './CommentUpdates';
+import { savedReply, useCommentUpdate, type SentReply } from './CommentUpdates';
 import { useReadWhenShown } from './useReadWhenShown';
 import { VerificationControl } from './VerificationControl';
 import { defaultStatusWorkflow, workflowStatusLabel } from '../../../lib/app/statusWorkflow';
@@ -156,7 +156,7 @@ function KindLabel({ kind, feedbackType }: { kind: DbCommentKind; feedbackType?:
 }
 
 /** One message of the thread: the avatar makes the column, as in the toolbar's thread */
-function Message({ author, agent, avatarName, avatarUrl, createdAt, meta, actions, children }: {
+function Message({ author, agent, avatarName, avatarUrl, createdAt, status, meta, actions, children }: {
     /** As shown: "You" for your own messages */
     author: string;
     /** "via Claude": the AI agent that wrote it for the author */
@@ -166,6 +166,8 @@ function Message({ author, agent, avatarName, avatarUrl, createdAt, meta, action
     /** Their profile picture, when they have one */
     avatarUrl?: string;
     createdAt?: string;
+    /** Right of the time: "Sending..." while a reply is not saved yet (uier #377) */
+    status?: ReactNode;
     /** After the time: the screen and browser the comment was left from */
     meta?: ReactNode;
     actions?: ReactNode;
@@ -183,6 +185,7 @@ function Message({ author, agent, avatarName, avatarUrl, createdAt, meta, action
                     <span className="truncate font-medium">{author}</span>
                     {agent}
                     <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground tabular-nums"><RelativeTime value={createdAt} /></span>
+                    {status}
                     {meta}
                 </div>
                 {actions}
@@ -230,6 +233,26 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const updateComment = useCommentUpdate();
     const drafts = useMemo(() => appCommentDrafts(projectId, userId, comment.id), [projectId, userId, comment.id]);
     const [replying, setReplying] = useState(false);
+    // Replies sent from here stay shown until the refreshed thread has them, as the optimistic one ends with the send
+    // (uier #377). The saved reply keeps the pending one's list key, so it replaces it in place without a remount.
+    const [sent, setSent] = useState<(SentReply & { savedId?: string })[]>([]);
+    const { replies, newlySaved } = useMemo(() => {
+        const keys = new Map<string, string>();
+        const held: ProjectCommentMessage[] = [];
+        const newlySaved = new Map<SentReply, string>();
+        for (const entry of sent) {
+            // Each saved reply answers one sent reply, so two sends of the same words stay two
+            const savedId = entry.savedId ?? savedReply(comment.replies.filter(item => !keys.has(item.id)), entry)?.id;
+            if (savedId) keys.set(savedId, entry.reply.id);
+            else if (!comment.replies.some(item => item.id === entry.reply.id)) held.push(entry.reply);
+            if (savedId && !entry.savedId) newlySaved.set(entry, savedId);
+        }
+        return { replies: [...comment.replies, ...held].map(item => ({ item, key: keys.get(item.id) ?? item.id })), newlySaved };
+    }, [comment.replies, sent]);
+    useEffect(() => {
+        // Remember which saved reply each one became, so a later delete or edit of it cannot bring the pending one back
+        if (newlySaved.size) setSent(current => current.map(entry => newlySaved.has(entry) ? { ...entry, savedId: newlySaved.get(entry) } : entry));
+    }, [newlySaved]);
     const commitSearch = useCommitCommentsSearch();
     const [pending, startTransition] = useTransition();
     const [editing, setEditing] = useState(false);
@@ -449,6 +472,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
         const target = !item.deleted && !item.pending ? { projectId, commentId: comment.id, itemId: item.id, reactions: item.reactions } : undefined;
         return (
             <Message author={name} agent={!item.deleted && <MessageAgent author={item.author} />} avatarName={item.author.name} avatarUrl={item.author.avatarUrl} createdAt={item.createdAt}
+                status={item.pending && <span role="status" className="shrink-0 text-xs whitespace-nowrap text-muted-foreground">{t("Sending...")}</span>}
                 actions={!item.deleted && !edit && (<div className="flex shrink-0 items-center gap-0.5">
                     {target && permissions.react && <ReactionPicker target={target} disabled={pending} />}
                     {(item.canDelete || item.canFilterAuthor || editable) && (
@@ -491,7 +515,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                         ? <MessageEditor drafts={drafts} draftKey={`edit-reply:${item.id}`} mentionsIn={{ projectId, commentId: comment.id }} label={t("Edit reply")}
                             text={edit.text} mentions={edit.mentions} error={edit.error}
                             onCancel={() => closeReplyEdit(item.id)} onSave={(text, mentions) => saveReply(item, edit.expectedText, text, mentions)} />
-                        : <><MessageText text={item.text} mentions={item.mentions} edited={item.edited} />{item.pending && <span role="status" className="text-xs text-muted-foreground">{t("Sending...")}</span>}</>}
+                        : <MessageText text={item.text} mentions={item.mentions} edited={item.edited} />}
                 {!item.deleted && item.screenshot && <MessageImage image={item.screenshot} reply />}
                 {target && !edit && <ReactionList target={target} canReact={Boolean(permissions.react)} />}
             </Message>
@@ -690,12 +714,16 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                             {firstTarget && !editing && <ReactionList target={firstTarget} canReact={Boolean(permissions.react)} />}
                         </Message>
                     </li>
-                    {comment.replies.map(item => <li key={item.id}>{reply(item)}</li>)}
+                    {replies.map(({ item, key }) => <li key={key}>{reply(item)}</li>)}
                 </ol>
 
                 {/* Reply's icon lines up with the message text: past the 24px avatar and its 10px gap, less the button's 6px padding */}
                 {permissions.reply && (replying
-                    ? <ReplyComposer projectId={projectId} userId={userId} userName={assignees.find(person => person.userId === userId)?.name} comment={comment} fieldRef={replyField} onClose={() => { focusReplyButton.current = true; setReplying(false); }} />
+                    ? <ReplyComposer projectId={projectId} userId={userId} userName={assignees.find(person => person.userId === userId)?.name} comment={comment} fieldRef={replyField} onClose={() => { focusReplyButton.current = true; setReplying(false); }}
+                        onSend={entry => {
+                            setSent(current => [...current, entry]);
+                            return () => setSent(current => current.filter(item => item !== entry));
+                        }} />
                     : <Button ref={replyButton} variant="ghost" size="sm" className="ml-7 self-start text-muted-foreground hover:text-foreground pointer-coarse:min-h-11" aria-keyshortcuts={replyShortcut} onClick={() => setReplying(true)}>
                         <ReplyIcon data-icon="inline-start" />{t("Reply")}
                     </Button>)}
