@@ -15,7 +15,9 @@ browser and capture-mode caveats. Do not count coming-soon features as available
 is exclusive to uier. Link current pricing matrices instead of copying volatile price amounts.
 
 uier's claims follow the shipped feature pages, `docs/review-workflow.md`, the reproduction
-allowlist and screenshot policy. Keep its absent recording, replay, console/network capture,
+allowlist and screenshot/recording policies. Short screen recordings have explicit browser,
+permission, size and duration limits; built-in capture has no audio and ends on full-page navigation.
+Keep its absent replay, console/network capture,
 file proofing, surveys and custom workflow capabilities visible. Image attachments do not imply
 asset proofing, in-browser checks do not imply scheduled site crawling, and per-thread reviewer
 confirmation does not approve an entire asset version or release. No competitor-history importer

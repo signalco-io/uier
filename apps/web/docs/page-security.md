@@ -48,6 +48,13 @@ discards configured response headers. The local test-only upstream uses the exis
 HSTS is one year with subdomains. Do not add `preload` or submit to the preload list until an owner
 has observed this policy operating successfully.
 
+Explicit screen recording uses `display-capture=(self)` on uier pages; camera and microphone
+remain disabled. BotID responses retain `display-capture=()`. Recording previews use memory-only
+`blob:` URLs. Playback permits only the same origin and the exact configured Azure Blob origin
+in `media-src`, also included in the generated embed CSP snippet. The install guide's `connect-src`
+permits direct recording uploads to that origin. A reviewed site's own Permissions-Policy can
+still disable capture; file upload remains available when browser capture is unavailable.
+
 `src/lib/cookieNames.ts` centralizes HTTPS `__Host-` / `__Secure-` names, local HTTP names and
 lifetimes. `__Host-uier_comments_view` is a browser-readable, Secure, SameSite=Lax presentation
 preference with Path=/ and a one-year lifetime; only `list` and `board` are accepted. It grants no

@@ -242,6 +242,7 @@ export const replaceScreenshotSchema = z.object({
 export const idempotencyKeySchema = z.string().regex(/^[A-Za-z0-9_-]{16,128}$/);
 
 export const createCommentSchema = z.object({
+    recordingId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/).optional(),
     idempotencyKey: idempotencyKeySchema.optional(),
     path: pathSchema,
     /** The page's own address for links (`/plans/`), filtered like `path`; ignored when it is another page */
@@ -285,6 +286,7 @@ export const rewriteRequestSchema = z.object({
 });
 
 export const replySchema = z.object({
+    recordingId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/).optional(),
     idempotencyKey: idempotencyKeySchema.optional(),
     screenshot: screenshotSchema.optional(),
     text: textSchema

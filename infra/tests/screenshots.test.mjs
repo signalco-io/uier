@@ -14,7 +14,7 @@ runtime.setMocks({
         return args.inputs;
     }
 });
-test('screenshots are private with read-only CORS and preview data access only on its own container', async () => {
+test('evidence stays private with capability uploads and preview data access only on its own container', async () => {
     const { screenshotStorage } = await import('../dist/screenshots.js');
     const created = screenshotStorage({ name: 'uier', id: '/subscriptions/fixture/resourceGroups/uier', location: 'westeurope' }, 'project', 'preview-principal');
     await all([created.account.id, ...created.containers.map(container => container.id), created.contributor.id, created.delegator.id]).promise();
@@ -30,7 +30,8 @@ test('screenshots are private with read-only CORS and preview data access only o
     const service = resources.find(item => item.type.endsWith(':BlobServiceProperties')).inputs;
     assert.equal(service.isVersioningEnabled, false);
     assert.equal(service.deleteRetentionPolicy.enabled, false);
-    assert.deepEqual(service.cors.corsRules[0].allowedMethods, ['GET', 'HEAD']);
+    assert.deepEqual(service.cors.corsRules[0].allowedMethods, ['GET', 'HEAD', 'PUT']);
+    assert.deepEqual(service.cors.corsRules[0].allowedHeaders, ['Range', 'Cache-Control', 'Pragma', 'Content-Type', 'x-ms-blob-type', 'If-None-Match']);
     for (const container of resources.filter(item => item.type.endsWith(':BlobContainer'))) assert.equal(container.inputs.publicAccess, 'None');
     const contributor = resources.find(item => item.name.endsWith('preview-contributor')).inputs;
     assert.equal(contributor.scope, '/subscriptions/fixture/uier-screenshots-preview');

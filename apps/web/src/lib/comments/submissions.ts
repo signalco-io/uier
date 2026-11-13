@@ -1,6 +1,6 @@
 import { withNotificationEvent } from '../notifications/events';
 import { createHash } from 'node:crypto';
-import type { DbComment, DbScreenshot, DbSubmission, DbThreadItem } from '../db/schema';
+import type { DbComment, DbScreenshot, DbSubmission, DbThreadItem, RecordingAttachment } from '../db/schema';
 import type { CommentsStore } from '../repo/commentsStore';
 import { ApiError, apiErrors } from './http';
 import { MAX_THREAD_ITEMS } from './limits';
@@ -36,10 +36,10 @@ export async function recoverSubmission(store: CommentsStore, attempt: Submissio
 }
 
 /** Commit then recover even if the database response itself was lost. */
-async function commit(store: CommentsStore, attempt: Submission, comment: DbComment, etag?: string, screenshot?: DbScreenshot, changed?: boolean) {
+async function commit(store: CommentsStore, attempt: Submission, comment: DbComment, etag?: string, screenshot?: DbScreenshot, changed?: boolean, recording?: RecordingAttachment) {
     const receipt: DbSubmission = { ...attempt, ...(changed === undefined ? {} : { changed }), type: 'submission', commentId: comment.id, ttl: submissionTtlSeconds };
     try {
-        if (await store.commitSubmission(receipt, comment, etag, screenshot) === 'ok') return comment;
+        if (await store.commitSubmission(receipt, comment, etag, screenshot, recording) === 'ok') return comment;
     } catch (error) {
         const saved = await recoverSubmission(store, attempt);
         if (saved) return saved;
@@ -48,15 +48,15 @@ async function commit(store: CommentsStore, attempt: Submission, comment: DbComm
     return await recoverSubmission(store, attempt);
 }
 
-export async function commitNewSubmission(store: CommentsStore, attempt: Submission, comment: DbComment, screenshot?: DbScreenshot) {
+export async function commitNewSubmission(store: CommentsStore, attempt: Submission, comment: DbComment, screenshot?: DbScreenshot, recording?: RecordingAttachment) {
     try {
-        const saved = await commit(store, attempt, comment, undefined, screenshot);
+        const saved = await commit(store, attempt, comment, undefined, screenshot, undefined, recording);
         if (saved) return saved;
     } catch (error) {
         if (!screenshot) throw error;
         // A failed image transaction rolled back the text and receipt too. Retry without the image.
         delete comment.screenshot;
-        const saved = await commit(store, attempt, comment);
+        const saved = await commit(store, attempt, comment, undefined, undefined, undefined, recording);
         if (saved) return saved;
     }
     throw apiErrors.conflict();
@@ -66,7 +66,7 @@ export async function commitNewSubmission(store: CommentsStore, attempt: Submiss
 export async function commitReplySubmission(store: CommentsStore, attempt: Submission, id: string, reply: DbThreadItem | ((comment: DbComment) => DbThreadItem),
     visible: (comment: DbComment) => unknown = () => undefined,
     prepare?: (previous: DbComment, updated: DbComment) => DbComment | Promise<DbComment>,
-    image?: (comment: DbComment) => DbScreenshot) {
+    image?: (comment: DbComment) => DbScreenshot, recording?: RecordingAttachment) {
     let imageFailed = false;
     for (let retry = 0; retry < 8; retry++) {
         const recovered = await recoverSubmission(store, attempt);
@@ -82,12 +82,12 @@ export async function commitReplySubmission(store: CommentsStore, attempt: Submi
         const comment = prepare ? await prepare(stored.comment, updated)
             : withNotificationEvent(updated, item.authorId ?? 'legacy', 'reply', item.createdAt);
         let saved;
-        try { saved = await commit(store, attempt, comment, stored.etag, imageFailed ? undefined : image?.(comment)); }
+        try { saved = await commit(store, attempt, comment, stored.etag, imageFailed ? undefined : image?.(comment), undefined, recording); }
         catch (error) {
             if (!image) throw error;
             // As with new comments, failed image storage must not lose the reply text.
             delete item.screenshot;
-            saved = await commit(store, attempt, comment, stored.etag);
+            saved = await commit(store, attempt, comment, stored.etag, undefined, undefined, recording);
             imageFailed = true;
         }
         if (saved) { await visible(saved); return saved; }

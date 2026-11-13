@@ -1,4 +1,5 @@
 import { withNotificationEvent } from '../notifications/events';
+import { attachRecording, prepareCommentRecording, cleanupRemovedRecordings } from '../recordings/service';
 import { queueMcpEventDelivery } from '../mcp/events/trigger';
 import { matchesArchive, type ArchiveFilter } from '../repo/archiveFilter';
 import { feedbackTypeForSubmission } from '../app/feedbackTypes';
@@ -281,15 +282,16 @@ export async function forgetScreenshot(store: CommentsStore, domain: string, id:
 export async function createComment(context: CommentsApiContext, input: CreateCommentInput) {
     const store = getCommentsStore();
     const subject = rateLimitSubject(context);
-    const attempt = submission(context.domain, subject.authorId, input.idempotencyKey, {
+    const attempt = submission(context.domain, subject.authorId, input.idempotencyKey ?? input.recordingId, {
         operation: 'create', path: input.path, position: input.position, kind: input.kind, text: input.text, quotedText: input.quotedText,
-        ...(input.drawing ? { drawing: input.drawing } : {})
+        ...(input.drawing ? { drawing: input.drawing } : {}), ...(input.recordingId ? { recordingId: input.recordingId } : {})
     });
     const recovered = await recoverSubmission(store, attempt);
     if (recovered) return toDto(recovered, context);
     const feedbackType = await feedbackTypeForSubmission(context.project, input.kind);
     await enforceNewCommentLimits(store, subject, input.path);
     const screenshot = await availableScreenshot(store, context.domain, input.screenshot);
+    const recording = await prepareCommentRecording(context.domain, subject.authorId, input.recordingId, store);
 
     const now = nowIso();
     const sourcePath = newSourcePath(input.path, input.sourcePath);
@@ -326,8 +328,9 @@ export async function createComment(context: CommentsApiContext, input: CreateCo
     };
     if (screenshot)
         comment.screenshot = screenshotInfo(screenshot);
+    if (recording) comment.recording = recording.doc.metadata;
 
-    if (attempt) return toDto(await commitNewSubmission(store, attempt, comment, screenshot ? screenshotDocument(comment, screenshot) : undefined), context);
+    if (attempt) return toDto(await commitNewSubmission(store, attempt, comment, screenshot ? screenshotDocument(comment, screenshot) : undefined, attachRecording(recording, comment.id)), context);
     await createWithScreenshot(store, comment, screenshot);
     return toDto(comment, context);
 }
@@ -347,7 +350,7 @@ export async function getCommentScreenshot(context: CommentsApiContext, id: stri
 export async function replyToComment(context: CommentsApiContext, id: string, input: ReplyInput) {
     const store = getCommentsStore();
     const subject = rateLimitSubject(context);
-    const attempt = submission(context.domain, subject.authorId, input.idempotencyKey, { operation: 'reply', id, text: input.text, ...(input.screenshot ? { image: input.screenshot.data.toString('base64') } : {}) });
+    const attempt = submission(context.domain, subject.authorId, input.idempotencyKey ?? input.recordingId, { operation: 'reply', id, text: input.text, ...(input.screenshot ? { image: input.screenshot.data.toString('base64') } : {}), ...(input.recordingId ? { recordingId: input.recordingId } : {}) });
     const recovered = await recoverSubmission(store, attempt);
     if (recovered) { assertVisible(recovered, context); return toDto(recovered, context); }
     const target = await store.get(context.domain, id);
@@ -356,6 +359,7 @@ export async function replyToComment(context: CommentsApiContext, id: string, in
 
     await enforceReplyLimits(store, subject);
     const screenshot = await availableScreenshot(store, context.domain, input.screenshot);
+    const recording = await prepareCommentRecording(context.domain, subject.authorId, input.recordingId, store);
 
     const now = nowIso();
     const item: DbThreadItem = {
@@ -365,9 +369,10 @@ export async function replyToComment(context: CommentsApiContext, id: string, in
         createdAt: now
     };
     if (screenshot) item.screenshot = screenshotInfo(screenshot);
+    if (recording) item.recording = recording.doc.metadata;
     const receipt = attempt ?? (screenshot ? submission(context.domain, subject.authorId, nanoid(), { operation: 'reply', id, text: input.text }) : undefined);
     if (receipt) return toDto(await commitReplySubmission(store, receipt, id, item, comment => assertVisible(comment, context), undefined,
-        screenshot ? comment => screenshotDocument(comment, screenshot, item.id) : undefined), context);
+        screenshot ? comment => screenshotDocument(comment, screenshot, item.id) : undefined, attachRecording(recording, id, item.id)), context);
     const result = await store.appendThreadItem(context.domain, id, item, MAX_THREAD_ITEMS, now);
     if (result === 'not_found')
         throw apiErrors.notFound();
@@ -463,6 +468,7 @@ function withoutFirstItem(comment: DbComment, context: CommentsApiContext): DbCo
     delete updated.authorId;
     delete updated.device;
     delete updated.screenshot;
+    delete updated.recording;
     return updated;
 }
 
@@ -498,12 +504,15 @@ export async function deleteComment(context: CommentsApiContext, id: string): Pr
     const store = getCommentsStore();
     let hadScreenshot = false;
     let previousImageItems: string[] = [];
+    let previous: DbComment | undefined;
     const updated = await updateComment(store, context, id, comment => {
         hadScreenshot = Boolean(comment.screenshot);
         previousImageItems = comment.thread.items.filter(item => item.screenshot).map(item => item.id);
+        previous = comment;
         return withoutFirstItem(comment, context);
     });
     await forgetScreenshot(store, context.domain, id, hadScreenshot, updated, previousImageItems);
+    if (previous) await cleanupRemovedRecordings(previous, updated, store);
     return updated ? toDto(updated, context) : null;
 }
 
@@ -516,9 +525,11 @@ export async function deleteThreadItem(context: CommentsApiContext, id: string, 
     const store = getCommentsStore();
     let hadScreenshot = false;
     let previousImageItems: string[] = [];
+    let previous: DbComment | undefined;
     const updated = await updateComment(store, context, id, comment => {
         hadScreenshot = Boolean(comment.screenshot);
         previousImageItems = comment.thread.items.filter(item => item.screenshot).map(item => item.id);
+        previous = comment;
         const itemIndex = threadItems(comment).findIndex(item => item.id === itemId);
         if (itemIndex < 0)
             throw apiErrors.notFound('Reply not found.');
@@ -529,6 +540,7 @@ export async function deleteThreadItem(context: CommentsApiContext, id: string, 
     });
 
     await forgetScreenshot(store, context.domain, id, hadScreenshot, updated, previousImageItems);
+    if (previous) await cleanupRemovedRecordings(previous, updated, store);
     return updated ? toDto(updated, context) : null;
 }
 

@@ -97,6 +97,7 @@ export type CommentAuthor = {
 export type Mention = { userId: string; start: number; end: number; name?: string };
 
 export type CommentItemThreadItem = {
+    recording?: import('../../recordings').RecordingInfo;
     screenshot?: { width: number; height: number };
     mentions?: Mention[];
     id: string;
@@ -189,6 +190,7 @@ export type CommentItem = {
     number?: number;
     /** A screenshot of the commented part of the page, in pixels (the image is fetched separately) */
     screenshot?: { width: number; height: number; revision?: string };
+    recording?: import('../../recordings').RecordingInfo;
     /** `feedback` and `bug` have a `page` position */
     kind: CommentKind;
     feedbackType?: import('../../feedbackTypes').FeedbackTypeSnapshot;
@@ -254,6 +256,7 @@ export type CommentDraft = {
     omitScreenshot?: boolean;
     /** The reviewer's own image, sent instead of the screenshot (kept in memory, never in draft storage) */
     image?: { name: string; dataUrl: string };
+    recording?: import('../../recordings').RecordingClip;
     /** Why it was not posted: the draft is back on the page with its text (see CommentComposer) */
     sendError?: unknown;
 }

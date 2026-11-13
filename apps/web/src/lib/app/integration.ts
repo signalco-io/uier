@@ -34,9 +34,11 @@ export function nextJsSnippet(baseUrl: string, publicId: string, version: EmbedV
  */
 export function cspSources(baseUrl: string) {
     const origin = new URL(baseUrl).origin;
+    const blobOrigin = process.env.AZURE_SCREENSHOTS_ENDPOINT ? new URL(process.env.AZURE_SCREENSHOTS_ENDPOINT).origin : undefined;
     return [
         { directive: 'script-src', sources: [origin] },
-        { directive: 'connect-src', sources: [origin, origin.replace(/^http/, 'ws'), ...(process.env.AZURE_SCREENSHOTS_ENDPOINT ? [new URL(process.env.AZURE_SCREENSHOTS_ENDPOINT).origin] : [])] },
+        { directive: 'connect-src', sources: [origin, origin.replace(/^http/, 'ws'), ...(blobOrigin ? [blobOrigin] : [])] },
+        { directive: 'media-src', sources: [origin, 'blob:', ...(blobOrigin ? [blobOrigin] : [])] },
         { directive: 'frame-src', sources: [origin] },
         { directive: 'style-src', sources: [origin] },
         { directive: 'img-src', sources: ['data:'] },

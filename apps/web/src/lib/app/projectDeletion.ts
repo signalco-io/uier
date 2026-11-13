@@ -27,6 +27,7 @@ import { assertMutableProject } from '../comments/publicProjectPolicy';
 import { forgetScreenshot } from '../comments/service';
 import { getCommentsStore, type CommentsStore } from '../repo/commentsStore';
 import { deleteProjectThread, projectPartition } from '../review/comments';
+import { cleanupRemovedRecordings } from '../recordings/service';
 import { notificationPk } from '../notifications/preferences';
 import { removeProjectFromMcpAccess } from '../mcp/credentials';
 import { deleteProjectPageChecks } from '../pageChecks/store';
@@ -181,6 +182,7 @@ async function deleteProjectThreads(intent: ProjectDeletion, comments: CommentsS
                 if (result !== 'ok') continue;
                 deleted++;
                 await forgetScreenshot(comments, domain, thread.id, Boolean(stored.comment.screenshot), null, stored.comment.thread.items.filter(item => item.screenshot).map(item => item.id));
+                await cleanupRemovedRecordings(stored.comment, null, comments);
             }
         }));
         // A conflict is a concurrent write: the next pass reads the thread again

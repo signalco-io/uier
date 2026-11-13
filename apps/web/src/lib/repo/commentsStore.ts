@@ -1,7 +1,7 @@
 import type { ArchiveFilter } from './archiveFilter';
 import type { OriginFilter } from './originFilter';
 import type { RealtimeComment } from '../realtime/source';
-import type { DbComment, DbCommentActivity, DbScreenshot, DbSubmission, DbSyncTombstone, DbThreadItem } from '../db/schema';
+import type { DbComment, DbCommentActivity, DbScreenshot, DbSubmission, DbSyncTombstone, DbThreadItem, DbRecordingUpload, RecordingAttachment } from '../db/schema';
 import type { VisibilityFilter } from './visibilityFilter';
 import { isCosmosConfigured } from '../db/client';
 import { isLocalRuntime } from '../comments/environment';
@@ -71,7 +71,12 @@ export type CommentsStore = {
     create(comment: DbComment): Promise<void>;
     getSubmission(domain: string, id: string): Promise<DbSubmission | null>;
     /** Receipt + create/conditional replacement + optional image reference: one partition transaction. */
-    commitSubmission(receipt: DbSubmission, comment: DbComment, etag?: string, screenshot?: DbScreenshot): Promise<'ok' | 'conflict'>;
+    commitSubmission(receipt: DbSubmission, comment: DbComment, etag?: string, screenshot?: DbScreenshot, recording?: RecordingAttachment): Promise<'ok' | 'conflict'>;
+    getRecordingUpload(domain: string, id: string): Promise<{ doc: DbRecordingUpload; etag: string } | null>;
+    createRecordingUpload(doc: DbRecordingUpload): Promise<void>;
+    replaceRecordingUpload(doc: DbRecordingUpload, etag: string): Promise<ConditionalWriteResult>;
+    deleteRecordingUpload(domain: string, id: string, etag: string): Promise<ConditionalWriteResult>;
+    listRecordingUploads(after?: string): Promise<{ items: { domain: string; id: string }[]; continuation?: string }>;
     /** Replaces the comment only when it was not changed since it was read (`etag`) */
     replace(comment: DbComment, etag: string): Promise<ConditionalWriteResult>;
     /**

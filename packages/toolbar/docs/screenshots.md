@@ -36,6 +36,9 @@ as its description. Pressed, it leaves `screenshot` out of the request.
 in the text box's bottom-left corner (`CommentComposer`'s `attachments`), so it reads as a part of the comment.
 Never an image preview.
 
+One [screen recording](recordings.md) can be attached alongside the screenshot or supplied image.
+Record screen and Upload recording are separate controls; a recording has its own preview and limits.
+
 ## Saved images
 
 `src/screenshotPolicy.ts`, `src/suppliedScreenshot.ts`, `components/ScreenshotRedaction.tsx` and

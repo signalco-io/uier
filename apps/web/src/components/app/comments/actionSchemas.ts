@@ -26,7 +26,8 @@ export const assignCommentsPeopleActionSchema = commentActionSchema.extend({ ass
 export const editCommentActionSchema = commentActionSchema.extend({ text: textSchema });
 /** Cleaned and limited by `setProjectCommentTitle`; this only bounds the input */
 export const titleCommentActionSchema = commentActionSchema.extend({ title: z.string().max(1000) });
-export const replyCommentActionSchema = commentActionSchema.extend({ screenshot: z.string().max(Math.ceil(MAX_SCREENSHOT_BYTES / 3) * 4 + 64).optional(), text: textSchema, mentions: mentionsSchema.optional(), idempotencyKey: idempotencyKeySchema });
+export const replyCommentActionSchema = commentActionSchema.extend({ screenshot: z.string().max(Math.ceil(MAX_SCREENSHOT_BYTES / 3) * 4 + 64).optional(),
+    recordingId: commentIdSchema.optional(), text: textSchema, mentions: mentionsSchema.optional(), idempotencyKey: idempotencyKeySchema });
 export const deleteReplyActionSchema = commentActionSchema.extend({ itemId: commentIdSchema });
 /** Add (`reacted`) or remove the member's own emoji reaction to one message, the first one or a reply */
 export const reactionCommentActionSchema = deleteReplyActionSchema.extend({ emoji: z.enum(reactionIds), reacted: z.boolean() });

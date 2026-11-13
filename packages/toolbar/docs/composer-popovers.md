@@ -25,6 +25,10 @@ Markdown typed in it formats as it is written, and a dropped image file is attac
 (`onImageDrop`). Its draft API is unchanged: `CommentComposer` keeps the Markdown and the mention ranges in
 `useDrafts` under its `draftKey`, and `initialText`/`initialMentions` start an edit.
 
+New-message composers also accept one [screen recording](recordings.md). Capture controls and a recording's
+preview belong to the form's owner, so expanding and collapsing retain it. Capturing, reading and uploading
+follow the same send/recovery boundaries as the message; recording bytes never enter the saved draft.
+
 `CommentComposer` is one bordered box: the text box (it grows with its text; Enter sends, Shift+Enter is a new
 line, `enterKeyHint`), its `attachments` (Attach image), a hint or a counter, Discard while there is text, and Send.
 Discard and Send are plain icon buttons with their tooltips: an X, since Discard has no labeled button beside

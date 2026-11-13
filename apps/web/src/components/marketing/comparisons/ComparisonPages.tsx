@@ -99,18 +99,18 @@ function RelatedComparisons({ except }: { except?: CompetitorSlug }) {
 
 const tradeoffs: Record<CompetitorSlug, { keep: string; lose: string; test: string }> = {
     bugherd: {
-        keep: 'Use BugHerd if your team depends on recorded explanations, Figma or file review, due dates or custom Kanban columns.',
-        lose: 'In uier, you would use live-page comments and a fixed four-status workflow. Video recording, file proofing, due dates and custom columns do not carry over.',
+        keep: 'Use BugHerd if your team depends on audio explanations, Figma or file review, due dates or custom Kanban columns.',
+        lose: 'In uier, you would use live-page comments, short screen recordings and a fixed four-status workflow. File proofing, due dates and custom columns do not carry over.',
         test: 'Try one client review from first comment to reviewer confirmation. Check that uier’s five integrations cover the destinations you need; it does not provide BugHerd’s full integration catalog.'
     },
     'marker-io': {
-        keep: 'Use Marker.io if a screenshot is insufficient to reproduce bugs, or if replay, console/network evidence and scheduled monitoring are requirements.',
-        lose: 'uier captures a screenshot and browser context, but no replay, console logs or network requests. Its page checks run during review rather than through a scheduled site crawler.',
-        test: 'Report a real bug with the same browser and site login. Decide whether a written reproduction and screenshot are sufficient before replacing your existing diagnostics workflow.'
+        keep: 'Use Marker.io if replay, console/network evidence and scheduled monitoring are requirements.',
+        lose: 'uier supports screenshots, short screen recordings and browser context. Replay, console logs and network requests are unavailable. Its page checks run during review rather than through a scheduled site crawler.',
+        test: 'Report a real bug with the same browser and site login. Try a written reproduction and recording before replacing your existing diagnostics workflow.'
     },
     usersnap: {
-        keep: 'Use Usersnap if your program needs video reports, satisfaction surveys, targeted feedback collection, public voting or product opportunities.',
-        lose: 'uier covers on-page review and resolving the resulting threads. It has no recorder, survey builder, public request board, opportunity model or native mobile SDK.',
+        keep: 'Use Usersnap if your program needs satisfaction surveys, targeted feedback collection, public voting or product opportunities.',
+        lose: 'uier covers on-page review, short screen recordings and resolving the resulting threads. It has no survey builder, public request board, opportunity model or native mobile SDK.',
         test: 'Separate website review from product research. Try uier for the review portion while retaining the surveys, voting or mobile collection tools your team still needs.'
     },
     pastel: {
@@ -175,7 +175,7 @@ export function AllToolsPage() {
         <PageSection id="features" title="Compare the actual capabilities" lead="No overall winner. Unsupported and unverified capabilities stay visible alongside supported ones." wide><FeatureMatrix products={products} compact /></PageSection>
 
         <PageSection id="gaps" title="When uier will not cover the job" lead="Use another tool, or keep it alongside uier, when these are requirements.">
-            <Panel><Tile title="Reproduce a sequence"><p>uier has no screen/audio recorder, session replay, console logs or network capture. Marker.io documents replay and diagnostics; BugHerd and Usersnap document recording. Their capture modes are different.</p></Tile><Tile title="Approve assets"><p>uier does not proof PDFs, design files, video or email. Pastel supports multi-format canvases and version approvals. BugHerd also lists file and Figma review.</p></Tile><Tile title="Run product research"><p>uier has no satisfaction surveys, public voting or roadmap. Usersnap combines these with visual feedback.</p></Tile><Tile title="Customize every stage"><p>uier’s statuses are Open, In progress, Ready to verify and Done. There are no custom statuses or release-wide sign-offs. BugHerd supports customizable board columns.</p></Tile></Panel>
+            <Panel><Tile title="Reproduce a sequence"><p>uier supports short screen recordings with explicit permission. Built-in capture has no audio and ends on full-page navigation. Session replay, console logs and network capture are unavailable. Marker.io documents replay and diagnostics; BugHerd and Usersnap document recording. Their capture modes are different.</p></Tile><Tile title="Approve assets"><p>uier does not proof PDFs, design files, video or email. Pastel supports multi-format canvases and version approvals. BugHerd also lists file and Figma review.</p></Tile><Tile title="Run product research"><p>uier has no satisfaction surveys, public voting or roadmap. Usersnap combines these with visual feedback.</p></Tile><Tile title="Customize every stage"><p>uier’s statuses are Open, In progress, Ready to verify and Done. There are no custom statuses or release-wide sign-offs. BugHerd supports customizable board columns.</p></Tile></Panel>
         </PageSection>
 
         <PageSection id="setup" title="The practical differences" lead="Plan limits, reviewer access and integration behavior can change the decision." wide><Panel className="md:grid-cols-2">{products.map(product => <ProductPracticalities key={product.name} product={product} />)}</Panel></PageSection>
@@ -203,7 +203,7 @@ export function ComparisonHub() {
         <PageSection id="alternatives" title="Compare one alternative" lead="Read the overlap, the missing capabilities and the practical differences side by side." wide><RelatedComparisons /></PageSection>
 
         <PageSection id="limits" title="Where uier fits" lead="Live-page comments, assignment and human fix verification.">
-            <Panel><Tile title="See the review workflow"><p>Start with the <InlineLink href={KnownPages.ClientReviewGuide}>client review guide</InlineLink>, <InlineLink href={KnownPages.FeedbackTriage}>feedback triage</InlineLink> and <InlineLink href={KnownPages.FixVerification}>fix verification</InlineLink>.</p></Tile><Tile title="Check the boundaries"><p>No video recorder, session replay, file proofing, satisfaction surveys or custom statuses. Check <InlineLink href={KnownPageLinks.comparison('website-feedback-tools')}>the full feature matrix</InlineLink> before replacing a tool you rely on.</p></Tile><Tile title="Check installation and handoff"><p>See the <InlineLink href={KnownPages.BrowserExtension}>desktop extension</InlineLink>, <InlineLink href={KnownPages.Integrations}>integrations</InlineLink>, <InlineLink href={KnownPages.Ai}>coding-agent workflow</InlineLink> and <InlineLink href={KnownPages.PageChecks}>page-check limits</InlineLink>.</p></Tile></Panel>
+            <Panel><Tile title="See the review workflow"><p>Start with the <InlineLink href={KnownPages.ClientReviewGuide}>client review guide</InlineLink>, <InlineLink href={KnownPages.FeedbackTriage}>feedback triage</InlineLink> and <InlineLink href={KnownPages.FixVerification}>fix verification</InlineLink>.</p></Tile><Tile title="Check the boundaries"><p>Screen recordings are limited to 60 seconds and 25 MiB. Session replay, file proofing, satisfaction surveys and custom statuses are unavailable. Check <InlineLink href={KnownPageLinks.comparison('website-feedback-tools')}>the full feature matrix</InlineLink> before replacing a tool you rely on.</p></Tile><Tile title="Check installation and handoff"><p>See the <InlineLink href={KnownPages.BrowserExtension}>desktop extension</InlineLink>, <InlineLink href={KnownPages.Integrations}>integrations</InlineLink>, <InlineLink href={KnownPages.Ai}>coding-agent workflow</InlineLink> and <InlineLink href={KnownPages.PageChecks}>page-check limits</InlineLink>.</p></Tile></Panel>
             <Button variant="solid" href={KnownPages.App} className="self-start">Try uier on a page</Button>
         </PageSection>
     </main>;

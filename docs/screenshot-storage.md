@@ -14,7 +14,8 @@ and is removed when the reply or thread disappears. The original screenshot's id
 ## Access and deployment configuration
 
 `infra/src/screenshots.ts` provisions one protected storage account, private `screenshots` and
-`screenshots-preview` containers, read-only GET/HEAD CORS and the Vercel variables below.
+`screenshots-preview` containers, GET/HEAD CORS plus capability-authorized PUT for
+[recording uploads](recordings.md), and the Vercel variables below.
 Anonymous Blob access, versioning and soft deletion are disabled. Redaction/deletion must not
 leave recoverable old versions. There is no Blob backup/restore promise; a Cosmos restore alone
 cannot restore image bytes. See [backups](backups-and-restore.md).

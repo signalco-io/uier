@@ -95,6 +95,7 @@ export type DbMessageAgent = { kind: import('@uier/toolbar/agents').AgentKind; m
 export type DbReaction = { emoji: import('@uier/toolbar/reactions').ReactionId; by: { id: string; name?: string }[] };
 
 export type DbThreadItem = {
+    recording?: DbCommentRecording;
     /** Reactions to the message (`comments/reactions.ts`); missing means none. Not content: no activity, history or revision. */
     reactions?: DbReaction[];
     /** Optional image, stored separately under the parent thread and this item id. */
@@ -167,6 +168,7 @@ export type DbVerification = {
 };
 
 export type DbComment = {
+    recording?: DbCommentRecording;
     /** Internal normalized query fields, committed atomically with the comment; never a public DTO. */
     queryMetadata?: import('../repo/queryMetadata').CommentQueryMetadata;
     /** Bounded audit history, independent of notification delivery and unread cursors. */
@@ -326,6 +328,21 @@ export type DbSequence = {
  * comment route can read, change or delete it.
  */
 export const commentSequenceId = '$sequence_comments';
+
+/** Public recording metadata; private object names stay in the upload record. */
+export type DbCommentRecording = { id: string; contentType: 'video/mp4' | 'video/webm'; size: number; duration: number; width: number; height: number };
+
+/** Same partition as the comment, so attachment and submission receipt commit together. */
+export type DbRecordingUpload = {
+    id: string; domain: string; type: 'recording-upload'; recordingId: string; authorId: string;
+    createdAt: string; expiresAt: string; ttl: -1;
+    expectedSize: number; contentType: 'video/mp4' | 'video/webm';
+    metadata?: DbCommentRecording;
+    attached?: { commentId: string; itemId?: string };
+    removedAt?: string;
+};
+export type RecordingAttachment = { doc: DbRecordingUpload; etag: string };
+export const recordingUploadDocumentId = (id: string) => `$recording_${id}`;
 
 /** What a comment knows about its screenshot (the image itself is a {@link DbScreenshot}) */
 export type DbCommentScreenshot = {

@@ -20,7 +20,7 @@ export function screenshotStorage(
     }, { protect: true });
     new BlobServiceProperties('uier-screenshots-cors', {
         resourceGroupName: resourceGroup.name, accountName: account.name, blobServicesName: 'default',
-        cors: { corsRules: [{ allowedOrigins: ['*'], allowedMethods: ['GET', 'HEAD'], allowedHeaders: ['Range', 'Cache-Control', 'Pragma'],
+        cors: { corsRules: [{ allowedOrigins: ['*'], allowedMethods: ['GET', 'HEAD', 'PUT'], allowedHeaders: ['Range', 'Cache-Control', 'Pragma', 'Content-Type', 'x-ms-blob-type', 'If-None-Match'],
             exposedHeaders: ['Content-Length', 'Content-Type'], maxAgeInSeconds: 0 }] },
         // Replaced/redacted/deleted pixels must not survive as recoverable versions.
         isVersioningEnabled: false, deleteRetentionPolicy: { enabled: false }, containerDeleteRetentionPolicy: { enabled: false }

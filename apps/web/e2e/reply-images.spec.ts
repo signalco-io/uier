@@ -12,7 +12,7 @@ test.beforeAll(async ({ baseURL }) => {
     pixels = await sharp({ create: { width: 180, height: 120, channels: 3, background: 'white' } }).png().toBuffer();
 });
 test.afterAll(async () => { await site.close(); });
-const attach = (form: Locator, name = 'evidence.png') => form.locator('input[type=file]').setInputFiles({ name, mimeType: 'image/png', buffer: pixels });
+const attach = (form: Locator, name = 'evidence.png') => form.locator('input[type=file][accept*="image/"]').setInputFiles({ name, mimeType: 'image/png', buffer: pixels });
 
 // Both surfaces share real stored bytes and authorization, including a failed send followed by a retry.
 test('reply images can be picked, removed, retried and expanded in toolbar and app threads', async ({ page }) => {
@@ -77,7 +77,7 @@ test('reply images can be picked, removed, retried and expanded in toolbar and a
     await page.keyboard.press('Escape');
     await card.getByRole('button', { name: 'Reply', exact: true }).click();
     const appForm = card.getByRole('form', { name: 'Reply to thread' });
-    await appForm.locator('input[type=file]').setInputFiles({ name: 'invalid.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg/>') });
+    await appForm.locator('input[type=file][accept*="image/"]').setInputFiles({ name: 'invalid.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg/>') });
     await expect(appForm.getByRole('alert')).toContainText('Choose a PNG, JPEG or WebP image.');
     // Paste uses exactly the same reader as the picker, with no preview in the composer.
     await appForm.evaluate((form, bytes) => {

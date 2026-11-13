@@ -72,6 +72,7 @@ export type MessageMentionRange = { start: number; end: number };
 
 export type ProjectCommentMessage = {
     screenshot?: { url: string; width: number; height: number };
+    recording?: import('@uier/toolbar/recordings').RecordingInfo;
     id: string;
     author: ProjectCommentAuthor;
     /** As shown: mentions are `@` and the person's current name */
@@ -142,6 +143,8 @@ export type ProjectCommentView = {
     number?: number;
     /** The screenshot its author took of the commented part of the page */
     screenshot?: { url: string; width: number; height: number };
+    /** Private video metadata; the player requests a fresh URL with current thread access. */
+    recording?: import('@uier/toolbar/recordings').RecordingInfo;
     /** A pinned comment, general feedback or a bug report (about the whole page) */
     kind: DbCommentKind;
     feedbackType?: import('@uier/toolbar/feedback-types').FeedbackTypeSnapshot;
@@ -260,6 +263,11 @@ function reactionsOf(item: import('../db/schema').DbThreadItem, myId: string | u
     return reactions ? { reactions } : {};
 }
 
+function recordingView(recording: import('@uier/toolbar/recordings').RecordingInfo): import('@uier/toolbar/recordings').RecordingInfo {
+    const { id, contentType, size, duration, width, height } = recording;
+    return { id, contentType, size, duration, width, height };
+}
+
 function toView(comment: DbComment, project: DbProject, actor: ProjectActor, names: Map<string, string>, participants: Map<string, string>, members: Awaited<ReturnType<typeof listProjectMembers>>, readSequence = 0, avatars = memberAvatars(members), titles = false, t: AppTranslator = englishAppTranslator): ProjectCommentView | null {
     const items = Array.isArray(comment.thread?.items) ? comment.thread.items : [];
     const [first, ...replies] = items;
@@ -288,6 +296,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         screenshot: comment.screenshot
             ? { url: KnownPageLinks.projectCommentScreenshot(project.id, comment.id), width: comment.screenshot.width, height: comment.screenshot.height }
             : undefined,
+        ...(!first.deletedAt && comment.recording ? { recording: recordingView(comment.recording) } : {}),
         kind: isCommentKind(comment.kind) ? comment.kind : 'comment',
         ...(feedbackTypeSnapshot(comment.feedbackType, comment.kind) ? { feedbackType: feedbackTypeSnapshot(comment.feedbackType, comment.kind) } : {}),
         anchor: anchorView(comment, first, t),
@@ -325,6 +334,7 @@ function toView(comment: DbComment, project: DbProject, actor: ProjectActor, nam
         replies: replies.map(reply => ({
             id: String(reply.id),
             ...(!reply.deletedAt && reply.screenshot ? { screenshot: { url: KnownPageLinks.projectReplyScreenshot(project.id, comment.id, reply.id), width: reply.screenshot.width, height: reply.screenshot.height } } : {}),
+            ...(!reply.deletedAt && reply.recording ? { recording: recordingView(reply.recording) } : {}),
             author: messageAuthor(reply, names, myId, avatars),
             ...mentionText(reply, participants),
             quotedText: reply.deletedAt ? undefined : reply.quotedText,

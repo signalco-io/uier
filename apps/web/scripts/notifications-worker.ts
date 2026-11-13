@@ -2,6 +2,8 @@ import { getCommentsStore } from '../src/lib/repo/commentsStore';
 import { createCosmosCommentsStore } from '../src/lib/repo/cosmosCommentsStore';
 import { cosmosDataContainerApp, cosmosDataContainerComments } from '../src/lib/db/client';
 import { getScreenshotBlobStore } from '../src/lib/screenshots/blobStore';
+import { getRecordingBlobs } from '../src/lib/recordings/blobStore';
+import { sweepRecordings } from '../src/lib/recordings/service';
 import { sweepCommentCleanup } from '../src/lib/comments/cleanup';
 import { sweepProjectDeletions } from '../src/lib/app/projectDeletion';
 import { sweepProjectTransfers } from '../src/lib/app/projectTransfer';
@@ -48,8 +50,9 @@ if (process.env.UIER_WORKER_VERIFY_ONLY !== '1') {
         try {
             const previewMigration = await preview.migrateScreenshots!();
             const previewCleanup = await preview.sweepScreenshotBlobs!(Date.now());
+            const recordingCleanup = await sweepRecordings(preview, getRecordingBlobs('screenshots-preview'), 'preview');
             console.info(`[screenshots] Migrated ${previewMigration.migrated} legacy preview images; swept ${previewCleanup.removed} preview blobs.`);
-            if (previewMigration.failed || previewCleanup.failed) process.exitCode = 1;
+            if (previewMigration.failed || previewCleanup.failed || recordingCleanup.failed) process.exitCode = 1;
         } catch { console.error('[screenshots] Preview migration/cleanup needs retry'); process.exitCode = 1; }
         // Before the comment sweep, which then completes the thread cleanups a project deletion queued
         const deletions = await sweepProjectDeletions({ comments });
@@ -58,6 +61,9 @@ if (process.env.UIER_WORKER_VERIFY_ONLY !== '1') {
         const transfers = await sweepProjectTransfers();
         if (transfers.failed) { console.error(`[projects] ${transfers.failed} project transfers need retry.`); process.exitCode = 1; }
         const cleanup = await sweepCommentCleanup(comments);
+        const recordingCleanup = await sweepRecordings(comments, getRecordingBlobs(), 'production');
+        console.info(`[recordings] Swept ${recordingCleanup.removed} orphan recordings; ${recordingCleanup.failed} cleanups need retry.`);
+        if (recordingCleanup.failed) process.exitCode = 1;
         console.info(`[comments] Swept ${cleanup.removed} orphan screenshots; ${cleanup.failed} cleanups need retry.`);
         if (cleanup.failed) process.exitCode = 1;
         // Missing email settings are a configuration error, not a delivery failure: leave every ledger

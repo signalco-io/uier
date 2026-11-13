@@ -42,7 +42,7 @@ export const uier: Product = {
     facts: {
         website: fact('yes', 'Element, text and area pins', 'Review the actual page with the toolbar.', '/#features'),
         context: fact('yes', 'Screenshot and device details', 'Page address, browser, OS and viewport accompany feedback.', '/#features'),
-        recording: fact('no', 'Not supported', 'No built-in screen, microphone or video recorder.'),
+        recording: fact('limited', 'Short screen recordings', 'Attach a recording up to 60 seconds and 25 MiB. Browser capture needs permission and a secure context; upload MP4 or WebM when capture is unavailable. Built-in capture has no audio and ends on full-page navigation.', `${brand.repository}/blob/main/docs/recordings.md`),
         replay: fact('no', 'Not supported', 'No timeline of what happened before a report.'),
         diagnostics: fact('no', 'Not supported', 'Browser details are captured; console logs and network requests are not.'),
         assets: fact('no', 'No file proofing', 'Images can accompany a thread. There are no PDF, design-file, video or email review canvases.'),
@@ -59,6 +59,7 @@ export const uier: Product = {
     sources: [
         { label: 'uier review workflow and limits', url: `${brand.repository}/blob/main/docs/review-workflow.md` },
         { label: 'uier capture and device context', url: `${brand.repository}/blob/main/packages/toolbar/src/feedbackContext.ts` },
+        { label: 'uier recording scope and limits', url: `${brand.repository}/blob/main/docs/recordings.md` },
         { label: 'uier features and pricing', url: '/#features' }
     ]
 };

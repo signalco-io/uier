@@ -1,5 +1,14 @@
 # Review API and comment records
 
+## Screen recordings
+
+Comments and replies accept `recordingId` for a previously finalized recording owned by the same
+actor and partition. The recording metadata and upload attachment claim commit with the comment
+and submission receipt; DTOs expose only dimensions, duration, size, MIME type and opaque id.
+Upload initialization, completion, private URL reads, byte validation, limits and cleanup are in
+[screen recordings](../../../docs/recordings.md). `src/lib/recordings/` owns those routes and storage;
+`e2e/recordings.api.spec.ts` covers isolation, retries, validation, seeking and deletion.
+
 - The [comment query backend](comment-query.md) adds complete bounded filtering/sorting reads,
   compact pages, exact counts/options, capabilities and member-only saved views. It does not replace
   current toolbar lists yet. `GET /api/review/<code>/comments/<id>` loads one visible full thread with

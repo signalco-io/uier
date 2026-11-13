@@ -157,7 +157,7 @@ export async function replyToReviewComment(context: ReviewApiContext, { id }: { 
     const { request, project, actor } = context;
     const input = await parseJsonBody(request, replyInputSchema, MAX_COMMENT_BODY_BYTES);
     const authorName = writerName(actor, input.authorName);
-    const comment = await replyToProjectComment(request, project, actor, commentId(id), { text: input.text, authorName, mentions: input.mentions, screenshot: input.screenshot, idempotencyKey: input.idempotencyKey });
+    const comment = await replyToProjectComment(request, project, actor, commentId(id), { text: input.text, authorName, mentions: input.mentions, screenshot: input.screenshot, recordingId: input.recordingId, idempotencyKey: input.idempotencyKey });
     return await commentResponse(context, comment, 201);
 }
 
