@@ -136,6 +136,9 @@ shows the new state where it is and then glides to its new place, a group that l
 says Done or Cancelled for a moment before it goes, new rows fade in and changed numbers and words
 are highlighted briefly. The dot of a group being worked on beats. With reduced motion turned on in
 the system, nothing moves.
+Relative times ("5 min ago", "in 3 min", "for 2 h") stay current between updates: each one's
+words change the moment they would read differently (every second while one counts seconds), and
+nothing else on the page is redrawn or highlighted for it.
 
 **Show details** opens a card across the page and adds each group's note, the watcher's version and
 last check-in, the activity feed, comments closed per day, the median time from start to close and

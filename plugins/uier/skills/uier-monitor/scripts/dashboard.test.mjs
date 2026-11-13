@@ -302,3 +302,31 @@ test('the command line prints a snapshot as JSON and explains itself', () => {
     assert.match(execFileSync(process.execPath, [script, 'help'], { encoding: 'utf8' }), /read-only/);
     assert.throws(() => execFileSync(process.execPath, [script, '--nope'], { encoding: 'utf8', stdio: 'pipe' }), /Unknown option/);
 });
+
+/** Top-level functions of the page's script, to test them on their own. */
+function pageFunctions(...names) {
+    const script = /<script nonce="__NONCE__">([\s\S]*)<\/script>/.exec(PAGE)[1];
+    const source = names.map(name => new RegExp(`^function ${name}\\([\\s\\S]*?^}$`, 'm').exec(script)[0]).join('\n');
+    return new Function(`${source}\nreturn { ${names.join(', ')} };`)();
+}
+
+test('relative times wake exactly when their words change, growing or shrinking', () => {
+    const { span, relative, untilChange } = pageFunctions('plural', 'span', 'relative', 'untilChange');
+    assert.equal(relative('ago', now - 90_000, now), '2 min ago');
+    assert.equal(relative('in', now + 45_000, now), 'in 45 s');
+    assert.equal(relative('for', now - 3_660_000, now), 'for 1 h 1 min');
+    const samples = [0, 1, 499, 500, 501, 999, 12_345, 58_999, 59_499, 59_500, 59_501, 60_000, 89_499, 89_500, 120_000, 149_499, 3_570_000, 3_599_000, 5_432_100, 47 * 3_600_000];
+    for (let index = 0; index < 200; index++) samples.push(Math.floor(Math.random() * 46 * 3_600_000));
+    for (const ms of samples) {
+        const up = untilChange(ms, true);
+        assert.ok(up > 0 && up <= 60_000, `${ms} grows`);
+        assert.notEqual(span(ms + up), span(ms), `${ms} reads differently after ${up} ms`);
+        assert.equal(span(ms + up - 1), span(ms), `${ms} reads the same until then`);
+        const down = untilChange(ms, false);
+        if (ms < 500) { assert.equal(down, Infinity, 'a time that has come stays "in 0 s"'); continue; }
+        assert.notEqual(span(ms - down), span(ms), `${ms} shrinks after ${down} ms`);
+        assert.equal(span(ms - down + 1), span(ms), `${ms} reads the same until it shrinks`);
+    }
+    const script = /<script nonce="__NONCE__">([\s\S]*)<\/script>/.exec(PAGE)[1];
+    assert.ok(!/' ago'\s*:|span\(Date\.now\(\)/.test(script.replace(/function relative[\s\S]*?\n}\n/, '')), 'every relative time goes through when()');
+});

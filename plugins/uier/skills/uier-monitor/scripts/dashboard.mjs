@@ -920,8 +920,36 @@ function span(ms) {
     if (hours < 48) return hours + ' h' + (minutes % 60 ? ' ' + (minutes % 60) + ' min' : '');
     return Math.round(hours / 24) + ' d';
 }
-function ago(iso) { return iso ? span(Date.now() - Date.parse(iso)) + ' ago' : 'never'; }
-function inTime(iso) { return 'in ' + span(Date.parse(iso) - Date.now()); }
+// Relative times ("5 min ago", "in 3 min", "for 2 h") are <time data-rel> elements. Between updates
+// a timer rewrites only their words, right after each starts to read differently (tick), so they never
+// go stale and nothing else moves or flashes.
+function relative(kind, at, now) {
+    var words = span(kind === 'in' ? at - now : now - at);
+    return kind === 'ago' ? words + ' ago' : kind === 'in' ? 'in ' + words : 'for ' + words;
+}
+// How long until a span of ms (as span() writes it) reads differently, as it grows (ago, for) or shrinks (in).
+// Seconds change on the half second; minutes, and the minutes of hours, half a minute after the minute.
+function untilChange(ms, grows) {
+    ms = Math.max(0, ms);
+    var unit = ms < 59500 ? 1000 : 60000, edge = unit === 1000 ? 500 : 29500;
+    if (grows) return ((edge - ms) % unit + unit) % unit || unit;
+    if (ms < 500) return Infinity;
+    var wait = ((ms - edge) % unit + unit) % unit + 1;
+    return unit === 60000 && ms < 89500 ? Math.min(wait, ms - 59500 + 1) : wait;
+}
+function when(kind, iso) {
+    var at = Date.parse(iso || '');
+    if (!isFinite(at)) return kind === 'ago' ? 'never' : '';
+    return h('time', { datetime: iso, 'data-rel': kind, title: new Date(at).toLocaleString(), text: relative(kind, at, Date.now()) });
+}
+function ago(iso) { return when('ago', iso); }
+function inTime(iso) { return when('in', iso); }
+// Parts with a separator between them; parts can be words or nodes.
+function joined(parts, separator) {
+    var out = [];
+    parts.filter(Boolean).forEach(function (part, index) { if (index) out.push(separator); out.push(part); });
+    return out;
+}
 function clock(iso, seconds) {
     var at = new Date(iso);
     var day = at.toDateString() === new Date().toDateString() ? '' : at.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) + ' ';
@@ -959,8 +987,8 @@ function stageDot(item, entry) {
 function facts(item) {
     var list = [];
     if (item.state && ['queued', 'building', 'reviewing', 'pr', 'merged', 'blocked'].indexOf(item.state) < 0) list.push(item.state);
-    if (item.since) list.push('for ' + span(Date.now() - Date.parse(item.since)));
-    else if (item.startedAt && item.stage !== 'queued' && Date.parse(item.startedAt) <= Date.now()) list.push('started ' + ago(item.startedAt));
+    if (item.since) list.push(when('for', item.since));
+    else if (item.startedAt && item.stage !== 'queued' && Date.parse(item.startedAt) <= Date.now()) list.push(['started ', ago(item.startedAt)]);
     if (item.checks) list.push('checks ' + item.checks);
     if (item.autoMerge) list.push('auto-merge on');
     return list;
@@ -971,8 +999,8 @@ function tile(label, value, sub) {
     return h('div', { class: 'tile', 'data-key': label }, h('div', { class: 'label', text: label }), h('div', { class: 'value', 'data-flash': true, text: value }), sub ? h('div', { class: 'sub', text: sub }) : null);
 }
 function alert(item) {
-    var when = item.since ? ' · since ' + clock(item.since) + ' (' + ago(item.since) + ')' : item.until ? ' · until ' + clock(item.until) : '';
-    return h('div', { class: 'alert', 'data-key': 'alert:' + item.text, role: item.level === 'bad' ? 'alert' : null }, h('i', { class: 'dot ' + (item.level === 'bad' ? 'bad' : 'warn') }), h('span', { text: item.text + when }));
+    var time = item.since ? [' · since ' + clock(item.since) + ' (', ago(item.since), ')'] : item.until ? ' · until ' + clock(item.until) : '';
+    return h('div', { class: 'alert', 'data-key': 'alert:' + item.text, role: item.level === 'bad' ? 'alert' : null }, h('i', { class: 'dot ' + (item.level === 'bad' ? 'bad' : 'warn') }), h('span', null, item.text, time));
 }
 
 // One line per group that is being worked on: the at-a-glance view of a monitor.
@@ -981,7 +1009,7 @@ function workRow(item, entry) {
     return h('div', { class: 'row', 'data-key': item.id, 'data-sig': signature(item), title: item.note || null },
         h('span', { class: 'stage', 'data-flash': true }, stageDot(item, entry), stageOf(item.stage)[1]),
         h('span', { class: 'what' }, comments(item.comments), item.pr ? anchor(item.prUrl, 'PR #' + item.pr, 'pr') : null, agent(item),
-            words.length ? h('span', { class: 'muted num', text: words.join(', ') }) : null,
+            words.length ? h('span', { class: 'muted num' }, joined(words, ', ')) : null,
             item.session ? anchor(item.session, 'Session', 'session') : null));
 }
 
@@ -991,7 +1019,7 @@ function card(item, entry) {
         h('div', { class: 'head' }, comments(item.comments), item.pr ? anchor(item.prUrl, 'PR #' + item.pr, 'pr') : null,
             item.session ? anchor(item.session, 'Session', 'session') : null),
         h('div', { class: 'meta' }, agent(item), [item.class, item.size].filter(Boolean).join(' · ')),
-        words.length ? h('div', { class: 'meta num', text: words.join(' · ') }) : null,
+        words.length ? h('div', { class: 'meta num' }, joined(words, ' · ')) : null,
         item.note ? h('div', { class: 'note clamp', title: item.note, text: item.note }) : null);
 }
 
@@ -1086,7 +1114,7 @@ function details(entry) {
         h('div', { class: 'line muted', 'data-key': 'watcher' }, h('span', { class: 'eyebrow', text: 'Watcher' }),
             h('span', { class: 'facts num' }, [entry.watcher.version ? ['version', 'version ' + entry.watcher.version] : null,
                 entry.watcher.persistent === undefined ? null : entry.watcher.persistent ? ['persistent', 'persistent'] : ['oneshot', 'one-shot'],
-                entry.watcher.heartbeatAt ? ['heartbeat', 'checked in ' + ago(entry.watcher.heartbeatAt)] : null, ['wake', plural(entry.wakes, 'wake')],
+                entry.watcher.heartbeatAt ? ['heartbeat', ['checked in ', ago(entry.watcher.heartbeatAt)]] : null, ['wake', plural(entry.wakes, 'wake')],
                 entry.inbox.total ? ['inbox', plural(entry.inbox.total, 'event') + ' in the inbox'] : null, entry.diskFreeGiB === null ? null : ['disk', entry.diskFreeGiB + ' GiB free']]
                 .filter(Boolean).map(function (fact) { return h('span', { class: 'fact' }, icon(fact[0]), fact[1]); })), links),
         h('div', { class: 'pipeline', 'data-key': 'pipeline', 'data-list': true }, columns.map(function (stage) {
@@ -1132,11 +1160,11 @@ function monitor(entry, alone) {
         where ? h('div', { class: 'where muted', 'data-key': 'where', text: where }) : null,
         entry.health.map(function (item) { return item.machine ? null : alert(item); }),
         h('div', { class: 'line', 'data-key': 'waiting' }, h('span', { class: 'eyebrow', text: 'Waiting on' }), h('span', { class: 'chips', 'data-list': true }, entry.waiting.map(function (item) {
-            return h('span', { class: 'chip', 'data-key': item.key }, h('span', { 'data-flash': true, text: item.text }), item.since ? ' · ' + ago(item.since) : item.until ? ' · ' + inTime(item.until) : '');
+            return h('span', { class: 'chip', 'data-key': item.key }, h('span', { 'data-flash': true, text: item.text }), item.since ? [' · ', ago(item.since)] : item.until ? [' · ', inTime(item.until)] : '');
         }))),
         entry.note && !resting ? h('div', { class: 'lastnote' + (expanded ? '' : ' one'), 'data-key': 'note', title: 'Last note: ' + entry.note },
-            h('span', { class: 'sr', text: 'Last note: ' }), h('span', { 'data-flash': true, text: entry.note }), ' · ' + ago(entry.updatedAt)) : null,
-        resting && entry.pipeline.length ? h('div', { class: 'muted', 'data-key': 'rest', text: plural(entry.pipeline.length, 'group') + ' left in the pipeline · updated ' + ago(entry.updatedAt) }) : null,
+            h('span', { class: 'sr', text: 'Last note: ' }), h('span', { 'data-flash': true, text: entry.note }), ' · ', ago(entry.updatedAt)) : null,
+        resting && entry.pipeline.length ? h('div', { class: 'muted', 'data-key': 'rest' }, plural(entry.pipeline.length, 'group') + ' left in the pipeline · updated ', ago(entry.updatedAt)) : null,
         !resting && !expanded && (pending.length || queued.length || entry.attention.length) ? h('div', { class: 'work', 'data-key': 'work', 'data-list': true, 'data-exit': 'finish' },
             pending.map(function (item) { return workRow(item, entry); }),
             queued.length ? h('div', { class: 'row', 'data-key': '~queued' }, h('span', { class: 'stage' }, h('i', { class: 'dot ring' }), 'Queued'),
@@ -1318,7 +1346,25 @@ function render() {
     });
     ready = true;
     if (restore) { window.scrollTo(0, restore); restore = 0; }
+    tick();
 }
+
+// Keeps every relative time current between updates: rewrites the words that changed, then sleeps
+// until the next one changes (a second while one counts seconds, else to the next minute).
+var ticking = 0;
+function tick() {
+    clearTimeout(ticking);
+    var now = Date.now(), wait = 60000;
+    slice(document.querySelectorAll('time[data-rel]')).forEach(function (node) {
+        var at = Date.parse(node.getAttribute('datetime')), kind = node.getAttribute('data-rel');
+        if (!isFinite(at)) return;
+        var words = relative(kind, at, now);
+        if (node.textContent !== words) node.textContent = words;
+        wait = Math.min(wait, untilChange(kind === 'in' ? at - now : now - at, kind !== 'in'));
+    });
+    ticking = setTimeout(tick, Math.max(wait, 20));
+}
+document.addEventListener('visibilitychange', function () { if (!document.hidden) tick(); });
 
 document.addEventListener('click', function (event) {
     var button = event.target.closest ? event.target.closest('[data-toggle]') : null;
@@ -1351,7 +1397,8 @@ stream.onmessage = function (event) {
     if (motion()) dot.animate([{ boxShadow: '0 0 0 0 hsl(' + green + ' / 0.6)' }, { boxShadow: '0 0 0 7px hsl(' + green + ' / 0)' }], { duration: 900, easing: 'ease-out' });
 };
 stream.onerror = function () { connection('warn', 'Reconnecting'); };
-setInterval(render, 20000);
+// Clock times, day names and what follows from them change slowly: a full update each minute.
+setInterval(render, 60000);
 </script>
 </body>
 </html>
