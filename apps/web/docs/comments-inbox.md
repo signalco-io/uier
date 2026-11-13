@@ -489,4 +489,17 @@ The label filter also runs before page selection, using the current effective la
 catalog IDs match no threads even if historical assignments remain. Label changes reset cursor and
 selection scope, and the routing projection retains label IDs without loading message bodies.
 
-The project board offers **Group by label**, saved for everyone by members who can triage. Each effective label has a horizontal lane, followed by No labels; multi-label threads appear in each matching lane. Each label/status cell has its own cursor, total and loaded window. Moves change status within the lane; label edits remain explicit thread controls. Duplicate cards have separate DOM focus targets and only the board opened from owns the thread sheet.
+The project offers **Group by**, saved for everyone by members who can triage. Selected labels have horizontal board lanes, followed by Ungrouped; multi-label threads appear in each matching lane. Each label/status cell has its own cursor, total and loaded window. Moves change status within the lane; label edits remain explicit thread controls. Duplicate cards have separate DOM focus targets and only the board opened from owns the thread sheet.
+
+The search row's **Group by** menu sits immediately after Filter in both project views.
+Label opens the effective catalog to choose the labels that get swimlanes; No grouping clears
+that choice. The project saves selected IDs with the existing triage permission. Older all-label
+preferences keep their meaning until edited. Ungrouped includes threads with no selected label,
+even when they have other labels. Board cards can appear in multiple selected lanes.
+
+List sections use the same selected labels in catalog order, then Ungrouped. Each thread has
+one row, under its first selected label, keeping row IDs, keyboard navigation and the open
+composer unique. The server orders sections before paging and binds the grouping to cursors;
+within each section the existing priority/number order stays. A section heading appears at its
+first loaded row. `thread-labels.spec.ts` covers switching/reloading both views and clearing the
+shared choice; `project-comment-pages.api.spec.ts` covers unselected labels and section paging.

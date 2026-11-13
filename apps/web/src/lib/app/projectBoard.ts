@@ -59,10 +59,10 @@ export async function saveProjectBoardArchive(project: DbProject, actor: Project
 }
 
 /** Shared board grouping preference; label catalogs remain independently admin managed. */
-export async function saveProjectBoardGrouping(project: DbProject, actor: ProjectActor, grouped: boolean, store: AppStore = getAppStore()) {
-    const value = z.boolean().parse(grouped);
+export async function saveProjectBoardGrouping(project: DbProject, actor: ProjectActor, grouped: boolean | string[], store: AppStore = getAppStore()) {
+    const value = z.union([z.boolean(), z.array(z.string().regex(/^label_[a-zA-Z0-9_-]+$/)).max(100)]).parse(grouped);
     if (!canSortProjectBoard(project, actor)) throw new UserFacingError('You can’t change how this board is shown.');
-    const saved = await updateDoc<DbProject>(project.pk, project.id, current => ({ ...current, boardGroupByLabel: value }), store);
+    const saved = await updateDoc<DbProject>(project.pk, project.id, current => ({ ...current, boardGroupByLabel: Array.isArray(value) ? value.length > 0 : value, boardGroupLabelIds: Array.isArray(value) ? [...new Set(value)] : undefined }), store);
     if (!saved) throw new UserFacingError('This project no longer exists.');
     return saved;
 }

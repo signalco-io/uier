@@ -1,4 +1,5 @@
 'use client';
+import { useAppI18n } from '@/src/lib/i18n/client';
 
 import { useEffect, useEffectEvent, useRef, useState, type MouseEvent, type RefObject } from 'react';
 import { cn } from '@/src/lib/utils';
@@ -83,7 +84,8 @@ export function useOpenComment(container: RefObject<HTMLElement | null>) {
  * phone, until a row is chosen) it stays unread. The keys pass threads faster than that, so only the
  * one the reader stops on is read.
  */
-export function CommentInbox({ projectId, comments, allComments, assignees, userId, label, keeps, readLeaves, openComment, paging, detailRevision }: {
+export function CommentInbox({ projectId, comments, allComments, assignees, userId, label, keeps, readLeaves, openComment, paging, detailRevision, groupLabels }: {
+    groupLabels?: import("../../../lib/app/threadLabel").ThreadLabel[];
     detailRevision?: string;
     paging?: CommentPageControl;
     projectId: string;
@@ -101,6 +103,14 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
     openComment: ReturnType<typeof useOpenComment>;
 }) {
     const { openId, hrefFor, open, close, sideBySide } = openComment;
+    const { t } = useAppI18n();
+    const groupOf = (comment: ProjectCommentView) => groupLabels?.find(label => comment.labels?.some(value => value.id === label.id));
+    const groupIndex = (comment: ProjectCommentView) => {
+        const index = groupLabels?.findIndex(label => label.id === groupOf(comment)?.id) ?? -1;
+        return index < 0 ? groupLabels?.length ?? 0 : index;
+    };
+    if (groupLabels) comments = [...comments].sort((a, b) => groupIndex(a) - groupIndex(b));
+
     const opened = openId ? allComments.find(comment => comment.id === openId) : undefined;
     // Comment id → the status it is leaving for; it stays hidden only while it has another one
     const [leaving, setLeaving] = useState<Record<string, CommentStatus>>({});
@@ -236,6 +246,7 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
                             className={cn('grid min-w-0 scroll-mt-14 scroll-mb-1 grid-cols-1 grid-rows-[1fr] transition-[grid-template-rows,opacity,translate] duration-150 ease-out motion-reduce:transition-none data-motion:rounded-lg data-motion:bg-card data-[motion=exit]:-z-1 lg:scroll-mt-1',
                                 leaves && 'grid-rows-[0fr] -translate-y-2 opacity-0')}>
                             <div className={cn('min-h-0', leaves && 'overflow-hidden')}>
+                                {groupLabels && (_index === 0 || groupOf(comments[_index - 1]!)?.id !== groupOf(comment)?.id) && <h2 data-label-section={groupOf(comment)?.id ?? 'unlabeled'} className="px-3 py-2 text-sm font-medium">{groupOf(comment)?.name ?? t('Ungrouped')}</h2>}
                                 <CommentRow comment={comment} projectId={projectId} href={hrefFor(comment.id)} tabbable={comment.id === tabStop?.id}
                                     selected={comment.id === opened?.id ? 'opened' : comment.id === selected?.id ? 'beside' : undefined}
                                     onOpen={event => open(comment.id, event)} />

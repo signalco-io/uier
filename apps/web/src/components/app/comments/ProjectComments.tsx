@@ -1,4 +1,6 @@
 'use client';
+import { CommentGrouping } from './CommentGrouping';
+import { selectedGroupLabels } from '../../../lib/app/projectCommentPaging';
 import { labelLaneKey, labelLaneMatches } from '../../../lib/app/projectCommentPaging';
 import { setBoardGroupingAction } from './actions';
 import { LabelBoards } from './LabelBoards';
@@ -88,6 +90,7 @@ type ProjectCommentsProps = {
     /** Whether the board's Archive column is expanded, saved on the project for everyone like the sorts */
     boardArchiveExpanded?: boolean;
     boardGroupByLabel?: boolean;
+    boardGroupLabelIds?: string[];
     /** Whether this person may change them, the sorts and Archive (`canSortProjectBoard`) */
     canSortBoard: boolean;
     authorFilter?: AuthorFilter;
@@ -104,7 +107,7 @@ type ProjectCommentsProps = {
 };
 
 /** The project's comments in a list (a status tab) or on a board (a column per status), filtered by people and page. */
-export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow, projectId, revision, access, isAdmin, comments: savedComments, query: serverQuery, userId, assignees, installHref, environments, authorFilter, boardSorts: savedSorts, boardArchiveExpanded: savedArchiveExpanded = false, boardGroupByLabel = false, canSortBoard, initialView, paging: savedPaging, openedComment: savedOpenedComment }: ProjectCommentsProps) {
+export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow, projectId, revision, access, isAdmin, comments: savedComments, query: serverQuery, userId, assignees, installHref, environments, authorFilter, boardSorts: savedSorts, boardArchiveExpanded: savedArchiveExpanded = false, boardGroupByLabel = false, boardGroupLabelIds, canSortBoard, initialView, paging: savedPaging, openedComment: savedOpenedComment }: ProjectCommentsProps) {
     const { t } = useAppI18n();
     // The presentation filters and the open thread change with the address at once, even while a
     // change waits for the server (`useUrlSearchParams`)
@@ -147,7 +150,7 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
     };
     // A column's new sort shows at once, and goes back with an error if saving it fails
     const [boardSorts, showSort] = useOptimistic(savedSorts, (current, change: { status: BoardColumn; sort: BoardSort }) => ({ ...current, [change.status]: change.sort }));
-    const [, startSorting] = useTransition();
+    const [sorting, startSorting] = useTransition();
     const changeSort = (status: BoardColumn, sort: BoardSort) => startSorting(async () => {
         showSort({ status, sort });
         const result = await setBoardSortAction(projectId, status, sort)
@@ -168,8 +171,10 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
             if (result && !result.ok) toast.error(result.error);
         });
     };
+    const groupIds = selectedGroupLabels({ boardGroupByLabel, boardGroupLabelIds }, labels);
+    const groupedLabels = labels.filter(label => groupIds && groupIds.includes(label.id));
     const pager = useProjectCommentPages({ projectId, userId, comments: savedComments, revision, paging: savedPaging, openedComment: savedOpenedComment },
-        { ...query, q: urlQuery.q }, boardSorts, archiveExpanded, workflow, openComment.openId, boardGroupByLabel ? labels.map(label => label.id) : false);
+        { ...query, q: urlQuery.q }, boardSorts, archiveExpanded, workflow, openComment.openId, groupIds);
     const [optimisticComments, updateComment] = useOptimistic(pager.data.comments, (current, update: CommentUpdate) => current.map(comment => applyCommentUpdate(comment, update)));
     // Priority first (Urgent to Low), then number, highest first: the list, selection and keyboard follow this
     // order. The board's columns each follow the project's sort for them, by default this one in active columns
@@ -253,10 +258,10 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
     const statusUnread = Object.fromEntries((Object.keys(statusFilterLabels) as StatusFilter[]).map(filter => [filter,
         pager.data.paging.statusUnread[filter] + delta(comment => Boolean(comment.activity?.unread) && statusMatches(filter, commentStatus(comment), comment.archivedAt)) > 0]));
     const totalFor = (lane: CommentLane) => lane === 'list' && !board ? statusCounts[query.status]
-        : Math.max(0, (pager.data.paging.lanes[lane]?.total ?? 0) + delta(comment => { const [status, label] = lane.split('~'); return statusForComment(workflow, comment).id === status && (!label || labelLaneMatches(comment.labels, label)); }));
+        : Math.max(0, (pager.data.paging.lanes[lane]?.total ?? 0) + delta(comment => { const [status, label] = lane.split('~'); return statusForComment(workflow, comment).id === status && (!label || labelLaneMatches(comment.labels, label, groupIds || undefined)); }));
     const inLabelWindow = (comment: ProjectCommentView, group?: string) => {
         if (!group) return true;
-        if (!labelLaneMatches(comment.labels, group)) return false;
+        if (!labelLaneMatches(comment.labels, group, groupIds || undefined)) return false;
         const status = statusForComment(workflow, comment).id;
         const original = pager.data.comments.find(row => row.id === comment.id);
         return Boolean(pager.data.paging.lanes[labelLaneKey(status, group)]?.ids.includes(comment.id))
@@ -321,12 +326,10 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
             // The board's columns start at the left, under the search (uier #363); My work's board keeps its own
             className="@container/comments flex flex-col gap-2 [&_[data-board-scroll]]:justify-start">
             <div data-header-wide={headerWide} className={cn('flex min-w-0 flex-col gap-2', threadOnly && '@max-3xl/comments:hidden', wideClassName, searchClassName)}>
-            {board && <div className="page-reading pb-2"><Button variant="outline" size="sm" disabled={!canSortBoard} aria-pressed={boardGroupByLabel}
-                onClick={() => startSorting(async () => {
-                    const result = await setBoardGroupingAction(projectId, !boardGroupByLabel).catch(() => ({ ok: false as const, error: t("Could not save the board. Try again.") }));
+            <CommentFilters grouping={<CommentGrouping labels={labels} selected={groupIds || []} disabled={!canSortBoard || sorting} onChange={ids => startSorting(async () => {
+                    const result = await setBoardGroupingAction(projectId, ids.length > 0, ids).catch(() => ({ ok: false as const, error: t("Could not save the board. Try again.") }));
                     if (result && !result.ok) toast.error(result.error);
-                })}>{t("Group by label")}</Button></div>}
-            <CommentFilters verificationEnabled={workflow.verificationEnabled === true} labels={labels} label={query.label} search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} historySources={historySources} unread={Boolean(query.unread)} unreadCount={pager.data.paging.unreadCount} view={board ? 'board' : 'list'} status={query.status} statusCounts={pager.data.paging.queryTooExpensive ? undefined : statusCounts} statusUnread={statusUnread} people={query.people} page={query.page} pages={pages}
+                })} />} verificationEnabled={workflow.verificationEnabled === true} labels={labels} label={query.label} search={search} onSearch={value => setSearchDraft({ url: urlKey, value })} priority={query.priority} author={authorFilter} environment={query.environment} environments={environments} historySources={historySources} unread={Boolean(query.unread)} unreadCount={pager.data.paging.unreadCount} view={board ? 'board' : 'list'} status={query.status} statusCounts={pager.data.paging.queryTooExpensive ? undefined : statusCounts} statusUnread={statusUnread} people={query.people} page={query.page} pages={pages}
                 countLine={populated ? { summary: unreadSummary, actions: unreadActions } : undefined} />
             {(pager.error || budgetExceeded) && <p role="status" className="m-0 text-sm text-muted-foreground">
                 {budgetExceeded ? t('This search is too large. Narrow the environment or author and try again.') : t('Comments could not be refreshed. Your loaded comments are still shown.')}
@@ -363,13 +366,13 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
                     </EmptyHeader>
                 </Empty>
             ) : board ? (
-                <LabelBoards grouped={boardGroupByLabel} labels={labels} renderBoard={group => <CommentBoard workflow={workflow} projectOf={() => ({ id: projectId, assignees })} columns={Object.fromEntries(Object.entries(columns).map(([status, cards]) => [status, cards.filter(comment => inLabelWindow(comment, group))])) as typeof columns} sorts={boardSorts} onSort={canSortBoard ? changeSort : undefined}
+                <LabelBoards grouped={boardGroupByLabel} labels={groupedLabels} renderBoard={group => <CommentBoard workflow={workflow} projectOf={() => ({ id: projectId, assignees })} columns={Object.fromEntries(Object.entries(columns).map(([status, cards]) => [status, cards.filter(comment => inLabelWindow(comment, group))])) as typeof columns} sorts={boardSorts} onSort={canSortBoard ? changeSort : undefined}
                     archiveAll={canSortBoard ? { projectId, group, params: Object.fromEntries(Object.entries(query).flatMap(([key, value]) => value === undefined ? [] : [[key, String(value)]])) } : undefined}
                     archive={{ comments: archived.filter(comment => inLabelWindow(comment, group)), expanded: archiveExpanded, onExpandedChange: changeArchive }}
                     allComments={scopeComments} userId={userId} openComment={openComment}
                     detailRevision={pager.data.revision} paging={Object.fromEntries(orderedStatuses(workflow).map(status => [status.id, pageControl(group ? labelLaneKey(status.id, group) : status.id)]))} />} />
             ) : (
-                <CommentInbox projectId={projectId} comments={shown} allComments={scopeComments} assignees={assignees} userId={userId} label={t("Comments")}
+                <CommentInbox groupLabels={boardGroupByLabel ? groupedLabels : undefined} projectId={projectId} comments={shown} allComments={scopeComments} assignees={assignees} userId={userId} label={t("Comments")}
                     keeps={status => statusMatches(query.status, status, query.status === 'archived' ? 'archived' : undefined)} readLeaves={Boolean(query.unread)} openComment={openComment} detailRevision={pager.data.revision} paging={pageControl('list')} />
             )}
             </TriageSelection>

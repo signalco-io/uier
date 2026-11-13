@@ -67,7 +67,8 @@ export type FilterProject = { id: string; name: string; url?: string };
  * Comments of several projects (My work) pass `projects` for a Project filter (`?project=`) and leave out what only
  * one project has (`environments`, `statusCounts`).
  */
-export function CommentFilters({ className, unread, unreadCount, view, onView, status, statusCounts, statusUnread, people, page, pages = [], environment, environments, historySources, author, search, onSearch, priority, countLine, project, projects, labels, label, verificationEnabled = false }: {
+export function CommentFilters({ className, unread, unreadCount, view, onView, status, statusCounts, statusUnread, people, page, pages = [], environment, environments, historySources, author, search, onSearch, priority, countLine, project, projects, labels, label, verificationEnabled = false, grouping }: {
+    grouping?: React.ReactNode;
     /** The header's width: the list's or the board's (ProjectComments) */
     verificationEnabled?: boolean;
     className?: string;
@@ -296,6 +297,7 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
                         </FieldGroup>
                     </PopoverContent>
                 </Popover>
+                {grouping}
                 {/* A new layout starts with no thread open (the board would open it in a sheet over itself). The choice is
                     remembered as the default and kept in the address, list too, so it wins over the remembered one there */}
                 <CommentsViewToggle view={view} onChange={next => {

@@ -1,3 +1,4 @@
+import { selectedGroupLabels } from './projectCommentPaging';
 import { timingSafeEqual } from 'node:crypto';
 import { agentIsWorking } from '@uier/toolbar/agents';
 import { commentPriority, matchesFeedbackSearch } from '@uier/toolbar/triage';
@@ -36,7 +37,7 @@ export { PROJECT_COMMENT_PAGE_SIZE } from './projectCommentPaging';
 import { labelLaneKey, PROJECT_COMMENT_MAX_DEPTH, PROJECT_COMMENT_PAGE_SIZE, projectCommentPageKey, type CommentLane, type CommentPage, type ProjectCommentPaging, type ProjectCommentPageInput } from './projectCommentPaging';
 export type { ProjectCommentPageInput } from './projectCommentPaging';
 
-type Pivot = Pick<ProjectCommentView, 'id' | 'number' | 'createdAt' | 'updatedAt' | 'completedAt' | 'archivedAt'> & { priority?: ProjectCommentView['priority'] };
+type Pivot = Pick<ProjectCommentView, 'id' | 'number' | 'createdAt' | 'updatedAt' | 'completedAt' | 'archivedAt'> & { priority?: ProjectCommentView['priority']; labelIds?: string[] };
 type Cursor = { key: string; after: Pivot; expires: number };
 const stages = feedbackStages;
 const filters: StatusFilter[] = ['active', ...stages, 'all', 'archived'];
@@ -97,17 +98,18 @@ export async function loadProjectCommentPages(context: AppContext, project: DbPr
     const archiveExpanded = input.archiveExpanded ?? Boolean(project.boardArchiveExpanded);
     const workflow = effectiveStatusWorkflow(context.workspace, project), definitions = orderedStatuses(workflow);
     const stage = (comment: CommentQueryCandidate) => feedbackStage({ ...comment, verificationEnabled: workflow.verificationEnabled === true });
-    const key = projectCommentPageKey(query, sorts, archiveExpanded, workflow, `${project.id}:${context.user.id}`, project.boardGroupByLabel ? labels.map(label => label.id) : false);
+    const key = projectCommentPageKey(query, sorts, archiveExpanded, workflow, `${project.id}:${context.user.id}`, selectedGroupLabels(project, labels));
     const board = query.view === 'board' && query.status !== 'archived';
     const boardStatus = board ? boardStatusFilter(query.status) : undefined;
     const lanes: Partial<Record<CommentLane, CommentPage>> = {};
     const selected = new Set<string>();
-    const groups = project.boardGroupByLabel ? [...labels.map(label => label.id), 'unlabeled'] : [''];
+    const groupLabels = selectedGroupLabels(project, labels);
+    const groups = groupLabels ? [...groupLabels, 'unlabeled'] : [''];
     const laneDefinitions = definitions.flatMap(status => groups.map(label => ({ status, label, id: label ? labelLaneKey(status.id, label) : status.id })));
     const rowsByLane = new Map(laneDefinitions.map(lane => [lane.id, [] as CommentQueryCandidate[]]));
     for (const comment of matching) {
         const status = statusForComment(workflow, comment).id;
-        const assigned = project.boardGroupByLabel ? labelsForComment(labels, comment).map(label => label.id) : [''];
+        const assigned = groupLabels ? labelsForComment(labels, comment).map(label => label.id).filter(id => groupLabels.includes(id)) : [''];
         for (const label of assigned.length ? assigned : ['unlabeled'])
             rowsByLane.get(label ? labelLaneKey(status, label) : status)?.push(comment);
     }
@@ -119,7 +121,11 @@ export async function loadProjectCommentPages(context: AppContext, project: DbPr
     for (const lane of choices) {
         const definition = board ? laneDefinitions.find(value => value.id === lane)!.status : undefined;
         const sort = definition ? sorts[definition.category] : undefined;
-        const compare = (a: Pivot, b: Pivot) => (sort ? boardSortOrders[sort](a, b) : compareCommentOrder(a, b)) || compareCommentOrder(a, b) || a.id.localeCompare(b.id);
+        const groupIndex = (row: Pivot) => {
+            const index = groupLabels ? groupLabels.findIndex(id => row.labelIds?.includes(id)) : -1;
+            return index < 0 ? (groupLabels ? groupLabels.length : 0) : index;
+        };
+        const compare = (a: Pivot, b: Pivot) => (!board && groupLabels ? groupIndex(a) - groupIndex(b) : 0) || (sort ? boardSortOrders[sort](a, b) : compareCommentOrder(a, b)) || compareCommentOrder(a, b) || a.id.localeCompare(b.id);
         const rows = (board ? rowsByLane.get(lane)! : matching.filter(comment => statusMatches(query.status, stage(comment), comment.archivedAt))).sort(compare);
         const binding = keyedHash('project-comment-page-binding', JSON.stringify([key, lane, viewerId, project.id, context.isAdmin, project.access, project.urls, query.unread ? input.openId : undefined]));
         const cursor = input.cursor ? readCursor(input.cursor, binding) : undefined;
@@ -129,7 +135,7 @@ export async function loadProjectCommentPages(context: AppContext, project: DbPr
         const size = input.allIds ? Math.max(rows.length, 1) : depth * PROJECT_COMMENT_PAGE_SIZE;
         const page = remaining.slice(0, size), last = page.at(-1);
         const after = last && { id: last.id, priority: last.priority ?? 'normal', number: last.number, createdAt: last.createdAt,
-            updatedAt: last.updatedAt, completedAt: last.completedAt, archivedAt: last.archivedAt };
+            labelIds: last.labelIds, updatedAt: last.updatedAt, completedAt: last.completedAt, archivedAt: last.archivedAt };
         lanes[lane] = { ids: page.map(row => row.id), total: rows.length,
             nextCursor: remaining.length > size && after ? signCursor({ key: binding, after, expires: cursor?.expires ?? Date.now() + 15 * 60_000 }) : null };
         for (const row of page) selected.add(row.id);

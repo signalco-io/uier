@@ -69,3 +69,7 @@ Below 1024 px the inbox virtualizes against the document viewport and scrolls wi
 The delayed toolbar category-status regression signs out and posts as a guest before holding
 the save. Members use the separate custom workflow mutation, which waits for confirmation
 ([toolbar status behavior](../../../packages/toolbar/docs/optimistic-status.md)).
+
+The project Group by choice is saved once for List and Board, independently of URL filters.
+View changes and Back/Forward retain it. Changing selected labels invalidates page keys and
+signed cursors, including list cursors, so an old window cannot cross grouping scopes.

@@ -304,6 +304,27 @@ test('label swim lanes page independently, bind cursors and resolve removed defi
 });
 
 
+test('selected grouping keeps other labels ungrouped and list cursors cross section boundaries', async () => {
+    const f = await fixture();
+    const labels = [
+        { id: 'label_DesignA', name: 'Design', color: 'violet' as const, description: '' },
+        { id: 'label_BugB', name: 'Bug', color: 'red' as const, description: '' }
+    ];
+    const fields = { boardGroupByLabel: true, boardGroupLabelIds: ['label_DesignA'], threadLabels: { mode: 'replace' as const, value: labels } };
+    for (let i = 0; i < 31; i++) await f.store.create(f.row(i, { labelIds: [i < 26 ? 'label_DesignA' : 'label_BugB'] }));
+    const board = await f.load({}, {}, fields);
+    expect(board.paging.lanes['open~label_BugB']).toBeUndefined();
+    expect(board.paging.lanes['open~unlabeled']?.total).toBe(5);
+    const first = await f.load({ view: 'list' }, {}, fields);
+    expect(first.paging.lanes.list?.ids).toHaveLength(25);
+    const next = await f.load({ view: 'list' }, { lane: 'list', cursor: first.paging.lanes.list!.nextCursor! }, fields);
+    expect(next.paging.lanes.list?.ids).toHaveLength(6);
+    expect(next.paging.lanes.list?.ids[0]).toBe('row-00000');
+    expect(new Set([...first.paging.lanes.list!.ids, ...next.paging.lanes.list!.ids]).size).toBe(31);
+    await expect(f.load({ view: 'list' }, { lane: 'list', cursor: first.paging.lanes.list!.nextCursor! }, { ...fields, boardGroupLabelIds: ['label_BugB'] })).rejects.toMatchObject({ status: 400 });
+});
+
+
 test('summary PR cards retain links from complete messages without reply bodies or removal rights', async () => {
     const f = await fixture();
     const opener = 'https://github.com/acme/site/pull/2';

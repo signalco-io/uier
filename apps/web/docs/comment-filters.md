@@ -114,3 +114,7 @@ shown as read while additional unread matches are not loaded. See [paging](comme
 The view toggle records an implicit current List/Board choice in the existing history entry before
 pushing the new choice. Back therefore restores that view even though the browser now remembers
 the later choice; an initial visit without either saved preference still keeps its original URL.
+
+Group by sits to the right of Filter on project inboxes and boards. It is a shared project
+presentation setting, independent of the Label filter: choosing swimlanes does not exclude
+other threads. Only members allowed to triage can save it; label catalogs are unchanged.

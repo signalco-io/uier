@@ -229,6 +229,7 @@ export type DbProject = AppDoc & {
     /** Whether the board's Archive column, its last, is expanded for everyone who opens it; missing means collapsed */
     boardArchiveExpanded?: true;
     boardGroupByLabel?: boolean;
+    boardGroupLabelIds?: string[];
     status: ProjectStatus;
     access: ProjectAccess;
     /**
