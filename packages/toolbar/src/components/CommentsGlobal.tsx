@@ -1,7 +1,7 @@
 import { useToolbarFeatures } from '../hooks/useToolbarFeatures';
 import { ReattachContext, describeAnchor } from './CommentAnchorDetails';
 import { messages, useMessages, useToolbarLanguage } from '../i18n';
-import { DockablePanel, panelsSideBySideNow, usePanelsSideBySide, usePanelSidesVersion } from './DockablePanel';
+import { DockablePanel, panelRoomNow, usePanelRoom, usePanelSidesVersion } from './DockablePanel';
 import { CommentsApiError } from '../hooks/api';
 import { useCallback, useEffect, useEffectEvent, useId, useMemo, useRef, useState } from 'react';
 import { anchorSelector } from '../anchorSelector';
@@ -188,19 +188,19 @@ export function CommentsGlobal({
     const [mountRequest] = useState(takeToolbarRequest);
     // The panels open on the previous page stay open on this one (client-side navigation or a full load)
     const [restoredPanels, setRestoredPanels] = useState<readonly DockPanelId[]>(() => mountRequest ? [] : fitPanels(readOpenPanels()
-        .filter(panel => panel === 'inbox' || (features.includes(panel) && (panel === 'seo' || auditAvailable()))), panelsSideBySideNow()));
-    // The open docked panels (the inbox, the Accessibility and SEO panels), oldest first: one on each
-    // side where two fit side by side, else one (`fitPanels`). Opening one closes only the one on its side.
+        .filter(panel => panel === 'inbox' || (features.includes(panel) && (panel === 'seo' || auditAvailable()))), panelRoomNow()));
+    // The open docked panels (the inbox, the Accessibility and SEO panels), oldest first: those that do
+    // not cover each other where they dock (`fitPanels`). Opening one closes only those it covers.
     const [openPanels, setOpenPanels] = useState<readonly DockPanelId[]>(restoredPanels);
-    const sideBySide = usePanelsSideBySide();
-    const sideBySideRef = useRef(sideBySide);
-    sideBySideRef.current = sideBySide;
+    const panelRoom = usePanelRoom();
+    const panelRoomRef = useRef(panelRoom);
+    panelRoomRef.current = panelRoom;
     const showPanel = useCallback((panel: DockPanelId, open: boolean) => setOpenPanels(current => open
-        ? fitPanels([...current.filter(other => other !== panel), panel], sideBySideRef.current)
+        ? fitPanels([...current.filter(other => other !== panel), panel], panelRoomRef.current)
         : current.includes(panel) ? current.filter(other => other !== panel) : current), []);
     // Narrower, where two no longer fit, the newest stays
     const sidesVersion = usePanelSidesVersion();
-    useEffect(() => setOpenPanels(current => fitPanels(current, sideBySide)), [sideBySide, sidesVersion]);
+    useEffect(() => setOpenPanels(current => fitPanels(current, panelRoom)), [panelRoom, sidesVersion]);
     const sidebarOpen = openPanels.includes('inbox');
     const setSidebarOpen = useCallback((open: boolean) => showPanel('inbox', open), [showPanel]);
     const checksPanels = useMemo(() => openPanels.filter((panel): panel is ChecksPanelId => panel !== 'inbox'), [openPanels]);

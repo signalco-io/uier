@@ -3,7 +3,12 @@
 // exclamation marks (BRAND.md). Product and standard names stay as they are: uier, SEO, WCAG, axe-core.
 // Functions build strings with numbers or names; counts use the language's plural rules.
 
+import type { PanelDock } from '../components/DockablePanel';
+
 const s = (count: number, one: string, other: string) => count === 1 ? one : other;
+
+// Where a panel docks, as the panel messages say it (`panel.moved`, `panel.moveTo`)
+const panelPlaces: Record<PanelDock, string> = { left: 'the left', right: 'the right', 'left-top': 'the top left', 'right-top': 'the top right', 'left-bottom': 'the bottom left', 'right-bottom': 'the bottom right' };
 
 export const en = {
     consentPanel: {
@@ -625,9 +630,9 @@ export const en = {
     panel: {
         /** "Move inbox panel", "Move SEO panel": a capitalized word goes lower case, an abbreviation stays */
         move: (label: string) => `Move ${/^[A-Z][a-z]/.test(label) ? label[0]!.toLowerCase() + label.slice(1) : label} panel`,
-        moveTip: 'Drag to the other side, or use the arrow keys',
-        moved: (label: string, side: 'left' | 'right') => `${label} moved to the ${side}.`,
-        moveTo: (side: 'left' | 'right') => `Move to the ${side}`,
+        moveTip: 'Drag to a side or a corner, or use the arrow keys',
+        moved: (label: string, dock: PanelDock) => `${label} moved to ${panelPlaces[dock]}.`,
+        moveTo: (dock: PanelDock) => `Move to ${panelPlaces[dock]}`,
         /** The menu of a panel's title: the other panels to show in its place */
         switch: 'Switch panel'
     },

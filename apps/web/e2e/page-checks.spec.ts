@@ -507,6 +507,58 @@ test('panels docked on different sides stay open together, highlight their butto
     await expect(accessibility).toBeVisible();
 });
 
+test('panels docked in the top and bottom quarters of a side stay open together, and a whole side takes their place', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.use.isMobile === true, 'Desktop layout');
+    test.setTimeout(90_000);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await memberReview(page, 'quarter-panels');
+    const inbox = page.getByRole('complementary', { name: 'Comments' });
+    const seo = page.getByRole('complementary', { name: 'SEO' });
+    const accessibility = page.getByRole('complementary', { name: 'Accessibility' });
+
+    await openPageCheck(page, /^SEO/);
+    await seo.getByRole('button', { name: 'Move SEO panel' }).press('ArrowUp');
+    await expect(seo).toHaveAttribute('data-dock', 'right-top');
+    await openPageCheck(page, /^Accessibility/);
+    await expect(accessibility).toHaveAttribute('data-dock', 'right');
+    await expect(seo).toBeHidden();
+    await accessibility.getByRole('button', { name: 'Move accessibility panel' }).press('ArrowDown');
+    await expect(accessibility).toHaveAttribute('data-dock', 'right-bottom');
+    await openPageCheck(page, /^SEO/);
+    await expect(seo).toBeVisible();
+    await expect(accessibility).toBeVisible();
+    const seoBox = (await seo.boundingBox())!;
+    const accessibilityBox = (await accessibility.boundingBox())!;
+    expect(seoBox.y + seoBox.height).toBeLessThan(accessibilityBox.y);
+
+    // Moved onto the other's quarter, the two swap places
+    await seo.getByRole('button', { name: 'Move SEO panel' }).press('ArrowDown');
+    await expect(seo).toHaveAttribute('data-dock', 'right');
+    await expect(accessibility).toHaveAttribute('data-dock', 'left-bottom');
+    await expect(accessibility).toBeVisible();
+    await seo.getByRole('button', { name: 'Move SEO panel' }).press('ArrowDown');
+    await expect(seo).toHaveAttribute('data-dock', 'right-bottom');
+    await accessibility.getByRole('button', { name: 'Move accessibility panel' }).press('ArrowRight');
+    await expect(accessibility).toHaveAttribute('data-dock', 'right-bottom');
+    await expect(seo).toHaveAttribute('data-dock', 'left-bottom');
+
+    // Three open at once: a third panel fits in a free quarter, and they stay open after a reload
+    await toolbar(page).getByRole('button', { name: /^Inbox/ }).click();
+    await expect(inbox).toHaveAttribute('data-dock', 'right');
+    await expect(accessibility).toBeHidden();
+    await expect(seo).toBeVisible();
+    await inbox.getByRole('button', { name: 'Move comments panel' }).press('ArrowUp');
+    await expect(inbox).toHaveAttribute('data-dock', 'right-top');
+    await openPageCheck(page, /^Accessibility/);
+    await expect(accessibility).toBeVisible();
+    await expect(inbox).toBeVisible();
+    await expect(seo).toBeVisible();
+    await page.reload();
+    await expect(accessibility).toBeVisible();
+    await expect(inbox).toBeVisible();
+    await expect(seo).toBeVisible();
+});
+
 test('a guest with both checks panels open is asked for the name in the panel they comment from, also after the other closes', async ({ page }, testInfo) => {
     test.skip(testInfo.project.use.isMobile === true, 'Desktop layout');
     test.setTimeout(90_000);

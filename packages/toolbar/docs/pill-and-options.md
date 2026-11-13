@@ -48,6 +48,16 @@ viewport's bounds, the toolbar's position and reusable panel docking (the inbox 
 [page checks](page-checks.md#where-they-open)). Positions are versioned browser-local preferences, and each
 handle has keyboard alternatives (the move handle's arrows move the pill).
 
+- A panel docks on a whole side or a quarter of the page, the top or bottom half of a side
+  ([uier #388](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_0-3lpwzgbghwy4WWjb3yN),
+  `PanelDock`: `left`, `right`, `left-top`, `right-top`, `left-bottom`, `right-bottom`). Dragging its handle moves
+  the panel's centre: the half of the page it is over picks the side, its top or bottom third a quarter, and the
+  outline shows the place with "Move to the top left". The handle's left and right arrows change the side and keep
+  the quarter, up and down go from the whole side to its top or bottom quarter and back, Home goes back to the right.
+  The place is kept per panel in `uier:panel-side:v1:<panel>` (the key predates the quarters, so a saved side is
+  still a whole side), and the aside says it in `data-dock` (`data-side` stays the side, for the slide animation).
+  Quarters are 16 px apart; narrower than 640 px a panel still covers the page wherever it docks.
+
 ## Notices by the pill
 
 `useToolbarNotice` places a notice by the pill: the point-mode instruction, Resume draft, toasts and the load
