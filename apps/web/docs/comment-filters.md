@@ -18,7 +18,9 @@
   filters in effect) and List/Board (on a touch screen the search, Filter and the List/Board group are one height, 44 px:
   the group's 3 px padding around 38 px tabs; uier #277). Where the list sits beside its thread (`@3xl/comments`) and on the
   board (from `md`) the search is as wide as the first column under it, so their edges line up (uier #355:
-  `useFirstColumnWidth` in `ProjectComments.tsx` measures the column into `--first-column`; 20rem until it is measured). The status tabs
+  `useFirstColumnWidth` in `ProjectComments.tsx` measures the column into `--first-column`; 20rem until it is measured). Beside the list it is exactly that wide, not just at most, and the status tabs start where the thread does: the
+  search keeps 0.5rem more after it than the row's gap, making the columns' 1rem gap (uier #384, `searchBesideList` in
+  `CommentsViewToggle.tsx`, on the loaded and the loading header). The status tabs
   (list only, `StatusTabs`: Active, Done and All, with counts) follow the search in the same row and wrap with it when the
   row runs out of room; on a phone, below `sm`, they take their own line under the row (before the filters in effect),
   the group fills the width and the tabs share the room, uier #278. Active, the default with no `?status=`, is every status

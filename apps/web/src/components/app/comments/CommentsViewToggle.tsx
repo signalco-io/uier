@@ -12,6 +12,14 @@ export const segmentedGroup = 'gap-0.5 rounded-lg bg-muted p-[3px]';
 export const segmentedItem = 'h-[26px] min-w-[26px] shrink-0 rounded-md px-2.5 text-muted-foreground hover:bg-transparent hover:text-foreground data-pressed:bg-background data-pressed:text-foreground data-pressed:shadow-sm pointer-coarse:min-h-11';
 
 /**
+ * For the header over the list with its thread beside it, from the width it is split (`@3xl/comments`): the search is
+ * exactly as wide as the list (`--search-width`, not just at most) and the status tabs start where the thread does, the
+ * row's 0.5rem gap and 0.5rem more making the columns' 1rem gap (uier #384). Set on the header around `CommentFilters`
+ * (and the loading one, `CommentsLoading`).
+ */
+export const searchBesideList = '@3xl/comments:[&_[data-search-field]]:flex-none @3xl/comments:[&_[data-search-field]]:w-(--search-width) @3xl/comments:[&_[data-search-field]]:mr-2';
+
+/**
  * List and Board, as icon-only tabs; the tooltip and the accessible name say which. On a touch screen the group, not each
  * tab, takes the 44 px of the search and Filter beside it (its 3 px padding around 38 px tabs; uier #277). A project's
  * comments (`CommentFilters`) and My work (`MyWorkViews`, through `CommentFilters`' `onView`) keep the choice in the address and remember it.

@@ -152,7 +152,7 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
             {/* Search on the left; the filters in effect, Filter and List/Board on the right. The filters in effect wrap
                 within their room, and on a phone go to their own line under the row. */}
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <InputGroup className="min-w-0 flex-1 sm:max-w-[var(--search-width,20rem)] sm:min-w-48 pointer-coarse:min-h-11">
+                <InputGroup data-search-field="" className="min-w-0 flex-1 sm:max-w-[var(--search-width,20rem)] sm:min-w-48 pointer-coarse:min-h-11">
                     <InputGroupAddon><SearchIcon /></InputGroupAddon>
                     <InputGroupInput ref={searchRef} id={visible ? 'feedback-search' : undefined} type="search" aria-label={t("Search feedback")} maxLength={MAX_FEEDBACK_SEARCH} className="pointer-coarse:min-h-11"
                         // `/` goes here from the page (`AppShortcuts`)

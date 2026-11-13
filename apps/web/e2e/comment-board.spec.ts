@@ -233,6 +233,12 @@ test('the board widens on a wide window, the filters and project headers and the
     const split = list.locator('xpath=..');
     await headerSpans(list);
     expect((await placement(split)).right).toBeCloseTo(32, 0);
+    // The search is exactly as wide as the list, and the status tabs start where the thread beside it does (uier #384)
+    const listWidth = (await list.boundingBox())!.width;
+    await expect.poll(async () => Math.round((await placement(search)).width)).toBe(Math.round(listWidth));
+    // In page coordinates: the tabs scroll sideways in their own row on a phone
+    const threadLeft = (await split.locator('xpath=./*[2]').boundingBox())!.x;
+    expect((await page.getByRole('group', { name: 'Status', exact: true }).boundingBox())!.x).toBeCloseTo(threadLeft, 0);
     // A search with no result: its empty state is as wide as the header, from the search to the view toggle (uier #383)
     await page.locator('#feedback-search').fill('nothing matches this');
     const empty = page.locator('[data-slot="empty"]').filter({ hasText: 'Nothing here' });
