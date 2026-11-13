@@ -769,6 +769,8 @@ h1, h2, h3, p { margin: 0; }
 .line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
 .eyebrow { flex: none; min-width: 76px; font-size: 12px; color: hsl(var(--muted-foreground)); }
 .chips { display: flex; flex: 1; flex-wrap: wrap; gap: 4px 8px; min-width: 0; }
+.lastnote { margin-top: -4px; font-size: 11px; line-height: 1.4; color: hsl(var(--muted-foreground)); }
+.lastnote.one { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chip { display: inline-block; padding: 1px 8px; border-radius: 999px; background: hsl(var(--muted)); color: hsl(var(--secondary-foreground)); font-size: 13px; }
 .work { display: grid; gap: 3px; }
 .work .row { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: baseline; gap: 8px; padding: 5px 10px; border-radius: 8px; background: hsl(var(--muted)); font-size: 13px; overflow-wrap: anywhere; }
@@ -1119,8 +1121,8 @@ function monitor(entry, alone) {
         h('div', { class: 'line', 'data-key': 'waiting' }, h('span', { class: 'eyebrow', text: 'Waiting on' }), h('span', { class: 'chips', 'data-list': true }, entry.waiting.map(function (item) {
             return h('span', { class: 'chip', 'data-key': item.key }, h('span', { 'data-flash': true, text: item.text }), item.since ? ' · ' + ago(item.since) : item.until ? ' · ' + inTime(item.until) : '');
         }))),
-        entry.note && !resting ? h('div', { class: 'line', 'data-key': 'note' }, h('span', { class: 'eyebrow', text: 'Last note' }),
-            h('span', { class: expanded ? null : 'clamp', title: entry.note }, h('span', { 'data-flash': true, text: entry.note }), ' · ' + ago(entry.updatedAt))) : null,
+        entry.note && !resting ? h('div', { class: 'lastnote' + (expanded ? '' : ' one'), 'data-key': 'note', title: 'Last note: ' + entry.note },
+            h('span', { class: 'sr', text: 'Last note: ' }), h('span', { 'data-flash': true, text: entry.note }), ' · ' + ago(entry.updatedAt)) : null,
         resting && entry.pipeline.length ? h('div', { class: 'muted', 'data-key': 'rest', text: plural(entry.pipeline.length, 'group') + ' left in the pipeline · updated ' + ago(entry.updatedAt) }) : null,
         !resting && !expanded && (pending.length || queued.length || entry.attention.length) ? h('div', { class: 'work', 'data-key': 'work', 'data-list': true, 'data-exit': 'finish' },
             pending.map(function (item) { return workRow(item, entry); }),

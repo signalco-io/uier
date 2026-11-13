@@ -117,7 +117,8 @@ anything. A card shows:
   shows once, at the top of the page. Stopped and inactive monitors are dimmed.
 - **Sessions:** how many of the monitor's slots are working.
 - **Waiting on:** sessions still working, pull requests to merge, deploys to finish, a timer, events
-  the orchestrator hasn't taken yet, or you. The orchestrator's last note says what it just did.
+  the orchestrator hasn't taken yet, or you. Under it, one small muted line gives the orchestrator's
+  last note (what it just did); hover it for the whole note, or open the card's details to read it in full.
 - **Work in progress:** one line per group under Building, In review, Pull request, Deploying or
   Blocked, with its comments, pull request, agent, time in that state and a link to the session,
   then the queued comments and what needs you (open questions, comments ready to verify, blocked
