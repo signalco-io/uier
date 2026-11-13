@@ -730,6 +730,7 @@ h1, h2, h3, p { margin: 0; }
 .top h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
 .muted { color: hsl(var(--muted-foreground)); }
 .right { margin-left: auto; }
+.summary { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; align-self: center; }
 .num { font-variant-numeric: tabular-nums; }
 .ico { flex: none; width: 14px; height: 14px; vertical-align: -2px; }
 .link, .who, .agent { display: inline-flex; align-items: center; gap: 4px; }
@@ -823,7 +824,7 @@ code { font: 12px/1.4 "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospa
 <div class="wrap">
     <header class="top">
         <h1>uier monitor</h1>
-        <span class="muted" id="summary">Loading</span>
+        <span class="summary" id="summary" data-list><span class="muted" data-key="loading">Loading</span></span>
         <span class="badge right" id="live"><i class="dot ring"></i><span>Connecting</span></span>
     </header>
     <div class="machine" id="machine" data-list></div>
@@ -1281,10 +1282,12 @@ function render() {
     var count = function (stage) { return function (entry) { return entry.pipeline.filter(function (item) { return item.stage === stage; }).length; }; };
     var needs = sum(monitors, function (entry) { return entry.attention.length; });
     var working = monitors.filter(active).length, waiting = monitors.filter(function (entry) { return entry.status === 'waiting'; }).length;
-    var summary = monitors.length ? [plural(monitors.length, 'monitor'), working + ' working', waiting ? waiting + ' waiting' : ''].filter(Boolean).join(', ') : 'No monitors';
+    var pill = function (key, dot, words) { return h('span', { class: 'badge', 'data-key': key }, dot ? h('i', { class: 'dot ' + dot }) : null, h('span', { class: 'num', 'data-flash': true, text: words })); };
+    var summary = h('span', null, monitors.length ? [pill('monitors', null, plural(monitors.length, 'monitor')), pill('working', working ? 'work' : 'ring', working + ' working'),
+        waiting ? pill('waiting', 'idle', waiting + ' waiting') : null] : h('span', { class: 'muted', 'data-key': 'none', text: 'No monitors' }));
     var shared = {};
     animated(function () {
-        document.getElementById('summary').textContent = summary;
+        reconcile(document.getElementById('summary'), summary);
         document.title = (needs ? '(' + needs + ') ' : '') + 'uier monitor';
         reconcile(document.getElementById('machine'), h('div', null, busy.map(function (entry) {
             return entry.health.map(function (item) { if (!item.machine || shared[item.text]) return null; shared[item.text] = true; return alert(item); });

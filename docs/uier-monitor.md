@@ -139,7 +139,8 @@ the system, nothing moves.
 
 **Show details** opens a card across the page and adds each group's note, the watcher's version and
 last check-in, the activity feed, comments closed per day, the median time from start to close and
-the wakes of the last 24 hours. The totals above the cards count every monitor that isn't stopped or
+the wakes of the last 24 hours. Badges next to the title count the monitors, the ones working and the
+ones waiting. The totals above the cards count every monitor that isn't stopped or
 inactive.
 
 #### Feedback on the dashboard
