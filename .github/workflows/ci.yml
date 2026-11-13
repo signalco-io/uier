@@ -347,3 +347,24 @@ jobs:
             echo "::error::One or more CI jobs failed or were cancelled."
             exit 1
           fi
+
+  extension-release:
+    name: "Continue daily extension release"
+    needs: ci-ok
+    if: >-
+      github.event_name == 'workflow_dispatch' && needs.ci-ok.result == 'success' &&
+      startsWith(github.ref, 'refs/heads/extension-release/v')
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Dispatch finalization from main after CI OK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="${RELEASE_BRANCH#extension-release/v}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then exit 1; fi
+          gh workflow run extension-release-finish.yml --repo "$GITHUB_REPOSITORY" --ref main -f "version=$version" -f "ci_run_id=$GITHUB_RUN_ID"

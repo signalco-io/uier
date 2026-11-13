@@ -239,10 +239,17 @@ and dispatches **CI** on that branch. The bump changes only both browser package
 app's `latestExtensionVersion`; a test keeps them equal. Explicit dispatch avoids the approval step
 GitHub otherwise applies to workflows on bot-created PRs. Existing open version PRs are reused and
 their CI is dispatched again, rather than skipping the release because its branch already exists.
+If main advanced, the verified version-only commit is recreated on current main and pushed with an
+exact-head lease. This retains the same PR, includes current toolbar/workflow changes and refuses
+to overwrite a concurrent branch update.
 
-Successful CI triggers **Extension release finish** from main. It verifies the PR belongs to this
+After **CI OK** passes, CI explicitly dispatches **Extension release finish** from main with its run
+ID. A bot-dispatched CI run does not reliably emit `workflow_run`, so this handoff does not depend on
+that event. It verifies the PR belongs to this
 repository's Actions bot, contains one commit with exactly the three expected version edits, and
-has successful CI and **CI OK** on that exact head. It merges through main's existing rules, tags
+has **CI OK** on that exact head. A directly handed-off CI run may still be completing its final
+dispatch job; every checked job has already passed. Recovery requires completed successful dispatched
+CI and ignores approval-required PR runs. It merges through main's existing rules, tags
 the resulting merge commit, and starts the existing **Extension release** build and store jobs.
 It explicitly dispatches **Deploy** so `/api/extension/version` reports the new version even though
 a `GITHUB_TOKEN` merge does not trigger push workflows. No owner merge, tag or environment approval

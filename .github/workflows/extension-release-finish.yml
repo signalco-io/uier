@@ -3,16 +3,16 @@
 name: Extension release finish
 
 on:
-  workflow_run:
-    workflows: [CI]
-    types: [completed]
-    branches: ['extension-release/v*']
   workflow_dispatch:
     inputs:
       version:
         description: 'Daily release version to finish after successful CI'
         required: true
         type: string
+      ci_run_id:
+        description: 'CI run handing off after its required CI OK job (blank for recovery)'
+        type: string
+        default: ''
 
 permissions: {}
 
@@ -22,12 +22,7 @@ concurrency:
 
 jobs:
   finish:
-    if: >-
-      github.ref == 'refs/heads/main' &&
-      (github.event_name == 'workflow_dispatch' ||
-       (github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.event == 'workflow_dispatch' &&
-        github.event.workflow_run.head_repository.full_name == github.repository))
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: extension-release-automation
@@ -37,7 +32,7 @@ jobs:
       actions: write
       checks: read
     steps:
-      # Never execute a workflow_run candidate. Only main owns the privileged scripts.
+      # Never execute a candidate branch. Only main owns the privileged scripts.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: main
@@ -51,6 +46,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_VERSION: ${{ inputs.version }}
+          CI_RUN_ID: ${{ inputs.ci_run_id }}
         run: node apps/extension/scripts/release-automation.mjs finish
       - name: Create the immutable release tag
         env:

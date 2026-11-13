@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { nextVersion, plan, pullRequestBody, setVersion, versionedText, versionPaths } from './release-plan.mjs';
 import { validateTag } from './store-api.mjs';
@@ -51,14 +51,19 @@ export function validateVersionChange(root, base, head, version) {
     }
 }
 
-export function validateCi(run, { branch, sha }) {
+export function validateCi(run, { branch, sha, handoff = false }) {
     assert.equal(run.path, '.github/workflows/ci.yml');
     assert.equal(run.event, 'workflow_dispatch');
     assert.equal(run.head_repository.full_name, repository);
     assert.equal(run.head_branch, branch);
     assert.equal(run.head_sha, sha, 'CI must pass on the exact release PR head');
-    assert.equal(run.status, 'completed');
-    assert.equal(run.conclusion, 'success');
+    // The CI handoff job dispatches us after CI OK and can still be cleaning up. The exact-head
+    // CI OK check is independently required below; a completed failed/cancelled run never qualifies.
+    if (handoff && run.status === 'in_progress') assert.equal(run.conclusion, null);
+    else {
+        assert.equal(run.status, 'completed');
+        assert.equal(run.conclusion, 'success');
+    }
 }
 
 function candidate(version) {
@@ -75,7 +80,20 @@ function inspectCandidate(root, pr, version) {
     assert.deepEqual(files.map(file => file.filename).sort(), [...versionPaths].sort());
 }
 
+export function pushVersion(root, branch, version, previousHead) {
+    assert.equal(releaseBranchVersion(branch), version);
+    if (previousHead) assert.match(previousHead, /^[a-f0-9]{40}$/);
+    git(root, 'switch', '--create', branch);
+    setVersion(root, version);
+    git(root, 'add', ...versionPaths);
+    git(root, '-c', 'user.name=github-actions[bot]', '-c', 'user.email=41898282+github-actions[bot]@users.noreply.github.com',
+        'commit', '--message', `chore(extension): release ${version}`);
+    const lease = previousHead ? [`--force-with-lease=refs/heads/${branch}:${previousHead}`] : [];
+    git(root, 'push', ...lease, 'origin', `${branch}:refs/heads/${branch}`);
+}
+
 function prepare(root) {
+    const main = git(root, 'rev-parse', 'HEAD');
     const result = plan(root, { force: process.env.FORCE === 'true' });
     if (result.state === 'current') {
         report(`Toolbar unchanged since ${result.tag}. No version bump or release.`);
@@ -96,12 +114,7 @@ function prepare(root) {
             const head = git(root, 'rev-parse', 'FETCH_HEAD');
             validateVersionChange(root, `${head}^`, head, version);
         } else {
-            git(root, 'switch', '--create', branch);
-            setVersion(root, version);
-            git(root, 'add', ...versionPaths);
-            git(root, '-c', 'user.name=github-actions[bot]', '-c', 'user.email=41898282+github-actions[bot]@users.noreply.github.com',
-                'commit', '--message', `chore(extension): release ${version}`);
-            git(root, 'push', 'origin', branch);
+            pushVersion(root, branch, version);
         }
         const body = resolve(process.env.RUNNER_TEMP, 'extension-release-body.md');
         writeFileSync(body, pullRequestBody(result));
@@ -111,23 +124,34 @@ function prepare(root) {
     }
     inspectCandidate(root, pr, version);
     assert.equal(pr.state, 'open', 'An already merged release PR must be finalized before preparing another');
+    if (git(root, 'rev-parse', `${pr.head.sha}^`) !== main) {
+        // The candidate was verified as one version-only commit. Refresh it onto current main,
+        // preserving its PR and refusing to overwrite any concurrent branch update.
+        pushVersion(root, branch, version, pr.head.sha);
+        const head = git(root, 'rev-parse', 'HEAD');
+        pr = candidate(version);
+        assert.equal(pr.head.sha, head, 'Release branch changed while it was being refreshed');
+        inspectCandidate(root, pr, version);
+        report(`Refreshed ${pr.html_url} onto current main before dispatching CI.`);
+    }
     // Explicit dispatch avoids GitHub's approval requirement for bot-created pull-request workflows.
     gh('workflow', 'run', 'ci.yml', '--repo', repository, '--ref', branch);
     report(`Prepared ${pr.html_url} and dispatched CI. Successful CI will merge, tag and submit extension ${version}.`);
 }
 
 function finish(root) {
-    const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
-    const run = event.workflow_run;
-    const version = run ? releaseBranchVersion(run.head_branch) : process.env.RELEASE_VERSION;
+    const version = process.env.RELEASE_VERSION;
     validateTag(`extension-v${version}`);
     const pr = candidate(version);
     assert(pr, 'No daily release PR exists for this version');
     inspectCandidate(root, pr, version);
-    const ci = run ?? api(`actions/workflows/ci.yml/runs?branch=${pr.head.ref}&per_page=100`).workflow_runs
-        .find(item => item.head_sha === pr.head.sha);
+    const runId = process.env.CI_RUN_ID;
+    if (runId) assert.match(runId, /^[1-9][0-9]*$/, 'Invalid CI run ID');
+    const ci = runId ? api(`actions/runs/${runId}`)
+        : api(`actions/workflows/ci.yml/runs?branch=${pr.head.ref}&per_page=100`).workflow_runs
+            .find(item => item.head_sha === pr.head.sha && item.event === 'workflow_dispatch');
     assert(ci, 'No CI run exists for the release PR');
-    validateCi(ci, { branch: pr.head.ref, sha: pr.head.sha });
+    validateCi(ci, { branch: pr.head.ref, sha: pr.head.sha, handoff: Boolean(runId) });
     const checks = api(`commits/${pr.head.sha}/check-runs?check_name=CI%20OK&per_page=100`).check_runs;
     const check = checks.find(item => item.app.id === 15368 && item.head_sha === pr.head.sha && item.name === 'CI OK');
     assert.equal(check?.conclusion, 'success', 'The required CI OK check must pass');
