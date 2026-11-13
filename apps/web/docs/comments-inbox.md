@@ -504,4 +504,4 @@ within each section the existing priority/number order stays. A section heading 
 first loaded row. `thread-labels.spec.ts` covers switching/reloading both views and clearing the
 shared choice; `project-comment-pages.api.spec.ts` covers unselected labels and section paging.
 
-When project filters match no comments, the empty placeholder spans the same full content width as the filter and count rows (uier #382).
+When project filters match no comments, the empty placeholder spans the same full content width as the filter and count rows (uier #382). It sets `w-(--page-wide)` with `page-wide`, so its own `w-full`, later in the CSS, does not keep it the column's width shifted left (uier #383).

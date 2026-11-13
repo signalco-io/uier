@@ -233,6 +233,15 @@ test('the board widens on a wide window, the filters and project headers and the
     const split = list.locator('xpath=..');
     await headerSpans(list);
     expect((await placement(split)).right).toBeCloseTo(32, 0);
+    // A search with no result: its empty state is as wide as the header, from the search to the view toggle (uier #383)
+    await page.locator('#feedback-search').fill('nothing matches this');
+    const empty = page.locator('[data-slot="empty"]').filter({ hasText: 'Nothing here' });
+    await expect(empty).toBeVisible();
+    const emptyPlacement = await placement(empty);
+    expect(emptyPlacement.left).toBeCloseTo((await placement(search)).left, 0);
+    expect(emptyPlacement.right).toBeCloseTo(32, 0);
+    await page.locator('#feedback-search').fill('');
+    await expect(list).toBeVisible();
 
     // On a very wide window the columns stop at 20rem and start at the left, under the search (uier #363); the page keeps the reading width
     await page.getByRole('button', { name: 'Board', exact: true }).click();

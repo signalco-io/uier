@@ -293,6 +293,9 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
     // and board alike, with no cap or centring (uier #363)
     const wideClassName = headerWide && 'page-wide';
     // The search is as wide as the first column under it, the list beside its thread or the board's first column, so
+    // The empty states take it too, their own `w-full` set aside: it comes after `page-wide` in the CSS and would keep
+    // them the column's width, shifted left (uier #383)
+    const emptyWideClassName = headerWide && 'w-(--page-wide) page-wide';
     // their edges line up (uier #355; `--first-column`, measured by `useFirstColumnWidth`). Narrower, where the list
     // takes the whole width, it keeps its own width
     const searchClassName = cn(headerWide === 'list' && '@3xl/comments:[--search-width:var(--first-column,20rem)]',
@@ -345,7 +348,7 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
                 summary={unreadSummary}
                 actions={unreadActions}>
             {pager.data.paging.queryTooExpensive ? null : !populated ? emptyState : pager.data.paging.matchedTotal + delta(() => true) === 0 ? (
-                <Empty className={cn('border', wideClassName)}>
+                <Empty className={cn('border', emptyWideClassName)}>
                     <EmptyHeader>
                         <EmptyMedia variant="icon">
                             <SearchXIcon />
@@ -356,7 +359,7 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
                     <EmptyContent><Button variant="outline" className="pointer-coarse:min-h-11" onClick={clearFilters}>{t("Clear filters")}</Button></EmptyContent>
                 </Empty>
             ) : nothingShown ? (
-                <Empty className={cn('border', wideClassName)}>
+                <Empty className={cn('border', emptyWideClassName)}>
                     <EmptyHeader>
                         <EmptyMedia variant="icon">
                             {query.status === 'active' ? <CircleCheckIcon /> : <CircleDashedIcon />}
