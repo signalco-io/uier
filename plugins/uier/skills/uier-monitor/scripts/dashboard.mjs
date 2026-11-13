@@ -730,6 +730,7 @@ h1, h2, h3, p { margin: 0; }
 .top h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
 .muted { color: hsl(var(--muted-foreground)); }
 .right { margin-left: auto; }
+.summary { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; align-self: center; }
 .num { font-variant-numeric: tabular-nums; }
 .ico { flex: none; width: 14px; height: 14px; vertical-align: -2px; }
 .link, .who, .agent { display: inline-flex; align-items: center; gap: 4px; }
@@ -769,6 +770,8 @@ h1, h2, h3, p { margin: 0; }
 .line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
 .eyebrow { flex: none; min-width: 76px; font-size: 12px; color: hsl(var(--muted-foreground)); }
 .chips { display: flex; flex: 1; flex-wrap: wrap; gap: 4px 8px; min-width: 0; }
+.lastnote { margin-top: -4px; font-size: 11px; line-height: 1.4; color: hsl(var(--muted-foreground)); }
+.lastnote.one { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chip { display: inline-block; padding: 1px 8px; border-radius: 999px; background: hsl(var(--muted)); color: hsl(var(--secondary-foreground)); font-size: 13px; }
 .work { display: grid; gap: 3px; }
 .work .row { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: baseline; gap: 8px; padding: 5px 10px; border-radius: 8px; background: hsl(var(--muted)); font-size: 13px; overflow-wrap: anywhere; }
@@ -821,7 +824,7 @@ code { font: 12px/1.4 "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospa
 <div class="wrap">
     <header class="top">
         <h1>uier monitor</h1>
-        <span class="muted" id="summary">Loading</span>
+        <span class="summary" id="summary" data-list><span class="muted" data-key="loading">Loading</span></span>
         <span class="badge right" id="live"><i class="dot ring"></i><span>Connecting</span></span>
     </header>
     <div class="machine" id="machine" data-list></div>
@@ -1119,8 +1122,8 @@ function monitor(entry, alone) {
         h('div', { class: 'line', 'data-key': 'waiting' }, h('span', { class: 'eyebrow', text: 'Waiting on' }), h('span', { class: 'chips', 'data-list': true }, entry.waiting.map(function (item) {
             return h('span', { class: 'chip', 'data-key': item.key }, h('span', { 'data-flash': true, text: item.text }), item.since ? ' · ' + ago(item.since) : item.until ? ' · ' + inTime(item.until) : '');
         }))),
-        entry.note && !resting ? h('div', { class: 'line', 'data-key': 'note' }, h('span', { class: 'eyebrow', text: 'Last note' }),
-            h('span', { class: expanded ? null : 'clamp', title: entry.note }, h('span', { 'data-flash': true, text: entry.note }), ' · ' + ago(entry.updatedAt))) : null,
+        entry.note && !resting ? h('div', { class: 'lastnote' + (expanded ? '' : ' one'), 'data-key': 'note', title: 'Last note: ' + entry.note },
+            h('span', { class: 'sr', text: 'Last note: ' }), h('span', { 'data-flash': true, text: entry.note }), ' · ' + ago(entry.updatedAt)) : null,
         resting && entry.pipeline.length ? h('div', { class: 'muted', 'data-key': 'rest', text: plural(entry.pipeline.length, 'group') + ' left in the pipeline · updated ' + ago(entry.updatedAt) }) : null,
         !resting && !expanded && (pending.length || queued.length || entry.attention.length) ? h('div', { class: 'work', 'data-key': 'work', 'data-list': true, 'data-exit': 'finish' },
             pending.map(function (item) { return workRow(item, entry); }),
@@ -1279,10 +1282,12 @@ function render() {
     var count = function (stage) { return function (entry) { return entry.pipeline.filter(function (item) { return item.stage === stage; }).length; }; };
     var needs = sum(monitors, function (entry) { return entry.attention.length; });
     var working = monitors.filter(active).length, waiting = monitors.filter(function (entry) { return entry.status === 'waiting'; }).length;
-    var summary = monitors.length ? [plural(monitors.length, 'monitor'), working + ' working', waiting ? waiting + ' waiting' : ''].filter(Boolean).join(', ') : 'No monitors';
+    var pill = function (key, dot, words) { return h('span', { class: 'badge', 'data-key': key }, dot ? h('i', { class: 'dot ' + dot }) : null, h('span', { class: 'num', 'data-flash': true, text: words })); };
+    var summary = h('span', null, monitors.length ? [pill('monitors', null, plural(monitors.length, 'monitor')), pill('working', working ? 'work' : 'ring', working + ' working'),
+        waiting ? pill('waiting', 'idle', waiting + ' waiting') : null] : h('span', { class: 'muted', 'data-key': 'none', text: 'No monitors' }));
     var shared = {};
     animated(function () {
-        document.getElementById('summary').textContent = summary;
+        reconcile(document.getElementById('summary'), summary);
         document.title = (needs ? '(' + needs + ') ' : '') + 'uier monitor';
         reconcile(document.getElementById('machine'), h('div', null, busy.map(function (entry) {
             return entry.health.map(function (item) { if (!item.machine || shared[item.text]) return null; shared[item.text] = true; return alert(item); });

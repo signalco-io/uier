@@ -117,7 +117,8 @@ anything. A card shows:
   shows once, at the top of the page. Stopped and inactive monitors are dimmed.
 - **Sessions:** how many of the monitor's slots are working.
 - **Waiting on:** sessions still working, pull requests to merge, deploys to finish, a timer, events
-  the orchestrator hasn't taken yet, or you. The orchestrator's last note says what it just did.
+  the orchestrator hasn't taken yet, or you. Under it, one small muted line gives the orchestrator's
+  last note (what it just did); hover it for the whole note, or open the card's details to read it in full.
 - **Work in progress:** one line per group under Building, In review, Pull request, Deploying or
   Blocked, with its comments, pull request, agent, time in that state and a link to the session,
   then the queued comments and what needs you (open questions, comments ready to verify, blocked
@@ -138,7 +139,8 @@ the system, nothing moves.
 
 **Show details** opens a card across the page and adds each group's note, the watcher's version and
 last check-in, the activity feed, comments closed per day, the median time from start to close and
-the wakes of the last 24 hours. The totals above the cards count every monitor that isn't stopped or
+the wakes of the last 24 hours. Badges next to the title count the monitors, the ones working and the
+ones waiting. The totals above the cards count every monitor that isn't stopped or
 inactive.
 
 #### Feedback on the dashboard
