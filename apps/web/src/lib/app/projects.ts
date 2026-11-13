@@ -193,7 +193,7 @@ export type ProjectUpdate = Partial<{
 }>;
 
 export async function updateProject(workspaceId: string, projectId: string, update: ProjectUpdate) {
-    assertMutableProject(workspaceId, projectId);
+    assertMutableProject(workspaceId, projectId, Object.keys(update));
     if (update.verificationEnabled !== undefined) update = { ...update, verificationEnabled: z.boolean().parse(update.verificationEnabled) };
     if (update.rewriteInstructions !== undefined)
         update = { ...update, rewriteInstructions: projectRewriteInstructionsSchema.parse(update.rewriteInstructions) };

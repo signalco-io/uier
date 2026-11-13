@@ -206,11 +206,15 @@ follows it live, and `{ mode: 'replace', value: [] }` explicitly chooses no labe
 to Workspace defaults removes the override. No append mode. `threadLabelSchema.ts` validates
 settings actions and persistence; `threadLabels.ts` resolves against the owning workspace.
 Old forms preserve the setting. Actions check admin/project authority before parsing; managed
-public projects retain their existing settings restrictions.
+public projects allow label overrides while retaining unrelated settings restrictions.
 
 Thread assignments store IDs only. Renaming/recoloring a definition updates its display; removing
 it (including by override or transfer) hides it on existing threads without rewriting them.
 Definitions and descriptions are member-only and are omitted from guest review/bootstrap DTOs.
 App controls, filtering and MCP share the catalog with toolbar controls and saved board label swim lanes. `thread-labels.api.spec.ts` and `thread-labels.spec.ts` cover these contracts.
 
-The board’s Group by label preference is saved as `DbProject.boardGroupByLabel`, independently of the label catalog and its admin-only settings. It follows the board sort/archive triage authority, including staff-only triage on managed feedback projects; catalog settings on uier’s own workspace remain disabled.
+The board’s Group by label preference is saved as `DbProject.boardGroupByLabel`, independently of the label catalog and its admin-only settings. It follows the board sort/archive triage authority, including staff-only triage on managed feedback projects; staff admins can manage their label catalogs.
+
+Staff admins can configure workspace labels and project label overrides in uier’s own workspace and feedback projects. Other managed settings remain restricted. Existing triage permissions, member-only catalogs, label filters, toolbar controls, MCP label tools and saved board swim lanes apply there too.
+
+The managed-workspace label API regression uses a distinct admin membership and checks its creation, so shared commenter fixtures cannot silently replace its authorization setup.

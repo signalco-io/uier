@@ -251,3 +251,14 @@ export async function setProjectEmailsMutedAction(projectId: string, muted: bool
         revalidatePath('/app', 'layout');
     });
 }
+
+/** Labels have their own write boundary so managed projects cannot change other settings. */
+export async function updateProjectLabelsAction(_: ActionState, formData: FormData): Promise<ActionState> {
+    return actionResult(async () => {
+        const { context, project } = await adminProject(formData.get('projectId'));
+        const threadLabels = formData.get('threadLabels') === 'workspace' ? undefined
+            : projectThreadLabelsSchema.parse(JSON.parse(String(formData.get('threadLabels'))));
+        await updateProject(context.workspace.id, project.id, { threadLabels });
+        revalidatePath('/app', 'layout');
+    }, 'Saved.');
+}
