@@ -1,13 +1,14 @@
 # Extension releases
 
-Version 0.1.2 is published publicly. Native Chrome and Edge automatically upgraded from 0.1.1
-and passed post-update acceptance. The production installation link is live, and the deployed
-Chromium allowlist contains only the stable store client. Version 0.1.5 was
-[submitted for Chrome Web Store review](https://github.com/signalco-io/uier/actions/runs/42719693358): it adds the popup's
+Version 0.1.5 is published in the Chrome Web Store, independently confirmed by the
+[13 November store status read](https://github.com/signalco-io/uier/actions/runs/43437634320).
+Native Chrome and Edge previously upgraded from 0.1.1 to 0.1.2 and passed post-update acceptance.
+The production installation link is live, and the deployed Chromium allowlist contains only the
+stable store client. Version 0.1.5 adds the popup's
 [update notice](browser-extension.md#updates) and carries the unsubmitted 0.1.3/0.1.4 changes (the
 popup, verification helper and icon redesign, and the shared Firefox build). Their tags exist, but
-their Chrome submissions were cancelled. Its submission receipt does not establish store approval
-or automatic-update acceptance of 0.1.5. The matching Firefox package passed native hosted acceptance
+their Chrome submissions were cancelled. Automatic-update acceptance of 0.1.5 has not been repeated.
+The matching Firefox package passed native hosted acceptance
 and was [submitted to Mozilla](browser-extension-firefox-release.md#submission-receipt--10-november-2026),
 where it is awaiting review.
 Read [the runtime design and hosted gate](browser-extension.md) first. This runbook covers the
@@ -34,8 +35,10 @@ Native Edge Add-ons is a separate follow-up.
    a JSON key or personal refresh token. Confirm token generation and an actual v2 status read
    before enabling writes; service-account plus OIDC store access still needs live bootstrap validation.
 5. Create the GitHub `extension-production` environment. Allow `main` for manual/status jobs and
-   protected `extension-v*` tags for releases; require a reviewer and prevent self-review where
-   supported. Protect tag creation/update/deletion using a ruleset limited to release owners.
+   protected `extension-v*` tags for releases. Daily publication is unattended: do not configure a
+   required reviewer on this environment or `extension-firefox-production`. Protect tag creation
+   using a ruleset limited to release owners and the release deploy key; prohibit tag updates and
+   deletion in a separate ruleset with no bypass. Configure the automation as described below.
    Protect main and workflow changes. In the Google provider condition, restrict numeric repository
    and owner IDs, the `extension-production` environment subject, this repository's release/status
    workflow paths, and their allowed refs/event types. Do not trust every workflow in an organization
@@ -223,22 +226,52 @@ Native Edge Add-ons and other browser/mobile/guest-extension work remain separat
 
 ## Regular releases
 
-The extension packages the toolbar, so releases follow the toolbar. Every Monday, **Extension release
-prepare** compares shipped source (`shippedPaths` in `apps/extension/scripts/release-plan.mjs`:
-the toolbar, the extension runtime and build, and the brand) with the newest `extension-v*` tag.
-When it changed, the job opens `chore(extension): release X.Y.Z` from `extension-release/vX.Y.Z`
-with the list of changes. The bump sets both browser packages and the web app's
-`latestExtensionVersion` (`pnpm -C apps/extension release:version X.Y.Z`); a test keeps them equal.
-Pull requests opened with `GITHUB_TOKEN` start no workflows, so the job dispatches **CI** on the
-branch, which reports the required **CI OK** check. Dispatch it again after pushing to that branch.
-Dependency-only updates wait for the next source change, or a manual run with **force**.
+The extension packages the toolbar, so releases follow the toolbar. Every day at **07:17 UTC**,
+**Extension release prepare** compares toolbar implementation and build configuration (`shippedPaths`
+in `apps/extension/scripts/release-plan.mjs`) on main with the newest `extension-v*` tag. With no net
+toolbar changes it exits without a branch, version bump, build or submission. Documentation-only,
+website-only, extension-only and dependency-only changes wait for the next toolbar release; a manual
+run with **force** supports maintenance releases. Reverted toolbar changes do not create empty releases.
+Comparing with the release tag also includes changes left waiting after an interrupted daily run.
 
-The job cannot create the release tag; tag creation is limited to release owners. After merging, an
-owner creates `extension-vX.Y.Z` on main (the pull request has the command) and approves the
-`extension-production` review. While a merged version has no tag, the weekly run fails with that
-instruction instead of preparing another version. The bump also changes the web app, so its deploy
-makes `/api/extension/version` report the new version; installed packages offer the update once
-the store has published it ([Updates](browser-extension.md#updates)).
+When changes exist, the job opens `chore(extension): release X.Y.Z` from `extension-release/vX.Y.Z`
+and dispatches **CI** on that branch. The bump changes only both browser package versions and the web
+app's `latestExtensionVersion`; a test keeps them equal. Explicit dispatch avoids the approval step
+GitHub otherwise applies to workflows on bot-created PRs. Existing open version PRs are reused and
+their CI is dispatched again, rather than skipping the release because its branch already exists.
+
+Successful CI triggers **Extension release finish** from main. It verifies the PR belongs to this
+repository's Actions bot, contains one commit with exactly the three expected version edits, and
+has successful CI and **CI OK** on that exact head. It merges through main's existing rules, tags
+the resulting merge commit, and starts the existing **Extension release** build and store jobs.
+It explicitly dispatches **Deploy** so `/api/extension/version` reports the new version even though
+a `GITHUB_TOKEN` merge does not trigger push workflows. No owner merge, tag or environment approval
+is needed. Browser updates still wait for store approval and download ([Updates](browser-extension.md#updates)).
+
+An interrupted merge without a tag resumes finalization of the same version on the next daily run.
+**Extension release finish** also accepts that version by manual dispatch to recover a failed tag
+or deployment step. Existing tags must identify the same commit and are never moved. Store writes
+retain the existing build, hosted-acceptance flags and durable receipt checks; a conflicting pending
+store submission stops that publisher for reconciliation rather than replacing it. Firefox runs
+after Chrome's attempt, including when Chrome fails, so each store reports its own outcome.
+
+### Daily automation setup
+
+Main retains its required PR and **CI OK** rules with no bypass. Create the
+`extension-release-automation` environment, allow only `main`, and do not require a reviewer. Store
+the dedicated SSH deploy key as environment secret `EXTENSION_RELEASE_SSH_KEY`; its public key is
+the repository's write-enabled **extension release tags** deploy key. The tag-creation ruleset
+allows release owners and `DeployKey` actors. There is only one release deploy key; GitHub's
+ruleset actor covers deploy keys as a class, so review this grant before adding another write key.
+The separate tag-integrity ruleset forbids updates/deletion with no bypass, including for this key.
+The key is exposed only to the tag-push step after candidate and CI validation. It cannot bypass
+main's PR/check rules. GitHub host keys come from its authenticated metadata API.
+
+The version branch and PR use the job-scoped `GITHUB_TOKEN`. The deploy key is needed only to create
+the protected tag and trigger the release push workflow. No personal access token is stored. Store
+environments keep their existing branch/tag restrictions, credentials, hosted acceptance and enable
+flags; their required-reviewer rules must be absent for daily unattended submission. Set
+`CWS_PUBLISHING_ENABLED=false` or `FIREFOX_PUBLISHING_ENABLED=false` to pause the corresponding publisher.
 
 ## Build, dry-run and submit
 

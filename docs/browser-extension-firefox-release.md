@@ -4,7 +4,9 @@ The shared [release workflow](../.github/workflows/extension-release.yml) builds
 from the same protected `extension-vX.Y.Z` tag on main. Both package versions must match.
 Manual dispatch selects `all`, `chrome` or `firefox`; `dry_run` defaults to true.
 Dry runs use no store credentials and perform no store writes. Firefox has its own repository flag
-and protected environment approval, separate from Chrome.
+and protected environment, separate from Chrome. The [daily release automation](browser-extension-release.md#regular-releases)
+merges and tags version PRs after CI and submits both browser packages without manual environment
+approval. Unchanged toolbar source does not create a new version.
 
 After adding credentials, run **Extension Firefox account check** from `main` and approve its
 protected environment. This reads Mozilla's private upload list without making store writes.
@@ -36,7 +38,7 @@ termination and cross-origin navigation cleanup passed. All 16 packaged resource
 rebuild of the attached source. The ZIP SHA-256 is
 `d06e5013f82c9e21747ec58d2467aad5f37306505685a76926dad30a6f9bdd0c`.
 
-Publishing is enabled with owner review in `extension-firefox-production`; its existing Mozilla
+The original submission used owner review in `extension-firefox-production`; its existing Mozilla
 secrets are configured. The [publisher recovery fix](https://github.com/signalco-io/uier/pull/575)
 resumed the confirmed original upload without uploading a second package. Native acceptance,
 reconciliation evidence, store receipt and listing screenshots are retained on the draft
@@ -49,8 +51,8 @@ acceptance does not establish store installation or automatic updates.
 
 ## Firefox setup
 
-Use environment `extension-firefox-production`, with owner review, the `main` branch and protected
-`extension-v*` tags. Configure these values:
+Use environment `extension-firefox-production`, allowing only the `main` branch and protected
+`extension-v*` tags. Daily unattended publishing requires no required reviewer. Configure these values:
 
 | Kind | Name | Value |
 | --- | --- | --- |
@@ -77,8 +79,9 @@ installation and automatic updates after publication.
 
 ## Recovery and rollout
 
-The Firefox publishing job follows the Chrome publisher so their artifacts and receipts can share
-the existing draft GitHub release without racing its creation. Immutable artifact assets are never
+The Firefox publishing job follows the Chrome publisher's attempt, even when Chrome fails, so their
+artifacts and receipts can share the existing draft GitHub release without racing its creation.
+Each browser records its own outcome. Immutable artifact assets are never
 overwritten. Before every non-idempotent store write, a receipt is saved to the draft release.
 A lost response leaves a `*-started` phase, which blocks another write. Never delete that receipt
 or blindly repeat the write. Reconcile the upload/version in Developer Hub, then correct the

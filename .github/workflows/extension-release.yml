@@ -180,7 +180,6 @@ jobs:
     needs: [build, publish]
     if: >-
       always() && !cancelled() && needs.build.result == 'success' &&
-      (needs.publish.result == 'success' || needs.publish.result == 'skipped') &&
       (github.event_name == 'push' || !inputs.dry_run) &&
       (github.event_name == 'push' || inputs.browser == 'all' || inputs.browser == 'firefox') &&
       vars.FIREFOX_PUBLISHING_ENABLED == 'true'

@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Extension release finish
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: ['extension-release/v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Daily release version to finish after successful CI'
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: extension-release-automation
+  cancel-in-progress: false
+
+jobs:
+  finish:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'workflow_dispatch' &&
+        github.event.workflow_run.head_repository.full_name == github.repository))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: extension-release-automation
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+      checks: read
+    steps:
+      # Never execute a workflow_run candidate. Only main owns the privileged scripts.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+      - name: Verify the bot version PR and exact CI head before merging
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: node apps/extension/scripts/release-automation.mjs finish
+      - name: Create the immutable release tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_COMMIT: ${{ steps.release.outputs.commit }}
+          RELEASE_SSH_KEY: ${{ secrets.EXTENSION_RELEASE_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"; then
+            test "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" = "$RELEASE_COMMIT"
+            echo "Existing $RELEASE_TAG still identifies $RELEASE_COMMIT." >> "$GITHUB_STEP_SUMMARY"
+          else
+            test -n "$RELEASE_SSH_KEY"
+            key="$RUNNER_TEMP/extension-release-key"
+            trap 'rm -f "$key"' EXIT
+            umask 077
+            printf '%s\n' "$RELEASE_SSH_KEY" > "$key"
+            gh api meta --jq '.ssh_keys[] | "github.com " + .' > "$RUNNER_TEMP/extension-release-known-hosts"
+            export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$RUNNER_TEMP/extension-release-known-hosts"
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' tag -a "$RELEASE_TAG" "$RELEASE_COMMIT" -m "uier extension ${RELEASE_TAG#extension-v}"
+            # Deploy-key pushes trigger Extension release; GITHUB_TOKEN pushes do not.
+            git push git@github.com:signalco-io/uier.git "refs/tags/$RELEASE_TAG"
+          fi
+      - name: Deploy the merged version notice
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # The bot merge does not trigger push workflows, so dispatch the version API deployment.
+        run: gh workflow run deploy.yml --repo "$GITHUB_REPOSITORY" --ref main

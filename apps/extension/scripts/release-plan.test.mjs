@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'nod
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { plan, pullRequestBody, recordedVersions, setVersion } from './release-plan.mjs';
+import { nextVersion, plan, pullRequestBody, recordedVersions, setVersion } from './release-plan.mjs';
 
 const repository = resolve(import.meta.dirname, '../../..');
 
@@ -29,12 +29,19 @@ test('a release is due only after shipped source changes and never skips an unta
 
         write('docs/notes.md', 'Not shipped.\n'); commit('docs: notes');
         assert.equal(plan(root).state, 'current');
+        write('packages/extension/src/worker.ts', 'export {};\n'); commit('fix(extension): transport only');
+        write('packages/toolbar/docs/notes.md', 'Toolbar documentation only.\n'); commit('docs(toolbar): notes');
+        write('pnpm-lock.yaml', 'Dependency-only update.\n'); commit('chore(deps): update');
+        assert.equal(plan(root).state, 'current');
+        write('packages/toolbar/src/index.ts', 'export const value = 1;\n'); commit('feat(toolbar): temporary change');
+        write('packages/toolbar/src/index.ts', 'export {};\n'); commit('revert: temporary toolbar change');
+        assert.equal(plan(root).state, 'current', 'A reverted toolbar change must not produce an empty release');
         write('packages/toolbar/src/index.ts', 'export const value = 1;\n'); commit('feat(toolbar): ship a change');
         const due = plan(root);
         assert.equal(due.state, 'due'); assert.equal(due.version, '0.1.5');
         assert.match(due.changes.join('\n'), /feat\(toolbar\): ship a change/);
         assert.doesNotMatch(due.changes.join('\n'), /docs: notes/);
-        assert.match(pullRequestBody(due), /git tag -a extension-v0\.1\.5 .* && git push origin extension-v0\.1\.5/);
+        assert.match(pullRequestBody(due), /After it passes.*merges it, creates the immutable release tag/);
 
         setVersion(root, '0.1.5');
         assert.deepEqual(recordedVersions(root), ['0.1.5', '0.1.5', '0.1.5']);
@@ -48,4 +55,11 @@ test('a release is due only after shipped source changes and never skips an unta
         assert.throws(() => plan(root), /Versions differ/);
         for (const version of ['0.0.0', '01.2.3', '1.2', '65536.0.0', "1.2.3'; alert(1)"]) assert.throws(() => setVersion(root, version));
     } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('version increments remain within browser-store numeric limits', () => {
+    assert.equal(nextVersion('0.1.5'), '0.1.6');
+    assert.equal(nextVersion('0.1.65535'), '0.2.0');
+    assert.equal(nextVersion('0.65535.65535'), '1.0.0');
+    assert.throws(() => nextVersion('65535.65535.65535'), /exhausted/);
 });
