@@ -11,7 +11,7 @@ import { Skeleton } from '@/src/components/ui/skeleton';
 import { parseCommentsView } from '@/src/lib/app/commentsViewPreference';
 import { isActiveStatusFilter, isDoneStatusFilter, statusFilterLabels, type CommentsView, type StatusFilter } from './commentLabels';
 import { storedCommentsView } from './commentsView';
-import { segmentedGroup, segmentedItem } from './CommentsViewToggle';
+import { searchBesideList, segmentedGroup, segmentedItem } from './CommentsViewToggle';
 
 const subscribeNothing = () => () => {};
 
@@ -76,7 +76,7 @@ function FiltersPlaceholder({ view, status }: { view: CommentsView; status: Stat
     ];
     return (
         <div inert aria-hidden="true" className="flex min-w-0 flex-wrap items-center gap-2">
-            <InputGroup className="min-w-0 flex-1 sm:max-w-[var(--search-width,20rem)] sm:min-w-48 pointer-coarse:min-h-11">
+            <InputGroup data-search-field="" className="min-w-0 flex-1 sm:max-w-[var(--search-width,20rem)] sm:min-w-48 pointer-coarse:min-h-11">
                 <InputGroupAddon><SearchIcon /></InputGroupAddon>
                 <InputGroupInput type="search" tabIndex={-1} readOnly placeholder={t("Search feedback")} className="pointer-coarse:min-h-11" />
             </InputGroup>
@@ -126,7 +126,7 @@ function CommentsSkeleton({ title, view, status }: { title: string; view: Commen
             {/* The search as wide as the first column under it, as `ProjectComments` measures it (uier #355): the list's
                 track beside its thread, or a board column */}
             <div data-header-wide={view} className={cn('flex min-w-0 flex-col gap-2 page-wide', board ? 'md:[--search-width:20rem]'
-                : '@3xl/comments:[--search-width:18rem] @4xl/comments:[--search-width:max(17rem,clamp(22rem,30%,28rem))]')}>
+                : cn('@3xl/comments:[--search-width:18rem] @4xl/comments:[--search-width:max(17rem,clamp(22rem,30%,28rem))]', searchBesideList))}>
                 <FiltersPlaceholder view={view} status={status} />
             </div>
             {/* The count line's own row, where it is not in the search row (`countLineInHeader`) */}
