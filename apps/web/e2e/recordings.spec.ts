@@ -100,6 +100,11 @@ test('recordings: explicit capture stops tracks and allows preview and discard',
         await expect(menu).toBeHidden();
         await expect(draft.getByRole('button', { name: 'Stop recording', exact: true })).toBeFocused();
         await expect(draft.getByRole('timer')).toHaveText(/^0:0\d \/ 1:00$/);
+        // The bar has a line under it and no note under it (uier #392)
+        const bar = draft.locator('[data-uier-recording-bar]');
+        await expect(bar).toHaveCSS('border-bottom-style', 'solid');
+        await expect(bar.getByRole('status')).toHaveCount(0);
+        await expect(draft.getByText('Recording ends if you reload or leave this page.', { exact: true })).toHaveCount(0);
         await expect(draft.getByRole('button', { name: 'Post comment', exact: true })).toBeDisabled();
         await page.getByRole('heading', { level: 1 }).click();
         await expect(draft.getByRole('button', { name: 'Stop recording', exact: true })).toBeVisible();

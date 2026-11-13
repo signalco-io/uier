@@ -12,7 +12,8 @@ import { RecordingIcon } from './RecordingIcon';
 /**
  * Above the text, inside its box: the running capture (time, Stop, Discard), or the clip to review
  * before sending, named with its length and its own Discard. Record screen and Upload recording are
- * in Attach's menu (`ComposerAttachMenu`).
+ * in Attach's menu (`ComposerAttachMenu`). A line under the capture's bar parts it from the text; that
+ * leaving the page ends the capture is read with Record screen, not shown under the bar.
  */
 export function ComposerRecordingPreview({ recording, disabled }: { recording: RecordingState; disabled?: boolean }) {
     const t = useMessages().recording;
@@ -30,7 +31,7 @@ export function ComposerRecordingPreview({ recording, disabled }: { recording: R
                 {discard}
             </div>
         </section>}
-        {recording.phase === 'recording' && <div className="px-3 pt-2">
+        {recording.phase === 'recording' && <div data-uier-recording-bar="" className="border-b border-border py-1.5 pl-3 pr-1.5">
             <div className="flex min-h-7 items-center gap-2">
                 <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-destructive motion-safe:animate-pulse" />
                 <span role="timer" aria-live="off" className="min-w-0 flex-1 truncate font-mono text-xs tabular-nums">
@@ -42,9 +43,8 @@ export function ComposerRecordingPreview({ recording, disabled }: { recording: R
                     startDecorator={<span aria-hidden="true" className="size-2 rounded-[2px] bg-destructive" />}>{t.stopShort}</Button>
                 {discard}
             </div>
-            <p role="status" className="m-0 pt-1 text-xs text-muted-foreground">{t.navigation}</p>
         </div>}
-        {(recording.phase === 'choosing' || recording.phase === 'reading') && <div className="flex min-h-7 items-center gap-2 pl-3 pr-1.5 pt-2">
+        {(recording.phase === 'choosing' || recording.phase === 'reading') && <div className="flex min-h-7 items-center gap-2 border-b border-border py-1.5 pl-3 pr-1.5">
             <p role="status" className="m-0 min-w-0 flex-1 text-xs text-muted-foreground">{recording.phase === 'choosing' ? t.choosing : t.reading}</p>
             {discard}
         </div>}
