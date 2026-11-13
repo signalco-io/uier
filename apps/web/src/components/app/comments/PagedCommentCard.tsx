@@ -1,16 +1,13 @@
 'use client';
 
 import { useEffect, useOptimistic, useState, type ComponentProps } from 'react';
-import { useAppI18n } from '@/src/lib/i18n/client';
-import { Button } from '@/src/components/ui/button';
-import { Spinner } from '@/src/components/ui/spinner';
 import type { ProjectCommentView } from '@/src/lib/app/projectComments';
 import { CommentCard } from './CommentCard';
+import { CommentCardShell } from './CommentCardShell';
 import { applyCommentUpdate, CommentUpdatesProvider, useCommentUpdate, type CommentUpdate } from './CommentUpdates';
 
 /** Keep the same CommentCard/composer across revalidation; a summary can never masquerade as a full thread. */
 export function PagedCommentCard(props: ComponentProps<typeof CommentCard> & { snapshotRevision?: string }) {
-    const { t } = useAppI18n();
     const { comment, projectId, snapshotRevision, ...cardProps } = props;
     const parentUpdate = useCommentUpdate();
     const [detail, setDetail] = useState<ProjectCommentView>();
@@ -34,8 +31,9 @@ export function PagedCommentCard(props: ComponentProps<typeof CommentCard> & { s
     }, [projectId, key, snapshotRevision, retry]);
     const full = comment.summary ? optimistic : comment;
     return <CommentUpdatesProvider value={change => { parentUpdate(change); update(change); }}>
-        {full ? <CommentCard {...cardProps} projectId={projectId} comment={full} /> : <div className="flex min-h-40 items-center justify-center gap-2 p-4" role="status">
-            {failed ? <Button variant="outline" onClick={() => setRetry(value => value + 1)}>{t('Try again')}</Button> : <><Spinner />{t('Loading comments')}</>}
-        </div>}
+        {/* Until the detail arrives, a shell shaped like the thread from the row's summary (uier #385) */}
+        {full ? <CommentCard {...cardProps} projectId={projectId} comment={full} /> : <CommentCardShell projectId={projectId} comment={comment}
+            reviewLink={cardProps.reviewLink} assignees={cardProps.assignees} userId={cardProps.userId} onBack={cardProps.onBack} className={cardProps.className}
+            failed={failed} onRetry={() => setRetry(value => value + 1)} />}
     </CommentUpdatesProvider>;
 }

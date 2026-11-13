@@ -131,6 +131,44 @@ function UnreadDot({ shown, disabled, onRead }: { shown: boolean; disabled: bool
     );
 }
 
+/** The Private badge beside the number: no background, so it sits quietly there; the lock and the tooltip carry it */
+export function PrivateBadge() {
+    const { t } = useAppI18n();
+    return (
+        <Tooltip>
+            <TooltipTrigger render={<Badge variant="ghost" tabIndex={0} className="cursor-default text-muted-foreground outline-none hover:bg-transparent dark:hover:bg-transparent" />}>
+                <LockIcon aria-hidden="true" data-icon="inline-start" />
+                {t("Private")}
+                <span className="sr-only">. {t(privateHint)}</span>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-64">{t(privateHint)}</TooltipContent>
+        </Tooltip>
+    );
+}
+
+/** The Page detail: the environment's name, then the link that opens the review there (the address itself is in the link) */
+export function PageDetail({ comment, reviewLink }: { comment: Pick<ProjectCommentView, 'source' | 'url' | 'path'>; reviewLink: string }) {
+    const { t } = useAppI18n();
+    const { source } = comment;
+    const sourceText = source.available
+        ? source.label !== source.origin ? source.label : undefined
+        : t("{value0}{value1} · Original source unavailable", { value0: source.label, value1: source.origin && source.origin !== source.label ? ` · ${source.origin}` : '' });
+    return <>
+        <dt className={detailLabelClass}>{t("Page")}</dt>
+        <dd className={`${detailValueClass} gap-x-2`}>
+            {sourceText && <span className="min-w-0 truncate text-xs text-muted-foreground">{sourceText}</span>}
+            {source.available ? (
+                <a href={reviewLink} target="_blank" rel="noopener"
+                    className="-mx-1 inline-flex min-w-0 items-center gap-1 rounded-md px-1 text-sm underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none pointer-coarse:min-h-11">
+                    <span className="sr-only">{t("Open on ")}</span>
+                    <span className="truncate font-mono text-xs">{comment.url.replace(/^https?:\/\//, '')}</span>
+                    <ArrowUpRightIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+                </a>
+            ) : <span className="truncate font-mono text-xs">{comment.path}</span>}
+        </dd>
+    </>;
+}
+
 /**
  * Who the comment is assigned to: their avatar at 20px, smaller than the messages' so it sits in the
  * line beside the name, or the same avatar empty with a dashed outline while unassigned (as a pending
@@ -139,11 +177,11 @@ function UnreadDot({ shown, disabled, onRead }: { shown: boolean; disabled: bool
 
 
 /** A thread detail's label and value: one row height for text and controls alike (`h-7` ghost controls fit) */
-const detailLabelClass = 'flex h-8 items-center text-muted-foreground pointer-coarse:h-11';
-const detailValueClass = 'm-0 flex min-h-8 min-w-0 flex-wrap items-center pointer-coarse:min-h-11';
+export const detailLabelClass = 'flex h-8 items-center text-muted-foreground pointer-coarse:h-11';
+export const detailValueClass = 'm-0 flex min-h-8 min-w-0 flex-wrap items-center pointer-coarse:min-h-11';
 
 /** "Feedback", "Bug report" or "Suggested rewrite" above the first message, as in the toolbar */
-function KindLabel({ kind, feedbackType }: { kind: DbCommentKind; feedbackType?: FeedbackTypeSnapshot }) {
+export function KindLabel({ kind, feedbackType }: { kind: DbCommentKind; feedbackType?: FeedbackTypeSnapshot }) {
     const { t } = useAppI18n();
     if (kind === 'comment')
         return null;
@@ -156,7 +194,7 @@ function KindLabel({ kind, feedbackType }: { kind: DbCommentKind; feedbackType?:
 }
 
 /** One message of the thread: the avatar makes the column, as in the toolbar's thread */
-function Message({ author, agent, avatarName, avatarUrl, createdAt, status, meta, actions, children }: {
+export function Message({ author, agent, avatarName, avatarUrl, createdAt, status, meta, actions, children }: {
     /** As shown: "You" for your own messages */
     author: string;
     /** "via Claude": the AI agent that wrote it for the author */
@@ -199,7 +237,7 @@ function Message({ author, agent, avatarName, avatarUrl, createdAt, status, meta
 }
 
 /** The text of a message with its Markdown, "(edited)" after it as in the toolbar */
-function MessageText({ text, mentions, edited }: { text: string; mentions?: MessageMentionRange[]; edited: boolean }) {
+export function MessageText({ text, mentions, edited }: { text: string; mentions?: MessageMentionRange[]; edited: boolean }) {
     const { t } = useAppI18n();
     return <MessageMarkdown text={text} mentions={mentions} suffix={edited && <span className="font-normal text-muted-foreground">{t(" (edited)")}</span>} />;
 }
@@ -355,10 +393,6 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
     const replyShortcut = useKeyShortcutLabel('R');
     const statusShortcut = useKeyShortcutLabel('S');
     const assigneeShortcut = useKeyShortcutLabel('A');
-    // Before the page link: the environment's name; the address itself is in the link
-    const sourceText = source.available
-        ? source.label !== source.origin ? source.label : undefined
-        : t("{value0}{value1} · Original source unavailable", { value0: source.label, value1: source.origin && source.origin !== source.label ? ` · ${source.origin}` : '' });
 
 
     const run = (action: () => Promise<ActionState>, success?: string, patch?: Partial<ProjectCommentView>, done?: () => void) => startTransition(async () => {
@@ -553,17 +587,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                                     { activity: { ...comment.activity!, readSequence: comment.activity!.sequence, unread: false } })} />
                         )}
                         {comment.archivedAt && <Badge variant="outline" className="text-muted-foreground">{t("Archived")}</Badge>}
-                        {comment.private && (
-                            <Tooltip>
-                                {/* No background, so it sits quietly beside the number; the lock and the tooltip carry it */}
-                                <TooltipTrigger render={<Badge variant="ghost" tabIndex={0} className="cursor-default text-muted-foreground outline-none hover:bg-transparent dark:hover:bg-transparent" />}>
-                                    <LockIcon aria-hidden="true" data-icon="inline-start" />
-                                    {t("Private")}
-                                    <span className="sr-only">. {t(privateHint)}</span>
-                                </TooltipTrigger>
-                                <TooltipContent className="max-w-64">{t(privateHint)}</TooltipContent>
-                            </Tooltip>
-                        )}
+                        {comment.private && <PrivateBadge />}
                     </div>
                     <div className="-mr-1.5 flex shrink-0 items-center gap-0.5">
                         <CopyMenu copyIssue={copyIssue} canCopyLink={source.available} onCopyLink={copyLink} />
@@ -661,18 +685,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                     A properties list: every row is one control tall (44px on touch screens), labels and values centred on it,
                     and a ghost control pulled left by its padding so its text starts where plain text does. */}
                 <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 text-sm" data-thread-details>
-                    <dt className={detailLabelClass}>{t("Page")}</dt>
-                    <dd className={`${detailValueClass} gap-x-2`}>
-                        {sourceText && <span className="min-w-0 truncate text-xs text-muted-foreground">{sourceText}</span>}
-                        {source.available ? (
-                            <a href={reviewLink} target="_blank" rel="noopener"
-                                className="-mx-1 inline-flex min-w-0 items-center gap-1 rounded-md px-1 text-sm underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none pointer-coarse:min-h-11">
-                                <span className="sr-only">{t("Open on ")}</span>
-                                <span className="truncate font-mono text-xs">{comment.url.replace(/^https?:\/\//, '')}</span>
-                                <ArrowUpRightIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-                            </a>
-                        ) : <span className="truncate font-mono text-xs">{comment.path}</span>}
-                    </dd>
+                    <PageDetail comment={comment} reviewLink={reviewLink} />
                     <dt className={detailLabelClass}>{t("On")}</dt>
                     {/* The selector beside the label while it fits, else on its own line; padded so its first line sits where a one-line row's does */}
                     <dd className="m-0 flex min-h-8 min-w-0 flex-wrap items-baseline gap-x-2 py-1.5 pointer-coarse:min-h-11 pointer-coarse:py-3">

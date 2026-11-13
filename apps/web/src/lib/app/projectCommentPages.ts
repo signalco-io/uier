@@ -16,7 +16,8 @@ import type { CommentQueryCandidate } from '../repo/commentQuerySource';
 import { commentVisibilityFilter } from '../review/comments';
 import { threadTitle } from '../titles/model';
 import { aiTitlesEnabled } from '../titles/settings';
-import { appActor, loadProjectComment, loadProjectComments, type ProjectCommentView } from './projectComments';
+import { encodeAnchor, encodeReplies, encodeText } from './commentOutline';
+import { appActor, loadProjectComment, loadProjectComments, type CommentOutline, type ProjectCommentView } from './projectComments';
 import { environmentFilter, feedbackSource } from './environments';
 import { effectiveThreadLabels } from './threadLabels';
 import { labelsForComment } from './threadLabel';
@@ -57,6 +58,23 @@ function readCursor(token: string, key: string): Cursor {
         return cursor;
     } catch { throw apiErrors.invalidRequest('The query cursor expired or belongs to a different query.'); }
 }
+const edited = ' (edited)';
+
+/** Counts and sizes of what the summary leaves out, for the open thread's loading shell (`CommentOutline`) */
+function outline(view: ProjectCommentView): CommentOutline {
+    const { anchor } = view;
+    return {
+        replies: encodeReplies(view.replies.map(item => ({ text: item.text + (item.edited ? edited : ''), deleted: item.deleted, image: item.screenshot,
+            reactions: item.reactions?.length, actions: Boolean(item.canDelete || item.canFilterAuthor || item.editable) }))),
+        rest: view.displayText.length > 500 ? encodeText(view.displayText.slice(500) + (view.edited ? edited : '')) : undefined,
+        reactions: view.reactions?.length || undefined,
+        history: view.history?.length || undefined,
+        anchor: encodeAnchor(anchor.type, anchor.label,
+            anchor.type === 'text' ? Math.min(anchor.text.length, 1000) : anchor.type === 'page' ? undefined : anchor.selector.length),
+        screenshot: view.screenshot && `${view.screenshot.width}x${view.screenshot.height}`
+    };
+}
+
 /** Only the row presentation crosses the initial boundary, never its full discussion or diagnostics. */
 function summary(view: ProjectCommentView): ProjectCommentView {
     const pullRequests = threadPullRequestLinks([{ text: view.text, deleted: view.deleted }, ...view.replies], view.pullRequests)
@@ -64,7 +82,8 @@ function summary(view: ProjectCommentView): ProjectCommentView {
     return { ...view, pullRequests, workflow: undefined, availableLabels: undefined, summary: true, text: view.text.slice(0, 500), displayText: view.displayText.slice(0, 500),
         displayMentions: view.displayMentions?.filter(mention => mention.end <= 500), replies: [], history: undefined,
         screenshot: undefined, anchor: { type: 'page', label: '' }, reproduction: { text: '' }, quotedText: undefined, reactions: undefined,
-        verification: view.verification ? { ...view.verification, fixUrl: undefined } : undefined };
+        verification: view.verification ? { ...view.verification, fixUrl: undefined } : undefined,
+        outline: outline(view) };
 }
 
 /** One projected, budgeted scan per request. Canonical/enrichment reads are bounded to the selected page(s). */

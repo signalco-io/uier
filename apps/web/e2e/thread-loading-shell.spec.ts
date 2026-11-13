@@ -1,0 +1,104 @@
+import { expect, test, type Locator, type Route } from '@playwright/test';
+import { backToComments, commentRowLink, createProject, inBackground, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { verifiedReviewHeaders } from './support/reviewVerification';
+import { startReviewedSite } from './support/reviewedSite';
+
+// While an opened thread's detail loads, the thread pane shows a shell shaped like it (uier #385): the header, the
+// detail labels, the first message, skeletons for each reply, Reply and Activity. When the detail arrives, nothing moves.
+
+let site: Awaited<ReturnType<typeof startReviewedSite>>;
+test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(new URL(baseURL!).origin); });
+test.afterAll(async () => { await site.close(); });
+
+/** Where the thread's parts sit, from the top of the card */
+const layout = (card: Locator) => card.evaluate(root => {
+    const top = root.getBoundingClientRect().top;
+    const at = (element: Element | null | undefined) => element ? Math.round(element.getBoundingClientRect().top - top) : undefined;
+    const reply = [...root.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Reply');
+    return {
+        details: at(root.querySelector('dl')),
+        labels: [...root.querySelectorAll('dl > dt')].map(label => label.textContent?.trim()),
+        messages: at(root.querySelector('ol')),
+        quote: Math.round(root.querySelector('dl blockquote')?.getBoundingClientRect().height ?? 0),
+        items: [...root.querySelectorAll('ol > li')].map(at),
+        reply: at(reply),
+        footer: at(root.querySelector('[data-slot="card-footer"]')),
+        height: Math.round(root.getBoundingClientRect().height)
+    };
+});
+
+test('an opened thread shows a shell shaped like it until its detail arrives', async ({ page, request }, testInfo) => {
+    test.setTimeout(60_000);
+    await signIn(page, uniqueEmail('thread-shell'));
+    const project = await createProject(page, { urls: [site.origin()] });
+    await setProjectAccess(page, project, 'Anyone with the link');
+    const headers = await verifiedReviewHeaders(request, project, site.origin());
+    const point = { type: 'point', selector: 'h1', xNormal: 0.5, yNormal: 0.5 };
+    // Selected text that wraps in the On row's quote
+    const quote = 'Choose the plan that fits your team. Every plan includes unlimited reviewers, pinned comments on any element and a secure link for guests.';
+    const selection = { type: 'text', text: quote, startSelector: 'h1', startOffset: 0, startType: 'text', endOffset: 6, endType: 'text' };
+    const post = async (text: string, position: object = point) => {
+        const response = await request.post(`/api/review/${project}/comments`, { headers, data: {
+            path: `/${project}/pricing`, text, authorName: 'Reviewer', position
+        } });
+        expect(response.status(), await response.text()).toBe(201);
+        return await response.json() as { id: string; number: number };
+    };
+    const held = await post('Checkout button fails', selection);
+    // A reply of several lines and paragraphs, and more replies than a short thread has: the shell keeps room for all
+    const replies = ['Steps to reproduce:\nOpen the pricing page\nChoose Team\n\nNothing happens after Checkout.',
+        // 199 characters over a hundred lines: every line break is kept
+        Array.from({ length: 100 }, () => 'x').join('\n'),
+        ...Array.from({ length: 8 }, (_, index) => `Reply ${index + 1}`), 'Second reply'];
+    for (const text of replies)
+        expect((await request.post(`/api/review/${project}/comments/${held.id}/replies`, { headers, data: { text, authorName: 'Reviewer' } })).ok()).toBe(true);
+    const other = await post('Header logo is blurry');
+
+    await inBackground(page);
+    await page.goto(`/app/projects/${project}`);
+    // An activity entry, so the thread has its Activity footer
+    await commentRowLink(page, held.number).first().click();
+    let thread = page.getByRole('article');
+    await expect(thread).toContainText('Second reply');
+    await thread.getByRole('button', { name: 'Priority: Normal. Change priority' }).click();
+    await page.getByRole('menuitem', { name: 'Low' }).click();
+    await expect(thread.getByRole('button', { name: 'Activity (1)' })).toBeVisible();
+    // On a phone the thread takes the list's place
+    const phone = testInfo.project.name.startsWith('Mobile');
+    if (phone) await backToComments(page);
+    await commentRowLink(page, other.number).first().click();
+    await expect(page.getByRole('article')).toContainText('Header logo is blurry');
+    if (phone) await backToComments(page);
+
+    let release!: () => void;
+    const released = new Promise<void>(resolve => { release = resolve; });
+    await page.route(url => url.pathname.endsWith(`/comments/${held.id}`), async (route: Route) => {
+        await released;
+        await route.continue();
+    });
+    await commentRowLink(page, held.number).first().click();
+    const shell = page.locator('[data-thread-shell="loading"]');
+    await expect(shell).toBeVisible();
+    await expect(shell).toHaveAttribute('aria-busy', 'true');
+    await expect(shell.getByText('Loading comments')).toBeAttached();
+    await expect(page.getByRole('article')).toHaveCount(0);
+    // What the summary knows is drawn as the thread draws it; the controls wait for the detail
+    await expect(shell).toContainText(`#${held.number}`);
+    await expect(shell).toContainText('Checkout button fails');
+    await expect(shell).toContainText('Selected text');
+    await expect(shell.getByRole('button', { name: 'Reply', includeHidden: true })).toBeAttached();
+    await expect(shell.locator('ol > li')).toHaveCount(1 + replies.length);
+    await expect(shell.locator('blockquote')).toBeVisible();
+    await expect(shell).toContainText('Activity (1)');
+    // Back to comments needs no data: it works at once
+    if (phone) await expect(shell.getByRole('button', { name: 'Back to comments' })).toBeEnabled();
+    const before = await layout(shell);
+    expect(before.labels).toEqual(['Page', 'On', 'Assignees', 'Priority', 'Labels', 'Pull requests']);
+
+    release();
+    thread = page.getByRole('article');
+    await expect(thread).toContainText('Second reply');
+    await expect(shell).toHaveCount(0);
+    const after = await layout(thread);
+    expect(after).toEqual(before);
+});

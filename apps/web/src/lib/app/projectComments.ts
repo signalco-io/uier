@@ -96,6 +96,23 @@ export type ProjectCommentMessage = {
 
 export type ProjectAssignee = { id: string; name: string; avatarUrl?: string; agent?: import('@uier/toolbar/agents').AssigneeAgentView; agents?: import('@uier/toolbar/agents').AssigneeAgentView[] };
 
+/**
+ * What a list/board summary leaves out, as counts and sizes only (uier #385), so the open thread's loading shell
+ * (`CommentCardShell`) has the loaded thread's shape: the replies and the first message's text past the summary's 500
+ * characters as `commentOutline.ts` encodes them (a few hundred bytes at most a thread), the first message's reactions,
+ * the number of activity entries, what it was left on (`encodeAnchor`: its label and the length of its selected text or
+ * selector) and the screenshot's size (`800x600`). Under 200 bytes a thread, so long discussions keep the list's budget. Nothing a viewer of the thread could not see.
+ */
+export type CommentOutline = {
+    replies?: string;
+    rest?: string;
+    reactions?: number;
+    history?: number;
+    /** `encodeAnchor`: `t180 Selected text` */
+    anchor?: string;
+    screenshot?: string;
+};
+
 /** A comment as the app shows it */
 export type ProjectCommentView = {
     labels?: ThreadLabel[];
@@ -107,6 +124,8 @@ export type ProjectCommentView = {
     archiveStatusId?: string;
     /** List/board summary: the canonical detail is loaded only when the thread opens. */
     summary?: boolean;
+    /** A summary's outline of what it leaves out, so the open thread's loading shell has its shape (`CommentOutline`) */
+    outline?: CommentOutline;
     pullRequests?: { url: string; canRemove: boolean }[];
     history?: ThreadHistoryEntry[];
     priority: CommentPriority;
