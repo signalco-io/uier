@@ -16,6 +16,7 @@ here (re-arming the watcher, re-detecting the workflow, replacing the token, fal
 3. **Helper and state.** Install the helper and the fix-session rules (`SKILL.md`, Files and the
    helper), then `mkdir -p STATE/briefs STATE/logs`.
 4. **Harness.** Detect it and pick models (below and `SKILL.md`, Models). Record `harness`.
+   In T3, pin this orchestrator thread as described below.
 5. **Repository.** Read the repository notes if they exist (`docs/uier-monitor.md` or
    `.uier/monitor.md`; they override what you detect), then detect the workflow (below). Record
    `repo` and `workflow`.
@@ -41,6 +42,20 @@ Detect the harness from your tools:
 Record `harness.prWatch: true` only in T3. In T3, call `orchestrator_capabilities` once, plus
 `search: "gpt"`, `search: "claude"` and `search: "fable"` for the full model lists, and record your
 own thread id (`harness.threadId`). Record which Claude instances list a `claude-fable-*` model.
+
+On first start, call `t3_thread_organize` with `action: "pin"` and no `threadId` (this thread),
+then `M patch` `harness.pinnedAt` to the successful pin's UTC timestamp. Repeat the pin on every
+active resume or tick, and also call `action: "unsettle"` without `threadId` on those resumes.
+A missing timestamp means the pin has not been recorded; record it only after success. On ordinary
+wakes, make no extra thread lookup or organize call unless the harness reports this thread settled;
+then unsettle and pin it and refresh the timestamp. On `stop`, unpin this thread with
+`action: "unpin"` (no `threadId`) and clear `harness.pinnedAt` using `M patch`. These actions
+apply to the orchestrator, never its fix sessions. A stopped monitor's automated tick does none of
+them; `status` and `dashboard` also leave the thread alone.
+
+T3 has no settle-behaviour setting yet. Pinning and unsetting the settled state are the current
+workaround; [issue #709](https://github.com/signalco-io/uier/issues/709) tracks switching to
+"never" when that setting becomes available.
 
 **Provider instance:** `claude=`/`openai=` when given, else your own instance for your own provider,
 else the instance whose id equals its driver (`claudeAgent`, `codex`), else the first usable one. A
