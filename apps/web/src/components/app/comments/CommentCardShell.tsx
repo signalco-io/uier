@@ -8,7 +8,8 @@ import { Badge } from '@/src/components/ui/badge';
 import { Button } from '@/src/components/ui/button';
 import { Card, CardFooter } from '@/src/components/ui/card';
 import { Skeleton } from '@/src/components/ui/skeleton';
-import type { CommentOutline, MessageOutline, ProjectCommentView, TextShape } from '@/src/lib/app/projectComments';
+import type { ProjectCommentView } from '@/src/lib/app/projectComments';
+import { decodeAnchor, decodeMessage, decodeReplies, type OutlineMessage } from '@/src/lib/app/commentOutline';
 import { AssigneesControl } from './AssigneesControl';
 import { detailLabelClass, detailValueClass, KindLabel, Message, MessageText, PageDetail, PrivateBadge, type AssigneeOption } from './CommentCard';
 import { commentStatus, StateBadge, StateMenu } from './CommentStatus';
@@ -38,11 +39,11 @@ function Bars({ length }: { length: number }) {
 }
 
 /**
- * A message's text still loading, from its shape (`TextShape`): `MessageMarkdown`'s paragraphs, 24 px a line, a blank
+ * A message's text still loading, from its lines' lengths (`commentOutline.ts`): `MessageMarkdown`'s paragraphs, 24 px a line, a blank
  * line between paragraphs, each line as long as the loaded one. Markdown that is not a paragraph (lists, code) takes
  * about the same room.
  */
-function TextSkeleton({ lines }: { lines: TextShape }) {
+function TextSkeleton({ lines }: { lines: number[] }) {
     const paragraphs: number[][] = [];
     let current: number[] | undefined;
     for (const length of lines) {
@@ -86,7 +87,7 @@ function ReactionsSkeleton({ count = 0 }: { count?: number }) {
  * One reply as `Message` lays it out: the avatar centred on the header row (44 px on touch screens when it has
  * actions), its text's shape, image and reactions under it
  */
-function ReplySkeleton({ reply, actions }: { reply: MessageOutline; actions: boolean }) {
+function ReplySkeleton({ reply, actions }: { reply: OutlineMessage; actions: boolean }) {
     const { t } = useAppI18n();
     return (
         <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-1">
@@ -133,12 +134,19 @@ export function CommentCardShell({ projectId, comment, reviewLink, assignees, us
     const copyIssue = useCopyIssue(projectId, comment.id);
     const assigneeTrigger = useRef<HTMLButtonElement>(null);
     const { permissions } = comment;
-    const outline: CommentOutline = comment.outline ?? { replies: [], reactions: 0, history: 0, anchor: { type: 'page', label: '' } };
-    const { anchor } = outline;
+    const outline = comment.outline;
+    const anchor = decodeAnchor(outline?.anchor);
+    const selector = anchor.type === 'element' || anchor.type === 'area' ? anchor.size ?? 0 : undefined;
+    const selectedText = anchor.type === 'text' ? anchor.size ?? 0 : undefined;
+    const replies = decodeReplies(outline?.replies);
+    const rest = outline?.rest ? decodeMessage(outline.rest).lines : undefined;
+    const [screenshotWidth, screenshotHeight] = (outline?.screenshot ?? '').split('x').map(Number);
+    const screenshot = screenshotWidth && screenshotHeight ? { width: screenshotWidth, height: screenshotHeight } : undefined;
+    const history = outline?.history ?? 0;
     const status = commentStatus(comment);
     const allowed = allowedStatuses(comment);
     const author = comment.author.isMe ? t("You") : comment.author.name;
-    const firstReactions = !comment.deleted && comment.messageId ? outline.reactions : 0;
+    const firstReactions = !comment.deleted && comment.messageId ? outline?.reactions ?? 0 : 0;
     return (
         <Card role="status" aria-busy={!failed} data-thread-shell={failed ? 'failed' : 'loading'} className={cn('@container/comment gap-0 py-0', className)}>
             <span className="sr-only">{t("Loading comments")}</span>
@@ -182,14 +190,14 @@ export function CommentCardShell({ projectId, comment, reviewLink, assignees, us
                             Show full selector) or the selected text (four lines at most) as long as the loaded ones */}
                         <dd className="m-0 flex min-h-8 min-w-0 flex-wrap items-baseline gap-x-2 py-1.5 pointer-coarse:min-h-11 pointer-coarse:py-3">
                             {anchor.label ? <span className="min-w-0 break-words">{anchor.label}</span> : <Bars length={12} />}
-                            {anchor.selector !== undefined && (
+                            {selector !== undefined && (
                                 <span className="min-w-0">
-                                    <code className="font-mono text-xs break-all"><Bars length={Math.min(anchor.selector, 28)} /></code>
-                                    {anchor.selector > 28 && <Placeholder className="relative -my-1 ml-1 inline-block size-6 align-middle" />}
+                                    <code className="font-mono text-xs break-all"><Bars length={Math.min(selector, 28)} /></code>
+                                    {selector > 28 && <Placeholder className="relative -my-1 ml-1 inline-block size-6 align-middle" />}
                                 </span>
                             )}
-                            {anchor.text !== undefined && (
-                                <blockquote className="m-0 mt-1 line-clamp-4 basis-full border-l-2 border-border pl-2.5 text-transparent"><Bars length={anchor.text} /></blockquote>
+                            {selectedText !== undefined && (
+                                <blockquote className="m-0 mt-1 line-clamp-4 basis-full border-l-2 border-border pl-2.5 text-transparent"><Bars length={selectedText} /></blockquote>
                             )}
                         </dd>
                         <dt className={detailLabelClass}>{t("Assignees")}</dt>
@@ -228,14 +236,14 @@ export function CommentCardShell({ projectId, comment, reviewLink, assignees, us
                                 {comment.deleted
                                     ? <p className="m-0 text-sm text-muted-foreground">{t("Comment deleted")}</p>
                                     // Past its first 500 characters (the summary's) the text is still loading; "(edited)" ends that part
-                                    : <MessageText text={comment.displayText} mentions={comment.displayMentions} edited={comment.edited && !outline.rest} />}
-                                {!comment.deleted && outline.rest && <TextSkeleton lines={outline.rest} />}
-                                <ImageSkeleton image={outline.screenshot} />
+                                    : <MessageText text={comment.displayText} mentions={comment.displayMentions} edited={comment.edited && !rest} />}
+                                {!comment.deleted && rest && <TextSkeleton lines={rest} />}
+                                <ImageSkeleton image={screenshot} />
                                 <ReactionsSkeleton count={firstReactions} />
                             </Message>
                         </li>
                         {/* Every reply, as the card shows every one */}
-                        {outline.replies.map((reply, index) => (
+                        {replies.map((reply, index) => (
                             <li key={index}><ReplySkeleton reply={reply} actions={!reply.deleted && Boolean(permissions.react || reply.actions)} /></li>
                         ))}
                     </ol>
@@ -262,10 +270,10 @@ export function CommentCardShell({ projectId, comment, reviewLink, assignees, us
             </div>
 
             {/* `ThreadActivity`'s footer, its entries still loading */}
-            {outline.history > 0 && (
+            {history > 0 && (
                 <CardFooter inert className="block border-t px-4 [.border-t]:mb-0 [.border-t]:py-2">
                     <Button variant="ghost" size="sm" className="-ml-2 text-muted-foreground pointer-coarse:min-h-11">
-                        {t("Activity ({count})", { count: outline.history })}
+                        {t("Activity ({count})", { count: history })}
                     </Button>
                 </CardFooter>
             )}

@@ -47,6 +47,8 @@ test('an opened thread shows a shell shaped like it until its detail arrives', a
     const held = await post('Checkout button fails', selection);
     // A reply of several lines and paragraphs, and more replies than a short thread has: the shell keeps room for all
     const replies = ['Steps to reproduce:\nOpen the pricing page\nChoose Team\n\nNothing happens after Checkout.',
+        // 199 characters over a hundred lines: every line break is kept
+        Array.from({ length: 100 }, () => 'x').join('\n'),
         ...Array.from({ length: 8 }, (_, index) => `Reply ${index + 1}`), 'Second reply'];
     for (const text of replies)
         expect((await request.post(`/api/review/${project}/comments/${held.id}/replies`, { headers, data: { text, authorName: 'Reviewer' } })).ok()).toBe(true);

@@ -97,31 +97,20 @@ export type ProjectCommentMessage = {
 export type ProjectAssignee = { id: string; name: string; avatarUrl?: string; agent?: import('@uier/toolbar/agents').AssigneeAgentView; agents?: import('@uier/toolbar/agents').AssigneeAgentView[] };
 
 /**
- * The shape of a message's text without the text: each line's length in characters, `0` for a blank line (a
- * paragraph break), at most 40 lines (the rest added to the last). Lengths are of the text as shown, "(edited)" included.
- */
-export type TextShape = number[];
-
-/** A message the summary leaves out, as the loading shell reserves it: its text's shape, image size and reactions */
-export type MessageOutline = {
-    lines: TextShape; deleted?: boolean; image?: { width: number; height: number }; reactions?: number;
-    /** It has a More actions menu for the viewer (edit, delete or more from its author) */
-    actions?: boolean;
-};
-
-/**
  * What a list/board summary leaves out, as counts and sizes only (uier #385), so the open thread's loading shell
- * (`CommentCardShell`) has the loaded thread's shape: every reply, the first message's text past the summary's 500
- * characters (`rest`) and its reactions, the number of activity entries, what it was left on (its label, the selected
- * text's length, the selector's) and the screenshot's size. Nothing a viewer of the thread could not see.
+ * (`CommentCardShell`) has the loaded thread's shape: the replies and the first message's text past the summary's 500
+ * characters as `commentOutline.ts` encodes them (a few hundred bytes at most a thread), the first message's reactions,
+ * the number of activity entries, what it was left on (`encodeAnchor`: its label and the length of its selected text or
+ * selector) and the screenshot's size (`800x600`). Under 200 bytes a thread, so long discussions keep the list's budget. Nothing a viewer of the thread could not see.
  */
 export type CommentOutline = {
-    replies: MessageOutline[];
-    rest?: TextShape;
-    reactions: number;
-    history: number;
-    anchor: { type: CommentAnchorView['type']; label: string; text?: number; selector?: number };
-    screenshot?: { width: number; height: number };
+    replies?: string;
+    rest?: string;
+    reactions?: number;
+    history?: number;
+    /** `encodeAnchor`: `t180 Selected text` */
+    anchor?: string;
+    screenshot?: string;
 };
 
 /** A comment as the app shows it */

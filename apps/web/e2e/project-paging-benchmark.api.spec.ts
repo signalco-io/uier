@@ -41,3 +41,35 @@ test('large seeded project measures the initial board and list payloads', async 
     console.info('PAGING_BENCHMARK', JSON.stringify(results));
     await testInfo.attach('paging-benchmark.json', { body: JSON.stringify(results, null, 2), contentType: 'application/json' });
 });
+
+test('long multiline discussions keep the board and list payloads within budget', async ({}, testInfo) => {
+    process.env.UIER_LOCAL = '1';
+    const project = await persistProjectAccess({ id: randomUUID().replaceAll('-', '').slice(0, 12), aiTitles: 'off', verificationEnabled: true } as DbProject);
+    const context = { user: { id: 'admin', name: 'Admin' }, workspace: { id: project.workspaceId, aiTitles: false }, isAdmin: true } as AppContext;
+    const store = getCommentsStore(), domain = `project:${project.id}`;
+    const now = '2026-01-01T00:00:00.000Z';
+    // The worst case for the loading shell's outline (uier #385): 49 replies each, of 40 lines in 79 characters or
+    // 1000 characters of short lines, lengths varying so they do not run-length encode, after a 1000-character first message
+    const varied = Array.from({ length: 40 }, (_, line) => 'x'.repeat(1 + line % 3)).join('\n');
+    const long = Array.from({ length: 400 }, (_, line) => 'y'.repeat(1 + line % 2)).join('\n').slice(0, 1000);
+    for (let i = 0; i < 120; i++) await store.create({ id: `multiline-${String(i).padStart(4, '0')}`, domain, projectId: project.id,
+        path: `/page-${i % 20}`, origin: project.urls[0], number: i + 1, position: { type: 'page' },
+        resolved: i % 4 === 3, inProgress: i % 4 === 1,
+        ...(i % 4 === 2 ? { verification: { id: 'verification', revision: 'v1', requester: 'user:admin', reviewer: 'user:member', requestedAt: now, outcome: 'pending' as const } } : {}),
+        createdAt: now, updatedAt: now, authorId: 'user:member',
+        thread: { items: Array.from({ length: 50 }, (_, j) => ({ id: `message-${j}`, text: j === 0 ? long : j % 2 ? varied : long, authorId: 'user:member', createdAt: now })) }
+    });
+    const results = [];
+    for (const view of ['board', 'list'] as const) {
+        const snapshot = (await loadAppCommentsSnapshot(context, project, parseCommentsQuery({ view })))!;
+        const outlines = snapshot.comments.map(comment => Buffer.byteLength(JSON.stringify(comment.outline)));
+        const result = { view, returnedRows: snapshot.comments.length, jsonBytes: Buffer.byteLength(JSON.stringify(snapshot)),
+            outlineBytes: outlines.reduce((sum, bytes) => sum + bytes, 0), largestOutline: Math.max(...outlines) };
+        results.push(result);
+        console.info('PAGING_MULTILINE', JSON.stringify(result));
+        expect(snapshot.comments.length).toBe(view === 'board' ? 100 : 25);
+        expect(result.largestOutline).toBeLessThan(200);
+        expect(result.jsonBytes).toBeLessThan(view === 'board' ? 300_000 : 100_000);
+    }
+    await testInfo.attach('paging-multiline.json', { body: JSON.stringify(results, null, 2), contentType: 'application/json' });
+});

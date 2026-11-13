@@ -16,7 +16,8 @@ import type { CommentQueryCandidate } from '../repo/commentQuerySource';
 import { commentVisibilityFilter } from '../review/comments';
 import { threadTitle } from '../titles/model';
 import { aiTitlesEnabled } from '../titles/settings';
-import { appActor, loadProjectComment, loadProjectComments, type CommentOutline, type ProjectCommentView, type TextShape } from './projectComments';
+import { encodeAnchor, encodeReplies, encodeText } from './commentOutline';
+import { appActor, loadProjectComment, loadProjectComments, type CommentOutline, type ProjectCommentView } from './projectComments';
 import { environmentFilter, feedbackSource } from './environments';
 import { effectiveThreadLabels } from './threadLabels';
 import { labelsForComment } from './threadLabel';
@@ -57,29 +58,20 @@ function readCursor(token: string, key: string): Cursor {
         return cursor;
     } catch { throw apiErrors.invalidRequest('The query cursor expired or belongs to a different query.'); }
 }
-/** Each line's length, a blank one as 0, at most 40 lines (`TextShape`) */
-function textShape(text: string): TextShape {
-    const lines = text.split('\n').map(line => line.trim() ? line.length : 0);
-    return lines.length > 40 ? [...lines.slice(0, 39), lines.slice(39).reduce((sum, length) => sum + length, 0)] : lines;
-}
-const size = (image?: { width: number; height: number }) => image && { width: image.width, height: image.height };
 const edited = ' (edited)';
 
 /** Counts and sizes of what the summary leaves out, for the open thread's loading shell (`CommentOutline`) */
 function outline(view: ProjectCommentView): CommentOutline {
     const { anchor } = view;
     return {
-        replies: view.replies.map(item => item.deleted ? { lines: [], deleted: true } : {
-            lines: textShape(item.text + (item.edited ? edited : '')), image: size(item.screenshot),
-            ...(item.reactions?.length ? { reactions: item.reactions.length } : {}),
-            ...(item.canDelete || item.canFilterAuthor || item.editable ? { actions: true } : {})
-        }),
-        rest: view.displayText.length > 500 ? textShape(view.displayText.slice(500) + (view.edited ? edited : '')) : undefined,
-        reactions: view.reactions?.length ?? 0,
-        history: view.history?.length ?? 0,
-        anchor: { type: anchor.type, label: anchor.label, text: anchor.type === 'text' ? Math.min(anchor.text.length, 1000) : undefined,
-            selector: anchor.type === 'element' || anchor.type === 'area' ? anchor.selector.length : undefined },
-        screenshot: size(view.screenshot)
+        replies: encodeReplies(view.replies.map(item => ({ text: item.text + (item.edited ? edited : ''), deleted: item.deleted, image: item.screenshot,
+            reactions: item.reactions?.length, actions: Boolean(item.canDelete || item.canFilterAuthor || item.editable) }))),
+        rest: view.displayText.length > 500 ? encodeText(view.displayText.slice(500) + (view.edited ? edited : '')) : undefined,
+        reactions: view.reactions?.length || undefined,
+        history: view.history?.length || undefined,
+        anchor: encodeAnchor(anchor.type, anchor.label,
+            anchor.type === 'text' ? Math.min(anchor.text.length, 1000) : anchor.type === 'page' ? undefined : anchor.selector.length),
+        screenshot: view.screenshot && `${view.screenshot.width}x${view.screenshot.height}`
     };
 }
 

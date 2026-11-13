@@ -53,16 +53,20 @@ assignee card, with Open in T3 Code or another desktop session link, at the top 
   and Private badge with Copy and More actions, the title, every detail label with Page, Assignees, Priority, Labels and
   Pull requests (`readStates={false}`: no pull request read of its own), On's label, the first message (its first 500
   characters), Reply, Open in ... and the Activity footer. What only the detail has pulses in its place, sized from the
-  summary's `outline` (`CommentOutline`, `projectCommentPages.ts`: counts, lengths and image sizes, never text): the
+  summary's `outline` (`CommentOutline`, encoded by `src/lib/app/commentOutline.ts`: counts, line lengths with runs of
+  equal lines as one token, and image sizes, never text; the whole thread's replies in 96 characters, a reply that does
+  not fit as its totals and the replies past that as one count and line total, so an outline stays under 200 bytes and
+  long multiline discussions keep the list's payload budget, `project-paging-benchmark.api.spec.ts`): the
   selector (as `SelectorCode` shortens it) or the selected text (clamped to four lines like the loaded quote), the
   device marks, the rest of the first message, the screenshot, the first message's reactions and every reply with its
   text, image and reactions (a 44 px header on touch screens when it has actions). Text placeholders are transparent
   filler words on pulsing bars, one per line of the loaded text and as long, so they wrap about where it does; a line
   can still wrap a word sooner or later than the loaded one (a line more or less), and Markdown other than paragraphs
-  (lists, code, quotes) is approximated as paragraphs, so those can move a little when the thread loads. Its controls are `inert` (the card is `role="status"`, "Loading comments", `aria-busy`); Back to
+  (lists, code, quotes) is approximated as paragraphs, so those can move a little when the thread loads; so can a
+  discussion past the outline's budget, whose later replies are drawn as typical lines sharing their line total. Its controls are `inert` (the card is `role="status"`, "Loading comments", `aria-busy`); Back to
   comments works at once. A failed load says "This thread could not be loaded." with Try again in the messages' place.
   `e2e/thread-loading-shell.spec.ts` holds the detail of a thread with selected text, a reply of several lines and
-  paragraphs and ten replies, and checks the shell and that the loaded thread keeps its layout.
+  paragraphs, a reply of a hundred one-character lines and eleven replies, and checks the shell and that the loaded thread keeps its layout.
 - Pull requests (`comments/ThreadPullRequests.tsx`) add a Pull requests row to the details when a current
   message, reply or manual attachment contains a GitHub.com PR, GitLab.com merge request or Azure DevOps Services PR URL.
   Project triagers also see the URL entry field when there are no links.
