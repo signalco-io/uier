@@ -281,6 +281,33 @@ function median(values) {
     return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
+const LEVEL_STEP = 30 * MINUTE;
+const LEVEL_POINTS = 48;
+const levelOf = state => (state === 'queued' || state === 'held' ? 'queued' : state === 'pr' ? 'pr' : null);
+
+/**
+ * How many groups were queued and how many were open pull requests over the last day: one value on
+ * every half hour (the same instants for every monitor, so the page can add them up), then the
+ * current counts. The journal's group events, walked back from now; null before the journal starts,
+ * and no levels at all without a journal.
+ */
+export function levels(current, events, now) {
+    const dated = events.filter(event => Number.isFinite(Date.parse(event?.at ?? '')));
+    if (!dated.length) return null;
+    const start = Date.parse(dated[0].at);
+    const moves = dated.filter(event => event.type === 'group' && typeof event.group === 'string');
+    const level = { queued: current.queued, pr: current.pr };
+    const series = { queued: [], pr: [] };
+    const last = Math.floor(now / LEVEL_STEP) * LEVEL_STEP;
+    let index = moves.length - 1;
+    for (const at of [now, ...Array.from({ length: LEVEL_POINTS }, (_, back) => last - back * LEVEL_STEP)]) {
+        for (; index >= 0 && Date.parse(moves[index].at) > at; index--)
+            for (const key of ['queued', 'pr']) level[key] += (levelOf(moves[index].from) === key) - (levelOf(moves[index].to) === key);
+        for (const key of ['queued', 'pr']) series[key].push(at < start ? null : Math.max(0, level[key]));
+    }
+    return { step: LEVEL_STEP / MINUTE, queued: series.queued.reverse(), pr: series.pr.reverse() };
+}
+
 /** One monitor, as the fixed set of fields the page shows. */
 export function snapshot(dir, now = Date.now()) {
     const state = json(join(dir, 'state.json'), null);
@@ -433,7 +460,8 @@ export function snapshot(dir, now = Date.now()) {
             wakes24h: recent.filter(event => event.type === 'wake' && event.delivered !== false).length,
             quiet24h: recent.filter(event => event.quiet === true).length,
             done: Object.values(items).filter(item => item?.stage === 'done' && item.decision !== 'skipped').length,
-            open: Object.values(items).filter(item => item?.decision === 'accepted' && item.stage !== 'done').length
+            open: Object.values(items).filter(item => item?.decision === 'accepted' && item.stage !== 'done').length,
+            levels: levels({ queued: count('queued'), pr: count('pr') }, events, now)
         },
         activity: (events.length ? events.slice(-80).map(activityEntry) : [...logLines(dir)]).reverse()
     };
@@ -753,6 +781,23 @@ h1, h2, h3, p { margin: 0; }
 .tile .label { font-size: 12px; color: hsl(var(--muted-foreground)); }
 .tile .value { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.25; }
 .tile .sub { font-size: 12px; color: hsl(var(--muted-foreground)); }
+.tile .figure { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.tile .key { display: inline-flex; align-items: center; gap: 4px; margin-right: 8px; white-space: nowrap; }
+.viz { display: flex; flex: 1; align-items: center; gap: 2px; min-width: 0; max-width: 120px; height: 24px; margin-left: auto; }
+.viz svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.viz .base { stroke: hsl(var(--border)); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.viz .area { fill: hsl(var(--muted-foreground) / 0.12); }
+.viz .trace { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1.5; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.viz .bar { fill: hsl(var(--muted-foreground)); }
+.viz .bar.zero { fill: hsl(var(--border)); }
+.viz .bar.today { fill: hsl(var(--foreground)); }
+.seg { flex: 1; min-width: 2px; height: 8px; border-radius: 2px; background: hsl(var(--border)); transition: background-color 0.4s; }
+.seg.on { background: hsl(var(--brand-in-progress)); }
+.seg.warn { background: hsl(var(--brand-warning)); }
+.seg.merged { background: hsl(var(--brand-ready)); }
+.seg.bad { background: hsl(var(--destructive)); }
+.viz.pips { justify-content: flex-end; }
+.viz.pips .seg { flex: none; width: 8px; }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr)); gap: 12px; align-items: start; }
 .monitor { display: grid; gap: 10px; align-content: start; min-width: 0; padding: 14px 16px; border: 1px solid hsl(var(--border)); border-radius: 16px; background: hsl(var(--card)); transition: opacity 0.4s; }
 .monitor.expanded { grid-column: 1 / -1; }
@@ -820,7 +865,7 @@ h1, h2, h3, p { margin: 0; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .blank { grid-column: 1 / -1; padding: 40px 16px; border: 1px dashed hsl(var(--border)); border-radius: 16px; text-align: center; color: hsl(var(--muted-foreground)); }
 code { font: 12px/1.4 "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
-@media (prefers-reduced-motion: reduce) { .dot.live { animation: none; } .dot, .pip, .monitor { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .dot.live { animation: none; } .dot, .pip, .seg, .monitor { transition: none; } }
 </style>
 </head>
 <body>
@@ -995,8 +1040,84 @@ function facts(item) {
 }
 function signature(item) { return [item.stage, item.state, item.pr, item.checks, item.autoMerge].join('|'); }
 
-function tile(label, value, sub) {
-    return h('div', { class: 'tile', 'data-key': label }, h('div', { class: 'label', text: label }), h('div', { class: 'value', 'data-flash': true, text: value }), sub ? h('div', { class: 'sub', text: sub }) : null);
+function tile(label, value, sub, figure) {
+    return h('div', { class: 'tile', 'data-key': label }, h('div', { class: 'label', text: label }),
+        h('div', { class: 'figure' }, h('div', { class: 'value', 'data-flash': true, text: value }), figure), sub ? h('div', { class: 'sub' }, sub) : null);
+}
+
+// ---------------------------------------------------------------- small figures for the tiles
+// Quiet and small, in the text colours: a slot meter, a day of levels, two weeks of closes and a pip
+// per comment that needs you. The number next to each stays the thing to read.
+
+function meter(used, max) {
+    var count = Math.min(max, 24), on = max > 24 ? Math.round(used / max * count) : used, segments = [];
+    for (var index = 0; index < count; index++) segments.push(h('i', { class: 'seg' + (index < on ? ' on' : '') }));
+    var words = used + ' of ' + max + ' slots working';
+    return h('span', { class: 'viz', role: 'img', 'aria-label': words, title: words }, segments);
+}
+// Monitors' levels added up point by point; a point no monitor knows stays unknown.
+function addLevels(monitors, key) {
+    var total = null;
+    monitors.forEach(function (entry) {
+        var values = entry.metrics.levels ? entry.metrics.levels[key] : null;
+        if (!values) return;
+        total = total || values.map(function () { return null; });
+        values.forEach(function (value, index) { if (value !== null && index < total.length) total[index] = (total[index] || 0) + value; });
+    });
+    return total;
+}
+// A step line of a level over the last 24 hours, the latest value at the right edge.
+function trend(values, what) {
+    var first = values ? values.findIndex(function (value) { return value !== null; }) : -1;
+    if (first < 0 || values.length < 2) return null;
+    var width = 120, height = 24, top = Math.max.apply(null, values.slice(first)), scale = Math.max(1, top);
+    var x = function (index) { return (index / (values.length - 1) * width).toFixed(1); };
+    var y = function (value) { return (height - 1.5 - value / scale * (height - 4)).toFixed(1); };
+    var line = 'M' + x(first) + ' ' + y(values[first]);
+    for (var index = first + 1; index < values.length; index++) line += 'H' + x(index) + 'V' + y(values[index]);
+    var words = what + ', last 24 hours: at most ' + top + ', now ' + values[values.length - 1];
+    var svg = s('svg', { viewBox: '0 0 ' + width + ' ' + height, preserveAspectRatio: 'none', 'aria-hidden': 'true', focusable: 'false' });
+    // The baseline runs the whole day, also where the journal does not reach yet.
+    svg.appendChild(s('line', { class: 'base', x1: 0, x2: width, y1: height - 0.5, y2: height - 0.5 }));
+    svg.appendChild(s('path', { class: 'area', d: line + 'V' + height + 'H' + x(first) + 'Z' }));
+    svg.appendChild(s('path', { class: 'trace', d: line }));
+    return h('span', { class: 'viz', role: 'img', 'aria-label': words, title: words }, svg);
+}
+// Comments closed on each of the last 14 days, as bars; today's is darker.
+function closes(closed) {
+    var days = perDay(closed), width = 120, height = 24, band = width / days.length;
+    var top = Math.max.apply(null, days.map(function (entry) { return entry.count; })), scale = Math.max(1, top);
+    var svg = s('svg', { viewBox: '0 0 ' + width + ' ' + height, preserveAspectRatio: 'none', 'aria-hidden': 'true', focusable: 'false' });
+    days.forEach(function (entry, index) {
+        var size = entry.count ? Math.max(2, entry.count / scale * height) : 1;
+        svg.appendChild(s('rect', { class: 'bar' + (entry.count ? '' : ' zero') + (index === days.length - 1 ? ' today' : ''),
+            x: (index * band + 1).toFixed(1), y: (height - size).toFixed(1), width: (band - 2).toFixed(1), height: size.toFixed(1), rx: 1 }));
+    });
+    var words = 'Closed per day, last 14 days: ' + days[days.length - 1].count + ' today, at most ' + top + ' a day';
+    return h('span', { class: 'viz', role: 'img', 'aria-label': words, title: words }, svg);
+}
+// What the comments that need you need: kind, pip colour, one, many.
+var NEEDS = [['asked', 'warn', 'question', 'questions'], ['verify', 'merged', 'to verify', 'to verify'], ['blocked', 'bad', 'blocked', 'blocked'], ['write', 'bad', 'failed uier write', 'failed uier writes']];
+function needsOf(attention) {
+    return NEEDS.map(function (kind) { return { kind: kind, count: attention.filter(function (item) { return item.kind === kind[0]; }).length }; })
+        .filter(function (entry) { return entry.count; });
+}
+// A pip per comment that needs you, in the colour of what it needs; beyond 12, 12 pips in the same shares.
+function needPips(attention) {
+    var kinds = needsOf(attention), total = attention.length, left = Math.min(12, total);
+    if (!kinds.length) return null;
+    return h('span', { class: 'viz pips', 'aria-hidden': 'true' }, kinds.map(function (entry, index) {
+        var pips = [], count = index === kinds.length - 1 ? left : Math.max(1, Math.min(left - (kinds.length - 1 - index), Math.round(entry.count / total * Math.min(12, total))));
+        left -= count;
+        for (var pip = 0; pip < count; pip++) pips.push(h('i', { class: 'seg ' + entry.kind[1] }));
+        return pips;
+    }));
+}
+function needWords(attention) {
+    var kinds = needsOf(attention);
+    return kinds.length ? kinds.map(function (entry) {
+        return h('span', { class: 'key' }, h('i', { class: 'dot ' + entry.kind[1] }), entry.count + ' ' + entry.kind[entry.count === 1 ? 2 : 3]);
+    }) : 'questions, checks and blocks';
 }
 function alert(item) {
     var time = item.since ? [' · since ' + clock(item.since) + ' (', ago(item.since), ')'] : item.until ? ' · until ' + clock(item.until) : '';
@@ -1059,7 +1180,8 @@ function sentence(entry) {
     }
 }
 
-function chart(closed) {
+// Comments closed on each of the last 14 days, by this browser's calendar.
+function perDay(closed) {
     var days = [];
     var today = new Date(); today.setHours(0, 0, 0, 0);
     for (var back = 13; back >= 0; back--) { var day = new Date(today); day.setDate(today.getDate() - back); days.push({ at: day, count: 0 }); }
@@ -1068,6 +1190,11 @@ function chart(closed) {
         var slot = days.find(function (entry) { return entry.at.getTime() === at.getTime(); });
         if (slot) slot.count++;
     });
+    return days;
+}
+
+function chart(closed) {
+    var days = perDay(closed);
     var max = Math.max.apply(null, days.map(function (entry) { return entry.count; }));
     var label = function (entry) { return entry.at.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }); };
     var width = 420, height = 120, top = 16, bottom = 18, band = width / days.length, bar = Math.min(24, band - 2), plot = height - top - bottom;
@@ -1321,6 +1448,8 @@ function render() {
     var sum = function (list, pick) { return list.reduce(function (total, entry) { return total + pick(entry); }, 0); };
     var count = function (stage) { return function (entry) { return entry.pipeline.filter(function (item) { return item.stage === stage; }).length; }; };
     var needs = sum(monitors, function (entry) { return entry.attention.length; });
+    var attention = [].concat.apply([], monitors.map(function (entry) { return entry.attention; }));
+    var used = sum(busy, function (entry) { return entry.slots.used; }), slots = sum(busy, function (entry) { return entry.slots.max; });
     var working = monitors.filter(active).length, waiting = monitors.filter(function (entry) { return entry.status === 'waiting'; }).length;
     var pill = function (key, dot, words) { return h('span', { class: 'badge', 'data-key': key }, dot ? h('i', { class: 'dot ' + dot }) : null, h('span', { class: 'num', 'data-flash': true, text: words })); };
     var summary = h('span', null, monitors.length ? [pill('monitors', null, plural(monitors.length, 'monitor')), pill('working', working ? 'work' : 'ring', working + ' working'),
@@ -1333,11 +1462,12 @@ function render() {
             return entry.health.map(function (item) { if (!item.machine || shared[item.text]) return null; shared[item.text] = true; return alert(item); });
         })));
         reconcile(document.getElementById('tiles'), h('div', null, monitors.length ? [
-            tile('Sessions working', sum(busy, function (entry) { return entry.slots.used; }), 'of ' + sum(busy, function (entry) { return entry.slots.max; }) + ' slots'),
-            tile('Queued', sum(busy, count('queued')), 'groups waiting for a slot'),
-            tile('Pull requests', sum(busy, count('pr')), 'open, waiting to merge'),
-            tile('Needs you', needs, 'questions, checks and blocks'),
-            tile('Closed, last 24 h', sum(monitors, function (entry) { return entry.metrics.closed24h; }), 'comments')
+            tile('Sessions working', used, 'of ' + slots + ' slots', slots ? meter(used, slots) : null),
+            tile('Queued', sum(busy, count('queued')), 'groups waiting for a slot', trend(addLevels(busy, 'queued'), 'Queued')),
+            tile('Pull requests', sum(busy, count('pr')), 'open, waiting to merge', trend(addLevels(busy, 'pr'), 'Open pull requests')),
+            tile('Needs you', needs, needWords(attention), needPips(attention)),
+            tile('Closed, last 24 h', sum(monitors, function (entry) { return entry.metrics.closed24h; }), 'comments',
+                closes([].concat.apply([], monitors.map(function (entry) { return entry.metrics.closed; }))))
         ] : null));
         reconcile(document.getElementById('monitors'), h('div', null, monitors.length
             ? monitors.map(function (entry) { return monitor(entry, monitors.length === 1); })

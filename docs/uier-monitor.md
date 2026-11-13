@@ -145,6 +145,11 @@ last check-in, the activity feed, comments closed per day, the median time from 
 the wakes of the last 24 hours. Badges next to the title count the monitors, the ones working and the
 ones waiting. The totals above the cards count every monitor that isn't stopped or
 inactive.
+Each total has a small figure beside it: a slot meter for the sessions working, a line of the
+last 24 hours for the queued groups and the open pull requests (walked back from now through the
+journal's group events, sampled on the half hour; flat where the journal doesn't reach), a pip per
+comment that needs you in the colour of what it needs (questions, comments to verify, blocks and
+failed uier writes, named under the number), and a bar per day of the last 14 for the comments closed.
 
 #### Feedback on the dashboard
 

@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 // The registry of this test run, never the person's own ~/.uier-monitor.
 const home = mkdtempSync(join(tmpdir(), 'uier-monitor-home-'));
 process.env.UIER_MONITOR_HOME = home;
-const { PAGE, agentOf, collect, createDashboardServer, discover, modelName, reviewOf, sessionLink, snapshot } = await import('./dashboard.mjs');
+const { PAGE, agentOf, collect, createDashboardServer, discover, levels, modelName, reviewOf, sessionLink, snapshot } = await import('./dashboard.mjs');
 const monitor = fileURLToPath(new URL('./monitor.mjs', import.meta.url));
 const temporary = [home];
 after(() => { for (const dir of temporary) rmSync(dir, { recursive: true, force: true }); });
@@ -329,4 +329,33 @@ test('relative times wake exactly when their words change, growing or shrinking'
     }
     const script = /<script nonce="__NONCE__">([\s\S]*)<\/script>/.exec(PAGE)[1];
     assert.ok(!/' ago'\s*:|span\(Date\.now\(\)/.test(script.replace(/function relative[\s\S]*?\n}\n/, '')), 'every relative time goes through when()');
+});
+
+test('the queued and pull request levels of the last day walk the journal back from the current counts', () => {
+    const at = minutes => new Date(now - minutes * 60_000).toISOString();
+    const journal = [
+        { at: at(600), type: 'watcher', event: 'started' },
+        { at: at(300), type: 'group', group: 'g1', to: 'queued' },
+        { at: at(290), type: 'group', group: 'g2', to: 'held' },
+        { at: at(200), type: 'group', group: 'g1', from: 'queued', to: 'building' },
+        { at: at(100), type: 'group', group: 'g1', from: 'building', to: 'pr' },
+        { at: at(45), type: 'group', group: 'g1', from: 'pr', to: 'merged' },
+        { at: at(10), type: 'group', group: 'g3', from: 'blocked', to: 'pr' },
+        { at: 'not a time', type: 'group', group: 'g9', to: 'queued' }
+    ];
+    const shown = levels({ queued: 1, pr: 1 }, journal, now);
+    assert.equal(shown.step, 30);
+    assert.equal(shown.queued.length, 49);
+    const value = (series, minutes) => series[47 - minutes / 30]; // now is on the half hour
+    assert.deepEqual([shown.queued.at(-1), shown.pr.at(-1)], [1, 1], 'the last point is now');
+    assert.equal(value(shown.queued, 630), null, 'unknown before the journal starts');
+    assert.equal(value(shown.queued, 600), 0);
+    assert.equal(value(shown.queued, 270), 2);
+    assert.equal(value(shown.queued, 180), 1);
+    assert.equal(value(shown.pr, 60), 1);
+    assert.equal(value(shown.pr, 30), 0, 'g1 merged, g3 not yet a pull request');
+    assert.equal(levels({ queued: 0, pr: 0 }, [], now), null, 'no journal, no levels');
+    // Snapshots of every monitor share the same instants, so the page can add them up.
+    const dir = stateDir({ groups: { g1: { items: [], state: 'pr', pr: 4 } } }, { 'events.jsonl': `${JSON.stringify({ at: at(20), type: 'group', group: 'g1', from: 'building', to: 'pr' })}\n` });
+    assert.deepEqual(snapshot(dir, now).metrics.levels.pr.slice(-3), [null, 1, 1], 'this journal starts 20 minutes ago');
 });
