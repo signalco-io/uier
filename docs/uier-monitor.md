@@ -112,11 +112,21 @@ node "$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor/dash
 
 It opens `http://127.0.0.1:4780`. `--detach` keeps it serving after the command returns
 (`dashboard.mjs stop` ends it), `--port N` picks another port, `--state DIR` adds a monitor it didn't
-find, and `--json` prints one snapshot and exits. The skill starts it too: `/uier-monitor dashboard`
+find, `--json` prints one snapshot and exits, and `--no-icons` keeps the server from fetching the
+projects' site icons. The skill starts it too: `/uier-monitor dashboard`
 (in Claude Code with the plugin, `/uier:uier-monitor dashboard`), with or without a project.
 
 Every monitor is a card, and the cards sit side by side, so you see all of them without opening
-anything. A card shows:
+anything. A card's title starts with the project's icon: its site's favicon, or the first letter of
+its name in a small tile while there is none, as in the uier app. uier serves project icons only to
+signed-in members, so the dashboard's server fetches the icon itself from the site in the state file
+(the page's `<link rel="icon">`, then `/favicon.ico`, `/favicon.svg` and `/apple-touch-icon.png`),
+keeps only bytes that are an image and serves it from `/api/icon/…`; the page never contacts the site
+and gets no token. Its requests reach only the site's own origin (scheme, host and port, which may be on
+this machine) or public addresses on port 80, 443 or the site's port: declared icons and redirects
+that point at this machine, the local network or a cloud metadata address are refused, host names
+are checked on each connection's own DNS answer, and redirects (at most 5) are checked hop by hop. A found icon is kept for a day, a missing one is tried again after 30 minutes.
+A card shows:
 
 - **Watcher health:** running, waiting (a running watcher with nothing in progress), stopped, not
   running or not responding, with failing wake delivery and usage limits called out. Low disk space
@@ -142,12 +152,20 @@ shows the new state where it is and then glides to its new place, a group that l
 says Done or Cancelled for a moment before it goes, new rows fade in and changed numbers and words
 are highlighted briefly. The dot of a group being worked on beats. With reduced motion turned on in
 the system, nothing moves.
+Relative times ("5 min ago", "in 3 min", "for 2 h") stay current between updates: each one's
+words change the moment they would read differently (every second while one counts seconds), and
+nothing else on the page is redrawn or highlighted for it.
 
 **Show details** opens a card across the page and adds each group's note, the watcher's version and
 last check-in, the activity feed, comments closed per day, the median time from start to close and
 the wakes of the last 24 hours. Badges next to the title count the monitors, the ones working and the
 ones waiting. The totals above the cards count every monitor that isn't stopped or
 inactive.
+Each total has a small figure beside it: a slot meter for the sessions working, a line of the
+last 24 hours for the queued groups and the open pull requests (walked back from now through the
+journal's group events, sampled on the half hour; flat where the journal doesn't reach), a pip per
+comment that needs you in the colour of what it needs (questions, comments to verify, blocks and
+failed uier writes, named under the number), and a bar per day of the last 14 for the comments closed.
 
 #### Feedback on the dashboard
 
@@ -180,7 +198,7 @@ at 2 MB, keeping one earlier file.
 
 **What it never does.** It doesn't change a monitor, uier or the repository, and it has no write
 endpoint. It binds to `127.0.0.1` and refuses requests under another host name, so a web page you
-visit can't read it. It loads nothing from the internet unless you pass `--review`. The browser receives a fixed set of fields,
+visit can't read it. Its server fetches only the projects' site icons (not with `--no-icons`), and the page loads nothing from the internet unless you pass `--review`. The browser receives a fixed set of fields,
 never the state files themselves or a token, and the page renders feedback text as text. Binding
 another address with `--host` makes the page readable by everyone who can reach that address.
 

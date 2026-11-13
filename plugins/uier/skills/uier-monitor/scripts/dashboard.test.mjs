@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { request } from 'node:http';
+import { createServer, request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 // The registry of this test run, never the person's own ~/.uier-monitor.
 const home = mkdtempSync(join(tmpdir(), 'uier-monitor-home-'));
 process.env.UIER_MONITOR_HOME = home;
-const { PAGE, agentOf, collect, createDashboardServer, discover, modelName, reviewOf, sessionLink, snapshot } = await import('./dashboard.mjs');
+const { PAGE, agentOf, collect, createDashboardServer, discover, findSiteIcon, iconLinks, iconRequest, iconType, isPublicAddress, levels, modelName, projectIcon, publicLookup, reviewOf, sessionLink, snapshot } = await import('./dashboard.mjs');
 const monitor = fileURLToPath(new URL('./monitor.mjs', import.meta.url));
 const temporary = [home];
 after(() => { for (const dir of temporary) rmSync(dir, { recursive: true, force: true }); });
@@ -301,4 +301,165 @@ test('the command line prints a snapshot as JSON and explains itself', () => {
     assert.deepEqual(printed.monitors.map(entry => entry.project.name), ['Printed fixture']);
     assert.match(execFileSync(process.execPath, [script, 'help'], { encoding: 'utf8' }), /read-only/);
     assert.throws(() => execFileSync(process.execPath, [script, '--nope'], { encoding: 'utf8', stdio: 'pipe' }), /Unknown option/);
+});
+
+/** Top-level functions of the page's script, to test them on their own. */
+function pageFunctions(...names) {
+    const script = /<script nonce="__NONCE__">([\s\S]*)<\/script>/.exec(PAGE)[1];
+    const source = names.map(name => new RegExp(`^function ${name}\\([\\s\\S]*?^}$`, 'm').exec(script)[0]).join('\n');
+    return new Function(`${source}\nreturn { ${names.join(', ')} };`)();
+}
+
+test('relative times wake exactly when their words change, growing or shrinking', () => {
+    const { span, relative, untilChange } = pageFunctions('plural', 'span', 'relative', 'untilChange');
+    assert.equal(relative('ago', now - 90_000, now), '2 min ago');
+    assert.equal(relative('in', now + 45_000, now), 'in 45 s');
+    assert.equal(relative('for', now - 3_660_000, now), 'for 1 h 1 min');
+    const samples = [0, 1, 499, 500, 501, 999, 12_345, 58_999, 59_499, 59_500, 59_501, 60_000, 89_499, 89_500, 120_000, 149_499, 3_570_000, 3_599_000, 5_432_100, 47 * 3_600_000];
+    for (let index = 0; index < 200; index++) samples.push(Math.floor(Math.random() * 46 * 3_600_000));
+    for (const ms of samples) {
+        const up = untilChange(ms, true);
+        assert.ok(up > 0 && up <= 60_000, `${ms} grows`);
+        assert.notEqual(span(ms + up), span(ms), `${ms} reads differently after ${up} ms`);
+        assert.equal(span(ms + up - 1), span(ms), `${ms} reads the same until then`);
+        const down = untilChange(ms, false);
+        if (ms < 500) { assert.equal(down, Infinity, 'a time that has come stays "in 0 s"'); continue; }
+        assert.notEqual(span(ms - down), span(ms), `${ms} shrinks after ${down} ms`);
+        assert.equal(span(ms - down + 1), span(ms), `${ms} reads the same until it shrinks`);
+    }
+    const script = /<script nonce="__NONCE__">([\s\S]*)<\/script>/.exec(PAGE)[1];
+    assert.ok(!/' ago'\s*:|span\(Date\.now\(\)/.test(script.replace(/function relative[\s\S]*?\n}\n/, '')), 'every relative time goes through when()');
+});
+
+test('the queued and pull request levels of the last day walk the journal back from the current counts', () => {
+    const at = minutes => new Date(now - minutes * 60_000).toISOString();
+    const journal = [
+        { at: at(600), type: 'watcher', event: 'started' },
+        { at: at(300), type: 'group', group: 'g1', to: 'queued' },
+        { at: at(290), type: 'group', group: 'g2', to: 'held' },
+        { at: at(200), type: 'group', group: 'g1', from: 'queued', to: 'building' },
+        { at: at(100), type: 'group', group: 'g1', from: 'building', to: 'pr' },
+        { at: at(45), type: 'group', group: 'g1', from: 'pr', to: 'merged' },
+        { at: at(10), type: 'group', group: 'g3', from: 'blocked', to: 'pr' },
+        { at: 'not a time', type: 'group', group: 'g9', to: 'queued' }
+    ];
+    const shown = levels({ queued: 1, pr: 1 }, journal, now);
+    assert.equal(shown.step, 30);
+    assert.equal(shown.queued.length, 49);
+    const value = (series, minutes) => series[47 - minutes / 30]; // now is on the half hour
+    assert.deepEqual([shown.queued.at(-1), shown.pr.at(-1)], [1, 1], 'the last point is now');
+    assert.equal(value(shown.queued, 630), null, 'unknown before the journal starts');
+    assert.equal(value(shown.queued, 600), 0);
+    assert.equal(value(shown.queued, 270), 2);
+    assert.equal(value(shown.queued, 180), 1);
+    assert.equal(value(shown.pr, 60), 1);
+    assert.equal(value(shown.pr, 30), 0, 'g1 merged, g3 not yet a pull request');
+    assert.equal(levels({ queued: 0, pr: 0 }, [], now), null, 'no journal, no levels');
+    // Snapshots of every monitor share the same instants, so the page can add them up.
+    const dir = stateDir({ groups: { g1: { items: [], state: 'pr', pr: 4 } } }, { 'events.jsonl': `${JSON.stringify({ at: at(20), type: 'group', group: 'g1', from: 'building', to: 'pr' })}\n` });
+    assert.deepEqual(snapshot(dir, now).metrics.levels.pr.slice(-3), [null, 1, 1], 'this journal starts 20 minutes ago');
+});
+
+test('a project icon is its site\'s favicon, fetched by the server and served from the dashboard only', async () => {
+    const png = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
+    assert.equal(iconType(png), 'image/png');
+    assert.equal(iconType(Buffer.from([0, 0, 1, 0, 1, 0])), 'image/x-icon');
+    assert.equal(iconType(Buffer.from('<?xml version="1.0"?>\n<svg xmlns="http://www.w3.org/2000/svg"></svg>')), 'image/svg+xml');
+    for (const other of ['<!doctype html><html><svg></svg>', 'not an image', '']) assert.equal(iconType(Buffer.from(other)), undefined, other);
+    assert.deepEqual(iconLinks(`<link rel="apple-touch-icon" href="/touch.png"><link href='/a.svg?v=1&amp;x=2' rel="shortcut icon">
+        <link rel=icon href=https://cdn.example/b.ico><link rel="stylesheet" href="/s.css"><link rel="icon" href="javascript:alert(1)">`, 'https://site.example/docs/'),
+    ['https://site.example/a.svg?v=1&x=2', 'https://cdn.example/b.ico', 'https://site.example/touch.png']);
+
+    const served = [];
+    const site = createServer((incoming, outgoing) => {
+        served.push(incoming.url);
+        if (incoming.url === '/') { outgoing.writeHead(200, { 'content-type': 'text/html' }); outgoing.end('<head><link rel="icon" href="/missing.png"><link rel="icon" href="/fake.png"><link rel="icon" href="/real.png"></head>'); return; }
+        if (incoming.url === '/fake.png') { outgoing.writeHead(200, { 'content-type': 'image/png' }); outgoing.end('<script>alert(1)</script>'); return; }
+        if (incoming.url === '/real.png') { outgoing.writeHead(200, { 'content-type': 'text/plain' }); outgoing.end(png); return; }
+        outgoing.writeHead(404); outgoing.end();
+    });
+    site.listen(0, '127.0.0.1');
+    await once(site, 'listening');
+    const address = `http://127.0.0.1:${site.address().port}`;
+    const server = createDashboardServer({ states: [stateDir({ project: { id: 'p1', name: 'Iconic', site: address } })], ...outside, intervalMs: 20 });
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    const dashboard = `http://127.0.0.1:${server.address().port}`;
+    try {
+        assert.deepEqual(await findSiteIcon(address), { type: 'image/png', data: png }, 'the first declared icon that is an image by its bytes');
+        assert.deepEqual(served, ['/', '/missing.png', '/fake.png', '/real.png']);
+        assert.equal(await findSiteIcon('http://127.0.0.1:1'), null, 'a site that does not answer has no icon');
+
+        assert.equal(collect({ ...outside, states: [stateDir({ project: { site: address } })] }).monitors[0].project.icon, undefined, 'a snapshot alone fetches nothing');
+        let icon;
+        for (let tries = 0; tries < 100 && !icon; tries++) {
+            icon = (await (await fetch(`${dashboard}/api/snapshot`)).json()).monitors[0].project.icon;
+            if (!icon) await sleep(20);
+        }
+        assert.match(icon, /^\/api\/icon\/[0-9a-f]{16}$/);
+        const response = await fetch(`${dashboard}${icon}`);
+        assert.equal(response.headers.get('content-type'), 'image/png');
+        assert.match(response.headers.get('content-security-policy'), /sandbox/);
+        assert.deepEqual(Buffer.from(await response.arrayBuffer()), png);
+        assert.equal((await fetch(`${dashboard}/api/icon/0123456789abcdef`)).status, 404, 'only icons the server fetched itself');
+        assert.match((await fetch(dashboard)).headers.get('content-security-policy'), /img-src 'self' data:/);
+
+        let asked = 0;
+        const find = async () => { asked++; return null; };
+        assert.equal(projectIcon('https://none.example', find), undefined);
+        await sleep(0);
+        assert.equal(projectIcon('https://none.example', find), undefined);
+        assert.equal(asked, 1, 'a site without an icon is not asked again right away');
+    } finally {
+        server.closeAllConnections();
+        site.closeAllConnections();
+        await Promise.all([new Promise(resolve => server.close(resolve)), new Promise(resolve => site.close(resolve))]);
+    }
+});
+
+test('icon requests reach only the project site itself or public addresses, also through redirects and DNS', async () => {
+    const site = new URL('http://127.0.0.1:4780/');
+    const allowed = href => iconRequest(new URL(href), site);
+    assert.equal(allowed('http://127.0.0.1:4780/favicon.ico'), 'site', 'the site itself, even on this machine');
+    for (const href of ['http://127.0.0.1:4781/', 'http://localhost:4780/', 'http://[::1]:4780/', 'http://169.254.169.254/latest/meta-data/', 'http://10.0.0.1/x.png',
+        'http://192.168.1.1/', 'http://[::ffff:127.0.0.1]/', 'http://[fe80::1]/', 'http://0.0.0.0/', 'http://intranet/', 'http://a.localhost/', 'https://user:pass@example.com/',
+        'https://example.com:8443/', 'file:///etc/passwd', 'ftp://example.com/'])
+        assert.equal(allowed(href), false, href);
+    assert.equal(allowed('https://cdn.example.com/icon.png'), 'public');
+    assert.equal(allowed('http://8.8.8.8:4780/'), 'public', 'a public address on the site\'s own port');
+    for (const address of ['127.0.0.1', '10.1.2.3', '172.20.0.1', '169.254.169.254', '::1', '::ffff:10.0.0.1', 'fd00::1', 'not an address']) assert.equal(isPublicAddress(address), false, address);
+    for (const address of ['8.8.8.8', '2606:4700::1111', '::ffff:1.1.1.1']) assert.equal(isPublicAddress(address), true, address);
+    // A public-looking name that resolves to this machine is refused on the connection's own DNS answer.
+    const refused = await new Promise(done => publicLookup('localhost', { all: true }, error => done(error)));
+    assert.equal(refused?.code, 'EBLOCKED');
+
+    // Another service on this machine, which no icon lookup may reach.
+    const hits = [];
+    const internal = createServer((incoming, outgoing) => { hits.push(incoming.url); outgoing.writeHead(200, { 'content-type': 'image/png' }); outgoing.end(Buffer.from('89504e470d0a1a0a', 'hex')); });
+    internal.listen(0, '127.0.0.1');
+    await once(internal, 'listening');
+    const other = internal.address().port;
+    const fixture = createServer((incoming, outgoing) => {
+        if (incoming.url === '/') {
+            outgoing.writeHead(200, { 'content-type': 'text/html' });
+            outgoing.end(['http://127.0.0.1:OTHER/admin/declared', 'http://localhost:OTHER/admin/named', 'http://[::1]:OTHER/admin/v6', 'http://169.254.169.254/latest/meta-data/',
+                '/to-internal.png', '/to-metadata.png'].map(href => `<link rel="icon" href="${href.replace('OTHER', other)}">`).join(''));
+            return;
+        }
+        if (incoming.url === '/to-internal.png') { outgoing.writeHead(302, { location: `http://127.0.0.1:${other}/admin/redirected` }); outgoing.end(); return; }
+        if (incoming.url === '/to-metadata.png') { outgoing.writeHead(307, { location: 'http://169.254.169.254/latest/meta-data/' }); outgoing.end(); return; }
+        outgoing.writeHead(404); outgoing.end();
+    });
+    fixture.listen(0, '127.0.0.1');
+    await once(fixture, 'listening');
+    try {
+        const started = Date.now();
+        assert.equal(await findSiteIcon(`http://127.0.0.1:${fixture.address().port}`), null);
+        assert.deepEqual(hits, [], 'nothing reached the other service');
+        assert.ok(Date.now() - started < 5000, 'refused addresses are not even tried');
+    } finally {
+        internal.closeAllConnections();
+        fixture.closeAllConnections();
+        await Promise.all([new Promise(resolve => internal.close(resolve)), new Promise(resolve => fixture.close(resolve))]);
+    }
 });
