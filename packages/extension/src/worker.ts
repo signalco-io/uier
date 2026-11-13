@@ -86,7 +86,16 @@ async function json<T>(response: Response): Promise<T> {
 async function getBinding(tabId: number) {
     return (await browser.storage.session.get(bindingKey(tabId)))[bindingKey(tabId)] as Binding | undefined;
 }
-async function clearBinding(tabId: number) { await browser.storage.session.remove(bindingKey(tabId)); }
+async function clearBinding(tabId: number) { await browser.storage.session.remove(bindingKey(tabId)); void reviewIndicator(tabId, false); }
+/**
+ * The toolbar icon of a tab with a review on carries the popup's green dot (icons/active-*.png).
+ * Per tab, so other tabs keep the plain icon. Firefox resets per-tab icons on navigation, so every
+ * successful mount sets it again; a closed tab takes its icon with it.
+ */
+async function reviewIndicator(tabId: number, on: boolean) {
+    const name = (size: number) => `icons/${on ? 'active-' : ''}${size}.png`;
+    await browser.action.setIcon({ tabId, path: { 16: name(16), 32: name(32), 48: name(48) } }).catch(() => {});
+}
 async function actualDocument(binding: Binding, sender?: chrome.runtime.MessageSender, allowNewDocument = false) {
     const credentials = await session();
     const currentBinding = await getBinding(binding.tabId);
@@ -167,7 +176,7 @@ async function boundTabs() {
     return Object.keys(values).filter(key => key.startsWith('binding:')).map(key => Number(key.slice(8)));
 }
 async function disposeTabs(tabIds: number[]) {
-    await Promise.all(tabIds.map(tabId => browser.tabs.sendMessage(tabId, { type: 'dispose' }).catch(() => {})));
+    await Promise.all(tabIds.map(tabId => Promise.all([browser.tabs.sendMessage(tabId, { type: 'dispose' }).catch(() => {}), reviewIndicator(tabId, false)])));
 }
 /** A restart ends every review, as an automatic update does; remove the toolbars before it orphans them. */
 async function installUpdate() {
@@ -231,6 +240,7 @@ async function inject(binding: Binding) {
     await browser.storage.session.set({ [bindingKey(binding.tabId)]: binding });
     const mounted = await browser.tabs.sendMessage(binding.tabId, { type: 'mount', config: { apiUrl: apiOrigin, project: binding.publicId, mode: 'review' } }, { documentId: binding.documentId });
     if (!mounted?.ok) throw new Error(mounted?.error || 'The review could not start.');
+    if ((await getBinding(binding.tabId))?.activation === binding.activation) await reviewIndicator(binding.tabId, true);
 }
 /**
  * The audit asset (axe-core and the on-demand page checks), `audit.js` in this package. Only the bound

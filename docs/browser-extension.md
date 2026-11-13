@@ -22,6 +22,9 @@ compiled from the toolbar's Tailwind setup and brand tokens, and Geist ships in 
 (`fonts/`, with its license), so they load nothing remote. They follow the system theme. The popup
 shows the active tab's site, the matching projects, an active review with Exit review, and Open uier
 and Sign out. The 16/32/48 px icons are the rounded app icon; the 128 px icon keeps 16 px padding.
+While a review is on in a tab, that tab's toolbar icon shows the popup's green dot (`icons/active-*.png`,
+the brand success colour with a paper ring). The worker sets it after each mount and resets it whenever
+the binding ends: Exit review, a different site, sign-out, an update restart or a closed tab.
 
 The toolbar's Accessibility and SEO panels work as on the web. Their audit asset (axe-core and the
 on-demand page checks, [page checks](../packages/toolbar/docs/page-checks.md)) is `audit.js`, a

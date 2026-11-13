@@ -24,7 +24,7 @@ export async function validate(directory, { root, browser = 'chrome' }) {
         }
     }
     await visit(directory);
-    const required = ['worker.js', 'content.js', 'audit.js', 'popup.js', 'helper.js', 'popup.html', 'helper.html', 'popup.css', 'LICENSE', ...Object.values(manifest.icons)];
+    const required = ['worker.js', 'content.js', 'audit.js', 'popup.js', 'helper.js', 'popup.html', 'helper.html', 'popup.css', 'LICENSE', ...Object.values(manifest.icons), 'icons/active-16.png', 'icons/active-32.png', 'icons/active-48.png'];
     for (const file of required) assert(files.includes(file), `Missing packaged file ${file}`);
     for (const file of files.filter(f => /\.(js|html|css)$/.test(f))) {
         const text = await readFile(join(directory, file), 'utf8');

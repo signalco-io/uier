@@ -82,6 +82,12 @@ for (const [size, inset] of [[16, 0], [32, 0], [48, 0], [128, 16]]) {
     const side = size - inset * 2, mark = side * 0.54, offset = inset + (side - mark) / 2 + side * 0.015;
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><rect x="${inset}" y="${inset}" width="${side}" height="${side}" rx="${side * 0.22}" fill="${brand.colors.black}"/><g transform="translate(${offset} ${offset}) scale(${mark / 24})"><path fill="${brand.colors.paper}" d="${MARK_PATH}"/></g></svg>`;
     await sharp(Buffer.from(svg), { density: 72 * 8 }).resize(size, size).png().toFile(resolve(dest, `icons/${size}.png`));
+    // While a review is on in a tab, the worker shows this variant there: the popup's green "review is
+    // on" dot in the bottom-right corner, with a paper ring so it reads on light and dark toolbars.
+    if (inset) continue;
+    const dot = size * 0.2, ring = size * 0.07, centre = size - dot - ring / 2;
+    const active = svg.replace('</svg>', `<circle cx="${centre}" cy="${centre}" r="${dot}" fill="${brand.colors.success}" stroke="${brand.colors.paper}" stroke-width="${ring}"/></svg>`);
+    await sharp(Buffer.from(active), { density: 72 * 8 }).resize(size, size).png().toFile(resolve(dest, `icons/active-${size}.png`));
 }
 await writeFile(resolve(dest, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
 await cp(resolve(root, '../../LICENSE'), resolve(dest, 'LICENSE'));
