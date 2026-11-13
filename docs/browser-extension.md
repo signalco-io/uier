@@ -286,6 +286,8 @@ capture failure, omitted API cookies, light/dark popup accessibility, and the Ac
 strict-CSP page of over 1,500 elements: `audit.js` is parsed in the document only once the panel opens,
 once for Check again too, the panel lists the page's issues, and the page has no `axe`, handoff or script
 element and requested nothing for it; a smaller page gets its button's issue count from the background audit.
+The runtime test polls the saved comment count after draft submission: optimistic message text
+can appear before the worker finishes saving, including a committed-but-lost write retry.
 The closed typed worker envelope and shared route contract reject arbitrary URLs/operations,
 credential/header injection and malformed payloads. API tests retain current membership, origin,
 privacy, comments-off, handoff/PKCE and idempotency coverage. App setup has desktop/mobile keyboard
