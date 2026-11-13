@@ -227,8 +227,9 @@ test('packaged isolated runtime uses real sign-in, helper and worker under stric
     }
     await reviewed.getByRole('textbox', { name: 'Comment', exact: true }).press('Enter');
     await expect(reviewed.getByText('Recovered extension draft', { exact: true })).toBeVisible();
+    // UI text is optimistic; wait for persistence before checking retry deduplication.
     // The committed-but-lost response is retried under its original submission ID.
-    expect(await worker.evaluate(async api => {
+    await expect.poll(() => worker.evaluate(async api => {
         const values = await chrome.storage.session.get(null);
         const binding = Object.values(values).find((value: any) => value?.scope?.token) as { scope: { token: string } };
         const response = await fetch(`${api}/api/extension/review/comments?path=%2F`, { credentials: 'omit', headers: { Authorization: `Bearer ${binding.scope.token}` } });
