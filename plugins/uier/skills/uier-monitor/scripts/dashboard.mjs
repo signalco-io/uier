@@ -46,6 +46,8 @@ Usage: node dashboard.mjs [serve] [options]
   --open          Open the page in the browser.
   --detach        Keep serving after this command returns. Stop it with: node dashboard.mjs stop
   --json          Print one snapshot of every monitor as JSON and exit.
+  --no-icons      Show the first letter of each project's name instead of its site's icon, which the
+                  dashboard otherwise fetches from the project's site (its page and favicon).
   --review ID     Load the uier review toolbar on the page for the uier project with this id, so
                   people can leave feedback on the dashboard itself. The project's addresses must
                   include the dashboard's (http://127.0.0.1:${DEFAULT_PORT}). Off unless you pass it.
@@ -55,7 +57,8 @@ Usage: node dashboard.mjs [serve] [options]
 Monitors are found in ~/.uier-monitor/monitors (UIER_MONITOR_HOME overrides the folder), where the
 watcher announces itself, and in <git common dir>/uier-monitor of the checkout you run this in.
 The dashboard is read-only: it never changes a monitor, uier or the repository. It loads nothing
-from the internet, except the uier toolbar when you start it with --review.
+from the internet, except each project's site icon (not with --no-icons) and the uier toolbar when
+you start it with --review.
 `;
 
 // ---------------------------------------------------------------- reading files
@@ -474,8 +477,121 @@ export function collect(options = {}) {
     const now = options.now ?? Date.now();
     const monitors = discover(options).map(dir => { try { return snapshot(dir, now); } catch { return null; } }).filter(Boolean)
         .sort((a, b) => (ORDER[a.status] - ORDER[b.status]) || String(b.updatedAt ?? '').localeCompare(String(a.updatedAt ?? '')));
+    if (options.icons) for (const entry of monitors) entry.project.icon = projectIcon(entry.project.site);
     return { app: APP, version: VERSION, build: BUILD, monitors };
 }
+
+// ---------------------------------------------------------------- project icons
+// A project's icon is its site's favicon, found the way a browser tab finds it: the page's
+// <link rel="icon">, then its apple-touch-icon, then /favicon.ico, /favicon.svg and
+// /apple-touch-icon.png. uier serves the same icon only to the project's signed-in members, so the
+// dashboard's server fetches it itself, in the background, and the page loads it from
+// /api/icon/<key>. Only the sites in monitors' state files are fetched, never an address the page
+// names. At most 512 KiB of the page and 256 KiB of an icon, which must be an image by its bytes;
+// 10 s in all. An icon is kept for a day, the answer that there is none for 30 minutes.
+
+const ICON_BYTES = 256 * 1024;
+const PAGE_BYTES = 512 * 1024;
+const ICON_KEEP = DAY;
+const NO_ICON_KEEP = 30 * MINUTE;
+const icons = new Map();
+
+/** The image type of an icon's bytes, or undefined when they are not an image a page can show. */
+export function iconType(bytes) {
+    const starts = (...values) => values.every((value, index) => bytes[index] === value);
+    if (bytes.length < 4) return undefined;
+    if (starts(0x89, 0x50, 0x4e, 0x47)) return 'image/png';
+    if (starts(0, 0, 1, 0)) return 'image/x-icon';
+    if (starts(0x47, 0x49, 0x46, 0x38)) return 'image/gif';
+    if (starts(0xff, 0xd8, 0xff)) return 'image/jpeg';
+    if (starts(0x52, 0x49, 0x46, 0x46) && bytes.subarray(8, 12).toString('latin1') === 'WEBP') return 'image/webp';
+    const head = bytes.subarray(0, 2048).toString('utf8').replace(/^\uFEFF/, '').trimStart();
+    // An SVG: markup that starts with its declaration, comments or doctype, then <svg.
+    if (/^(?:<\?xml[^>]*>\s*|<!--[\s\S]*?-->\s*|<!DOCTYPE[^>]*>\s*)*<svg[\s>]/i.test(head)) return 'image/svg+xml';
+    return undefined;
+}
+
+/** The icons a page declares, best first, as absolute addresses. */
+export function iconLinks(html, base) {
+    const found = { icon: [], touch: [] };
+    for (const [tag] of html.matchAll(/<link\b[^>]*>/gi)) {
+        const attributes = {};
+        for (const match of tag.matchAll(/([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/g)) attributes[match[1].toLowerCase()] = match[2] ?? match[3] ?? match[4];
+        const rel = String(attributes.rel ?? '').toLowerCase().split(/\s+/);
+        const kind = rel.includes('icon') ? 'icon' : rel.some(word => word.startsWith('apple-touch-icon')) ? 'touch' : null;
+        if (!kind || !attributes.href) continue;
+        try {
+            const url = new URL(attributes.href.replace(/&amp;/g, '&').trim(), base);
+            if (['http:', 'https:', 'data:'].includes(url.protocol)) found[kind].push(url.href);
+        } catch { /* not an address */ }
+    }
+    return [...found.icon, ...found.touch];
+}
+
+/** A response body up to `max` bytes: the start of a longer one when `cut`, else null. */
+async function bodyOf(response, max, cut) {
+    const reader = response.body?.getReader();
+    if (!reader) return null;
+    const chunks = [];
+    let size = 0;
+    for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (size + value.length > max) {
+            await reader.cancel().catch(() => {});
+            if (!cut) return null;
+            chunks.push(value.subarray(0, max - size));
+            size = max;
+            break;
+        }
+        chunks.push(value);
+        size += value.length;
+    }
+    return Buffer.concat(chunks, size);
+}
+
+/** The icon of a site, as { type, data }, or null when it has none the dashboard could load. */
+export async function findSiteIcon(site, { timeoutMs = 10_000 } = {}) {
+    let start;
+    try { start = new URL(site); } catch { return null; }
+    if (!['http:', 'https:'].includes(start.protocol)) return null;
+    const signal = AbortSignal.timeout(timeoutMs);
+    const get = (url, accept) => fetch(url, { signal, redirect: 'follow', headers: { accept, 'user-agent': `${APP}/${VERSION}` } });
+    const candidates = [];
+    try {
+        const page = await get(start, 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5');
+        const html = page.ok ? await bodyOf(page, PAGE_BYTES, true) : (await page.body?.cancel(), null);
+        if (html) candidates.push(...iconLinks(html.toString('utf8'), page.url || start.href));
+    } catch { if (signal.aborted) return null; }
+    for (const path of ['/favicon.ico', '/favicon.svg', '/apple-touch-icon.png']) candidates.push(new URL(path, start).href);
+    for (const url of [...new Set(candidates)].slice(0, 8)) {
+        try {
+            const response = await get(url, 'image/avif,image/webp,image/svg+xml,image/png,image/x-icon,image/*;q=0.8,*/*;q=0.5');
+            if (!response.ok) { await response.body?.cancel(); continue; }
+            const data = await bodyOf(response, ICON_BYTES, false);
+            const type = data && iconType(data);
+            if (type) return { type, data };
+        } catch { if (signal.aborted) return null; }
+    }
+    return null;
+}
+
+/**
+ * Where the page loads a site's icon, once the server has it. The first ask starts the lookup in the
+ * background and answers undefined; the snapshot after it finished carries the address.
+ */
+export function projectIcon(site, find = findSiteIcon) {
+    if (!site) return undefined;
+    const hit = icons.get(site);
+    const path = hit?.icon ? `/api/icon/${hit.key}` : undefined;
+    if (hit && (hit.pending || Date.now() - hit.at < (hit.icon ? ICON_KEEP : NO_ICON_KEEP))) return path;
+    const entry = { key: createHash('sha256').update(site).digest('hex').slice(0, 16), at: Date.now(), pending: true, icon: hit?.icon };
+    icons.set(site, entry);
+    Promise.resolve().then(() => find(site)).catch(() => null).then(icon => { entry.icon = icon ?? undefined; entry.at = Date.now(); entry.pending = false; });
+    return path;
+}
+
+const iconByKey = key => [...icons.values()].find(entry => entry.key === key)?.icon;
 
 // ---------------------------------------------------------------- server
 
@@ -499,7 +615,7 @@ function contentSecurityPolicy(nonce, review) {
     return [`default-src 'none'`, `script-src 'nonce-${nonce}'${uier}`, `style-src 'nonce-${nonce}'${uier}`,
         // The toolbar's API and live updates, and its screenshot storage.
         `connect-src 'self'${review ? `${uier} ${review.origin.replace(/^http/, 'ws')} https://*.blob.core.windows.net` : ''}`,
-        review ? `img-src data: blob: https:` : `img-src data:`, ...(review ? [`font-src${uier}`, `frame-src${uier}`] : []),
+        review ? `img-src 'self' data: blob: https:` : `img-src 'self' data:`, ...(review ? [`font-src${uier}`, `frame-src${uier}`] : []),
         `base-uri 'none'`, `form-action 'none'`, `frame-ancestors 'none'`].join('; ');
 }
 
@@ -512,7 +628,8 @@ export function createHandler(options = {}) {
     const loopback = ['127.0.0.1', 'localhost', '::1'].includes(host);
     const clients = new Set();
     let last = '';
-    const current = () => JSON.stringify(collect(options));
+    // The page shows each project's icon unless --no-icons asked the server not to fetch them.
+    const current = () => JSON.stringify(collect({ ...options, icons: options.icons !== false }));
     const timer = setInterval(() => {
         if (!clients.size) return;
         const next = current();
@@ -537,6 +654,12 @@ export function createHandler(options = {}) {
         }
         if (url.pathname === '/api/ping') return send(200, 'application/json', JSON.stringify({ app: APP, version: VERSION, build: BUILD }));
         if (url.pathname === '/api/snapshot') return send(200, 'application/json', current());
+        if (url.pathname.startsWith('/api/icon/')) {
+            const icon = iconByKey(url.pathname.slice('/api/icon/'.length));
+            if (!icon) return send(404, 'text/plain', 'Not found\n');
+            // A site's SVG never runs as a page of the dashboard, also when opened on its own.
+            return send(200, icon.type, icon.data, { 'cache-control': 'private, max-age=3600', 'content-security-policy': `default-src 'none'; style-src 'unsafe-inline'; sandbox` });
+        }
         if (url.pathname === '/api/stream') {
             response.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', connection: 'keep-alive' });
             response.write(`retry: 1000\n\ndata: ${current()}\n\n`);
@@ -607,6 +730,7 @@ function parseArgs(argv) {
         else if (arg === '--host') options.host = value();
         else if (arg === '--review') options.review = reviewOf(value());
         else if (['--open', '--detach', '--json', '--dev'].includes(arg)) options[arg.slice(2)] = true;
+        else if (arg === '--no-icons') options.icons = false;
         else if (arg === '--help' || arg === '-h' || arg === 'help') options.command = 'help';
         else if (arg === 'stop' || arg === 'serve') options.command = arg;
         else throw new Error(`Unknown option "${arg}". Run: node dashboard.mjs help`);
@@ -643,7 +767,7 @@ async function serve(options) {
     }
     if (options.detach) {
         const args = [fileURLToPath(import.meta.url), 'serve', '--host', host, ...(options.port === undefined ? [] : ['--port', String(options.port)]),
-            ...(options.dev ? ['--dev'] : []), ...(options.review ? ['--review', options.review.project] : []), ...options.states.flatMap(dir => ['--state', resolve(dir)])];
+            ...(options.dev ? ['--dev'] : []), ...(options.icons === false ? ['--no-icons'] : []), ...(options.review ? ['--review', options.review.project] : []), ...options.states.flatMap(dir => ['--state', resolve(dir)])];
         const child = spawn(process.execPath, args, { detached: true, stdio: 'ignore' });
         child.unref();
         for (let wait = 0; wait < 40; wait++) {
@@ -804,7 +928,10 @@ h1, h2, h3, p { margin: 0; }
 .monitor.resting { opacity: 0.55; }
 .monitor.resting:hover, .monitor.resting:focus-within, .monitor.resting.expanded { opacity: 1; }
 .mhead { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.mhead h2 { flex: 1; min-width: 0; overflow: hidden; font-size: 15px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.mhead h2 { display: flex; flex: 1; align-items: center; gap: 8px; min-width: 0; font-size: 15px; font-weight: 600; }
+.mhead h2 .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mark { position: relative; display: inline-flex; flex: none; align-items: center; justify-content: center; width: 16px; height: 16px; overflow: hidden; border: 1px solid hsl(var(--border)); border-radius: 4px; background: hsl(var(--background)); color: hsl(var(--foreground)); font-size: 10px; font-weight: 600; line-height: 1; text-transform: uppercase; }
+.mark img { position: absolute; inset: 0; width: 100%; height: 100%; padding: 1px; object-fit: contain; color-scheme: light; }
 .where { margin-top: -8px; font-size: 12px; }
 .slots { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; white-space: nowrap; }
 .pips { display: inline-flex; gap: 3px; }
@@ -865,6 +992,8 @@ h1, h2, h3, p { margin: 0; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .blank { grid-column: 1 / -1; padding: 40px 16px; border: 1px dashed hsl(var(--border)); border-radius: 16px; text-align: center; color: hsl(var(--muted-foreground)); }
 code { font: 12px/1.4 "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+/* Favicons are mostly drawn for light browser tabs: a light tile in the dark theme too. */
+@media (prefers-color-scheme: dark) { .mark.image { background: hsl(var(--foreground)); } }
 @media (prefers-reduced-motion: reduce) { .dot.live { animation: none; } .dot, .pip, .seg, .monitor { transition: none; } }
 </style>
 </head>
@@ -1262,6 +1391,17 @@ function details(entry) {
                     metrics.journal ? tile('Wakes, last 24 h', metrics.wakes24h, plural(metrics.quiet24h, 'event') + ' handled without one') : null))));
 }
 
+// The project's tile: its site's icon, which the server fetched, or the first letter of its name.
+var broken = {};
+function mark(entry, name) {
+    var src = entry.project.icon && !broken[entry.project.icon] ? entry.project.icon : null;
+    if (!src) return h('span', { class: 'mark', 'aria-hidden': 'true', text: name.trim().charAt(0) || '?' });
+    var image = h('img', { src: src, alt: '' });
+    // The image on the page keeps this handler when an update changes its address.
+    image.addEventListener('error', function () { broken[image.getAttribute('src')] = true; render(); });
+    return h('span', { class: 'mark image', 'aria-hidden': 'true' }, image);
+}
+
 // A monitor's card. Collapsed it is the overview: status, what it waits on and every group in
 // progress, so several monitors fit one screen. Details adds notes, history and numbers.
 function monitor(entry, alone) {
@@ -1281,7 +1421,7 @@ function monitor(entry, alone) {
     return h('article', { class: 'monitor' + (expanded ? ' expanded' : '') + (resting ? ' resting' : ''), 'data-key': entry.id, 'data-list': true, 'aria-label': name },
         h('header', { class: 'mhead', 'data-key': 'head' },
             h('span', { class: 'badge', 'data-flash': true }, h('i', { class: 'dot ' + status[0] }), status[1]),
-            h('h2', { text: name }),
+            h('h2', null, mark(entry, name), h('span', { class: 'name', text: name })),
             resting ? null : h('span', { class: 'slots muted num', title: 'Sessions working, of the slots this monitor may use' },
                 h('span', { class: 'pips', 'aria-hidden': 'true' }, pips), h('span', { 'data-flash': true, text: entry.slots.used + '/' + entry.slots.max }), h('span', { class: 'sr', text: ' sessions working' }))),
         where ? h('div', { class: 'where muted', 'data-key': 'where', text: where }) : null,

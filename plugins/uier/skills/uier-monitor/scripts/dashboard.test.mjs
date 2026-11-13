@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { request } from 'node:http';
+import { createServer, request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 // The registry of this test run, never the person's own ~/.uier-monitor.
 const home = mkdtempSync(join(tmpdir(), 'uier-monitor-home-'));
 process.env.UIER_MONITOR_HOME = home;
-const { PAGE, agentOf, collect, createDashboardServer, discover, levels, modelName, reviewOf, sessionLink, snapshot } = await import('./dashboard.mjs');
+const { PAGE, agentOf, collect, createDashboardServer, discover, findSiteIcon, iconLinks, iconType, levels, modelName, projectIcon, reviewOf, sessionLink, snapshot } = await import('./dashboard.mjs');
 const monitor = fileURLToPath(new URL('./monitor.mjs', import.meta.url));
 const temporary = [home];
 after(() => { for (const dir of temporary) rmSync(dir, { recursive: true, force: true }); });
@@ -358,4 +358,61 @@ test('the queued and pull request levels of the last day walk the journal back f
     // Snapshots of every monitor share the same instants, so the page can add them up.
     const dir = stateDir({ groups: { g1: { items: [], state: 'pr', pr: 4 } } }, { 'events.jsonl': `${JSON.stringify({ at: at(20), type: 'group', group: 'g1', from: 'building', to: 'pr' })}\n` });
     assert.deepEqual(snapshot(dir, now).metrics.levels.pr.slice(-3), [null, 1, 1], 'this journal starts 20 minutes ago');
+});
+
+test('a project icon is its site\'s favicon, fetched by the server and served from the dashboard only', async () => {
+    const png = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
+    assert.equal(iconType(png), 'image/png');
+    assert.equal(iconType(Buffer.from([0, 0, 1, 0, 1, 0])), 'image/x-icon');
+    assert.equal(iconType(Buffer.from('<?xml version="1.0"?>\n<svg xmlns="http://www.w3.org/2000/svg"></svg>')), 'image/svg+xml');
+    for (const other of ['<!doctype html><html><svg></svg>', 'not an image', '']) assert.equal(iconType(Buffer.from(other)), undefined, other);
+    assert.deepEqual(iconLinks(`<link rel="apple-touch-icon" href="/touch.png"><link href='/a.svg?v=1&amp;x=2' rel="shortcut icon">
+        <link rel=icon href=https://cdn.example/b.ico><link rel="stylesheet" href="/s.css"><link rel="icon" href="javascript:alert(1)">`, 'https://site.example/docs/'),
+    ['https://site.example/a.svg?v=1&x=2', 'https://cdn.example/b.ico', 'https://site.example/touch.png']);
+
+    const served = [];
+    const site = createServer((incoming, outgoing) => {
+        served.push(incoming.url);
+        if (incoming.url === '/') { outgoing.writeHead(200, { 'content-type': 'text/html' }); outgoing.end('<head><link rel="icon" href="/missing.png"><link rel="icon" href="/fake.png"><link rel="icon" href="/real.png"></head>'); return; }
+        if (incoming.url === '/fake.png') { outgoing.writeHead(200, { 'content-type': 'image/png' }); outgoing.end('<script>alert(1)</script>'); return; }
+        if (incoming.url === '/real.png') { outgoing.writeHead(200, { 'content-type': 'text/plain' }); outgoing.end(png); return; }
+        outgoing.writeHead(404); outgoing.end();
+    });
+    site.listen(0, '127.0.0.1');
+    await once(site, 'listening');
+    const address = `http://127.0.0.1:${site.address().port}`;
+    const server = createDashboardServer({ states: [stateDir({ project: { id: 'p1', name: 'Iconic', site: address } })], ...outside, intervalMs: 20 });
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    const dashboard = `http://127.0.0.1:${server.address().port}`;
+    try {
+        assert.deepEqual(await findSiteIcon(address), { type: 'image/png', data: png }, 'the first declared icon that is an image by its bytes');
+        assert.deepEqual(served, ['/', '/missing.png', '/fake.png', '/real.png']);
+        assert.equal(await findSiteIcon('http://127.0.0.1:1'), null, 'a site that does not answer has no icon');
+
+        assert.equal(collect({ ...outside, states: [stateDir({ project: { site: address } })] }).monitors[0].project.icon, undefined, 'a snapshot alone fetches nothing');
+        let icon;
+        for (let tries = 0; tries < 100 && !icon; tries++) {
+            icon = (await (await fetch(`${dashboard}/api/snapshot`)).json()).monitors[0].project.icon;
+            if (!icon) await sleep(20);
+        }
+        assert.match(icon, /^\/api\/icon\/[0-9a-f]{16}$/);
+        const response = await fetch(`${dashboard}${icon}`);
+        assert.equal(response.headers.get('content-type'), 'image/png');
+        assert.match(response.headers.get('content-security-policy'), /sandbox/);
+        assert.deepEqual(Buffer.from(await response.arrayBuffer()), png);
+        assert.equal((await fetch(`${dashboard}/api/icon/0123456789abcdef`)).status, 404, 'only icons the server fetched itself');
+        assert.match((await fetch(dashboard)).headers.get('content-security-policy'), /img-src 'self' data:/);
+
+        let asked = 0;
+        const find = async () => { asked++; return null; };
+        assert.equal(projectIcon('https://none.example', find), undefined);
+        await sleep(0);
+        assert.equal(projectIcon('https://none.example', find), undefined);
+        assert.equal(asked, 1, 'a site without an icon is not asked again right away');
+    } finally {
+        server.closeAllConnections();
+        site.closeAllConnections();
+        await Promise.all([new Promise(resolve => server.close(resolve)), new Promise(resolve => site.close(resolve))]);
+    }
 });

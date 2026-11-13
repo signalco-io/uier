@@ -106,11 +106,18 @@ node "$(git rev-parse --path-format=absolute --git-common-dir)/uier-monitor/dash
 
 It opens `http://127.0.0.1:4780`. `--detach` keeps it serving after the command returns
 (`dashboard.mjs stop` ends it), `--port N` picks another port, `--state DIR` adds a monitor it didn't
-find, and `--json` prints one snapshot and exits. The skill starts it too: `/uier-monitor dashboard`
+find, `--json` prints one snapshot and exits, and `--no-icons` keeps the server from fetching the
+projects' site icons. The skill starts it too: `/uier-monitor dashboard`
 (in Claude Code with the plugin, `/uier:uier-monitor dashboard`), with or without a project.
 
 Every monitor is a card, and the cards sit side by side, so you see all of them without opening
-anything. A card shows:
+anything. A card's title starts with the project's icon: its site's favicon, or the first letter of
+its name in a small tile while there is none, as in the uier app. uier serves project icons only to
+signed-in members, so the dashboard's server fetches the icon itself from the site in the state file
+(the page's `<link rel="icon">`, then `/favicon.ico`, `/favicon.svg` and `/apple-touch-icon.png`),
+keeps only bytes that are an image and serves it from `/api/icon/…`; the page never contacts the site
+and gets no token. A found icon is kept for a day, a missing one is tried again after 30 minutes.
+A card shows:
 
 - **Watcher health:** running, waiting (a running watcher with nothing in progress), stopped, not
   running or not responding, with failing wake delivery and usage limits called out. Low disk space
@@ -182,7 +189,7 @@ at 2 MB, keeping one earlier file.
 
 **What it never does.** It doesn't change a monitor, uier or the repository, and it has no write
 endpoint. It binds to `127.0.0.1` and refuses requests under another host name, so a web page you
-visit can't read it. It loads nothing from the internet unless you pass `--review`. The browser receives a fixed set of fields,
+visit can't read it. Its server fetches only the projects' site icons (not with `--no-icons`), and the page loads nothing from the internet unless you pass `--review`. The browser receives a fixed set of fields,
 never the state files themselves or a token, and the page renders feedback text as text. Binding
 another address with `--host` makes the page readable by everyone who can reach that address.
 
