@@ -99,7 +99,16 @@ test('production builds overlap infrastructure but publishing waits for both', (
     assert.ok(ci.includes('".github/workflows/vercel-*_reusable.yml"'));
     const build = readFileSync(join(root, '.github/workflows/vercel-build_reusable.yml'), 'utf8');
     assert.match(build, /UIER_TOOLBAR_RETAIN_FROM: https:\/\/uier\.io/);
-    assert.match(build, /TURBO_FORCE: "true"/);
+});
+
+test('web finalization stays fresh without forcing compilation', () => {
+    const workflow = readFileSync(join(root, '.github/workflows/vercel-build_reusable.yml'), 'utf8');
+    assert.doesNotMatch(workflow, /TURBO_FORCE:/);
+    const { tasks } = JSON.parse(readFileSync(join(root, 'apps/web/turbo.json'), 'utf8'));
+    assert.equal(tasks.build.cache, false);
+    assert.deepEqual(tasks.build.dependsOn, ['build:compile']);
+    assert.notEqual(tasks['build:compile'].cache, false);
+    assert.ok(tasks['build:compile'].dependsOn.includes('^build'));
 });
 
 test('production freshness checks need no checkout, deployment secrets or environment', () => {
