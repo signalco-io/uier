@@ -7,6 +7,7 @@ import { useDrafts } from '../../hooks/useDrafts';
 import { useCommentPlacement } from '../../hooks/useCommentItemRects';
 import { markdownPlainText } from '../../markdown';
 import { matchesFeedbackSearch } from '../../triage';
+import { ColorText } from '../ColorText';
 import { CommentErrorBoundary } from '../CommentErrorBoundary';
 import { CommentTime } from '../CommentTime';
 import { IconTooltip } from '../IconTooltip';
@@ -111,7 +112,7 @@ function InboxDraftCard({ draft, text, quote, updatedAt, onResume, onSend, onDis
                 {quote && (
                     <blockquote className="m-0 line-clamp-2 border-l-2 border-border pl-2.5 text-xs text-secondary-foreground">{quote}</blockquote>
                 )}
-                <p className="m-0 line-clamp-3 whitespace-pre-wrap break-words text-sm text-foreground">{markdownPlainText(text)}</p>
+                <p className="m-0 line-clamp-3 whitespace-pre-wrap break-words text-sm text-foreground"><ColorText text={markdownPlainText(text)} /></p>
                 {!rects.length && state !== 'page' && <p className="m-0 text-xs text-muted-foreground">{t.anchor.state[state]}</p>}
             </Stack>
             <div className="flex min-w-0 flex-wrap items-center gap-1 border-t px-2 py-1">

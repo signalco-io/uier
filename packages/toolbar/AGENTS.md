@@ -107,6 +107,7 @@ they behave goes in that note, not here.
 | `components/ComposerModal.tsx` | Expand / Collapse and the modal `<dialog>` a new comment or feedback expands to ([popovers](docs/composer-popovers.md#expanding-to-a-modal)) |
 | `components/ComposerFooter.tsx` | the screen-reader-only key description under every composer ([keyboard](docs/keyboard.md)) |
 | `components/CommentThreadItemMenu.tsx` | a message's options: edit, Reattach comment, delete; `CommentThreadItem.tsx` renders the edit ([threads](docs/comment-thread.md#message-options)) |
+| `src/colorValues.ts`, `components/ColorText.tsx` | colour values in written text and the swatch before each, shared with the app ([colour swatches](docs/message-markdown.md#colour-swatches)) |
 | `components/MessageReactions.tsx`, `hooks/useReactions.ts`, `src/reactions.ts` | emoji reactions to each message; the quick set is shared with the app and the API ([reactions](docs/reactions.md)) |
 | `components/CommentErrorBoundary.tsx` | wraps every pin, highlight and sidebar thread: a comment that fails renders nothing |
 | `components/CommentsErrorMessage.tsx`, `Toaster.tsx` | friendly messages for API errors, and toasts ([the pill](docs/pill-and-options.md#notices-by-the-pill)) |

@@ -10,7 +10,7 @@ Read the note for the area you change, and update it in the same pull request. A
 - [Packaged extension adapter](extension-adapter.md): the packaged browser extension adapter.
 - [Priority and matching](priority-and-matching.md): priority vocabulary and literal word matching.
 - [Fix verification](fix-verification.md): the verification controls the toolbar shares with the app.
-- [Message Markdown](message-markdown.md): the Markdown subset thread messages show, its parser and renderers.
+- [Message Markdown](message-markdown.md): the Markdown subset thread messages show, its parser and renderers, and the swatch before a colour value.
 - [Message editor](message-editor.md): the rich text editor every composer uses (toolbar and app), Markdown typed as you write, its keys, pasting, saving as Markdown.
 - [Message reactions](reactions.md): emoji reactions under each message, Add reaction and its quick set.
 - [Reviewing uier's own toolbar](toolbar-review.md): commenting on the toolbar's parts on uier's own pages, popovers held open, openers.

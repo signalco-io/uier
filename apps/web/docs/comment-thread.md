@@ -88,6 +88,10 @@ assignee card, with Open in T3 Code or another desktop session link, at the top 
   border (in dark mode a popover is the muted colour). What is supported and why: [Markdown in
   messages](../../../docs/review-workflow.md#markdown-in-messages). `e2e/message-markdown.api.spec.ts` covers the
   parser and both renderers, `e2e/message-markdown.spec.ts` the app and toolbar threads on desktop and mobile.
+- A colour value in a message, a reply or the thread's title (`#ED1C24`, `rgb(…)`, `oklch(…)`) has a small
+  swatch of that colour before it: `comments/ColorText.tsx`, the same markup as the toolbar's, over the shared
+  detector `@uier/toolbar/color-values`. What counts, why fenced code and the title's field get none, and the
+  tests: [colour swatches](../../../packages/toolbar/docs/message-markdown.md#colour-swatches).
 - The open thread reads itself (`comments/useReadWhenShown.ts`, the toolbar's rule): once its `article` has been
   on screen for 800 ms in a visible, focused window it is marked read at its shown sequence through
   `markCommentReadAction`. That covers a click, a `?comment=` link (My work, copied links, Back/Forward), the
