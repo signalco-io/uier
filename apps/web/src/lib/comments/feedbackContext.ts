@@ -3,6 +3,7 @@ import { feedbackStage } from '@uier/toolbar/verification';
 import type { CommentDto } from './dto';
 import type { ReproductionContext } from './reproduction';
 import type { DbCommentLayer } from '../db/schema';
+import { getCommentsStore } from '../repo/commentsStore';
 
 /** The element that opens the anchor's menu, popover or dialog */
 function opener(layer: DbCommentLayer | undefined): Pick<FeedbackContext['anchor'], 'opener'> {
@@ -12,12 +13,23 @@ function opener(layer: DbCommentLayer | undefined): Pick<FeedbackContext['anchor
 /** Input must already have passed visibility checks and DTO projection. Never accept a DbComment here. */
 type ExportItem = CommentDto['thread']['items'][number] & { agent?: import('@uier/toolbar/agents').MessageAgentView };
 
+/** Call only after DTO visibility projection; stale metadata and deleted replies expose no image. */
+export async function replyScreenshotUrls(dto: Pick<CommentDto, 'id' | 'thread'>, domain: string, url: (itemId: string) => string) {
+    const urls = new Map<string, string>();
+    for (const item of dto.thread.items.slice(1)) {
+        if (!('deleted' in item) && item.screenshot && await getCommentsStore().getScreenshot(domain, dto.id, item.id))
+            urls.set(item.id, url(item.id));
+    }
+    return urls;
+}
+
 export function feedbackExport(dto: Omit<CommentDto, 'thread'> & { thread: { items: ExportItem[] }; reproduction?: ReproductionContext }, options: {
     projectId?: string;
     environment?: string;
     pageUrl?: string;
     commentUrl?: string;
     screenshotUrl?: string;
+    replyScreenshotUrls?: ReadonlyMap<string, string>;
     assigneeName?: string;
     assignees?: { name: string; agents?: import('@uier/toolbar/agents').AssigneeAgentView[] }[];
     /** The AI agent working under the assignee (members only) */
@@ -28,6 +40,8 @@ export function feedbackExport(dto: Omit<CommentDto, 'thread'> & { thread: { ite
     const items: FeedbackMessage[] = dto.thread.items.map(item => 'deleted' in item
         ? { id: item.id, deleted: true, createdAt: item.createdAt }
         : { id: item.id, deleted: false, text: item.text, quotedText: item.quotedText, authorName: item.author.name, createdAt: item.createdAt, editedAt: item.editedAt,
+            ...(item.screenshot && options.replyScreenshotUrls?.has(item.id) ? { screenshot: { state: 'protected' as const,
+                url: options.replyScreenshotUrls.get(item.id)!, width: item.screenshot.width, height: item.screenshot.height } } : {}),
             ...('agent' in item && item.agent ? { agent: { kind: item.agent.kind, label: item.agent.label,
                 ...(item.agent.model ? { model: item.agent.model } : {}), ...(item.agent.reasoning ? { reasoning: item.agent.reasoning } : {}) } } : {}),
             ...(item.reactions?.length ? { reactions: item.reactions.map(({ emoji, count }) => ({ emoji, count })) } : {}) });

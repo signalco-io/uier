@@ -402,6 +402,11 @@ Missing, deleted and private ids share `not_found`; individually oversized packe
 Screenshot resources require both a protected exported image and `screenshots:read`. Every call
 rechecks scope, selected projects and current membership through `mcpProject`. Thread and screenshot
 reads stay per packet; only display enrichment is shared, with no cross-request authorization cache.
+Single/batch packets also expose `replyScreenshotResources: [{ itemId, uri, access }]` for protected
+reply images when the same scope is granted. Their resource template is
+`uier://projects/{projectId}/feedback/{commentId}/replies/{itemId}/screenshot`. Each read rechecks the
+reply's live, non-deleted exported image before loading its bytes through `getProjectScreenshot`.
+Missing or deleted reply images are absent from exports and cannot be read through guessed URIs.
 `e2e/mcp-batch-enrichment.api.spec.ts` compares identical unshared/shared packets and actual store
 read boundaries: ten titled threads by one current member use 20 → 2 user reads, 10 → 1 project
 reads, 10 → 1 workspace-setting reads and 20 → 2 workspace queries. These are in-memory operation

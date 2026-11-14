@@ -64,7 +64,9 @@ installation: there are no lifecycle hooks, local MCP servers or package install
 
 The monitor saves state, logs, feedback packets and optional screenshots below the repository's
 shared git directory in `uier-monitor/`, outside tracked source. Those files persist until you
-remove them. Compact wake receipts and delivery acknowledgements live there too. In T3, an
+remove them. `packet --screenshots` downloads the original screenshot and images attached to replies;
+each packet lists the local image paths beside their message IDs, including download failures.
+Compact wake receipts and delivery acknowledgements live there too. In T3, an
 optional detached watcher uses the local `t3` CLI to wake the existing thread only for pending
 work. A harness webhook can serve the same purpose; its private URL stays in a separate `0600`
 file and receives only the project and batch identifiers. This installs no OS service.

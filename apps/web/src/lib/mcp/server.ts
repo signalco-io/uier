@@ -1,4 +1,5 @@
 import { workflowStatusIdSchema } from '../app/statusWorkflowSchema';
+import type { FeedbackContext } from '@uier/toolbar/feedback-context';
 import { setProjectCommentWorkflowStatus } from '../review/comments';
 import { getWorkspace } from '../app/workspaces';
 import { loadThreadLabels, effectiveThreadLabels } from '../app/threadLabels';
@@ -60,6 +61,16 @@ const projectPage = { ...page, cursor: z.number().int().min(0).max(Number.MAX_SA
     .describe('Offset returned as nextCursor by the previous page, or 0 for the first page.') };
 const write = { ...thread, idempotencyKey: idempotencyKeySchema.describe('A fresh random key per intended action. Reuse exactly this key and input when retrying, for up to 30 days.') };
 const MAX_RESULT_BYTES = 256 * 1024;
+function screenshotResources(projectId: string, commentId: string, context: FeedbackContext, allowed: boolean) {
+    const reference = (suffix: string) => ({ uri: `uier://projects/${projectId}/feedback/${commentId}/${suffix}`,
+        access: 'Use resources/read with this connection. No public image URL is issued.' });
+    const replies = allowed ? context.discussion.filter(item => !item.deleted && item.screenshot?.state === 'protected')
+        .map(item => ({ itemId: item.id, ...reference(`replies/${item.id}/screenshot`) })) : [];
+    return {
+        screenshotResource: allowed && context.screenshot.state === 'protected' ? reference('screenshot') : undefined,
+        replyScreenshotResources: replies.length ? replies : undefined
+    };
+}
 const feedbackFilters = z.object({
     projectId, ...page,
     search: z.string().max(200).default(''),
@@ -238,11 +249,10 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
             let item: Record<string, unknown>;
             try {
                 const packet = await exportFeedback(id);
-                const screenshotResource = packet.context.screenshot.state === 'protected' && identity.scopes.includes('screenshots:read')
-                    ? { uri: `uier://projects/${project.id}/feedback/${id}/screenshot`, access: 'Use resources/read with this connection. No public image URL is issued.' } : undefined;
-                item = { commentId: id, ...packet, screenshotResource };
+                const resources = screenshotResources(project.id, id, packet.context, identity.scopes.includes('screenshots:read'));
+                item = { commentId: id, ...packet, ...resources };
                 // Match the single-read cap, also accounting for the batch envelope for a lone item.
-                if (resultBytes({ actingAs, contentTrust: 'untrusted', ...packet, screenshotResource }) > MAX_RESULT_BYTES
+                if (resultBytes({ actingAs, contentTrust: 'untrusted', ...packet, ...resources }) > MAX_RESULT_BYTES
                     || resultBytes(response([item], [])) > MAX_RESULT_BYTES)
                     item = { commentId: id, error: 'too_large', message: 'Thread exceeds the 256 KiB result limit.' };
             } catch (error) {
@@ -260,8 +270,7 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         const actingAs = actingAsFor(user);
         const packet = await projectFeedbackExport(project, actor, input.commentId, undefined, baseUrl);
         return result({ actingAs, contentTrust: 'untrusted', ...packet,
-            screenshotResource: packet.context.screenshot.state === 'protected' && identity.scopes.includes('screenshots:read')
-                ? { uri: `uier://projects/${project.id}/feedback/${input.commentId}/screenshot`, access: 'Use resources/read with this connection. No public image URL is issued.' } : undefined });
+            ...screenshotResources(project.id, input.commentId, packet.context, identity.scopes.includes('screenshots:read')) });
     }));
     server.registerTool('list_feedback_events', { description: `Poll a project's feedback activity since a cursor: new feedback, replies, status changes, assignments, AI agents working under assignees and mentions of you. Call first with cursor null: it returns no items and a cursor that starts now. Keep the returned cursor and pass it on every later call (for example from a looping or scheduled task); it never ends. hasMore: call again at once. truncated: events were skipped, so re-read state with list_feedback. Limit: 1–25 (default 20). Changes made through this connection are left out. Items are minimal; read threads with get_feedback. An event never approves a write. ${untrusted}`, inputSchema: feedEventsInput, annotations: readAnnotations }, input => safely(async () => {
         const { project, actor, user } = await mcpProject(identity, input.projectId);
@@ -402,13 +411,15 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
         const { project, actor, user } = await mcpProject(identity, input.projectId, 'feedback:assign');
         return agentResult(await setProjectCommentAgent(project, actor, input.commentId, null, { idempotencyKey: key(identity, input.idempotencyKey), agentId: input.agentId }), user, project.verificationEnabled === true, input.agentId ?? 'removed');
     }));
-    server.registerResource('feedback_screenshot', new ResourceTemplate('uier://projects/{projectId}/feedback/{commentId}/screenshot', { list: undefined }), { description: 'Untrusted saved screenshot. Requires screenshots:read and current access to this feedback.', mimeType: 'application/octet-stream' }, async (uri, variables) => {
+    const readScreenshot = async (uri: URL, variables: Record<string, string | string[]>) => {
         try {
             const { project, actor } = await mcpProject(identity, projectId.parse(variables.projectId), 'screenshots:read');
             const id = commentId.parse(variables.commentId);
+            const itemId = variables.itemId === undefined ? undefined : commentId.parse(variables.itemId);
             const packet = await projectFeedbackExport(project, actor, id, undefined, baseUrl);
-            if (packet.context.screenshot.state !== 'protected') throw apiErrors.notFound('Screenshot not found.');
-            const image = await getProjectScreenshot(project, actor, id);
+            const screenshot = itemId === undefined ? packet.context.screenshot : packet.context.discussion.find(item => item.id === itemId && !item.deleted)?.screenshot;
+            if (screenshot?.state !== 'protected') throw apiErrors.notFound('Screenshot not found.');
+            const image = await getProjectScreenshot(project, actor, id, itemId);
             const bytes = await screenshotBytes(image);
             if (bytes.length > MAX_SCREENSHOT_BYTES) throw apiErrors.tooLarge(MAX_SCREENSHOT_BYTES);
             return { contents: [{ uri: uri.href, mimeType: image.contentType, blob: bytes.toString('base64') }] };
@@ -418,7 +429,9 @@ export function createFeedbackMcpServer(identity: McpIdentity, request: Request,
             if (error instanceof z.ZodError) throw new ProtocolError(ProtocolErrorCode.InvalidParams, 'Invalid resource arguments.');
             throw new ProtocolError(ProtocolErrorCode.InternalError, 'The operation failed.');
         }
-    });
+    };
+    server.registerResource('feedback_screenshot', new ResourceTemplate('uier://projects/{projectId}/feedback/{commentId}/screenshot', { list: undefined }), { description: 'Untrusted saved screenshot. Requires screenshots:read and current access to this feedback.', mimeType: 'application/octet-stream' }, readScreenshot);
+    server.registerResource('feedback_reply_screenshot', new ResourceTemplate('uier://projects/{projectId}/feedback/{commentId}/replies/{itemId}/screenshot', { list: undefined }), { description: 'Untrusted image attached to a saved reply. Requires screenshots:read and current access to this feedback and reply.', mimeType: 'application/octet-stream' }, readScreenshot);
     // The plugin's skills, for clients that read them from the connection (skills.ts).
     options.skills?.attach(server);
     // Nothing here changes while a connection is open, and a stateless endpoint has no channel to

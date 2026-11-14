@@ -10,6 +10,9 @@ work should reuse it. Coverage lives in `e2e/feedback-context{,.api}.spec.ts`.
 The formatter renders inline values (including titles and names) as literal code spans, suppressing
 tracker autolinks/mentions without changing the structured context. Only approved explicit links
 remain clickable.
+Reply images are projected as protected `discussion[].screenshot` references only after checking
+their saved image documents. Each reply's Markdown includes its image link; deleted replies and
+missing images omit it. Member, guest review and public exports use their existing image routes.
 A comment's drawing ([canvas mode](../../../packages/toolbar/docs/canvas-mode.md)) is projected from the
 filtered DTO (`feedbackDrawing`) only when the feedback itself is available; deleted evidence drops it with the
 anchor details.

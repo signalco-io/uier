@@ -16,6 +16,10 @@ Authorization and private-field projection
 belong on the server; never format a raw document or browser location for export. See
 [the shared contract](../../../docs/feedback-context.md).
 
+Replies may include a protected `screenshot` reference. The formatter places a **Reply image** link
+and dimensions under its message; deleted messages omit it. The server verifies each image exists
+and chooses the existing access-checked route for the viewer.
+
 A comment with a drawing ([canvas mode](canvas-mode.md)) adds `drawing` (shape count, an English summary,
 the area's size and the text notes) to the packet; the Markdown describes it after the area and fences the
 notes' text like messages. The screenshot reference is unchanged: the drawing is already painted into it.

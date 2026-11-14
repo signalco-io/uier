@@ -35,6 +35,12 @@ and private-thread visibility before requesting it.
 | `discussion` | All saved replies in their saved order with the same message projection. |
 | `notes` | Limits: edits are current saved versions, prior versions are not retained; deleted evidence is omitted. |
 
+Replies with a saved image add `screenshot: { state: 'protected', url, width, height }` to their
+message, independently of the original comment's screenshot. Markdown places a **Reply image**
+link under that reply. The URL uses the same access-checked member, review or public route as the
+export; missing image documents and deleted replies omit it. Image bytes and credentials are never
+included in the packet.
+
 Project-backed packets always include the owning `identity.projectId` and a **Project** line in
 Markdown. uier's own feedback uses `uier00000002` (from signed-in accounts) or `uier00000001` (from guests), including feedback on `/app/projects/<id>`:
 that path identifies the page being reviewed, not the feedback's owner. Only isolated local host

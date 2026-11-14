@@ -27,7 +27,8 @@ import { environmentOptions } from '../src/lib/app/environments';
 import { parseScreenshot, type ParsedScreenshot } from '../src/lib/comments/screenshot';
 import { withNotificationEvent } from '../src/lib/notifications/events';
 import { PUBLIC_PROJECT_ID, PUBLIC_WORKSPACE_ID, USER_FEEDBACK_PROJECT_ID, joinPublicProject } from '../src/lib/comments/publicProject';
-import { pngImage } from './support/images';
+import { pngImage, jpegImage } from './support/images';
+import { screenshotBytes } from '../src/lib/screenshots/blobStore';
 
 const originalEnv = { UIER_LOCAL: process.env.UIER_LOCAL, UIER_COMMENTS_SECRET: process.env.UIER_COMMENTS_SECRET, UIER_BASE_URL: process.env.UIER_BASE_URL };
 const base = 'http://127.0.0.1:6514';
@@ -61,6 +62,85 @@ async function connect(token: string, handle = POST) {
 }
 function data(result: Awaited<ReturnType<Client['callTool']>>) { return result.structuredContent as Record<string, any>; }
 const idempotencyKey = () => randomUUID();
+
+test('single and batch feedback expose reply images as scoped resources with the saved bytes', async () => {
+    const f = await fixture();
+    const thread = await replyToProjectComment(new Request(base), f.project, f.actor, f.comment.id,
+        { text: 'Redesign variant', screenshot: parseScreenshot(jpegImage) as ParsedScreenshot });
+    const reply = thread.thread.items.at(-1)!;
+    const { token } = await createMcpCredential(f.context, { name: 'Reply images', projectIds: [f.project.id], scopes: ['feedback:read', 'screenshots:read'], days: 7 });
+    const limitedToken = await createMcpCredential(f.context, { name: 'Text only', projectIds: [f.project.id], scopes: ['feedback:read'], days: 7 });
+    const client = await connect(token), limited = await connect(limitedToken.token);
+    const args = { projectId: f.project.id, commentId: f.comment.id };
+    try {
+        const packet = data(await client.callTool({ name: 'get_feedback', arguments: args }));
+        expect(packet.context.discussion[0]).toMatchObject({ id: reply.id, text: 'Redesign variant', screenshot: { state: 'protected', width: 3, height: 2,
+            url: `${base}/app/projects/${f.project.id}/comments/${f.comment.id}/replies/${reply.id}/screenshot` } });
+        expect(packet.markdown).toContain('[Reply image]');
+        expect(packet.replyScreenshotResources).toEqual([{ itemId: reply.id,
+            uri: `uier://projects/${f.project.id}/feedback/${f.comment.id}/replies/${reply.id}/screenshot`, access: expect.any(String) }]);
+        const batch = data(await client.callTool({ name: 'get_feedback_batch', arguments: { projectId: f.project.id, commentIds: [f.comment.id] } }));
+        const { actingAs: _actingAs, contentTrust: _trust, ...exported } = packet;
+        expect(batch.items).toEqual([{ commentId: f.comment.id, ...exported }]);
+        const uri = packet.replyScreenshotResources[0].uri;
+        const image = (await getCommentsStore().getScreenshot(f.comment.domain, f.comment.id, reply.id))!;
+        expect((await client.readResource({ uri })).contents).toEqual([{ uri, mimeType: image.contentType, blob: (await screenshotBytes(image)).toString('base64') }]);
+        expect((await client.readResource({ uri: packet.screenshotResource.uri })).contents).toHaveLength(1);
+        expect(data(await limited.callTool({ name: 'get_feedback', arguments: args })).replyScreenshotResources).toBeUndefined();
+        expect(data(await limited.callTool({ name: 'get_feedback_batch', arguments: { projectId: f.project.id, commentIds: [f.comment.id] } })).items[0].replyScreenshotResources).toBeUndefined();
+        await expect(limited.readResource({ uri })).rejects.toThrow();
+        await expect(client.readResource({ uri: uri.replace(f.project.id, f.other.id) })).rejects.toThrow();
+        await expect(client.readResource({ uri: uri.replace(reply.id, thread.thread.items[0]!.id) })).rejects.toThrow();
+        await getCommentsStore().deleteScreenshot(f.comment.domain, f.comment.id);
+        const replyOnly = data(await client.callTool({ name: 'get_feedback', arguments: args }));
+        expect(replyOnly.screenshotResource).toBeUndefined();
+        expect(replyOnly.replyScreenshotResources).toEqual(packet.replyScreenshotResources);
+        expect((await client.readResource({ uri })).contents).toHaveLength(1);
+        // A lost image document is omitted even if its reply still retains old metadata.
+        await getCommentsStore().deleteScreenshot(f.comment.domain, f.comment.id, undefined, reply.id);
+        const missing = data(await client.callTool({ name: 'get_feedback', arguments: args }));
+        expect(missing.context.discussion[0].screenshot).toBeUndefined();
+        expect(missing.replyScreenshotResources).toBeUndefined();
+        await expect(client.readResource({ uri })).rejects.toThrow();
+    } finally { await client.close(); await limited.close(); }
+});
+
+test('reply image resources recheck private visibility, membership, deletion and credential revocation', async () => {
+    const f = await fixture();
+    const thread = await replyToProjectComment(new Request(base), f.project, f.actor, f.comment.id,
+        { text: 'Reference image', screenshot: parseScreenshot(pngImage) as ParsedScreenshot });
+    const reply = thread.thread.items.at(-1)!;
+    const reader = await findOrCreateUser(`reply-reader-${randomUUID()}@example.com`);
+    const member: DbMember = { ...f.context.member, id: memberId(reader.id), userId: reader.id, email: reader.email, role: 'commenter', projects: [f.project.id] };
+    await getAppStore().create(member);
+    const { token, credential } = await createMcpCredential({ ...f.context, member, user: reader, isAdmin: false },
+        { name: 'Reply reader', projectIds: [f.project.id], scopes: ['feedback:read', 'screenshots:read'], days: 7 });
+    const client = await connect(token);
+    const uri = `uier://projects/${f.project.id}/feedback/${f.comment.id}/replies/${reply.id}/screenshot`;
+    try {
+        expect((await client.readResource({ uri })).contents).toHaveLength(1);
+        await setProjectCommentPrivate(f.project, f.actor, f.comment.id, true);
+        await expect(client.readResource({ uri })).rejects.toThrow();
+        await setProjectCommentPrivate(f.project, f.actor, f.comment.id, false);
+        const membership = (await getAppStore().get<DbMember>(member.pk, member.id))!;
+        await getAppStore().replace({ ...membership.doc, projects: [] }, membership.etag);
+        await expect(client.readResource({ uri })).rejects.toThrow();
+        await getAppStore().replace(membership.doc, (await getAppStore().get(member.pk, member.id))!.etag);
+        // Legacy retained image bytes must not survive the message's deletion in the export.
+        const saved = (await getCommentsStore().get(f.comment.domain, f.comment.id))!;
+        await getCommentsStore().replace({ ...saved.comment, thread: { items: saved.comment.thread.items.map(item => item.id === reply.id
+            ? { ...item, deletedAt: new Date().toISOString() } : item) } }, saved.etag);
+        const packet = data(await client.callTool({ name: 'get_feedback', arguments: { projectId: f.project.id, commentId: f.comment.id } }));
+        expect(packet.context.discussion[0]).toMatchObject({ id: reply.id, deleted: true });
+        expect(packet.context.discussion[0].screenshot).toBeUndefined();
+        expect(packet.replyScreenshotResources).toBeUndefined();
+        await expect(client.readResource({ uri })).rejects.toThrow();
+        await getCommentsStore().replace(saved.comment, (await getCommentsStore().get(f.comment.domain, f.comment.id))!.etag);
+        expect((await client.readResource({ uri })).contents).toHaveLength(1);
+        await revokeMcpCredential(reader.id, credential.id);
+        await expect(client.readResource({ uri })).rejects.toThrow();
+    } finally { await client.close(); }
+});
 
 test('assignment validates the shared user id format before a write', async () => {
     const f = await fixture();

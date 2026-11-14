@@ -507,7 +507,7 @@ The listing scans at most 50 workspaces and 1000 projects per account; beyond th
 `workspaceId`. Project ids are globally unique, so every other tool, prompt and resource takes the
 `projectId` alone; uier resolves its workspace and checks it against the connection on each call.
 
-`get_feedback` returns `{ actingAs, contentTrust, context, markdown, screenshotResource? }`.
+`get_feedback` returns `{ actingAs, contentTrust, context, markdown, screenshotResource?, replyScreenshotResources? }`.
 `context` and `markdown` come directly from the same authorized project export service as Copy
 issue, using the shared [version 1 feedback context contract](feedback-context.md). The MCP
 resource reference supplements its protected web image link when image access was granted.
@@ -530,7 +530,7 @@ only a returned option id, `unknown` or `removed`; omit it to search all environ
 
 `get_feedback_batch` takes `{ projectId, commentIds }` and returns
 `{ actingAs, contentTrust, items, remainingIds }`. Each item contains `commentId` and either the
-same `context`, `markdown` and optional `screenshotResource` as `get_feedback`, or an `error` and
+same `context`, `markdown` and optional `screenshotResource` / `replyScreenshotResources` as `get_feedback`, or an `error` and
 `message`. Missing, deleted and inaccessible ids all return `not_found`. A packet too large for
 one response returns `too_large` for that id. The batch returns only whole packets that fit within
 256 KiB; retry `remainingIds` separately. Duplicate ids, empty batches and more than ten ids are
@@ -540,6 +540,10 @@ context survives the request. Visibility is checked before enrichment, and scope
 and membership are rechecked on each call. Both tools leave read cursors unchanged.
 
 Screenshot references are `uier://projects/{projectId}/feedback/{commentId}/screenshot` resources.
+Images attached to replies add `replyScreenshotResources: [{ itemId, uri, access }]`, with URIs
+`uier://projects/{projectId}/feedback/{commentId}/replies/{itemId}/screenshot`. Each matches its
+`context.discussion[].screenshot` protected web reference and Markdown link. These work even when
+the original comment has no screenshot. Deleted replies and missing images expose no reference.
 Use MCP `resources/read` with `screenshots:read` to retrieve the saved image; current feedback
 visibility is checked again. References never contain a token or create a public image URL.
 Clients control whether images/text they retrieve are sent to their own model provider. Revoking
