@@ -46,11 +46,12 @@ test('in portrait the sidebar is a sheet, and the page, its header and settings 
     await expect(navigation.getByRole('link', { name: 'My work', exact: true })).toBeVisible();
     await closeAppNavigation(page);
 
-    // The project's actions stay on the title's row; the long name wraps beside them
-    const title = await box(page.getByRole('heading', { level: 1 }));
+    // Open review sits at the top bar's right end, beside the breadcrumbs (uier #406)
+    const topBar = await box(page.locator('[data-slot="sidebar-inset"] > header'));
     const openReview = await box(page.getByRole('button', { name: 'Open review' }));
-    expect(openReview.y).toBeLessThan(title.y + title.height);
-    expect(openReview.x).toBeGreaterThan(title.x + title.width);
+    expect(openReview.y).toBeGreaterThanOrEqual(topBar.y);
+    expect(openReview.y + openReview.height).toBeLessThanOrEqual(topBar.y + topBar.height);
+    expect(openReview.x + openReview.width).toBeGreaterThan(topBar.x + topBar.width - 24);
     // The tabs' line runs to the window's edges without scrolling the page sideways (uier #237)
     expect(await noSidewaysScroll(page)).toBe(true);
 
