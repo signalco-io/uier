@@ -113,6 +113,7 @@ rows with the status filter it waits for their entrance motion to settle before 
   toolbar's `CommentStatusBadge` uses the same tokens. The dot carries `data-status-dot="<status>"`.
   A board column with cards shows its dot with a soft glow in the same colour (`GlowingStateDot`, `data-status-glow`;
   Open's ink at a lower strength), so the columns that hold threads stand out; an empty column has none (uier #356).
+  The glow stays faint (a 12 px halo at a quarter of the colour's strength, Open's ink at a tenth, [uier #399](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_bv6Uza4CExRHajgye4OVQ)).
   `e2e/status-colors.spec.ts` checks each status's colour in the list, the board, the menu and the filter, in
   light and dark, with axe. It opens the board's Move through `openBoardMove`, as a keyboard user does,
   rather than clicking its visually hidden pointer target.
