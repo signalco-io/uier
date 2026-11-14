@@ -120,7 +120,8 @@ function UnreadDot({ shown, disabled, onRead }: { shown: boolean; disabled: bool
     return (
         <span data-unread-shown={shown} aria-hidden={shown ? undefined : true} inert={!shown}
             className={cn('flex shrink-0 justify-center transition-[width,margin,opacity,scale] duration-150 ease-out motion-reduce:transition-none',
-                shown ? 'w-3 scale-100 opacity-100' : '-mr-2 w-0 scale-50 opacity-0')}>
+                // Leaving, it shrinks in place first and only then closes its room, so it scales down rather than sliding aside (uier #438)
+                shown ? 'w-3 scale-100 opacity-100' : '-mr-2 w-0 scale-50 opacity-0 [transition-delay:150ms,150ms,0ms,0ms]')}>
             <Tooltip>
                 <TooltipTrigger render={<Button variant="ghost" size="icon-xs" aria-label={t("Unread. Mark as read")} disabled={disabled} onClick={onRead}
                         className="-mx-1.5 shrink-0 pointer-coarse:min-h-11 pointer-coarse:min-w-11" />}>

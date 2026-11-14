@@ -47,6 +47,7 @@ isolation; `thread-history.spec.ts` covers the app controls, reloads, themes and
   the thread's unread dot (`UnreadDot` in `CommentCard.tsx`) and the row's dot (`CommentRow.tsx`) stay mounted while
   the thread has someone else's activity, so marking it read or unread fades and scales the dot in 150 ms and the
   thread's header line closes or opens its room instead of jumping; hidden, the card's dot is `inert` and `aria-hidden`.
+  Leaving, the card's dot scales down in place first and its room closes after it, so it never slides aside (uier #438).
   No motion on the first render or with reduced motion.
 
 - `e2e/activity.spec.ts` exercises project/showcase adaptive refresh with the Playwright clock:
