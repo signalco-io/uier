@@ -6,6 +6,7 @@ import { isIntegrationProvider, type IntegrationProviderId, type IntegrationSync
 import { configuredIntegrationAdapters, integrationRegistry } from './registry';
 import { queueIntegrationBackfills } from './backfill';
 import { pollIntegrationStatuses } from './statusSync';
+import { syncNotionProjects } from './notion/projects/sync';
 
 export const INTEGRATION_RUN_BUDGET_MS = 8 * 60_000;
 export type IntegrationWorkerOptions = DiscoveryOptions & Pick<DeliveryOptions, 'now' | 'exportFeedback'> & { budgetMs?: number };
@@ -53,6 +54,13 @@ export async function runIntegrationWorker(baseUrl: string, options: Integration
                 maxCalls: Math.max(0, Math.min(20, Math.floor((adapter.maxCalls ?? 100) / 4), (adapter.maxCalls ?? 100) - calls)) });
             calls += polled.calls;
         } catch { deferred++; }
+        if (adapter.provider === 'notion' && now() < providerDeadline) {
+            try {
+                const projects = await syncNotionProjects({ deadline: Math.min(providerDeadline, now() + Math.min(30_000, allowance / 4)),
+                    maxCalls: Math.max(0, Math.min(20, (adapter.maxCalls ?? 100) - calls)) }, { store });
+                calls += projects.calls; deferred += projects.deferred;
+            } catch { deferred++; }
+        }
         let pending: IntegrationSync[];
         try {
             pending = (await store.query<IntegrationSync>({ type: `${adapter.provider}-sync`, where: { active: true },

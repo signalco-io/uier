@@ -114,3 +114,9 @@ forms they render; shared fields, confirmation and impact previews live in their
 authorization and revision checks in the actions and services.
 
 The app translates access controls, previews and activity descriptions at presentation time. Stored role/action ids and user-defined names stay unchanged. `describeAccessEvent` receives the request translator and language; list conjunctions use `Intl.ListFormat`, and management counts use `Intl.PluralRules` (including Croatian one/few/other). Its default English formatter remains available to API/export callers. `management-language.api.spec.ts` covers names and count forms.
+
+Workspace Notion project imports require a current stored workspace admin for OAuth, discovery,
+configuration and manual override. Scheduled imports recheck the connecting admin on every credential
+use and conditionally guard local writes with workspace/member versions. New projects use invited
+access and add no members, invitations, team grants or public review access. Removing or demoting the
+connecting admin prevents further imports; no missing membership is recreated.

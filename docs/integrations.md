@@ -268,3 +268,15 @@ Only the requested reviewer or an explicitly attributed independent admin can cr
 confirmation inside uier. No provider status can do so. Names, summaries and fix links remain
 untrusted literal content in provider projections, and privacy cleanup keeps its existing
 scrub/close semantics rather than promising erasure of remote history.
+
+## Workspace projects from Notion
+
+Workspace settings → Projects from Notion optionally imports one invited project per row of a
+shared database. Map URL/text/multi-select address columns, an optional name and exact Done values
+from a Status/Select/text/checkbox column. Save enables scheduled, leased polling through the existing
+worker; it updates project names, addresses and Active/Done state without writing to Notion or
+deleting any projects or feedback. General settings can permanently switch a project to manual.
+See the [implementation and retention contract](../apps/web/docs/integrations.md#workspace-projects-from-notion).
+This reuses the registered Notion OAuth client, callback and token keys; it requires no new secrets,
+provider capabilities or infrastructure. Hosted acceptance still requires the existing configured
+production connection; local provider-stub checks do not establish that deployment's configuration.

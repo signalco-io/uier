@@ -61,6 +61,7 @@ export const KnownPages = {
     AppAccount: '/app/account',
     AppSettings: '/app/workspace/settings',
     AppNotionConnect: '/app/notion/connect',
+    AppNotionProjectsConnect: '/app/notion/projects/connect',
     AppNotionCallback: '/app/notion/callback',
     AppGitHubConnect: '/app/github/connect',
     AppGitHubSetup: '/app/github/setup',

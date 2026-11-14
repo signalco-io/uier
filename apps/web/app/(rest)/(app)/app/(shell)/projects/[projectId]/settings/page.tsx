@@ -1,3 +1,4 @@
+import { ManagedProject } from '@/src/components/app/integrations/notion-projects/ManagedProject';
 
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
@@ -37,6 +38,7 @@ async function ProjectSettingsPageContent({ params }: PageProps<'/app/projects/[
 
     return (
         <>
+            {project.automaticallyManaged && <ManagedProject projectId={project.id} />}
             <ProjectGeneralForm projectId={project.id} name={project.name} clientName={projectClient(project, clients)?.name} clients={clientNames(projects, clients)}
                 aiTitles={projectAiTitleMode(project)} workspaceAiTitles={workspaceAiTitles(context.workspace)}
                 rewriteInstructions={projectRewriteInstructions(project)} workspaceRewriteInstructions={workspaceRewriteInstructions(context.workspace)} />

@@ -350,7 +350,7 @@ const unmarkProject = (workspaceId: string, { id, fromWorkspaceId: from, toWorks
 
 /** The project as it is in the new workspace while the transfer runs: no services, its client the one with the same name there */
 function projectCopy(source: DbProject, { fromWorkspaceId: from, toWorkspaceId: to }: ProjectTransfer, clientId: string | undefined): DbProject {
-    const { integrations: _integrations, clientId: _clientId, clientName: _clientName, transfer: _transfer, ...rest } = source;
+    const { integrations: _integrations, automaticallyManaged: _managed, clientId: _clientId, clientName: _clientName, transfer: _transfer, ...rest } = source;
     return { ...rest, pk: workspacePk(to), workspaceId: to, ...(clientId ? { clientId } : {}), transfer: { from, to }, updatedAt: new Date().toISOString() };
 }
 

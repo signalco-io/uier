@@ -111,3 +111,38 @@ Slack notification titles also use the saved custom label, retaining the existin
 Suggested rewrite titles for built-in kinds. Labels remain literal, bounded text.
 
 Signed-in integration setup, status badges, capability descriptions, confirmation dialogs and results use the [app language](localization.md). Provider names, remote destination names, mapped fields and configuration snippets remain unchanged. Machine operation ids are never translated.
+
+## Workspace projects from Notion
+
+Workspace settings → Projects from Notion is a separate workspace-scoped OAuth connection using
+Notion's existing client, encryption keys, callback, grant-refresh lease and rate gates. It requests
+no additional capability or secret and never writes database content. Project feedback mirrors and
+their grants/settings stay independent. Preview deployments cannot use either connection.
+Settings rendering only reads storage; Load databases and Load fields explicitly read Notion.
+
+An admin picks a shared database data source, one or more URL/text/multi-select address columns,
+an optional title/text name column, and a Status/Select/text/checkbox completion column. They choose
+the exact Done values (a checked checkbox means done). Save validates against the live source schema
+and enables sync; Pause and Disconnect fence existing work and require no provider credentials.
+The existing `Review notifications` worker polls this connection during its Notion turn, with a
+bounded call/time budget, a conditional lease, durable page cursor and exponential retry delays.
+A completed scan schedules the next one in five minutes; invalid schemas and inaccessible sources
+retry without deleting or changing projects. Invalid/empty address rows are skipped independently.
+
+Each row creates one invited project with all its normalized, deduplicated addresses. Name defaults
+to its first site's host. Later scans update only the name, addresses and Active/Done state; a source
+row returning to another status reopens its project. Renamed columns keep working through property
+IDs. There is no inference of deletion from missing, archived or trashed rows. Credentials, connecting
+admin, workspace, connection revision, lease and project version are checked before writes; workspace,
+member, grant, connection, project and new receipt writes are conditionally committed together.
+
+`notion/projects/` owns the importer. `notion-project-row` is an identifier-only receipt in the workspace
+partition, keyed by the source/row hash. Its deterministic project code claim and atomic receipt/project
+creation make lost writes and repeated pages idempotent. Receipts intentionally survive manual override,
+project deletion and transfer, preventing recreation or reassignment. Transfer drops the management flag
+in the target workspace. There is no feedback content in receipts, leases or cursors. Removing/demoting
+the connecting admin stops credential use through the existing grant revocation checks.
+
+`notion-projects.api.spec.ts` covers OAuth isolation, schema mappings, pagination/budgets, lost writes,
+manual/disconnect races, retained feedback, transfer/deletion, refresh, rate limits and authority.
+`notion-projects.spec.ts` covers admin setup, drafts, pause/disconnect, language and desktop/mobile access.

@@ -218,3 +218,8 @@ The board’s Group by label preference is saved as `DbProject.boardGroupByLabel
 Staff admins can configure workspace labels and project label overrides in uier’s own workspace and feedback projects. Other managed settings remain restricted. Existing triage permissions, member-only catalogs, label filters, toolbar controls, MCP label tools and saved board swim lanes apply there too.
 
 The managed-workspace label API regression uses a distinct admin membership and checks its creation, so shared commenter fixtures cannot silently replace its authorization setup.
+
+Workspace settings → **Projects from Notion** connects a workspace, chooses a database and maps its
+address, optional name and completion fields. Save enables scheduled import; Pause and Disconnect
+stop it without deleting projects. General settings of an automatically managed project explains
+which fields Notion owns and offers **Use manual management** to stop updates permanently.

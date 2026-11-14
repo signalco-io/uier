@@ -1,3 +1,5 @@
+import { getNotionProjectsSettings } from '@/src/lib/integrations/notion/projects/settings';
+import { NotionProjectsForm } from '@/src/components/app/integrations/notion-projects/NotionProjectsForm';
 import { workspaceThreadLabels } from '@/src/lib/app/threadLabels';
 import { WorkspaceThreadLabelsForm } from './WorkspaceThreadLabelsForm';
 import { workspaceStatusWorkflow } from '@/src/lib/app/statusWorkflows';
@@ -27,12 +29,13 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /** The current workspace's own settings, for its admins (the uier workspace is managed by uier) */
-async function WorkspaceSettingsPageContent() {
+async function WorkspaceSettingsPageContent({ searchParams }: PageProps<'/app/workspace/settings'>) {
     const { t } = await getAppI18n();
     const context = await requireAdminContext();
     if (context.workspace.id === PUBLIC_WORKSPACE_ID)
         return <div className="flex max-w-3xl flex-col"><WorkspaceTabHeader description={t("Settings for everyone in this workspace.")} /><WorkspaceThreadLabelsForm labels={workspaceThreadLabels(context.workspace)} /></div>;
 
+    const [notion, query] = await Promise.all([getNotionProjectsSettings(context.workspace.id, context.user.id), searchParams]);
     return (
         <div className="flex max-w-3xl flex-col">
             <WorkspaceTabHeader description={t("Settings for everyone in this workspace.")} />
@@ -45,11 +48,12 @@ async function WorkspaceSettingsPageContent() {
                 <WorkspaceThreadLabelsForm labels={workspaceThreadLabels(context.workspace)} />
                 <WorkspaceStatusWorkflowForm workflow={workspaceStatusWorkflow(context.workspace)} />
                 <WorkspaceDomainsSection context={context} />
+                <NotionProjectsForm view={notion} outcome={typeof query.notion === 'string' ? query.notion : undefined} />
             </div>
         </div>
     );
 }
 
-export default function WorkspaceSettingsPage() {
-    return <Suspense fallback={<PageLoading title="Loading settings" />}><WorkspaceSettingsPageContent /></Suspense>;
+export default function WorkspaceSettingsPage(props: PageProps<'/app/workspace/settings'>) {
+    return <Suspense fallback={<PageLoading title="Loading settings" />}><WorkspaceSettingsPageContent {...props} /></Suspense>;
 }

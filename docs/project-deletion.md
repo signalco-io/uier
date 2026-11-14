@@ -75,3 +75,8 @@ records, the retained other project, tombstone discovery and the retry sweep. `e
 covers the page check summaries.
 `e2e/project-deletion.spec.ts` (full suite, Desktop Chrome) covers the confirm dialog, cancel, the
 typed name, the redirect and toast, and that the code and public id stop resolving.
+
+Projects imported from a workspace Notion database keep their identifier-only `notion-project-row`
+receipt after deletion. The retained row-to-project association prevents the next scheduled import
+from recreating the deleted project. It contains no project name, addresses or feedback. Deleting one
+imported project does not disconnect the workspace's import connection or affect its other projects.

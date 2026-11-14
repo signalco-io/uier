@@ -9,11 +9,14 @@ import { decryptSecret, encryptSecret, type SecretContext } from '../secrets';
 import { boundedName, NotionApiError, NotionClient, notionId, object, sameId, type JsonObject } from './client';
 import { isNotionConfigured, notionAuthorizeUrl, notionKey, notionRedirectUri } from './config';
 import type { NotionConnection, NotionGrant } from './model';
+import { NOTION_PROJECTS_SCOPE, notionProjectsConnectionId, type NotionProjectsConnection } from './projects/model';
+import { notionWorkspaceAuthority } from './projects/authority';
+type SessionConnection = NotionConnection | NotionProjectsConnection;
 
 export type NotionServices = { store?: AppStore; client?: NotionClient };
 export const notionConnectionId = (projectId: string) => `notion_${projectId}`;
 export const notionGrantId = (projectId: string) => `notion_grant_${projectId}`;
-const context = (grant: Pick<NotionGrant, 'workspaceId' | 'projectId' | 'id'>, field: string): SecretContext =>
+export const notionSecretContext = (grant: Pick<NotionGrant, 'workspaceId' | 'projectId' | 'id'>, field: string): SecretContext =>
     ({ provider: 'notion', workspaceId: grant.workspaceId, projectId: grant.projectId, subjectId: grant.id, field });
 
 export async function notionAdmin(project: DbProject, userId: string, store: AppStore = getAppStore()) {
@@ -28,7 +31,7 @@ export async function storedNotionConnection(project: DbProject, store: AppStore
     return current?.type === 'notion-connection' && current.provider === 'notion' && current.projectId === project.id
         && current.workspaceId === project.workspaceId ? current : null;
 }
-function tokenResponse(value: JsonObject, existing?: NotionGrant) {
+export function notionTokenResponse(value: JsonObject, existing?: NotionGrant) {
     if (typeof value.access_token !== 'string' || !value.access_token || value.access_token.length > 16_000
         || (value.refresh_token !== undefined && value.refresh_token !== null && (typeof value.refresh_token !== 'string' || !value.refresh_token || value.refresh_token.length > 16_000)))
         throw new NotionApiError(0, 'invalid_oauth_response');
@@ -54,8 +57,11 @@ export async function beginNotionConnect(input: { userId: string; workspaceId: s
 }
 export async function finishNotionConnect(input: { userId: string; state: unknown; code?: unknown; error?: unknown; baseUrl: string }, services: NotionServices = {}) {
     const store = services.store ?? getAppStore();
-    const state = await consumeOauthState({ provider: 'notion', userId: input.userId, state: input.state, expected: { intent: 'connect' } }, store);
+    const state = await consumeOauthState({ provider: 'notion', userId: input.userId, state: input.state }, store);
     if (!state) throw new NotionApiError(400, 'invalid_oauth_state');
+    if (state.intent === 'manage-projects' && state.projectId === NOTION_PROJECTS_SCOPE)
+        return (await import('./projects/connection')).finishNotionProjectsConnect(input, state, services);
+    if (state.intent !== 'connect') throw new NotionApiError(400, 'invalid_oauth_state');
     const result = { workspaceId: state.workspaceId, projectId: state.projectId };
     const project = (await store.get<DbProject>(workspacePk(state.workspaceId), state.projectId))?.doc;
     if (!project) throw new IntegrationAccessError();
@@ -68,7 +74,7 @@ export async function finishNotionConnect(input: { userId: string; state: unknow
     try {
         const token = await (services.client ?? new NotionClient()).oauth({ grant_type: 'authorization_code', code: input.code,
             redirect_uri: notionRedirectUri(input.baseUrl) });
-        const data = tokenResponse(token);
+        const data = notionTokenResponse(token);
         // Recheck after the exchange, before credentials or a destination can be installed.
         await notionAdmin(project, input.userId, store);
         const id = notionGrantId(project.id);
@@ -77,8 +83,8 @@ export async function finishNotionConnect(input: { userId: string; state: unknow
         const grant: NotionGrant = { type: 'notion-grant', provider: 'notion', id, pk, workspaceId: project.workspaceId, projectId: project.id,
             connectedBy: input.userId, botId: data.botId, notionWorkspaceId: data.notionWorkspaceId, notionWorkspaceName: data.notionWorkspaceName,
             generation: (previous?.generation ?? 0) + 1, status: 'connected', issuedAt: new Date().toISOString() };
-        grant.tokens = { access: encryptSecret(data.access, context(grant, 'access'), notionKey()),
-            ...(data.refresh ? { refresh: encryptSecret(data.refresh, context(grant, 'refresh'), notionKey()) } : {}) };
+        grant.tokens = { access: encryptSecret(data.access, notionSecretContext(grant, 'access'), notionKey()),
+            ...(data.refresh ? { refresh: encryptSecret(data.refresh, notionSecretContext(grant, 'refresh'), notionKey()) } : {}) };
         installedGrant = await store.create(grant) ? grant
             : await updateDoc<NotionGrant>(pk, id, current => ({ ...grant, generation: current.generation + 1 }), store) ?? undefined;
         if (!installedGrant) throw new NotionApiError(409, 'connection_changed');
@@ -131,14 +137,14 @@ export class NotionSession {
     private usedGeneration?: number;
     readonly store: AppStore;
     readonly client: NotionClient;
-    constructor(readonly connection: NotionConnection, services: NotionServices = {}, private readonly requireEnabled = false) {
+    constructor(readonly connection: SessionConnection, services: NotionServices = {}, private readonly requireEnabled = false) {
         this.store = services.store ?? getAppStore(); this.client = services.client ?? new NotionClient();
     }
     async grant() {
         if (!isNotionConfigured()) throw new NotionApiError(503, 'not_configured');
-        const current = (await this.store.get<NotionConnection>(this.connection.pk, this.connection.id))?.doc;
+        const current = (await this.store.get<SessionConnection>(this.connection.pk, this.connection.id))?.doc;
         const grant = current?.grantId ? (await this.store.get<NotionGrant>(current.pk, current.grantId))?.doc : null;
-        if (!current || current.type !== 'notion-connection' || current.provider !== 'notion' || current.projectId !== this.connection.projectId
+        if (!current || !['notion-connection', 'notion-projects-connection'].includes(current.type) || current.type !== this.connection.type || current.provider !== 'notion' || current.projectId !== this.connection.projectId
             || current.workspaceId !== this.connection.workspaceId || !grant || grant.type !== 'notion-grant' || grant.provider !== 'notion'
             || grant.projectId !== current.projectId || grant.workspaceId !== current.workspaceId || grant.connectedBy !== current.connectedBy
             || !grant.tokens || grant.status !== 'connected' || current.status === 'needs_reconnect') throw new NotionApiError(401, 'needs_reconnect');
@@ -147,12 +153,17 @@ export class NotionSession {
             await this.invalidate('member_left', grant);
             throw new NotionApiError(401, 'member_left');
         }
-        const project = (await this.store.get<DbProject>(workspacePk(current.workspaceId), current.projectId))?.doc;
-        if (!project || project.type !== 'project' || project.workspaceId !== current.workspaceId || isUierFeedbackProject(project.id))
-            throw new NotionApiError(401, 'binding_changed');
-        if (this.requireEnabled) {
-            if (!current.enabled || current.destinationRevision !== this.connection.destinationRevision
-                || project?.integrations?.notion?.connectionId !== current.id) throw new NotionApiError(401, 'binding_changed');
+        if (current.type === 'notion-projects-connection') {
+            await notionWorkspaceAuthority(current.workspaceId, current.connectedBy, this.store);
+            if (current.projectId !== NOTION_PROJECTS_SCOPE || current.id !== notionProjectsConnectionId
+                || current.destinationRevision !== this.connection.destinationRevision || current.grantId !== this.connection.grantId
+                || (this.requireEnabled && !current.enabled)) throw new NotionApiError(401, 'binding_changed');
+        } else {
+            const project = (await this.store.get<DbProject>(workspacePk(current.workspaceId), current.projectId))?.doc;
+            if (!project || project.type !== 'project' || project.workspaceId !== current.workspaceId || isUierFeedbackProject(project.id))
+                throw new NotionApiError(401, 'binding_changed');
+            if (this.requireEnabled && (!current.enabled || current.destinationRevision !== this.connection.destinationRevision
+                || project.integrations?.notion?.connectionId !== current.id)) throw new NotionApiError(401, 'binding_changed');
         }
         type Gate = import('../../app/model').AppDoc & { pausedUntil?: string };
         const botPause = (await this.store.get<Gate>(`notion-rate:${grant.botId}`, 'calls'))?.doc.pausedUntil;
@@ -165,7 +176,7 @@ export class NotionSession {
         const scheduledGrant = await this.grant();
         await this.pace(scheduledGrant, signal);
         const grant = await this.grant(); this.usedGeneration = grant.generation;
-        return this.client.request(method, path, { token: decryptSecret(grant.tokens!.access, context(grant, 'access'), notionKey()), body, signal });
+        return this.client.request(method, path, { token: decryptSecret(grant.tokens!.access, notionSecretContext(grant, 'access'), notionKey()), body, signal });
     }
     async request(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', path: string, body?: unknown) {
         try { return await this.raw(method, path, body); }
@@ -186,16 +197,16 @@ export class NotionSession {
         const acquired = await acquireGrantLease<NotionGrant>({ pk: latest.pk, id: latest.id, authorize }, this.store);
         if (!acquired) throw new NotionApiError(401, 'needs_reconnect');
         try {
-            const response = tokenResponse(await run(async signal => {
+            const response = notionTokenResponse(await run(async signal => {
                 const retained = await this.grant();
                 if (retained.generation !== acquired.grant.generation || retained.refreshLease?.id !== acquired.lease.id
                     || Date.parse(retained.refreshLease.until) <= Date.now()) throw new GrantLeaseError('invalid_lease');
                 return this.client.oauth({ grant_type: 'refresh_token',
-                    refresh_token: decryptSecret(retained.tokens!.refresh!, context(retained, 'refresh'), notionKey()) }, signal);
+                    refresh_token: decryptSecret(retained.tokens!.refresh!, notionSecretContext(retained, 'refresh'), notionKey()) }, signal);
             }), acquired.grant);
             const saved = await saveGrantLease<NotionGrant>({ pk: latest.pk, id: latest.id, lease: acquired.lease, authorize,
-                update: grant => ({ ...grant, tokens: { access: encryptSecret(response.access, context(grant, 'access'), notionKey()),
-                    ...(response.refresh ? { refresh: encryptSecret(response.refresh, context(grant, 'refresh'), notionKey()) } : {}) }, issuedAt: new Date().toISOString() }) }, this.store);
+                update: grant => ({ ...grant, tokens: { access: encryptSecret(response.access, notionSecretContext(grant, 'access'), notionKey()),
+                    ...(response.refresh ? { refresh: encryptSecret(response.refresh, notionSecretContext(grant, 'refresh'), notionKey()) } : {}) }, issuedAt: new Date().toISOString() }) }, this.store);
             if (!saved) throw new NotionApiError(401, 'needs_reconnect');
             this.usedGeneration = saved.generation;
         } catch (error) {
@@ -211,7 +222,7 @@ export class NotionSession {
             return { ...metadata, generation: current.generation + 1, status: 'needs_reconnect' };
         }, this.store);
         if (saved?.status === 'needs_reconnect' && !saved.tokens && saved.generation === observed.generation + 1)
-            await updateDoc<NotionConnection>(this.connection.pk, this.connection.id, current => current.connectedBy !== observed.connectedBy
+            await updateDoc<SessionConnection>(this.connection.pk, this.connection.id, current => current.connectedBy !== observed.connectedBy
                 || current.destinationRevision !== this.connection.destinationRevision || current.grantId !== observed.id ? current
                 : ({ ...current, status: 'needs_reconnect', enabled: false, statusCode: code, updatedAt: new Date().toISOString() }), this.store);
     }
@@ -246,7 +257,7 @@ export async function pauseNotion(session: NotionSession, error: NotionApiError)
         ? { notionWorkspaceId: grant.notionWorkspaceId } : { botId: grant.botId } });
     for (const item of grants) {
         await updateDoc<NotionGrant>(item.pk, item.id, current => ({ ...current, pausedUntil }), session.store);
-        await updateDoc<NotionConnection>(item.pk, notionConnectionId(item.projectId), current => current.grantId !== item.id ? current
+        await updateDoc<SessionConnection>(item.pk, item.projectId === NOTION_PROJECTS_SCOPE ? notionProjectsConnectionId : notionConnectionId(item.projectId), current => current.grantId !== item.id ? current
             : ({ ...current, pausedUntil }), session.store);
     }
 }

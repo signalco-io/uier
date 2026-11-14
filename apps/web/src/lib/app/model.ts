@@ -219,6 +219,8 @@ export type DbProject = AppDoc & {
     toolbarFeatures?: import('@uier/toolbar/toolbar-features').ToolbarFeatureVisibility;
     /** Server-owned provider bindings. Secrets and provider settings live in separate records. */
     integrations?: Partial<Record<import('../integrations/model').IntegrationProviderId, import('../integrations/model').IntegrationBinding>>;
+    /** Workspace automation. Removing this flag permanently leaves its source row under manual control. */
+    automaticallyManaged?: { provider: 'notion'; connectionId: string; rowKey: string };
     /** Optional labels and explicit alias groups, keyed by configured origin. */
     environments?: import('./environments').ProjectEnvironment[];
     /**

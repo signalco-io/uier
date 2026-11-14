@@ -143,3 +143,7 @@ sweep settling transfers whose requester's account is gone. `e2e/notificationWor
 `e2e/project-transfer.spec.ts` (full suite, Desktop and Mobile Chrome) covers the Danger zone row
 without another workspace, the dialog, the typed name, the redirect into the new workspace, the
 unchanged public id and the old workspace without the project.
+
+A project managed by a workspace Notion database becomes manual in the target workspace. Its source
+workspace keeps the identifier-only `notion-project-row` receipt, so later imports neither recreate it
+nor update the transferred project. The workspace connection remains available for its other projects.

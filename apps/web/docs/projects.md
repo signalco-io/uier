@@ -43,3 +43,9 @@
 - Project addresses use `normalizeSiteUrl` in `src/lib/app/projects.ts`: schemeless localhost,
   `.localhost` subdomains and loopback IPs default to HTTP, other hosts to HTTPS. Explicit schemes
   and ports are preserved. Review CORS and redirects still require an exact configured origin.
+
+- Workspace Notion imports create invited projects, one per row, with an `automaticallyManaged`
+  flag visible in project cards and the header. General settings offers **Use manual management**;
+  the admin-only action removes the flag permanently while preserving the source receipt, so polling
+  never changes or recreates that project. Transfer strips the flag; deletion retains the row receipt
+  to prevent recreation. See [workspace imports](integrations.md#workspace-projects-from-notion).

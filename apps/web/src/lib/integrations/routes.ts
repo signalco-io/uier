@@ -6,6 +6,8 @@ import { getMember } from '../app/workspaces';
 import { KnownPageLinks, KnownPages } from '../../knownPages';
 import { isLocalRuntime } from '../comments/environment';
 import { isUierFeedbackProject } from '../comments/publicProject';
+import { NOTION_PROJECTS_SCOPE } from './notion/projects/model';
+import { notionWorkspaceAuthority } from './notion/projects/authority';
 import type { IntegrationProviderId } from './model';
 
 type BeginInput = { userId: string; workspaceId: string; projectId: string; baseUrl: string; requestReplies?: boolean; requestPullRequests?: boolean };
@@ -56,13 +58,15 @@ export function integrationCallbackRoute(provider: IntegrationProviderId, finish
         try {
             const result = await finish({ userId: context.user.id, state: params.get('state'), code: params.get('code') ?? undefined,
                 error: params.get('error') ?? undefined, baseUrl });
-            if (!isProjectId(result.projectId) || isUierFeedbackProject(result.projectId)
+            const workspaceProjects = provider === 'notion' && result.projectId === NOTION_PROJECTS_SCOPE;
+            if (workspaceProjects) await notionWorkspaceAuthority(result.workspaceId, context.user.id);
+            if (!workspaceProjects && (!isProjectId(result.projectId) || isUierFeedbackProject(result.projectId)
                 || (await getMember(result.workspaceId, context.user.id))?.role !== 'admin'
-                || !await getProject(result.workspaceId, result.projectId)) return invalidIntegrationConnection(provider, baseUrl);
+                || !await getProject(result.workspaceId, result.projectId))) return invalidIntegrationConnection(provider, baseUrl);
             (await cookies()).set(WORKSPACE_COOKIE_NAME, result.workspaceId, {
                 httpOnly: true, sameSite: 'lax', path: '/', maxAge: 365 * 24 * 3600, secure: !isLocalRuntime()
             });
-            const settings = new URL(KnownPageLinks.projectIntegration(result.projectId, provider), baseUrl);
+            const settings = new URL(workspaceProjects ? `${KnownPages.AppSettings}#notion-projects` : KnownPageLinks.projectIntegration(result.projectId, provider), baseUrl);
             settings.searchParams.set(provider, result.status);
             if (provider === 'github' && result.setupReceipt) settings.searchParams.set('githubSetup', result.setupReceipt);
             return redirect(settings.href);
