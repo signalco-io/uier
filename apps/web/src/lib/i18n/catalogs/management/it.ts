@@ -405,7 +405,6 @@ const messages: Record<keyof typeof en, string> = {
     "Open the invitation link": "Apri il collegamento di invito",
     "Open the new team": "Apri la nuova team",
     "Open threads whose messages mention you": "Apri discussioni i cui messaggi ti menzionano",
-    "Open threads you are the assignee of": "Discussioni aperte di cui sei l'assegnatario",
     "Open workspace": "Spazio di lavoro aperto",
     "Open your site to check that the toolbar loads and connects. Leave the new window open until the check finishes.": "Apri il tuo sito per verificare che la barra degli strumenti si carichi e si connetta. Lasciare aperta la nuova finestra fino al termine del controllo.",
     "Opening the site and waiting for its toolbar.": "Aprendo il sito e aspettando la sua barra degli strumenti.",

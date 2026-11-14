@@ -405,7 +405,6 @@ const messages: Record<keyof typeof en, string> = {
     "Open the invitation link": "Otvorite poveznicu pozivnice",
     "Open the new team": "Otvorite novi tim",
     "Open threads whose messages mention you": "Otvorite teme čije vas poruke spominju",
-    "Open threads you are the assignee of": "Otvorene teme čiji ste ovlaštenik",
     "Open workspace": "Otvoreni radni prostor",
     "Open your site to check that the toolbar loads and connects. Leave the new window open until the check finishes.": "Otvorite svoju stranicu da provjerite učitava li se alatna traka i povezuje li se. Ostavite novi prozor otvoren dok provjera ne završi.",
     "Opening the site and waiting for its toolbar.": "Otvaranje stranice i čekanje na alatnoj traci.",
