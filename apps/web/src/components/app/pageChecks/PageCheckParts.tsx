@@ -27,10 +27,13 @@ const impactIcons: Record<Impact, { icon: LucideIcon; stroke: string }> = {
     moderate: { icon: CircleAlertIcon, stroke: 'stroke-[hsl(var(--foreground))]' },
     minor: { icon: InfoIcon, stroke: 'stroke-[hsl(var(--muted-foreground))]' }
 };
-const warnIcon = { icon: TriangleAlertIcon, stroke: 'stroke-[hsl(var(--brand-warning))]' };
-const passIcon = { icon: CircleCheckIcon, stroke: 'stroke-[hsl(var(--brand-success))]' };
+export type ResultMark = { icon: LucideIcon; stroke: string };
+export const warnIcon: ResultMark = { icon: TriangleAlertIcon, stroke: 'stroke-[hsl(var(--brand-warning))]' };
+export const passIcon: ResultMark = { icon: CircleCheckIcon, stroke: 'stroke-[hsl(var(--brand-success))]' };
+/** A note, neither a pass nor something to look at (the toolbar SEO panel's muted info) */
+export const noteIcon: ResultMark = { icon: InfoIcon, stroke: 'stroke-[hsl(var(--muted-foreground))]' };
 
-function Marked({ mark, children }: { mark: { icon: LucideIcon; stroke: string }; children: React.ReactNode }) {
+function Marked({ mark, children }: { mark: ResultMark; children: React.ReactNode }) {
     const Icon = mark.icon;
     return (
         <span className="inline-flex items-center gap-1.5">
