@@ -272,8 +272,14 @@ function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, pr
         Math.max(0, pager.data.paging.statusCounts[filter] + delta(comment => statusMatches(filter, commentStatus(comment), comment.archivedAt)))])) as Record<StatusFilter, number>;
     const statusUnread = Object.fromEntries((Object.keys(statusFilterLabels) as StatusFilter[]).map(filter => [filter,
         pager.data.paging.statusUnread[filter] + delta(comment => Boolean(comment.activity?.unread) && statusMatches(filter, commentStatus(comment), comment.archivedAt)) > 0]));
+    const inLane = (lane: CommentLane, comment: ProjectCommentView) => { const [status, label] = lane.split('~'); return statusForComment(workflow, comment).id === status && (!label || labelLaneMatches(comment.labels, label, groupIds || undefined)); };
     const totalFor = (lane: CommentLane) => lane === 'list' && !board ? statusCounts[query.status]
-        : Math.max(0, (pager.data.paging.lanes[lane]?.total ?? 0) + delta(comment => { const [status, label] = lane.split('~'); return statusForComment(workflow, comment).id === status && (!label || labelLaneMatches(comment.labels, label, groupIds || undefined)); }));
+        : Math.max(0, (pager.data.paging.lanes[lane]?.total ?? 0) + delta(comment => inLane(lane, comment)));
+    // The threads with a local change the snapshot doesn't show yet, as saved and as shown: a background refresh
+    // marks only the lanes they leave and enter (uier #442); the others keep their cards without progress
+    const changed = optimisticComments.flatMap((shown, index) => shown === pager.data.comments[index] ? [] : [pager.data.comments[index]!, shown]);
+    const laneLoading = (lane: CommentLane) => pager.loadingLanes.has(lane)
+        || pager.loading && (!pager.quietRefresh || changed.some(comment => lane === 'list' || inLane(lane, comment)));
     const inLabelWindow = (comment: ProjectCommentView, group?: string) => {
         if (!group) return true;
         if (!labelLaneMatches(comment.labels, group, groupIds || undefined)) return false;
@@ -283,7 +289,7 @@ function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, pr
             || Boolean(original && statusForComment(workflow, original).id !== status);
     };
     const pageControl = (lane: CommentLane) => ({ total: totalFor(lane), hasMore: Boolean(pager.data.paging.lanes[lane]?.nextCursor),
-        loading: pager.loading || pager.loadingLanes.has(lane), error: Boolean(pager.error) || pager.failedLanes.has(lane), loadMore: () => { if (pager.error) pager.retry(); else void pager.loadMore(lane); } });
+        loading: laneLoading(lane), error: Boolean(pager.error) || pager.failedLanes.has(lane), loadMore: () => { if (pager.error) pager.retry(); else void pager.loadMore(lane); } });
     const budgetExceeded = pager.error === 'budget' || pager.data.paging.queryTooExpensive;
     const populated = pager.data.paging.scopeTotal > 0 || Boolean(budgetExceeded);
     // The board's status filter (uier #335) narrows its columns to one; the others stay, empty, as drop targets
