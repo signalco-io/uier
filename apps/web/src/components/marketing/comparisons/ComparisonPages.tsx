@@ -126,7 +126,6 @@ export function PairComparisonPage({ slug }: { slug: CompetitorSlug }) {
     return <main className="flex min-w-0 flex-col pb-16">
         <PageHeader title={`uier vs ${competitor.name}`} lead={`An honest look at uier as a ${competitor.name} alternative: what overlaps, where the workflows differ and what you would give up.`}>
             <div className="flex flex-wrap gap-2.5"><Button variant="solid" size="lg" href="#choose">Which fits your work?</Button><Button variant="outlined" size="lg" href="#features">Compare features</Button></div>
-            <MethodNote />
         </PageHeader>
 
         <PageSection id="choose" title="Choose by the work you need to finish" lead="Both tools collect visual feedback. The difference is what you need around that feedback." wide>
@@ -165,7 +164,7 @@ export function AllToolsPage() {
     const products: Product[] = [uier, ...competitorSlugs.map(slug => competitors[slug])];
     return <main className="flex min-w-0 flex-col pb-16">
         <PageHeader title="Website feedback tools compared" lead="Five tools for overlapping jobs: live-page review, bug reproduction, product research and asset approval. Choose the workflow first.">
-            <div className="flex flex-wrap gap-2.5"><Button variant="solid" size="lg" href="#features">Open the feature matrix</Button><Button variant="outlined" size="lg" href={KnownPages.Compare}>Comparison guide</Button></div><MethodNote />
+            <div className="flex flex-wrap gap-2.5"><Button variant="solid" size="lg" href="#features">Open the feature matrix</Button><Button variant="outlined" size="lg" href={KnownPages.Compare}>Comparison guide</Button></div>
         </PageHeader>
 
         <PageSection id="workflows" title="Different tools, different finish lines" lead="These pictures show the job each tool can help with. They are not replicas of the products." wide>
@@ -189,7 +188,7 @@ export function AllToolsPage() {
 export function ComparisonHub() {
     return <main className="flex min-w-0 flex-col pb-16">
         <PageHeader title="Find the right website feedback tool" lead="Compare uier with BugHerd, Marker.io, Usersnap and Pastel by the work you need to finish, including where another tool fits better.">
-            <div className="flex flex-wrap gap-2.5"><Button variant="solid" size="lg" href={KnownPageLinks.comparison('website-feedback-tools')}>Compare all five tools</Button><Button variant="outlined" size="lg" href="#alternatives">Explore alternatives</Button></div><MethodNote />
+            <div className="flex flex-wrap gap-2.5"><Button variant="solid" size="lg" href={KnownPageLinks.comparison('website-feedback-tools')}>Compare all five tools</Button><Button variant="outlined" size="lg" href="#alternatives">Explore alternatives</Button></div>
         </PageHeader>
 
         <PageSection id="start" title="Start with the job" lead="A screenshot, a replay and an approval answer different questions." wide>

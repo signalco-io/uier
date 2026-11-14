@@ -14,7 +14,7 @@ for (const pair of pairs) {
         expect(response?.status()).toBe(200);
         const main = page.getByRole('main');
         await expect(main.getByRole('heading', { level: 1, name: `uier vs ${pair.name}` })).toBeVisible();
-        await expect(main).toContainText('Written by uier.');
+        await expect(main.getByRole('region', { name: 'Sources and scope' })).toContainText('Written by uier.');
         const table = main.getByRole('table');
         await expect(table.getByRole('columnheader')).toHaveText(['Workflow or feature', 'uier', pair.name]);
         await expect(table.getByRole('row').filter({ hasText: pair.advantage })).toHaveCount(1);
@@ -58,6 +58,7 @@ test('the full matrix retains caveats and source links behind keyboard disclosur
 test('the hub links every comparison and is linked from the public site', async ({ page }, testInfo) => {
     await page.goto('/compare');
     const main = page.getByRole('main');
+    await expect(main).not.toContainText('Written by uier.');
     for (const pair of pairs)
         await expect(main.getByRole('link', { name: `uier vs ${pair.name}`, exact: true })).toHaveAttribute('href', `/compare/${pair.slug}`);
     await main.getByRole('region', { name: 'Start with the job' }).screenshot({ path: testInfo.outputPath('workflows.png') });
