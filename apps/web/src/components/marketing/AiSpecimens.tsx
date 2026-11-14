@@ -88,15 +88,6 @@ export function AgentSpecimen() {
     );
 }
 
-/** /features/ai: the same scene on its own */
-export function CodingAgentSpecimen() {
-    return (
-        <div aria-hidden="true" className="flex justify-center overflow-hidden rounded-2xl border bg-muted/50 px-6 py-8">
-            <AgentScene />
-        </div>
-    );
-}
-
 /**
  * Selected text on the example page, and the rewrite form as the toolbar lays it out (composer-popovers.md,
  * "A rewrite"): the header, the quoted text, the instruction box with Suggest, the suggestions, then the

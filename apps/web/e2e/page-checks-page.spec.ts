@@ -12,6 +12,9 @@ test('the page checks page explains the panels, the comments and the app view', 
     expect(response?.status()).toBe(200);
     await expect(page).toHaveTitle(`Accessibility, SEO and security checks · ${brand.name}`);
     await expect(page.getByRole('heading', { level: 1, name: 'Check each page as you review it' })).toBeVisible();
+    // The animated cover under the header: a picture, with Pause for its loop
+    await expect(page.locator('[data-feature-cover="page-checks"]')).toHaveAttribute('aria-hidden', 'true');
+    await expect(page.getByRole('button', { name: 'Pause the animation' })).toBeVisible();
     for (const name of ['How it works', 'Accessibility', 'SEO', 'Security and compliance', 'From finding to comment', 'Across your pages', 'What the checks cannot tell you', 'Try it', 'Questions'])
         await expect(page.getByRole('region', { name, exact: true }), name).toBeVisible();
 
@@ -71,7 +74,8 @@ test('the landing page leads to the page checks page', async ({ page }) => {
     await page.goto('/');
     const features = page.getByRole('region', { name: 'What it does' });
     await expect(features.getByRole('heading', { name: 'Accessibility and SEO checks' })).toBeVisible();
-    await expect(features.getByRole('link', { name: 'page checks' })).toHaveAttribute('href', path);
+    // The tile is one link, to this page
+    await expect(features.getByRole('link', { name: 'More on page checks', exact: true })).toHaveAttribute('href', path);
     const question = page.getByRole('region', { name: 'Questions' }).locator('details').filter({ hasText: 'What do the accessibility and SEO checks look at?' });
     // The keyboard, as in landing.spec.ts: on a phone the toolbar can cover the summary while it settles
     await question.locator('summary').focus();
@@ -81,3 +85,11 @@ test('the landing page leads to the page checks page', async ({ page }) => {
 });
 
 test('the page checks page is accessible', ({ page }) => assertAccessibility(page, path));
+
+test('the cover shows one still frame with reduced motion', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(path);
+    await page.locator('[data-feature-cover="page-checks"]').scrollIntoViewIfNeeded();
+    await expect(page.locator('[data-feature-cover-caption] p:not(.invisible)')).toHaveText('The Accessibility panel beside the page, and a contrast issue it found posted as a comment on the price.');
+    await expect(page.getByRole('button', { name: /^(Pause|Play) the animation$/ })).toHaveCount(0);
+});

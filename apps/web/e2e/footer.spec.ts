@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { brand } from '@uier/brand';
 
 // Every public page shares the footer from the marketing layout
-const publicPages = ['/compare', '/compare/website-feedback-tools', '/compare/bugherd', '/compare/marker-io', '/compare/usersnap', '/compare/pastel', '/guides', '/guides/client-website-reviews', '/guides/nextjs', '/guides/website-review-checklist', '/guides/website-bug-report-template', '/', '/brand', '/features/ai', '/features/feedback-triage', '/features/fix-verification', '/features/page-checks', '/legal/privacy-policy', '/security', '/open-source', '/status'];
+const publicPages = ['/compare', '/compare/website-feedback-tools', '/compare/bugherd', '/compare/marker-io', '/compare/usersnap', '/compare/pastel', '/guides', '/guides/client-website-reviews', '/guides/nextjs', '/guides/website-review-checklist', '/guides/website-bug-report-template', '/', '/brand', '/features/ai', '/features/board', '/features/feedback-triage', '/features/fix-verification', '/features/inbox', '/features/page-checks', '/features/pinned-comments', '/features/screenshots', '/features/threads', '/legal/privacy-policy', '/security', '/open-source', '/status'];
 
 test('footer is on every public page', async ({ page }) => {
     for (const path of publicPages) {

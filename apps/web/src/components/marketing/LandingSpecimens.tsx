@@ -88,7 +88,7 @@ export function ThreadHeader({ stage, number, priority, assignees }: { stage: St
 }
 
 /** A message in a thread: the avatar column, the name and time, then the text */
-export function Message({ initials, name, time, children }: { initials: string; name: string; time: string; children: ReactNode }) {
+export function Message({ initials, name, time, children }: { initials: string; name: string; time: ReactNode; children: ReactNode }) {
     return (
         <div className="flex gap-2.5">
             <Avatar initials={initials} />

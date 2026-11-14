@@ -3,7 +3,8 @@ import { Button } from '@signalco/ui-primitives/Button';
 import { brand } from '@uier/brand';
 import { CheckList, InlineLink, PageHeader, PageSection, Panel, Tile } from '../../../../../src/components/marketing/ContentPage';
 import { FaqPanel, type Question } from '../../../../../src/components/marketing/LandingFaq';
-import { ChecksSceneSpecimen, PageChecksTableSpecimen, SeoSceneSpecimen } from '../../../../../src/components/marketing/ChecksSpecimens';
+import { PageChecksTableSpecimen, SeoSceneSpecimen } from '../../../../../src/components/marketing/ChecksSpecimens';
+import { ChecksCover } from '../../../../../src/components/marketing/covers/ChecksCover';
 import { KnownPages } from '../../../../../src/knownPages';
 
 // The toolbar's Accessibility and SEO panels and the app's Page checks view, as they ship:
@@ -155,12 +156,12 @@ export default function PageChecksPage() {
                     <Button variant="outlined" size="lg" href="#how-it-works">How it works</Button>
                 </div>
             </PageHeader>
+            <ChecksCover />
 
             <PageSection
                 id="how-it-works"
                 title="How it works"
                 lead="The checks read the page as you see it, in your browser. They come with the toolbar, so there is nothing else to install.">
-                <ChecksSceneSpecimen />
                 <Panel as="ol">
                     {steps.map((step, index) => (
                         <li key={step.title} className="flex items-baseline gap-4 p-6">
