@@ -11,23 +11,25 @@
   Clear filters clears it too) and `onView` for its own List/Board memory, and leaves out `environments` (no Environment
   and page filter) and `statusCounts` (no status tabs, and no Status filter on its board, which groups by category).
   A project's comments pass neither `projects` nor `onView`.
-- The comments' filter bar (`CommentFilters.tsx`): search on the left with Filter right after it (uier #393, below), the status tabs right after them in the list
+- The comments' filter bar (`CommentFilters.tsx`): search on the left, the status tabs right after it in the list
   ([uier #345](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_HcT9BzAEZpgzuwyUbwB_8); below), then at the right end of that row the filters in
-  effect, Group by, and List/Board. Filter is one button (a popover with Status on the board only (below), Priority, Environment
+  effect, Filter, Group by, and List/Board (uier #398, below; uier #393 had briefly put Filter after the search). Filter is one button (a popover with Status on the board only (below), Priority, Environment
   and page, People (Everyone, Assigned to me, Unassigned, Opened by me) and Only unread (plus the open thread); its badge counts the
   filters in effect). On a touch screen the search, Filter and the List/Board group are one height, 44 px:
   the group's 3 px padding around 38 px tabs; uier #277. Where the list sits beside its thread (`@3xl/comments`) and on the
   board (from `md`) the search is as wide as the first column under it, so their edges line up (uier #355:
-  `useFirstColumnWidth` in `ProjectComments.tsx` measures the column into `--first-column`; 20rem until it is measured). Beside the list it is exactly that wide, not just at most, and the status tabs start where the thread does: the
-  search keeps 0.5rem more after it than the row's gap, making the columns' 1rem gap (uier #384, `searchBesideList` in
-  `CommentsViewToggle.tsx`, on the loaded and the loading header). The Filter button sits right after the search, in
-  one group with it (`[data-search-field]`), and that group is what takes the first column's width, so search and Filter
-  span the list (or the board's first column) from its left edge to its right ([uier #393](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_SpXVnsQMWHbaYwvsAs6ZP)); the filters in effect and the
-  count line then sit right-aligned against Group by and List/Board. Elsewhere the group is at most 26rem; on a phone it
-  fills the row. The status tabs
-  (list only, `StatusTabs`: Active, Done and All, with counts) follow the search in the same row and wrap with it when the
-  row runs out of room; on a phone, below `sm`, they take their own line under the row (before the filters in effect),
-  the group fills the width and the tabs share the room, uier #278. Active, the default with no `?status=`, is every status
+  `useFirstColumnWidth` in `ProjectComments.tsx` measures the column into `--first-column`; 20rem until it is measured). Beside the list it is exactly that wide, not just at most (uier #384, `searchBesideList` in
+  `CommentsViewToggle.tsx`, on the loaded and the loading header). The status tabs sit right after the search, in one
+  group with it (`[data-search-field]`, `searchField` and `searchInput` in `CommentsViewToggle.tsx`), and that group is
+  what takes the first column's width, so the search and the tabs span the list from its left edge to its right, the
+  tabs ending where the list does (on the board the group holds the search alone and spans the first column; [uier #398](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_b5q8RKXba3DUBpMgy-Q3Y)).
+  The search gives up its room to the tabs, down to 6rem (its placeholder then ends in an ellipsis); past that the tabs
+  scroll sideways. Elsewhere the group is as wide as its content, the search 20rem. The filters in effect and the count
+  line sit right-aligned against Filter, Group by and List/Board. The status tabs
+  (list only, `StatusTabs`: Active, Done and All, with counts) follow the search; on a phone, below `sm`, the group is
+  no box of its own (`display: contents`): the search shares the row with Filter, Group by and List/Board (on its own
+  line above them when they don't fit), and the tabs take their own line under the row (before the filters in effect),
+  filling the width and sharing the room, uier #278. Active, the default with no `?status=`, is every status
   but Done; `statusMatches` in `commentLabels.ts`). Open, In progress and Ready to verify fold under Active
   (`activeStatusFilters`) to keep the tabs narrow: the "Active statuses" button beside the Active tab (24px wide, the WCAG 2.5.8 minimum; wider on touch) opens a menu of
   Active and the three, each with its count, and a choice closes it. The Active tab then names the choice ("Active: In
@@ -44,7 +46,7 @@
   and no search, Unread or Assigned to me, where the tabs' counts come from the activity summary, so do the dots (its
   `unreadOpen`, `unreadInProgress`, `unreadReady`, `unreadDone` and `unreadArchived`, every thread whether loaded or
   not); otherwise, like the counts, from the listed comments of the chosen pages. The menu button is a plain button inside the toggle group: Tab reaches it,
-  the arrow keys move between the tabs only. Each filter in effect shows in the search row, after Filter and left of Group by and List/Board (uier #209, #393; in the list and the board,
+  the arrow keys move between the tabs only. Each filter in effect shows in the search row, after the search and left of Filter, Group by and List/Board (uier #209, #398; in the list and the board,
   wrapping only when there is no room; on a phone they go to their own line under the row), named by its filter in muted text ("Priority: Urgent",
   "Environment: Production", "Page: /app/…", "People: Unassigned", "Author: Ana", and "Only unread"), with its own
   clear button, named by its visible text first so the name contains the label (WCAG 2.5.3): "Page: /app/…, clear filter",
@@ -64,7 +66,7 @@
   list's status tabs and the board's columns already count what is shown. Where the comments are at least 56rem wide
   (`@4xl/comments`, `countLineInHeader` in `CommentFilters.tsx`; uier #300; 42rem before the status tabs joined the row. The
   query measures the reading column, at most 60rem, while the header itself is then as wide as the list with its thread) the count line is in the search row instead, right-aligned
-  just left of the filters in effect, after the search and Filter (`CommentFilters`' `countLine`), and `TriageSelection`'s own line is hidden there: an
+  just left of the filters in effect, after the search and the status tabs (`CommentFilters`' `countLine`), and `TriageSelection`'s own line is hidden there: an
   unread count appearing or going to zero changes only that spot (the filters in effect are right-aligned against Filter, so they
   stay too), and with no unread count it is `sr-only`. That width fits the search's minimum, the status tabs (with a folded status
   named, "Active: In progress 4"), the count, Filter and List/Board on one line. Narrower (a phone, a tablet), the count line
@@ -72,7 +74,7 @@
   32 px height (44 px on touch) when it has no unread count, so automatic reads and incoming unread feedback do not move the list or board.
   Empty projects hide it; callers without `reserveLine` retain the collapsed `sr-only` line. Its status stays mounted
   for announcements. The count line has no side padding of its own and takes the filters header's width, so its
-  edges line up with the search and Filter row (and the view toggle) in the list and the board, the board's wide layout too; Select shown results and the bulk actions are in the selection bar that
+  edges line up with the search row (and the view toggle) in the list and the board, the board's wide layout too; Select shown results and the bulk actions are in the selection bar that
   floats over the end of the comments once something is selected ([App triage](triage.md#selection)).
   `LocationFilter`: its trigger is named by what it shows, then "environment and page" ("Production · /pricing, environment and page").
   Environments on the left, the chosen environment's pages on the right with a search,

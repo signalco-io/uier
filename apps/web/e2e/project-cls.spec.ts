@@ -76,12 +76,12 @@ test('project comments keep CLS below 0.1 through a remembered board load and un
     await page.waitForTimeout(1_100);
     const board = page.locator('[data-board-scroll]');
     const beforeRead = await board.boundingBox();
-    // With room the count line is in the search row, right of Filter (uier #300, #393); on a phone it keeps its own row under it
+    // With room the count line is in the search row, left of Filter (uier #300, #398); on a phone it keeps its own row under it
     const filter = page.getByRole('button', { name: 'Filter', exact: true });
     const filterBeforeRead = (await filter.boundingBox())!;
     const markAll = (await page.getByRole('button', { name: 'Mark all as read', exact: true }).boundingBox())!;
     if (testInfo.project.name.startsWith('Desktop')) {
-        expect(markAll.x).toBeGreaterThanOrEqual(filterBeforeRead.x + filterBeforeRead.width);
+        expect(markAll.x + markAll.width).toBeLessThanOrEqual(filterBeforeRead.x);
         expect(Math.abs((markAll.y + markAll.height / 2) - (filterBeforeRead.y + filterBeforeRead.height / 2))).toBeLessThan(4);
     } else expect(markAll.y).toBeGreaterThan(filterBeforeRead.y + filterBeforeRead.height);
     await page.getByRole('button', { name: 'Mark all as read', exact: true }).click();

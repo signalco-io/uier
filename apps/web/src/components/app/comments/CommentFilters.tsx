@@ -29,7 +29,7 @@ import { PriorityFlag } from './PriorityFlag';
 import { StateDot } from './CommentStatus';
 import { useKeyShortcutLabel } from '../keyboard/keys';
 import { rememberCommentsView } from './commentsView';
-import { CommentsViewToggle, segmentedGroup, segmentedItem } from './CommentsViewToggle';
+import { CommentsViewToggle, searchField, searchInput, segmentedGroup, segmentedItem } from './CommentsViewToggle';
 import { ProjectMark } from '../projects/ProjectMark';
 
 /**
@@ -149,14 +149,14 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
 
     return (
         <div className={cn('flex w-full min-w-0 flex-col gap-2', className)}>
-            {/* Search and Filter together on the left, as wide as the list under them beside its thread or the board's first
-                column (uier #393); the filters in effect, Group by and List/Board on the right. The filters in effect wrap
-                within their room, and on a phone go to their own line under the row. */}
+            {/* Search and, in the list, the status tabs together on the left, as wide as the list under them beside its
+                thread or the board's first column (uier #398); the filters in effect, Filter, Group by and List/Board on the
+                right. The filters in effect wrap within their room, and on a phone go to their own line under the row. */}
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <div data-search-field="" className="flex min-w-0 flex-1 items-center gap-2 sm:max-w-[var(--search-width,26rem)] sm:min-w-64">
-                    <InputGroup className="min-w-0 flex-1 pointer-coarse:min-h-11">
+                <div data-search-field="" className={searchField}>
+                    <InputGroup className={searchInput}>
                         <InputGroupAddon><SearchIcon /></InputGroupAddon>
-                        <InputGroupInput ref={searchRef} id={visible ? 'feedback-search' : undefined} type="search" aria-label={t("Search feedback")} maxLength={MAX_FEEDBACK_SEARCH} className="pointer-coarse:min-h-11"
+                        <InputGroupInput ref={searchRef} id={visible ? 'feedback-search' : undefined} type="search" aria-label={t("Search feedback")} maxLength={MAX_FEEDBACK_SEARCH} className="text-ellipsis pointer-coarse:min-h-11"
                             // `/` goes here from the page (`AppShortcuts`)
                             data-shortcut-search="" aria-keyshortcuts={searchShortcut}
                             placeholder={t("Search feedback")} value={search} onChange={event => onSearch(event.target.value)} />
@@ -168,120 +168,14 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
                             </InputGroupAddon>
                         )}
                     </InputGroup>
-                    <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
-                        {/* Named by its words: "Filter", or "Filter 2" with two in effect */}
-                        <PopoverTrigger render={<Button variant="outline" className="shrink-0 pointer-coarse:min-h-11" />}>
-                            <ListFilterIcon data-icon="inline-start" />
-                            {t("Filter")}
-                            {active > 0 && <Badge variant="secondary" className="h-5 min-w-5 px-1.5 tabular-nums">{active}</Badge>}
-                        </PopoverTrigger>
-                        <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)]">
-                            <PopoverHeader><PopoverTitle>{t("Filter comments")}</PopoverTitle></PopoverHeader>
-                            <FieldGroup className="gap-4">
-                                {projects && (
-                                    <Field>
-                                        <FieldLabel htmlFor="filter-project">{t("Project")}</FieldLabel>
-                                        <Select items={{ all: t("All projects"), ...Object.fromEntries(projects.map(option => [option.id, option.name])) }} value={projectLabel ? project : 'all'} onValueChange={value => go({ project: value === 'all' ? undefined : value ?? undefined })}>
-                                            <SelectTrigger id="filter-project" aria-label={t("Project")} className="w-full pointer-coarse:min-h-11">
-                                                <SelectValue>{(value: string) => {
-                                                    const chosen = projects.find(option => option.id === value);
-                                                    return chosen ? <><ProjectMark name={chosen.name} projectId={chosen.id} url={chosen.url} /><span className="truncate">{chosen.name}</span></> : t("All projects");
-                                                }}</SelectValue>
-                                            </SelectTrigger>
-                                            <SelectContent><SelectGroup>
-                                                <SelectItem className="pointer-coarse:min-h-11" value="all">{t("All projects")}</SelectItem>
-                                                {projects.map(option => (
-                                                    <SelectItem className="pointer-coarse:min-h-11" key={option.id} value={option.id}>
-                                                        <ProjectMark name={option.name} projectId={option.id} url={option.url} />
-                                                        <span className="truncate">{option.name}</span>
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectGroup></SelectContent>
-                                        </Select>
-                                    </Field>
-                                )}
-                                {view === 'board' && statusCounts && (
-                                    <Field>
-                                        <FieldLabel htmlFor="filter-status">{t("Status")}</FieldLabel>
-                                        <Select items={{ all: t("All statuses"), ...Object.fromEntries(boardStatusFilters.filter(value => verificationEnabled || value !== 'ready').map(value => [value, t(statusFilterLabels[value])])) }} value={boardStatus ?? 'all'}
-                                            onValueChange={value => go({ status: value === 'all' ? undefined : value ?? undefined })}>
-                                            <SelectTrigger id="filter-status" aria-label={t("Status filter")} className="w-full pointer-coarse:min-h-11">
-                                                <SelectValue>{(value: typeof boardStatusFilters[number] | 'all') => value === 'all' ? t("All statuses") : <><StateDot status={value} />{t(statusFilterLabels[value])}</>}</SelectValue>
-                                            </SelectTrigger>
-                                            <SelectContent><SelectGroup>
-                                                <SelectItem className="pointer-coarse:min-h-11" value="all">{t("All statuses")}</SelectItem>
-                                                {boardStatusFilters.filter(value => verificationEnabled || value !== 'ready').map(value => <SelectItem className="pointer-coarse:min-h-11" key={value} value={value}>
-                                                    <StateDot status={value} />{t(statusFilterLabels[value])}<span className="ml-auto tabular-nums text-muted-foreground">{statusCounts[value]}</span>
-                                                </SelectItem>)}
-                                            </SelectGroup></SelectContent>
-                                        </Select>
-                                    </Field>
-                                )}
-                                <Field>
-                                    <FieldLabel htmlFor="filter-priority">{t("Priority")}</FieldLabel>
-                                    <Select items={{ all: t("All priorities"), ...Object.fromEntries(Object.entries(priorityLabels).map(([key, label]) => [key, t(label)])) }} value={priority ?? 'all'} onValueChange={value => go({ priority: value === 'all' ? undefined : value ?? undefined })}>
-                                        <SelectTrigger id="filter-priority" aria-label={t("Priority filter")} className="w-full pointer-coarse:min-h-11">
-                                            <SelectValue>{(value: CommentPriority | 'all') => value === 'all' ? t("All priorities") : <><PriorityFlag priority={value} />{t(priorityLabels[value])}</>}</SelectValue>
-                                        </SelectTrigger>
-                                        <SelectContent><SelectGroup>
-                                            <SelectItem className="pointer-coarse:min-h-11" value="all">{t("All priorities")}</SelectItem>
-                                            {priorities.map(value => <SelectItem className="pointer-coarse:min-h-11" key={value} value={value}><PriorityFlag priority={value} />{t(priorityLabels[value])}</SelectItem>)}
-                                        </SelectGroup></SelectContent>
-                                    </Select>
-                                </Field>
-                                {Boolean(labels?.length || label) && <Field>
-                                    <FieldLabel htmlFor="filter-label">{t('Label')}</FieldLabel>
-                                    <Select value={label ?? 'all'} items={[{ value: 'all', label: t('All labels') }, ...(labels ?? []).map(item => ({ value: item.id, label: item.name })), ...(label && !labels?.some(item => item.id === label) ? [{ value: label, label: t('Unavailable label') }] : [])]}
-                                        onValueChange={value => go({ label: value === 'all' ? undefined : value ?? undefined })}>
-                                        <SelectTrigger id="filter-label" aria-label={t('Label filter')} className="w-full pointer-coarse:min-h-11"><SelectValue /></SelectTrigger>
-                                        <SelectContent><SelectGroup><SelectItem value="all" className="pointer-coarse:min-h-11">{t('All labels')}</SelectItem>{(labels ?? []).map(item => <SelectItem key={item.id} value={item.id} className="pointer-coarse:min-h-11"><ThreadLabelMark label={item} />{item.name}</SelectItem>)}{label && !labels?.some(item => item.id === label) && <SelectItem value={label}>{t('Unavailable label')}</SelectItem>}</SelectGroup></SelectContent>
-                                    </Select>
-                                </Field>}
-                                {environments && (
-                                    <Field>
-                                        <FieldTitle>{t("Environment and page")}</FieldTitle>
-                                        <LocationFilter environment={environment} environments={environments} historySources={historySources} page={page} pages={pages} triggerClassName="w-full max-w-none"
-                                            onEnvironment={value => go({ environment: value })} onPage={value => go({ page: value })} />
-                                    </Field>
-                                )}
-                                <Field>
-                                    <FieldLabel htmlFor="filter-people">{t("People")}</FieldLabel>
-                                    <Select items={Object.fromEntries(Object.entries(peopleFilterLabels).map(([key, label]) => [key, t(label)]))} value={people} onValueChange={value => go({ people: value === 'all' ? undefined : value ?? undefined })}>
-                                        <SelectTrigger id="filter-people" aria-label={t("People")} className="w-full pointer-coarse:min-h-11">
-                                            <UserIcon className="text-muted-foreground" />
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent><SelectGroup>
-                                            {(Object.keys(peopleFilterLabels) as PeopleFilter[]).map(value => (
-                                                <SelectItem className="pointer-coarse:min-h-11" key={value} value={value}>{t(peopleFilterLabels[value])}</SelectItem>
-                                            ))}
-                                        </SelectGroup></SelectContent>
-                                    </Select>
-                                </Field>
-                                <Field orientation="horizontal" className="pointer-coarse:min-h-11">
-                                    <Checkbox id="filter-unread" checked={unread} onCheckedChange={checked => go({ unread: checked ? 'true' : undefined })} className="pointer-coarse:after:-inset-3.5" />
-                                    <FieldLabel htmlFor="filter-unread" className="font-normal">
-                                        {t("Only unread")}
-                                        <span className={cn('tabular-nums', unreadCount > 0 ? 'text-[hsl(var(--brand-accent-text))]' : 'text-muted-foreground')}>{unreadCount}</span>
-                                    </FieldLabel>
-                                </Field>
-                                {active > 0 && (
-                                    <Button variant="ghost" size="sm" className="self-start pointer-coarse:min-h-11"
-                                        onClick={() => { go({ priority: undefined, unread: undefined, environment: undefined, page: undefined, people: undefined, author: undefined, ...(boardStatus ? { status: undefined } : {}), ...(projects ? { project: undefined } : {}) }); setFiltersOpen(false); }}>
-                                        {t("Clear filters")}
-                                    </Button>
-                                )}
-                            </FieldGroup>
-                        </PopoverContent>
-                    </Popover>
+                    {/* Active (the default, every status but Done), Done and All, right after the search (uier #345, #398); on a
+                        phone on their own line under it. The board shows the statuses side by side, with Archive as its last
+                        column. Open, In progress and Ready to verify fold under Active, Archive under Done: each menu picks
+                        one, and the tab then names it. */}
+                    {view === 'list' && statusCounts && <StatusTabs verificationEnabled={verificationEnabled} status={status ?? 'active'} counts={statusCounts} unread={statusUnread ?? {}} onStatus={value => go({ status: value === 'active' ? undefined : value })} />}
                 </div>
-                {/* Active (the default, every status but Done), Done and All, right after the search (uier #345); on a phone on
-                    their own line under the row, before the filters in effect. The board shows the statuses side by side,
-                    with Archive as its last column. Open, In progress and Ready to verify fold under Active, Archive under
-                    Done: each menu picks one, and the tab then names it. */}
-                {view === 'list' && statusCounts && <StatusTabs verificationEnabled={verificationEnabled} status={status ?? 'active'} counts={statusCounts} unread={statusUnread ?? {}} onStatus={value => go({ status: value === 'active' ? undefined : value })} />}
                 {(active > 0 || countLine) && (
-                    // Right-aligned against Group by and List/Board: the count line first, so the filters in effect stay
+                    // Right-aligned against Filter, Group by and List/Board: the count line first, so the filters in effect stay
                     // where they are when the count appears or goes to zero
                     <div className={cn('flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:justify-end',
                         active > 0 ? 'order-last basis-full sm:order-none sm:flex-1 sm:basis-0' : 'hidden @4xl/comments:flex @4xl/comments:flex-1')}>
@@ -301,6 +195,112 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
                     </div>
                 )}
                 <div className="ml-auto flex shrink-0 items-center gap-2">
+                <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
+                    {/* Named by its words: "Filter", or "Filter 2" with two in effect */}
+                    <PopoverTrigger render={<Button variant="outline" className="shrink-0 pointer-coarse:min-h-11" />}>
+                        <ListFilterIcon data-icon="inline-start" />
+                        {t("Filter")}
+                        {active > 0 && <Badge variant="secondary" className="h-5 min-w-5 px-1.5 tabular-nums">{active}</Badge>}
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)]">
+                        <PopoverHeader><PopoverTitle>{t("Filter comments")}</PopoverTitle></PopoverHeader>
+                        <FieldGroup className="gap-4">
+                            {projects && (
+                                <Field>
+                                    <FieldLabel htmlFor="filter-project">{t("Project")}</FieldLabel>
+                                    <Select items={{ all: t("All projects"), ...Object.fromEntries(projects.map(option => [option.id, option.name])) }} value={projectLabel ? project : 'all'} onValueChange={value => go({ project: value === 'all' ? undefined : value ?? undefined })}>
+                                        <SelectTrigger id="filter-project" aria-label={t("Project")} className="w-full pointer-coarse:min-h-11">
+                                            <SelectValue>{(value: string) => {
+                                                const chosen = projects.find(option => option.id === value);
+                                                return chosen ? <><ProjectMark name={chosen.name} projectId={chosen.id} url={chosen.url} /><span className="truncate">{chosen.name}</span></> : t("All projects");
+                                            }}</SelectValue>
+                                        </SelectTrigger>
+                                        <SelectContent><SelectGroup>
+                                            <SelectItem className="pointer-coarse:min-h-11" value="all">{t("All projects")}</SelectItem>
+                                            {projects.map(option => (
+                                                <SelectItem className="pointer-coarse:min-h-11" key={option.id} value={option.id}>
+                                                    <ProjectMark name={option.name} projectId={option.id} url={option.url} />
+                                                    <span className="truncate">{option.name}</span>
+                                                </SelectItem>
+                                            ))}
+                                        </SelectGroup></SelectContent>
+                                    </Select>
+                                </Field>
+                            )}
+                            {view === 'board' && statusCounts && (
+                                <Field>
+                                    <FieldLabel htmlFor="filter-status">{t("Status")}</FieldLabel>
+                                    <Select items={{ all: t("All statuses"), ...Object.fromEntries(boardStatusFilters.filter(value => verificationEnabled || value !== 'ready').map(value => [value, t(statusFilterLabels[value])])) }} value={boardStatus ?? 'all'}
+                                        onValueChange={value => go({ status: value === 'all' ? undefined : value ?? undefined })}>
+                                        <SelectTrigger id="filter-status" aria-label={t("Status filter")} className="w-full pointer-coarse:min-h-11">
+                                            <SelectValue>{(value: typeof boardStatusFilters[number] | 'all') => value === 'all' ? t("All statuses") : <><StateDot status={value} />{t(statusFilterLabels[value])}</>}</SelectValue>
+                                        </SelectTrigger>
+                                        <SelectContent><SelectGroup>
+                                            <SelectItem className="pointer-coarse:min-h-11" value="all">{t("All statuses")}</SelectItem>
+                                            {boardStatusFilters.filter(value => verificationEnabled || value !== 'ready').map(value => <SelectItem className="pointer-coarse:min-h-11" key={value} value={value}>
+                                                <StateDot status={value} />{t(statusFilterLabels[value])}<span className="ml-auto tabular-nums text-muted-foreground">{statusCounts[value]}</span>
+                                            </SelectItem>)}
+                                        </SelectGroup></SelectContent>
+                                    </Select>
+                                </Field>
+                            )}
+                            <Field>
+                                <FieldLabel htmlFor="filter-priority">{t("Priority")}</FieldLabel>
+                                <Select items={{ all: t("All priorities"), ...Object.fromEntries(Object.entries(priorityLabels).map(([key, label]) => [key, t(label)])) }} value={priority ?? 'all'} onValueChange={value => go({ priority: value === 'all' ? undefined : value ?? undefined })}>
+                                    <SelectTrigger id="filter-priority" aria-label={t("Priority filter")} className="w-full pointer-coarse:min-h-11">
+                                        <SelectValue>{(value: CommentPriority | 'all') => value === 'all' ? t("All priorities") : <><PriorityFlag priority={value} />{t(priorityLabels[value])}</>}</SelectValue>
+                                    </SelectTrigger>
+                                    <SelectContent><SelectGroup>
+                                        <SelectItem className="pointer-coarse:min-h-11" value="all">{t("All priorities")}</SelectItem>
+                                        {priorities.map(value => <SelectItem className="pointer-coarse:min-h-11" key={value} value={value}><PriorityFlag priority={value} />{t(priorityLabels[value])}</SelectItem>)}
+                                    </SelectGroup></SelectContent>
+                                </Select>
+                            </Field>
+                            {Boolean(labels?.length || label) && <Field>
+                                <FieldLabel htmlFor="filter-label">{t('Label')}</FieldLabel>
+                                <Select value={label ?? 'all'} items={[{ value: 'all', label: t('All labels') }, ...(labels ?? []).map(item => ({ value: item.id, label: item.name })), ...(label && !labels?.some(item => item.id === label) ? [{ value: label, label: t('Unavailable label') }] : [])]}
+                                    onValueChange={value => go({ label: value === 'all' ? undefined : value ?? undefined })}>
+                                    <SelectTrigger id="filter-label" aria-label={t('Label filter')} className="w-full pointer-coarse:min-h-11"><SelectValue /></SelectTrigger>
+                                    <SelectContent><SelectGroup><SelectItem value="all" className="pointer-coarse:min-h-11">{t('All labels')}</SelectItem>{(labels ?? []).map(item => <SelectItem key={item.id} value={item.id} className="pointer-coarse:min-h-11"><ThreadLabelMark label={item} />{item.name}</SelectItem>)}{label && !labels?.some(item => item.id === label) && <SelectItem value={label}>{t('Unavailable label')}</SelectItem>}</SelectGroup></SelectContent>
+                                </Select>
+                            </Field>}
+                            {environments && (
+                                <Field>
+                                    <FieldTitle>{t("Environment and page")}</FieldTitle>
+                                    <LocationFilter environment={environment} environments={environments} historySources={historySources} page={page} pages={pages} triggerClassName="w-full max-w-none"
+                                        onEnvironment={value => go({ environment: value })} onPage={value => go({ page: value })} />
+                                </Field>
+                            )}
+                            <Field>
+                                <FieldLabel htmlFor="filter-people">{t("People")}</FieldLabel>
+                                <Select items={Object.fromEntries(Object.entries(peopleFilterLabels).map(([key, label]) => [key, t(label)]))} value={people} onValueChange={value => go({ people: value === 'all' ? undefined : value ?? undefined })}>
+                                    <SelectTrigger id="filter-people" aria-label={t("People")} className="w-full pointer-coarse:min-h-11">
+                                        <UserIcon className="text-muted-foreground" />
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent><SelectGroup>
+                                        {(Object.keys(peopleFilterLabels) as PeopleFilter[]).map(value => (
+                                            <SelectItem className="pointer-coarse:min-h-11" key={value} value={value}>{t(peopleFilterLabels[value])}</SelectItem>
+                                        ))}
+                                    </SelectGroup></SelectContent>
+                                </Select>
+                            </Field>
+                            <Field orientation="horizontal" className="pointer-coarse:min-h-11">
+                                <Checkbox id="filter-unread" checked={unread} onCheckedChange={checked => go({ unread: checked ? 'true' : undefined })} className="pointer-coarse:after:-inset-3.5" />
+                                <FieldLabel htmlFor="filter-unread" className="font-normal">
+                                    {t("Only unread")}
+                                    <span className={cn('tabular-nums', unreadCount > 0 ? 'text-[hsl(var(--brand-accent-text))]' : 'text-muted-foreground')}>{unreadCount}</span>
+                                </FieldLabel>
+                            </Field>
+                            {active > 0 && (
+                                <Button variant="ghost" size="sm" className="self-start pointer-coarse:min-h-11"
+                                    onClick={() => { go({ priority: undefined, unread: undefined, environment: undefined, page: undefined, people: undefined, author: undefined, ...(boardStatus ? { status: undefined } : {}), ...(projects ? { project: undefined } : {}) }); setFiltersOpen(false); }}>
+                                    {t("Clear filters")}
+                                </Button>
+                            )}
+                        </FieldGroup>
+                    </PopoverContent>
+                </Popover>
                     {grouping}
                     {/* A new layout starts with no thread open (the board would open it in a sheet over itself). The choice is
                         remembered as the default and kept in the address, list too, so it wins over the remembered one there */}
@@ -352,7 +352,7 @@ function StatusTabs({ status, counts, unread, onStatus, verificationEnabled }: {
     const unreadId = useId();
     const described = (value: StatusFilter) => unread[value] ? unreadId : undefined;
     return (
-        <div className="order-last -mx-1 -my-0.5 max-w-[calc(100%+0.5rem)] basis-[calc(100%+0.5rem)] overflow-x-auto px-1 py-0.5 sm:order-none sm:shrink-0 sm:basis-auto">
+        <div className="order-last -mx-1 -my-0.5 max-w-[calc(100%+0.5rem)] basis-[calc(100%+0.5rem)] overflow-x-auto px-1 py-0.5 sm:order-none sm:max-w-[calc(100%-6rem)] sm:shrink-0 sm:basis-auto">
             {/* Full width on a phone, the tabs sharing the room (uier #278); still scrolls when their words don't fit */}
             <span id={unreadId} hidden>{t("Unread")}</span>
             <ToggleGroup size="sm" spacing={0.5} aria-label={t("Status")} className={cn(segmentedGroup, 'w-max min-w-full sm:min-w-0')}

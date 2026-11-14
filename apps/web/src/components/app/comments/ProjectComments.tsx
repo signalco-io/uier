@@ -296,7 +296,7 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
     // The empty states take it too, their own `w-full` set aside: it comes after `page-wide` in the CSS and would keep
     // them the column's width, shifted left (uier #383)
     const emptyWideClassName = headerWide && 'w-(--page-wide) page-wide';
-    // The search with Filter (uier #393) is as wide as the first column under it, the list beside its thread or the board's first column, so
+    // The search with the status tabs (uier #398) is as wide as the first column under it, the list beside its thread or the board's first column, so
     // their edges line up (uier #355; `--first-column`, measured by `useFirstColumnWidth`). Narrower, where the list
     // takes the whole width, it keeps its own width
     const searchClassName = cn(headerWide === 'list' && ['@3xl/comments:[--search-width:var(--first-column,20rem)]', searchBesideList],
