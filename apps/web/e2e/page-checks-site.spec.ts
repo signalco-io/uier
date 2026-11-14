@@ -140,23 +140,25 @@ test('a member reviews two pages with the same title, and the project\'s Page ch
     // Only the pages that need attention (uier #221), kept in the address; the heading says how many of all
     const rows = [pricing, plans].map(summary => ({ ...summary, id: summary.path, origin, checkedAt: '' }) as PageCheckRow);
     const attention = filterPageChecks(rows, 'attention').map(row => row.path);
-    await page.getByRole('combobox', { name: 'Show pages' }).click();
-    await page.getByRole('option', { name: `Needs attention ${attention.length} pages` }).click();
+    // Filter and Sort are icon buttons with menus, like the comments' (uier #417); what is in effect shows as a chip
+    await page.getByRole('button', { name: 'Filter pages' }).click();
+    await page.getByRole('menuitemradio', { name: `Needs attention ${attention.length} pages` }).click();
     await expect(page).toHaveURL(/[?&]show=attention/);
     await expect(page.getByRole('heading', { name: `Pages ${attention.length} of 2` })).toBeVisible();
     if (attention.length) await expect(table.locator('[data-page-check]')).toHaveCount(attention.length);
     else await expect(page.locator('[data-page-checks-filtered]')).toContainText('No checked page has anything to look at.');
-    await page.getByRole('combobox', { name: 'Show pages' }).click();
-    await page.getByRole('option', { name: /^All pages/ }).click();
+    await page.getByRole('button', { name: 'Show: Needs attention, clear filter' }).click();
     await expect(page).not.toHaveURL(/[?&]show=/);
     await expect(table.locator('[data-page-check]')).toHaveCount(2);
 
     // Sorted by what needs most attention by default; Page sorts by the address and says so on its column
-    await page.getByRole('combobox', { name: 'Sort pages' }).click();
-    await page.getByRole('option', { name: 'Page' }).click();
+    await page.getByRole('button', { name: 'Sort pages' }).click();
+    await expect(page.getByRole('menuitemradio', { name: 'Needs attention' })).toHaveAttribute('aria-checked', 'true');
+    await page.getByRole('menuitemradio', { name: 'Page' }).click();
     await expect(page).toHaveURL(/[?&]sort=page/);
     await expect(table.getByRole('columnheader', { name: 'Page' })).toHaveAttribute('aria-sort', 'ascending');
     await expect(table.locator('[data-page-check]').first()).toHaveAttribute('data-page-check', `/${project}/plans`);
+    await expect(page.getByRole('button', { name: 'Sort: Page, reset order' })).toBeVisible();
 
     for (const colorScheme of ['light', 'dark'] as const) {
         await page.emulateMedia({ colorScheme });

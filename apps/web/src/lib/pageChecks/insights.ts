@@ -1,15 +1,24 @@
-import { accessibilityTotal, vitalNames, vitalOverTarget, type PageCheckRow } from './model';
+import { accessibilityTotal, vitalNames, vitalOverTarget, vitalTargets, type PageCheckRow } from './model';
 
 // What the project's pages show together (the app's Page checks view), pure so the server render and
 // the browser agree and the API tests can check it: the order that puts what needs attention first,
 // the change since the check before, and what only shows across pages.
 
-export const pageCheckOrders = ['attention', 'accessibility', 'seo', 'checked', 'page'] as const;
+/**
+ * The orders of the view's list (`?sort=`): what needs most attention, the most issues of any kind (worst
+ * offenders), the most fixed or new since the check before (uier #417), one check's results, the last checked or
+ * the address. All from the summaries the view already has.
+ */
+export const pageCheckOrders = ['attention', 'issues', 'fixed', 'new', 'accessibility', 'seo', 'vitals', 'checked', 'page'] as const;
 export type PageCheckOrder = typeof pageCheckOrders[number];
 export const pageCheckOrderLabels: Record<PageCheckOrder, string> = {
     attention: 'Needs attention',
+    issues: 'Most issues',
+    fixed: 'Most fixed',
+    new: 'Most new issues',
     accessibility: 'Accessibility issues',
     seo: 'SEO to look at',
+    vitals: 'Core Web Vitals over target',
     checked: 'Last checked',
     page: 'Page'
 };
@@ -88,12 +97,27 @@ const attention = descending(page => [
 ]);
 const accessibility = descending(page => [accessibilityTotal(page.accessibility), page.accessibility?.critical ?? 0, page.accessibility?.serious ?? 0]);
 const seo = descending(page => [page.seo.warn]);
+/** Everything to look at: accessibility issues, SEO checks and Core Web Vitals over target; ties by attention */
+const issues = descending(page => [accessibilityTotal(page.accessibility) + page.seo.warn + vitalsOverTarget(page)]);
+/** Vitals over target, then the furthest over (or nearest to) its target */
+const vitals = descending(page => [vitalsOverTarget(page),
+    Math.max(-1, ...vitalNames.filter(name => page.vitals?.[name] !== undefined).map(name => page.vitals![name]! / vitalTargets[name].good))]);
+/** Most fixed (or most new) since the check before, then the fewest new (or fixed); a first check last */
+const fixed = descending(page => { const change = pageCheckChangeTotals(page); return change ? [change.fewer, -change.more] : [-1, 0]; });
+const added = descending(page => { const change = pageCheckChangeTotals(page); return change ? [change.more, -change.fewer] : [-1, 0]; });
+const checked = (a: PageCheckRow, b: PageCheckRow) => a.checkedAt < b.checkedAt ? 1 : a.checkedAt > b.checkedAt ? -1 : 0;
+
+const compares: Record<PageCheckOrder, (a: PageCheckRow, b: PageCheckRow) => number> = {
+    attention, accessibility, seo, vitals, checked,
+    issues: (a, b) => issues(a, b) || attention(a, b),
+    fixed: (a, b) => fixed(a, b) || attention(a, b),
+    new: (a, b) => added(a, b) || attention(a, b),
+    page: () => 0
+};
 
 /** A new array in the chosen order; ties by page, so the order is stable */
 export function sortPageChecks(pages: readonly PageCheckRow[], order: PageCheckOrder): PageCheckRow[] {
-    const compare = order === 'attention' ? attention : order === 'accessibility' ? accessibility : order === 'seo' ? seo
-        : order === 'checked' ? (a: PageCheckRow, b: PageCheckRow) => a.checkedAt < b.checkedAt ? 1 : a.checkedAt > b.checkedAt ? -1 : 0
-            : () => 0;
+    const compare = compares[order];
     return [...pages].sort((a, b) => compare(a, b) || byPage(a, b));
 }
 
@@ -107,6 +131,20 @@ export function pageCheckChange(page: PageCheckRow): { accessibility?: number; s
     return {
         ...(page.accessibility && previous.accessibility ? { accessibility: accessibilityTotal(page.accessibility) - accessibilityTotal(previous.accessibility) } : {}),
         seo: page.seo.warn - previous.seo.warn
+    };
+}
+
+/**
+ * The accessibility issues and SEO checks to look at that went away (`fewer`) and came (`more`) since the check
+ * before, summed over the two; nothing for a page checked once
+ */
+export function pageCheckChangeTotals(page: PageCheckRow): { fewer: number; more: number } | undefined {
+    const change = pageCheckChange(page);
+    if (!change) return undefined;
+    const deltas = [change.accessibility ?? 0, change.seo];
+    return {
+        fewer: deltas.reduce((total, delta) => total + Math.max(0, -delta), 0),
+        more: deltas.reduce((total, delta) => total + Math.max(0, delta), 0)
     };
 }
 

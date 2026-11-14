@@ -2,10 +2,29 @@
 
 import { useAppI18n } from '@/src/lib/i18n/client';
 
-import { ScanSearchIcon } from 'lucide-react';
+import {
+    AccessibilityIcon,
+    ArrowDownAZIcon,
+    ArrowDownUpIcon,
+    CircleAlertIcon,
+    CircleCheckIcon,
+    CircleDashedIcon,
+    ClockIcon,
+    FlameIcon,
+    GaugeIcon,
+    ListFilterIcon,
+    ListIcon,
+    ScanSearchIcon,
+    SearchCheckIcon,
+    TrendingDownIcon,
+    TrendingUpIcon,
+    XIcon,
+    type LucideIcon
+} from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/src/components/ui/dropdown-menu';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/src/components/ui/empty';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/tooltip';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/src/components/ui/table';
 import { setUrlSearchParams, useUrlSearchParams } from '@/src/hooks/use-url-search-params';
 import {
@@ -23,12 +42,45 @@ import {
 } from '@/src/lib/pageChecks/insights';
 import type { PageCheckRow } from '@/src/lib/pageChecks/model';
 import { cn } from '@/src/lib/utils';
+import { filterIconButton } from '../comments/CommentsViewToggle';
 import { RelativeTime } from '../comments/DateTime';
 import { AcrossPages } from './AcrossPages';
 import { AccessibilityResult, ChangeResult, PageCell, SeoResult, VitalsResult, type PageEnvironment } from './PageCheckParts';
 
-const orderItems = pageCheckOrders.map(order => ({ value: order, label: pageCheckOrderLabels[order] }));
-const filterItems = pageCheckFilters.map(filter => ({ value: filter, label: pageCheckFilterLabels[filter] }));
+/** Each order's and filter's icon in their menus and in the chip of the one in effect (uier #417) */
+const orderIcons: Record<PageCheckOrder, LucideIcon> = {
+    attention: CircleAlertIcon,
+    issues: FlameIcon,
+    fixed: TrendingDownIcon,
+    new: TrendingUpIcon,
+    accessibility: AccessibilityIcon,
+    seo: SearchCheckIcon,
+    vitals: GaugeIcon,
+    checked: ClockIcon,
+    page: ArrowDownAZIcon
+};
+const filterIcons: Record<PageCheckFilter, LucideIcon> = {
+    all: ListIcon,
+    attention: CircleAlertIcon,
+    accessibility: AccessibilityIcon,
+    seo: SearchCheckIcon,
+    vitals: GaugeIcon,
+    passing: CircleCheckIcon,
+    incomplete: CircleDashedIcon
+};
+
+/** The filter or order in effect, left of the actions: its name, its value and a button that clears it */
+function SettingChip({ name, icon: Icon, value, label, onClear }: { name: string; icon: LucideIcon; value: string; label: string; onClear: () => void }) {
+    return (
+        <Button size="xs" variant="outline" className="max-w-full font-normal pointer-coarse:min-h-11" aria-label={label} onClick={onClear}>
+            <Icon data-icon="inline-start" aria-hidden="true" className="text-muted-foreground" />
+            <span className="shrink-0 text-muted-foreground">{name}:</span>
+            <span className="truncate">{value}</span>
+            <XIcon data-icon="inline-end" aria-hidden="true" className="text-muted-foreground" />
+        </Button>
+    );
+}
+
 /** Why a filter shows no page */
 const noneShown: Record<PageCheckFilter, string> = {
     all: 'No pages checked yet.',
@@ -45,6 +97,7 @@ const sortedColumn: Partial<Record<PageCheckOrder, { column: string; direction: 
     page: { column: 'page', direction: 'ascending' },
     accessibility: { column: 'accessibility', direction: 'descending' },
     seo: { column: 'seo', direction: 'descending' },
+    vitals: { column: 'vitals', direction: 'descending' },
     checked: { column: 'checked', direction: 'descending' }
 };
 
@@ -71,8 +124,6 @@ export function PageChecksView({ projectId, pages, environments }: {
 }) {
     const { t } = useAppI18n();
     const params = useUrlSearchParams();
-    const translatedOrders = orderItems.map(item => ({ ...item, label: t(item.label) }));
-    const translatedFilters = filterItems.map(item => ({ ...item, label: t(item.label) }));
     const requested = params.get('sort');
     const order: PageCheckOrder = isPageCheckOrder(requested) ? requested : 'attention';
     // Which pages the list shows (uier #221): all by default, kept in the address as `?show=`
@@ -113,36 +164,65 @@ export function PageChecksView({ projectId, pages, environments }: {
                                     {filter === 'all' ? pages.length : t("{shown} of {total}", { shown: sorted.length, total: pages.length })}
                                 </span>
                             </h2>
-                            <div className="flex max-w-full flex-wrap gap-2">
-                                <Select items={translatedFilters} value={filter}
-                                    onValueChange={next => setUrlSearchParams({ show: next && next !== 'all' ? next : undefined })}>
-                                    <SelectTrigger size="sm" aria-label={t("Show pages")} className="w-56 max-w-full">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectGroup>
-                                            {translatedFilters.map(item => (
-                                                <SelectItem key={item.value} value={item.value}>
-                                                    <span className="flex-1">{item.label}</span>{' '}
-                                                    <span className="text-muted-foreground tabular-nums">
-                                                        <span aria-hidden="true">{filterPageChecks(pages, item.value).length}</span><span className="sr-only">{filterPageChecks(pages, item.value).length === 1 ? t('1 page') : t('{count} pages', { count: filterPageChecks(pages, item.value).length })}</span>
-                                                    </span>
-                                                </SelectItem>
-                                            ))}
-                                        </SelectGroup>
-                                    </SelectContent>
-                                </Select>
-                                <Select items={translatedOrders} value={order}
-                                    onValueChange={next => setUrlSearchParams({ sort: next && next !== 'attention' ? next : undefined })}>
-                                    <SelectTrigger size="sm" aria-label={t("Sort pages")} className="w-48 max-w-full">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectGroup>
-                                            {translatedOrders.map(item => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
-                                        </SelectGroup>
-                                    </SelectContent>
-                                </Select>
+                            <div className="flex max-w-full min-w-0 flex-wrap items-center justify-end gap-2">
+                                {/* What is in effect beside the actions, each with its own clear, like the comments' filters */}
+                                {filter !== 'all' && (
+                                    <SettingChip name={t("Show")} icon={filterIcons[filter]} value={t(pageCheckFilterLabels[filter])}
+                                        label={t("{value0}{value1}, clear filter", { value0: `${t("Show")}: `, value1: t(pageCheckFilterLabels[filter]) })}
+                                        onClear={showAll} />
+                                )}
+                                {order !== 'attention' && (
+                                    <SettingChip name={t("Sort")} icon={orderIcons[order]} value={t(pageCheckOrderLabels[order])}
+                                        label={t("{value0}{value1}, reset order", { value0: `${t("Sort")}: `, value1: t(pageCheckOrderLabels[order]) })}
+                                        onClear={() => setUrlSearchParams({ sort: undefined })} />
+                                )}
+                                {/* Icon-only ghost buttons with a tooltip, like the comments' Filter and Group by (uier #417) */}
+                                <DropdownMenu>
+                                    <Tooltip>
+                                        <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label={t("Filter pages")} className={filterIconButton} />} />}>
+                                            <ListFilterIcon />
+                                        </TooltipTrigger>
+                                        <TooltipContent>{t("Filter pages")}</TooltipContent>
+                                    </Tooltip>
+                                    <DropdownMenuContent align="end" className="w-auto min-w-64">
+                                        <DropdownMenuRadioGroup value={filter} onValueChange={(next: PageCheckFilter) => setUrlSearchParams({ show: next !== 'all' ? next : undefined })}>
+                                            {pageCheckFilters.map(item => {
+                                                const Icon = filterIcons[item];
+                                                const count = filterPageChecks(pages, item).length;
+                                                return (
+                                                    <DropdownMenuRadioItem key={item} value={item} closeOnClick className="pointer-coarse:min-h-11">
+                                                        <Icon aria-hidden="true" className="text-muted-foreground" />
+                                                        <span className="flex-1">{t(pageCheckFilterLabels[item])}</span>{' '}
+                                                        <span className="text-muted-foreground tabular-nums">
+                                                            <span aria-hidden="true">{count}</span><span className="sr-only">{count === 1 ? t('1 page') : t('{count} pages', { count })}</span>
+                                                        </span>
+                                                    </DropdownMenuRadioItem>
+                                                );
+                                            })}
+                                        </DropdownMenuRadioGroup>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                                <DropdownMenu>
+                                    <Tooltip>
+                                        <TooltipTrigger render={<DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label={t("Sort pages")} className={filterIconButton} />} />}>
+                                            <ArrowDownUpIcon />
+                                        </TooltipTrigger>
+                                        <TooltipContent>{t("Sort pages")}</TooltipContent>
+                                    </Tooltip>
+                                    <DropdownMenuContent align="end" className="w-auto min-w-56">
+                                        <DropdownMenuRadioGroup value={order} onValueChange={(next: PageCheckOrder) => setUrlSearchParams({ sort: next !== 'attention' ? next : undefined })}>
+                                            {pageCheckOrders.map(item => {
+                                                const Icon = orderIcons[item];
+                                                return (
+                                                    <DropdownMenuRadioItem key={item} value={item} closeOnClick className="pointer-coarse:min-h-11">
+                                                        <Icon aria-hidden="true" className="text-muted-foreground" />
+                                                        {t(pageCheckOrderLabels[item])}
+                                                    </DropdownMenuRadioItem>
+                                                );
+                                            })}
+                                        </DropdownMenuRadioGroup>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             </div>
                         </div>
                         {sorted.length === 0 && (
@@ -164,7 +244,7 @@ export function PageChecksView({ projectId, pages, environments }: {
                                         <TableHead scope="col" aria-sort={ariaSort('page')} className="pl-4">{t("Page")}</TableHead>
                                         <TableHead scope="col" aria-sort={ariaSort('accessibility')}>{t("Accessibility")}</TableHead>
                                         <TableHead scope="col" aria-sort={ariaSort('seo')}>{t("SEO")}</TableHead>
-                                        <TableHead scope="col">{t("Core Web Vitals")}</TableHead>
+                                        <TableHead scope="col" aria-sort={ariaSort('vitals')}>{t("Core Web Vitals")}</TableHead>
                                         <TableHead scope="col" aria-sort={ariaSort('checked')} className="pr-4">{t("Checked")}</TableHead>
                                     </TableRow>
                                 </TableHeader>

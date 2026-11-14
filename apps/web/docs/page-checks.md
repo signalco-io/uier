@@ -89,9 +89,18 @@ pass); a transfer keeps it, since it is keyed by the project.
   third level, so the view shows none. The popup keeps focus on its trigger; Escape closes it until focus leaves.
 - **Show** and **Order** sit in the Pages heading row, beside the list they change, not above Across pages
   (uier #256).
+- They look like the comments' Filter and Group by ([uier #417](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1%2Fpage-checks&comment=comment_mR3--cXjK_XOLjCSS5M1u), [comment filters](comment-filters.md)): icon-only ghost
+  buttons with a tooltip that names them, Filter pages (`ListFilterIcon`) and Sort pages (`ArrowDownUpIcon`), each
+  opening a menu of radio items, every option with its icon (`filterIcons`, `orderIcons` in `PageChecksView.tsx`).
+  A filter or order other than the default shows as a chip left of them, "Show: Needs attention" or "Sort: Most fixed",
+  whose button clears it (named "Show: Needs attention, clear filter", "Sort: Most fixed, reset order").
 - **Order** (`?sort=`, `setUrlSearchParams`, no server request): Needs attention first by default (critical,
   then serious, then all accessibility issues, then SEO to look at, then Core Web Vitals over target),
-  Accessibility issues, SEO to look at, Last checked or Page. A column the order follows has `aria-sort`.
+  Most issues (worst offenders: accessibility issues, SEO to look at and vitals over target added up, ties by
+  attention), Most fixed and Most new issues since the check before (`pageCheckChangeTotals`: accessibility issues and
+  SEO to look at that went or came, summed; a first check last; [uier #417](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1%2Fpage-checks&comment=comment_mR3--cXjK_XOLjCSS5M1u)), Accessibility issues, SEO to look at,
+  Core Web Vitals over target (then the furthest over its target), Last checked or Page. All from the summaries the
+  view already has. A column the order follows has `aria-sort`.
 - **Show** (`?show=`, uier #221, `filterPageChecks` in `insights.ts`): All pages by default, Needs attention
   (accessibility issues, SEO to look at or a Core Web Vital over target), each of those three alone, or Passes
   all checks (audit present, SEO results present, all three vitals measured, and no issues). Incomplete checks

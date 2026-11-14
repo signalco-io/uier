@@ -1,6 +1,11 @@
 import type en from './en';
 
 const messages: Record<keyof typeof en, string> = {
+    "Filter pages": "Filtriraj stranice",
+    "Most fixed": "Najviše popravljenih",
+    "Most issues": "Najviše problema",
+    "Most new issues": "Najviše novih problema",
+    "Show": "Prikaži",
     "This search is too large. Narrow the environment or author and try again.": "Ova je pretraga prevelika. Suzite okruženje ili autora i pokušajte ponovno.",
     "Comments could not be refreshed. Your loaded comments are still shown.": "Komentare nije moguće osvježiti. Učitani komentari i dalje su prikazani.",
     "More comments could not be loaded.": "Nije moguće učitati još komentara.",
@@ -415,7 +420,6 @@ const messages: Record<keyof typeof en, string> = {
     "Shorten selector": "Skrati selektor",
     "Show all pages": "Prikaži sve stranice",
     "Show full selector": "Prikaži cijeli selektor",
-    "Show pages": "Prikaži stranice",
     "Show the page": "Prikaži stranicu",
     "Show {value0} pages": "Prikaži stranice ({value0})",
     "Sidebar": "Bočna traka",
@@ -596,6 +600,7 @@ const messages: Record<keyof typeof en, string> = {
     "{value0}, environment and page": "{value0}, okruženje i stranica",
     "{value0}{value1} · Original source unavailable": "{value0}{value1} · Izvorni izvor nije dostupan",
     "{value0}{value1}, clear filter": "{value0}{value1}, ukloni filtar",
+    "{value0}{value1}, reset order": "{value0}{value1}, vrati zadani poredak",
     "{value} on this page, over the {target} target.": "{value} na ovoj stranici, iznad ciljne vrijednosti {target}.",
     "{value} on this page, within the {target} target.": "{value} na ovoj stranici, unutar ciljne vrijednosti {target}.",
     "Pages appear as members review the site with the toolbar. Extension reviews are not included yet.": "Stranice se prikazuju kada članovi pregledavaju stranicu alatnom trakom. Pregledi putem proširenja još nisu uključeni.",

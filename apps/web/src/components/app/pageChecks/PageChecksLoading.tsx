@@ -26,9 +26,10 @@ export function PageChecksLoading() {
             <div className="@container/page-checks flex flex-col gap-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <Skeleton className="h-6 w-24 animate-none" />
+                    {/* Filter and Sort: icon buttons (uier #417) */}
                     <div className="flex max-w-full flex-wrap gap-2">
-                        <Skeleton className="h-8 w-56 max-w-full animate-none rounded-lg" />
-                        <Skeleton className="h-8 w-48 max-w-full animate-none rounded-lg" />
+                        <Skeleton className="size-9 animate-none rounded-lg pointer-coarse:size-11" />
+                        <Skeleton className="size-9 animate-none rounded-lg pointer-coarse:size-11" />
                     </div>
                 </div>
                 <div className="hidden rounded-xl border @3xl/page-checks:block">

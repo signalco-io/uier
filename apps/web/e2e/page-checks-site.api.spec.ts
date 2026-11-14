@@ -15,7 +15,7 @@ import { POST, OPTIONS } from '../app/api/review/[projectId]/page-checks/route';
 import { listPageChecks, pageCheckId, savePageCheck } from '../src/lib/pageChecks/store';
 import { PAGE_CHECKS_PER_MEMBER_PER_HOUR, PAGE_CHECKS_PER_PROJECT_PER_DAY, projectPageChecksLimit } from '../src/lib/pageChecks/limits';
 import { PAGE_CHECKS_MAX_PAGES, PAGE_CHECKS_TTL_SECONDS, pageChecksPk, pageCheckRow, type PageCheckRow } from '../src/lib/pageChecks/model';
-import { filterPageChecks, isPageCheckFilter, pageCheckChange, pageCheckFilters, pageCheckInsights, sortPageChecks } from '../src/lib/pageChecks/insights';
+import { filterPageChecks, isPageCheckFilter, pageCheckChange, pageCheckChangeTotals, pageCheckFilters, pageCheckInsights, sortPageChecks } from '../src/lib/pageChecks/insights';
 import { pathTree, type PathNode } from '../src/lib/pageChecks/pathTree';
 
 // `POST /api/review/<code>/page-checks` and the store behind the app's Page checks view
@@ -264,6 +264,24 @@ test('across pages: shared titles and descriptions per site address, pages witho
         .toEqual(['/b', '/a', '/c', '/d', 'staging:/a', '/hidden']);
     expect(sortPageChecks(pages, 'checked')[0]!.path).toBe('/c');
     expect(sortPageChecks(pages, 'seo').map(page => page.path).slice(0, 2)).toEqual(['/a', '/c']);
+    // Most issues of any kind, ties by attention (uier #417); Core Web Vitals over target first
+    expect(sortPageChecks(pages, 'issues').map(page => `${page.origin === site ? '' : 'staging:'}${page.path}`))
+        .toEqual(['/a', '/c', '/b', '/d', 'staging:/a', '/hidden']);
+    expect(sortPageChecks(pages, 'vitals')[0]!.path).toBe('/d');
+    // Most fixed and most new since the check before; a first check last
+    const before = '2026-10-01T00:00:00.000Z';
+    const none = { critical: 0, serious: 0, moderate: 0, minor: 0 };
+    const changed = [
+        row('/up', { seo: { warn: 3, pass: 1 }, previous: { seo: { warn: 1, pass: 3 }, checkedAt: before } }),
+        row('/down', { accessibility: { ...none, serious: 1 }, seo: { warn: 0, pass: 4 }, previous: { accessibility: { ...none, serious: 4 }, seo: { warn: 1, pass: 3 }, checkedAt: before } }),
+        row('/mixed', { accessibility: { ...none, moderate: 2 }, seo: { warn: 1, pass: 3 }, previous: { accessibility: none, seo: { warn: 3, pass: 1 }, checkedAt: before } }),
+        row('/same', { previous: { seo: { warn: 0, pass: 5 }, checkedAt: before } }),
+        row('/first')
+    ];
+    expect(pageCheckChangeTotals(changed[2]!)).toEqual({ fewer: 2, more: 2 });
+    expect(pageCheckChangeTotals(changed[4]!)).toBeUndefined();
+    expect(sortPageChecks(changed, 'fixed').map(page => page.path)).toEqual(['/down', '/mixed', '/same', '/up', '/first']);
+    expect(sortPageChecks(changed, 'new').map(page => page.path)).toEqual(['/up', '/mixed', '/same', '/down', '/first']);
     // The view never receives the check states
     const full = { ...pages[0]!, checks: { 'seo:title': 'pass' as const } };
     expect(pageCheckRow(full)).not.toHaveProperty('checks');
