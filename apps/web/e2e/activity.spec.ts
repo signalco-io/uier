@@ -53,6 +53,11 @@ test('anonymous direct thread opening sends no read and sets no cookie; explicit
         // Mark as unread is in the thread's options once it is read
         await card.getByRole('button', { name: 'Thread options', exact: true }).click();
         await expect(reader.page.getByRole('button', { name: 'Mark as unread', exact: true })).toBeFocused();
+        // Opened from the inbox, the menu stays dark like the inbox (the ink scope), and each item has an icon
+        const options = reader.page.getByRole('dialog', { name: 'Thread options', exact: true });
+        expect(await options.evaluate(menu => Boolean(menu.closest('.dark')))).toBe(true);
+        for (const button of await options.getByRole('button').all())
+            await expect(button.locator('svg')).toHaveCount(1);
         await reader.page.getByRole('button', { name: 'Mark as unread', exact: true }).click();
         await expect(card.getByRole('button', { name: 'Unread. Mark as read', exact: true })).toBeVisible();
         await expect(card.getByRole('button', { name: 'Thread options', exact: true })).toHaveCount(0);

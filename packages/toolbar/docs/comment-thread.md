@@ -46,6 +46,8 @@ Checked in `apps/web/e2e/toolbar-thread.spec.ts`.
 - Then **Thread options** (`CommentThreadMenu.tsx`), with the triage and email controls each person may use:
   assign (the people open under the line), priority, Request verification ([fix verification](fix-verification.md)),
   Follow / Unfollow thread, Mute project emails and, once read, Mark as unread. No menu when there is none.
+  Each item has a 16 px icon, like the toolbar's other menus. Opened from the inbox, the menu renders in the ink
+  scope, so it stays dark like the inbox; a thread on the page opens it in the toolbar root, in the thread's theme.
 
 ## Message options
 
