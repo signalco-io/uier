@@ -124,4 +124,5 @@ the later choice; an initial visit without either saved preference still keeps i
 Group by sits to the right of Filter on project inboxes and boards, icon-only like it (uier #404). It is a shared project
 presentation setting, independent of the Label filter: choosing swimlanes does not exclude
 other threads. Only members allowed to triage can save it; label catalogs are unchanged.
+A project without labels has nothing to group by, so the row leaves Group by out, with no gap, until it has a label ([uier #429](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_cbInEVI5US4Ee9BfsLiUF)).
 The loading filter row uses the same icon-button variant and size as the loaded status menus, so their chevrons keep their size when comments arrive (uier #381).

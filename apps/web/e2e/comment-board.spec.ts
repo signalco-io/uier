@@ -1,6 +1,6 @@
 import { enableProjectVerification } from './support/app';
 import { expect, test, type APIRequestContext, type Locator, type Page, type Route } from '@playwright/test';
-import { commentRowLink, createProject, openCommentFilters, selectThread, heldForDrag, longPress, openBoardMove, openComment, selectionBar, setProjectAccess, signIn, uniqueEmail, type ProjectAccessLabel } from './support/app';
+import { commentRowLink, createProject, hydrated, openCommentFilters, selectThread, heldForDrag, longPress, openBoardMove, openComment, selectionBar, setProjectAccess, signIn, uniqueEmail, type ProjectAccessLabel } from './support/app';
 import { verifiedReviewHeaders } from './support/reviewVerification';
 import { startReviewedSite } from './support/reviewedSite';
 import { expectNoAxeViolations } from './accessibility';
@@ -10,7 +10,7 @@ let site: Awaited<ReturnType<typeof startReviewedSite>>;
 test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(new URL(baseURL!).origin); });
 test.afterAll(async () => { await site.close(); });
 
-async function board(page: Page, request: APIRequestContext, { access }: { access?: ProjectAccessLabel } = {}) {
+async function board(page: Page, request: APIRequestContext, { access, label }: { access?: ProjectAccessLabel; label?: string } = {}) {
     await signIn(page, uniqueEmail('board'));
     const project = await createProject(page, { urls: [site.origin()] });
     await enableProjectVerification(page, project);
@@ -25,6 +25,16 @@ async function board(page: Page, request: APIRequestContext, { access }: { acces
         comments.push(await response.json());
     }
     if (access) await setProjectAccess(page, project, access);
+    // Group by only shows once there is a label to group on (uier #429)
+    if (label) {
+        await page.goto('/app/workspace/settings');
+        const labels = page.getByRole('region', { name: 'Labels', exact: true });
+        await hydrated(labels.locator('form'));
+        await labels.getByRole('button', { name: 'Add label', exact: true }).click();
+        await labels.getByLabel('Label name', { exact: true }).fill(label);
+        await labels.getByRole('button', { name: 'Save', exact: true }).click();
+        await expect(labels.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+    }
     await page.goto(`/app/projects/${project}?view=board`);
     const column = (name: string) => page.getByRole('region', { name: `${name} comments`, exact: true });
     await expect(column('Open').getByRole('listitem')).toHaveCount(2);
@@ -183,6 +193,8 @@ test('the board widens on a wide window, the filters and project headers and the
     const unread = page.getByRole('status').filter({ hasText: /^\d+ unread$/ });
     const countLine = unread.locator('xpath=..');
     const filter = page.getByRole('button', { name: /^Filter/ });
+    // A project without labels has nothing to group by, so Group by stays out of the row (uier #429)
+    await expect(page.getByRole('button', { name: 'Group by', exact: true })).toHaveCount(0);
     // The filters and project headers are full width from the left (uier #363): the project's mark starts with the
     // first column, the view toggle and the settings button end at the page's right edge, the panel less its 32 px
     // gutter, however far the columns reach; the search is directly left of the view toggle, after Filter (uier #411),
@@ -877,7 +889,7 @@ test('a dropped card shows in its new column at once and goes back when saving f
 
 for (const preference of ['sort', 'Archive'] as const) {
     test(`saved board ${preference} survives a delayed and failed data refresh`, async ({ page, request }) => {
-        const { project, column } = await board(page, request);
+        const { project, column } = await board(page, request, { label: 'Bug' });
         const open = column('Open');
         const archive = page.locator('[data-board-archive]');
         let release!: () => void;
