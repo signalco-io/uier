@@ -244,7 +244,7 @@ export default function BrandPage() {
                     <div className="flex flex-col gap-3 rounded-2xl border p-5">
                         <div className="flex justify-between text-xs text-muted-foreground"><span>Borders and elevation</span><span>two levels</span></div>
                         <div className="flex flex-col gap-0.5 rounded-xl border px-3.5 py-3"><span className="text-[13px] font-medium">Resting</span><span className="text-[11px] text-muted-foreground">1 px border, no shadow. Cards, inputs, sections, tables.</span></div>
-                        <div className="flex flex-col gap-0.5 rounded-xl border bg-card px-3.5 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.08)]"><span className="text-[13px] font-medium">Floating</span><span className="text-[11px] text-muted-foreground">Border plus 0 1px 2px 4% and 0 8px 24px 8%. Toolbar, popovers, menus, dialogs.</span></div>
+                        <div className="flex flex-col gap-0.5 rounded-xl border bg-card px-3.5 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_rgba(0,0,0,0.08)]"><span className="text-[13px] font-medium">Floating</span><span className="text-[11px] text-muted-foreground">Border plus 0 1px 2px 4% and 0 8px 24px 8%. Toolbar, popovers, menus, dialogs, and a tile that opens a page while hovered.</span></div>
                         <span className="text-xs leading-relaxed text-muted-foreground">Focus: 2 px blue ring at 2 px offset, keyboard only.</span>
                     </div>
                     <div className="flex flex-col gap-3 rounded-2xl border p-5">
@@ -253,7 +253,7 @@ export default function BrandPage() {
                         <ul className="flex flex-col gap-1.5 text-xs leading-relaxed text-secondary-foreground">
                             <li><span className="font-mono text-foreground">150ms ease-out</span> enter and exit: fade plus 8 px slide.</li>
                             <li><span className="font-mono text-foreground">200ms ease-out</span> change of place: the item slides there.</li>
-                            <li><span className="font-mono text-foreground">120ms</span> hover and press: colour only, no scale.</li>
+                            <li><span className="font-mono text-foreground">120ms</span> hover and press: colour only, no scale. A tile that opens a page rises to floating instead.</li>
                             <li><span className="font-mono text-foreground">none</span> on page load. No bounces, parallax or gradient movement.</li>
                         </ul>
                     </div>

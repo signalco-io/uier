@@ -12,6 +12,9 @@ test('the AI page explains the coding tool connection and rewrite suggestions', 
     expect(response?.status()).toBe(200);
     await expect(page).toHaveTitle(`AI for website feedback · ${brand.name}`);
     await expect(page.getByRole('heading', { level: 1, name: 'Hand the feedback to your coding agent' })).toBeVisible();
+    // The animated cover under the header: a picture, with Pause for its loop
+    await expect(page.locator('[data-feature-cover="ai"]')).toHaveAttribute('aria-hidden', 'true');
+    await expect(page.getByRole('button', { name: 'Pause the animation' })).toBeVisible();
     for (const name of ['How it works', 'Connect your coding tool', 'What your agent can do', 'Prompts and a skill', 'You stay in control', 'Rewrite suggestions', 'Try it', 'Questions'])
         await expect(page.getByRole('region', { name, exact: true }), name).toBeVisible();
 
@@ -55,11 +58,19 @@ test('the landing page leads to the AI page', async ({ page }) => {
     await page.goto('/');
     const features = page.getByRole('region', { name: 'What it does' });
     await expect(features.getByRole('heading', { name: 'Let your coding agent fix it' })).toBeVisible();
-    await expect(features.getByRole('link', { name: `AI in ${brand.name}` })).toHaveAttribute('href', path);
-    await expect(features.getByRole('link', { name: 'AI rewrite suggestions' })).toHaveAttribute('href', `${path}#rewrite-suggestions`);
+    // The tile is one link, to this page
+    await expect(features.getByRole('link', { name: `More on AI in ${brand.name}`, exact: true })).toHaveAttribute('href', path);
     const question = page.getByRole('region', { name: 'Questions' }).locator('details').filter({ hasText: 'Can developers and AI agents use the feedback?' });
     await question.locator('summary').click();
     await expect(question.getByRole('link', { name: 'AI features' })).toHaveAttribute('href', path);
 });
 
 test('the AI page is accessible', ({ page }) => assertAccessibility(page, path));
+
+test('the cover shows one still frame with reduced motion', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(path);
+    await page.locator('[data-feature-cover="ai"]').scrollIntoViewIfNeeded();
+    await expect(page.locator('[data-feature-cover-caption] p:not(.invisible)')).toHaveText('A coding agent’s session beside the thread it fixed: its pull request linked and the fix waiting for the reviewer.');
+    await expect(page.getByRole('button', { name: /^(Pause|Play) the animation$/ })).toHaveCount(0);
+});

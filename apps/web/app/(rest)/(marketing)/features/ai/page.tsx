@@ -3,7 +3,8 @@ import { Button } from '@signalco/ui-primitives/Button';
 import { brand } from '@uier/brand';
 import { CheckList, InlineLink, PageHeader, PageSection, Panel, Tile } from '../../../../../src/components/marketing/ContentPage';
 import { FaqPanel, type Question } from '../../../../../src/components/marketing/LandingFaq';
-import { CodingAgentSpecimen, RewriteSpecimen } from '../../../../../src/components/marketing/AiSpecimens';
+import { RewriteSpecimen } from '../../../../../src/components/marketing/AiSpecimens';
+import { AgentCover } from '../../../../../src/components/marketing/covers/AgentCover';
 import { KnownPages } from '../../../../../src/knownPages';
 
 // What uier does with AI today: the MCP connector for coding tools (docs/mcp.md; src/lib/mcp:
@@ -115,12 +116,12 @@ export default function AiPage() {
                     <Button variant="outlined" size="lg" href="#connect">Connect a coding tool</Button>
                 </div>
             </PageHeader>
+            <AgentCover />
 
             <PageSection
                 id="how-it-works"
                 title="How it works"
                 lead={`The ${brand.name} MCP connector lets your coding tool read feedback and, if you allow it, reply, change status and assign. It cannot edit code, run commands or deploy.`}>
-                <CodingAgentSpecimen />
                 <Panel as="ol">
                     {steps.map((step, index) => (
                         <li key={step.title} className="flex items-baseline gap-4 p-6">

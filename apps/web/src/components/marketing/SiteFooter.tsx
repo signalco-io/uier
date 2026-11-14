@@ -17,6 +17,11 @@ export async function SiteFooter() {
                     ctas: [
                         { label: 'How it works', href: KnownPages.HowItWorks },
                         { label: 'Features', href: KnownPages.Features },
+                        { label: 'Pinned comments', href: KnownPages.PinnedComments },
+                        { label: 'Screenshots and context', href: KnownPages.Screenshots },
+                        { label: 'Threads', href: KnownPages.Threads },
+                        { label: 'Inbox', href: KnownPages.Inbox },
+                        { label: 'Statuses and board', href: KnownPages.Board },
                         { label: 'Feedback triage', href: KnownPages.FeedbackTriage },
                         { label: 'Fix verification', href: KnownPages.FixVerification },
                         { label: 'AI features', href: KnownPages.Ai },

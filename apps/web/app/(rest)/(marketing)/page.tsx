@@ -3,7 +3,7 @@ import { SiteStructuredData } from '@/src/components/marketing/SiteStructuredDat
 import type { ReactNode } from 'react';
 import { Typography } from '@signalco/ui-primitives/Typography';
 import { Button } from '@signalco/ui-primitives/Button';
-import { Bug, Filter, Layers, Lock, MyLocation, UI } from '@signalco/ui-icons';
+import { ArrowRight, Bug, Filter, Layers, Lock, MyLocation, UI } from '@signalco/ui-icons';
 import { cx } from '@signalco/ui-primitives/cx';
 import { brand } from '@uier/brand';
 import { InlineLink, Panel, SectionHeading } from '../../../src/components/marketing/ContentPage';
@@ -35,49 +35,67 @@ export const metadata = {
 // headline, the review layer is shown on the page itself instead of a screenshot. Every claim
 // describes what the toolbar and the app do today; check packages/toolbar and src/lib before adding one.
 
-const features: { title: string; text: ReactNode; visual: ReactNode; wide?: boolean }[] = [
+// Each tile opens its feature's page: the "More on" line is the link, stretched over the whole tile,
+// and the tile rises to the floating level while hovered (BRAND.md, "Borders and elevation")
+const features: { title: string; text: ReactNode; visual: ReactNode; href: string; more: string; wide?: boolean }[] = [
     {
         title: 'Pinned to the element, an area or the words',
         text: 'Click anything, drag over an area or select a sentence, and pin a comment there. Pins follow the element when the page scrolls, resizes or reloads.',
         visual: <PinnedSpecimen />,
+        href: KnownPages.PinnedComments,
+        more: 'More on pinned comments',
         wide: true
     },
     {
         title: 'The context comes with it',
         text: 'A new comment attempts a screenshot of the spot. Check it for private details before posting. Members see available browser and device context; capture and browser details can be unavailable.',
-        visual: <ContextSpecimen />
+        visual: <ContextSpecimen />,
+        href: KnownPages.Screenshots,
+        more: 'More on screenshots and context'
     },
     {
         title: 'Talk it through in the thread',
         text: 'Reply with Markdown and images, mention a teammate and assign the people who fix it. People who follow a thread get the replies by email.',
-        visual: <ThreadSpecimen />
+        visual: <ThreadSpecimen />,
+        href: KnownPages.Threads,
+        more: 'More on threads'
     },
     {
         title: 'One inbox for the whole site',
         text: 'Every thread on this page and on the rest of the site. Search, pick a page or an environment such as staging, and see what is unread or assigned to you.',
         visual: <InboxSpecimen />,
+        href: KnownPages.Inbox,
+        more: 'More on the inbox',
         wide: true
     },
     {
         title: 'From open to done',
         text: <>Follow each thread from Open through In progress to Done, in a list or on a board. <InlineLink href={KnownPages.FixVerification}>Fix verification</InlineLink> asks the reviewer to confirm a fix first.</>,
         visual: <BoardSpecimen />,
+        href: KnownPages.Board,
+        more: 'More on statuses and the board',
         wide: true
     },
     {
         title: 'Accessibility and SEO checks',
-        text: <>Each page you review is checked for accessibility and SEO issues. Highlight what was found, then post it as a comment in one click. More on <InlineLink href={KnownPages.PageChecks}>page checks</InlineLink>.</>,
-        visual: <ChecksSpecimen />
+        text: 'Each page you review is checked for accessibility and SEO issues. Highlight what was found, then post it as a comment in one click.',
+        visual: <ChecksSpecimen />,
+        href: KnownPages.PageChecks,
+        more: 'More on page checks'
     },
     {
         title: 'Send it where your team works',
-        text: <>Copy a thread as a Markdown issue or connect a service for shared feedback. Check each <InlineLink href={KnownPages.Integrations}>integration&rsquo;s availability and verified scope</InlineLink>; hosted checks for Azure DevOps delivery and optional reply import are still pending.</>,
-        visual: <IntegrationsSpecimen />
+        text: 'Copy a thread as a Markdown issue or connect a service for shared feedback. Each integration’s guide records its availability and verified scope; hosted checks for Azure DevOps delivery and optional reply import are still pending.',
+        visual: <IntegrationsSpecimen />,
+        href: KnownPages.Integrations,
+        more: 'More on integrations'
     },
     {
         title: 'Let your coding agent fix it',
-        text: <>Connect Claude Code, Codex or Cursor through the MCP connector. Your agent reads each thread with its page, anchor and screenshot, links its pull request and reports back when you approve. More on <InlineLink href={KnownPages.Ai}>AI in {brand.name}</InlineLink>.</>,
+        text: 'Connect Claude Code, Codex or Cursor through the MCP connector. Your agent reads each thread with its page, anchor and screenshot, links its pull request and reports back when you approve.',
         visual: <AgentSpecimen />,
+        href: KnownPages.Ai,
+        more: `More on AI in ${brand.name}`,
         wide: true
     }
 ];
@@ -130,6 +148,9 @@ const extensionBrowsers: { name: string; href?: string; note?: string }[] = [
 
 const chip = 'inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-xs font-medium';
 
+/** A feature tile's link: its area covers the tile, and its focus ring the tile's edge (like /integrations' tiles) */
+const tileLink = 'mt-auto inline-flex items-center gap-1.5 pt-2 text-sm font-medium text-foreground outline-none after:absolute after:inset-0 after:rounded-2xl focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring';
+
 const tryIt = [
     'Press + in the toolbar at the bottom of the window, then click or tap anything on this page.',
     'Or select a few words and choose Comment.',
@@ -170,11 +191,21 @@ export default function LandingPage() {
                     lead="Pins, threads, screenshots, the inbox and the page checks are in the toolbar at the bottom of this window, so you can try them right here. The board, assignments and integrations are in your projects." />
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {features.map(feature => (
-                        <div key={feature.title} className={cx('flex flex-col overflow-hidden rounded-2xl border', feature.wide && 'md:col-span-2')}>
+                        <div key={feature.title} className={cx(
+                            'group relative flex flex-col overflow-hidden rounded-2xl border transition-[border-color,box-shadow] duration-150 ease-out motion-reduce:transition-none',
+                            // Floating, from BRAND.md: the border plus its shadow on light, the border alone lifts it on dark
+                            'hover:border-foreground/20 hover:shadow-[0_1px_2px_rgba(0,0,0,.04),0_8px_24px_rgba(0,0,0,.08)] dark:hover:shadow-none',
+                            feature.wide && 'md:col-span-2'
+                        )}>
                             {feature.visual}
-                            <div className="flex flex-col gap-2 p-6">
+                            <div className="flex flex-1 flex-col gap-2 p-6">
                                 <h3 className="text-base font-semibold">{feature.title}</h3>
-                                <Typography level="body2" className="text-muted-foreground">{feature.text}</Typography>
+                                {/* A link in the text stays clickable above the tile's link */}
+                                <Typography level="body2" className="text-muted-foreground [&_a]:relative [&_a]:z-[1]">{feature.text}</Typography>
+                                <a href={feature.href} className={tileLink}>
+                                    {feature.more}
+                                    <ArrowRight size={16} strokeWidth={1.75} aria-hidden="true" className="text-muted-foreground transition-colors duration-[120ms] ease-out group-hover:text-foreground" />
+                                </a>
                             </div>
                         </div>
                     ))}

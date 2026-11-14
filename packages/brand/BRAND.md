@@ -240,6 +240,8 @@ Two levels only.
 - **Resting:** 1 px border (Ink 200 / `#262626`), no shadow. Cards, inputs, sections, tables.
 - **Floating:** border plus `0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.08)`. Toolbar,
   popovers, menus, dialogs. On dark a 1 px `#262626` ring does the lifting.
+- **A tile that opens a page** (the landing's feature tiles) rises from resting to floating while
+  hovered, its border a step darker, with the 150 ms ease-out. It does not move or scale.
 
 ### Icons
 
@@ -311,7 +313,9 @@ popovers are radius 12 and float; dialogs and the sidebar are radius 16.
 - At most one thing moves on its own: the landing's cover, the how-it-works scene, a loop that
   plays the product on an example site. Things in it come and go with the enter and exit motion above; the
   pointer and the text selection move with ease-out and no overshoot. It plays only in view, has a
-  Pause button and shows one still frame with reduced motion.
+  Pause button and shows one still frame with reduced motion. On the integrations index and each
+  feature page that one thing is the cover under the header: a loop of that feature on the example
+  site, with the same rules.
 - Footer: on every page, with "A signalco project" and signalco's mark, linked to signalco.io, in
   the bottom line. Contact links use `brand.contact` (contact@uier.io, security@uier.io,
   privacy@uier.io); the GitHub link uses `brand.social`. signalco's X account (@signalco_io)

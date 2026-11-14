@@ -12,7 +12,7 @@ import { linkCardIds, socialCardSize } from '../src/lib/social/cards';
 const publicPaths = [
     '/compare', '/compare/website-feedback-tools', '/compare/bugherd', '/compare/marker-io', '/compare/usersnap', '/compare/pastel',
     '/guides', '/guides/browser-extension', '/guides/client-website-reviews', '/guides/nextjs', '/guides/website-review-checklist', '/guides/website-bug-report-template',
-    '/', '/brand', '/browser-extension', '/features/ai', '/features/feedback-triage', '/features/fix-verification', '/features/page-checks', '/integrations',
+    '/', '/brand', '/browser-extension', '/features/ai', '/features/board', '/features/feedback-triage', '/features/fix-verification', '/features/inbox', '/features/page-checks', '/features/pinned-comments', '/features/screenshots', '/features/threads', '/integrations',
     ...Object.keys(integrationCatalog).map(provider => `/integrations/${provider}`),
     '/legal/acceptable-use-policy', '/legal/cookie-policy', '/legal/privacy-policy',
     '/legal/sla', '/legal/terms-of-service', '/open-source', '/security', '/status'

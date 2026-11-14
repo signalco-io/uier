@@ -81,6 +81,37 @@ export function Tile({ title, label, icon, children }: PropsWithChildren<{ title
     );
 }
 
+/** Numbered steps in a Panel, each a title and a sentence or two (the feature pages' "How it works") */
+export function StepsPanel({ steps }: { steps: { title: string; text: ReactNode }[] }) {
+    return (
+        <Panel as="ol">
+            {steps.map((step, index) => (
+                <li key={step.title} className="flex items-baseline gap-4 p-6">
+                    <span aria-hidden="true" className="font-mono text-xs text-muted-foreground">0{index + 1}</span>
+                    <span className="flex flex-col gap-1">
+                        <span className="text-base font-semibold">{step.title}</span>
+                        <span className="text-sm leading-relaxed text-muted-foreground">{step.text}</span>
+                    </span>
+                </li>
+            ))}
+        </Panel>
+    );
+}
+
+/** Short numbered steps without a panel (the feature pages' "Try it") */
+export function NumberedList({ items }: { items: ReactNode[] }) {
+    return (
+        <ol className="flex flex-col gap-4">
+            {items.map((item, index) => (
+                <li key={index} className="flex items-baseline gap-4">
+                    <span aria-hidden="true" className="font-mono text-xs text-muted-foreground">0{index + 1}</span>
+                    <span className="text-base">{item}</span>
+                </li>
+            ))}
+        </ol>
+    );
+}
+
 export function CheckList({ items, columns = 1 }: { items: ReactNode[]; columns?: 1 | 2 | 3; }) {
     return (
         <ul className={cx('text-sm', columns > 1 ? cx('grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2', columns === 3 && 'lg:grid-cols-3') : 'flex flex-col gap-3')}>

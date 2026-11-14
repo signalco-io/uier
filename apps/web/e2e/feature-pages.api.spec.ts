@@ -73,6 +73,36 @@ test('the page checks page publishes its own canonical, description and social c
     expect(card.headers()['content-type']).toBe('image/png');
 });
 
+// The pages behind the landing's feature tiles: title, a phrase of the description, and their own card
+const overviewPages = [
+    { path: '/features/pinned-comments', title: 'Pinned comments', description: /an element, an area or a few words/ },
+    { path: '/features/screenshots', title: 'Screenshots and browser context', description: /attempts a screenshot of the spot/ },
+    { path: '/features/threads', title: 'Threads, mentions and assignees', description: /mention teammates, assign the people who fix it/ },
+    { path: '/features/inbox', title: 'Website feedback inbox', description: /pick a page or an environment/ },
+    { path: '/features/board', title: 'Feedback statuses and board', description: /from Open through In progress and Ready to verify to Done/ }
+];
+
+for (const feature of overviewPages) {
+    test(`${feature.path} publishes its own canonical, description and social card`, async ({ request }) => {
+        const response = await request.get(`${feature.path}?utm_source=feature-test`);
+        expect(response.status()).toBe(200);
+        const html = await response.text();
+        const canonical = `${brand.url}${feature.path}`;
+        const links = [...html.matchAll(/<link\b[^>]*>/g)].map(match => match[0]).filter(tag => attribute(tag, 'rel') === 'canonical');
+        expect(links.map(tag => attribute(tag, 'href'))).toEqual([canonical]);
+        expect(meta(html, 'og:url')).toBe(canonical);
+        expect(meta(html, 'og:title')).toBe(`${feature.title} · ${brand.name}`);
+        expect(meta(html, 'description')).toMatch(feature.description);
+        expect(meta(html, 'robots') ?? '').not.toMatch(/noindex/i);
+        const image = new URL(meta(html, 'og:image')!);
+        expect(image.pathname.startsWith(`${feature.path}/opengraph-image`)).toBe(true);
+        expect(meta(html, 'og:image:alt')).toBe(`${feature.title} · ${brand.name}`);
+        const card = await request.get(`${image.pathname}${image.search}`);
+        expect(card.status()).toBe(200);
+        expect(card.headers()['content-type']).toBe('image/png');
+    });
+}
+
 test('unpublished feature pages return a real 404', async ({ request }) => {
     for (const path of ['/features', '/features/unknown'])
         expect((await request.get(path)).status(), path).toBe(404);

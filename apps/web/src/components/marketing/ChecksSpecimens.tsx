@@ -87,16 +87,20 @@ export function IssueRow({ element, posted, highlighted }: { element: string; po
     return (
         <span className="flex min-w-0 items-center gap-1 rounded-md bg-muted/60 py-0.5 pl-2 pr-0.5">
             <span className="min-w-0 flex-1 truncate font-mono text-xs text-muted-foreground">{element}</span>
-            <span className={cx('inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground', highlighted && 'bg-accent text-foreground')}><MyLocation size={14} /></span>
+            {/* data-issue-*: where /features/page-checks' cover points */}
+            <span data-issue-highlight="" className={cx('inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors duration-[120ms] ease-out', highlighted && 'bg-accent text-foreground')}><MyLocation size={14} /></span>
             {posted !== undefined
                 ? <span className="inline-flex h-6 shrink-0 items-center gap-1 px-1.5 text-xs text-muted-foreground"><Check size={14} className="text-[hsl(var(--brand-success))]" />#{posted}</span>
-                : <span className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-xs font-medium"><AddCommentIcon size={14} />Comment</span>}
+                : <span data-issue-comment="" className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-xs font-medium"><AddCommentIcon size={14} />Comment</span>}
         </span>
     );
 }
 
-/** The Accessibility panel with a report: three issues, the contrast rule open with its elements */
-export function AccessibilityPanelSpecimen({ className, highlighted }: { className?: string; highlighted?: boolean }) {
+/**
+ * The Accessibility panel with a report: three issues, the contrast rule open with its elements.
+ * `highlighted` presses the price's Highlight, `posted` shows the comment the price became.
+ */
+export function AccessibilityPanelSpecimen({ className, highlighted, posted }: { className?: string; highlighted?: boolean; posted?: number }) {
     const counts = [0, 2, 1, 0];
     return (
         <ChecksPanelFrame title="Accessibility" className={className}>
@@ -119,7 +123,7 @@ export function AccessibilityPanelSpecimen({ className, highlighted }: { classNa
                         </div>
                     </div>
                     <div className="flex flex-col gap-1 pl-6">
-                        <IssueRow element="span.price" highlighted={highlighted} />
+                        <IssueRow element="span.price" highlighted={highlighted} posted={posted} />
                         <IssueRow element="p.allergens" posted={23} />
                     </div>
                 </div>
@@ -176,34 +180,6 @@ function FeatureFrame({ children }: { children: ReactNode }) {
         <div aria-hidden="true" className="flex justify-center overflow-hidden rounded-2xl border bg-muted/50 px-6 py-8">
             {children}
         </div>
-    );
-}
-
-/**
- * /features/page-checks: the example site's menu with a price highlighted from the panel (the
- * point-mode outline with the selection tint, as `ElementHighlight` draws it), and the Accessibility
- * panel beside it with that element's Highlight pressed
- */
-export function ChecksSceneSpecimen() {
-    const dishes = [['Tagliatelle al ragù', '€14'], ['Cacio e pepe', '€12'], ['Tiramisù', '€7']];
-    return (
-        <FeatureFrame>
-            <div className="flex w-full max-w-[660px] items-start justify-between gap-8">
-                <div className="hidden w-full max-w-[250px] flex-col pt-3 sm:flex">
-                    <span className="text-xl font-semibold tracking-[-0.015em]">Menu</span>
-                    <div className="mt-3 flex flex-col text-sm">
-                        {dishes.map(([dish, price], index) => (
-                            <span key={dish} className="flex justify-between gap-3 border-b py-1.5">
-                                <span>{dish}</span>
-                                <span className={cx('tabular-nums text-muted-foreground', index === 0 && 'rounded-[3px] bg-[hsl(var(--brand-selection))] text-foreground outline-2 outline-offset-2 outline-dashed outline-[hsl(var(--brand-accent))]')}>{price}</span>
-                            </span>
-                        ))}
-                    </div>
-                    <span className="mt-4 text-xs text-muted-foreground">Ask us about allergens.</span>
-                </div>
-                <AccessibilityPanelSpecimen highlighted className="max-w-[320px] shrink-0" />
-            </div>
-        </FeatureFrame>
     );
 }
 

@@ -23,8 +23,11 @@ itself, so the global `:target` margin does not apply there and the layout turns
   the toolbar (check `packages/toolbar`) or in the app's projects (check `src/lib`) before adding
   one. Say which parts can be tried on the page itself: the showcase is a guest, so pins, threads,
   the inbox and the Accessibility and SEO panels work here, while mentions, assignment, the board,
-  environments, integrations and the MCP connector only work in a project. The feature tiles link to
-  the feature pages (`/features/page-checks`, `/features/fix-verification`, `/features/ai`) and `/integrations`. The showcase runs on
+  environments, integrations and the MCP connector only work in a project. Each feature tile is one link to
+  its page ([feature pages](feature-pages.md)): the "More on ..." line under its text, stretched over the whole tile
+  (its focus ring is the tile's edge), with an arrow; a link inside the text (Fix verification) stays above it. While
+  hovered the tile rises from resting to floating (BRAND.md, "Borders and elevation"). Keep the link names, the tests
+  find the tiles by them. The showcase runs on
   every public marketing page and its inbox includes other public pages. Project embeds work on
   their configured addresses, with headers for identity and BotID proofs for writes.
 - **Pictures are specimens.** The cover scene and the feature tiles are built from the tokens and
