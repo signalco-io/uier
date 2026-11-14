@@ -33,7 +33,12 @@ export function MessageImage({ image, reply = false, sending = false }: {
     // The button names the image; the image says what it shows, without "Screenshot of" (screen readers announce images)
     const label = reply ? t("Image attached to reply") : t("Screenshot of the commented part of the page");
     const alt = reply ? t("Image attached to reply") : t("Commented part of the page");
-    const box = sized ? { aspectRatio: `${image.width} / ${image.height}`, width: `${Math.min(image.width, Math.round(thumbnailMaxHeight * image.width / image.height))}px` } : undefined;
+    // Keep tiny or very narrow images usable without exceeding the thumbnail's height limit.
+    // object-contain preserves the image ratio inside this reserved box.
+    const box = sized ? {
+        width: `${Math.max(44, Math.min(image.width, Math.round(thumbnailMaxHeight * image.width / image.height)))}px`,
+        height: `${Math.max(44, Math.min(image.height, thumbnailMaxHeight))}px`
+    } : undefined;
     if (sending) {
         return <span className="relative mt-1 block max-w-full self-start overflow-hidden rounded-lg border" style={box ?? { width: '6rem', height: '4rem' }}>
             <Skeleton aria-hidden="true" data-image-placeholder="" className="absolute inset-0 rounded-none motion-reduce:animate-none" />
