@@ -391,7 +391,6 @@ export const fr: Messages = {
         namePlaceholder: 'Affiché avec vos commentaires',
         enterName: 'Saisissez votre nom pour commenter.',
         characters: ' caractères',
-        mentionHint: '@ pour mentionner',
         mentionHelp: 'Tapez @ pour mentionner une personne ayant accès.',
         discard: 'Abandonner',
         mentionPeople: 'Mentionner des personnes',
