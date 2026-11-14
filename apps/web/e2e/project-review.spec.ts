@@ -943,6 +943,8 @@ test('the toolbar\'s inbox lists the project\'s other pages; comments have publi
 });
 
 test('the app lists, filters and manages a project\'s comments', async ({ page, request }) => {
+    // This workflow includes several navigations, mutations and accessibility scans.
+    test.setTimeout(60_000);
     const projectId = await ownerWithProject(page);
     await setProjectAccess(page, projectId, 'Anyone with the link');
 

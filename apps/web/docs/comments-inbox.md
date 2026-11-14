@@ -3,6 +3,8 @@
 `e2e/project-review.spec.ts` checks the row's author through the avatar's accessible name and
 the page path separately, so layout changes keep both pieces of information covered. After restoring
 rows with the status filter it waits for their entrance motion to settle before scanning contrast.
+The combined list/filter/manage regression has a 60-second budget for its repeated navigation,
+mutations and accessibility scans; individual assertions retain their usual timeouts.
 
 - The comments page is an inbox. `comments/CommentInbox.tsx` lists compact rows (`CommentRow.tsx`). The title line:
   the author (`AuthorAvatar`: a member's picture or initial with the AI agent that wrote it for them
