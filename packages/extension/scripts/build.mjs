@@ -8,6 +8,7 @@ import tailwindcss from '@tailwindcss/postcss';
 import { createHash } from 'node:crypto';
 import { createManifest } from './manifest.mjs';
 import { brand, MARK_PATH } from '../../../packages/brand/src/brand.ts';
+import { assertNoInlineRem, uiKitInlineRem } from '../../toolbar/shadowRootIsolation.mjs';
 const sharedRoot = resolve(import.meta.dirname, '..');
 export async function buildExtension({ root, browser = 'chrome', test = process.argv.includes('--test'), hostedTest = process.argv.includes('--hosted-test') }) {
 if (!['chrome', 'firefox'].includes(browser)) throw new Error('Unknown browser target.');
@@ -39,12 +40,14 @@ for (const [name, entry] of Object.entries(entries)) {
             __UIER_AUDIT_PATH__: '""', __UIER_AUDIT_INTEGRITY__: '""',
             // Nor published languages: the content script packages them (`loadPackagedLanguage`).
             __UIER_LANGUAGE_ASSETS__: '{}' },
-        plugins: [{ name: 'packaged-css', setup(b) {
+        // The UI kit's inline `rem` lengths, like the toolbar's CSS (packages/toolbar/docs/host-styles.md)
+        plugins: [uiKitInlineRem, { name: 'packaged-css', setup(b) {
             // The embed runtime imports CSS for tsup; packaged clients use its compiled sheet.
             b.onLoad({ filter: /\.css$/ }, () => ({ contents: '', loader: 'js' }));
             b.onEnd(async () => {
             const path = resolve(dest, `${name}.js`);
             const js = await readFile(path, 'utf8');
+            if (name !== 'audit') assertNoInlineRem(js, `${name}.js`);
             await writeFile(path, js.replace(/(["'])__uier_toolbar_css__\1/g, () => JSON.stringify(css)));
         }); } }]
     });

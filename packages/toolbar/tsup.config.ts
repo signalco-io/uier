@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import browserslist from 'browserslist';
 import { defineConfig } from 'tsup';
 import { toolbarLanguages } from './src/languages';
+import { assertNoInlineRem, uiKitInlineRem } from './shadowRootIsolation.mjs';
 
 // Share the rolling browser policy with Next.js. A Safari/iOS version can be a range;
 // esbuild needs its earliest version, and calls Browserslist's ios_saf engine "ios".
@@ -60,6 +61,8 @@ export default defineConfig(({ env }) => {
         // The bundle runs in the reviewed page, not in Node
         platform: 'browser',
         target: browserTargets,
+        // The UI kit's inline `rem` lengths, like the CSS's (shadowRootIsolation.mjs, docs/host-styles.md)
+        esbuildPlugins: [uiKitInlineRem],
         esbuildOptions(options) {
             // UI-kit button links need native navigation on arbitrary reviewed sites. Keep the
             // framework router out of the embed and retain room for actionable notices in its budget.
@@ -103,6 +106,7 @@ export default defineConfig(({ env }) => {
                 .replace(/(["'])__uier_audit_path__\1/g, () => JSON.stringify(development ? './audit.js' : `/toolbar/${auditHash}.js`))
                 .replace(/(["'])__uier_audit_integrity__\1/g, () => JSON.stringify(development ? '' : auditIntegrity))
                 .replace(/(["'])__uier_language_assets__\1/g, () => `(${JSON.stringify(languageAssets)})`);
+            assertNoInlineRem(js, `${outDir}/review.js`);
             if (!js.includes('__uier_toolbar_css__')) {
                 throw new Error(`CSS placeholder __uier_toolbar_css__ not found in ${outDir}/review.js`);
             }

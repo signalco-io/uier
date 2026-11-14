@@ -8,7 +8,8 @@ import { forgetOpenPanel } from './openPanel';
 import { requestOnMount } from './openFeedback';
 import { runtimeContext } from './runtimeContext';
 import { getToolbarHost, toolbarMountKey, toolbarMounts } from './mount';
-import { adoptToolbarStyles } from './stylesheet';
+import { adoptToolbarStyles, prepareToolbarRoot } from './stylesheet';
+import { followPageZoom } from './pageZoom';
 import { runtimeAdapters } from './adapters';
 import { claimReviewLayer, extensionOwnsReviewLayer } from './coexistence';
 import { followPageLayers } from './modalLayer';
@@ -56,8 +57,8 @@ export function mountToolbar(mode: ToolbarMode, review: ReviewSession | null, on
 
     adoptToolbarStyles(shadowRoot);
 
-    // Create inner container (in shadow DOM); styles/toolbar-theme.css resets the text styles it
-    // would otherwise inherit from the reviewed page
+    // Create inner container (in shadow DOM); styles/toolbar-theme.css resets what it would
+    // otherwise inherit from the reviewed page (docs/host-styles.md)
     const shadowDomContainer = document.createElement('div');
     shadowDomContainer.setAttribute('data-uier-root', '');
     shadowRoot.appendChild(shadowDomContainer);
@@ -73,6 +74,9 @@ export function mountToolbar(mode: ToolbarMode, review: ReviewSession | null, on
     if (!runtimeAdapters()) ensureBrandFont();
     document.body.appendChild(container);
     toolbarMounts[toolbarMountKey] = container;
+    prepareToolbarRoot(shadowDomContainer);
+    // The page's own CSS zoom does not scale the toolbar (src/pageZoom.ts)
+    const stopFollowingZoom = followPageZoom(container);
     // The toolbar's menus' focus guards, for the Keyboard check (src/focusGuards.ts)
     const stopMarkingGuards = markToolbarFocusGuards(shadowRoot);
     // Into the page's open modal dialog, popover, menu or dialog while there is one (src/modalLayer.ts)
@@ -84,6 +88,7 @@ export function mountToolbar(mode: ToolbarMode, review: ReviewSession | null, on
     const unmount = () => {
         darkScheme.removeEventListener('change', applyScheme);
         stopFollowingModals();
+        stopFollowingZoom();
         stopMarkingGuards();
         release?.();
         // After the click that asked for it has been handled

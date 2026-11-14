@@ -33,6 +33,7 @@ Read the note for the area you change, and update it in the same pull request. A
 
 - [Account switching](account-switching.md): foreground sign-in follows the app account while retaining blocked-cookie fallback.
 - [Toolbar languages](localization.md): the six languages, which one shows, the catalogs and language assets, and how to write strings.
+- [The reviewed page's styles](host-styles.md): how the toolbar looks the same on every site: inherited styles, rules on its host, `rem`, custom properties and the page's zoom kept out.
 - [The pill, Options and notices](pill-and-options.md): the pill's buttons, collapsing, the profile and options popovers, moving the pill and docking panels, notices and error messages by the pill.
 - [Point mode, areas and selected text](point-mode.md): picking an element or dragging an area on the page, area outlines, and the toolbar for selected text.
 - [Pins and threads](comment-thread.md): the pin, the thread's layout and header, Copy, Thread options, a message's options, and icon buttons' tooltips.

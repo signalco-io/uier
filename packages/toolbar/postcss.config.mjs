@@ -1,4 +1,5 @@
 import tailwindcss from '@tailwindcss/postcss';
+import { shadowRootIsolation } from './shadowRootIsolation.mjs';
 
 /**
  * Tailwind CSS v4 registers its internal variables (--tw-translate-x, --tw-shadow, ...) with
@@ -30,5 +31,7 @@ export default {
         // Lightning CSS also merges equivalent rules before tsup inlines the stylesheet.
         tailwindcss({ optimize: { minify: true } }),
         shadowDomPropertiesFallback(),
+        // `rem`, the theme on the host and custom properties the page could set (docs/host-styles.md)
+        shadowRootIsolation(),
     ],
 };
