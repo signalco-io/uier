@@ -367,6 +367,50 @@ test('client names and updates stay in the current workspace and out of guest DT
     await other.context.close();
 });
 
+test('the header\'s client shows more in a popover on hover, focus or a tap, and a click opens its projects', async ({ page, isMobile }) => {
+    await signIn(page, uniqueEmail('client-popover'));
+    await createProject(page, { urls: ['north.example.com'], name: 'North site', clientName: 'Northwind' });
+    const projectId = await createProject(page, { urls: ['north-shop.example.com'], name: 'North shop', clientName: 'Northwind' });
+    await page.goto(`/app/projects/${projectId}`);
+    const client = page.getByRole('link', { name: 'Client: Northwind', exact: true });
+    const popover = page.getByRole('dialog', { name: 'Northwind', exact: true });
+    await hydrated(client);
+    if (isMobile) {
+        // A tap opens the popover instead of following the link; the popover leads there
+        await client.tap();
+        await expect(popover).toBeVisible();
+        await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}$`));
+    } else {
+        await client.hover();
+    }
+    // The client's projects load when it opens
+    await expect(popover).toContainText('Northwind');
+    await expect(popover).toContainText('2 active');
+    await expect(popover.getByRole('link', { name: 'All clients', exact: true })).toHaveAttribute('href', '/app/workspace/clients');
+    // Scanned once it has faded in, in its final colours
+    await animationsFinished(popover);
+    await expectNoAxeViolations(page);
+    if (!isMobile) {
+        // The keyboard opens it on focus and Tab moves into it
+        await page.keyboard.press('Escape');
+        await page.mouse.move(0, 0);
+        await expect(popover).toBeHidden();
+        await client.focus();
+        await expect(popover).toBeVisible();
+        await expect(client).toBeFocused();
+        await page.keyboard.press('Tab');
+        await expect(popover.getByRole('link', { name: 'Show projects', exact: true })).toBeFocused();
+        await page.keyboard.press('Escape');
+        await expect(popover).toBeHidden();
+        // A click goes straight to the client's projects
+        await client.click();
+    } else {
+        await popover.getByRole('link', { name: 'Show projects', exact: true }).tap();
+    }
+    await page.waitForURL(/\/app\/projects\?client=[^&]+$/);
+    await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('listitem')).toHaveCount(2);
+});
+
 test('a project card keeps its favicon and actions at the top when the client and access row wraps', async ({ page }) => {
     await signIn(page, uniqueEmail('card-top'));
     await createProject(page, { urls: ['wrap.example.com'], name: 'Wrap site', clientName: 'A client with a long name that fills the row' });

@@ -530,6 +530,8 @@ test('project settings sections save the name, comment access and addresses', as
     // Addresses with their labels, under Environments
     await sections.getByRole('link', { name: 'Environments' }).click();
     await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}/settings/environments$`));
+    // The new page scrolls to the top, where the header's access label (and its popover) comes under the pointer
+    await page.mouse.move(0, 0);
     const addresses = page.getByRole('region', { name: 'Site addresses' });
     await hydrated(addresses.locator('form'));
     await addresses.getByRole('button', { name: 'Add address' }).click();
@@ -556,6 +558,48 @@ test('project settings sections save the name, comment access and addresses', as
     await expect(page.getByRole('heading', { level: 1, name: 'Marketing site' })).toBeVisible();
     await page.goto('/app/projects');
     await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('link', { name: 'Marketing site' })).toBeVisible();
+});
+
+test('the header\'s Invited people shows who has access when it opens, and leads admins to People and teams', async ({ page, isMobile }) => {
+    await signIn(page, uniqueEmail('access-people'));
+    const projectId = await createProject(page, { urls: ['people.example.com'], name: 'People site' });
+    // Who has access loads only when the popover opens
+    const loads: string[] = [];
+    page.on('request', (request) => {
+        if (request.method() === 'POST' && request.headers()['next-action'])
+            loads.push(request.url());
+    });
+    await page.goto(`/app/projects/${projectId}`);
+    const access = page.getByRole('link', { name: 'Invited people', exact: true });
+    const popover = page.getByRole('dialog', { name: 'Invited people' });
+    await hydrated(access);
+    expect(loads).toHaveLength(0);
+    if (isMobile) {
+        // A tap opens the popover instead of following the link
+        await access.tap();
+        await expect(popover).toBeVisible();
+        await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}$`));
+    } else {
+        await access.hover();
+    }
+    const people = popover.getByRole('link', { name: '1 person', exact: true });
+    await expect(people).toHaveAttribute('href', `/app/projects/${projectId}/settings/people`);
+    expect(loads.length).toBeGreaterThan(0);
+    await expect(popover.getByRole('button', { name: 'Invite', exact: true })).toBeVisible();
+    await expect(popover.getByRole('link', { name: 'Who can comment', exact: true })).toHaveAttribute('href', `/app/projects/${projectId}/settings/review#who-can-comment`);
+    // Scanned once it has faded in, in its final colours
+    await animationsFinished(popover);
+    await expectNoAxeViolations(page);
+    if (isMobile) {
+        await people.tap();
+    } else {
+        // A click goes straight to People and teams, without the popover over it
+        await page.keyboard.press('Escape');
+        await access.click();
+    }
+    await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}/settings/people$`));
+    await expect(page.locator('[data-slot="popover-content"]')).toHaveCount(0);
+    await expect(page.getByRole('list', { name: 'People with access' }).getByRole('listitem')).toHaveCount(1);
 });
 
 test('on a phone, project settings fade the tabs hidden past an edge and keep the usage numbers in line', async ({ page }) => {

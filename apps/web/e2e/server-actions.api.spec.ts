@@ -8,7 +8,7 @@ import { assignCommentActionSchema, commentActionSchema, deleteReplyActionSchema
     filterAuthorActionSchema, notificationActionSchema, privateCommentActionSchema, readCommentActionSchema,
     readCommentsActionSchema, replyCommentActionSchema, statusCommentActionSchema } from '../src/components/app/comments/actionSchemas';
 import { removeMemberActionSchema, revokeInvitationActionSchema } from '../src/components/app/users/actionSchemas';
-import { deleteProjectActionSchema, projectEmailsActionSchema, projectStatusActionSchema } from '../src/components/app/projects/actionSchemas';
+import { deleteProjectActionSchema, projectEmailsActionSchema, projectHeaderActionSchema, projectStatusActionSchema } from '../src/components/app/projects/actionSchemas';
 import { switchWorkspaceActionSchema } from '../src/components/app/shell/actionSchemas';
 import { revokeCredentialActionSchema } from '../src/lib/mcp/actionSchemas';
 import { getAppStore } from '../src/lib/app/store';
@@ -36,6 +36,7 @@ test('positional action schemas validate every argument before it is used', () =
         [projectStatusActionSchema, { projectId: thread.projectId, status: 'done' }],
         [deleteProjectActionSchema, { projectId: thread.projectId, confirmation: 'Project name' }],
         [projectEmailsActionSchema, { projectId: thread.projectId, muted: true }],
+        [projectHeaderActionSchema, { projectId: thread.projectId }],
         [switchWorkspaceActionSchema, { workspaceId: 'w_u_alex_2' }],
         [revokeCredentialActionSchema, { id: 'a'.repeat(64) }]
     ];
