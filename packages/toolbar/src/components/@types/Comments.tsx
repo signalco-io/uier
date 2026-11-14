@@ -255,7 +255,7 @@ export type CommentDraft = {
     /** The reviewer chose to send only the text (kept in memory, like the capture) */
     omitScreenshot?: boolean;
     /** The reviewer's own image, sent instead of the screenshot (kept in memory, never in draft storage) */
-    image?: { name: string; dataUrl: string };
+    image?: import('../../useAttachedImage').AttachedImage;
     recording?: import('../../recordings').RecordingClip;
     /** Why it was not posted: the draft is back on the page with its text (see CommentComposer) */
     sendError?: unknown;

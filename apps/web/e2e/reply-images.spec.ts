@@ -41,8 +41,10 @@ test('reply images can be picked, removed, retried and expanded in toolbar and a
     await form.getByRole('textbox', { name: 'Reply', exact: true }).fill('Toolbar reply image');
     const endpoint = `**/api/review/${projectId}/comments/${comment.id}/replies`;
     let fail = true;
+    let releaseReply!: () => void;
+    const replyHeld = new Promise<void>(resolve => { releaseReply = resolve; });
     await page.route(endpoint, async route => {
-        if (fail) { fail = false; await route.abort('failed'); } else await route.continue();
+        if (fail) { fail = false; await route.abort('failed'); } else { await replyHeld; await route.continue(); }
     });
     await form.getByRole('button', { name: 'Post reply', exact: true }).click();
     await expect(form.getByRole('textbox', { name: 'Reply', exact: true })).toHaveText('Toolbar reply image', { useInnerText: true });
@@ -50,6 +52,9 @@ test('reply images can be picked, removed, retried and expanded in toolbar and a
     // Image bytes must never be written into the local draft/attempt record.
     expect(await page.evaluate(() => JSON.stringify({ ...localStorage }))).not.toContain('data:image');
     await form.getByRole('button', { name: 'Post reply', exact: true }).click();
+    // While it sends, its image is already a placeholder of the thumbnail's size (uier #409)
+    await expect(thread.locator('[data-image-placeholder]')).toBeVisible();
+    releaseReply();
     const thumbnail = thread.getByRole('button', { name: 'Image attached to reply', exact: true });
     await expect(thumbnail).toBeVisible();
     await thumbnail.click();
@@ -90,18 +95,31 @@ test('reply images can be picked, removed, retried and expanded in toolbar and a
     expect(await appForm.locator('[data-slot="input-group"]').evaluate(box => box.scrollWidth <= box.clientWidth)).toBe(true);
     await appForm.getByRole('textbox', { name: 'Reply', exact: true }).fill('App reply image');
     let failAction = true;
+    let holdAction = false;
+    let releaseAction!: () => void;
+    const actionHeld = new Promise<void>(resolve => { releaseAction = resolve; });
     await page.route('**/app/projects/**', async route => {
-        if (failAction && route.request().method() === 'POST' && route.request().headers()['next-action']) {
+        const action = route.request().method() === 'POST' && route.request().headers()['next-action'];
+        if (failAction && action) {
             failAction = false;
             await route.abort('failed');
-        } else await route.continue();
+        } else {
+            if (holdAction && action) await actionHeld;
+            await route.continue();
+        }
     });
     await appForm.getByRole('button', { name: 'Post reply', exact: true }).click();
     await expect(appForm.getByRole('textbox', { name: 'Reply', exact: true })).toHaveText('App reply image', { useInnerText: true });
     await expect(appForm.getByRole('button', { name: 'Remove attached image pasted-reply-evidence-on-the-reviewed-page.png' })).toBeVisible();
-    await page.unroute('**/app/projects/**');
+    holdAction = true;
     await appForm.getByRole('button', { name: 'Post reply', exact: true }).click();
+    // The sending reply shows its image's placeholder at the final size at once (uier #409)
+    const sendingImage = card.locator('[data-image-placeholder]');
+    await expect(sendingImage).toBeVisible();
+    expect((await sendingImage.boundingBox())!.height).toBeGreaterThan(60);
+    releaseAction();
     await expect(card.getByRole('status').filter({ hasText: /^Reply posted$/ })).toBeAttached();
+    await page.unroute('**/app/projects/**');
     await expect(card.getByRole('button', { name: 'Image attached to reply', exact: true })).toHaveCount(2);
     expect(await page.evaluate(() => JSON.stringify({ ...localStorage }))).not.toContain('data:image');
     await expectNoAxeViolations(page);

@@ -1,10 +1,10 @@
 'use client';
 
 import { useRef, useState, type ClipboardEvent } from 'react';
-import { SuppliedImageError, suppliedScreenshot, type SuppliedImageProblem } from './suppliedScreenshot';
+import { SuppliedImageError, suppliedScreenshotWithSize, type SuppliedImageProblem } from './suppliedScreenshot';
 
 /** Memory only; the opaque key can identify an attempt without persisting image bytes. */
-export type AttachedImage = { name: string; dataUrl: string; key?: string };
+export type AttachedImage = { name: string; dataUrl: string; size: { width: number; height: number }; key?: string };
 
 /**
  * The reviewer's own image for a comment, reply or feedback: chosen with the file picker or pasted
@@ -28,7 +28,8 @@ export function useAttachedImage(initial?: AttachedImage, { pastedName = 'Pasted
         setError('');
         setProblem(undefined);
         try {
-            setImage({ name, dataUrl: await suppliedScreenshot(file), key: Array.from(crypto.getRandomValues(new Uint8Array(16)), value => value.toString(16).padStart(2, '0')).join('') });
+            const { dataUrl, width, height } = await suppliedScreenshotWithSize(file);
+            setImage({ name, dataUrl, size: { width, height }, key: Array.from(crypto.getRandomValues(new Uint8Array(16)), value => value.toString(16).padStart(2, '0')).join('') });
         } catch (cause) {
             setError(cause instanceof Error ? cause.message : 'The image could not be read. Choose it again.');
             setProblem(cause instanceof SuppliedImageError ? cause.problem : 'read');

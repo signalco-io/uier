@@ -122,12 +122,19 @@ function withPending(comments: CommentItem[], include: (comment: CommentItem) =>
     return [...waiting, ...comments.map(applyPending)];
 }
 
+/**
+ * The screenshot of a message that is still sending: its thumbnail (a fixed size) shows the loading placeholder at once,
+ * and the image is fetched once the saved message replaces it (uier #409)
+ */
+const sendingScreenshot = { width: 0, height: 0 };
+
 /** The temporary comment, shown until the API returns the saved one */
 function optimisticComment(path: string, input: CreateCommentInput, authorName: string, verificationEnabled: boolean): CommentItem {
     const createdAt = new Date().toISOString();
     const id = input.localId ?? newLocalId();
     return {
         id, path, position: input.position, kind: input.kind ?? 'comment', feedbackType: input.feedbackType, check: input.check, drawing: input.drawing, pending: true,
+        ...(input.screenshot ? { screenshot: sendingScreenshot } : {}),
         thread: { items: [{ id: `${id}-0`, text: input.text, mentions: input.mentions, quotedText: input.quotedText, author: { name: authorName, isMe: true }, createdAt, canDelete: false, canEdit: false, pending: true }] },
         device: input.device && { size: input.device.size, windowSize: input.device.windowSize },
         resolved: false, isMine: true, createdAt, verificationEnabled,
@@ -532,7 +539,7 @@ export function useComments(refreshOnMount = false): {
         })),
         onMutate: (input: ReplyInput) => {
             const item: CommentItemThreadItem = {
-                id: newLocalId(), text: input.text, mentions: input.mentions, author: { name: authorName(), isMe: true },
+                id: newLocalId(), text: input.text, mentions: input.mentions, ...(input.screenshot ? { screenshot: sendingScreenshot } : {}), author: { name: authorName(), isMe: true },
                 createdAt: new Date().toISOString(), canDelete: false, canEdit: false, pending: true
             };
             pendingReplies.set(input.commentId, [...(pendingReplies.get(input.commentId) ?? []), item]);

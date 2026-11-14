@@ -13,6 +13,11 @@ export class SuppliedImageError extends Error {
 
 /** Files and clipboard images use the same formats and limits as stored automatic captures. */
 export async function suppliedScreenshot(file: Blob): Promise<string> {
+    return (await suppliedScreenshotWithSize(file)).dataUrl;
+}
+
+/** `suppliedScreenshot` with the image's size, so a message that is still sending can keep its place (uier #409) */
+export async function suppliedScreenshotWithSize(file: Blob): Promise<{ dataUrl: string; width: number; height: number }> {
     if (!screenshotContentTypes.some(type => type === file.type))
         throw new SuppliedImageError('type', 'Choose a PNG, JPEG or WebP image.');
     if (file.size > MAX_SCREENSHOT_BYTES) throw new SuppliedImageError('size', 'Choose an image of at most 512 KB.');
@@ -28,5 +33,5 @@ export async function suppliedScreenshot(file: Blob): Promise<string> {
     image.close();
     if (!width || !height || width > MAX_SCREENSHOT_DIMENSION || height > MAX_SCREENSHOT_DIMENSION)
         throw new SuppliedImageError('dimensions', 'Choose an image of at most 4096 pixels on each side.');
-    return dataUrl;
+    return { dataUrl, width, height };
 }

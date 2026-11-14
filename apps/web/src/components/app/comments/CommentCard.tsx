@@ -552,7 +552,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                             text={edit.text} mentions={edit.mentions} error={edit.error}
                             onCancel={() => closeReplyEdit(item.id)} onSave={(text, mentions) => saveReply(item, edit.expectedText, text, mentions)} />
                         : <MessageText text={item.text} mentions={item.mentions} edited={item.edited} />}
-                {!item.deleted && item.screenshot && <MessageImage image={item.screenshot} reply />}
+                {!item.deleted && item.screenshot && <MessageImage image={item.screenshot} reply sending={item.pending} />}
                 {!item.deleted && !item.pending && item.recording && <MessageRecording recording={item.recording} projectId={projectId} commentId={comment.id} itemId={item.id} />}
                 {target && !edit && <ReactionList target={target} canReact={Boolean(permissions.react)} />}
             </Message>
