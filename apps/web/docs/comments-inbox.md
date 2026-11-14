@@ -265,7 +265,9 @@ Each board column reserves a 12 px progress slot left of its actions, the size o
 collapsed archive columns. Whole-window reads mark every column busy; continuations mark only their
 lane. One persistent polite status announces Loading comments for scope changes and explicit retries,
 outside the busy tree; same-scope background refreshes stay silent. The UI-kit
-spinner uses muted semantic tokens and stops rotating with reduced motion. Header geometry, mounted
+spinner uses muted semantic tokens and stops rotating with reduced motion. `Spinner` defaults to 16 px through `w-4 h-4`
+(not `size-4`), so inside a button it takes the size of the icon it replaces: Archive all's pending spinner in the
+`icon-xs` header button is 12 px like the column's progress, at full strength while it saves (uier #441). Header geometry, mounted
 nodes, focus, failure/retry and data-only idle checks are guarded in `realtime.spec.ts`.
 
 The fingerprint includes the effective label catalog once at snapshot level and omits each
