@@ -25,7 +25,8 @@ the separately bundled review toolbar owns its own query cache.
   the site's favicon, uier #279) and the one invite dialog (`InviteProvider`; `InviteButton` and
   `useInvite()` open it). On a project's pages the top bar ends with its Open review, right-aligned
   (`AppTopBarActions`, from the path like the breadcrumbs and the shell's project list, so it is there while the
-  project loads; [uier #406](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_0_DzSiHEeSpfq8FjuVjhV)).
+  project loads; [uier #406](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_0_DzSiHEeSpfq8FjuVjhV)), an outline button, not primary, so it does not draw the eye
+  ([uier #412](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_Uh084VT42ezfHtm-btgYT)).
   On a phone the breadcrumbs show only the current page and are cut short before it. The sidebar is docked from `lg` (1024 px: landscape tablets and wider), where the panel keeps
   its frame and scrolls inside it; narrower (phones, tablets in portrait) it is a sheet behind the top bar's toggle
   (`useIsMobile`, `hooks/use-mobile.ts`, in step with the `lg:` classes of `ui/sidebar.tsx` and the shell layout) and the
