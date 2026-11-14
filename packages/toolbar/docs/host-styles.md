@@ -39,8 +39,9 @@ the toolbar, and what keeps each one out.
   by the page; its root still resets what it inherits. `:where` keeps the reset below `:host([popover])`, the host
   in a page layer ([page layers](../AGENTS.md#how-it-is-built)).
 - The page's zoom is undone only for the toolbar's host: an inline thread is part of the page's layout and zooms with it.
-  The zoom sheet is adopted only once a page zooms, and updates on resize, on `class` and `style` changes of
-  `<html>` and `<body>`, and when the host moves into or out of a page layer (`matchPageZoom` in `src/modalLayer.ts`).
+  The zoom sheet is adopted only once a page zooms, and updates on resize, on `class` and `style` changes of any of the
+  host's ancestors (`<html>`, `<body>`, a dialog it is in and that dialog's parents; the chain is watched again
+  whenever the host has moved), and when the host moves into or out of a page layer (`matchPageZoom` in `src/modalLayer.ts`).
 - Reduced motion, colour scheme and forced colours are media features of the person's settings, not of the page:
   `all: initial` gives `forced-color-adjust: auto` back even when the page turned it off for itself.
 
@@ -49,4 +50,5 @@ the toolbar, and what keeps each one out.
 `apps/web/e2e/host-styles.spec.ts` opens a project's page plain and with styles that reach the toolbar every way
 above (`fixture-host-styles`, `e2e/support/fixtures/hostStyles.ts`), and expects the pill and the Profile popover
 to have the same boxes, text styles and selection colours, and point mode to outline the page's heading where it
-is, inside the page's zoom. `e2e/embed.spec.ts` checks the other direction: the toolbar leaves the page's styles alone.
+is, inside the page's zoom. In a second test the toolbar follows the page's modal dialog, which the page then zooms
+with a class and with a style: the pill keeps its boxes and point mode outlines the dialog's heading. `e2e/embed.spec.ts` checks the other direction: the toolbar leaves the page's styles alone.

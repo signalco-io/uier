@@ -13,7 +13,19 @@ export function followPageZoom(host: HTMLElement) {
     // Adopted only once a page zooms
     let sheet: CSSStyleSheet | undefined;
     let applied = 1;
+    // A class or style on any of the host's ancestors can change it (<html>, <body>, a dialog the host is in
+    // and its parents), so the chain it is in now is watched, again whenever the host has moved
+    let watched: Node | null | undefined;
+    const observer = new MutationObserver(() => update());
+    const watchAncestors = () => {
+        watched = host.parentNode;
+        observer.disconnect();
+        for (let node: Node | null = host.parentNode; node; node = node instanceof ShadowRoot ? node.host : node.parentNode) {
+            if (node instanceof Element) observer.observe(node, { attributes: true, attributeFilter: ['class', 'style'] });
+        }
+    };
     const update = () => {
+        if (host.parentNode !== watched) watchAncestors();
         const zoom = host.parentElement?.currentCSSZoom ?? 1;
         if (!(zoom > 0) || zoom === applied) return;
         applied = zoom;
@@ -26,12 +38,8 @@ export function followPageZoom(host: HTMLElement) {
     };
     update();
     updates.set(host, update);
-    // A media query or a class or style on <html> or <body> can change it
+    // A media query can change it too
     window.addEventListener('resize', update);
-    const observer = new MutationObserver(update);
-    for (const element of [document.documentElement, document.body]) {
-        observer.observe(element, { attributes: true, attributeFilter: ['class', 'style'] });
-    }
     return () => {
         window.removeEventListener('resize', update);
         observer.disconnect();

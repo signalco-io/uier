@@ -6,7 +6,7 @@ import { animationsFinished, toolbar } from './support/toolbar';
 // The toolbar looks the same on every site (packages/toolbar/docs/host-styles.md): on a project's page whose styles
 // reach its shadow root every way they can (`fixture-host-styles`, e2e/support/fixtures/hostStyles.ts) the pill and a
 // popover have the same boxes and styles as on the same page without them, and point mode outlines the element
-// under the pointer where it is, despite the page's CSS zoom.
+// under the pointer where it is, despite the page's CSS zoom, also in a modal dialog whose zoom changes.
 
 let site: Awaited<ReturnType<typeof startReviewedSite>>;
 test.beforeAll(async ({ baseURL }) => { site = await startReviewedSite(new URL(baseURL!).origin); });
@@ -67,12 +67,36 @@ test('the toolbar looks the same on a page whose styles reach into it', async ({
     // Point mode outlines the heading where the page draws it, inside its CSS zoom
     if (testInfo.project.use.hasTouch) return;
     await page.getByRole('button', { name: 'Add comment', exact: true }).click();
-    const heading = page.getByRole('heading', { name: 'Pricing' });
-    const box = (await heading.boundingBox())!;
+    await expectOutlined(page, page.getByRole('heading', { name: 'Pricing' }));
+});
+
+/** Point mode outlines the element under the pointer where the page draws it */
+async function expectOutlined(page: Page, target: Locator) {
+    const box = (await target.boundingBox())!;
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await expect.poll(async () => {
         const outlined = await page.locator('[data-uier-outline]').boundingBox();
         return outlined && [outlined.x - box.x, outlined.y - box.y, outlined.width - box.width, outlined.height - box.height]
             .every(difference => Math.abs(difference) <= 1) ? 'outlined' : `off: ${JSON.stringify({ outlined, box })}`;
     }).toBe('outlined');
+}
+
+test('in a modal dialog whose zoom the page changes, the toolbar keeps its size and the page\'s coordinates', async ({ page }, testInfo) => {
+    await signIn(page, uniqueEmail('host-styles-dialog'));
+    const project = await createProject(page, { urls: [fixtureOrigin()] });
+    const pill = await reviewPill(page, project, true);
+    // The toolbar follows the page's open modal (src/modalLayer.ts), inside the page's zoom on <html>
+    await page.locator('#plan-dialog').evaluate((dialog: HTMLDialogElement) => dialog.showModal());
+    await expect(page.locator('#plan-dialog > #uier-toolbar')).toHaveCount(1);
+    await expect.poll(() => looks(toolbar(page))).toEqual(pill);
+    // The page zooms the dialog with a class, then with its style
+    const dialog = page.getByRole('dialog', { name: 'Plan details' });
+    await dialog.evaluate(element => element.classList.add('zoomed'));
+    await expect.poll(() => looks(toolbar(page))).toEqual(pill);
+    await dialog.evaluate((element: HTMLElement) => { element.style.zoom = '2'; });
+    await expect.poll(() => looks(toolbar(page))).toEqual(pill);
+
+    if (testInfo.project.use.hasTouch) return;
+    await toolbar(page).getByRole('button', { name: 'Add comment', exact: true }).click();
+    await expectOutlined(page, dialog.getByRole('heading', { name: 'Plan details' }));
 });

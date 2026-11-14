@@ -4,7 +4,8 @@ import type { PageFixture } from './types';
 // e2e/host-styles.spec.ts): a root font size for `rem`, text styles the toolbar's host inherits from <body>, rules
 // on the host element itself (`body > div`, `*`, its id with `!important`), custom properties, CSS zoom, right to
 // left, another language and `::selection`. `?hostile` adds them; without it the page is the same, plain. The page's
-// own content resets them, so it stays narrow and the window does not scroll.
+// own content resets them, so it stays narrow and the window does not scroll. A modal dialog (opened by the test)
+// zooms when the page gives it the `zoomed` class or a style.
 
 const hostileCss = `
 html { font-size: 62.5%; zoom: 1.25; color-scheme: dark; }
@@ -26,8 +27,9 @@ body {
     forced-color-adjust: none;
     --radius: 0;
 }
-main { all: initial; display: block; margin: 8px; font: 16px/1.5 serif; }
-main h1 { display: block; margin: 0 0 8px; font-size: 24px; }
+main, dialog > section { all: initial; display: block; margin: 8px; font: 16px/1.5 serif; }
+main h1, dialog h2 { display: block; margin: 0 0 8px; font-size: 24px; }
+#plan-dialog.zoomed { zoom: 1.5; }
 *, *::before, *::after {
     box-sizing: content-box;
     --spacing: 1px;
@@ -58,6 +60,9 @@ const fixture: PageFixture = {
         <h1>Pricing</h1>
         <p>A page on a site under review.</p>
     </main>
+    <dialog id="plan-dialog" aria-labelledby="plan-dialog-title">
+        <section><h2 id="plan-dialog-title">Plan details</h2><p>Every plan includes the toolbar.</p></section>
+    </dialog>
     ${embed}
 </body>
 </html>`;
