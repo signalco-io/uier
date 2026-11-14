@@ -239,11 +239,11 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
                 }} render={(comment, _index, position) => {
                     const leaves = isLeaving(comment);
                     return (
-                        // Scroll margin: clear of the sticky top bar (below lg, where the page scrolls) when the keys bring a row into view
+                        // Scroll margin: clear of the sticky top bar (below lg, where the page scrolls) and a project's sticky tabs when the keys bring a row into view
                         <li key={comment.id} {...position} inert={leaves} data-comment-id={comment.id}
                             // While it moves (`LayoutMotion`), a row covers the rows it passes, and the copy of one that
                             // leaves fades out beneath the rows that take its place
-                            className={cn('grid min-w-0 scroll-mt-14 scroll-mb-1 grid-cols-1 grid-rows-[1fr] transition-[grid-template-rows,opacity,translate] duration-150 ease-out motion-reduce:transition-none data-motion:rounded-lg data-motion:bg-card data-[motion=exit]:-z-1 lg:scroll-mt-1',
+                            className={cn('grid min-w-0 scroll-mt-[calc(3.5rem+var(--project-tabs,0px))] scroll-mb-1 grid-cols-1 grid-rows-[1fr] transition-[grid-template-rows,opacity,translate] duration-150 ease-out motion-reduce:transition-none data-motion:rounded-lg data-motion:bg-card data-[motion=exit]:-z-1 lg:scroll-mt-[calc(0.25rem+var(--project-tabs,0px))]',
                                 leaves && 'grid-rows-[0fr] -translate-y-2 opacity-0')}>
                             <div className={cn('min-h-0', leaves && 'overflow-hidden')}>
                                 {groupLabels && (_index === 0 || groupOf(comments[_index - 1]!)?.id !== groupOf(comment)?.id) && <h2 data-label-section={groupOf(comment)?.id ?? 'unlabeled'} className="px-3 py-2 text-sm font-medium">{groupOf(comment)?.name ?? t('Ungrouped')}</h2>}
@@ -259,8 +259,9 @@ export function CommentInbox({ projectId, comments, allComments, assignees, user
                 <div ref={detailRef}
                     // Where the page scrolls (below lg) it opens and stays in view under the sticky top bar (3rem); from lg at the
                     // top of the panel (its 3rem bar and 1rem frame are outside the scroller). Stuck, it keeps the page gutter from
-                    // the top and the bottom, the gap it has from the panel's side (uier #312)
-                    className={cn('min-w-0 scroll-mt-16 lg:scroll-mt-4 @3xl/comments:sticky @3xl/comments:top-[calc(3rem+var(--page-gutter))] @3xl/comments:max-h-[calc(100svh-3rem-2*var(--page-gutter)-var(--selection-bar,0px))] @3xl/comments:overflow-y-auto @3xl/comments:rounded-xl lg:@3xl/comments:top-(--page-gutter) lg:@3xl/comments:max-h-[calc(100svh-4rem-2*var(--page-gutter)-var(--selection-bar,0px))]',
+                    // the top and the bottom, the gap it has from the panel's side (uier #312). On a project it sits below the
+                    // project's sticky tabs (`--project-tabs`, uier #413)
+                    className={cn('min-w-0 scroll-mt-[calc(4rem+var(--project-tabs,0px))] lg:scroll-mt-[calc(1rem+var(--project-tabs,0px))] @3xl/comments:sticky @3xl/comments:top-[calc(3rem+var(--project-tabs,0px)+var(--page-gutter))] @3xl/comments:max-h-[calc(100svh-3rem-var(--project-tabs,0px)-2*var(--page-gutter)-var(--selection-bar,0px))] @3xl/comments:overflow-y-auto @3xl/comments:rounded-xl lg:@3xl/comments:top-[calc(var(--project-tabs,0px)+var(--page-gutter))] lg:@3xl/comments:max-h-[calc(100svh-4rem-var(--project-tabs,0px)-2*var(--page-gutter)-var(--selection-bar,0px))]',
                         !opened && '@max-3xl/comments:hidden')}>
                     <PagedCommentCard snapshotRevision={detailRevision} key={selected.id}
                         projectId={projectId}

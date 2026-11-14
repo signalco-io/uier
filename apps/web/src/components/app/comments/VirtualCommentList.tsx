@@ -121,12 +121,14 @@ export function VirtualCommentList<T extends { id: string }>({ items, label, ren
             if (index < 0 || !root.current) return;
             setRevealed(id);
             const top = offsets[index]!;
-            if (windowScroll) window.scrollTo({ top: window.scrollY + root.current.getBoundingClientRect().top + top - 56 });
+            // Clear of a project's sticky tabs too (uier #413)
+            const tabs = document.querySelector('[data-sticky-tabs]')?.getBoundingClientRect().height ?? 0;
+            if (windowScroll) window.scrollTo({ top: window.scrollY + root.current.getBoundingClientRect().top + top - 56 - tabs });
             else if (pageScroll) {
                 // Brought on screen in the page's scroller (the window below lg, clear of its sticky top bar)
                 const scroller = pageScroller(root.current), box = scroller?.getBoundingClientRect() ?? { top: 56, bottom: window.innerHeight };
                 const start = root.current.getBoundingClientRect().top + top, end = start + (sizes.current.get(id) ?? 100);
-                if (start < box.top || end > box.bottom) (scroller ?? window).scrollBy({ top: start - box.top - 16 });
+                if (start < box.top + tabs || end > box.bottom) (scroller ?? window).scrollBy({ top: start - box.top - tabs - 16 });
             } else if (top < root.current.scrollTop || top + (sizes.current.get(id) ?? 100) > root.current.scrollTop + root.current.clientHeight) root.current.scrollTop = top;
         };
         document.addEventListener(revealEvent, reveal);

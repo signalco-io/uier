@@ -13,9 +13,9 @@
   A project's comments pass neither `projects` nor `onView`.
 - The comments' filter bar (`CommentFilters.tsx`): in the list the status tabs first, left-aligned at the list's left edge
   ([uier #405](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_fQEilWWPBW-H35qpwStTM); below), then at the right end of that row the filters in
-  effect, the search, Filter, Group by, and List/Board, the search directly left of Filter in the list and the board
+  effect, Filter, Group by, the search and List/Board, the search directly left of List/Board in the list and the board
   ([uier #403](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_TyebDCmyAli8-wC0qBZDY); `filterControls`, `searchInput` and `statusTabsBox` in `CommentsViewToggle.tsx`, shared with the loading
-  header). Filter and Group by are icon-only ghost buttons, no outline and no words
+  header; [uier #411](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_uA2peoXUrJYMWoMxg5LPO) moved it there from left of Filter, uier #403). Filter and Group by are icon-only ghost buttons, no outline and no words
   ([uier #404](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_32FuLmqvjAFqPTxak92oh), `filterIconButton`): each has a tooltip and is named by it ("Filter", "Group by"), and
   Filter's corner badge counts the filters in effect, its name then "Filter 2". Filter is one button (a popover with Status on the board only (below), Priority, Environment
   and page, People (Everyone, Assigned to me, Unassigned, Opened by me) and Only unread (plus the open thread)). On a touch screen the search, Filter, Group by and the List/Board group are one height, 44 px:
@@ -23,7 +23,7 @@
   search giving up its room first, down to 6rem (its placeholder then ends in an ellipsis), then the tabs, which scroll
   sideways. This replaces uier #355, #384 and #398, where the search (with the tabs after it) took the first column's
   width; nothing measures the column any more. The filters in effect and the count
-  line sit right-aligned against the search. The status tabs
+  line sit right-aligned against Filter. The status tabs
   (list only, `StatusTabs`: Active, Done and All, with counts) start the row; on a phone, below `sm`, the search shares
   the row with Filter, Group by and List/Board, taking the room they leave, and the tabs take their own line under the
   row (before the filters in effect),
@@ -44,7 +44,7 @@
   and no search, Unread or Assigned to me, where the tabs' counts come from the activity summary, so do the dots (its
   `unreadOpen`, `unreadInProgress`, `unreadReady`, `unreadDone` and `unreadArchived`, every thread whether loaded or
   not); otherwise, like the counts, from the listed comments of the chosen pages. The menu button is a plain button inside the toggle group: Tab reaches it,
-  the arrow keys move between the tabs only. Each filter in effect shows in the search row, right-aligned just left of the search (uier #209, #403; in the list and the board,
+  the arrow keys move between the tabs only. Each filter in effect shows in the search row, right-aligned just left of Filter (uier #209, #403, #411; in the list and the board,
   wrapping only when there is no room; on a phone they go to their own line under the row), named by its filter in muted text ("Priority: Urgent",
   "Environment: Production", "Page: /app/…", "People: Unassigned", "Author: Ana", and "Only unread"), with its own
   clear button, named by its visible text first so the name contains the label (WCAG 2.5.3): "Page: /app/…, clear filter",
@@ -65,7 +65,7 @@
   (`@4xl/comments`, `countLineInHeader` in `CommentFilters.tsx`; uier #300; 42rem before the status tabs joined the row. The
   query measures the reading column, at most 60rem, while the header itself is then as wide as the list with its thread) the count line is in the search row instead, right-aligned
   just left of the filters in effect, after the status tabs (`CommentFilters`' `countLine`), and `TriageSelection`'s own line is hidden there: an
-  unread count appearing or going to zero changes only that spot (the filters in effect are right-aligned against the search, so they
+  unread count appearing or going to zero changes only that spot (the filters in effect are right-aligned against Filter, so they
   stay too), and with no unread count it is `sr-only`. That width fits the search, the status tabs (with a folded status
   named, "Active: In progress 4"), the count, Filter and List/Board on one line. Narrower (a phone, a tablet), the count line
   keeps its own row under the search row. There a populated project inbox keeps the count line's

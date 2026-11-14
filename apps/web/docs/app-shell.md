@@ -25,7 +25,8 @@ the separately bundled review toolbar owns its own query cache.
   the site's favicon, uier #279) and the one invite dialog (`InviteProvider`; `InviteButton` and
   `useInvite()` open it). On a project's pages the top bar ends with its Open review, right-aligned
   (`AppTopBarActions`, from the path like the breadcrumbs and the shell's project list, so it is there while the
-  project loads; [uier #406](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_0_DzSiHEeSpfq8FjuVjhV)).
+  project loads; [uier #406](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_0_DzSiHEeSpfq8FjuVjhV)), an outline button, not primary, so it does not draw the eye
+  ([uier #412](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_Uh084VT42ezfHtm-btgYT)).
   On a phone the breadcrumbs show only the current page and are cut short before it. The sidebar is docked from `lg` (1024 px: landscape tablets and wider), where the panel keeps
   its frame and scrolls inside it; narrower (phones, tablets in portrait) it is a sheet behind the top bar's toggle
   (`useIsMobile`, `hooks/use-mobile.ts`, in step with the `lg:` classes of `ui/sidebar.tsx` and the shell layout) and the
@@ -57,7 +58,13 @@ the separately bundled review toolbar owns its own query cache.
   gone; the tabs' line runs to the inset panel's edges, a divider between the header and the page (uier #237): a 1px
   line whose shadow `clip-path` keeps to its row, so it adds no sideways scrolling); the Comments label lines up with the
   page content and the tabs show no loading spinner (uier #272); its pages render the comments,
-  page checks, install guide or settings under it.
+  page checks, install guide or settings under it. The tabs' row sticks under the top bar while the page scrolls
+  ([uier #413](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_XruyWNqCAFUbbSnq7G-ux)):
+  it is the header's sibling (so its sticky range is the whole project page), `top-12` below lg (under the sticky bar)
+  and `top-0` in the panel's scroller from lg, with a background that runs to the panel's edges like the line. The
+  project layout sets `--project-tabs` (its 2.5rem height); what sticks below it clears it: the thread beside the
+  comments list (`CommentInbox`, its top, height and scroll margins), the rows' scroll margins, `VirtualCommentList`'s
+  reveal (`data-sticky-tabs`) and the settings' section links (`SettingsLayout`).
 - **Project loading** ([uier #344](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_iO2SPR02hm0K7M1qE9GlP)): the Comments and Page checks tabs load in skeletons shaped like the page and
   as wide as it will be, so neither the project header nor the content changes width when the page arrives. Each
   skeleton carries the loaded page's `data-page-width="wide"` and `data-header-wide`, which widen the shell's column
@@ -87,6 +94,8 @@ the separately bundled review toolbar owns its own query cache.
   saves the cookie in a server action, whose render reads them. `lib/app/projectOrder.ts` (pure, shared by server
   render and browser) sorts with a fixed `en` collator and code-unit comparisons for ids and timestamps, so both
   agree, and groups by client (clients ordered like their projects, No client last) or by status (Active, then Done).
+  A client group's heading shows its `ClientMark` with the client's logo, like the project header's Client line, the
+  icon or letter only when it has none (`loadSidebarProjects` passes `logoUrl`; [uier #419](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1%2Fpage-checks&comment=comment_1kFMZGwfbw3G6rwJvziEa)).
   The choice is the HttpOnly `__Host-uier_project_order` cookie (`projectOrderCookie.ts`, `saveProjectOrderAction`):
   the sort, then `.client` or `.status` (`recent`, `alphabetical.client`, `created.status`). Values saved before
   Sort and Group (`recent`, `alphabetical`, `recent.client`, `alphabetical.client`) are the same strings and read

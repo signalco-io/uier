@@ -19,7 +19,7 @@ export const segmentedItem = 'h-[26px] min-w-[26px] shrink-0 rounded-md px-2.5 t
  */
 // A set width rather than a flex basis, so the controls' box takes it whatever the search holds (its clear button too)
 export const searchInput = 'w-64 min-w-24 shrink max-sm:w-auto max-sm:flex-1 pointer-coarse:min-h-11';
-/** The search with Filter, Group by and List/Board after it, at the right end of the row (uier #403); a phone's whole row */
+/** Filter, Group by, the search and List/Board, at the right end of the row (uier #403, #411); a phone's whole row */
 export const filterControls = 'ml-auto flex shrink-[4] items-center gap-2 max-sm:w-full';
 /**
  * The list's status tabs' box: first in the row, at the list's left edge (uier #405), scrolling sideways when their words
