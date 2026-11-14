@@ -140,7 +140,7 @@ test('A project\'s Comments and Page checks tabs load as wide as they will be, s
             const skeleton = page.locator('[data-comments-loading]').filter({ visible: true });
             await expect(skeleton).toHaveAttribute('data-comments-loading', 'board');
             await expect(skeleton.getByPlaceholder('Search feedback')).toBeVisible();
-            await expect(skeleton.locator('[inert] button').filter({ hasText: 'Filter' })).toBeVisible();
+            await expect(skeleton.locator('[inert] button[aria-label="Filter"]')).toBeVisible();
             await expect(skeleton.locator('[data-pressed]')).toHaveCount(1);
             await expect(page.getByRole('searchbox')).toHaveCount(0);
             await capture(page, info, 'board-loading');

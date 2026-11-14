@@ -12,22 +12,22 @@ export const segmentedGroup = 'gap-0.5 rounded-lg bg-muted p-[3px]';
 export const segmentedItem = 'h-[26px] min-w-[26px] shrink-0 rounded-md px-2.5 text-muted-foreground hover:bg-transparent hover:text-foreground data-pressed:bg-background data-pressed:text-foreground data-pressed:shadow-sm pointer-coarse:min-h-11';
 
 /**
- * For the header over the list with its thread beside it, from the width it is split (`@3xl/comments`): the search with
- * the status tabs (uier #398) is exactly as wide as the list (`--search-width`, not just at most), so they span it from
- * its left edge to its right. Set on the header around `CommentFilters` (and the loading one, `CommentsLoading`).
+ * The search, on the right of the filter row directly left of Filter, Group by and List/Board (uier #403), in the list
+ * and the board; on a phone it shares its row with them and takes the room they leave. Where there is no room it gives
+ * up its own, down to 6rem (its placeholder then ends in an ellipsis). Shared by `CommentFilters` and the loading
+ * header (`CommentsLoading`).
  */
-export const searchBesideList = '@3xl/comments:[&_[data-search-field]]:flex-none @3xl/comments:[&_[data-search-field]]:w-(--search-width)';
-
+// A set width rather than a flex basis, so the controls' box takes it whatever the search holds (its clear button too)
+export const searchInput = 'w-64 min-w-24 shrink max-sm:w-auto max-sm:flex-1 pointer-coarse:min-h-11';
+/** The search with Filter, Group by and List/Board after it, at the right end of the row (uier #403); a phone's whole row */
+export const filterControls = 'ml-auto flex shrink-[4] items-center gap-2 max-sm:w-full';
 /**
- * The search's group (`[data-search-field]`): the search and, in the list, the status tabs after it (uier #398). It takes
- * `--search-width` where the header sets it (the list beside its thread, the board's first column; uier #355), so the
- * search and the tabs span that column from edge to edge; elsewhere it is as wide as they are. On a phone it is no box
- * of its own: the search shares the row with Filter and List/Board and the tabs take their own line under it (uier #278).
- * Shared by `CommentFilters` and the loading header (`CommentsLoading`).
+ * The list's status tabs' box: first in the row, at the list's left edge (uier #405), scrolling sideways when their words
+ * don't fit; on a phone their own line under the row, filling the width (uier #278). Shared with the loading header.
  */
-export const searchField = 'flex min-w-0 items-center gap-2 max-sm:contents sm:w-[var(--search-width,auto)]';
-/** The search in it: 20rem where the group is as wide as its content; where it is not, it gives up its room to the tabs, down to 6rem (the tabs then scroll) */
-export const searchInput = 'min-w-24 flex-[1_1_20rem] max-sm:basis-0 pointer-coarse:min-h-11';
+export const statusTabsBox = 'order-last -mx-1 -my-0.5 max-w-[calc(100%+0.5rem)] basis-[calc(100%+0.5rem)] overflow-x-auto px-1 py-0.5 sm:order-none sm:min-w-0 sm:basis-auto';
+/** Filter and Group by: icon-only and without an outline (uier #404), named and with a tooltip; 44 px on a touch screen */
+export const filterIconButton = 'relative shrink-0 pointer-coarse:size-11';
 
 /**
  * List and Board, as icon-only tabs; the tooltip and the accessible name say which. On a touch screen the group, not each

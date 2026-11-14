@@ -29,13 +29,13 @@ import { PriorityFlag } from './PriorityFlag';
 import { StateDot } from './CommentStatus';
 import { useKeyShortcutLabel } from '../keyboard/keys';
 import { rememberCommentsView } from './commentsView';
-import { CommentsViewToggle, searchField, searchInput, segmentedGroup, segmentedItem } from './CommentsViewToggle';
+import { CommentsViewToggle, filterControls, filterIconButton, searchInput, segmentedGroup, segmentedItem, statusTabsBox } from './CommentsViewToggle';
 import { ProjectMark } from '../projects/ProjectMark';
 
 /**
  * From this width of the comments (`@container/comments`) the count line (the unread count and Mark all as read) is in
- * the search row, left of Filter; under it the count line keeps its own row under the search row (`TriageSelection`,
- * which this hides from here). Wide enough for the search's minimum, the status tabs, the count, Filter and List/Board
+ * the search row, left of the search; under it the count line keeps its own row under the search row (`TriageSelection`,
+ * which this hides from here). Wide enough for the status tabs, the search, the count, Filter and List/Board
  * on one line, so the count appearing or going to zero never wraps the row. The query measures the reading column (at
  * most 60rem); from 48rem the header is as wide as the list with its thread (`ProjectComments`), wider than that.
  */
@@ -63,7 +63,7 @@ export type FilterProject = { id: string; name: string; url?: string };
 
 /**
  * Search, one Filter button (priority, environment and page, people, unread) and the status tabs;
- * the filters in effect show left of the Filter button, each named, with its own clear button. All kept in the URL.
+ * the filters in effect show left of the search, each named, with its own clear button. All kept in the URL.
  * Comments of several projects (My work) pass `projects` for a Project filter (`?project=`) and leave out what only
  * one project has (`environments`, `statusCounts`).
  */
@@ -73,7 +73,7 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
     verificationEnabled?: boolean;
     className?: string;
     /**
-     * The count line's unread count and Mark all as read, shown in the search row left of Filter when the comments are
+     * The count line's unread count and Mark all as read, shown in the search row left of the search when the comments are
      * wide enough (`countLineInHeader`); empty ones keep the status mounted for announcements and take no room
      */
     countLine?: { summary: React.ReactNode; actions: React.ReactNode };
@@ -149,34 +149,18 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
 
     return (
         <div className={cn('flex w-full min-w-0 flex-col gap-2', className)}>
-            {/* Search and, in the list, the status tabs together on the left, as wide as the list under them beside its
-                thread or the board's first column (uier #398); the filters in effect, Filter, Group by and List/Board on the
-                right. The filters in effect wrap within their room, and on a phone go to their own line under the row. */}
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <div data-search-field="" className={searchField}>
-                    <InputGroup className={searchInput}>
-                        <InputGroupAddon><SearchIcon /></InputGroupAddon>
-                        <InputGroupInput ref={searchRef} id={visible ? 'feedback-search' : undefined} type="search" aria-label={t("Search feedback")} maxLength={MAX_FEEDBACK_SEARCH} className="text-ellipsis pointer-coarse:min-h-11"
-                            // `/` goes here from the page (`AppShortcuts`)
-                            data-shortcut-search="" aria-keyshortcuts={searchShortcut}
-                            placeholder={t("Search feedback")} value={search} onChange={event => onSearch(event.target.value)} />
-                        {search && (
-                            <InputGroupAddon align="inline-end">
-                                <InputGroupButton size="icon-xs" aria-label={t("Clear search")} onClick={() => { onSearch(''); searchRef.current?.focus(); }}>
-                                    <XIcon />
-                                </InputGroupButton>
-                            </InputGroupAddon>
-                        )}
-                    </InputGroup>
-                    {/* Active (the default, every status but Done), Done and All, right after the search (uier #345, #398); on a
-                        phone on their own line under it. The board shows the statuses side by side, with Archive as its last
-                        column. Open, In progress and Ready to verify fold under Active, Archive under Done: each menu picks
-                        one, and the tab then names it. */}
-                    {view === 'list' && statusCounts && <StatusTabs verificationEnabled={verificationEnabled} status={status ?? 'active'} counts={statusCounts} unread={statusUnread ?? {}} onStatus={value => go({ status: value === 'active' ? undefined : value })} />}
-                </div>
+            {/* In the list the status tabs first, at the list's left edge (uier #405); the filters in effect after them,
+                right-aligned against the search, which sits directly left of Filter, Group by and List/Board (uier #403).
+                One line from `sm`: the search, then the tabs give up their room; on a phone the search and the buttons
+                have the row, the tabs and the filters in effect each their own line under it. */}
+            <div className="flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap">
+                {/* Active (the default, every status but Done), Done and All (uier #345). The board shows the statuses side
+                    by side, with Archive as its last column. Open, In progress and Ready to verify fold under Active, Archive
+                    under Done: each menu picks one, and the tab then names it. */}
+                {view === 'list' && statusCounts && <StatusTabs verificationEnabled={verificationEnabled} status={status ?? 'active'} counts={statusCounts} unread={statusUnread ?? {}} onStatus={value => go({ status: value === 'active' ? undefined : value })} />}
                 {(active > 0 || countLine) && (
-                    // Right-aligned against Filter, Group by and List/Board: the count line first, so the filters in effect stay
-                    // where they are when the count appears or goes to zero
+                    // Right-aligned against the search: the count line first, so the filters in effect stay where they are
+                    // when the count appears or goes to zero
                     <div className={cn('flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:justify-end',
                         active > 0 ? 'order-last basis-full sm:order-none sm:flex-1 sm:basis-0' : 'hidden @4xl/comments:flex @4xl/comments:flex-1')}>
                         {countLine && (
@@ -194,14 +178,30 @@ export function CommentFilters({ className, unread, unreadCount, view, onView, s
                         )}
                     </div>
                 )}
-                <div className="ml-auto flex shrink-0 items-center gap-2">
+                <div className={filterControls}>
+                    <InputGroup className={searchInput}>
+                        <InputGroupAddon><SearchIcon /></InputGroupAddon>
+                        <InputGroupInput ref={searchRef} id={visible ? 'feedback-search' : undefined} type="search" aria-label={t("Search feedback")} maxLength={MAX_FEEDBACK_SEARCH} className="text-ellipsis pointer-coarse:min-h-11"
+                            // `/` goes here from the page (`AppShortcuts`)
+                            data-shortcut-search="" aria-keyshortcuts={searchShortcut}
+                            placeholder={t("Search feedback")} value={search} onChange={event => onSearch(event.target.value)} />
+                        {search && (
+                            <InputGroupAddon align="inline-end">
+                                <InputGroupButton size="icon-xs" aria-label={t("Clear search")} onClick={() => { onSearch(''); searchRef.current?.focus(); }}>
+                                    <XIcon />
+                                </InputGroupButton>
+                            </InputGroupAddon>
+                        )}
+                    </InputGroup>
                 <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
-                    {/* Named by its words: "Filter", or "Filter 2" with two in effect */}
-                    <PopoverTrigger render={<Button variant="outline" className="shrink-0 pointer-coarse:min-h-11" />}>
-                        <ListFilterIcon data-icon="inline-start" />
-                        {t("Filter")}
-                        {active > 0 && <Badge variant="secondary" className="h-5 min-w-5 px-1.5 tabular-nums">{active}</Badge>}
-                    </PopoverTrigger>
+                    {/* Icon-only (uier #404), named "Filter", or "Filter 2" with two in effect; the badge shows the count */}
+                    <Tooltip>
+                    <TooltipTrigger render={<PopoverTrigger render={<Button variant="ghost" size="icon" aria-label={active > 0 ? `${t("Filter")} ${active}` : t("Filter")} className={filterIconButton} />} />}>
+                        <ListFilterIcon />
+                        {active > 0 && <Badge aria-hidden="true" className="pointer-events-none absolute -top-1 -right-1 h-4 min-w-4 px-1 text-[0.625rem] tabular-nums">{active}</Badge>}
+                    </TooltipTrigger>
+                    <TooltipContent>{t("Filter")}</TooltipContent>
+                    </Tooltip>
                     <PopoverContent align="end" className="w-80 max-w-[calc(100vw-2rem)]">
                         <PopoverHeader><PopoverTitle>{t("Filter comments")}</PopoverTitle></PopoverHeader>
                         <FieldGroup className="gap-4">
@@ -352,7 +352,7 @@ function StatusTabs({ status, counts, unread, onStatus, verificationEnabled }: {
     const unreadId = useId();
     const described = (value: StatusFilter) => unread[value] ? unreadId : undefined;
     return (
-        <div className="order-last -mx-1 -my-0.5 max-w-[calc(100%+0.5rem)] basis-[calc(100%+0.5rem)] overflow-x-auto px-1 py-0.5 sm:order-none sm:max-w-[calc(100%-6rem)] sm:shrink-0 sm:basis-auto">
+        <div className={statusTabsBox}>
             {/* Full width on a phone, the tabs sharing the room (uier #278); still scrolls when their words don't fit */}
             <span id={unreadId} hidden>{t("Unread")}</span>
             <ToggleGroup size="sm" spacing={0.5} aria-label={t("Status")} className={cn(segmentedGroup, 'w-max min-w-full sm:min-w-0')}
