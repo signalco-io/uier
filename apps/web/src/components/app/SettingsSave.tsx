@@ -37,11 +37,13 @@ export function useSettingsDraft<T>(saved: T, result: ActionState<unknown>) {
  * The footer of a settings form, its only save: the outcome or "Unsaved changes" on the left,
  * Discard and Save (of the form `formId`) on the right. Save is off until something changed.
  */
-export function SaveFooter({ formId, state, pending, dirty, onDiscard }: {
+export function SaveFooter({ formId, state, pending, dirty, canSave = true, onDiscard }: {
     formId: string;
     state: ActionState<unknown>;
     pending: boolean;
     dirty: boolean;
+    /** Invalid drafts still show Discard while Save stays disabled. */
+    canSave?: boolean;
     onDiscard: () => void;
 }) {
     const { t } = useAppI18n();
@@ -56,7 +58,7 @@ export function SaveFooter({ formId, state, pending, dirty, onDiscard }: {
                     : state?.ok && <FormMessage state={state} />}
             </div>
             {dirty && !pending && <Button variant="ghost" onClick={onDiscard}>{t("Discard")}</Button>}
-            <Button type="submit" form={formId} disabled={!dirty || pending}>
+            <Button type="submit" form={formId} disabled={!dirty || pending || !canSave}>
                 {pending && <Spinner data-icon="inline-start" />}
                 {t("Save")}{' '}</Button>
         </>

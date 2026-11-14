@@ -53,6 +53,7 @@ async function ProjectLayoutContent({ children, params }: LayoutProps<'/app/proj
                 title={project.name}
                 description={(
                     <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                        {project.automaticallyManaged && <Badge variant="outline">{t("Automatically managed")}</Badge>}
                         {/* The client opens the projects list filtered to it, on the tab of this project's status (uier #241); hover it for more (uier #421) */}
                         {client && (
                             <ClientInfo

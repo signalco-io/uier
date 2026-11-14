@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { expect, test } from '@playwright/test';
 import { expectNoAxeViolations } from './accessibility';
-import { projectPublicId, createProject, openProjectInvite, setProjectAccess, signIn, uniqueEmail } from './support/app';
+import { projectPublicId, hydrated, createProject, openProjectInvite, setProjectAccess, signIn, uniqueEmail } from './support/app';
 import { newVisitor } from './support/toolbar';
 
 test('Notion OAuth, explicit field mapping, destination confirmation and sync controls stay admin-only', async ({ page, browser, baseURL }, testInfo) => {
@@ -30,6 +30,7 @@ test('Notion OAuth, explicit field mapping, destination confirmation and sync co
     await expect(page).toHaveURL(new RegExp(`${settingsUrl}\\?notion=connected$`));
     await expect(notion).toContainText('Connected workspace: Test workspace.');
     await expect(notion.getByRole('combobox')).toHaveCount(0);
+    await hydrated(notion.getByRole('button', { name: 'Load databases', exact: true }));
     const action = page.waitForRequest(request => request.method() === 'POST' && Boolean(request.headers()['next-action']));
     await notion.getByRole('button', { name: 'Load databases', exact: true }).click(); const actionRequest = await action;
     await notion.getByRole('combobox', { name: 'Database', exact: true }).click();

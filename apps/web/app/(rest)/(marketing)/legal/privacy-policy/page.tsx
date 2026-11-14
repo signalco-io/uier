@@ -14,7 +14,7 @@ export const metadata = publicPageMetadata('/legal/privacy-policy', {
 
 export default function PrivacyPolicyPage() {
     return (
-        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="13 November 2026">
+        <LegalDocument href={KnownPages.LegalPrivacyPolicy} title="Privacy policy" effective="14 November 2026">
             <p>
                 This policy explains what {brand.domain} collects, why, where it is stored and for how long.
                 {' '}{brand.name} is a {brand.parent.name} project: {brand.parent.name} runs {brand.domain} and is
@@ -406,6 +406,15 @@ export default function PrivacyPolicyPage() {
                 through an explicit reconnect, but reads only known linked threads. Notion reply sync
                 needs read and insert comment capabilities. These permissions can cover more data
                 than the linked items; the worker limits reads to the configured destination.
+            </p>
+            <p>
+                An admin can also connect a Notion database to manage workspace projects. We read its
+                rows and selected address, name and completion fields to create invited projects and
+                update their name, addresses and status. This import does not write to Notion or send
+                feedback to it. We retain an identifier-only row-to-project association, including after
+                manual override, deletion or transfer, to prevent unwanted recreation or updates.
+                Disconnecting the workspace import stops future reads and removes its stored credentials;
+                projects and feedback remain in uier.
             </p>
             <p>
                 We store destination identifiers, connection settings, encrypted authorization grants

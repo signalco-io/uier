@@ -102,6 +102,7 @@ async function ProjectsPageContent({ searchParams }: PageProps<'/app/projects'>)
                                             )}
                                         </div>
                                         <CardDescription className="col-span-2 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
+                                            {project.automaticallyManaged && <span>{t("Automatically managed")}</span>}
                                             {projectClientSummary && (
                                                 <span className="flex min-w-0 items-center gap-1.5">
                                                     <ClientMark client={projectClientSummary} />

@@ -171,7 +171,9 @@ export async function startNotionStub(port = 0) {
                     if (method !== 'POST') { send(response, 400, errorBody(400, 'invalid_request')); return; }
                     const property = Object.values(source.properties).find((value: any) => value.id === body.filter?.property || value.name === body.filter?.property) as Obj | undefined;
                     const results = [...pages.values()].filter(page => page.parent.data_source_id === source.id && (!body.filter || plain(page.properties[property?.id]?.rich_text) === body.filter.rich_text?.equals));
-                    reply(200, { object: 'list', results, has_more: false, next_cursor: null }); return;
+                    const offset = Number(body.start_cursor ?? 0); const size = Number(body.page_size ?? 100);
+                    reply(200, { object: 'list', results: results.slice(offset, offset + size), has_more: offset + size < results.length,
+                        next_cursor: offset + size < results.length ? String(offset + size) : null }); return;
                 }
                 const { workspaceId: _workspace, ...safe } = source; reply(200, safe); return;
             }
