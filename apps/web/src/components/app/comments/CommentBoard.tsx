@@ -212,10 +212,10 @@ function BoardCard({ project, comment, href, opened, moving, tabbable, onOpen, o
     );
 }
 
-/** Always reserves the icon's space, including while the lane is idle. */
+/** Always reserves the icon's space, including while the lane is idle; 12 px like the icons of the column's icon-xs actions (uier #432). */
 function ColumnProgress({ loading }: { loading?: boolean }) {
-    return <span aria-hidden="true" data-column-progress={Boolean(loading)} className="ml-auto flex size-4 shrink-0 items-center text-muted-foreground">
-        {loading && <Spinner className="motion-reduce:animate-none" />}
+    return <span aria-hidden="true" data-column-progress={Boolean(loading)} className="ml-auto flex size-3 shrink-0 items-center text-muted-foreground">
+        {loading && <Spinner className="size-3 motion-reduce:animate-none" />}
     </span>;
 }
 
