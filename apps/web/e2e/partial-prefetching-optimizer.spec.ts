@@ -93,9 +93,17 @@ test('Projects card → Project reads a changed private name at navigation', asy
         await expect(page.getByRole('status', { name: 'Loading project', exact: true })).toBeVisible();
         await expect(page.getByRole('heading', { level: 1, name: 'Before navigation', exact: true })).toHaveCount(0);
         await expect(page.getByRole('heading', { level: 1, name: 'After navigation', exact: true })).toHaveCount(0);
+        // The tabs every project has are its real tabs before anything private is read (uier #439); Install depends on
+        // the project (until its first comment), so it waits for it
+        const tabs = page.locator('[data-sticky-tabs]').filter({ visible: true });
+        await expect(tabs.getByRole('link', { name: 'Comments', exact: true })).toHaveAttribute('aria-current', 'page');
+        await expect(tabs.getByRole('link', { name: 'Page checks', exact: true })).toHaveAttribute('href', `/app/projects/${project}/page-checks`);
+        await expect(tabs.getByRole('link', { name: 'Settings', exact: true })).toHaveAttribute('href', `/app/projects/${project}/settings`);
+        await expect(tabs.getByRole('link', { name: 'Install', exact: true })).toHaveCount(0);
         await capture(page, testInfo, 'project-shell-before-private-read');
     });
     await expect(page.getByRole('heading', { level: 1, name: 'After navigation', exact: true })).toBeVisible();
+    await expect(page.locator('[data-sticky-tabs]').filter({ visible: true }).getByRole('link', { name: 'Install', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { level: 1, name: 'Before navigation', exact: true })).toHaveCount(0);
     await capture(page, testInfo, 'project-fresh-name-after-navigation');
     const response = await page.reload();

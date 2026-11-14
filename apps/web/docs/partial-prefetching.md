@@ -37,6 +37,13 @@ requests receive 404 before streaming; the page retains its independent catalog 
 Session reads wait for the navigation's `connection()` before clock-based expiry checks. No shared
 mutable-data cache, cache lifetime, provider activation or additional full-prefetch policy is introduced.
 
+A project's loading state (`ProjectLoading`, the project layout's fallback in the App Shell) renders the real project
+tabs every project has. They read the project from the address with `useParams`/`usePathname`, which the router
+resolves on a client navigation without a server read, so the shell stays URL-independent and private-data free; the
+Install tab and the header wait for the navigation's authorized read
+([uier #439](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_K_yAq5Ee4WzEjnCBNx_2z)).
+No Link policy changed; `partial-prefetching-optimizer.spec.ts` checks the tabs under the lock.
+
 ## Verification
 
 See [the production rig](../instant-nav.rig.md). The flag-off build and complete nine-case shell

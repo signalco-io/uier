@@ -82,3 +82,13 @@ behavior on desktop/mobile. This adds no new production CLS measurement.
 
 The pre-hydration check waits for the Open comments region to be visible while external scripts
 remain blocked. Streamed rows alone can still belong to a hidden segment awaiting reveal.
+
+For [uier #439](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_K_yAq5Ee4WzEjnCBNx_2z), the loading states draw only what every project has (the
+[static shell direction](cache-components.md#rendering-and-data)). Each loading state is still replaced as one subtree
+when its boundary reveals, so the loaded page's new nodes are not layout shifts; the geometry outside it stays as
+measured: the project header's width (`data-header-wide`), the tabs and the comments' top. The project layout keeps the
+header, the tabs and the page under one reveal on purpose: a long name wraps the header to a second line, and a header
+revealed on its own would push the comments' loading state down. The comments region (`CommentsSection`) now renders
+outside the page's boundary; its hidden heading takes no room, so the loading state and the comments start where they
+did. `instant-nav.spec.ts` checks the header's width and the title's position across the reveal and that the loading
+board has no Group by, no column actions and the three columns every workflow has.

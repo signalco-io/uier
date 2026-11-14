@@ -21,6 +21,20 @@ while the destination loads. `PageLoading` uses the UI kit's skeletons with fixe
 accessible status label; a project's layout, Comments and Page checks have skeletons shaped like their pages
 ([app shell](app-shell.md), `ProjectLoading`, `CommentsLoading`, `PageChecksLoading`). No private names, permissions, comments or form values are prerendered.
 
+**Static shell first, skeletons for data** ([uier #439](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_K_yAq5Ee4WzEjnCBNx_2z)). This is the direction for every app page:
+what a page shows without its data (its frame, tabs, toolbars, view controls and the containers that always exist) renders
+as real UI in the static shell, and skeletons, rich ones included, fill only the places data goes. A control or
+container that depends on the data or on the person's permissions is never drawn while loading, so nothing appears
+and then goes away. Prefer moving such UI out of the data boundary over drawing it in a fallback; where it stays in a
+fallback, reuse the loaded page's component (`ProjectLoadingTabs` renders `ProjectTabs`) or its shared class names
+(`CommentsLoading`'s search row), never a skeleton of it. The project comments follow it: the comments region is
+outside the page's data boundary, the project's tabs every project has are real links while its layout loads, and
+the comments' loading state draws only the controls and board columns every project has. The project header and its
+page still reveal together: the header's height follows the project's name, so revealing it on its own could move the
+content under it ([CLS](project-comments-cls.md)). The next steps are the comments' search row and the project's tabs
+outside their data boundaries, keeping one mounted instance across the reveal (focus included), which needs the
+inbox's URL state and the Install tab's flag to reach them without remounting.
+
 Two client-navigation shells reuse the already-resolved app language instead of waiting for another
 server language read. Projects → Create project shows the heading, instructions and onboarding
 progress before the authorized form and client suggestions stream. Projects → Account shows the
@@ -111,7 +125,7 @@ the baseline scaffold is not shipped. Test runs attach locked and completed PNGs
 This is a content-readiness guarantee, not a measured latency claim.
 
 Other reviewed candidates stay request-scoped: project/workspace headings and tabs depend on private
-names or permissions; My work reads fresh assignments; auth pages
+names or permissions (the project tabs every project has show while the project loads, the Install tab with it); My work reads fresh assignments; auth pages
 already expose their card and legal shell. No new shared cache was introduced. Partial Prefetching
 is now enabled; [its navigation inventory](partial-prefetching.md) records the separate adoption
 and URL-specific prefetch decisions.
@@ -136,6 +150,12 @@ for page checks ([uier #324](https://uier.io/app/review/uier00000002?url=https%3
   mounted while hidden (Next refreshing a kept route) renders its title as a plain block too; the server
   and hydration still render the h1. Fixed anchor and focus ids (`#comments`, `#feedback-search`) are
   dropped while hidden, so links, scrolling and `getElementById` reach the visible page.
+- A page left before it finished loading mounts the rest of its tree while hidden, where no layout effect runs.
+  `CommentsSection` sets `#comments` in a layout effect (the server and hydration render it): present in the commit
+  that mounts a visible region, before Next's hash scroll, and never on one mounted hidden. The search's
+  `#feedback-search` uses `untilShown`. Since the comments region is in the page's static shell
+  ([uier #439](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_K_yAq5Ee4WzEjnCBNx_2z))
+  it mounts with the project layout, so that window grew.
 - `app-navigation.spec.ts` keeps one project page hidden behind another and checks one h1 and no repeated
   id, then goes back.
 

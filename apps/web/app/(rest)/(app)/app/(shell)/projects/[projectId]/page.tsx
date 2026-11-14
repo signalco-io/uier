@@ -37,14 +37,15 @@ async function ProjectPageContent({ params, searchParams }: PageProps<'/app/proj
         openId: typeof search.comment === 'string' ? search.comment : undefined, budgetFallback: true
     });
     if (!snapshot) notFound();
-    return (
-        <CommentsSection title={t("Comments")}>
-            <ProjectComments {...snapshot} initialView={initialView} installHref={KnownPageLinks.projectInstall(project.id)} />
-        </CommentsSection>
-    );
+    return <ProjectComments {...snapshot} initialView={initialView} installHref={KnownPageLinks.projectInstall(project.id)} />;
 }
 
 export default function ProjectPage(props: Parameters<typeof ProjectPageContent>[0]) {
-    // Shaped like the comments, in the view they will open in and as wide (uier #344, #362)
-    return <Suspense fallback={<ProjectCommentsLoading />}><ProjectPageContent {...props} /></Suspense>;
+    // The comments region needs no data, so it is the page's static shell; inside it the comments load in the view they
+    // will open in and as wide (uier #344, #362): the controls every project has, skeletons where data goes (uier #439)
+    return (
+        <CommentsSection>
+            <Suspense fallback={<ProjectCommentsLoading />}><ProjectPageContent {...props} /></Suspense>
+        </CommentsSection>
+    );
 }

@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useReducer, useSyncExternalStore } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ChevronDownIcon, KanbanIcon, LayersIcon, ListFilterIcon, ListIcon, SearchIcon } from 'lucide-react';
+import { ArchiveIcon, ChevronDownIcon, KanbanIcon, ListFilterIcon, ListIcon, SearchIcon } from 'lucide-react';
 import { useAppI18n } from '@/src/lib/i18n/client';
 import { cn } from '@/src/lib/utils';
 import { Button } from '@/src/components/ui/button';
@@ -11,6 +11,7 @@ import { Skeleton } from '@/src/components/ui/skeleton';
 import { parseCommentsView } from '@/src/lib/app/commentsViewPreference';
 import { isActiveStatusFilter, isDoneStatusFilter, statusFilterLabels, type CommentsView, type StatusFilter } from './commentLabels';
 import { storedCommentsView } from './commentsView';
+import { commentStatuses, StateDot } from './CommentStatus';
 import { filterControls, filterIconButton, searchInput, segmentedGroup, segmentedItem, statusTabsBox } from './CommentsViewToggle';
 
 const subscribeNothing = () => () => {};
@@ -60,12 +61,17 @@ function CardSkeleton({ title }: { title: string }) {
 }
 
 const rowTitles = ['w-3/4', 'w-2/3', 'w-5/6', 'w-1/2', 'w-3/5', 'w-2/3'];
+/** The statuses every board has a column for: Ready to verify only where the project turns verification on (`CommentBoard`) */
+const boardColumns = commentStatuses.filter(status => status !== 'ready');
+/** How many cards each of those columns shows while loading */
+const boardCards = [3, 2, 4];
 
 /**
- * The search row as `CommentFilters` draws it, drawn for real but inert (uier #362): nothing in it needs the comments.
- * In the list the status tabs first, at its left edge (Active, Done, All, the address's pressed, their counts still
- * loading; uier #405); on the right Filter and Group by as icons (uier #404), the search and List/Board with the
- * opening view pressed (uier #403, #411).
+ * The search row as `CommentFilters` draws it, drawn for real but inert (uier #362): only the controls every project's
+ * comments have (uier #439). In the list the status tabs first, at its left edge (Active, Done, All, the address's
+ * pressed, their counts still loading; uier #405); on the right Filter as an icon (uier #404), the search and List/Board
+ * with the opening view pressed (uier #403, #411). Group by needs the project's labels (uier #429) and the count line
+ * its unread comments, so they appear with the loaded comments, never here.
  */
 function FiltersPlaceholder({ view, status }: { view: CommentsView; status: StatusFilter }) {
     const { t } = useAppI18n();
@@ -93,7 +99,6 @@ function FiltersPlaceholder({ view, status }: { view: CommentsView; status: Stat
             )}
             <div className={filterControls}>
                 <Button variant="ghost" size="icon" tabIndex={-1} aria-label={t("Filter")} className={filterIconButton}><ListFilterIcon /></Button>
-                <Button variant="ghost" size="icon" tabIndex={-1} aria-label={t("Group by")} className={filterIconButton}><LayersIcon /></Button>
                 <InputGroup className={searchInput}>
                     <InputGroupAddon><SearchIcon /></InputGroupAddon>
                     <InputGroupInput type="search" tabIndex={-1} readOnly placeholder={t("Search feedback")} className="text-ellipsis pointer-coarse:min-h-11" />
@@ -113,10 +118,12 @@ function FiltersPlaceholder({ view, status }: { view: CommentsView; status: Stat
 
 /**
  * A project's comments while they load (uier #344): shaped and as wide as the loaded page (the panel's width less the
- * gutters, `page-wide`, uier #363), in the view it will open in. The search row is drawn for real, inert
- * (`FiltersPlaceholder`, uier #362); then the count line's room where it has its own row, then the list with the thread
- * beside it on wide screens, or the board's columns with Archive's strip, from the left. Its `data-header-wide` gives
- * the project header above the same width, as the loaded comments do.
+ * gutters, `page-wide`, uier #363), in the view it will open in. What every project's comments have is drawn for real
+ * and skeletons fill only what depends on the data (uier #439): the search row, inert (`FiltersPlaceholder`, uier
+ * #362); then the count line's room where it has its own row, then the list with the thread beside it on wide screens,
+ * or the board's columns every workflow has with Archive's strip, from the left. A control that only some projects or
+ * people have is never drawn here: it appears with the loaded comments. Its `data-header-wide` gives the project header
+ * above the same width, as the loaded comments do.
  */
 function CommentsSkeleton({ title, view, status }: { title: string; view: CommentsView; status: StatusFilter }) {
     const { t } = useAppI18n();
@@ -130,16 +137,24 @@ function CommentsSkeleton({ title, view, status }: { title: string; view: Commen
             {/* The count line's own row, where it is not in the search row (`countLineInHeader`) */}
             <div aria-hidden="true" className="min-h-8 pointer-coarse:min-h-11 @4xl/comments:hidden" />
             {board ? (
-                // The default workflow's columns as `CommentBoard` lays them out, then Archive's collapsed strip
-                <div style={{ gridTemplateColumns: 'repeat(4, minmax(min(18rem, var(--page-wide) - 3rem), 20rem)) 3rem' }}
+                // The columns every board has, as `CommentBoard` lays them out (uier #439): one per Open, In progress and Done
+                // with its status's dot, the name (a workflow can rename it) and the cards still loading. Ready to verify
+                // (verification on), a workflow's further statuses and the column actions (sort and Archive all, for
+                // those who may change the board) depend on the project and appear with the loaded board. Then Archive's
+                // collapsed strip, its default, a faint edge with no fill like the loaded strip.
+                <div style={{ gridTemplateColumns: `repeat(${boardColumns.length}, minmax(min(18rem, var(--page-wide) - 3rem), 20rem)) 3rem` }}
                     className="grid items-start justify-start gap-4 overflow-hidden py-1 page-bleed">
-                    {[3, 2, 1, 4].map((cards, column) => (
-                        <div key={column} className="flex flex-col gap-2 rounded-2xl border bg-muted/50 p-2">
-                            <span className="flex items-center gap-2 px-2 pt-1 pb-0.5"><Skeleton className="h-4 w-24 animate-none" /><Skeleton className="ml-auto size-4 animate-none" /></span>
-                            {Array.from({ length: cards }, (_, card) => <CardSkeleton key={card} title={rowTitles[(column + card) % rowTitles.length]!} />)}
+                    {boardColumns.map((status, column) => (
+                        <div key={status} data-board-column-loading={status} className="flex min-h-24 flex-col gap-2 rounded-2xl border bg-muted/50 p-2">
+                            <span className="flex items-center px-2 pt-1"><span className="flex h-5 items-center gap-2"><StateDot status={status} /><Skeleton className="h-3.5 w-24 animate-none" /></span></span>
+                            {Array.from({ length: boardCards[column]! }, (_, card) => <CardSkeleton key={card} title={rowTitles[(column + card) % rowTitles.length]!} />)}
                         </div>
                     ))}
-                    <div className="h-28 rounded-2xl border bg-muted/50" />
+                    {/* Its name and count run down the strip from md; narrower the 3rem strip keeps only its icon */}
+                    <div data-board-archive-loading="" className="flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-border/50 py-2.5 md:flex-col md:self-start md:py-3">
+                        <ArchiveIcon className="size-4 shrink-0 text-muted-foreground opacity-60 md:rotate-90" />
+                        <Skeleton className="hidden h-16 w-3.5 animate-none md:block" />
+                    </div>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 items-start gap-4 page-wide @3xl/comments:grid-cols-[minmax(16rem,18rem)_minmax(0,1fr)] @4xl/comments:grid-cols-[minmax(17rem,clamp(22rem,30%,28rem))_minmax(0,1fr)]">
