@@ -12,7 +12,6 @@ import { PageHeader } from '@/src/components/app/PageHeader';
 import { ProjectTabs } from '@/src/components/app/projects/ProjectTabs';
 import { ProjectMark } from '@/src/components/app/projects/ProjectMark';
 import { ClientMark } from '@/src/components/app/clients/ClientMark';
-import { ReviewLinksMenu } from '@/src/components/app/projects/ReviewLinksMenu';
 import { InviteButton } from '@/src/components/app/users/InviteDialog';
 import { ProjectAccessInfo } from '@/src/components/app/projects/ProjectAccessInfo';
 import { GuestReviewLinks } from '@/src/components/app/projects/GuestReviewLinks';
@@ -21,7 +20,7 @@ import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import { KnownPageLinks } from '@/src/knownPages';
 
 /**
- * A project: its name and Open review (it lists every address), then its tabs with the settings cog at their right
+ * A project: its name (Open review, listing every address, is in the shell's top bar; uier #406), then its tabs with the settings cog at their right
  * end, above its comments, install guide or settings
  */
 async function ProjectLayoutContent({ children, params }: LayoutProps<'/app/projects/[projectId]'>) {
@@ -68,8 +67,7 @@ async function ProjectLayoutContent({ children, params }: LayoutProps<'/app/proj
                                 <span aria-hidden="true" className="size-1.5 rounded-full bg-[hsl(var(--brand-success))]" />{t("Done")}</Badge>
                         )}
                     </span>
-                )}
-                actions={<ReviewLinksMenu projectId={project.id} urls={project.urls} variant="default" visit />}>
+                )}>
                 <ProjectTabs projectId={project.id} install={!feedback} />
             </PageHeader>
             <div className="flex flex-col gap-6">

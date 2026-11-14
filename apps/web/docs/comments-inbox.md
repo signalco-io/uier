@@ -72,7 +72,7 @@ rows with the status filter it waits for their entrance motion to settle before 
   keeps them centred) and the filters' header is the panel's width less the gutters (`page-wide`) whatever the columns'
   width ([uier #363](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_bqLvicXdinxKaoz_A8cT0)): it stays put while the board scrolls under it. My work's header takes its columns' width
   (`--board-width`, up to `page-wide`). The
-  project header (its mark, name, access label, Open review and Settings) takes the same width as the filters' header,
+  project header (its mark, name, access label and Settings) takes the same width as the filters' header,
   in the list and on the board (uier #168: the filters' header carries `data-header-wide`, and the project layout widens
   its `PageHeader` from it with `group-has-*`, so settings and the install guide keep the reading width). The count line
   under the filters (in the search row where there is room, uier #300) takes that width too (uier #187: `TriageSelection`'s `lineClassName`, the header's width classes);

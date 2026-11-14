@@ -83,8 +83,8 @@ breadcrumbs. uier is free, so there is no billing page; pricing is the landing p
     move between them, and Finish opens the project's comments. The install guide on its own (from the empty
     comments list or Settings → Installation; the old `/install` address without `?onboarding=1` redirects
     there) is the whole guide on one page, without the progress or the reviewer step.
-  - A project has a header (name, client, who can comment, Open review and the tabs Comments, Install and
-    Settings) above its pages. Open review lists every address (main site first) to review or visit, and links
+  - A project has a header (name, client, who can comment and the tabs Comments, Install and
+    Settings) above its pages; Open review is at the right end of the app's top bar. Open review lists every address (main site first) to review or visit, and links
     to the review setup. Hovering or clicking
     who can comment shows more info and, for admins, Invite; in guest mode that includes the guest links for every address.
   - My work `/app/my-work`: across the workspace's projects you can see, open threads assigned to you, open threads that

@@ -23,7 +23,10 @@ the separately bundled review toolbar owns its own query cache.
   ([keyboard](keyboard.md)). The layout also holds `AppShortcuts`, the inset panel with the breadcrumbs
   (`AppBreadcrumbs`, from the path: one line, a long name cut short; a project's crumb starts with its `ProjectMark`,
   the site's favicon, uier #279) and the one invite dialog (`InviteProvider`; `InviteButton` and
-  `useInvite()` open it). The sidebar is docked from `lg` (1024 px: landscape tablets and wider), where the panel keeps
+  `useInvite()` open it). On a project's pages the top bar ends with its Open review, right-aligned
+  (`AppTopBarActions`, from the path like the breadcrumbs and the shell's project list, so it is there while the
+  project loads; [uier #406](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_0_DzSiHEeSpfq8FjuVjhV)).
+  On a phone the breadcrumbs show only the current page and are cut short before it. The sidebar is docked from `lg` (1024 px: landscape tablets and wider), where the panel keeps
   its frame and scrolls inside it; narrower (phones, tablets in portrait) it is a sheet behind the top bar's toggle
   (`useIsMobile`, `hooks/use-mobile.ts`, in step with the `lg:` classes of `ui/sidebar.tsx` and the shell layout) and the
   page scrolls under the sticky top bar, so what sticks there (settings sections, the thread beside the list) sits
@@ -47,8 +50,7 @@ the separately bundled review toolbar owns its own query cache.
   sent feedback is in Give feedback's toolbar. Only while a saved selection still has them in it is it listed, checked,
   as "Feedback on uier" beside their own workspaces to switch back to. Every account is in another workspace too
   (`getAppContext` creates its own when it has none), so there is always one to switch to. A project's header is
-  `projects/[projectId]/layout.tsx` (the favicon in `PageHeader`'s `media`, beside both the name and the row under it: client (a link to the projects list filtered to it, `KnownPageLinks.clientProjects`, on the Done tab for a done project; uier #241), then who can comment (`ProjectAccessInfo`: its popover has the guest links and Invite for admins; for those who configure the project the label is a link to Who can comment in Review settings, `KnownPageLinks.projectAccessSettings`, and the popover opens on hover only, so Who can comment there shows the guest links too), Open
-  review, then the `ProjectTabs` with the settings cog at their right end (`ProjectSettingsButton`, an icon link
+  `projects/[projectId]/layout.tsx` (the favicon in `PageHeader`'s `media`, beside both the name and the row under it: client (a link to the projects list filtered to it, `KnownPageLinks.clientProjects`, on the Done tab for a done project; uier #241), then who can comment (`ProjectAccessInfo`: its popover has the guest links and Invite for admins; for those who configure the project the label is a link to Who can comment in Review settings, `KnownPageLinks.projectAccessSettings`, and the popover opens on hover only, so Who can comment there shows the guest links too), then the `ProjectTabs` with the settings cog at their right end (`ProjectSettingsButton`, an icon link
   styled like a tab, with a tooltip, underlined and current on the settings pages; uier #282; it adds its Settings
   label where the tabs' row (`@container/project-tabs`) is at least 28rem wide, uier #331): Comments, [Page checks](page-checks.md) and Install (Settings → Installation and the onboarding
   install step) until a comment from one of the project's addresses arrives (`hasProjectFeedback`); after that Install is
@@ -146,7 +148,7 @@ the separately bundled review toolbar owns its own query cache.
   from `loadProjectUsage` for every listed project. `ClientFilter` still navigates (server filter) and keeps
   the status from the current address. Its menu and trigger show each client's `ClientMark` beside the name; All
   clients and No client get an empty dashed tile of the same size so the names line up.
-- The project header's Open review is a menu with Review and Visit site for every address; the header does not
+- The project's Open review (in the top bar) is a menu with Review and Visit site for every address; the header does not
   repeat the addresses. On the comments page the header is as wide as the comments' filters header, the list
   with its thread or the board's columns ([comments inbox](comments-inbox.md)); the project's other pages keep the
   reading width. The install guide

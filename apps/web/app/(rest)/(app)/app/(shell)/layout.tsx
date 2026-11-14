@@ -13,12 +13,13 @@ import { getProjectOrder } from '@/src/lib/app/projectOrderCookie';
 import { AppSidebar } from '@/src/components/app/shell/AppSidebar';
 import { avatarUrl } from '@/src/lib/app/avatars';
 import { AppBreadcrumbs } from '@/src/components/app/shell/AppBreadcrumbs';
+import { AppTopBarActions } from '@/src/components/app/shell/AppTopBarActions';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import { loadWorkspaceAccessForRender } from '@/src/lib/app/access';
 import { InviteProvider } from '@/src/components/app/users/InviteDialog';
 import { AppShortcuts } from '@/src/components/app/keyboard/AppShortcuts';
 
-/** The signed-in app: the sidebar, a top bar with the breadcrumbs, and the page in an inset panel, with the keyboard shortcuts */
+/** The signed-in app: the sidebar, a top bar with the breadcrumbs (and a project's Open review at its right end), and the page in an inset panel, with the keyboard shortcuts */
 async function AppShellLayoutContent({ children }: PropsWithChildren) {
     const { t } = await getAppI18n();
     const context = await requireAppContext();
@@ -65,6 +66,8 @@ async function AppShellLayoutContent({ children }: PropsWithChildren) {
                         <SidebarTrigger />
                         <Separator orientation="vertical" className="mr-1 data-vertical:h-4 data-vertical:self-center" />
                         <AppBreadcrumbs projects={Object.fromEntries(projects.map(project => [project.id, { name: project.name, url: project.urls[0] }]))} />
+                        {/* A project's Open review, right-aligned beside the breadcrumbs (uier #406) */}
+                        <AppTopBarActions projects={Object.fromEntries(projects.map(project => [project.id, { urls: project.urls }]))} />
                     </header>
                     <div className="flex-1 lg:overflow-y-auto">
                         {/* While an element marked data-page-width="wide" is in it, this is a container, so the column can
