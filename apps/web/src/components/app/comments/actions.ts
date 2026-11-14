@@ -50,6 +50,8 @@ import {
     canTriageProject
 } from '../../../lib/review/comments';
 import { markThreadRead, markThreadUnread } from '../../../lib/comments/readState';
+import { threadActivity } from '../../../lib/comments/activity';
+import type { DbComment } from '../../../lib/db/schema';
 import { actorAuthorId } from '../../../lib/review/actor';
 import { apiErrors } from '../../../lib/comments/http';
 import { KnownPageLinks } from '../../../knownPages';
@@ -113,19 +115,26 @@ async function commentContext(projectId: string) {
 
 /** Runs a comment change; the service's API errors (not found, forbidden) become messages */
 async function commentAction<T extends { projectId: string }>(schema: z.ZodType<T>, input: unknown,
-    change: (scope: Awaited<ReturnType<typeof commentContext>>, input: T) => Promise<unknown>): Promise<ActionState> {
-    return await actionResult(async () => {
+    change: (scope: Awaited<ReturnType<typeof commentContext>>, input: T) => Promise<unknown>): Promise<(NonNullable<ActionState> & { commentSequence?: number }) | null> {
+    const result = await actionResult(async () => {
         const parsed = parseActionInput(schema, input);
         const scope = await commentContext(parsed.projectId);
+        let commentSequence: number | undefined;
         try {
-            await change(scope, parsed);
+            const saved = await change(scope, parsed);
+            // Mutation services return the authorized, conditionally saved comment. Expose only its
+            // monotonic sequence, never the document, actor identities or additional database reads.
+            if (saved && typeof saved === 'object' && 'domain' in saved && 'resolved' in saved && 'id' in saved)
+                commentSequence = threadActivity(saved as DbComment).sequence;
         } catch (error) {
             if (error instanceof ApiError && error.code !== 'server_error')
                 throw new UserFacingError(error.code === 'not_found' ? 'This comment no longer exists.' : error.message);
             throw error;
         }
         revalidatePath(KnownPageLinks.project(parsed.projectId));
+        return commentSequence;
     });
+    return result?.ok ? { ok: true, data: undefined, ...(result.data === undefined ? {} : { commentSequence: result.data }) } : result;
 }
 
 /** Open, In progress or Done, with the resolve permission (checked by the service) */

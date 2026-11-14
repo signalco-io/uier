@@ -16,7 +16,7 @@ export function MarkAllRead({ projectId, threads, shownOnly = false }: { project
     const [pending, startTransition] = useTransition();
     const updateComment = useCommentUpdate();
     const run = (snapshot: ReadThreadInput[]) => startTransition(async () => {
-        for (const thread of snapshot) updateComment({ id: thread.id, readSequence: thread.sequence });
+        const confirmations = new Map(snapshot.map(thread => [thread.id, updateComment({ id: thread.id, readSequence: thread.sequence })]));
         let written = 0;
         const failed: ReadThreadInput[] = [];
         for (let offset = 0; offset < snapshot.length; offset += 200) {
@@ -28,6 +28,7 @@ export function MarkAllRead({ projectId, threads, shownOnly = false }: { project
                     break;
                 }
                 const saved = new Set(result.data.reads.map(read => read.id));
+                for (const id of saved) confirmations.get(id)?.();
                 written += saved.size;
                 failed.push(...batch.filter(thread => !saved.has(thread.id)));
             } catch {

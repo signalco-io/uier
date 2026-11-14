@@ -43,6 +43,9 @@ Whatever changes the shown threads, cards and rows move to their new places (`La
 follow and read changes for cards, counters and board columns. Failed actions revert through
 `useOptimistic`; bulk read keeps rendered cursors and partial-failure retry behavior. Actions already
 revalidate and return updated RSC data: do not add a second `router.refresh()` after those writes.
+Successful reads and adopted comment writes retain their changed fields until each paged/detail snapshot observes
+them; action completion alone cannot retire optimism. See [optimistic comment updates](optimistic-status.md)
+for adopted operations, remaining migrations and stale-response regressions (uier #407).
 `LinkTabs` (project tabs, settings sections, the workspace area) shows no loading spinner and keeps no
 space for one: app pages load fast enough that the current tab moves on the click (uier #272). A `line`
 tab has no padding, so the first label lines up with the page content and the gap is the only space

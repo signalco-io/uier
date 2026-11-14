@@ -34,11 +34,11 @@ export function PriorityControl({ projectId, commentId, priority, canEdit }: { p
             <DropdownMenuGroup>
                 {priorities.map(value => <DropdownMenuItem className="pointer-coarse:min-h-11" key={value} onClick={() => start(async () => {
                     if (attempt.current?.value !== value) attempt.current = { value, key: crypto.randomUUID() };
-                    update({ id: commentId, patch: { priority: value } });
+                    const confirm = update({ id: commentId, patch: { priority: value } });
                     try {
                         const result = await setCommentPriorityAction(projectId, commentId, value, attempt.current.key);
                         if (!result?.ok) toast.error(result?.error ?? t("Could not set priority. Try again."));
-                        else attempt.current = null;
+                        else { confirm(result); attempt.current = null; }
                     } catch { toast.error(t("Could not set priority. Try again.")); }
                 })}>
                     <PriorityFlag priority={value} />

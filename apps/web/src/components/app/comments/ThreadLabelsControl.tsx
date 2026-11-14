@@ -31,11 +31,11 @@ export function ThreadLabelsControl({ projectId, commentId, labels, available, c
                             if (attempt.current?.id !== label.id || attempt.current?.mode !== mode) attempt.current = { id: label.id, mode, key: crypto.randomUUID() };
                             const next = checked ? [...shown, label] : shown.filter(item => item.id !== label.id);
                             show(next);
-                            update({ id: commentId, patch: { labels: next, labelIds: next.map(item => item.id) } });
+                            const confirm = update({ id: commentId, patch: { labels: next, labelIds: next.map(item => item.id) } });
                             try {
                                 const result = await changeCommentLabelsAction(projectId, commentId, [label.id], mode, attempt.current.key);
                                 if (!result?.ok) toast.error(result?.error ?? t('Could not update labels. Try again.'));
-                                else attempt.current = null;
+                                else { confirm(result); attempt.current = null; }
                             } catch { toast.error(t('Could not update labels. Try again.')); }
                         })}>
                         <ThreadLabelMark label={label} /><span className="flex min-w-0 flex-col"><span className="truncate">{label.name}</span>{label.description && <span className="text-xs text-muted-foreground">{label.description}</span>}</span>

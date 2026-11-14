@@ -31,9 +31,9 @@ export function useReadWhenShown(ref: RefObject<HTMLElement | null>, projectId: 
         sent.current = sequence;
         onRead?.();
         startTransition(async () => {
-            updateComment({ id: comment.id, readSequence: sequence });
+            const confirm = updateComment({ id: comment.id, readSequence: sequence });
             // A refused or failed write ends the transition without new data: the optimistic read rolls back
-            try { await markCommentReadAction(projectId, comment.id, sequence); }
+            try { if ((await markCommentReadAction(projectId, comment.id, sequence))?.ok) confirm(); }
             catch { /* rolled back */ }
         });
     });

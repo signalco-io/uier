@@ -27,6 +27,10 @@ isolation; `thread-history.spec.ts` covers the app controls, reloads, themes and
 
 ## Read cursors and freshness
 
+- App read updates use the shared [successful-write acknowledgement layer](optimistic-status.md).
+  Bulk reads confirm only returned successful IDs; older list/detail snapshots cannot restore their
+  unread dots after the toast. Applying a retained cursor preserves newer activity and never acknowledges it.
+
 - `src/lib/comments/activity.ts` and `readState.ts` own thread activity and reviewer read cursors.
   Read acknowledgements require current project/thread access and acknowledge only a rendered
   sequence. Mark as unread (`markThreadUnread`, `DELETE .../read`, `markCommentUnreadAction`) is the one

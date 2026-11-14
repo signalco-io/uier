@@ -397,7 +397,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
 
 
     const run = (action: () => Promise<ActionState>, success?: string, patch?: Partial<ProjectCommentView>, done?: () => void) => startTransition(async () => {
-        if (patch) updateComment({ id: comment.id, patch });
+        const confirm = patch ? updateComment({ id: comment.id, patch }) : undefined;
         let result: ActionState;
         try { result = await action(); }
         catch { toast.error(t("Could not save the change. Try again.")); return; }
@@ -405,6 +405,9 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
             toast.error(result.error);
             return;
         }
+        // Cursor reversals and following need their own receipt version; retain only monotonic
+        // reads and writes carrying the comment's saved activity sequence.
+        if (result?.ok && patch) confirm?.(result, { retain: !patch.activity?.unread && !('following' in patch) });
         if (success)
             toast.success(success);
         done?.();
@@ -781,7 +784,7 @@ export function CommentCard({ projectId, comment, reviewLink, assignees, userId,
                             setConfirmingReply(undefined);
                             run(() => itemId ? deleteCommentReplyAction(projectId, comment.id, itemId) : deleteCommentAction(projectId, comment.id), itemId ? t("Reply deleted.") : t("Comment deleted."),
                                 // A deleted thread is gone from every list, My work's board too (it keeps threads changed there)
-                                undefined, itemId ? undefined : () => startTransition(() => updateComment({ id: comment.id, removed: true })));
+                                undefined, itemId ? undefined : () => startTransition(() => { updateComment({ id: comment.id, removed: true }); }));
                         }}>
                             {t("Delete")}
                         </AlertDialogAction>

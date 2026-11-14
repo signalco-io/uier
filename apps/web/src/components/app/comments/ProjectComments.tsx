@@ -38,7 +38,8 @@ import type { CommentsView } from './commentLabels';
 import { orderComments, sortBoardColumn } from './commentOrder';
 import type { BoardColumn, BoardSort } from '../../../lib/app/boardSort';
 import { setBoardArchiveAction, setBoardSortAction } from './actions';
-import { applyCommentUpdate, CommentUpdatesProvider, type CommentUpdate } from './CommentUpdates';
+import { CommentUpdatesProvider } from './CommentUpdates';
+import { useOptimisticCommentUpdates } from './useOptimisticCommentUpdates';
 import { TriageSelection } from './TriageSelection';
 import { matchesFeedbackSearch } from '@uier/toolbar/triage';
 import { CommentsSearchNavigationProvider } from './CommentsSearchNavigation';
@@ -174,7 +175,8 @@ export function ProjectComments({ labels = [], workflow = defaultStatusWorkflow,
     const groupedLabels = labels.filter(label => groupIds && groupIds.includes(label.id));
     const pager = useProjectCommentPages({ projectId, userId, comments: savedComments, revision, paging: savedPaging, openedComment: savedOpenedComment },
         { ...query, q: urlQuery.q }, boardSorts, archiveExpanded, workflow, openComment.openId, groupIds);
-    const [optimisticComments, updateComment] = useOptimistic(pager.data.comments, (current, update: CommentUpdate) => current.map(comment => applyCommentUpdate(comment, update)));
+    const [optimisticComments, updateComment] = useOptimisticCommentUpdates(pager.data.comments,
+        JSON.stringify([projectId, userId, query.environment, query.author]));
     // Priority first (Urgent to Low), then number, highest first: the list, selection and keyboard follow this
     // order. The board's columns each follow the project's sort for them, by default this one in active columns
     // and the completion history in Done.

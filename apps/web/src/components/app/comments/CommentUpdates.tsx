@@ -11,7 +11,10 @@ import { withOwnReaction, type ReactionId } from '@uier/toolbar/reactions';
 export type CommentUpdate = { id: string; patch: Partial<ProjectCommentView> } | { id: string; readSequence: number }
     | { id: string; reply: ProjectCommentMessage; previousReplyIds: string[] } | { id: string; removed: true }
     | { id: string; reaction: { itemId: string; emoji: ReactionId; reacted: boolean } };
-const CommentUpdates = createContext<(update: CommentUpdate) => void>(() => {});
+/** Call only after a successful write. Failure keeps React's normal transition rollback. */
+export type CommentUpdateReceipt = { ok?: boolean; commentSequence?: number };
+export type ConfirmCommentUpdate = (receipt?: CommentUpdateReceipt, options?: { retain?: boolean }) => void;
+const CommentUpdates = createContext<(update: CommentUpdate) => ConfirmCommentUpdate>(() => () => {});
 
 /** Optimistic changes belong to the whole list, so filters, counts and board columns agree. */
 export const CommentUpdatesProvider = CommentUpdates.Provider;
@@ -22,20 +25,27 @@ export type SentReply = { reply: ProjectCommentMessage; previousReplyIds: string
 
 /** The saved reply a pending one became: new since it was sent, your own and with the same text */
 export function savedReply(replies: ProjectCommentMessage[], sent: SentReply) {
-    return replies.find(item => !sent.previousReplyIds.includes(item.id) && item.author.isMe && item.text === sent.reply.text);
+    return replies.find(item => !item.pending && !sent.previousReplyIds.includes(item.id) && item.author.isMe && item.text === sent.reply.text);
 }
 
 /** A thread as an update shows it at once: a patch, a reply that is not saved yet, or how far it has been read */
 export function applyCommentUpdate(comment: ProjectCommentView, update: CommentUpdate): ProjectCommentView {
     if (comment.id !== update.id) return comment;
-    if ('patch' in update) return { ...comment, ...update.patch };
+    if ('patch' in update) {
+        const activity = update.patch.activity;
+        if (!activity || !comment.activity) return { ...comment, ...update.patch };
+        // An acknowledgement never hides activity that arrived after the rendered cursor.
+        // Mark as unread is the explicit move back; other reads only advance the cursor.
+        const readSequence = activity.unread ? activity.readSequence : Math.max(comment.activity.readSequence, activity.readSequence);
+        return { ...comment, ...update.patch, activity: { ...comment.activity, readSequence, unread: comment.activity.lastOtherSequence > readSequence } };
+    }
     if ('reaction' in update) {
         const { itemId, emoji, reacted } = update.reaction;
         if (comment.messageId === itemId) return { ...comment, reactions: withOwnReaction(comment.reactions, emoji, reacted) };
         return { ...comment, replies: comment.replies.map(item => item.id === itemId ? { ...item, reactions: withOwnReaction(item.reactions, emoji, reacted) } : item) };
     }
     if ('reply' in update) {
-        return savedReply(comment.replies, update) ? comment : { ...comment, replies: [...comment.replies, update.reply] };
+        return comment.replies.some(item => item.id === update.reply.id) || savedReply(comment.replies, update) ? comment : { ...comment, replies: [...comment.replies, update.reply] };
     }
     if ('removed' in update || !comment.activity) return comment;
     const readSequence = Math.max(comment.activity.readSequence, update.readSequence);
