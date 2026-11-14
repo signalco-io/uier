@@ -152,7 +152,8 @@ test('page feedback, bugs and edits keep separate drafts and sign-out clears eve
     await page.getByRole('dialog', { name: 'Comment options', exact: true }).getByRole('button', { name: 'Edit', exact: true }).click();
     await page.getByRole('textbox', { name: 'Edit comment', exact: true }).fill('Edit draft');
     await page.reload();
-    await page.getByRole('button', { name: /^Inbox/ }).click();
+    // Reload restores the open inbox; toggling it would hide the restored edit.
+    await expect(page.getByRole('complementary', { name: 'Comments' })).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Edit comment', exact: true })).toHaveText('Edit draft', { useInnerText: true });
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     await page.getByRole('button', { name: 'Close sidebar' }).click();
