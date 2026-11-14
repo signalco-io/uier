@@ -144,6 +144,39 @@ function runtime() {
     return { context, files, output, advance: ms => { now += ms; } };
 }
 
+test('packet downloads original and reply images, maps them to messages and keeps failures visible', async () => {
+    for (const screenshots of [false, true]) {
+        const { context, files, output } = runtime();
+        Object.assign(context, { Buffer, resolve: value => value, writeFileSync: (path, content) => files.set(path, content) });
+        const original = 'uier://original', denied = 'uier://denied-reply', variant = 'uier://variant';
+        context.tool = async () => ({ items: [{ commentId: 'comment_one', context: { identity: { number: 152 } }, markdown: 'Redesign variant',
+            screenshotResource: { uri: original }, replyScreenshotResources: [{ itemId: 'item_denied', uri: denied }, { itemId: 'item_variant', uri: variant }] }], remainingIds: [] });
+        const reads = [];
+        context.rpc = async (_ctx, method, { uri }) => {
+            reads.push(uri);
+            assert.equal(method, 'resources/read');
+            if (uri === denied) throw new Error('Image access denied');
+            return { contents: [{ mimeType: uri === original ? 'image/png' : 'image/webp', blob: Buffer.from(uri).toString('base64') }] };
+        };
+        await context.packet({ _: ['comment_one'], out: '/briefs', screenshots });
+        assert.ok(files.get('/briefs/152.md').includes('Redesign variant'));
+        if (screenshots) {
+            assert.deepEqual(reads, [original, denied, variant]);
+            assert.equal(files.get('/briefs/152.png').toString(), original);
+            assert.equal(files.get('/briefs/152-reply-2.webp').toString(), variant);
+            assert.deepEqual(output[0].written[0].replyScreenshots, [
+                { itemId: 'item_denied', screenshotError: 'Image access denied' },
+                { itemId: 'item_variant', screenshot: '/briefs/152-reply-2.webp' }
+            ]);
+            assert.match(files.get('/briefs/152.md'), /Reply item_variant: \/briefs\/152-reply-2.webp/);
+            assert.match(files.get('/briefs/152.md'), /Reply item_denied: image unavailable: Image access denied/);
+        } else {
+            assert.deepEqual(reads, []);
+            assert.equal(output[0].written[0].replyScreenshots, undefined);
+        }
+    }
+});
+
 test('compact context excludes closed history, retains constraints and pending writes, and emits deltas', () => {
     const { context } = runtime();
     const state = { restrictions: { production: 'Do not promote' }, harness: { routing: { ui: { model: 'chosen-model' } } },

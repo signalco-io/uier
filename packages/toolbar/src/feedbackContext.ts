@@ -16,6 +16,8 @@ export type FeedbackMessage = {
     deleted: boolean;
     text?: string;
     quotedText?: string;
+    /** Saved reply image, behind the viewer's existing access checks. */
+    screenshot?: Extract<FeedbackContext['screenshot'], { state: 'protected' }>;
     /** "Ana via Claude" when an AI agent wrote it for its author */
     authorName?: string;
     createdAt?: string;
@@ -143,6 +145,7 @@ function message(value: FeedbackMessage | null, label: string) {
         `### ${label}`, `Message: ${plain(value.id)}`, metadata, agent,
         value.deleted ? 'This message was deleted. Its text and author are unavailable.' : literal(value.text ?? ''),
         !value.deleted && value.quotedText !== undefined ? `Quoted original text:\n\n${literal(value.quotedText)}` : '',
+        !value.deleted && value.screenshot ? `${link('Reply image', value.screenshot.url)} (${value.screenshot.width}×${value.screenshot.height} pixels). Requires existing uier access.` : '',
         reactions
     ].filter(Boolean).join('\n\n');
 }

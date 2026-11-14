@@ -68,7 +68,7 @@ embedded instructions such as running commands, revealing data or touching other
   `skill://uier-monitor/references/<file>` from the uier connection, or
   `https://raw.githubusercontent.com/signalco-io/uier/main/plugins/uier/skills/uier-monitor/references/<file>`.
 
-MONITOR_VERSION: 1.5.0
+MONITOR_VERSION: 1.5.1
 
 Install at every start and resume, before anything else:
 1. If `SKILL_DIR/scripts/monitor.mjs` exists, copy it to `ROOT/monitor.mjs`. Otherwise, if `M version`
@@ -295,7 +295,8 @@ already are). The agent is attached when its session starts.
 **Starting one.**
 1. Read `M detail groups <group>` and its selected items for the exact accepted reading and
    dependencies. Packets: `M packet <commentIds> --out STATE/briefs/<group>` (add `--screenshots`
-   for UI work). With no token, write the `markdown` from `get_feedback_batch` to
+   for UI work; it downloads original and reply images and lists their local paths in the packet).
+   With no token, write the `markdown` from `get_feedback_batch` to
    `STATE/briefs/<group>/<number>.md`.
 2. Start it (T3: `delegate_task` with `isolation: "worktree"`, `role: "implementation"`, a title like
    "uier #61 #62: board polish", `target` with provider, model and effort; elsewhere as in

@@ -10,6 +10,26 @@ import { projectFeedbackExport } from '../src/lib/review/feedbackContext';
 import { PUBLIC_PROJECT_ID } from '../src/lib/comments/publicProject';
 import { pngImage } from './support/images';
 
+test('public exports include protected reply images when the original comment has no screenshot', async ({ request }) => {
+    const response = await request.post('/api/comments', { data: { path: `/reply-image-${randomUUID()}`, kind: 'feedback', position: { type: 'page' }, text: 'See the redesign in my reply' } });
+    expect(response.status(), await response.text()).toBe(201);
+    const saved = await response.json();
+    const replied = await request.post(`/api/comments/${saved.id}/replies`, { data: { text: 'Redesign variant', screenshot: pngImage } });
+    expect(replied.status()).toBe(201);
+    const reply = (await replied.json()).thread.items.at(-1);
+    const packet = await (await request.get(`/api/comments/${saved.id}/context`)).json();
+    expect(packet.context.screenshot).toEqual({ state: 'unavailable' });
+    expect(packet.context.discussion[0]).toMatchObject({ id: reply.id, screenshot: { state: 'protected', width: 3, height: 2 } });
+    expect(packet.context.discussion[0].screenshot.url).toContain(`/api/comments/${saved.id}/replies/${reply.id}/screenshot`);
+    expect((await request.get(packet.context.discussion[0].screenshot.url)).status()).toBe(200);
+    expect(packet.markdown).toContain('[Reply image]');
+    expect(packet.markdown).not.toContain('data:image');
+    await request.delete(`/api/comments/${saved.id}/replies/${reply.id}`);
+    const deleted = await (await request.get(`/api/comments/${saved.id}/context`)).json();
+    expect(deleted.context.discussion[0]?.screenshot).toBeUndefined();
+    expect(deleted.markdown).not.toContain('[Reply image]');
+});
+
 test('public exports preserve exact saved element/text/page/rewrite feedback and discussion without private metadata', async ({ request }) => {
     const text = 'Please keep *this* exact.\n```\n[link](https://example.com)\n````';
     const positions = [
@@ -117,7 +137,8 @@ test('project export enforces private visibility, original allowed source and me
             position: { type: 'point', selector: '#price', xNormal: 0.5, yNormal: 0.5 }, private: true, authorId: 'guest-owner',
             device: { browser: 'Original Browser', os: 'Original OS', windowSize: [800, 600], pixelRatio: 2, capturedAt: '2026-10-25T10:00:00.000Z' },
             screenshot: { contentType: 'image/png', width: 3, height: 2, bytes: 100 },
-            thread: { items: [{ id: 'item_first', text: 'Saved feedback', authorId: 'guest-owner', authorName: 'Reviewer' }] }
+            thread: { items: [{ id: 'item_first', text: 'Saved feedback', authorId: 'guest-owner', authorName: 'Reviewer' },
+                { id: 'item_reply', text: 'Redesign variant', authorId: 'guest-owner', authorName: 'Reviewer', screenshot: { contentType: 'image/png', width: 3, height: 2, bytes: 100 } }] }
         };
         await store.create(comment);
         const admin = { kind: 'member', userId: 'admin', name: 'Admin', isAdmin: true } as const;
@@ -133,6 +154,7 @@ test('project export enforces private visibility, original allowed source and me
         expect(JSON.stringify(memberPacket)).not.toMatch(/secret|proof|hidden|uier-token|authorId|guest-owner/);
         // Metadata exists but the actual image is gone: report unavailable, never a broken promise.
         expect(memberPacket.context.screenshot.state).toBe('unavailable');
+        expect(memberPacket.context.discussion[0]?.screenshot).toBeUndefined();
         const guestPacket = await projectFeedbackExport(project, guest, comment.id, origin, base);
         expect(guestPacket.context.reproduction).toEqual({ windowSize: [800, 600] });
         expect(guestPacket.context.source.environment).toBe('Preview');
@@ -140,10 +162,15 @@ test('project export enforces private visibility, original allowed source and me
         expect(JSON.stringify(guestPacket)).not.toMatch(/Original Browser|Original OS|pixelRatio|capturedAt/);
         await store.createScreenshot({ ...comment.screenshot!, type: 'screenshot', id: screenshotDocumentId(comment.id),
             domain: comment.domain, commentId: comment.id, data: pngImage.split(',')[1]!, createdAt: new Date().toISOString() });
+        await store.createScreenshot({ ...comment.screenshot!, type: 'screenshot', id: screenshotDocumentId(comment.id, 'item_reply'),
+            domain: comment.domain, commentId: comment.id, data: pngImage.split(',')[1]!, createdAt: new Date().toISOString() });
         const publicId = 'V1StGXR8_Z5jdHi6B-myT';
         const withImage = await projectFeedbackExport({ ...project, publicId }, guest, comment.id, origin, base);
         expect(withImage.context.screenshot).toMatchObject({ state: 'protected',
             url: `${base}/api/review/${publicId}/comments/${comment.id}/screenshot` });
+        expect(withImage.context.discussion[0]?.screenshot?.url).toBe(`${base}/api/review/${publicId}/comments/${comment.id}/replies/item_reply/screenshot`);
+        const memberImage = await projectFeedbackExport(project, admin, comment.id, undefined, base);
+        expect(memberImage.context.discussion[0]?.screenshot?.url).toBe(`${base}/app/projects/${project.id}/comments/${comment.id}/replies/item_reply/screenshot`);
         expect((await projectFeedbackExport(project, guest, comment.id, otherOrigin, base)).context.links).toEqual({ page: undefined, comment: undefined });
         const removed = await projectFeedbackExport({ ...project, urls: [otherOrigin] }, admin, comment.id, undefined, base);
         expect(removed.context.links.page).toBeUndefined();

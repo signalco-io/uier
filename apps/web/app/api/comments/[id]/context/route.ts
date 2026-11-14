@@ -1,5 +1,5 @@
 import { appBaseUrl } from '@/src/lib/app/request';
-import { feedbackExport } from '@/src/lib/comments/feedbackContext';
+import { feedbackExport, replyScreenshotUrls } from '@/src/lib/comments/feedbackContext';
 import { apiErrors, commentContext, commentsApiHandler } from '@/src/lib/comments/http';
 import { toPublicCommentDto } from '@/src/lib/comments/service';
 import { isValidId } from '@/src/lib/comments/validation';
@@ -21,5 +21,6 @@ export const GET = commentsApiHandler<{ id: string }>(async (request, { id }) =>
     return Response.json(feedbackExport(dto, {
         projectId: context.project?.id,
         pageUrl: page.href, commentUrl: link.href,
-        screenshotUrl: screenshot ? new URL(`/api/comments/${encodeURIComponent(id)}/screenshot`, base).href : undefined }));
+        screenshotUrl: screenshot ? new URL(`/api/comments/${encodeURIComponent(id)}/screenshot`, base).href : undefined,
+        replyScreenshotUrls: await replyScreenshotUrls(dto, context.domain, itemId => new URL(`/api/comments/${encodeURIComponent(id)}/replies/${encodeURIComponent(itemId)}/screenshot`, base).href) }));
 });

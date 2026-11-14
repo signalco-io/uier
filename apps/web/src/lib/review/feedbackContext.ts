@@ -8,7 +8,7 @@ import { feedbackSource } from '../app/environments';
 import { KnownPageLinks } from '../../knownPages';
 import { projectOrigins } from '../app/projects';
 import type { DbProject } from '../app/model';
-import { feedbackExport } from '../comments/feedbackContext';
+import { feedbackExport, replyScreenshotUrls } from '../comments/feedbackContext';
 import { apiErrors } from '../comments/http';
 import { toReproductionContext } from '../comments/reproduction';
 import { getCommentsStore } from '../repo/commentsStore';
@@ -81,7 +81,10 @@ export function createProjectFeedbackExportReader(project: DbProject, actor: Pro
             title: threadTitle(comment, titles)?.text,
             screenshotUrl: screenshot ? new URL(actor.kind === 'member'
                 ? KnownPageLinks.projectCommentScreenshot(project.id, comment.id)
-                : `/api/review/${encodeURIComponent(project.publicId ?? project.id)}/comments/${encodeURIComponent(comment.id)}/screenshot`, baseUrl).href : undefined
+                : `/api/review/${encodeURIComponent(project.publicId ?? project.id)}/comments/${encodeURIComponent(comment.id)}/screenshot`, baseUrl).href : undefined,
+            replyScreenshotUrls: await replyScreenshotUrls(dto, comment.domain, itemId => new URL(actor.kind === 'member'
+                ? KnownPageLinks.projectReplyScreenshot(project.id, comment.id, itemId)
+                : `/api/review/${encodeURIComponent(project.publicId ?? project.id)}/comments/${encodeURIComponent(comment.id)}/replies/${encodeURIComponent(itemId)}/screenshot`, baseUrl).href)
         });
         return actor.kind === 'member' ? { ...packet, labels: labelsForComment(effectiveThreadLabels(await loadWorkspace(), project), comment), workflowStatus: statusForComment(await (workflow ??= loadWorkspace().then(workspace => effectiveStatusWorkflow(workspace, project))), comment) } : packet;
     };
