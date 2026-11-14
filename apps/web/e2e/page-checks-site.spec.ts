@@ -153,8 +153,8 @@ test('a member reviews two pages with the same title, and the project\'s Page ch
 
     // Sorted by what needs most attention by default; Page sorts by the address and says so on its column
     await page.getByRole('button', { name: 'Sort pages' }).click();
-    await expect(page.getByRole('menuitemradio', { name: 'Needs attention' })).toHaveAttribute('aria-checked', 'true');
-    await page.getByRole('menuitemradio', { name: 'Page' }).click();
+    await expect(page.getByRole('menuitemradio', { name: 'Needs attention', exact: true })).toHaveAttribute('aria-checked', 'true');
+    await page.getByRole('menuitemradio', { name: 'Page', exact: true }).click();
     await expect(page).toHaveURL(/[?&]sort=page/);
     await expect(table.getByRole('columnheader', { name: 'Page' })).toHaveAttribute('aria-sort', 'ascending');
     await expect(table.locator('[data-page-check]').first()).toHaveAttribute('data-page-check', `/${project}/plans`);
