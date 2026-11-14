@@ -8,7 +8,7 @@ import { IconButton } from '@signalco/ui-primitives/IconButton';
 import { Button } from '@signalco/ui-primitives/Button';
 import { Input } from '@signalco/ui-primitives/Input';
 import { cx } from '@signalco/ui-primitives/cx';
-import { Close, Send } from '@signalco/ui-icons';
+import { Check, Close, Send } from '@signalco/ui-icons';
 import { useParticipants, type Participant } from '../hooks/useParticipants';
 import { MarkdownEditor, type MarkdownEditorHandle, type MentionQuery } from '../editor/MarkdownEditor';
 import type { EditorMention } from '../editor/markdownDoc';
@@ -62,7 +62,7 @@ type CommentComposerProps = {
     initialText?: string;
     initialMentions?: Mention[];
     commentId?: string;
-    /** Editing has a labeled Save button and a separate cancel action. */
+    /** Editing: Save (a check) and Cancel (a cross) are icon buttons with tooltips, named for screen readers */
     onCancel?: () => void;
     ref?: Ref<CommentComposerHandle>;
     /** Accessible name of the text box */
@@ -364,7 +364,16 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                     </span>
                     </Row>
                     <Row spacing={0.5} className="shrink-0">
-                        {onCancel && <Button variant="plain" size="xs" type="button" disabled={busy} onClick={onCancel}>{t.common.cancel}</Button>}
+                        {onCancel && <IconTooltip label={t.common.cancel}><IconButton
+                            variant="plain"
+                            size="xs"
+                            type="button"
+                            className="size-7 rounded-md pointer-coarse:size-11"
+                            aria-label={t.common.cancel}
+                            disabled={busy}
+                            onClick={onCancel}>
+                            <Close size={14} />
+                        </IconButton></IconTooltip>}
                         {!onCancel && (text.length > 0 || (discardable && onDiscard)) && (
                             <IconTooltip label={t.composer.discard}><IconButton
                                 variant="plain"
@@ -378,7 +387,15 @@ export function CommentComposer({ ref, label, placeholder, submitLabel, draftKey
                             </IconButton></IconTooltip>
                         )}
                         {onCancel ? (
-                            <Button type="submit" variant="plain" size="xs" className="pointer-coarse:min-h-11" disabled={!trimmedText.length || busy || holdSubmit}>{submitLabel}</Button>
+                            <IconTooltip label={submitLabel}><IconButton
+                                variant="plain"
+                                size="xs"
+                                type="submit"
+                                className="size-7 rounded-md pointer-coarse:size-11"
+                                aria-label={submitLabel}
+                                disabled={!trimmedText.length || busy || holdSubmit}>
+                                <Check size={14} />
+                            </IconButton></IconTooltip>
                         ) : <IconTooltip label={submitLabel}><IconButton
                             variant="plain"
                             size="xs"

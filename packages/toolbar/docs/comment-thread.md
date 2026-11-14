@@ -54,6 +54,8 @@ Checked in `apps/web/e2e/toolbar-thread.spec.ts`.
 `components/CommentThreadItemMenu.tsx`: edit, with Save and Cancel and stale-edit protection; Reattach comment on
 the first message ([anchor recovery](anchor-recovery.md)); delete, with a confirmation. For an edit,
 `CommentThreadItem.tsx` renders an inline `CommentComposer`, keeps failed text and returns the focus to the menu.
+The edit's Cancel (a cross) and Save changes (a check) are icon buttons with tooltips and those accessible names, so
+long translations fit the narrow editor ([uier #395](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1%2Fpage-checks&comment=comment_F7pueH_f-8c5J-ATyyooS)).
 
 ## Icon buttons
 

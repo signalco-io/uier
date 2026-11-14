@@ -37,7 +37,8 @@ turned off, and while an image is attached.
 
 **Attach image**, an item of Attach's menu (`ComposerAttachMenu`), sends the reviewer's own image, picked or pasted
 into the form, as `screenshot` instead of the capture. Once one is attached, its name with a remove button follows
-Attach and the item leaves the menu. Never an image preview.
+Attach and the item leaves the menu. Never an image preview. In a tight row the name truncates and the chip's icons keep their
+size ([uier #396](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1%2Fpage-checks&comment=comment_7u8PpdTZvoj6z0h3M0fEy)).
 
 One [screen recording](recordings.md) can be attached alongside the screenshot or supplied image.
 Record screen and Upload recording are items of the same Attach menu; a recording has its own preview and limits.
