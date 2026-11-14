@@ -1241,6 +1241,13 @@ test('app replies retry a lost response once and reject forged or unauthorized a
         await expect(card.getByText('Save once after response loss', { exact: true })).toHaveCount(1);
         await page.unroute(`**/app/projects/${project}*`);
         expect((await (await request.get(`/api/review/${project}/comments?scope=site`, { headers })).json()).find((item: { id: string }) => item.id === saved.id).thread.items).toHaveLength(2);
+        await expect(card.getByText('Sending...', { exact: true })).toHaveCount(0);
+        // A fresh send with identical words is a separate message, not a receipt replay.
+        await input.fill('Save once after response loss');
+        await input.press('Enter');
+        await expect(card.getByRole('status').filter({ hasText: /^Reply posted$/ })).toHaveText('Reply posted');
+        await expect(card.getByText('Save once after response loss', { exact: true })).toHaveCount(2);
+        expect((await (await request.get(`/api/review/${project}/comments?scope=site`, { headers })).json()).find((item: { id: string }) => item.id === saved.id).thread.items).toHaveLength(3);
         const action = captured!;
         const post = (client: import('@playwright/test').APIRequestContext, input: unknown) => client.post(action.url(), {
             headers: { 'Next-Action': action.headers()['next-action']!, 'Content-Type': 'text/plain;charset=UTF-8', Origin: new URL(action.url()).origin }, maxRedirects: 0, data: JSON.stringify([input])

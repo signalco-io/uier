@@ -70,7 +70,7 @@ export async function replyCommentAction(input: import('zod').infer<typeof reply
         assertCanUseComments(project, actor);
         const request = new Request(`${await appBaseUrl()}/app/projects/${project.id}`, { headers: await headers() });
         const screenshot = parsed.screenshot ? await screenshotSchema.parseAsync(parsed.screenshot) : undefined;
-        await replyToProjectComment(request, project, actor, parsed.commentId, { ...parsed, screenshot });
+        return await replyToProjectComment(request, project, actor, parsed.commentId, { ...parsed, screenshot });
     });
 }
 

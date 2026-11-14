@@ -110,3 +110,7 @@ receipts, concurrent replies and export compatibility.
 The editing reload regression checks that the inbox is restored, then closes it before opening
 the pin. Persisted panels (`20427771`, #552) can cover page pins on narrow screens; both the
 comment and reply edit persistence assertions remain.
+
+The page-state browser regression checks the hash-routing checkbox by its accessible name;
+Review also contains independent verification and tool-visibility checkboxes. After reloading a
+review link, the regression closes the restored inbox before clicking a pin on narrow screens.
