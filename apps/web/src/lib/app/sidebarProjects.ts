@@ -6,8 +6,8 @@ import { loadClients, projectClient, type ClientSummary } from './clients';
 import { appActor } from './projectComments';
 import { listsProject, type OrderableProject, type ProjectOrder } from './projectOrder';
 
-/** A project in the sidebar's quick switcher; grouped by client, the client's tile heads its projects */
-export type SidebarProject = OrderableProject & { url?: string; client?: Pick<ClientSummary, 'id' | 'name' | 'icon' | 'color'> };
+/** A project in the sidebar's quick switcher; grouped by client, the client's tile (its logo, else its icon or letter) heads its projects */
+export type SidebarProject = OrderableProject & { url?: string; client?: Pick<ClientSummary, 'id' | 'name' | 'icon' | 'color' | 'logoUrl'> };
 
 /**
  * When a project last changed for this member: the newest `updatedAt` of a thread they can see (a comment, reply,
@@ -50,7 +50,7 @@ export async function loadSidebarProjects(context: AppContext, projects: DbProje
             status: project.status === 'done' ? 'done' : 'active',
             createdAt: project.createdAt,
             activityAt: activity?.[index] ?? project.createdAt,
-            client: client && { id: client.id, name: client.name, icon: client.icon, color: client.color }
+            client: client && { id: client.id, name: client.name, icon: client.icon, color: client.color, ...(client.logoUrl ? { logoUrl: client.logoUrl } : {}) }
         };
     });
 }

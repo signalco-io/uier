@@ -88,6 +88,8 @@ the separately bundled review toolbar owns its own query cache.
   saves the cookie in a server action, whose render reads them. `lib/app/projectOrder.ts` (pure, shared by server
   render and browser) sorts with a fixed `en` collator and code-unit comparisons for ids and timestamps, so both
   agree, and groups by client (clients ordered like their projects, No client last) or by status (Active, then Done).
+  A client group's heading shows its `ClientMark` with the client's logo, like the project header's Client line, the
+  icon or letter only when it has none (`loadSidebarProjects` passes `logoUrl`; [uier #419](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1%2Fpage-checks&comment=comment_1kFMZGwfbw3G6rwJvziEa)).
   The choice is the HttpOnly `__Host-uier_project_order` cookie (`projectOrderCookie.ts`, `saveProjectOrderAction`):
   the sort, then `.client` or `.status` (`recent`, `alphabetical.client`, `created.status`). Values saved before
   Sort and Group (`recent`, `alphabetical`, `recent.client`, `alphabetical.client`) are the same strings and read

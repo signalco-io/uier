@@ -14,7 +14,7 @@
   tints of `--brand-accent`, `--brand-success`, `--brand-warning`, `--destructive`; letters stay ink) live
   in `clientAppearance.ts`; `ClientMark` draws the tile, or its `logoUrl` with the icon/letter as its
   loading and failure fallback. Existing callers may omit `logoUrl`; the project client filter passes
-  it to both its menu and trigger. More colours need new brand tokens first.
+  it to both its menu and trigger, and the sidebar's client groups pass it too (uier #419). More colours need new brand tokens first.
   Show clients only through visible projects: pages call `listVisibleProjects` first, then `loadClients`,
   and `projectClients` / `clientNames` / `projectClient` keep only clients those projects point to (the
   Clients tab, the sidebar's Workspace link, the suggestions, the filter, cards and the project header). The filter
