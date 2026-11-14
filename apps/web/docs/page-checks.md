@@ -69,6 +69,10 @@ pass); a transfer keeps it, since it is keyed by the project.
   or search results, using only checked pages from the same environment. Unchecked groupings stay text;
   unrelated checked pages are never added to the finding. The count describes the finding's pages.
   A page under a level shows the rest of its address; the whole address stays its link's name.
+- Each Across pages card's count has a mark beside it (`Finding`'s `kind`): the three warnings (shared titles, shared
+  descriptions, without a description) the amber triangle while they find pages ([uier #415](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1%2Fpage-checks&comment=comment_vAJSSLp3zTWc8g2E9AYAX))
+  and the green check at 0 ([uier #414](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1%2Fpage-checks&comment=comment_B-eIW8MK34hosRDVpZID_)); Not indexed, neither good nor bad, the muted info
+  the toolbar's SEO panel uses for a note. The mark is `aria-hidden`: the count's name ("5 pages") and the card's title say it.
 - **Pages**: a table from the `@3xl` container width (a card per page under it, like the site addresses
   table): the page (its address opens it in review in a new tab, with `projectReview`; an address no longer
   among the project's is text), its title (and environment when the project has several), axe-core's issues by

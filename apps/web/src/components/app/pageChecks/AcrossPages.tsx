@@ -13,7 +13,7 @@ import type { PageCheckInsights, SharedText } from '@/src/lib/pageChecks/insight
 import type { PageCheckRow } from '@/src/lib/pageChecks/model';
 import { pathTree, type PathNode } from '@/src/lib/pageChecks/pathTree';
 import { cn } from '@/src/lib/utils';
-import { noteIcon, PageLink, warnIcon, type PageEnvironment } from './PageCheckParts';
+import { noteIcon, PageLink, passIcon, warnIcon, type PageEnvironment } from './PageCheckParts';
 
 type Links = { projectId: string; environments: readonly PageEnvironment[]; checkedPages: readonly PageCheckRow[] };
 
@@ -28,8 +28,8 @@ const pageMatches = (page: PageCheckRow, query: string) =>
 /**
  * One finding across pages: a card with its count and what it means. Its pages are closed until asked
  * for (uier #219), then listed in a bounded scroll, with a search when there are many. A warning's count
- * has the amber triangle (uier #415); a note (pages not indexed: neither good nor bad) the muted info,
- * the toolbar SEO panel's mark for a note.
+ * has the amber triangle (uier #415), or the green check when it has none (uier #414); a note (pages not
+ * indexed: neither good nor bad) the muted info, the toolbar SEO panel's mark for a note.
  */
 function Finding({ id, kind, title, description, count, empty, children }: {
     id: string;
@@ -44,7 +44,7 @@ function Finding({ id, kind, title, description, count, empty, children }: {
     const { t, language } = useAppI18n();
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState('');
-    const mark = kind === 'note' ? noteIcon : warnIcon;
+    const mark = kind === 'note' ? noteIcon : count ? warnIcon : passIcon;
     const Icon = mark.icon;
     return (
         <Card size="sm" role="region" aria-labelledby={`${id}-title`} data-page-checks-finding={id}>
@@ -54,7 +54,7 @@ function Finding({ id, kind, title, description, count, empty, children }: {
                 </CardTitle>
                 <CardDescription>{description}</CardDescription>
                 <CardAction>
-                    <Badge variant="outline" className="font-mono tabular-nums" data-finding-mark={kind}>
+                    <Badge variant="outline" className="font-mono tabular-nums" data-finding-mark={kind === 'note' ? 'note' : count ? 'warning' : 'pass'}>
                         <Icon data-icon="inline-start" aria-hidden="true" className={mark.stroke} />
                         <span aria-hidden="true">{count}</span><span className="sr-only">{count === 1 ? t('1 page') : t('{count} pages', { count })}</span>
                     </Badge>
