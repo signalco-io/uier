@@ -4,7 +4,7 @@ const changedKey = 'uier:account-changed';
 export const accountChangedKey = changedKey;
 
 /** Every identity change leaves the current React tree and router cache behind. */
-export async function changeAccount(input: { action: 'switch'; userId: string; next?: string } | { action: 'sign-out' | 'sign-out-all' }) {
+export async function changeAccount(input: { action: 'switch'; userId: string; next?: string } | { action: 'open-project-link'; next: string } | { action: 'sign-out' | 'sign-out-all' }) {
     const response = await fetch('/api/account/sessions', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input)
     });

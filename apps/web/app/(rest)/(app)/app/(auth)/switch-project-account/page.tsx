@@ -14,12 +14,14 @@ import { safeNextPath } from '@/src/lib/app/signIn';
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { AccountChoice } from './AccountChoice';
 import { switchProjectAccount } from './actions';
+import { OpenProjectLink } from './OpenProjectLink';
 
 async function Content({ searchParams }: PageProps<'/app/switch-project-account'>) {
     await connection();
     const next = safeNextPath((await searchParams).next);
     const [choices, accounts] = await Promise.all([projectLinkAccounts(await cookies(), next), getBrowserAccounts()]);
     if (!next || !choices.length) notFound();
+    if (choices.length === 1) return <OpenProjectLink next={next} />;
     const { t } = await getAppI18n();
     return (
         <AuthCard
