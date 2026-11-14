@@ -6,16 +6,17 @@ import type { FeedbackStage } from '../verification';
  * dots of the app's board column headers (`GlowingStateDot`, kept subtle in uier #399), scaled for the pin (uier #408).
  */
 const pinStatusColors: Record<Exclude<FeedbackStage, 'open'>, { dot: string; glow: string }> = {
-    'in-progress': { dot: 'bg-[hsl(var(--brand-in-progress))]', glow: 'bg-[hsl(var(--brand-in-progress)/0.35)]' },
-    ready: { dot: 'bg-[hsl(var(--brand-ready))]', glow: 'bg-[hsl(var(--brand-ready)/0.35)]' },
-    done: { dot: 'bg-[hsl(var(--brand-success))]', glow: 'bg-[hsl(var(--brand-success)/0.35)]' }
+    'in-progress': { dot: 'bg-[hsl(var(--pin-status-in-progress))]', glow: 'bg-[hsl(var(--pin-status-in-progress)/0.35)]' },
+    ready: { dot: 'bg-[hsl(var(--pin-status-ready))]', glow: 'bg-[hsl(var(--pin-status-ready)/0.35)]' },
+    done: { dot: 'bg-[hsl(var(--pin-status-done))]', glow: 'bg-[hsl(var(--pin-status-done)/0.35)]' }
 };
 
 /**
  * A thread's status on its pin (uier #364): a solid 8 px dot in the status's colour with a white ring like the pin's
  * and a soft halo of its colour, on the pin's round top-right edge, the corner the sharp tip leaves free, above the
- * message count on the bottom-right (uier #397, #408). Ink like the pin, so the dark tokens whatever the theme; the
- * white ring keeps it readable on any page. The halo takes no room. Open says nothing; the pin's name says the
+ * message count on the bottom-right (uier #397, #408). The ring is ink-scope white like the pin's, but the dot takes
+ * the threads' theme (light or dark status tokens, `--pin-status-*` in styles/toolbar-theme.css), so it is the same
+ * colour as the app's status dots (uier #426); the white ring keeps it readable on any page. The halo takes no room. Open says nothing; the pin's name says the
  * status. Decorative.
  */
 export function PinStatus({ stage }: { stage: Exclude<FeedbackStage, 'open'> }) {

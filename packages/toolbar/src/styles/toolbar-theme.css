@@ -40,6 +40,16 @@
         color-scheme: light;
     }
 
+    /* A pin's status dot (components/PinStatus.tsx) sits in the ink scope for its white ring, but takes its colour
+       from the threads' theme, so In progress, Ready to verify and Done match the app's dots in light and dark
+       (uier #426). A custom property resolves its var() here and is inherited resolved, so the ink scope's
+       dark tokens do not change it. */
+    [data-uier-root] {
+        --pin-status-in-progress: var(--brand-in-progress);
+        --pin-status-ready: var(--brand-ready);
+        --pin-status-done: var(--brand-success);
+    }
+
     [data-uier-root].dark,
     [data-uier-root] .dark {
         color-scheme: dark;
