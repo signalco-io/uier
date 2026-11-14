@@ -262,8 +262,10 @@ session loss navigates to sign-in and access loss returns to Projects. Hidden/of
 signals do not fetch; successful local writes reconcile even when the document is hidden.
 
 Each board column reserves a 12 px progress slot left of its actions, the size of their icons (uier #432), including expanded and
-collapsed archive columns. Whole-window reads mark every column busy; continuations mark only their
-lane. One persistent polite status announces Loading comments for scope changes and explicit retries,
+collapsed archive columns. Scope changes and explicit retries mark every column busy; continuations mark only their
+lane. A same-scope background refresh (a saved change, a realtime signal) marks only the lanes of threads with a
+local change the snapshot doesn't show yet, as saved and as shown: a moved card's old and new columns (uier #442).
+A change from someone else shows no column progress; its cards arrive with the data. One persistent polite status announces Loading comments for scope changes and explicit retries,
 outside the busy tree; same-scope background refreshes stay silent. The UI-kit
 spinner uses muted semantic tokens and stops rotating with reduced motion. `Spinner` defaults to 16 px through `w-4 h-4`
 (not `size-4`), so inside a button it takes the size of the icon it replaces: Archive all's pending spinner in the
