@@ -57,7 +57,10 @@ the separately bundled review toolbar owns its own query cache.
   install step) until a comment from one of the project's addresses arrives (`hasProjectFeedback`); after that Install is
   gone; the tabs' line runs to the inset panel's edges, a divider between the header and the page (uier #237): a 1px
   line whose shadow `clip-path` keeps to its row, so it adds no sideways scrolling); the Comments label lines up with the
-  page content and the tabs show no loading spinner (uier #272); its pages render the comments,
+  page content and the tabs show no loading spinner (uier #272). One underline slides from the current tab to the
+  next, Settings included ([uier #427](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_Oa1QWu1pWhexOTAw1snTx)): `ProjectTabs` measures the current link after hydration
+  and hides the links' own underline (shown until then), places it without sliding the first time, and moves it
+  without sliding under reduced motion. Its pages render the comments,
   page checks, install guide or settings under it. The tabs' row sticks under the top bar while the page scrolls
   ([uier #413](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_XruyWNqCAFUbbSnq7G-ux)):
   it is the header's sibling (so its sticky range is the whole project page), `top-12` below lg (under the sticky bar)
@@ -159,9 +162,10 @@ the separately bundled review toolbar owns its own query cache.
   (up to three; the sidebar takes part of a window). A card is one header: the favicon, the name (a link over the whole
   card) and on its line two quiet icon buttons, Open review (`ReviewLinksMenu` with `compact`: a tooltip, named
   "Open review for <project>", a menu when the project has several addresses) and More actions for admins; under the
-  name one meta line with the client, who can comment and, at the line's right end, the open count after uier's own
-  comment icon (`CommentCount`: the pin, `<Mark />` at the 16px of the other meta icons in the text colour,
-  named "11 open comments" for screen readers; uier #167, [uier #424](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_H123NTb75m07tg3DdnMo0)), shown only while something is open (uier #169). No footer and no text button. The page renders both the active and the done list (and
+  name one meta line with the client, who can comment and, at the line's right end, the open count inside uier's own
+  comment pin (`CommentCount`: the product pin, `<Pin number />` at 28px, ink with its white ring like on the page, its
+  margin trimmed so the line keeps its height, named "11 open comments"; uier #167, [uier #424](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_H123NTb75m07tg3DdnMo0),
+  [uier #430](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects&comment=comment_hlQ1NkDuFLBMOxQWaV33H)), shown only while something is open (uier #169). No footer and no text button. The page renders both the active and the done list (and
   each one's empty state), and `ProjectStatusTabs` (`projects/ProjectStatusTabs.tsx`) shows the one `?status=`
   names. Active and Done are `LinkTabs` with `query`: a click writes the address with `setUrlSearchParams`
   (`push`), so the other list shows at once with no server request;

@@ -434,6 +434,41 @@ test('the project tabs line up with the page content, evenly spaced, with no spi
     expect(new Set(gaps).size).toBe(1);
 });
 
+test('one underline slides between the project tabs and Settings, and the card shows the open count in the pin', async ({ page, request }) => {
+    const { project } = await fixture(page, request);
+    // The card's pin holds the open count, named in words (uier #430)
+    await page.goto('/app/projects');
+    await expect(page.getByRole('list', { name: 'Active projects' }).getByRole('img', { name: '1 open comment', exact: true })).toHaveText('1');
+
+    await page.goto(`/app/projects/${project}`);
+    const row = page.locator('[data-sticky-tabs]');
+    const tabs = page.getByRole('navigation', { name: 'Project' });
+    await hydrated(tabs);
+    const indicator = row.locator('[data-slot="tab-indicator"]');
+    // Under the current tab, which hides its own underline (uier #427)
+    const under = async (name: string) => {
+        const tab = row.getByRole('link', { name, exact: true });
+        await expect(tab).toHaveAttribute('aria-current', 'page');
+        await expect(tab).toHaveCSS('border-bottom-color', 'rgba(0, 0, 0, 0)');
+        await expect.poll(async () => {
+            const [a, b] = await Promise.all([tab.boundingBox(), indicator.boundingBox()]);
+            return a && b && [Math.round(b.x - a.x), Math.round(b.width - a.width), Math.round(a.y + a.height - b.y - b.height)];
+        }).toEqual([0, 0, 0]);
+    };
+    await under('Comments');
+    await tabs.getByRole('link', { name: 'Page checks', exact: true }).click();
+    await expect(indicator).toHaveCSS('transition-property', /translate/);
+    await under('Page checks');
+    await row.getByRole('link', { name: 'Settings', exact: true }).click();
+    await under('Settings');
+
+    // Reduced motion: it moves without sliding
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await tabs.getByRole('link', { name: 'Comments', exact: true }).click();
+    await under('Comments');
+    await expect(indicator).toHaveCSS('transition-duration', '0s');
+});
+
 test('Active and Done switch the projects list at once, with no spinner or space for one', async ({ page }) => {
     await signIn(page, uniqueEmail('project-status'));
     await createProject(page, { urls: ['ongoing.example.com'], name: 'Ongoing site' });
