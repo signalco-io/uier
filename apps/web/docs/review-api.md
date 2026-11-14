@@ -106,3 +106,7 @@ separate `archived` count and exclude the archive from ordinary unread, open, re
 total counts, after the same visibility/environment rules. Direct authorized thread/image/export reads
 still work. `e2e/archive.api.spec.ts` covers persistence, permissions, scopes, counts, legacy writes,
 receipts, concurrent replies and export compatibility.
+
+The editing reload regression checks that the inbox is restored, then closes it before opening
+the pin. Persisted panels (`20427771`, #552) can cover page pins on narrow screens; both the
+comment and reply edit persistence assertions remain.

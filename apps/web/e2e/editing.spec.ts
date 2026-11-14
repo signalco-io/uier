@@ -46,6 +46,10 @@ test('own comments and replies can be edited, canceled and opened in the inbox a
     await expect(inbox).toContainText('Corrected message (edited)');
     await expect(inbox).toContainText('Corrected reply (edited)');
     await page.reload();
+    // #552 (20427771) restores the inbox across reloads; close it before using the pin.
+    await expect(inbox).toBeVisible();
+    await page.getByRole('button', { name: 'Close sidebar', exact: true }).click();
+    await expect(inbox).toBeHidden();
     await page.locator('[data-uier-comment]').click();
     await expect(openThread(page)).toContainText('Corrected message (edited)');
     await expect(openThread(page)).toContainText('Corrected reply (edited)');
