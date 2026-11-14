@@ -162,15 +162,20 @@ test('coding-tool and extension consent reload their own URL when the active acc
         const consentUrl = consent.url();
         await extension.goto(`/app/extension?${new URLSearchParams({ clientId,
             redirectUri: `https://${clientId}.chromiumapp.org/uier`, challenge, state: randomBytes(32).toString('base64url') })}`);
-        await expect(extension.getByText(a.split('@')[0]!, { exact: true })).toBeVisible();
+        // #722 (c45a996a) also lists every account; assert the identity offered for approval.
+        await expect(extension.getByText(`Continue as ${a.split('@')[0]}. The extension can review configured sites in projects you can access.`, { exact: true })).toBeVisible();
         const extensionUrl = extension.url();
         await select(userB);
         for (const tab of [consent, extension]) {
-            await tab.bringToFront();
-            await tab.evaluate(() => window.dispatchEvent(new Event('focus')));
+            // Send one foreground signal atomically: bringToFront can already start the reload
+            // before a following evaluate reaches the previous document.
+            await tab.evaluate(() => {
+                Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+                window.dispatchEvent(new Event('focus'));
+            });
         }
         await expect(consent.getByText(`Signed in as ${b}.`)).toBeVisible();
-        await expect(extension.getByText(b.split('@')[0]!, { exact: true })).toBeVisible();
+        await expect(extension.getByText(`Continue as ${b.split('@')[0]}. The extension can review configured sites in projects you can access.`, { exact: true })).toBeVisible();
         expect(consent.url()).toBe(consentUrl);
         expect(extension.url()).toBe(extensionUrl);
         await extension.route(`https://${clientId}.chromiumapp.org/uier**`, route => route.fulfill({ body: 'Extension signed in' }));
