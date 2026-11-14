@@ -9,7 +9,8 @@ automatically upgraded the published store package from 0.1.1 to 0.1.2 and passe
 acceptance. Protected release writes are enabled; the optional status schedule remains disabled.
 Read ../../docs/browser-extension-release.md before touching publishing.
 
-Build bundles shared toolbar source through @uier/toolbar/extension. Configure adapters before
+Build bundles shared toolbar source through @uier/toolbar/extension, with the toolbar's `uiKitInlineRem`
+plugin and inline-rem check (packages/toolbar/docs/host-styles.md). Configure adapters before
 loading runtime; never inject a remote script or use page globals for credentials. Main-world code
 is forbidden. The only cross-world protocol is secret-free toolbar coexistence.
 The audit asset (axe-core and the on-demand page checks) is the packaged audit.js, built from the

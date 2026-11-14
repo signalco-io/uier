@@ -10,7 +10,7 @@ import { CommentComposer } from './CommentComposer';
 import { CommentThread } from './CommentThread';
 import { CommentErrorBoundary } from './CommentErrorBoundary';
 import type { CommentItem } from './@types/Comments';
-import { adoptToolbarStyles } from '../stylesheet';
+import { adoptToolbarStyles, prepareToolbarRoot } from '../stylesheet';
 import { useLangAttribute, useMessages } from '../i18n';
 
 /** An optional, live thread in the page's layout; uses the toolbar's styles, cache and identity. */
@@ -38,6 +38,7 @@ function InlineCommentThread({ comment, target }: { comment: CommentItem; target
         applyScheme();
         scheme.addEventListener('change', applyScheme);
         shadow.appendChild(content);
+        prepareToolbarRoot(content);
         setContainer(content);
         return () => {
             scheme.removeEventListener('change', applyScheme);

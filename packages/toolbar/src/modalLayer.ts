@@ -1,5 +1,6 @@
 import { getToolbarHost } from './mount';
 import { isLetterKeyTarget } from './keyboard';
+import { matchPageZoom } from './pageZoom';
 
 // The review host follows the page's topmost open layer: a native modal dialog, an open popover,
 // the popup of an expanded menu or select button, or a script dialog (`aria-modal`). It moves into
@@ -274,6 +275,7 @@ export function followPageLayers(host: HTMLElement) {
             // The same layer opened again, or another one above it, is above the popover now.
             if (host.parentNode !== layer) {
                 layer.appendChild(host);
+                matchPageZoom(host);
                 showOnTop(host);
             } else if (changed || raise || !host.matches(':popover-open')) {
                 showOnTop(host);
@@ -284,7 +286,10 @@ export function followPageLayers(host: HTMLElement) {
         } else if (changed || disconnected || host.parentNode !== document.body) {
             if (host.matches(':popover-open')) host.hidePopover();
             host.removeAttribute('popover');
-            if (host.parentNode !== document.body) document.body.appendChild(host);
+            if (host.parentNode !== document.body) {
+                document.body.appendChild(host);
+                matchPageZoom(host);
+            }
         }
         // Moving or hiding the host took the focus (to the page, or nowhere): give it back
         if (focused?.isConnected && host.shadowRoot?.activeElement !== focused

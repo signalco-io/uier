@@ -62,7 +62,11 @@ every change in the package.
   system prefers dark, so threads follow the system theme; the pill and the sidebar are wrapped in
   `components/InkScope.tsx` (always the dark tokens), pins are always ink.
   `styles/toolbar-theme.css` sets `color-scheme` and a token `scrollbar-color` for both, so
-  scrollbars follow the toolbar's theme, not the host page's.
+  scrollbars follow the toolbar's theme, not the host page's. The page's other styles stay out too
+  ([docs/host-styles.md](docs/host-styles.md)): `[data-uier-root]` and the host reset what they would inherit
+  or take from the page's rules, the build turns `rem` into `--uier-rem` (`shadowRootIsolation.mjs`, also for
+  the extension) and `src/pageZoom.ts` undoes the page's CSS zoom. Use classes or px; never write `rem` into
+  an inline style (the build fails).
 - Fonts: `runtime.tsx` appends the self-hosted Geist stylesheet (`GEIST_FONTS_PATH` from
   `@uier/brand`, resolved against `toolbarConfig.apiUrl`) to the host document, because `@font-face` inside a shadow root is unreliable.
   If the host's CSP blocks it, the toolbar falls back to `system-ui`.
@@ -176,7 +180,7 @@ text. Drafts are local to each browser origin and expire after seven days.
   checks. No hardcoded text, no selectors or logic that match English words (use `data-uier-*` attributes), and no
   non-English catalog imported into the review bundle: those load as assets. See [docs/localization.md](docs/localization.md).
 - Everything rendered must work inside a shadow root on an unknown page: no global CSS, no
-  assumptions about the host's fonts or variables, no `document.body` styling.
+  assumptions about the host's fonts, variables or root font size, no `document.body` styling.
 - Cross-site embeds require `data-uier-project`. The project's addresses decide CORS; the install
   guide includes the API origin in `frame-src`. Missing cross-origin configuration shows an install
   guide link before `useVisitor` or comments hooks mount; same-origin showcase/feedback is unchanged.

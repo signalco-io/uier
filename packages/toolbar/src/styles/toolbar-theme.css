@@ -2,27 +2,38 @@
  * The toolbar renders into a shadow root on pages it does not control. Colours come from
  * @uier/brand/tokens.css (`:host` for light, `.dark` for dark); this file only keeps the page out.
  *
- * Inherited text styles cross the shadow boundary, so without the reset below the toolbar would
- * use the page's text colour, font, size and alignment.
+ * The page's styles reach a shadow tree through inherited properties (and custom properties), its
+ * rules on the host element, `rem` (the page's root font size) and its CSS `zoom`. How each is kept
+ * out: docs/host-styles.md.
  */
 
 @layer base {
+    /* The toolbar's root, and an inline thread's (components/InlineCommentThread.tsx, in a slot the page styles):
+       nothing it inherits from the page gets past it. `all` leaves out `direction` and custom properties. */
     [data-uier-root] {
+        all: initial;
+        display: block;
+        box-sizing: border-box;
+        /* The six languages are written left to right (also the `dir` that src/stylesheet.ts sets) */
+        direction: ltr;
+        /* What `rem` is in the toolbar (shadowRootIsolation.mjs): the person's default font size, which src/stylesheet.ts
+           reads from `medium` below; 16 px until then. A page's `html { font-size }` does not change either. */
+        --uier-rem: 16px;
+        font-size: medium;
         color: hsl(var(--foreground));
         /* Geist from next/font when the host is uier.io itself (its CSP blocks Google Fonts), else the
            Google Fonts Geist that index.tsx loads */
         font-family: var(--font-geist-sans, Geist), system-ui, -apple-system, "Segoe UI", sans-serif;
         font-feature-settings: "rlig" 1, "calt" 1;
-        font-size: 1rem;
-        font-style: normal;
-        font-weight: 400;
-        letter-spacing: normal;
         line-height: 1.5;
-        text-align: start;
-        text-indent: 0;
-        text-transform: none;
-        white-space: normal;
-        word-spacing: normal;
+        /* As on uier.io, whatever the page's own text rendering */
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        /* Tailwind's preflight on `:host`, which the reset above clears */
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+        tab-size: 4;
+        -webkit-tap-highlight-color: transparent;
         visibility: visible;
         /* A page's modal menu or dialog sets `pointer-events: none` on <body> while it is open */
         pointer-events: auto;
@@ -87,6 +98,16 @@
             inset: -6px 0;
         }
     }
+}
+
+/* The page's rules can match the toolbar's host element itself (`div`, `body > *`, `*`): its box takes none of
+   them. A page's transform, filter or contain would hold the toolbar's fixed boxes, `content-visibility: auto`
+   would skip them, and its zoom, opacity, margins or display would change them. `!important` in a shadow tree's
+   `:host` rule wins over every declaration of the page, `!important` and inline ones too. Not an inline thread's
+   slot, the page's own element; `:where` keeps this below `:host([popover])`. */
+:host(:where(#uier-toolbar)) {
+    all: initial !important;
+    display: block !important;
 }
 
 /* In the page's open modal dialog, popover, menu or dialog the host is a manual popover in the top

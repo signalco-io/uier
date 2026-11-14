@@ -4,6 +4,7 @@ import content from './content';
 import consent from './consent';
 import security from './security';
 import crawler from './crawler';
+import hostStyles from './hostStyles';
 import keyboard from './keyboard';
 import report from './report';
 import seoHead from './seoHead';
@@ -18,6 +19,7 @@ export const fixtures: Record<string, PageFixture | undefined> = {
     'consent': consent,
     'security': security,
     'crawler': crawler,
+    'host-styles': hostStyles,
     'keyboard': keyboard,
     'report': report,
     'seo-head': seoHead,
