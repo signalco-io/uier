@@ -119,11 +119,12 @@ export function ComposerAttachMenu({ image, recording, disabled }: {
                     size="xs"
                     type="button"
                     aria-label={t.attachments.removeImage(attached.name)}
-                    className="min-w-0 max-w-40 gap-1 rounded-md font-normal text-muted-foreground hover:text-foreground pointer-coarse:min-h-11"
+                    className="min-w-0 max-w-40 gap-1 rounded-md font-normal text-muted-foreground hover:text-foreground pointer-coarse:min-h-11 [&>svg]:shrink-0"
                     startDecorator={<Paperclip size={14} aria-hidden="true" />}
                     endDecorator={<Close size={14} aria-hidden="true" />}
                     onClick={attachment.remove}>
-                    <span className="truncate">{attached.name}</span>
+                    {/* A tight row truncates the name; the icons keep their size */}
+                    <span className="min-w-0 truncate">{attached.name}</span>
                 </Button>
             </IconTooltip>
         )}
