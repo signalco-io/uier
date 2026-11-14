@@ -37,12 +37,15 @@ export function StateDot({ status }: { status: CommentStatus }) {
     return <span aria-hidden="true" data-status-dot={status} className={cn('size-1.5 shrink-0 rounded-full', stateDotColors[status])} />;
 }
 
-/** A soft halo in each status's colour, behind its dot (Open's ink at a lower strength than the colours) */
+/**
+ * A faint halo in each status's colour, behind its dot (Open's ink at a lower strength than the colours). Kept subtle
+ * (uier #399): a hint that the column holds threads, not a light.
+ */
 const stateGlowColors: Record<CommentStatus, string> = {
-    open: 'bg-foreground/25',
-    'in-progress': 'bg-[hsl(var(--brand-in-progress)/0.5)]',
-    ready: 'bg-[hsl(var(--brand-ready)/0.5)]',
-    done: 'bg-[hsl(var(--brand-success)/0.5)]'
+    open: 'bg-foreground/10',
+    'in-progress': 'bg-[hsl(var(--brand-in-progress)/0.25)]',
+    ready: 'bg-[hsl(var(--brand-ready)/0.25)]',
+    done: 'bg-[hsl(var(--brand-success)/0.25)]'
 };
 
 /**
@@ -52,7 +55,7 @@ const stateGlowColors: Record<CommentStatus, string> = {
 export function GlowingStateDot({ status, glow }: { status: CommentStatus; glow: boolean }) {
     return (
         <span className="relative flex shrink-0 items-center justify-center">
-            {glow && <span aria-hidden="true" data-status-glow={status} className={cn('pointer-events-none absolute size-4 rounded-full blur-[3px]', stateGlowColors[status])} />}
+            {glow && <span aria-hidden="true" data-status-glow={status} className={cn('pointer-events-none absolute size-3 rounded-full blur-[2px]', stateGlowColors[status])} />}
             <span className="relative flex"><StateDot status={status} /></span>
         </span>
     );

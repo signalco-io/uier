@@ -605,7 +605,8 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
                     of squeezing them. The scroller runs edge to edge of the panel and is padded by the page gutter
                     (`page-bleed`), so the first and last columns line up with the page at either end and the rest scroll under
                     the panel's edges; room for a column's drop ring above and below (`py-1`); not up and down
-                    (`overflow-y-clip`), the page does that.
+                    (`overflow-y-clip`), the page does that: a column is as tall as its cards and never scrolls on its own,
+                    so the whole board scrolls with the page (`pageScroll`, uier #400).
                     Archive comes last: a 3rem strip while collapsed, a column like the others when expanded
                     (`--board-columns`, so the statuses stay data-driven).
                     While a card is dragged every column is as tall as the longest, so any part of it takes the card. */}
@@ -626,7 +627,7 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
                         return (
                             <BoardColumn key={status} status={categoryOf(status)} definition={definition(status)} columnIds={statuses} count={paging?.[status]?.total ?? cards.length} state={state} sort={sorts[categoryOf(status)]} onSort={onSort} archiveAll={archiveAll}>
                                 {cards.length || placeholder >= 0 ? (
-                                    <VirtualCommentList items={cards} control={paging?.[status]} focusedId={focusId ?? tabStop?.id}
+                                    <VirtualCommentList pageScroll items={cards} control={paging?.[status]} focusedId={focusId ?? tabStop?.id}
                                         label={t("{value0} comments list", { value0: workflowStatusLabel(definition(status), t) })}
                                         footer={placeholder === cards.length ? slot : undefined}
                                         render={(comment, index, position) => <Fragment key={comment.id}>
@@ -645,7 +646,7 @@ export function CommentBoard({ projectOf, columns: categoryColumns, workflow, ve
                     })}
                     {archive && archiveDefinitions.map(archiveStatus => <ArchiveColumn key={archiveStatus.id} label={workflowStatusLabel(archiveStatus, t)} count={paging?.[archiveStatus.id]?.total ?? archiveCards(archiveStatus).length} sort={sorts.archive} onSort={onSort} expanded={archive.expanded} dimmed={Boolean(drag)} onExpandedChange={archive.onExpandedChange}>
                         {archiveCards(archiveStatus).length ? (
-                            <VirtualCommentList items={archiveCards(archiveStatus)} control={paging?.[archiveStatus.id]} focusedId={focusId ?? tabStop?.id}
+                            <VirtualCommentList pageScroll items={archiveCards(archiveStatus)} control={paging?.[archiveStatus.id]} focusedId={focusId ?? tabStop?.id}
                                 label={t("Archived comments list")} render={(comment, _index, position) => (
                                     <BoardCard position={position} key={comment.id} project={projectOf(comment)} comment={comment} href={hrefFor(comment.id)} opened={comment.id === openId}
                                         moving={false} tabbable={comment.id === tabStop?.id}
