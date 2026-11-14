@@ -51,7 +51,7 @@ the separately bundled review toolbar owns its own query cache.
   sent feedback is in Give feedback's toolbar. Only while a saved selection still has them in it is it listed, checked,
   as "Feedback on uier" beside their own workspaces to switch back to. Every account is in another workspace too
   (`getAppContext` creates its own when it has none), so there is always one to switch to. A project's header is
-  `projects/[projectId]/layout.tsx` (the favicon in `PageHeader`'s `media`, beside both the name and the row under it: client (a link to the projects list filtered to it, `KnownPageLinks.clientProjects`, on the Done tab for a done project; uier #241), then who can comment (`ProjectAccessInfo`: its popover has the guest links and Invite for admins; for those who configure the project the label is a link to Who can comment in Review settings, `KnownPageLinks.projectAccessSettings`, and the popover opens on hover only, so Who can comment there shows the guest links too), then the `ProjectTabs` with the settings cog at their right end (`ProjectSettingsButton`, an icon link
+  `projects/[projectId]/layout.tsx` (the favicon in `PageHeader`'s `media`, beside both the name and the row under it: client (`ClientInfo`, a link to the projects list filtered to it, `KnownPageLinks.clientProjects`, on the Done tab for a done project; uier #241), then who can comment (`ProjectAccessInfo`: its popover has the guest links and Invite for admins; for those who configure the project the label is a link to People and teams when only invited people comment, else to Who can comment in Review settings, `KnownPageLinks.projectAccessSettings`; see header popovers below), then the `ProjectTabs` with the settings cog at their right end (`ProjectSettingsButton`, an icon link
   styled like a tab, with a tooltip, underlined and current on the settings pages; uier #282; it adds its Settings
   label where the tabs' row (`@container/project-tabs`) is at least 28rem wide, uier #331): Comments, [Page checks](page-checks.md) and Install (Settings → Installation and the onboarding
   install step) until a comment from one of the project's addresses arrives (`hasProjectFeedback`); after that Install is
@@ -65,6 +65,16 @@ the separately bundled review toolbar owns its own query cache.
   project layout sets `--project-tabs` (its 2.5rem height); what sticks below it clears it: the thread beside the
   comments list (`CommentInbox`, its top, height and scroll margins), the rows' scroll margins, `VirtualCommentList`'s
   reveal (`data-sticky-tabs`) and the settings' section links (`SettingsLayout`).
+- **Header popovers** (uier #421): the client and who-can-comment labels under a project's name are `LinkPopover`s
+  (`src/components/app/LinkPopover.tsx`). Each opens a popover on hover and, when the label is a link, when the keyboard focuses
+  it (Tab then moves into it, Escape closes it and leaves the focus on the label); a click or Enter follows the link, and a
+  tap on a touch screen opens the popover instead, so everything the link reaches is also in the popover. A label without
+  a link (who can comment, for those who don't configure the project) is a button that opens it. A link clicked in
+  the popover closes it, since the next page may keep the header. The client's popover shows its mark, name, description,
+  how many of its projects the person can see are active and done, Show projects (the label's link) and All clients.
+  The access popover has Who can comment for those who configure the project. The counts load when the popover opens
+  (`projects/headerActions.ts`, server actions that load the project again for the person), refresh on each opening
+  without the placeholder, and their placeholder has the loaded row's height, so the popover keeps its size.
 - **Project loading** ([uier #344](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_iO2SPR02hm0K7M1qE9GlP)): the Comments and Page checks tabs load in skeletons shaped like the page and
   as wide as it will be, so neither the project header nor the content changes width when the page arrives. Each
   skeleton carries the loaded page's `data-page-width="wide"` and `data-header-wide`, which widen the shell's column

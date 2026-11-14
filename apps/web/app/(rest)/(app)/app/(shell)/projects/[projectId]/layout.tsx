@@ -2,7 +2,6 @@
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { ProjectLoading } from '@/src/components/app/projects/ProjectLoading';
 import { Suspense } from 'react';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Badge } from '@/src/components/ui/badge';
 import { requireAppContext } from '@/src/lib/app/context';
@@ -11,7 +10,7 @@ import { clientSummary, getClient } from '@/src/lib/app/clients';
 import { PageHeader } from '@/src/components/app/PageHeader';
 import { ProjectTabs } from '@/src/components/app/projects/ProjectTabs';
 import { ProjectMark } from '@/src/components/app/projects/ProjectMark';
-import { ClientMark } from '@/src/components/app/clients/ClientMark';
+import { ClientInfo } from '@/src/components/app/clients/ClientInfo';
 import { InviteButton } from '@/src/components/app/users/InviteDialog';
 import { ProjectAccessInfo } from '@/src/components/app/projects/ProjectAccessInfo';
 import { GuestReviewLinks } from '@/src/components/app/projects/GuestReviewLinks';
@@ -36,6 +35,7 @@ async function ProjectLayoutContent({ children, params }: LayoutProps<'/app/proj
     ]);
     // Those who configure the project (settingsContext's rule) change who can comment from the label
     const canConfigure = context.isAdmin && project.workspaceId !== PUBLIC_WORKSPACE_ID;
+    const invited = project.access === 'invited';
 
     return (
         // On the comments and page checks the header is as wide as what is under them (marked with data-header-wide):
@@ -50,17 +50,19 @@ async function ProjectLayoutContent({ children, params }: LayoutProps<'/app/proj
                 title={project.name}
                 description={(
                     <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                        {/* The client opens the projects list filtered to it, on the tab of this project's status (uier #241) */}
+                        {/* The client opens the projects list filtered to it, on the tab of this project's status (uier #241); hover it for more (uier #421) */}
                         {client && (
-                            <Link
-                                href={KnownPageLinks.clientProjects(client.id, project.status === 'done' ? 'done' : 'active')}
-                                className="flex min-w-0 items-center gap-1.5 rounded-sm underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring">
-                                <ClientMark client={clientSummary(client)} />
-                                <span className="min-w-0 break-words">{t("Client:")}{' '}{client.name}</span>
-                            </Link>
+                            <ClientInfo
+                                client={clientSummary(client)}
+                                projectId={project.id}
+                                href={KnownPageLinks.clientProjects(client.id, project.status === 'done' ? 'done' : 'active')} />
                         )}
-                        {/* Who can comment, with the guest links and (for admins) Invite in its popover; admins follow it to the setting */}
-                        <ProjectAccessInfo access={project.access} settingsHref={canConfigure ? KnownPageLinks.projectAccessSettings(project.id) : undefined}>
+                        {/* Who can comment, with the guest links and (for admins) Invite in its popover; admins follow it to
+                            People and teams (invited people) or to Who can comment (uier #421) */}
+                        <ProjectAccessInfo
+                            access={project.access}
+                            href={canConfigure ? (invited ? KnownPageLinks.projectSettings(project.id, 'people') : KnownPageLinks.projectAccessSettings(project.id)) : undefined}
+                            accessHref={canConfigure ? KnownPageLinks.projectAccessSettings(project.id) : undefined}>
                             {project.access === 'guests' && project.urls[0] && <GuestReviewLinks publicId={project.publicId} urls={project.urls} />}
                             {context.isAdmin && project.access !== 'disabled' && <InviteButton projectId={project.id} variant="outline" className="w-full" />}
                         </ProjectAccessInfo>

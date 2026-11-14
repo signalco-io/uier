@@ -530,6 +530,8 @@ test('project settings sections save the name, comment access and addresses', as
     // Addresses with their labels, under Environments
     await sections.getByRole('link', { name: 'Environments' }).click();
     await expect(page).toHaveURL(new RegExp(`/app/projects/${projectId}/settings/environments$`));
+    // The new page scrolls to the top, where the header's access label (and its popover) comes under the pointer
+    await page.mouse.move(0, 0);
     const addresses = page.getByRole('region', { name: 'Site addresses' });
     await hydrated(addresses.locator('form'));
     await addresses.getByRole('button', { name: 'Add address' }).click();

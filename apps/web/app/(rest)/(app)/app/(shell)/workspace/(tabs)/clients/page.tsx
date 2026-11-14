@@ -1,5 +1,4 @@
 
-import type { AppTranslator } from '@/src/lib/i18n/types';
 import { getAppI18n } from '@/src/lib/i18n/server';
 import { PageLoading } from '@/src/components/app/PageLoading';
 import { Suspense } from 'react';
@@ -19,15 +18,11 @@ import { WorkspaceTabHeader } from '@/src/components/app/workspace/WorkspaceTabH
 import { ClientEditDialog } from '@/src/components/app/clients/ClientEditDialog';
 import { ClientCreateDialog } from '@/src/components/app/clients/ClientCreateDialog';
 import { ClientMark } from '@/src/components/app/clients/ClientMark';
+import { clientStatusText } from '@/src/components/app/clients/clientStatusText';
 
 export async function generateMetadata(): Promise<Metadata> {
     const { t } = await getAppI18n();
     return { title: t("Clients") };
-}
-
-/** "2 active, 1 done" */
-function statusText(active: number, done: number, t: AppTranslator) {
-    return [active && t('{count} active', { count: active }), done && t('{count} done', { count: done })].filter(Boolean).join(', ');
 }
 
 /** The clients of the projects the person can see, each opening the projects list filtered to it */
@@ -80,7 +75,7 @@ async function ClientsPageContent() {
                                             </ItemDescription>
                                         </ItemContent>
                                         <ItemActions className="ml-auto text-sm text-muted-foreground tabular-nums">
-                                            {statusText(active, done, t)}
+                                            {clientStatusText(active, done, t)}
                                             {canEdit && <ClientEditDialog client={summary} workspaceId={context.workspace.id} className="relative z-10" />}
                                             <ChevronRightIcon aria-hidden="true" className="size-4" />
                                         </ItemActions>

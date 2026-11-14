@@ -28,6 +28,9 @@
   rename, admin-only access, workspace isolation, migration and DTO exclusion; `project-clients.spec.ts`
   and `users.spec.ts` the UI.
 
+- **Project header**: a project's client is `ClientInfo`, a link to its projects with a popover of the client's mark,
+  description and active/done project counts (loaded when it opens, from visible projects only), Show projects and All
+  clients ([app shell](app-shell.md), uier #421). `clientStatusText` words the counts there and on the Clients tab.
 - **Client avatar editor**: the avatar in `ClientEditDialog` is an `EditablePicture` (the shared editable picture
   of [profile pictures](account.md): the picture is the button, a pencil badge on its corner) and opens a popover
   with Icon and Colour (saved with the form) and Upload/Change/Remove logo (saved immediately through the shared
