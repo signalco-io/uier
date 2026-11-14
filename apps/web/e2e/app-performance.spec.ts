@@ -251,6 +251,89 @@ test('mark all as read clears the rendered unread snapshot before confirmation',
     } finally { pending.release(); }
 });
 
+test('confirmed bulk reads survive a delayed stale page after the success toast', async ({ page, request }) => {
+    const { project } = await fixture(page, request);
+    let headers: Record<string, string> = {};
+    for (let index = 0; index < 25; index++) {
+        if (index % 10 === 0) headers = await verifiedReviewHeaders(request, project, site.origin());
+        const response = await request.post(`/api/review/${project}/comments`, { headers, data: {
+            path: `/${project}/pricing`, text: `Bulk read extra ${index}`, authorName: 'Bulk reviewer', position: { type: 'page' }, kind: 'feedback'
+        } });
+        expect(response.status()).toBe(201);
+    }
+    await page.goto(`/app/projects/${project}?view=board`);
+    const column = page.getByRole('region', { name: 'Open comments', exact: true });
+    const window = column.locator('[data-comment-window]');
+    await expect(window).toHaveAttribute('data-loaded-count', '25');
+    await window.evaluate(element => element.lastElementChild?.scrollIntoView({ block: 'end' }));
+    await expect(window).toHaveAttribute('data-loaded-count', '26');
+    const snapshot = await page.request.post(`/api/projects/${project}/comments/pages`, { data: { params: { view: 'board', status: 'active' }, depths: { open: 2 } } });
+    expect(snapshot.ok()).toBe(true);
+    const stale = await snapshot.json();
+    for (const comment of stale.comments) comment.title = 'Stale page response applied';
+    const mutation = gate(), reads = gate();
+    await page.route(`**/api/projects/${project}/comments/pages`, async route => {
+        await reads.wait;
+        await route.fulfill({ json: stale });
+    });
+    await page.route(`**/app/projects/${project}*`, async route => {
+        if (route.request().method() === 'POST' && route.request().headers()['next-action']) await mutation.wait;
+        await route.continue();
+    });
+    const unreadRows = page.getByRole('link', { name: /, unread$/ });
+    try {
+        await page.getByRole('button', { name: 'Mark all as read', exact: true }).click();
+        await expect(unreadRows).toHaveCount(0);
+        mutation.release();
+        await expect(page.getByText('26 threads marked as read.', { exact: true })).toBeVisible();
+        await expect(unreadRows).toHaveCount(0);
+        reads.release();
+        // This title proves the stale response rendered; the read cursor must still win.
+        await expect(column.getByRole('link').first()).toContainText('Stale page response applied');
+        await expect(unreadRows).toHaveCount(0);
+        await expect(page.getByRole('button', { name: '26 unread, show only unread', exact: true })).toHaveCount(0);
+    } finally { mutation.release(); reads.release(); }
+    await page.unroute(`**/api/projects/${project}/comments/pages`);
+    await page.unroute(`**/app/projects/${project}*`);
+    await page.reload();
+    await expect(unreadRows).toHaveCount(0);
+});
+
+test('confirmed status survives stale detail and yields to newer server changes', async ({ page, request }) => {
+    const { project, comment, headers } = await fixture(page, request);
+    await page.goto(`/app/projects/${project}?status=all&view=list`);
+    const card = await openComment(page, comment.number);
+    const detailUrl = `**/api/projects/${project}/comments/${comment.id}`;
+    const response = await page.request.get(`/api/projects/${project}/comments/${comment.id}`);
+    expect(response.ok()).toBe(true);
+    const stale = await response.json();
+    stale.title = 'Stale detail response applied';
+    const reads = gate();
+    await page.route(detailUrl, async route => {
+        await reads.wait;
+        await route.fulfill({ json: stale });
+    });
+    try {
+        await card.getByRole('button', { name: 'Status: Open. Change status', exact: true }).click();
+        await page.getByRole('menuitem', { name: 'Done', exact: true }).click();
+        await expect(card.getByRole('button', { name: 'Status: Done. Change status', exact: true })).toBeEnabled();
+        reads.release();
+        await expect(card.getByRole('heading', { name: 'Stale detail response applied', exact: true })).toBeVisible();
+        await expect(card.getByRole('button', { name: 'Status: Done. Change status', exact: true })).toBeEnabled();
+        await expect(page.getByRole('button', { name: 'Done 1', exact: true, includeHidden: true })).toBeAttached();
+    } finally { reads.release(); }
+    await page.unroute(detailUrl);
+    // Another reviewer changes the same field before the first saved detail arrives. A snapshot
+    // at or beyond our receipt must release the overlay even though its value differs from ours.
+    const reopened = await request.patch(`/api/review/${project}/comments/${comment.id}`, { headers, data: { resolved: false } });
+    expect(reopened.ok()).toBe(true);
+    await card.getByRole('button', { name: /^More actions/ }).click();
+    await page.getByRole('menuitem', { name: /^(Follow|Unfollow) thread$/ }).click();
+    await expect(card.getByRole('button', { name: 'Status: Open. Change status', exact: true })).toBeEnabled();
+    await page.reload();
+    await expect(card.getByRole('button', { name: 'Status: Open. Change status', exact: true })).toBeEnabled();
+});
+
 test('the unread count toggles Only unread and stays while it is on (uier #193)', async ({ page, request }) => {
     const { project } = await fixture(page, request);
     await page.goto(`/app/projects/${project}`);

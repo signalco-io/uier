@@ -8,6 +8,7 @@ import type { FeedbackStatusTarget } from '@uier/toolbar/verification';
 import type { ProjectCommentView } from '../../../lib/app/projectComments';
 import { setCommentStatusAction, setCommentWorkflowStatusAction, verificationCommentAction } from './actions';
 import { useCommentUpdate } from './CommentUpdates';
+import type { ConfirmCommentUpdate } from './CommentUpdates';
 import { commentStatus, type CommentStatus } from './CommentStatus';
 
 /** A row or card leaving its list after a status change: the exit animation, and undoing it when the change fails */
@@ -70,12 +71,13 @@ export function useStatusChanger(projectId: string | ((comment: ProjectCommentVi
             const request = (statusId ? setCommentWorkflowStatusAction(projectOf(comment), comment.id, statusId) : setCommentStatusAction(projectOf(comment), comment.id, status as FeedbackStatusTarget))
                 .catch(() => ({ ok: false as const, error: t("Could not save the change. Try again.") }));
             if (exit) await exit.finished;
-            startTransition(() => updateComment({ id: comment.id, patch: { ...movedPatch(comment, status), workflowStatusId: statusId } }));
+            let confirm: ConfirmCommentUpdate = () => {};
+            startTransition(() => { confirm = updateComment({ id: comment.id, patch: { ...movedPatch(comment, status), workflowStatusId: statusId } }); });
             const result = await request;
             if (result && !result.ok) {
                 exit?.cancel();
                 toast.error(t(result.error));
-            }
+            } else if (result?.ok) confirm(result);
         } catch {
             exit?.cancel();
             toast.error(t("Could not save the change. Try again."));
@@ -84,13 +86,13 @@ export function useStatusChanger(projectId: string | ((comment: ProjectCommentVi
 
     const cancelCheck = (comment: ProjectCommentView, status: Exclude<FeedbackStatusTarget, 'done'>, statusId?: string) => startTransition(async () => {
         // In Open or In progress at once; `useOptimistic` puts the check back if canceling fails
-        if (comment.verification) updateComment({ id: comment.id, patch: { ...movedPatch(comment, status), workflowStatusId: statusId } });
+        const confirm = comment.verification ? updateComment({ id: comment.id, patch: { ...movedPatch(comment, status), workflowStatusId: statusId } }) : undefined;
         try {
             const result = await verificationCommentAction(projectOf(comment), comment.id, {
                 action: 'cancel', override: false, status, ...(statusId ? { statusId } : {}), expectedRevision: comment.verification?.revision ?? null, idempotencyKey: crypto.randomUUID()
             });
             if (result && !result.ok) toast.error(t(result.error));
-            else toast.success(t("Verification request canceled."));
+            else if (result?.ok) { confirm?.(result); toast.success(t("Verification request canceled.")); }
         } catch {
             toast.error(t("Could not save the change. Try again."));
         }

@@ -168,6 +168,8 @@ assignee card, with Open in T3 Code or another desktop session link, at the top 
   account and thread, without a build id, so a deployment reload uses the same draft. Closing/filtering
   keeps text; explicit discard, successful send and both app sign-out controls clear relevant drafts.
   Storage failure stays in memory with a notice.
+  Pending messages never count as saved receipts, and replaying the same pending ID from list/detail
+  adds it only once. Other adopted fields use [shared successful-write retention](optimistic-status.md).
   Reply's Attach image and image paste use the same memory-only browser reader (`@uier/toolbar/attachments`)
   as new toolbar comments: one PNG, JPEG or WebP up to 512 KB and 4096 px per side. The file name replaces
   the attach button, with Remove; reading holds Enter/send, Discard clears the image, and failed sends restore

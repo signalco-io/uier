@@ -1,7 +1,7 @@
 'use client';
 
 import { useAppI18n } from '@/src/lib/i18n/client';
-import { useEffect, useLayoutEffect, useOptimistic, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { SearchXIcon } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { setUrlSearchParams, useUrlSearchParams } from '@/src/hooks/use-url-search-params';
@@ -21,6 +21,7 @@ import { parseCommentsQuery } from './commentsQuery';
 import { applyFilters } from './ProjectComments';
 import { CommentsSearchNavigationProvider } from './CommentsSearchNavigation';
 import { applyCommentUpdate, CommentUpdatesProvider, type CommentUpdate } from './CommentUpdates';
+import { useOptimisticCommentUpdates } from './useOptimisticCommentUpdates';
 import { MyWorkGroups } from './MyWorkList';
 import { defaultMyWorkSorts, rememberMyWorkSorts, storedMyWorkSorts, type MyWorkGroup, type MyWorkSortKey, type MyWorkSorts } from './myWorkSorts';
 
@@ -174,11 +175,13 @@ export function MyWorkBoard({ items, assignees, userId, empty, header, noMatch, 
     const left = Object.values(seen.byId)
         .filter(({ comment }) => !listed.has(comment.id) && changed.has(comment.id) && !removed.has(comment.id))
         .map(item => ({ ...item, comment: changes.filter(change => change.id === item.comment.id).reduce(applyCommentUpdate, item.comment) }));
-    const [shown, showUpdate] = useOptimistic([...items, ...left], (current, update: CommentUpdate) =>
-        current.map(item => ({ ...item, comment: applyCommentUpdate(item.comment, update) })));
+    const source = [...items, ...left];
+    const [shownComments, showUpdate] = useOptimisticCommentUpdates(source.map(item => item.comment), userId);
+    const shown = source.map((item, index) => ({ ...item, comment: shownComments[index]! }));
     const updateComment = (update: CommentUpdate) => {
-        showUpdate(update);
+        const confirm = showUpdate(update);
         setChanges(current => [...current, update]);
+        return confirm;
     };
     const byId = new Map(shown.map(item => [item.comment.id, item]));
     const projectOf = (comment: ProjectCommentView): BoardProject => {

@@ -32,10 +32,10 @@ export function AssigneesControl({ projectId, comment, userId, options, trigger,
         const next = mode === 'replace' ? [] : mode === 'remove' ? people.filter(person => !ids.includes(person.id))
             : [...people, ...options.filter(person => ids.includes(person.userId) && !people.some(current => current.id === person.userId))
                 .map(person => ({ id: person.userId, name: person.name, avatarUrl: person.avatarUrl }))];
-        update({ id: comment.id, patch: { assignees: next, assignee: next[0] } });
+        const confirm = update({ id: comment.id, patch: { assignees: next, assignee: next[0] } });
         try {
             const result = await updateCommentAssigneesAction(projectId, comment.id, ids, mode);
-            if (result?.ok) return;
+            if (result?.ok) { confirm(result); return; }
             toast.error(result?.error ?? t("Could not change the assignees. Try again."));
         } catch { toast.error(t("Could not change the assignees. Try again.")); }
         update({ id: comment.id, patch: { assignees: people, assignee: people[0] } });
