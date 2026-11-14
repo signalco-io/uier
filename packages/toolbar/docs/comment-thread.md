@@ -8,13 +8,14 @@ The app's `CommentCard` follows the same layout, icons and words: change both to
 
 ## The pin
 
-`<Pin />` from `@uier/brand`: the issue number inside, the message count as its corner badge from the first
-reply, named "Comment #6, 3 messages", and the thread's people beside it
+`<Pin />` from `@uier/brand`: the issue number inside, the message count as its bottom-right badge from the
+first reply, named "Comment #6, 3 messages", and the thread's people beside it
 ([who is in the thread](composer-popovers.md#who-is-in-the-thread)).
 
-The thread's status but Open is on the pin too (`PinStatus.tsx`, uier #364): the 6 px status dot of the
-thread header (`stageDotColors`, by category for custom statuses) in an ink border and the pin's white ring,
-on its round bottom-right edge, so the pin keeps its size and reads on light and dark pages. The pin's name
+The thread's status but Open is on the pin too (`PinStatus.tsx`, uier #364): a 10 px circle with a border in
+the status's colour and a soft gradient of it (by category for custom statuses), in the pin's white ring, on its
+round top-right edge above the message count (uier #397), so the pin keeps its size and reads on light and dark
+pages. It is a smaller, quieter take on the glowing dots of the app's board columns. The pin's name
 ends with the status ("Comment #6, 3 messages, In progress", a custom status's own name; `selectedWorkflowStatus`
 as in the header). It follows the cached comment, so optimistic changes ([optimistic status](optimistic-status.md))
 and realtime updates show at once. Done pins leave the page, so Done shows only on a pin kept for its draft.

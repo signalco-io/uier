@@ -106,6 +106,10 @@ test('a pin shows its thread\'s status but Open, in its dot and its name (uier #
     await expect(inProgress.locator('[data-uier-pin-status="in-progress"]')).toBeVisible();
     const box = (await inProgress.boundingBox())!;
     expect(Math.round(box.width)).toBeLessThanOrEqual(44);
+    // On the pin's top-right edge, the bottom-right left for the message count (uier #397)
+    const dot = (await inProgress.locator('[data-uier-pin-status]').boundingBox())!;
+    expect(dot.y + dot.height / 2).toBeLessThan(box.y + box.height / 2);
+    expect(dot.x + dot.width / 2).toBeGreaterThan(box.x + box.width / 2);
 
     await thread.getByRole('button', { name: 'Status: In progress. Change status', exact: true }).click();
     await page.getByRole('dialog', { name: 'Status', exact: true }).getByRole('button', { name: 'Open', exact: true }).click();

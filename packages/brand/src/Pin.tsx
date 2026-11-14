@@ -4,7 +4,7 @@ import { PIN_PATH, PIN_VIEWBOX } from './brand';
 export type PinProps = Omit<HTMLAttributes<HTMLSpanElement>, 'children'> & {
     /** The thread's public number (`#12`, the same one the inbox and the app show), inside the pin. */
     number?: number;
-    /** Messages in the thread: from two on, a small count badge on the pin's top-right corner. */
+    /** Messages in the thread: from two on, a small count badge on the pin's bottom-right corner. */
     messages?: number;
     /** Rendered width and height in px. */
     size?: number;
@@ -43,7 +43,8 @@ export function Pin({ number, messages, size = 32, label, upsideDown = false, st
     // the inner span is the positioning context for the number and the badge.
     const outer: CSSProperties = { display: 'inline-block', width: size, height: size, lineHeight: 1, verticalAlign: 'middle', ...style };
     const inner: CSSProperties = { position: 'relative', display: 'block', width: size, height: size };
-    // Inverted (white, ink text and outline) and off the pin's corner, so it never reads as the number
+    // Inverted (white, ink text and outline) and off the pin's round bottom-right corner, so it never reads
+    // as the number; the top-right corner is left for the thread's status (the toolbar's `PinStatus`, uier #397)
     const badge = Math.round(size * 0.4375);
     const overhang = Math.round(size * 0.15);
     return (
@@ -77,7 +78,7 @@ export function Pin({ number, messages, size = 32, label, upsideDown = false, st
                         aria-hidden="true"
                         style={{
                             position: 'absolute',
-                            top: -overhang,
+                            bottom: -overhang,
                             right: -overhang,
                             boxSizing: 'border-box',
                             display: 'flex',
