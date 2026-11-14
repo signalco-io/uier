@@ -35,7 +35,8 @@ async function ProjectLayoutContent({ children, params }: LayoutProps<'/app/proj
     ]);
     // Those who configure the project (settingsContext's rule) change who can comment from the label
     const canConfigure = context.isAdmin && project.workspaceId !== PUBLIC_WORKSPACE_ID;
-    const invited = project.access === 'invited';
+    // Who has access shows when only invited people comment; never in uier's own feedback workspace, which every account joins
+    const invited = project.access === 'invited' && project.workspaceId !== PUBLIC_WORKSPACE_ID;
 
     return (
         // On the comments and page checks the header is as wide as what is under them (marked with data-header-wide):
@@ -57,12 +58,15 @@ async function ProjectLayoutContent({ children, params }: LayoutProps<'/app/proj
                                 projectId={project.id}
                                 href={KnownPageLinks.clientProjects(client.id, project.status === 'done' ? 'done' : 'active')} />
                         )}
-                        {/* Who can comment, with the guest links and (for admins) Invite in its popover; admins follow it to
-                            People and teams (invited people) or to Who can comment (uier #421) */}
+                        {/* Who can comment, with who has access (invited people), the guest links and (for admins) Invite in its
+                            popover; admins follow it to People and teams (invited people) or to Who can comment (uier #420, #421) */}
                         <ProjectAccessInfo
                             access={project.access}
+                            projectId={project.id}
                             href={canConfigure ? (invited ? KnownPageLinks.projectSettings(project.id, 'people') : KnownPageLinks.projectAccessSettings(project.id)) : undefined}
-                            accessHref={canConfigure ? KnownPageLinks.projectAccessSettings(project.id) : undefined}>
+                            accessHref={canConfigure ? KnownPageLinks.projectAccessSettings(project.id) : undefined}
+                            peopleHref={canConfigure ? KnownPageLinks.projectSettings(project.id, 'people') : undefined}
+                            people={invited}>
                             {project.access === 'guests' && project.urls[0] && <GuestReviewLinks publicId={project.publicId} urls={project.urls} />}
                             {context.isAdmin && project.access !== 'disabled' && <InviteButton projectId={project.id} variant="outline" className="w-full" />}
                         </ProjectAccessInfo>

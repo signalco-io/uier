@@ -18,6 +18,7 @@ const messages = {
     "Label filter": "Label filter",
     "Unavailable label": "Unavailable label",
     "Could not update labels. Try again.": "Could not update labels. Try again.",
+    "Could not load people.": "Could not load people.",
     "Could not load projects.": "Could not load projects.",
     "changed labels": "changed labels",
     "No icon": "No icon",

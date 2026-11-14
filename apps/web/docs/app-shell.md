@@ -65,14 +65,16 @@ the separately bundled review toolbar owns its own query cache.
   project layout sets `--project-tabs` (its 2.5rem height); what sticks below it clears it: the thread beside the
   comments list (`CommentInbox`, its top, height and scroll margins), the rows' scroll margins, `VirtualCommentList`'s
   reveal (`data-sticky-tabs`) and the settings' section links (`SettingsLayout`).
-- **Header popovers** (uier #421): the client and who-can-comment labels under a project's name are `LinkPopover`s
+- **Header popovers** (uier #420, #421): the client and who-can-comment labels under a project's name are `LinkPopover`s
   (`src/components/app/LinkPopover.tsx`). Each opens a popover on hover and, when the label is a link, when the keyboard focuses
   it (Tab then moves into it, Escape closes it and leaves the focus on the label); a click or Enter follows the link, and a
   tap on a touch screen opens the popover instead, so everything the link reaches is also in the popover. A label without
   a link (who can comment, for those who don't configure the project) is a button that opens it. A link clicked in
   the popover closes it, since the next page may keep the header. The client's popover shows its mark, name, description,
   how many of its projects the person can see are active and done, Show projects (the label's link) and All clients.
-  The access popover has Who can comment for those who configure the project. The counts load when the popover opens
+  When only invited people comment, the access popover shows up to four people with access as avatars, a `+N` for the
+  rest and their count, a link to People and teams for those who configure the project, Invite and Who can comment. Never
+  in uier's own feedback workspace, which every account joins. The counts and people load when the popover opens
   (`projects/headerActions.ts`, server actions that load the project again for the person), refresh on each opening
   without the placeholder, and their placeholder has the loaded row's height, so the popover keeps its size.
 - **Project loading** ([uier #344](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_iO2SPR02hm0K7M1qE9GlP)): the Comments and Page checks tabs load in skeletons shaped like the page and

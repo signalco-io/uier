@@ -19,6 +19,7 @@ const messages: Record<keyof typeof en, string> = {
     "Label filter": "Filtro etichette",
     "Unavailable label": "Etichetta non disponibile",
     "Could not update labels. Try again.": "Impossibile aggiornare le etichette. Riprova.",
+    "Could not load people.": "Impossibile caricare le persone.",
     "Could not load projects.": "Impossibile caricare i progetti.",
     "changed labels": "ha modificato le etichette",
     "No icon": "Nessuna icona",

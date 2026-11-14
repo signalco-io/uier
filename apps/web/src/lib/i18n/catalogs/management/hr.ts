@@ -19,6 +19,7 @@ const messages: Record<keyof typeof en, string> = {
     "Label filter": "Filtriranje po oznaci",
     "Unavailable label": "Nedostupna oznaka",
     "Could not update labels. Try again.": "Oznake nije moguće ažurirati. Pokušajte ponovno.",
+    "Could not load people.": "Osobe nije moguće učitati.",
     "Could not load projects.": "Projekte nije moguće učitati.",
     "changed labels": "promijenio oznake",
     "No icon": "Bez ikone",
