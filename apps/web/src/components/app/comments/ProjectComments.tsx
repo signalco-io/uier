@@ -209,9 +209,10 @@ function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, pr
     const keepsOpen = retained && (board || Boolean(retained.archivedAt) === (query.status === 'archived'));
     const scopeComments = keepsOpen && !listedScope.some(comment => comment.id === retained.id) ? [...listedScope, retained] : listedScope;
     useEffect(() => {
-        if (!openId || pager.loading || scopeComments.some(comment => comment.id === openId)) return;
+        if (!openId || pager.loading || scopeComments.some(comment => comment.id === openId
+            && (board || statusMatches(query.status, commentStatus(comment), comment.archivedAt)))) return;
         setUrlSearchParams({ comment: undefined });
-    }, [openId, scopeComments, pager.loading]);
+    }, [openId, scopeComments, pager.loading, board, query.status]);
     const installText = query.environment === 'all'
         ? t("Set up reviews and open a review link to leave the first comment.")
         : t("This environment has no feedback. Choose another environment, or set up reviews and open a review link to leave the first comment.");
@@ -285,11 +286,12 @@ function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, pr
         loading: pager.loading || pager.loadingLanes.has(lane), error: Boolean(pager.error) || pager.failedLanes.has(lane), loadMore: () => { if (pager.error) pager.retry(); else void pager.loadMore(lane); } });
     const budgetExceeded = pager.error === 'budget' || pager.data.paging.queryTooExpensive;
     const populated = pager.data.paging.scopeTotal > 0 || Boolean(budgetExceeded);
-    // Where the open thread takes the whole width, it takes the filters' place too
-    const threadOnly = Boolean(openComment.openId) && !board && scopeComments.some(comment => comment.id === openComment.openId);
     // The board's status filter (uier #335) narrows its columns to one; the others stay, empty, as drop targets
     const boardStatus = board ? boardStatusFilter(query.status) : undefined;
     const shown = board ? filtered.filter(comment => !comment.archivedAt && (!boardStatus || commentStatus(comment) === boardStatus)) : filtered.filter(comment => statusMatches(query.status, commentStatus(comment), comment.archivedAt));
+    // Hide filters on narrow screens only while the opened thread is actually shown.
+    // A status change can remove it from the current list while the scope still retains it.
+    const threadOnly = !board && shown.some(comment => comment.id === openComment.openId);
     // The board's columns, one per status in order (each thread in exactly one), each in the project's sort for it
     const columns = Object.fromEntries(commentStatuses.map(status => [status,
         sortBoardColumn(shown.filter(comment => commentStatus(comment) === status), boardSorts[status])])) as Record<CommentStatus, ProjectCommentView[]>;

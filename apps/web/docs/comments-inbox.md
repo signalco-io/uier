@@ -531,3 +531,5 @@ transition ends; failed saves still revert. See [optimistic updates](optimistic-
 Reply actions return the authorized saved activity sequence. Pending replies remain until the
 thread snapshot covers that sequence, including a receipt replay after reload whose saved message
 was already present when Retry was pressed. The lost-response case in `e2e/app.spec.ts` guards this.
+
+On narrow screens, filters give way only to a thread still shown in the current list. If changing its status removes it from that list, the filters return and its open-thread URL is cleared, even while the broader scope retains its detail. The project-review management workflow covers reopening the last Done thread.
