@@ -11,7 +11,7 @@ import { Skeleton } from '@/src/components/ui/skeleton';
 import { parseCommentsView } from '@/src/lib/app/commentsViewPreference';
 import { isActiveStatusFilter, isDoneStatusFilter, statusFilterLabels, type CommentsView, type StatusFilter } from './commentLabels';
 import { storedCommentsView } from './commentsView';
-import { searchBesideList, segmentedGroup, segmentedItem } from './CommentsViewToggle';
+import { searchBesideList, searchField, searchInput, segmentedGroup, segmentedItem } from './CommentsViewToggle';
 
 const subscribeNothing = () => () => {};
 
@@ -63,8 +63,8 @@ const rowTitles = ['w-3/4', 'w-2/3', 'w-5/6', 'w-1/2', 'w-3/5', 'w-2/3'];
 
 /**
  * The search row as `CommentFilters` draws it, drawn for real but inert (uier #362): nothing in it needs the comments.
- * Search and Filter (uier #393); in the list the status tabs (Active, Done, All, the address's pressed, their counts
- * still loading); List/Board with the opening view pressed.
+ * The search with, in the list, the status tabs after it (Active, Done, All, the address's pressed, their counts still
+ * loading; uier #398); Filter and List/Board on the right with the opening view pressed.
  */
 function FiltersPlaceholder({ view, status }: { view: CommentsView; status: StatusFilter }) {
     const { t } = useAppI18n();
@@ -76,31 +76,31 @@ function FiltersPlaceholder({ view, status }: { view: CommentsView; status: Stat
     ];
     return (
         <div inert aria-hidden="true" className="flex min-w-0 flex-wrap items-center gap-2">
-            <div data-search-field="" className="flex min-w-0 flex-1 items-center gap-2 sm:max-w-[var(--search-width,26rem)] sm:min-w-64">
-                <InputGroup className="min-w-0 flex-1 pointer-coarse:min-h-11">
+            <div data-search-field="" className={searchField}>
+                <InputGroup className={searchInput}>
                     <InputGroupAddon><SearchIcon /></InputGroupAddon>
-                    <InputGroupInput type="search" tabIndex={-1} readOnly placeholder={t("Search feedback")} className="pointer-coarse:min-h-11" />
+                    <InputGroupInput type="search" tabIndex={-1} readOnly placeholder={t("Search feedback")} className="text-ellipsis pointer-coarse:min-h-11" />
                 </InputGroup>
-                <Button variant="outline" tabIndex={-1} className="shrink-0 pointer-coarse:min-h-11">
-                    <ListFilterIcon data-icon="inline-start" />
-                    {t("Filter")}
-                </Button>
-            </div>
-            {view === 'list' && (
-                <div className="order-last -mx-1 -my-0.5 max-w-[calc(100%+0.5rem)] basis-[calc(100%+0.5rem)] overflow-x-hidden px-1 py-0.5 sm:order-none sm:shrink-0 sm:basis-auto">
-                    <div className={cn('flex w-max min-w-full items-center sm:min-w-0', segmentedGroup)}>
-                        {tabs.map(tab => (
-                            <span key={tab.value} className="contents">
-                                <span data-pressed={tab.pressed ? '' : undefined} className={cn('inline-flex items-center justify-center gap-1 text-sm font-medium whitespace-nowrap grow sm:grow-0', segmentedItem)}>
-                                    {tab.label} <Skeleton className="h-3 w-4 animate-none" />
+                {view === 'list' && (
+                    <div className="order-last -mx-1 -my-0.5 max-w-[calc(100%+0.5rem)] basis-[calc(100%+0.5rem)] overflow-x-hidden px-1 py-0.5 sm:order-none sm:max-w-[calc(100%-6rem)] sm:shrink-0 sm:basis-auto">
+                        <div className={cn('flex w-max min-w-full items-center sm:min-w-0', segmentedGroup)}>
+                            {tabs.map(tab => (
+                                <span key={tab.value} className="contents">
+                                    <span data-pressed={tab.pressed ? '' : undefined} className={cn('inline-flex items-center justify-center gap-1 text-sm font-medium whitespace-nowrap grow sm:grow-0', segmentedItem)}>
+                                        {tab.label} <Skeleton className="h-3 w-4 animate-none" />
+                                    </span>
+                                    {tab.menu && <Button variant="ghost" size="icon-xs" tabIndex={-1} className={cn(segmentedItem, '-ml-0.5 w-6 min-w-6 px-0 pointer-coarse:min-w-8')}><ChevronDownIcon /></Button>}
                                 </span>
-                                {tab.menu && <Button variant="ghost" size="icon-xs" tabIndex={-1} className={cn(segmentedItem, '-ml-0.5 w-6 min-w-6 px-0 pointer-coarse:min-w-8')}><ChevronDownIcon /></Button>}
-                            </span>
-                        ))}
+                            ))}
+                        </div>
                     </div>
-                </div>
-            )}
-            <div className={cn('ml-auto flex shrink-0 items-center', segmentedGroup)}>
+                )}
+            </div>
+            <Button variant="outline" tabIndex={-1} className="ml-auto shrink-0 pointer-coarse:min-h-11">
+                <ListFilterIcon data-icon="inline-start" />
+                {t("Filter")}
+            </Button>
+            <div className={cn('flex shrink-0 items-center', segmentedGroup)}>
                 {([['list', ListIcon], ['board', KanbanIcon]] as const).map(([value, Icon]) => (
                     <span key={value} data-pressed={view === value ? '' : undefined}
                         className={cn('inline-flex items-center justify-center px-0 pointer-coarse:min-h-[38px] pointer-coarse:min-w-11', segmentedItem)}>
