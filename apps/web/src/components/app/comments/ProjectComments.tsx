@@ -339,7 +339,8 @@ function ProjectCommentsView({ labels = [], workflow = defaultStatusWorkflow, pr
             // The board's columns start at the left, under the search (uier #363); My work's board keeps its own
             className="@container/comments flex flex-col gap-2 [&_[data-board-scroll]]:justify-start">
             <div data-header-wide={headerWide} className={cn('flex min-w-0 flex-col gap-2', threadOnly && '@max-3xl/comments:hidden', wideClassName)}>
-            <CommentFilters grouping={<CommentGrouping labels={labels} selected={groupIds || []} disabled={!canSortBoard || sorting} onChange={ids => startSorting(async () => {
+            {/* Group by only shows once the project has labels to group on (uier #429); without them it leaves no gap */}
+            <CommentFilters grouping={labels.length > 0 && <CommentGrouping labels={labels} selected={groupIds || []} disabled={!canSortBoard || sorting} onChange={ids => startSorting(async () => {
                     showGrouping(ids);
                     const result = await setBoardGroupingAction(projectId, ids.length > 0, ids).catch(() => ({ ok: false as const, error: t("Could not save the board. Try again.") }));
                     if (result && !result.ok) toast.error(result.error);
