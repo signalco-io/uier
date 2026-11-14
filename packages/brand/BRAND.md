@@ -263,11 +263,12 @@ The toolbar, pins and inbox sidebar are what the product *is*, and they follow t
 
 A pin is the mark on a 32 grid, ink fill, 2 px white ring, the issue number in white 600 inside:
 the same `#12` the thread, the inbox and the app show, so a pin people mention can always be found.
-It never changes when replies come in. From the first reply, the message count sits on the top-right
+It never changes when replies come in. From the first reply, the message count sits on the bottom-right
 corner as a small white badge with ink text and outline, so it never reads as the number. Three or
 more digits get a smaller size to stay inside the pin. The pin's name says both: "Comment #12, 3 messages".
-A thread past Open shows its status on the pin: the status dot (see Status) in an ink border and the
-white ring, on the round bottom-right edge, and the name ends with it ("Comment #12, 3 messages, In progress").
+A thread past Open shows its status on the pin: a small circle on the round top-right edge, above the
+count, with a border in the status's colour (see Status) around a soft gradient of it, in the white
+ring, and the name ends with it ("Comment #12, 3 messages, In progress").
 A commented text range gets the blue 20 % tint. A commented area gets a dashed blue outline, with
 the same tint while its thread is open. The inbox shows the unread count as a blue pill.
 
