@@ -505,6 +505,11 @@ for (const mode of ['showcase', 'project'] as const) {
             let heldReads = 0;
             const gate = new Promise<void>(resolve => { release = resolve; });
             await reviewer.page.route(`**${commentsPath}?*`, async route => {
+                // #599 (7449cf8f) added an independent archive read to each round.
+                // Hold/count the ordinary list; the aggregate counter still covers all reads.
+                if (new URL(route.request().url()).searchParams.get('archive') !== 'exclude') {
+                    await route.continue(); return;
+                }
                 heldReads++;
                 if (heldReads > 1) { await route.continue(); return; }
                 const response = await route.fetch();
