@@ -26,6 +26,8 @@ const messages = {
     "Use at most {count} characters for the client name.": "Use at most {count} characters for the client name.",
     "Use at most {count} characters for the description.": "Use at most {count} characters for the description.",
     "A project can have up to {count} addresses.": "A project can have up to {count} addresses.",
+    "A project can have up to {count} links.": "A project can have up to {count} links.",
+    "Enter an address for each link.": "Enter an address for each link.",
     "A workspace can have up to {count} active teams.": "A workspace can have up to {count} active teams.",
     "You can create up to {count} workspaces.": "You can create up to {count} workspaces.",
     "You can add up to {count} passkeys. Remove one first.": "You can add up to {count} passkeys. Remove one first.",

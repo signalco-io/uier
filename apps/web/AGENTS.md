@@ -65,7 +65,8 @@ does, and the rules that apply only to it, live in [`docs/`](docs/README.md), on
   on the brand page are the deliberate exception: they must stay black and white in both themes;
   so are the Google "G" and Microsoft logo (`SignInProviderLogos`: the sign-in card's buttons and Account → Sign-in), in their own colours, and
   `IntegrationLogo`, the provider logos on the Integrations pages: GitHub, Linear and Notion draw in the text colour,
-  Slack and Azure DevOps keep their own colours, as each provider's guidelines ask). AI agent logos (`AgentMark`, `AgentAvatar`,
+  Slack and Azure DevOps keep their own colours, as each provider's guidelines ask; its `serviceLogos` add, for project
+  links, GitLab and Discord in the text colour and Figma and Google Drive in their own colours). AI agent logos (`AgentMark`, `AgentAvatar`,
   `agentMarks` in `@uier/toolbar/agents`) draw in the text colour too, with no hex.
 - Radius: `rounded-sm` 6, `rounded-md` 8, `rounded-lg` 10, `rounded-xl` 12, `rounded-2xl` 16,
   `rounded-3xl` 24, `rounded-full`. Borders over shadows; only floating surfaces get the shadow

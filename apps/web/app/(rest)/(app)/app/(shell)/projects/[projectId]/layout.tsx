@@ -14,6 +14,8 @@ import { ClientInfo } from '@/src/components/app/clients/ClientInfo';
 import { InviteButton } from '@/src/components/app/users/InviteDialog';
 import { ProjectAccessInfo } from '@/src/components/app/projects/ProjectAccessInfo';
 import { GuestReviewLinks } from '@/src/components/app/projects/GuestReviewLinks';
+import { ProjectLinks } from '@/src/components/app/projects/ProjectLinks';
+import { projectLinks } from '@/src/lib/app/projectLinks';
 import { hasProjectFeedback } from '@/src/lib/app/projectComments';
 import { PUBLIC_WORKSPACE_ID } from '@/src/lib/comments/publicProjectPolicy';
 import { KnownPageLinks } from '@/src/knownPages';
@@ -74,6 +76,8 @@ async function ProjectLayoutContent({ children, params }: LayoutProps<'/app/proj
                             <Badge variant="outline" className="gap-1.5">
                                 <span aria-hidden="true" className="size-1.5 rounded-full bg-[hsl(var(--brand-success))]" />{t("Done")}</Badge>
                         )}
+                        {/* The project's links to its other tools, set in Settings → General (uier #434) */}
+                        <ProjectLinks links={projectLinks(project)} />
                     </span>
                 )} />
             <ProjectTabs projectId={project.id} install={!feedback} />

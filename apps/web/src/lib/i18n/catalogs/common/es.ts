@@ -27,6 +27,8 @@ const messages: Record<keyof typeof en, string> = {
     "Use at most {count} characters for the client name.": "Usa un máximo de {count} caracteres para el nombre del cliente.",
     "Use at most {count} characters for the description.": "Usa un máximo de {count} caracteres para la descripción.",
     "A project can have up to {count} addresses.": "Un proyecto puede tener hasta {count} direcciones.",
+    "A project can have up to {count} links.": "Un proyecto puede tener hasta {count} enlaces.",
+    "Enter an address for each link.": "Introduce una dirección para cada enlace.",
     "A workspace can have up to {count} active teams.": "Un espacio de trabajo puede tener hasta {count} equipos activos.",
     "You can create up to {count} workspaces.": "Puedes crear hasta {count} espacios de trabajo.",
     "You can add up to {count} passkeys. Remove one first.": "Puedes añadir hasta {count} claves de acceso. Elimina una primero.",

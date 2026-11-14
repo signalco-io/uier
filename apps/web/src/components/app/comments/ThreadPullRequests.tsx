@@ -15,7 +15,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/src/components/ui/too
 import { cn } from '@/src/lib/utils';
 import { threadPullRequestLinks, type PullRequestLink, type PullRequestState, type PullRequestStatus } from '@/src/lib/comments/pullRequestLinks';
 import type { ProjectCommentView } from '@/src/lib/app/projectComments';
-import { integrationLogos } from '../integrations/IntegrationLogo';
+import { integrationLogos, serviceLogos } from '../integrations/IntegrationLogo';
 import { hoverPopoverTrigger } from '../hoverPopover';
 import { withSubject } from './AssigneeCard';
 import { unsetValueClass } from './unsetValue';
@@ -40,9 +40,7 @@ const stateIconColors: Record<PullRequestState, string> = {
  */
 const stateTextColors: Record<PullRequestState, string> = { ...stateIconColors, closed: 'text-foreground' };
 
-/** Simple Icons (CC0); GitLab is not an integration, so its mark lives here. Monochrome marks draw in the text colour. */
-const gitlabLogo = { viewBox: '0 0 24 24', paths: [{ fill: undefined as string | undefined, d: 'm23.6004 9.5927-.0337-.0862L20.3.9814a.851.851 0 0 0-.3362-.405.8748.8748 0 0 0-.9997.0539.8748.8748 0 0 0-.29.4399l-2.2055 6.748H7.5375l-2.2057-6.748a.8573.8573 0 0 0-.29-.4412.8748.8748 0 0 0-.9997-.0537.8585.8585 0 0 0-.3362.4049L.4332 9.5015l-.0325.0862a6.0657 6.0657 0 0 0 2.0119 7.0105l.0113.0087.03.0213 4.976 3.7264 2.462 1.8633 1.4995 1.1321a1.0085 1.0085 0 0 0 1.2197 0l1.4995-1.1321 2.4619-1.8633 5.006-3.7489.0125-.01a6.0682 6.0682 0 0 0 2.0094-7.003z' }] };
-const providerLogos = { github: integrationLogos.github, gitlab: gitlabLogo, 'azure-devops': integrationLogos['azure-devops'] };
+const providerLogos = { github: integrationLogos.github, gitlab: serviceLogos.gitlab, 'azure-devops': integrationLogos['azure-devops'] };
 
 function ProviderMark({ provider, className }: { provider: PullRequestLink['provider']; className?: string }) {
     const logo = providerLogos[provider];
