@@ -97,7 +97,7 @@ export async function syncNotionProjects(input: { deadline: number; maxCalls?: n
             if (calls >= maxCalls || Date.now() >= input.deadline) throw new NotionApiError(429, 'sync_budget');
             const current = (await store.get<NotionProjectsConnection>(connection.pk, connection.id))?.doc;
             if (!current || !currentLease(current, connection)) throw new NotionApiError(409, 'connection_changed');
-            calls++; return send(AbortSignal.timeout(Math.max(1, Math.min(20_000, input.deadline - Date.now()))));
+            calls++; return send(AbortSignal.timeout(Math.max(1, Math.min(20_000, Math.floor(input.deadline - Date.now())))));
         };
         const request = async (method: 'GET' | 'POST', path: string, body?: unknown) => {
             try { return await run(signal => session.raw(method, path, body, signal)); }

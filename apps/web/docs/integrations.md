@@ -126,6 +126,7 @@ the exact Done values (a checked checkbox means done). Save validates against th
 and enables sync; Pause and Disconnect fence existing work and require no provider credentials.
 The existing `Review notifications` worker polls this connection during its Notion turn, with a
 bounded call/time budget, a conditional lease, durable page cursor and exponential retry delays.
+Request timeouts round fractional worker deadlines down to integer milliseconds before creating abort signals.
 A completed scan schedules the next one in five minutes; invalid schemas and inaccessible sources
 retry without deleting or changing projects. Invalid/empty address rows are skipped independently.
 

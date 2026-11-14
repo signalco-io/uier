@@ -224,7 +224,10 @@ test('the scheduled integration worker imports workspace projects within its Not
     const f = await fixture(); row(f);
     // A full API worker also retains other specs' unfinished sources and ledgers. This turn owns only this workspace.
     const store: AppStore = { ...f.scoped, query: query => f.store.query({ ...query, pk: f.workspace.pk }) };
-    const result = await runIntegrationWorker(baseUrl, { store, comments: { ...getCommentsStore(), listSyncPending: async () => [] }, budgetMs: 60_000,
+    // Provider turns divide the remaining budget by four, including fractional milliseconds.
+    const workerNow = Date.now();
+    const result = await runIntegrationWorker(baseUrl, { store, comments: { ...getCommentsStore(), listSyncPending: async () => [] },
+        now: () => workerNow, budgetMs: 60_001,
         adapters: [{ provider: 'notion', maxCalls: 2, isConfigured: () => true, deliver: async () => ({ status: 'accepted' }) }] });
     expect({ calls: result.providers[0]!.calls, statusCode: (await f.connection()).statusCode }).toEqual({ calls: 2, statusCode: undefined });
     expect(await f.projects()).toHaveLength(1);
