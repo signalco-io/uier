@@ -86,8 +86,10 @@ pass); a transfer keeps it, since it is keyed by the project.
   the project's sticky tabs (`--project-tabs`, [app shell](app-shell.md); under the top bar where the window scrolls
   below lg, at the panel's top from lg), one layer under them so their background covers it; its line is an inset shadow,
   since a collapsed table leaves a border behind, and the kit's sideways-scrolling table container is made visible so
-  it does not hold the header. Keyboard: the row with focus stays rendered wherever the page scrolls, and Tab reaches
-  every row (the browser scrolls the focused row on screen, which renders the next). Assistive tech gets the full count
+  it does not hold the header. Keyboard: the row with focus stays rendered wherever the page scrolls, and so do its
+  neighbours up to the nearest row with something to focus (a review link or a measured vital) each way, so Tab and
+  Shift+Tab land on the next row even after the page scrolled away, and the browser brings it on screen
+  (`virtualParts` in `src/lib/pageChecks/virtualRows.ts`, pure, covered by the API spec). Assistive tech gets the full count
   (`aria-rowcount` and `aria-rowindex` on the table, `aria-setsize` and `aria-posinset` on the cards). Find in page
   sees only rendered rows, so Ctrl or Cmd+F renders the whole shown list (at most 200 pages) until the filter or order
   changes it; the browser menu's Find does not, which is the tradeoff. A project with 40 pages or fewer renders them all.
@@ -109,8 +111,8 @@ pass); a transfer keeps it, since it is keyed by the project.
   whose button clears it (named "Show: Needs attention, clear filter", "Sort: Most fixed, reset order").
 - **Order** (`?sort=`, `setUrlSearchParams`, no server request): Needs attention first by default (critical,
   then serious, then all accessibility issues, then SEO to look at, then Core Web Vitals over target),
-  Most issues (worst offenders: accessibility issues, SEO to look at and vitals over target added up, ties by
-  attention), Most fixed and Most new issues since the check before (`pageCheckChangeTotals`: accessibility issues and
+  Most issues (worst offenders: accessibility issues and SEO to look at added up, each once: the SEO count already
+  holds the Core Web Vitals over target; ties by attention), Most fixed and Most new issues since the check before (`pageCheckChangeTotals`: accessibility issues and
   SEO to look at that went or came, summed; a first check last; [uier #417](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1%2Fpage-checks&comment=comment_mR3--cXjK_XOLjCSS5M1u)), Accessibility issues, SEO to look at,
   Core Web Vitals over target (then the furthest over its target), Last checked or Page. All from the summaries the
   view already has. A column the order follows has `aria-sort`.

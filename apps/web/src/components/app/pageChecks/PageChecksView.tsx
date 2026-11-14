@@ -40,7 +40,7 @@ import {
     type PageCheckFilter,
     type PageCheckOrder
 } from '@/src/lib/pageChecks/insights';
-import type { PageCheckRow } from '@/src/lib/pageChecks/model';
+import { vitalNames, type PageCheckRow } from '@/src/lib/pageChecks/model';
 import { filterIconButton } from '../comments/CommentsViewToggle';
 import { RelativeTime } from '../comments/DateTime';
 import { AcrossPages } from './AcrossPages';
@@ -112,6 +112,10 @@ function Checked({ page }: { page: PageCheckRow }) {
 
 type Links = { projectId: string; environments: PageEnvironment[] };
 
+/** A row Tab stops in: its address opens it in review (`PageLink`), or a measured vital opens its targets */
+const hasFocusable = ({ environments }: Links) => (page: PageCheckRow) =>
+    environments.some(item => item.origin === page.origin) || vitalNames.some(name => page.vitals?.[name] !== undefined);
+
 /**
  * The pages as a table, from the `@3xl` width of the list (uier #418): only the rows near the screen render
  * (`useVirtualRows`), under a header that sticks below the project's sticky tabs (`--project-tabs`, under the top
@@ -119,7 +123,7 @@ type Links = { projectId: string; environments: PageEnvironment[] };
  */
 function PageTable({ pages, ariaSort, links }: { pages: PageCheckRow[]; ariaSort: (column: string) => 'ascending' | 'descending' | undefined; links: Links }) {
     const { t } = useAppI18n();
-    const { parts, virtual, container } = useVirtualRows(pages, { estimate: 100 });
+    const { parts, virtual, container } = useVirtualRows(pages, { estimate: 100, focusable: hasFocusable(links) });
     return (
         // The kit's table container scrolls sideways, which would hold the sticky header; these columns fit their room
         <div className="hidden rounded-xl border @3xl/page-checks:block [&>[data-slot=table-container]]:overflow-visible">
@@ -168,7 +172,7 @@ function PageTable({ pages, ariaSort, links }: { pages: PageCheckRow[]; ariaSort
 function PageCards({ pages, links }: { pages: PageCheckRow[]; links: Links }) {
     const { t } = useAppI18n();
     // 12 px between the cards (`gap-3`)
-    const { parts, virtual, container } = useVirtualRows(pages, { estimate: 220, gap: 12 });
+    const { parts, virtual, container } = useVirtualRows(pages, { estimate: 220, gap: 12, focusable: hasFocusable(links) });
     return (
         <ul aria-labelledby="checked-pages-title" className="m-0 flex list-none flex-col gap-3 p-0 @3xl/page-checks:hidden" {...container}>
             {parts.map(part => {
