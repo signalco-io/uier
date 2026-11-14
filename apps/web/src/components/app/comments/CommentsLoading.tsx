@@ -63,8 +63,8 @@ const rowTitles = ['w-3/4', 'w-2/3', 'w-5/6', 'w-1/2', 'w-3/5', 'w-2/3'];
 
 /**
  * The search row as `CommentFilters` draws it, drawn for real but inert (uier #362): nothing in it needs the comments.
- * Search; in the list the status tabs (Active, Done, All, the address's pressed, their counts still loading); Filter;
- * List/Board with the opening view pressed.
+ * Search and Filter (uier #393); in the list the status tabs (Active, Done, All, the address's pressed, their counts
+ * still loading); List/Board with the opening view pressed.
  */
 function FiltersPlaceholder({ view, status }: { view: CommentsView; status: StatusFilter }) {
     const { t } = useAppI18n();
@@ -76,10 +76,16 @@ function FiltersPlaceholder({ view, status }: { view: CommentsView; status: Stat
     ];
     return (
         <div inert aria-hidden="true" className="flex min-w-0 flex-wrap items-center gap-2">
-            <InputGroup data-search-field="" className="min-w-0 flex-1 sm:max-w-[var(--search-width,20rem)] sm:min-w-48 pointer-coarse:min-h-11">
-                <InputGroupAddon><SearchIcon /></InputGroupAddon>
-                <InputGroupInput type="search" tabIndex={-1} readOnly placeholder={t("Search feedback")} className="pointer-coarse:min-h-11" />
-            </InputGroup>
+            <div data-search-field="" className="flex min-w-0 flex-1 items-center gap-2 sm:max-w-[var(--search-width,26rem)] sm:min-w-64">
+                <InputGroup className="min-w-0 flex-1 pointer-coarse:min-h-11">
+                    <InputGroupAddon><SearchIcon /></InputGroupAddon>
+                    <InputGroupInput type="search" tabIndex={-1} readOnly placeholder={t("Search feedback")} className="pointer-coarse:min-h-11" />
+                </InputGroup>
+                <Button variant="outline" tabIndex={-1} className="shrink-0 pointer-coarse:min-h-11">
+                    <ListFilterIcon data-icon="inline-start" />
+                    {t("Filter")}
+                </Button>
+            </div>
             {view === 'list' && (
                 <div className="order-last -mx-1 -my-0.5 max-w-[calc(100%+0.5rem)] basis-[calc(100%+0.5rem)] overflow-x-hidden px-1 py-0.5 sm:order-none sm:shrink-0 sm:basis-auto">
                     <div className={cn('flex w-max min-w-full items-center sm:min-w-0', segmentedGroup)}>
@@ -94,11 +100,7 @@ function FiltersPlaceholder({ view, status }: { view: CommentsView; status: Stat
                     </div>
                 </div>
             )}
-            <Button variant="outline" tabIndex={-1} className="ml-auto shrink-0 pointer-coarse:min-h-11">
-                <ListFilterIcon data-icon="inline-start" />
-                {t("Filter")}
-            </Button>
-            <div className={cn('flex shrink-0 items-center', segmentedGroup)}>
+            <div className={cn('ml-auto flex shrink-0 items-center', segmentedGroup)}>
                 {([['list', ListIcon], ['board', KanbanIcon]] as const).map(([value, Icon]) => (
                     <span key={value} data-pressed={view === value ? '' : undefined}
                         className={cn('inline-flex items-center justify-center px-0 pointer-coarse:min-h-[38px] pointer-coarse:min-w-11', segmentedItem)}>
