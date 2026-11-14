@@ -64,7 +64,7 @@ query/view/workflow changes. A realtime RSC snapshot rebuilds the loaded lane de
 unmount the open composer. Column totals come from the server, with optimistic deltas only for
 loaded rows being changed. Idle revision checks omit bodies and canonical enrichment. Read mutations
 retain their explicit rendered cursors; the paged view labels their partial scope Mark shown as read.
-Below 1024 px the inbox virtualizes against the document viewport and scrolls with the page; board columns follow the page's scroll at every width (uier #400). Wider lists use a bounded list scroller. See [paged project comments](comments-inbox.md#paged-project-comments) for limits and measurement boundaries.
+Below 1024 px the inbox virtualizes against the document viewport and scrolls with the page; board columns follow the page's scroll at every width (uier #400). Wider lists use a bounded list scroller that reaches the panel's bottom (uier #401). See [paged project comments](comments-inbox.md#paged-project-comments) for limits and measurement boundaries.
 
 The delayed toolbar category-status regression signs out and posts as a guest before holding
 the save. Members use the separate custom workflow mutation, which waits for confirmation

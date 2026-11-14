@@ -23,7 +23,8 @@ function pageScroller(element: HTMLElement) {
  * Measured rows with overscan.
  * - `pageScroll` (board columns): the list never scrolls itself, it grows with its rows and follows whatever scrolls
  *   the page (the window, or the app's panel from lg), so the whole board scrolls together (uier #400).
- * - `documentScroll` (the inbox): below lg it follows the document; from lg it scrolls itself.
+ * - `documentScroll` (the inbox): below lg it follows the document; from lg it scrolls itself and reaches the bottom of
+ *   the page's scroller (`--list-room`, measured), less the page's padding there (uier #401).
  */
 export function VirtualCommentList<T extends { id: string }>({ items, label, render, control, focusedId, className, onFocus, listRef, footer, gap = 8, itemAttribute = 'data-board-card', documentScroll = false, pageScroll = false }: {
     items: T[]; label: string; render: (item: T, index: number, position: CommentListPosition) => ReactNode; control?: CommentPageControl;
@@ -44,6 +45,32 @@ export function VirtualCommentList<T extends { id: string }>({ items, label, ren
         changed(); media.addEventListener('change', changed);
         return () => media.removeEventListener('change', changed);
     }, [documentScroll]);
+    // From lg the inbox's list reaches the bottom of the page's scroller and scrolls inside (uier #401): its room is
+    // measured from where it starts in the scroller's content (so scrolling the page does not change it) to the
+    // scroller's bottom, less the padding of the page below it.
+    useLayoutEffect(() => {
+        const list = root.current;
+        if (!documentScroll || windowScroll || !control || !list) return;
+        const scroller = pageScroller(list);
+        if (!scroller) return;
+        let frame = 0;
+        const measure = () => {
+            cancelAnimationFrame(frame);
+            frame = requestAnimationFrame(() => {
+                const top = list.getBoundingClientRect().top - scroller.getBoundingClientRect().top - scroller.clientTop + scroller.scrollTop;
+                let below = 0;
+                for (let parent = list.parentElement; parent && parent !== scroller; parent = parent.parentElement) below += parseFloat(getComputedStyle(parent).paddingBottom) || 0;
+                list.style.setProperty('--list-room', `${Math.round(scroller.clientHeight - top - below)}px`);
+            });
+        };
+        measure();
+        const resize = new ResizeObserver(measure);
+        resize.observe(scroller);
+        // Anything above the list that grows, shrinks, comes or goes (the headers, the filters in effect, the count
+        // line) moves it, and changes the height of the scroller's content with it
+        for (const content of scroller.children) resize.observe(content);
+        return () => { cancelAnimationFrame(frame); resize.disconnect(); list.style.removeProperty('--list-room'); };
+    }, [documentScroll, windowScroll, Boolean(control)]);
     const offsets = [0];
     for (const item of items) offsets.push(offsets.at(-1)! + (sizes.current.get(item.id) ?? 100) + gap);
     const virtual = Boolean(control) && items.length > 20;
@@ -123,7 +150,8 @@ export function VirtualCommentList<T extends { id: string }>({ items, label, ren
     }
     if (previous < items.length) children.push(<li key="space-end" role="presentation" aria-hidden="true" style={{ height: Math.max(0, offsets[items.length]! - offsets[previous]! - gap) }} />);
     return <ul ref={node => { root.current = node; if (listRef) listRef.current = node; }} aria-label={label} aria-busy={loading || undefined} onFocus={onFocus} data-loaded-count={items.length} data-comment-window={control ? '' : undefined}
-        className={cn('m-0 flex list-none flex-col gap-2 p-0 [&>li]:shrink-0', control && !pageScroll && 'scrollbar-subtle max-h-[max(20rem,calc(100svh-22rem))] overflow-y-auto overscroll-y-contain [overflow-anchor:none]', control && documentScroll && 'max-lg:max-h-none max-lg:overflow-x-clip max-lg:overflow-y-visible max-lg:overscroll-auto', className)}>
+        // `--list-room` is measured after hydration; until then the list takes the window's height less the headers above it
+        className={cn('m-0 flex list-none flex-col gap-2 p-0 [&>li]:shrink-0', control && !pageScroll && 'scrollbar-subtle max-h-[max(20rem,calc(var(--list-room,100svh_-_22rem)_-_var(--selection-bar,0px)))] overflow-y-auto overscroll-y-contain [overflow-anchor:none]', control && documentScroll && 'max-lg:max-h-none max-lg:overflow-x-clip max-lg:overflow-y-visible max-lg:overscroll-auto', className)}>
         {children}
         {footer}
         {control?.hasMore && <li ref={sentinel} role="presentation" className="flex shrink-0 flex-col items-center justify-center p-2">

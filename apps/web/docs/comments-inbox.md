@@ -62,6 +62,8 @@ rows with the status filter it waits for their entrance motion to settle before 
   scrollbar, [app shell](app-shell.md)). A board column is as tall as its cards and never scrolls on its own: the page
   (the panel from `lg`) scrolls the whole board up and down, like Trello, while the board still scrolls sideways
   (`VirtualCommentList pageScroll`: its window of rendered cards and its Load more follow the page's scroll, [uier #400](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_HAW9079MAbgj_V7IdH5WF)).
+  From `lg` the list layout's list reaches the bottom of the panel (less the page's bottom padding and the selection bar) and scrolls inside
+  ([uier #401](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1&comment=comment_0GcXik_aB8UE-q73N-Xj8)): its room (`--list-room`) is measured from where it starts in the panel's content, again when anything above it changes height, so scrolling the page does not change it (below `lg` it follows the page).
   The list scrolls with
   a thin scrollbar in the muted ink on a clear track (`scrollbar-subtle` in `app/global.css`, darker on hover), not the
   platform's wide grey bar ([uier #365](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fuier00000002&comment=comment_Qy7RLDJqawBo6PHlCuKyS)). On dark a card is the page's black, a step
