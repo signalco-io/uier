@@ -2,22 +2,20 @@
 
 import { useAppI18n } from '@/src/lib/i18n/client';
 
-import { useEffect, useEffectEvent, useRef, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useEffectEvent, useRef } from 'react';
+import { COMMENT_REFRESH_EVENT } from './commentRefresh';
 import { subscribeToComments, type RealtimeTicket } from '@uier/toolbar/realtime';
 
-/** Other sidebar projects can change without a notification for the project being read. */
-const SHELL_SAFETY_MS = 5 * 60_000;
+/** Periodically reconcile metadata even when the compact revision stays unchanged. */
+const SNAPSHOT_SAFETY_MS = 5 * 60_000;
 
 /** Refresh changed server-authorized snapshots in place; leave an unchanged idle shell alone. */
-export function RealtimeComments({ projectId, revision, environment, author }: { projectId: string; revision: string; environment?: string; author?: string }) {
+export function RealtimeComments({ projectId, revision, environment, author, pending, onRefresh }: { projectId: string; revision: string; environment?: string; author?: string; pending: boolean; onRefresh: () => void }) {
     const { t } = useAppI18n();
-    const router = useRouter();
-    const [pending, startTransition] = useTransition();
     const queued = useRef<'check' | 'refresh' | undefined>(undefined);
     const checking = useRef<AbortController | undefined>(undefined);
     const renderedRevision = useRef(revision);
-    const lastShellRefresh = useRef(0);
+    const lastSnapshotRefresh = useRef(0);
     useEffect(() => {
         renderedRevision.current = revision;
         // An action or RSC response is a newer snapshot than an older in-flight check.
@@ -26,16 +24,17 @@ export function RealtimeComments({ projectId, revision, environment, author }: {
     const refresh = useEffectEvent(() => {
         if (document.visibilityState !== 'visible' || !navigator.onLine) return;
         checking.current?.abort(); checking.current = undefined;
-        lastShellRefresh.current = Date.now();
-        startTransition(() => router.refresh());
+        lastSnapshotRefresh.current = Date.now();
+        onRefresh();
     });
+    const localRefresh = useEffectEvent(() => onRefresh());
     const reconcile = useEffectEvent((force = false) => {
         if (document.visibilityState !== 'visible' || !navigator.onLine) return;
         if (pending) {
             if (force || queued.current !== 'refresh') queued.current = force ? 'refresh' : 'check';
             return;
         }
-        if (force || Date.now() - lastShellRefresh.current >= SHELL_SAFETY_MS) { refresh(); return; }
+        if (force || Date.now() - lastSnapshotRefresh.current >= SNAPSHOT_SAFETY_MS) { refresh(); return; }
         if (checking.current) { queued.current ??= 'check'; return; }
         queued.current = undefined;
         const controller = new AbortController();
@@ -53,8 +52,9 @@ export function RealtimeComments({ projectId, revision, environment, author }: {
                 });
                 const data = response.ok ? await response.json() as { revision?: unknown } : null;
                 if (controller.signal.aborted || checking.current !== controller || before !== renderedRevision.current) return;
-                // Authorization loss and malformed/failed checks use the normal server page too.
-                // The RSC response supplies the next baseline; never advance it from this check.
+                if (response.status === 401) { window.location.assign('/app/sign-in'); return; }
+                // Failed checks reconcile through the authorized data endpoint.
+                // The page response supplies the next baseline; never advance it from this check.
                 if (!response.ok || typeof data?.revision !== 'string' || data.revision !== before) refresh();
             } catch {
                 if (!controller.signal.aborted) refresh();
@@ -74,12 +74,14 @@ export function RealtimeComments({ projectId, revision, environment, author }: {
     useEffect(() => {
         let connected = false;
         let timer: ReturnType<typeof setTimeout> | undefined;
-        lastShellRefresh.current = Date.now();
+        lastSnapshotRefresh.current = Date.now();
         const schedule = () => {
             clearTimeout(timer);
             if (document.visibilityState !== 'visible' || !navigator.onLine) return;
             timer = setTimeout(() => { reconcile(); schedule(); }, connected ? 60_000 : 30_000);
         };
+        const localChange = (event: Event) => { if ((event as CustomEvent<string>).detail === projectId) localRefresh(); };
+        window.addEventListener(COMMENT_REFRESH_EVENT, localChange);
         const unsubscribe = subscribeToComments({
             ticket: async () => {
                 const response = await fetch(`/api/realtime/ticket?projectId=${encodeURIComponent(projectId)}`, { cache: 'no-store' });
@@ -100,6 +102,7 @@ export function RealtimeComments({ projectId, revision, environment, author }: {
         window.addEventListener('offline', schedule);
         schedule();
         return () => {
+            window.removeEventListener(COMMENT_REFRESH_EVENT, localChange);
             unsubscribe(); clearTimeout(timer); queued.current = undefined;
             checking.current?.abort(); checking.current = undefined;
             document.removeEventListener('visibilitychange', schedule);

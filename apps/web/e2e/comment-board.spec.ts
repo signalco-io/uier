@@ -874,3 +874,46 @@ test('a dropped card shows in its new column at once and goes back when saving f
     await expect(column('Done').getByRole('listitem')).toHaveCount(0);
     await expect(page.getByText('Could not save the change. Try again.', { exact: true })).toBeVisible();
 });
+
+for (const preference of ['sort', 'Archive'] as const) {
+    test(`saved board ${preference} survives a delayed and failed data refresh`, async ({ page, request }) => {
+        const { project, column } = await board(page, request);
+        const open = column('Open');
+        const archive = page.locator('[data-board-archive]');
+        let release!: () => void;
+        const held = new Promise<void>(resolve => { release = resolve; });
+        await page.route(`**/api/projects/${project}/comments/pages`, async route => {
+            await held;
+            await route.fulfill({ status: 503, json: { error: 'Unavailable' } });
+        });
+        try {
+            const saved = page.waitForResponse(response => response.request().method() === 'POST'
+                && new URL(response.url()).pathname === `/app/projects/${project}` && Boolean(response.request().headers()['next-action']));
+            if (preference === 'sort') {
+                await open.getByRole('button', { name: 'Sort Open: Priority', exact: true }).click();
+                await page.getByRole('menuitemradio', { name: 'Oldest first', exact: true }).click();
+            } else {
+                await archive.getByRole('button', { name: 'Archive 0', exact: true }).click();
+            }
+            expect((await saved).status()).toBe(200);
+            // The action has ended, but no page response can yet update the saved preference.
+            await expect(page.getByRole('button', { name: 'Group by', exact: true })).toBeEnabled();
+            const staysSaved = async () => {
+                if (preference === 'sort') {
+                    await expect(open.getByRole('button', { name: 'Sort Open: Oldest first', exact: true })).toBeVisible();
+                    await expect(open.getByRole('listitem').first()).toContainText('First board thread');
+                } else await expect(archive).toHaveAttribute('data-board-archive', 'expanded');
+            };
+            await staysSaved();
+            release();
+            await expect(page.getByText('Comments could not be refreshed. Your loaded comments are still shown.')).toBeVisible();
+            await staysSaved();
+            await page.unroute(`**/api/projects/${project}/comments/pages`);
+            await page.getByRole('button', { name: 'Try again', exact: true }).first().click();
+            await expect(page.getByText('Comments could not be refreshed. Your loaded comments are still shown.')).toHaveCount(0);
+            await staysSaved();
+            await page.reload();
+            await staysSaved();
+        } finally { release(); }
+    });
+}

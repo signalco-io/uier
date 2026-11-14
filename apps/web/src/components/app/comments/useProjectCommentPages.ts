@@ -26,14 +26,17 @@ export function mergePage(current: Snapshot, next: Snapshot, lane: CommentLane):
 }
 
 /** Query changes cancel stale reads; refreshes rebuild the loaded windows and keep the composers mounted. */
-export function useProjectCommentPages(initial: Snapshot, query: CommentsQuery, sorts: Record<BoardColumn, BoardSort>, archiveExpanded: boolean, workflow: StatusWorkflow, openId?: string, groupByLabel: false | string[] = false) {
+export function useProjectCommentPages(initial: Snapshot, query: CommentsQuery, sorts: Record<BoardColumn, BoardSort>, archiveExpanded: boolean, workflow: StatusWorkflow, openId?: string, groupByLabel: false | string[] = false, onSnapshot?: (snapshot: Snapshot) => void) {
     const desiredKey = projectCommentPageKey(query, sorts, archiveExpanded, workflow, `${initial.projectId}:${initial.userId}`, groupByLabel);
     const [data, setData] = useState(initial);
     const [loading, setLoading] = useState(false);
+    const [announcing, setAnnouncing] = useState(false);
+    const announceRetry = useRef(false);
     const [loadingLanes, setLoadingLanes] = useState<Set<CommentLane>>(new Set());
     const [error, setError] = useState<'budget' | 'unavailable'>();
     const [failedLanes, setFailedLanes] = useState<Set<CommentLane>>(new Set());
     const [retry, setRetry] = useState(0);
+    const lastRetry = useRef(retry);
     const state = useRef(data); state.current = data;
     const generation = useRef(0);
     const busyLanes = useRef(new Set<CommentLane>());
@@ -48,10 +51,14 @@ export function useProjectCommentPages(initial: Snapshot, query: CommentsQuery, 
             body: JSON.stringify({ params: Object.fromEntries(Object.entries(params).filter(([, value]) => value !== undefined).map(([key, value]) => [key, String(value)])),
                 archiveExpanded, openId: latestOpen.current, lane, cursor, depths })
         });
+        if (response.status === 401) { window.location.assign('/app/sign-in'); throw new Error('401'); }
+        if (response.status === 403 || response.status === 404) { window.location.assign('/app/projects'); throw new Error(String(response.status)); }
         if (!response.ok) throw new Error(String(response.status));
         return response.json() as Promise<Snapshot>;
     };
     useEffect(() => {
+        const refreshRequested = retry !== lastRetry.current;
+        lastRetry.current = retry;
         const version = ++generation.current;
         for (const controller of controllers.current) controller.abort();
         controllers.current.clear(); busyLanes.current.clear(); setLoadingLanes(new Set()); setFailedLanes(new Set());
@@ -61,12 +68,13 @@ export function useProjectCommentPages(initial: Snapshot, query: CommentsQuery, 
         if (!sameScope) depths.current = {};
         const serverMatches = initial.paging.key === desiredKey;
         const serverVersion = `${initial.paging.key}|${initial.revision}`;
-        const useServer = serverMatches && serverUsed.current !== serverVersion && !retry;
+        const useServer = serverMatches && serverUsed.current !== serverVersion && !refreshRequested;
         // The initial SSR window needs no duplicate HTTP request.
-        if (serverMatches && initial.revision === state.current.revision && sameScope && !retry) {
-            controllers.current.delete(controller); setLoading(false); setError(undefined); return;
+        if (serverMatches && initial.revision === state.current.revision && sameScope && !refreshRequested) {
+            controllers.current.delete(controller); setLoading(false); setAnnouncing(false); setError(undefined); return;
         }
         setLoading(true); setError(undefined);
+        setAnnouncing(!sameScope || announceRetry.current); announceRetry.current = false;
         void (async () => {
             try {
                 // A fresh RSC first page suffices until a lane has more loaded. Restore all deeper
@@ -74,11 +82,11 @@ export function useProjectCommentPages(initial: Snapshot, query: CommentsQuery, 
                 const needsDepths = Object.values(wanted).some(depth => depth > 1);
                 const next = useServer && !needsDepths ? initial : await request(controller.signal, undefined, undefined, wanted);
                 if (useServer) serverUsed.current = serverVersion;
-                if (!controller.signal.aborted && version === generation.current) { depths.current = wanted; setData(next); }
+                if (!controller.signal.aborted && version === generation.current) { depths.current = wanted; setData(next); onSnapshot?.(next); }
             } catch (error) { if (!controller.signal.aborted) setError(error instanceof Error && error.message === '422' ? 'budget' : 'unavailable'); }
             finally {
                 controllers.current.delete(controller);
-                if (!controller.signal.aborted && version === generation.current) setLoading(false);
+                if (!controller.signal.aborted && version === generation.current) { setLoading(false); setAnnouncing(false); }
             }
         })();
         return () => { controller.abort(); controllers.current.delete(controller); };
@@ -108,5 +116,5 @@ export function useProjectCommentPages(initial: Snapshot, query: CommentsQuery, 
             if (version === generation.current) { busyLanes.current.delete(lane); setLoadingLanes(current => new Set([...current].filter(value => value !== lane))); }
         }
     };
-    return { data: data.projectId === initial.projectId && data.userId === initial.userId ? data : initial, loading: loading || !error && data.paging.key !== desiredKey, error, loadMore, loadingLanes, failedLanes, retry: () => setRetry(current => current + 1) };
+    return { announcing, refresh: () => setRetry(current => current + 1), data: data.projectId === initial.projectId && data.userId === initial.userId ? data : initial, loading: loading || !error && data.paging.key !== desiredKey, error, loadMore, loadingLanes, failedLanes, retry: () => { announceRetry.current = true; setRetry(current => current + 1); } };
 }

@@ -208,7 +208,7 @@ The project page and `GET /api/projects/<id>/comments/revision` share
 `lib/app/appCommentsSnapshot.ts`. The page sends the opaque revision of its actual authorized
 snapshot to `RealtimeComments`. Ready/foreground and the 60-second connected or 30-second fallback
 safety checks read that revision first. An unchanged snapshot leaves the shell alone; a real
-`comments.changed` notification still refreshes immediately. The RSC response, rather than the
+`comments.changed` notification still refreshes immediately. The completed paged data response, rather than the
 revision response, supplies the next baseline, so a write between the check and render is included.
 
 The check retains current session, workspace membership, project/team access, environment and
@@ -218,15 +218,11 @@ board policy and the current project's navigation fields. The route is `private,
 by Cookie and rejects cross-site browser requests. The live project-members load is shared only
 within that snapshot request; there is no positive authorization cache between requests.
 
-Other projects' names, client grouping and recent-activity order can change without this project's
-notification. A full shell safety refresh remains every five visible/online minutes, or sooner on
-navigation, actions and relevant comment changes. This bounds idle navigation staleness at five
-minutes. In an unchanged connected hour, scheduled shell renders fall from 60 to 12 (80%); during
-fallback they fall from 120 to 12 (90%). These are scheduler counts, not measured production cost
-savings. Revision checks still read the comments snapshot and current authorization; they avoid
-shell/header/sidebar reads, rendering and the full RSC response. `realtime.spec.ts` checks the
-cadence, read/render races and late hidden-tab responses; `app-comments-snapshot.api.spec.ts`
-checks revision privacy, read-state, current policy/names and lease expiry.
+Other projects' names, client grouping and recent-activity order update on navigation. The five-minute
+safety check now refreshes only project comment data and metadata (uier #410), keeping the mounted
+shell intact during background loads. `realtime.spec.ts` checks the cadence, read/render races and
+late hidden-tab responses; `app-comments-snapshot.api.spec.ts` checks revision privacy, read-state,
+current policy/names and lease expiry.
 
 
 A synthetic in-memory service profile on 9 November 2026 counted store calls through the actual
@@ -238,7 +234,7 @@ Recent activity used 29 versus 16. Each branch loaded the project member list on
 team/access queries (the shared snapshot plus the integration-link service's independent check).
 These are service-operation counts from equivalent fixtures, not measured Cosmos RU, network
 latency, or production savings. The browser regression independently verifies that four unchanged
-minute checks make no shell RSC request and the fifth minute makes exactly one.
+minute checks make no shell RSC request; the fifth minute sends one paged data request.
 
 ### Client navigation continuity
 

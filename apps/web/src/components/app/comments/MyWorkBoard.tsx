@@ -1,5 +1,7 @@
 'use client';
 
+import { useMyWorkCommentRefresh } from './commentRefresh';
+
 import { useAppI18n } from '@/src/lib/i18n/client';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { SearchXIcon } from 'lucide-react';
@@ -47,6 +49,7 @@ export function MyWorkViews({ assigned, mentions, unread, assignees, userId, emp
     /** Shown when nothing needs you */
     empty: ReactNode;
 }) {
+    useMyWorkCommentRefresh();
     const { t } = useAppI18n();
     const searchParams = useUrlSearchParams();
     const urlView = searchParams.get('view');

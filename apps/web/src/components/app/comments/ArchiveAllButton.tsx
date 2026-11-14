@@ -60,7 +60,7 @@ export function ArchiveAllButton({ scope, lane, label, count }: { scope: Archive
             <TooltipTrigger render={(
                 // As small as the sort beside it; 44 px to tap on a touch screen
                 <Button variant="ghost" size="icon-xs" aria-label={name} data-archive-all={lane} disabled={pending} onClick={() => setConfirming(true)}
-                    className="relative -my-1 ml-auto font-normal text-muted-foreground after:absolute after:-inset-2.5 hover:text-foreground pointer-fine:after:hidden" />
+                    className="relative -my-1 ml-0 font-normal text-muted-foreground after:absolute after:-inset-2.5 hover:text-foreground pointer-fine:after:hidden" />
             )}>
                 {pending ? <Spinner /> : <ArchiveIcon />}
             </TooltipTrigger>
