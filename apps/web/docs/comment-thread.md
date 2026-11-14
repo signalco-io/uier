@@ -46,7 +46,8 @@ assignee card, with Open in T3 Code or another desktop session link, at the top 
   `CommentDevice`: screen size and browser icons whose popover (hover or click, `hoverPopoverTrigger` for Base
   UI's `openOnHover`, like the project header's access info) lists the reproduction context and copies its
   text; the toolbar shows the same icons and details. The browser icon is the browser's own mark and the
-  popover puts a mark beside the operating system too (`DeviceMark.tsx`: `BrowserMark`, `OsMark`). Pending actions show `Spinner`.
+  popover puts a mark beside the operating system too (`BrowserMark`, `OsMark`). Its content is the toolbar's
+  `DeviceDetails` (`@uier/toolbar/device-details`, read by Tailwind through `@source`), so both look the same (uier #428). Pending actions show `Spinner`.
 - While an opened thread's detail loads (`PagedCommentCard`: List, Board and the inbox open threads from the row's
   summary), `comments/CommentCardShell.tsx` stands in its place, shaped like `CommentCard` so nothing moves when the
   detail arrives (uier #385). What the summary holds is drawn as the card draws it: the status, `#number`, unread dot
@@ -107,7 +108,7 @@ assignee card, with Open in T3 Code or another desktop session link, at the top 
   `e2e/comment-auto-read.spec.ts` covers it. A test about something else that holds, fails or counts the
   page's server actions, or checks the unread dot, calls `inBackground(page)` (`e2e/support/app.ts`) first, so a
   slow step cannot add a read write.
-- Device marks (`comments/DeviceMark.tsx`, the toolbar's `components/info/DeviceMark.tsx`, both over the pure
+- Device marks (`BrowserMark` and `OsMark` in `@uier/toolbar/device-details`, over the pure
   `@uier/toolbar/devices`): `browserKind` and `osKind` read the stored names ("Safari (18.1)", "macOS 15.1", and on
   older comments the client hint brand and platform, "Microsoft Edge (156)", "macOS") and choose a one-colour mark in
   the text colour, like `AgentMark`, decorative beside the written name. Browsers: Chrome (also Chromium and headless
@@ -128,12 +129,12 @@ assignee card, with Open in T3 Code or another desktop session link, at the top 
   (`pointer: coarse` is touch), the colour scheme, reduced motion and the page's `<html lang>` (language, script and
   region only). The API keeps bounded names and drops settings it does not know (`deviceSchema`); the popovers list
   model, input, colour scheme, reduced motion and page language under the browser row when recorded
-  (`deviceSettings`; in the app as two-column tiles styled like the screen and browser rows, each with a lucide icon:
+  (`deviceTiles` in `@uier/toolbar/device-details`; in both as two-column tiles styled like the screen and browser rows, each with a Lucide icon:
   phone, pointer or hand, sun or moon, accessibility, languages, and shorter words so none truncate: Mouse, Theme, Motion
   Reduced or Standard, Language; the copied details and packets keep the full ones), older comments show what they have. `e2e/user-agent.api.spec.ts` covers the parser with real
   strings, `e2e/device-details.api.spec.ts` validation, storage and who sees what, `e2e/device-marks.api.spec.ts` the
   mapping and `e2e/project-review.spec.ts` (the reproduction details tests) the toolbar and app popovers,
-  including the app's compact tile words and identical copied details from both surfaces.
+  including the compact tile words both share and identical copied details from both surfaces.
   `e2e/editing.spec.ts` checks that missing client hints fall back to parsed browser and OS names,
   without sending the raw user-agent string or exposing reproduction details on public feedback.
 - Every place the app takes a message uses one composer, `comments/MessageComposer.tsx`, laid out as the toolbar's

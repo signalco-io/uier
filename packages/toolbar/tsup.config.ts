@@ -140,6 +140,13 @@ export default defineConfig(({ env }) => {
         // A client component in React Server Components apps (Next.js App Router)
         banner: { js: '\'use client\';' }
     }, {
+        // `@uier/toolbar/device-details`: the device details popover's content, shared with the app. No hooks, so no
+        // client boundary: the app's server-rendered pages (the landing page's specimens) use its marks too.
+        entry: { deviceDetails: './src/deviceDetails/index.tsx' },
+        outDir,
+        format: ['esm'],
+        platform: 'neutral'
+    }, {
         // Pure browser/server page identity contract; no React client boundary.
         entry: { toolbarFeatures: './src/toolbarFeatures.ts', languages: './src/languages.ts', feedbackTypes: './src/feedbackTypes.ts', drawing: './src/drawing.ts', realtime: './src/realtime.ts', verification: './src/verification.ts', extensionContract: './src/extensionContract.ts', triage: './src/triage.ts', reactions: './src/reactions.ts', agents: './src/agents.ts', devices: './src/devices.ts', pageState: './src/pageState.ts', pageSections: './src/pageSections.ts', screenshotPolicy: './src/screenshotPolicy.ts', mentions: './src/mentions.ts', markdown: './src/markdown.ts', colorValues: './src/colorValues.ts', draftStorage: './src/hooks/draftStorage.ts', feedbackContext: './src/feedbackContext.ts', keyboard: './src/keyboard.ts' },
         outDir,

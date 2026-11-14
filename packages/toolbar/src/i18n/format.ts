@@ -2,7 +2,6 @@ import { agentLabels, agentModelText, type AssigneeAgentView } from '../agents';
 import { defaultFeedbackTypes, feedbackTypeSnapshot, type CommentKind, type FeedbackType, type FeedbackTypeSnapshot } from '../feedbackTypes';
 import type { VerificationDetails } from '../verification';
 import type { ToolbarLanguage } from '../languages';
-import type { DeviceSettings } from '../userAgent';
 import type { Messages } from './en';
 
 // Shared vocabulary (`@uier/toolbar/agents`, `feedback-types`) stays English for the app and the API; the
@@ -50,16 +49,4 @@ export function verificationText(v: VerificationDetails, t: Messages, language: 
     if (v.outcome === 'confirmed' && decision?.kind === 'confirm') return t.verification.confirmedBy(attribution);
     const requested = t.verification.requested(v.requester, v.reviewer, utcTime(v.requestedAt, language));
     return `${t.verification.outcome[v.outcome]}. ${requested}${decision ? ` ${t.verification.decision[decision.kind](attribution)}` : ''}`;
-}
-
-/** `deviceSettings` (`@uier/toolbar/devices`) in the toolbar's language: the same rows in the same order */
-export function deviceSettingsText(device: DeviceSettings, t: Messages): [label: string, value: string][] {
-    const rows: [string, string | undefined][] = [
-        [t.device.model, device.model],
-        [t.device.input, device.input && t.device.inputs[device.input]],
-        [t.device.colorScheme, device.colorScheme && t.device.colorSchemes[device.colorScheme]],
-        [t.device.reducedMotion, device.reducedMotion === undefined ? undefined : device.reducedMotion ? t.device.on : t.device.off],
-        [t.device.pageLanguage, device.pageLanguage]
-    ];
-    return rows.filter((row): row is [string, string] => !!row[1]);
 }

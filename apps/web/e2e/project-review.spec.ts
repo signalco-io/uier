@@ -508,9 +508,10 @@ test('guest edits and original reproduction details persist; only members see an
     // Each name with its mark
     await expect(details.locator('[data-browser-mark="edge"]')).toBeVisible();
     await expect(details.locator('[data-os-mark="macos"]')).toBeVisible();
-    // The settings the page was seen with
-    await expect(details.getByRole('definition')).toHaveText([input, 'Dark', 'On', 'en']);
-    await expect(details.getByRole('term')).toHaveText(['Input', 'Colour scheme', 'Reduced motion', 'Page language']);
+    // The settings the page was seen with, as the app's tiles: an icon each and the compact words (`DeviceDetails`)
+    await expect(details.getByRole('definition')).toHaveText([input === 'Touch' ? 'Touch' : 'Mouse', 'Dark', 'Reduced', 'en']);
+    await expect(details.getByRole('term')).toHaveText(['Input', 'Theme', 'Motion', 'Language']);
+    await expect(details.getByRole('term').locator('[data-device-icon]')).toHaveCount(4);
     await expect(details).toContainText('Captured');
     await expect(details.getByRole('link', { name: 'Reviewed page' })).toHaveAttribute('href', `${siteOrigin()}${path}`);
     await copyDetails.click();
@@ -559,9 +560,10 @@ test('guest edits and original reproduction details persist; only members see an
     await cardDevice.click();
     await expect(details).toContainText(`${originalViewport[0]}×${originalViewport[1]} CSS px`);
     await expect(details).toContainText('macOS 15.1');
-    // The app uses compact tile words; the clipboard keeps the original details checked above.
+    // The same tiles and compact words as the toolbar; the clipboard keeps the original details checked above.
     await expect(details.getByRole('definition')).toHaveText([input === 'Touch' ? 'Touch' : 'Mouse', 'Dark', 'Reduced', 'en']);
     await expect(details.getByRole('term')).toHaveText(['Input', 'Theme', 'Motion', 'Language']);
+    await expect(details.getByRole('term').locator('[data-device-icon]')).toHaveCount(4);
     await expect(details.locator('[data-browser-mark="edge"]')).toBeVisible();
     await expect(details.locator('[data-os-mark="macos"]')).toBeVisible();
     await expect(details.getByRole('link', { name: 'Reviewed page' })).toHaveAttribute('href', `${siteOrigin()}${path}`);

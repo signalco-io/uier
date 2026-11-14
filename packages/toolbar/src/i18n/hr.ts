@@ -730,15 +730,10 @@ export const hr: Messages = {
         copied: 'Detalji za reprodukciju su kopirani',
         copy: 'Kopiraj detalje za reprodukciju',
         notCopied: 'Kopiranje nije uspjelo. Označite detalje i kopirajte ih.',
-        model: 'Model',
-        input: 'Unos',
-        inputs: { touch: 'Dodir', mouse: 'Miš ili dodirna ploča' },
-        colorScheme: 'Shema boja',
-        colorSchemes: { light: 'Svijetla', dark: 'Tamna' },
-        reducedMotion: 'Smanjeno kretanje',
-        on: 'Uključeno',
-        off: 'Isključeno',
-        pageLanguage: 'Jezik stranice'
+        tiles: {
+            model: 'Model', input: 'Unos', theme: 'Tema', motion: 'Kretanje', language: 'Jezik',
+            touch: 'Dodir', mouse: 'Miš', light: 'Svijetla', dark: 'Tamna', reduced: 'Smanjeno', standard: 'Standardno'
+        }
     },
     seo: {
         labels: {

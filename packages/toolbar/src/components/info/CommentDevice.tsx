@@ -1,17 +1,16 @@
 import type { CommentDeviceSize, CommentItem } from '../@types/Comments';
-import { Fragment, useContext, useEffect, useState, type ReactNode } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { Popper } from '@signalco/ui-primitives/Popper';
 import { Button } from '@signalco/ui-primitives/Button';
 import { cx } from '@signalco/ui-primitives/cx';
-import { ArrowUpRight, Check, Copy, Desktop, Mobile, Tablet } from '@signalco/ui-icons';
+import { Check, Copy, Desktop, Mobile, Tablet } from '@signalco/ui-icons';
 import { useAnnounce } from '../Announcer';
 import { CommentsBootstrapperContext } from '../CommentsBootstrapperContext';
 import { CommentTime } from '../CommentTime';
 import { floatingShadowClassName } from '../@types/Comments';
 import { useHoverPopover } from '../../hooks/useHoverPopover';
-import { BrowserMark, OsMark } from './DeviceMark';
+import { BrowserMark, DeviceDetails, deviceTiles } from '../../deviceDetails';
 import { useMessages } from '../../i18n';
-import { deviceSettingsText } from '../../i18n/format';
 import { toolbarSurface } from '../../toolbarReview';
 
 const sizeIcons: Record<CommentDeviceSize, typeof Desktop> = {
@@ -21,20 +20,6 @@ const sizeIcons: Record<CommentDeviceSize, typeof Desktop> = {
 };
 
 type DeviceProps = { device: CommentItem['device']; reproduction?: CommentItem['reproduction'] };
-
-/** A line of the details: an icon, what it is and its values */
-function DeviceRow({ icon, title, description, mono }: { icon: ReactNode; title: string; description: ReactNode; mono?: boolean }) {
-    // Accent, not muted: muted is the popover's own colour in dark
-    return (
-        <div className="flex items-center gap-2.5 rounded-lg bg-accent px-2.5 py-2">
-            <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-md border bg-background text-muted-foreground">{icon}</span>
-            <div className="min-w-0">
-                <p className="m-0 truncate text-sm font-medium text-foreground">{title}</p>
-                <p className={cx('m-0 flex items-center gap-1 text-xs text-muted-foreground', mono && 'font-mono tabular-nums')}>{description}</p>
-            </div>
-        </div>
-    );
-}
 
 /** Copy reproduction details, with the text to select by hand when the clipboard is not available */
 function CopyReproduction({ text }: { text: string }) {
@@ -62,11 +47,12 @@ function CopyReproduction({ text }: { text: string }) {
 
 /**
  * The screen and the browser a comment was left from, as two icons next to its time, like the
- * app's `CommentDevice` (the browser's own mark, `DeviceMark`, or a globe when unknown). Hovering or
- * clicking them shows the screen size and viewport; project members (the API's member-only
- * `reproduction`) also get the browser and OS with their marks, the model, input, colour scheme, reduced motion and page
- * language when recorded, capture time and the reviewed page, with the reproduction details to copy as text. Guests and public viewers never get
- * those, so they see the screen size icon only (and nothing when the size was not recorded).
+ * app's `CommentDevice` (the browser's own mark, `BrowserMark`, or a globe when unknown). Hovering or
+ * clicking them shows the details, drawn by `DeviceDetails` (`@uier/toolbar/device-details`), the app's too:
+ * the screen size and viewport; project members (the API's member-only `reproduction`) also get the browser and
+ * OS with their marks, the model, input, colour scheme, reduced motion and page language as tiles when recorded,
+ * capture time and the reviewed page, with the reproduction details to copy as text. Guests and public viewers never
+ * get those, so they see the screen size icon only (and nothing when the size was not recorded).
  */
 export function CommentDevice({ device, reproduction }: DeviceProps) {
     const { rootElement } = useContext(CommentsBootstrapperContext);
@@ -82,7 +68,6 @@ export function CommentDevice({ device, reproduction }: DeviceProps) {
     const viewport = [windowSize && `${windowSize[0]}×${windowSize[1]} CSS px`, reproduction?.pixelRatio && `${reproduction.pixelRatio}x`].filter(Boolean).join(' · ');
     const browser = reproduction?.browser ?? t.device.unknownBrowser;
     const os = reproduction?.os ?? t.device.unknownOs;
-    const settings = reproduction ? deviceSettingsText(reproduction, t) : [];
     // "Device: Desktop · 1280×720 px · Firefox (131) · macOS"; guests get the screen only
     const name = t.device.name([screen, windowSize && `${windowSize[0]}×${windowSize[1]} px`, ...(reproduction ? [browser, os] : [])].filter(Boolean).join(' · '));
     const capturedAt = reproduction?.capturedAt ? new Date(reproduction.capturedAt) : undefined;
@@ -108,32 +93,16 @@ export function CommentDevice({ device, reproduction }: DeviceProps) {
                 </Button>
             )}
             {...popover.content}>
-            <div className="flex flex-col gap-1">
-                <DeviceRow icon={<SizeIcon size={16} />} title={screen} description={viewport || t.device.viewportUnavailable} mono />
-                {reproduction && <DeviceRow icon={<BrowserMark name={reproduction.browser} />} title={browser} description={<><OsMark name={reproduction.os} size={14} />{os}</>} />}
-            </div>
-            {settings.length > 0 && (
-                <dl className="m-0 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 px-1 text-xs">
-                    {settings.map(([name, value]) => (
-                        <Fragment key={name}>
-                            <dt className="text-muted-foreground">{name}</dt>
-                            <dd className="m-0 truncate text-foreground">{value}</dd>
-                        </Fragment>
-                    ))}
-                </dl>
-            )}
-            {(captured || reproduction?.url) && (
-                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                    {captured && <span>{t.device.captured}<CommentTime date={captured} /></span>}
-                    {reproduction?.url && (
-                        <a href={reproduction.url} target="_blank" rel="noopener" className="inline-flex items-center gap-0.5 underline underline-offset-2 hover:text-foreground">
-                            {t.device.reviewedPage}
-                            <ArrowUpRight size={12} aria-hidden="true" />
-                        </a>
-                    )}
-                </div>
-            )}
-            {reproduction && <CopyReproduction text={reproduction.text} />}
+            <DeviceDetails
+                size={device?.size}
+                screen={screen}
+                viewport={viewport || t.device.viewportUnavailable}
+                system={reproduction && { browser: reproduction.browser, os: reproduction.os, browserLabel: browser, osLabel: os }}
+                tiles={reproduction ? deviceTiles(reproduction, t.device.tiles) : []}
+                captured={captured && <>{t.device.captured}<CommentTime date={captured} /></>}
+                reviewedPage={reproduction?.url ? { href: reproduction.url, label: t.device.reviewedPage } : undefined}>
+                {reproduction && <CopyReproduction text={reproduction.text} />}
+            </DeviceDetails>
         </Popper>
     );
 }

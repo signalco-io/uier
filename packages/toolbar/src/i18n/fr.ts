@@ -729,15 +729,10 @@ export const fr: Messages = {
         copied: 'Détails de reproduction copiés',
         copy: 'Copier les détails de reproduction',
         notCopied: 'Copie impossible. Sélectionnez les détails et copiez-les.',
-        model: 'Modèle',
-        input: 'Saisie',
-        inputs: { touch: 'Tactile', mouse: 'Souris ou pavé tactile' },
-        colorScheme: 'Thème de couleurs',
-        colorSchemes: { light: 'Clair', dark: 'Sombre' },
-        reducedMotion: 'Animations réduites',
-        on: 'Activé',
-        off: 'Désactivé',
-        pageLanguage: 'Langue de la page'
+        tiles: {
+            model: 'Modèle', input: 'Saisie', theme: 'Thème', motion: 'Mouvement', language: 'Langue',
+            touch: 'Tactile', mouse: 'Souris', light: 'Clair', dark: 'Sombre', reduced: 'Réduit', standard: 'Standard'
+        }
     },
     seo: {
         labels: {

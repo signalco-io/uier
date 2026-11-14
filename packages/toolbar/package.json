@@ -72,6 +72,11 @@
             "development": "./dist-dev/editor.js",
             "default": "./dist/editor.js"
         },
+        "./device-details": {
+            "types": "./src/deviceDetails/index.tsx",
+            "development": "./dist-dev/deviceDetails.js",
+            "default": "./dist/deviceDetails.js"
+        },
         "./drafts": {
             "types": "./src/hooks/draftStorage.ts",
             "development": "./dist-dev/draftStorage.js",
