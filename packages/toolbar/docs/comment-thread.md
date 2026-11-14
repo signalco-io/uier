@@ -16,7 +16,8 @@ The thread's status but Open is on the pin too (`PinStatus.tsx`, uier #364): an 
 status's colour (by category for custom statuses, uier #402) with a white ring like the pin's and a soft halo of
 its colour, on its round top-right edge above the message count (uier #397), so the pin keeps its size and reads
 on light and dark pages. It is the glowing dot of the app's board column headers (`GlowingStateDot`) scaled for
-the pin, in the dark tokens like the pin's ink (uier #408). The pin's name
+the pin (uier #408). The white ring is ink-scope like the pin's, but the dot takes the threads' theme (light or
+dark status tokens), so it is the same colour as the app's status dots (uier #426). The pin's name
 ends with the status ("Comment #6, 3 messages, In progress", a custom status's own name; `selectedWorkflowStatus`
 as in the header). It follows the cached comment, so optimistic changes ([optimistic status](optimistic-status.md))
 and realtime updates show at once. Done pins leave the page, so Done shows only on a pin kept for its draft.

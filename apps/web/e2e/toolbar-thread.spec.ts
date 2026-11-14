@@ -1,5 +1,5 @@
 import { enableProjectVerification } from './support/app';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { startReviewedSite } from './support/reviewedSite';
 import { createProject, signIn, uniqueEmail } from './support/app';
 import { animationsFinished, commentBubble, openThread, threadOptions, toolbar } from './support/toolbar';
@@ -110,6 +110,16 @@ test('a pin shows its thread\'s status but Open, in its dot and its name (uier #
     const dot = (await inProgress.locator('[data-uier-pin-status]').boundingBox())!;
     expect(dot.y + dot.height / 2).toBeLessThan(box.y + box.height / 2);
     expect(dot.x + dot.width / 2).toBeGreaterThan(box.x + box.width / 2);
+    // The same colour as the thread's (and the app's) status dot, in light and dark (uier #426)
+    const colour = (locator: Locator) => locator.evaluate(element => getComputedStyle(element).backgroundColor);
+    const pinDot = inProgress.locator('[data-uier-pin-status] > span').last();
+    const threadDot = thread.locator('[data-status-dot="in-progress"]').first();
+    const light = await colour(threadDot);
+    expect(await colour(pinDot)).toBe(light);
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await expect.poll(() => colour(threadDot)).not.toBe(light);
+    expect(await colour(pinDot)).toBe(await colour(threadDot));
+    await page.emulateMedia({ colorScheme: 'light' });
 
     await thread.getByRole('button', { name: 'Status: In progress. Change status', exact: true }).click();
     await page.getByRole('dialog', { name: 'Status', exact: true }).getByRole('button', { name: 'Open', exact: true }).click();

@@ -268,7 +268,7 @@ corner as a small white badge with ink text and outline, so it never reads as th
 more digits get a smaller size to stay inside the pin. The pin's name says both: "Comment #12, 3 messages".
 A thread past Open shows its status on the pin: a solid dot in the status's colour (see Status) on the round
 top-right edge, above the count, with a white ring like the pin's and a soft halo of its colour, like the
-glowing dots of the board column headers, and the name ends with it ("Comment #12, 3 messages, In progress").
+glowing dots of the board column headers, in the same colour as the app's dots in light and dark, and the name ends with it ("Comment #12, 3 messages, In progress").
 A commented text range gets the blue 20 % tint. A commented area gets a dashed blue outline, with
 the same tint while its thread is open. The inbox shows the unread count as a blue pill.
 
