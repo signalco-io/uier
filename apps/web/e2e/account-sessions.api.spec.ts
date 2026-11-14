@@ -319,7 +319,7 @@ test('project links offer only live signed-in accounts with access, including an
     const a = await account(jar, 'link-owner');
     const own = await loadAppContext(a.user);
     const project = await createProject(own!, { name: 'Private link target', urls: ['https://example.com'] });
-    const next = `/app/projects/${project.id}?view=board`;
+    const next = `/app/projects/${project.id}?comment=comment_test&view=board`;
     expect(await projectLinkAccounts(jar, next)).toEqual([]);
     const secondWorkspace = await createWorkspace(a.user, 'Another workspace');
     jar.values.set(cookieName(cookieNames.workspace), secondWorkspace.id);
@@ -360,6 +360,31 @@ async function addLinkMember(f: Awaited<ReturnType<typeof linkFixture>>, label: 
     await getAppStore().create<DbMember>({ ...f.context.member, id: memberId(value.user.id), userId: value.user.id, email: value.user.email, role });
     return value;
 }
+
+test('stale comment links open an accessible project from another workspace while review links stay unavailable', async () => {
+    const f = await linkFixture();
+    const another = await createWorkspace(f.owner.user, 'Other workspace');
+    for (const comment of ['comment_deleted', 'invalid-comment-id']) {
+        f.jar.values.set(cookieName(cookieNames.workspace), another.id);
+        const next = `/app/projects/${f.project.id}?comment=${comment}&view=board`;
+        expect(await projectLinkAccounts(f.jar, next)).toMatchObject([{ userId: f.owner.user.id, workspaceId: f.project.workspaceId }]);
+        const preflight = await proxy(new NextRequest(`${origin}${next}`, { headers: { cookie: f.jar.header() } }));
+        expect(preflight.status).toBe(307);
+        expect(new URL(preflight.headers.get('location')!).searchParams.get('next')).toBe(next);
+        const review = `/app/review/${f.project.id}?comment=${comment}`;
+        expect(await projectLinkAccounts(f.jar, review)).toEqual([]);
+        expect((await proxy(new NextRequest(`${origin}${review}`, { headers: { cookie: f.jar.header() } }))).status).toBe(404);
+
+        const opened = await POST(request(f.jar, { action: 'open-project-link', next }));
+        expect(opened.status).toBe(200);
+        expect(await opened.json()).toEqual({ next });
+        f.jar.apply(opened);
+        expect(f.jar.get(primary())?.value).toBe(f.owner.token);
+        expect(f.jar.get(cookieName(cookieNames.workspace))?.value).toBe(f.project.workspaceId);
+        const destination = await proxy(new NextRequest(`${origin}${next}`, { headers: { cookie: f.jar.header() } }));
+        expect(destination.headers.get('x-middleware-next')).toBe('1');
+    }
+});
 
 test('direct links automatically select the only authorized account and workspace using the original session', async () => {
     const f = await linkFixture();

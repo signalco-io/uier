@@ -31,13 +31,17 @@ async function canOpenLink(context: AppContext, project: DbProject, url: URL, se
     if (!section && !review && query('author') && !await resolveCommentAuthorFilter(context, project, query('author')!)) return false;
     const commentId = query('comment');
     if ((!section || review) && commentId) {
-        if (!/^comment_[A-Za-z0-9_-]{1,64}$/.test(commentId)) return false;
+        if (!/^comment_[A-Za-z0-9_-]{1,64}$/.test(commentId)) return !review;
         const actor = { kind: 'member' as const, userId: context.user.id, name: context.user.name, isAdmin: context.isAdmin };
-        const comment = await getProjectComment(project, actor, commentId).catch(error => {
-            if (error instanceof ApiError && error.status === 404) return null;
+        try {
+            const comment = await getProjectComment(project, actor, commentId);
+            // A project page can still open without its old comment. A hidden private
+            // comment instead throws 404, so only accounts that may see it qualify.
+            return comment ? !review || feedbackSource(project, comment.origin).available : !review;
+        } catch (error) {
+            if (error instanceof ApiError && error.status === 404) return false;
             throw error;
-        });
-        if (!comment || (review && !feedbackSource(project, comment.origin).available)) return false;
+        }
     }
     return true;
 }

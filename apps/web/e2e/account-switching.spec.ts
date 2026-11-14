@@ -260,6 +260,31 @@ test('a private project link automatically selects its only authorized account a
     expect((await context.cookies()).find(cookie => cookie.name === 'uier_session')!.value).toBe(token);
 });
 
+test('a stale comment link automatically opens its project in another workspace', async ({ page, context, baseURL }) => {
+    await signIn(page, uniqueEmail('stale-comment-workspace'));
+    const project = await createProject(page, { urls: ['https://example.com'], name: 'Project with an old comment link' });
+    const token = (await context.cookies()).find(cookie => cookie.name === 'uier_session')!.value;
+    await appNavigation(page);
+    await page.getByRole('button', { name: /^Workspace: Personal/ }).click();
+    await page.getByRole('menuitem', { name: 'Create workspace', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Create workspace', exact: true });
+    await dialog.getByLabel('Workspace name', { exact: true }).fill('Another workspace');
+    await dialog.getByRole('button', { name: 'Create workspace', exact: true }).click();
+    await page.waitForURL(/\/app\/projects\/new$/);
+    const otherWorkspace = (await context.cookies()).find(cookie => cookie.name === 'uier_workspace')!.value;
+
+    const next = `/app/projects/${project}?comment=comment_deleted&view=board`;
+    await page.goto(next);
+    // The project page keeps its existing cleanup of a thread that no longer exists.
+    await expect(page).toHaveURL(`${baseURL}/app/projects/${project}?view=board`);
+    await expect(page.getByRole('heading', { name: 'Project with an old comment link', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Switch account or workspace' })).toHaveCount(0);
+    expect((await context.cookies()).find(cookie => cookie.name === 'uier_session')!.value).toBe(token);
+    expect((await context.cookies()).find(cookie => cookie.name === 'uier_workspace')!.value).not.toBe(otherWorkspace);
+    await appNavigation(page);
+    await expect(page.getByRole('button', { name: /^Workspace: Personal/ })).toBeVisible();
+});
+
 test('a project link asks when two other signed-in accounts can open it', async ({ page }) => {
     const owner = uniqueEmail('ambiguous-owner');
     const invited = uniqueEmail('ambiguous-reviewer');

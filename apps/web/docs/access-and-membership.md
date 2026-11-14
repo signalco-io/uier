@@ -16,8 +16,11 @@ Session-consistency limits, real preview Cosmos checks and rollback.
   workspace membership and project/team grants. A destination's private comment and admin settings
   checks also apply before that account becomes a choice. Exactly one choice selects its account and
   workspace automatically; several choices use the existing picker. Resolution never combines accounts'
-  permissions or authorizes an API read with a parked credential. Missing and inaccessible resources
+  permissions or authorizes an API read with a parked credential. Missing and inaccessible projects
   expose no account choices; access is rechecked by the switch POST and again by the destination.
+  A stale, deleted or invalid `?comment=` does not block opening an accessible project in another
+  workspace. Hidden private comments still require that account's visibility; review links still
+  require an existing, visible comment on an available environment.
 
 Workspace → People (`workspace/(tabs)/users/page.tsx`): the People and Invitations lists are one grid
 per card (`columnsGroup`, rows use `grid-cols-subgrid`), so the person, access and actions columns line
