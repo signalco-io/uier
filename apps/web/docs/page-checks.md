@@ -78,6 +78,10 @@ pass); a transfer keeps it, since it is keyed by the project.
   among the project's is text), its title (and environment when the project has several), axe-core's issues by
   impact, the SEO checks to look at and passed, Core Web Vitals against the panel's targets, when it was last
   checked and the change since the check before. Each result is an icon in BRAND.md's colours beside its words.
+- **The change since the check before** (`ChangeResult`, [uier #416](https://uier.io/app/review/uier00000002?url=https%3A%2F%2Fuier.io%2Fapp%2Fprojects%2Fz9tjlbn647k1%2Fpage-checks&comment=comment_BhfUdA2PZJBySoOaaj6CU)): each count that rose or fell on its own
+  line under the check's time, after a trend arrow: down in green (`--brand-success`) for fewer issues or SEO checks to
+  look at, up in amber (`--brand-warning`) for more, a muted dash for no change; a first check has none. The words
+  ("2 fewer issues") stay, so the arrows are `aria-hidden` and colour is never the only signal.
 - **Core Web Vitals' targets** (uier #220, `VitalResult`): each measured vital opens a popover on hover, on keyboard
   focus or on a tap or click, with its name, this page's value and its two states, the current one marked:
   within target (the toolbar SEO panel's good value or less) and over target (with the panel's warning).

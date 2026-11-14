@@ -25,7 +25,7 @@ import type { PageCheckRow } from '@/src/lib/pageChecks/model';
 import { cn } from '@/src/lib/utils';
 import { RelativeTime } from '../comments/DateTime';
 import { AcrossPages } from './AcrossPages';
-import { AccessibilityResult, changeText, PageCell, SeoResult, VitalsResult, type PageEnvironment } from './PageCheckParts';
+import { AccessibilityResult, ChangeResult, PageCell, SeoResult, VitalsResult, type PageEnvironment } from './PageCheckParts';
 
 const orderItems = pageCheckOrders.map(order => ({ value: order, label: pageCheckOrderLabels[order] }));
 const filterItems = pageCheckFilters.map(filter => ({ value: filter, label: pageCheckFilterLabels[filter] }));
@@ -49,11 +49,10 @@ const sortedColumn: Partial<Record<PageCheckOrder, { column: string; direction: 
 };
 
 function Checked({ page }: { page: PageCheckRow }) {
-    const { t } = useAppI18n();
     return (
         <span className="flex flex-col gap-0.5">
             <RelativeTime value={page.checkedAt} short />
-            <span className="text-muted-foreground">{changeText(page, t)}</span>
+            <ChangeResult page={page} />
         </span>
     );
 }

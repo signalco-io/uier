@@ -1,8 +1,7 @@
 'use client';
 import { useAppI18n } from '@/src/lib/i18n/client';
 
-import type { AppTranslator } from '@/src/lib/i18n/types';
-import { ArrowUpRightIcon, CircleAlertIcon, CircleCheckIcon, InfoIcon, OctagonAlertIcon, TriangleAlertIcon, type LucideIcon } from 'lucide-react';
+import { ArrowUpRightIcon, CircleAlertIcon, CircleCheckIcon, InfoIcon, MinusIcon, OctagonAlertIcon, TrendingDownIcon, TrendingUpIcon, TriangleAlertIcon, type LucideIcon } from 'lucide-react';
 import { KnownPageLinks } from '@/src/knownPages';
 import { cn } from '@/src/lib/utils';
 import { pageCheckChange } from '@/src/lib/pageChecks/insights';
@@ -132,16 +131,40 @@ export function VitalsResult({ page }: { page: PageCheckRow }) {
     );
 }
 
-/** What changed since the check before, in counts */
-export function changeText(page: PageCheckRow, t: AppTranslator) {
+const fewerIcon: ResultMark = { icon: TrendingDownIcon, stroke: 'stroke-[hsl(var(--brand-success))]' };
+const moreIcon: ResultMark = { icon: TrendingUpIcon, stroke: 'stroke-[hsl(var(--brand-warning))]' };
+const sameIcon: ResultMark = { icon: MinusIcon, stroke: 'stroke-[hsl(var(--muted-foreground))]' };
+
+/**
+ * What changed since the check before (uier #416): each count that rose or fell on its own line, its words
+ * after a trend arrow, down in green for fewer (good), up in amber for more; a dash for no change. The words
+ * say it all, so the arrows are `aria-hidden` and colour is never the only signal.
+ */
+export function ChangeResult({ page }: { page: PageCheckRow }) {
+    const { t } = useAppI18n();
     const change = pageCheckChange(page);
-    if (!change) return t('First check');
+    if (!change) return <span className="text-muted-foreground" data-change="first">{t('First check')}</span>;
     const issues = Math.abs(change.accessibility ?? 0);
     const parts = [
-        change.accessibility ? change.accessibility < 0
-            ? issues === 1 ? t('1 fewer issue') : t('{count} fewer issues', { count: issues }) : issues === 1 ? t('1 more issue') : t('{count} more issues', { count: issues }) : undefined,
-        change.seo ? change.seo < 0
-            ? t('{count} fewer to look at', { count: Math.abs(change.seo) }) : t('{count} more to look at', { count: change.seo }) : undefined
-    ].filter(Boolean);
-    return parts.length ? parts.join(', ') : t('No change');
+        change.accessibility ? {
+            key: 'accessibility', fewer: change.accessibility < 0,
+            text: change.accessibility < 0
+                ? issues === 1 ? t('1 fewer issue') : t('{count} fewer issues', { count: issues })
+                : issues === 1 ? t('1 more issue') : t('{count} more issues', { count: issues })
+        } : undefined,
+        change.seo ? {
+            key: 'seo', fewer: change.seo < 0,
+            text: change.seo < 0 ? t('{count} fewer to look at', { count: Math.abs(change.seo) }) : t('{count} more to look at', { count: change.seo })
+        } : undefined
+    ].filter(part => part !== undefined);
+    if (!parts.length) return <span className="text-muted-foreground" data-change="same"><Marked mark={sameIcon}>{t('No change')}</Marked></span>;
+    return (
+        <span className="flex flex-col gap-0.5 text-muted-foreground">
+            {parts.map(part => (
+                <span key={part.key} data-change={part.fewer ? 'fewer' : 'more'}>
+                    <Marked mark={part.fewer ? fewerIcon : moreIcon}>{part.text}</Marked>
+                </span>
+            ))}
+        </span>
+    );
 }
